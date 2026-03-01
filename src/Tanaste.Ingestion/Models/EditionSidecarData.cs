@@ -51,6 +51,16 @@ public sealed class EditionSidecarData
     /// <summary>User-locked metadata claims to preserve across DB rebuilds.</summary>
     public IReadOnlyList<UserLockedClaim> UserLocks { get; init; } = [];
 
+    /// <summary>
+    /// External bridge identifiers harvested from Wikidata SPARQL.
+    /// Keys are Tanaste claim keys (e.g. "apple_books_id", "asin", "audible_id").
+    /// Values are the corresponding external identifiers.
+    /// Written to the <c>&lt;bridges&gt;</c> section of the Edition-level tanaste.xml.
+    /// Empty dictionary when no bridge IDs are available.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> Bridges { get; init; }
+        = new Dictionary<string, string>();
+
     /// <summary>UTC timestamp of the last organization pass that wrote this file.</summary>
     public DateTimeOffset LastOrganized { get; init; }
 }

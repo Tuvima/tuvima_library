@@ -208,6 +208,48 @@ public sealed class DatabaseConnection : IDatabaseConnection
                     ON system_activity (action_type);
                 """);
 
+        // Migration M-009: Expand persons role CHECK constraint.
+        // Adds Illustrator, Cast Member, Voice Actor, Screenwriter, Composer.
+        // SQLite doesn't support ALTER TABLE to modify CHECK constraints,
+        // so we recreate the table with the expanded constraint.
+        // Foreign keys must be disabled during the table swap.
+        MigrateExpandPersonRoles(conn);
+
+        // Migration M-010: Add social link columns to persons.
+        // These nullable TEXT columns store Person-scoped social bridge data
+        // from Wikidata: occupation (P106), Instagram (P2003), Twitter (P2002),
+        // TikTok (P7085), Mastodon (P4033), Website (P856).
+        MigrateAddColumnIfMissing(
+            conn,
+            table:  "persons",
+            column: "occupation",
+            ddl:    "ALTER TABLE persons ADD COLUMN occupation TEXT;");
+        MigrateAddColumnIfMissing(
+            conn,
+            table:  "persons",
+            column: "instagram",
+            ddl:    "ALTER TABLE persons ADD COLUMN instagram TEXT;");
+        MigrateAddColumnIfMissing(
+            conn,
+            table:  "persons",
+            column: "twitter",
+            ddl:    "ALTER TABLE persons ADD COLUMN twitter TEXT;");
+        MigrateAddColumnIfMissing(
+            conn,
+            table:  "persons",
+            column: "tiktok",
+            ddl:    "ALTER TABLE persons ADD COLUMN tiktok TEXT;");
+        MigrateAddColumnIfMissing(
+            conn,
+            table:  "persons",
+            column: "mastodon",
+            ddl:    "ALTER TABLE persons ADD COLUMN mastodon TEXT;");
+        MigrateAddColumnIfMissing(
+            conn,
+            table:  "persons",
+            column: "website",
+            ddl:    "ALTER TABLE persons ADD COLUMN website TEXT;");
+
         // Seed S-001: provider_registry entries for all known providers.
         // metadata_claims.provider_id has a FK to provider_registry(id), so these
         // rows MUST exist before any claim is written.  INSERT OR IGNORE makes this
@@ -350,6 +392,76 @@ public sealed class DatabaseConnection : IDatabaseConnection
             createCmd.CommandText = ddl;
             createCmd.ExecuteNonQuery();
         }
+    }
+
+    /// <summary>
+    /// Migration M-009: Recreate the <c>persons</c> table with an expanded role CHECK.
+    /// Adds: Illustrator, Cast Member, Voice Actor, Screenwriter, Composer.
+    ///
+    /// SQLite does not support <c>ALTER TABLE</c> to modify CHECK constraints.
+    /// This migration:
+    /// 1. Disables foreign keys (required for table swap with FK references)
+    /// 2. Creates <c>persons_new</c> with the expanded constraint
+    /// 3. Copies all existing rows
+    /// 4. Drops the old table
+    /// 5. Renames <c>persons_new</c> to <c>persons</c>
+    /// 6. Recreates indices
+    /// 7. Re-enables foreign keys
+    ///
+    /// Idempotent: checks the current CHECK constraint text before migrating.
+    /// </summary>
+    private static void MigrateExpandPersonRoles(SqliteConnection conn)
+    {
+        // Check if the persons table already has the expanded role set.
+        // We look for 'Illustrator' in the CREATE TABLE SQL to detect whether
+        // the migration has already been applied.
+        bool alreadyExpanded = false;
+        using (var sqlCmd = conn.CreateCommand())
+        {
+            sqlCmd.CommandText =
+                "SELECT sql FROM sqlite_master WHERE type='table' AND name='persons';";
+            var sql = sqlCmd.ExecuteScalar() as string;
+            if (sql is not null && sql.Contains("Illustrator", StringComparison.OrdinalIgnoreCase))
+                alreadyExpanded = true;
+            // If the table doesn't exist yet (fresh install), schema.sql handles it.
+            if (sql is null)
+                alreadyExpanded = true;
+        }
+
+        if (alreadyExpanded)
+            return;
+
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            PRAGMA foreign_keys=OFF;
+
+            CREATE TABLE persons_new (
+                id           TEXT NOT NULL PRIMARY KEY,
+                name         TEXT NOT NULL,
+                role         TEXT NOT NULL CHECK (role IN (
+                    'Author','Narrator','Director',
+                    'Illustrator','Cast Member','Voice Actor',
+                    'Screenwriter','Composer')),
+                wikidata_qid TEXT,
+                headshot_url TEXT,
+                biography    TEXT,
+                created_at   TEXT NOT NULL,
+                enriched_at  TEXT
+            );
+
+            INSERT INTO persons_new (id, name, role, wikidata_qid, headshot_url, biography, created_at, enriched_at)
+                SELECT id, name, role, wikidata_qid, headshot_url, biography, created_at, enriched_at
+                FROM persons;
+
+            DROP TABLE persons;
+
+            ALTER TABLE persons_new RENAME TO persons;
+
+            CREATE INDEX IF NOT EXISTS idx_persons_name ON persons (name);
+
+            PRAGMA foreign_keys=ON;
+            """;
+        cmd.ExecuteNonQuery();
     }
 
     /// <summary>

@@ -372,6 +372,61 @@ Edition-level hydration **requires the MediaAsset to already exist in the databa
 - **Maintenance** — Configurable retention prevents unbounded table growth; manual prune available for immediate cleanup.
 - **Extensibility** — Every future phase (Wikidata hydration, library crawl, weekly sync) writes to this ledger, creating a unified activity stream.
 
+### 3.9 — Universal Metadata Hydrator: Foundation (Phase A)
+
+**Plain English:** This phase lays the groundwork for a complete Wikidata-powered enrichment system. Wikidata is treated as the absolute source of truth — it knows the authoritative Q-identifier for every book, film, person, and franchise, plus 50+ structured properties that link to every major external platform. Phase A builds the configurable property map, expands the data store to hold person social links, and teaches the sidecar XML to carry external bridge identifiers.
+
+**Configurable Wikidata Property Map:**
+
+A `WikidataSparqlPropertyMap` contains the Master Authority Table — 50+ Wikidata property entries across 8 categories: Core Identity, People (Work-scoped), People (Person-scoped), Lore & Narrative, Bridges: Books, Bridges: Movies/TV, Bridges: Comics/Anime, Bridges: Music/Audio, and Social Pivot. Each entry maps a Wikidata P-code (e.g. `P179` → `series`) to a Tanaste claim key with a configured confidence and scope (Work, Person, or Both).
+
+The defaults live in code (`WikidataSparqlPropertyMap.DefaultMap`). Users can override confidence values, remap claim keys, or disable properties entirely via `tanaste_master.json` — zero code changes needed. The `MergeOverrides()` method applies JSON overrides on top of defaults at runtime.
+
+Static helpers generate SPARQL queries:
+- `BuildWorkSparqlQuery(qid)` — fetches all Work-scoped properties in a single SPARQL query
+- `BuildPersonSparqlQuery(qid)` — fetches all Person-scoped properties (including P18 headshot — **Person-only**, never for media items)
+- `BuildBridgeLookupQuery(pCode, value)` — finds a QID by bridge identifier (ASIN, ISBN, TMDB ID, etc.)
+
+**Copyright constraint — P18 (Image):** Wikidata P18 (Image) is exclusively for Person entities (author/director headshots from Wikimedia Commons — public figures, not copyrighted). Media cover art is sourced exclusively from Apple Books, Audnexus, and TMDB. The `BuildWorkSparqlQuery` deliberately excludes P18. This constraint is enforced at the SPARQL query level.
+
+**Schema migrations:**
+- **M-009:** Rebuilds the `persons` table to expand the role CHECK constraint, adding `Illustrator`, `Cast Member`, `Voice Actor`, `Screenwriter`, and `Composer` to the existing `Author`, `Narrator`, `Director` list. Uses the SQLite table-recreation pattern (PRAGMA foreign_keys=OFF → CREATE new → INSERT INTO → DROP old → RENAME).
+- **M-010:** Adds six nullable TEXT columns to `persons`: `occupation` (Wikidata P106), `instagram` (P2003), `twitter` (P2002), `tiktok` (P7085), `mastodon` (P4033), `website` (P856). These power the Social Pivot — direct links to official creator feeds.
+
+**Sidecar XML expansion (v1.1):**
+Both Hub-level and Edition-level `tanaste.xml` sidecars now carry a `<bridges>` section that records every external bridge identifier harvested from Wikidata SPARQL:
+```xml
+<bridges>
+  <bridge key="tmdb_id" value="438631"/>
+  <bridge key="imdb_id" value="tt1160419"/>
+  <bridge key="goodreads_id" value="234225"/>
+</bridges>
+```
+This ensures the library can be reconstructed from the filesystem alone — even external IDs survive a database wipe. Backward-compatible: older v1.0 sidecars with no `<bridges>` section are read without error (empty dictionary).
+
+**Provider lookup expansion:**
+`ProviderLookupRequest` now carries bridge hint fields (`AppleBooksId`, `AudibleId`, `TmdbId`, `ImdbId`) and `SparqlBaseUrl` — allowing the Wikidata adapter to resolve QIDs from external IDs and run SPARQL deep-hydration queries.
+
+**New activity ledger entries:**
+Four new `SystemActionType` constants log hydrator actions: `BridgeSyncUpdated` (external bridge ID synced), `PersonHydrated` (person enriched with social links), `WeeklySyncStarted` (weekly refresh cycle began), `AffiliateGenerated` (affiliate link built from bridge ID).
+
+**tanaste_master.json configuration additions:**
+- `wikidata_property_map` — list of property overrides (P-code, claim key, confidence, enabled)
+- `maintenance.weekly_sync_interval_days` (default: 7), `weekly_sync_batch_size` (default: 50), `weekly_sync_batch_delay_ms` (default: 2000)
+- `affiliate_settings.amazon_affiliate_tag`, `affiliate_settings.show_affiliate_disclosure` (default: true)
+
+**Key types introduced:**
+- `WikidataProperty` (`Tanaste.Providers.Models`) — property descriptor record (PCode, ClaimKey, Category, EntityScope, Confidence, IsBridge, Enabled)
+- `WikidataSparqlPropertyMap` (`Tanaste.Providers.Models`) — static property map + SPARQL query builders
+- `WikidataPropertyMapOverride` (`Tanaste.Storage.Models`) — JSON-configurable override shape
+- `AffiliateSettings` (`Tanaste.Storage.Models`) — affiliate tag configuration
+
+**Why this matters to the business:**
+- **Extensibility** — Adding a new Wikidata property is one JSON entry in `tanaste_master.json`. Zero code changes. A single SPARQL query replaces dozens of individual API calls.
+- **Reliability** — All 50+ property defaults are compiled into the code. If the config file is missing or corrupt, the defaults still work. Sidecar XML preserves all external IDs on disk.
+- **Privacy** — Only titles, ISBNs, and ASINs leave the machine during SPARQL queries. Everything hydrated lives on disk.
+- **Maintenance** — The property map is editable via settings. Confidence values, claim keys, and enabled flags can all be changed without touching code.
+
 ---
 
 ## 4. Product Owner Communication Rules

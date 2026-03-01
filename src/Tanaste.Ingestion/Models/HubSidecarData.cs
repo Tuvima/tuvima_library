@@ -27,6 +27,16 @@ public sealed class HubSidecarData
     /// </summary>
     public string? Franchise { get; init; }
 
+    /// <summary>
+    /// External bridge identifiers harvested from Wikidata SPARQL.
+    /// Keys are Tanaste claim keys (e.g. "tmdb_id", "imdb_id", "goodreads_id").
+    /// Values are the corresponding external identifiers.
+    /// Written to the <c>&lt;bridges&gt;</c> section of the Hub-level tanaste.xml.
+    /// Empty dictionary when no bridge IDs are available.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> Bridges { get; init; }
+        = new Dictionary<string, string>();
+
     /// <summary>UTC timestamp of the last organization pass that wrote this file.</summary>
     public DateTimeOffset LastOrganized { get; init; }
 }

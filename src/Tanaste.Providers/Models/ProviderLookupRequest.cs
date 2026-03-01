@@ -42,6 +42,20 @@ public sealed class ProviderLookupRequest
     /// <summary>ISBN-10 or ISBN-13. Used by Open Library and Apple Books.</summary>
     public string? Isbn { get; init; }
 
+    // ── External bridge hints ───────────────────────────────────────────────
+
+    /// <summary>Apple Books ID (Wikidata P3861). Used for QID cross-reference.</summary>
+    public string? AppleBooksId { get; init; }
+
+    /// <summary>Audible ID (Wikidata P3398). Used for QID cross-reference.</summary>
+    public string? AudibleId { get; init; }
+
+    /// <summary>TMDB ID (Wikidata P4947). Used for QID cross-reference.</summary>
+    public string? TmdbId { get; init; }
+
+    /// <summary>IMDb ID (Wikidata P345). Used for QID cross-reference.</summary>
+    public string? ImdbId { get; init; }
+
     // ── Person-enrichment hints ───────────────────────────────────────────────
 
     /// <summary>
@@ -65,4 +79,12 @@ public sealed class ProviderLookupRequest
     /// the harvesting service before the request is dispatched.
     /// </summary>
     public string BaseUrl { get; init; } = string.Empty;
+
+    /// <summary>
+    /// The resolved SPARQL endpoint URL for Wikidata, read from
+    /// <c>TanasteMasterManifest.ProviderEndpoints["wikidata_sparql"]</c>.
+    /// Used by the <c>WikidataAdapter</c> for deep-hydration SPARQL queries.
+    /// Null for non-Wikidata providers.
+    /// </summary>
+    public string? SparqlBaseUrl { get; init; }
 }

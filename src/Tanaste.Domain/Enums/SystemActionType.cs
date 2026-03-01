@@ -37,4 +37,16 @@ public static class SystemActionType
 
     /// <summary>Old activity entries were pruned from the ledger.</summary>
     public const string ActivityPruned = "ActivityPruned";
+
+    /// <summary>An external bridge identifier was synced or updated from Wikidata.</summary>
+    public const string BridgeSyncUpdated = "BridgeSyncUpdated";
+
+    /// <summary>A person entity was deeply enriched with social links and metadata.</summary>
+    public const string PersonHydrated = "PersonHydrated";
+
+    /// <summary>A weekly metadata sync cycle was started.</summary>
+    public const string WeeklySyncStarted = "WeeklySyncStarted";
+
+    /// <summary>An affiliate link was generated from a bridge identifier.</summary>
+    public const string AffiliateGenerated = "AffiliateGenerated";
 }

@@ -22,7 +22,9 @@ public sealed class Person
 
     /// <summary>
     /// The role this person plays in associated media assets.
-    /// Valid values: <c>"Author"</c>, <c>"Narrator"</c>, <c>"Director"</c>.
+    /// Valid values: <c>"Author"</c>, <c>"Narrator"</c>, <c>"Director"</c>,
+    /// <c>"Illustrator"</c>, <c>"Cast Member"</c>, <c>"Voice Actor"</c>,
+    /// <c>"Screenwriter"</c>, <c>"Composer"</c>.
     /// Enforced by a CHECK constraint in the <c>persons</c> table.
     /// </summary>
     public string Role { get; set; } = string.Empty;
@@ -46,6 +48,48 @@ public sealed class Person
     /// Null until enriched.
     /// </summary>
     public string? Biography { get; set; }
+
+    /// <summary>
+    /// The person's occupation as returned by Wikidata P106 (e.g. "Writer", "Actor").
+    /// Used to filter person lookups by role type.
+    /// Null until enriched.
+    /// </summary>
+    public string? Occupation { get; set; }
+
+    /// <summary>
+    /// Instagram handle or profile URL from Wikidata P2003.
+    /// Part of the Social Pivot — direct links to official creator feeds.
+    /// Null until enriched.
+    /// </summary>
+    public string? Instagram { get; set; }
+
+    /// <summary>
+    /// Twitter/X handle or profile URL from Wikidata P2002.
+    /// Part of the Social Pivot — direct links to official creator feeds.
+    /// Null until enriched.
+    /// </summary>
+    public string? Twitter { get; set; }
+
+    /// <summary>
+    /// TikTok handle or profile URL from Wikidata P7085.
+    /// Part of the Social Pivot — links to modern video platforms.
+    /// Null until enriched.
+    /// </summary>
+    public string? TikTok { get; set; }
+
+    /// <summary>
+    /// Mastodon address from Wikidata P4033.
+    /// Part of the Social Pivot — links to decentralised platforms.
+    /// Null until enriched.
+    /// </summary>
+    public string? Mastodon { get; set; }
+
+    /// <summary>
+    /// Official website URL from Wikidata P856.
+    /// The primary digital home for creators and studios.
+    /// Null until enriched.
+    /// </summary>
+    public string? Website { get; set; }
 
     /// <summary>
     /// When this person record was first created.

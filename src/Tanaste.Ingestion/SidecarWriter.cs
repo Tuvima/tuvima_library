@@ -24,7 +24,7 @@ public sealed class SidecarWriter : ISidecarWriter
     private const string FileName     = "tanaste.xml";
     private const string HubRootName  = "tanaste-hub";
     private const string EdRootName   = "tanaste-edition";
-    private const string Version      = "1.0";
+    private const string Version      = "1.1";
 
     // -------------------------------------------------------------------------
     // Write
@@ -39,6 +39,13 @@ public sealed class SidecarWriter : ISidecarWriter
         ct.ThrowIfCancellationRequested();
         Directory.CreateDirectory(hubFolderPath);
 
+        var bridgeElements = data.Bridges
+            .Where(kv => !string.IsNullOrWhiteSpace(kv.Value))
+            .OrderBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(kv => new XElement("bridge",
+                new XAttribute("key",   kv.Key),
+                new XAttribute("value", kv.Value)));
+
         var doc = new XDocument(
             new XDeclaration("1.0", "utf-8", null),
             new XElement(HubRootName,
@@ -49,6 +56,7 @@ public sealed class SidecarWriter : ISidecarWriter
                     new XElement("wikidata-qid", data.WikidataQid  ?? string.Empty),
                     new XElement("franchise",    data.Franchise    ?? string.Empty)
                 ),
+                new XElement("bridges", bridgeElements),
                 new XElement("last-organized", data.LastOrganized.ToString("O"))
             )
         );
@@ -73,6 +81,13 @@ public sealed class SidecarWriter : ISidecarWriter
                 new XAttribute("locked-at", ul.LockedAt.ToString("O"))
             ));
 
+        var bridgeElements = data.Bridges
+            .Where(kv => !string.IsNullOrWhiteSpace(kv.Value))
+            .OrderBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(kv => new XElement("bridge",
+                new XAttribute("key",   kv.Key),
+                new XAttribute("value", kv.Value)));
+
         var doc = new XDocument(
             new XDeclaration("1.0", "utf-8", null),
             new XElement(EdRootName,
@@ -87,6 +102,7 @@ public sealed class SidecarWriter : ISidecarWriter
                 new XElement("content-hash",   data.ContentHash),
                 new XElement("cover-path",     data.CoverPath),
                 new XElement("user-locks",     userLockElements),
+                new XElement("bridges",        bridgeElements),
                 new XElement("last-organized", data.LastOrganized.ToString("O"))
             )
         );
@@ -113,12 +129,14 @@ public sealed class SidecarWriter : ISidecarWriter
                 return Task.FromResult<HubSidecarData?>(null);
 
             var identity = root.Element("identity");
+            var bridges  = ParseBridges(root.Element("bridges"));
             var result   = new HubSidecarData
             {
                 DisplayName   = identity?.Element("display-name")?.Value ?? string.Empty,
                 Year          = NullIfEmpty(identity?.Element("year")?.Value),
                 WikidataQid   = NullIfEmpty(identity?.Element("wikidata-qid")?.Value),
                 Franchise     = NullIfEmpty(identity?.Element("franchise")?.Value),
+                Bridges       = bridges,
                 LastOrganized = ParseDateOffset(root.Element("last-organized")?.Value),
             };
 
@@ -155,7 +173,8 @@ public sealed class SidecarWriter : ISidecarWriter
                 .ToList()
                 ?? [];
 
-            var result = new EditionSidecarData
+            var bridges = ParseBridges(root.Element("bridges"));
+            var result  = new EditionSidecarData
             {
                 Title         = NullIfEmpty(identity?.Element("title")?.Value),
                 Author        = NullIfEmpty(identity?.Element("author")?.Value),
@@ -165,6 +184,7 @@ public sealed class SidecarWriter : ISidecarWriter
                 ContentHash   = root.Element("content-hash")?.Value   ?? string.Empty,
                 CoverPath     = root.Element("cover-path")?.Value      ?? "cover.jpg",
                 UserLocks     = userLocks,
+                Bridges       = bridges,
                 LastOrganized = ParseDateOffset(root.Element("last-organized")?.Value),
             };
 
@@ -179,6 +199,28 @@ public sealed class SidecarWriter : ISidecarWriter
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Parses the <c>&lt;bridges&gt;</c> section of a tanaste.xml sidecar.
+    /// Returns an empty dictionary if the section is missing (backward-compatible
+    /// with v1.0 sidecars that lack bridges).
+    /// </summary>
+    private static IReadOnlyDictionary<string, string> ParseBridges(XElement? bridgesElement)
+    {
+        if (bridgesElement is null)
+            return new Dictionary<string, string>();
+
+        var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var bridge in bridgesElement.Elements("bridge"))
+        {
+            var key   = bridge.Attribute("key")?.Value;
+            var value = bridge.Attribute("value")?.Value;
+            if (!string.IsNullOrWhiteSpace(key) && !string.IsNullOrWhiteSpace(value))
+                dict[key] = value;
+        }
+
+        return dict;
+    }
 
     private static string? NullIfEmpty(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value;

@@ -154,13 +154,15 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         // Build provider weight maps from manifest.
         var (providerWeights, providerFieldWeights) = BuildWeightMaps(manifest);
 
+        var sparqlBaseUrl = ResolveSparqlBaseUrl(endpointMap);
+
         foreach (var provider in _providers)
         {
             if (!provider.CanHandle(request.MediaType) || !provider.CanHandle(request.EntityType))
                 continue;
 
             var baseUrl = ResolveBaseUrl(provider, endpointMap);
-            var lookupRequest = BuildLookupRequest(request, provider, baseUrl);
+            var lookupRequest = BuildLookupRequest(request, provider, baseUrl, sparqlBaseUrl);
 
             IReadOnlyList<ProviderClaim> providerClaims;
             try
@@ -308,25 +310,34 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         return endpointMap.TryGetValue(key, out var url) ? url : string.Empty;
     }
 
+    private static string? ResolveSparqlBaseUrl(Dictionary<string, string> endpointMap)
+        => endpointMap.TryGetValue("wikidata_sparql", out var url) ? url : null;
+
     private static ProviderLookupRequest BuildLookupRequest(
         HarvestRequest request,
         IExternalMetadataProvider provider,
-        string baseUrl)
+        string baseUrl,
+        string? sparqlBaseUrl = null)
     {
         var h = request.Hints;
         return new ProviderLookupRequest
         {
-            EntityId   = request.EntityId,
-            EntityType = request.EntityType,
-            MediaType  = request.MediaType,
-            Title      = h.GetValueOrDefault("title"),
-            Author     = h.GetValueOrDefault("author"),
-            Narrator   = h.GetValueOrDefault("narrator"),
-            Asin       = h.GetValueOrDefault("asin"),
-            Isbn       = h.GetValueOrDefault("isbn"),
-            PersonName = h.GetValueOrDefault("name"),
-            PersonRole = h.GetValueOrDefault("role"),
-            BaseUrl    = baseUrl,
+            EntityId     = request.EntityId,
+            EntityType   = request.EntityType,
+            MediaType    = request.MediaType,
+            Title        = h.GetValueOrDefault("title"),
+            Author       = h.GetValueOrDefault("author"),
+            Narrator     = h.GetValueOrDefault("narrator"),
+            Asin         = h.GetValueOrDefault("asin"),
+            Isbn         = h.GetValueOrDefault("isbn"),
+            AppleBooksId = h.GetValueOrDefault("apple_books_id"),
+            AudibleId    = h.GetValueOrDefault("audible_id"),
+            TmdbId       = h.GetValueOrDefault("tmdb_id"),
+            ImdbId       = h.GetValueOrDefault("imdb_id"),
+            PersonName   = h.GetValueOrDefault("name"),
+            PersonRole   = h.GetValueOrDefault("role"),
+            BaseUrl      = baseUrl,
+            SparqlBaseUrl = sparqlBaseUrl,
         };
     }
 

@@ -195,10 +195,19 @@ CREATE TABLE IF NOT EXISTS profiles (
 CREATE TABLE IF NOT EXISTS persons (
     id           TEXT NOT NULL PRIMARY KEY,  -- UUID
     name         TEXT NOT NULL,
-    role         TEXT NOT NULL CHECK (role IN ('Author', 'Narrator', 'Director')),
+    role         TEXT NOT NULL CHECK (role IN (
+                     'Author', 'Narrator', 'Director',
+                     'Illustrator', 'Cast Member', 'Voice Actor',
+                     'Screenwriter', 'Composer')),
     wikidata_qid TEXT,                       -- e.g. Q42
     headshot_url TEXT,                       -- Wikimedia Commons image URL
     biography    TEXT,                       -- Wikidata entity description
+    occupation   TEXT,                       -- Wikidata P106 (e.g. "Writer", "Actor")
+    instagram    TEXT,                       -- Wikidata P2003 (Instagram handle)
+    twitter      TEXT,                       -- Wikidata P2002 (Twitter/X handle)
+    tiktok       TEXT,                       -- Wikidata P7085 (TikTok handle)
+    mastodon     TEXT,                       -- Wikidata P4033 (Mastodon address)
+    website      TEXT,                       -- Wikidata P856 (Official website URL)
     created_at   TEXT NOT NULL,              -- ISO-8601
     enriched_at  TEXT                        -- NULL = not yet enriched
 );

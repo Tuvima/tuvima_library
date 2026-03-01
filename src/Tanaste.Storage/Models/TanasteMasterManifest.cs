@@ -102,6 +102,43 @@ public sealed class TanasteMasterManifest
     /// </summary>
     [JsonPropertyName("provider_endpoints")]
     public Dictionary<string, string> ProviderEndpoints { get; set; } = [];
+
+    /// <summary>
+    /// Per-property overrides for the Wikidata SPARQL property map.
+    /// Each entry targets a P-code and may override the claim key, confidence,
+    /// or enabled state of a default property — or define an entirely new one.
+    /// Defaults are compiled into <c>WikidataSparqlPropertyMap.DefaultMap</c>;
+    /// these overrides are merged on top at runtime.
+    /// </summary>
+    [JsonPropertyName("wikidata_property_map")]
+    public List<WikidataPropertyMapOverride> WikidataPropertyMap { get; set; } = [];
+
+    /// <summary>Settings for the affiliate link generator.</summary>
+    [JsonPropertyName("affiliate")]
+    public AffiliateSettings Affiliate { get; set; } = new();
+}
+
+/// <summary>
+/// A user-defined override for a single Wikidata property in <c>tanaste_master.json</c>.
+/// Only non-null fields replace the compiled default in <c>WikidataSparqlPropertyMap</c>.
+/// </summary>
+public sealed class WikidataPropertyMapOverride
+{
+    /// <summary>The Wikidata property code to override, e.g. <c>"P179"</c>.</summary>
+    [JsonPropertyName("p_code")]
+    public string PCode { get; set; } = string.Empty;
+
+    /// <summary>Override the claim key. <c>null</c> = keep default.</summary>
+    [JsonPropertyName("claim_key")]
+    public string? ClaimKey { get; set; }
+
+    /// <summary>Override the confidence. <c>null</c> = keep default.</summary>
+    [JsonPropertyName("confidence")]
+    public double? Confidence { get; set; }
+
+    /// <summary>Disable this property entirely. <c>null</c> = keep default (<c>true</c>).</summary>
+    [JsonPropertyName("enabled")]
+    public bool? Enabled { get; set; }
 }
 
 /// <summary>
@@ -233,4 +270,54 @@ public sealed class MaintenanceSettings
     /// </summary>
     [JsonPropertyName("activity_retention_days")]
     public int ActivityRetentionDays { get; set; } = 60;
+
+    /// <summary>
+    /// Interval in days between automatic weekly metadata sync runs.
+    /// The <c>WeeklyMetadataSyncService</c> re-harvests all entities with
+    /// a <c>wikidata_qid</c> canonical value on this schedule.
+    /// Default: 7 days. Set to 0 to disable automatic syncing.
+    /// </summary>
+    [JsonPropertyName("weekly_sync_interval_days")]
+    public int WeeklySyncIntervalDays { get; set; } = 7;
+
+    /// <summary>
+    /// Number of entities to enqueue per batch during weekly sync.
+    /// Smaller batches reduce channel back-pressure; larger batches finish sooner.
+    /// Default: 50.
+    /// </summary>
+    [JsonPropertyName("weekly_sync_batch_size")]
+    public int WeeklySyncBatchSize { get; set; } = 50;
+
+    /// <summary>
+    /// Milliseconds to wait between enqueuing batches during weekly sync.
+    /// Prevents the harvest channel (DropOldest, 500 capacity) from dropping
+    /// fresh ingestion requests during a large sync run.
+    /// Default: 2000 ms.
+    /// </summary>
+    [JsonPropertyName("weekly_sync_batch_delay_ms")]
+    public int WeeklySyncBatchDelayMs { get; set; } = 2000;
+}
+
+/// <summary>
+/// Settings for the affiliate link generator.
+/// Links are built from bridge IDs (ASIN, Apple Books ID, Goodreads ID, TMDB ID)
+/// stored as canonical values after Wikidata hydration.
+/// </summary>
+public sealed class AffiliateSettings
+{
+    /// <summary>
+    /// Amazon Associates tag appended to all Amazon product links.
+    /// When set, links take the form <c>https://www.amazon.com/dp/{ASIN}?tag={tag}</c>.
+    /// <c>null</c> or empty = no affiliate tag appended.
+    /// </summary>
+    [JsonPropertyName("amazon_affiliate_tag")]
+    public string? AmazonAffiliateTag { get; set; }
+
+    /// <summary>
+    /// When <c>true</c>, the Dashboard displays the required transparency disclosure
+    /// near affiliate links: "As an Amazon Associate, I earn from qualifying purchases."
+    /// Default: <c>true</c>.
+    /// </summary>
+    [JsonPropertyName("show_affiliate_disclosure")]
+    public bool ShowAffiliateDisclosure { get; set; } = true;
 }
