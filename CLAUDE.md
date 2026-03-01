@@ -342,6 +342,36 @@ Edition-level hydration **requires the MediaAsset to already exist in the databa
 - **Privacy** — All data lives on disk under the Library Root. No external dependency, no cloud sync.
 - **Performance** — Great Inhale reads XML only (no file hashing, no metadata extraction). A library of thousands of files scans in seconds.
 
+### 3.8 — System Activity Ledger & Maintenance (Phase 1 — Audit Engine)
+
+**Plain English:** Every significant action the Engine takes — ingesting a file, refreshing metadata, pruning old records — is permanently recorded in a system activity ledger. This provides a complete audit trail visible in the Maintenance tab.
+
+**Schema:** A dedicated `system_activity` table (migration M-008) stores entries with: timestamp, action type, optional hub name, entity reference, user attribution, a JSON changes snippet, and a human-readable detail string. Indices on `occurred_at` and `action_type` for fast queries.
+
+**Retention:** Configurable via `activity_retention_days` in `tanaste_master.json` (default: 60 days). A daily `ActivityPruningService` (BackgroundService) runs every 24 hours and deletes entries older than the retention period.
+
+**API Endpoints:**
+- `GET /activity/recent?limit=50` — most recent entries (Admin or Curator)
+- `POST /activity/prune` — manual prune trigger (Admin only)
+- `GET /activity/stats` — total entry count + retention setting (Admin or Curator)
+
+**Dashboard:** The Maintenance tab displays a vertical timeline of recent activity, each entry with an action-type icon, relative timestamp, detail text, and hub-name chip. A Retention Policy section shows the current setting and offers a manual Prune Now button. Stubs for Library Crawl and Weekly Sync sections are ready for future phases.
+
+**Design decision: New table vs extending `transaction_log`.** The existing `transaction_log` has a synchronous `void Log()` interface used throughout the codebase. A new `ISystemActivityRepository` with async-first `Task LogAsync()` is cleaner and avoids breaking existing callers. Both tables coexist.
+
+**Key types:**
+- `SystemActivityEntry` (`Tanaste.Domain.Entities`) — domain entity
+- `SystemActionType` (`Tanaste.Domain.Enums`) — string constants (FileIngested, MetadataHydrated, HashVerified, PathUpdated, SyncCompleted, CrawlStarted, CrawlFinished, MetadataRefreshed, SidecarUpdated, ActivityPruned)
+- `ISystemActivityRepository` (`Tanaste.Domain.Contracts`) — async-first contract
+- `SystemActivityRepository` (`Tanaste.Storage`) — SQLite implementation
+- `ActivityPruningService` (`Tanaste.Api.Services`) — daily BackgroundService
+- `ActivityEndpoints` (`Tanaste.Api.Endpoints`) — minimal API group
+
+**Why this matters to the business:**
+- **Reliability** — Complete audit trail of every automated action the Engine performs.
+- **Maintenance** — Configurable retention prevents unbounded table growth; manual prune available for immediate cleanup.
+- **Extensibility** — Every future phase (Wikidata hydration, library crawl, weekly sync) writes to this ledger, creating a unified activity stream.
+
 ---
 
 ## 4. Product Owner Communication Rules

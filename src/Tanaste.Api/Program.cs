@@ -252,6 +252,10 @@ builder.Services.AddSingleton<IRecursiveIdentityService,  RecursiveIdentityServi
 builder.Services.AddSingleton<ISidecarWriter,  SidecarWriter>();
 builder.Services.AddSingleton<ILibraryScanner, LibraryScanner>();
 
+// ── Phase 1 (Activity Log): System activity ledger + daily pruning ───────────
+builder.Services.AddSingleton<ISystemActivityRepository, SystemActivityRepository>();
+builder.Services.AddHostedService<ActivityPruningService>();
+
 // ── Build ─────────────────────────────────────────────────────────────────────
 var app = builder.Build();
 
@@ -276,5 +280,6 @@ app.MapIngestionEndpoints();
 app.MapMetadataEndpoints();
 app.MapSettingsEndpoints();
 app.MapProfileEndpoints();
+app.MapActivityEndpoints();
 
 app.Run();

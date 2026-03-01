@@ -115,6 +115,17 @@ public interface ITanasteApiClient
     /// <summary>PUT /settings/organization-template — save a new file organization template.</summary>
     Task<OrganizationTemplateDto?> UpdateOrganizationTemplateAsync(string template, CancellationToken ct = default);
 
+    // ── Activity log (/activity) ────────────────────────────────────────────────
+
+    /// <summary>GET /activity/recent?limit= — most recent system activity entries.</summary>
+    Task<List<ActivityEntryViewModel>> GetRecentActivityAsync(int limit = 50, CancellationToken ct = default);
+
+    /// <summary>GET /activity/stats — total entries and retention setting.</summary>
+    Task<ActivityStatsViewModel?> GetActivityStatsAsync(CancellationToken ct = default);
+
+    /// <summary>POST /activity/prune — manually prune old activity entries.</summary>
+    Task<PruneResultViewModel?> TriggerPruneAsync(CancellationToken ct = default);
+
     /// <summary>
     /// Most recent error message from the last failed API call.
     /// Useful for surfacing diagnostic details in the UI.

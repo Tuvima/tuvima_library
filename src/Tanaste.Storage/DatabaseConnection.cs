@@ -183,6 +183,31 @@ public sealed class DatabaseConnection : IDatabaseConnection
             ddl:    "ALTER TABLE canonical_values ADD COLUMN is_conflicted INTEGER NOT NULL DEFAULT 0 " +
                     "CHECK (is_conflicted IN (0, 1));");
 
+        // Migration M-008: Activity Ledger — create system_activity table.
+        // Rich activity log with JSON change details, user attribution, and
+        // hub context.  Replaces the limited transaction_log for detailed audit.
+        MigrateCreateTableIfMissing(
+            conn,
+            probeTable:  "system_activity",
+            probeColumn: "id",
+            ddl: """
+                CREATE TABLE IF NOT EXISTS system_activity (
+                    id           INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    occurred_at  TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+                    action_type  TEXT    NOT NULL,
+                    hub_name     TEXT,
+                    entity_id    TEXT,
+                    entity_type  TEXT,
+                    profile_id   TEXT,
+                    changes_json TEXT,
+                    detail       TEXT
+                );
+                CREATE INDEX IF NOT EXISTS idx_system_activity_occurred_at
+                    ON system_activity (occurred_at);
+                CREATE INDEX IF NOT EXISTS idx_system_activity_action_type
+                    ON system_activity (action_type);
+                """);
+
         // Seed S-001: provider_registry entries for all known providers.
         // metadata_claims.provider_id has a FK to provider_registry(id), so these
         // rows MUST exist before any claim is written.  INSERT OR IGNORE makes this

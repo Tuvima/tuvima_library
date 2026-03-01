@@ -225,4 +225,12 @@ public sealed class MaintenanceSettings
     /// </summary>
     [JsonPropertyName("vacuum_on_startup")]
     public bool VacuumOnStartup { get; set; } = false;
+
+    /// <summary>
+    /// Number of days to retain system activity log entries.
+    /// Entries older than this are pruned daily by <c>ActivityPruningService</c>.
+    /// Default: 60 days.
+    /// </summary>
+    [JsonPropertyName("activity_retention_days")]
+    public int ActivityRetentionDays { get; set; } = 60;
 }

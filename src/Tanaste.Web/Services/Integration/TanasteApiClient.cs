@@ -429,6 +429,40 @@ public sealed class TanasteApiClient : ITanasteApiClient
         }
     }
 
+    // ── Activity log (/activity) ───────────────────────────────────────────
+
+    public async Task<List<ActivityEntryViewModel>> GetRecentActivityAsync(
+        int limit = 50, CancellationToken ct = default)
+    {
+        try
+        {
+            var raw = await _http.GetFromJsonAsync<List<ActivityEntryViewModel>>(
+                $"/activity/recent?limit={limit}", ct);
+            return raw ?? [];
+        }
+        catch { return []; }
+    }
+
+    public async Task<ActivityStatsViewModel?> GetActivityStatsAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<ActivityStatsViewModel>("/activity/stats", ct);
+        }
+        catch { return null; }
+    }
+
+    public async Task<PruneResultViewModel?> TriggerPruneAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            var resp = await _http.PostAsJsonAsync("/activity/prune", new { }, ct);
+            if (!resp.IsSuccessStatusCode) return null;
+            return await resp.Content.ReadFromJsonAsync<PruneResultViewModel>(ct);
+        }
+        catch { return null; }
+    }
+
     // ── Organization template ────────────────────────────────────────────────
 
     public async Task<OrganizationTemplateDto?> GetOrganizationTemplateAsync(

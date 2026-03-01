@@ -217,10 +217,25 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     /// <summary>Most recent error detail from the last failed API call.</summary>
     public string? LastApiError => _api.LastError;
 
-    // ── Activity Log ────────────────────────────────────────────────────────
+    // ── Activity Log (local in-memory) ──────────────────────────────────────
 
     /// <summary>Returns the current activity log (most recent first).</summary>
     public IReadOnlyList<ActivityEntry> GetActivityLog() => _state.ActivityLog;
+
+    // ── System Activity (persistent Engine ledger) ───────────────────────────
+
+    /// <summary>Returns the most recent system activity entries from the Engine's ledger.</summary>
+    public Task<List<ActivityEntryViewModel>> GetRecentActivityAsync(
+        int limit = 50, CancellationToken ct = default)
+        => _api.GetRecentActivityAsync(limit, ct);
+
+    /// <summary>Returns total entries and retention setting from the Engine's activity ledger.</summary>
+    public Task<ActivityStatsViewModel?> GetActivityStatsAsync(CancellationToken ct = default)
+        => _api.GetActivityStatsAsync(ct);
+
+    /// <summary>Triggers a manual prune of activity entries older than the retention period.</summary>
+    public Task<PruneResultViewModel?> TriggerPruneAsync(CancellationToken ct = default)
+        => _api.TriggerPruneAsync(ct);
 
     /// <summary>Fires when the activity log changes. Components should use InvokeAsync(StateHasChanged).</summary>
     public event Action? OnActivityChanged
