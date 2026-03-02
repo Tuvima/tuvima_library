@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Tanaste.Domain.Enums;
 using Tanaste.Providers.Contracts;
 using Tanaste.Providers.Models;
+using Tanaste.Storage.Contracts;
 using Tanaste.Storage.Models;
 
 namespace Tanaste.Providers.Adapters;
@@ -25,8 +26,14 @@ namespace Tanaste.Providers.Adapters;
 /// Media cover art is sourced exclusively from Apple Books, Audnexus, and TMDB.
 /// Person headshots from Wikimedia Commons are permitted (public figures).
 ///
-/// Throttle: 1 concurrent request with a 1 100 ms minimum gap between calls.
-/// Wikidata's Bot Policy requires ≤1 req/s for automated clients.
+/// <para>
+/// <b>Configuration:</b> The knowledge model (property map, bridge lookup priority,
+/// scope exclusions) is loaded at runtime from <c>config/universe/wikidata.json</c>
+/// via <see cref="IConfigurationLoader"/>. If the file is missing or corrupt, the
+/// compiled defaults in <see cref="WikidataSparqlPropertyMap.DefaultMap"/> are used.
+/// The throttle gap is read from <c>config/providers/wikidata.json</c>; the compiled
+/// default is 1100 ms (Wikidata's 1 req/s policy).
+/// </para>
 ///
 /// Named HttpClients: <c>"wikidata_api"</c> (MediaWiki REST API) and
 /// <c>"wikidata_sparql"</c> (SPARQL query endpoint for deep hydration).
@@ -61,32 +68,38 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
     // ── Fields ────────────────────────────────────────────────────────────────
 
     private readonly IHttpClientFactory _httpFactory;
+    private readonly IConfigurationLoader _configLoader;
     private readonly ILogger<WikidataAdapter> _logger;
 
     // Throttle shared across all instances (static) — Wikidata policy: 1 req/s.
     private static readonly SemaphoreSlim _throttle = new(1, 1);
     private static DateTime _lastCallUtc = DateTime.MinValue;
-    private const int ThrottleGapMs = 1100;
+
+    /// <summary>Compiled default throttle gap (ms). Overridden by provider config.</summary>
+    private const int DefaultThrottleGapMs = 1100;
 
     private static readonly JsonSerializerOptions _jsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
     };
 
-    // Wikimedia Commons image URL template.
-    private const string CommonsUrlTemplate =
+    // Fallback Commons URL template — used when universe config is missing.
+    private const string DefaultCommonsUrlTemplate =
         "https://commons.wikimedia.org/wiki/Special:FilePath/{0}?width=300";
 
     // ── Constructor ───────────────────────────────────────────────────────────
 
     public WikidataAdapter(
         IHttpClientFactory httpFactory,
+        IConfigurationLoader configLoader,
         ILogger<WikidataAdapter> logger)
     {
         ArgumentNullException.ThrowIfNull(httpFactory);
+        ArgumentNullException.ThrowIfNull(configLoader);
         ArgumentNullException.ThrowIfNull(logger);
-        _httpFactory = httpFactory;
-        _logger      = logger;
+        _httpFactory  = httpFactory;
+        _configLoader = configLoader;
+        _logger       = logger;
     }
 
     // ── IExternalMetadataProvider ─────────────────────────────────────────────
@@ -127,16 +140,22 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
             return [];
         }
 
+        var throttleGapMs = GetThrottleGapMs();
+
         try
         {
             using var client = _httpFactory.CreateClient("wikidata_api");
+
+            // Resolve the Commons URL template from universe config.
+            var universeConfig = _configLoader.LoadConfig<UniverseConfiguration>("universe", "wikidata");
+            var commonsTemplate = universeConfig?.CommonsUrlTemplate ?? DefaultCommonsUrlTemplate;
 
             // Step 1: search for the entity by name.
             var searchUrl = $"{request.BaseUrl.TrimEnd('/')}" +
                 $"?action=wbsearchentities&search={Uri.EscapeDataString(name)}" +
                 "&type=item&language=en&format=json&limit=3";
 
-            var searchJson = await ThrottledGetAsync<JsonObject>(client, searchUrl, ct)
+            var searchJson = await ThrottledGetAsync<JsonObject>(client, searchUrl, throttleGapMs, ct)
                 .ConfigureAwait(false);
 
             var qid = FindHumanQid(searchJson);
@@ -153,10 +172,10 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
                 $"?action=wbgetentities&ids={Uri.EscapeDataString(qid)}" +
                 "&format=json&languages=en&props=labels|descriptions|claims";
 
-            var entityJson = await ThrottledGetAsync<JsonObject>(client, entityUrl, ct)
+            var entityJson = await ThrottledGetAsync<JsonObject>(client, entityUrl, throttleGapMs, ct)
                 .ConfigureAwait(false);
 
-            return ParsePersonEntity(entityJson, qid);
+            return ParsePersonEntity(entityJson, qid, commonsTemplate);
         }
         catch (OperationCanceledException)
         {
@@ -183,9 +202,6 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
             var id = item?["id"]?.GetValue<string>();
             if (string.IsNullOrWhiteSpace(id)) continue;
 
-            // Check description for "human" to do a lightweight P31=Q5 filter.
-            // A full SPARQL query would be more precise but adds latency.
-            var desc = item?["description"]?.GetValue<string>() ?? string.Empty;
             // Accept any result that Wikidata returns in a human-name search;
             // we later confirm with the entity's description claim.
             return id; // Take first result — Wikidata ranks by relevance.
@@ -196,7 +212,8 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
 
     private static IReadOnlyList<ProviderClaim> ParsePersonEntity(
         JsonObject? entityJson,
-        string qid)
+        string qid,
+        string commonsUrlTemplate)
     {
         if (entityJson is null) return [];
 
@@ -215,14 +232,14 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
         if (!string.IsNullOrWhiteSpace(description))
             claims.Add(new ProviderClaim("biography", description, 1.0));
 
-        // Headshot: P18 image → Wikimedia Commons URL.
+        // Headshot: P18 image -> Wikimedia Commons URL.
         var p18Array = entity["claims"]?["P18"]?.AsArray();
         var filename  = p18Array?[0]?["mainsnak"]?["datavalue"]?["value"]?.GetValue<string>();
         if (!string.IsNullOrWhiteSpace(filename))
         {
             // Commons uses a URL-encoded filename with spaces replaced by underscores.
             var commonsName = filename.Replace(' ', '_');
-            var imageUrl    = string.Format(CommonsUrlTemplate,
+            var imageUrl    = string.Format(commonsUrlTemplate,
                 Uri.EscapeDataString(commonsName));
             claims.Add(new ProviderClaim("headshot_url", imageUrl, 1.0));
         }
@@ -260,20 +277,31 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
             return [];
         }
 
+        // Load the universe configuration (property map, bridges, exclusions).
+        // Falls back to compiled defaults if the file is missing or corrupt.
+        var universeConfig = _configLoader.LoadConfig<UniverseConfiguration>("universe", "wikidata");
+        var effectiveMap = universeConfig is not null
+            ? WikidataSparqlPropertyMap.BuildMapFromUniverse(universeConfig)
+            : WikidataSparqlPropertyMap.DefaultMap;
+
+        var throttleGapMs = GetThrottleGapMs();
+
         try
         {
             using var apiClient    = _httpFactory.CreateClient("wikidata_api");
             using var sparqlClient = _httpFactory.CreateClient("wikidata_sparql");
 
             // ── Step 1: QID Cross-Reference via Bridge IDs ──────────────────
-            var qid = await ResolveQidViaBridgesAsync(sparqlClient, request, ct)
-                .ConfigureAwait(false);
+            var bridgePriority = universeConfig?.BridgeLookupPriority;
+            var qid = await ResolveQidViaBridgesAsync(
+                sparqlClient, request, bridgePriority, throttleGapMs, ct).ConfigureAwait(false);
 
             // ── Step 2: Fallback to MediaWiki Text Search ───────────────────
             if (qid is null && !string.IsNullOrWhiteSpace(request.Title))
             {
                 qid = await ResolveQidViaSearchAsync(
-                    apiClient, request.BaseUrl, request.Title, ct).ConfigureAwait(false);
+                    apiClient, request.BaseUrl, request.Title, throttleGapMs, ct)
+                    .ConfigureAwait(false);
             }
 
             if (qid is null)
@@ -285,9 +313,16 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
             }
 
             // ── Step 3: SPARQL Deep Ingest ──────────────────────────────────
-            var sparql = WikidataSparqlPropertyMap.BuildWorkSparqlQuery(qid);
+            // Read scope exclusions from universe config (default: P18 excluded from Work).
+            IReadOnlyCollection<string>? scopeExclusions = null;
+            if (universeConfig?.ScopeExclusions.TryGetValue("Work", out var workExclusions) == true)
+                scopeExclusions = workExclusions;
+
+            var sparql = WikidataSparqlPropertyMap.BuildWorkSparqlQuery(
+                qid, effectiveMap, scopeExclusions);
             var claims = await ExecuteSparqlQueryAsync(
-                sparqlClient, request.SparqlBaseUrl, sparql, qid, ct).ConfigureAwait(false);
+                sparqlClient, request.SparqlBaseUrl, sparql, qid,
+                effectiveMap, scopeExclusions, throttleGapMs, ct).ConfigureAwait(false);
 
             _logger.LogInformation(
                 "Wikidata SPARQL deep-ingest for entity {Id}: QID={Qid}, {Count} claims",
@@ -311,23 +346,37 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
 
     /// <summary>
     /// Tries to find the Wikidata QID using bridge identifiers in priority order.
-    /// First match wins.
+    /// The order is read from <c>config/universe/wikidata.json → bridge_lookup_priority</c>.
+    /// Falls back to the compiled default order if the config is null.
     /// </summary>
     private async Task<string?> ResolveQidViaBridgesAsync(
         HttpClient sparqlClient,
         ProviderLookupRequest request,
+        IReadOnlyList<BridgeLookupEntry>? bridgePriority,
+        int throttleGapMs,
         CancellationToken ct)
     {
-        // Try bridge IDs in priority order.
-        var bridges = new (string PCode, string? Value)[]
+        // Build bridge list from config or use compiled defaults.
+        IEnumerable<(string PCode, string? Value)> bridges;
+
+        if (bridgePriority is { Count: > 0 })
         {
-            ("P3861", request.AppleBooksId),
-            ("P3398", request.AudibleId),
-            ("P4947", request.TmdbId),
-            ("P345",  request.ImdbId),
-            ("P1566", request.Asin),
-            ("P212",  request.Isbn),
-        };
+            bridges = bridgePriority.Select(b =>
+                (b.PCode, GetBridgeValue(request, b.RequestField)));
+        }
+        else
+        {
+            // Compiled default order (same as the original hard-coded array).
+            bridges =
+            [
+                ("P3861", request.AppleBooksId),
+                ("P3398", request.AudibleId),
+                ("P4947", request.TmdbId),
+                ("P345",  request.ImdbId),
+                ("P1566", request.Asin),
+                ("P212",  request.Isbn),
+            ];
+        }
 
         foreach (var (pCode, value) in bridges)
         {
@@ -337,7 +386,8 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
 
             var sparql = WikidataSparqlPropertyMap.BuildBridgeLookupQuery(pCode, value);
             var qid = await RunBridgeLookupAsync(
-                sparqlClient, request.SparqlBaseUrl, sparql, ct).ConfigureAwait(false);
+                sparqlClient, request.SparqlBaseUrl, sparql, throttleGapMs, ct)
+                .ConfigureAwait(false);
 
             if (qid is not null)
             {
@@ -352,15 +402,32 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
     }
 
     /// <summary>
+    /// Maps a bridge <c>request_field</c> name to the corresponding value on
+    /// <see cref="ProviderLookupRequest"/>. Used by the config-driven bridge lookup.
+    /// </summary>
+    private static string? GetBridgeValue(ProviderLookupRequest request, string requestField)
+        => requestField switch
+        {
+            "apple_books_id" => request.AppleBooksId,
+            "audible_id"     => request.AudibleId,
+            "tmdb_id"        => request.TmdbId,
+            "imdb_id"        => request.ImdbId,
+            "asin"           => request.Asin,
+            "isbn"           => request.Isbn,
+            _                => null,
+        };
+
+    /// <summary>
     /// Executes a bridge lookup SPARQL query and returns the QID if found.
     /// </summary>
-    private async Task<string?> RunBridgeLookupAsync(
+    private static async Task<string?> RunBridgeLookupAsync(
         HttpClient sparqlClient,
         string sparqlBaseUrl,
         string sparql,
+        int throttleGapMs,
         CancellationToken ct)
     {
-        var json = await ThrottledSparqlAsync(sparqlClient, sparqlBaseUrl, sparql, ct)
+        var json = await ThrottledSparqlAsync(sparqlClient, sparqlBaseUrl, sparql, throttleGapMs, ct)
             .ConfigureAwait(false);
         if (json is null) return null;
 
@@ -372,7 +439,7 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
         if (string.IsNullOrWhiteSpace(itemUri))
             return null;
 
-        // Extract QID from URI: "http://www.wikidata.org/entity/Q190192" → "Q190192"
+        // Extract QID from URI: "http://www.wikidata.org/entity/Q190192" -> "Q190192"
         var lastSlash = itemUri.LastIndexOf('/');
         return lastSlash >= 0 ? itemUri[(lastSlash + 1)..] : itemUri;
     }
@@ -382,10 +449,11 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
     /// <summary>
     /// Fallback: search Wikidata by title using the MediaWiki API.
     /// </summary>
-    private async Task<string?> ResolveQidViaSearchAsync(
+    private static async Task<string?> ResolveQidViaSearchAsync(
         HttpClient apiClient,
         string baseUrl,
         string title,
+        int throttleGapMs,
         CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(baseUrl))
@@ -395,7 +463,7 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
             $"?action=wbsearchentities&search={Uri.EscapeDataString(title)}" +
             "&type=item&language=en&format=json&limit=5";
 
-        var searchJson = await ThrottledGetAsync<JsonObject>(apiClient, searchUrl, ct)
+        var searchJson = await ThrottledGetAsync<JsonObject>(apiClient, searchUrl, throttleGapMs, ct)
             .ConfigureAwait(false);
 
         if (searchJson is null) return null;
@@ -413,15 +481,19 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
     /// <summary>
     /// Executes a Work SPARQL query and parses the bindings into ProviderClaim list.
     /// Always emits the <c>wikidata_qid</c> claim first (confidence 1.0).
+    /// Uses the effective property map and scope exclusions from universe configuration.
     /// </summary>
-    private async Task<IReadOnlyList<ProviderClaim>> ExecuteSparqlQueryAsync(
+    private static async Task<IReadOnlyList<ProviderClaim>> ExecuteSparqlQueryAsync(
         HttpClient sparqlClient,
         string sparqlBaseUrl,
         string sparql,
         string qid,
+        IReadOnlyDictionary<string, WikidataProperty> effectiveMap,
+        IReadOnlyCollection<string>? scopeExclusions,
+        int throttleGapMs,
         CancellationToken ct)
     {
-        var json = await ThrottledSparqlAsync(sparqlClient, sparqlBaseUrl, sparql, ct)
+        var json = await ThrottledSparqlAsync(sparqlClient, sparqlBaseUrl, sparql, throttleGapMs, ct)
             .ConfigureAwait(false);
 
         var claims = new List<ProviderClaim>
@@ -436,12 +508,12 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
             return claims;
 
         var binding = bindings[0]!.AsObject();
-        var map = WikidataSparqlPropertyMap.DefaultMap;
+        var exclusions = scopeExclusions ?? (IReadOnlyCollection<string>)["P18"];
 
-        foreach (var prop in map.Values.Where(p => p.Enabled && p.EntityScope is "Work" or "Both"))
+        foreach (var prop in effectiveMap.Values.Where(p => p.Enabled && p.EntityScope is "Work" or "Both"))
         {
-            // P18 is Person-only — never emit for Work entities.
-            if (prop.PCode == "P18") continue;
+            // Apply scope exclusions (e.g. P18 excluded from Work for copyright reasons).
+            if (exclusions.Contains(prop.PCode)) continue;
 
             var varName = prop.PCode.ToLowerInvariant();
 
@@ -460,7 +532,7 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
                 continue;
 
             // Apply value transformations based on property type.
-            var claimValue = TransformValue(prop, rawValue);
+            var claimValue = ValueTransformRegistry.Apply(prop.ValueTransform, rawValue);
             if (!string.IsNullOrWhiteSpace(claimValue))
                 claims.Add(new ProviderClaim(prop.ClaimKey, claimValue, prop.Confidence));
         }
@@ -468,50 +540,16 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
         return claims;
     }
 
+    // ── Configuration Helpers ────────────────────────────────────────────────
+
     /// <summary>
-    /// Applies property-specific transformations to raw SPARQL values.
+    /// Reads the throttle gap from the Wikidata provider configuration.
+    /// Falls back to the compiled default (1100 ms) if the config is missing.
     /// </summary>
-    private static string? TransformValue(WikidataProperty prop, string rawValue)
+    private int GetThrottleGapMs()
     {
-        return prop.PCode switch
-        {
-            // P577 (publication date): extract 4-digit year from ISO date
-            "P577" => rawValue.Length >= 4 ? rawValue[..4] : rawValue,
-
-            // P1545 (series position): extract the numeric portion
-            "P1545" => ExtractNumericPortion(rawValue),
-
-            // Entity URIs: strip the Wikidata prefix to get just the QID
-            _ when rawValue.StartsWith("http://www.wikidata.org/entity/", StringComparison.Ordinal)
-                => rawValue[(rawValue.LastIndexOf('/') + 1)..],
-
-            // Everything else: return as-is
-            _ => rawValue,
-        };
-    }
-
-    /// <summary>Extract the leading numeric portion from a string, e.g. "3.5" → "3.5", "Book 2" → "2".</summary>
-    private static string? ExtractNumericPortion(string value)
-    {
-        // Try to find contiguous digits (with optional decimal point)
-        var start = -1;
-        for (var i = 0; i < value.Length; i++)
-        {
-            if (char.IsDigit(value[i]))
-            {
-                if (start < 0) start = i;
-            }
-            else if (value[i] == '.' && start >= 0)
-            {
-                // Allow decimal in number
-            }
-            else if (start >= 0)
-            {
-                return value[start..i];
-            }
-        }
-
-        return start >= 0 ? value[start..] : value;
+        var providerConfig = _configLoader.LoadProvider("wikidata");
+        return providerConfig?.ThrottleMs > 0 ? providerConfig.ThrottleMs : DefaultThrottleGapMs;
     }
 
     // ── Throttled SPARQL helper ─────────────────────────────────────────────
@@ -524,6 +562,7 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
         HttpClient sparqlClient,
         string sparqlBaseUrl,
         string sparql,
+        int throttleGapMs,
         CancellationToken ct)
     {
         await _throttle.WaitAsync(ct).ConfigureAwait(false);
@@ -531,8 +570,8 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
         {
             var now = DateTime.UtcNow;
             var elapsed = (now - _lastCallUtc).TotalMilliseconds;
-            if (elapsed < ThrottleGapMs)
-                await Task.Delay(TimeSpan.FromMilliseconds(ThrottleGapMs - elapsed), ct)
+            if (elapsed < throttleGapMs)
+                await Task.Delay(TimeSpan.FromMilliseconds(throttleGapMs - elapsed), ct)
                     .ConfigureAwait(false);
 
             var url = $"{sparqlBaseUrl.TrimEnd('/')}?query={Uri.EscapeDataString(sparql)}";
@@ -559,6 +598,7 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
     private static async Task<T?> ThrottledGetAsync<T>(
         HttpClient client,
         string url,
+        int throttleGapMs,
         CancellationToken ct)
     {
         await _throttle.WaitAsync(ct).ConfigureAwait(false);
@@ -566,8 +606,8 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
         {
             var now = DateTime.UtcNow;
             var elapsed = (now - _lastCallUtc).TotalMilliseconds;
-            if (elapsed < ThrottleGapMs)
-                await Task.Delay(TimeSpan.FromMilliseconds(ThrottleGapMs - elapsed), ct)
+            if (elapsed < throttleGapMs)
+                await Task.Delay(TimeSpan.FromMilliseconds(throttleGapMs - elapsed), ct)
                           .ConfigureAwait(false);
 
             var result = await client.GetFromJsonAsync<T>(url, ct).ConfigureAwait(false);

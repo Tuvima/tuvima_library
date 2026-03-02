@@ -52,8 +52,25 @@ public sealed record WikidataProperty
 
     /// <summary>
     /// When <c>false</c>, this property is excluded from SPARQL queries.
-    /// Allows users to disable specific properties via <c>tanaste_master.json</c> overrides
+    /// Allows users to disable specific properties via configuration overrides
     /// without removing them from the default map.
     /// </summary>
     public bool Enabled { get; init; } = true;
+
+    /// <summary>
+    /// When <c>true</c>, the Wikidata value for this property is a Q-item (entity)
+    /// that requires <c>rdfs:label</c> fetching to resolve a human-readable name.
+    /// Used by the SPARQL query builder to emit label variables and FILTER clauses.
+    /// </summary>
+    public bool IsEntityValued { get; init; }
+
+    /// <summary>
+    /// Name of the value transform to apply after extracting the raw SPARQL value.
+    /// <c>null</c> means no transform — pass the raw value through.
+    /// Valid names: <c>"year_from_iso"</c>, <c>"numeric_portion"</c>,
+    /// <c>"strip_entity_uri"</c>, <c>"commons_url"</c>.
+    /// Transform functions live in <see cref="ValueTransformRegistry"/>;
+    /// which property uses which transform is data, not code.
+    /// </summary>
+    public string? ValueTransform { get; init; }
 }

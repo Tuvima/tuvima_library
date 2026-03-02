@@ -15,6 +15,7 @@ using Tanaste.Processors.Contracts;
 using Tanaste.Processors.Processors;
 using Tanaste.Providers.Adapters;
 using Tanaste.Providers.Contracts;
+using Tanaste.Providers.Models;
 using Tanaste.Providers.Services;
 using Tanaste.Storage;
 using Tanaste.Storage.Contracts;
@@ -52,9 +53,21 @@ var host = Host.CreateDefaultBuilder(args)
             return db;
         });
 
-        // ── Storage manifest ─────────────────────────────────
+        // ── Configuration Directory Loader ───────────────────
+        // Reads individual config files from config/ directory.
+        // Auto-migrates from legacy tanaste_master.json on first run.
+        string configDir    = config["Tanaste:ConfigDirectory"] ?? "config";
         string manifestPath = config["Tanaste:ManifestPath"] ?? "tanaste_master.json";
-        services.AddSingleton<IStorageManifest>(_ => new ManifestParser(manifestPath));
+        var    configLoader = new ConfigurationDirectoryLoader(configDir, manifestPath);
+        services.AddSingleton<IStorageManifest>(configLoader);
+        services.AddSingleton<IConfigurationLoader>(configLoader);
+
+        // Bootstrap the default universe config if it doesn't exist yet.
+        if (configLoader.LoadConfig<UniverseConfiguration>("universe", "wikidata") is null)
+        {
+            var defaultUniverse = WikidataSparqlPropertyMap.ExportAsUniverseConfiguration();
+            configLoader.SaveConfig("universe", "wikidata", defaultUniverse);
+        }
 
         services.AddSingleton<ITransactionJournal, TransactionJournal>();
         services.AddSingleton<IMediaAssetRepository, MediaAssetRepository>();

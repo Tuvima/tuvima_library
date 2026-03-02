@@ -1,0 +1,18 @@
+{
+  "name": "apple_books_ebook",
+  "version": "1.0",
+  "enabled": true,
+  "weight": 0.7,
+  "domain": "Ebook",
+  "capability_tags": ["cover", "description", "rating"],
+  "field_weights": {
+    "cover": 0.9,
+    "description": 0.9,
+    "rating": 0.8
+  },
+  "endpoints": {
+    "apple_books": "https://itunes.apple.com"
+  },
+  "throttle_ms": 300,
+  "max_concurrency": 1
+}

@@ -1,0 +1,16 @@
+{
+  "name": "apple_books_audiobook",
+  "version": "1.0",
+  "enabled": true,
+  "weight": 0.7,
+  "domain": "Audiobook",
+  "capability_tags": ["cover"],
+  "field_weights": {
+    "cover": 0.6
+  },
+  "endpoints": {
+    "apple_books": "https://itunes.apple.com"
+  },
+  "throttle_ms": 300,
+  "max_concurrency": 1
+}

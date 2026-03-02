@@ -1,4 +1,5 @@
 {
+  "_DEPRECATED": "This single-file format is replaced by config.example/ (multi-file directory). On first run, the Engine auto-migrates this file to config/ and renames it to .migrated. See CLAUDE.md §3.11.",
   "schema_version": "1.0",
   "database_path": "tanaste.db",
   "data_root": "./media",

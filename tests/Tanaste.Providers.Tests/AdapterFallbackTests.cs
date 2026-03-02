@@ -4,6 +4,8 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Tanaste.Domain.Enums;
 using Tanaste.Providers.Adapters;
 using Tanaste.Providers.Models;
+using Tanaste.Storage.Contracts;
+using Tanaste.Storage.Models;
 
 namespace Tanaste.Providers.Tests;
 
@@ -89,6 +91,7 @@ public sealed class AdapterFallbackTests
         var factory = BuildTimeoutFactory("wikidata_api");
         var adapter = new WikidataAdapter(
             factory,
+            new StubConfigurationLoader(),
             NullLogger<WikidataAdapter>.Instance);
 
         var request = new ProviderLookupRequest
@@ -181,4 +184,23 @@ file sealed class TimeoutStubHttpMessageHandler : HttpMessageHandler
         HttpRequestMessage request,
         CancellationToken cancellationToken)
         => throw new TaskCanceledException("Simulated HTTP timeout in test.");
+}
+
+/// <summary>
+/// Minimal <see cref="IConfigurationLoader"/> stub for adapter tests.
+/// Returns defaults for all methods — no file I/O.
+/// </summary>
+file sealed class StubConfigurationLoader : IConfigurationLoader
+{
+    public CoreConfiguration LoadCore() => new();
+    public void SaveCore(CoreConfiguration config) { }
+    public ScoringSettings LoadScoring() => new();
+    public void SaveScoring(ScoringSettings settings) { }
+    public MaintenanceSettings LoadMaintenance() => new();
+    public void SaveMaintenance(MaintenanceSettings settings) { }
+    public ProviderConfiguration? LoadProvider(string name) => null;
+    public void SaveProvider(ProviderConfiguration config) { }
+    public IReadOnlyList<ProviderConfiguration> LoadAllProviders() => [];
+    public T? LoadConfig<T>(string subdirectory, string name) where T : class => null;
+    public void SaveConfig<T>(string subdirectory, string name, T config) where T : class { }
 }

@@ -9,7 +9,7 @@ namespace Tanaste.Api.Services;
 /// Background service that runs once daily and prunes activity log entries
 /// older than the configured retention period.
 ///
-/// Retention period is read from <c>tanaste_master.json → maintenance → activity_retention_days</c>.
+/// Retention period is read from <c>config/maintenance.json → activity_retention_days</c>.
 /// Default: 60 days.
 ///
 /// Logs an <c>ActivityPruned</c> entry after each successful prune so the
@@ -18,7 +18,7 @@ namespace Tanaste.Api.Services;
 public sealed class ActivityPruningService : BackgroundService
 {
     private readonly ISystemActivityRepository _activityRepo;
-    private readonly IStorageManifest          _manifest;
+    private readonly IConfigurationLoader      _configLoader;
     private readonly ILogger<ActivityPruningService> _logger;
 
     /// <summary>How often the prune runs. Default: once per day.</summary>
@@ -26,15 +26,15 @@ public sealed class ActivityPruningService : BackgroundService
 
     public ActivityPruningService(
         ISystemActivityRepository activityRepo,
-        IStorageManifest          manifest,
+        IConfigurationLoader      configLoader,
         ILogger<ActivityPruningService> logger)
     {
         ArgumentNullException.ThrowIfNull(activityRepo);
-        ArgumentNullException.ThrowIfNull(manifest);
+        ArgumentNullException.ThrowIfNull(configLoader);
         ArgumentNullException.ThrowIfNull(logger);
 
         _activityRepo = activityRepo;
-        _manifest     = manifest;
+        _configLoader = configLoader;
         _logger       = logger;
     }
 
@@ -50,8 +50,8 @@ public sealed class ActivityPruningService : BackgroundService
         {
             try
             {
-                var config = _manifest.Load();
-                var retentionDays = config.Maintenance.ActivityRetentionDays;
+                var maintenance = _configLoader.LoadMaintenance();
+                var retentionDays = maintenance.ActivityRetentionDays;
 
                 if (retentionDays > 0)
                 {

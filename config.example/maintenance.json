@@ -1,0 +1,5 @@
+{
+  "activity_retention_days": 60,
+  "vacuum_interval_hours": 168,
+  "sync_interval_hours": 24
+}

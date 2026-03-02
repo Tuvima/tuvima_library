@@ -1,0 +1,75 @@
+{
+  "provider_name": "wikidata",
+  "property_map": {
+    "P31":    { "claim_key": "instance_of",       "category": "Core Identity",         "entity_scope": "Work",   "confidence": 0.9,  "is_bridge": false, "enabled": true, "is_entity_valued": true,  "value_transform": null },
+    "P1476":  { "claim_key": "title",             "category": "Core Identity",         "entity_scope": "Work",   "confidence": 0.9,  "is_bridge": false, "enabled": true, "is_entity_valued": false, "value_transform": null },
+    "P179":   { "claim_key": "series",            "category": "Core Identity",         "entity_scope": "Work",   "confidence": 0.9,  "is_bridge": false, "enabled": true, "is_entity_valued": true,  "value_transform": null },
+    "P1545":  { "claim_key": "series_position",   "category": "Core Identity",         "entity_scope": "Work",   "confidence": 0.9,  "is_bridge": false, "enabled": true, "is_entity_valued": false, "value_transform": "numeric_portion" },
+    "P8345":  { "claim_key": "franchise",         "category": "Core Identity",         "entity_scope": "Work",   "confidence": 0.9,  "is_bridge": false, "enabled": true, "is_entity_valued": true,  "value_transform": null },
+    "P155":   { "claim_key": "preceded_by",       "category": "Core Identity",         "entity_scope": "Work",   "confidence": 0.8,  "is_bridge": false, "enabled": true, "is_entity_valued": true,  "value_transform": null },
+    "P156":   { "claim_key": "followed_by",       "category": "Core Identity",         "entity_scope": "Work",   "confidence": 0.8,  "is_bridge": false, "enabled": true, "is_entity_valued": true,  "value_transform": null },
+    "P577":   { "claim_key": "year",              "category": "Core Identity",         "entity_scope": "Work",   "confidence": 0.9,  "is_bridge": false, "enabled": true, "is_entity_valued": false, "value_transform": "year_from_iso" },
+
+    "P50":    { "claim_key": "author",            "category": "People",                "entity_scope": "Work",   "confidence": 0.9,  "is_bridge": false, "enabled": true, "is_entity_valued": true,  "value_transform": null },
+    "P110":   { "claim_key": "illustrator",       "category": "People",                "entity_scope": "Work",   "confidence": 0.9,  "is_bridge": false, "enabled": true, "is_entity_valued": true,  "value_transform": null },
+    "P57":    { "claim_key": "director",          "category": "People",                "entity_scope": "Work",   "confidence": 0.9,  "is_bridge": false, "enabled": true, "is_entity_valued": true,  "value_transform": null },
+    "P161":   { "claim_key": "cast_member",       "category": "People",                "entity_scope": "Work",   "confidence": 0.9,  "is_bridge": false, "enabled": true, "is_entity_valued": true,  "value_transform": null },
+    "P987":   { "claim_key": "narrator",          "category": "People",                "entity_scope": "Work",   "confidence": 0.9,  "is_bridge": false, "enabled": true, "is_entity_valued": true,  "value_transform": null },
+    "P725":   { "claim_key": "voice_actor",       "category": "People",                "entity_scope": "Work",   "confidence": 0.9,  "is_bridge": false, "enabled": true, "is_entity_valued": true,  "value_transform": null },
+    "P58":    { "claim_key": "screenwriter",      "category": "People",                "entity_scope": "Work",   "confidence": 0.9,  "is_bridge": false, "enabled": true, "is_entity_valued": true,  "value_transform": null },
+    "P86":    { "claim_key": "composer",          "category": "People",                "entity_scope": "Work",   "confidence": 0.9,  "is_bridge": false, "enabled": true, "is_entity_valued": true,  "value_transform": null },
+
+    "P800":   { "claim_key": "notable_work",      "category": "People",                "entity_scope": "Person", "confidence": 0.85, "is_bridge": false, "enabled": true, "is_entity_valued": true,  "value_transform": null },
+    "P18":    { "claim_key": "headshot_url",       "category": "People",                "entity_scope": "Person", "confidence": 0.9,  "is_bridge": false, "enabled": true, "is_entity_valued": false, "value_transform": "commons_url" },
+    "P106":   { "claim_key": "occupation",         "category": "People",                "entity_scope": "Person", "confidence": 0.85, "is_bridge": false, "enabled": true, "is_entity_valued": true,  "value_transform": null },
+
+    "P840":   { "claim_key": "narrative_location", "category": "Lore & Narrative",      "entity_scope": "Work",   "confidence": 0.8,  "is_bridge": false, "enabled": true, "is_entity_valued": true,  "value_transform": null },
+    "P674":   { "claim_key": "characters",         "category": "Lore & Narrative",      "entity_scope": "Work",   "confidence": 0.8,  "is_bridge": false, "enabled": true, "is_entity_valued": true,  "value_transform": null },
+    "P921":   { "claim_key": "main_subject",       "category": "Lore & Narrative",      "entity_scope": "Work",   "confidence": 0.8,  "is_bridge": false, "enabled": true, "is_entity_valued": true,  "value_transform": null },
+    "P1434":  { "claim_key": "fictional_universe", "category": "Lore & Narrative",      "entity_scope": "Work",   "confidence": 0.8,  "is_bridge": false, "enabled": true, "is_entity_valued": true,  "value_transform": null },
+    "P144":   { "claim_key": "based_on",           "category": "Lore & Narrative",      "entity_scope": "Work",   "confidence": 0.8,  "is_bridge": false, "enabled": true, "is_entity_valued": true,  "value_transform": null },
+    "P4584":  { "claim_key": "first_appearance",   "category": "Lore & Narrative",      "entity_scope": "Work",   "confidence": 0.8,  "is_bridge": false, "enabled": true, "is_entity_valued": true,  "value_transform": null },
+
+    "P3861":  { "claim_key": "apple_books_id",     "category": "Bridges: Books",        "entity_scope": "Work",   "confidence": 1.0,  "is_bridge": true,  "enabled": true, "is_entity_valued": false, "value_transform": null },
+    "P212":   { "claim_key": "isbn",               "category": "Bridges: Books",        "entity_scope": "Work",   "confidence": 1.0,  "is_bridge": true,  "enabled": true, "is_entity_valued": false, "value_transform": null },
+    "P1566":  { "claim_key": "asin",               "category": "Bridges: Books",        "entity_scope": "Work",   "confidence": 1.0,  "is_bridge": true,  "enabled": true, "is_entity_valued": false, "value_transform": null },
+    "P2969":  { "claim_key": "goodreads_id",       "category": "Bridges: Books",        "entity_scope": "Work",   "confidence": 1.0,  "is_bridge": true,  "enabled": true, "is_entity_valued": false, "value_transform": null },
+    "P244":   { "claim_key": "loc_id",             "category": "Bridges: Books",        "entity_scope": "Work",   "confidence": 1.0,  "is_bridge": true,  "enabled": true, "is_entity_valued": false, "value_transform": null },
+
+    "P4947":  { "claim_key": "tmdb_id",            "category": "Bridges: Movies/TV",    "entity_scope": "Work",   "confidence": 1.0,  "is_bridge": true,  "enabled": true, "is_entity_valued": false, "value_transform": null },
+    "P345":   { "claim_key": "imdb_id",            "category": "Bridges: Movies/TV",    "entity_scope": "Work",   "confidence": 1.0,  "is_bridge": true,  "enabled": true, "is_entity_valued": false, "value_transform": null },
+    "P9385":  { "claim_key": "justwatch_id",       "category": "Bridges: Movies/TV",    "entity_scope": "Work",   "confidence": 1.0,  "is_bridge": true,  "enabled": true, "is_entity_valued": false, "value_transform": null },
+    "P1712":  { "claim_key": "metacritic_id",      "category": "Bridges: Movies/TV",    "entity_scope": "Work",   "confidence": 1.0,  "is_bridge": true,  "enabled": true, "is_entity_valued": false, "value_transform": null },
+    "P6127":  { "claim_key": "letterboxd_id",      "category": "Bridges: Movies/TV",    "entity_scope": "Work",   "confidence": 1.0,  "is_bridge": true,  "enabled": true, "is_entity_valued": false, "value_transform": null },
+    "P2638":  { "claim_key": "tvcom_id",           "category": "Bridges: Movies/TV",    "entity_scope": "Work",   "confidence": 1.0,  "is_bridge": true,  "enabled": true, "is_entity_valued": false, "value_transform": null },
+
+    "P3589":  { "claim_key": "gcd_series_id",      "category": "Bridges: Comics/Anime", "entity_scope": "Work",   "confidence": 1.0,  "is_bridge": true,  "enabled": true, "is_entity_valued": false, "value_transform": null },
+    "P11308": { "claim_key": "gcd_issue_id",       "category": "Bridges: Comics/Anime", "entity_scope": "Work",   "confidence": 1.0,  "is_bridge": true,  "enabled": true, "is_entity_valued": false, "value_transform": null },
+    "P5905":  { "claim_key": "comicvine_id",       "category": "Bridges: Comics/Anime", "entity_scope": "Work",   "confidence": 1.0,  "is_bridge": true,  "enabled": true, "is_entity_valued": false, "value_transform": null },
+    "P4084":  { "claim_key": "mal_anime_id",       "category": "Bridges: Comics/Anime", "entity_scope": "Work",   "confidence": 1.0,  "is_bridge": true,  "enabled": true, "is_entity_valued": false, "value_transform": null },
+    "P4087":  { "claim_key": "mal_manga_id",       "category": "Bridges: Comics/Anime", "entity_scope": "Work",   "confidence": 1.0,  "is_bridge": true,  "enabled": true, "is_entity_valued": false, "value_transform": null },
+
+    "P434":   { "claim_key": "musicbrainz_id",     "category": "Bridges: Music/Audio",  "entity_scope": "Work",   "confidence": 1.0,  "is_bridge": true,  "enabled": true, "is_entity_valued": false, "value_transform": null },
+    "P1902":  { "claim_key": "spotify_id",         "category": "Bridges: Music/Audio",  "entity_scope": "Work",   "confidence": 1.0,  "is_bridge": true,  "enabled": true, "is_entity_valued": false, "value_transform": null },
+    "P1953":  { "claim_key": "discogs_id",         "category": "Bridges: Music/Audio",  "entity_scope": "Work",   "confidence": 1.0,  "is_bridge": true,  "enabled": true, "is_entity_valued": false, "value_transform": null },
+    "P3398":  { "claim_key": "audible_id",         "category": "Bridges: Music/Audio",  "entity_scope": "Work",   "confidence": 1.0,  "is_bridge": true,  "enabled": true, "is_entity_valued": false, "value_transform": null },
+
+    "P2003":  { "claim_key": "instagram",          "category": "Social Pivot",          "entity_scope": "Person", "confidence": 1.0,  "is_bridge": true,  "enabled": true, "is_entity_valued": false, "value_transform": null },
+    "P2002":  { "claim_key": "twitter",            "category": "Social Pivot",          "entity_scope": "Person", "confidence": 1.0,  "is_bridge": true,  "enabled": true, "is_entity_valued": false, "value_transform": null },
+    "P7085":  { "claim_key": "tiktok",             "category": "Social Pivot",          "entity_scope": "Person", "confidence": 1.0,  "is_bridge": true,  "enabled": true, "is_entity_valued": false, "value_transform": null },
+    "P4033":  { "claim_key": "mastodon",           "category": "Social Pivot",          "entity_scope": "Person", "confidence": 1.0,  "is_bridge": true,  "enabled": true, "is_entity_valued": false, "value_transform": null },
+    "P856":   { "claim_key": "website",            "category": "Social Pivot",          "entity_scope": "Person", "confidence": 1.0,  "is_bridge": true,  "enabled": true, "is_entity_valued": false, "value_transform": null }
+  },
+  "bridge_lookup_priority": [
+    { "p_code": "P3861", "request_field": "apple_books_id" },
+    { "p_code": "P3398", "request_field": "audible_id" },
+    { "p_code": "P4947", "request_field": "tmdb_id" },
+    { "p_code": "P345",  "request_field": "imdb_id" },
+    { "p_code": "P1566", "request_field": "asin" },
+    { "p_code": "P212",  "request_field": "isbn" }
+  ],
+  "scope_exclusions": {
+    "Work": ["P18"]
+  },
+  "commons_url_template": "https://commons.wikimedia.org/wiki/Special:FilePath/{0}?width=300"
+}

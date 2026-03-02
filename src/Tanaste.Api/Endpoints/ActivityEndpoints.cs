@@ -43,10 +43,10 @@ public static class ActivityEndpoints
         // POST /activity/prune — manual prune trigger.
         group.MapPost("/prune", async (
             ISystemActivityRepository repo,
-            IStorageManifest          manifest) =>
+            IConfigurationLoader      configLoader) =>
         {
-            var config = manifest.Load();
-            var retentionDays = config.Maintenance.ActivityRetentionDays;
+            var maintenance = configLoader.LoadMaintenance();
+            var retentionDays = maintenance.ActivityRetentionDays;
             var deleted = await repo.PruneOlderThanAsync(retentionDays);
 
             return Results.Ok(new PruneResponse
@@ -63,15 +63,15 @@ public static class ActivityEndpoints
         // GET /activity/stats — entry count and retention setting.
         group.MapGet("/stats", async (
             ISystemActivityRepository repo,
-            IStorageManifest          manifest) =>
+            IConfigurationLoader      configLoader) =>
         {
-            var config = manifest.Load();
-            var count  = await repo.CountAsync();
+            var maintenance = configLoader.LoadMaintenance();
+            var count       = await repo.CountAsync();
 
             return Results.Ok(new ActivityStatsResponse
             {
                 TotalEntries  = count,
-                RetentionDays = config.Maintenance.ActivityRetentionDays,
+                RetentionDays = maintenance.ActivityRetentionDays,
             });
         })
         .WithName("GetActivityStats")

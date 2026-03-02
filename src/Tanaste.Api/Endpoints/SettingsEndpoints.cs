@@ -53,13 +53,13 @@ public static class SettingsEndpoints
 
         // ── GET /settings/folders ──────────────────────────────────────────────
 
-        grp.MapGet("/folders", (IStorageManifest storageManifest) =>
+        grp.MapGet("/folders", (IConfigurationLoader configLoader) =>
         {
-            var m = storageManifest.Load();
+            var core = configLoader.LoadCore();
             return Results.Ok(new FolderSettingsResponse
             {
-                WatchDirectory = m.WatchDirectory,
-                LibraryRoot    = m.LibraryRoot,
+                WatchDirectory = core.WatchDirectory,
+                LibraryRoot    = core.LibraryRoot,
             });
         })
         .WithName("GetFolderSettings")
@@ -71,7 +71,7 @@ public static class SettingsEndpoints
 
         grp.MapPut("/folders", async (
             UpdateFoldersRequest request,
-            IStorageManifest     storageManifest,
+            IConfigurationLoader configLoader,
             IFileWatcher         fileWatcher,
             IIngestionEngine     ingestionEngine,
             IEventPublisher      publisher,
@@ -91,24 +91,24 @@ public static class SettingsEndpoints
                     return Results.BadRequest(new { error = err });
             }
 
-            var manifest = storageManifest.Load();
+            var core = configLoader.LoadCore();
 
             if (!string.IsNullOrWhiteSpace(request.WatchDirectory))
-                manifest.WatchDirectory = request.WatchDirectory;
+                core.WatchDirectory = request.WatchDirectory;
 
             if (!string.IsNullOrWhiteSpace(request.LibraryRoot))
-                manifest.LibraryRoot = request.LibraryRoot;
+                core.LibraryRoot = request.LibraryRoot;
 
-            storageManifest.Save(manifest);
+            configLoader.SaveCore(core);
 
             // Hot-swap the FileSystemWatcher when the watch directory is provided and accessible.
             // Wrapped in try/catch because the watcher may not have been started yet in the
-            // API process — the manifest save is the durable side-effect that matters.
+            // API process — the config save is the durable side-effect that matters.
             if (!string.IsNullOrWhiteSpace(request.WatchDirectory)
                 && Directory.Exists(request.WatchDirectory))
             {
                 try { fileWatcher.UpdateDirectory(request.WatchDirectory); }
-                catch (Exception) { /* non-fatal: watcher swap failed; path is persisted to manifest. */ }
+                catch (Exception) { /* non-fatal: watcher swap failed; path is persisted to config. */ }
 
                 // Scan existing files in the new watch directory so files that were
                 // already present before the hot-swap are picked up.  Duplicates are
@@ -120,7 +120,7 @@ public static class SettingsEndpoints
             // Broadcast the new active watch path to all connected Dashboard circuits.
             await publisher.PublishAsync(
                 "WatchFolderActive",
-                new WatchFolderActiveEvent(manifest.WatchDirectory, DateTimeOffset.UtcNow),
+                new WatchFolderActiveEvent(core.WatchDirectory, DateTimeOffset.UtcNow),
                 ct);
 
             return Results.Ok();
@@ -185,17 +185,15 @@ public static class SettingsEndpoints
         grp.MapPut("/providers/{name}", (
             string               name,
             UpdateProviderRequest request,
-            IStorageManifest     storageManifest) =>
+            IConfigurationLoader configLoader) =>
         {
-            var manifest = storageManifest.Load();
-            var provider = manifest.Providers
-                .FirstOrDefault(p => p.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+            var provider = configLoader.LoadProvider(name);
 
             if (provider is null)
                 return Results.NotFound(new { error = $"Provider '{name}' not found." });
 
             provider.Enabled = request.Enabled;
-            storageManifest.Save(manifest);
+            configLoader.SaveProvider(provider);
 
             var displayName = _displayNames.TryGetValue(name, out var dn) ? dn : name;
 
@@ -221,15 +219,15 @@ public static class SettingsEndpoints
         // ── GET /settings/providers ─────────────────────────────────────────────
 
         grp.MapGet("/providers", async (
-            IStorageManifest   storageManifest,
-            IHttpClientFactory httpFactory,
-            CancellationToken  ct) =>
+            IConfigurationLoader configLoader,
+            IHttpClientFactory   httpFactory,
+            CancellationToken    ct) =>
         {
-            var manifest = storageManifest.Load();
-            var http     = httpFactory.CreateClient("settings_probe");
+            var providers = configLoader.LoadAllProviders();
+            var http      = httpFactory.CreateClient("settings_probe");
 
             // Check each provider's reachability concurrently.
-            var statusTasks = manifest.Providers.Select(async provider =>
+            var statusTasks = providers.Select(async provider =>
             {
                 var name        = provider.Name;
                 var displayName = _displayNames.TryGetValue(name, out var dn) ? dn : name;
@@ -237,7 +235,7 @@ public static class SettingsEndpoints
 
                 if (provider.Enabled
                     && _endpointKeys.TryGetValue(name, out var epKey)
-                    && manifest.ProviderEndpoints.TryGetValue(epKey, out var baseUrl)
+                    && provider.Endpoints.TryGetValue(epKey, out var baseUrl)
                     && !string.IsNullOrWhiteSpace(baseUrl))
                 {
                     using var probeCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -278,13 +276,13 @@ public static class SettingsEndpoints
         // ── GET /settings/organization-template ───────────────────────────────────
 
         grp.MapGet("/organization-template", (
-            IStorageManifest                              storageManifest,
+            IConfigurationLoader                          configLoader,
             Microsoft.Extensions.Options.IOptions<Tanaste.Ingestion.Models.IngestionOptions> ingestionOpts,
             IFileOrganizer                                organizer) =>
         {
-            var manifest = storageManifest.Load();
-            string template = !string.IsNullOrWhiteSpace(manifest.OrganizationTemplate)
-                ? manifest.OrganizationTemplate
+            var core = configLoader.LoadCore();
+            string template = !string.IsNullOrWhiteSpace(core.OrganizationTemplate)
+                ? core.OrganizationTemplate
                 : ingestionOpts.Value.OrganizationTemplate;
 
             string? preview = organizer.ValidateTemplate(template, out _);
@@ -304,7 +302,7 @@ public static class SettingsEndpoints
 
         grp.MapPut("/organization-template", (
             UpdateOrganizationTemplateRequest request,
-            IStorageManifest                  storageManifest,
+            IConfigurationLoader              configLoader,
             IFileOrganizer                    organizer) =>
         {
             if (string.IsNullOrWhiteSpace(request.Template))
@@ -314,9 +312,9 @@ public static class SettingsEndpoints
             if (preview is null)
                 return Results.BadRequest(new { error = error ?? "Invalid template." });
 
-            var manifest = storageManifest.Load();
-            manifest.OrganizationTemplate = request.Template;
-            storageManifest.Save(manifest);
+            var core = configLoader.LoadCore();
+            core.OrganizationTemplate = request.Template;
+            configLoader.SaveCore(core);
 
             return Results.Ok(new OrganizationTemplateResponse
             {

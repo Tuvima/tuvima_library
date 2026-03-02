@@ -1,0 +1,7 @@
+{
+  "auto_link_threshold": 0.85,
+  "conflict_threshold": 0.6,
+  "conflict_epsilon": 0.05,
+  "stale_claim_decay_days": 90,
+  "stale_claim_decay_factor": 0.8
+}

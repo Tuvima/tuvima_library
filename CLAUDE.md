@@ -380,7 +380,7 @@ Edition-level hydration **requires the MediaAsset to already exist in the databa
 
 A `WikidataSparqlPropertyMap` contains the Master Authority Table — 50+ Wikidata property entries across 8 categories: Core Identity, People (Work-scoped), People (Person-scoped), Lore & Narrative, Bridges: Books, Bridges: Movies/TV, Bridges: Comics/Anime, Bridges: Music/Audio, and Social Pivot. Each entry maps a Wikidata P-code (e.g. `P179` → `series`) to a Tanaste claim key with a configured confidence and scope (Work, Person, or Both).
 
-The defaults live in code (`WikidataSparqlPropertyMap.DefaultMap`). Users can override confidence values, remap claim keys, or disable properties entirely via `tanaste_master.json` — zero code changes needed. The `MergeOverrides()` method applies JSON overrides on top of defaults at runtime.
+The defaults live in code (`WikidataSparqlPropertyMap.DefaultMap`) and are exported to `config/universe/wikidata.json` on first run. Users can override confidence values, remap claim keys, reorder bridge lookups, or disable properties entirely by editing the universe config file — zero code changes needed. The adapter loads the universe config at runtime and falls back to compiled defaults if the file is missing or corrupt. (See §3.11 for the full configuration architecture.)
 
 Static helpers generate SPARQL queries:
 - `BuildWorkSparqlQuery(qid)` — fetches all Work-scoped properties in a single SPARQL query
@@ -486,6 +486,56 @@ The provider card's capability icon set expanded from 12 entries to 60+ entries,
 - **Reliability** — The three-step QID resolution (bridge IDs → title search → SPARQL ingest) maximises match rate. If no match is found, the file keeps its existing metadata untouched.
 - **Performance** — User-triggered hydration bypasses the background queue for immediate results. The background pipeline continues to handle automatic post-ingestion enrichment.
 - **Privacy** — Only titles, ISBNs, ASINs, and bridge IDs are sent to Wikidata. Everything hydrated lives locally.
+
+### 3.11 — Configuration Architecture Standard
+
+**Plain English:** All Engine settings live in a structured `config/` directory as individual JSON files, grouped by concern. This replaces the legacy single-file `tanaste_master.json` approach. The old file is automatically migrated on first run and renamed to `.migrated`.
+
+**Directory layout:**
+```
+config/
+  tanaste.json                    ← Core: paths, schema version, org template
+  scoring.json                    ← Scoring: thresholds, decay
+  maintenance.json                ← Maintenance: retention, vacuum, sync
+  providers/
+    local_filesystem.json         ← Per-provider: weight, enabled, endpoints,
+    apple_books_ebook.json           field_weights, throttle_ms, max_concurrency
+    apple_books_audiobook.json
+    audnexus.json
+    open_library.json
+    wikidata.json
+  universe/
+    wikidata.json                 ← Universe knowledge model: full property map,
+                                     bridge priority, value transforms, scope exclusions
+```
+
+**Key distinction:**
+- `config/providers/wikidata.json` = how the **scoring engine** treats Wikidata (weight, field weights, throttle, enabled)
+- `config/universe/wikidata.json` = the **knowledge model** — how to interpret Wikidata's data (property map, bridge lookup order, value transforms, which P-codes are entity-valued, which scopes exclude which properties)
+
+**Architectural rules:**
+1. **One concern per file** — each config file contains a single, cohesive group of related settings.
+2. **Minimum grouping threshold** — if a proposed configuration section has fewer than 3 fields, Claude must ask the Product Owner how to handle it: combine with another section, give it its own file anyway, or defer until more settings accumulate.
+3. **Provider files are self-contained** — each provider carries its own endpoints, weights, capability tags, throttle delay, and concurrency limit in `config/providers/{name}.json`.
+4. **Universe files hold the knowledge model** — property mappings, bridge definitions, value transforms, and scope exclusions live in `config/universe/{provider}.json`, separate from provider scoring config.
+5. **Universe replaceability** — the schema is generic enough that a different universe provider could use the same model shape.
+6. **Example files committed, live files gitignored** — `config.example/` is in git; `config/` is gitignored.
+7. **Migration contract** — the `ConfigurationDirectoryLoader` auto-migrates from the legacy single-file format on first run. The legacy file is renamed to `.migrated`.
+8. **Fallback resilience** — compiled defaults in `WikidataSparqlPropertyMap.DefaultMap` serve as fallback if config files are missing or corrupt.
+9. **Transform registry in code, transform assignment in config** — transform functions are behaviour (live in `ValueTransformRegistry.cs`); which property uses which transform is data (lives in `config/universe/wikidata.json`).
+10. **Config directory path** — specified in `appsettings.json` as `Tanaste:ConfigDirectory` (default: `"config"`). Legacy `Tanaste:ManifestPath` is still checked as fallback for backward compatibility.
+
+**Key types:**
+- `IConfigurationLoader` (`Tanaste.Storage.Contracts`) — granular config access contract: `LoadCore()`, `LoadScoring()`, `LoadMaintenance()`, `LoadProvider(name)`, `LoadAllProviders()`, generic `LoadConfig<T>(subdirectory, name)`.
+- `ConfigurationDirectoryLoader` (`Tanaste.Storage`) — implements both `IConfigurationLoader` (new granular access) and `IStorageManifest` (backward compat). Auto-migrates legacy files; `.bak` rotation on every save.
+- `CoreConfiguration`, `ProviderConfiguration` (`Tanaste.Storage.Models`) — settings models.
+- `UniverseConfiguration`, `WikidataPropertyConfig`, `BridgeLookupEntry` (`Tanaste.Providers.Models`) — universe knowledge model.
+- `ValueTransformRegistry` (`Tanaste.Providers.Models`) — named transform function registry.
+
+**Why this matters to the business:**
+- **Extensibility** — Adding a new Wikidata property, reordering bridge lookups, or disabling a transform is a JSON edit. Zero code changes.
+- **Maintenance** — Each config file is small, focused, and independently editable. A provider misconfiguration does not corrupt scoring settings.
+- **Reliability** — Compiled defaults still serve as fallback if config files are missing or corrupt. Migration from the old single-file format is automatic.
 
 ---
 

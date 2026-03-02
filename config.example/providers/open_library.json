@@ -1,0 +1,14 @@
+{
+  "name": "open_library",
+  "version": "1.0",
+  "enabled": false,
+  "weight": 0.7,
+  "domain": "Ebook",
+  "capability_tags": ["series"],
+  "field_weights": {
+    "series": 0.9
+  },
+  "endpoints": {},
+  "throttle_ms": 0,
+  "max_concurrency": 1
+}

@@ -54,6 +54,10 @@ desktop.ini
 *.sqlite
 *.sqlite3
 
-# Live manifest — copy tanaste_master.example.json and edit locally
+# Live manifest (legacy) — copy tanaste_master.example.json and edit locally
 tanaste_master.json
 tanaste_master.json.bak
+tanaste_master.json.migrated
+
+# Live configuration directory — copy config.example/ to config/ and edit locally
+config/

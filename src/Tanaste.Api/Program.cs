@@ -20,6 +20,7 @@ using Tanaste.Storage.Contracts;
 using Tanaste.Domain.Enums;
 using Tanaste.Providers.Adapters;
 using Tanaste.Providers.Contracts;
+using Tanaste.Providers.Models;
 using Tanaste.Providers.Services;
 using Tanaste.Identity;
 using Tanaste.Identity.Contracts;
@@ -106,8 +107,25 @@ builder.Services.AddSingleton<IDatabaseConnection>(sp =>
     return db;
 });
 
-string manifestPath = config["Tanaste:ManifestPath"] ?? "tanaste_master.json";
-builder.Services.AddSingleton<IStorageManifest>(_ => new ManifestParser(manifestPath));
+// ── Configuration Directory Loader ────────────────────────────────────────────
+// Reads individual config files from config/ directory. Auto-migrates from
+// legacy tanaste_master.json on first run. Registered as both IStorageManifest
+// (backward compat) and IConfigurationLoader (granular access).
+string configDir     = config["Tanaste:ConfigDirectory"] ?? "config";
+string manifestPath  = config["Tanaste:ManifestPath"] ?? "tanaste_master.json";
+var    configLoader  = new ConfigurationDirectoryLoader(configDir, manifestPath);
+builder.Services.AddSingleton<IStorageManifest>(configLoader);
+builder.Services.AddSingleton<IConfigurationLoader>(configLoader);
+
+// Bootstrap the default universe config if it doesn't exist yet.
+// The ConfigurationDirectoryLoader (in Tanaste.Storage) creates the universe/
+// directory but cannot write the Wikidata property map because that model lives
+// in Tanaste.Providers. This bootstrap bridges the two projects.
+if (configLoader.LoadConfig<UniverseConfiguration>("universe", "wikidata") is null)
+{
+    var defaultUniverse = WikidataSparqlPropertyMap.ExportAsUniverseConfiguration();
+    configLoader.SaveConfig("universe", "wikidata", defaultUniverse);
+}
 builder.Services.AddSingleton<ITransactionJournal, TransactionJournal>();
 builder.Services.AddSingleton<IMediaAssetRepository, MediaAssetRepository>();
 builder.Services.AddSingleton<IHubRepository, HubRepository>();
@@ -153,23 +171,22 @@ builder.Services.AddSingleton<IHubArbiter>(sp =>
 // ── Ingestion (for POST /ingestion/scan) ─────────────────────────────────────
 builder.Services.Configure<IngestionOptions>(config.GetSection(IngestionOptions.SectionName));
 
-// PostConfigure reads saved folder paths from the manifest and overrides the
-// IngestionOptions values bound from appsettings.json.  This means a path
-// saved via PUT /settings/folders survives an Engine restart without touching
-// appsettings.json — the manifest is the persistent source of truth.
+// PostConfigure reads saved folder paths from the core configuration and
+// overrides the IngestionOptions values bound from appsettings.json.  This means
+// a path saved via PUT /settings/folders survives an Engine restart without
+// touching appsettings.json — the config directory is the persistent source of truth.
 builder.Services.PostConfigure<IngestionOptions>(opts =>
 {
     try
     {
-        var mp = config["Tanaste:ManifestPath"] ?? "tanaste_master.json";
-        var m  = new Tanaste.Storage.ManifestParser(mp).Load();
-        if (!string.IsNullOrWhiteSpace(m.WatchDirectory))       opts.WatchDirectory       = m.WatchDirectory;
-        if (!string.IsNullOrWhiteSpace(m.LibraryRoot))          opts.LibraryRoot          = m.LibraryRoot;
-        if (!string.IsNullOrWhiteSpace(m.OrganizationTemplate)) opts.OrganizationTemplate = m.OrganizationTemplate;
+        var core = configLoader.LoadCore();
+        if (!string.IsNullOrWhiteSpace(core.WatchDirectory))       opts.WatchDirectory       = core.WatchDirectory;
+        if (!string.IsNullOrWhiteSpace(core.LibraryRoot))          opts.LibraryRoot          = core.LibraryRoot;
+        if (!string.IsNullOrWhiteSpace(core.OrganizationTemplate)) opts.OrganizationTemplate = core.OrganizationTemplate;
     }
     catch
     {
-        // First run — manifest may not yet have folder keys; appsettings.json values stand.
+        // First run — config may not yet have folder keys; appsettings.json values stand.
     }
 });
 

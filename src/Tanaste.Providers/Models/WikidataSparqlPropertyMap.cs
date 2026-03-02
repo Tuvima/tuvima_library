@@ -71,6 +71,8 @@ public static class WikidataSparqlPropertyMap
     /// Override entries from <c>tanaste_master.json → wikidata_property_map</c>.
     /// Each entry targets a P-code and may override claim key, confidence, or enabled state.
     /// </param>
+    [Obsolete("Use universe configuration (config/universe/wikidata.json) instead. " +
+              "This method remains for legacy migration compatibility.")]
     public static IReadOnlyDictionary<string, WikidataProperty> MergeOverrides(
         IReadOnlyList<WikidataPropertyOverride>? overrides)
     {
@@ -113,18 +115,110 @@ public static class WikidataSparqlPropertyMap
         return merged;
     }
 
+    // ── Universe Config Export ─────────────────────────────────────────────
+
+    /// <summary>
+    /// Exports the compiled <see cref="DefaultMap"/> as a <see cref="UniverseConfiguration"/>
+    /// suitable for writing to <c>config/universe/wikidata.json</c>.
+    ///
+    /// Used by the configuration migration path and for generating default universe files.
+    /// </summary>
+    public static UniverseConfiguration ExportAsUniverseConfiguration()
+    {
+        var propertyMap = new Dictionary<string, WikidataPropertyConfig>(
+            DefaultMap.Count, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var (pCode, prop) in DefaultMap)
+        {
+            propertyMap[pCode] = new WikidataPropertyConfig
+            {
+                ClaimKey       = prop.ClaimKey,
+                Category       = prop.Category,
+                EntityScope    = prop.EntityScope,
+                Confidence     = prop.Confidence,
+                IsBridge       = prop.IsBridge,
+                Enabled        = prop.Enabled,
+                IsEntityValued = prop.IsEntityValued,
+                ValueTransform = prop.ValueTransform,
+            };
+        }
+
+        return new UniverseConfiguration
+        {
+            ProviderName = "wikidata",
+            PropertyMap  = propertyMap,
+
+            // Default bridge lookup priority — matches the compiled adapter order.
+            BridgeLookupPriority =
+            [
+                new() { PCode = "P3861", RequestField = "apple_books_id" },
+                new() { PCode = "P3398", RequestField = "audible_id"     },
+                new() { PCode = "P4947", RequestField = "tmdb_id"        },
+                new() { PCode = "P345",  RequestField = "imdb_id"        },
+                new() { PCode = "P1566", RequestField = "asin"           },
+                new() { PCode = "P212",  RequestField = "isbn"           },
+            ],
+
+            // Copyright constraint: P18 (Image) excluded from Work scope.
+            ScopeExclusions = new()
+            {
+                ["Work"] = ["P18"],
+            },
+
+            CommonsUrlTemplate =
+                "https://commons.wikimedia.org/wiki/Special:FilePath/{0}?width=300",
+        };
+    }
+
+    /// <summary>
+    /// Converts a <see cref="UniverseConfiguration"/> property map back to the
+    /// runtime <see cref="WikidataProperty"/> dictionary used by SPARQL builders.
+    ///
+    /// This is the reverse of <see cref="ExportAsUniverseConfiguration"/> and allows
+    /// the adapter to use externalized configuration at runtime.
+    /// </summary>
+    public static IReadOnlyDictionary<string, WikidataProperty> BuildMapFromUniverse(
+        UniverseConfiguration universe)
+    {
+        ArgumentNullException.ThrowIfNull(universe);
+        var map = new Dictionary<string, WikidataProperty>(
+            universe.PropertyMap.Count, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var (pCode, config) in universe.PropertyMap)
+        {
+            map[pCode] = new WikidataProperty
+            {
+                PCode          = pCode,
+                ClaimKey       = config.ClaimKey,
+                Category       = config.Category,
+                EntityScope    = config.EntityScope,
+                Confidence     = config.Confidence,
+                IsBridge       = config.IsBridge,
+                Enabled        = config.Enabled,
+                IsEntityValued = config.IsEntityValued,
+                ValueTransform = config.ValueTransform,
+            };
+        }
+
+        return map;
+    }
+
     // ── SPARQL Query Builders ────────────────────────────────────────────────
 
     /// <summary>
     /// Build a SPARQL SELECT query for all enabled Work-scoped properties of a given QID.
-    /// <b>Deliberately excludes P18 (Image)</b> — Person-only due to copyright constraints.
+    /// P-codes listed in <paramref name="scopeExclusions"/> are skipped.
+    /// Default exclusion: <c>P18</c> (Image) — Person-only due to copyright constraints.
     /// </summary>
     public static string BuildWorkSparqlQuery(
         string qid,
-        IReadOnlyDictionary<string, WikidataProperty>? effectiveMap = null)
+        IReadOnlyDictionary<string, WikidataProperty>? effectiveMap = null,
+        IReadOnlyCollection<string>? scopeExclusions = null)
     {
+        var exclusions = scopeExclusions ?? (IReadOnlyCollection<string>)["P18"];
+
         var props = GetByScope("Work", effectiveMap)
-            .Where(p => p.PCode != "P18") // P18 is Person-only (copyright)
+            .Where(p => !exclusions.Contains(p.PCode))
             .ToList();
 
         return BuildSparqlQuery(qid, props);
@@ -174,7 +268,7 @@ public static class WikidataSparqlPropertyMap
             var varName = p.PCode.ToLowerInvariant(); // e.g. ?p179
             sb.Append(" ?").Append(varName);
             // Entity-valued properties also get a label variable
-            if (IsEntityValued(p.PCode))
+            if (p.IsEntityValued)
                 sb.Append(" ?").Append(varName).Append("Label");
         }
         sb.AppendLine();
@@ -189,7 +283,7 @@ public static class WikidataSparqlPropertyMap
               .Append(" wdt:").Append(p.PCode)
               .Append(" ?").Append(varName).Append(" . ");
 
-            if (IsEntityValued(p.PCode))
+            if (p.IsEntityValued)
             {
                 sb.Append("?").Append(varName)
                   .Append(" rdfs:label ?").Append(varName).Append("Label . ")
@@ -205,37 +299,6 @@ public static class WikidataSparqlPropertyMap
         return sb.ToString();
     }
 
-    /// <summary>
-    /// Properties whose Wikidata values are Q-items (entities) rather than literals.
-    /// These need rdfs:label fetching to get a human-readable name.
-    /// </summary>
-    private static bool IsEntityValued(string pCode) => pCode switch
-    {
-        "P31"   => true,  // instance of
-        "P179"  => true,  // series
-        "P8345" => true,  // franchise
-        "P155"  => true,  // preceded by
-        "P156"  => true,  // followed by
-        "P50"   => true,  // author
-        "P110"  => true,  // illustrator
-        "P57"   => true,  // director
-        "P161"  => true,  // cast member
-        "P987"  => true,  // narrator
-        "P725"  => true,  // voice actor
-        "P58"   => true,  // screenwriter
-        "P86"   => true,  // composer
-        "P800"  => true,  // notable work
-        "P106"  => true,  // occupation
-        "P840"  => true,  // narrative location
-        "P674"  => true,  // characters
-        "P921"  => true,  // main subject
-        "P1434" => true,  // fictional universe
-        "P144"  => true,  // based on
-        "P4584" => true,  // first appearance
-        "P407"  => true,  // language of work
-        _ => false,
-    };
-
     // ── Default Map Builder ──────────────────────────────────────────────────
 
     private static Dictionary<string, WikidataProperty> BuildDefaultMap()
@@ -243,54 +306,57 @@ public static class WikidataSparqlPropertyMap
         var map = new Dictionary<string, WikidataProperty>(64, StringComparer.OrdinalIgnoreCase);
 
         void Add(string pCode, string claimKey, string category,
-                 string scope = "Work", double confidence = 0.9, bool bridge = false)
+                 string scope = "Work", double confidence = 0.9, bool bridge = false,
+                 bool entityValued = false, string? transform = null)
         {
             map[pCode] = new WikidataProperty
             {
-                PCode       = pCode,
-                ClaimKey    = claimKey,
-                Category    = category,
-                EntityScope = scope,
-                Confidence  = confidence,
-                IsBridge    = bridge,
+                PCode          = pCode,
+                ClaimKey       = claimKey,
+                Category       = category,
+                EntityScope    = scope,
+                Confidence     = confidence,
+                IsBridge       = bridge,
+                IsEntityValued = entityValued,
+                ValueTransform = transform,
             };
         }
 
         // ── Core Identity (Work-scoped) ──────────────────────────────────
-        Add("P31",   "instance_of",     "Core Identity");
+        Add("P31",   "instance_of",     "Core Identity",                       entityValued: true);
         Add("P1476", "title",           "Core Identity");
-        Add("P179",  "series",          "Core Identity");
-        Add("P1545", "series_position", "Core Identity");
-        Add("P8345", "franchise",       "Core Identity");
-        Add("P155",  "preceded_by",     "Core Identity", confidence: 0.8);
-        Add("P156",  "followed_by",     "Core Identity", confidence: 0.8);
-        Add("P577",  "year",            "Core Identity");
+        Add("P179",  "series",          "Core Identity",                       entityValued: true);
+        Add("P1545", "series_position", "Core Identity",                       transform: "numeric_portion");
+        Add("P8345", "franchise",       "Core Identity",                       entityValued: true);
+        Add("P155",  "preceded_by",     "Core Identity", confidence: 0.8,      entityValued: true);
+        Add("P156",  "followed_by",     "Core Identity", confidence: 0.8,      entityValued: true);
+        Add("P577",  "year",            "Core Identity",                       transform: "year_from_iso");
 
         // ── People — Work-scoped (link Work → Person QID) ───────────────
-        Add("P50",  "author",       "People");
-        Add("P110", "illustrator",  "People");
-        Add("P57",  "director",     "People");
-        Add("P161", "cast_member",  "People");
-        Add("P987", "narrator",     "People");
-        Add("P725", "voice_actor",  "People");
-        Add("P58",  "screenwriter", "People");
-        Add("P86",  "composer",     "People");
+        Add("P50",  "author",       "People",                                  entityValued: true);
+        Add("P110", "illustrator",  "People",                                  entityValued: true);
+        Add("P57",  "director",     "People",                                  entityValued: true);
+        Add("P161", "cast_member",  "People",                                  entityValued: true);
+        Add("P987", "narrator",     "People",                                  entityValued: true);
+        Add("P725", "voice_actor",  "People",                                  entityValued: true);
+        Add("P58",  "screenwriter", "People",                                  entityValued: true);
+        Add("P86",  "composer",     "People",                                  entityValued: true);
 
         // ── People — Person-scoped (enrich the Person entity itself) ────
         // P18 (Image): Person-only — copyright constraint.
         // Wikimedia Commons headshots of public figures are not copyrighted.
         // Media cover art comes exclusively from Apple Books, Audnexus, and TMDB.
-        Add("P800", "notable_work", "People", scope: "Person", confidence: 0.85);
-        Add("P18",  "headshot_url", "People", scope: "Person");
-        Add("P106", "occupation",   "People", scope: "Person", confidence: 0.85);
+        Add("P800", "notable_work", "People", scope: "Person", confidence: 0.85, entityValued: true);
+        Add("P18",  "headshot_url", "People", scope: "Person",                  transform: "commons_url");
+        Add("P106", "occupation",   "People", scope: "Person", confidence: 0.85, entityValued: true);
 
         // ── Lore & Narrative (Work-scoped) ───────────────────────────────
-        Add("P840",  "narrative_location", "Lore & Narrative", confidence: 0.8);
-        Add("P674",  "characters",         "Lore & Narrative", confidence: 0.8);
-        Add("P921",  "main_subject",       "Lore & Narrative", confidence: 0.8);
-        Add("P1434", "fictional_universe", "Lore & Narrative", confidence: 0.8);
-        Add("P144",  "based_on",           "Lore & Narrative", confidence: 0.8);
-        Add("P4584", "first_appearance",   "Lore & Narrative", confidence: 0.8);
+        Add("P840",  "narrative_location", "Lore & Narrative", confidence: 0.8, entityValued: true);
+        Add("P674",  "characters",         "Lore & Narrative", confidence: 0.8, entityValued: true);
+        Add("P921",  "main_subject",       "Lore & Narrative", confidence: 0.8, entityValued: true);
+        Add("P1434", "fictional_universe", "Lore & Narrative", confidence: 0.8, entityValued: true);
+        Add("P144",  "based_on",           "Lore & Narrative", confidence: 0.8, entityValued: true);
+        Add("P4584", "first_appearance",   "Lore & Narrative", confidence: 0.8, entityValued: true);
 
         // ── Bridges: Books (Work-scoped) ─────────────────────────────────
         Add("P3861", "apple_books_id", "Bridges: Books", confidence: 1.0, bridge: true);

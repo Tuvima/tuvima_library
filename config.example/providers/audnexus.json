@@ -1,0 +1,18 @@
+{
+  "name": "audnexus",
+  "version": "1.0",
+  "enabled": true,
+  "weight": 0.7,
+  "domain": "Audiobook",
+  "capability_tags": ["cover", "narrator", "series"],
+  "field_weights": {
+    "cover": 0.9,
+    "narrator": 0.9,
+    "series": 0.9
+  },
+  "endpoints": {
+    "audnexus": "https://api.audnexus.com"
+  },
+  "throttle_ms": 0,
+  "max_concurrency": 1
+}

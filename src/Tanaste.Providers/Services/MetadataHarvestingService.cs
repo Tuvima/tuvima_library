@@ -56,7 +56,7 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
     private readonly IPersonRepository _personRepo;
     private readonly IScoringEngine _scoringEngine;
     private readonly IEventPublisher _eventPublisher;
-    private readonly IStorageManifest _storageManifest;
+    private readonly IConfigurationLoader _configLoader;
     private readonly ILogger<MetadataHarvestingService> _logger;
 
     // ── Constructor ───────────────────────────────────────────────────────────
@@ -68,7 +68,7 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         IPersonRepository personRepo,
         IScoringEngine scoringEngine,
         IEventPublisher eventPublisher,
-        IStorageManifest storageManifest,
+        IConfigurationLoader configLoader,
         ILogger<MetadataHarvestingService> logger)
     {
         ArgumentNullException.ThrowIfNull(providers);
@@ -77,7 +77,7 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         ArgumentNullException.ThrowIfNull(personRepo);
         ArgumentNullException.ThrowIfNull(scoringEngine);
         ArgumentNullException.ThrowIfNull(eventPublisher);
-        ArgumentNullException.ThrowIfNull(storageManifest);
+        ArgumentNullException.ThrowIfNull(configLoader);
         ArgumentNullException.ThrowIfNull(logger);
 
         _providers      = providers.ToList();
@@ -86,7 +86,7 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         _personRepo     = personRepo;
         _scoringEngine  = scoringEngine;
         _eventPublisher = eventPublisher;
-        _storageManifest = storageManifest;
+        _configLoader   = configLoader;
         _logger         = logger;
 
         _channel = Channel.CreateBounded<HarvestRequest>(new BoundedChannelOptions(500)
@@ -146,13 +146,17 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
 
     private async Task ProcessOneAsync(HarvestRequest request, CancellationToken ct)
     {
-        var manifest = _storageManifest.Load();
+        var allProviderConfigs = _configLoader.LoadAllProviders();
+        var scoring            = _configLoader.LoadScoring();
 
-        // Build a lookup: provider name → base URL.
-        var endpointMap = manifest.ProviderEndpoints;
+        // Build composite endpoint map from all provider configs.
+        var endpointMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var pc in allProviderConfigs)
+            foreach (var (key, url) in pc.Endpoints)
+                endpointMap.TryAdd(key, url);
 
-        // Build provider weight maps from manifest.
-        var (providerWeights, providerFieldWeights) = BuildWeightMaps(manifest);
+        // Build provider weight maps from provider configs.
+        var (providerWeights, providerFieldWeights) = BuildWeightMaps(allProviderConfigs);
 
         var sparqlBaseUrl = ResolveSparqlBaseUrl(endpointMap);
 
@@ -206,11 +210,11 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
             var allClaims = await _claimRepo.GetByEntityAsync(request.EntityId, ct).ConfigureAwait(false);
             var scoringConfig = new ScoringConfiguration
             {
-                AutoLinkThreshold    = manifest.Scoring.AutoLinkThreshold,
-                ConflictThreshold    = manifest.Scoring.ConflictThreshold,
-                ConflictEpsilon      = manifest.Scoring.ConflictEpsilon,
-                StaleClaimDecayDays  = manifest.Scoring.StaleClaimDecayDays,
-                StaleClaimDecayFactor = manifest.Scoring.StaleClaimDecayFactor,
+                AutoLinkThreshold    = scoring.AutoLinkThreshold,
+                ConflictThreshold    = scoring.ConflictThreshold,
+                ConflictEpsilon      = scoring.ConflictEpsilon,
+                StaleClaimDecayDays  = scoring.StaleClaimDecayDays,
+                StaleClaimDecayFactor = scoring.StaleClaimDecayFactor,
             };
             var scoringContext = new ScoringContext
             {
@@ -343,26 +347,26 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
 
     private (IReadOnlyDictionary<Guid, double> Weights,
              IReadOnlyDictionary<Guid, IReadOnlyDictionary<string, double>>? FieldWeights)
-        BuildWeightMaps(Tanaste.Storage.Models.TanasteMasterManifest manifest)
+        BuildWeightMaps(IReadOnlyList<Tanaste.Storage.Models.ProviderConfiguration> providerConfigs)
     {
         var weights      = new Dictionary<Guid, double>();
         Dictionary<Guid, IReadOnlyDictionary<string, double>>? fieldWeights = null;
 
         foreach (var provider in _providers)
         {
-            var bootstrap = manifest.Providers
+            var provConfig = providerConfigs
                 .FirstOrDefault(p => string.Equals(p.Name, provider.Name,
                     StringComparison.OrdinalIgnoreCase));
 
-            if (bootstrap is null) continue;
+            if (provConfig is null) continue;
 
-            weights[provider.ProviderId] = bootstrap.Weight;
+            weights[provider.ProviderId] = provConfig.Weight;
 
-            if (bootstrap.FieldWeights.Count > 0)
+            if (provConfig.FieldWeights.Count > 0)
             {
                 fieldWeights ??= new Dictionary<Guid, IReadOnlyDictionary<string, double>>();
                 fieldWeights[provider.ProviderId] =
-                    (IReadOnlyDictionary<string, double>)bootstrap.FieldWeights;
+                    (IReadOnlyDictionary<string, double>)provConfig.FieldWeights;
             }
         }
 

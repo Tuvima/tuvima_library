@@ -1,0 +1,19 @@
+{
+  "name": "wikidata",
+  "version": "1.0",
+  "enabled": true,
+  "weight": 0.7,
+  "domain": "Universal",
+  "capability_tags": ["series", "franchise", "person_id"],
+  "field_weights": {
+    "series": 1.0,
+    "franchise": 1.0,
+    "person_id": 1.0
+  },
+  "endpoints": {
+    "wikidata_api": "https://www.wikidata.org/w/api.php",
+    "wikidata_sparql": "https://query.wikidata.org/sparql"
+  },
+  "throttle_ms": 1100,
+  "max_concurrency": 1
+}

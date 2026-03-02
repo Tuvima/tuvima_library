@@ -187,7 +187,7 @@ public static class MetadataEndpoints
             IMetadataClaimRepository claimRepo,
             IScoringEngine scoringEngine,
             IEnumerable<IExternalMetadataProvider> providers,
-            IStorageManifest storageManifest,
+            IConfigurationLoader configLoader,
             IEventPublisher publisher,
             ISystemActivityRepository activityRepo,
             CancellationToken ct) =>
@@ -207,11 +207,11 @@ public static class MetadataEndpoints
             var canonicals = await canonicalRepo.GetByEntityAsync(entityId, ct);
             var hints = canonicals.ToDictionary(c => c.Key, c => c.Value);
 
-            // 3. Resolve the base URLs from the manifest.
-            var manifest = storageManifest.Load();
-            var apiBaseUrl = manifest.ProviderEndpoints
-                .GetValueOrDefault("wikidata_api", string.Empty);
-            var sparqlBaseUrl = manifest.ProviderEndpoints
+            // 3. Resolve the base URLs from wikidata provider config.
+            var wikidataConfig = configLoader.LoadProvider("wikidata");
+            var apiBaseUrl = wikidataConfig?.Endpoints
+                .GetValueOrDefault("wikidata_api", string.Empty) ?? string.Empty;
+            var sparqlBaseUrl = wikidataConfig?.Endpoints
                 .GetValueOrDefault("wikidata_sparql");
 
             // 4. Build the lookup request.
@@ -276,30 +276,32 @@ public static class MetadataEndpoints
 
             // 7. Re-score entity.
             var allClaims = await claimRepo.GetByEntityAsync(entityId, ct);
+            var scoring = configLoader.LoadScoring();
             var scoringConfig = new ScoringConfiguration
             {
-                AutoLinkThreshold     = manifest.Scoring.AutoLinkThreshold,
-                ConflictThreshold     = manifest.Scoring.ConflictThreshold,
-                ConflictEpsilon       = manifest.Scoring.ConflictEpsilon,
-                StaleClaimDecayDays   = manifest.Scoring.StaleClaimDecayDays,
-                StaleClaimDecayFactor = manifest.Scoring.StaleClaimDecayFactor,
+                AutoLinkThreshold     = scoring.AutoLinkThreshold,
+                ConflictThreshold     = scoring.ConflictThreshold,
+                ConflictEpsilon       = scoring.ConflictEpsilon,
+                StaleClaimDecayDays   = scoring.StaleClaimDecayDays,
+                StaleClaimDecayFactor = scoring.StaleClaimDecayFactor,
             };
 
-            // Build provider weights from manifest (match by name, key by ProviderId).
+            // Build provider weights from provider configs (match by name, key by ProviderId).
+            var allProviderConfigs = configLoader.LoadAllProviders();
             var providerWeights = new Dictionary<Guid, double>();
             Dictionary<Guid, IReadOnlyDictionary<string, double>>? fieldWeights = null;
             foreach (var prov in providers)
             {
-                var bootstrap = manifest.Providers
+                var provConfig = allProviderConfigs
                     .FirstOrDefault(b => string.Equals(b.Name, prov.Name,
                         StringComparison.OrdinalIgnoreCase));
-                if (bootstrap is null) continue;
+                if (provConfig is null) continue;
 
-                providerWeights[prov.ProviderId] = bootstrap.Weight;
-                if (bootstrap.FieldWeights.Count > 0)
+                providerWeights[prov.ProviderId] = provConfig.Weight;
+                if (provConfig.FieldWeights.Count > 0)
                 {
                     fieldWeights ??= new();
-                    fieldWeights[prov.ProviderId] = (IReadOnlyDictionary<string, double>)bootstrap.FieldWeights;
+                    fieldWeights[prov.ProviderId] = (IReadOnlyDictionary<string, double>)provConfig.FieldWeights;
                 }
             }
 
