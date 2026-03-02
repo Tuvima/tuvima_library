@@ -115,6 +115,24 @@ public interface ITanasteApiClient
     /// <summary>PUT /settings/providers/{name} — toggle a provider's enabled state.</summary>
     Task<bool> UpdateProviderAsync(string name, bool enabled, CancellationToken ct = default);
 
+    /// <summary>POST /settings/providers/{name}/test — test a provider's connectivity.</summary>
+    Task<ProviderTestResultDto?> TestProviderAsync(string name, CancellationToken ct = default);
+
+    /// <summary>POST /settings/providers/{name}/sample — fetch sample claims from a provider.</summary>
+    Task<ProviderSampleResultDto?> FetchProviderSampleAsync(
+        string name, string title, string? author = null,
+        string? isbn = null, string? asin = null, string? mediaType = null,
+        CancellationToken ct = default);
+
+    /// <summary>PUT /settings/providers/{name}/config — save full provider configuration.</summary>
+    Task<bool> SaveProviderConfigAsync(string name, ProviderConfigUpdateDto config, CancellationToken ct = default);
+
+    /// <summary>DELETE /settings/providers/{name} — disable/delete a provider.</summary>
+    Task<bool> DeleteProviderAsync(string name, CancellationToken ct = default);
+
+    /// <summary>PUT /settings/providers/priority — save provider priority order.</summary>
+    Task<bool> UpdateProviderPriorityAsync(List<string> order, CancellationToken ct = default);
+
     // ── Organization template ─────────────────────────────────────────────────
 
     /// <summary>GET /settings/organization-template — current file organization template + preview.</summary>

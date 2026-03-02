@@ -176,7 +176,8 @@
         new("Server", "Server", true,
         [
             new(SettingsSection.Library,      Icons.Material.Outlined.FolderOpen, "Library",      true, null),
-            new(SettingsSection.Metadata,     Icons.Material.Outlined.Cloud,      "Metadata",     true, null),
+            new(SettingsSection.Universe,     Icons.Material.Outlined.Public,     "Universe",     true, null),
+            new(SettingsSection.Providers,    Icons.Material.Outlined.Extension,  "Providers",    true, null),
             new(SettingsSection.Connectivity, Icons.Material.Outlined.Wifi,       "Connectivity", true, null),
             new(SettingsSection.ApiKeys,      Icons.Material.Outlined.VpnKey,     "API Keys",     true, null),
             new(SettingsSection.Conflicts,    Icons.Material.Outlined.Warning,    "Conflicts",    true, "conflicts"),
@@ -261,7 +262,7 @@
     public enum SettingsSection
     {
         General, Playback, Navigation,
-        Library, Metadata, Connectivity, ApiKeys, Conflicts, Users, Maintenance
+        Library, Universe, Providers, Connectivity, ApiKeys, Conflicts, Users, Maintenance
     }
 }
 

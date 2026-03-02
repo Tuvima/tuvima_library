@@ -1,14 +1,21 @@
 {
   "name": "open_library",
   "version": "1.0",
-  "enabled": false,
+  "enabled": true,
   "weight": 0.7,
   "domain": "Ebook",
-  "capability_tags": ["series"],
+  "capability_tags": ["title", "author", "cover", "isbn", "year", "series"],
   "field_weights": {
+    "title": 0.75,
+    "author": 0.8,
+    "cover": 0.7,
+    "isbn": 0.9,
+    "year": 0.85,
     "series": 0.9
   },
-  "endpoints": {},
-  "throttle_ms": 0,
+  "endpoints": {
+    "open_library": "https://openlibrary.org"
+  },
+  "throttle_ms": 500,
   "max_concurrency": 1
 }

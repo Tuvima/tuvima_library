@@ -1,0 +1,364 @@
+@namespace Tanaste.Web.Components.Settings
+
+@* Provider Edit Panel — reusable editing surface shown inside the expanded
+   provider row (web) or the slide-over drawer (mobile).
+
+   Contains: endpoint URL, test button, property picker with trust sliders,
+   and save/cancel actions. Cannot save without a successful test and at
+   least one property selected. *@
+
+<div class="provider-edit-panel">
+
+    @* ── Endpoint URL ──────────────────────────────────────────────────── *@
+    <MudText Typo="Typo.overline" Color="Color.Primary" Class="mb-1"
+             Style="letter-spacing: 0.08em;">
+        ENDPOINT
+    </MudText>
+
+    <MudTextField @bind-Value="_endpointUrl"
+                  Placeholder="https://api.example.com/v1"
+                  Variant="Variant.Outlined"
+                  Margin="Margin.Dense"
+                  FullWidth="true"
+                  Disabled="@(!IsAdmin)"
+                  Adornment="Adornment.End"
+                  AdornmentIcon="@Icons.Material.Filled.Link"
+                  Class="mb-3" />
+
+    @* ── Test + Sample buttons ─────────────────────────────────────────── *@
+    <MudStack Row="true" Spacing="2" Class="mb-4">
+        <MudButton Variant="Variant.Outlined"
+                   Color="Color.Primary"
+                   Size="Size.Small"
+                   StartIcon="@Icons.Material.Filled.PlayArrow"
+                   OnClick="@(() => OnTestClicked.InvokeAsync())"
+                   Disabled="@(!IsAdmin || IsTesting)">
+            @if (IsTesting)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
+                @:Testing…
+            }
+            else
+            {
+                @:Test Connection
+            }
+        </MudButton>
+        <MudButton Variant="Variant.Outlined"
+                   Color="Color.Default"
+                   Size="Size.Small"
+                   StartIcon="@Icons.Material.Filled.Download"
+                   OnClick="@(() => OnSampleClicked.InvokeAsync())"
+                   Disabled="@(!IsAdmin || IsFetchingSample)">
+            @if (IsFetchingSample)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
+                @:Fetching…
+            }
+            else
+            {
+                @:Fetch Properties
+            }
+        </MudButton>
+    </MudStack>
+
+    @* ── Test result ───────────────────────────────────────────────────── *@
+    @if (TestResult is not null)
+    {
+        <MudAlert Severity="@(TestResult.Success ? Severity.Success : Severity.Error)"
+                  Class="mb-3"
+                  Dense="true">
+            @TestResult.Message
+            @if (TestResult.Success)
+            {
+                <span style="margin-left: 8px; opacity: 0.7;">(@(TestResult.ResponseTimeMs)ms)</span>
+            }
+        </MudAlert>
+    }
+
+    @* ── Properties section ────────────────────────────────────────────── *@
+    @if (SampleResult is not null && SampleResult.Claims.Count > 0)
+    {
+        <MudText Typo="Typo.overline" Color="Color.Primary" Class="mb-2"
+                 Style="letter-spacing: 0.08em;">
+            PROPERTIES (@SampleResult.Claims.Count available)
+        </MudText>
+
+        <div class="property-list">
+            @foreach (var claim in SampleResult.Claims)
+            {
+                var isSelected = _selectedProperties.ContainsKey(claim.Key);
+                var trustValue = isSelected ? _selectedProperties[claim.Key] : claim.Confidence;
+
+                <div class="property-item @(isSelected ? "selected" : "")">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        <MudCheckBox T="bool"
+                                     Value="@isSelected"
+                                     ValueChanged="@(v => ToggleProperty(claim.Key, v, claim.Confidence))"
+                                     Color="Color.Primary"
+                                     Disabled="@(!IsAdmin)"
+                                     Dense="true" />
+                        <div style="flex: 1; min-width: 0;">
+                            <MudText Typo="Typo.body2" Style="font-weight: 500;">
+                                @FormatPropertyKey(claim.Key)
+                            </MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary"
+                                     Style="@(IsImageClaim(claim.Key)
+                                         ? "word-break: break-all;"
+                                         : "overflow: hidden; text-overflow: ellipsis; white-space: nowrap;")">
+                                @if (IsImageClaim(claim.Key))
+                                {
+                                    <span title="@claim.Value">🖼 Image URL</span>
+                                }
+                                else
+                                {
+                                    @TruncateValue(claim.Value, 80)
+                                }
+                            </MudText>
+                        </div>
+                    </MudStack>
+
+                    @if (isSelected && IsAdmin)
+                    {
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mt-1 ml-10">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary" Style="min-width: 80px;">
+                                Trust: @(trustValue.ToString("P0"))
+                            </MudText>
+                            <MudSlider T="double"
+                                       Value="@trustValue"
+                                       ValueChanged="@(v => _selectedProperties[claim.Key] = v)"
+                                       Min="0.1" Max="1.0" Step="0.05"
+                                       Color="Color.Primary"
+                                       Style="flex: 1;" />
+                        </MudStack>
+                    }
+                </div>
+            }
+        </div>
+    }
+    else if (Provider.FieldWeights is { Count: > 0 })
+    {
+        @* Show existing field weights when no sample has been fetched *@
+        <MudText Typo="Typo.overline" Color="Color.Primary" Class="mb-2"
+                 Style="letter-spacing: 0.08em;">
+            CONFIGURED PROPERTIES
+        </MudText>
+
+        <div class="property-list">
+            @foreach (var (key, weight) in Provider.FieldWeights)
+            {
+                <div class="property-item selected">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        <MudIcon Icon="@Icons.Material.Filled.CheckCircle"
+                                 Color="Color.Success" Size="Size.Small" />
+                        <MudText Typo="Typo.body2" Style="font-weight: 500; flex: 1;">
+                            @FormatPropertyKey(key)
+                        </MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                            @weight.ToString("P0")
+                        </MudText>
+                    </MudStack>
+                </div>
+            }
+        </div>
+    }
+
+    @* ── Save / Delete actions ─────────────────────────────────────────── *@
+    @if (IsAdmin)
+    {
+        <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-4" Spacing="2">
+            @if (!IsUniverse)
+            {
+                <MudButton Variant="Variant.Text"
+                           Color="Color.Error"
+                           Size="Size.Small"
+                           StartIcon="@Icons.Material.Filled.Delete"
+                           OnClick="@(() => OnDeleteClicked.InvokeAsync())"
+                           Disabled="@IsSaving">
+                    Disable
+                </MudButton>
+            }
+            <MudSpacer />
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       Size="Size.Small"
+                       OnClick="@DoSave"
+                       Disabled="@(!CanSave || IsSaving)">
+                @if (IsSaving)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
+                    @:Saving…
+                }
+                else
+                {
+                    @:Save
+                }
+            </MudButton>
+        </MudStack>
+
+        @if (!CanSave && (TestResult is not null || SampleResult is not null))
+        {
+            <MudText Typo="Typo.caption" Color="Color.Warning" Class="mt-1" Style="text-align: right;">
+                @if (TestResult is null || !TestResult.Success)
+                {
+                    @:A successful connection test is required before saving.
+                }
+                else if (_selectedProperties.Count == 0)
+                {
+                    @:Select at least one property to save.
+                }
+            </MudText>
+        }
+    }
+</div>
+
+@code {
+    /// <summary>The provider being edited.</summary>
+    [Parameter, EditorRequired]
+    public ProviderStatusDto Provider { get; set; } = default!;
+
+    /// <summary>Whether the current user has admin access.</summary>
+    [Parameter] public bool IsAdmin { get; set; }
+
+    /// <summary>Fires when the test button is clicked.</summary>
+    [Parameter] public EventCallback OnTestClicked { get; set; }
+
+    /// <summary>Fires when the fetch-sample button is clicked.</summary>
+    [Parameter] public EventCallback OnSampleClicked { get; set; }
+
+    /// <summary>Fires when save is clicked with the assembled config.</summary>
+    [Parameter] public EventCallback<ProviderConfigUpdateDto> OnSaveClicked { get; set; }
+
+    /// <summary>Fires when the delete button is clicked.</summary>
+    [Parameter] public EventCallback OnDeleteClicked { get; set; }
+
+    /// <summary>Latest test result for this provider.</summary>
+    [Parameter] public ProviderTestResultDto? TestResult { get; set; }
+
+    /// <summary>Latest sample result for this provider.</summary>
+    [Parameter] public ProviderSampleResultDto? SampleResult { get; set; }
+
+    /// <summary>Whether a test is currently running.</summary>
+    [Parameter] public bool IsTesting { get; set; }
+
+    /// <summary>Whether a sample fetch is currently running.</summary>
+    [Parameter] public bool IsFetchingSample { get; set; }
+
+    /// <summary>Whether a save operation is in progress.</summary>
+    [Parameter] public bool IsSaving { get; set; }
+
+    // ── State ────────────────────────────────────────────────────────────────
+
+    private string _endpointUrl = string.Empty;
+    private readonly Dictionary<string, double> _selectedProperties = new();
+
+    private bool IsUniverse =>
+        string.Equals(Provider.Name, "wikidata", StringComparison.OrdinalIgnoreCase);
+
+    private bool CanSave =>
+        TestResult is { Success: true }
+        && _selectedProperties.Count > 0;
+
+    // ── Lifecycle ─────────────────────────────────────────────────────────────
+
+    protected override void OnParametersSet()
+    {
+        // Initialize from provider's existing config.
+        if (string.IsNullOrEmpty(_endpointUrl))
+        {
+            _endpointUrl = Provider.Name switch
+            {
+                "apple_books_ebook"     => "https://itunes.apple.com",
+                "apple_books_audiobook" => "https://itunes.apple.com",
+                "audnexus"              => "https://api.audnex.us",
+                "open_library"          => "https://openlibrary.org",
+                "google_books"          => "https://www.googleapis.com/books/v1",
+                "wikidata"              => "https://www.wikidata.org",
+                _                       => string.Empty,
+            };
+        }
+
+        // Pre-select existing field weights.
+        if (_selectedProperties.Count == 0 && Provider.FieldWeights is { Count: > 0 })
+        {
+            foreach (var (key, weight) in Provider.FieldWeights)
+                _selectedProperties[key] = weight;
+        }
+    }
+
+    // ── Property selection ────────────────────────────────────────────────────
+
+    private void ToggleProperty(string key, bool selected, double defaultConfidence)
+    {
+        if (selected)
+            _selectedProperties[key] = defaultConfidence;
+        else
+            _selectedProperties.Remove(key);
+    }
+
+    // ── Save ──────────────────────────────────────────────────────────────────
+
+    private async Task DoSave()
+    {
+        var config = new ProviderConfigUpdateDto
+        {
+            Enabled = true,
+            Weight = Provider.DefaultWeight,
+            FieldWeights = new Dictionary<string, double>(_selectedProperties),
+            CapabilityTags = Provider.CapabilityTags?.ToList() ?? [],
+            Endpoints = new Dictionary<string, string>
+            {
+                [Provider.Name] = _endpointUrl,
+            },
+            ThrottleMs = 500,
+            MaxConcurrency = 1,
+        };
+
+        await OnSaveClicked.InvokeAsync(config);
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private static string FormatPropertyKey(string key) =>
+        key.Replace("_", " ").ToUpperInvariant() switch
+        {
+            var k when k.Length > 0 => char.ToUpperInvariant(key[0]) + key[1..].Replace("_", " "),
+            _ => key,
+        };
+
+    private static bool IsImageClaim(string key) =>
+        key.Contains("cover", StringComparison.OrdinalIgnoreCase)
+        || key.Contains("image", StringComparison.OrdinalIgnoreCase)
+        || key.Contains("headshot", StringComparison.OrdinalIgnoreCase);
+
+    private static string TruncateValue(string value, int maxLen) =>
+        value.Length > maxLen ? value[..maxLen] + "…" : value;
+}
+
+<style>
+    .provider-edit-panel {
+        padding-top: 8px;
+    }
+
+    .property-list {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        margin-bottom: 8px;
+    }
+
+    .property-item {
+        padding: 8px 12px;
+        border-radius: 10px;
+        border: 1px solid transparent;
+        transition: border-color 0.15s ease, background 0.15s ease;
+    }
+
+    .property-item.selected {
+        background: var(--tanaste-glass-bg);
+        border-color: var(--tanaste-glass-border);
+    }
+
+    .property-item:hover {
+        background: var(--tanaste-hover-overlay);
+    }
+</style>

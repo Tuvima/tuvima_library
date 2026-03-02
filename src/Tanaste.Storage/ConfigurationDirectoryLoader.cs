@@ -505,11 +505,33 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
         SaveProvider(new ProviderConfiguration
         {
             Name           = "open_library",
-            Enabled        = false,
+            Enabled        = true,
             Weight         = 0.7,
             Domain         = ProviderDomain.Ebook,
-            CapabilityTags = ["series"],
-            FieldWeights   = new() { ["series"] = 0.9 },
+            CapabilityTags = ["title", "author", "cover", "isbn", "year", "series"],
+            FieldWeights   = new()
+            {
+                ["title"] = 0.75, ["author"] = 0.8, ["cover"] = 0.7,
+                ["isbn"] = 0.9, ["year"] = 0.85, ["series"] = 0.9,
+            },
+            Endpoints      = new() { ["open_library"] = "https://openlibrary.org" },
+            ThrottleMs     = 500,
+        });
+
+        SaveProvider(new ProviderConfiguration
+        {
+            Name           = "google_books",
+            Enabled        = true,
+            Weight         = 0.65,
+            Domain         = ProviderDomain.Ebook,
+            CapabilityTags = ["title", "author", "cover", "description", "isbn", "year", "rating"],
+            FieldWeights   = new()
+            {
+                ["title"] = 0.7, ["author"] = 0.75, ["cover"] = 0.75,
+                ["description"] = 0.8, ["isbn"] = 0.85, ["year"] = 0.8, ["rating"] = 0.7,
+            },
+            Endpoints      = new() { ["google_books"] = "https://www.googleapis.com/books/v1" },
+            ThrottleMs     = 200,
         });
 
         SaveProvider(new ProviderConfiguration

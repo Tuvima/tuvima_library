@@ -389,6 +389,98 @@ public sealed class ProviderStatusResponse
     public Dictionary<string, double> FieldWeights { get; init; } = [];
 }
 
+// ── POST /settings/providers/{name}/test ──────────────────────────────────────
+
+public sealed class ProviderTestResponse
+{
+    [JsonPropertyName("success")]
+    public bool Success { get; init; }
+
+    [JsonPropertyName("response_time_ms")]
+    public int ResponseTimeMs { get; init; }
+
+    [JsonPropertyName("sample_fields")]
+    public List<string> SampleFields { get; init; } = [];
+
+    [JsonPropertyName("message")]
+    public string Message { get; init; } = string.Empty;
+}
+
+// ── POST /settings/providers/{name}/sample ───────────────────────────────────
+
+public sealed class ProviderSampleRequest
+{
+    [JsonPropertyName("title")]
+    public string? Title { get; init; }
+
+    [JsonPropertyName("author")]
+    public string? Author { get; init; }
+
+    [JsonPropertyName("isbn")]
+    public string? Isbn { get; init; }
+
+    [JsonPropertyName("asin")]
+    public string? Asin { get; init; }
+
+    [JsonPropertyName("media_type")]
+    public string? MediaType { get; init; }
+}
+
+public sealed class ProviderSampleResponse
+{
+    [JsonPropertyName("provider_name")]
+    public string ProviderName { get; init; } = string.Empty;
+
+    [JsonPropertyName("claims")]
+    public List<ProviderSampleClaim> Claims { get; init; } = [];
+}
+
+public sealed class ProviderSampleClaim
+{
+    [JsonPropertyName("key")]
+    public string Key { get; init; } = string.Empty;
+
+    [JsonPropertyName("value")]
+    public string Value { get; init; } = string.Empty;
+
+    [JsonPropertyName("confidence")]
+    public double Confidence { get; init; }
+}
+
+// ── PUT /settings/providers/{name}/config ────────────────────────────────────
+
+public sealed class ProviderConfigUpdateRequest
+{
+    [JsonPropertyName("enabled")]
+    public bool? Enabled { get; init; }
+
+    [JsonPropertyName("weight")]
+    public double? Weight { get; init; }
+
+    [JsonPropertyName("field_weights")]
+    public Dictionary<string, double>? FieldWeights { get; init; }
+
+    [JsonPropertyName("capability_tags")]
+    public List<string>? CapabilityTags { get; init; }
+
+    [JsonPropertyName("endpoints")]
+    public Dictionary<string, string>? Endpoints { get; init; }
+
+    [JsonPropertyName("throttle_ms")]
+    public int? ThrottleMs { get; init; }
+
+    [JsonPropertyName("max_concurrency")]
+    public int? MaxConcurrency { get; init; }
+}
+
+// ── PUT /settings/providers/priority ─────────────────────────────────────────
+
+public sealed class ProviderPriorityRequest
+{
+    [JsonPropertyName("order")]
+    public List<string> Order { get; init; } = [];
+}
+
 // ── /profiles ────────────────────────────────────────────────────────────────
 
 public sealed class ProfileResponseDto

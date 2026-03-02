@@ -1,0 +1,22 @@
+{
+  "name": "google_books",
+  "version": "1.0",
+  "enabled": true,
+  "weight": 0.65,
+  "domain": "Ebook",
+  "capability_tags": ["title", "author", "cover", "description", "isbn", "year", "rating"],
+  "field_weights": {
+    "title": 0.7,
+    "author": 0.75,
+    "cover": 0.75,
+    "description": 0.8,
+    "isbn": 0.85,
+    "year": 0.8,
+    "rating": 0.7
+  },
+  "endpoints": {
+    "google_books": "https://www.googleapis.com/books/v1"
+  },
+  "throttle_ms": 200,
+  "max_concurrency": 1
+}

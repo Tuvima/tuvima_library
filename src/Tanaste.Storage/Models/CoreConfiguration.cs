@@ -49,4 +49,12 @@ public sealed class CoreConfiguration
     /// </summary>
     [JsonPropertyName("organization_template")]
     public string OrganizationTemplate { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Ordered list of provider names defining the priority order for metadata harvesting.
+    /// Providers are called in this order; first provider to return data wins for each field.
+    /// When empty or null, the default registration order is used.
+    /// </summary>
+    [JsonPropertyName("provider_priority")]
+    public List<string> ProviderPriority { get; set; } = [];
 }

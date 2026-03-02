@@ -216,6 +216,29 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     public Task<bool> UpdateProviderAsync(string name, bool enabled, CancellationToken ct = default)
         => _api.UpdateProviderAsync(name, enabled, ct);
 
+    /// <summary>Tests a provider's connectivity by sending a real request.</summary>
+    public Task<ProviderTestResultDto?> TestProviderAsync(string name, CancellationToken ct = default)
+        => _api.TestProviderAsync(name, ct);
+
+    /// <summary>Fetches sample claims from a provider for the property picker.</summary>
+    public Task<ProviderSampleResultDto?> FetchProviderSampleAsync(
+        string name, string title, string? author = null,
+        string? isbn = null, string? asin = null, string? mediaType = null,
+        CancellationToken ct = default)
+        => _api.FetchProviderSampleAsync(name, title, author, isbn, asin, mediaType, ct);
+
+    /// <summary>Saves a provider's full configuration.</summary>
+    public Task<bool> SaveProviderConfigAsync(string name, ProviderConfigUpdateDto config, CancellationToken ct = default)
+        => _api.SaveProviderConfigAsync(name, config, ct);
+
+    /// <summary>Disables/deletes a provider.</summary>
+    public Task<bool> DeleteProviderAsync(string name, CancellationToken ct = default)
+        => _api.DeleteProviderAsync(name, ct);
+
+    /// <summary>Saves the provider priority order.</summary>
+    public Task<bool> UpdateProviderPriorityAsync(List<string> order, CancellationToken ct = default)
+        => _api.UpdateProviderPriorityAsync(order, ct);
+
     /// <summary>Most recent error detail from the last failed API call.</summary>
     public string? LastApiError => _api.LastError;
 

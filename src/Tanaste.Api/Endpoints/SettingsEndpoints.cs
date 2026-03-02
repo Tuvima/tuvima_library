@@ -1,9 +1,13 @@
 using Tanaste.Api.Models;
 using Tanaste.Api.Security;
 using Tanaste.Domain.Contracts;
+using Tanaste.Domain.Enums;
 using Tanaste.Domain.Events;
 using Tanaste.Ingestion.Contracts;
+using Tanaste.Providers.Contracts;
+using Tanaste.Providers.Models;
 using Tanaste.Storage.Contracts;
+using Tanaste.Storage.Models;
 
 namespace Tanaste.Api.Endpoints;
 
@@ -35,6 +39,7 @@ public static class SettingsEndpoints
             ["wikidata"]              = "Wikidata",
             ["local_filesystem"]      = "Local Filesystem",
             ["open_library"]          = "Open Library",
+            ["google_books"]          = "Google Books",
         };
 
     // Maps provider name → key in manifest.ProviderEndpoints for the reachability probe.
@@ -45,6 +50,8 @@ public static class SettingsEndpoints
             ["apple_books_audiobook"] = "apple_books",
             ["audnexus"]              = "audnexus",
             ["wikidata"]              = "wikidata_api",
+            ["open_library"]          = "open_library",
+            ["google_books"]          = "google_books",
         };
 
     public static IEndpointRouteBuilder MapSettingsEndpoints(this IEndpointRouteBuilder app)
@@ -328,6 +335,269 @@ public static class SettingsEndpoints
         .Produces(StatusCodes.Status400BadRequest)
         .RequireAdmin();
 
+        // ── POST /settings/providers/{name}/test ────────────────────────────────
+        // Tests a provider by sending a real request with a known title and
+        // returning success/failure, response time, and sample fields.
+
+        grp.MapPost("/providers/{name}/test", async (
+            string                                          name,
+            IConfigurationLoader                            configLoader,
+            IEnumerable<IExternalMetadataProvider>           providers,
+            CancellationToken                                ct) =>
+        {
+            var providerConfig = configLoader.LoadProvider(name);
+            if (providerConfig is null)
+                return Results.NotFound(new { error = $"Provider '{name}' not found." });
+
+            // Find the registered adapter by name.
+            var adapter = providers.FirstOrDefault(p =>
+                string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase));
+            if (adapter is null)
+                return Results.NotFound(new { error = $"No adapter registered for '{name}'." });
+
+            // Build a test request with "The Fellowship of the Ring" as the sample title.
+            var baseUrl = GetBaseUrlForProvider(providerConfig);
+            var sparqlUrl = providerConfig.Endpoints.TryGetValue("wikidata_sparql", out var sp) ? sp : null;
+            var testRequest = new ProviderLookupRequest
+            {
+                EntityId    = Guid.NewGuid(),
+                EntityType  = EntityType.Work,
+                MediaType   = providerConfig.Domain == ProviderDomain.Audiobook
+                    ? MediaType.Audiobook : MediaType.Epub,
+                Title       = "The Fellowship of the Ring",
+                Author      = "J.R.R. Tolkien",
+                Isbn        = "9780547928210",
+                Asin        = "B007978NPG",
+                BaseUrl     = baseUrl ?? string.Empty,
+                SparqlBaseUrl = sparqlUrl,
+            };
+
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            IReadOnlyList<ProviderClaim> claims;
+            try
+            {
+                claims = await adapter.FetchAsync(testRequest, ct);
+            }
+            catch (Exception ex)
+            {
+                return Results.Ok(new ProviderTestResponse
+                {
+                    Success        = false,
+                    ResponseTimeMs = (int)sw.ElapsedMilliseconds,
+                    SampleFields   = [],
+                    Message        = $"Test failed: {ex.Message}",
+                });
+            }
+            sw.Stop();
+
+            return Results.Ok(new ProviderTestResponse
+            {
+                Success        = claims.Count > 0,
+                ResponseTimeMs = (int)sw.ElapsedMilliseconds,
+                SampleFields   = claims.Select(c => c.Key).Distinct().ToList(),
+                Message        = claims.Count > 0
+                    ? $"Success — {claims.Count} claims returned in {sw.ElapsedMilliseconds}ms."
+                    : "Test returned zero claims. The provider may be unreachable or the test title was not found.",
+            });
+        })
+        .WithName("TestProvider")
+        .WithSummary("Tests a provider with a sample title and returns success/failure and available fields.")
+        .Produces<ProviderTestResponse>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAdmin();
+
+        // ── POST /settings/providers/{name}/sample ──────────────────────────────
+        // Fetches sample claims from a provider for a given title.
+        // Returns the full claim list for property picker UI.
+
+        grp.MapPost("/providers/{name}/sample", async (
+            string                                          name,
+            ProviderSampleRequest                           request,
+            IConfigurationLoader                            configLoader,
+            IEnumerable<IExternalMetadataProvider>           providers,
+            CancellationToken                                ct) =>
+        {
+            var providerConfig = configLoader.LoadProvider(name);
+            if (providerConfig is null)
+                return Results.NotFound(new { error = $"Provider '{name}' not found." });
+
+            var adapter = providers.FirstOrDefault(p =>
+                string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase));
+            if (adapter is null)
+                return Results.NotFound(new { error = $"No adapter registered for '{name}'." });
+
+            var baseUrl = GetBaseUrlForProvider(providerConfig);
+            var sparqlUrl = providerConfig.Endpoints.TryGetValue("wikidata_sparql", out var sp) ? sp : null;
+
+            var mediaType = MediaType.Epub; // Default.
+            if (!string.IsNullOrWhiteSpace(request.MediaType)
+                && Enum.TryParse<MediaType>(request.MediaType, true, out var parsed))
+            {
+                mediaType = parsed;
+            }
+
+            var lookup = new ProviderLookupRequest
+            {
+                EntityId      = Guid.NewGuid(),
+                EntityType    = EntityType.Work,
+                MediaType     = mediaType,
+                Title         = request.Title ?? "The Fellowship of the Ring",
+                Author        = request.Author,
+                Isbn          = request.Isbn,
+                Asin          = request.Asin,
+                BaseUrl       = baseUrl ?? string.Empty,
+                SparqlBaseUrl = sparqlUrl,
+            };
+
+            var claims = await adapter.FetchAsync(lookup, ct);
+
+            return Results.Ok(new ProviderSampleResponse
+            {
+                ProviderName = name,
+                Claims       = claims.Select(c => new ProviderSampleClaim
+                {
+                    Key        = c.Key,
+                    Value      = c.Value.Length > 500 ? c.Value[..500] + "…" : c.Value,
+                    Confidence = c.Confidence,
+                }).ToList(),
+            });
+        })
+        .WithName("SampleProvider")
+        .WithSummary("Fetches sample claims from a provider for a given title, for the property picker UI.")
+        .Produces<ProviderSampleResponse>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAdmin();
+
+        // ── PUT /settings/providers/{name}/config ───────────────────────────────
+        // Saves the full provider configuration (endpoints, weights, throttle, etc.)
+
+        grp.MapPut("/providers/{name}/config", (
+            string                     name,
+            ProviderConfigUpdateRequest request,
+            IConfigurationLoader       configLoader) =>
+        {
+            var existing = configLoader.LoadProvider(name);
+            if (existing is null)
+                return Results.NotFound(new { error = $"Provider '{name}' not found." });
+
+            // Update mutable fields.
+            if (request.Enabled.HasValue)
+                existing.Enabled = request.Enabled.Value;
+            if (request.Weight.HasValue)
+                existing.Weight = Math.Clamp(request.Weight.Value, 0.0, 1.0);
+            if (request.FieldWeights is not null)
+                existing.FieldWeights = request.FieldWeights;
+            if (request.ThrottleMs.HasValue)
+                existing.ThrottleMs = Math.Max(0, request.ThrottleMs.Value);
+            if (request.MaxConcurrency.HasValue)
+                existing.MaxConcurrency = Math.Max(1, request.MaxConcurrency.Value);
+            if (request.Endpoints is not null)
+            {
+                foreach (var (key, url) in request.Endpoints)
+                    existing.Endpoints[key] = url;
+            }
+            if (request.CapabilityTags is not null)
+                existing.CapabilityTags = request.CapabilityTags;
+
+            configLoader.SaveProvider(existing);
+
+            var displayName = _displayNames.TryGetValue(name, out var dn) ? dn : name;
+
+            return Results.Ok(new ProviderStatusResponse
+            {
+                Name           = existing.Name,
+                DisplayName    = displayName,
+                Enabled        = existing.Enabled,
+                IsZeroKey      = true,
+                IsReachable    = false,
+                Domain         = existing.Domain.ToString(),
+                CapabilityTags = existing.CapabilityTags,
+                DefaultWeight  = existing.Weight,
+                FieldWeights   = existing.FieldWeights,
+            });
+        })
+        .WithName("UpdateProviderConfig")
+        .WithSummary("Saves full provider configuration including endpoints, weights, throttle, and capabilities.")
+        .Produces<ProviderStatusResponse>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAdmin();
+
+        // ── DELETE /settings/providers/{name} ───────────────────────────────────
+        // Deletes a provider config file. Wikidata and local_filesystem cannot be deleted.
+
+        grp.MapDelete("/providers/{name}", (
+            string               name,
+            IConfigurationLoader configLoader) =>
+        {
+            // Protect universe and filesystem providers.
+            if (string.Equals(name, "wikidata", StringComparison.OrdinalIgnoreCase))
+                return Results.Problem(
+                    detail: "The Universe provider (Wikidata) cannot be removed. In a future version, this may be configurable.",
+                    statusCode: StatusCodes.Status403Forbidden);
+
+            if (string.Equals(name, "local_filesystem", StringComparison.OrdinalIgnoreCase))
+                return Results.Problem(
+                    detail: "The Local Filesystem provider cannot be removed.",
+                    statusCode: StatusCodes.Status403Forbidden);
+
+            var existing = configLoader.LoadProvider(name);
+            if (existing is null)
+                return Results.NotFound(new { error = $"Provider '{name}' not found." });
+
+            // Disable rather than physically deleting the file — preserves history.
+            existing.Enabled = false;
+            configLoader.SaveProvider(existing);
+
+            return Results.NoContent();
+        })
+        .WithName("DeleteProvider")
+        .WithSummary("Removes a metadata provider (disables its configuration).")
+        .Produces(StatusCodes.Status204NoContent)
+        .Produces(StatusCodes.Status403Forbidden)
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAdmin();
+
+        // ── PUT /settings/providers/priority ────────────────────────────────────
+        // Saves the provider priority order.
+
+        grp.MapPut("/providers/priority", (
+            ProviderPriorityRequest request,
+            IConfigurationLoader    configLoader) =>
+        {
+            if (request.Order is null || request.Order.Count == 0)
+                return Results.BadRequest(new { error = "Order list cannot be empty." });
+
+            var core = configLoader.LoadCore();
+            core.ProviderPriority = request.Order;
+            configLoader.SaveCore(core);
+
+            return Results.Ok(new { order = request.Order });
+        })
+        .WithName("UpdateProviderPriority")
+        .WithSummary("Saves the provider priority order for metadata harvesting.")
+        .Produces(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
+        .RequireAdmin();
+
         return app;
+    }
+
+    // ── Helpers ────────────────────────────────────────────────────────────────
+
+    /// <summary>Gets the primary base URL for a provider from its config endpoints.</summary>
+    private static string? GetBaseUrlForProvider(ProviderConfiguration config)
+    {
+        // Try the endpoint key matching the provider name, then common keys.
+        if (config.Endpoints.TryGetValue(config.Name, out var url) && !string.IsNullOrWhiteSpace(url))
+            return url;
+
+        foreach (var key in _endpointKeys.Values)
+        {
+            if (config.Endpoints.TryGetValue(key, out var ep) && !string.IsNullOrWhiteSpace(ep))
+                return ep;
+        }
+
+        // Fallback: return the first endpoint URL.
+        return config.Endpoints.Values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
     }
 }

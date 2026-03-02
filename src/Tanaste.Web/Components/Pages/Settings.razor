@@ -285,8 +285,11 @@ else
             case SettingsSidebar.SettingsSection.Library:
                 <LibrariesTab />
                 break;
-            case SettingsSidebar.SettingsSection.Metadata:
-                <MetadataTab CurrentRole="@_currentRole" />
+            case SettingsSidebar.SettingsSection.Universe:
+                <UniverseSettingsTab CurrentRole="@_currentRole" />
+                break;
+            case SettingsSidebar.SettingsSection.Providers:
+                <ProvidersSettingsTab CurrentRole="@_currentRole" />
                 break;
             case SettingsSidebar.SettingsSection.Connectivity:
                 <ConnectivityTab />

@@ -240,6 +240,15 @@ builder.Services.AddHttpClient("wikidata_sparql", c =>
     c.DefaultRequestHeaders.UserAgent.ParseAdd(
         "Tanaste/1.0 (https://github.com/shyfaruqi/tanaste)");
 });
+builder.Services.AddHttpClient("open_library", c =>
+{
+    c.Timeout = TimeSpan.FromSeconds(10);
+    c.DefaultRequestHeaders.UserAgent.ParseAdd("Tanaste/1.0");
+});
+builder.Services.AddHttpClient("google_books", c =>
+{
+    c.Timeout = TimeSpan.FromSeconds(10);
+});
 
 // Storage repositories (Phase 9 — claim + canonical + person persistence).
 builder.Services.AddSingleton<IMetadataClaimRepository,  MetadataClaimRepository>();
@@ -261,6 +270,8 @@ builder.Services.AddSingleton<IExternalMetadataProvider>(sp =>
         sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<AppleBooksAdapter>>()));
 builder.Services.AddSingleton<IExternalMetadataProvider, AudnexusAdapter>();
 builder.Services.AddSingleton<IExternalMetadataProvider, WikidataAdapter>();
+builder.Services.AddSingleton<IExternalMetadataProvider, OpenLibraryAdapter>();
+builder.Services.AddSingleton<IExternalMetadataProvider, GoogleBooksAdapter>();
 
 builder.Services.AddSingleton<IMetadataHarvestingService, MetadataHarvestingService>();
 builder.Services.AddSingleton<IRecursiveIdentityService,  RecursiveIdentityService>();

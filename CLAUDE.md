@@ -246,15 +246,17 @@ Three official SVG logo files exist. **Never replace logo placements with hand-w
 
 ### 3.6 — External Metadata Adapters & Recursive Person Enrichment (Phase 9)
 
-**Plain English:** After a file lands in the library, the Engine quietly reaches out to three free online sources — Apple Books, Audnexus, and Wikidata — to fetch better cover art, descriptions, narrator credits, and author portraits. This happens entirely in the background; the file appears on the Dashboard immediately, and the richer information pops in moments later without any page refresh.
+**Plain English:** After a file lands in the library, the Engine quietly reaches out to five free online sources — Apple Books, Audnexus, Open Library, Google Books, and Wikidata — to fetch better cover art, descriptions, narrator credits, and author portraits. This happens entirely in the background; the file appears on the Dashboard immediately, and the richer information pops in moments later without any page refresh.
 
-**The three zero-key providers (no accounts, no API keys required):**
+**The five zero-key providers (no accounts, no API keys required):**
 
 | Provider | What it contributes | Trust weights |
 |---|---|---|
 | **Apple Books (Ebook)** | Cover art (600×600), description, rating, title | cover 0.85, description 0.85, rating 0.8, title 0.7 |
 | **Apple Books (Audiobook)** | Cover art (600×600), description, rating, title | same profile, separate provider ID |
 | **Audnexus** | Narrator, series, series position, cover art, author | narrator/series/cover/series_pos 0.9, author 0.75 |
+| **Open Library** | Title, author, year, cover art, ISBN, series | title 0.75, author 0.8, year 0.85, cover 0.7, isbn 0.9 |
+| **Google Books** | Title, author, year, cover art, ISBN, description, page count, publisher | title 0.75, author 0.8, year 0.85, cover 0.7, isbn 0.9 |
 | **Wikidata** | Person headshot (Wikimedia Commons), biography, Q-identifier | qid/headshot/biography 1.0 |
 
 **How it works (the harvest pipeline):**
@@ -819,16 +821,22 @@ src/Tanaste.Web/
 │   │   └── NavigationTray.razor        Content-aware bottom tray: Virtual Libraries + Search
 │   │
 │   ├── Settings/             ← Settings page tab components
-│   │   ├── SettingsSidebar.razor      Sidebar navigation with search, badges, collapsible sections (defines SettingsSection enum)
-│   │   ├── GeneralTab.razor           Appearance: dark/light toggle + accent colour swatches
-│   │   ├── NavigationTab.razor        Navigation config: Action Cluster toggles + Tray Libraries
-│   │   ├── FoldersTab.razor           Watch Folder + Library Folder configuration
-│   │   ├── ProvidersTab.razor         Enriched provider cards: domain, tags, weights, reachability
-│   │   └── SecurityTab.razor          Guest API Keys: generate, revoke, copy-to-clipboard
+│   │   ├── SettingsSidebar.razor        Sidebar navigation with search, badges, collapsible sections (defines SettingsSection enum)
+│   │   ├── GeneralTab.razor             Appearance: dark/light toggle + accent colour swatches
+│   │   ├── NavigationTab.razor          Navigation config: Action Cluster toggles + Tray Libraries
+│   │   ├── LibrariesTab.razor           Watch Folder + Library Folder configuration
+│   │   ├── UniverseSettingsTab.razor    Wikidata universe provider: bridge identifiers + property map
+│   │   ├── ProvidersSettingsTab.razor   Condensed provider list: drag priority, expand/drawer editing
+│   │   ├── ProviderEditPanel.razor      Reusable provider editing: endpoint test, property picker, trust sliders
+│   │   ├── ConnectivityTab.razor        Engine connectivity status
+│   │   ├── ApiKeysTab.razor             Guest API Keys: generate, revoke, copy-to-clipboard
+│   │   ├── ConflictsTab.razor           Unresolved metadata conflicts
+│   │   ├── UsersTab.razor               User profile management
+│   │   └── MaintenanceTab.razor         Activity ledger, retention, prune
 │   │
 │   └── Pages/                ← Full-page views (routed)
 │       ├── Home.razor                  Library overview page
-│       ├── Settings.razor              Unified settings: sidebar + content, all 10 tab components
+│       ├── Settings.razor              Unified settings: sidebar + content, all 11 tab components
 │       └── NotFound.razor              404 page
 │
 ├── Models/
@@ -839,6 +847,7 @@ src/Tanaste.Web/
 │       ├── SystemStatusViewModel.cs    Engine health probe result
 │       ├── NavigationConfigViewModel.cs Navigation config models, defaults, JSON helpers
 │       ├── ScanResultViewModel.cs      Dry-run scan result (pending file operations)
+│       ├── ProviderManagementDtos.cs   Provider test/sample/config DTOs for settings UI
 │       └── ResolvedUISettingsViewModel.cs  Device-resolved UI configuration (8 DTO classes)
 │
 └── Shared/                   ← Top-level layout shell (used by every page)

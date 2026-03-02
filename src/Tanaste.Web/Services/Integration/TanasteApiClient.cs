@@ -445,6 +445,132 @@ public sealed class TanasteApiClient : ITanasteApiClient
         }
     }
 
+    // ── Provider management ─────────────────────────────────────────────────
+
+    public async Task<ProviderTestResultDto?> TestProviderAsync(
+        string name, CancellationToken ct = default)
+    {
+        try
+        {
+            var encoded = WebUtility.UrlEncode(name);
+            var resp = await _http.PostAsync($"/settings/providers/{encoded}/test", null, ct);
+            if (!resp.IsSuccessStatusCode)
+            {
+                var detail = await resp.Content.ReadAsStringAsync(ct);
+                _logger.LogWarning("POST /settings/providers/{Name}/test returned {Status}: {Detail}",
+                    name, (int)resp.StatusCode, detail);
+                LastError = $"HTTP {(int)resp.StatusCode}: {detail}";
+                return new ProviderTestResultDto(false, 0, [], detail);
+            }
+            return await resp.Content.ReadFromJsonAsync<ProviderTestResultDto>(ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /settings/providers/{Name}/test failed", name);
+            LastError = ex.Message;
+            return new ProviderTestResultDto(false, 0, [], ex.Message);
+        }
+    }
+
+    public async Task<ProviderSampleResultDto?> FetchProviderSampleAsync(
+        string name, string title, string? author = null,
+        string? isbn = null, string? asin = null, string? mediaType = null,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var encoded = WebUtility.UrlEncode(name);
+            var body = new { title, author, isbn, asin, mediaType };
+            var resp = await _http.PostAsJsonAsync($"/settings/providers/{encoded}/sample", body, ct);
+            if (!resp.IsSuccessStatusCode)
+            {
+                var detail = await resp.Content.ReadAsStringAsync(ct);
+                _logger.LogWarning("POST /settings/providers/{Name}/sample returned {Status}: {Detail}",
+                    name, (int)resp.StatusCode, detail);
+                LastError = $"HTTP {(int)resp.StatusCode}: {detail}";
+                return null;
+            }
+            return await resp.Content.ReadFromJsonAsync<ProviderSampleResultDto>(ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /settings/providers/{Name}/sample failed", name);
+            LastError = ex.Message;
+            return null;
+        }
+    }
+
+    public async Task<bool> SaveProviderConfigAsync(
+        string name, ProviderConfigUpdateDto config, CancellationToken ct = default)
+    {
+        try
+        {
+            var encoded = WebUtility.UrlEncode(name);
+            var resp = await _http.PutAsJsonAsync($"/settings/providers/{encoded}/config", config, ct);
+            if (!resp.IsSuccessStatusCode)
+            {
+                var detail = await resp.Content.ReadAsStringAsync(ct);
+                _logger.LogWarning("PUT /settings/providers/{Name}/config returned {Status}: {Detail}",
+                    name, (int)resp.StatusCode, detail);
+                LastError = $"HTTP {(int)resp.StatusCode}: {detail}";
+            }
+            return resp.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "PUT /settings/providers/{Name}/config failed", name);
+            LastError = ex.Message;
+            return false;
+        }
+    }
+
+    public async Task<bool> DeleteProviderAsync(string name, CancellationToken ct = default)
+    {
+        try
+        {
+            var encoded = WebUtility.UrlEncode(name);
+            var resp = await _http.DeleteAsync($"/settings/providers/{encoded}", ct);
+            if (!resp.IsSuccessStatusCode)
+            {
+                var detail = await resp.Content.ReadAsStringAsync(ct);
+                _logger.LogWarning("DELETE /settings/providers/{Name} returned {Status}: {Detail}",
+                    name, (int)resp.StatusCode, detail);
+                LastError = $"HTTP {(int)resp.StatusCode}: {detail}";
+            }
+            return resp.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "DELETE /settings/providers/{Name} failed", name);
+            LastError = ex.Message;
+            return false;
+        }
+    }
+
+    public async Task<bool> UpdateProviderPriorityAsync(
+        List<string> order, CancellationToken ct = default)
+    {
+        try
+        {
+            var body = new { order };
+            var resp = await _http.PutAsJsonAsync("/settings/providers/priority", body, ct);
+            if (!resp.IsSuccessStatusCode)
+            {
+                var detail = await resp.Content.ReadAsStringAsync(ct);
+                _logger.LogWarning("PUT /settings/providers/priority returned {Status}: {Detail}",
+                    (int)resp.StatusCode, detail);
+                LastError = $"HTTP {(int)resp.StatusCode}: {detail}";
+            }
+            return resp.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "PUT /settings/providers/priority failed");
+            LastError = ex.Message;
+            return false;
+        }
+    }
+
     // ── Activity log (/activity) ───────────────────────────────────────────
 
     public async Task<List<ActivityEntryViewModel>> GetRecentActivityAsync(
