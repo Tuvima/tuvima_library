@@ -1,0 +1,276 @@
+@namespace Tanaste.Web.Components.Settings
+@inject UIOrchestratorService Orchestrator
+@inject ISnackbar Snackbar
+
+@using Tanaste.Web.Models.ViewDTOs
+
+@* Navigation Settings — configures the header Action Cluster and bottom
+   Navigation Tray (Virtual Libraries). Changes are persisted to the profile's
+   navigation_config JSON blob via the Engine API. *@
+
+<MudStack Spacing="6">
+    @* ── Section header ───────────────────────────────────────────────── *@
+    <MudText Typo="Typo.h5" Style="font-weight: 600;">Navigation</MudText>
+    <MudText Typo="Typo.body2" Color="Color.Secondary">
+        Customise the header actions and bottom navigation tray.
+    </MudText>
+
+    @* ── Action Cluster ───────────────────────────────────────────────── *@
+    <MudPaper Class="pa-6" Style="border-radius: 24px; background: var(--tanaste-glass-bg);
+              border: 1px solid var(--tanaste-glass-border);
+              backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);">
+
+        <MudText Typo="Typo.subtitle1" Style="font-weight: 600;" Class="mb-4">
+            <MudIcon Icon="@Icons.Material.Outlined.Tune" Size="Size.Small"
+                     Style="vertical-align: middle; margin-right: 8px;" />
+            Action Cluster
+        </MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+            Icon buttons shown in the header's top-right corner.
+        </MudText>
+
+        @foreach (var item in _config.ActionCluster.Items)
+        {
+            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-2">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@GetClusterItemIcon(item.Key)" Size="Size.Small" />
+                    <MudText Typo="Typo.body2">@GetClusterItemLabel(item.Key)</MudText>
+                </MudStack>
+                <MudSwitch T="bool" Value="@item.Enabled"
+                           ValueChanged="@(v => { item.Enabled = v; SaveConfig(); })"
+                           Color="Color.Primary" />
+            </MudStack>
+        }
+    </MudPaper>
+
+    @* ── Tray Libraries ───────────────────────────────────────────────── *@
+    <MudPaper Class="pa-6" Style="border-radius: 24px; background: var(--tanaste-glass-bg);
+              border: 1px solid var(--tanaste-glass-border);
+              backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);">
+
+        <MudText Typo="Typo.subtitle1" Style="font-weight: 600;" Class="mb-4">
+            <MudIcon Icon="@Icons.Material.Outlined.Menu" Size="Size.Small"
+                     Style="vertical-align: middle; margin-right: 8px;" />
+            Tray Libraries
+        </MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+            Virtual libraries shown in the bottom navigation tray. Each maps to one or more media types.
+        </MudText>
+
+        @for (var i = 0; i < _config.Tray.Libraries.Count; i++)
+        {
+            var lib = _config.Tray.Libraries[i];
+            var index = i;
+
+            <MudPaper Elevation="0" Class="pa-4 mb-3"
+                      Style="border-radius: 16px; border: 1px solid var(--tanaste-glass-border);">
+                <MudStack Spacing="3">
+
+                    @* Row 1: Label + Enabled toggle + Delete *@
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudIcon Icon="@NavigationDefaults.GetMudIcon(lib.Icon)" Size="Size.Small"
+                                     Style="@($"color: {NavigationDefaults.GetMediaTypeColor(lib.Icon)};")" />
+                            <MudTextField @bind-Value="lib.Label"
+                                          Variant="Variant.Text"
+                                          Margin="Margin.Dense"
+                                          Style="max-width: 160px;"
+                                          Immediate="true"
+                                          OnBlur="@SaveConfig" />
+                        </MudStack>
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                            @* Reorder arrows *@
+                            <MudIconButton Icon="@Icons.Material.Filled.KeyboardArrowUp"
+                                           Size="Size.Small"
+                                           Disabled="@(index == 0)"
+                                           OnClick="@(() => MoveLibrary(index, -1))"
+                                           title="Move up" />
+                            <MudIconButton Icon="@Icons.Material.Filled.KeyboardArrowDown"
+                                           Size="Size.Small"
+                                           Disabled="@(index == _config.Tray.Libraries.Count - 1)"
+                                           OnClick="@(() => MoveLibrary(index, 1))"
+                                           title="Move down" />
+                            <MudSwitch T="bool" Value="@lib.Enabled"
+                                       ValueChanged="@(v => { lib.Enabled = v; SaveConfig(); })"
+                                       Color="Color.Primary" />
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                           Size="Size.Small"
+                                           Color="Color.Error"
+                                           OnClick="@(() => RemoveLibrary(index))"
+                                           title="Remove" />
+                        </MudStack>
+                    </MudStack>
+
+                    @* Row 2: Icon selector *@
+                    <MudSelect T="string" Value="@lib.Icon" Label="Icon"
+                               Variant="Variant.Outlined" Margin="Margin.Dense"
+                               Dense="true" Style="max-width: 200px;"
+                               ValueChanged="@(v => { lib.Icon = v; SaveConfig(); })">
+                        <MudSelectItem Value="@("LiveTv")">TV</MudSelectItem>
+                        <MudSelectItem Value="@("Movie")">Movie</MudSelectItem>
+                        <MudSelectItem Value="@("MenuBook")">Book</MudSelectItem>
+                        <MudSelectItem Value="@("Headphones")">Headphones</MudSelectItem>
+                        <MudSelectItem Value="@("AutoStories")">Comics</MudSelectItem>
+                        <MudSelectItem Value="@("Category")">Category</MudSelectItem>
+                        <MudSelectItem Value="@("MusicNote")">Music</MudSelectItem>
+                        <MudSelectItem Value="@("Podcasts")">Podcast</MudSelectItem>
+                    </MudSelect>
+
+                    @* Row 3: Media type chips *@
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Media Types</MudText>
+                    <MudStack Row="true" Wrap="Wrap.Wrap" Spacing="1">
+                        @foreach (var mt in AllMediaTypes)
+                        {
+                            var isSelected = lib.MediaTypes.Contains(mt, StringComparer.OrdinalIgnoreCase);
+                            <MudChip T="string"
+                                     Value="@mt"
+                                     Color="@(isSelected ? Color.Primary : Color.Default)"
+                                     Variant="@(isSelected ? MudBlazor.Variant.Filled : MudBlazor.Variant.Outlined)"
+                                     Size="Size.Small"
+                                     OnClick="@(() => ToggleMediaType(lib, mt))">
+                                @mt
+                            </MudChip>
+                        }
+                    </MudStack>
+                </MudStack>
+            </MudPaper>
+        }
+
+        @* Add Library + Reset buttons *@
+        <MudStack Row="true" Spacing="2" Class="mt-2">
+            <MudButton StartIcon="@Icons.Material.Filled.Add"
+                       Variant="Variant.Outlined" Color="Color.Primary"
+                       OnClick="@AddLibrary">
+                Add Library
+            </MudButton>
+            <MudButton StartIcon="@Icons.Material.Filled.RestartAlt"
+                       Variant="Variant.Text" Color="Color.Secondary"
+                       OnClick="@ResetToDefaults">
+                Reset to Defaults
+            </MudButton>
+        </MudStack>
+    </MudPaper>
+</MudStack>
+
+@code {
+    /// <summary>The profile ID to persist navigation config changes.</summary>
+    [Parameter] public Guid ProfileId { get; set; }
+
+    /// <summary>Initial navigation config JSON from the profile.</summary>
+    [Parameter] public string? NavigationConfigJson { get; set; }
+
+    /// <summary>Fires after saving so the parent can refresh.</summary>
+    [Parameter] public EventCallback OnConfigChanged { get; set; }
+
+    private NavigationConfigViewModel _config = NavigationDefaults.CreateDefault();
+    private bool _saving;
+
+    private static readonly string[] AllMediaTypes =
+        ["Movie", "TvShow", "Epub", "Audiobook", "Comic", "Podcast", "Music"];
+
+    protected override void OnParametersSet()
+    {
+        _config = NavigationDefaults.Deserialize(NavigationConfigJson);
+    }
+
+    // ── Action Cluster helpers ────────────────────────────────────────────
+
+    private static string GetClusterItemIcon(string key) => key switch
+    {
+        "cast"    => Icons.Material.Filled.Cast,
+        "profile" => Icons.Material.Filled.Person,
+        _         => Icons.Material.Filled.Extension,
+    };
+
+    private static string GetClusterItemLabel(string key) => key switch
+    {
+        "cast"    => "Cast (Coming soon)",
+        "profile" => "Profile Avatar",
+        _         => key,
+    };
+
+    // ── Tray Library helpers ──────────────────────────────────────────────
+
+    private void ToggleMediaType(VirtualLibrary lib, string mediaType)
+    {
+        if (lib.MediaTypes.Contains(mediaType, StringComparer.OrdinalIgnoreCase))
+            lib.MediaTypes.RemoveAll(mt => mt.Equals(mediaType, StringComparison.OrdinalIgnoreCase));
+        else
+            lib.MediaTypes.Add(mediaType);
+        SaveConfig();
+    }
+
+    private void MoveLibrary(int index, int direction)
+    {
+        var newIndex = index + direction;
+        if (newIndex < 0 || newIndex >= _config.Tray.Libraries.Count) return;
+
+        var item = _config.Tray.Libraries[index];
+        _config.Tray.Libraries.RemoveAt(index);
+        _config.Tray.Libraries.Insert(newIndex, item);
+        SaveConfig();
+    }
+
+    private void RemoveLibrary(int index)
+    {
+        if (index >= 0 && index < _config.Tray.Libraries.Count)
+        {
+            _config.Tray.Libraries.RemoveAt(index);
+            SaveConfig();
+        }
+    }
+
+    private void AddLibrary()
+    {
+        var key = $"custom_{Guid.NewGuid():N}"[..12];
+        _config.Tray.Libraries.Add(new VirtualLibrary
+        {
+            Key        = key,
+            Label      = "New Library",
+            Icon       = "Category",
+            MediaTypes = [],
+            Enabled    = true,
+        });
+        SaveConfig();
+    }
+
+    private void ResetToDefaults()
+    {
+        _config = NavigationDefaults.CreateDefault();
+        SaveConfig();
+    }
+
+    // ── Persistence ──────────────────────────────────────────────────────
+
+    private async void SaveConfig()
+    {
+        if (_saving) return;
+        _saving = true;
+
+        try
+        {
+            var json = NavigationDefaults.Serialize(_config);
+            var profile = await Orchestrator.GetActiveProfileAsync();
+            if (profile is not null)
+            {
+                await Orchestrator.UpdateProfileAsync(
+                    ProfileId,
+                    profile.DisplayName,
+                    profile.AvatarColor,
+                    profile.Role,
+                    json);
+            }
+
+            await OnConfigChanged.InvokeAsync();
+        }
+        catch
+        {
+            Snackbar.Add("Failed to save navigation config", Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+}

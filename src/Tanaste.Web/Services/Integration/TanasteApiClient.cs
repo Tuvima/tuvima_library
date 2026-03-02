@@ -232,11 +232,12 @@ public sealed class TanasteApiClient : ITanasteApiClient
 
     public async Task<ProfileViewModel?> CreateProfileAsync(
         string displayName, string avatarColor, string role,
+        string? navigationConfig = null,
         CancellationToken ct = default)
     {
         try
         {
-            var body = new { display_name = displayName, avatar_color = avatarColor, role };
+            var body = new { display_name = displayName, avatar_color = avatarColor, role, navigation_config = navigationConfig };
             var resp = await _http.PostAsJsonAsync("/profiles", body, ct);
             if (!resp.IsSuccessStatusCode) return null;
             return await resp.Content.ReadFromJsonAsync<ProfileViewModel>(ct);
@@ -246,11 +247,12 @@ public sealed class TanasteApiClient : ITanasteApiClient
 
     public async Task<bool> UpdateProfileAsync(
         Guid id, string displayName, string avatarColor, string role,
+        string? navigationConfig = null,
         CancellationToken ct = default)
     {
         try
         {
-            var body = new { display_name = displayName, avatar_color = avatarColor, role };
+            var body = new { display_name = displayName, avatar_color = avatarColor, role, navigation_config = navigationConfig };
             var resp = await _http.PutAsJsonAsync($"/profiles/{id}", body, ct);
             return resp.IsSuccessStatusCode;
         }

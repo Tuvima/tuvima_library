@@ -408,13 +408,17 @@ public sealed class ProfileResponseDto
     [JsonPropertyName("created_at")]
     public DateTimeOffset CreatedAt { get; init; }
 
+    [JsonPropertyName("navigation_config")]
+    public string? NavigationConfig { get; init; }
+
     public static ProfileResponseDto FromDomain(Domain.Aggregates.Profile p) => new()
     {
-        Id          = p.Id,
-        DisplayName = p.DisplayName,
-        AvatarColor = p.AvatarColor,
-        Role        = p.Role.ToString(),
-        CreatedAt   = p.CreatedAt,
+        Id               = p.Id,
+        DisplayName      = p.DisplayName,
+        AvatarColor      = p.AvatarColor,
+        Role             = p.Role.ToString(),
+        CreatedAt        = p.CreatedAt,
+        NavigationConfig = p.NavigationConfig,
     };
 }
 
@@ -428,6 +432,9 @@ public sealed class CreateProfileRequest
 
     [JsonPropertyName("avatar_color")]
     public string AvatarColor { get; init; } = "#7C4DFF";
+
+    [JsonPropertyName("navigation_config")]
+    public string? NavigationConfig { get; init; }
 }
 
 public sealed class UpdateProfileRequest
@@ -440,6 +447,9 @@ public sealed class UpdateProfileRequest
 
     [JsonPropertyName("avatar_color")]
     public string AvatarColor { get; init; } = string.Empty;
+
+    [JsonPropertyName("navigation_config")]
+    public string? NavigationConfig { get; init; }
 }
 
 // ── GET /metadata/claims/{entityId} ──────────────────────────────────────────

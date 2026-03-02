@@ -158,17 +158,19 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     /// <summary>Creates a new user profile. Returns true on success.</summary>
     public async Task<bool> CreateProfileAsync(
         string displayName, string avatarColor, string role,
+        string? navigationConfig = null,
         CancellationToken ct = default)
     {
-        var result = await _api.CreateProfileAsync(displayName, avatarColor, role, ct);
+        var result = await _api.CreateProfileAsync(displayName, avatarColor, role, navigationConfig, ct);
         return result is not null;
     }
 
     /// <summary>Updates an existing user profile.</summary>
     public Task<bool> UpdateProfileAsync(
         Guid id, string displayName, string avatarColor, string role,
+        string? navigationConfig = null,
         CancellationToken ct = default)
-        => _api.UpdateProfileAsync(id, displayName, avatarColor, role, ct);
+        => _api.UpdateProfileAsync(id, displayName, avatarColor, role, navigationConfig, ct);
 
     /// <summary>Deletes a user profile. Cannot delete the seed Owner profile or the last Administrator.</summary>
     public Task<bool> DeleteProfileAsync(Guid id, CancellationToken ct = default)

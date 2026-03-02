@@ -59,11 +59,13 @@ public interface ITanasteApiClient
     /// <summary>POST /profiles — create a new user profile.</summary>
     Task<ProfileViewModel?> CreateProfileAsync(
         string displayName, string avatarColor, string role,
+        string? navigationConfig = null,
         CancellationToken ct = default);
 
     /// <summary>PUT /profiles/{id} — update an existing profile.</summary>
     Task<bool> UpdateProfileAsync(
         Guid id, string displayName, string avatarColor, string role,
+        string? navigationConfig = null,
         CancellationToken ct = default);
 
     /// <summary>DELETE /profiles/{id} — delete a profile.</summary>

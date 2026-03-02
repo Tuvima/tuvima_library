@@ -14,7 +14,7 @@ This skill covers all Dashboard visual components, navigation, state management,
 
 | File | Role |
 |------|------|
-| `src/Tanaste.Web/Shared/MainLayout.razor` | App shell: AppBar, avatar menu, theme toggle, Ctrl+K, IntentDock |
+| `src/Tanaste.Web/Shared/MainLayout.razor` | App shell: AppBar (logo left, action cluster right), Ctrl+K, NavigationTray |
 | `src/Tanaste.Web/Components/Pages/Home.razor` | Library overview: Hero + Bento grid |
 | `src/Tanaste.Web/Components/Pages/NotFound.razor` | 404 page |
 | `src/Tanaste.Web/Components/Universe/HubHero.razor` | Last Journey hero tile (artwork + progress) |
@@ -23,7 +23,7 @@ This skill covers all Dashboard visual components, navigation, state management,
 | `src/Tanaste.Web/Components/Bento/BentoGrid.razor` | CSS grid container (responsive) |
 | `src/Tanaste.Web/Components/Bento/BentoItem.razor` | Glassmorphic tile with dynamic glow |
 | `src/Tanaste.Web/Components/Navigation/CommandPalette.razor` | Ctrl+K global search overlay |
-| `src/Tanaste.Web/Components/Navigation/IntentDock.razor` | Floating bottom dock (Hubs/Watch/Read/Listen) |
+| `src/Tanaste.Web/Components/Navigation/NavigationTray.razor` | Content-aware bottom tray: Virtual Libraries + Search |
 | `src/Tanaste.Web/Services/Integration/UniverseStateContainer.cs` | Per-circuit state cache |
 | `src/Tanaste.Web/Services/Integration/UniverseMapper.cs` | Hub→ViewModel mapping + colour classification |
 | `src/Tanaste.Web/Services/Theming/ThemeService.cs` | Dark/light mode, accent colour |
@@ -86,7 +86,7 @@ This skill covers all Dashboard visual components, navigation, state management,
 ## Known gaps
 
 1. **No Hub detail page** — `/hub/{hubId}` route does not exist. Command Palette links to it.
-2. **IntentDock is disconnected** — buttons render but filtering is not wired.
+2. **NavigationTray replaces IntentDock** — content-aware Virtual Library filtering is fully wired.
 3. **Progress bars are stubs** — UserState API does not exist yet.
 4. **Compact List view is a stub** — toggle exists but has no effect.
 5. **Universe grouping not surfaced** — domain entity exists but Dashboard shows flat Hub list.

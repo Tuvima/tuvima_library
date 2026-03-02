@@ -107,6 +107,11 @@ else
 
     private int _conflictCount;
 
+    // ── Profile data (for NavigationTab) ──────────────────────────────────
+
+    private Guid    _profileId;
+    private string? _navigationConfigJson;
+
     // ── Curator's Drawer state (migrated from ServerSettings.razor) ─────────
 
     private bool   _drawerOpen;
@@ -137,6 +142,9 @@ else
 
         // Fetch conflict count eagerly for sidebar badge.
         await LoadConflictCountAsync();
+
+        // Load active profile for NavigationTab.
+        await LoadProfileAsync();
     }
 
     protected override void OnParametersSet()
@@ -195,6 +203,31 @@ else
         }
     }
 
+    // ── Profile loading ─────────────────────────────────────────────────────
+
+    private async Task LoadProfileAsync()
+    {
+        try
+        {
+            var profile = await Orchestrator.GetActiveProfileAsync();
+            if (profile is not null)
+            {
+                _profileId            = profile.Id;
+                _navigationConfigJson = profile.NavigationConfig;
+            }
+        }
+        catch
+        {
+            // Engine may be offline — defaults will be used.
+        }
+    }
+
+    private async Task OnNavigationConfigChanged()
+    {
+        await LoadProfileAsync();
+        StateHasChanged();
+    }
+
     // ── Curator's Drawer handlers (migrated from ServerSettings.razor) ──────
 
     /// <summary>
@@ -243,6 +276,11 @@ else
                 break;
             case SettingsSidebar.SettingsSection.Playback:
                 <PlaybackTab />
+                break;
+            case SettingsSidebar.SettingsSection.Navigation:
+                <NavigationTab ProfileId="@_profileId"
+                               NavigationConfigJson="@_navigationConfigJson"
+                               OnConfigChanged="@OnNavigationConfigChanged" />
                 break;
             case SettingsSidebar.SettingsSection.Library:
                 <LibrariesTab />

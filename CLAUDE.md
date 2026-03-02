@@ -579,7 +579,7 @@ Example files in `config.example/ui/`. Live files in `config/ui/` gitignored.
 - `DeviceContextService` (`Tanaste.Web.Services.Theming`) — per-circuit scoped; replaced `AutomotiveModeService`
 - `ResolvedUISettingsViewModel` + DTOs (`Tanaste.Web.Models.ViewDTOs`) — Dashboard view model
 
-**Adapted components:** MainLayout, IntentDock, SettingsTabBar (5 layout modes), GeneralTab (conditional sections), Home, HubHero (4 layout variants), BentoGrid (dynamic columns), UniverseStack, PendingFilesAlert (expandable/badge/hidden), ServerSettings (redirect guard), Preferences (conditional links).
+**Adapted components:** MainLayout, NavigationTray, SettingsTabBar (5 layout modes), GeneralTab (conditional sections), Home, HubHero (4 layout variants), BentoGrid (dynamic columns), UniverseStack, PendingFilesAlert (expandable/badge/hidden), ServerSettings (redirect guard), Preferences (conditional links).
 
 **Why this matters to the business:**
 - **Extensibility** — Adding a new device class is one JSON file + one entry in the cascade resolver. No code changes in the Dashboard.
@@ -816,18 +816,19 @@ src/Tanaste.Web/
 │   │
 │   ├── Navigation/           ← Navigation and search components
 │   │   ├── CommandPalette.razor        Ctrl+K global search and navigation
-│   │   └── IntentDock.razor            Floating bottom dock: Hubs / Watch / Read / Listen
+│   │   └── NavigationTray.razor        Content-aware bottom tray: Virtual Libraries + Search
 │   │
 │   ├── Settings/             ← Settings page tab components
 │   │   ├── SettingsSidebar.razor      Sidebar navigation with search, badges, collapsible sections (defines SettingsSection enum)
 │   │   ├── GeneralTab.razor           Appearance: dark/light toggle + accent colour swatches
+│   │   ├── NavigationTab.razor        Navigation config: Action Cluster toggles + Tray Libraries
 │   │   ├── FoldersTab.razor           Watch Folder + Library Folder configuration
 │   │   ├── ProvidersTab.razor         Enriched provider cards: domain, tags, weights, reachability
 │   │   └── SecurityTab.razor          Guest API Keys: generate, revoke, copy-to-clipboard
 │   │
 │   └── Pages/                ← Full-page views (routed)
 │       ├── Home.razor                  Library overview page
-│       ├── Settings.razor              Unified settings: sidebar + content, all 9 tab components
+│       ├── Settings.razor              Unified settings: sidebar + content, all 10 tab components
 │       └── NotFound.razor              404 page
 │
 ├── Models/
@@ -836,6 +837,7 @@ src/Tanaste.Web/
 │       ├── WorkViewModel.cs            Work for display: Title, Author, Year helpers
 │       ├── UniverseViewModel.cs        Flattened cross-media library view + DominantHexColor
 │       ├── SystemStatusViewModel.cs    Engine health probe result
+│       ├── NavigationConfigViewModel.cs Navigation config models, defaults, JSON helpers
 │       ├── ScanResultViewModel.cs      Dry-run scan result (pending file operations)
 │       └── ResolvedUISettingsViewModel.cs  Device-resolved UI configuration (8 DTO classes)
 │

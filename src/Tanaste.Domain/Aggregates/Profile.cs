@@ -43,4 +43,12 @@ public sealed class Profile
 
     /// <summary>When this profile was created.</summary>
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+
+    /// <summary>
+    /// Opaque JSON blob storing the user's navigation configuration.
+    /// Contains action cluster and tray layout preferences.
+    /// <see langword="null"/> means "use defaults".
+    /// The Engine stores it as-is; the Dashboard interprets the structure.
+    /// </summary>
+    public string? NavigationConfig { get; set; }
 }

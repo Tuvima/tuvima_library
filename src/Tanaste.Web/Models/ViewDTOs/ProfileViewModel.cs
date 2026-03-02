@@ -7,11 +7,12 @@ namespace Tanaste.Web.Models.ViewDTOs;
 /// Maps from the Engine's <c>GET /profiles</c> response.
 /// </summary>
 public sealed record ProfileViewModel(
-    [property: JsonPropertyName("id")]           Guid Id,
-    [property: JsonPropertyName("display_name")]  string DisplayName,
-    [property: JsonPropertyName("avatar_color")]  string AvatarColor,
-    [property: JsonPropertyName("role")]          string Role,
-    [property: JsonPropertyName("created_at")]    DateTimeOffset CreatedAt)
+    [property: JsonPropertyName("id")]                Guid Id,
+    [property: JsonPropertyName("display_name")]       string DisplayName,
+    [property: JsonPropertyName("avatar_color")]       string AvatarColor,
+    [property: JsonPropertyName("role")]               string Role,
+    [property: JsonPropertyName("created_at")]         DateTimeOffset CreatedAt,
+    [property: JsonPropertyName("navigation_config")]  string? NavigationConfig = null)
 {
     /// <summary>
     /// Returns <see langword="true"/> when this is the seed "Owner" profile

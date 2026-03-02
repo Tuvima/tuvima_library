@@ -93,16 +93,10 @@ else
 
         try
         {
-            _hubs    = await Orchestrator.GetHubsAsync();
-            _heroHub = _hubs.FirstOrDefault();
+            _hubs = await Orchestrator.GetHubsAsync();
 
-            // Non-hero hubs: skip the first one (shown in HubHero).
-            _nonHeroHubs = _hubs.Count > 1 ? _hubs.Skip(1).ToList() : [];
-
-            // Prime the accent colour from the hero hub so the app bar and
-            // primary-coloured MudBlazor components match on first load.
-            if (_heroHub is not null)
-                ThemeService.SetHubAccent(_heroHub.DominantHexColor);
+            // Apply the active Virtual Library filter (OR logic across MediaTypes).
+            ApplyFilter();
         }
         catch (Exception ex)
         {
@@ -112,6 +106,24 @@ else
         {
             _loading = false;
         }
+    }
+
+    /// <summary>
+    /// Derives hero and non-hero hubs from the filtered hub list.
+    /// Called after hub load and when the NavigationTray filter changes.
+    /// </summary>
+    private void ApplyFilter()
+    {
+        var filtered = State.FilteredHubs;
+        _heroHub = filtered.FirstOrDefault();
+
+        // Non-hero hubs: skip the first one (shown in HubHero).
+        _nonHeroHubs = filtered.Count > 1 ? filtered.Skip(1).ToList() : [];
+
+        // Prime the accent colour from the hero hub so the app bar and
+        // primary-coloured MudBlazor components match on first load.
+        if (_heroHub is not null)
+            ThemeService.SetHubAccent(_heroHub.DominantHexColor);
     }
 
     // ── Hub selection ─────────────────────────────────────────────────────────
@@ -125,17 +137,25 @@ else
     {
         ThemeService.SetHubAccent(hub.DominantHexColor);
         _heroHub     = hub;
-        _nonHeroHubs = _hubs.Where(h => h.Id != hub.Id).ToList();
+        _nonHeroHubs = State.FilteredHubs.Where(h => h.Id != hub.Id).ToList();
     }
 
     // ── SignalR live refresh ──────────────────────────────────────────────────
 
     private void OnStateChanged()
     {
-        InvokeAsync(async () =>
+        InvokeAsync(() =>
         {
-            await LoadHubsAsync(showSpinner: false);
-            StateHasChanged();
+            // If hubs are already loaded, just re-apply filter (e.g. tray selection changed).
+            if (State.IsLoaded && _hubs.Count > 0)
+            {
+                ApplyFilter();
+                StateHasChanged();
+            }
+            else
+            {
+                _ = LoadHubsAsync(showSpinner: false).ContinueWith(_ => InvokeAsync(StateHasChanged));
+            }
         });
     }
 

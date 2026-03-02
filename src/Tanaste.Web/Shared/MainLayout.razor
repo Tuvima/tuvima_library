@@ -3,8 +3,11 @@
 @inject ThemeService ThemeService
 @inject DeviceContextService DeviceContext
 @inject UIOrchestratorService Orchestrator
+@inject UniverseStateContainer State
 @inject NavigationManager Nav
 @implements IDisposable
+
+@using Tanaste.Web.Models.ViewDTOs
 
 <MudThemeProvider Theme="@ThemeService.Theme" IsDarkMode="@_isDark" />
 <MudPopoverProvider />
@@ -18,33 +21,10 @@
 }
 
 <MudLayout>
-    @* ── Header: device-adaptive AppBar ── *@
+    @* ── Header: Logo left, Action Cluster right ── *@
     <MudAppBar Elevation="0" Class="@AppBarClass">
 
-        @* Avatar menu — hidden on television/automotive *@
-        @if (!DeviceContext.IsFeatureDisabled("avatar_menu"))
-        {
-            <MudMenu AnchorOrigin="Origin.BottomLeft" TransformOrigin="Origin.TopLeft">
-                <ActivatorContent>
-                    <MudAvatar @onclick="context.ToggleAsync"
-                               Size="Size.Medium"
-                               Style="@($"background: {_avatarColor}; cursor: pointer;")"
-                               title="Profile & Settings">
-                        @_avatarInitial
-                    </MudAvatar>
-                </ActivatorContent>
-                <ChildContent>
-                    <MudMenuItem Icon="@Icons.Material.Outlined.Settings"
-                                 OnClick="@(() => Nav.NavigateTo("/settings"))">
-                        Settings
-                    </MudMenuItem>
-                </ChildContent>
-            </MudMenu>
-        }
-
-        <MudSpacer />
-
-        @* Logo — variant driven by device context *@
+        @* Logo — anchored left as home link *@
         <MudLink Href="/" Underline="Underline.None" Class="d-flex align-center"
                  Style="text-decoration: none;">
             <img src="@LogoSrc" alt="Tanaste" class="tanaste-logo"
@@ -53,24 +33,31 @@
 
         <MudSpacer />
 
-        @* Search button — hidden when search_button is disabled *@
-        @if (!DeviceContext.IsFeatureDisabled("search_button"))
-        {
-            <MudTooltip Text="Search (Ctrl+K)" Arrow="true" Placement="Placement.Bottom">
-                <MudIconButton Icon="@Icons.Material.Filled.Search"
-                               Color="Color.Inherit"
-                               OnClick="@(() => _palette?.Toggle())"
-                               title="Search (Ctrl+K)" />
-            </MudTooltip>
+        @* Action Cluster — configurable icon buttons on the right *@
+        @{
+            var cluster = _navigationConfig.ActionCluster;
         }
 
-        @* Theme toggle — hidden when theme_toggle is disabled (TV, automotive) *@
-        @if (!DeviceContext.IsFeatureDisabled("theme_toggle"))
+        @foreach (var item in cluster.Items.Where(i => i.Enabled))
         {
-            <MudIconButton Icon="@(_isDark ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
-                           Color="Color.Inherit"
-                           OnClick="@ToggleTheme"
-                           title="@(_isDark ? "Switch to Light Mode" : "Switch to Dark Mode")" />
+            @if (item.Key == "cast" && !DeviceContext.IsFeatureDisabled("avatar_menu"))
+            {
+                <MudTooltip Text="Cast — Coming soon" Arrow="true" Placement="Placement.Bottom">
+                    <MudIconButton Icon="@Icons.Material.Filled.Cast"
+                                   Color="Color.Inherit"
+                                   Disabled="true"
+                                   title="Cast — Coming soon" />
+                </MudTooltip>
+            }
+            else if (item.Key == "profile" && !DeviceContext.IsFeatureDisabled("avatar_menu"))
+            {
+                <MudAvatar Size="Size.Medium"
+                           Style="@($"background: {_avatarColor}; cursor: pointer;")"
+                           title="Settings"
+                           @onclick="@(() => Nav.NavigateTo("/settings"))">
+                    @_avatarInitial
+                </MudAvatar>
+            }
         }
     </MudAppBar>
 
@@ -81,8 +68,12 @@
         </MudContainer>
     </MudMainContent>
 
-    @* Floating Intent Dock — items and style driven by device context *@
-    <IntentDock />
+    @* Floating Navigation Tray — content-aware virtual library filter + search *@
+    <NavigationTray Config="@_navigationConfig.Tray"
+                    ActiveLibraryKey="@State.ActiveLibraryFilter?.Key"
+                    AvailableMediaTypes="@State.AvailableMediaTypes"
+                    OnLibrarySelected="@OnLibrarySelected"
+                    OnSearchRequested="@(() => _palette?.Toggle())" />
 </MudLayout>
 
 @code {
@@ -90,10 +81,12 @@
 
     private CommandPalette? _palette;
 
-    // Profile state for the avatar dropdown.
-    private string _avatarColor       = "#7C4DFF";
-    private string _avatarInitial     = "?";
-    private bool   _isAdminOrCurator  = true; // Safe default — show all options until profile loads.
+    // Profile state for the header action cluster.
+    private string _avatarColor   = "#7C4DFF";
+    private string _avatarInitial = "?";
+
+    // Navigation configuration — loaded from profile, falls back to defaults.
+    private NavigationConfigViewModel _navigationConfig = NavigationDefaults.CreateDefault();
 
     // ── AppBar styling driven by Shell.AppBarStyle ──────────────────────────
 
@@ -196,16 +189,6 @@
     [JSInvokable]
     public void OpenPalette() => _palette?.Open();
 
-    private async Task ToggleTheme()
-    {
-        // Don't allow toggling when dark mode is forced by the device.
-        if (DeviceContext.Settings.Constraints.ForceDarkMode) return;
-
-        ThemeService.ToggleTheme();
-        _isDark = ThemeService.IsDarkMode;
-        await JS.InvokeVoidAsync("setThemeClass", _isDark);
-    }
-
     private void OnThemeUpdated()
     {
         _isDark = ThemeService.IsDarkMode;
@@ -228,9 +211,7 @@
                 _avatarInitial = profile.DisplayName.Length > 0
                     ? profile.DisplayName[0].ToString().ToUpper()
                     : "?";
-                _isAdminOrCurator =
-                    string.Equals(profile.Role, "Administrator", StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(profile.Role, "Curator", StringComparison.OrdinalIgnoreCase);
+                _navigationConfig = NavigationDefaults.Deserialize(profile.NavigationConfig);
                 StateHasChanged();
             }
         }
@@ -238,6 +219,11 @@
         {
             // Engine may be offline — keep defaults.
         }
+    }
+
+    private void OnLibrarySelected(VirtualLibrary? library)
+    {
+        State.SetActiveLibrary(library);
     }
 
     public void Dispose()

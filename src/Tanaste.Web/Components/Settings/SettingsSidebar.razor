@@ -168,8 +168,9 @@
     [
         new("Preferences", "Preferences", false,
         [
-            new(SettingsSection.General,  Icons.Material.Outlined.Tune,      "General",  false, null),
-            new(SettingsSection.Playback, Icons.Material.Outlined.PlayArrow, "Playback", false, null),
+            new(SettingsSection.General,    Icons.Material.Outlined.Tune,      "General",    false, null),
+            new(SettingsSection.Playback,   Icons.Material.Outlined.PlayArrow, "Playback",   false, null),
+            new(SettingsSection.Navigation, Icons.Material.Outlined.Menu,      "Navigation", false, null),
         ]),
 
         new("Server", "Server", true,
@@ -259,7 +260,7 @@
     /// <summary>Settings page section identifiers (replaces SettingsTabBar.SettingsTab).</summary>
     public enum SettingsSection
     {
-        General, Playback,
+        General, Playback, Navigation,
         Library, Metadata, Connectivity, ApiKeys, Conflicts, Users, Maintenance
     }
 }

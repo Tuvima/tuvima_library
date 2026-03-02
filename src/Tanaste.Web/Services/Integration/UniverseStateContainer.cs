@@ -2,6 +2,8 @@
 
 namespace Tanaste.Web.Services.Integration;
 
+// Navigation filter model is defined in NavigationConfigViewModel.cs
+
 /// <summary>
 /// Scoped state container (one per Blazor Server circuit) that caches the
 /// current Library view and surfaces real-time event data received from
@@ -22,6 +24,7 @@ public sealed class UniverseStateContainer
     private bool                       _loaded;
     private IngestionProgressEvent?    _ingestionProgress;
     private WatchFolderActiveEvent?    _latestWatchFolderActivation;
+    private VirtualLibrary?            _activeLibraryFilter;
     private readonly List<PersonEnrichedEvent> _personUpdates = [];
     private readonly List<ActivityEntry>       _activityLog   = [];
     private const int MaxActivityEntries = 100;
@@ -59,6 +62,51 @@ public sealed class UniverseStateContainer
     /// </summary>
     public IReadOnlyList<ActivityEntry>    ActivityLog                 => _activityLog;
 
+    // ── Navigation filter ───────────────────────────────────────────────────
+
+    /// <summary>
+    /// The currently active Virtual Library filter, or <see langword="null"/> for "show all".
+    /// Set by the NavigationTray when the user clicks a library button.
+    /// </summary>
+    public VirtualLibrary? ActiveLibraryFilter => _activeLibraryFilter;
+
+    /// <summary>
+    /// Hubs filtered by the active Virtual Library. Uses OR logic across
+    /// the library's <see cref="VirtualLibrary.MediaTypes"/>.
+    /// Returns all hubs when no filter is active.
+    /// </summary>
+    public IReadOnlyList<HubViewModel> FilteredHubs =>
+        _activeLibraryFilter is null || _activeLibraryFilter.MediaTypes.Count == 0
+            ? Hubs
+            : _hubs.Where(h => SplitMediaTypes(h.MediaTypes).Any(mt =>
+                _activeLibraryFilter.MediaTypes.Exists(f => string.Equals(f, mt, StringComparison.OrdinalIgnoreCase))))
+              .ToList();
+
+    /// <summary>
+    /// Distinct set of media type strings across all hubs in the library.
+    /// Used by NavigationTray for content-aware visibility.
+    /// </summary>
+    public HashSet<string> AvailableMediaTypes =>
+        new HashSet<string>(
+            _hubs.SelectMany(h => SplitMediaTypes(h.MediaTypes)),
+            StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Splits a comma-separated MediaTypes string into individual trimmed values.</summary>
+    private static string[] SplitMediaTypes(string mediaTypes) =>
+        string.IsNullOrWhiteSpace(mediaTypes)
+            ? []
+            : mediaTypes.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+    /// <summary>
+    /// Sets the active Virtual Library filter and notifies subscribers.
+    /// Pass <see langword="null"/> to clear the filter (show all).
+    /// </summary>
+    public void SetActiveLibrary(VirtualLibrary? library)
+    {
+        _activeLibraryFilter = library;
+        OnStateChanged?.Invoke();
+    }
+
     // ── Events ────────────────────────────────────────────────────────────────
 
     /// <summary>
@@ -94,11 +142,13 @@ public sealed class UniverseStateContainer
     /// </summary>
     public void Invalidate()
     {
-        _hubs              = [];
-        _selected          = null;
-        _universe          = null;
-        _loaded            = false;
-        _ingestionProgress = null;
+        _hubs                = [];
+        _selected            = null;
+        _universe            = null;
+        _loaded              = false;
+        _ingestionProgress   = null;
+        // Note: _activeLibraryFilter is NOT cleared on invalidate
+        // so the user's tray selection persists across data refreshes.
         OnStateChanged?.Invoke();
     }
 

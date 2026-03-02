@@ -265,6 +265,15 @@ public sealed class DatabaseConnection : IDatabaseConnection
                 );
                 """);
 
+        // Migration M-012: Add navigation_config column to profiles.
+        // Stores per-profile navigation preferences (action cluster, tray layout)
+        // as an opaque JSON blob.  The Engine stores it; the Dashboard interprets it.
+        MigrateAddColumnIfMissing(
+            conn,
+            table:  "profiles",
+            column: "navigation_config",
+            ddl:    "ALTER TABLE profiles ADD COLUMN navigation_config TEXT;");
+
         // Seed S-001: provider_registry entries for all known providers.
         // metadata_claims.provider_id has a FK to provider_registry(id), so these
         // rows MUST exist before any claim is written.  INSERT OR IGNORE makes this

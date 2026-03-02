@@ -98,6 +98,7 @@ public static class ProfileEndpoints
                 ? existing.AvatarColor
                 : request.AvatarColor.Trim();
             existing.Role = role;
+            existing.NavigationConfig = request.NavigationConfig;
 
             var updated = await svc.UpdateProfileAsync(existing, ct);
             return updated
