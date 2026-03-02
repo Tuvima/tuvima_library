@@ -15,5 +15,7 @@
     "wikidata_sparql": "https://query.wikidata.org/sparql"
   },
   "throttle_ms": 1100,
-  "max_concurrency": 1
+  "max_concurrency": 1,
+
+  "adapter_type": "coded"
 }

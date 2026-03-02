@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Tanaste.Domain.Enums;
@@ -10,12 +11,14 @@ using Tanaste.Storage.Models;
 namespace Tanaste.Providers.Tests;
 
 /// <summary>
-/// Verifies that all three external metadata adapters degrade gracefully:
+/// Verifies that all external metadata adapters degrade gracefully:
 /// they return an empty claim list on network failure rather than throwing.
 ///
-/// Each test uses a <see cref="StubHttpMessageHandler"/> that injects a
-/// predetermined response (error status, empty body, or timeout) without
-/// touching the network.
+/// Config-driven adapters are loaded from <c>config.example/providers/</c> and
+/// wired to stub HTTP handlers that inject predetermined responses (error status,
+/// empty body, or timeout) without touching the network.
+///
+/// Wikidata remains a coded adapter — its fallback test uses the typed class directly.
 ///
 /// Spec: Phase 9 – External Metadata Adapters § Graceful Failure.
 /// </summary>
@@ -26,12 +29,11 @@ public sealed class AdapterFallbackTests
     [Fact]
     public async Task AppleBooks_Returns_Empty_On_HttpError()
     {
-        // Arrange: every request returns HTTP 503.
-        var factory = BuildFactory("apple_books", HttpStatusCode.ServiceUnavailable);
-        var adapter = new AppleBooksAdapter(
-            factory,
-            MediaType.Epub,
-            NullLogger<AppleBooksAdapter>.Instance);
+        // Arrange: load config, wire stub returning HTTP 503.
+        var config = LoadExampleConfig("apple_books_ebook");
+        var factory = BuildFactory(config.Name, HttpStatusCode.ServiceUnavailable);
+        var adapter = new ConfigDrivenAdapter(
+            config, factory, NullLogger<ConfigDrivenAdapter>.Instance);
 
         var request = new ProviderLookupRequest
         {
@@ -57,12 +59,12 @@ public sealed class AdapterFallbackTests
     {
         // Arrange: handler counts calls so we can assert zero HTTP requests were made.
         var callCount = 0;
-        var factory   = BuildFactory("audnexus", HttpStatusCode.OK,
+        var config = LoadExampleConfig("audnexus");
+        var factory = BuildFactory(config.Name, HttpStatusCode.OK,
             onRequest: _ => callCount++);
 
-        var adapter = new AudnexusAdapter(
-            factory,
-            NullLogger<AudnexusAdapter>.Instance);
+        var adapter = new ConfigDrivenAdapter(
+            config, factory, NullLogger<ConfigDrivenAdapter>.Instance);
 
         var request = new ProviderLookupRequest
         {
@@ -70,14 +72,14 @@ public sealed class AdapterFallbackTests
             EntityType = EntityType.MediaAsset,
             MediaType  = MediaType.Audiobook,
             Title      = "Project Hail Mary",
-            Asin       = null, // <── No ASIN; adapter must skip immediately.
+            Asin       = null, // <── No ASIN; strategy's required_fields skips immediately.
             BaseUrl    = "https://api.audnexus.com",
         };
 
         // Act
         var claims = await adapter.FetchAsync(request);
 
-        // Assert: empty list AND zero HTTP calls (short-circuit, not graceful failure).
+        // Assert: empty list AND zero HTTP calls (required_fields short-circuit).
         Assert.Empty(claims);
         Assert.Equal(0, callCount);
     }
@@ -111,7 +113,36 @@ public sealed class AdapterFallbackTests
         Assert.Empty(claims);
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
+    // ── Config loading ───────────────────────────────────────────────────────
+
+    private static readonly JsonSerializerOptions s_jsonOptions = new()
+    {
+        AllowTrailingCommas = true,
+        ReadCommentHandling = JsonCommentHandling.Skip,
+    };
+
+    private static ProviderConfiguration LoadExampleConfig(string providerName)
+    {
+        var root = FindRepoRoot();
+        var path = Path.Combine(root, "config.example", "providers", $"{providerName}.json");
+        var json = File.ReadAllText(path);
+        return JsonSerializer.Deserialize<ProviderConfiguration>(json, s_jsonOptions)
+            ?? throw new InvalidOperationException($"Failed to deserialize config: {providerName}");
+    }
+
+    private static string FindRepoRoot()
+    {
+        var dir = Path.GetDirectoryName(typeof(AdapterFallbackTests).Assembly.Location);
+        while (dir != null)
+        {
+            if (Directory.Exists(Path.Combine(dir, ".git")))
+                return dir;
+            dir = Path.GetDirectoryName(dir);
+        }
+        throw new InvalidOperationException("Could not find repository root (.git directory)");
+    }
+
+    // ── Stub HTTP helpers ────────────────────────────────────────────────────
 
     /// <summary>
     /// Builds an <see cref="IHttpClientFactory"/> that routes the named client

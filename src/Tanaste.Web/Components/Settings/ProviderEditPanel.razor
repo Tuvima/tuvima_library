@@ -166,17 +166,14 @@
     @if (IsAdmin)
     {
         <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-4" Spacing="2">
-            @if (!IsUniverse)
-            {
-                <MudButton Variant="Variant.Text"
-                           Color="Color.Error"
-                           Size="Size.Small"
-                           StartIcon="@Icons.Material.Filled.Delete"
-                           OnClick="@(() => OnDeleteClicked.InvokeAsync())"
-                           Disabled="@IsSaving">
-                    Disable
-                </MudButton>
-            }
+            <MudButton Variant="Variant.Text"
+                       Color="Color.Error"
+                       Size="Size.Small"
+                       StartIcon="@Icons.Material.Filled.Delete"
+                       OnClick="@(() => OnDeleteClicked.InvokeAsync())"
+                       Disabled="@IsSaving">
+                Disable
+            </MudButton>
             <MudSpacer />
             <MudButton Variant="Variant.Filled"
                        Color="Color.Primary"
@@ -251,9 +248,6 @@
     private string _endpointUrl = string.Empty;
     private readonly Dictionary<string, double> _selectedProperties = new();
 
-    private bool IsUniverse =>
-        string.Equals(Provider.Name, "wikidata", StringComparison.OrdinalIgnoreCase);
-
     private bool CanSave =>
         TestResult is { Success: true }
         && _selectedProperties.Count > 0;
@@ -262,20 +256,9 @@
 
     protected override void OnParametersSet()
     {
-        // Initialize from provider's existing config.
+        // Initialize endpoint URL from provider name (empty default — user fills in).
         if (string.IsNullOrEmpty(_endpointUrl))
-        {
-            _endpointUrl = Provider.Name switch
-            {
-                "apple_books_ebook"     => "https://itunes.apple.com",
-                "apple_books_audiobook" => "https://itunes.apple.com",
-                "audnexus"              => "https://api.audnex.us",
-                "open_library"          => "https://openlibrary.org",
-                "google_books"          => "https://www.googleapis.com/books/v1",
-                "wikidata"              => "https://www.wikidata.org",
-                _                       => string.Empty,
-            };
-        }
+            _endpointUrl = string.Empty;
 
         // Pre-select existing field weights.
         if (_selectedProperties.Count == 0 && Provider.FieldWeights is { Count: > 0 })
@@ -307,7 +290,7 @@
             CapabilityTags = Provider.CapabilityTags?.ToList() ?? [],
             Endpoints = new Dictionary<string, string>
             {
-                [Provider.Name] = _endpointUrl,
+                ["api"] = _endpointUrl,
             },
             ThrottleMs = 500,
             MaxConcurrency = 1,

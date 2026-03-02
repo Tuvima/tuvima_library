@@ -8,5 +8,7 @@
   "field_weights": {},
   "endpoints": {},
   "throttle_ms": 0,
-  "max_concurrency": 1
+  "max_concurrency": 1,
+
+  "adapter_type": "coded"
 }

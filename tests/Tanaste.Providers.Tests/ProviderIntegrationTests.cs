@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -18,6 +19,11 @@ namespace Tanaste.Providers.Tests;
 /// Test data: "The Fellowship of the Ring" by J.R.R. Tolkien (ISBN: 9780547928210)
 /// Each test validates that the adapter returns at least one claim from the live API.
 ///
+/// Config-driven adapters are loaded from <c>config.example/providers/</c> to verify
+/// that the JSON config files correctly drive the universal adapter against live APIs.
+///
+/// Wikidata remains a coded adapter (SPARQL cannot be expressed as URL templates).
+///
 /// Cover art: downloaded as bytes, SHA-256 hashed, hash logged — images discarded.
 /// These tests are intentionally separated from unit tests via the Integration trait.
 /// </summary>
@@ -36,11 +42,7 @@ public sealed class ProviderIntegrationTests
     [Fact]
     public async Task AppleBooks_Ebook_Returns_Claims_For_FellowshipOfTheRing()
     {
-        var factory = BuildRealHttpFactory("apple_books");
-        var adapter = new AppleBooksAdapter(
-            factory,
-            MediaType.Epub,
-            NullLogger<AppleBooksAdapter>.Instance);
+        var adapter = BuildConfigDrivenAdapter("apple_books_ebook");
 
         var request = new ProviderLookupRequest
         {
@@ -69,11 +71,7 @@ public sealed class ProviderIntegrationTests
     [Fact]
     public async Task AppleBooks_Audiobook_Returns_Claims_For_FellowshipOfTheRing()
     {
-        var factory = BuildRealHttpFactory("apple_books");
-        var adapter = new AppleBooksAdapter(
-            factory,
-            MediaType.Audiobook,
-            NullLogger<AppleBooksAdapter>.Instance);
+        var adapter = BuildConfigDrivenAdapter("apple_books_audiobook");
 
         var request = new ProviderLookupRequest
         {
@@ -99,10 +97,7 @@ public sealed class ProviderIntegrationTests
     [Fact]
     public async Task OpenLibrary_Returns_Claims_For_FellowshipOfTheRing()
     {
-        var factory = BuildRealHttpFactory("open_library");
-        var adapter = new OpenLibraryAdapter(
-            factory,
-            NullLogger<OpenLibraryAdapter>.Instance);
+        var adapter = BuildConfigDrivenAdapter("open_library");
 
         var request = new ProviderLookupRequest
         {
@@ -133,10 +128,7 @@ public sealed class ProviderIntegrationTests
     [Fact]
     public async Task OpenLibrary_ISBN_Search_Returns_Claims()
     {
-        var factory = BuildRealHttpFactory("open_library");
-        var adapter = new OpenLibraryAdapter(
-            factory,
-            NullLogger<OpenLibraryAdapter>.Instance);
+        var adapter = BuildConfigDrivenAdapter("open_library");
 
         var request = new ProviderLookupRequest
         {
@@ -159,10 +151,7 @@ public sealed class ProviderIntegrationTests
     [Fact]
     public async Task GoogleBooks_Handles_Lookup_Gracefully()
     {
-        var factory = BuildRealHttpFactory("google_books");
-        var adapter = new GoogleBooksAdapter(
-            factory,
-            NullLogger<GoogleBooksAdapter>.Instance);
+        var adapter = BuildConfigDrivenAdapter("google_books");
 
         var request = new ProviderLookupRequest
         {
@@ -196,10 +185,7 @@ public sealed class ProviderIntegrationTests
     [Fact]
     public async Task Audnexus_Handles_Asin_Lookup_Gracefully()
     {
-        var factory = BuildRealHttpFactory("audnexus");
-        var adapter = new AudnexusAdapter(
-            factory,
-            NullLogger<AudnexusAdapter>.Instance);
+        var adapter = BuildConfigDrivenAdapter("audnexus");
 
         // ASIN B007978NPG = "The Fellowship of the Ring" audiobook on Audible.
         // Note: Audnexus is region-sensitive; some ASINs may return 404 or
@@ -231,10 +217,7 @@ public sealed class ProviderIntegrationTests
     [Fact]
     public async Task Audnexus_ShortCircuits_Without_Asin()
     {
-        var factory = BuildRealHttpFactory("audnexus");
-        var adapter = new AudnexusAdapter(
-            factory,
-            NullLogger<AudnexusAdapter>.Instance);
+        var adapter = BuildConfigDrivenAdapter("audnexus");
 
         var request = new ProviderLookupRequest
         {
@@ -248,6 +231,7 @@ public sealed class ProviderIntegrationTests
 
         var claims = await adapter.FetchAsync(request);
 
+        // Config-driven adapter skips the strategy because required_fields includes "asin".
         _output.WriteLine($"Audnexus without ASIN: {claims.Count} claims (expected 0).");
         Assert.Empty(claims);
     }
@@ -291,6 +275,53 @@ public sealed class ProviderIntegrationTests
         {
             AssertHasClaim(claims, "wikidata_qid");
         }
+    }
+
+    // ── Config-driven adapter builder ───────────────────────────────────────
+
+    private static readonly JsonSerializerOptions s_jsonOptions = new()
+    {
+        AllowTrailingCommas = true,
+        ReadCommentHandling = JsonCommentHandling.Skip,
+    };
+
+    /// <summary>
+    /// Loads a <see cref="ProviderConfiguration"/> from <c>config.example/providers/{name}.json</c>
+    /// and creates a <see cref="ConfigDrivenAdapter"/> with a real HTTP client factory.
+    /// Proves that the JSON config files correctly drive the universal adapter.
+    /// </summary>
+    private static ConfigDrivenAdapter BuildConfigDrivenAdapter(string configName)
+    {
+        var config = LoadExampleConfig(configName);
+        var factory = BuildRealHttpFactory(config.Name);
+        return new ConfigDrivenAdapter(config, factory, NullLogger<ConfigDrivenAdapter>.Instance);
+    }
+
+    /// <summary>
+    /// Deserialises a provider config from the checked-in example files.
+    /// </summary>
+    private static ProviderConfiguration LoadExampleConfig(string providerName)
+    {
+        var root = FindRepoRoot();
+        var path = Path.Combine(root, "config.example", "providers", $"{providerName}.json");
+        var json = File.ReadAllText(path);
+        return JsonSerializer.Deserialize<ProviderConfiguration>(json, s_jsonOptions)
+            ?? throw new InvalidOperationException($"Failed to deserialize config: {providerName}");
+    }
+
+    /// <summary>
+    /// Walks up from the test assembly location to find the repository root (.git directory).
+    /// </summary>
+    private static string FindRepoRoot()
+    {
+        var dir = Path.GetDirectoryName(typeof(ProviderIntegrationTests).Assembly.Location);
+        while (dir != null)
+        {
+            if (Directory.Exists(Path.Combine(dir, ".git")))
+                return dir;
+            dir = Path.GetDirectoryName(dir);
+        }
+        throw new InvalidOperationException("Could not find repository root (.git directory)");
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

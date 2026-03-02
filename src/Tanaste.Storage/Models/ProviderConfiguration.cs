@@ -73,4 +73,156 @@ public sealed class ProviderConfiguration
     /// </summary>
     [JsonPropertyName("max_concurrency")]
     public int MaxConcurrency { get; set; } = 1;
+
+    // ── Config-driven adapter fields ─────────────────────────────────────────
+
+    /// <summary>
+    /// Adapter type: <c>"config_driven"</c> uses the universal adapter that reads
+    /// behaviour from this config file. <c>"coded"</c> (default) uses a hard-coded
+    /// adapter class (e.g. Wikidata's SPARQL adapter).
+    /// </summary>
+    [JsonPropertyName("adapter_type")]
+    public string AdapterType { get; set; } = "coded";
+
+    /// <summary>
+    /// Stable GUID identifying this provider across all <c>metadata_claims.provider_id</c> rows.
+    /// Required for <c>config_driven</c> adapters; ignored for <c>coded</c> adapters.
+    /// </summary>
+    [JsonPropertyName("provider_id")]
+    public string? ProviderId { get; set; }
+
+    /// <summary>Human-readable provider name for the Dashboard.</summary>
+    [JsonPropertyName("display_name")]
+    public string? DisplayName { get; set; }
+
+    /// <summary>HTTP client configuration for config-driven adapters.</summary>
+    [JsonPropertyName("http_client")]
+    public HttpClientConfig? HttpClient { get; set; }
+
+    /// <summary>Media type and entity type filters for config-driven adapters.</summary>
+    [JsonPropertyName("can_handle")]
+    public CanHandleConfig? CanHandle { get; set; }
+
+    /// <summary>
+    /// Ordered list of search strategies. Tried in <see cref="SearchStrategyConfig.Priority"/>
+    /// order; first strategy that returns results wins.
+    /// </summary>
+    [JsonPropertyName("search_strategies")]
+    public List<SearchStrategyConfig>? SearchStrategies { get; set; }
+
+    /// <summary>
+    /// Field extraction mappings. Each entry maps a JSON path in the API response
+    /// to a claim key with a confidence value and optional transform.
+    /// </summary>
+    [JsonPropertyName("field_mappings")]
+    public List<FieldMappingConfig>? FieldMappings { get; set; }
+}
+
+/// <summary>HTTP client configuration for config-driven provider adapters.</summary>
+public sealed class HttpClientConfig
+{
+    [JsonPropertyName("timeout_seconds")]
+    public int TimeoutSeconds { get; set; } = 10;
+
+    [JsonPropertyName("user_agent")]
+    public string? UserAgent { get; set; }
+}
+
+/// <summary>Media type and entity type capability filters for config-driven adapters.</summary>
+public sealed class CanHandleConfig
+{
+    [JsonPropertyName("media_types")]
+    public List<string> MediaTypes { get; set; } = [];
+
+    [JsonPropertyName("entity_types")]
+    public List<string> EntityTypes { get; set; } = [];
+}
+
+/// <summary>
+/// A single search strategy for a config-driven adapter.
+/// Strategies are tried in <see cref="Priority"/> order; first success wins.
+/// </summary>
+public sealed class SearchStrategyConfig
+{
+    /// <summary>Human-readable strategy name for logging.</summary>
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>Execution priority — lower numbers tried first.</summary>
+    [JsonPropertyName("priority")]
+    public int Priority { get; set; }
+
+    /// <summary>
+    /// Request fields that must be non-empty for this strategy to attempt.
+    /// Values: <c>"title"</c>, <c>"author"</c>, <c>"isbn"</c>, <c>"asin"</c>, etc.
+    /// </summary>
+    [JsonPropertyName("required_fields")]
+    public List<string> RequiredFields { get; set; } = [];
+
+    /// <summary>
+    /// URL template with placeholders: <c>{base_url}</c>, <c>{title}</c>, <c>{author}</c>,
+    /// <c>{isbn}</c>, <c>{asin}</c>, <c>{query}</c>. All values are URI-escaped.
+    /// </summary>
+    [JsonPropertyName("url_template")]
+    public string UrlTemplate { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Template for building the <c>{query}</c> placeholder.
+    /// Example: <c>"{title} {author}"</c>. Missing fields are omitted.
+    /// </summary>
+    [JsonPropertyName("query_template")]
+    public string? QueryTemplate { get; set; }
+
+    /// <summary>
+    /// JSON path to the results array in the response (e.g. <c>"docs"</c>, <c>"items"</c>).
+    /// When absent, the response is treated as a direct result object.
+    /// </summary>
+    [JsonPropertyName("results_path")]
+    public string? ResultsPath { get; set; }
+
+    /// <summary>Index within the results array to use. Default: 0 (first result).</summary>
+    [JsonPropertyName("result_index")]
+    public int ResultIndex { get; set; }
+
+    /// <summary>
+    /// When <c>true</c>, HTTP 404 is treated as "no results" rather than an error.
+    /// Useful for direct-lookup APIs like Audnexus.
+    /// </summary>
+    [JsonPropertyName("tolerate_404")]
+    public bool Tolerate404 { get; set; }
+}
+
+/// <summary>
+/// Maps a JSON path in the API response to a metadata claim.
+/// </summary>
+public sealed class FieldMappingConfig
+{
+    /// <summary>The metadata claim key (e.g. <c>"title"</c>, <c>"cover"</c>).</summary>
+    [JsonPropertyName("claim_key")]
+    public string ClaimKey { get; set; } = string.Empty;
+
+    /// <summary>
+    /// JSON path expression to extract the value. Supports dot-notation,
+    /// array indexing (<c>[0]</c>), and wildcard iteration (<c>[*].name</c>).
+    /// </summary>
+    [JsonPropertyName("json_path")]
+    public string JsonPath { get; set; } = string.Empty;
+
+    /// <summary>Confidence value (0.0–1.0) assigned to claims produced by this mapping.</summary>
+    [JsonPropertyName("confidence")]
+    public double Confidence { get; set; } = 0.5;
+
+    /// <summary>
+    /// Optional named transform to apply to the extracted value.
+    /// See <c>ValueTransformRegistry</c> for available transforms.
+    /// </summary>
+    [JsonPropertyName("transform")]
+    public string? Transform { get; set; }
+
+    /// <summary>
+    /// Optional arguments passed to the transform function.
+    /// Interpretation is transform-specific.
+    /// </summary>
+    [JsonPropertyName("transform_args")]
+    public string? TransformArgs { get; set; }
 }

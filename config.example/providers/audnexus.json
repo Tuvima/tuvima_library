@@ -4,15 +4,49 @@
   "enabled": true,
   "weight": 0.7,
   "domain": "Audiobook",
-  "capability_tags": ["cover", "narrator", "series"],
+  "capability_tags": ["narrator", "series", "series_position", "cover", "author"],
   "field_weights": {
-    "cover": 0.9,
     "narrator": 0.9,
-    "series": 0.9
+    "series": 0.9,
+    "series_position": 0.9,
+    "cover": 0.9,
+    "author": 0.75
   },
   "endpoints": {
-    "audnexus": "https://api.audnexus.com"
+    "api": "https://api.audnexus.com"
   },
   "throttle_ms": 0,
-  "max_concurrency": 1
+  "max_concurrency": 1,
+
+  "adapter_type": "config_driven",
+  "provider_id": "b2000002-a000-4000-8000-000000000003",
+  "display_name": "Audnexus",
+
+  "http_client": {
+    "timeout_seconds": 10,
+    "user_agent": "Tanaste/1.0"
+  },
+
+  "can_handle": {
+    "media_types": ["Audiobook"],
+    "entity_types": ["Work", "MediaAsset"]
+  },
+
+  "search_strategies": [
+    {
+      "name": "asin_lookup",
+      "priority": 1,
+      "required_fields": ["asin"],
+      "url_template": "{base_url}/books/{asin}",
+      "tolerate_404": true
+    }
+  ],
+
+  "field_mappings": [
+    { "claim_key": "narrator",        "json_path": "narrators[*].name",  "confidence": 0.9,  "transform": "array_join" },
+    { "claim_key": "series",          "json_path": "seriesName",         "confidence": 0.9 },
+    { "claim_key": "series_position", "json_path": "seriesPosition",     "confidence": 0.9 },
+    { "claim_key": "cover",           "json_path": "image",              "confidence": 0.9 },
+    { "claim_key": "author",          "json_path": "authors[*].name",    "confidence": 0.75, "transform": "array_join" }
+  ]
 }

@@ -45,9 +45,8 @@
                 var provider = _providers[i];
                 var idx = i;
                 var isExpanded = _expandedProvider == provider.Name;
-                var isUniverse = string.Equals(provider.Name, "wikidata", StringComparison.OrdinalIgnoreCase);
 
-                <div class="provider-row @(isExpanded ? "expanded" : "") @(isUniverse ? "universe" : "")"
+                <div class="provider-row @(isExpanded ? "expanded" : "")"
                      @key="provider.Name">
 
                     @* ── Collapsed row ─────────────────────────────────────────── *@
@@ -55,7 +54,7 @@
                          @onclick="@(() => OnRowClicked(provider))">
 
                         @* Drag handle (left side) *@
-                        @if (HasAdminAccess && !isUniverse)
+                        @if (HasAdminAccess)
                         {
                             <div class="provider-drag-handle"
                                  title="Drag to reorder"
@@ -83,14 +82,6 @@
                                 <MudText Typo="Typo.body1" Style="font-weight: 500;">
                                     @provider.DisplayName
                                 </MudText>
-                                @if (isUniverse)
-                                {
-                                    <MudChip T="string" Size="Size.Small" Color="Color.Primary"
-                                             Variant="Variant.Outlined"
-                                             Style="font-size: 0.65rem; height: 20px;">
-                                        Universe
-                                    </MudChip>
-                                }
                             </MudStack>
                         </div>
 
@@ -239,12 +230,12 @@
                 return;
             }
 
-            // Filter out "local_filesystem" — it's redundant in the UI.
-            // Keep wikidata at the top, then order by priority.
+            // Filter out "local_filesystem" and "wikidata" — they are not config-driven.
+            // Wikidata is shown in the Universe tab; local_filesystem is internal.
             _providers = providers
                 .Where(p => !string.Equals(p.Name, "local_filesystem", StringComparison.OrdinalIgnoreCase))
-                .OrderByDescending(p => string.Equals(p.Name, "wikidata", StringComparison.OrdinalIgnoreCase))
-                .ThenBy(p => p.Name)
+                .Where(p => !string.Equals(p.Name, "wikidata", StringComparison.OrdinalIgnoreCase))
+                .OrderBy(p => p.Name)
                 .ToList();
 
             _originalOrder = _providers.ToList();
@@ -481,10 +472,6 @@
     .provider-row.expanded {
         border-color: var(--tanaste-glass-border);
         background: var(--tanaste-glass-bg);
-    }
-
-    .provider-row.universe {
-        border-left: 3px solid var(--mud-palette-primary);
     }
 
     /* ── Row header (always visible) ─────────────────────────────────── */

@@ -6,7 +6,6 @@ using Tanaste.Domain.Enums;
 using Tanaste.Domain.Models;
 using Tanaste.Intelligence.Contracts;
 using Tanaste.Intelligence.Models;
-using Tanaste.Providers.Adapters;
 using Tanaste.Providers.Contracts;
 using Tanaste.Providers.Models;
 using Tanaste.Storage.Contracts;
@@ -272,7 +271,7 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         CancellationToken ct)
     {
         // Only Wikidata produces person-enrichment claims.
-        if (provider is not WikidataAdapter)
+        if (!string.Equals(provider.Name, "wikidata", StringComparison.OrdinalIgnoreCase))
             return;
 
         var qid        = claims.FirstOrDefault(c => c.Key == "wikidata_qid")?.Value;
@@ -301,17 +300,22 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         IExternalMetadataProvider provider,
         Dictionary<string, string> endpointMap)
     {
-        // Map adapter names to endpoint keys.
+        // Wikidata uses a dedicated "wikidata_api" endpoint key.
+        // Config-driven adapters self-resolve from their own endpoints map,
+        // so the default (provider.Name) is a reasonable fallback.
         var key = provider.Name switch
         {
-            "apple_books_ebook"      => "apple_books",
-            "apple_books_audiobook"  => "apple_books",
-            "audnexus"               => "audnexus",
-            "wikidata"               => "wikidata_api",
-            _                        => provider.Name,
+            "wikidata" => "wikidata_api",
+            _          => provider.Name,
         };
 
-        return endpointMap.TryGetValue(key, out var url) ? url : string.Empty;
+        // Try the mapped key first, then fall back to the "api" conventional key.
+        if (endpointMap.TryGetValue(key, out var url))
+            return url;
+        if (endpointMap.TryGetValue("api", out var apiUrl))
+            return apiUrl;
+
+        return string.Empty;
     }
 
     private static string? ResolveSparqlBaseUrl(Dictionary<string, string> endpointMap)

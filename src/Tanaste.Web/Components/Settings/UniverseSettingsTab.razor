@@ -1,17 +1,12 @@
 @namespace Tanaste.Web.Components.Settings
-@inject UIOrchestratorService Orchestrator
-@inject ISnackbar Snackbar
 
-@* Universe Settings — Wikidata universe provider management with bridge
-   identifier configuration and property mapping.
+@* Universe Settings — permanent, read-only reference for the Wikidata universe provider.
 
-   This tab manages the single universe provider (Wikidata) which spans
-   all media types and provides authoritative Q-identifiers, external
-   bridge IDs, and deep enrichment data via SPARQL.
-
-   Bridges connect Wikidata to other providers — when Tanaste finds a
-   Wikidata entry, it uses bridge properties to cross-reference with
-   Apple Books, Open Library, etc. *@
+   Wikidata is the permanent universe provider. It spans all media types and
+   provides authoritative Q-identifiers, external bridge IDs, and deep
+   enrichment data via SPARQL. This page is purely informational — no editing,
+   no testing, no Engine connection required. It renders instantly from
+   compiled default data. *@
 
 <MudPaper Elevation="0" Style="@GlassStyle">
 
@@ -21,292 +16,199 @@
         <MudText Typo="Typo.h6">Universe Provider</MudText>
     </MudStack>
     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
-        Wikidata is the default universe provider. It connects your library to the
+        Wikidata is the permanent universe provider. It connects your library to the
         open knowledge graph — linking every book, film, and person to authoritative
-        identifiers across all platforms. In a future version, this may be configurable.
+        identifiers across all platforms.
     </MudText>
 
-    @* ── Loading ───────────────────────────────────────────────────────────── *@
-    @if (_loading)
-    {
-        <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
-    }
-    else
-    {
-        @* ── Provider info card ────────────────────────────────────────────── *@
-        <MudPaper Elevation="0" Class="pa-4 mb-4" Style="@InfoCardStyle">
-            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
-                @* Status dot *@
-                <div style="@StatusDotStyle" title="@(_wikidataReachable ? "Connected" : "Unreachable")"></div>
-                <div style="flex: 1;">
-                    <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">Wikidata</MudText>
-                    <MudText Typo="Typo.caption" Color="Color.Secondary">
-                        @(_wikidataEndpoint ?? "https://www.wikidata.org")
-                    </MudText>
-                </div>
-                @if (HasAdminAccess)
+    @* ── Provider info card ────────────────────────────────────────────── *@
+    <MudPaper Elevation="0" Class="pa-4 mb-4" Style="@InfoCardStyle">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+            <MudIcon Icon="@Icons.Material.Outlined.Hub" Color="Color.Primary" />
+            <div style="flex: 1;">
+                <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">Wikidata</MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                    https://www.wikidata.org
+                </MudText>
+            </div>
+            <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">
+                SPARQL
+            </MudChip>
+        </MudStack>
+    </MudPaper>
+
+    @* ── Bridges section ───────────────────────────────────────────────── *@
+    <MudExpansionPanels Elevation="0" Dense="true" Class="mb-4"
+                        Style="background: transparent;">
+        <MudExpansionPanel Text="Bridge Identifiers"
+                           MaxHeight="2000"
+                           Style="background: transparent; border: 1px solid var(--tanaste-glass-border); border-radius: 16px;">
+            <TitleContent>
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Outlined.Link" Size="Size.Small" Color="Color.Primary" />
+                    <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">Bridge Identifiers</MudText>
+                    <MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined">
+                        @_bridges.Count
+                    </MudChip>
+                </MudStack>
+            </TitleContent>
+            <ChildContent>
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                    Bridges connect Wikidata to your other providers. When Tanaste finds a
+                    Wikidata entry for a work, it uses these bridge properties to cross-reference
+                    with Apple Books, Open Library, and more. Order determines priority — the first
+                    matching bridge wins.
+                </MudText>
+
+                <MudSimpleTable Dense="true" Hover="true"
+                                Style="background: transparent;">
+                    <thead>
+                        <tr>
+                            <th style="width: 40px;">#</th>
+                            <th>Property</th>
+                            <th>Target Provider</th>
+                            <th>Request Field</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @for (var i = 0; i < _bridges.Count; i++)
+                        {
+                            var bridge = _bridges[i];
+                            var idx = i;
+                            <tr>
+                                <td>
+                                    <MudText Typo="Typo.body2" Color="Color.Secondary">@(idx + 1)</MudText>
+                                </td>
+                                <td>
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                        <MudText Typo="Typo.body2" Style="font-weight: 600;">@bridge.PCode</MudText>
+                                        <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                            — @GetBridgeLabel(bridge.PCode)
+                                        </MudText>
+                                    </MudStack>
+                                </td>
+                                <td>
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Primary"
+                                             Variant="Variant.Text">
+                                        @GetTargetProvider(bridge.PCode)
+                                    </MudChip>
+                                </td>
+                                <td>
+                                    <code style="font-size: 0.8rem;">@bridge.RequestField</code>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </MudSimpleTable>
+            </ChildContent>
+        </MudExpansionPanel>
+    </MudExpansionPanels>
+
+    @* ── Property map section ──────────────────────────────────────────── *@
+    <MudExpansionPanels Elevation="0" Dense="true"
+                        Style="background: transparent;">
+        <MudExpansionPanel Text="Property Map"
+                           MaxHeight="4000"
+                           Style="background: transparent; border: 1px solid var(--tanaste-glass-border); border-radius: 16px;">
+            <TitleContent>
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Outlined.Map" Size="Size.Small" Color="Color.Primary" />
+                    <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">Property Map</MudText>
+                    <MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined">
+                        @_propertyCount properties
+                    </MudChip>
+                </MudStack>
+            </TitleContent>
+            <ChildContent>
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                    Wikidata properties mapped to Tanaste claim keys. Each property carries
+                    a confidence value used during scoring. Bridge properties link to external
+                    platforms.
+                </MudText>
+
+                @foreach (var category in _propertiesByCategory)
                 {
-                    <MudButton Variant="Variant.Outlined"
-                               Color="Color.Primary"
-                               Size="Size.Small"
-                               StartIcon="@Icons.Material.Filled.PlayArrow"
-                               OnClick="@TestWikidata"
-                               Disabled="@_testing">
-                        @if (_testing)
-                        {
-                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
-                            @:Testing…
-                        }
-                        else
-                        {
-                            @:Test Connection
-                        }
-                    </MudButton>
+                    <MudText Typo="Typo.overline" Color="Color.Primary" Class="mt-3 mb-1"
+                             Style="letter-spacing: 0.08em;">
+                        @category.Key
+                    </MudText>
+
+                    <MudSimpleTable Dense="true" Hover="true"
+                                    Style="background: transparent; margin-bottom: 8px;">
+                        <thead>
+                            <tr>
+                                <th>P-Code</th>
+                                <th>Claim Key</th>
+                                <th>Scope</th>
+                                <th style="width: 80px;">Confidence</th>
+                                <th style="width: 60px;">Enabled</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var prop in category.Value)
+                            {
+                                <tr style="@(!prop.Enabled ? "opacity: 0.5;" : "")">
+                                    <td>
+                                        <MudText Typo="Typo.body2" Style="font-weight: 500;">
+                                            @prop.PCode
+                                        </MudText>
+                                    </td>
+                                    <td>
+                                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                            <code style="font-size: 0.8rem;">@prop.ClaimKey</code>
+                                            @if (prop.IsBridge)
+                                            {
+                                                <MudChip T="string" Size="Size.Small" Color="Color.Warning"
+                                                         Variant="Variant.Outlined"
+                                                         Style="font-size: 0.65rem;">
+                                                    Bridge
+                                                </MudChip>
+                                            }
+                                        </MudStack>
+                                    </td>
+                                    <td>
+                                        <MudText Typo="Typo.caption">@prop.EntityScope</MudText>
+                                    </td>
+                                    <td>
+                                        <MudText Typo="Typo.body2">@prop.Confidence.ToString("P0")</MudText>
+                                    </td>
+                                    <td>
+                                        <MudIcon Icon="@(prop.Enabled
+                                                          ? Icons.Material.Filled.CheckCircle
+                                                          : Icons.Material.Filled.Cancel)"
+                                                 Color="@(prop.Enabled ? Color.Success : Color.Error)"
+                                                 Size="Size.Small" />
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </MudSimpleTable>
                 }
-            </MudStack>
-
-            @if (_testResult is not null)
-            {
-                <MudAlert Severity="@(_testResult.Success ? Severity.Success : Severity.Error)"
-                          Class="mt-3"
-                          Dense="true">
-                    @_testResult.Message
-                    @if (_testResult.Success)
-                    {
-                        <span style="margin-left: 8px; opacity: 0.7;">(@(_testResult.ResponseTimeMs)ms)</span>
-                    }
-                </MudAlert>
-            }
-        </MudPaper>
-
-        @* ── Bridges section ───────────────────────────────────────────────── *@
-        <MudExpansionPanels Elevation="0" Dense="true" Class="mb-4"
-                            Style="background: transparent;">
-            <MudExpansionPanel Text="Bridge Identifiers"
-                               MaxHeight="2000"
-                               Style="background: transparent; border: 1px solid var(--tanaste-glass-border); border-radius: 16px;">
-                <TitleContent>
-                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                        <MudIcon Icon="@Icons.Material.Outlined.Link" Size="Size.Small" Color="Color.Primary" />
-                        <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">Bridge Identifiers</MudText>
-                        <MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined">
-                            @_bridges.Count
-                        </MudChip>
-                    </MudStack>
-                </TitleContent>
-                <ChildContent>
-                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
-                        Bridges connect Wikidata to your other providers. When Tanaste finds a
-                        Wikidata entry for a work, it uses these bridge properties to cross-reference
-                        with Apple Books, Open Library, and more. Order determines priority — the first
-                        matching bridge wins.
-                    </MudText>
-
-                    @if (_bridges.Count == 0)
-                    {
-                        <MudText Typo="Typo.body2" Color="Color.Secondary" Style="font-style: italic;">
-                            No bridge identifiers configured.
-                        </MudText>
-                    }
-                    else
-                    {
-                        <MudSimpleTable Dense="true" Hover="true"
-                                        Style="background: transparent;">
-                            <thead>
-                                <tr>
-                                    <th style="width: 40px;">#</th>
-                                    <th>Property</th>
-                                    <th>Target Provider</th>
-                                    <th>Request Field</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @for (var i = 0; i < _bridges.Count; i++)
-                                {
-                                    var bridge = _bridges[i];
-                                    var idx = i;
-                                    <tr>
-                                        <td>
-                                            <MudText Typo="Typo.body2" Color="Color.Secondary">@(idx + 1)</MudText>
-                                        </td>
-                                        <td>
-                                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
-                                                <MudText Typo="Typo.body2" Style="font-weight: 600;">@bridge.PCode</MudText>
-                                                <MudText Typo="Typo.body2" Color="Color.Secondary">
-                                                    — @GetBridgeLabel(bridge.PCode)
-                                                </MudText>
-                                            </MudStack>
-                                        </td>
-                                        <td>
-                                            <MudChip T="string" Size="Size.Small" Color="Color.Primary"
-                                                     Variant="Variant.Text">
-                                                @GetTargetProvider(bridge.PCode)
-                                            </MudChip>
-                                        </td>
-                                        <td>
-                                            <code style="font-size: 0.8rem;">@bridge.RequestField</code>
-                                        </td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </MudSimpleTable>
-                    }
-                </ChildContent>
-            </MudExpansionPanel>
-        </MudExpansionPanels>
-
-        @* ── Property map section ──────────────────────────────────────────── *@
-        <MudExpansionPanels Elevation="0" Dense="true"
-                            Style="background: transparent;">
-            <MudExpansionPanel Text="Property Map"
-                               MaxHeight="4000"
-                               Style="background: transparent; border: 1px solid var(--tanaste-glass-border); border-radius: 16px;">
-                <TitleContent>
-                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                        <MudIcon Icon="@Icons.Material.Outlined.Map" Size="Size.Small" Color="Color.Primary" />
-                        <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">Property Map</MudText>
-                        <MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined">
-                            @_propertyCount properties
-                        </MudChip>
-                    </MudStack>
-                </TitleContent>
-                <ChildContent>
-                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
-                        Wikidata properties mapped to Tanaste claim keys. Each property carries
-                        a confidence value used during scoring. Bridge properties link to external
-                        platforms.
-                    </MudText>
-
-                    @foreach (var category in _propertiesByCategory)
-                    {
-                        <MudText Typo="Typo.overline" Color="Color.Primary" Class="mt-3 mb-1"
-                                 Style="letter-spacing: 0.08em;">
-                            @category.Key
-                        </MudText>
-
-                        <MudSimpleTable Dense="true" Hover="true"
-                                        Style="background: transparent; margin-bottom: 8px;">
-                            <thead>
-                                <tr>
-                                    <th>P-Code</th>
-                                    <th>Claim Key</th>
-                                    <th>Scope</th>
-                                    <th style="width: 80px;">Confidence</th>
-                                    <th style="width: 60px;">Enabled</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var prop in category.Value)
-                                {
-                                    <tr style="@(!prop.Enabled ? "opacity: 0.5;" : "")">
-                                        <td>
-                                            <MudText Typo="Typo.body2" Style="font-weight: 500;">
-                                                @prop.PCode
-                                            </MudText>
-                                        </td>
-                                        <td>
-                                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
-                                                <code style="font-size: 0.8rem;">@prop.ClaimKey</code>
-                                                @if (prop.IsBridge)
-                                                {
-                                                    <MudChip T="string" Size="Size.Small" Color="Color.Warning"
-                                                             Variant="Variant.Outlined"
-                                                             Style="font-size: 0.65rem;">
-                                                        Bridge
-                                                    </MudChip>
-                                                }
-                                            </MudStack>
-                                        </td>
-                                        <td>
-                                            <MudText Typo="Typo.caption">@prop.EntityScope</MudText>
-                                        </td>
-                                        <td>
-                                            <MudText Typo="Typo.body2">@prop.Confidence.ToString("P0")</MudText>
-                                        </td>
-                                        <td>
-                                            <MudIcon Icon="@(prop.Enabled
-                                                              ? Icons.Material.Filled.CheckCircle
-                                                              : Icons.Material.Filled.Cancel)"
-                                                     Color="@(prop.Enabled ? Color.Success : Color.Error)"
-                                                     Size="Size.Small" />
-                                        </td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </MudSimpleTable>
-                    }
-                </ChildContent>
-            </MudExpansionPanel>
-        </MudExpansionPanels>
-    }
+            </ChildContent>
+        </MudExpansionPanel>
+    </MudExpansionPanels>
 </MudPaper>
 
 @code {
-    /// <summary>Current user role for authorization gating.</summary>
-    [Parameter] public string CurrentRole { get; set; } = "Administrator";
+    // ── State (all compiled defaults — no Engine dependency) ────────────────
 
-    // ── State ────────────────────────────────────────────────────────────────
+    private readonly List<BridgeEntry> _bridges =
+    [
+        new("P3861", "apple_books_id"),
+        new("P3398", "audible_id"),
+        new("P4947", "tmdb_id"),
+        new("P345",  "imdb_id"),
+        new("P1566", "asin"),
+        new("P212",  "isbn"),
+    ];
 
-    private bool _loading = true;
-    private bool _testing;
-    private bool _wikidataReachable;
-    private string? _wikidataEndpoint;
-    private ProviderTestResultDto? _testResult;
-
-    private List<BridgeEntry> _bridges = [];
     private Dictionary<string, List<PropertyEntry>> _propertiesByCategory = new();
     private int _propertyCount;
 
-    // ── Lifecycle ─────────────────────────────────────────────────────────────
+    // ── Lifecycle ─────────────────────────────────────────────────────────
 
-    protected override async Task OnInitializedAsync()
+    protected override void OnInitialized()
     {
-        await LoadDataAsync();
-    }
-
-    private async Task LoadDataAsync()
-    {
-        _loading = true;
-        try
-        {
-            // Load provider status to check reachability.
-            var providers = await Orchestrator.GetProviderStatusAsync();
-            var wikidata = providers?.FirstOrDefault(p =>
-                string.Equals(p.Name, "wikidata", StringComparison.OrdinalIgnoreCase));
-
-            _wikidataReachable = wikidata?.IsReachable ?? false;
-            _wikidataEndpoint = wikidata?.Name is not null ? "https://www.wikidata.org" : null;
-
-            // Load bridge and property data from the universe config.
-            // The Dashboard doesn't have direct access to the universe config file,
-            // so we use the well-known Wikidata property map defaults.
-            LoadDefaultPropertyMap();
-        }
-        catch
-        {
-            // Engine offline — show defaults.
-            LoadDefaultPropertyMap();
-        }
-        finally
-        {
-            _loading = false;
-        }
-    }
-
-    private void LoadDefaultPropertyMap()
-    {
-        // Default bridges in priority order.
-        _bridges =
-        [
-            new("P3861", "apple_books_id"),
-            new("P3398", "audible_id"),
-            new("P4947", "tmdb_id"),
-            new("P345",  "imdb_id"),
-            new("P1566", "asin"),
-            new("P212",  "isbn"),
-        ];
-
-        // Default property map grouped by category.
         var allProps = GetDefaultProperties();
         _propertiesByCategory = allProps
             .GroupBy(p => p.Category)
@@ -315,34 +217,7 @@
         _propertyCount = allProps.Count;
     }
 
-    // ── Test connection ───────────────────────────────────────────────────────
-
-    private async Task TestWikidata()
-    {
-        _testing = true;
-        _testResult = null;
-        StateHasChanged();
-
-        try
-        {
-            _testResult = await Orchestrator.TestProviderAsync("wikidata");
-            _wikidataReachable = _testResult?.Success ?? false;
-        }
-        catch (Exception ex)
-        {
-            _testResult = new ProviderTestResultDto(false, 0, [], ex.Message);
-        }
-        finally
-        {
-            _testing = false;
-        }
-    }
-
-    // ── Helpers ───────────────────────────────────────────────────────────────
-
-    private bool HasAdminAccess =>
-        string.Equals(CurrentRole, "Administrator", StringComparison.OrdinalIgnoreCase)
-        || string.Equals(CurrentRole, "Curator", StringComparison.OrdinalIgnoreCase);
+    // ── Helpers ───────────────────────────────────────────────────────────
 
     private static string GetBridgeLabel(string pCode) => pCode switch
     {
@@ -433,7 +308,7 @@
         new("P856",  "website",   "Social Pivot", "Person", 0.9, false, true),
     ];
 
-    // ── Records ──────────────────────────────────────────────────────────────
+    // ── Records ──────────────────────────────────────────────────────────
 
     private sealed record BridgeEntry(string PCode, string RequestField);
 
@@ -441,7 +316,7 @@
         string PCode, string ClaimKey, string Category,
         string EntityScope, double Confidence, bool IsBridge, bool Enabled);
 
-    // ── Styles ───────────────────────────────────────────────────────────────
+    // ── Styles ───────────────────────────────────────────────────────────
 
     private const string GlassStyle =
         "background: var(--tanaste-glass-bg); " +
@@ -458,8 +333,4 @@
         "backdrop-filter: blur(10px); " +
         "-webkit-backdrop-filter: blur(10px); " +
         "border-radius: 16px;";
-
-    private string StatusDotStyle =>
-        $"width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; " +
-        $"background-color: {(_wikidataReachable ? "var(--mud-palette-success)" : "var(--mud-palette-error)")};";
 }

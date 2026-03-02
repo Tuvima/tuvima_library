@@ -4,13 +4,48 @@
   "enabled": true,
   "weight": 0.7,
   "domain": "Audiobook",
-  "capability_tags": ["cover"],
+  "capability_tags": ["cover", "description", "rating", "title"],
   "field_weights": {
-    "cover": 0.6
+    "cover": 0.6,
+    "description": 0.85,
+    "rating": 0.8,
+    "title": 0.7
   },
   "endpoints": {
-    "apple_books": "https://itunes.apple.com"
+    "api": "https://itunes.apple.com"
   },
   "throttle_ms": 300,
-  "max_concurrency": 1
+  "max_concurrency": 1,
+
+  "adapter_type": "config_driven",
+  "provider_id": "b1000001-a000-4000-8000-000000000002",
+  "display_name": "Apple Books (Audiobook)",
+
+  "http_client": {
+    "timeout_seconds": 10
+  },
+
+  "can_handle": {
+    "media_types": ["Audiobook"],
+    "entity_types": ["Work", "MediaAsset"]
+  },
+
+  "search_strategies": [
+    {
+      "name": "title_search",
+      "priority": 1,
+      "required_fields": ["title"],
+      "url_template": "{base_url}/search?term={query}&entity=audiobook&limit=5",
+      "query_template": "{title} {author}",
+      "results_path": "results",
+      "result_index": 0
+    }
+  ],
+
+  "field_mappings": [
+    { "claim_key": "cover",       "json_path": "artworkUrl100",  "confidence": 0.85, "transform": "regex_replace", "transform_args": "100x100bb|600x600bb" },
+    { "claim_key": "description", "json_path": "description",    "confidence": 0.85, "transform": "strip_html" },
+    { "claim_key": "rating",      "json_path": "averageUserRating", "confidence": 0.8, "transform": "to_string" },
+    { "claim_key": "title",       "json_path": "trackName",      "confidence": 0.7 }
+  ]
 }

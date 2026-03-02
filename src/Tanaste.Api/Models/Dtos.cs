@@ -471,6 +471,28 @@ public sealed class ProviderConfigUpdateRequest
 
     [JsonPropertyName("max_concurrency")]
     public int? MaxConcurrency { get; init; }
+
+    [JsonPropertyName("field_mappings")]
+    public List<FieldMappingUpdateDto>? FieldMappings { get; init; }
+}
+
+/// <summary>Field mapping entry in a provider config update.</summary>
+public sealed class FieldMappingUpdateDto
+{
+    [JsonPropertyName("claim_key")]
+    public string ClaimKey { get; init; } = string.Empty;
+
+    [JsonPropertyName("json_path")]
+    public string JsonPath { get; init; } = string.Empty;
+
+    [JsonPropertyName("confidence")]
+    public double Confidence { get; init; } = 0.5;
+
+    [JsonPropertyName("transform")]
+    public string? Transform { get; init; }
+
+    [JsonPropertyName("transform_args")]
+    public string? TransformArgs { get; init; }
 }
 
 // ── PUT /settings/providers/priority ─────────────────────────────────────────

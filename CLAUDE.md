@@ -274,18 +274,37 @@ When a file's metadata contains an author or narrator name, the Engine:
 3. If the person has not yet been Wikidata-enriched (`EnrichedAt is null`), enqueues a `HarvestRequest` with `EntityType.Person` for Wikidata lookup.
 4. When Wikidata responds, the person record is updated with `WikidataQid`, `HeadshotUrl`, and `Biography`, and a `PersonEnriched` SignalR event fires.
 
+**Config-Driven Universal Adapter:**
+
+The four REST+JSON providers (Apple Books, Audnexus, Open Library, Google Books) are powered by a single `ConfigDrivenAdapter` class (`src/Tanaste.Providers/Adapters/ConfigDrivenAdapter.cs`) that reads its entire behaviour from the provider's JSON config file in `config/providers/`. No individual adapter classes exist for these providers — they were retired in favour of the universal adapter.
+
+Each config file declares:
+- `adapter_type: "config_driven"` — tells the DI registration loop to use the universal adapter
+- `provider_id` — stable GUID for `metadata_claims.provider_id` foreign keys
+- `search_strategies[]` — ordered URL template strategies with `required_fields`, `tolerate_404`, `results_path`
+- `field_mappings[]` — JSON path extraction rules with named transforms and confidence values
+
+Adding a new REST+JSON provider is a **zero-code operation**: drop a config file in `config/providers/`, restart, done.
+
+**Wikidata stays as a coded adapter** (`WikidataAdapter`) — its SPARQL-based intelligence cannot be expressed as URL templates + JSON path extraction.
+
+**Key types:**
+- `ConfigDrivenAdapter` (`Tanaste.Providers.Adapters`) — universal adapter implementing `IExternalMetadataProvider`
+- `JsonPathEvaluator` (`Tanaste.Providers.Models`) — static utility navigating `System.Text.Json.Nodes.JsonNode` with dot-notation, array indexing, and wildcard iteration
+- `ValueTransformRegistry` (`Tanaste.Providers.Models`) — named transform functions (to_string, strip_html, url_template, regex_replace, prefer_isbn13, array_join, array_nested_join, first_n_chars, fallback_key)
+
 **Key architectural rules for this subsystem:**
 - `Tanaste.Ingestion` has **zero new project references**. All interfaces (`IMetadataHarvestingService`, `IRecursiveIdentityService`, `IMetadataClaimRepository`, `ICanonicalValueRepository`) live in `Tanaste.Domain.Contracts` — which Ingestion already references.
-- All provider base URLs live in `provider_endpoints` in `tanaste_master.json`. Changing a URL requires only a config edit, never a recompile.
-- All trust weights live in the `field_weights` section per provider in `tanaste_master.json`. The engine picks them up automatically.
-- Provider GUIDs are stable hardcoded constants in each adapter class (not looked up from the DB at runtime) so new `MetadataClaim` rows can be written without a DB round-trip.
-- Throttle rules: Apple Books — 300ms between calls; Wikidata — 1100ms between calls (Wikidata's 1 req/sec policy). Audnexus has no throttle.
-- Audnexus requires an ASIN. If none is present in the file's metadata, the adapter short-circuits immediately (no HTTP call made) and returns an empty claim list.
+- All provider configuration lives in `config/providers/{name}.json` — endpoints, trust weights, search strategies, field mappings, throttle, concurrency. Changing any of these requires only a config edit, never a recompile.
+- Provider GUIDs are stable strings in each config file's `provider_id` field (not looked up from the DB at runtime) so new `MetadataClaim` rows can be written without a DB round-trip.
+- Throttle rules and concurrency limits are per-provider in their config files. The `ConfigDrivenAdapter` enforces them via `SemaphoreSlim` + timestamp gap.
+- Required-field short-circuits: each search strategy declares `required_fields`. If a required field (e.g. ASIN for Audnexus) is missing, the strategy is skipped immediately — no HTTP call made.
 
 **Why this matters to the business:**
 - **Reliability** — Providers are never in the critical path. A failed network call returns an empty list; the file remains in the library with its local metadata intact.
 - **Performance** — The harvest queue is non-blocking. File ingestion completes in milliseconds regardless of network conditions.
-- **Maintenance** — Adding a new provider is one new class implementing `IExternalMetadataProvider` plus one JSON entry. No existing code changes.
+- **Maintenance** — Adding a new REST+JSON provider is a zero-code operation: one JSON config file. Wikidata is the only provider requiring compiled code.
+- **Extensibility** — The config-driven architecture supports any REST+JSON API that returns structured data. URL templates, JSON path extraction, and named transforms cover the common patterns.
 - **Privacy** — Only titles, authors, and ASINs are sent to external services — no personal data, no usage telemetry, no library structure.
 
 ### 3.7 — Library Organization & Sidecar System (Filesystem-First)

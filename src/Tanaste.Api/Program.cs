@@ -219,15 +219,7 @@ builder.Services.AddHttpClient("settings_probe", c =>
     c.Timeout = TimeSpan.FromSeconds(5); // outer cap; each probe uses a 3-second CTS
 });
 
-builder.Services.AddHttpClient("apple_books", c =>
-{
-    c.Timeout = TimeSpan.FromSeconds(10);
-});
-builder.Services.AddHttpClient("audnexus", c =>
-{
-    c.Timeout = TimeSpan.FromSeconds(10);
-    c.DefaultRequestHeaders.UserAgent.ParseAdd("Tanaste/1.0");
-});
+// Wikidata keeps its two named HttpClients (coded adapter, not config-driven).
 builder.Services.AddHttpClient("wikidata_api", c =>
 {
     c.Timeout = TimeSpan.FromSeconds(15);
@@ -240,15 +232,34 @@ builder.Services.AddHttpClient("wikidata_sparql", c =>
     c.DefaultRequestHeaders.UserAgent.ParseAdd(
         "Tanaste/1.0 (https://github.com/shyfaruqi/tanaste)");
 });
-builder.Services.AddHttpClient("open_library", c =>
+
+// Config-driven providers: scan config/providers/ and register each one.
+// Named HttpClients + ConfigDrivenAdapter instances are created from config.
+foreach (var providerConfig in configLoader.LoadAllProviders())
 {
-    c.Timeout = TimeSpan.FromSeconds(10);
-    c.DefaultRequestHeaders.UserAgent.ParseAdd("Tanaste/1.0");
-});
-builder.Services.AddHttpClient("google_books", c =>
-{
-    c.Timeout = TimeSpan.FromSeconds(10);
-});
+    if (!providerConfig.Enabled) continue;
+    if (!string.Equals(providerConfig.AdapterType, "config_driven", StringComparison.OrdinalIgnoreCase))
+        continue;
+
+    var name = providerConfig.Name;
+    var timeout = providerConfig.HttpClient?.TimeoutSeconds ?? 10;
+    var userAgent = providerConfig.HttpClient?.UserAgent;
+
+    builder.Services.AddHttpClient(name, c =>
+    {
+        c.Timeout = TimeSpan.FromSeconds(timeout);
+        if (!string.IsNullOrEmpty(userAgent))
+            c.DefaultRequestHeaders.UserAgent.ParseAdd(userAgent);
+    });
+
+    // Capture for closure.
+    var cfg = providerConfig;
+    builder.Services.AddSingleton<IExternalMetadataProvider>(sp =>
+        new ConfigDrivenAdapter(
+            cfg,
+            sp.GetRequiredService<IHttpClientFactory>(),
+            sp.GetRequiredService<ILogger<ConfigDrivenAdapter>>()));
+}
 
 // Storage repositories (Phase 9 — claim + canonical + person persistence).
 builder.Services.AddSingleton<IMetadataClaimRepository,  MetadataClaimRepository>();
@@ -256,22 +267,8 @@ builder.Services.AddSingleton<ICanonicalValueRepository, CanonicalValueRepositor
 builder.Services.AddSingleton<IPersonRepository,         PersonRepository>();
 builder.Services.AddSingleton<IMediaEntityChainFactory,  MediaEntityChainFactory>();
 
-// Provider adapters — each registered as IExternalMetadataProvider so
-// MetadataHarvestingService receives them as IEnumerable<IExternalMetadataProvider>.
-builder.Services.AddSingleton<IExternalMetadataProvider>(sp =>
-    new AppleBooksAdapter(
-        sp.GetRequiredService<IHttpClientFactory>(),
-        MediaType.Epub,
-        sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<AppleBooksAdapter>>()));
-builder.Services.AddSingleton<IExternalMetadataProvider>(sp =>
-    new AppleBooksAdapter(
-        sp.GetRequiredService<IHttpClientFactory>(),
-        MediaType.Audiobook,
-        sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<AppleBooksAdapter>>()));
-builder.Services.AddSingleton<IExternalMetadataProvider, AudnexusAdapter>();
+// Wikidata stays as a coded adapter — SPARQL cannot be expressed as URL templates.
 builder.Services.AddSingleton<IExternalMetadataProvider, WikidataAdapter>();
-builder.Services.AddSingleton<IExternalMetadataProvider, OpenLibraryAdapter>();
-builder.Services.AddSingleton<IExternalMetadataProvider, GoogleBooksAdapter>();
 
 builder.Services.AddSingleton<IMetadataHarvestingService, MetadataHarvestingService>();
 builder.Services.AddSingleton<IRecursiveIdentityService,  RecursiveIdentityService>();

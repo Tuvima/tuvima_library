@@ -52,4 +52,26 @@ public sealed class ProviderConfigUpdateDto
 
     [JsonPropertyName("max_concurrency")]
     public int MaxConcurrency { get; set; } = 1;
+
+    [JsonPropertyName("field_mappings")]
+    public List<FieldMappingDto>? FieldMappings { get; set; }
+}
+
+/// <summary>Field mapping entry for config-driven provider editing.</summary>
+public sealed class FieldMappingDto
+{
+    [JsonPropertyName("claim_key")]
+    public string ClaimKey { get; set; } = string.Empty;
+
+    [JsonPropertyName("json_path")]
+    public string JsonPath { get; set; } = string.Empty;
+
+    [JsonPropertyName("confidence")]
+    public double Confidence { get; set; } = 0.5;
+
+    [JsonPropertyName("transform")]
+    public string? Transform { get; set; }
+
+    [JsonPropertyName("transform_args")]
+    public string? TransformArgs { get; set; }
 }

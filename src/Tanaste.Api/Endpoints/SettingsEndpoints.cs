@@ -202,7 +202,7 @@ public static class SettingsEndpoints
             provider.Enabled = request.Enabled;
             configLoader.SaveProvider(provider);
 
-            var displayName = _displayNames.TryGetValue(name, out var dn) ? dn : name;
+            var displayName = ResolveDisplayName(provider);
 
             return Results.Ok(new ProviderStatusResponse
             {
@@ -237,13 +237,11 @@ public static class SettingsEndpoints
             var statusTasks = providers.Select(async provider =>
             {
                 var name        = provider.Name;
-                var displayName = _displayNames.TryGetValue(name, out var dn) ? dn : name;
+                var displayName = ResolveDisplayName(provider);
                 bool isReachable = false;
 
-                if (provider.Enabled
-                    && _endpointKeys.TryGetValue(name, out var epKey)
-                    && provider.Endpoints.TryGetValue(epKey, out var baseUrl)
-                    && !string.IsNullOrWhiteSpace(baseUrl))
+                var baseUrl = GetBaseUrlForProvider(provider);
+                if (provider.Enabled && !string.IsNullOrWhiteSpace(baseUrl))
                 {
                     using var probeCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
                     probeCts.CancelAfter(TimeSpan.FromSeconds(3));
@@ -499,9 +497,24 @@ public static class SettingsEndpoints
             if (request.CapabilityTags is not null)
                 existing.CapabilityTags = request.CapabilityTags;
 
+            // Config-driven field mappings: replace the entire list if provided.
+            if (request.FieldMappings is not null)
+            {
+                existing.FieldMappings = request.FieldMappings
+                    .Select(fm => new Tanaste.Storage.Models.FieldMappingConfig
+                    {
+                        ClaimKey      = fm.ClaimKey,
+                        JsonPath      = fm.JsonPath,
+                        Confidence    = fm.Confidence,
+                        Transform     = fm.Transform,
+                        TransformArgs = fm.TransformArgs,
+                    })
+                    .ToList();
+            }
+
             configLoader.SaveProvider(existing);
 
-            var displayName = _displayNames.TryGetValue(name, out var dn) ? dn : name;
+            var displayName = ResolveDisplayName(existing);
 
             return Results.Ok(new ProviderStatusResponse
             {
@@ -587,17 +600,29 @@ public static class SettingsEndpoints
     /// <summary>Gets the primary base URL for a provider from its config endpoints.</summary>
     private static string? GetBaseUrlForProvider(ProviderConfiguration config)
     {
-        // Try the endpoint key matching the provider name, then common keys.
+        // Convention: config-driven adapters use "api" as the primary endpoint key.
+        if (config.Endpoints.TryGetValue("api", out var apiUrl) && !string.IsNullOrWhiteSpace(apiUrl))
+            return apiUrl;
+
+        // Try the endpoint key matching the provider name (legacy convention).
         if (config.Endpoints.TryGetValue(config.Name, out var url) && !string.IsNullOrWhiteSpace(url))
             return url;
 
-        foreach (var key in _endpointKeys.Values)
-        {
-            if (config.Endpoints.TryGetValue(key, out var ep) && !string.IsNullOrWhiteSpace(ep))
-                return ep;
-        }
+        // Try well-known endpoint keys from the legacy mapping.
+        if (_endpointKeys.TryGetValue(config.Name, out var epKey)
+            && config.Endpoints.TryGetValue(epKey, out var ep)
+            && !string.IsNullOrWhiteSpace(ep))
+            return ep;
 
         // Fallback: return the first endpoint URL.
         return config.Endpoints.Values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
+    }
+
+    /// <summary>Resolve display name: prefer config's DisplayName, then fallback map, then raw name.</summary>
+    private static string ResolveDisplayName(ProviderConfiguration config)
+    {
+        if (!string.IsNullOrWhiteSpace(config.DisplayName))
+            return config.DisplayName;
+        return _displayNames.TryGetValue(config.Name, out var dn) ? dn : config.Name;
     }
 }

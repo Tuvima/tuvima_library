@@ -15,8 +15,50 @@
     "rating": 0.7
   },
   "endpoints": {
-    "google_books": "https://www.googleapis.com/books/v1"
+    "api": "https://www.googleapis.com/books/v1"
   },
   "throttle_ms": 200,
-  "max_concurrency": 1
+  "max_concurrency": 1,
+
+  "adapter_type": "config_driven",
+  "provider_id": "b5000005-0000-4000-8000-000000000006",
+  "display_name": "Google Books",
+
+  "http_client": {
+    "timeout_seconds": 10
+  },
+
+  "can_handle": {
+    "media_types": ["Epub"],
+    "entity_types": ["Work", "MediaAsset"]
+  },
+
+  "search_strategies": [
+    {
+      "name": "isbn_search",
+      "priority": 1,
+      "required_fields": ["isbn"],
+      "url_template": "{base_url}/volumes?q=isbn:{isbn}&maxResults=3",
+      "results_path": "items",
+      "result_index": 0
+    },
+    {
+      "name": "title_search",
+      "priority": 2,
+      "required_fields": ["title"],
+      "url_template": "{base_url}/volumes?q=intitle:{title}+inauthor:{author}&maxResults=5",
+      "results_path": "items",
+      "result_index": 0
+    }
+  ],
+
+  "field_mappings": [
+    { "claim_key": "title",       "json_path": "volumeInfo.title",                      "confidence": 0.7 },
+    { "claim_key": "author",      "json_path": "volumeInfo.authors[0]",                 "confidence": 0.75 },
+    { "claim_key": "year",        "json_path": "volumeInfo.publishedDate",              "confidence": 0.8,  "transform": "first_n_chars", "transform_args": "4" },
+    { "claim_key": "description", "json_path": "volumeInfo.description",                "confidence": 0.8,  "transform": "strip_html" },
+    { "claim_key": "cover",       "json_path": "volumeInfo.imageLinks.thumbnail",       "confidence": 0.75, "transform": "regex_replace", "transform_args": "zoom=\\d+|zoom=1" },
+    { "claim_key": "isbn",        "json_path": "volumeInfo.industryIdentifiers",        "confidence": 0.85, "transform": "prefer_isbn13" },
+    { "claim_key": "rating",      "json_path": "volumeInfo.averageRating",              "confidence": 0.7,  "transform": "to_string" }
+  ]
 }

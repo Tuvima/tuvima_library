@@ -2,7 +2,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Tanaste.Domain.Contracts;
-using Tanaste.Domain.Enums;
 using Tanaste.Ingestion;
 using Tanaste.Ingestion.Contracts;
 using Tanaste.Ingestion.Models;
@@ -136,20 +135,35 @@ var host = Host.CreateDefaultBuilder(args)
         // ── HTTP clients (needed by provider adapters) ─────────
         services.AddHttpClient();
 
-        // ── Provider adapters (Phase 9) ────────────────────────
-        // Each adapter is registered as IExternalMetadataProvider so
-        // MetadataHarvestingService receives them via DI enumeration.
-        services.AddSingleton<IExternalMetadataProvider>(sp =>
-            new AppleBooksAdapter(
-                sp.GetRequiredService<IHttpClientFactory>(),
-                MediaType.Epub,
-                sp.GetRequiredService<ILogger<AppleBooksAdapter>>()));
-        services.AddSingleton<IExternalMetadataProvider>(sp =>
-            new AppleBooksAdapter(
-                sp.GetRequiredService<IHttpClientFactory>(),
-                MediaType.Audiobook,
-                sp.GetRequiredService<ILogger<AppleBooksAdapter>>()));
-        services.AddSingleton<IExternalMetadataProvider, AudnexusAdapter>();
+        // ── Provider adapters ─────────────────────────────────────
+        // Config-driven providers: scan config/providers/ and register
+        // each enabled config_driven adapter via the universal adapter.
+        foreach (var providerConfig in configLoader.LoadAllProviders())
+        {
+            if (!providerConfig.Enabled) continue;
+            if (!string.Equals(providerConfig.AdapterType, "config_driven",
+                    StringComparison.OrdinalIgnoreCase)) continue;
+
+            var name = providerConfig.Name;
+            var timeout = providerConfig.HttpClient?.TimeoutSeconds ?? 10;
+            var userAgent = providerConfig.HttpClient?.UserAgent;
+
+            services.AddHttpClient(name, c =>
+            {
+                c.Timeout = TimeSpan.FromSeconds(timeout);
+                if (!string.IsNullOrEmpty(userAgent))
+                    c.DefaultRequestHeaders.Add("User-Agent", userAgent);
+            });
+
+            var cfg = providerConfig;
+            services.AddSingleton<IExternalMetadataProvider>(sp =>
+                new ConfigDrivenAdapter(
+                    cfg,
+                    sp.GetRequiredService<IHttpClientFactory>(),
+                    sp.GetRequiredService<ILogger<ConfigDrivenAdapter>>()));
+        }
+
+        // Wikidata stays as a coded adapter (SPARQL cannot be config-driven).
         services.AddSingleton<IExternalMetadataProvider, WikidataAdapter>();
 
         // ── Metadata harvesting & person enrichment (Phase 9) ──
