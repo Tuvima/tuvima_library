@@ -1,0 +1,11 @@
+{
+  "device_class": "web",
+  "display_name": "Desktop Web",
+  "constraints": {
+    "features_disabled": [],
+    "pages_disabled": [],
+    "allow_text_input": true,
+    "min_touch_target_px": 48,
+    "force_dark_mode": false
+  }
+}

@@ -273,8 +273,26 @@ builder.Services.AddSingleton<ILibraryScanner, LibraryScanner>();
 builder.Services.AddSingleton<ISystemActivityRepository, SystemActivityRepository>();
 builder.Services.AddHostedService<ActivityPruningService>();
 
+// ── UI Settings (three-tier cascade: Global → Device → Profile) ──────────────
+builder.Services.AddSingleton<UISettingsCascadeResolver>();
+builder.Services.AddSingleton<UISettingsCacheRepository>();
+
 // ── Build ─────────────────────────────────────────────────────────────────────
 var app = builder.Build();
+
+// ── UI Settings cache warm-up ─────────────────────────────────────────────────
+// Populate the SQLite cache from config/ui/ files so API reads are fast from
+// the first request onward.  Errors are non-fatal — the resolver can still
+// read directly from files.
+try
+{
+    var uiCache = app.Services.GetRequiredService<UISettingsCacheRepository>();
+    uiCache.RebuildFromFiles(configLoader);
+}
+catch (Exception ex)
+{
+    app.Logger.LogWarning(ex, "UI settings cache warm-up failed; resolver will fall back to files.");
+}
 
 // ── Middleware pipeline ───────────────────────────────────────────────────────
 app.UseCors("BlazorWasm");
@@ -296,6 +314,7 @@ app.MapStreamEndpoints();
 app.MapIngestionEndpoints();
 app.MapMetadataEndpoints();
 app.MapSettingsEndpoints();
+app.MapUISettingsEndpoints();
 app.MapProfileEndpoints();
 app.MapActivityEndpoints();
 

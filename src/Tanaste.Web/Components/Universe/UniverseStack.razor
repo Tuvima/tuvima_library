@@ -1,10 +1,11 @@
 @namespace Tanaste.Web.Components.Universe
-@inject AutomotiveModeService AutomotiveMode
+@inject DeviceContextService DeviceContext
 @implements IDisposable
 
 @* "Your Universes" Bento grid — Spatial Bento design.
    All tiles are 1×1 (hero is handled separately by HubHero).
-   Each tile shows: title, work count, and media-type icons row. *@
+   Each tile shows: title, work count, and media-type icons row.
+   Column count and tile style driven by device context via parent parameters. *@
 
 @if (VisibleHubs is { Count: > 0 })
 {
@@ -12,10 +13,10 @@
         Your Universes
     </MudText>
 
-    <BentoGrid Class="@Class">
+    <BentoGrid Class="@Class" Columns="@Columns" TileStyle="@TileStyle">
         @foreach (var hub in VisibleHubs)
         {
-            var extraClass = AutomotiveMode.IsActive ? "automotive-tile" : string.Empty;
+            var extraClass = IsLargeTile ? "large-tile" : string.Empty;
 
             <BentoItem ColSpan="1" RowSpan="1"
                        GlowColor="@hub.DominantHexColor"
@@ -24,7 +25,7 @@
                 <div class="bento-hub-content" @onclick="() => OnHubSelected.InvokeAsync(hub)">
 
                     @* ── Title ── *@
-                    <MudText Typo="Typo.h5" Class="mb-1" Style="font-weight: 600;">
+                    <MudText Typo="@(IsLargeTile ? Typo.h4 : Typo.h5)" Class="mb-1" Style="font-weight: 600;">
                         @hub.DisplayName
                     </MudText>
 
@@ -38,7 +39,7 @@
                               AlignItems="AlignItems.Center">
                         @foreach (var icon in GetDistinctMediaIcons(hub))
                         {
-                            <MudIcon Icon="@icon" Size="Size.Small"
+                            <MudIcon Icon="@icon" Size="@(IsLargeTile ? Size.Medium : Size.Small)"
                                      Style="color: var(--tanaste-icon-muted); font-size: 22px;" />
                         }
                     </MudStack>
@@ -80,23 +81,41 @@ else
     [Parameter] public EventCallback<HubViewModel> OnHubSelected { get; set; }
 
     /// <summary>
-    /// Filtered hub list: in Automotive Mode only Audio-type hubs are shown.
+    /// Number of columns for the BentoGrid. Driven by
+    /// <c>DeviceContext.Settings.Pages.Home.BentoColumns</c>.
+    /// When 0, the grid uses its default responsive behaviour.
+    /// </summary>
+    [Parameter] public int Columns { get; set; }
+
+    /// <summary>
+    /// Tile style hint: "normal", "large" (TV), "audio-only" (automotive).
+    /// Driven by <c>DeviceContext.Settings.Pages.Home.BentoTileStyle</c>.
+    /// </summary>
+    [Parameter] public string TileStyle { get; set; } = "normal";
+
+    /// <summary>Whether tiles should use the large visual style (TV).</summary>
+    private bool IsLargeTile =>
+        string.Equals(TileStyle, "large", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Filtered hub list: in audio-only tile style only Audio-type hubs are shown.
+    /// In Automotive mode (which uses audio-only) this filters to audio hubs.
     /// In normal mode every hub passes through.
     /// </summary>
     private List<HubViewModel> VisibleHubs =>
         Hubs is null
             ? []
-            : AutomotiveMode.IsActive
+            : string.Equals(TileStyle, "audio-only", StringComparison.OrdinalIgnoreCase)
                 ? Hubs.Where(h => h.Works.Any(w => UniverseMapper.IsAudio(w.MediaType))).ToList()
                 : Hubs;
 
     protected override void OnInitialized() =>
-        AutomotiveMode.OnChanged += OnAutomotiveChanged;
+        DeviceContext.OnChanged += OnDeviceChanged;
 
-    private void OnAutomotiveChanged() => InvokeAsync(StateHasChanged);
+    private void OnDeviceChanged() => InvokeAsync(StateHasChanged);
 
     public void Dispose() =>
-        AutomotiveMode.OnChanged -= OnAutomotiveChanged;
+        DeviceContext.OnChanged -= OnDeviceChanged;
 
     /// <summary>
     /// Returns distinct media-type icons for a hub (video, book, audio, comic).

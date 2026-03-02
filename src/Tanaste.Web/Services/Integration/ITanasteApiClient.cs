@@ -132,6 +132,17 @@ public interface ITanasteApiClient
     /// <summary>POST /activity/prune — manually prune old activity entries.</summary>
     Task<PruneResultViewModel?> TriggerPruneAsync(CancellationToken ct = default);
 
+    // ── UI Settings (/settings/ui) ───────────────────────────────────────────────
+
+    /// <summary>
+    /// GET /settings/ui/resolved?device={class}&amp;profile={id} — fully cascaded UI settings
+    /// for the given device class and optional profile.
+    /// </summary>
+    Task<ResolvedUISettingsViewModel?> GetResolvedUISettingsAsync(
+        string deviceClass = "web",
+        string? profileId = null,
+        CancellationToken ct = default);
+
     /// <summary>
     /// Most recent error message from the last failed API call.
     /// Useful for surfacing diagnostic details in the UI.

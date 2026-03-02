@@ -523,6 +523,29 @@ public sealed class TanasteApiClient : ITanasteApiClient
         }
     }
 
+    // ── UI Settings (/settings/ui) ──────────────────────────────────────────
+
+    public async Task<ResolvedUISettingsViewModel?> GetResolvedUISettingsAsync(
+        string deviceClass = "web",
+        string? profileId = null,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var url = $"/settings/ui/resolved?device={WebUtility.UrlEncode(deviceClass)}";
+            if (!string.IsNullOrWhiteSpace(profileId))
+                url += $"&profile={WebUtility.UrlEncode(profileId)}";
+
+            return await _http.GetFromJsonAsync<ResolvedUISettingsViewModel>(url, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /settings/ui/resolved failed");
+            LastError = ex.Message;
+            return null;
+        }
+    }
+
     /// <summary>
     /// Most recent error message from the last failed API call.
     /// Useful for surfacing diagnostic details in the UI.

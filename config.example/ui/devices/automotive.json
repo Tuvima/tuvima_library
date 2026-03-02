@@ -1,0 +1,47 @@
+{
+  "device_class": "automotive",
+  "display_name": "Automotive",
+  "constraints": {
+    "features_disabled": [
+      "command_palette", "search_button", "theme_toggle",
+      "avatar_menu", "pending_files_alert", "view_toggle",
+      "profile_section", "color_picker", "server_settings"
+    ],
+    "pages_disabled": ["server_settings"],
+    "allow_text_input": false,
+    "min_touch_target_px": 80,
+    "force_dark_mode": true
+  },
+  "dark_mode": true,
+  "content_padding": "pa-4",
+  "content_max_width": "Full",
+  "border_radius": 32,
+  "shell": {
+    "appbar_style": "minimal",
+    "logo_variant": "icon-large",
+    "intent_dock_items": ["Hubs", "Listen"],
+    "intent_dock_style": "oversized"
+  },
+  "pages": {
+    "home": {
+      "hub_hero_enabled": false,
+      "hub_hero_layout": "hidden",
+      "progress_cards_layout": "single",
+      "bento_columns": 1,
+      "bento_tile_style": "audio-only",
+      "pending_files_display": "hidden"
+    },
+    "preferences": {
+      "page_enabled": true,
+      "tab_bar_layout": "single",
+      "general_tab_layout": "theme-only",
+      "color_swatch_count": 0,
+      "playback_tab_enabled": true
+    },
+    "server_settings": {
+      "page_enabled": false,
+      "tab_bar_layout": "horizontal",
+      "tab_content_layout": "full"
+    }
+  }
+}

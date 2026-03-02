@@ -1,9 +1,10 @@
 @namespace Tanaste.Web.Components.Bento
 
 @* Asymmetric Bento-grid container (Section 2.2 of the UI ASD).
-   Renders child BentoItems inside a CSS grid with variable column/row spans. *@
+   Renders child BentoItems inside a CSS grid with variable column/row spans.
+   Supports a dynamic Columns parameter driven by device context. *@
 
-<div class="bento-grid @Class" style="@Style">
+<div class="bento-grid @Class" style="@ComputedStyle">
     @ChildContent
 </div>
 
@@ -11,6 +12,35 @@
     [Parameter] public RenderFragment? ChildContent { get; set; }
     [Parameter] public string?         Class        { get; set; }
     [Parameter] public string?         Style        { get; set; }
+
+    /// <summary>
+    /// Number of columns for the grid. When 0 or negative, the grid uses the
+    /// default auto-fill behaviour (responsive). When positive, forces an
+    /// explicit column count — e.g. 1 for mobile, 2 for television, 3 for web.
+    /// </summary>
+    [Parameter] public int Columns { get; set; }
+
+    /// <summary>
+    /// Optional tile style hint passed through from the parent.
+    /// Values: "normal" (default), "large" (TV), "audio-only" (automotive).
+    /// Components can use this to adjust inner padding or emphasis.
+    /// </summary>
+    [Parameter] public string TileStyle { get; set; } = "normal";
+
+    private string ComputedStyle
+    {
+        get
+        {
+            if (Columns > 0)
+            {
+                // Explicit column count — override the CSS grid template.
+                var gridCols = $"grid-template-columns: repeat({Columns}, 1fr);";
+                return string.IsNullOrWhiteSpace(Style) ? gridCols : $"{Style} {gridCols}";
+            }
+
+            return Style ?? string.Empty;
+        }
+    }
 }
 
 <style>
@@ -25,7 +55,7 @@
 
     /* Desktop: force 3-column layout (tiles are wider in Spatial Bento) */
     @@media (min-width: 960px) {
-        .bento-grid {
+        .bento-grid:not([style*="grid-template-columns"]) {
             grid-template-columns: repeat(3, 1fr);
         }
     }
@@ -33,7 +63,7 @@
     /* Mobile — single-column stack; ColSpan/RowSpan are reset so the hero tile
        does not dominate a narrow screen. */
     @@media (max-width: 600px) {
-        .bento-grid {
+        .bento-grid:not([style*="grid-template-columns"]) {
             grid-template-columns: 1fr;
         }
 

@@ -2,6 +2,7 @@
 @rendermode InteractiveServer
 @namespace Tanaste.Web.Components.Pages
 @inject NavigationManager Nav
+@inject DeviceContextService DeviceContext
 
 <PageTitle>Preferences — Tanaste</PageTitle>
 
@@ -31,10 +32,13 @@
         break;
 }
 
-<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-6" Style="text-align: center;">
-    Looking for libraries, metadata, or API keys?
-    <MudLink Href="/server-settings" Underline="Underline.Always">Server Settings</MudLink>
-</MudText>
+@if (!DeviceContext.IsPageDisabled("server_settings"))
+{
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-6" Style="text-align: center;">
+        Looking for libraries, metadata, or API keys?
+        <MudLink Href="/server-settings" Underline="Underline.Always">Server Settings</MudLink>
+    </MudText>
+}
 
 @code {
     private SettingsTabBar.SettingsTab _activeTab = SettingsTabBar.SettingsTab.General;

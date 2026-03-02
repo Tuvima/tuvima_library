@@ -2,6 +2,7 @@
 @inject UIOrchestratorService  Orchestrator
 @inject ThemeService            ThemeService
 @inject UniverseStateContainer  State
+@inject DeviceContextService    DeviceContext
 @implements IDisposable
 
 <PageTitle>Tanaste — Last Journey</PageTitle>
@@ -17,27 +18,40 @@ else if (_error is not null)
 }
 else
 {
-    @* ── Pending files alert (Watch Folder) ── *@
-    <PendingFilesAlert Class="mb-4" />
+    @* ── Pending files alert (Watch Folder) — respects device settings ── *@
+    @if (!DeviceContext.IsFeatureDisabled("pending_files_alert") && _pendingDisplay != "hidden")
+    {
+        <PendingFilesAlert Class="mb-4" DisplayMode="@_pendingDisplay" />
+    }
 
     @* ── Last Journey section header ── *@
     <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
         <MudText Typo="Typo.h5" Style="font-weight: 600;">Last Journey</MudText>
 
-        @* View mode toggle — visual only; Compact List wiring is a future enhancement *@
-        <MudToggleGroup T="string" @bind-Value="_viewMode"
-                        Style="border-radius: 20px; overflow: hidden;"
-                        Color="Color.Primary" CheckMark="false">
-            <MudToggleItem T="string" Value="@("grid")" Text="Comfortable Grid" />
-            <MudToggleItem T="string" Value="@("list")" Text="Compact List" />
-        </MudToggleGroup>
+        @if (!DeviceContext.IsFeatureDisabled("view_toggle"))
+        {
+            @* View mode toggle — visual only; Compact List wiring is a future enhancement *@
+            <MudToggleGroup T="string" @bind-Value="_viewMode"
+                            Style="border-radius: 20px; overflow: hidden;"
+                            Color="Color.Primary" CheckMark="false">
+                <MudToggleItem T="string" Value="@("grid")" Text="Comfortable Grid" />
+                <MudToggleItem T="string" Value="@("list")" Text="Compact List" />
+            </MudToggleGroup>
+        }
     </MudStack>
 
-    @* ── Hero tile ── *@
-    <HubHero Hub="@_heroHub" />
+    @* ── Hero tile — respects hub_hero_enabled and hub_hero_layout ── *@
+    @if (_showHero)
+    {
+        <HubHero Hub="@_heroHub" Layout="@DeviceContext.Settings.Pages.Home.HubHeroLayout" />
+    }
 
     @* ── Your Universes grid (non-hero hubs) ── *@
-    <UniverseStack Hubs="@_nonHeroHubs" Class="mt-2" OnHubSelected="HandleHubSelected" />
+    <UniverseStack Hubs="@_nonHeroHubs"
+                   Class="mt-2"
+                   OnHubSelected="HandleHubSelected"
+                   Columns="@DeviceContext.Settings.Pages.Home.BentoColumns"
+                   TileStyle="@DeviceContext.Settings.Pages.Home.BentoTileStyle" />
 }
 
 @code {
@@ -47,6 +61,15 @@ else
     private List<HubViewModel> _hubs = [];
     private List<HubViewModel> _nonHeroHubs = [];
     private string             _viewMode = "grid";
+
+    // ── Device-context computed helpers ──────────────────────────────────────
+
+    private string _pendingDisplay =>
+        DeviceContext.Settings.Pages.Home.PendingFilesDisplay;
+
+    private bool _showHero =>
+        DeviceContext.Settings.Pages.Home.HubHeroEnabled
+        && DeviceContext.Settings.Pages.Home.HubHeroLayout != "hidden";
 
     protected override async Task OnInitializedAsync()
     {

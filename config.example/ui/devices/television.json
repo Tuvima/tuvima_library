@@ -1,0 +1,46 @@
+{
+  "device_class": "television",
+  "display_name": "Television",
+  "constraints": {
+    "features_disabled": [
+      "command_palette", "search_button", "theme_toggle",
+      "avatar_menu", "pending_files_alert", "view_toggle",
+      "profile_section", "color_picker"
+    ],
+    "pages_disabled": ["server_settings"],
+    "allow_text_input": false,
+    "min_touch_target_px": 64,
+    "force_dark_mode": false
+  },
+  "content_padding": "pa-6",
+  "content_max_width": "Full",
+  "border_radius": 40,
+  "shell": {
+    "appbar_style": "oversized",
+    "logo_variant": "wordmark-large",
+    "intent_dock_items": ["Hubs", "Watch", "Read", "Listen"],
+    "intent_dock_style": "oversized"
+  },
+  "pages": {
+    "home": {
+      "hub_hero_enabled": true,
+      "hub_hero_layout": "two-column-oversized",
+      "progress_cards_layout": "row-oversized",
+      "bento_columns": 2,
+      "bento_tile_style": "large",
+      "pending_files_display": "hidden"
+    },
+    "preferences": {
+      "page_enabled": true,
+      "tab_bar_layout": "focus-nav",
+      "general_tab_layout": "theme-only",
+      "color_swatch_count": 0,
+      "playback_tab_enabled": true
+    },
+    "server_settings": {
+      "page_enabled": false,
+      "tab_bar_layout": "horizontal",
+      "tab_content_layout": "full"
+    }
+  }
+}

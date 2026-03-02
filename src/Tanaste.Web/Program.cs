@@ -36,8 +36,9 @@ builder.Services.AddHttpClient<ITanasteApiClient, TanasteApiClient>(client =>
 builder.Services.AddScoped<UniverseStateContainer>();
 builder.Services.AddScoped<UIOrchestratorService>();
 
-// ── Automotive Mode (scoped = per-tab; a TV in Automotive Mode won't affect the desktop) ──
-builder.Services.AddScoped<AutomotiveModeService>();
+// ── Device Context (scoped = per-tab; a TV in television mode won't affect a mobile session) ──
+// Generalised device-context model supporting web, mobile, television, and automotive classes.
+builder.Services.AddScoped<DeviceContextService>();
 
 // ── Build ─────────────────────────────────────────────────────────────────────
 var app = builder.Build();

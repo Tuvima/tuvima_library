@@ -6,71 +6,96 @@
 
 @* Pending Files Alert — shown on the Home page when files are sitting in the
    Watch Folder awaiting processing.  Provides a "Process Now" button to trigger
-   a re-scan of the Watch Folder. *@
+   a re-scan of the Watch Folder.
 
-@if (_files.Count > 0)
+   Display modes (driven by device context):
+     "expandable" → Default: full alert with expand/collapse file list
+     "badge"      → Mobile: compact badge with count only, no file list
+     "hidden"     → TV/Automotive: not rendered (parent handles this) *@
+
+@if (_files.Count > 0 && DisplayMode != "hidden")
 {
-    <MudPaper Elevation="0" Style="@GlassStyle" Class="@Class">
-        <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
-            <MudIcon Icon="@Icons.Material.Filled.FolderOpen"
-                     Color="Color.Warning" Class="mr-2" />
-            <MudText Typo="Typo.body1" Style="flex: 1;">
-                <strong>@_files.Count</strong> @(_files.Count == 1 ? "file" : "files")
-                awaiting processing in the Watch Folder
-            </MudText>
+    @if (string.Equals(DisplayMode, "badge", StringComparison.OrdinalIgnoreCase))
+    {
+        @* Badge mode (mobile): compact inline chip *@
+        <MudChip T="string" Size="Size.Medium"
+                 Color="Color.Warning"
+                 Icon="@Icons.Material.Filled.FolderOpen"
+                 Class="@Class">
+            @_files.Count @(_files.Count == 1 ? "file" : "files") pending
+        </MudChip>
+    }
+    else
+    {
+        @* Expandable mode (default web): full alert with file list *@
+        <MudPaper Elevation="0" Style="@GlassStyle" Class="@Class">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+                <MudIcon Icon="@Icons.Material.Filled.FolderOpen"
+                         Color="Color.Warning" Class="mr-2" />
+                <MudText Typo="Typo.body1" Style="flex: 1;">
+                    <strong>@_files.Count</strong> @(_files.Count == 1 ? "file" : "files")
+                    awaiting processing in the Watch Folder
+                </MudText>
 
-            <MudButton Variant="Variant.Outlined"
-                       Size="Size.Small"
-                       Color="Color.Primary"
-                       StartIcon="@Icons.Material.Filled.Refresh"
-                       Disabled="@_rescanning"
-                       OnClick="@TriggerRescanAsync">
-                @(_rescanning ? "Processing…" : "Process Now")
-            </MudButton>
-
-            <MudIconButton Icon="@(_expanded
-                                    ? Icons.Material.Filled.ExpandLess
-                                    : Icons.Material.Filled.ExpandMore)"
+                <MudButton Variant="Variant.Outlined"
                            Size="Size.Small"
-                           Color="Color.Default"
-                           title="@(_expanded ? "Collapse file list" : "Show file list")"
-                           OnClick="@(() => _expanded = !_expanded)" />
-        </MudStack>
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Refresh"
+                           Disabled="@_rescanning"
+                           OnClick="@TriggerRescanAsync">
+                    @(_rescanning ? "Processing..." : "Process Now")
+                </MudButton>
 
-        @if (_expanded)
-        {
-            <MudSimpleTable Dense="true" Hover="true"
-                            Style="background: transparent; margin-top: 8px;">
-                <thead>
-                    <tr>
-                        <th>File</th>
-                        <th>Size</th>
-                        <th>Modified</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var f in _files)
-                    {
+                <MudIconButton Icon="@(_expanded
+                                        ? Icons.Material.Filled.ExpandLess
+                                        : Icons.Material.Filled.ExpandMore)"
+                               Size="Size.Small"
+                               Color="Color.Default"
+                               title="@(_expanded ? "Collapse file list" : "Show file list")"
+                               OnClick="@(() => _expanded = !_expanded)" />
+            </MudStack>
+
+            @if (_expanded)
+            {
+                <MudSimpleTable Dense="true" Hover="true"
+                                Style="background: transparent; margin-top: 8px;">
+                    <thead>
                         <tr>
-                            <td>
-                                <MudTooltip Text="@f.RelativePath">
-                                    <code style="font-family: monospace; font-size: 0.85rem;">
-                                        @f.FileName
-                                    </code>
-                                </MudTooltip>
-                            </td>
-                            <td>@f.FormattedSize</td>
-                            <td>@f.LastModified.LocalDateTime.ToString("g")</td>
+                            <th>File</th>
+                            <th>Size</th>
+                            <th>Modified</th>
                         </tr>
-                    }
-                </tbody>
-            </MudSimpleTable>
-        }
-    </MudPaper>
+                    </thead>
+                    <tbody>
+                        @foreach (var f in _files)
+                        {
+                            <tr>
+                                <td>
+                                    <MudTooltip Text="@f.RelativePath">
+                                        <code style="font-family: monospace; font-size: 0.85rem;">
+                                            @f.FileName
+                                        </code>
+                                    </MudTooltip>
+                                </td>
+                                <td>@f.FormattedSize</td>
+                                <td>@f.LastModified.LocalDateTime.ToString("g")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </MudSimpleTable>
+            }
+        </MudPaper>
+    }
 }
 
 @code {
     [Parameter] public string? Class { get; set; }
+
+    /// <summary>
+    /// Display mode: "expandable" (default), "badge" (compact), or "hidden".
+    /// Driven by <c>DeviceContext.Settings.Pages.Home.PendingFilesDisplay</c>.
+    /// </summary>
+    [Parameter] public string DisplayMode { get; set; } = "expandable";
 
     private List<Tanaste.Web.Models.ViewDTOs.WatchFolderFileViewModel> _files = [];
     private bool _expanded;

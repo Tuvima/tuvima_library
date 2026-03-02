@@ -1,38 +1,104 @@
 @namespace Tanaste.Web.Components.Settings
+@inject DeviceContextService DeviceContext
 
-@* Horizontal icon-tab navigation strip for Settings pages.
-   Mirrors the Intent Dock's visual language — large icons with labels,
-   glassmorphic background, active tab highlighted.
+@* Settings tab navigation — supports multiple layouts driven by device context.
 
-   Supports two modes via the Category parameter:
+   Layout modes:
+     "horizontal"         → Default web: icon row, wrapped
+     "vertical"           → Mobile: stacked list with icon + label row
+     "vertical-accordion" → Mobile server settings: vertical with collapsible groups
+     "focus-nav"          → Television: oversized single-row, D-pad navigable
+     "single"             → Automotive: show only the first applicable tab (no bar)
+
+   Supports two categories via the Category parameter:
      "Preferences"    → General, Playback
      "ServerSettings" → Library, Metadata, Connectivity, API Keys, Users, Maintenance
 
    Role-based visibility: Admin-only tabs are hidden when CurrentRole
    is not Administrator or Curator. *@
 
-<MudPaper Elevation="0" Class="settings-tab-bar mb-6">
-    <MudStack Row="true" Spacing="0" Justify="Justify.Center" AlignItems="AlignItems.Center"
-              Style="flex-wrap: wrap;">
+@{
+    var layout = ResolvedLayout;
+    var tabs = FilteredTabs.ToList();
+}
 
-        @foreach (var tab in FilteredTabs)
-        {
-            <div class="settings-tab-item @(ActiveTab == tab.Value ? "active" : "")"
-                 @onclick="@(() => SetTab(tab.Value))">
-                <MudIcon Icon="@tab.Icon"
-                         Size="Size.Large"
-                         Color="@(ActiveTab == tab.Value ? Color.Primary : Color.Default)" />
-                <MudText Typo="Typo.caption"
-                         Style="@(ActiveTab == tab.Value
-                             ? "color: var(--mud-palette-primary);"
-                             : "color: var(--tanaste-text-muted);")">
-                    @tab.Label
-                </MudText>
-            </div>
-        }
+@if (layout == "single")
+{
+    @* Automotive: no tab bar rendered — page auto-selects the first available tab *@
+}
+else if (layout == "vertical" || layout == "vertical-accordion")
+{
+    @* Mobile: vertical stacked tab list *@
+    <MudPaper Elevation="0" Class="settings-tab-bar settings-tab-bar-vertical mb-6">
+        <MudStack Spacing="0">
+            @foreach (var tab in tabs)
+            {
+                <div class="settings-tab-item-vertical @(ActiveTab == tab.Value ? "active" : "")"
+                     @onclick="@(() => SetTab(tab.Value))">
+                    <MudIcon Icon="@tab.Icon"
+                             Size="Size.Medium"
+                             Color="@(ActiveTab == tab.Value ? Color.Primary : Color.Default)" />
+                    <MudText Typo="Typo.body2"
+                             Style="@(ActiveTab == tab.Value
+                                 ? "color: var(--mud-palette-primary); font-weight: 600;"
+                                 : "color: var(--tanaste-text-muted);")">
+                        @tab.Label
+                    </MudText>
+                </div>
+            }
+        </MudStack>
+    </MudPaper>
+}
+else if (layout == "focus-nav")
+{
+    @* Television: oversized single-row, focus-navigable *@
+    <MudPaper Elevation="0" Class="settings-tab-bar settings-tab-bar-focus mb-6">
+        <MudStack Row="true" Spacing="6" Justify="Justify.Center" AlignItems="AlignItems.Center">
+            @foreach (var tab in tabs)
+            {
+                <div class="settings-tab-item-focus @(ActiveTab == tab.Value ? "active" : "")"
+                     tabindex="0"
+                     @onclick="@(() => SetTab(tab.Value))">
+                    <MudIcon Icon="@tab.Icon"
+                             Size="Size.Large"
+                             Color="@(ActiveTab == tab.Value ? Color.Primary : Color.Default)" />
+                    <MudText Typo="Typo.subtitle1"
+                             Style="@(ActiveTab == tab.Value
+                                 ? "color: var(--mud-palette-primary); font-weight: 600;"
+                                 : "color: var(--tanaste-text-muted);")">
+                        @tab.Label
+                    </MudText>
+                </div>
+            }
+        </MudStack>
+    </MudPaper>
+}
+else
+{
+    @* Default: horizontal icon-tab strip *@
+    <MudPaper Elevation="0" Class="settings-tab-bar mb-6">
+        <MudStack Row="true" Spacing="0" Justify="Justify.Center" AlignItems="AlignItems.Center"
+                  Style="flex-wrap: wrap;">
 
-    </MudStack>
-</MudPaper>
+            @foreach (var tab in tabs)
+            {
+                <div class="settings-tab-item @(ActiveTab == tab.Value ? "active" : "")"
+                     @onclick="@(() => SetTab(tab.Value))">
+                    <MudIcon Icon="@tab.Icon"
+                             Size="Size.Large"
+                             Color="@(ActiveTab == tab.Value ? Color.Primary : Color.Default)" />
+                    <MudText Typo="Typo.caption"
+                             Style="@(ActiveTab == tab.Value
+                                 ? "color: var(--mud-palette-primary);"
+                                 : "color: var(--tanaste-text-muted);")">
+                        @tab.Label
+                    </MudText>
+                </div>
+            }
+
+        </MudStack>
+    </MudPaper>
+}
 
 @code {
     [Parameter] public SettingsTab ActiveTab { get; set; } = SettingsTab.General;
@@ -57,6 +123,29 @@
         _tabs.Where(t =>
             t.Category == Category
             && (!t.AdminOnly || HasAdminAccess));
+
+    /// <summary>
+    /// Resolves the tab bar layout from device context.
+    /// Uses the appropriate page settings based on the current Category.
+    /// </summary>
+    private string ResolvedLayout =>
+        Category == "ServerSettings"
+            ? DeviceContext.Settings.Pages.ServerSettings.TabBarLayout
+            : DeviceContext.Settings.Pages.Preferences.TabBarLayout;
+
+    protected override void OnInitialized()
+    {
+        // "single" layout: auto-select the first available tab (automotive: playback).
+        if (ResolvedLayout == "single")
+        {
+            var first = FilteredTabs.FirstOrDefault();
+            if (first is not null && ActiveTab != first.Value)
+            {
+                ActiveTab = first.Value;
+                OnTabChanged.InvokeAsync(first.Value);
+            }
+        }
+    }
 
     private async Task SetTab(SettingsTab tab)
     {
@@ -92,6 +181,7 @@
 }
 
 <style>
+    /* ── Horizontal (default web) ────────────────────────────────────── */
     .settings-tab-bar {
         background: var(--tanaste-glass-bg);
         border: 1px solid var(--tanaste-glass-border);
@@ -118,6 +208,63 @@
     }
 
     .settings-tab-item.active {
+        background: var(--tanaste-active-overlay);
+    }
+
+    /* ── Vertical (mobile) ───────────────────────────────────────────── */
+    .settings-tab-bar-vertical {
+        border-radius: 24px;
+        padding: 12px 16px;
+    }
+
+    .settings-tab-item-vertical {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 16px;
+        border-radius: 16px;
+        cursor: pointer;
+        transition: background 0.2s ease;
+        user-select: none;
+    }
+
+    .settings-tab-item-vertical:hover {
+        background: var(--tanaste-hover-overlay);
+    }
+
+    .settings-tab-item-vertical.active {
+        background: var(--tanaste-active-overlay);
+    }
+
+    /* ── Focus-nav (television) ──────────────────────────────────────── */
+    .settings-tab-bar-focus {
+        border-radius: 40px;
+        padding: 20px 32px;
+    }
+
+    .settings-tab-item-focus {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        padding: 16px 24px;
+        border-radius: 24px;
+        cursor: pointer;
+        transition: background 0.2s ease, outline 0.2s ease;
+        user-select: none;
+        outline: 3px solid transparent;
+    }
+
+    .settings-tab-item-focus:focus {
+        outline: 3px solid var(--mud-palette-primary);
+    }
+
+    .settings-tab-item-focus:hover {
+        background: var(--tanaste-hover-overlay);
+    }
+
+    .settings-tab-item-focus.active {
         background: var(--tanaste-active-overlay);
     }
 </style>

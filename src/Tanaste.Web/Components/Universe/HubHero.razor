@@ -1,27 +1,30 @@
 @namespace Tanaste.Web.Components.Universe
 
 @* "Last Journey" Smart Tile — Spatial Bento hero card.
-   Two-column layout: artwork (left) + title, subtitle, and three progress indicators (right).
-   Progress bars show placeholder values until a UserState API is available. *@
+   Supports multiple layouts driven by device context:
+     "two-column"           → Default web: artwork (left) + info (right)
+     "stacked"              → Mobile: vertical stack, centred
+     "two-column-oversized" → Television: larger artwork, bigger text
+     "hidden"               → Automotive: not rendered (parent handles this) *@
 
-@if (Hub is not null)
+@if (Hub is not null && Layout != "hidden")
 {
-    <div class="hub-hero" style="@HeroGlowStyle">
+    <div class="hub-hero @LayoutClass" style="@HeroGlowStyle">
         <div class="hero-glass-overlay" />
 
         <div class="hero-inner">
-            @* ── Left column: artwork ── *@
+            @* ── Artwork column ── *@
             <div class="hero-artwork">
                 <div class="hero-artwork-placeholder"
                      style="background: linear-gradient(145deg, @(Hub.DominantHexColor)44, @(Hub.DominantHexColor)11);">
                     <MudIcon Icon="@Icons.Material.Filled.Movie"
-                             Style="font-size: 64px; color: var(--tanaste-icon-soft);" />
+                             Style="@($"font-size: {ArtworkIconSize}px; color: var(--tanaste-icon-soft);")" />
                 </div>
             </div>
 
-            @* ── Right column: info + progress ── *@
+            @* ── Info column: title + progress ── *@
             <div class="hero-info">
-                <MudText Typo="Typo.h4" Class="mb-1" Style="font-weight: 600;">
+                <MudText Typo="@TitleTypo" Class="mb-1" Style="font-weight: 600;">
                     @Hub.DisplayName: Last Journey
                 </MudText>
                 <MudText Typo="Typo.body1" Style="color: var(--tanaste-text-soft);" Class="mb-1">
@@ -31,8 +34,8 @@
                     @Hub.MediaTypes — @Hub.WorkCount @(Hub.WorkCount == 1 ? "work" : "works")
                 </MudText>
 
-                @* ── Three progress indicators ── *@
-                <MudStack Row="true" Spacing="3" Class="hero-progress-row">
+                @* ── Progress indicators ── *@
+                <MudStack Row="@(!IsStacked)" Spacing="3" Class="hero-progress-row">
                     <ProgressIndicator Icon="@Icons.Material.Filled.PlayCircle"
                                        Value="@WatchValue"
                                        Percent="@WatchPercent"
@@ -55,6 +58,31 @@
 
 @code {
     [Parameter] public HubViewModel? Hub { get; set; }
+
+    /// <summary>
+    /// Layout variant driven by <c>DeviceContext.Settings.Pages.Home.HubHeroLayout</c>.
+    /// Accepted values: "two-column" (default), "stacked", "two-column-oversized", "hidden".
+    /// </summary>
+    [Parameter] public string Layout { get; set; } = "two-column";
+
+    // ── Layout helpers ─────────────────────────────────────────────────────────
+
+    private bool IsStacked =>
+        string.Equals(Layout, "stacked", StringComparison.OrdinalIgnoreCase);
+
+    private bool IsOversized =>
+        string.Equals(Layout, "two-column-oversized", StringComparison.OrdinalIgnoreCase);
+
+    private string LayoutClass => Layout switch
+    {
+        "stacked"              => "hub-hero-stacked",
+        "two-column-oversized" => "hub-hero-oversized",
+        _                      => string.Empty,
+    };
+
+    private Typo TitleTypo => IsOversized ? Typo.h3 : Typo.h4;
+
+    private int ArtworkIconSize => IsOversized ? 80 : 64;
 
     // ── Progress data (placeholder until UserState API exists) ────────────────
 
@@ -147,7 +175,42 @@
         flex-wrap: wrap;
     }
 
-    /* Responsive: stack vertically on small screens */
+    /* ── Stacked layout (mobile) ─────────────────────────────────────────── */
+    .hub-hero-stacked .hero-inner {
+        flex-direction: column;
+        text-align: center;
+        padding: 1.25rem;
+    }
+
+    .hub-hero-stacked .hero-artwork {
+        width: 140px;
+        height: 190px;
+    }
+
+    .hub-hero-stacked .hero-progress-row {
+        justify-content: center;
+    }
+
+    /* ── Oversized layout (television) ───────────────────────────────────── */
+    .hub-hero-oversized {
+        border-radius: 40px;
+    }
+
+    .hub-hero-oversized .hero-inner {
+        padding: 2.5rem 3rem;
+        gap: 3rem;
+    }
+
+    .hub-hero-oversized .hero-artwork {
+        width: 240px;
+        height: 320px;
+    }
+
+    .hub-hero-oversized .hero-artwork-placeholder {
+        border-radius: 28px;
+    }
+
+    /* Responsive fallback: stack on small viewports regardless of layout */
     @@media (max-width: 768px) {
         .hero-inner {
             flex-direction: column;

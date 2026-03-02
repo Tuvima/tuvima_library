@@ -1,6 +1,7 @@
 @namespace Tanaste.Web.Shared
 @inherits LayoutComponentBase
 @inject ThemeService ThemeService
+@inject DeviceContextService DeviceContext
 @inject UIOrchestratorService Orchestrator
 @inject NavigationManager Nav
 @implements IDisposable
@@ -10,68 +11,84 @@
 <MudDialogProvider />
 <MudSnackbarProvider />
 
-@* Global Command Palette — mounted at layout level so it floats above all page content *@
-<CommandPalette @ref="_palette" />
+@* Global Command Palette — mounted only when the feature is enabled for this device *@
+@if (!DeviceContext.IsFeatureDisabled("command_palette"))
+{
+    <CommandPalette @ref="_palette" />
+}
 
 <MudLayout>
-    @* ── Header: avatar menu | centered title | search + theme toggle ── *@
-    <MudAppBar Elevation="0" Class="spatial-appbar">
-        <MudMenu AnchorOrigin="Origin.BottomLeft" TransformOrigin="Origin.TopLeft">
-            <ActivatorContent>
-                <MudAvatar @onclick="context.ToggleAsync"
-                           Size="Size.Medium"
-                           Style="@($"background: {_avatarColor}; cursor: pointer;")"
-                           title="Profile & Settings">
-                    @_avatarInitial
-                </MudAvatar>
-            </ActivatorContent>
-            <ChildContent>
-                <MudMenuItem Icon="@Icons.Material.Outlined.Tune"
-                             OnClick="@(() => Nav.NavigateTo("/preferences"))">
-                    Preferences
-                </MudMenuItem>
-                @if (_isAdminOrCurator)
-                {
-                    <MudMenuItem Icon="@Icons.Material.Outlined.Settings"
-                                 OnClick="@(() => Nav.NavigateTo("/server-settings"))">
-                        Server Settings
+    @* ── Header: device-adaptive AppBar ── *@
+    <MudAppBar Elevation="0" Class="@AppBarClass">
+
+        @* Avatar menu — hidden on television/automotive *@
+        @if (!DeviceContext.IsFeatureDisabled("avatar_menu"))
+        {
+            <MudMenu AnchorOrigin="Origin.BottomLeft" TransformOrigin="Origin.TopLeft">
+                <ActivatorContent>
+                    <MudAvatar @onclick="context.ToggleAsync"
+                               Size="Size.Medium"
+                               Style="@($"background: {_avatarColor}; cursor: pointer;")"
+                               title="Profile & Settings">
+                        @_avatarInitial
+                    </MudAvatar>
+                </ActivatorContent>
+                <ChildContent>
+                    <MudMenuItem Icon="@Icons.Material.Outlined.Tune"
+                                 OnClick="@(() => Nav.NavigateTo("/preferences"))">
+                        Preferences
                     </MudMenuItem>
-                }
-            </ChildContent>
-        </MudMenu>
+                    @if (_isAdminOrCurator && !DeviceContext.IsFeatureDisabled("server_settings"))
+                    {
+                        <MudMenuItem Icon="@Icons.Material.Outlined.Settings"
+                                     OnClick="@(() => Nav.NavigateTo("/server-settings"))">
+                            Server Settings
+                        </MudMenuItem>
+                    }
+                </ChildContent>
+            </MudMenu>
+        }
 
         <MudSpacer />
 
+        @* Logo — variant driven by device context *@
         <MudLink Href="/" Underline="Underline.None" Class="d-flex align-center"
                  Style="text-decoration: none;">
-            <img src="images/tanaste-logo.svg" alt="Tanaste" class="tanaste-logo"
-                 style="height: 32px; display: block;" />
+            <img src="@LogoSrc" alt="Tanaste" class="tanaste-logo"
+                 style="@LogoStyle" />
         </MudLink>
 
         <MudSpacer />
 
-        @* Search button — Ctrl+K shortcut hint *@
-        <MudTooltip Text="Search (Ctrl+K)" Arrow="true" Placement="Placement.Bottom">
-            <MudIconButton Icon="@Icons.Material.Filled.Search"
-                           Color="Color.Inherit"
-                           OnClick="@(() => _palette?.Toggle())"
-                           title="Search (Ctrl+K)" />
-        </MudTooltip>
+        @* Search button — hidden when search_button is disabled *@
+        @if (!DeviceContext.IsFeatureDisabled("search_button"))
+        {
+            <MudTooltip Text="Search (Ctrl+K)" Arrow="true" Placement="Placement.Bottom">
+                <MudIconButton Icon="@Icons.Material.Filled.Search"
+                               Color="Color.Inherit"
+                               OnClick="@(() => _palette?.Toggle())"
+                               title="Search (Ctrl+K)" />
+            </MudTooltip>
+        }
 
-        <MudIconButton Icon="@(_isDark ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
-                       Color="Color.Inherit"
-                       OnClick="@ToggleTheme"
-                       title="@(_isDark ? "Switch to Light Mode" : "Switch to Dark Mode")" />
+        @* Theme toggle — hidden when theme_toggle is disabled (TV, automotive) *@
+        @if (!DeviceContext.IsFeatureDisabled("theme_toggle"))
+        {
+            <MudIconButton Icon="@(_isDark ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
+                           Color="Color.Inherit"
+                           OnClick="@ToggleTheme"
+                           title="@(_isDark ? "Switch to Light Mode" : "Switch to Dark Mode")" />
+        }
     </MudAppBar>
 
-    @* Full-width main content — no sidebar *@
-    <MudMainContent Class="pt-16 pa-4">
-        <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    @* Full-width main content — padding and max-width driven by device context *@
+    <MudMainContent Class="@ContentClass">
+        <MudContainer MaxWidth="@ContentMaxWidth" Class="mt-4">
             @Body
         </MudContainer>
     </MudMainContent>
 
-    @* Floating Intent Dock — fixed at bottom centre *@
+    @* Floating Intent Dock — items and style driven by device context *@
     <IntentDock />
 </MudLayout>
 
@@ -85,23 +102,101 @@
     private string _avatarInitial     = "?";
     private bool   _isAdminOrCurator  = true; // Safe default — show all options until profile loads.
 
+    // ── AppBar styling driven by Shell.AppBarStyle ──────────────────────────
+
+    private string AppBarClass =>
+        DeviceContext.Settings.Shell.AppBarStyle switch
+        {
+            "compact"   => "spatial-appbar spatial-appbar-compact",
+            "oversized" => "spatial-appbar spatial-appbar-oversized",
+            "minimal"   => "spatial-appbar spatial-appbar-minimal",
+            _           => "spatial-appbar",
+        };
+
+    // ── Logo variant driven by Shell.LogoVariant ────────────────────────────
+
+    private string LogoSrc =>
+        DeviceContext.Settings.Shell.LogoVariant switch
+        {
+            "icon"           => "images/tanaste-icon.svg",
+            "icon-large"     => "images/tanaste-icon.svg",
+            "wordmark-large" => "images/tanaste-logo.svg",
+            _                => "images/tanaste-logo.svg",
+        };
+
+    private string LogoStyle =>
+        DeviceContext.Settings.Shell.LogoVariant switch
+        {
+            "icon"           => "height: 28px; display: block;",
+            "icon-large"     => "height: 44px; display: block;",
+            "wordmark-large" => "height: 48px; display: block;",
+            _                => "height: 32px; display: block;",
+        };
+
+    // ── Content area driven by device context ───────────────────────────────
+
+    private string ContentClass =>
+        $"pt-16 {DeviceContext.Settings.ContentPadding}";
+
+    private MaxWidth ContentMaxWidth =>
+        DeviceContext.Settings.ContentMaxWidth switch
+        {
+            "Full"       => MaxWidth.False,
+            "ExtraLarge" => MaxWidth.ExtraLarge,
+            "Large"      => MaxWidth.Large,
+            "Medium"     => MaxWidth.Medium,
+            _            => MaxWidth.ExtraLarge,
+        };
+
+    // ── Lifecycle ───────────────────────────────────────────────────────────
+
     protected override void OnInitialized()
     {
         _isDark = ThemeService.IsDarkMode;
         ThemeService.OnThemeChanged += OnThemeUpdated;
+        DeviceContext.OnChanged += OnDeviceContextChanged;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
-            // Register Ctrl+K to open the Command Palette.
-            await JS.InvokeVoidAsync("registerCtrlK", DotNetObjectReference.Create(this));
+            // Detect the device class from the browser (URL param → localStorage → auto).
+            var detectedDevice = await JS.InvokeAsync<string>("detectDeviceClass");
+
+            // Initialise the device context with resolved settings from the Engine.
+            await DeviceContext.InitialiseAsync(detectedDevice);
+
+            // Apply dark mode from resolved settings (device may force dark mode).
+            if (DeviceContext.Settings.Constraints.ForceDarkMode && !ThemeService.IsDarkMode)
+            {
+                ThemeService.ToggleTheme();
+                _isDark = true;
+            }
+            else
+            {
+                _isDark = ThemeService.IsDarkMode;
+            }
+
+            // Apply accent colour from resolved settings.
+            if (!string.IsNullOrWhiteSpace(DeviceContext.Settings.AccentColor))
+            {
+                ThemeService.SetHubAccent(DeviceContext.Settings.AccentColor);
+            }
+
+            // Register Ctrl+K to open the Command Palette (only if enabled).
+            if (!DeviceContext.IsFeatureDisabled("command_palette"))
+            {
+                await JS.InvokeVoidAsync("registerCtrlK", DotNetObjectReference.Create(this));
+            }
+
             // Seed the body class so logos render correctly before any toggle.
             await JS.InvokeVoidAsync("setThemeClass", _isDark);
 
             // Load the active profile for the avatar dropdown.
             await LoadActiveProfileAsync();
+
+            StateHasChanged();
         }
     }
 
@@ -110,6 +205,9 @@
 
     private async Task ToggleTheme()
     {
+        // Don't allow toggling when dark mode is forced by the device.
+        if (DeviceContext.Settings.Constraints.ForceDarkMode) return;
+
         ThemeService.ToggleTheme();
         _isDark = ThemeService.IsDarkMode;
         await JS.InvokeVoidAsync("setThemeClass", _isDark);
@@ -118,6 +216,11 @@
     private void OnThemeUpdated()
     {
         _isDark = ThemeService.IsDarkMode;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OnDeviceContextChanged()
+    {
         InvokeAsync(StateHasChanged);
     }
 
@@ -144,7 +247,11 @@
         }
     }
 
-    public void Dispose() => ThemeService.OnThemeChanged -= OnThemeUpdated;
+    public void Dispose()
+    {
+        ThemeService.OnThemeChanged -= OnThemeUpdated;
+        DeviceContext.OnChanged -= OnDeviceContextChanged;
+    }
 
     [Inject] private IJSRuntime JS { get; set; } = default!;
 }

@@ -1,0 +1,47 @@
+{
+  "schema_version": "1.0",
+  "dark_mode": true,
+  "accent_color": "#7C4DFF",
+  "content_padding": "pa-4",
+  "content_max_width": "ExtraLarge",
+  "border_radius": 32,
+  "features": {
+    "command_palette": true,
+    "search_button": true,
+    "theme_toggle": true,
+    "avatar_menu": true,
+    "server_settings": true,
+    "pending_files_alert": true,
+    "view_toggle": true,
+    "profile_section": true,
+    "color_picker": true
+  },
+  "shell": {
+    "appbar_style": "full",
+    "logo_variant": "wordmark",
+    "intent_dock_items": ["Hubs", "Watch", "Read", "Listen"],
+    "intent_dock_style": "normal"
+  },
+  "pages": {
+    "home": {
+      "hub_hero_enabled": true,
+      "hub_hero_layout": "two-column",
+      "progress_cards_layout": "row",
+      "bento_columns": 3,
+      "bento_tile_style": "normal",
+      "pending_files_display": "expandable"
+    },
+    "preferences": {
+      "page_enabled": true,
+      "tab_bar_layout": "horizontal",
+      "general_tab_layout": "full",
+      "color_swatch_count": 8,
+      "playback_tab_enabled": true
+    },
+    "server_settings": {
+      "page_enabled": true,
+      "tab_bar_layout": "horizontal",
+      "tab_content_layout": "full"
+    }
+  }
+}

@@ -449,6 +449,9 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
         Directory.CreateDirectory(_configDir);
         Directory.CreateDirectory(Path.Combine(_configDir, ProvidersSubdir));
         Directory.CreateDirectory(Path.Combine(_configDir, UniverseSubdir));
+        Directory.CreateDirectory(Path.Combine(_configDir, "ui"));
+        Directory.CreateDirectory(Path.Combine(_configDir, "ui", "devices"));
+        Directory.CreateDirectory(Path.Combine(_configDir, "ui", "profiles"));
 
         // Core defaults
         SaveCore(new CoreConfiguration());
@@ -523,6 +526,143 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
                 ["wikidata_sparql"] = "https://query.wikidata.org/sparql",
             },
             ThrottleMs     = 1100,
+        });
+
+        // Default UI configuration
+        SaveConfig("ui", "global", new UIGlobalSettings());
+        SaveConfig("ui/devices", "web", new UIDeviceProfile
+        {
+            DeviceClass = "web",
+            DisplayName = "Desktop Web",
+        });
+        SaveConfig("ui/devices", "mobile", new UIDeviceProfile
+        {
+            DeviceClass     = "mobile",
+            DisplayName     = "Mobile",
+            ContentPadding  = "pa-2",
+            ContentMaxWidth = "Full",
+            Constraints     = new UIDeviceConstraints
+            {
+                FeaturesDisabled = ["view_toggle"],
+                MinTouchTargetPx = 48,
+            },
+            Shell = new UIShellSettings
+            {
+                AppBarStyle     = "compact",
+                LogoVariant     = "icon",
+                IntentDockItems = ["Hubs", "Watch", "Read", "Listen"],
+                IntentDockStyle = "normal",
+            },
+            Pages = new UIPageSettings
+            {
+                Home = new UIHomePageSettings
+                {
+                    HubHeroLayout       = "stacked",
+                    ProgressCardsLayout = "stacked",
+                    BentoColumns        = 1,
+                    PendingFilesDisplay = "badge",
+                },
+                Preferences = new UIPreferencesPageSettings
+                {
+                    TabBarLayout     = "vertical",
+                    GeneralTabLayout = "stacked",
+                    ColorSwatchCount = 4,
+                },
+                ServerSettings = new UIServerSettingsPageSettings
+                {
+                    TabBarLayout     = "vertical-accordion",
+                    TabContentLayout = "stacked-card",
+                },
+            },
+        });
+        SaveConfig("ui/devices", "television", new UIDeviceProfile
+        {
+            DeviceClass     = "television",
+            DisplayName     = "Television",
+            ContentPadding  = "pa-6",
+            ContentMaxWidth = "Full",
+            BorderRadius    = 40,
+            Constraints     = new UIDeviceConstraints
+            {
+                FeaturesDisabled = [
+                    "command_palette", "search_button", "theme_toggle",
+                    "avatar_menu", "pending_files_alert", "view_toggle",
+                    "profile_section", "color_picker",
+                ],
+                PagesDisabled  = ["server_settings"],
+                AllowTextInput = false,
+                MinTouchTargetPx = 64,
+            },
+            Shell = new UIShellSettings
+            {
+                AppBarStyle     = "oversized",
+                LogoVariant     = "wordmark-large",
+                IntentDockItems = ["Hubs", "Watch", "Read", "Listen"],
+                IntentDockStyle = "oversized",
+            },
+            Pages = new UIPageSettings
+            {
+                Home = new UIHomePageSettings
+                {
+                    HubHeroLayout       = "two-column-oversized",
+                    ProgressCardsLayout = "row-oversized",
+                    BentoColumns        = 2,
+                    BentoTileStyle      = "large",
+                    PendingFilesDisplay = "hidden",
+                },
+                Preferences = new UIPreferencesPageSettings
+                {
+                    TabBarLayout     = "focus-nav",
+                    GeneralTabLayout = "theme-only",
+                    ColorSwatchCount = 0,
+                },
+                ServerSettings = new UIServerSettingsPageSettings { PageEnabled = false },
+            },
+        });
+        SaveConfig("ui/devices", "automotive", new UIDeviceProfile
+        {
+            DeviceClass     = "automotive",
+            DisplayName     = "Automotive",
+            DarkMode        = true,
+            ContentMaxWidth = "Full",
+            Constraints     = new UIDeviceConstraints
+            {
+                FeaturesDisabled = [
+                    "command_palette", "search_button", "theme_toggle",
+                    "avatar_menu", "pending_files_alert", "view_toggle",
+                    "profile_section", "color_picker", "server_settings",
+                ],
+                PagesDisabled    = ["server_settings"],
+                AllowTextInput   = false,
+                MinTouchTargetPx = 80,
+                ForceDarkMode    = true,
+            },
+            Shell = new UIShellSettings
+            {
+                AppBarStyle     = "minimal",
+                LogoVariant     = "icon-large",
+                IntentDockItems = ["Hubs", "Listen"],
+                IntentDockStyle = "oversized",
+            },
+            Pages = new UIPageSettings
+            {
+                Home = new UIHomePageSettings
+                {
+                    HubHeroEnabled      = false,
+                    HubHeroLayout       = "hidden",
+                    ProgressCardsLayout = "single",
+                    BentoColumns        = 1,
+                    BentoTileStyle      = "audio-only",
+                    PendingFilesDisplay = "hidden",
+                },
+                Preferences = new UIPreferencesPageSettings
+                {
+                    TabBarLayout     = "single",
+                    GeneralTabLayout = "theme-only",
+                    ColorSwatchCount = 0,
+                },
+                ServerSettings = new UIServerSettingsPageSettings { PageEnabled = false },
+            },
         });
     }
 

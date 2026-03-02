@@ -250,6 +250,21 @@ public sealed class DatabaseConnection : IDatabaseConnection
             column: "website",
             ddl:    "ALTER TABLE persons ADD COLUMN website TEXT;");
 
+        // Migration M-011: Create ui_settings_cache table for UI configuration caching.
+        // Stores the JSON blob for each scope (global, device:{class}, profile:{uuid})
+        // so API reads do not require filesystem I/O on every request.
+        MigrateCreateTableIfMissing(
+            conn,
+            probeTable:  "ui_settings_cache",
+            probeColumn: "scope",
+            ddl: """
+                CREATE TABLE IF NOT EXISTS ui_settings_cache (
+                    scope       TEXT NOT NULL PRIMARY KEY,
+                    settings    TEXT NOT NULL,
+                    cached_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+                );
+                """);
+
         // Seed S-001: provider_registry entries for all known providers.
         // metadata_claims.provider_id has a FK to provider_registry(id), so these
         // rows MUST exist before any claim is written.  INSERT OR IGNORE makes this

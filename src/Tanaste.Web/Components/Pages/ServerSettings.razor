@@ -2,6 +2,7 @@
 @rendermode InteractiveServer
 @namespace Tanaste.Web.Components.Pages
 @inject NavigationManager Nav
+@inject DeviceContextService DeviceContext
 
 <PageTitle>Server Settings — Tanaste</PageTitle>
 
@@ -64,6 +65,15 @@
     private bool   _drawerOpen;
     private Guid   _drawerEntityId;
     private string _drawerTitle = string.Empty;
+
+    protected override void OnInitialized()
+    {
+        // Redirect to home if server_settings page is disabled for this device class.
+        if (DeviceContext.IsPageDisabled("server_settings"))
+        {
+            Nav.NavigateTo("/", replace: true);
+        }
+    }
 
     private void OnTabChanged(SettingsTabBar.SettingsTab tab)
     {

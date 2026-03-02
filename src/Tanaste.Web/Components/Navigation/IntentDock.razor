@@ -1,49 +1,28 @@
 @namespace Tanaste.Web.Components.Navigation
+@inject DeviceContextService DeviceContext
+@implements IDisposable
 
 @* Floating Intent Dock — fixed at the bottom centre of the viewport.
-   Four intent modes: Hubs (default), Watch, Read, Listen.
+   Items and styling driven by device context (Shell.IntentDockItems + IntentDockStyle).
    Uses glassmorphic styling consistent with the Spatial Bento design. *@
 
 <div class="intent-dock">
-    <MudPaper Elevation="0" Class="intent-dock-surface">
-        <MudStack Row="true" Spacing="4" AlignItems="AlignItems.Center"
-                  Justify="Justify.Center" Class="pa-2 px-6">
+    <MudPaper Elevation="0" Class="@DockSurfaceClass">
+        <MudStack Row="true" Spacing="@DockSpacing" AlignItems="AlignItems.Center"
+                  Justify="Justify.Center" Class="@DockPadding">
 
-            <MudTooltip Text="Hubs" Arrow="true" Placement="Placement.Top">
-                <MudIconButton Icon="@Icons.Material.Filled.Hub"
-                               Size="Size.Medium"
-                               Color="@(ActiveIntent == DockIntent.Hubs ? Color.Primary : Color.Default)"
-                               Style="@DockButtonStyle(DockIntent.Hubs)"
-                               OnClick="@(() => SetIntent(DockIntent.Hubs))"
-                               title="Hubs" />
-            </MudTooltip>
-
-            <MudTooltip Text="Watch" Arrow="true" Placement="Placement.Top">
-                <MudIconButton Icon="@Icons.Material.Filled.PlayCircle"
-                               Size="Size.Medium"
-                               Color="@(ActiveIntent == DockIntent.Watch ? Color.Primary : Color.Default)"
-                               Style="@DockButtonStyle(DockIntent.Watch)"
-                               OnClick="@(() => SetIntent(DockIntent.Watch))"
-                               title="Watch" />
-            </MudTooltip>
-
-            <MudTooltip Text="Read" Arrow="true" Placement="Placement.Top">
-                <MudIconButton Icon="@Icons.Material.Filled.MenuBook"
-                               Size="Size.Medium"
-                               Color="@(ActiveIntent == DockIntent.Read ? Color.Primary : Color.Default)"
-                               Style="@DockButtonStyle(DockIntent.Read)"
-                               OnClick="@(() => SetIntent(DockIntent.Read))"
-                               title="Read" />
-            </MudTooltip>
-
-            <MudTooltip Text="Listen" Arrow="true" Placement="Placement.Top">
-                <MudIconButton Icon="@Icons.Material.Filled.Headphones"
-                               Size="Size.Medium"
-                               Color="@(ActiveIntent == DockIntent.Listen ? Color.Primary : Color.Default)"
-                               Style="@DockButtonStyle(DockIntent.Listen)"
-                               OnClick="@(() => SetIntent(DockIntent.Listen))"
-                               title="Listen" />
-            </MudTooltip>
+            @foreach (var item in DockItems)
+            {
+                var intent = ParseIntent(item);
+                <MudTooltip Text="@item" Arrow="true" Placement="Placement.Top">
+                    <MudIconButton Icon="@GetDockIcon(item)"
+                                   Size="@DockButtonSize"
+                                   Color="@(ActiveIntent == intent ? Color.Primary : Color.Default)"
+                                   Style="@DockButtonStyle(intent)"
+                                   OnClick="@(() => SetIntent(intent))"
+                                   title="@item" />
+                </MudTooltip>
+            }
 
         </MudStack>
 
@@ -64,16 +43,72 @@
     /// <summary>Fires when the user selects a different intent.</summary>
     [Parameter] public EventCallback<DockIntent> OnIntentChanged { get; set; }
 
+    // ── Device-driven dock configuration ────────────────────────────────────
+
+    private IReadOnlyList<string> DockItems =>
+        DeviceContext.Settings.Shell.IntentDockItems is { Count: > 0 }
+            ? DeviceContext.Settings.Shell.IntentDockItems
+            : ["Hubs", "Watch", "Read", "Listen"];
+
+    private bool IsOversized =>
+        string.Equals(DeviceContext.Settings.Shell.IntentDockStyle, "oversized", StringComparison.OrdinalIgnoreCase);
+
+    private string DockSurfaceClass =>
+        IsOversized
+            ? "intent-dock-surface intent-dock-oversized"
+            : "intent-dock-surface";
+
+    private int DockSpacing => IsOversized ? 6 : 4;
+
+    private string DockPadding => IsOversized ? "pa-3 px-8" : "pa-2 px-6";
+
+    private Size DockButtonSize => IsOversized ? Size.Large : Size.Medium;
+
+    // ── Lifecycle ───────────────────────────────────────────────────────────
+
+    protected override void OnInitialized() =>
+        DeviceContext.OnChanged += OnDeviceChanged;
+
+    private void OnDeviceChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() =>
+        DeviceContext.OnChanged -= OnDeviceChanged;
+
+    // ── Helpers ─────────────────────────────────────────────────────────────
+
     private async Task SetIntent(DockIntent intent)
     {
         ActiveIntent = intent;
         await OnIntentChanged.InvokeAsync(intent);
     }
 
-    private string DockButtonStyle(DockIntent intent) =>
-        ActiveIntent == intent
-            ? "background: var(--tanaste-active-overlay); border-radius: 16px;"
-            : "border-radius: 16px;";
+    private string DockButtonStyle(DockIntent intent)
+    {
+        var radius = IsOversized ? "20px" : "16px";
+        return ActiveIntent == intent
+            ? $"background: var(--tanaste-active-overlay); border-radius: {radius};"
+            : $"border-radius: {radius};";
+    }
+
+    private static DockIntent ParseIntent(string name) =>
+        name switch
+        {
+            "Hubs"   => DockIntent.Hubs,
+            "Watch"  => DockIntent.Watch,
+            "Read"   => DockIntent.Read,
+            "Listen" => DockIntent.Listen,
+            _        => DockIntent.Hubs,
+        };
+
+    private static string GetDockIcon(string name) =>
+        name switch
+        {
+            "Hubs"   => Icons.Material.Filled.Hub,
+            "Watch"  => Icons.Material.Filled.PlayCircle,
+            "Read"   => Icons.Material.Filled.MenuBook,
+            "Listen" => Icons.Material.Filled.Headphones,
+            _        => Icons.Material.Filled.Hub,
+        };
 
     public enum DockIntent { Hubs, Watch, Read, Listen }
 }
@@ -98,6 +133,10 @@
         border: 1px solid var(--tanaste-glass-border);
         border-radius: 28px !important;
         box-shadow: var(--tanaste-shadow);
+    }
+
+    .intent-dock-oversized {
+        border-radius: 36px !important;
     }
 
     .intent-dock-label {

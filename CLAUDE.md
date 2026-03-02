@@ -537,6 +537,56 @@ config/
 - **Maintenance** — Each config file is small, focused, and independently editable. A provider misconfiguration does not corrupt scoring settings.
 - **Reliability** — Compiled defaults still serve as fallback if config files are missing or corrupt. Migration from the old single-file format is automatic.
 
+### 3.12 — UI Configuration & Device Profiles
+
+**Plain English:** The Dashboard adapts its visual layout, available features, and page structure based on what device is viewing it. A phone gets a compact layout, a TV gets oversized buttons, a car gets audio-only tiles. All of this is controlled by configuration files — not hard-coded CSS breakpoints.
+
+**Three-Tier Cascade:** Global → Device → Profile. Settings merge in order: Global provides app-wide defaults, Device overlays structural constraints and overrides for each device class, Profile adds user preferences. Device **constraints** (disabled features, disabled pages, forced dark mode) are hard limits — no profile can re-enable them.
+
+**Config files (following §3.11 pattern):**
+```
+config/ui/
+  global.json                    ← App-wide UI defaults
+  devices/
+    web.json                     ← Desktop browser (unconstrained)
+    mobile.json                  ← Phone-sized screens
+    television.json              ← TV displays (remote-navigable)
+    automotive.json              ← Car displays (audio-focused)
+  profiles/
+    {profile-id}.json            ← Per-user overrides
+```
+
+Example files in `config.example/ui/`. Live files in `config/ui/` gitignored.
+
+**DB Cache:** Table `ui_settings_cache` (migration M-011) caches resolved JSON per scope. On startup: scan `config/ui/`, populate cache. API reads from cache.
+
+**Four device classes:**
+
+| Class | Constraints | Key Overrides |
+|---|---|---|
+| **web** | None | Full layout, all features |
+| **mobile** | view_toggle disabled, 48px touch targets | Compact appbar, icon-only logo, stacked layouts, 1-col grid |
+| **television** | 8 features disabled, server_settings page disabled, no text input, 64px targets | Oversized appbar/dock, focus-navigable tabs, 2-col large tiles |
+| **automotive** | Same as TV + forced dark mode, 80px targets | Minimal appbar, 2 dock items (Hubs+Listen), audio-only tiles |
+
+**Dashboard device detection:** JS interop checks URL param `?device=`, then `localStorage`, then auto-detects (viewport ≤768px + touch = mobile, else web). Television/automotive require explicit selection.
+
+**Key types:**
+- `UIGlobalSettings`, `UIFeatureFlags`, `UIShellSettings`, `UIPageSettings` + 3 nested, `UIDeviceProfile` + `UIDeviceConstraints`, `UIProfileSettings`, `ResolvedUISettings` (`Tanaste.Storage.Models`)
+- `UISettingsCascadeResolver` (`Tanaste.Storage`) — merges Global+Device+Profile
+- `UISettingsCacheRepository` (`Tanaste.Storage`) — SQLite cache CRUD
+- `UISettingsEndpoints` (`Tanaste.Api.Endpoints`) — 7 API endpoints including `GET /settings/ui/resolved`
+- `DeviceContextService` (`Tanaste.Web.Services.Theming`) — per-circuit scoped; replaced `AutomotiveModeService`
+- `ResolvedUISettingsViewModel` + DTOs (`Tanaste.Web.Models.ViewDTOs`) — Dashboard view model
+
+**Adapted components:** MainLayout, IntentDock, SettingsTabBar (5 layout modes), GeneralTab (conditional sections), Home, HubHero (4 layout variants), BentoGrid (dynamic columns), UniverseStack, PendingFilesAlert (expandable/badge/hidden), ServerSettings (redirect guard), Preferences (conditional links).
+
+**Why this matters to the business:**
+- **Extensibility** — Adding a new device class is one JSON file + one entry in the cascade resolver. No code changes in the Dashboard.
+- **Maintenance** — All layout rules live in configuration, not scattered CSS breakpoints. A single file controls what an automotive dashboard looks like.
+- **Privacy** — Device detection runs client-side. No telemetry or fingerprinting.
+- **Reliability** — If the Engine is offline, the Dashboard falls back to compiled web defaults. No blank screens.
+
 ---
 
 ## 4. Product Owner Communication Rules
@@ -751,7 +801,8 @@ src/Tanaste.Web/
 │   │   └── IntercomEvents.cs           SignalR event shapes (MediaAdded, IngestionProgress, MetadataHarvested, PersonEnriched)
 │   │
 │   └── Theming/              ← ALL visual configuration lives here
-│       └── ThemeService.cs             Dark/light mode, colour palette, corner radii
+│       ├── ThemeService.cs             Dark/light mode, colour palette, corner radii
+│       └── DeviceContextService.cs     Per-circuit device class + resolved UI settings
 │
 ├── Components/
 │   ├── Universe/             ← Hub-related visual components
@@ -785,7 +836,8 @@ src/Tanaste.Web/
 │       ├── WorkViewModel.cs            Work for display: Title, Author, Year helpers
 │       ├── UniverseViewModel.cs        Flattened cross-media library view + DominantHexColor
 │       ├── SystemStatusViewModel.cs    Engine health probe result
-│       └── ScanResultViewModel.cs      Dry-run scan result (pending file operations)
+│       ├── ScanResultViewModel.cs      Dry-run scan result (pending file operations)
+│       └── ResolvedUISettingsViewModel.cs  Device-resolved UI configuration (8 DTO classes)
 │
 └── Shared/                   ← Top-level layout shell (used by every page)
     ├── MainLayout.razor                App chrome: glassmorphic AppBar, Intent Dock, dark-mode toggle
@@ -803,6 +855,7 @@ src/Tanaste.Web/
 | A new full page | `Components/Pages/` |
 | A new layout wrapper | `Shared/` |
 | A new visual theme setting | `Services/Theming/ThemeService.cs` |
+| A new device-context feature flag | `Services/Theming/DeviceContextService.cs` + `Models/ViewDTOs/ResolvedUISettingsViewModel.cs` |
 
 ---
 
