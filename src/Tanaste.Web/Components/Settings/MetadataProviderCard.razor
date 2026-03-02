@@ -9,9 +9,9 @@
    Write actions (toggle, edit, delete) are gated behind the IsAdmin parameter
    so Curators see a read-only view. *@
 
-<MudPaper Elevation="0" Style="@InnerCardStyle" Class="mb-3">
+<MudPaper Elevation="0" Style="@CardStyle" Class="mb-3">
 
-    @* ── Row 1: Drag handle | Status badge | Name | Spacer | Edit | Delete ── *@
+    @* ── Row 1: Drag handle | Status badge | Name | Universe chip | Spacer | Edit | Delete ── *@
     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-2">
         <MudTooltip Text="Reordering coming soon" Arrow="true" Placement="Placement.Right">
             <MudIcon Icon="@Icons.Material.Filled.DragIndicator"
@@ -27,6 +27,14 @@
         <MudText Typo="Typo.subtitle1" Style="flex: 1; min-width: 0; font-weight: 600;">
             @Provider.DisplayName
         </MudText>
+
+        @if (IsUniverseProvider)
+        {
+            <MudChip T="string" Size="Size.Small" Color="Color.Primary"
+                     Variant="Variant.Filled">
+                Universe Provider
+            </MudChip>
+        }
 
         @if (IsAdmin)
         {
@@ -148,6 +156,12 @@
     /// </summary>
     [Parameter] public bool IsAdmin { get; set; }
 
+    /// <summary>
+    /// When true, this provider is the Universe Provider (Wikidata).
+    /// The card renders with an accent border and a "Universe Provider" chip.
+    /// </summary>
+    [Parameter] public bool IsUniverseProvider { get; set; }
+
     [Parameter] public EventCallback<(string Name, bool Enabled)> OnToggle { get; set; }
     [Parameter] public EventCallback<ProviderStatusDto> OnEdit   { get; set; }
     [Parameter] public EventCallback<ProviderStatusDto> OnDelete { get; set; }
@@ -167,18 +181,80 @@
     private static readonly Dictionary<string, string> CapabilityIcons =
         new(StringComparer.OrdinalIgnoreCase)
         {
-            ["cover"]           = Icons.Material.Filled.Image,
-            ["narrator"]        = Icons.Material.Filled.RecordVoiceOver,
-            ["series"]          = Icons.Material.Filled.PlaylistPlay,
-            ["series_position"] = Icons.Material.Filled.FormatListNumbered,
-            ["description"]     = Icons.Material.Filled.Description,
-            ["title"]           = Icons.Material.Filled.Title,
-            ["author"]          = Icons.Material.Filled.Person,
-            ["rating"]          = Icons.Material.Filled.Star,
-            ["biography"]       = Icons.Material.Filled.MenuBook,
-            ["headshot"]        = Icons.Material.Filled.Face,
-            ["franchise"]       = Icons.Material.Filled.AccountTree,
-            ["person_id"]       = Icons.Material.Filled.Badge,
+            // ── Original provider capabilities ─────────────────────
+            ["cover"]              = Icons.Material.Filled.Image,
+            ["narrator"]           = Icons.Material.Filled.RecordVoiceOver,
+            ["series"]             = Icons.Material.Filled.PlaylistPlay,
+            ["series_position"]    = Icons.Material.Filled.FormatListNumbered,
+            ["description"]        = Icons.Material.Filled.Description,
+            ["title"]              = Icons.Material.Filled.Title,
+            ["author"]             = Icons.Material.Filled.Person,
+            ["rating"]             = Icons.Material.Filled.Star,
+            ["biography"]          = Icons.Material.Filled.MenuBook,
+            ["headshot"]           = Icons.Material.Filled.Face,
+            ["franchise"]          = Icons.Material.Filled.AccountTree,
+            ["person_id"]          = Icons.Material.Filled.Badge,
+
+            // ── Core identity ──────────────────────────────────────
+            ["wikidata_qid"]       = Icons.Material.Filled.Language,
+            ["instance_of"]        = Icons.Material.Filled.Category,
+            ["year"]               = Icons.Material.Filled.CalendarToday,
+            ["preceded_by"]        = Icons.Material.Filled.ArrowBack,
+            ["followed_by"]        = Icons.Material.Filled.ArrowForward,
+            ["headshot_url"]       = Icons.Material.Filled.Face,
+
+            // ── People ────────────────────────────────────────────
+            ["director"]           = Icons.Material.Filled.Movie,
+            ["illustrator"]        = Icons.Material.Filled.Brush,
+            ["cast_member"]        = Icons.Material.Filled.Groups,
+            ["voice_actor"]        = Icons.Material.Filled.Mic,
+            ["screenwriter"]       = Icons.Material.Filled.Create,
+            ["composer"]           = Icons.Material.Filled.MusicNote,
+            ["occupation"]         = Icons.Material.Filled.Work,
+            ["notable_work"]       = Icons.Material.Filled.AutoStories,
+
+            // ── Lore ──────────────────────────────────────────────
+            ["narrative_location"] = Icons.Material.Filled.Place,
+            ["characters"]         = Icons.Material.Filled.People,
+            ["main_subject"]       = Icons.Material.Filled.Topic,
+            ["fictional_universe"] = Icons.Material.Filled.Public,
+            ["based_on"]           = Icons.Material.Filled.Source,
+            ["first_appearance"]   = Icons.Material.Filled.NewReleases,
+
+            // ── Bridges: Books ────────────────────────────────────
+            ["apple_books_id"]     = Icons.Material.Filled.MenuBook,
+            ["isbn"]               = Icons.Material.Filled.QrCode,
+            ["asin"]               = Icons.Material.Filled.ShoppingCart,
+            ["goodreads_id"]       = Icons.Material.Filled.ImportContacts,
+            ["loc_id"]             = Icons.Material.Filled.LocalLibrary,
+
+            // ── Bridges: Movies/TV ────────────────────────────────
+            ["tmdb_id"]            = Icons.Material.Filled.Theaters,
+            ["imdb_id"]            = Icons.Material.Filled.VideoLibrary,
+            ["justwatch_id"]       = Icons.Material.Filled.LiveTv,
+            ["metacritic_id"]      = Icons.Material.Filled.Reviews,
+            ["letterboxd_id"]      = Icons.Material.Filled.Videocam,
+            ["tvcom_id"]           = Icons.Material.Filled.Tv,
+
+            // ── Bridges: Comics/Anime ─────────────────────────────
+            ["gcd_series_id"]      = Icons.Material.Filled.CollectionsBookmark,
+            ["gcd_issue_id"]       = Icons.Material.Filled.Bookmark,
+            ["comicvine_id"]       = Icons.Material.Filled.FlashOn,
+            ["mal_anime_id"]       = Icons.Material.Filled.Animation,
+            ["mal_manga_id"]       = Icons.Material.Filled.ChromeReaderMode,
+
+            // ── Bridges: Music/Audio ──────────────────────────────
+            ["musicbrainz_id"]     = Icons.Material.Filled.Album,
+            ["spotify_id"]         = Icons.Material.Filled.LibraryMusic,
+            ["discogs_id"]         = Icons.Material.Filled.Audiotrack,
+            ["audible_id"]         = Icons.Material.Filled.Headphones,
+
+            // ── Social Pivot ──────────────────────────────────────
+            ["instagram"]          = Icons.Material.Filled.CameraAlt,
+            ["twitter"]            = Icons.Material.Filled.Tag,
+            ["tiktok"]             = Icons.Material.Filled.OndemandVideo,
+            ["mastodon"]           = Icons.Material.Filled.Forum,
+            ["website"]            = Icons.Material.Filled.Web,
         };
 
     // ── Style constants ─────────────────────────────────────────────────────────
@@ -188,4 +264,13 @@
         "border: 1px solid var(--tanaste-glass-inner-border); " +
         "border-radius: 16px; " +
         "padding: 20px;";
+
+    private const string UniverseCardStyle =
+        "background: var(--tanaste-glass-inner-bg); " +
+        "border: 1px solid var(--mud-palette-primary); " +
+        "border-left: 4px solid var(--mud-palette-primary); " +
+        "border-radius: 16px; " +
+        "padding: 20px;";
+
+    private string CardStyle => IsUniverseProvider ? UniverseCardStyle : InnerCardStyle;
 }

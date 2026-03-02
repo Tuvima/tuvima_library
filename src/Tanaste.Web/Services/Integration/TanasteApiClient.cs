@@ -297,6 +297,20 @@ public sealed class TanasteApiClient : ITanasteApiClient
         catch { return false; }
     }
 
+    // ── /metadata/hydrate ──────────────────────────────────────────────────────
+
+    public async Task<HydrateResultViewModel?> TriggerHydrationAsync(
+        Guid entityId, CancellationToken ct = default)
+    {
+        try
+        {
+            var resp = await _http.PostAsJsonAsync($"/metadata/hydrate/{entityId}", new { }, ct);
+            if (!resp.IsSuccessStatusCode) return null;
+            return await resp.Content.ReadFromJsonAsync<HydrateResultViewModel>(ct);
+        }
+        catch { return null; }
+    }
+
     // ── /metadata/conflicts ────────────────────────────────────────────────────
 
     public async Task<List<ConflictViewModel>> GetConflictsAsync(CancellationToken ct = default)

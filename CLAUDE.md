@@ -427,6 +427,66 @@ Four new `SystemActionType` constants log hydrator actions: `BridgeSyncUpdated` 
 - **Privacy** — Only titles, ISBNs, and ASINs leave the machine during SPARQL queries. Everything hydrated lives on disk.
 - **Maintenance** — The property map is editable via settings. Confidence values, claim keys, and enabled flags can all be changed without touching code.
 
+### 3.10 — Universal Metadata Hydrator: Librarian Workflow (Phase B)
+
+**Plain English:** Phase B replaces the placeholder Wikidata work lookup with a full SPARQL deep-hydration engine. You can now click a button on the Dashboard — or call a single Engine action — and Tanaste reaches out to Wikidata, finds the matching creative work by its bridge identifiers, and pulls back every known property: series name, franchise, characters, narrative location, and dozens of external platform links (TMDB, IMDb, Goodreads, Apple Books, etc.). All of this happens in a single SPARQL query. The Wikidata provider is also now pinned at the top of the Metadata tab as the "Universe Provider" — reflecting its unique role as the one source that spans all media types.
+
+**SPARQL deep-hydration algorithm (WikidataAdapter.FetchWorkAsync):**
+
+The adapter uses a three-step strategy to find and hydrate a work:
+
+1. **QID Cross-Reference via Bridge IDs** — If the library already knows an external identifier (ASIN, ISBN, Apple Books ID, Audible ID, TMDB ID, IMDb ID), the adapter runs a lightweight SPARQL query to find the matching Wikidata Q-identifier. Bridge IDs are tried in priority order; first match wins.
+
+2. **Fallback to Title Search** — If no bridge ID matches, the adapter falls back to the existing MediaWiki `wbsearchentities` API with the work's title. This reuses the same search flow already proven for Person enrichment.
+
+3. **SPARQL Deep Ingest** — Once a QID is found, a single SPARQL query (built by `WikidataSparqlPropertyMap.BuildWorkSparqlQuery`) fetches every Work-scoped property in one call. The response is parsed from `application/sparql-results+json` and each binding is transformed into a `ProviderClaim` with the property map's configured confidence value.
+
+**Value transformation rules:**
+- **P577 (year):** ISO dates are reduced to 4-digit year strings
+- **P1545 (series position):** Numeric portion extracted from ordinal strings
+- **Entity-valued properties:** Wikidata entity URIs are stripped to bare QIDs
+- **Multi-valued properties** (characters, cast members): Joined with `"; "`
+- **wikidata_qid:** Always emitted at confidence 1.0 as a claim
+
+**Copyright constraint reminder:** P18 (Image) is **never emitted for Work entities** — it is Person-only. The `BuildWorkSparqlQuery` deliberately excludes it. Media cover art comes exclusively from Apple Books, Audnexus, and TMDB.
+
+**Hydration Engine action:**
+
+`POST /metadata/hydrate/{entityId}` — a user-triggered, synchronous action available to Administrators and Curators:
+1. Loads existing canonical values as lookup hints (title, ISBN, ASIN, bridge IDs)
+2. Resolves Wikidata API and SPARQL endpoint URLs from the manifest
+3. Calls the WikidataAdapter directly (not through the background queue — immediate response)
+4. Persists all returned claims (append-only)
+5. Re-scores the entity through the full scoring pipeline
+6. Upserts canonical values
+7. Logs `MetadataHydrated` to the activity ledger
+8. Broadcasts `MetadataHarvested` via the Intercom so the Dashboard refreshes live
+9. Returns a result with the QID, number of claims added, and a human-readable message
+
+**Dashboard wiring:**
+- `TriggerHydrationAsync(Guid entityId)` added to the Dashboard client contract
+- The Orchestrator invalidates the state cache on successful hydration so the UI reflects changes immediately
+
+**Universe Provider UI treatment:**
+
+Wikidata is now pinned as a standalone card above the grouped provider panels in the Metadata settings tab. It carries a "Universe Provider" chip and a distinctive accent border — a 4px solid primary-colour left border plus a 1px primary outline. This visual treatment reflects Wikidata's unique role as the only provider that spans all media types and all categories.
+
+The `MetadataProviderCard` gained an `IsUniverseProvider` parameter that triggers this special styling.
+
+**Capability icon expansion:**
+
+The provider card's capability icon set expanded from 12 entries to 60+ entries, covering every claim key in the Master Authority Table. Icons are drawn from the Material Design icon set and organised by category (core identity, people, lore, bridges, social).
+
+**Key types introduced:**
+- `HydrateResultViewModel` (`Tanaste.Web.Models.ViewDTOs`) — Dashboard DTO for hydration results
+- `HydrateResponse` (`Tanaste.Api.Models`) — Engine DTO matching the Dashboard shape
+
+**Why this matters to the business:**
+- **Extensibility** — A single SPARQL query now replaces what would have been dozens of individual API calls to different platforms. Adding support for a new Wikidata property is still one JSON entry.
+- **Reliability** — The three-step QID resolution (bridge IDs → title search → SPARQL ingest) maximises match rate. If no match is found, the file keeps its existing metadata untouched.
+- **Performance** — User-triggered hydration bypasses the background queue for immediate results. The background pipeline continues to handle automatic post-ingestion enrichment.
+- **Privacy** — Only titles, ISBNs, ASINs, and bridge IDs are sent to Wikidata. Everything hydrated lives locally.
+
 ---
 
 ## 4. Product Owner Communication Rules

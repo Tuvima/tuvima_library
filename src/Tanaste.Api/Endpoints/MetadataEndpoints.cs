@@ -3,6 +3,12 @@ using Tanaste.Api.Models;
 using Tanaste.Api.Security;
 using Tanaste.Domain.Contracts;
 using Tanaste.Domain.Entities;
+using Tanaste.Domain.Enums;
+using Tanaste.Intelligence.Contracts;
+using Tanaste.Intelligence.Models;
+using Tanaste.Providers.Adapters;
+using Tanaste.Providers.Contracts;
+using Tanaste.Providers.Models;
 using Tanaste.Storage.Contracts;
 
 namespace Tanaste.Api.Endpoints;
@@ -172,6 +178,186 @@ public static class MetadataEndpoints
         .WithSummary("Manually override a metadata canonical value, locking in the chosen value.")
         .Produces<ResolveResponse>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status400BadRequest)
+        .RequireAdminOrCurator();
+
+        // ── POST /metadata/hydrate/{entityId} ─────────────────────────────
+        group.MapPost("/hydrate/{entityId:guid}", async (
+            Guid entityId,
+            ICanonicalValueRepository canonicalRepo,
+            IMetadataClaimRepository claimRepo,
+            IScoringEngine scoringEngine,
+            IEnumerable<IExternalMetadataProvider> providers,
+            IStorageManifest storageManifest,
+            IEventPublisher publisher,
+            ISystemActivityRepository activityRepo,
+            CancellationToken ct) =>
+        {
+            // 1. Find the Wikidata adapter.
+            var wikidataAdapter = providers.OfType<WikidataAdapter>().FirstOrDefault();
+            if (wikidataAdapter is null)
+            {
+                return Results.Ok(new HydrateResponse
+                {
+                    Success = false,
+                    Message = "Wikidata adapter is not registered.",
+                });
+            }
+
+            // 2. Load existing canonical values to build lookup hints.
+            var canonicals = await canonicalRepo.GetByEntityAsync(entityId, ct);
+            var hints = canonicals.ToDictionary(c => c.Key, c => c.Value);
+
+            // 3. Resolve the base URLs from the manifest.
+            var manifest = storageManifest.Load();
+            var apiBaseUrl = manifest.ProviderEndpoints
+                .GetValueOrDefault("wikidata_api", string.Empty);
+            var sparqlBaseUrl = manifest.ProviderEndpoints
+                .GetValueOrDefault("wikidata_sparql");
+
+            // 4. Build the lookup request.
+            var lookupRequest = new ProviderLookupRequest
+            {
+                EntityId     = entityId,
+                EntityType   = EntityType.Work,
+                MediaType    = Domain.Enums.MediaType.Unknown,
+                Title        = hints.GetValueOrDefault("title"),
+                Author       = hints.GetValueOrDefault("author"),
+                Narrator     = hints.GetValueOrDefault("narrator"),
+                Asin         = hints.GetValueOrDefault("asin"),
+                Isbn         = hints.GetValueOrDefault("isbn"),
+                AppleBooksId = hints.GetValueOrDefault("apple_books_id"),
+                AudibleId    = hints.GetValueOrDefault("audible_id"),
+                TmdbId       = hints.GetValueOrDefault("tmdb_id"),
+                ImdbId       = hints.GetValueOrDefault("imdb_id"),
+                BaseUrl      = apiBaseUrl,
+                SparqlBaseUrl = sparqlBaseUrl,
+            };
+
+            // 5. Call the Wikidata adapter directly (synchronous — user-triggered).
+            IReadOnlyList<ProviderClaim> providerClaims;
+            try
+            {
+                providerClaims = await wikidataAdapter.FetchAsync(lookupRequest, ct);
+            }
+            catch (Exception ex)
+            {
+                return Results.Ok(new HydrateResponse
+                {
+                    Success = false,
+                    Message = $"Wikidata lookup failed: {ex.Message}",
+                });
+            }
+
+            if (providerClaims.Count == 0)
+            {
+                return Results.Ok(new HydrateResponse
+                {
+                    Success = true,
+                    ClaimsAdded = 0,
+                    Message = "No matching Wikidata entity found for this work.",
+                });
+            }
+
+            // 6. Persist claims (append-only).
+            var domainClaims = providerClaims
+                .Select(pc => new MetadataClaim
+                {
+                    Id           = Guid.NewGuid(),
+                    EntityId     = entityId,
+                    ProviderId   = WikidataAdapter.AdapterProviderId,
+                    ClaimKey     = pc.Key,
+                    ClaimValue   = pc.Value,
+                    Confidence   = pc.Confidence,
+                    ClaimedAt    = DateTimeOffset.UtcNow,
+                    IsUserLocked = false,
+                })
+                .ToList();
+            await claimRepo.InsertBatchAsync(domainClaims, ct);
+
+            // 7. Re-score entity.
+            var allClaims = await claimRepo.GetByEntityAsync(entityId, ct);
+            var scoringConfig = new ScoringConfiguration
+            {
+                AutoLinkThreshold     = manifest.Scoring.AutoLinkThreshold,
+                ConflictThreshold     = manifest.Scoring.ConflictThreshold,
+                ConflictEpsilon       = manifest.Scoring.ConflictEpsilon,
+                StaleClaimDecayDays   = manifest.Scoring.StaleClaimDecayDays,
+                StaleClaimDecayFactor = manifest.Scoring.StaleClaimDecayFactor,
+            };
+
+            // Build provider weights from manifest (match by name, key by ProviderId).
+            var providerWeights = new Dictionary<Guid, double>();
+            Dictionary<Guid, IReadOnlyDictionary<string, double>>? fieldWeights = null;
+            foreach (var prov in providers)
+            {
+                var bootstrap = manifest.Providers
+                    .FirstOrDefault(b => string.Equals(b.Name, prov.Name,
+                        StringComparison.OrdinalIgnoreCase));
+                if (bootstrap is null) continue;
+
+                providerWeights[prov.ProviderId] = bootstrap.Weight;
+                if (bootstrap.FieldWeights.Count > 0)
+                {
+                    fieldWeights ??= new();
+                    fieldWeights[prov.ProviderId] = (IReadOnlyDictionary<string, double>)bootstrap.FieldWeights;
+                }
+            }
+
+            var scoringContext = new ScoringContext
+            {
+                EntityId             = entityId,
+                Claims               = allClaims,
+                ProviderWeights      = providerWeights,
+                ProviderFieldWeights = fieldWeights,
+                Configuration        = scoringConfig,
+            };
+            var scored = await scoringEngine.ScoreEntityAsync(scoringContext, ct);
+
+            // 8. Upsert canonical values.
+            var newCanonicals = scored.FieldScores
+                .Where(f => !string.IsNullOrEmpty(f.WinningValue))
+                .Select(f => new CanonicalValue
+                {
+                    EntityId     = entityId,
+                    Key          = f.Key,
+                    Value        = f.WinningValue!,
+                    LastScoredAt = scored.ScoredAt,
+                    IsConflicted = f.IsConflicted,
+                })
+                .ToList();
+            await canonicalRepo.UpsertBatchAsync(newCanonicals, ct);
+
+            // 9. Log to activity ledger.
+            var qid = providerClaims.FirstOrDefault(c => c.Key == "wikidata_qid")?.Value;
+            await activityRepo.LogAsync(new SystemActivityEntry
+            {
+                ActionType  = SystemActionType.MetadataHydrated,
+                EntityId    = entityId,
+                Detail      = $"Deep-hydrated via Wikidata SPARQL — QID: {qid ?? "unknown"}, {domainClaims.Count} claims added.",
+                ChangesJson = $"{{\"qid\":\"{qid}\",\"claims\":{domainClaims.Count}}}",
+                OccurredAt  = DateTimeOffset.UtcNow,
+            }, ct);
+
+            // 10. Broadcast MetadataHarvested event.
+            var updatedFields = domainClaims.Select(c => c.ClaimKey).Distinct().ToList();
+            await publisher.PublishAsync("MetadataHarvested", new
+            {
+                entity_id      = entityId,
+                provider_name  = "wikidata",
+                updated_fields = updatedFields,
+            }, ct);
+
+            return Results.Ok(new HydrateResponse
+            {
+                WikidataQid = qid,
+                ClaimsAdded = domainClaims.Count,
+                Success     = true,
+                Message     = $"Hydrated {domainClaims.Count} claims from Wikidata (QID: {qid ?? "unknown"}).",
+            });
+        })
+        .WithName("HydrateEntity")
+        .WithSummary("Trigger Wikidata SPARQL deep hydration for a Work or Edition entity. Admin or Curator.")
+        .Produces<HydrateResponse>(StatusCodes.Status200OK)
         .RequireAdminOrCurator();
 
         return app;

@@ -77,6 +77,12 @@ public interface ITanasteApiClient
     /// <summary>PATCH /metadata/lock-claim — create a user-locked claim.</summary>
     Task<bool> LockClaimAsync(Guid entityId, string key, string value, CancellationToken ct = default);
 
+    // ── Hydration (/metadata/hydrate) ──────────────────────────────────────────
+
+    /// <summary>POST /metadata/hydrate/{entityId} — trigger Wikidata SPARQL deep hydration.</summary>
+    Task<HydrateResultViewModel?> TriggerHydrationAsync(
+        Guid entityId, CancellationToken ct = default);
+
     // ── Conflicts (/metadata/conflicts) ──────────────────────────────────────
 
     /// <summary>GET /metadata/conflicts — canonical values with unresolved metadata conflicts.</summary>

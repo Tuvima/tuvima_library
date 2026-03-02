@@ -62,6 +62,24 @@
     }
     else
     {
+        @* ── Universe Provider (Wikidata) — pinned at top ─────────────────── *@
+        @if (_universeProvider is not null)
+        {
+            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-3">
+                <MudIcon Icon="@Icons.Material.Filled.Public" Size="Size.Small"
+                         Color="Color.Primary" Class="mr-1" />
+                <MudText Typo="Typo.subtitle2">Universe Provider</MudText>
+            </MudStack>
+
+            <MetadataProviderCard Provider="@_universeProvider"
+                                  IsToggling="@_toggling"
+                                  IsAdmin="@HasAdminAccess"
+                                  IsUniverseProvider="true"
+                                  OnToggle="@HandleToggleAsync"
+                                  OnEdit="@OpenEditDrawer"
+                                  OnDelete="@ConfirmDeleteProvider" />
+        }
+
         @* ── Category-grouped providers ────────────────────────────────────── *@
         <MudExpansionPanels MultiExpansion="true" Elevation="0">
             @foreach (var group in _groupedProviders)
@@ -151,6 +169,7 @@
     private bool                             _toggling;
     private string?                          _errorDetail;
     private IReadOnlyList<ProviderStatusDto> _providers        = [];
+    private ProviderStatusDto?               _universeProvider;
     private IReadOnlyList<ProviderGroup>     _groupedProviders = [];
 
     // Wizard state
@@ -212,12 +231,17 @@
 
     private void GroupProviders()
     {
+        // Pin Wikidata as the Universe Provider at the top, outside grouped panels.
+        _universeProvider = _providers.FirstOrDefault(p =>
+            string.Equals(p.Domain, "Universal", StringComparison.OrdinalIgnoreCase));
+
         _groupedProviders = DomainOrder
             .Select(d =>
             {
                 var meta = DomainMeta.GetValueOrDefault(d, (Label: d, Icon: Icons.Material.Filled.Help));
                 var items = _providers
-                    .Where(p => string.Equals(p.Domain, d, StringComparison.OrdinalIgnoreCase))
+                    .Where(p => string.Equals(p.Domain, d, StringComparison.OrdinalIgnoreCase)
+                                && p != _universeProvider) // Exclude pinned Universe provider
                     .ToList();
                 return new ProviderGroup(meta.Label, meta.Icon, items);
             })

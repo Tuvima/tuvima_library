@@ -559,6 +559,23 @@ public sealed class ConflictDto
     };
 }
 
+// ── POST /metadata/hydrate/{entityId} ────────────────────────────────────────
+
+public sealed class HydrateResponse
+{
+    [JsonPropertyName("wikidata_qid")]
+    public string? WikidataQid { get; init; }
+
+    [JsonPropertyName("claims_added")]
+    public int ClaimsAdded { get; init; }
+
+    [JsonPropertyName("success")]
+    public bool Success { get; init; }
+
+    [JsonPropertyName("message")]
+    public string Message { get; init; } = string.Empty;
+}
+
 // ── /ingestion/watch-folder ──────────────────────────────────────────────────
 
 public sealed class WatchFolderResponse

@@ -261,6 +261,21 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     public Task<bool> TriggerRescanAsync(CancellationToken ct = default)
         => _api.TriggerRescanAsync(ct);
 
+    // ── Hydration ──────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Triggers Wikidata SPARQL deep hydration for a given entity.
+    /// Returns the hydration result, or null on failure.
+    /// </summary>
+    public async Task<HydrateResultViewModel?> TriggerHydrationAsync(
+        Guid entityId, CancellationToken ct = default)
+    {
+        var result = await _api.TriggerHydrationAsync(entityId, ct);
+        if (result is { Success: true })
+            _state.Invalidate();
+        return result;
+    }
+
     // ── Conflicts ────────────────────────────────────────────────────────────
 
     /// <summary>
