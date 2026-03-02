@@ -34,17 +34,10 @@
                     </MudAvatar>
                 </ActivatorContent>
                 <ChildContent>
-                    <MudMenuItem Icon="@Icons.Material.Outlined.Tune"
-                                 OnClick="@(() => Nav.NavigateTo("/preferences"))">
-                        Preferences
+                    <MudMenuItem Icon="@Icons.Material.Outlined.Settings"
+                                 OnClick="@(() => Nav.NavigateTo("/settings"))">
+                        Settings
                     </MudMenuItem>
-                    @if (_isAdminOrCurator && !DeviceContext.IsFeatureDisabled("server_settings"))
-                    {
-                        <MudMenuItem Icon="@Icons.Material.Outlined.Settings"
-                                     OnClick="@(() => Nav.NavigateTo("/server-settings"))">
-                            Server Settings
-                        </MudMenuItem>
-                    }
                 </ChildContent>
             </MudMenu>
         }

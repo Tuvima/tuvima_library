@@ -2,110 +2,12 @@
 @rendermode InteractiveServer
 @namespace Tanaste.Web.Components.Pages
 @inject NavigationManager Nav
-@inject DeviceContextService DeviceContext
 
-<PageTitle>Server Settings — Tanaste</PageTitle>
-
-<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-1">
-    <MudText Typo="Typo.h4" Style="flex: 1;">Server Settings</MudText>
-    <MudIconButton Icon="@Icons.Material.Filled.Close"
-                   Color="Color.Default"
-                   Size="Size.Medium"
-                   title="Close server settings"
-                   OnClick="@(() => Nav.NavigateTo("/"))" />
-</MudStack>
-<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
-    Configure libraries, metadata sources, API keys, and more.
-</MudText>
-
-<SettingsTabBar ActiveTab="@_activeTab"
-               OnTabChanged="@OnTabChanged"
-               Category="ServerSettings"
-               CurrentRole="@_currentRole" />
-
-@switch (_activeTab)
-{
-    case SettingsTabBar.SettingsTab.Library:
-        <LibrariesTab />
-        break;
-    case SettingsTabBar.SettingsTab.Metadata:
-        <MetadataTab CurrentRole="@_currentRole" />
-        break;
-    case SettingsTabBar.SettingsTab.Connectivity:
-        <ConnectivityTab />
-        break;
-    case SettingsTabBar.SettingsTab.ApiKeys:
-        <ApiKeysTab />
-        break;
-    case SettingsTabBar.SettingsTab.Conflicts:
-        <ConflictsTab OnResolveClicked="@OnConflictResolveClicked" />
-        break;
-    case SettingsTabBar.SettingsTab.Users:
-        <UsersTab />
-        break;
-    case SettingsTabBar.SettingsTab.Maintenance:
-        <MaintenanceTab />
-        break;
-}
-
-@* Curator's Drawer — opens from the right side for metadata corrections. *@
-<CuratorsDrawer Open="@_drawerOpen"
-                OpenChanged="@OnDrawerOpenChanged"
-                EntityId="@_drawerEntityId"
-                CurrentTitle="@_drawerTitle"
-                OnCorrected="@OnDrawerCorrected" />
+@* Backward-compatibility redirect: /server-settings now forwards to /settings/library. *@
 
 @code {
-    private SettingsTabBar.SettingsTab _activeTab = SettingsTabBar.SettingsTab.Library;
-
-    // Default to Administrator until profile session management is wired.
-    private string _currentRole = "Administrator";
-
-    // Curator's Drawer state
-    private bool   _drawerOpen;
-    private Guid   _drawerEntityId;
-    private string _drawerTitle = string.Empty;
-
     protected override void OnInitialized()
     {
-        // Redirect to home if server_settings page is disabled for this device class.
-        if (DeviceContext.IsPageDisabled("server_settings"))
-        {
-            Nav.NavigateTo("/", replace: true);
-        }
-    }
-
-    private void OnTabChanged(SettingsTabBar.SettingsTab tab)
-    {
-        _activeTab = tab;
-    }
-
-    /// <summary>
-    /// Opens the Curator's Drawer for a specific entity.
-    /// Called by child components (e.g. hub cards) when the user clicks "Fix Match".
-    /// </summary>
-    public void OpenCuratorsDrawer(Guid entityId, string title)
-    {
-        _drawerEntityId = entityId;
-        _drawerTitle    = title;
-        _drawerOpen     = true;
-        StateHasChanged();
-    }
-
-    private async Task OnDrawerOpenChanged(bool open)
-    {
-        _drawerOpen = open;
-        await Task.CompletedTask;
-    }
-
-    private void OnDrawerCorrected()
-    {
-        _drawerOpen = false;
-        StateHasChanged();
-    }
-
-    private void OnConflictResolveClicked((Guid EntityId, string Key) args)
-    {
-        OpenCuratorsDrawer(args.EntityId, $"Resolve: {args.Key}");
+        Nav.NavigateTo("/settings/library", replace: true);
     }
 }

@@ -1,13 +1,291 @@
 @page "/settings"
+@page "/settings/{Section}"
 @rendermode InteractiveServer
 @namespace Tanaste.Web.Components.Pages
 @inject NavigationManager Nav
+@inject DeviceContextService DeviceContext
+@inject UIOrchestratorService Orchestrator
 
-@* Backward-compatibility redirect: /settings now forwards to /preferences. *@
+<PageTitle>Settings — Tanaste</PageTitle>
+
+@* ── Page header ─────────────────────────────────────────────────────── *@
+<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-1">
+    @if (_sidebarLayout == "drawer")
+    {
+        <MudIconButton Icon="@Icons.Material.Filled.Menu"
+                       Color="Color.Default"
+                       Size="Size.Medium"
+                       title="Toggle sidebar"
+                       OnClick="@(() => _mobileDrawerOpen = !_mobileDrawerOpen)" />
+    }
+    <MudText Typo="Typo.h4" Style="flex: 1;">Settings</MudText>
+    <MudIconButton Icon="@Icons.Material.Filled.Close"
+                   Color="Color.Default"
+                   Size="Size.Medium"
+                   title="Close settings"
+                   OnClick="@(() => Nav.NavigateTo("/"))" />
+</MudStack>
+<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
+    Manage your experience.
+</MudText>
+
+@* ── Layout: sidebar + content ───────────────────────────────────────── *@
+@if (_sidebarLayout == "drawer")
+{
+    @* Mobile: temporary left drawer for sidebar *@
+    <MudDrawer Open="@_mobileDrawerOpen"
+               OpenChanged="@OnMobileDrawerChanged"
+               Anchor="Anchor.Start"
+               Width="280px"
+               Overlay="true"
+               Variant="DrawerVariant.Temporary"
+               Style="@MobileDrawerStyle">
+        <SettingsSidebar ActiveSection="@_activeSection"
+                         OnSectionChanged="@OnSectionChanged"
+                         CurrentRole="@_currentRole"
+                         ConflictCount="@_conflictCount"
+                         Layout="drawer" />
+    </MudDrawer>
+
+    @* Content area (full width on mobile) *@
+    <div class="settings-content-area">
+        @RenderActiveTab
+    </div>
+}
+else if (_sidebarLayout == "single")
+{
+    @* Automotive: no sidebar, just the content *@
+    <div class="settings-content-area">
+        @RenderActiveTab
+    </div>
+}
+else
+{
+    @* Web / Television: two-column layout *@
+    <div class="settings-layout">
+        <SettingsSidebar ActiveSection="@_activeSection"
+                         OnSectionChanged="@OnSectionChanged"
+                         CurrentRole="@_currentRole"
+                         ConflictCount="@_conflictCount"
+                         Layout="@_sidebarLayout" />
+
+        <div class="settings-content-area">
+            @RenderActiveTab
+        </div>
+    </div>
+}
+
+@* ── Curator's Drawer (migrated from ServerSettings.razor) ───────────── *@
+<CuratorsDrawer Open="@_drawerOpen"
+                OpenChanged="@OnDrawerOpenChanged"
+                EntityId="@_drawerEntityId"
+                CurrentTitle="@_drawerTitle"
+                OnCorrected="@OnDrawerCorrected" />
 
 @code {
-    protected override void OnInitialized()
+    // ── Route parameter ─────────────────────────────────────────────────────
+
+    [Parameter] public string? Section { get; set; }
+
+    // ── Active section state ────────────────────────────────────────────────
+
+    private SettingsSidebar.SettingsSection _activeSection =
+        SettingsSidebar.SettingsSection.General;
+
+    // Default to Administrator until profile session management is wired.
+    private string _currentRole = "Administrator";
+
+    // ── Sidebar layout ──────────────────────────────────────────────────────
+
+    private string _sidebarLayout => DeviceContext.Settings.Pages.ServerSettings.SidebarLayout;
+
+    // ── Mobile drawer state ─────────────────────────────────────────────────
+
+    private bool _mobileDrawerOpen;
+
+    // ── Badge data ──────────────────────────────────────────────────────────
+
+    private int _conflictCount;
+
+    // ── Curator's Drawer state (migrated from ServerSettings.razor) ─────────
+
+    private bool   _drawerOpen;
+    private Guid   _drawerEntityId;
+    private string _drawerTitle = string.Empty;
+
+    // ── Lifecycle ───────────────────────────────────────────────────────────
+
+    protected override async Task OnInitializedAsync()
     {
-        Nav.NavigateTo("/preferences", replace: true);
+        // Redirect to home if settings page is disabled for this device class.
+        if (DeviceContext.IsPageDisabled("settings")
+            || (DeviceContext.IsPageDisabled("preferences")
+                && DeviceContext.IsPageDisabled("server_settings")))
+        {
+            Nav.NavigateTo("/", replace: true);
+            return;
+        }
+
+        // Parse deep-link route parameter.
+        ParseSection();
+
+        // "single" layout (automotive): auto-select the first available section.
+        if (_sidebarLayout == "single")
+        {
+            _activeSection = SettingsSidebar.SettingsSection.General;
+        }
+
+        // Fetch conflict count eagerly for sidebar badge.
+        await LoadConflictCountAsync();
     }
+
+    protected override void OnParametersSet()
+    {
+        ParseSection();
+    }
+
+    // ── Deep-link parsing ───────────────────────────────────────────────────
+
+    private void ParseSection()
+    {
+        if (string.IsNullOrWhiteSpace(Section))
+            return;
+
+        // Handle "apikeys" → ApiKeys (kebab-case friendly).
+        var normalized = Section.Replace("-", "");
+
+        if (Enum.TryParse<SettingsSidebar.SettingsSection>(
+                normalized, ignoreCase: true, out var parsed))
+        {
+            _activeSection = parsed;
+        }
+    }
+
+    // ── Handlers ────────────────────────────────────────────────────────────
+
+    private void OnSectionChanged(SettingsSidebar.SettingsSection section)
+    {
+        _activeSection = section;
+
+        // Close mobile drawer after selection.
+        _mobileDrawerOpen = false;
+
+        // Update URL for deep-linking (replace, no navigation).
+        var sectionName = section.ToString().ToLowerInvariant();
+        Nav.NavigateTo($"/settings/{sectionName}", replace: true);
+    }
+
+    private void OnMobileDrawerChanged(bool open)
+    {
+        _mobileDrawerOpen = open;
+    }
+
+    // ── Badge data loading ──────────────────────────────────────────────────
+
+    private async Task LoadConflictCountAsync()
+    {
+        try
+        {
+            var conflicts = await Orchestrator.GetConflictsAsync();
+            _conflictCount = conflicts.Count;
+        }
+        catch
+        {
+            // Engine may be offline — badge stays at 0.
+        }
+    }
+
+    // ── Curator's Drawer handlers (migrated from ServerSettings.razor) ──────
+
+    /// <summary>
+    /// Opens the Curator's Drawer for a specific entity.
+    /// Called by child components (e.g. ConflictsTab) when the user clicks "Resolve".
+    /// </summary>
+    public void OpenCuratorsDrawer(Guid entityId, string title)
+    {
+        _drawerEntityId = entityId;
+        _drawerTitle    = title;
+        _drawerOpen     = true;
+        StateHasChanged();
+    }
+
+    private async Task OnDrawerOpenChanged(bool open)
+    {
+        _drawerOpen = open;
+        await Task.CompletedTask;
+    }
+
+    private void OnDrawerCorrected()
+    {
+        _drawerOpen = false;
+        StateHasChanged();
+    }
+
+    private void OnConflictResolveClicked((Guid EntityId, string Key) args)
+    {
+        OpenCuratorsDrawer(args.EntityId, $"Resolve: {args.Key}");
+    }
+
+    // ── Role helpers ────────────────────────────────────────────────────────
+
+    private bool HasAdminAccess =>
+        string.Equals(_currentRole, "Administrator", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(_currentRole, "Curator", StringComparison.OrdinalIgnoreCase);
+
+    // ── Content rendering ───────────────────────────────────────────────────
+
+    private RenderFragment RenderActiveTab => __builder =>
+    {
+        switch (_activeSection)
+        {
+            case SettingsSidebar.SettingsSection.General:
+                <GeneralTab />
+                break;
+            case SettingsSidebar.SettingsSection.Playback:
+                <PlaybackTab />
+                break;
+            case SettingsSidebar.SettingsSection.Library:
+                <LibrariesTab />
+                break;
+            case SettingsSidebar.SettingsSection.Metadata:
+                <MetadataTab CurrentRole="@_currentRole" />
+                break;
+            case SettingsSidebar.SettingsSection.Connectivity:
+                <ConnectivityTab />
+                break;
+            case SettingsSidebar.SettingsSection.ApiKeys:
+                <ApiKeysTab />
+                break;
+            case SettingsSidebar.SettingsSection.Conflicts:
+                <ConflictsTab OnResolveClicked="@OnConflictResolveClicked" />
+                break;
+            case SettingsSidebar.SettingsSection.Users:
+                <UsersTab />
+                break;
+            case SettingsSidebar.SettingsSection.Maintenance:
+                <MaintenanceTab />
+                break;
+        }
+    };
+
+    private const string MobileDrawerStyle =
+        "background: var(--tanaste-glass-bg); " +
+        "border-right: 1px solid var(--tanaste-glass-border); " +
+        "backdrop-filter: blur(20px); " +
+        "-webkit-backdrop-filter: blur(20px);";
 }
+
+<style>
+    /* ── Two-column layout (web / television) ────────────────────────── */
+    .settings-layout {
+        display: flex;
+        gap: 32px;
+        align-items: flex-start;
+    }
+
+    /* ── Content area ────────────────────────────────────────────────── */
+    .settings-content-area {
+        flex: 1;
+        min-width: 0;
+    }
+</style>

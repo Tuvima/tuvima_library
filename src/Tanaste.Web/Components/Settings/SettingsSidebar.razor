@@ -1,0 +1,377 @@
+@namespace Tanaste.Web.Components.Settings
+@inject DeviceContextService DeviceContext
+
+@* Settings Sidebar — vertical navigation with collapsible sections, search filtering,
+   notification badges, and role-based visibility.
+
+   Layout modes (driven by SidebarLayout from device context):
+     "persistent"  → Web: always-visible sidebar alongside content
+     "drawer"      → Mobile: temporary left drawer, toggled by parent
+     "focus-nav"   → Television: oversized items with focus rings for D-pad
+     "single"      → Automotive: hidden; parent auto-selects first available section *@
+
+@{
+    var layout = SidebarLayout;
+    var sections = FilteredSections;
+}
+
+@if (layout != "single")
+{
+    <nav class="settings-sidebar @LayoutClass" aria-label="Settings navigation">
+
+        @* ── Search filter ─────────────────────────────────────────────── *@
+        @if (layout != "focus-nav")
+        {
+            <div class="settings-sidebar-search">
+                <MudTextField @bind-Value="_searchQuery"
+                              Placeholder="Search settings..."
+                              Variant="Variant.Outlined"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Search"
+                              Margin="Margin.Dense"
+                              Immediate="true"
+                              FullWidth="true"
+                              Clearable="true"
+                              Class="settings-search-field" />
+            </div>
+        }
+
+        @* ── Sections ──────────────────────────────────────────────────── *@
+        <div class="settings-sidebar-sections">
+            @foreach (var sectionDef in sections)
+            {
+                var items = FilteredItems(sectionDef);
+                if (items.Count == 0) continue;
+
+                var isExpanded = IsSectionExpanded(sectionDef.Key);
+
+                @* Section header — clickable to collapse/expand *@
+                <div class="settings-section-header"
+                     @onclick="@(() => ToggleSection(sectionDef.Key))">
+                    <MudIcon Icon="@(isExpanded
+                                    ? Icons.Material.Filled.ExpandMore
+                                    : Icons.Material.Filled.ChevronRight)"
+                             Size="@(layout == "focus-nav" ? Size.Large : Size.Small)"
+                             Style="color: var(--tanaste-text-muted);" />
+                    <MudText Typo="@(layout == "focus-nav" ? Typo.subtitle1 : Typo.overline)"
+                             Style="flex: 1; letter-spacing: 0.08em; color: var(--tanaste-text-muted);">
+                        @sectionDef.Label
+                    </MudText>
+                    @if (sectionDef.AdminOnly)
+                    {
+                        <MudTooltip Text="Admin / Curator only" Arrow="true" Placement="Placement.Right">
+                            <MudIcon Icon="@Icons.Material.Outlined.Shield"
+                                     Size="Size.Small"
+                                     Style="color: var(--tanaste-text-muted); opacity: 0.6;" />
+                        </MudTooltip>
+                    }
+                </div>
+
+                @* Section items — animated collapse *@
+                @if (isExpanded)
+                {
+                    <div class="settings-section-items">
+                        @foreach (var item in items)
+                        {
+                            var isActive = ActiveSection == item.Value;
+                            var badgeCount = GetBadgeCount(item.BadgeKey);
+
+                            <div class="settings-sidebar-item @(isActive ? "active" : "") @(layout == "focus-nav" ? "focus-nav-item" : "")"
+                                 tabindex="@(layout == "focus-nav" ? 0 : -1)"
+                                 @onclick="@(() => SelectSection(item.Value))">
+
+                                <MudIcon Icon="@item.Icon"
+                                         Size="@(layout == "focus-nav" ? Size.Large : Size.Small)"
+                                         Color="@(isActive ? Color.Primary : Color.Default)" />
+
+                                <MudText Typo="@(layout == "focus-nav" ? Typo.subtitle1 : Typo.body2)"
+                                         Style="@(isActive
+                                             ? "color: var(--mud-palette-primary); font-weight: 600; flex: 1;"
+                                             : "color: var(--tanaste-text-muted); flex: 1;")">
+                                    @item.Label
+                                </MudText>
+
+                                @if (badgeCount > 0)
+                                {
+                                    <MudBadge Content="@badgeCount"
+                                              Color="Color.Warning"
+                                              Overlap="false"
+                                              Bordered="true" />
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+            }
+        </div>
+
+    </nav>
+}
+
+@code {
+    /// <summary>The currently active settings section.</summary>
+    [Parameter] public SettingsSection ActiveSection { get; set; } = SettingsSection.General;
+
+    /// <summary>Fires when the user selects a different section.</summary>
+    [Parameter] public EventCallback<SettingsSection> OnSectionChanged { get; set; }
+
+    /// <summary>
+    /// The role of the current profile. When not "Administrator" or "Curator",
+    /// admin-only sections and items are hidden.
+    /// </summary>
+    [Parameter] public string CurrentRole { get; set; } = "Administrator";
+
+    /// <summary>Number of unresolved metadata conflicts (badge on Conflicts item).</summary>
+    [Parameter] public int ConflictCount { get; set; }
+
+    /// <summary>
+    /// Sidebar layout override. When empty, derived from device context.
+    /// Values: "persistent", "drawer", "focus-nav", "single".
+    /// </summary>
+    [Parameter] public string? Layout { get; set; }
+
+    // ── Search state ────────────────────────────────────────────────────────
+
+    private string _searchQuery = string.Empty;
+
+    // ── Section expansion state ─────────────────────────────────────────────
+
+    private readonly Dictionary<string, bool> _expandedSections = new()
+    {
+        ["Preferences"] = true,
+        ["Server"]      = true,
+    };
+
+    // ── Role check ──────────────────────────────────────────────────────────
+
+    private bool HasAdminAccess =>
+        string.Equals(CurrentRole, "Administrator", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(CurrentRole, "Curator", StringComparison.OrdinalIgnoreCase);
+
+    // ── Layout resolution ───────────────────────────────────────────────────
+
+    private string SidebarLayout =>
+        !string.IsNullOrWhiteSpace(Layout) ? Layout
+        : DeviceContext.Settings.Pages.ServerSettings.SidebarLayout;
+
+    private string LayoutClass =>
+        SidebarLayout switch
+        {
+            "drawer"    => "settings-sidebar-drawer",
+            "focus-nav" => "settings-sidebar-focus",
+            _           => "settings-sidebar-persistent",
+        };
+
+    // ── Section & item definitions ──────────────────────────────────────────
+
+    private static readonly SidebarSectionDef[] AllSections =
+    [
+        new("Preferences", "Preferences", false,
+        [
+            new(SettingsSection.General,  Icons.Material.Outlined.Tune,      "General",  false, null),
+            new(SettingsSection.Playback, Icons.Material.Outlined.PlayArrow, "Playback", false, null),
+        ]),
+
+        new("Server", "Server", true,
+        [
+            new(SettingsSection.Library,      Icons.Material.Outlined.FolderOpen, "Library",      true, null),
+            new(SettingsSection.Metadata,     Icons.Material.Outlined.Cloud,      "Metadata",     true, null),
+            new(SettingsSection.Connectivity, Icons.Material.Outlined.Wifi,       "Connectivity", true, null),
+            new(SettingsSection.ApiKeys,      Icons.Material.Outlined.VpnKey,     "API Keys",     true, null),
+            new(SettingsSection.Conflicts,    Icons.Material.Outlined.Warning,    "Conflicts",    true, "conflicts"),
+            new(SettingsSection.Users,        Icons.Material.Outlined.Group,      "Users",        true, null),
+            new(SettingsSection.Maintenance,  Icons.Material.Outlined.Build,      "Maintenance",  true, null),
+        ]),
+    ];
+
+    // ── Filtering ───────────────────────────────────────────────────────────
+
+    /// <summary>Sections visible to the current role.</summary>
+    private IEnumerable<SidebarSectionDef> FilteredSections =>
+        AllSections.Where(s => !s.AdminOnly || HasAdminAccess);
+
+    /// <summary>Items within a section, filtered by role and search query.</summary>
+    private List<SidebarItemDef> FilteredItems(SidebarSectionDef section)
+    {
+        var items = section.Items
+            .Where(i => !i.AdminOnly || HasAdminAccess);
+
+        if (!string.IsNullOrWhiteSpace(_searchQuery))
+        {
+            items = items.Where(i =>
+                i.Label.Contains(_searchQuery, StringComparison.OrdinalIgnoreCase));
+        }
+
+        return items.ToList();
+    }
+
+    // ── Section expansion ───────────────────────────────────────────────────
+
+    private bool IsSectionExpanded(string key)
+    {
+        // When searching, auto-expand sections that have matching items.
+        if (!string.IsNullOrWhiteSpace(_searchQuery))
+            return true;
+
+        return _expandedSections.TryGetValue(key, out var expanded) && expanded;
+    }
+
+    private void ToggleSection(string key)
+    {
+        if (_expandedSections.TryGetValue(key, out var expanded))
+            _expandedSections[key] = !expanded;
+        else
+            _expandedSections[key] = true;
+    }
+
+    // ── Badge counts ────────────────────────────────────────────────────────
+
+    private int GetBadgeCount(string? badgeKey) =>
+        badgeKey switch
+        {
+            "conflicts" => ConflictCount,
+            _           => 0,
+        };
+
+    // ── Selection ───────────────────────────────────────────────────────────
+
+    private async Task SelectSection(SettingsSection section)
+    {
+        ActiveSection = section;
+        await OnSectionChanged.InvokeAsync(section);
+    }
+
+    // ── Records ─────────────────────────────────────────────────────────────
+
+    private sealed record SidebarSectionDef(
+        string Key,
+        string Label,
+        bool AdminOnly,
+        SidebarItemDef[] Items);
+
+    private sealed record SidebarItemDef(
+        SettingsSection Value,
+        string Icon,
+        string Label,
+        bool AdminOnly,
+        string? BadgeKey);
+
+    /// <summary>Settings page section identifiers (replaces SettingsTabBar.SettingsTab).</summary>
+    public enum SettingsSection
+    {
+        General, Playback,
+        Library, Metadata, Connectivity, ApiKeys, Conflicts, Users, Maintenance
+    }
+}
+
+<style>
+    /* ── Sidebar container ───────────────────────────────────────────── */
+    .settings-sidebar {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        min-width: 240px;
+        max-width: 280px;
+    }
+
+    .settings-sidebar-persistent {
+        position: sticky;
+        top: 80px;
+        align-self: flex-start;
+        background: var(--tanaste-glass-bg);
+        border: 1px solid var(--tanaste-glass-border);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        border-radius: 24px;
+        padding: 16px;
+    }
+
+    .settings-sidebar-drawer {
+        background: var(--tanaste-glass-bg);
+        border-right: 1px solid var(--tanaste-glass-border);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        padding: 16px;
+        height: 100%;
+    }
+
+    .settings-sidebar-focus {
+        background: var(--tanaste-glass-bg);
+        border: 1px solid var(--tanaste-glass-border);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        border-radius: 32px;
+        padding: 24px;
+        min-width: 320px;
+        max-width: 360px;
+    }
+
+    /* ── Search ──────────────────────────────────────────────────────── */
+    .settings-sidebar-search {
+        margin-bottom: 12px;
+    }
+
+    .settings-search-field .mud-input-outlined .mud-input-outlined-border {
+        border-radius: 16px !important;
+    }
+
+    /* ── Section header ──────────────────────────────────────────────── */
+    .settings-section-header {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 8px 4px 8px;
+        cursor: pointer;
+        user-select: none;
+        border-radius: 8px;
+        transition: background 0.15s ease;
+    }
+
+    .settings-section-header:hover {
+        background: var(--tanaste-hover-overlay);
+    }
+
+    /* ── Section items container ─────────────────────────────────────── */
+    .settings-section-items {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        padding-left: 4px;
+        margin-bottom: 8px;
+    }
+
+    /* ── Sidebar item ────────────────────────────────────────────────── */
+    .settings-sidebar-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 12px;
+        border-radius: 12px;
+        cursor: pointer;
+        user-select: none;
+        transition: background 0.15s ease;
+        border-left: 3px solid transparent;
+    }
+
+    .settings-sidebar-item:hover {
+        background: var(--tanaste-hover-overlay);
+    }
+
+    .settings-sidebar-item.active {
+        background: var(--tanaste-active-overlay);
+        border-left-color: var(--mud-palette-primary);
+    }
+
+    /* ── Focus-nav (television) ──────────────────────────────────────── */
+    .settings-sidebar-item.focus-nav-item {
+        padding: 14px 20px;
+        border-radius: 20px;
+        gap: 14px;
+        outline: 3px solid transparent;
+        transition: background 0.15s ease, outline 0.15s ease;
+    }
+
+    .settings-sidebar-item.focus-nav-item:focus {
+        outline: 3px solid var(--mud-palette-primary);
+    }
+</style>

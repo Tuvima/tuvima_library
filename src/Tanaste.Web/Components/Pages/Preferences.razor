@@ -2,49 +2,12 @@
 @rendermode InteractiveServer
 @namespace Tanaste.Web.Components.Pages
 @inject NavigationManager Nav
-@inject DeviceContextService DeviceContext
 
-<PageTitle>Preferences — Tanaste</PageTitle>
-
-<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-1">
-    <MudText Typo="Typo.h4" Style="flex: 1;">Preferences</MudText>
-    <MudIconButton Icon="@Icons.Material.Filled.Close"
-                   Color="Color.Default"
-                   Size="Size.Medium"
-                   title="Close preferences"
-                   OnClick="@(() => Nav.NavigateTo("/"))" />
-</MudStack>
-<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
-    Personalise your experience.
-</MudText>
-
-<SettingsTabBar ActiveTab="@_activeTab"
-               OnTabChanged="@OnTabChanged"
-               Category="Preferences" />
-
-@switch (_activeTab)
-{
-    case SettingsTabBar.SettingsTab.General:
-        <GeneralTab />
-        break;
-    case SettingsTabBar.SettingsTab.Playback:
-        <PlaybackTab />
-        break;
-}
-
-@if (!DeviceContext.IsPageDisabled("server_settings"))
-{
-    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-6" Style="text-align: center;">
-        Looking for libraries, metadata, or API keys?
-        <MudLink Href="/server-settings" Underline="Underline.Always">Server Settings</MudLink>
-    </MudText>
-}
+@* Backward-compatibility redirect: /preferences now forwards to /settings. *@
 
 @code {
-    private SettingsTabBar.SettingsTab _activeTab = SettingsTabBar.SettingsTab.General;
-
-    private void OnTabChanged(SettingsTabBar.SettingsTab tab)
+    protected override void OnInitialized()
     {
-        _activeTab = tab;
+        Nav.NavigateTo("/settings", replace: true);
     }
 }

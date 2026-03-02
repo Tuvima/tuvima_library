@@ -819,7 +819,7 @@ src/Tanaste.Web/
 │   │   └── IntentDock.razor            Floating bottom dock: Hubs / Watch / Read / Listen
 │   │
 │   ├── Settings/             ← Settings page tab components
-│   │   ├── SettingsTabBar.razor       Icon-based tab navigation strip (defines SettingsTab enum)
+│   │   ├── SettingsSidebar.razor      Sidebar navigation with search, badges, collapsible sections (defines SettingsSection enum)
 │   │   ├── GeneralTab.razor           Appearance: dark/light toggle + accent colour swatches
 │   │   ├── FoldersTab.razor           Watch Folder + Library Folder configuration
 │   │   ├── ProvidersTab.razor         Enriched provider cards: domain, tags, weights, reachability
@@ -827,7 +827,7 @@ src/Tanaste.Web/
 │   │
 │   └── Pages/                ← Full-page views (routed)
 │       ├── Home.razor                  Library overview page
-│       ├── Settings.razor              Tab-shell: delegates to Settings/* components
+│       ├── Settings.razor              Unified settings: sidebar + content, all 9 tab components
 │       └── NotFound.razor              404 page
 │
 ├── Models/

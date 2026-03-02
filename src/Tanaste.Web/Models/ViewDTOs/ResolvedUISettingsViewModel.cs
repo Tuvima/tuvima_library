@@ -199,4 +199,11 @@ public sealed class UIServerSettingsPageSettingsDto
 
     [JsonPropertyName("tab_content_layout")]
     public string TabContentLayout { get; set; } = "full";
+
+    /// <summary>
+    /// Sidebar layout for the unified Settings page.
+    /// Values: "persistent" (web), "drawer" (mobile), "focus-nav" (television), "single" (automotive).
+    /// </summary>
+    [JsonPropertyName("sidebar_layout")]
+    public string SidebarLayout { get; set; } = "persistent";
 }
