@@ -103,13 +103,10 @@
                             <ProviderEditPanel Provider="@provider"
                                                IsAdmin="@HasAdminAccess"
                                                OnTestClicked="@(() => TestProvider(provider.Name))"
-                                               OnSampleClicked="@(() => FetchSample(provider.Name))"
                                                OnSaveClicked="@(config => SaveProvider(provider.Name, config))"
                                                OnDeleteClicked="@(() => DeleteProvider(provider.Name))"
                                                TestResult="@GetTestResult(provider.Name)"
-                                               SampleResult="@GetSampleResult(provider.Name)"
                                                IsTesting="@IsProviderTesting(provider.Name)"
-                                               IsFetchingSample="@IsProviderFetchingSample(provider.Name)"
                                                IsSaving="@_saving" />
                         </div>
                     }
@@ -161,13 +158,10 @@
             <ProviderEditPanel Provider="@_drawerProvider"
                                IsAdmin="@HasAdminAccess"
                                OnTestClicked="@(() => TestProvider(_drawerProvider.Name))"
-                               OnSampleClicked="@(() => FetchSample(_drawerProvider.Name))"
                                OnSaveClicked="@(config => SaveProvider(_drawerProvider.Name, config))"
                                OnDeleteClicked="@(() => DeleteProvider(_drawerProvider.Name))"
                                TestResult="@GetTestResult(_drawerProvider.Name)"
-                               SampleResult="@GetSampleResult(_drawerProvider.Name)"
                                IsTesting="@IsProviderTesting(_drawerProvider.Name)"
-                               IsFetchingSample="@IsProviderFetchingSample(_drawerProvider.Name)"
                                IsSaving="@_saving" />
         </div>
     </MudDrawer>
@@ -195,9 +189,7 @@
 
     // Per-provider test/sample results.
     private readonly Dictionary<string, ProviderTestResultDto> _testResults = new();
-    private readonly Dictionary<string, ProviderSampleResultDto> _sampleResults = new();
     private readonly HashSet<string> _testingProviders = [];
-    private readonly HashSet<string> _fetchingSampleProviders = [];
 
     // ── Computed ──────────────────────────────────────────────────────────────
 
@@ -302,27 +294,6 @@
         }
     }
 
-    private async Task FetchSample(string name)
-    {
-        _fetchingSampleProviders.Add(name);
-        _sampleResults.Remove(name);
-        StateHasChanged();
-
-        try
-        {
-            var result = await Orchestrator.FetchProviderSampleAsync(
-                name, "The Fellowship of the Ring", "J.R.R. Tolkien",
-                isbn: "9780547928210");
-            if (result is not null)
-                _sampleResults[name] = result;
-        }
-        finally
-        {
-            _fetchingSampleProviders.Remove(name);
-            StateHasChanged();
-        }
-    }
-
     private async Task SaveProvider(string name, ProviderConfigUpdateDto config)
     {
         _saving = true;
@@ -414,11 +385,7 @@
     private ProviderTestResultDto? GetTestResult(string name) =>
         _testResults.TryGetValue(name, out var r) ? r : null;
 
-    private ProviderSampleResultDto? GetSampleResult(string name) =>
-        _sampleResults.TryGetValue(name, out var r) ? r : null;
-
     private bool IsProviderTesting(string name) => _testingProviders.Contains(name);
-    private bool IsProviderFetchingSample(string name) => _fetchingSampleProviders.Contains(name);
 
     private static string StatusDotStyle(ProviderStatusDto p)
     {

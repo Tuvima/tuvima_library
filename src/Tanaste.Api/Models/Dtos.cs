@@ -402,6 +402,9 @@ public sealed class ProviderStatusResponse
 
     [JsonPropertyName("max_concurrency")]
     public int MaxConcurrency { get; init; } = 1;
+
+    [JsonPropertyName("available_fields")]
+    public List<string> AvailableFields { get; init; } = [];
 }
 
 /// <summary>Field mapping entry for provider status response.</summary>

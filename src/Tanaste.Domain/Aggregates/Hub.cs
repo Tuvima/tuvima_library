@@ -42,6 +42,16 @@ public sealed class Hub
     /// <summary>When this Hub was first registered in the system.</summary>
     public DateTimeOffset CreatedAt { get; set; }
 
+    /// <summary>
+    /// Wikidata coverage level for this Hub.
+    /// Rich = QID found + 5+ properties filled.
+    /// Limited = QID found but fewer than 5 properties.
+    /// None = no QID found in Wikidata.
+    /// Unknown = not yet checked (default for new/pre-existing hubs).
+    /// Tracked in DB and sidecar XML for filtering and scheduled refresh.
+    /// </summary>
+    public string UniverseStatus { get; set; } = "Unknown";
+
     // -------------------------------------------------------------------------
     // Children
     // -------------------------------------------------------------------------

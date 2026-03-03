@@ -205,29 +205,7 @@ public static class SettingsEndpoints
 
             var displayName = ResolveDisplayName(provider);
 
-            return Results.Ok(new ProviderStatusResponse
-            {
-                Name             = provider.Name,
-                DisplayName      = displayName,
-                Enabled          = provider.Enabled,
-                IsZeroKey        = true,
-                IsReachable      = false, // Not probed on save — will be checked on next GET.
-                Domain           = provider.Domain.ToString(),
-                CapabilityTags   = provider.CapabilityTags,
-                DefaultWeight    = provider.Weight,
-                FieldWeights     = provider.FieldWeights,
-                HydrationStages  = provider.HydrationStages,
-                Endpoints        = provider.Endpoints,
-                ThrottleMs       = provider.ThrottleMs,
-                MaxConcurrency   = provider.MaxConcurrency,
-                FieldMappings    = provider.FieldMappings?.Select(fm => new FieldMappingResponse
-                {
-                    ClaimKey   = fm.ClaimKey,
-                    JsonPath   = fm.JsonPath,
-                    Confidence = fm.Confidence,
-                    Transform  = fm.Transform,
-                }).ToList(),
-            });
+            return Results.Ok(BuildProviderStatusResponse(provider, displayName));
         })
         .WithName("UpdateProvider")
         .WithSummary("Toggles a provider's enabled state and saves to the manifest.")
@@ -269,29 +247,7 @@ public static class SettingsEndpoints
                     catch { /* timeout / DNS failure / network error — isReachable stays false */ }
                 }
 
-                return new ProviderStatusResponse
-                {
-                    Name             = name,
-                    DisplayName      = displayName,
-                    Enabled          = provider.Enabled,
-                    IsZeroKey        = true, // All current providers are zero-key (no API credentials needed).
-                    IsReachable      = isReachable,
-                    Domain           = provider.Domain.ToString(),
-                    CapabilityTags   = provider.CapabilityTags,
-                    DefaultWeight    = provider.Weight,
-                    FieldWeights     = provider.FieldWeights,
-                    HydrationStages  = provider.HydrationStages,
-                    Endpoints        = provider.Endpoints,
-                    ThrottleMs       = provider.ThrottleMs,
-                    MaxConcurrency   = provider.MaxConcurrency,
-                    FieldMappings    = provider.FieldMappings?.Select(fm => new FieldMappingResponse
-                    {
-                        ClaimKey   = fm.ClaimKey,
-                        JsonPath   = fm.JsonPath,
-                        Confidence = fm.Confidence,
-                        Transform  = fm.Transform,
-                    }).ToList(),
-                };
+                return BuildProviderStatusResponse(provider, displayName, isReachable);
             });
 
             return Results.Ok(await Task.WhenAll(statusTasks));
@@ -591,19 +547,7 @@ public static class SettingsEndpoints
 
             var displayName = ResolveDisplayName(existing);
 
-            return Results.Ok(new ProviderStatusResponse
-            {
-                Name             = existing.Name,
-                DisplayName      = displayName,
-                Enabled          = existing.Enabled,
-                IsZeroKey        = true,
-                IsReachable      = false,
-                Domain           = existing.Domain.ToString(),
-                CapabilityTags   = existing.CapabilityTags,
-                DefaultWeight    = existing.Weight,
-                FieldWeights     = existing.FieldWeights,
-                HydrationStages  = existing.HydrationStages,
-            });
+            return Results.Ok(BuildProviderStatusResponse(existing, displayName));
         })
         .WithName("UpdateProviderConfig")
         .WithSummary("Saves full provider configuration including endpoints, weights, throttle, and capabilities.")
@@ -724,5 +668,37 @@ public static class SettingsEndpoints
         if (!string.IsNullOrWhiteSpace(config.DisplayName))
             return config.DisplayName;
         return _displayNames.TryGetValue(config.Name, out var dn) ? dn : config.Name;
+    }
+
+    /// <summary>Builds a <see cref="ProviderStatusResponse"/> from a provider config.</summary>
+    private static ProviderStatusResponse BuildProviderStatusResponse(
+        ProviderConfiguration provider,
+        string displayName,
+        bool isReachable = false)
+    {
+        return new ProviderStatusResponse
+        {
+            Name             = provider.Name,
+            DisplayName      = displayName,
+            Enabled          = provider.Enabled,
+            IsZeroKey        = true,
+            IsReachable      = isReachable,
+            Domain           = provider.Domain.ToString(),
+            CapabilityTags   = provider.CapabilityTags,
+            DefaultWeight    = provider.Weight,
+            FieldWeights     = provider.FieldWeights,
+            HydrationStages  = provider.HydrationStages,
+            Endpoints        = provider.Endpoints,
+            ThrottleMs       = provider.ThrottleMs,
+            MaxConcurrency   = provider.MaxConcurrency,
+            AvailableFields  = provider.AvailableFields,
+            FieldMappings    = provider.FieldMappings?.Select(fm => new FieldMappingResponse
+            {
+                ClaimKey   = fm.ClaimKey,
+                JsonPath   = fm.JsonPath,
+                Confidence = fm.Confidence,
+                Transform  = fm.Transform,
+            }).ToList(),
+        };
     }
 }

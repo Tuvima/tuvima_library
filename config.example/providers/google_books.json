@@ -1,10 +1,11 @@
 {
   "name": "google_books",
-  "version": "1.0",
+  "version": "1.1",
   "enabled": true,
   "weight": 0.65,
   "domain": "Ebook",
-  "capability_tags": ["title", "author", "cover", "description", "isbn", "year", "rating"],
+  "capability_tags": ["title", "author", "cover", "description", "isbn", "year", "rating", "publisher", "page_count", "language"],
+  "available_fields": ["title", "author", "year", "description", "cover", "isbn", "rating", "publisher", "page_count", "language"],
   "field_weights": {
     "title": 0.7,
     "author": 0.75,
@@ -12,7 +13,10 @@
     "description": 0.8,
     "isbn": 0.85,
     "year": 0.8,
-    "rating": 0.7
+    "rating": 0.7,
+    "publisher": 0.75,
+    "page_count": 0.8,
+    "language": 0.7
   },
   "endpoints": {
     "api": "https://www.googleapis.com/books/v1"
@@ -60,6 +64,9 @@
     { "claim_key": "description", "json_path": "volumeInfo.description",                "confidence": 0.8,  "transform": "strip_html" },
     { "claim_key": "cover",       "json_path": "volumeInfo.imageLinks.thumbnail",       "confidence": 0.75, "transform": "regex_replace", "transform_args": "zoom=\\d+|zoom=1" },
     { "claim_key": "isbn",        "json_path": "volumeInfo.industryIdentifiers",        "confidence": 0.85, "transform": "prefer_isbn13" },
-    { "claim_key": "rating",      "json_path": "volumeInfo.averageRating",              "confidence": 0.7,  "transform": "to_string" }
+    { "claim_key": "rating",      "json_path": "volumeInfo.averageRating",              "confidence": 0.7,  "transform": "to_string" },
+    { "claim_key": "publisher",   "json_path": "volumeInfo.publisher",                  "confidence": 0.75 },
+    { "claim_key": "page_count",  "json_path": "volumeInfo.pageCount",                  "confidence": 0.8,  "transform": "to_string" },
+    { "claim_key": "language",    "json_path": "volumeInfo.language",                   "confidence": 0.7 }
   ]
 }

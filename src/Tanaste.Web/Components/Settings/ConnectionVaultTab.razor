@@ -1,12 +1,12 @@
 @namespace Tanaste.Web.Components.Settings
+@using Tanaste.Web.Models
 @inject UIOrchestratorService Orchestrator
 @inject DeviceContextService DeviceContext
 @inject ISnackbar Snackbar
 
-@* Connection Vault — media-type-grouped provider priority management.
-   Universe (Wikidata) pinned at top. Providers grouped by media type
-   with per-field priority ordering. Connection testing and pipeline
-   config in collapsible sections below. *@
+@* Connection Vault — manage metadata providers and field priorities.
+   Universe (Wikidata) pinned at top. Field priorities use vertical cards
+   with drag-handle reordering. Provider Connections for testing endpoints. *@
 
 <MudPaper Elevation="0" Style="@GlassStyle">
 
@@ -16,8 +16,8 @@
         <MudText Typo="Typo.h6">Connection Vault</MudText>
     </MudStack>
     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
-        Manage metadata providers and field priorities. Drag providers to set which source
-        wins for each field. Expand Provider Connections to test endpoints.
+        Manage metadata providers and field priorities. Reorder providers within each
+        field card to set which source wins.
     </MudText>
 
     @* ── Loading / error ──────────────────────────────────────────────────── *@
@@ -106,8 +106,8 @@
                 <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">Field Priorities</MudText>
             </MudStack>
             <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3">
-                Set which provider wins for each metadata field. Higher priority providers are
-                preferred by the scoring engine.
+                Each field card shows which providers supply that data. Reorder providers
+                to set which source the scoring engine prefers.
             </MudText>
 
             @foreach (var group in _mediaTypeGroups)
@@ -146,55 +146,84 @@
                             }
                             else
                             {
-                                var fields = BuildFieldPriorities(groupProviders);
+                                var fields = BuildFieldPriorities(group.Key, groupProviders);
 
-                                @foreach (var field in fields)
-                                {
-                                    <div class="field-priority-row">
-                                        <MudText Typo="Typo.body2"
-                                                 Style="font-weight: 500; min-width: 140px; color: var(--tanaste-text-muted);">
-                                            @FormatFieldName(field.FieldKey)
-                                        </MudText>
+                                <div class="field-cards-grid">
+                                    @foreach (var field in fields)
+                                    {
+                                        <div class="field-card">
+                                            @* ── Field header ─────────────────── *@
+                                            <div class="field-card-header">
+                                                <MudIcon Icon="@FieldDictionary.GetIcon(field.FieldKey)"
+                                                         Size="Size.Small" Color="Color.Primary" />
+                                                <MudText Typo="Typo.body2" Style="font-weight: 600; flex: 1;">
+                                                    @FieldDictionary.GetDisplayName(field.FieldKey)
+                                                </MudText>
+                                                <MudChip T="string" Size="Size.Small"
+                                                         Variant="Variant.Text"
+                                                         Color="Color.Default"
+                                                         Style="font-size: 0.65rem;">
+                                                    @field.Providers.Count source@(field.Providers.Count != 1 ? "s" : "")
+                                                </MudChip>
+                                            </div>
 
-                                        <div class="priority-chips">
-                                            @for (var i = 0; i < field.Providers.Count; i++)
-                                            {
-                                                var entry = field.Providers[i];
-                                                var idx = i; // capture for closure
+                                            @* ── Provider priority list (vertical) *@
+                                            <div class="field-provider-list">
+                                                @for (var i = 0; i < field.Providers.Count; i++)
+                                                {
+                                                    var entry = field.Providers[i];
+                                                    var idx = i;
+                                                    var weight = GetFieldWeight(entry.ProviderName, field.FieldKey);
 
-                                                <div class="priority-entry">
-                                                    <span class="priority-number">@(idx + 1)</span>
-                                                    <MudChip T="string" Size="Size.Small"
-                                                             Variant="Variant.Outlined"
-                                                             Color="@(idx == 0 ? Color.Primary : Color.Default)"
-                                                             Style="font-size: 0.75rem;">
-                                                        @entry.DisplayName
-                                                    </MudChip>
+                                                    <div class="field-provider-item @(idx == 0 ? "primary" : "")">
+                                                        @* 6-dot grip handle *@
+                                                        <div class="grip-handle" title="Drag to reorder">
+                                                            <MudIcon Icon="@Icons.Material.Filled.DragIndicator"
+                                                                     Size="Size.Small"
+                                                                     Style="color: var(--tanaste-text-muted); opacity: 0.5;" />
+                                                        </div>
 
-                                                    @if (IsAdmin && field.Providers.Count > 1)
-                                                    {
-                                                        <div class="priority-arrows">
-                                                            @if (idx > 0)
-                                                            {
+                                                        @* Priority badge *@
+                                                        <div class="priority-badge @(idx == 0 ? "primary" : "")">
+                                                            @(idx + 1)
+                                                        </div>
+
+                                                        @* Provider name *@
+                                                        <div style="flex: 1; min-width: 0;">
+                                                            <MudText Typo="Typo.body2"
+                                                                     Style="@(idx == 0 ? "font-weight: 600;" : "")">
+                                                                @entry.DisplayName
+                                                            </MudText>
+                                                        </div>
+
+                                                        @* Weight indicator *@
+                                                        <MudText Typo="Typo.caption" Color="Color.Secondary"
+                                                                 Style="min-width: 40px; text-align: right;">
+                                                            @weight.ToString("P0")
+                                                        </MudText>
+
+                                                        @* Move buttons *@
+                                                        @if (IsAdmin && field.Providers.Count > 1)
+                                                        {
+                                                            <div class="move-buttons">
                                                                 <MudIconButton Icon="@Icons.Material.Filled.KeyboardArrowUp"
                                                                                Size="Size.Small"
+                                                                               Disabled="@(idx == 0)"
                                                                                OnClick="@(() => MovePriority(group.Key, field.FieldKey, idx, -1))"
-                                                                               Style="padding: 2px;" />
-                                                            }
-                                                            @if (idx < field.Providers.Count - 1)
-                                                            {
+                                                                               Style="padding: 0; min-width: 24px; min-height: 20px;" />
                                                                 <MudIconButton Icon="@Icons.Material.Filled.KeyboardArrowDown"
                                                                                Size="Size.Small"
+                                                                               Disabled="@(idx == field.Providers.Count - 1)"
                                                                                OnClick="@(() => MovePriority(group.Key, field.FieldKey, idx, 1))"
-                                                                               Style="padding: 2px;" />
-                                                            }
-                                                        </div>
-                                                    }
-                                                </div>
-                                            }
+                                                                               Style="padding: 0; min-width: 24px; min-height: 20px;" />
+                                                            </div>
+                                                        }
+                                                    </div>
+                                                }
+                                            </div>
                                         </div>
-                                    </div>
-                                }
+                                    }
+                                </div>
 
                                 @if (_dirtyGroups.Contains(group.Key) && IsAdmin)
                                 {
@@ -278,6 +307,12 @@
                                             @FormatDomain(provider.Domain)
                                         </MudChip>
                                     </MudStack>
+                                    @if (provider.AvailableFields is { Count: > 0 })
+                                    {
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                            @provider.AvailableFields.Count fields available
+                                        </MudText>
+                                    }
                                 </div>
 
                                 @if (IsAdmin)
@@ -304,13 +339,10 @@
                                     <ProviderEditPanel Provider="@provider"
                                                        IsAdmin="@HasAdminAccess"
                                                        OnTestClicked="@(() => TestProvider(provider.Name))"
-                                                       OnSampleClicked="@(() => FetchSample(provider.Name))"
                                                        OnSaveClicked="@(config => SaveProvider(provider.Name, config))"
                                                        OnDeleteClicked="@(() => DeleteProvider(provider.Name))"
                                                        TestResult="@GetTestResult(provider.Name)"
-                                                       SampleResult="@GetSampleResult(provider.Name)"
                                                        IsTesting="@IsProviderTesting(provider.Name)"
-                                                       IsFetchingSample="@IsProviderFetchingSample(provider.Name)"
                                                        IsSaving="@_saving" />
                                 </div>
                             }
@@ -450,13 +482,10 @@
                 <ProviderEditPanel Provider="@_drawerProvider"
                                    IsAdmin="@HasAdminAccess"
                                    OnTestClicked="@(() => TestProvider(_drawerProvider.Name))"
-                                   OnSampleClicked="@(() => FetchSample(_drawerProvider.Name))"
                                    OnSaveClicked="@(config => SaveProvider(_drawerProvider.Name, config))"
                                    OnDeleteClicked="@(() => DeleteProvider(_drawerProvider.Name))"
                                    TestResult="@GetTestResult(_drawerProvider.Name)"
-                                   SampleResult="@GetSampleResult(_drawerProvider.Name)"
                                    IsTesting="@IsProviderTesting(_drawerProvider.Name)"
-                                   IsFetchingSample="@IsProviderFetchingSample(_drawerProvider.Name)"
                                    IsSaving="@_saving" />
             }
         </div>
@@ -501,11 +530,9 @@
     private bool _drawerOpen;
     private ProviderStatusDto? _drawerProvider;
 
-    // Per-provider test/sample results.
+    // Per-provider test results.
     private readonly Dictionary<string, ProviderTestResultDto> _testResults = new();
-    private readonly Dictionary<string, ProviderSampleResultDto> _sampleResults = new();
     private readonly HashSet<string> _testingProviders = [];
-    private readonly HashSet<string> _fetchingSampleProviders = [];
 
     // ── Media type group definitions ─────────────────────────────────────────
 
@@ -596,12 +623,12 @@
             var groupProviders = GetProvidersForMediaType(group.DomainKey);
             var fields = new Dictionary<string, List<PriorityEntry>>();
 
-            // Collect all fields and their providers.
+            // Collect all fields from available_fields (preferred) or fall back to field_weights.
             foreach (var provider in groupProviders)
             {
-                if (provider.FieldWeights is null) continue;
+                var fieldKeys = GetProviderFieldKeys(provider);
 
-                foreach (var (fieldKey, weight) in provider.FieldWeights)
+                foreach (var fieldKey in fieldKeys)
                 {
                     if (!fields.ContainsKey(fieldKey))
                         fields[fieldKey] = [];
@@ -614,11 +641,7 @@
             foreach (var (fieldKey, entries) in fields)
             {
                 fields[fieldKey] = entries
-                    .OrderByDescending(e =>
-                    {
-                        var p = groupProviders.FirstOrDefault(p => p.Name == e.ProviderName);
-                        return p?.FieldWeights?.TryGetValue(fieldKey, out var w) == true ? w : 0;
-                    })
+                    .OrderByDescending(e => GetFieldWeight(e.ProviderName, fieldKey))
                     .ToList();
             }
 
@@ -626,60 +649,46 @@
         }
     }
 
-    private List<FieldPriorityView> BuildFieldPriorities(List<ProviderStatusDto> groupProviders)
+    /// <summary>Gets the field keys a provider supports (from available_fields or field_weights).</summary>
+    private static IEnumerable<string> GetProviderFieldKeys(ProviderStatusDto provider)
     {
-        var fields = new Dictionary<string, List<PriorityEntry>>();
+        if (provider.AvailableFields is { Count: > 0 })
+            return provider.AvailableFields;
+        if (provider.FieldWeights is { Count: > 0 })
+            return provider.FieldWeights.Keys;
+        return [];
+    }
 
-        foreach (var provider in groupProviders)
+    private List<FieldPriorityView> BuildFieldPriorities(string groupKey, List<ProviderStatusDto> groupProviders)
+    {
+        // Use cached priorities if available; rebuild if not.
+        if (!_priorities.TryGetValue(groupKey, out var cached))
         {
-            if (provider.FieldWeights is null) continue;
-
-            foreach (var (fieldKey, _) in provider.FieldWeights)
-            {
-                if (!fields.ContainsKey(fieldKey))
-                    fields[fieldKey] = [];
-
-                fields[fieldKey].Add(new PriorityEntry(provider.Name, provider.DisplayName));
-            }
+            BuildPriorities();
+            cached = _priorities.GetValueOrDefault(groupKey);
         }
 
-        // Sort by weight descending within each field.
-        var result = new List<FieldPriorityView>();
-        foreach (var (fieldKey, entries) in fields.OrderBy(kv => FieldSortOrder(kv.Key)))
-        {
-            // Check if we have a cached priority order from user edits.
-            var groupKey = _mediaTypeGroups
-                .FirstOrDefault(g => GetProvidersForMediaType(g.DomainKey)
-                    .Any(p => entries.Any(e => e.ProviderName == p.Name)))?.Key;
+        if (cached is null) return [];
 
-            List<PriorityEntry> ordered;
-            if (groupKey is not null
-                && _priorities.TryGetValue(groupKey, out var groupFields)
-                && groupFields.TryGetValue(fieldKey, out var cached))
-            {
-                ordered = cached;
-            }
-            else
-            {
-                ordered = entries
-                    .OrderByDescending(e =>
-                    {
-                        var p = groupProviders.FirstOrDefault(p => p.Name == e.ProviderName);
-                        return p?.FieldWeights?.TryGetValue(fieldKey, out var w) == true ? w : 0;
-                    })
-                    .ToList();
-            }
-
-            result.Add(new FieldPriorityView { FieldKey = fieldKey, Providers = ordered });
-        }
-
-        return result;
+        return cached
+            .OrderBy(kv => FieldSortOrder(kv.Key))
+            .Select(kv => new FieldPriorityView { FieldKey = kv.Key, Providers = kv.Value })
+            .ToList();
     }
 
     private sealed class FieldPriorityView
     {
         public string FieldKey { get; init; } = string.Empty;
         public List<PriorityEntry> Providers { get; set; } = [];
+    }
+
+    /// <summary>Gets the field weight for a provider+field pair.</summary>
+    private double GetFieldWeight(string providerName, string fieldKey)
+    {
+        var provider = _providers.FirstOrDefault(p => p.Name == providerName);
+        if (provider?.FieldWeights?.TryGetValue(fieldKey, out var w) == true)
+            return w;
+        return provider?.DefaultWeight ?? 0.5;
     }
 
     // ── Priority reordering ──────────────────────────────────────────────────
@@ -864,27 +873,6 @@
         }
     }
 
-    private async Task FetchSample(string name)
-    {
-        _fetchingSampleProviders.Add(name);
-        _sampleResults.Remove(name);
-        StateHasChanged();
-
-        try
-        {
-            var result = await Orchestrator.FetchProviderSampleAsync(
-                name, "The Fellowship of the Ring", "J.R.R. Tolkien",
-                isbn: "9780547928210");
-            if (result is not null)
-                _sampleResults[name] = result;
-        }
-        finally
-        {
-            _fetchingSampleProviders.Remove(name);
-            StateHasChanged();
-        }
-    }
-
     private async Task SaveProvider(string name, ProviderConfigUpdateDto config)
     {
         _saving = true;
@@ -962,36 +950,7 @@
     private ProviderTestResultDto? GetTestResult(string name) =>
         _testResults.TryGetValue(name, out var r) ? r : null;
 
-    private ProviderSampleResultDto? GetSampleResult(string name) =>
-        _sampleResults.TryGetValue(name, out var r) ? r : null;
-
     private bool IsProviderTesting(string name) => _testingProviders.Contains(name);
-    private bool IsProviderFetchingSample(string name) => _fetchingSampleProviders.Contains(name);
-
-    private static string FormatFieldName(string key) =>
-        key switch
-        {
-            "cover" => "Cover Art",
-            "title" => "Title",
-            "author" => "Author",
-            "description" => "Description",
-            "narrator" => "Narrator",
-            "series" => "Series",
-            "series_position" => "Series Position",
-            "year" => "Year",
-            "isbn" => "ISBN",
-            "asin" => "ASIN",
-            "rating" => "Rating",
-            "page_count" => "Page Count",
-            "publisher" => "Publisher",
-            "genre" => "Genre",
-            "language" => "Language",
-            _ => key.Replace("_", " ").ToUpperInvariant() switch
-            {
-                var k when k.Length > 0 => char.ToUpperInvariant(key[0]) + key[1..].Replace("_", " "),
-                _ => key,
-            },
-        };
 
     /// <summary>Sort order for fields — most important first.</summary>
     private static int FieldSortOrder(string key) =>
@@ -1006,7 +965,12 @@
             "series_position" => 6,
             "year" => 7,
             "isbn" => 8,
-            "rating" => 9,
+            "asin" => 9,
+            "rating" => 10,
+            "publisher" => 11,
+            "page_count" => 12,
+            "language" => 13,
+            "genre" => 14,
             _ => 100,
         };
 
@@ -1130,49 +1094,88 @@
         padding: 4px 16px 16px 32px;
     }
 
-    /* ── Field priority rows ─────────────────────────────────────────── */
-    .field-priority-row {
+    /* ── Field cards grid ─────────────────────────────────────────────── */
+    .field-cards-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .field-card {
+        border: 1px solid var(--tanaste-glass-border);
+        border-radius: 12px;
+        padding: 12px;
+        background: transparent;
+        transition: border-color 0.15s ease;
+    }
+
+    .field-card:hover {
+        border-color: var(--mud-palette-primary);
+    }
+
+    .field-card-header {
         display: flex;
         align-items: center;
-        gap: 12px;
-        padding: 6px 0;
-        border-bottom: 1px solid var(--tanaste-glass-border);
+        gap: 8px;
+        margin-bottom: 8px;
     }
 
-    .field-priority-row:last-child {
-        border-bottom: none;
-    }
-
-    .priority-chips {
+    /* ── Provider priority list (within field card) ──────────────────── */
+    .field-provider-list {
         display: flex;
-        flex-wrap: wrap;
-        gap: 6px;
-        flex: 1;
+        flex-direction: column;
+        gap: 2px;
     }
 
-    .priority-entry {
+    .field-provider-item {
         display: flex;
         align-items: center;
-        gap: 4px;
+        gap: 8px;
+        padding: 6px 8px;
+        border-radius: 8px;
+        transition: background 0.15s ease;
     }
 
-    .priority-number {
-        font-size: 0.7rem;
+    .field-provider-item:hover {
+        background: var(--tanaste-hover-overlay);
+    }
+
+    .field-provider-item.primary {
+        background: rgba(var(--mud-palette-primary-rgb), 0.06);
+    }
+
+    .grip-handle {
+        cursor: grab;
+        display: flex;
+        align-items: center;
+        padding: 0 2px;
+    }
+
+    .grip-handle:active {
+        cursor: grabbing;
+    }
+
+    .priority-badge {
+        font-size: 0.65rem;
         font-weight: 700;
+        min-width: 20px;
+        height: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        background: var(--tanaste-glass-border);
         color: var(--tanaste-text-muted);
-        min-width: 14px;
-        text-align: center;
     }
 
-    .priority-arrows {
+    .priority-badge.primary {
+        background: var(--mud-palette-primary);
+        color: white;
+    }
+
+    .move-buttons {
         display: flex;
         flex-direction: column;
         gap: 0;
-    }
-
-    .priority-arrows .mud-icon-button {
-        padding: 0 !important;
-        min-width: 20px;
-        min-height: 16px;
     }
 </style>

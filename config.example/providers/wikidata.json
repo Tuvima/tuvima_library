@@ -1,14 +1,37 @@
 {
   "name": "wikidata",
-  "version": "1.0",
+  "version": "1.1",
   "enabled": true,
   "weight": 0.7,
   "domain": "Universal",
-  "capability_tags": ["series", "franchise", "person_id"],
+  "capability_tags": ["series", "franchise", "wikidata_qid", "title", "author", "year", "director", "cast_member", "narrator", "illustrator", "screenwriter", "composer"],
+  "available_fields": [
+    "title", "author", "year", "series", "series_position", "franchise",
+    "director", "cast_member", "narrator", "illustrator", "voice_actor", "screenwriter", "composer",
+    "characters", "narrative_location", "main_subject", "fictional_universe",
+    "wikidata_qid", "tmdb_id", "imdb_id", "goodreads_id", "apple_books_id", "audible_id",
+    "isbn", "asin", "comicvine_id", "musicbrainz_id", "spotify_id"
+  ],
   "field_weights": {
     "series": 1.0,
     "franchise": 1.0,
-    "person_id": 1.0
+    "wikidata_qid": 1.0,
+    "title": 0.9,
+    "author": 0.9,
+    "year": 0.9,
+    "director": 0.9,
+    "cast_member": 0.9,
+    "narrator": 0.9,
+    "illustrator": 0.9,
+    "screenwriter": 0.9,
+    "composer": 0.9,
+    "characters": 0.8,
+    "narrative_location": 0.8,
+    "tmdb_id": 1.0,
+    "imdb_id": 1.0,
+    "goodreads_id": 1.0,
+    "isbn": 1.0,
+    "asin": 1.0
   },
   "endpoints": {
     "wikidata_api": "https://www.wikidata.org/w/api.php",

@@ -28,6 +28,12 @@ public sealed class HubSidecarData
     public string? Franchise { get; init; }
 
     /// <summary>
+    /// Wikidata coverage level: Rich, Limited, None, or Unknown.
+    /// Enables filtering and scheduled refresh of items without Wikidata coverage.
+    /// </summary>
+    public string UniverseStatus { get; init; } = "Unknown";
+
+    /// <summary>
     /// External bridge identifiers harvested from Wikidata SPARQL.
     /// Keys are Tanaste claim keys (e.g. "tmdb_id", "imdb_id", "goodreads_id").
     /// Values are the corresponding external identifiers.

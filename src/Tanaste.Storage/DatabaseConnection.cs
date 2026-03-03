@@ -317,6 +317,17 @@ public sealed class DatabaseConnection : IDatabaseConnection
                 );
                 """);
 
+        // Migration M-014: Add universe_status to hubs.
+        // Tracks Wikidata coverage level: Rich (QID + 5+ properties),
+        // Limited (QID + <5 properties), None (no QID), Unknown (not yet checked).
+        // Enables filtering and scheduled refresh of items without Wikidata coverage.
+        MigrateAddColumnIfMissing(
+            conn,
+            table:  "hubs",
+            column: "universe_status",
+            ddl:    "ALTER TABLE hubs ADD COLUMN universe_status TEXT NOT NULL DEFAULT 'Unknown' " +
+                    "CHECK (universe_status IN ('Rich', 'Limited', 'None', 'Unknown'));");
+
         // Seed S-001: provider_registry entries for all known providers.
         // metadata_claims.provider_id has a FK to provider_registry(id), so these
         // rows MUST exist before any claim is written.  INSERT OR IGNORE makes this
@@ -342,6 +353,8 @@ public sealed class DatabaseConnection : IDatabaseConnection
             ("b1000001-a000-4000-8000-000000000002",   "apple_books_audiobook","1.0"),
             ("b2000002-a000-4000-8000-000000000003",   "audnexus",            "1.0"),
             ("b3000003-w000-4000-8000-000000000004",   "wikidata",            "1.0"),
+            ("b4000004-0000-4000-8000-000000000005",   "open_library",        "1.0"),
+            ("b5000005-0000-4000-8000-000000000006",   "google_books",        "1.0"),
             ("d0000000-0000-4000-8000-000000000001",   "user_manual",         "1.0"),
         ];
 

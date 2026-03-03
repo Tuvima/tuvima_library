@@ -57,6 +57,7 @@ public sealed class SidecarWriter : ISidecarWriter
                     new XElement("franchise",    data.Franchise    ?? string.Empty)
                 ),
                 new XElement("bridges", bridgeElements),
+                new XElement("universe-status", data.UniverseStatus ?? "Unknown"),
                 new XElement("last-organized", data.LastOrganized.ToString("O"))
             )
         );
@@ -135,9 +136,10 @@ public sealed class SidecarWriter : ISidecarWriter
                 DisplayName   = identity?.Element("display-name")?.Value ?? string.Empty,
                 Year          = NullIfEmpty(identity?.Element("year")?.Value),
                 WikidataQid   = NullIfEmpty(identity?.Element("wikidata-qid")?.Value),
-                Franchise     = NullIfEmpty(identity?.Element("franchise")?.Value),
-                Bridges       = bridges,
-                LastOrganized = ParseDateOffset(root.Element("last-organized")?.Value),
+                Franchise      = NullIfEmpty(identity?.Element("franchise")?.Value),
+                UniverseStatus = root.Element("universe-status")?.Value ?? "Unknown",
+                Bridges        = bridges,
+                LastOrganized  = ParseDateOffset(root.Element("last-organized")?.Value),
             };
 
             return Task.FromResult<HubSidecarData?>(result);

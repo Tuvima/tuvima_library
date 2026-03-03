@@ -1,15 +1,16 @@
 {
   "name": "apple_books_ebook",
-  "version": "1.0",
+  "version": "1.1",
   "enabled": true,
   "weight": 0.7,
   "domain": "Ebook",
-  "capability_tags": ["cover", "description", "rating", "title"],
+  "capability_tags": ["cover", "title", "author", "description"],
+  "available_fields": ["title", "author", "cover", "description"],
   "field_weights": {
     "cover": 0.85,
-    "description": 0.85,
-    "rating": 0.8,
-    "title": 0.7
+    "title": 0.7,
+    "author": 0.7,
+    "description": 0.85
   },
   "endpoints": {
     "api": "https://itunes.apple.com"
@@ -20,7 +21,7 @@
 
   "adapter_type": "config_driven",
   "provider_id": "b1000001-e000-4000-8000-000000000001",
-  "display_name": "Apple Books (Ebook)",
+  "display_name": "Apple Books",
 
   "http_client": {
     "timeout_seconds": 10
@@ -44,9 +45,9 @@
   ],
 
   "field_mappings": [
-    { "claim_key": "cover",       "json_path": "artworkUrl100",  "confidence": 0.85, "transform": "regex_replace", "transform_args": "100x100bb|600x600bb" },
-    { "claim_key": "description", "json_path": "description",    "confidence": 0.85, "transform": "strip_html" },
-    { "claim_key": "rating",      "json_path": "averageUserRating", "confidence": 0.8, "transform": "to_string" },
-    { "claim_key": "title",       "json_path": "trackName",      "confidence": 0.7 }
+    { "claim_key": "title",       "json_path": "trackName",      "confidence": 0.7 },
+    { "claim_key": "author",      "json_path": "artistName",     "confidence": 0.7 },
+    { "claim_key": "cover",       "json_path": "artworkUrl100",  "confidence": 0.85, "transform": "regex_replace", "transform_args": "100x100bb\\.jpg|600x600bb.jpg" },
+    { "claim_key": "description", "json_path": "description",    "confidence": 0.85, "transform": "strip_html" }
   ]
 }

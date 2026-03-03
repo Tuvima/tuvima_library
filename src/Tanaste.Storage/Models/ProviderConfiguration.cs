@@ -46,6 +46,15 @@ public sealed class ProviderConfiguration
     public List<string> CapabilityTags { get; set; } = [];
 
     /// <summary>
+    /// Complete list of canonical claim keys this provider can supply.
+    /// Used by the Dashboard to show all fields available from each provider
+    /// and allow users to toggle which fields are active.
+    /// Keys reference entries in <c>config/field_normalization.json</c>.
+    /// </summary>
+    [JsonPropertyName("available_fields")]
+    public List<string> AvailableFields { get; set; } = [];
+
+    /// <summary>
     /// Per-field weight overrides. Key = claim key (e.g. <c>"cover"</c>),
     /// value = weight in [0.0, 1.0]. Falls back to <see cref="Weight"/> if absent.
     /// </summary>

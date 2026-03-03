@@ -1,16 +1,19 @@
 {
   "name": "open_library",
-  "version": "1.0",
+  "version": "1.1",
   "enabled": true,
   "weight": 0.7,
   "domain": "Ebook",
-  "capability_tags": ["title", "author", "cover", "isbn", "year"],
+  "capability_tags": ["title", "author", "cover", "isbn", "year", "publisher", "language"],
+  "available_fields": ["title", "author", "year", "cover", "isbn", "publisher", "language"],
   "field_weights": {
     "title": 0.75,
     "author": 0.8,
     "cover": 0.7,
     "isbn": 0.9,
-    "year": 0.85
+    "year": 0.85,
+    "publisher": 0.7,
+    "language": 0.7
   },
   "endpoints": {
     "api": "https://openlibrary.org"
@@ -38,7 +41,7 @@
       "name": "isbn_search",
       "priority": 1,
       "required_fields": ["isbn"],
-      "url_template": "{base_url}/search.json?isbn={isbn}&limit=3&fields=title,author_name,first_publish_year,cover_i,isbn,key,edition_key,seed",
+      "url_template": "{base_url}/search.json?isbn={isbn}&limit=3&fields=title,author_name,first_publish_year,cover_i,isbn,key,edition_key,seed,publisher,language",
       "results_path": "docs",
       "result_index": 0
     },
@@ -46,7 +49,7 @@
       "name": "title_search",
       "priority": 2,
       "required_fields": ["title"],
-      "url_template": "{base_url}/search.json?q={query}&limit=5&fields=title,author_name,first_publish_year,cover_i,isbn,key,edition_key,seed",
+      "url_template": "{base_url}/search.json?q={query}&limit=5&fields=title,author_name,first_publish_year,cover_i,isbn,key,edition_key,seed,publisher,language",
       "query_template": "{title} {author}",
       "results_path": "docs",
       "result_index": 0
@@ -54,10 +57,12 @@
   ],
 
   "field_mappings": [
-    { "claim_key": "title",  "json_path": "title",              "confidence": 0.75 },
-    { "claim_key": "author", "json_path": "author_name[0]",     "confidence": 0.8 },
-    { "claim_key": "year",   "json_path": "first_publish_year",  "confidence": 0.85, "transform": "to_string" },
-    { "claim_key": "cover",  "json_path": "cover_i",            "confidence": 0.7,  "transform": "url_template", "transform_args": "https://covers.openlibrary.org/b/id/{value}-L.jpg" },
-    { "claim_key": "isbn",   "json_path": "isbn",               "confidence": 0.9,  "transform": "prefer_isbn13" }
+    { "claim_key": "title",     "json_path": "title",              "confidence": 0.75 },
+    { "claim_key": "author",    "json_path": "author_name[0]",     "confidence": 0.8 },
+    { "claim_key": "year",      "json_path": "first_publish_year", "confidence": 0.85, "transform": "to_string" },
+    { "claim_key": "cover",     "json_path": "cover_i",            "confidence": 0.7,  "transform": "url_template", "transform_args": "https://covers.openlibrary.org/b/id/{value}-L.jpg" },
+    { "claim_key": "isbn",      "json_path": "isbn",               "confidence": 0.9,  "transform": "prefer_isbn13" },
+    { "claim_key": "publisher", "json_path": "publisher[0]",       "confidence": 0.7 },
+    { "claim_key": "language",  "json_path": "language[0]",        "confidence": 0.7 }
   ]
 }

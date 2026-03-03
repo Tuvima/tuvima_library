@@ -1,11 +1,12 @@
 @namespace Tanaste.Web.Components.Settings
+@using Tanaste.Web.Models
 
 @* Provider Edit Panel — reusable editing surface shown inside the expanded
    provider row (web) or the slide-over drawer (mobile).
 
-   Contains: endpoint URL, test button, property picker with trust sliders,
+   Contains: endpoint URL, test button, available fields with trust sliders,
    and save/cancel actions. Cannot save without a successful test and at
-   least one property selected. *@
+   least one field selected. *@
 
 <div class="provider-edit-panel">
 
@@ -25,7 +26,7 @@
                   AdornmentIcon="@Icons.Material.Filled.Link"
                   Class="mb-3" />
 
-    @* ── Test + Sample buttons ─────────────────────────────────────────── *@
+    @* ── Test button ──────────────────────────────────────────────────── *@
     <MudStack Row="true" Spacing="2" Class="mb-4">
         <MudButton Variant="Variant.Outlined"
                    Color="Color.Primary"
@@ -43,25 +44,9 @@
                 @:Test Connection
             }
         </MudButton>
-        <MudButton Variant="Variant.Outlined"
-                   Color="Color.Default"
-                   Size="Size.Small"
-                   StartIcon="@Icons.Material.Filled.Download"
-                   OnClick="@(() => OnSampleClicked.InvokeAsync())"
-                   Disabled="@(!IsAdmin || IsFetchingSample)">
-            @if (IsFetchingSample)
-            {
-                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
-                @:Fetching…
-            }
-            else
-            {
-                @:Fetch Properties
-            }
-        </MudButton>
     </MudStack>
 
-    @* ── Test result ───────────────────────────────────────────────────── *@
+    @* ── Test result ──────────────────────────────────────────────────── *@
     @if (TestResult is not null)
     {
         <MudAlert Severity="@(TestResult.Success ? Severity.Success : Severity.Error)"
@@ -75,94 +60,21 @@
         </MudAlert>
     }
 
-    @* ── Properties section ────────────────────────────────────────────── *@
-    @if (SampleResult is not null && SampleResult.Claims.Count > 0)
+    @* ── Available Fields ─────────────────────────────────────────────── *@
+    @if (_allFields.Count > 0)
     {
         <MudText Typo="Typo.overline" Color="Color.Primary" Class="mb-2"
                  Style="letter-spacing: 0.08em;">
-            PROPERTIES (@SampleResult.Claims.Count available)
+            AVAILABLE FIELDS (@_allFields.Count)
         </MudText>
 
         <div class="property-list">
-            @foreach (var claim in SampleResult.Claims)
+            @foreach (var fieldKey in _allFields)
             {
-                var isSelected = _selectedProperties.ContainsKey(claim.Key);
-                var trustValue = isSelected ? _selectedProperties[claim.Key] : claim.Confidence;
-
-                <div class="property-item @(isSelected ? "selected" : "")">
-                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                        <MudCheckBox T="bool"
-                                     Value="@isSelected"
-                                     ValueChanged="@(v => ToggleProperty(claim.Key, v, claim.Confidence))"
-                                     Color="Color.Primary"
-                                     Disabled="@(!IsAdmin)"
-                                     Dense="true" />
-                        <div style="flex: 1; min-width: 0;">
-                            <MudText Typo="Typo.body2" Style="font-weight: 500;">
-                                @FormatPropertyKey(claim.Key)
-                            </MudText>
-                            <MudText Typo="Typo.caption" Color="Color.Secondary"
-                                     Style="@(IsImageClaim(claim.Key)
-                                         ? "word-break: break-all;"
-                                         : "overflow: hidden; text-overflow: ellipsis; white-space: nowrap;")">
-                                @if (IsImageClaim(claim.Key))
-                                {
-                                    <span title="@claim.Value">🖼 Image URL</span>
-                                }
-                                else
-                                {
-                                    @TruncateValue(claim.Value, 80)
-                                }
-                            </MudText>
-                            @{
-                                var sampleMapping = FindMapping(claim.Key);
-                            }
-                            @if (sampleMapping is not null)
-                            {
-                                <MudText Typo="Typo.caption" Color="Color.Secondary"
-                                         Style="font-style: italic; opacity: 0.7;">
-                                    @($"\u2192 {sampleMapping.JsonPath}")
-                                    @if (!string.IsNullOrEmpty(sampleMapping.Transform))
-                                    {
-                                        <span style="margin-left: 4px; opacity: 0.6;">(@sampleMapping.Transform)</span>
-                                    }
-                                </MudText>
-                            }
-                        </div>
-                    </MudStack>
-
-                    @if (isSelected && IsAdmin)
-                    {
-                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mt-1 ml-10">
-                            <MudText Typo="Typo.caption" Color="Color.Secondary" Style="min-width: 80px;">
-                                Trust: @(trustValue.ToString("P0"))
-                            </MudText>
-                            <MudSlider T="double"
-                                       Value="@trustValue"
-                                       ValueChanged="@(v => _selectedProperties[claim.Key] = v)"
-                                       Min="0.1" Max="1.0" Step="0.05"
-                                       Color="Color.Primary"
-                                       Style="flex: 1;" />
-                        </MudStack>
-                    }
-                </div>
-            }
-        </div>
-    }
-    else if (Provider.FieldWeights is { Count: > 0 })
-    {
-        @* Show existing field weights as editable when no sample has been fetched *@
-        <MudText Typo="Typo.overline" Color="Color.Primary" Class="mb-2"
-                 Style="letter-spacing: 0.08em;">
-            CONFIGURED PROPERTIES
-        </MudText>
-
-        <div class="property-list">
-            @foreach (var (key, weight) in Provider.FieldWeights)
-            {
-                var isSelected = _selectedProperties.ContainsKey(key);
-                var trustValue = isSelected ? _selectedProperties[key] : weight;
-                var mapping = FindMapping(key);
+                var isSelected = _selectedProperties.ContainsKey(fieldKey);
+                var trustValue = isSelected
+                    ? _selectedProperties[fieldKey]
+                    : (Provider.FieldWeights?.TryGetValue(fieldKey, out var w) == true ? w : 0.7);
 
                 <div class="property-item @(isSelected ? "selected" : "")">
                     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
@@ -170,30 +82,27 @@
                         {
                             <MudCheckBox T="bool"
                                          Value="@isSelected"
-                                         ValueChanged="@(v => ToggleProperty(key, v, weight))"
+                                         ValueChanged="@(v => ToggleProperty(fieldKey, v, trustValue))"
                                          Color="Color.Primary"
                                          Dense="true" />
                         }
                         else
                         {
-                            <MudIcon Icon="@Icons.Material.Filled.CheckCircle"
-                                     Color="Color.Success" Size="Size.Small" />
+                            <MudIcon Icon="@(isSelected ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.RadioButtonUnchecked)"
+                                     Color="@(isSelected ? Color.Success : Color.Default)" Size="Size.Small" />
                         }
+                        <MudIcon Icon="@FieldDictionary.GetIcon(fieldKey)"
+                                 Size="Size.Small"
+                                 Color="Color.Default"
+                                 Style="opacity: 0.7;" />
                         <div style="flex: 1; min-width: 0;">
                             <MudText Typo="Typo.body2" Style="font-weight: 500;">
-                                @FormatPropertyKey(key)
+                                @FieldDictionary.GetDisplayName(fieldKey)
                             </MudText>
-                            @if (mapping is not null)
-                            {
-                                <MudText Typo="Typo.caption" Color="Color.Secondary"
-                                         Style="font-style: italic; opacity: 0.7;">
-                                    @($"\u2192 {mapping.JsonPath}")
-                                    @if (!string.IsNullOrEmpty(mapping.Transform))
-                                    {
-                                        <span style="margin-left: 4px; opacity: 0.6;">(@mapping.Transform)</span>
-                                    }
-                                </MudText>
-                            }
+                            <MudText Typo="Typo.caption" Color="Color.Secondary"
+                                     Style="opacity: 0.6;">
+                                @fieldKey
+                            </MudText>
                         </div>
                     </MudStack>
 
@@ -205,7 +114,7 @@
                             </MudText>
                             <MudSlider T="double"
                                        Value="@trustValue"
-                                       ValueChanged="@(v => _selectedProperties[key] = v)"
+                                       ValueChanged="@(v => _selectedProperties[fieldKey] = v)"
                                        Min="0.1" Max="1.0" Step="0.05"
                                        Color="Color.Primary"
                                        Style="flex: 1;" />
@@ -246,16 +155,16 @@
             </MudButton>
         </MudStack>
 
-        @if (!CanSave && (TestResult is not null || SampleResult is not null))
+        @if (!CanSave && TestResult is not null)
         {
             <MudText Typo="Typo.caption" Color="Color.Warning" Class="mt-1" Style="text-align: right;">
-                @if (TestResult is null || !TestResult.Success)
+                @if (TestResult is not { Success: true })
                 {
                     @:A successful connection test is required before saving.
                 }
                 else if (_selectedProperties.Count == 0)
                 {
-                    @:Select at least one property to save.
+                    @:Select at least one field to save.
                 }
             </MudText>
         }
@@ -273,9 +182,6 @@
     /// <summary>Fires when the test button is clicked.</summary>
     [Parameter] public EventCallback OnTestClicked { get; set; }
 
-    /// <summary>Fires when the fetch-sample button is clicked.</summary>
-    [Parameter] public EventCallback OnSampleClicked { get; set; }
-
     /// <summary>Fires when save is clicked with the assembled config.</summary>
     [Parameter] public EventCallback<ProviderConfigUpdateDto> OnSaveClicked { get; set; }
 
@@ -285,14 +191,8 @@
     /// <summary>Latest test result for this provider.</summary>
     [Parameter] public ProviderTestResultDto? TestResult { get; set; }
 
-    /// <summary>Latest sample result for this provider.</summary>
-    [Parameter] public ProviderSampleResultDto? SampleResult { get; set; }
-
     /// <summary>Whether a test is currently running.</summary>
     [Parameter] public bool IsTesting { get; set; }
-
-    /// <summary>Whether a sample fetch is currently running.</summary>
-    [Parameter] public bool IsFetchingSample { get; set; }
 
     /// <summary>Whether a save operation is in progress.</summary>
     [Parameter] public bool IsSaving { get; set; }
@@ -301,11 +201,12 @@
 
     private string _endpointUrl = string.Empty;
     private readonly Dictionary<string, double> _selectedProperties = new();
+    private List<string> _allFields = [];
 
     private bool CanSave =>
         _selectedProperties.Count > 0
         && (TestResult is { Success: true }
-            || (SampleResult is null && Provider.FieldWeights is { Count: > 0 }));
+            || Provider.FieldWeights is { Count: > 0 });
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -318,6 +219,13 @@
                 ? apiUrl
                 : Provider.Endpoints.Values.First();
         }
+
+        // Build the master list of available fields (prefer AvailableFields, fall back to FieldWeights keys).
+        _allFields = (Provider.AvailableFields is { Count: > 0 }
+            ? Provider.AvailableFields
+            : Provider.FieldWeights?.Keys.ToList() ?? [])
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
         // Pre-select existing field weights.
         if (_selectedProperties.Count == 0 && Provider.FieldWeights is { Count: > 0 })
@@ -364,27 +272,6 @@
 
         await OnSaveClicked.InvokeAsync(config);
     }
-
-    // ── Helpers ───────────────────────────────────────────────────────────────
-
-    private static string FormatPropertyKey(string key) =>
-        key.Replace("_", " ").ToUpperInvariant() switch
-        {
-            var k when k.Length > 0 => char.ToUpperInvariant(key[0]) + key[1..].Replace("_", " "),
-            _ => key,
-        };
-
-    private static bool IsImageClaim(string key) =>
-        key.Contains("cover", StringComparison.OrdinalIgnoreCase)
-        || key.Contains("image", StringComparison.OrdinalIgnoreCase)
-        || key.Contains("headshot", StringComparison.OrdinalIgnoreCase);
-
-    private static string TruncateValue(string value, int maxLen) =>
-        value.Length > maxLen ? value[..maxLen] + "…" : value;
-
-    private FieldMappingDto? FindMapping(string claimKey) =>
-        Provider.FieldMappings?.FirstOrDefault(m =>
-            string.Equals(m.ClaimKey, claimKey, StringComparison.OrdinalIgnoreCase));
 }
 
 <style>
