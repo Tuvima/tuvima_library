@@ -378,16 +378,23 @@ public static class SettingsEndpoints
                 string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase));
 
             if (adapter is null
-                && string.Equals(providerConfig.AdapterType, "config_driven", StringComparison.OrdinalIgnoreCase))
+                && !string.Equals(name, "wikidata", StringComparison.OrdinalIgnoreCase))
             {
-                adapter = new ConfigDrivenAdapter(
-                    providerConfig,
-                    httpFactory,
-                    loggerFactory.CreateLogger<ConfigDrivenAdapter>());
+                // Unconditionally attempt ConfigDrivenAdapter construction for any
+                // non-Wikidata provider whose DI lookup failed. Catches constructor
+                // errors gracefully — if the config isn't suitable the 404 below fires.
+                try
+                {
+                    adapter = new ConfigDrivenAdapter(
+                        providerConfig,
+                        httpFactory,
+                        loggerFactory.CreateLogger<ConfigDrivenAdapter>());
+                }
+                catch { /* Config not suitable for ConfigDrivenAdapter — fall through */ }
             }
 
             if (adapter is null)
-                return Results.NotFound(new { error = $"No adapter registered for '{name}'." });
+                return Results.NotFound(new { error = $"No adapter registered for '{name}'. AdapterType='{providerConfig.AdapterType}', DI providers={string.Join(", ", providers.Select(p => p.Name))}." });
 
             // Build a test request with "The Fellowship of the Ring" as the sample title.
             var baseUrl = GetBaseUrlForProvider(providerConfig);
@@ -474,16 +481,20 @@ public static class SettingsEndpoints
                 string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase));
 
             if (adapter is null
-                && string.Equals(providerConfig.AdapterType, "config_driven", StringComparison.OrdinalIgnoreCase))
+                && !string.Equals(name, "wikidata", StringComparison.OrdinalIgnoreCase))
             {
-                adapter = new ConfigDrivenAdapter(
-                    providerConfig,
-                    httpFactory,
-                    loggerFactory.CreateLogger<ConfigDrivenAdapter>());
+                try
+                {
+                    adapter = new ConfigDrivenAdapter(
+                        providerConfig,
+                        httpFactory,
+                        loggerFactory.CreateLogger<ConfigDrivenAdapter>());
+                }
+                catch { /* Config not suitable for ConfigDrivenAdapter — fall through */ }
             }
 
             if (adapter is null)
-                return Results.NotFound(new { error = $"No adapter registered for '{name}'." });
+                return Results.NotFound(new { error = $"No adapter registered for '{name}'. AdapterType='{providerConfig.AdapterType}', DI providers={string.Join(", ", providers.Select(p => p.Name))}." });
 
             var baseUrl = GetBaseUrlForProvider(providerConfig);
             var sparqlUrl = providerConfig.Endpoints.TryGetValue("wikidata_sparql", out var sp) ? sp : null;

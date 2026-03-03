@@ -91,103 +91,142 @@
         </MudAlert>
     }
 
-    @* ── Universe Properties (read-only, categorized) ─────────────────────── *@
+    @* ── Bridge Identifiers + Property Map (read-only) ─────────────────────── *@
     <MudDivider Class="mb-3" />
 
-    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
-        <MudText Typo="Typo.overline" Color="Color.Primary"
-                 Style="letter-spacing: 0.08em;">
-            UNIVERSE PROPERTIES
-        </MudText>
-        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
-                 Color="Color.Default" Class="ml-2">
-            @_propertyCount total
-        </MudChip>
-    </MudStack>
-
     <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3">
-        Properties collected by Wikidata SPARQL queries. These define what the Universe stage knows.
+        The sections below are read-only — they show what Wikidata collects for your library.
     </MudText>
 
-    <MudExpansionPanels MultiExpansion="true" Elevation="0">
-        @foreach (var (category, props) in _propertiesByCategory)
-        {
-            var hasBridges = props.Any(p => p.IsBridge);
+    @* ── Bridge Identifiers ──────────────────────────────────────────────── *@
+    <MudExpansionPanels Elevation="0" Dense="true" Class="mb-4"
+                        Style="background: transparent;">
+        <MudExpansionPanel MaxHeight="2000"
+                           Style="background: transparent; border: 1px solid var(--tanaste-glass-border); border-radius: 16px;">
+            <TitleContent>
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Outlined.Link" Size="Size.Small" Color="Color.Primary" />
+                    <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">Bridge Identifiers</MudText>
+                    <MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined">
+                        @_bridges.Count
+                    </MudChip>
+                </MudStack>
+            </TitleContent>
+            <ChildContent>
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                    Bridges connect Wikidata to your other providers. When a Wikidata entry is found,
+                    these bridge properties cross-reference with Apple Books, Open Library, and more.
+                    Order determines priority — the first matching bridge wins.
+                </MudText>
 
-            <MudExpansionPanel Style="background: transparent; border: 1px solid var(--tanaste-glass-border); border-radius: 12px; margin-bottom: 4px;">
-                <TitleContent>
-                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                        @if (hasBridges)
+                <MudSimpleTable Dense="true" Hover="true" Style="background: transparent;">
+                    <thead>
+                        <tr>
+                            <th style="width: 40px;">#</th>
+                            <th>Property</th>
+                            <th>Target Provider</th>
+                            <th>Request Field</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @for (var i = 0; i < _bridges.Count; i++)
                         {
-                            <MudIcon Icon="@Icons.Material.Filled.Link"
-                                     Size="Size.Small"
-                                     Style="color: var(--mud-palette-primary);" />
+                            var bridge = _bridges[i];
+                            var idx = i;
+                            <tr>
+                                <td>
+                                    <MudText Typo="Typo.body2" Color="Color.Secondary">@(idx + 1)</MudText>
+                                </td>
+                                <td>
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                        <MudText Typo="Typo.body2" Style="font-weight: 600;">@bridge.PCode</MudText>
+                                        <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                            — @WikidataPropertyDefaults.GetBridgeLabel(bridge.PCode)
+                                        </MudText>
+                                    </MudStack>
+                                </td>
+                                <td>
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Primary"
+                                             Variant="Variant.Text">
+                                        @WikidataPropertyDefaults.GetTargetProvider(bridge.PCode)
+                                    </MudChip>
+                                </td>
+                                <td>
+                                    <code style="font-size: 0.8rem;">@bridge.RequestField</code>
+                                </td>
+                            </tr>
                         }
-                        else
-                        {
-                            <MudIcon Icon="@Icons.Material.Filled.Category"
-                                     Size="Size.Small"
-                                     Style="color: var(--tanaste-text-muted);" />
-                        }
-                        <MudText Typo="Typo.body2" Style="font-weight: 600;">
-                            @category
-                        </MudText>
-                        <MudChip T="string" Size="Size.Small" Variant="Variant.Text"
-                                 Color="Color.Default">
-                            @props.Count
-                        </MudChip>
-                    </MudStack>
-                </TitleContent>
-                <ChildContent>
+                    </tbody>
+                </MudSimpleTable>
+            </ChildContent>
+        </MudExpansionPanel>
+    </MudExpansionPanels>
+
+    @* ── Property Map ────────────────────────────────────────────────────── *@
+    <MudExpansionPanels Elevation="0" Dense="true"
+                        Style="background: transparent;">
+        <MudExpansionPanel MaxHeight="4000"
+                           Style="background: transparent; border: 1px solid var(--tanaste-glass-border); border-radius: 16px;">
+            <TitleContent>
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Outlined.Map" Size="Size.Small" Color="Color.Primary" />
+                    <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">Property Map</MudText>
+                    <MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined">
+                        @_propertyCount properties
+                    </MudChip>
+                </MudStack>
+            </TitleContent>
+            <ChildContent>
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                    Wikidata properties mapped to Tanaste claim keys. Each property carries a
+                    confidence value used during scoring. Bridge properties link to external platforms.
+                </MudText>
+
+                @foreach (var category in _propertiesByCategory)
+                {
+                    <MudText Typo="Typo.overline" Color="Color.Primary" Class="mt-3 mb-1"
+                             Style="letter-spacing: 0.08em;">
+                        @category.Key
+                    </MudText>
+
                     <MudSimpleTable Dense="true" Hover="true"
-                                    Style="background: transparent;">
+                                    Style="background: transparent; margin-bottom: 8px;">
                         <thead>
                             <tr>
-                                <th style="width: 80px;">P-Code</th>
+                                <th>P-Code</th>
                                 <th>Claim Key</th>
-                                <th style="width: 80px;">Scope</th>
-                                <th style="width: 60px;">Trust</th>
-                                <th style="width: 110px;">Stage</th>
-                                @if (hasBridges)
-                                {
-                                    <th style="width: 120px;">Target</th>
-                                }
+                                <th>Scope</th>
+                                <th style="width: 80px;">Confidence</th>
+                                <th style="width: 100px;">Stage</th>
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach (var prop in props)
+                            @foreach (var prop in category.Value)
                             {
                                 <tr>
                                     <td>
-                                        <MudChip T="string" Size="Size.Small"
-                                                 Variant="Variant.Outlined"
-                                                 Color="Color.Default"
-                                                 Style="font-family: monospace; font-size: 0.75rem;">
-                                            @prop.PCode
-                                        </MudChip>
-                                    </td>
-                                    <td>
                                         <MudText Typo="Typo.body2" Style="font-weight: 500;">
-                                            @FormatPropertyKey(prop.ClaimKey)
-                                        </MudText>
-                                        <MudText Typo="Typo.caption" Color="Color.Secondary"
-                                                 Style="font-family: monospace; font-size: 0.7rem;">
-                                            @prop.ClaimKey
+                                            @prop.PCode
                                         </MudText>
                                     </td>
                                     <td>
-                                        <MudChip T="string" Size="Size.Small"
-                                                 Variant="Variant.Filled"
-                                                 Color="@(prop.EntityScope == "Person" ? Color.Success : Color.Info)"
-                                                 Style="font-size: 0.65rem;">
-                                            @prop.EntityScope
-                                        </MudChip>
+                                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                            <code style="font-size: 0.8rem;">@prop.ClaimKey</code>
+                                            @if (prop.IsBridge)
+                                            {
+                                                <MudChip T="string" Size="Size.Small" Color="Color.Warning"
+                                                         Variant="Variant.Outlined"
+                                                         Style="font-size: 0.65rem;">
+                                                    Bridge
+                                                </MudChip>
+                                            }
+                                        </MudStack>
                                     </td>
                                     <td>
-                                        <MudText Typo="Typo.caption"
-                                                 Style="font-weight: 500;">
-                                            @prop.Confidence.ToString("P0")
-                                        </MudText>
+                                        <MudText Typo="Typo.caption">@prop.EntityScope</MudText>
+                                    </td>
+                                    <td>
+                                        <MudText Typo="Typo.body2">@prop.Confidence.ToString("P0")</MudText>
                                     </td>
                                     <td>
                                         <MudChip T="string" Size="Size.Small"
@@ -197,25 +236,13 @@
                                             @prop.StageApplicability
                                         </MudChip>
                                     </td>
-                                    @if (hasBridges)
-                                    {
-                                        <td>
-                                            @if (prop.IsBridge)
-                                            {
-                                                <MudText Typo="Typo.caption" Color="Color.Primary"
-                                                         Style="font-weight: 500;">
-                                                    @($"\u2192 {WikidataPropertyDefaults.GetTargetProvider(prop.PCode)}")
-                                                </MudText>
-                                            }
-                                        </td>
-                                    }
                                 </tr>
                             }
                         </tbody>
                     </MudSimpleTable>
-                </ChildContent>
-            </MudExpansionPanel>
-        }
+                }
+            </ChildContent>
+        </MudExpansionPanel>
     </MudExpansionPanels>
 
     @* ── Save button ──────────────────────────────────────────────────────── *@
@@ -272,6 +299,9 @@
     private int _throttleMs;
     private int _maxConcurrency = 1;
 
+    private readonly List<WikidataPropertyDefaults.BridgeEntry> _bridges =
+        WikidataPropertyDefaults.GetBridgeEntries();
+
     private Dictionary<string, List<WikidataPropertyDefaults.WikidataPropertyInfo>> _propertiesByCategory = new();
     private int _propertyCount;
 
@@ -327,14 +357,6 @@
         await OnSaveClicked.InvokeAsync(config);
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
-
-    private static string FormatPropertyKey(string key) =>
-        key.Replace("_", " ").ToUpperInvariant() switch
-        {
-            var k when k.Length > 0 => char.ToUpperInvariant(key[0]) + key[1..].Replace("_", " "),
-            _ => key,
-        };
 }
 
 <style>

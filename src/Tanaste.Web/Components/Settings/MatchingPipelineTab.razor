@@ -153,7 +153,7 @@ else
 
     // ── Provider filtering per stage + media type ─────────────────────────
 
-    private List<ProviderStatusDto> GetStageProviders(int stage)
+    private List<ProviderStatusDto> GetStageProvidersRaw(int stage)
     {
         var domain = GetDomainForMediaType(_selectedMediaType);
 
@@ -165,10 +165,53 @@ else
             .ToList();
     }
 
+    private List<ProviderStatusDto> GetStageProviders(int stage)
+    {
+        var raw = GetStageProvidersRaw(stage);
+        var key = OrderKey(stage);
+
+        if (!_stageOrder.TryGetValue(key, out var order))
+            return raw;
+
+        // Apply custom ordering: providers in order list come first, rest appended.
+        return order
+            .Select(name => raw.FirstOrDefault(p =>
+                string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase)))
+            .Where(p => p is not null)
+            .Cast<ProviderStatusDto>()
+            .Concat(raw.Where(p => !order.Contains(p.Name, StringComparer.OrdinalIgnoreCase)))
+            .ToList();
+    }
+
     // ── Primary / Failover label ──────────────────────────────────────────
 
     private static string GetRoleLabel(int index) =>
         index == 0 ? "Primary" : $"Failover {index}";
+
+    // ── Provider reordering ─────────────────────────────────────────────
+    // Stores custom ordering per (media type, stage) as provider name lists.
+    // Applied by GetStageProviders when a custom order exists.
+
+    private readonly Dictionary<string, List<string>> _stageOrder = new();
+
+    private string OrderKey(int stage) => $"{_selectedMediaType}:{stage}";
+
+    private void MoveProvider(int stage, int currentIndex, int direction)
+    {
+        var key = OrderKey(stage);
+        if (!_stageOrder.ContainsKey(key))
+        {
+            // Initialize from current list.
+            _stageOrder[key] = GetStageProvidersRaw(stage).Select(p => p.Name).ToList();
+        }
+
+        var order = _stageOrder[key];
+        var newIndex = currentIndex + direction;
+        if (newIndex < 0 || newIndex >= order.Count) return;
+
+        (order[currentIndex], order[newIndex]) = (order[newIndex], order[currentIndex]);
+        StateHasChanged();
+    }
 
     // ── Settings persistence ──────────────────────────────────────────────
 
@@ -229,6 +272,7 @@ else
                             var idx = i;
                             var p = providers[idx];
                             var isHealthy = p.Enabled && p.IsReachable;
+                            var capturedStage = stage;
 
                             <div class="mp-provider @(idx == 0 && showRoles ? "mp-provider--primary" : "")">
                                 <span class="mp-dot @(isHealthy ? "mp-dot--ok" : "mp-dot--err")"
@@ -242,6 +286,21 @@ else
                                              Class="mp-role-chip">
                                         @GetRoleLabel(idx)
                                     </MudChip>
+                                    @if (providers.Count > 1)
+                                    {
+                                        <div class="mp-reorder-buttons">
+                                            <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward"
+                                                           Size="Size.Small"
+                                                           Disabled="@(idx == 0)"
+                                                           OnClick="@(() => MoveProvider(capturedStage, idx, -1))"
+                                                           Style="padding: 2px;" />
+                                            <MudIconButton Icon="@Icons.Material.Filled.ArrowDownward"
+                                                           Size="Size.Small"
+                                                           Disabled="@(idx == providers.Count - 1)"
+                                                           OnClick="@(() => MoveProvider(capturedStage, idx, 1))"
+                                                           Style="padding: 2px;" />
+                                        </div>
+                                    }
                                 }
                                 else
                                 {
@@ -395,6 +454,14 @@ else
         font-size: 0.75rem;
         color: var(--tanaste-text-muted);
         font-style: italic;
+    }
+
+    /* ── Reorder buttons ───────────────────────────────────────────── */
+    .mp-reorder-buttons {
+        display: flex;
+        flex-direction: column;
+        margin-left: auto;
+        gap: 0;
     }
 
     /* ── Empty state ────────────────────────────────────────────────── */
