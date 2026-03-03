@@ -480,7 +480,7 @@ public sealed class TanasteApiClient : ITanasteApiClient
         try
         {
             var encoded = WebUtility.UrlEncode(name);
-            var body = new { title, author, isbn, asin, mediaType };
+            var body = new { title, author, isbn, asin, media_type = mediaType };
             var resp = await _http.PostAsJsonAsync($"/settings/providers/{encoded}/sample", body, ct);
             if (!resp.IsSuccessStatusCode)
             {

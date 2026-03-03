@@ -704,14 +704,16 @@ The Settings sidebar is restructured into three groups:
 | Group | Items |
 |---|---|
 | **Preferences** | General, Playback, Navigation |
-| **Metadata** | Connection Vault, Property Mapper, Universe Schema, Matching Pipeline, Needs Review |
+| **Metadata** | Connection Vault, Needs Review |
 | **Server** | Library, Connectivity, API Keys, Conflicts, Users, Maintenance |
 
-Four new Settings tabs:
-- **Connection Vault** (replaces Providers tab) — stage-grouped provider management (Stage 1: Retail Match, Stage 2: Universe, Stage 3: Human Hub) with expandable rows that embed `ProviderEditPanel` for endpoint editing, connection testing, property fetching, trust sliders, and save/delete. Filters out `local_filesystem` and `wikidata` (managed in Universe tab). Mobile uses slide-over drawer.
-- **Property Mapper** — deprecated, redirects to Connection Vault. Field mapping is now managed within each provider's edit panel. Kept as a stub for backward compatibility with deep-link URLs.
-- **Matching Pipeline** — media-type-specific pipeline view (Audiobooks, Books, Comics, Movies, TV Shows — alphabetical tabs). Three-stage diagram with Primary/Failover provider ordering in Stages 1 and 3. Stage 2 ("Universe") always shows Wikidata as "Always active". Providers filtered by domain + `hydration_stages` array. Pipeline configuration sliders at bottom (concurrency, timeouts, thresholds). No mobile view.
+Two Settings tabs in the Metadata group:
+- **Connection Vault** — unified provider management with four sections: (1) Wikidata Universe Provider pinned at top with dedicated `WikidataVaultPanel` for SPARQL testing and bridge browsing. (2) **Field Priorities** — collapsible media-type groups (Books, Audiobooks, Comics, Movies, TV Shows) with per-field provider priority ordering. Users reorder providers via up/down arrows; priority position maps to field weights automatically (Position 1 = 0.95, Position 2 = 0.85, etc.). No percentages shown — just numbered priority lists. (3) **Provider Connections** — collapsible section for testing endpoints, enable/disable toggles, and `ProviderEditPanel` configuration. (4) **Advanced** — collapsible section with pipeline config (concurrency, timeouts, thresholds) absorbed from the former Matching Pipeline tab. Provider display names no longer include media type in parentheses (e.g. "Apple Books" not "Apple Books (Ebooks)") since the media type is conveyed by the group. Mobile uses slide-over drawer.
 - **Needs Review** — review queue table with trigger chips, confidence gauges, resolve/dismiss actions, live SignalR updates
+
+Absorbed/removed tabs:
+- **Property Mapper** — removed (file deleted). Deep-link URLs redirect to Connection Vault via `Settings.razor` switch.
+- **Matching Pipeline** — removed (file deleted). Pipeline config absorbed into Connection Vault's Advanced section. Deep-link URLs redirect to Connection Vault.
 
 **Profile avatar notification badge:** The profile avatar (top-right in the AppBar) shows a `MudBadge` with the pending review count, kept current via SignalR. This ensures the user sees pending reviews globally.
 
@@ -730,7 +732,7 @@ Four new Settings tabs:
 - `ReviewQueueRepository`, `ImageCacheRepository` (`Tanaste.Storage`) — SQLite implementations
 - `HydrationSettings` (`Tanaste.Storage.Models`) — pipeline config model
 - `ReviewEndpoints` (`Tanaste.Api.Endpoints`) — review queue API
-- `ConnectionVaultTab`, `PropertyMapperTab`, `MatchingPipelineTab`, `NeedsReviewTab` (`Tanaste.Web.Components.Settings`) — new Dashboard tabs
+- `ConnectionVaultTab`, `NeedsReviewTab` (`Tanaste.Web.Components.Settings`) — Dashboard settings tabs (PropertyMapperTab and MatchingPipelineTab removed — absorbed into ConnectionVault)
 - `ReviewItemViewModel`, `ReviewResolveRequestDto`, `HydrationSettingsDto` (`Tanaste.Web.Models.ViewDTOs`) — Dashboard DTOs
 
 **Why this matters to the business:**
@@ -1212,10 +1214,8 @@ src/Tanaste.Web/
 │   │   ├── SettingsSidebar.razor        Sidebar navigation with search, badges, collapsible sections (defines SettingsSection enum)
 │   │   ├── GeneralTab.razor             [Preferences] Appearance: dark/light toggle + accent colour swatches
 │   │   ├── NavigationTab.razor          [Preferences] Navigation config: Action Cluster toggles + Tray Libraries
-│   │   ├── ConnectionVaultTab.razor     [Metadata] Stage-grouped provider management with expandable editing via ProviderEditPanel
-│   │   ├── PropertyMapperTab.razor      [Metadata] Deprecated — redirects to Connection Vault (kept for backward compat)
-│   │   ├── UniverseSettingsTab.razor    [Metadata] Wikidata universe provider: bridge identifiers + property map (read-only)
-│   │   ├── MatchingPipelineTab.razor    [Metadata] Media-type pipeline view with Primary/Failover ordering + config sliders
+│   │   ├── ConnectionVaultTab.razor     [Metadata] Unified vault: Wikidata pinned, media-type field priorities, provider connections, pipeline config
+│   │   ├── UniverseSettingsTab.razor    [Metadata] Wikidata universe provider: bridge identifiers + property map (read-only, orphaned)
 │   │   ├── NeedsReviewTab.razor         [Metadata] Review queue: trigger chips, confidence gauges, resolve/dismiss
 │   │   ├── LibrariesTab.razor           [Server] Watch Folder + Library Folder configuration
 │   │   ├── ConnectivityTab.razor        [Server] Engine connectivity status

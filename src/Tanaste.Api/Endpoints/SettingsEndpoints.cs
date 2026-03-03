@@ -34,8 +34,8 @@ public static class SettingsEndpoints
     private static readonly IReadOnlyDictionary<string, string> _displayNames =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
-            ["apple_books_ebook"]     = "Apple Books (Ebooks)",
-            ["apple_books_audiobook"] = "Apple Books (Audiobooks)",
+            ["apple_books_ebook"]     = "Apple Books",
+            ["apple_books_audiobook"] = "Apple Books",
             ["audnexus"]              = "Audnexus",
             ["wikidata"]              = "Wikidata",
             ["local_filesystem"]      = "Local Filesystem",
@@ -399,16 +399,19 @@ public static class SettingsEndpoints
             // Build a test request with "The Fellowship of the Ring" as the sample title.
             var baseUrl = GetBaseUrlForProvider(providerConfig);
             var sparqlUrl = providerConfig.Endpoints.TryGetValue("wikidata_sparql", out var sp) ? sp : null;
+            // Use domain-appropriate test data: audiobook providers need an audiobook
+            // ASIN; ebook providers use the ebook ASIN. B0099ELYMS is the Audible
+            // ASIN for The Fellowship of the Ring (Rob Inglis narration).
+            var isAudiobook = providerConfig.Domain == ProviderDomain.Audiobook;
             var testRequest = new ProviderLookupRequest
             {
                 EntityId    = Guid.NewGuid(),
                 EntityType  = EntityType.Work,
-                MediaType   = providerConfig.Domain == ProviderDomain.Audiobook
-                    ? MediaType.Audiobook : MediaType.Epub,
+                MediaType   = isAudiobook ? MediaType.Audiobook : MediaType.Epub,
                 Title       = "The Fellowship of the Ring",
                 Author      = "J.R.R. Tolkien",
                 Isbn        = "9780547928210",
-                Asin        = "B007978NPG",
+                Asin        = isAudiobook ? "B0099ELYMS" : "B007978NPG",
                 BaseUrl     = baseUrl ?? string.Empty,
                 SparqlBaseUrl = sparqlUrl,
             };

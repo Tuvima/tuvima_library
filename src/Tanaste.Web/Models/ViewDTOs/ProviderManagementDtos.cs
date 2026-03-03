@@ -7,18 +7,18 @@ namespace Tanaste.Web.Models.ViewDTOs;
 /// Maps from <c>POST /settings/providers/{name}/test</c>.
 /// </summary>
 public sealed record ProviderTestResultDto(
-    [property: JsonPropertyName("success")]         bool   Success,
-    [property: JsonPropertyName("responseTimeMs")]  int    ResponseTimeMs,
-    [property: JsonPropertyName("sampleFields")]    List<string> SampleFields,
-    [property: JsonPropertyName("message")]         string Message);
+    [property: JsonPropertyName("success")]           bool         Success,
+    [property: JsonPropertyName("response_time_ms")]  int          ResponseTimeMs,
+    [property: JsonPropertyName("sample_fields")]     List<string> SampleFields,
+    [property: JsonPropertyName("message")]           string       Message);
 
 /// <summary>
 /// Result of fetching sample claims from a provider.
 /// Maps from <c>POST /settings/providers/{name}/sample</c>.
 /// </summary>
 public sealed record ProviderSampleResultDto(
-    [property: JsonPropertyName("providerName")]  string ProviderName,
-    [property: JsonPropertyName("claims")]        List<ProviderSampleClaimDto> Claims);
+    [property: JsonPropertyName("provider_name")]  string                       ProviderName,
+    [property: JsonPropertyName("claims")]         List<ProviderSampleClaimDto> Claims);
 
 /// <summary>A single sample claim returned from a provider sample fetch.</summary>
 public sealed record ProviderSampleClaimDto(

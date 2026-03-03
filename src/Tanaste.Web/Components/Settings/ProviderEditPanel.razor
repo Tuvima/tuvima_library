@@ -341,18 +341,25 @@
 
     private async Task DoSave()
     {
+        // Preserve all existing endpoints; update the primary one the user edited.
+        var endpoints = Provider.Endpoints is { Count: > 0 }
+            ? new Dictionary<string, string>(Provider.Endpoints)
+            : new Dictionary<string, string>();
+
+        // Determine which key the user is editing (prefer "api", then first available).
+        var primaryKey = endpoints.ContainsKey("api") ? "api"
+            : endpoints.Keys.FirstOrDefault() ?? "api";
+        endpoints[primaryKey] = _endpointUrl;
+
         var config = new ProviderConfigUpdateDto
         {
             Enabled = true,
             Weight = Provider.DefaultWeight,
             FieldWeights = new Dictionary<string, double>(_selectedProperties),
             CapabilityTags = Provider.CapabilityTags?.ToList() ?? [],
-            Endpoints = new Dictionary<string, string>
-            {
-                ["api"] = _endpointUrl,
-            },
-            ThrottleMs = 500,
-            MaxConcurrency = 1,
+            Endpoints = endpoints,
+            ThrottleMs = Provider.ThrottleMs > 0 ? Provider.ThrottleMs : 500,
+            MaxConcurrency = Provider.MaxConcurrency >= 1 ? Provider.MaxConcurrency : 1,
         };
 
         await OnSaveClicked.InvokeAsync(config);

@@ -304,17 +304,11 @@ else
                 break;
             // ── Metadata group ────────────────────────────────────────────
             case SettingsSidebar.SettingsSection.ConnectionVault:
-            case SettingsSidebar.SettingsSection.Providers: // legacy redirect
+            case SettingsSidebar.SettingsSection.Providers:       // legacy redirect
+            case SettingsSidebar.SettingsSection.PropertyMapper:  // deprecated → absorbed
+            case SettingsSidebar.SettingsSection.Universe:        // absorbed into vault
+            case SettingsSidebar.SettingsSection.MatchingPipeline: // absorbed into vault
                 <ConnectionVaultTab CurrentRole="@_currentRole" />
-                break;
-            case SettingsSidebar.SettingsSection.PropertyMapper:
-                <ConnectionVaultTab CurrentRole="@_currentRole" />
-                break;
-            case SettingsSidebar.SettingsSection.Universe:
-                <ConnectionVaultTab CurrentRole="@_currentRole" />
-                break;
-            case SettingsSidebar.SettingsSection.MatchingPipeline:
-                <MatchingPipelineTab />
                 break;
             case SettingsSidebar.SettingsSection.NeedsReview:
                 <NeedsReviewTab />
