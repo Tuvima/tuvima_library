@@ -39,22 +39,8 @@
             "Retail metadata providers. The scoring engine resolves field conflicts.")
 
         @* ── Stage 2: Universe ───────────────────────────────────────────── *@
-        <MudPaper Elevation="0" Class="pa-4 mb-4"
-                  Style="background: var(--tanaste-glass-bg); border: 1px solid var(--tanaste-glass-border); border-radius: 16px;">
-            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
-                <MudChip T="string" Color="Color.Secondary" Size="Size.Small" Variant="Variant.Filled">
-                    Stage 2
-                </MudChip>
-                <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">Stage 2: Universe</MudText>
-            </MudStack>
-            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3">
-                Wikidata QID resolution via bridge identifiers from Stage 1.
-            </MudText>
-            <MudAlert Severity="Severity.Info" Variant="Variant.Text" Dense="true">
-                Wikidata handles this stage automatically. Configure it in
-                <strong>Universe Schema</strong>.
-            </MudAlert>
-        </MudPaper>
+        @RenderStageSection(2, "Stage 2: Universe", Color.Secondary,
+            "Wikidata QID resolution via bridge identifiers from Stage 1.")
 
         @* ── Stage 3: Human Hub ──────────────────────────────────────────── *@
         @RenderStageSection(3, "Stage 3: Human Hub", Color.Success,
@@ -81,17 +67,30 @@
                 <MudText Typo="Typo.h6" Style="flex: 1;">@_drawerProvider.DisplayName</MudText>
             </MudStack>
 
-            <ProviderEditPanel Provider="@_drawerProvider"
-                               IsAdmin="@HasAdminAccess"
-                               OnTestClicked="@(() => TestProvider(_drawerProvider.Name))"
-                               OnSampleClicked="@(() => FetchSample(_drawerProvider.Name))"
-                               OnSaveClicked="@(config => SaveProvider(_drawerProvider.Name, config))"
-                               OnDeleteClicked="@(() => DeleteProvider(_drawerProvider.Name))"
-                               TestResult="@GetTestResult(_drawerProvider.Name)"
-                               SampleResult="@GetSampleResult(_drawerProvider.Name)"
-                               IsTesting="@IsProviderTesting(_drawerProvider.Name)"
-                               IsFetchingSample="@IsProviderFetchingSample(_drawerProvider.Name)"
-                               IsSaving="@_saving" />
+            @if (IsWikidata(_drawerProvider.Name))
+            {
+                <WikidataVaultPanel Provider="@_drawerProvider"
+                                    IsAdmin="@HasAdminAccess"
+                                    OnTestClicked="@(() => TestProvider(_drawerProvider.Name))"
+                                    OnSaveClicked="@(config => SaveProvider(_drawerProvider.Name, config))"
+                                    TestResult="@GetTestResult(_drawerProvider.Name)"
+                                    IsTesting="@IsProviderTesting(_drawerProvider.Name)"
+                                    IsSaving="@_saving" />
+            }
+            else
+            {
+                <ProviderEditPanel Provider="@_drawerProvider"
+                                   IsAdmin="@HasAdminAccess"
+                                   OnTestClicked="@(() => TestProvider(_drawerProvider.Name))"
+                                   OnSampleClicked="@(() => FetchSample(_drawerProvider.Name))"
+                                   OnSaveClicked="@(config => SaveProvider(_drawerProvider.Name, config))"
+                                   OnDeleteClicked="@(() => DeleteProvider(_drawerProvider.Name))"
+                                   TestResult="@GetTestResult(_drawerProvider.Name)"
+                                   SampleResult="@GetSampleResult(_drawerProvider.Name)"
+                                   IsTesting="@IsProviderTesting(_drawerProvider.Name)"
+                                   IsFetchingSample="@IsProviderFetchingSample(_drawerProvider.Name)"
+                                   IsSaving="@_saving" />
+            }
         </div>
     </MudDrawer>
 }
@@ -153,10 +152,11 @@
                 return;
             }
 
-            // Exclude local_filesystem (internal) and wikidata (shown in Universe tab).
+            // Exclude local_filesystem (internal). Wikidata is kept — shown in Stage 2
+            // with a Wikidata-specific panel (WikidataVaultPanel) for connection editing
+            // and universe property browsing.
             _providers = providers
                 .Where(p => !string.Equals(p.Name, "local_filesystem", StringComparison.OrdinalIgnoreCase))
-                .Where(p => !string.Equals(p.Name, "wikidata", StringComparison.OrdinalIgnoreCase))
                 .OrderBy(p => p.Name)
                 .ToList();
         }
@@ -259,17 +259,30 @@
                             @if (isExpanded && !IsMobile)
                             {
                                 <div class="provider-expanded-content">
-                                    <ProviderEditPanel Provider="@provider"
-                                                       IsAdmin="@HasAdminAccess"
-                                                       OnTestClicked="@(() => TestProvider(provider.Name))"
-                                                       OnSampleClicked="@(() => FetchSample(provider.Name))"
-                                                       OnSaveClicked="@(config => SaveProvider(provider.Name, config))"
-                                                       OnDeleteClicked="@(() => DeleteProvider(provider.Name))"
-                                                       TestResult="@GetTestResult(provider.Name)"
-                                                       SampleResult="@GetSampleResult(provider.Name)"
-                                                       IsTesting="@IsProviderTesting(provider.Name)"
-                                                       IsFetchingSample="@IsProviderFetchingSample(provider.Name)"
-                                                       IsSaving="@_saving" />
+                                    @if (IsWikidata(provider.Name))
+                                    {
+                                        <WikidataVaultPanel Provider="@provider"
+                                                            IsAdmin="@HasAdminAccess"
+                                                            OnTestClicked="@(() => TestProvider(provider.Name))"
+                                                            OnSaveClicked="@(config => SaveProvider(provider.Name, config))"
+                                                            TestResult="@GetTestResult(provider.Name)"
+                                                            IsTesting="@IsProviderTesting(provider.Name)"
+                                                            IsSaving="@_saving" />
+                                    }
+                                    else
+                                    {
+                                        <ProviderEditPanel Provider="@provider"
+                                                           IsAdmin="@HasAdminAccess"
+                                                           OnTestClicked="@(() => TestProvider(provider.Name))"
+                                                           OnSampleClicked="@(() => FetchSample(provider.Name))"
+                                                           OnSaveClicked="@(config => SaveProvider(provider.Name, config))"
+                                                           OnDeleteClicked="@(() => DeleteProvider(provider.Name))"
+                                                           TestResult="@GetTestResult(provider.Name)"
+                                                           SampleResult="@GetSampleResult(provider.Name)"
+                                                           IsTesting="@IsProviderTesting(provider.Name)"
+                                                           IsFetchingSample="@IsProviderFetchingSample(provider.Name)"
+                                                           IsSaving="@_saving" />
+                                    }
                                 </div>
                             }
                         </div>
@@ -419,6 +432,9 @@
 
     private bool IsProviderTesting(string name) => _testingProviders.Contains(name);
     private bool IsProviderFetchingSample(string name) => _fetchingSampleProviders.Contains(name);
+
+    private static bool IsWikidata(string name) =>
+        string.Equals(name, "wikidata", StringComparison.OrdinalIgnoreCase);
 
     private static string StatusDotStyle(ProviderStatusDto p)
     {

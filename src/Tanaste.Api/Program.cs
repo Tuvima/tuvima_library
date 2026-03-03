@@ -235,9 +235,11 @@ builder.Services.AddHttpClient("wikidata_sparql", c =>
 
 // Config-driven providers: scan config/providers/ and register each one.
 // Named HttpClients + ConfigDrivenAdapter instances are created from config.
+// All providers are registered regardless of Enabled state — the pipeline services
+// check Enabled before using them, but the Settings UI needs adapter access for
+// testing and configuring disabled providers.
 foreach (var providerConfig in configLoader.LoadAllProviders())
 {
-    if (!providerConfig.Enabled) continue;
     if (!string.Equals(providerConfig.AdapterType, "config_driven", StringComparison.OrdinalIgnoreCase))
         continue;
 

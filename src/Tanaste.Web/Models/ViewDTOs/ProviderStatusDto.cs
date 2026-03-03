@@ -12,8 +12,12 @@ public sealed record ProviderStatusDto(
     [property: JsonPropertyName("enabled")]           bool   Enabled,
     [property: JsonPropertyName("is_zero_key")]       bool   IsZeroKey,
     [property: JsonPropertyName("is_reachable")]      bool   IsReachable,
-    [property: JsonPropertyName("domain")]            string Domain                            = "",
-    [property: JsonPropertyName("capability_tags")]   List<string>? CapabilityTags             = null,
-    [property: JsonPropertyName("default_weight")]    double DefaultWeight                     = 1.0,
-    [property: JsonPropertyName("field_weights")]     Dictionary<string, double>? FieldWeights = null,
-    [property: JsonPropertyName("hydration_stages")]  List<int>? HydrationStages               = null);
+    [property: JsonPropertyName("domain")]            string Domain                                        = "",
+    [property: JsonPropertyName("capability_tags")]   List<string>? CapabilityTags                         = null,
+    [property: JsonPropertyName("default_weight")]    double DefaultWeight                                 = 1.0,
+    [property: JsonPropertyName("field_weights")]     Dictionary<string, double>? FieldWeights             = null,
+    [property: JsonPropertyName("hydration_stages")]  List<int>? HydrationStages                           = null,
+    [property: JsonPropertyName("endpoints")]         Dictionary<string, string>? Endpoints                = null,
+    [property: JsonPropertyName("field_mappings")]    List<FieldMappingDto>? FieldMappings                 = null,
+    [property: JsonPropertyName("throttle_ms")]       int ThrottleMs                                       = 0,
+    [property: JsonPropertyName("max_concurrency")]   int MaxConcurrency                                   = 1);

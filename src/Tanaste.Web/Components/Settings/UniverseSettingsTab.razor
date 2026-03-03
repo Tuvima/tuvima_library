@@ -190,131 +190,33 @@
 </MudPaper>
 
 @code {
-    // ── State (all compiled defaults — no Engine dependency) ────────────────
+    // ── State (all compiled defaults from shared WikidataPropertyDefaults) ───
 
-    private readonly List<BridgeEntry> _bridges =
-    [
-        new("P3861", "apple_books_id"),
-        new("P3398", "audible_id"),
-        new("P4947", "tmdb_id"),
-        new("P345",  "imdb_id"),
-        new("P1566", "asin"),
-        new("P212",  "isbn"),
-    ];
+    private readonly List<WikidataPropertyDefaults.BridgeEntry> _bridges =
+        WikidataPropertyDefaults.GetBridgeEntries();
 
-    private Dictionary<string, List<PropertyEntry>> _propertiesByCategory = new();
+    private Dictionary<string, List<WikidataPropertyDefaults.WikidataPropertyInfo>> _propertiesByCategory = new();
     private int _propertyCount;
 
     // ── Lifecycle ─────────────────────────────────────────────────────────
 
     protected override void OnInitialized()
     {
-        var allProps = GetDefaultProperties();
+        var allProps = WikidataPropertyDefaults.GetAllProperties();
         _propertiesByCategory = allProps
             .GroupBy(p => p.Category)
-            .OrderBy(g => CategoryOrder(g.Key))
+            .OrderBy(g => WikidataPropertyDefaults.CategoryOrder(g.Key))
             .ToDictionary(g => g.Key, g => g.OrderBy(p => p.PCode).ToList());
         _propertyCount = allProps.Count;
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────
+    // ── Helpers (delegated to shared defaults) ────────────────────────────
 
-    private static string GetBridgeLabel(string pCode) => pCode switch
-    {
-        "P3861" => "Apple Books ID",
-        "P3398" => "Audible ID",
-        "P4947" => "TMDB Movie ID",
-        "P345"  => "IMDb ID",
-        "P1566" => "ASIN",
-        "P212"  => "ISBN-13",
-        _       => pCode,
-    };
+    private static string GetBridgeLabel(string pCode) =>
+        WikidataPropertyDefaults.GetBridgeLabel(pCode);
 
-    private static string GetTargetProvider(string pCode) => pCode switch
-    {
-        "P3861" => "Apple Books",
-        "P3398" => "Audnexus",
-        "P4947" => "TMDB",
-        "P345"  => "IMDb",
-        "P1566" => "Amazon",
-        "P212"  => "Open Library",
-        _       => "Unknown",
-    };
-
-    private static int CategoryOrder(string category) => category switch
-    {
-        "Core Identity"          => 0,
-        "People"                 => 1,
-        "Lore & Narrative"       => 2,
-        "Bridges: Books"         => 3,
-        "Bridges: Movies/TV"     => 4,
-        "Bridges: Comics/Anime"  => 5,
-        "Bridges: Music/Audio"   => 6,
-        "Social Pivot"           => 7,
-        _                        => 99,
-    };
-
-    private static List<PropertyEntry> GetDefaultProperties() =>
-    [
-        // Core Identity
-        new("P31",   "instance_of",    "Core Identity", "Work",   0.9,  false, true),
-        new("P1476", "title",          "Core Identity", "Work",   0.9,  false, true),
-        new("P179",  "series",         "Core Identity", "Work",   0.9,  false, true),
-        new("P1545", "series_position","Core Identity", "Work",   0.9,  false, true),
-        new("P8345", "franchise",      "Core Identity", "Work",   0.9,  false, true),
-        new("P577",  "year",           "Core Identity", "Work",   0.9,  false, true),
-        new("P136",  "genre",          "Core Identity", "Work",   0.85, false, true),
-        new("P7937", "form_of_work",   "Core Identity", "Work",   0.85, false, true),
-        new("P364",  "original_language","Core Identity","Work",   0.85, false, true),
-        new("P495",  "country_of_origin","Core Identity","Work",   0.85, false, true),
-
-        // People
-        new("P50",   "author",         "People", "Work",   0.9,  false, true),
-        new("P110",  "illustrator",    "People", "Work",   0.9,  false, true),
-        new("P57",   "director",       "People", "Work",   0.9,  false, true),
-        new("P58",   "screenwriter",   "People", "Work",   0.9,  false, true),
-        new("P161",  "cast_member",    "People", "Work",   0.9,  false, true),
-        new("P86",   "composer",       "People", "Work",   0.9,  false, true),
-        new("P18",   "headshot_url",   "People", "Person", 0.9,  false, true),
-        new("P106",  "occupation",     "People", "Person", 0.85, false, true),
-        new("P569",  "date_of_birth",  "People", "Person", 0.9,  false, true),
-        new("P570",  "date_of_death",  "People", "Person", 0.9,  false, true),
-        new("P27",   "citizenship",    "People", "Person", 0.85, false, true),
-
-        // Lore & Narrative
-        new("P674",  "characters",         "Lore & Narrative", "Work", 0.85, false, true),
-        new("P840",  "narrative_location",  "Lore & Narrative", "Work", 0.85, false, true),
-        new("P1441", "present_in_work",     "Lore & Narrative", "Work", 0.8,  false, true),
-        new("P144",  "based_on",            "Lore & Narrative", "Work", 0.85, false, true),
-        new("P4969", "derivative_work",     "Lore & Narrative", "Work", 0.8,  false, true),
-
-        // Bridges: Books
-        new("P3861", "apple_books_id", "Bridges: Books", "Work", 1.0, true, true),
-        new("P212",  "isbn",           "Bridges: Books", "Work", 1.0, true, true),
-        new("P2969", "goodreads_id",   "Bridges: Books", "Work", 1.0, true, true),
-        new("P648",  "openlibrary_id", "Bridges: Books", "Work", 1.0, true, true),
-        new("P8383", "storygraph_id",  "Bridges: Books", "Work", 1.0, true, true),
-
-        // Bridges: Movies/TV
-        new("P4947", "tmdb_id",  "Bridges: Movies/TV", "Work", 1.0, true, true),
-        new("P345",  "imdb_id",  "Bridges: Movies/TV", "Work", 1.0, true, true),
-        new("P1566", "asin",     "Bridges: Movies/TV", "Work", 1.0, true, true),
-        new("P3398", "audible_id","Bridges: Movies/TV", "Work", 1.0, true, true),
-
-        // Social Pivot
-        new("P2003", "instagram", "Social Pivot", "Person", 0.9, false, true),
-        new("P2002", "twitter",   "Social Pivot", "Person", 0.9, false, true),
-        new("P7085", "tiktok",    "Social Pivot", "Person", 0.9, false, true),
-        new("P856",  "website",   "Social Pivot", "Person", 0.9, false, true),
-    ];
-
-    // ── Records ──────────────────────────────────────────────────────────
-
-    private sealed record BridgeEntry(string PCode, string RequestField);
-
-    private sealed record PropertyEntry(
-        string PCode, string ClaimKey, string Category,
-        string EntityScope, double Confidence, bool IsBridge, bool Enabled);
+    private static string GetTargetProvider(string pCode) =>
+        WikidataPropertyDefaults.GetTargetProvider(pCode);
 
     // ── Styles ───────────────────────────────────────────────────────────
 

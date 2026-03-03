@@ -1,0 +1,335 @@
+@namespace Tanaste.Web.Components.Settings
+
+@using Tanaste.Web.Models.ViewDTOs
+
+@* Wikidata Vault Panel — Wikidata-specific editing surface shown inside the
+   Connection Vault when Wikidata is expanded. Shows editable connection details
+   (API URL, SPARQL URL, throttle, concurrency), test button, and a read-only
+   categorized view of all universe properties so the user understands what
+   data the Universe stage collects. *@
+
+<div class="wikidata-vault-panel">
+
+    @* ── Connection Details (editable) ──────────────────────────────────── *@
+    <MudText Typo="Typo.overline" Color="Color.Primary" Class="mb-1"
+             Style="letter-spacing: 0.08em;">
+        CONNECTION DETAILS
+    </MudText>
+
+    <MudGrid>
+        <MudItem xs="12" sm="6">
+            <MudTextField @bind-Value="_wikidataApiUrl"
+                          Label="Wikidata API"
+                          Placeholder="https://www.wikidata.org/w/api.php"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          FullWidth="true"
+                          Disabled="@(!IsAdmin)"
+                          Adornment="Adornment.End"
+                          AdornmentIcon="@Icons.Material.Filled.Api" />
+        </MudItem>
+        <MudItem xs="12" sm="6">
+            <MudTextField @bind-Value="_sparqlUrl"
+                          Label="SPARQL Endpoint"
+                          Placeholder="https://query.wikidata.org/sparql"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          FullWidth="true"
+                          Disabled="@(!IsAdmin)"
+                          Adornment="Adornment.End"
+                          AdornmentIcon="@Icons.Material.Filled.Storage" />
+        </MudItem>
+        <MudItem xs="12" sm="6">
+            <MudNumericField T="int" @bind-Value="_throttleMs"
+                             Label="Throttle (ms)"
+                             Min="0" Max="5000"
+                             Variant="Variant.Outlined"
+                             Margin="Margin.Dense"
+                             Disabled="@(!IsAdmin)" />
+        </MudItem>
+        <MudItem xs="12" sm="6">
+            <MudNumericField T="int" @bind-Value="_maxConcurrency"
+                             Label="Max Concurrency"
+                             Min="1" Max="5"
+                             Variant="Variant.Outlined"
+                             Margin="Margin.Dense"
+                             Disabled="@(!IsAdmin)" />
+        </MudItem>
+    </MudGrid>
+
+    @* ── Test button ──────────────────────────────────────────────────────── *@
+    <MudStack Row="true" Spacing="2" Class="mt-3 mb-4">
+        <MudButton Variant="Variant.Outlined"
+                   Color="Color.Primary"
+                   Size="Size.Small"
+                   StartIcon="@Icons.Material.Filled.PlayArrow"
+                   OnClick="@(() => OnTestClicked.InvokeAsync())"
+                   Disabled="@(!IsAdmin || IsTesting)">
+            @if (IsTesting)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
+                @:Testing…
+            }
+            else
+            {
+                @:Test Connection
+            }
+        </MudButton>
+    </MudStack>
+
+    @* ── Test result ──────────────────────────────────────────────────────── *@
+    @if (TestResult is not null)
+    {
+        <MudAlert Severity="@(TestResult.Success ? Severity.Success : Severity.Error)"
+                  Class="mb-4"
+                  Dense="true">
+            @TestResult.Message
+            @if (TestResult.Success)
+            {
+                <span style="margin-left: 8px; opacity: 0.7;">(@(TestResult.ResponseTimeMs)ms)</span>
+            }
+        </MudAlert>
+    }
+
+    @* ── Universe Properties (read-only, categorized) ─────────────────────── *@
+    <MudDivider Class="mb-3" />
+
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+        <MudText Typo="Typo.overline" Color="Color.Primary"
+                 Style="letter-spacing: 0.08em;">
+            UNIVERSE PROPERTIES
+        </MudText>
+        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                 Color="Color.Default" Class="ml-2">
+            @_propertyCount total
+        </MudChip>
+    </MudStack>
+
+    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3">
+        Properties collected by Wikidata SPARQL queries. These define what the Universe stage knows.
+    </MudText>
+
+    <MudExpansionPanels MultiExpansion="true" Elevation="0">
+        @foreach (var (category, props) in _propertiesByCategory)
+        {
+            var hasBridges = props.Any(p => p.IsBridge);
+
+            <MudExpansionPanel Style="background: transparent; border: 1px solid var(--tanaste-glass-border); border-radius: 12px; margin-bottom: 4px;">
+                <TitleContent>
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        @if (hasBridges)
+                        {
+                            <MudIcon Icon="@Icons.Material.Filled.Link"
+                                     Size="Size.Small"
+                                     Style="color: var(--mud-palette-primary);" />
+                        }
+                        else
+                        {
+                            <MudIcon Icon="@Icons.Material.Filled.Category"
+                                     Size="Size.Small"
+                                     Style="color: var(--tanaste-text-muted);" />
+                        }
+                        <MudText Typo="Typo.body2" Style="font-weight: 600;">
+                            @category
+                        </MudText>
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Text"
+                                 Color="Color.Default">
+                            @props.Count
+                        </MudChip>
+                    </MudStack>
+                </TitleContent>
+                <ChildContent>
+                    <MudSimpleTable Dense="true" Hover="true"
+                                    Style="background: transparent;">
+                        <thead>
+                            <tr>
+                                <th style="width: 80px;">P-Code</th>
+                                <th>Claim Key</th>
+                                <th style="width: 80px;">Scope</th>
+                                <th style="width: 60px;">Trust</th>
+                                @if (hasBridges)
+                                {
+                                    <th style="width: 120px;">Target</th>
+                                }
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var prop in props)
+                            {
+                                <tr>
+                                    <td>
+                                        <MudChip T="string" Size="Size.Small"
+                                                 Variant="Variant.Outlined"
+                                                 Color="Color.Default"
+                                                 Style="font-family: monospace; font-size: 0.75rem;">
+                                            @prop.PCode
+                                        </MudChip>
+                                    </td>
+                                    <td>
+                                        <MudText Typo="Typo.body2" Style="font-weight: 500;">
+                                            @FormatPropertyKey(prop.ClaimKey)
+                                        </MudText>
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary"
+                                                 Style="font-family: monospace; font-size: 0.7rem;">
+                                            @prop.ClaimKey
+                                        </MudText>
+                                    </td>
+                                    <td>
+                                        <MudChip T="string" Size="Size.Small"
+                                                 Variant="Variant.Filled"
+                                                 Color="@(prop.EntityScope == "Person" ? Color.Success : Color.Info)"
+                                                 Style="font-size: 0.65rem;">
+                                            @prop.EntityScope
+                                        </MudChip>
+                                    </td>
+                                    <td>
+                                        <MudText Typo="Typo.caption"
+                                                 Style="font-weight: 500;">
+                                            @prop.Confidence.ToString("P0")
+                                        </MudText>
+                                    </td>
+                                    @if (hasBridges)
+                                    {
+                                        <td>
+                                            @if (prop.IsBridge)
+                                            {
+                                                <MudText Typo="Typo.caption" Color="Color.Primary"
+                                                         Style="font-weight: 500;">
+                                                    @($"\u2192 {WikidataPropertyDefaults.GetTargetProvider(prop.PCode)}")
+                                                </MudText>
+                                            }
+                                        </td>
+                                    }
+                                </tr>
+                            }
+                        </tbody>
+                    </MudSimpleTable>
+                </ChildContent>
+            </MudExpansionPanel>
+        }
+    </MudExpansionPanels>
+
+    @* ── Save button ──────────────────────────────────────────────────────── *@
+    @if (IsAdmin)
+    {
+        <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-4" Spacing="2">
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       Size="Size.Small"
+                       StartIcon="@Icons.Material.Filled.Save"
+                       OnClick="@DoSave"
+                       Disabled="@IsSaving">
+                @if (IsSaving)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
+                    @:Saving…
+                }
+                else
+                {
+                    @:Save Connection Settings
+                }
+            </MudButton>
+        </MudStack>
+    }
+</div>
+
+@code {
+    /// <summary>The Wikidata provider being edited.</summary>
+    [Parameter, EditorRequired]
+    public ProviderStatusDto Provider { get; set; } = default!;
+
+    /// <summary>Whether the current user has admin access.</summary>
+    [Parameter] public bool IsAdmin { get; set; }
+
+    /// <summary>Fires when the test button is clicked.</summary>
+    [Parameter] public EventCallback OnTestClicked { get; set; }
+
+    /// <summary>Fires when save is clicked with the assembled config.</summary>
+    [Parameter] public EventCallback<ProviderConfigUpdateDto> OnSaveClicked { get; set; }
+
+    /// <summary>Latest test result.</summary>
+    [Parameter] public ProviderTestResultDto? TestResult { get; set; }
+
+    /// <summary>Whether a test is currently running.</summary>
+    [Parameter] public bool IsTesting { get; set; }
+
+    /// <summary>Whether a save operation is in progress.</summary>
+    [Parameter] public bool IsSaving { get; set; }
+
+    // ── State ────────────────────────────────────────────────────────────────
+
+    private string _wikidataApiUrl = string.Empty;
+    private string _sparqlUrl = string.Empty;
+    private int _throttleMs;
+    private int _maxConcurrency = 1;
+
+    private Dictionary<string, List<WikidataPropertyDefaults.WikidataPropertyInfo>> _propertiesByCategory = new();
+    private int _propertyCount;
+
+    // ── Lifecycle ─────────────────────────────────────────────────────────────
+
+    protected override void OnParametersSet()
+    {
+        // Pre-fill connection details from provider config.
+        if (string.IsNullOrEmpty(_wikidataApiUrl) && Provider.Endpoints is { Count: > 0 })
+        {
+            _wikidataApiUrl = Provider.Endpoints.TryGetValue("wikidata_api", out var api) ? api : string.Empty;
+            _sparqlUrl = Provider.Endpoints.TryGetValue("wikidata_sparql", out var sparql) ? sparql : string.Empty;
+        }
+
+        if (_throttleMs == 0 && Provider.ThrottleMs > 0)
+            _throttleMs = Provider.ThrottleMs;
+
+        if (_maxConcurrency == 1 && Provider.MaxConcurrency > 1)
+            _maxConcurrency = Provider.MaxConcurrency;
+    }
+
+    protected override void OnInitialized()
+    {
+        var allProps = WikidataPropertyDefaults.GetAllProperties();
+        _propertiesByCategory = allProps
+            .GroupBy(p => p.Category)
+            .OrderBy(g => WikidataPropertyDefaults.CategoryOrder(g.Key))
+            .ToDictionary(g => g.Key, g => g.OrderBy(p => p.PCode).ToList());
+        _propertyCount = allProps.Count;
+    }
+
+    // ── Save ──────────────────────────────────────────────────────────────────
+
+    private async Task DoSave()
+    {
+        var config = new ProviderConfigUpdateDto
+        {
+            Enabled = true,
+            Weight = Provider.DefaultWeight,
+            FieldWeights = Provider.FieldWeights is not null
+                ? new Dictionary<string, double>(Provider.FieldWeights)
+                : new(),
+            CapabilityTags = Provider.CapabilityTags?.ToList() ?? [],
+            Endpoints = new Dictionary<string, string>
+            {
+                ["wikidata_api"] = _wikidataApiUrl,
+                ["wikidata_sparql"] = _sparqlUrl,
+            },
+            ThrottleMs = _throttleMs,
+            MaxConcurrency = _maxConcurrency,
+        };
+
+        await OnSaveClicked.InvokeAsync(config);
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private static string FormatPropertyKey(string key) =>
+        key.Replace("_", " ").ToUpperInvariant() switch
+        {
+            var k when k.Length > 0 => char.ToUpperInvariant(key[0]) + key[1..].Replace("_", " "),
+            _ => key,
+        };
+}
+
+<style>
+    .wikidata-vault-panel {
+        padding-top: 8px;
+    }
+</style>

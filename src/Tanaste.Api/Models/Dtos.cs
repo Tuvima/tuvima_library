@@ -390,6 +390,34 @@ public sealed class ProviderStatusResponse
 
     [JsonPropertyName("hydration_stages")]
     public List<int> HydrationStages { get; init; } = [1];
+
+    [JsonPropertyName("endpoints")]
+    public Dictionary<string, string> Endpoints { get; init; } = [];
+
+    [JsonPropertyName("field_mappings")]
+    public List<FieldMappingResponse>? FieldMappings { get; init; }
+
+    [JsonPropertyName("throttle_ms")]
+    public int ThrottleMs { get; init; }
+
+    [JsonPropertyName("max_concurrency")]
+    public int MaxConcurrency { get; init; } = 1;
+}
+
+/// <summary>Field mapping entry for provider status response.</summary>
+public sealed class FieldMappingResponse
+{
+    [JsonPropertyName("claim_key")]
+    public string ClaimKey { get; init; } = string.Empty;
+
+    [JsonPropertyName("json_path")]
+    public string JsonPath { get; init; } = string.Empty;
+
+    [JsonPropertyName("confidence")]
+    public double Confidence { get; init; }
+
+    [JsonPropertyName("transform")]
+    public string? Transform { get; init; }
 }
 
 // ── POST /settings/providers/{name}/test ──────────────────────────────────────

@@ -114,6 +114,20 @@
                                     @TruncateValue(claim.Value, 80)
                                 }
                             </MudText>
+                            @{
+                                var sampleMapping = FindMapping(claim.Key);
+                            }
+                            @if (sampleMapping is not null)
+                            {
+                                <MudText Typo="Typo.caption" Color="Color.Secondary"
+                                         Style="font-style: italic; opacity: 0.7;">
+                                    @($"\u2192 {sampleMapping.JsonPath}")
+                                    @if (!string.IsNullOrEmpty(sampleMapping.Transform))
+                                    {
+                                        <span style="margin-left: 4px; opacity: 0.6;">(@sampleMapping.Transform)</span>
+                                    }
+                                </MudText>
+                            }
                         </div>
                     </MudStack>
 
@@ -146,13 +160,28 @@
         <div class="property-list">
             @foreach (var (key, weight) in Provider.FieldWeights)
             {
+                var mapping = FindMapping(key);
+
                 <div class="property-item selected">
                     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                         <MudIcon Icon="@Icons.Material.Filled.CheckCircle"
                                  Color="Color.Success" Size="Size.Small" />
-                        <MudText Typo="Typo.body2" Style="font-weight: 500; flex: 1;">
-                            @FormatPropertyKey(key)
-                        </MudText>
+                        <div style="flex: 1; min-width: 0;">
+                            <MudText Typo="Typo.body2" Style="font-weight: 500;">
+                                @FormatPropertyKey(key)
+                            </MudText>
+                            @if (mapping is not null)
+                            {
+                                <MudText Typo="Typo.caption" Color="Color.Secondary"
+                                         Style="font-style: italic; opacity: 0.7;">
+                                    @($"\u2192 {mapping.JsonPath}")
+                                    @if (!string.IsNullOrEmpty(mapping.Transform))
+                                    {
+                                        <span style="margin-left: 4px; opacity: 0.6;">(@mapping.Transform)</span>
+                                    }
+                                </MudText>
+                            }
+                        </div>
                         <MudText Typo="Typo.caption" Color="Color.Secondary">
                             @weight.ToString("P0")
                         </MudText>
@@ -256,9 +285,13 @@
 
     protected override void OnParametersSet()
     {
-        // Initialize endpoint URL from provider name (empty default — user fills in).
-        if (string.IsNullOrEmpty(_endpointUrl))
-            _endpointUrl = string.Empty;
+        // Pre-fill endpoint URL from provider config (prefer "api" key, then first available).
+        if (string.IsNullOrEmpty(_endpointUrl) && Provider.Endpoints is { Count: > 0 })
+        {
+            _endpointUrl = Provider.Endpoints.TryGetValue("api", out var apiUrl)
+                ? apiUrl
+                : Provider.Endpoints.Values.First();
+        }
 
         // Pre-select existing field weights.
         if (_selectedProperties.Count == 0 && Provider.FieldWeights is { Count: > 0 })
@@ -315,6 +348,10 @@
 
     private static string TruncateValue(string value, int maxLen) =>
         value.Length > maxLen ? value[..maxLen] + "…" : value;
+
+    private FieldMappingDto? FindMapping(string claimKey) =>
+        Provider.FieldMappings?.FirstOrDefault(m =>
+            string.Equals(m.ClaimKey, claimKey, StringComparison.OrdinalIgnoreCase));
 }
 
 <style>

@@ -216,6 +216,16 @@ public static class SettingsEndpoints
                 DefaultWeight    = provider.Weight,
                 FieldWeights     = provider.FieldWeights,
                 HydrationStages  = provider.HydrationStages,
+                Endpoints        = provider.Endpoints,
+                ThrottleMs       = provider.ThrottleMs,
+                MaxConcurrency   = provider.MaxConcurrency,
+                FieldMappings    = provider.FieldMappings?.Select(fm => new FieldMappingResponse
+                {
+                    ClaimKey   = fm.ClaimKey,
+                    JsonPath   = fm.JsonPath,
+                    Confidence = fm.Confidence,
+                    Transform  = fm.Transform,
+                }).ToList(),
             });
         })
         .WithName("UpdateProvider")
@@ -270,6 +280,16 @@ public static class SettingsEndpoints
                     DefaultWeight    = provider.Weight,
                     FieldWeights     = provider.FieldWeights,
                     HydrationStages  = provider.HydrationStages,
+                    Endpoints        = provider.Endpoints,
+                    ThrottleMs       = provider.ThrottleMs,
+                    MaxConcurrency   = provider.MaxConcurrency,
+                    FieldMappings    = provider.FieldMappings?.Select(fm => new FieldMappingResponse
+                    {
+                        ClaimKey   = fm.ClaimKey,
+                        JsonPath   = fm.JsonPath,
+                        Confidence = fm.Confidence,
+                        Transform  = fm.Transform,
+                    }).ToList(),
                 };
             });
 
