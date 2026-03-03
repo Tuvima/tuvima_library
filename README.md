@@ -2,9 +2,9 @@
 
 <img src="assets/images/tanaste-logo.svg" alt="Tanaste — The Unified Media Intelligence Kernel" height="90" />
 
-**A cross-media Hub for your digital life.**
+**The Private Universe Discovery & Playback Engine.**
 
-*Tanaste automatically unifies your Ebooks, Audiobooks, Comics, TV Shows, and Movies into single intelligent Hubs — powered by a local-first engine that never touches the cloud.*
+*Tanaste automatically unifies your Ebooks, Audiobooks, Comics, Music, TV Shows, and Movies into single intelligent Hubs — with built-in streaming, reading, and listening — powered by a local-first engine that never touches the cloud.*
 
 <br/>
 
@@ -242,14 +242,28 @@ The Great Inhale is a **read-only XML scan** — it reads XML only, performs no 
 
 ## 🌐 Supported Metadata Providers
 
-Tanaste ships with three built-in zero-key providers — no API accounts, no rate-limit quotas, no cost. They activate automatically after you enable them in `tanaste_master.json`.
+Tanaste ships with six built-in zero-key providers and supports additional providers that require a free API key. All config-driven — adding a new REST+JSON provider is a zero-code operation.
+
+### Built-in (Zero-Key)
 
 | Provider | Media type | What it contributes | Throttle |
 |---|---|---|---|
 | **Apple Books** (ebook) | EPUB / ebooks | Cover art (600 × 600), description, rating, title | 1 req / 300 ms |
 | **Apple Books** (audiobook) | Audiobooks | Cover art (600 × 600), description, rating, title | shared |
 | **Audnexus** | Audiobooks | Narrator, series, series position, cover art, author | none |
-| **Wikidata** | All (people) | Person headshot (Wikimedia Commons), biography, Q-identifier | 1 req / 1.1 s |
+| **Open Library** | Books | Title, author, year, cover art, ISBN, series | 1 req / 1 s |
+| **Google Books** | Books | Title, author, year, cover art, ISBN, description, page count | 1 req / 500 ms |
+| **Wikidata** | All media + people | 50+ properties via SPARQL, person headshots, biography, social links, bridge IDs to every major platform | 1 req / 1.1 s |
+
+### Planned (Free API Key Required)
+
+| Provider | Media type | What it contributes | Status |
+|---|---|---|---|
+| **TMDB** | Movies, TV | High-res posters (2000px), backdrop images, cast/crew, episode details | Planned (Sprint 13) |
+| **Comic Vine** | Comics | Character arcs, universe lore, issue details | Planned (Sprint 13) |
+| **Grand Comics Database** | Comics | Illustrator, colorist, penciller credits | Planned (Sprint 13) |
+| **MusicBrainz** | Music | Artist, album, year, genre, MBID (zero-key) | Planned (Sprint 6) |
+| **Spotify** | Music | Artist headshots, album art, genre, popularity | Planned (Sprint 13) |
 
 All network calls run on a **background channel** (`Channel<HarvestRequest>`, bounded 500 items, DropOldest). File ingestion never blocks waiting for network.
 
@@ -287,36 +301,56 @@ External apps can query Hubs, trigger library scans, and resolve metadata confli
 
 ## 🗺️ Project Roadmap
 
-### ✅ Completed
+### ✅ Completed — Intelligence & Infrastructure
 
 | Phase | What was built |
 |---|---|
-| **Phase 1** | Macro-architecture, bounded contexts, and core design invariants |
-| **Phase 2** | Domain model — Hub, Work, Edition, MediaAsset, and all contracts |
-| **Phase 3** | Metadata provider contracts and claim structure |
-| **Phase 4** | SQLite storage layer — ORM-less raw SQL, WAL mode, embedded schema |
+| **Phase 1–3** | Architecture, domain model (Hub → Work → Edition → MediaAsset), metadata contracts |
+| **Phase 4** | SQLite storage — ORM-less raw SQL, WAL mode, embedded schema, 13 tables |
 | **Phase 5** | Media processors — EPUB, Video (stub), Comic (CBZ/CBR), Generic fallback |
 | **Phase 6** | Intelligence Engine — Weighted Voter, Conflict Resolver, Identity Matcher, Hub Arbiter |
-| **Phase 7** | Ingestion Engine — Watch Folder, debounce queue, content hasher, background worker |
+| **Phase 7** | Ingestion Engine — Watch Folder, debounce queue, SHA-256 hasher, background worker |
 | **Phase 8** | Field-Level Arbitration — User-Locked Claims, per-field provider trust matrix |
-| **Phase 9** | External Metadata Adapters — Apple Books, Audnexus, Wikidata; Recursive Person Enrichment |
-| **Library Organization & Sidecar System** | Hub-first folder structure (`{Category}/{Hub} ({Year})/{Format} - {Edition}`); tanaste.xml sidecars at Hub and Edition level; confidence gate on AutoOrganize (≥0.85 or user-locked); Great Inhale (`POST /ingestion/library-scan`) to rebuild DB from XML |
-| **UI Deliverable 1** | Dashboard shell — MudBlazor layout, dark mode, Bento Grid, Hub cards, Command Palette |
-| **UI Deliverable 2** | State & real-time — UniverseViewModel, UniverseMapper, SignalR Intercom listener |
-| **Spatial Bento Redesign** | Universe-First navigation: removed sidebar in favour of floating Intent Dock (Hubs/Watch/Read/Listen) and Command Palette (Ctrl+K); Last Journey hero tile with artwork + progress bars; glassmorphic 32px-radius panels with blur(20px); asymmetric Bento grid with media-type icons |
+| **Phase 9** | External Metadata — Apple Books, Audnexus, Open Library, Google Books, Wikidata SPARQL; Recursive Person Enrichment; Config-driven universal adapter |
+| **Phase A** | Wikidata property map (50+ P-codes), person social links, sidecar XML bridges |
+| **Phase B** | SPARQL deep-hydration engine, Two-Stage Handshake (bridge IDs → title → SPARQL) |
+| **Library Org** | Hub-first folder structure, tanaste.xml sidecars, Great Inhale rebuild, AutoOrganize |
+| **Security** | API keys (generate/revoke), role-based auth (Admin/Curator/Consumer), rate limiting, path traversal protection, SignalR auth |
+| **Config** | Directory-based config (`config/`), auto-migration from legacy, per-provider files, universe knowledge model |
+| **Activity** | System activity ledger, configurable retention, daily pruning |
+| **Profiles** | User profiles with roles, avatar colours, 4-device adaptive layouts |
 
-### 🔄 In Progress / Planned
+### ✅ Completed — Dashboard
 
-| Milestone | Description |
+| Deliverable | What was built |
 |---|---|
-| **UI Deliverable 3** | Full Hub detail pages, Works list, Edition drill-down |
-| **UI Deliverable 4** | Live ingestion progress feed using Intercom SignalR events |
-| **UI Deliverable 5** | Metadata conflict resolution UI — review and resolve flagged Claims |
-| **Automotive Mode** | High-contrast, large-button display mode for TV / in-vehicle use |
-| **Video metadata** | Replace stub video extractor with FFmpeg-based real extractor |
-| **Open Library provider** | ISBN-based book metadata (foundation already in place; one new adapter class) |
-| **TMDB provider** | Movies and TV series metadata |
-| **Mobile companion** | Read-only library browser via the existing Engine API |
+| **Dashboard Shell** | MudBlazor 9, dark/light mode, glassmorphic Bento Grid, Hub cards, Command Palette (Ctrl+K) |
+| **Real-time** | SignalR Intercom (7 events), live progress bars, auto-reconnect |
+| **Navigation** | Floating Intent Dock (Hubs/Watch/Read/Listen), Virtual Libraries, content-aware visibility |
+| **Settings** | 11 tabs: General, Playback, Navigation, Libraries, Universe, Providers, Connectivity, API Keys, Conflicts, Users, Maintenance |
+| **Device Profiles** | Web, mobile, TV, automotive — 3-tier cascade (Global → Device → Profile) |
+
+### 🔄 Planned — The Road to v1.0
+
+| Sprint | Theme | Key Deliverables |
+|---|---|---|
+| **1–2** | Browsing & Detail Pages | Hub detail, Work detail, Person detail ("Human Hub"), Recently Added, Continue Journey, Smart Collections |
+| **3–4** | Ebook & Comic Playback | In-browser EPUB reader (paginated, chapter nav, font controls), Comic viewer (page-turn, zoom, RTL manga) |
+| **5–6** | Audiobook & Music | Persistent audiobook player (chapters, sleep timer, speed control), Music media type, MusicBrainz provider |
+| **7–8** | Video & FFmpeg | Video player (subtitles, chapters, PiP), FFmpeg integration, on-the-fly HLS transcoding |
+| **9–10** | Shadow Transcoder & PWA | Scheduled background transcoding (NVENC/QuickSync), offline-capable PWA, download for offline |
+| **11–12** | Authentication & Multi-User | Local PIN/password login, profile-scoped progress, Shared Journey Inference, parental controls |
+| **13–14** | Providers & Ecosystem | TMDB, Comic Vine, GCD, Spotify providers; OPDS catalog; Audiobookshelf API; webhooks; Plex/Calibre/Jellyfin import |
+| **15–16** | Statistics & Polish | Library/personal stats, Smart Collections engine, keyboard accessibility, loading skeletons, performance audit |
+
+### 🔮 Future Horizon
+
+- Native iOS/Android apps (MAUI or React Native)
+- DLNA/Chromecast/AirPlay casting
+- OIDC authentication (Google, Facebook)
+- Plugin/extension system
+- Multi-language/i18n
+- TV apps (Android TV, Apple TV)
 
 ---
 

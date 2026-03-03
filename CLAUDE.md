@@ -608,6 +608,238 @@ Example files in `config.example/ui/`. Live files in `config/ui/` gitignored.
 - **Privacy** — Device detection runs client-side. No telemetry or fingerprinting.
 - **Reliability** — If the Engine is offline, the Dashboard falls back to compiled web defaults. No blank screens.
 
+### 3.13 — Playback & Streaming Architecture (Target State)
+
+> **Status:** Not yet implemented. This section describes the target architecture for in-browser media consumption.
+
+**Plain English:** Tanaste becomes a full media server by embedding high-quality players for every media type directly in the browser. Users can read books, watch movies, listen to audiobooks, and browse comics without leaving the Dashboard.
+
+**Four built-in players:**
+
+| Player | Media types | Route | Key features |
+|---|---|---|---|
+| **EPUB Reader** | Ebooks | `/read/{assetId}` | Paginated CSS multi-column view, chapter sidebar (TOC from EPUB), font size/family adjustment, dark/light reading mode, resume from last position, keyboard navigation, mobile swipe gestures |
+| **Comic Viewer** | CBZ, CBR | `/read/{assetId}` (comic type) | Full-page image display, page-turn navigation (click/swipe/keyboard), page thumbnails sidebar, zoom/pan for high-res panels, LTR/RTL toggle for manga, prefetch next 2-3 pages |
+| **Audiobook Player** | M4B, MP3, M4A | Persistent bottom bar | Play/pause, skip ±30s, playback speed (0.5x-3x), chapter list with navigation, sleep timer, progress bar with chapter markers, background audio (persists during page navigation) |
+| **Video Player** | MP4, MKV, WebM, AVI | `/watch/{assetId}` | HTML5 video + HLS.js for adaptive streaming, subtitle track selection (SRT/VTT/ASS with on-the-fly WebVTT conversion), chapter markers, playback speed, PiP, keyboard shortcuts (Space/F/M/arrows), "mark as watched" at 90% threshold |
+
+**Progress tracking contract:**
+- `PUT /progress/{assetId}` — upserts `UserState` with progress percentage, last-accessed timestamp, and media-specific extended properties (page number for books, chapter index for audiobooks, timestamp for video)
+- `GET /progress/{assetId}` — retrieves current position for resume
+- All players update progress at configurable intervals (default: every 30 seconds or on chapter/page change)
+
+**Content serving endpoints:**
+- `GET /read/{assetId}/chapter/{index}` — serves EPUB chapter HTML/XHTML with embedded images and CSS
+- `GET /comic/{assetId}/page/{pageNum}` — extracts individual images from CBZ/CBR archives
+- `GET /stream/{assetId}/subtitles/{trackIndex}` — extracts embedded subtitles from MKV, converts to WebVTT
+- `GET /stream/{assetId}/chapters` — chapter metadata for MKV/M4B files
+
+**Audiobook player persistence:** The audiobook player component lives in `MainLayout.razor` (not inside a routed page) so it persists across navigation. A `PlaybackStateService` (scoped per circuit) manages the active audio session and exposes play/pause/seek to any component.
+
+**Dashboard components (Feature-Sliced):**
+
+| Component | Slice | Purpose |
+|---|---|---|
+| `EpubReader.razor` | `Components/Playback/` | Paginated ebook reader |
+| `ComicViewer.razor` | `Components/Playback/` | Full-page comic viewer |
+| `AudiobookPlayer.razor` | `Components/Playback/` | Persistent bottom-bar audio player |
+| `VideoPlayer.razor` | `Components/Playback/` | Full-screen video player with HLS |
+| `PlaybackStateService.cs` | `Services/Playback/` | Active session management, progress sync |
+
+**Why this matters to the business:**
+- **Reliability** — Every player tracks progress independently. Resume works across devices via the Engine API.
+- **Extensibility** — The progress API is media-type-agnostic. Any future player (PDF viewer, music player) uses the same contract.
+- **Privacy** — All playback happens locally. No telemetry, no cloud sync.
+- **Performance** — Prefetching (comics), segmented serving (EPUB chapters), and byte-range streaming (audio/video) ensure smooth playback even for large files.
+
+### 3.14 — Authentication & Multi-User (Target State)
+
+> **Status:** Not yet implemented. Profiles exist with roles but no login system.
+
+**Plain English:** Each household member gets their own login with separate progress tracking, reading history, and personalised settings. A simple PIN or password protects each profile.
+
+**Phase 1 — Local authentication (target):**
+- Login page: profile selection grid (avatar + name) → PIN/password entry
+- Session management via secure HTTP-only cookie (or JWT for API access)
+- Profile ↔ session binding: all API calls scoped to the authenticated profile
+- "Remember me" cookie with configurable expiry (default: 30 days)
+- PIN: minimum 4 digits. Password: minimum 8 characters.
+- PIN/password management in the Users settings tab
+
+**Profile-scoped data:** UserState (progress), reading/watching history, navigation config, Virtual Library config, UI theme preferences — all scoped to `profileId`.
+
+**Phase 2 — OIDC (future):** Google, Facebook, and custom OIDC provider support. Deferred until after local auth is stable.
+
+**Shared Journey Inference:** The Engine compares `UserState.LastAccessed` timestamps between profiles. If 2+ profiles access the same asset within a 5-minute window, the viewing session is tagged as a "Shared Journey" (e.g. family movie night). Solo sessions are tagged "Solo Journey". The Dashboard shows which journeys were shared.
+
+**Parental controls:** Content rating tags from TMDB (P1657 via Wikidata) or manual assignment. Profile-level maturity filter (Kids, Teen, Adult). PIN-protected access to mature content.
+
+**Why this matters to the business:**
+- **Privacy** — Each household member's reading habits are private to their profile.
+- **Reliability** — Session-based auth ensures progress is always attributed to the correct person.
+- **Extensibility** — OIDC support can be layered on later without changing the profile model.
+
+### 3.15 — Transcoding Pipeline (Target State)
+
+> **Status:** Not yet implemented. `IVideoMetadataExtractor` is a stub.
+
+**Plain English:** Tanaste uses FFmpeg to convert video files into formats that every device can play smoothly. It can transcode on-the-fly when you press play, or pre-create mobile-friendly copies overnight so streaming is instant.
+
+**FFmpeg integration (`FFmpegService`):**
+- Auto-detect FFmpeg/FFprobe installation paths
+- Hardware capability detection: NVENC (NVIDIA), QuickSync (Intel), VAAPI (Linux AMD/Intel)
+- Replace `StubVideoMetadataExtractor` with real metadata extraction (resolution, duration, codec, frame rate)
+- Extract embedded subtitles (SRT, ASS, VTT)
+- Extract chapter information from MKV/MP4
+
+**On-the-fly transcoding:**
+- `GET /stream/{assetId}/transcode` — HLS output (segmented .m3u8 + .ts chunks)
+- Client sends codec capabilities via query params; Engine selects appropriate transcode profile
+- Quality profiles: Original, 1080p, 720p, 480p
+- Hardware-accelerated encoding when available; software fallback
+- Session management: active sessions tracked per user, temp segments cleaned up after session ends
+
+**Shadow Transcoder (scheduled background jobs):**
+- `TranscodeJob` domain model: source asset, target quality profile, status, progress percentage
+- Priority: user-requested > scheduled > background
+- Background service runs on configurable schedule (default: daily at 3:00 AM)
+- Scans library for video assets without mobile-optimized copies
+- Creates lower-bitrate variants (720p H.264 for mobile) stored at `{LibraryRoot}/.tanaste-shadow/{assetId}/{quality}.mp4`
+- Respects hardware limits (1 concurrent transcode by default, configurable)
+- Progress reporting via SignalR (`TranscodeProgress` event)
+- Automatic cleanup when source asset is deleted
+
+**Configuration:** `config/transcoding.json`
+```json
+{
+  "quality_profiles": [
+    { "name": "mobile", "resolution": "720p", "codec": "h264", "bitrate": "2M" },
+    { "name": "tablet", "resolution": "1080p", "codec": "h264", "bitrate": "5M" }
+  ],
+  "schedule": { "enabled": true, "cron": "0 3 * * *" },
+  "hardware_preference": "auto",
+  "max_concurrent": 1,
+  "shadow_storage_limit_gb": 500
+}
+```
+
+**Why this matters to the business:**
+- **Performance** — Shadow copies eliminate transcoding delay during playback. Mobile users get instant streaming.
+- **Reliability** — Hardware-accelerated encoding reduces CPU load. Software fallback ensures it works everywhere.
+- **Extensibility** — Quality profiles are configurable. New profiles can be added without code changes.
+- **Maintenance** — Storage limits prevent shadow copies from consuming the entire drive.
+
+### 3.16 — Music Domain Model (Target State)
+
+> **Status:** Not yet implemented. No music media type exists.
+
+**Plain English:** Music becomes a first-class citizen. Albums are Hubs, tracks are Works, and artists are Persons. MusicBrainz provides authoritative metadata.
+
+**Domain model extension:**
+- New `MediaType.Music` enum value
+- Album maps to Hub (the "story" is the album)
+- Track maps to Work (individual title within the album)
+- Artist maps to Person with role "Artist"
+- Track number → `Work.SequenceIndex` (album ordering)
+- Disc number → stored as canonical value `disc_number`
+
+**MusicProcessor:**
+- Reads ID3v2 tags (MP3), Vorbis comments (FLAC/OGG), and MP4 atoms (M4A/AAC)
+- Extracts: title, artist, album, track number, disc number, genre, year, album art
+- Embedded album art extraction (same pattern as EPUB cover extraction)
+- Magic bytes detection: MP3 (`FF FB` / `49 44 33`), FLAC (`66 4C 61 43`), OGG (`4F 67 67 53`), M4A (ftyp)
+
+**Providers:**
+- **MusicBrainz** (config-driven, zero-key): search by artist + album or MBID. Field weights: artist 0.9, album 0.85, year 0.9, genre 0.7
+- **Spotify** (config-driven, requires API key): artist headshots, album art, genre, popularity. Metadata only — no streaming.
+
+**Music player UI:** Album view with track list, play queue, gapless playback (stretch goal), crossfade (stretch goal). Shares the persistent bottom-bar player with audiobooks (same `AudiobookPlayer.razor` component, generalised to `AudioPlayer.razor`).
+
+**Why this matters to the business:**
+- **Extensibility** — Music uses the exact same Hub/Work/Edition/MediaAsset hierarchy as all other media types. No special casing.
+- **Maintenance** — MusicBrainz is a zero-key provider. Spotify requires a free API key but brings high-quality artwork.
+- **Privacy** — Only artist names and album titles are sent to external services.
+
+### 3.17 — Interoperability & Ecosystem (Target State)
+
+> **Status:** Not yet implemented.
+
+**Plain English:** Tanaste speaks the languages that other apps already understand. Ebook readers can browse your library via OPDS. Audiobook apps can connect via an Audiobookshelf-compatible interface. External tools get notified via webhooks when new content arrives.
+
+**OPDS 1.2 catalog (`/opds/`):**
+- Atom XML feeds: root, search (OpenSearch), categories (by media type, author, series), recently added
+- OPDS Page Streaming Extension for comic viewers
+- Compatible with: Moon Reader, KOReader, Calibre, Thorium Reader
+- Authentication via API key in URL parameter or HTTP Basic (mapped to API key)
+
+**Audiobookshelf-compatible API (subset):**
+- `/api/libraries` — list available audiobook libraries
+- `/api/items/{id}` — item detail with chapters and progress
+- `/api/me/listening-sessions` — progress sync
+- Allows existing Audiobookshelf mobile apps to connect without modification
+
+**Webhook system:**
+- Configuration: `config/webhooks.json` — list of URL + events + HMAC secret
+- Events: `FileIngested`, `MetadataHydrated`, `TranscodeCompleted`, `PersonEnriched`
+- Delivery: HTTP POST with `X-Tanaste-Signature` HMAC-SHA256 header
+- Use cases: Discord/Telegram notifications for new content, automation triggers
+
+**Import wizard:**
+- Plex: read Plex SQLite DB (`com.plexapp.plugins.library.db`), map sections → Tanaste Hubs, import watched status
+- Calibre: read `metadata.db`, import books with existing metadata
+- Jellyfin: read NFO sidecar files alongside media, map to Tanaste claims
+
+**PWA capabilities:**
+- Web app manifest + service worker for installable experience
+- Offline cached shell (app loads without network; content requires Engine)
+- Push notifications for new content (via Intercom bridge to Push API)
+
+**Why this matters to the business:**
+- **Extensibility** — OPDS is a universal standard. Any ebook reader in the world can connect. This is a major differentiator over Plex/Jellyfin.
+- **Reliability** — The import wizard reduces migration friction. Users don't lose their existing watched/read progress.
+- **Privacy** — Webhooks are outbound-only and user-configured. No telemetry.
+
+### 3.18 — Browse & Discovery Pages (Target State)
+
+> **Status:** Not yet implemented. Only the Home grid and Settings page exist.
+
+**Plain English:** Users can drill into any Hub to see its full contents, view rich metadata for any Work or Edition, browse creator profiles with social links, and always see what's new or in progress.
+
+**New pages:**
+
+| Page | Route | Content |
+|---|---|---|
+| `HubDetail.razor` | `/hub/{id}` | Hero artwork + dominant color, Hub metadata (name, year, franchise, QID link), Works list grouped by media type, Person credits with headshots, Social Pivot links, "Hydrate from Wikidata" button |
+| `WorkDetail.razor` | `/work/{id}` | Work metadata (title, author, year, series position), Edition list with format labels and file sizes, Claim history panel, Cover art, Play/Read/Listen button |
+| `PersonDetail.razor` | `/person/{id}` | Headshot, biography, occupation, Social links (Instagram, TikTok, Mastodon, website), Works grouped by role (author, narrator, director). The "Human Hub" from the spec |
+
+**New Home page sections (top to bottom):**
+1. **Continue Journey** — most recently accessed, incomplete items (queries `UserState`)
+2. **Recently Added** — horizontal scroll of newest Hubs (new endpoint: `GET /hubs/recent?limit=20`)
+3. **Smart Collections** — "In Progress", "New This Week", "Unread" (auto-generated from metadata)
+4. **Your Universes** (existing) — Bento grid of all Hubs
+
+**Navigation additions:**
+- Breadcrumb trail: Home → Hub → Work
+- Click-through from UniverseStack tiles → HubDetail
+- Click-through from search results → WorkDetail
+- "Next in series" navigation on WorkDetail (uses `SequenceIndex`)
+- Faceted filtering on Home: by year range, media type, author
+
+**API additions:**
+- `GET /hubs/recent?limit=20` — recently added Hubs
+- `GET /journey/continue?profileId={id}&limit=10` — continue watching/reading
+- `GET /hubs/{id}/works` — Works for a Hub with full canonical values
+- `GET /works/{id}/editions` — Editions for a Work with file metadata
+- `GET /persons/{id}` — Person detail with social links and linked works
+- `GET /collections` — Smart and user-created collections
+- `GET /collections/{id}/items` — Items in a collection
+
+**Why this matters to the business:**
+- **Reliability** — Every piece of data the Engine knows is now accessible in the Dashboard. No hidden metadata.
+- **Extensibility** — The page routing pattern (`/hub/{id}`, `/work/{id}`, `/person/{id}`) is consistent and predictable.
+- **Performance** — Smart Collections are pre-computed from existing canonical values. No expensive queries at render time.
+
 ---
 
 ## 4. Product Owner Communication Rules
@@ -821,6 +1053,9 @@ src/Tanaste.Web/
 │   │   ├── UniverseMapper.cs           Maps Engine data → flat Dashboard view model
 │   │   └── IntercomEvents.cs           SignalR event shapes (MediaAdded, IngestionProgress, MetadataHarvested, PersonEnriched)
 │   │
+│   ├── Playback/             ← (TARGET STATE) Playback session management
+│   │   └── PlaybackStateService.cs     Active session management, progress sync, audio persistence
+│   │
 │   └── Theming/              ← ALL visual configuration lives here
 │       ├── ThemeService.cs             Dark/light mode, colour palette, corner radii
 │       └── DeviceContextService.cs     Per-circuit device class + resolved UI settings
@@ -853,8 +1088,19 @@ src/Tanaste.Web/
 │   │   ├── UsersTab.razor               User profile management
 │   │   └── MaintenanceTab.razor         Activity ledger, retention, prune
 │   │
+│   ├── Playback/             ← (TARGET STATE) In-browser media players
+│   │   ├── EpubReader.razor             Paginated EPUB reader with chapter nav, font controls
+│   │   ├── ComicViewer.razor            Full-page comic viewer with page-turn, zoom, RTL toggle
+│   │   ├── AudioPlayer.razor            Persistent bottom-bar player for audiobooks + music
+│   │   └── VideoPlayer.razor            Full-screen video player with HLS, subtitles, chapters
+│   │
 │   └── Pages/                ← Full-page views (routed)
-│       ├── Home.razor                  Library overview page
+│       ├── Home.razor                  Library overview: Continue Journey + Recently Added + Smart Collections + Universe Grid
+│       ├── HubDetail.razor             (TARGET STATE) Hub detail: artwork, works, persons, social pivot
+│       ├── WorkDetail.razor            (TARGET STATE) Work detail: editions, metadata, play button
+│       ├── PersonDetail.razor          (TARGET STATE) Person detail: headshot, bio, social links, works
+│       ├── Statistics.razor            (TARGET STATE) Library + personal stats, charts
+│       ├── Login.razor                 (TARGET STATE) Profile selection + PIN/password login
 │       ├── Settings.razor              Unified settings: sidebar + content, all 11 tab components
 │       └── NotFound.razor              404 page
 │
@@ -883,6 +1129,8 @@ src/Tanaste.Web/
 | A new data shape for the Dashboard | `Models/ViewDTOs/` |
 | A new reusable visual component | `Components/<FeatureName>/` |
 | A new full page | `Components/Pages/` |
+| A new media player component | `Components/Playback/` |
+| A new playback service | `Services/Playback/` |
 | A new layout wrapper | `Shared/` |
 | A new visual theme setting | `Services/Theming/ThemeService.cs` |
 | A new device-context feature flag | `Services/Theming/DeviceContextService.cs` + `Models/ViewDTOs/ResolvedUISettingsViewModel.cs` |

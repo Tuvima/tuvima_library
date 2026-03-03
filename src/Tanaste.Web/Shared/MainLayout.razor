@@ -24,11 +24,11 @@
     @* ── Header: Logo left, Action Cluster right ── *@
     <MudAppBar Elevation="0" Class="@AppBarClass">
 
-        @* Logo — anchored left as home link *@
-        <MudLink Href="/" Underline="Underline.None" Class="d-flex align-center"
-                 Style="text-decoration: none;">
-            <img src="@LogoSrc" alt="Tanaste" class="tanaste-logo"
-                 style="@LogoStyle" />
+        @* Logo — anchored left as home link.
+             TanasteLogo inlines the SVG so CSS color inheritance works
+             and the wordmark correctly adapts to dark / light mode. *@
+        <MudLink Href="/" Underline="Underline.None" Class="d-flex align-center" Style="text-decoration: none;">
+            <TanasteLogo Style="@LogoStyle" />
         </MudLink>
 
         <MudSpacer />
@@ -43,17 +43,13 @@
             @if (item.Key == "cast" && !DeviceContext.IsFeatureDisabled("avatar_menu"))
             {
                 <MudTooltip Text="Cast — Coming soon" Arrow="true" Placement="Placement.Bottom">
-                    <MudIconButton Icon="@Icons.Material.Filled.Cast"
-                                   Color="Color.Inherit"
-                                   Disabled="true"
+                    <MudIconButton Icon="@Icons.Material.Filled.Cast" Color="Color.Inherit" Disabled="true"
                                    title="Cast — Coming soon" />
                 </MudTooltip>
             }
             else if (item.Key == "profile" && !DeviceContext.IsFeatureDisabled("avatar_menu"))
             {
-                <MudAvatar Size="Size.Medium"
-                           Style="@($"background: {_avatarColor}; cursor: pointer;")"
-                           title="Settings"
+                <MudAvatar Size="Size.Medium" Style="@($"background: {_avatarColor}; cursor: pointer;")" title="Settings"
                            @onclick="@(() => Nav.NavigateTo("/settings"))">
                     @_avatarInitial
                 </MudAvatar>
@@ -69,10 +65,8 @@
     </MudMainContent>
 
     @* Floating Navigation Tray — content-aware virtual library filter + search *@
-    <NavigationTray Config="@_navigationConfig.Tray"
-                    ActiveLibraryKey="@State.ActiveLibraryFilter?.Key"
-                    AvailableMediaTypes="@State.AvailableMediaTypes"
-                    OnLibrarySelected="@OnLibrarySelected"
+    <NavigationTray Config="@_navigationConfig.Tray" ActiveLibraryKey="@State.ActiveLibraryFilter?.Key"
+                    AvailableMediaTypes="@State.AvailableMediaTypes" OnLibrarySelected="@OnLibrarySelected"
                     OnSearchRequested="@(() => _palette?.Toggle())" />
 </MudLayout>
 
@@ -82,7 +76,7 @@
     private CommandPalette? _palette;
 
     // Profile state for the header action cluster.
-    private string _avatarColor   = "#7C4DFF";
+    private string _avatarColor = "#7C4DFF";
     private string _avatarInitial = "?";
 
     // Navigation configuration — loaded from profile, falls back to defaults.
@@ -93,30 +87,23 @@
     private string AppBarClass =>
         DeviceContext.Settings.Shell.AppBarStyle switch
         {
-            "compact"   => "spatial-appbar spatial-appbar-compact",
+            "compact" => "spatial-appbar spatial-appbar-compact",
             "oversized" => "spatial-appbar spatial-appbar-oversized",
-            "minimal"   => "spatial-appbar spatial-appbar-minimal",
-            _           => "spatial-appbar",
+            "minimal" => "spatial-appbar spatial-appbar-minimal",
+            _ => "spatial-appbar",
         };
 
     // ── Logo variant driven by Shell.LogoVariant ────────────────────────────
-
-    private string LogoSrc =>
-        DeviceContext.Settings.Shell.LogoVariant switch
-        {
-            "icon"           => "images/tanaste-icon.svg",
-            "icon-large"     => "images/tanaste-icon.svg",
-            "wordmark-large" => "images/tanaste-logo.svg",
-            _                => "images/tanaste-logo.svg",
-        };
+    // LogoSrc removed: the logo is now an inline <TanasteLogo> SVG component
+    // so that CSS color inheritance reaches the wordmark paths.
 
     private string LogoStyle =>
         DeviceContext.Settings.Shell.LogoVariant switch
         {
-            "icon"           => "height: 28px; display: block;",
-            "icon-large"     => "height: 44px; display: block;",
+            "icon" => "height: 28px; display: block;",
+            "icon-large" => "height: 44px; display: block;",
             "wordmark-large" => "height: 48px; display: block;",
-            _                => "height: 32px; display: block;",
+            _ => "height: 32px; display: block;",
         };
 
     // ── Content area driven by device context ───────────────────────────────
@@ -127,11 +114,11 @@
     private MaxWidth ContentMaxWidth =>
         DeviceContext.Settings.ContentMaxWidth switch
         {
-            "Full"       => MaxWidth.False,
+            "Full" => MaxWidth.False,
             "ExtraLarge" => MaxWidth.ExtraLarge,
-            "Large"      => MaxWidth.Large,
-            "Medium"     => MaxWidth.Medium,
-            _            => MaxWidth.ExtraLarge,
+            "Large" => MaxWidth.Large,
+            "Medium" => MaxWidth.Medium,
+            _ => MaxWidth.ExtraLarge,
         };
 
     // ── Lifecycle ───────────────────────────────────────────────────────────
