@@ -274,6 +274,49 @@ public sealed class DatabaseConnection : IDatabaseConnection
             column: "navigation_config",
             ddl:    "ALTER TABLE profiles ADD COLUMN navigation_config TEXT;");
 
+        // Migration M-013: Hydration Pipeline — create review_queue + image_cache tables.
+        // review_queue stores metadata items requiring user intervention (disambiguation,
+        // low confidence, manual fix).  image_cache tracks downloaded image content hashes
+        // to prevent redundant re-downloads across entities.
+        MigrateCreateTableIfMissing(
+            conn,
+            probeTable:  "review_queue",
+            probeColumn: "id",
+            ddl: """
+                CREATE TABLE IF NOT EXISTS review_queue (
+                    id               TEXT NOT NULL PRIMARY KEY,
+                    entity_id        TEXT NOT NULL,
+                    entity_type      TEXT NOT NULL,
+                    trigger          TEXT NOT NULL,
+                    status           TEXT NOT NULL DEFAULT 'Pending'
+                                         CHECK (status IN ('Pending', 'Resolved', 'Dismissed')),
+                    proposed_hub_id  TEXT,
+                    confidence_score REAL,
+                    candidates_json  TEXT,
+                    detail           TEXT,
+                    created_at       TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+                    resolved_at      TEXT,
+                    resolved_by      TEXT
+                );
+                CREATE INDEX IF NOT EXISTS idx_review_queue_status
+                    ON review_queue (status);
+                CREATE INDEX IF NOT EXISTS idx_review_queue_entity_id
+                    ON review_queue (entity_id);
+                """);
+
+        MigrateCreateTableIfMissing(
+            conn,
+            probeTable:  "image_cache",
+            probeColumn: "content_hash",
+            ddl: """
+                CREATE TABLE IF NOT EXISTS image_cache (
+                    content_hash  TEXT NOT NULL PRIMARY KEY,
+                    file_path     TEXT NOT NULL,
+                    source_url    TEXT,
+                    downloaded_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+                );
+                """);
+
         // Seed S-001: provider_registry entries for all known providers.
         // metadata_claims.provider_id has a FK to provider_registry(id), so these
         // rows MUST exist before any claim is written.  INSERT OR IGNORE makes this

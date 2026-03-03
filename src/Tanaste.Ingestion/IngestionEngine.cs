@@ -63,7 +63,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     // Phase 9: claim/canonical persistence + external metadata harvesting.
     private readonly IMetadataClaimRepository    _claimRepo;
     private readonly ICanonicalValueRepository   _canonicalRepo;
-    private readonly IMetadataHarvestingService  _harvesting;
+    private readonly IHydrationPipelineService   _pipeline;
     private readonly IRecursiveIdentityService   _identity;
 
     // Phase 7: sidecar XML writer.
@@ -87,7 +87,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         ILogger<IngestionEngine>  logger,
         IMetadataClaimRepository   claimRepo,
         ICanonicalValueRepository  canonicalRepo,
-        IMetadataHarvestingService harvesting,
+        IHydrationPipelineService  pipeline,
         IRecursiveIdentityService  identity,
         ISidecarWriter             sidecar,
         IMediaEntityChainFactory   chainFactory)
@@ -106,7 +106,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         _logger        = logger;
         _claimRepo     = claimRepo;
         _canonicalRepo = canonicalRepo;
-        _harvesting    = harvesting;
+        _pipeline      = pipeline;
         _identity      = identity;
         _sidecar       = sidecar;
         _chainFactory  = chainFactory;
@@ -375,8 +375,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             result.DetectedType.ToString(),
             DateTimeOffset.UtcNow), ct).ConfigureAwait(false);
 
-        // Phase 9: enqueue non-blocking external metadata harvest.
-        await _harvesting.EnqueueAsync(new HarvestRequest
+        // Phase 9→Pipeline: enqueue non-blocking three-stage hydration pipeline.
+        await _pipeline.EnqueueAsync(new HarvestRequest
         {
             EntityId   = assetId,
             EntityType = EntityType.MediaAsset,

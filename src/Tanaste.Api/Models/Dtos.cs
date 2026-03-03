@@ -387,6 +387,9 @@ public sealed class ProviderStatusResponse
 
     [JsonPropertyName("field_weights")]
     public Dictionary<string, double> FieldWeights { get; init; } = [];
+
+    [JsonPropertyName("hydration_stages")]
+    public List<int> HydrationStages { get; init; } = [1];
 }
 
 // ── POST /settings/providers/{name}/test ──────────────────────────────────────
@@ -693,11 +696,110 @@ public sealed class HydrateResponse
     [JsonPropertyName("claims_added")]
     public int ClaimsAdded { get; init; }
 
+    [JsonPropertyName("stage1_claims")]
+    public int Stage1Claims { get; init; }
+
+    [JsonPropertyName("stage2_claims")]
+    public int Stage2Claims { get; init; }
+
+    [JsonPropertyName("stage3_claims")]
+    public int Stage3Claims { get; init; }
+
+    [JsonPropertyName("needs_review")]
+    public bool NeedsReview { get; init; }
+
+    [JsonPropertyName("review_item_id")]
+    public Guid? ReviewItemId { get; init; }
+
     [JsonPropertyName("success")]
     public bool Success { get; init; }
 
     [JsonPropertyName("message")]
     public string Message { get; init; } = string.Empty;
+}
+
+// ── Review Queue DTOs ────────────────────────────────────────────────────────
+
+public sealed class ReviewItemDto
+{
+    [JsonPropertyName("id")]
+    public Guid Id { get; init; }
+
+    [JsonPropertyName("entity_id")]
+    public Guid EntityId { get; init; }
+
+    [JsonPropertyName("entity_type")]
+    public string EntityType { get; init; } = string.Empty;
+
+    [JsonPropertyName("trigger")]
+    public string Trigger { get; init; } = string.Empty;
+
+    [JsonPropertyName("status")]
+    public string Status { get; init; } = string.Empty;
+
+    [JsonPropertyName("proposed_hub_id")]
+    public string? ProposedHubId { get; init; }
+
+    [JsonPropertyName("confidence_score")]
+    public double? ConfidenceScore { get; init; }
+
+    [JsonPropertyName("candidates_json")]
+    public string? CandidatesJson { get; init; }
+
+    [JsonPropertyName("detail")]
+    public string? Detail { get; init; }
+
+    [JsonPropertyName("created_at")]
+    public DateTimeOffset CreatedAt { get; init; }
+
+    [JsonPropertyName("resolved_at")]
+    public DateTimeOffset? ResolvedAt { get; init; }
+
+    [JsonPropertyName("resolved_by")]
+    public string? ResolvedBy { get; init; }
+
+    public static ReviewItemDto FromDomain(Domain.Entities.ReviewQueueEntry e) => new()
+    {
+        Id              = e.Id,
+        EntityId        = e.EntityId,
+        EntityType      = e.EntityType,
+        Trigger         = e.Trigger,
+        Status          = e.Status,
+        ProposedHubId   = e.ProposedHubId,
+        ConfidenceScore = e.ConfidenceScore,
+        CandidatesJson  = e.CandidatesJson,
+        Detail          = e.Detail,
+        CreatedAt       = e.CreatedAt,
+        ResolvedAt      = e.ResolvedAt,
+        ResolvedBy      = e.ResolvedBy,
+    };
+}
+
+public sealed class ReviewResolveRequest
+{
+    [JsonPropertyName("selected_qid")]
+    public string? SelectedQid { get; init; }
+
+    [JsonPropertyName("field_overrides")]
+    public List<FieldOverrideDto>? FieldOverrides { get; init; }
+}
+
+public sealed class FieldOverrideDto
+{
+    [JsonPropertyName("key")]
+    public string Key { get; init; } = string.Empty;
+
+    [JsonPropertyName("value")]
+    public string Value { get; init; } = string.Empty;
+
+    [JsonPropertyName("provider_id")]
+    public string? ProviderId { get; init; }
+}
+
+public sealed class ReviewCountResponse
+{
+    [JsonPropertyName("pending_count")]
+    public int PendingCount { get; init; }
 }
 
 // ── /ingestion/watch-folder ──────────────────────────────────────────────────

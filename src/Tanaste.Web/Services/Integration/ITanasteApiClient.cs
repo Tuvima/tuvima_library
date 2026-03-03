@@ -163,6 +163,31 @@ public interface ITanasteApiClient
         string? profileId = null,
         CancellationToken ct = default);
 
+    // ── Review queue (/review) ──────────────────────────────────────────────
+
+    /// <summary>GET /review/pending?limit= — list pending review queue items.</summary>
+    Task<List<ReviewItemViewModel>> GetPendingReviewsAsync(int limit = 50, CancellationToken ct = default);
+
+    /// <summary>GET /review/{id} — single review item with full detail.</summary>
+    Task<ReviewItemViewModel?> GetReviewItemAsync(Guid id, CancellationToken ct = default);
+
+    /// <summary>GET /review/count — pending count for sidebar badge.</summary>
+    Task<int> GetReviewCountAsync(CancellationToken ct = default);
+
+    /// <summary>POST /review/{id}/resolve — resolve a review item.</summary>
+    Task<bool> ResolveReviewItemAsync(Guid id, ReviewResolveRequestDto request, CancellationToken ct = default);
+
+    /// <summary>POST /review/{id}/dismiss — dismiss a review item.</summary>
+    Task<bool> DismissReviewItemAsync(Guid id, CancellationToken ct = default);
+
+    // ── Hydration settings (/settings/hydration) ──────────────────────────
+
+    /// <summary>GET /settings/hydration — load hydration pipeline configuration.</summary>
+    Task<HydrationSettingsDto?> GetHydrationSettingsAsync(CancellationToken ct = default);
+
+    /// <summary>PUT /settings/hydration — save hydration pipeline configuration.</summary>
+    Task<bool> UpdateHydrationSettingsAsync(HydrationSettingsDto settings, CancellationToken ct = default);
+
     /// <summary>
     /// Most recent error message from the last failed API call.
     /// Useful for surfacing diagnostic details in the UI.

@@ -68,6 +68,7 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
     private const string CoreFileName        = "tanaste.json";
     private const string ScoringFileName     = "scoring.json";
     private const string MaintenanceFileName = "maintenance.json";
+    private const string HydrationFileName   = "hydration.json";
 
     // ── Endpoint distribution map for legacy migration ────────────────────────
 
@@ -220,6 +221,14 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
     /// <inheritdoc/>
     public void SaveMaintenance(MaintenanceSettings settings) =>
         SaveFile(MaintenanceFileName, settings);
+
+    /// <inheritdoc/>
+    public HydrationSettings LoadHydration() =>
+        LoadFile<HydrationSettings>(HydrationFileName) ?? new();
+
+    /// <inheritdoc/>
+    public void SaveHydration(HydrationSettings settings) =>
+        SaveFile(HydrationFileName, settings);
 
     /// <inheritdoc/>
     public ProviderConfiguration? LoadProvider(string name)

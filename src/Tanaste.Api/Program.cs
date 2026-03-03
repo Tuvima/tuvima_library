@@ -273,6 +273,11 @@ builder.Services.AddSingleton<IExternalMetadataProvider, WikidataAdapter>();
 builder.Services.AddSingleton<IMetadataHarvestingService, MetadataHarvestingService>();
 builder.Services.AddSingleton<IRecursiveIdentityService,  RecursiveIdentityService>();
 
+// ── Hydration pipeline (three-stage orchestrator) + review queue ─────────────
+builder.Services.AddSingleton<IHydrationPipelineService,  HydrationPipelineService>();
+builder.Services.AddSingleton<IReviewQueueRepository,     ReviewQueueRepository>();
+builder.Services.AddSingleton<IImageCacheRepository,      ImageCacheRepository>();
+
 // ── Phase 7: Sidecar writer + Great Inhale scanner ───────────────────────────
 builder.Services.AddSingleton<ISidecarWriter,  SidecarWriter>();
 builder.Services.AddSingleton<ILibraryScanner, LibraryScanner>();
@@ -321,6 +326,7 @@ app.MapHubEndpoints();
 app.MapStreamEndpoints();
 app.MapIngestionEndpoints();
 app.MapMetadataEndpoints();
+app.MapReviewEndpoints();
 app.MapSettingsEndpoints();
 app.MapUISettingsEndpoints();
 app.MapProfileEndpoints();

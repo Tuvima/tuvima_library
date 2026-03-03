@@ -130,3 +130,55 @@ public sealed record FolderHealthChangedEvent(
     bool           HasRead,
     bool           HasWrite,
     DateTimeOffset CheckedAt);
+
+// ── Hydration Pipeline Events ────────────────────────────────────────────────
+
+/// <summary>
+/// Payload broadcast when a review queue item is created because the hydration
+/// pipeline could not proceed automatically (disambiguation needed or low confidence).
+///
+/// SignalR method name: <c>"ReviewItemCreated"</c>
+///
+/// The Dashboard uses this event to update the review count badge on the profile
+/// avatar and to refresh the Needs Review queue if the user is viewing it.
+/// </summary>
+/// <param name="ReviewItemId">The review queue entry ID.</param>
+/// <param name="EntityId">The entity that triggered the review.</param>
+/// <param name="Trigger">The trigger reason (e.g. "LowConfidence", "MultipleQidMatches").</param>
+/// <param name="EntityTitle">Best-available title for display, or null.</param>
+public sealed record ReviewItemCreatedEvent(
+    Guid    ReviewItemId,
+    Guid    EntityId,
+    string  Trigger,
+    string? EntityTitle);
+
+/// <summary>
+/// Payload broadcast when a review queue item is resolved or dismissed.
+///
+/// SignalR method name: <c>"ReviewItemResolved"</c>
+///
+/// The Dashboard decrements the badge count and removes the item from the queue.
+/// </summary>
+/// <param name="ReviewItemId">The review queue entry ID.</param>
+/// <param name="EntityId">The entity whose review was resolved.</param>
+/// <param name="Status">New status: "Resolved" or "Dismissed".</param>
+public sealed record ReviewItemResolvedEvent(
+    Guid   ReviewItemId,
+    Guid   EntityId,
+    string Status);
+
+/// <summary>
+/// Payload broadcast when an individual stage of the hydration pipeline completes
+/// for an entity. Used by the Dashboard to show live stage-by-stage progress.
+///
+/// SignalR method name: <c>"HydrationStageCompleted"</c>
+/// </summary>
+/// <param name="EntityId">The entity being hydrated.</param>
+/// <param name="Stage">The stage number (1, 2, or 3).</param>
+/// <param name="ClaimsAdded">Number of claims added in this stage.</param>
+/// <param name="ProviderName">The provider or stage label that completed.</param>
+public sealed record HydrationStageCompletedEvent(
+    Guid   EntityId,
+    int    Stage,
+    int    ClaimsAdded,
+    string ProviderName);

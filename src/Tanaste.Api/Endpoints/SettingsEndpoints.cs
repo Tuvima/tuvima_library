@@ -206,15 +206,16 @@ public static class SettingsEndpoints
 
             return Results.Ok(new ProviderStatusResponse
             {
-                Name           = provider.Name,
-                DisplayName    = displayName,
-                Enabled        = provider.Enabled,
-                IsZeroKey      = true,
-                IsReachable    = false, // Not probed on save — will be checked on next GET.
-                Domain         = provider.Domain.ToString(),
-                CapabilityTags = provider.CapabilityTags,
-                DefaultWeight  = provider.Weight,
-                FieldWeights   = provider.FieldWeights,
+                Name             = provider.Name,
+                DisplayName      = displayName,
+                Enabled          = provider.Enabled,
+                IsZeroKey        = true,
+                IsReachable      = false, // Not probed on save — will be checked on next GET.
+                Domain           = provider.Domain.ToString(),
+                CapabilityTags   = provider.CapabilityTags,
+                DefaultWeight    = provider.Weight,
+                FieldWeights     = provider.FieldWeights,
+                HydrationStages  = provider.HydrationStages,
             });
         })
         .WithName("UpdateProvider")
@@ -259,15 +260,16 @@ public static class SettingsEndpoints
 
                 return new ProviderStatusResponse
                 {
-                    Name           = name,
-                    DisplayName    = displayName,
-                    Enabled        = provider.Enabled,
-                    IsZeroKey      = true, // All current providers are zero-key (no API credentials needed).
-                    IsReachable    = isReachable,
-                    Domain         = provider.Domain.ToString(),
-                    CapabilityTags = provider.CapabilityTags,
-                    DefaultWeight  = provider.Weight,
-                    FieldWeights   = provider.FieldWeights,
+                    Name             = name,
+                    DisplayName      = displayName,
+                    Enabled          = provider.Enabled,
+                    IsZeroKey        = true, // All current providers are zero-key (no API credentials needed).
+                    IsReachable      = isReachable,
+                    Domain           = provider.Domain.ToString(),
+                    CapabilityTags   = provider.CapabilityTags,
+                    DefaultWeight    = provider.Weight,
+                    FieldWeights     = provider.FieldWeights,
+                    HydrationStages  = provider.HydrationStages,
                 };
             });
 
@@ -518,15 +520,16 @@ public static class SettingsEndpoints
 
             return Results.Ok(new ProviderStatusResponse
             {
-                Name           = existing.Name,
-                DisplayName    = displayName,
-                Enabled        = existing.Enabled,
-                IsZeroKey      = true,
-                IsReachable    = false,
-                Domain         = existing.Domain.ToString(),
-                CapabilityTags = existing.CapabilityTags,
-                DefaultWeight  = existing.Weight,
-                FieldWeights   = existing.FieldWeights,
+                Name             = existing.Name,
+                DisplayName      = displayName,
+                Enabled          = existing.Enabled,
+                IsZeroKey        = true,
+                IsReachable      = false,
+                Domain           = existing.Domain.ToString(),
+                CapabilityTags   = existing.CapabilityTags,
+                DefaultWeight    = existing.Weight,
+                FieldWeights     = existing.FieldWeights,
+                HydrationStages  = existing.HydrationStages,
             });
         })
         .WithName("UpdateProviderConfig")
@@ -590,6 +593,30 @@ public static class SettingsEndpoints
         .WithSummary("Saves the provider priority order for metadata harvesting.")
         .Produces(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status400BadRequest)
+        .RequireAdmin();
+
+        // ── GET /settings/hydration ──────────────────────────────────────────
+        grp.MapGet("/hydration", (IConfigurationLoader configLoader) =>
+        {
+            var settings = configLoader.LoadHydration();
+            return Results.Ok(settings);
+        })
+        .WithName("GetHydrationSettings")
+        .WithSummary("Load hydration pipeline configuration.")
+        .Produces<HydrationSettings>(StatusCodes.Status200OK)
+        .RequireAdminOrCurator();
+
+        // ── PUT /settings/hydration ──────────────────────────────────────────
+        grp.MapPut("/hydration", (
+            HydrationSettings settings,
+            IConfigurationLoader configLoader) =>
+        {
+            configLoader.SaveHydration(settings);
+            return Results.Ok(new { saved = true });
+        })
+        .WithName("SaveHydrationSettings")
+        .WithSummary("Save hydration pipeline configuration.")
+        .Produces(StatusCodes.Status200OK)
         .RequireAdmin();
 
         return app;

@@ -35,3 +35,49 @@ public sealed record PersonEnrichedEvent(
     string Name,
     string? HeadshotUrl,
     string? WikidataQid);
+
+// ── Hydration Pipeline Events ────────────────────────────────────────────
+
+/// <summary>
+/// Broadcast when a review queue item is created because the hydration pipeline
+/// could not proceed automatically (disambiguation, low confidence, etc.).
+///
+/// SignalR method name: <c>"ReviewItemCreated"</c>
+/// </summary>
+/// <param name="ReviewItemId">The ID of the new review queue entry.</param>
+/// <param name="EntityId">The entity that triggered the review.</param>
+/// <param name="Trigger">The review trigger reason (e.g. "MultipleQidMatches").</param>
+/// <param name="EntityTitle">Human-readable entity title (from canonical values), or <c>null</c>.</param>
+public sealed record ReviewItemCreatedEvent(
+    Guid ReviewItemId,
+    Guid EntityId,
+    string Trigger,
+    string? EntityTitle);
+
+/// <summary>
+/// Broadcast when a review queue item is resolved or dismissed by a user.
+///
+/// SignalR method name: <c>"ReviewItemResolved"</c>
+/// </summary>
+/// <param name="ReviewItemId">The ID of the resolved/dismissed review queue entry.</param>
+/// <param name="EntityId">The entity associated with the review item.</param>
+/// <param name="Status">The new status ("Resolved" or "Dismissed").</param>
+public sealed record ReviewItemResolvedEvent(
+    Guid ReviewItemId,
+    Guid EntityId,
+    string Status);
+
+/// <summary>
+/// Broadcast when a hydration pipeline stage completes for an entity.
+///
+/// SignalR method name: <c>"HydrationStageCompleted"</c>
+/// </summary>
+/// <param name="EntityId">The entity being hydrated.</param>
+/// <param name="Stage">The stage number (1, 2, or 3).</param>
+/// <param name="ClaimsAdded">Number of claims added during this stage.</param>
+/// <param name="ProviderName">The primary provider that contributed (for logging/display).</param>
+public sealed record HydrationStageCompletedEvent(
+    Guid EntityId,
+    int Stage,
+    int ClaimsAdded,
+    string ProviderName);

@@ -74,6 +74,17 @@ public sealed class ProviderConfiguration
     [JsonPropertyName("max_concurrency")]
     public int MaxConcurrency { get; set; } = 1;
 
+    /// <summary>
+    /// Which stages of the three-stage hydration pipeline this provider participates in.
+    /// Values: <c>1</c> (Retail Match), <c>2</c> (Universal Bridge), <c>3</c> (Human Hub).
+    ///
+    /// A provider can declare multiple stages (e.g. Audnexus declares <c>[1, 3]</c>
+    /// for both retail matching and narrator enrichment).
+    /// Defaults to <c>[1]</c> (Retail Match only).
+    /// </summary>
+    [JsonPropertyName("hydration_stages")]
+    public List<int> HydrationStages { get; set; } = [1];
+
     // ── Config-driven adapter fields ─────────────────────────────────────────
 
     /// <summary>

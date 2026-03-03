@@ -49,10 +49,13 @@
             }
             else if (item.Key == "profile" && !DeviceContext.IsFeatureDisabled("avatar_menu"))
             {
-                <MudAvatar Size="Size.Medium" Style="@($"background: {_avatarColor}; cursor: pointer;")" title="Settings"
-                           @onclick="@(() => Nav.NavigateTo("/settings"))">
-                    @_avatarInitial
-                </MudAvatar>
+                <MudBadge Content="@_reviewCount" Color="Color.Error" Overlap="true"
+                          Visible="@(_reviewCount > 0)" Bordered="true">
+                    <MudAvatar Size="Size.Medium" Style="@($"background: {_avatarColor}; cursor: pointer;")" title="Settings"
+                               @onclick="@(() => Nav.NavigateTo("/settings"))">
+                        @_avatarInitial
+                    </MudAvatar>
+                </MudBadge>
             }
         }
     </MudAppBar>
@@ -81,6 +84,9 @@
 
     // Navigation configuration — loaded from profile, falls back to defaults.
     private NavigationConfigViewModel _navigationConfig = NavigationDefaults.CreateDefault();
+
+    // Review queue badge count for profile avatar.
+    private int _reviewCount;
 
     // ── AppBar styling driven by Shell.AppBarStyle ──────────────────────────
 
@@ -169,6 +175,10 @@
             // Load the active profile for the avatar dropdown.
             await LoadActiveProfileAsync();
 
+            // Load review badge count and subscribe to changes.
+            await LoadReviewCountAsync();
+            Orchestrator.OnReviewCountChanged += OnReviewCountChanged;
+
             StateHasChanged();
         }
     }
@@ -213,10 +223,29 @@
         State.SetActiveLibrary(library);
     }
 
+    private async Task LoadReviewCountAsync()
+    {
+        try
+        {
+            _reviewCount = await Orchestrator.RefreshReviewCountAsync();
+        }
+        catch
+        {
+            // Engine may be offline — badge stays at 0.
+        }
+    }
+
+    private void OnReviewCountChanged()
+    {
+        _reviewCount = Orchestrator.ReviewCount;
+        InvokeAsync(StateHasChanged);
+    }
+
     public void Dispose()
     {
         ThemeService.OnThemeChanged -= OnThemeUpdated;
         DeviceContext.OnChanged -= OnDeviceContextChanged;
+        Orchestrator.OnReviewCountChanged -= OnReviewCountChanged;
     }
 
     [Inject] private IJSRuntime JS { get; set; } = default!;

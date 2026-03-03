@@ -301,6 +301,66 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         return result;
     }
 
+    // ── Review Queue ─────────────────────────────────────────────────────────
+
+    private int _reviewCount;
+
+    /// <summary>Returns the cached pending review count. Call <see cref="RefreshReviewCountAsync"/> first.</summary>
+    public int ReviewCount => _reviewCount;
+
+    /// <summary>Fetches the pending review count from the Engine and caches it.</summary>
+    public async Task<int> RefreshReviewCountAsync(CancellationToken ct = default)
+    {
+        _reviewCount = await _api.GetReviewCountAsync(ct);
+        return _reviewCount;
+    }
+
+    /// <summary>Returns pending review queue items.</summary>
+    public Task<List<ReviewItemViewModel>> GetPendingReviewsAsync(
+        int limit = 50, CancellationToken ct = default)
+        => _api.GetPendingReviewsAsync(limit, ct);
+
+    /// <summary>Returns a single review item.</summary>
+    public Task<ReviewItemViewModel?> GetReviewItemAsync(
+        Guid id, CancellationToken ct = default)
+        => _api.GetReviewItemAsync(id, ct);
+
+    /// <summary>Resolves a review item and invalidates the hub cache.</summary>
+    public async Task<bool> ResolveReviewAsync(
+        Guid id, ReviewResolveRequestDto request, CancellationToken ct = default)
+    {
+        var ok = await _api.ResolveReviewItemAsync(id, request, ct);
+        if (ok)
+        {
+            _reviewCount = Math.Max(0, _reviewCount - 1);
+            _state.Invalidate();
+        }
+        return ok;
+    }
+
+    /// <summary>Dismisses a review item.</summary>
+    public async Task<bool> DismissReviewAsync(Guid id, CancellationToken ct = default)
+    {
+        var ok = await _api.DismissReviewItemAsync(id, ct);
+        if (ok)
+            _reviewCount = Math.Max(0, _reviewCount - 1);
+        return ok;
+    }
+
+    /// <summary>Fires when the review count changes (from SignalR events or explicit actions).</summary>
+    public event Action? OnReviewCountChanged;
+
+    // ── Hydration Settings ────────────────────────────────────────────────
+
+    /// <summary>Returns hydration pipeline settings.</summary>
+    public Task<HydrationSettingsDto?> GetHydrationSettingsAsync(CancellationToken ct = default)
+        => _api.GetHydrationSettingsAsync(ct);
+
+    /// <summary>Saves hydration pipeline settings.</summary>
+    public Task<bool> UpdateHydrationSettingsAsync(
+        HydrationSettingsDto settings, CancellationToken ct = default)
+        => _api.UpdateHydrationSettingsAsync(settings, ct);
+
     // ── Conflicts ────────────────────────────────────────────────────────────
 
     /// <summary>
@@ -420,6 +480,39 @@ public sealed class UIOrchestratorService : IAsyncDisposable
                 "Intercom ← WatchFolderActive: Dir={Dir} At={At}",
                 ev.WatchDirectory, ev.ActivatedAt);
             _state.PushWatchFolderActive(ev);
+        });
+
+        // ── "ReviewItemCreated" ──────────────────────────────────────────────
+        // A new review item was created by the hydration pipeline.
+        _hubConnection.On<ReviewItemCreatedEvent>("ReviewItemCreated", ev =>
+        {
+            _logger.LogDebug(
+                "Intercom ← ReviewItemCreated: ReviewId={Id} EntityId={EntityId} Trigger={Trigger}",
+                ev.ReviewItemId, ev.EntityId, ev.Trigger);
+            _reviewCount++;
+            OnReviewCountChanged?.Invoke();
+        });
+
+        // ── "ReviewItemResolved" ─────────────────────────────────────────────
+        // A review item was resolved or dismissed.
+        _hubConnection.On<ReviewItemResolvedEvent>("ReviewItemResolved", ev =>
+        {
+            _logger.LogDebug(
+                "Intercom ← ReviewItemResolved: ReviewId={Id} Status={Status}",
+                ev.ReviewItemId, ev.Status);
+            _reviewCount = Math.Max(0, _reviewCount - 1);
+            _state.Invalidate();
+            OnReviewCountChanged?.Invoke();
+        });
+
+        // ── "HydrationStageCompleted" ────────────────────────────────────────
+        // A pipeline stage completed — metadata may have changed.
+        _hubConnection.On<HydrationStageCompletedEvent>("HydrationStageCompleted", ev =>
+        {
+            _logger.LogDebug(
+                "Intercom ← HydrationStageCompleted: EntityId={Id} Stage={Stage} Claims={Claims}",
+                ev.EntityId, ev.Stage, ev.ClaimsAdded);
+            _state.Invalidate();
         });
 
         // ── "FolderHealthChanged" ───────────────────────────────────────────

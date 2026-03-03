@@ -41,4 +41,13 @@ public sealed class HarvestRequest
     /// </summary>
     public IReadOnlyDictionary<string, string> Hints { get; init; }
         = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// An already-resolved Wikidata QID to use for Stage 2+3 hydration.
+    ///
+    /// When set, the pipeline skips QID resolution in Stage 2 and goes straight
+    /// to SPARQL deep hydration using this QID. Used when the user resolves a
+    /// disambiguation review item by selecting a specific QID candidate.
+    /// </summary>
+    public string? PreResolvedQid { get; init; }
 }

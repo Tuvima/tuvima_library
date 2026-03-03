@@ -124,6 +124,9 @@
     /// <summary>Number of unresolved metadata conflicts (badge on Conflicts item).</summary>
     [Parameter] public int ConflictCount { get; set; }
 
+    /// <summary>Number of pending review items (badge on Needs Review item).</summary>
+    [Parameter] public int ReviewCount { get; set; }
+
     /// <summary>
     /// Sidebar layout override. When empty, derived from device context.
     /// Values: "persistent", "drawer", "focus-nav", "single".
@@ -139,6 +142,7 @@
     private readonly Dictionary<string, bool> _expandedSections = new()
     {
         ["Preferences"] = true,
+        ["Metadata"]    = true,
         ["Server"]      = true,
     };
 
@@ -173,11 +177,18 @@
             new(SettingsSection.Navigation, Icons.Material.Outlined.Menu,      "Navigation", false, null),
         ]),
 
+        new("Metadata", "Metadata", true,
+        [
+            new(SettingsSection.ConnectionVault,   Icons.Material.Outlined.Hub,         "Connection Vault",   true, null),
+            new(SettingsSection.PropertyMapper,     Icons.Material.Outlined.Transform,   "Property Mapper",    true, null),
+            new(SettingsSection.Universe,           Icons.Material.Outlined.Public,      "Universe Schema",    true, null),
+            new(SettingsSection.MatchingPipeline,   Icons.Material.Outlined.AccountTree, "Matching Pipeline",  true, null),
+            new(SettingsSection.NeedsReview,        Icons.Material.Outlined.RateReview,  "Needs Review",       true, "review"),
+        ]),
+
         new("Server", "Server", true,
         [
             new(SettingsSection.Library,      Icons.Material.Outlined.FolderOpen, "Library",      true, null),
-            new(SettingsSection.Universe,     Icons.Material.Outlined.Public,     "Universe",     true, null),
-            new(SettingsSection.Providers,    Icons.Material.Outlined.Extension,  "Providers",    true, null),
             new(SettingsSection.Connectivity, Icons.Material.Outlined.Wifi,       "Connectivity", true, null),
             new(SettingsSection.ApiKeys,      Icons.Material.Outlined.VpnKey,     "API Keys",     true, null),
             new(SettingsSection.Conflicts,    Icons.Material.Outlined.Warning,    "Conflicts",    true, "conflicts"),
@@ -232,6 +243,7 @@
         badgeKey switch
         {
             "conflicts" => ConflictCount,
+            "review"    => ReviewCount,
             _           => 0,
         };
 
@@ -261,8 +273,14 @@
     /// <summary>Settings page section identifiers (replaces SettingsTabBar.SettingsTab).</summary>
     public enum SettingsSection
     {
+        // Preferences
         General, Playback, Navigation,
-        Library, Universe, Providers, Connectivity, ApiKeys, Conflicts, Users, Maintenance
+        // Metadata
+        ConnectionVault, PropertyMapper, Universe, MatchingPipeline, NeedsReview,
+        // Server
+        Library, Connectivity, ApiKeys, Conflicts, Users, Maintenance,
+        // Legacy alias — kept so existing deep links to /settings/providers redirect correctly.
+        Providers
     }
 }
 

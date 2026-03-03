@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.Logging;
 using Tanaste.Domain.Enums;
+using Tanaste.Domain.Models;
 using Tanaste.Providers.Contracts;
 using Tanaste.Providers.Models;
 using Tanaste.Storage.Contracts;
@@ -124,6 +125,178 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
         return request.EntityType == EntityType.Person
             ? await FetchPersonAsync(request, ct).ConfigureAwait(false)
             : await FetchWorkAsync(request, ct).ConfigureAwait(false);
+    }
+
+    // ── Disambiguation: multiple QID candidates ────────────────────────────────
+
+    /// <summary>
+    /// Resolves multiple QID candidates for an entity lookup request.
+    ///
+    /// Unlike <see cref="FetchAsync"/>, which returns claims for the first match,
+    /// this method returns ALL potential matches (up to <paramref name="maxCandidates"/>)
+    /// so the <see cref="Services.HydrationPipelineService"/> can determine whether
+    /// disambiguation is required.
+    ///
+    /// Resolution order: bridge ID cross-reference → MediaWiki title search.
+    /// </summary>
+    /// <param name="request">The lookup request with title, bridge IDs, etc.</param>
+    /// <param name="maxCandidates">Maximum number of candidates to return.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A list of QID candidates (may be empty if no matches found).</returns>
+    public async Task<IReadOnlyList<QidCandidate>> ResolveCandidatesAsync(
+        ProviderLookupRequest request,
+        int maxCandidates = 5,
+        CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(request.Title)
+            && string.IsNullOrWhiteSpace(request.Asin)
+            && string.IsNullOrWhiteSpace(request.Isbn)
+            && string.IsNullOrWhiteSpace(request.AppleBooksId)
+            && string.IsNullOrWhiteSpace(request.AudibleId)
+            && string.IsNullOrWhiteSpace(request.TmdbId)
+            && string.IsNullOrWhiteSpace(request.ImdbId))
+        {
+            return [];
+        }
+
+        var throttleGapMs = GetThrottleGapMs();
+        var candidates = new List<QidCandidate>();
+        var seenQids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        try
+        {
+            using var apiClient    = _httpFactory.CreateClient("wikidata_api");
+            using var sparqlClient = _httpFactory.CreateClient("wikidata_sparql");
+
+            // Step 1: try bridge IDs — each match is a candidate.
+            var universeConfig = _configLoader.LoadConfig<UniverseConfiguration>("universe", "wikidata");
+            var bridgePriority = universeConfig?.BridgeLookupPriority;
+
+            if (!string.IsNullOrWhiteSpace(request.SparqlBaseUrl))
+            {
+                IEnumerable<(string PCode, string? Value)> bridges;
+                if (bridgePriority is { Count: > 0 })
+                {
+                    bridges = bridgePriority.Select(b =>
+                        (b.PCode, GetBridgeValue(request, b.RequestField)));
+                }
+                else
+                {
+                    bridges =
+                    [
+                        ("P3861", request.AppleBooksId),
+                        ("P3398", request.AudibleId),
+                        ("P4947", request.TmdbId),
+                        ("P345",  request.ImdbId),
+                        ("P1566", request.Asin),
+                        ("P212",  request.Isbn),
+                    ];
+                }
+
+                foreach (var (pCode, value) in bridges)
+                {
+                    if (candidates.Count >= maxCandidates) break;
+                    if (string.IsNullOrWhiteSpace(value)) continue;
+
+                    var sparql = WikidataSparqlPropertyMap.BuildBridgeLookupQuery(pCode, value);
+                    var qid = await RunBridgeLookupAsync(
+                        sparqlClient, request.SparqlBaseUrl, sparql, throttleGapMs, ct)
+                        .ConfigureAwait(false);
+
+                    if (qid is not null && seenQids.Add(qid))
+                    {
+                        var label = await FetchEntityLabelAsync(apiClient, request.BaseUrl, qid, throttleGapMs, ct)
+                            .ConfigureAwait(false);
+
+                        candidates.Add(new QidCandidate
+                        {
+                            Qid         = qid,
+                            Label       = label?.Label ?? qid,
+                            Description = label?.Description,
+                        });
+                    }
+                }
+            }
+
+            // Step 2: title search — add any new candidates.
+            if (candidates.Count < maxCandidates && !string.IsNullOrWhiteSpace(request.Title)
+                && !string.IsNullOrWhiteSpace(request.BaseUrl))
+            {
+                var searchUrl = $"{request.BaseUrl.TrimEnd('/')}" +
+                    $"?action=wbsearchentities&search={Uri.EscapeDataString(request.Title)}" +
+                    $"&type=item&language=en&format=json&limit={maxCandidates}";
+
+                var searchJson = await ThrottledGetAsync<JsonObject>(apiClient, searchUrl, throttleGapMs, ct)
+                    .ConfigureAwait(false);
+
+                var results = searchJson?["search"]?.AsArray();
+                if (results is not null)
+                {
+                    foreach (var item in results)
+                    {
+                        if (candidates.Count >= maxCandidates) break;
+
+                        var id   = item?["id"]?.GetValue<string>();
+                        var lbl  = item?["label"]?.GetValue<string>();
+                        var desc = item?["description"]?.GetValue<string>();
+
+                        if (!string.IsNullOrWhiteSpace(id) && seenQids.Add(id))
+                        {
+                            candidates.Add(new QidCandidate
+                            {
+                                Qid         = id,
+                                Label       = lbl ?? id,
+                                Description = desc,
+                            });
+                        }
+                    }
+                }
+            }
+
+            return candidates;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Wikidata candidate resolution failed for entity {Id}", request.EntityId);
+            return candidates; // Return whatever we've gathered so far.
+        }
+    }
+
+    /// <summary>
+    /// Fetches the English label and description for a single Wikidata entity.
+    /// Used to populate <see cref="QidCandidate"/> during disambiguation.
+    /// </summary>
+    private static async Task<(string Label, string? Description)?> FetchEntityLabelAsync(
+        HttpClient apiClient,
+        string baseUrl,
+        string qid,
+        int throttleGapMs,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(baseUrl))
+            return null;
+
+        var url = $"{baseUrl.TrimEnd('/')}" +
+            $"?action=wbgetentities&ids={Uri.EscapeDataString(qid)}" +
+            "&format=json&languages=en&props=labels|descriptions";
+
+        var json = await ThrottledGetAsync<JsonObject>(apiClient, url, throttleGapMs, ct)
+            .ConfigureAwait(false);
+
+        if (json is null) return null;
+
+        var entity = json["entities"]?[qid]?.AsObject();
+        if (entity is null) return null;
+
+        var label = entity["labels"]?["en"]?["value"]?.GetValue<string>() ?? qid;
+        var desc  = entity["descriptions"]?["en"]?["value"]?.GetValue<string>();
+
+        return (label, desc);
     }
 
     // ── Person flow ───────────────────────────────────────────────────────────
@@ -253,8 +426,12 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
         ProviderLookupRequest request,
         CancellationToken ct)
     {
-        // A title or at least one bridge identifier is needed.
-        if (string.IsNullOrWhiteSpace(request.Title)
+        // Check for a pre-resolved QID (from review queue disambiguation).
+        var preResolvedQid = request.PreResolvedQid;
+
+        // A title, bridge identifier, or pre-resolved QID is needed.
+        if (string.IsNullOrWhiteSpace(preResolvedQid)
+            && string.IsNullOrWhiteSpace(request.Title)
             && string.IsNullOrWhiteSpace(request.Asin)
             && string.IsNullOrWhiteSpace(request.Isbn)
             && string.IsNullOrWhiteSpace(request.AppleBooksId)
@@ -263,7 +440,7 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
             && string.IsNullOrWhiteSpace(request.ImdbId))
         {
             _logger.LogDebug(
-                "Wikidata work skipped for entity {Id}: no title or bridge IDs",
+                "Wikidata work skipped for entity {Id}: no title, bridge IDs, or pre-resolved QID",
                 request.EntityId);
             return [];
         }
@@ -291,17 +468,31 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
             using var apiClient    = _httpFactory.CreateClient("wikidata_api");
             using var sparqlClient = _httpFactory.CreateClient("wikidata_sparql");
 
-            // ── Step 1: QID Cross-Reference via Bridge IDs ──────────────────
-            var bridgePriority = universeConfig?.BridgeLookupPriority;
-            var qid = await ResolveQidViaBridgesAsync(
-                sparqlClient, request, bridgePriority, throttleGapMs, ct).ConfigureAwait(false);
+            string? qid = null;
 
-            // ── Step 2: Fallback to MediaWiki Text Search ───────────────────
-            if (qid is null && !string.IsNullOrWhiteSpace(request.Title))
+            // Skip QID resolution if a pre-resolved QID was provided (e.g. from
+            // user disambiguation in the review queue).
+            if (!string.IsNullOrWhiteSpace(preResolvedQid))
             {
-                qid = await ResolveQidViaSearchAsync(
-                    apiClient, request.BaseUrl, request.Title, throttleGapMs, ct)
-                    .ConfigureAwait(false);
+                qid = preResolvedQid;
+                _logger.LogDebug(
+                    "Wikidata: using pre-resolved QID {Qid} for entity {Id}",
+                    qid, request.EntityId);
+            }
+            else
+            {
+                // ── Step 1: QID Cross-Reference via Bridge IDs ──────────────
+                var bridgePriority = universeConfig?.BridgeLookupPriority;
+                qid = await ResolveQidViaBridgesAsync(
+                    sparqlClient, request, bridgePriority, throttleGapMs, ct).ConfigureAwait(false);
+
+                // ── Step 2: Fallback to MediaWiki Text Search ───────────────
+                if (qid is null && !string.IsNullOrWhiteSpace(request.Title))
+                {
+                    qid = await ResolveQidViaSearchAsync(
+                        apiClient, request.BaseUrl, request.Title, throttleGapMs, ct)
+                        .ConfigureAwait(false);
+                }
             }
 
             if (qid is null)

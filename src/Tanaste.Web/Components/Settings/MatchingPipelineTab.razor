@@ -1,0 +1,185 @@
+@namespace Tanaste.Web.Components.Settings
+@inject UIOrchestratorService Orchestrator
+
+@* Matching Pipeline — visual three-stage pipeline diagram with provider cards,
+   flow arrows, and pipeline configuration panel. *@
+
+<MudText Typo="Typo.h5" Class="mb-2">Matching Pipeline</MudText>
+<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+    Visualise the three-stage hydration pipeline and configure timeouts, thresholds, and concurrency.
+</MudText>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4" />
+}
+else
+{
+    @* ── Pipeline diagram ──────────────────────────────────────────────── *@
+    <div class="pipeline-diagram mb-6">
+        @RenderStageColumn(1, "Retail Match", Color.Info,
+            _providers.Where(p => (p.HydrationStages ?? [1]).Contains(1)).ToList())
+
+        <div class="pipeline-arrow">
+            <MudIcon Icon="@Icons.Material.Filled.ArrowForward" Color="Color.Secondary" />
+        </div>
+
+        @RenderStageColumn(2, "Universal Bridge", Color.Secondary,
+            _providers.Where(p => (p.HydrationStages ?? [1]).Contains(2)).ToList())
+
+        <div class="pipeline-arrow">
+            <MudIcon Icon="@Icons.Material.Filled.ArrowForward" Color="Color.Secondary" />
+        </div>
+
+        @RenderStageColumn(3, "Human Hub", Color.Success,
+            _providers.Where(p => (p.HydrationStages ?? [1]).Contains(3)).ToList())
+    </div>
+
+    @* ── Pipeline configuration ────────────────────────────────────────── *@
+    <MudText Typo="Typo.subtitle1" Class="mb-3" Style="font-weight: 600;">Pipeline Configuration</MudText>
+
+    @if (_settings is not null)
+    {
+        <MudGrid>
+            <MudItem xs="12" sm="6" md="4">
+                <MudNumericField T="int" Label="Stage Concurrency"
+                                 @bind-Value="_settings.StageConcurrency"
+                                 Min="1" Max="10"
+                                 Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="12" sm="6" md="4">
+                <MudNumericField T="int" Label="Stage 1 Timeout (sec)"
+                                 @bind-Value="_settings.Stage1TimeoutSeconds"
+                                 Min="5" Max="120"
+                                 Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="12" sm="6" md="4">
+                <MudNumericField T="int" Label="Stage 2 Timeout (sec)"
+                                 @bind-Value="_settings.Stage2TimeoutSeconds"
+                                 Min="5" Max="120"
+                                 Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="12" sm="6" md="4">
+                <MudNumericField T="int" Label="Stage 3 Timeout (sec)"
+                                 @bind-Value="_settings.Stage3TimeoutSeconds"
+                                 Min="5" Max="120"
+                                 Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="12" sm="6" md="4">
+                <MudNumericField T="double" Label="Disambiguation Threshold"
+                                 @bind-Value="_settings.DisambiguationThreshold"
+                                 Min="0.0" Max="1.0" Step="0.05"
+                                 Variant="Variant.Outlined"
+                                 Format="F2" />
+            </MudItem>
+            <MudItem xs="12" sm="6" md="4">
+                <MudNumericField T="double" Label="Auto-Review Confidence"
+                                 @bind-Value="_settings.AutoReviewConfidenceThreshold"
+                                 Min="0.0" Max="1.0" Step="0.05"
+                                 Variant="Variant.Outlined"
+                                 Format="F2" />
+            </MudItem>
+        </MudGrid>
+
+        <MudStack Row="true" Class="mt-4" Spacing="2">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Save"
+                       OnClick="@SaveSettingsAsync" Disabled="@_saving">
+                Save Configuration
+            </MudButton>
+            @if (_saved)
+            {
+                <MudAlert Severity="Severity.Success" Variant="Variant.Text" Dense="true">
+                    Saved successfully.
+                </MudAlert>
+            }
+        </MudStack>
+    }
+}
+
+@code {
+    private List<ProviderStatusDto> _providers = [];
+    private HydrationSettingsDto? _settings;
+    private bool _loading = true;
+    private bool _saving;
+    private bool _saved;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _loading = true;
+        _providers = (await Orchestrator.GetProviderStatusAsync()).ToList();
+        _settings = await Orchestrator.GetHydrationSettingsAsync();
+        _settings ??= new HydrationSettingsDto();
+        _loading = false;
+    }
+
+    private async Task SaveSettingsAsync()
+    {
+        if (_settings is null) return;
+        _saving = true;
+        _saved = false;
+        StateHasChanged();
+
+        var ok = await Orchestrator.UpdateHydrationSettingsAsync(_settings);
+        _saved = ok;
+        _saving = false;
+        StateHasChanged();
+    }
+
+    private RenderFragment RenderStageColumn(int stage, string label, Color color, List<ProviderStatusDto> providers) => __builder =>
+    {
+        <div class="pipeline-stage">
+            <MudPaper Elevation="0" Class="pa-3"
+                      Style="background: var(--tanaste-glass-bg); border: 1px solid var(--tanaste-glass-border); border-radius: 16px; min-width: 180px;">
+                <MudStack AlignItems="AlignItems.Center" Spacing="1" Class="mb-2">
+                    <MudChip T="string" Color="@color" Size="Size.Small" Variant="Variant.Filled">
+                        Stage @stage
+                    </MudChip>
+                    <MudText Typo="Typo.subtitle2" Align="Align.Center" Style="font-weight: 600;">
+                        @label
+                    </MudText>
+                </MudStack>
+
+                @if (providers.Count == 0)
+                {
+                    <MudText Typo="Typo.caption" Color="Color.Secondary" Align="Align.Center">
+                        No providers
+                    </MudText>
+                }
+                else
+                {
+                    @foreach (var p in providers)
+                    {
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                                 Color="@(p.Enabled ? Color.Default : Color.Error)"
+                                 Class="mb-1" Style="width: 100%; justify-content: flex-start;">
+                            @p.DisplayName
+                        </MudChip>
+                    }
+                }
+            </MudPaper>
+        </div>
+    };
+}
+
+<style>
+    .pipeline-diagram {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        overflow-x: auto;
+        padding: 8px 0;
+    }
+
+    .pipeline-stage {
+        flex: 1;
+        min-width: 180px;
+    }
+
+    .pipeline-arrow {
+        display: flex;
+        align-items: center;
+        padding: 0 4px;
+        opacity: 0.5;
+    }
+</style>

@@ -70,6 +70,16 @@ public sealed class ProviderLookupRequest
     /// </summary>
     public string? PersonRole { get; init; }
 
+    // ── Pipeline hints ───────────────────────────────────────────────────────
+
+    /// <summary>
+    /// When set, the Wikidata adapter skips QID resolution and goes straight
+    /// to SPARQL deep-ingest using this Q-identifier. Set by the hydration
+    /// pipeline when the user selects a disambiguation candidate from the
+    /// review queue.
+    /// </summary>
+    public string? PreResolvedQid { get; init; }
+
     // ── Infrastructure ────────────────────────────────────────────────────────
 
     /// <summary>

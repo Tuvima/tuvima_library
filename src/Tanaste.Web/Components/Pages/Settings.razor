@@ -44,6 +44,7 @@
                          OnSectionChanged="@OnSectionChanged"
                          CurrentRole="@_currentRole"
                          ConflictCount="@_conflictCount"
+                         ReviewCount="@_reviewCount"
                          Layout="drawer" />
     </MudDrawer>
 
@@ -67,6 +68,7 @@ else
                          OnSectionChanged="@OnSectionChanged"
                          CurrentRole="@_currentRole"
                          ConflictCount="@_conflictCount"
+                         ReviewCount="@_reviewCount"
                          Layout="@_sidebarLayout" />
 
         <div class="settings-content-area">
@@ -106,6 +108,7 @@ else
     // ── Badge data ──────────────────────────────────────────────────────────
 
     private int _conflictCount;
+    private int _reviewCount;
 
     // ── Profile data (for NavigationTab) ──────────────────────────────────
 
@@ -140,8 +143,9 @@ else
             _activeSection = SettingsSidebar.SettingsSection.General;
         }
 
-        // Fetch conflict count eagerly for sidebar badge.
+        // Fetch badge counts eagerly for sidebar badges.
         await LoadConflictCountAsync();
+        await LoadReviewCountAsync();
 
         // Load active profile for NavigationTab.
         await LoadProfileAsync();
@@ -165,6 +169,10 @@ else
         if (Enum.TryParse<SettingsSidebar.SettingsSection>(
                 normalized, ignoreCase: true, out var parsed))
         {
+            // Redirect legacy /settings/providers to ConnectionVault.
+            if (parsed == SettingsSidebar.SettingsSection.Providers)
+                parsed = SettingsSidebar.SettingsSection.ConnectionVault;
+
             _activeSection = parsed;
         }
     }
@@ -196,6 +204,18 @@ else
         {
             var conflicts = await Orchestrator.GetConflictsAsync();
             _conflictCount = conflicts.Count;
+        }
+        catch
+        {
+            // Engine may be offline — badge stays at 0.
+        }
+    }
+
+    private async Task LoadReviewCountAsync()
+    {
+        try
+        {
+            _reviewCount = await Orchestrator.RefreshReviewCountAsync();
         }
         catch
         {
@@ -282,14 +302,26 @@ else
                                NavigationConfigJson="@_navigationConfigJson"
                                OnConfigChanged="@OnNavigationConfigChanged" />
                 break;
-            case SettingsSidebar.SettingsSection.Library:
-                <LibrariesTab />
+            // ── Metadata group ────────────────────────────────────────────
+            case SettingsSidebar.SettingsSection.ConnectionVault:
+            case SettingsSidebar.SettingsSection.Providers: // legacy redirect
+                <ConnectionVaultTab CurrentRole="@_currentRole" />
+                break;
+            case SettingsSidebar.SettingsSection.PropertyMapper:
+                <PropertyMapperTab />
                 break;
             case SettingsSidebar.SettingsSection.Universe:
                 <UniverseSettingsTab CurrentRole="@_currentRole" />
                 break;
-            case SettingsSidebar.SettingsSection.Providers:
-                <ProvidersSettingsTab CurrentRole="@_currentRole" />
+            case SettingsSidebar.SettingsSection.MatchingPipeline:
+                <MatchingPipelineTab />
+                break;
+            case SettingsSidebar.SettingsSection.NeedsReview:
+                <NeedsReviewTab />
+                break;
+            // ── Server group ──────────────────────────────────────────────
+            case SettingsSidebar.SettingsSection.Library:
+                <LibrariesTab />
                 break;
             case SettingsSidebar.SettingsSection.Connectivity:
                 <ConnectivityTab />

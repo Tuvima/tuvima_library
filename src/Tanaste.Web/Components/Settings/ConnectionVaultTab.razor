@@ -1,0 +1,118 @@
+@namespace Tanaste.Web.Components.Settings
+@inject UIOrchestratorService Orchestrator
+@inject DeviceContextService DeviceContext
+
+@* Connection Vault — stage-aware provider management.
+   Replaces the legacy ProvidersSettingsTab with hydration stage grouping,
+   stage badge chips, and sample record preview. *@
+
+<MudText Typo="Typo.h5" Class="mb-2">Connection Vault</MudText>
+<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+    Manage external metadata providers grouped by hydration stage.
+</MudText>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4" />
+}
+else if (_providers.Count == 0)
+{
+    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-4">
+        No providers configured. Check <code>config/providers/</code> for provider definitions.
+    </MudAlert>
+}
+else
+{
+    @* ── Stage 1: Retail Match ──────────────────────────────────────────── *@
+    @RenderStageGroup(1, "Stage 1: Retail Match", Color.Info,
+        "All matching providers run concurrently. The scoring engine resolves field conflicts.")
+
+    @* ── Stage 2: Universal Bridge ──────────────────────────────────────── *@
+    @RenderStageGroup(2, "Stage 2: Universal Bridge", Color.Secondary,
+        "Wikidata QID resolution via bridge identifiers from Stage 1.")
+
+    @* ── Stage 3: Human Hub ─────────────────────────────────────────────── *@
+    @RenderStageGroup(3, "Stage 3: Human Hub", Color.Success,
+        "Person enrichment — headshots, bios, narrator credits, social links.")
+}
+
+@code {
+    [Parameter] public string CurrentRole { get; set; } = "Administrator";
+
+    private List<ProviderStatusDto> _providers = [];
+    private bool _loading = true;
+
+    private bool IsAdmin =>
+        string.Equals(CurrentRole, "Administrator", StringComparison.OrdinalIgnoreCase);
+
+    protected override async Task OnInitializedAsync()
+    {
+        _loading = true;
+        _providers = (await Orchestrator.GetProviderStatusAsync()).ToList();
+        _loading = false;
+    }
+
+    private List<ProviderStatusDto> GetProvidersForStage(int stage) =>
+        _providers
+            .Where(p => (p.HydrationStages ?? [1]).Contains(stage))
+            .ToList();
+
+    private RenderFragment RenderStageGroup(int stage, string title, Color accentColor, string description) => __builder =>
+    {
+        var stageProviders = GetProvidersForStage(stage);
+        if (stageProviders.Count == 0) return;
+
+        <MudPaper Elevation="0" Class="pa-4 mb-4" Style="background: var(--tanaste-glass-bg); border: 1px solid var(--tanaste-glass-border); border-radius: 16px;">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+                <MudChip T="string" Color="@accentColor" Size="Size.Small" Variant="Variant.Filled">
+                    Stage @stage
+                </MudChip>
+                <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">@title</MudText>
+            </MudStack>
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3">@description</MudText>
+
+            @foreach (var provider in stageProviders)
+            {
+                <MudPaper Elevation="0" Class="pa-3 mb-2" Style="background: var(--tanaste-hover-overlay); border-radius: 12px;">
+                    <MudStack Row="true" AlignItems="AlignItems.Center">
+                        @* Status dot *@
+                        <MudIcon Icon="@Icons.Material.Filled.Circle"
+                                 Size="Size.Small"
+                                 Color="@(provider.Enabled && provider.IsReachable ? Color.Success
+                                         : provider.Enabled ? Color.Warning : Color.Error)"
+                                 Style="font-size: 10px;" />
+
+                        @* Provider name *@
+                        <MudText Typo="Typo.body1" Style="flex: 1; font-weight: 500;">
+                            @provider.DisplayName
+                        </MudText>
+
+                        @* Stage badges *@
+                        @foreach (var s in provider.HydrationStages ?? [1])
+                        {
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                                     Color="@(s == 1 ? Color.Info : s == 2 ? Color.Secondary : Color.Success)">
+                                S@(s)
+                            </MudChip>
+                        }
+
+                        @* Enable/disable toggle *@
+                        @if (IsAdmin)
+                        {
+                            <MudSwitch T="bool" Value="@provider.Enabled"
+                                       ValueChanged="@(async val => await ToggleProviderAsync(provider.Name, val))"
+                                       Color="Color.Primary" />
+                        }
+                    </MudStack>
+                </MudPaper>
+            }
+        </MudPaper>
+    };
+
+    private async Task ToggleProviderAsync(string name, bool enabled)
+    {
+        await Orchestrator.UpdateProviderAsync(name, enabled);
+        _providers = (await Orchestrator.GetProviderStatusAsync()).ToList();
+        StateHasChanged();
+    }
+}

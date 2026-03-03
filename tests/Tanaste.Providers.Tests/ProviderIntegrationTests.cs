@@ -438,6 +438,8 @@ file sealed class IntegrationConfigLoader : IConfigurationLoader
     public void SaveScoring(ScoringSettings settings) { }
     public MaintenanceSettings LoadMaintenance() => new();
     public void SaveMaintenance(MaintenanceSettings settings) { }
+    public HydrationSettings LoadHydration() => new();
+    public void SaveHydration(HydrationSettings settings) { }
     public ProviderConfiguration? LoadProvider(string name) => null;
     public void SaveProvider(ProviderConfiguration config) { }
     public IReadOnlyList<ProviderConfiguration> LoadAllProviders() => [];

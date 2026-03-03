@@ -651,6 +651,103 @@ public sealed class TanasteApiClient : ITanasteApiClient
         }
     }
 
+    // ── Review queue (/review) ───────────────────────────────────────────
+
+    public async Task<List<ReviewItemViewModel>> GetPendingReviewsAsync(
+        int limit = 50, CancellationToken ct = default)
+    {
+        try
+        {
+            var raw = await _http.GetFromJsonAsync<List<ReviewItemViewModel>>(
+                $"/review/pending?limit={limit}", ct);
+            return raw ?? [];
+        }
+        catch { return []; }
+    }
+
+    public async Task<ReviewItemViewModel?> GetReviewItemAsync(
+        Guid id, CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<ReviewItemViewModel>(
+                $"/review/{id}", ct);
+        }
+        catch { return null; }
+    }
+
+    public async Task<int> GetReviewCountAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            var raw = await _http.GetFromJsonAsync<ReviewCountDto>("/review/count", ct);
+            return raw?.PendingCount ?? 0;
+        }
+        catch { return 0; }
+    }
+
+    public async Task<bool> ResolveReviewItemAsync(
+        Guid id, ReviewResolveRequestDto request, CancellationToken ct = default)
+    {
+        try
+        {
+            var resp = await _http.PostAsJsonAsync($"/review/{id}/resolve", request, ct);
+            return resp.IsSuccessStatusCode;
+        }
+        catch { return false; }
+    }
+
+    public async Task<bool> DismissReviewItemAsync(Guid id, CancellationToken ct = default)
+    {
+        try
+        {
+            var resp = await _http.PostAsJsonAsync($"/review/{id}/dismiss", new { }, ct);
+            return resp.IsSuccessStatusCode;
+        }
+        catch { return false; }
+    }
+
+    // ── Hydration settings (/settings/hydration) ────────────────────────
+
+    public async Task<HydrationSettingsDto?> GetHydrationSettingsAsync(
+        CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<HydrationSettingsDto>(
+                "/settings/hydration", ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /settings/hydration failed");
+            LastError = ex.Message;
+            return null;
+        }
+    }
+
+    public async Task<bool> UpdateHydrationSettingsAsync(
+        HydrationSettingsDto settings, CancellationToken ct = default)
+    {
+        try
+        {
+            var resp = await _http.PutAsJsonAsync("/settings/hydration", settings, ct);
+            if (!resp.IsSuccessStatusCode)
+            {
+                var detail = await resp.Content.ReadAsStringAsync(ct);
+                _logger.LogWarning("PUT /settings/hydration returned {Status}: {Detail}",
+                    (int)resp.StatusCode, detail);
+                LastError = $"HTTP {(int)resp.StatusCode}: {detail}";
+            }
+            return resp.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "PUT /settings/hydration failed");
+            LastError = ex.Message;
+            return false;
+        }
+    }
+
     // ── UI Settings (/settings/ui) ──────────────────────────────────────────
 
     public async Task<ResolvedUISettingsViewModel?> GetResolvedUISettingsAsync(

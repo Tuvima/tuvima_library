@@ -44,6 +44,14 @@ public interface IConfigurationLoader
     /// <summary>Persist maintenance settings to <c>config/maintenance.json</c>.</summary>
     void SaveMaintenance(MaintenanceSettings settings);
 
+    // ── Hydration Pipeline ──────────────────────────────────────────────
+
+    /// <summary>Load hydration pipeline settings (stage concurrency, timeouts, thresholds).</summary>
+    HydrationSettings LoadHydration();
+
+    /// <summary>Persist hydration settings to <c>config/hydration.json</c>.</summary>
+    void SaveHydration(HydrationSettings settings);
+
     // ── Providers ────────────────────────────────────────────────────────────
 
     /// <summary>

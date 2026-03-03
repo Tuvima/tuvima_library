@@ -1,0 +1,167 @@
+@namespace Tanaste.Web.Components.Settings
+@inject UIOrchestratorService Orchestrator
+@implements IDisposable
+
+@* Needs Review — review queue with notification feed, queue table, and
+   comparison view for disambiguation and low-confidence items. *@
+
+<MudText Typo="Typo.h5" Class="mb-2">Needs Review</MudText>
+<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+    Items that need your attention — disambiguation candidates, low-confidence matches,
+    and arbiter-flagged entries.
+</MudText>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4" />
+}
+else if (_items.Count == 0)
+{
+    <MudAlert Severity="Severity.Success" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.CheckCircle">
+        No items pending review. The hydration pipeline resolved everything automatically.
+    </MudAlert>
+}
+else
+{
+    <MudText Typo="Typo.subtitle2" Color="Color.Secondary" Class="mb-2">
+        @_items.Count pending item@(_items.Count != 1 ? "s" : "")
+    </MudText>
+
+    @* ── Queue table ─────────────────────────────────────────────────── *@
+    <MudSimpleTable Dense="true" Hover="true" Bordered="true" Class="mb-4"
+                    Style="border-radius: 12px; overflow: hidden;">
+        <thead>
+            <tr>
+                <th>Entity</th>
+                <th>Trigger</th>
+                <th>Confidence</th>
+                <th>Created</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in _items)
+            {
+                <tr>
+                    <td>
+                        <MudText Typo="Typo.body2" Style="font-weight: 500;">
+                            @(item.EntityTitle ?? item.EntityId.ToString()[..8] + "...")
+                        </MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">@item.EntityType</MudText>
+                    </td>
+                    <td>
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                                 Color="@TriggerColor(item.Trigger)">
+                            @FormatTrigger(item.Trigger)
+                        </MudChip>
+                    </td>
+                    <td>
+                        @if (item.ConfidenceScore.HasValue)
+                        {
+                            <MudProgressLinear Value="@(item.ConfidenceScore.Value * 100)"
+                                              Color="@ConfidenceColor(item.ConfidenceScore.Value)"
+                                              Rounded="true" Size="Size.Small" Style="width: 80px;" />
+                            <MudText Typo="Typo.caption">@item.ConfidenceScore.Value.ToString("P0")</MudText>
+                        }
+                        else
+                        {
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">N/A</MudText>
+                        }
+                    </td>
+                    <td>
+                        <MudText Typo="Typo.caption">@item.CreatedAt.LocalDateTime.ToString("g")</MudText>
+                    </td>
+                    <td>
+                        <MudStack Row="true" Spacing="1">
+                            <MudButton Size="Size.Small" Variant="Variant.Outlined"
+                                       Color="Color.Primary"
+                                       OnClick="@(() => ResolveItemAsync(item.Id))">
+                                Resolve
+                            </MudButton>
+                            <MudButton Size="Size.Small" Variant="Variant.Text"
+                                       Color="Color.Default"
+                                       OnClick="@(() => DismissItemAsync(item.Id))">
+                                Dismiss
+                            </MudButton>
+                        </MudStack>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </MudSimpleTable>
+}
+
+@code {
+    private List<ReviewItemViewModel> _items = [];
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _loading = true;
+        _items = await Orchestrator.GetPendingReviewsAsync();
+        _loading = false;
+
+        Orchestrator.OnReviewCountChanged += OnReviewCountChanged;
+    }
+
+    private async Task ResolveItemAsync(Guid id)
+    {
+        // Simple resolve — no QID selection yet. Future: expand row with comparison view.
+        var request = new ReviewResolveRequestDto();
+        var ok = await Orchestrator.ResolveReviewAsync(id, request);
+        if (ok)
+        {
+            _items.RemoveAll(i => i.Id == id);
+            StateHasChanged();
+        }
+    }
+
+    private async Task DismissItemAsync(Guid id)
+    {
+        var ok = await Orchestrator.DismissReviewAsync(id);
+        if (ok)
+        {
+            _items.RemoveAll(i => i.Id == id);
+            StateHasChanged();
+        }
+    }
+
+    private void OnReviewCountChanged()
+    {
+        InvokeAsync(async () =>
+        {
+            _items = await Orchestrator.GetPendingReviewsAsync();
+            StateHasChanged();
+        });
+    }
+
+    private static Color TriggerColor(string trigger) => trigger switch
+    {
+        "LowConfidence"       => Color.Warning,
+        "MultipleQidMatches"  => Color.Info,
+        "UserFixMatch"        => Color.Primary,
+        "ArbiterNeedsReview"  => Color.Error,
+        _                     => Color.Default,
+    };
+
+    private static string FormatTrigger(string trigger) => trigger switch
+    {
+        "LowConfidence"       => "Low Confidence",
+        "MultipleQidMatches"  => "Multiple QIDs",
+        "UserFixMatch"        => "User Fix",
+        "ArbiterNeedsReview"  => "Arbiter Flag",
+        _                     => trigger,
+    };
+
+    private static Color ConfidenceColor(double score) => score switch
+    {
+        >= 0.8  => Color.Success,
+        >= 0.6  => Color.Warning,
+        _       => Color.Error,
+    };
+
+    public void Dispose()
+    {
+        Orchestrator.OnReviewCountChanged -= OnReviewCountChanged;
+    }
+}

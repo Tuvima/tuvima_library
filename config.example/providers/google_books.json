@@ -19,6 +19,7 @@
   },
   "throttle_ms": 200,
   "max_concurrency": 1,
+  "hydration_stages": [1],
 
   "adapter_type": "config_driven",
   "provider_id": "b5000005-0000-4000-8000-000000000006",

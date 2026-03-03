@@ -49,4 +49,21 @@ public static class SystemActionType
 
     /// <summary>An affiliate link was generated from a bridge identifier.</summary>
     public const string AffiliateGenerated = "AffiliateGenerated";
+
+    // ── Hydration Pipeline (Three-Stage) ─────────────────────────────────────
+
+    /// <summary>Hydration Stage 1 (Retail Match) completed for an entity.</summary>
+    public const string HydrationStage1Completed = "HydrationStage1Completed";
+
+    /// <summary>Hydration Stage 2 (Universal Bridge) completed for an entity.</summary>
+    public const string HydrationStage2Completed = "HydrationStage2Completed";
+
+    /// <summary>Hydration Stage 3 (Human Hub) completed for an entity.</summary>
+    public const string HydrationStage3Completed = "HydrationStage3Completed";
+
+    /// <summary>A review queue item was created (disambiguation, low confidence, etc.).</summary>
+    public const string ReviewItemCreated = "ReviewItemCreated";
+
+    /// <summary>A review queue item was resolved or dismissed by a user.</summary>
+    public const string ReviewItemResolved = "ReviewItemResolved";
 }

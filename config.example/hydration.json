@@ -1,0 +1,10 @@
+{
+  "stage_concurrency": 3,
+  "stage1_timeout_seconds": 30,
+  "stage2_timeout_seconds": 45,
+  "stage3_timeout_seconds": 30,
+  "disambiguation_threshold": 0.7,
+  "auto_review_confidence_threshold": 0.60,
+  "max_qid_candidates": 5,
+  "skip_stage2_without_bridge_ids": false
+}

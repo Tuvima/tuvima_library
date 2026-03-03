@@ -518,12 +518,15 @@ config/
   tanaste.json                    ← Core: paths, schema version, org template
   scoring.json                    ← Scoring: thresholds, decay
   maintenance.json                ← Maintenance: retention, vacuum, sync
+  hydration.json                  ← Hydration pipeline: stage timeouts, concurrency,
+                                     disambiguation/confidence thresholds (§3.13)
   providers/
     local_filesystem.json         ← Per-provider: weight, enabled, endpoints,
-    apple_books_ebook.json           field_weights, throttle_ms, max_concurrency
-    apple_books_audiobook.json
+    apple_books_ebook.json           field_weights, throttle_ms, max_concurrency,
+    apple_books_audiobook.json       hydration_stages (§3.13)
     audnexus.json
     open_library.json
+    google_books.json
     wikidata.json
   universe/
     wikidata.json                 ← Universe knowledge model: full property map,
@@ -608,7 +611,138 @@ Example files in `config.example/ui/`. Live files in `config/ui/` gitignored.
 - **Privacy** — Device detection runs client-side. No telemetry or fingerprinting.
 - **Reliability** — If the Engine is offline, the Dashboard falls back to compiled web defaults. No blank screens.
 
-### 3.13 — Playback & Streaming Architecture (Target State)
+### 3.13 — Three-Stage Hydration Pipeline & Review Queue
+
+**Plain English:** When a file arrives in the library, the Engine now runs a three-stage enrichment pipeline instead of the old "first provider wins" approach. Each stage builds on the previous one's results, and ambiguous matches are surfaced to the user via a dedicated review queue rather than being silently dropped.
+
+**The three stages:**
+
+| Stage | Name | What it does | Who runs |
+|---|---|---|---|
+| **Stage 1** | Retail Match | **ALL** matching providers run (not first-wins). Each provider's claims are persisted independently, and the scoring engine resolves field conflicts. Bridge IDs (ISBN, ASIN, Apple Books ID, etc.) deposited here are read by Stage 2. | Apple Books, Audnexus, Open Library, Google Books — any provider declaring `hydration_stages: [1]` |
+| **Stage 2** | Universal Bridge | Wikidata QID resolution via bridge IDs from Stage 1. If multiple QID candidates → review queue entry created, pipeline stops. If single QID → SPARQL deep hydration. | WikidataAdapter (locked, not configurable) + any provider declaring stage 2 |
+| **Stage 3** | Human Hub | Person enrichment: extracts author/narrator/director references from canonical values, calls `RecursiveIdentityService` for Wikidata person enrichment. Also runs any providers declaring stage 3 (e.g. Audnexus for narrator details). | Wikidata + Audnexus (stage 3) |
+
+**Post-pipeline confidence check:** After all three stages complete, the pipeline reloads canonical values and computes overall confidence. If below `auto_review_confidence_threshold` (default: 0.60), a review queue entry is created.
+
+**Provider stage assignment:**
+
+Each provider config carries a `hydration_stages` array declaring which stages it participates in:
+```json
+{
+  "name": "audnexus",
+  "hydration_stages": [1, 3],
+  ...
+}
+```
+
+Audnexus declares `[1, 3]` because it serves both retail metadata (narrator, series) and person enrichment (narrator details). Wikidata declares `[2, 3]`. All other REST providers declare `[1]`.
+
+**Review Queue:**
+
+The `review_queue` table stores items that need human attention:
+- **LowConfidence** — pipeline completed but overall confidence is below threshold
+- **MultipleQidMatches** — Stage 2 found multiple Wikidata QID candidates; user must pick one
+- **UserFixMatch** — user-triggered re-review
+- **ArbiterNeedsReview** — the Hub Arbiter flagged an uncertain assignment
+
+Each review item carries: entity reference, trigger reason, confidence score, optional disambiguation candidates (JSON array of `{ qid, label, description }`), and a detail string.
+
+**Review resolution flow:**
+1. User opens Needs Review in Settings → Metadata section
+2. Selects an item → sees current metadata vs proposed match
+3. For disambiguation: picks a QID candidate from a card grid
+4. Clicks Resolve → `POST /review/{id}/resolve` fires
+5. Engine creates user-locked claims for any field overrides
+6. If a QID was selected → `RunSynchronousAsync` with `PreResolvedQid` triggers Stage 2+3
+7. Activity ledger records `ReviewItemResolved`
+8. SignalR broadcasts `ReviewItemResolved` → badge count decrements
+
+**Image hash validation (cross-cutting):**
+
+Cover art and provider thumbnails are tracked by content hash (SHA-256) in the `image_cache` table to prevent redundant re-downloads. When the same image URL appears across multiple entities, the hash is checked first; if found, the cached file path is reused.
+
+**Pipeline configuration (`config/hydration.json`):**
+```json
+{
+  "stage_concurrency": 3,
+  "stage1_timeout_seconds": 30,
+  "stage2_timeout_seconds": 45,
+  "stage3_timeout_seconds": 30,
+  "disambiguation_threshold": 0.7,
+  "auto_review_confidence_threshold": 0.60,
+  "max_qid_candidates": 5,
+  "skip_stage2_without_bridge_ids": false
+}
+```
+
+**Dual-path architecture:** The existing `MetadataHarvestingService` is preserved for `Person`-type requests from `RecursiveIdentityService`. The new `HydrationPipelineService` handles `MediaAsset`-type hydration. Both paths are safe to run concurrently — person creation is idempotent.
+
+**`ScoringHelper`:** The duplicated claim-persist-score-upsert pattern (previously inlined in `MetadataHarvestingService` and `MetadataEndpoints`) is extracted into a shared static helper used by both services.
+
+**API endpoints:**
+
+| Method | Route | Purpose |
+|---|---|---|
+| GET | `/review/pending?limit=50` | List pending review items |
+| GET | `/review/{id}` | Single review item with full detail |
+| GET | `/review/count` | Pending count (for sidebar badge + avatar badge) |
+| POST | `/review/{id}/resolve` | Resolve: select QID or confirm field overrides |
+| POST | `/review/{id}/dismiss` | Dismiss: mark as irrelevant |
+| GET | `/settings/hydration` | Load pipeline configuration |
+| PUT | `/settings/hydration` | Save pipeline configuration |
+
+**SignalR events:**
+- `ReviewItemCreated` — new review queue item (badge increment)
+- `ReviewItemResolved` — item resolved/dismissed (badge decrement)
+- `HydrationStageCompleted` — stage-by-stage progress for live display
+
+**Dashboard integration:**
+
+The Settings sidebar is restructured into three groups:
+
+| Group | Items |
+|---|---|
+| **Preferences** | General, Playback, Navigation |
+| **Metadata** | Connection Vault, Property Mapper, Universe Schema, Matching Pipeline, Needs Review |
+| **Server** | Library, Connectivity, API Keys, Conflicts, Users, Maintenance |
+
+Four new Settings tabs:
+- **Connection Vault** (replaces Providers tab) — stage-aware provider management with coloured stage badges (Stage 1=blue, Stage 2=purple, Stage 3=green), provider status dots, enable/disable toggles
+- **Property Mapper** — per-provider field mapping editor with sample data fetching and preview cards (hidden on mobile)
+- **Matching Pipeline** — visual three-column pipeline diagram with provider cards per stage, flow arrows, and pipeline configuration sliders (hidden on mobile)
+- **Needs Review** — review queue table with trigger chips, confidence gauges, resolve/dismiss actions, live SignalR updates
+
+**Profile avatar notification badge:** The profile avatar (top-right in the AppBar) shows a `MudBadge` with the pending review count, kept current via SignalR. This ensures the user sees pending reviews globally.
+
+**Mobile constraints:** `property_mapper`, `matching_pipeline`, and `universe_schema_editing` are added to `features_disabled` on mobile devices. Only Needs Review and Connection Vault (status view) are visible in the Metadata group on mobile.
+
+**Key types:**
+- `HydrationStage` (`Tanaste.Domain.Enums`) — `RetailMatch = 1, UniversalBridge = 2, HumanHub = 3`
+- `ReviewTrigger`, `ReviewStatus` (`Tanaste.Domain.Enums`) — trigger/status enums
+- `ReviewQueueEntry` (`Tanaste.Domain.Entities`) — domain entity
+- `HydrationResult` (`Tanaste.Domain.Models`) — pipeline result with per-stage claim counts
+- `IHydrationPipelineService` (`Tanaste.Domain.Contracts`) — `EnqueueAsync` + `RunSynchronousAsync`
+- `IReviewQueueRepository` (`Tanaste.Domain.Contracts`) — CRUD for review queue
+- `IImageCacheRepository` (`Tanaste.Domain.Contracts`) — content-hash image cache
+- `HydrationPipelineService` (`Tanaste.Providers.Services`) — three-stage orchestrator
+- `ScoringHelper` (`Tanaste.Providers.Services`) — shared claim-persist-score helper
+- `ReviewQueueRepository`, `ImageCacheRepository` (`Tanaste.Storage`) — SQLite implementations
+- `HydrationSettings` (`Tanaste.Storage.Models`) — pipeline config model
+- `ReviewEndpoints` (`Tanaste.Api.Endpoints`) — review queue API
+- `ConnectionVaultTab`, `PropertyMapperTab`, `MatchingPipelineTab`, `NeedsReviewTab` (`Tanaste.Web.Components.Settings`) — new Dashboard tabs
+- `ReviewItemViewModel`, `ReviewResolveRequestDto`, `HydrationSettingsDto` (`Tanaste.Web.Models.ViewDTOs`) — Dashboard DTOs
+
+**Why this matters to the business:**
+- **Reliability** — Ambiguous matches are surfaced to the user instead of being silently dropped. The review queue ensures no metadata decision is made without confidence.
+- **Extensibility** — Adding a new provider to any stage is a one-line JSON change (`hydration_stages: [1, 3]`). The pipeline handles routing automatically.
+- **Performance** — Stage 1 runs all providers concurrently. The bounded channel queue (500 items) prevents memory pressure. Image hash caching eliminates redundant downloads.
+- **Maintenance** — Pipeline configuration (timeouts, thresholds, concurrency) lives in `config/hydration.json` — zero code changes to tune behaviour. The dual-path architecture preserves backward compatibility with the existing person enrichment flow.
+- **Privacy** — Only titles, ISBNs, ASINs, and bridge IDs leave the machine. All review decisions and hydrated data live locally.
+
+### 3.14 — Playback & Streaming Architecture (Target State)
+
+> **Note:** Sections 3.14–3.19 were renumbered when §3.13 (Three-Stage Hydration Pipeline) was inserted.
 
 > **Status:** Not yet implemented. This section describes the target architecture for in-browser media consumption.
 
@@ -652,7 +786,7 @@ Example files in `config.example/ui/`. Live files in `config/ui/` gitignored.
 - **Privacy** — All playback happens locally. No telemetry, no cloud sync.
 - **Performance** — Prefetching (comics), segmented serving (EPUB chapters), and byte-range streaming (audio/video) ensure smooth playback even for large files.
 
-### 3.14 — Authentication & Multi-User (Target State)
+### 3.15 — Authentication & Multi-User (Target State)
 
 > **Status:** Not yet implemented. Profiles exist with roles but no login system.
 
@@ -679,7 +813,7 @@ Example files in `config.example/ui/`. Live files in `config/ui/` gitignored.
 - **Reliability** — Session-based auth ensures progress is always attributed to the correct person.
 - **Extensibility** — OIDC support can be layered on later without changing the profile model.
 
-### 3.15 — Transcoding Pipeline (Target State)
+### 3.16 — Transcoding Pipeline (Target State)
 
 > **Status:** Not yet implemented. `IVideoMetadataExtractor` is a stub.
 
@@ -729,7 +863,7 @@ Example files in `config.example/ui/`. Live files in `config/ui/` gitignored.
 - **Extensibility** — Quality profiles are configurable. New profiles can be added without code changes.
 - **Maintenance** — Storage limits prevent shadow copies from consuming the entire drive.
 
-### 3.16 — Music Domain Model (Target State)
+### 3.17 — Music Domain Model (Target State)
 
 > **Status:** Not yet implemented. No music media type exists.
 
@@ -760,7 +894,7 @@ Example files in `config.example/ui/`. Live files in `config/ui/` gitignored.
 - **Maintenance** — MusicBrainz is a zero-key provider. Spotify requires a free API key but brings high-quality artwork.
 - **Privacy** — Only artist names and album titles are sent to external services.
 
-### 3.17 — Interoperability & Ecosystem (Target State)
+### 3.18 — Interoperability & Ecosystem (Target State)
 
 > **Status:** Not yet implemented.
 
@@ -799,7 +933,7 @@ Example files in `config.example/ui/`. Live files in `config/ui/` gitignored.
 - **Reliability** — The import wizard reduces migration friction. Users don't lose their existing watched/read progress.
 - **Privacy** — Webhooks are outbound-only and user-configured. No telemetry.
 
-### 3.18 — Browse & Discovery Pages (Target State)
+### 3.19 — Browse & Discovery Pages (Target State)
 
 > **Status:** Not yet implemented. Only the Home grid and Settings page exist.
 
@@ -1074,19 +1208,23 @@ src/Tanaste.Web/
 │   │   ├── CommandPalette.razor        Ctrl+K global search and navigation
 │   │   └── NavigationTray.razor        Content-aware bottom tray: Virtual Libraries + Search
 │   │
-│   ├── Settings/             ← Settings page tab components
+│   ├── Settings/             ← Settings page tab components (3 groups: Preferences, Metadata, Server)
 │   │   ├── SettingsSidebar.razor        Sidebar navigation with search, badges, collapsible sections (defines SettingsSection enum)
-│   │   ├── GeneralTab.razor             Appearance: dark/light toggle + accent colour swatches
-│   │   ├── NavigationTab.razor          Navigation config: Action Cluster toggles + Tray Libraries
-│   │   ├── LibrariesTab.razor           Watch Folder + Library Folder configuration
-│   │   ├── UniverseSettingsTab.razor    Wikidata universe provider: bridge identifiers + property map
-│   │   ├── ProvidersSettingsTab.razor   Condensed provider list: drag priority, expand/drawer editing
+│   │   ├── GeneralTab.razor             [Preferences] Appearance: dark/light toggle + accent colour swatches
+│   │   ├── NavigationTab.razor          [Preferences] Navigation config: Action Cluster toggles + Tray Libraries
+│   │   ├── ConnectionVaultTab.razor     [Metadata] Stage-aware provider management (replaces ProvidersSettingsTab)
+│   │   ├── PropertyMapperTab.razor      [Metadata] Per-provider field mapping editor with sample preview
+│   │   ├── UniverseSettingsTab.razor    [Metadata] Wikidata universe provider: bridge identifiers + property map
+│   │   ├── MatchingPipelineTab.razor    [Metadata] Visual three-stage pipeline diagram + config sliders
+│   │   ├── NeedsReviewTab.razor         [Metadata] Review queue: trigger chips, confidence gauges, resolve/dismiss
+│   │   ├── LibrariesTab.razor           [Server] Watch Folder + Library Folder configuration
+│   │   ├── ConnectivityTab.razor        [Server] Engine connectivity status
+│   │   ├── ApiKeysTab.razor             [Server] Guest API Keys: generate, revoke, copy-to-clipboard
+│   │   ├── ConflictsTab.razor           [Server] Unresolved metadata conflicts
+│   │   ├── UsersTab.razor               [Server] User profile management
+│   │   ├── MaintenanceTab.razor         [Server] Activity ledger, retention, prune
 │   │   ├── ProviderEditPanel.razor      Reusable provider editing: endpoint test, property picker, trust sliders
-│   │   ├── ConnectivityTab.razor        Engine connectivity status
-│   │   ├── ApiKeysTab.razor             Guest API Keys: generate, revoke, copy-to-clipboard
-│   │   ├── ConflictsTab.razor           Unresolved metadata conflicts
-│   │   ├── UsersTab.razor               User profile management
-│   │   └── MaintenanceTab.razor         Activity ledger, retention, prune
+│   │   └── ProvidersSettingsTab.razor   Legacy (redirects to ConnectionVault)
 │   │
 │   ├── Playback/             ← (TARGET STATE) In-browser media players
 │   │   ├── EpubReader.razor             Paginated EPUB reader with chapter nav, font controls
@@ -1101,7 +1239,7 @@ src/Tanaste.Web/
 │       ├── PersonDetail.razor          (TARGET STATE) Person detail: headshot, bio, social links, works
 │       ├── Statistics.razor            (TARGET STATE) Library + personal stats, charts
 │       ├── Login.razor                 (TARGET STATE) Profile selection + PIN/password login
-│       ├── Settings.razor              Unified settings: sidebar + content, all 11 tab components
+│       ├── Settings.razor              Unified settings: sidebar + content, 15 tabs in 3 groups (Preferences/Metadata/Server)
 │       └── NotFound.razor              404 page
 │
 ├── Models/
@@ -1113,10 +1251,11 @@ src/Tanaste.Web/
 │       ├── NavigationConfigViewModel.cs Navigation config models, defaults, JSON helpers
 │       ├── ScanResultViewModel.cs      Dry-run scan result (pending file operations)
 │       ├── ProviderManagementDtos.cs   Provider test/sample/config DTOs for settings UI
+│       ├── ReviewQueueDtos.cs         Review queue + hydration settings DTOs (§3.13)
 │       └── ResolvedUISettingsViewModel.cs  Device-resolved UI configuration (8 DTO classes)
 │
 └── Shared/                   ← Top-level layout shell (used by every page)
-    ├── MainLayout.razor                App chrome: glassmorphic AppBar, Intent Dock, dark-mode toggle
+    ├── MainLayout.razor                App chrome: glassmorphic AppBar, Intent Dock, dark-mode toggle, review badge on profile avatar
     ├── NavMenu.razor                   Deprecated stub (replaced by Intent Dock + Command Palette)
     └── _Imports.razor                  Namespace imports for all Shared components
 ```
