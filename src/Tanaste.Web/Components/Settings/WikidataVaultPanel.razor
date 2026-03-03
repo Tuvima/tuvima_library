@@ -147,6 +147,7 @@
                                 <th>Claim Key</th>
                                 <th style="width: 80px;">Scope</th>
                                 <th style="width: 60px;">Trust</th>
+                                <th style="width: 110px;">Stage</th>
                                 @if (hasBridges)
                                 {
                                     <th style="width: 120px;">Target</th>
@@ -187,6 +188,14 @@
                                                  Style="font-weight: 500;">
                                             @prop.Confidence.ToString("P0")
                                         </MudText>
+                                    </td>
+                                    <td>
+                                        <MudChip T="string" Size="Size.Small"
+                                                 Variant="Variant.Outlined"
+                                                 Color="@(prop.StageApplicability == "Human Hub" ? Color.Success : Color.Info)"
+                                                 Style="font-size: 0.6rem;">
+                                            @prop.StageApplicability
+                                        </MudChip>
                                     </td>
                                     @if (hasBridges)
                                     {

@@ -3,11 +3,11 @@
 @inject DeviceContextService DeviceContext
 @inject ISnackbar Snackbar
 
-@* Connection Vault — stage-aware provider management with expandable editing.
-   Providers are grouped by hydration stage (1: Retail Match, 2: Universe,
-   3: Human Hub). Each provider row expands to show the ProviderEditPanel
-   for endpoint configuration, connection testing, property fetching, and
-   trust slider management. *@
+@* Connection Vault — provider management with expandable editing.
+   Universe (Wikidata) is featured at the top with a dedicated panel.
+   All other providers appear in a flat list below, each expandable to
+   show the ProviderEditPanel for endpoint configuration, connection
+   testing, property fetching, and trust slider management. *@
 
 <MudPaper Elevation="0" Style="@GlassStyle">
 
@@ -34,17 +34,14 @@
     }
     else
     {
-        @* ── Stage 1: Retail Match ───────────────────────────────────────── *@
-        @RenderStageSection(1, "Stage 1: Retail Match", Color.Info,
-            "Retail metadata providers. The scoring engine resolves field conflicts.")
+        @* ── Universe (Wikidata) — featured at top ─────────────────────── *@
+        @if (GetWikidataProvider() is { } wikidataProvider)
+        {
+            @RenderUniverseSection(wikidataProvider)
+        }
 
-        @* ── Stage 2: Universe ───────────────────────────────────────────── *@
-        @RenderStageSection(2, "Stage 2: Universe", Color.Secondary,
-            "Wikidata QID resolution via bridge identifiers from Stage 1.")
-
-        @* ── Stage 3: Human Hub ──────────────────────────────────────────── *@
-        @RenderStageSection(3, "Stage 3: Human Hub", Color.Success,
-            "Person enrichment — headshots, bios, narrator credits, social links.")
+        @* ── Providers — flat list ────────────────────────────────────── *@
+        @RenderProvidersSection()
     }
 </MudPaper>
 
@@ -152,8 +149,8 @@
                 return;
             }
 
-            // Exclude local_filesystem (internal). Wikidata is kept — shown in Stage 2
-            // with a Wikidata-specific panel (WikidataVaultPanel) for connection editing
+            // Exclude local_filesystem (internal). Wikidata is kept — shown in the
+            // featured Universe section with WikidataVaultPanel for connection editing
             // and universe property browsing.
             _providers = providers
                 .Where(p => !string.Equals(p.Name, "local_filesystem", StringComparison.OrdinalIgnoreCase))
@@ -170,44 +167,120 @@
         }
     }
 
-    // ── Provider filtering ───────────────────────────────────────────────────
+    // ── Non-Wikidata provider list ────────────────────────────────────────────
 
-    private List<ProviderStatusDto> GetProvidersForStage(int stage) =>
+    private List<ProviderStatusDto> GetNonWikidataProviders() =>
         _providers
-            .Where(p => (p.HydrationStages ?? [1]).Contains(stage))
+            .Where(p => !IsWikidata(p.Name))
             .ToList();
 
-    // ── Stage section rendering ──────────────────────────────────────────────
+    // ── Universe section rendering ──────────────────────────────────────────
 
-    private RenderFragment RenderStageSection(int stage, string title, Color accentColor, string description) => __builder =>
+    private RenderFragment RenderUniverseSection(ProviderStatusDto provider) => __builder =>
     {
-        var stageProviders = GetProvidersForStage(stage);
+        var isExpanded = _expandedProvider == provider.Name;
+
+        <MudPaper Elevation="0" Class="pa-4 mb-4"
+                  Style="background: var(--tanaste-glass-bg); border: 1px solid var(--tanaste-glass-border); border-left: 4px solid var(--mud-palette-primary); border-radius: 16px;">
+
+            <div class="provider-row-header"
+                 @onclick="@(() => OnRowClicked(provider))">
+
+                @* Status dot *@
+                <div class="provider-status-dot"
+                     style="@StatusDotStyle(provider)"
+                     title="@StatusTitle(provider)">
+                </div>
+
+                @* Provider name with Universe chip *@
+                <div style="flex: 1; min-width: 0;">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        <MudText Typo="Typo.body1" Style="font-weight: 600;">
+                            @provider.DisplayName
+                        </MudText>
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Filled"
+                                 Color="Color.Primary"
+                                 Style="font-size: 0.65rem;">
+                            Universe Provider
+                        </MudChip>
+                    </MudStack>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                        Wikidata QID resolution, bridge identifiers, and person enrichment.
+                    </MudText>
+                </div>
+
+                @* Enable/disable toggle (admin only) *@
+                @if (IsAdmin)
+                {
+                    <MudSwitch T="bool" Value="@provider.Enabled"
+                               ValueChanged="@(async val => await ToggleProviderAsync(provider.Name, val))"
+                               Color="Color.Primary"
+                               @onclick:stopPropagation="true" />
+                }
+
+                @* Expand chevron (web only) *@
+                @if (!IsMobile)
+                {
+                    <MudIcon Icon="@(isExpanded
+                                      ? Icons.Material.Filled.ExpandLess
+                                      : Icons.Material.Filled.ExpandMore)"
+                             Size="Size.Small"
+                             Style="color: var(--tanaste-text-muted);" />
+                }
+            </div>
+
+            @* ── Expanded inline section (web only) ───────────── *@
+            @if (isExpanded && !IsMobile)
+            {
+                <div class="provider-expanded-content">
+                    <WikidataVaultPanel Provider="@provider"
+                                        IsAdmin="@HasAdminAccess"
+                                        OnTestClicked="@(() => TestProvider(provider.Name))"
+                                        OnSaveClicked="@(config => SaveProvider(provider.Name, config))"
+                                        TestResult="@GetTestResult(provider.Name)"
+                                        IsTesting="@IsProviderTesting(provider.Name)"
+                                        IsSaving="@_saving" />
+                </div>
+            }
+        </MudPaper>
+    };
+
+    // ── Providers section rendering ─────────────────────────────────────────
+
+    private RenderFragment RenderProvidersSection() => __builder =>
+    {
+        var nonWikidata = GetNonWikidataProviders();
 
         <MudPaper Elevation="0" Class="pa-4 mb-4"
                   Style="background: var(--tanaste-glass-bg); border: 1px solid var(--tanaste-glass-border); border-radius: 16px;">
-            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
-                <MudChip T="string" Color="@accentColor" Size="Size.Small" Variant="Variant.Filled">
-                    Stage @stage
-                </MudChip>
-                <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">@title</MudText>
-            </MudStack>
-            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3">@description</MudText>
 
-            @if (stageProviders.Count == 0)
+            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+                <MudIcon Icon="@Icons.Material.Filled.CloudSync" Size="Size.Small"
+                         Style="color: var(--tanaste-text-muted);" />
+                <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">Providers</MudText>
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Default">
+                    @nonWikidata.Count
+                </MudChip>
+            </MudStack>
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3">
+                External metadata providers. The scoring engine resolves field conflicts across all sources.
+            </MudText>
+
+            @if (nonWikidata.Count == 0)
             {
                 <MudText Typo="Typo.body2" Color="Color.Secondary" Style="font-style: italic;">
-                    No providers assigned to this stage.
+                    No providers configured.
                 </MudText>
             }
             else
             {
                 <div class="provider-list">
-                    @foreach (var provider in stageProviders)
+                    @foreach (var provider in nonWikidata)
                     {
                         var isExpanded = _expandedProvider == provider.Name;
 
                         <div class="provider-row @(isExpanded ? "expanded" : "")"
-                             @key="@($"{stage}-{provider.Name}")">
+                             @key="@provider.Name">
 
                             @* ── Collapsed row header ─────────────────────────── *@
                             <div class="provider-row-header"
@@ -226,7 +299,7 @@
                                     </MudText>
                                 </div>
 
-                                @* Stage badges *@
+                                @* Stage badges (for reference) *@
                                 @foreach (var s in provider.HydrationStages ?? [1])
                                 {
                                     <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
@@ -259,30 +332,17 @@
                             @if (isExpanded && !IsMobile)
                             {
                                 <div class="provider-expanded-content">
-                                    @if (IsWikidata(provider.Name))
-                                    {
-                                        <WikidataVaultPanel Provider="@provider"
-                                                            IsAdmin="@HasAdminAccess"
-                                                            OnTestClicked="@(() => TestProvider(provider.Name))"
-                                                            OnSaveClicked="@(config => SaveProvider(provider.Name, config))"
-                                                            TestResult="@GetTestResult(provider.Name)"
-                                                            IsTesting="@IsProviderTesting(provider.Name)"
-                                                            IsSaving="@_saving" />
-                                    }
-                                    else
-                                    {
-                                        <ProviderEditPanel Provider="@provider"
-                                                           IsAdmin="@HasAdminAccess"
-                                                           OnTestClicked="@(() => TestProvider(provider.Name))"
-                                                           OnSampleClicked="@(() => FetchSample(provider.Name))"
-                                                           OnSaveClicked="@(config => SaveProvider(provider.Name, config))"
-                                                           OnDeleteClicked="@(() => DeleteProvider(provider.Name))"
-                                                           TestResult="@GetTestResult(provider.Name)"
-                                                           SampleResult="@GetSampleResult(provider.Name)"
-                                                           IsTesting="@IsProviderTesting(provider.Name)"
-                                                           IsFetchingSample="@IsProviderFetchingSample(provider.Name)"
-                                                           IsSaving="@_saving" />
-                                    }
+                                    <ProviderEditPanel Provider="@provider"
+                                                       IsAdmin="@HasAdminAccess"
+                                                       OnTestClicked="@(() => TestProvider(provider.Name))"
+                                                       OnSampleClicked="@(() => FetchSample(provider.Name))"
+                                                       OnSaveClicked="@(config => SaveProvider(provider.Name, config))"
+                                                       OnDeleteClicked="@(() => DeleteProvider(provider.Name))"
+                                                       TestResult="@GetTestResult(provider.Name)"
+                                                       SampleResult="@GetSampleResult(provider.Name)"
+                                                       IsTesting="@IsProviderTesting(provider.Name)"
+                                                       IsFetchingSample="@IsProviderFetchingSample(provider.Name)"
+                                                       IsSaving="@_saving" />
                                 </div>
                             }
                         </div>
@@ -435,6 +495,9 @@
 
     private static bool IsWikidata(string name) =>
         string.Equals(name, "wikidata", StringComparison.OrdinalIgnoreCase);
+
+    private ProviderStatusDto? GetWikidataProvider() =>
+        _providers.FirstOrDefault(p => IsWikidata(p.Name));
 
     private static string StatusDotStyle(ProviderStatusDto p)
     {

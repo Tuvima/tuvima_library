@@ -4,6 +4,7 @@ using Tanaste.Domain.Contracts;
 using Tanaste.Domain.Enums;
 using Tanaste.Domain.Events;
 using Tanaste.Ingestion.Contracts;
+using Tanaste.Providers.Adapters;
 using Tanaste.Providers.Contracts;
 using Tanaste.Providers.Models;
 using Tanaste.Storage.Contracts;
@@ -363,15 +364,28 @@ public static class SettingsEndpoints
             string                                          name,
             IConfigurationLoader                            configLoader,
             IEnumerable<IExternalMetadataProvider>           providers,
+            IHttpClientFactory                               httpFactory,
+            ILoggerFactory                                   loggerFactory,
             CancellationToken                                ct) =>
         {
             var providerConfig = configLoader.LoadProvider(name);
             if (providerConfig is null)
                 return Results.NotFound(new { error = $"Provider '{name}' not found." });
 
-            // Find the registered adapter by name.
+            // Find the registered adapter by name; fall back to constructing one
+            // directly from config when DI lookup fails (e.g. Engine not restarted).
             var adapter = providers.FirstOrDefault(p =>
                 string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase));
+
+            if (adapter is null
+                && string.Equals(providerConfig.AdapterType, "config_driven", StringComparison.OrdinalIgnoreCase))
+            {
+                adapter = new ConfigDrivenAdapter(
+                    providerConfig,
+                    httpFactory,
+                    loggerFactory.CreateLogger<ConfigDrivenAdapter>());
+            }
+
             if (adapter is null)
                 return Results.NotFound(new { error = $"No adapter registered for '{name}'." });
 
@@ -410,14 +424,25 @@ public static class SettingsEndpoints
             }
             sw.Stop();
 
+            // Wikidata is a special case: reaching the API without an exception means
+            // the connection works, even if the test title did not match any QID.
+            var isWikidata = string.Equals(name, "wikidata", StringComparison.OrdinalIgnoreCase);
+            var success = claims.Count > 0 || isWikidata;
+
+            string message;
+            if (claims.Count > 0)
+                message = $"Success — {claims.Count} claims returned in {sw.ElapsedMilliseconds}ms.";
+            else if (isWikidata)
+                message = $"Connection verified ({sw.ElapsedMilliseconds}ms). No claims matched the test title — this is normal. Wikidata lookups depend on bridge identifiers from other providers.";
+            else
+                message = "Test returned zero claims. The provider may be unreachable or the test title was not found.";
+
             return Results.Ok(new ProviderTestResponse
             {
-                Success        = claims.Count > 0,
+                Success        = success,
                 ResponseTimeMs = (int)sw.ElapsedMilliseconds,
                 SampleFields   = claims.Select(c => c.Key).Distinct().ToList(),
-                Message        = claims.Count > 0
-                    ? $"Success — {claims.Count} claims returned in {sw.ElapsedMilliseconds}ms."
-                    : "Test returned zero claims. The provider may be unreachable or the test title was not found.",
+                Message        = message,
             });
         })
         .WithName("TestProvider")
@@ -435,14 +460,28 @@ public static class SettingsEndpoints
             ProviderSampleRequest                           request,
             IConfigurationLoader                            configLoader,
             IEnumerable<IExternalMetadataProvider>           providers,
+            IHttpClientFactory                               httpFactory,
+            ILoggerFactory                                   loggerFactory,
             CancellationToken                                ct) =>
         {
             var providerConfig = configLoader.LoadProvider(name);
             if (providerConfig is null)
                 return Results.NotFound(new { error = $"Provider '{name}' not found." });
 
+            // Find the registered adapter; fall back to constructing one directly
+            // from config when DI lookup fails.
             var adapter = providers.FirstOrDefault(p =>
                 string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase));
+
+            if (adapter is null
+                && string.Equals(providerConfig.AdapterType, "config_driven", StringComparison.OrdinalIgnoreCase))
+            {
+                adapter = new ConfigDrivenAdapter(
+                    providerConfig,
+                    httpFactory,
+                    loggerFactory.CreateLogger<ConfigDrivenAdapter>());
+            }
+
             if (adapter is null)
                 return Results.NotFound(new { error = $"No adapter registered for '{name}'." });
 

@@ -151,7 +151,7 @@
     }
     else if (Provider.FieldWeights is { Count: > 0 })
     {
-        @* Show existing field weights when no sample has been fetched *@
+        @* Show existing field weights as editable when no sample has been fetched *@
         <MudText Typo="Typo.overline" Color="Color.Primary" Class="mb-2"
                  Style="letter-spacing: 0.08em;">
             CONFIGURED PROPERTIES
@@ -160,12 +160,25 @@
         <div class="property-list">
             @foreach (var (key, weight) in Provider.FieldWeights)
             {
+                var isSelected = _selectedProperties.ContainsKey(key);
+                var trustValue = isSelected ? _selectedProperties[key] : weight;
                 var mapping = FindMapping(key);
 
-                <div class="property-item selected">
+                <div class="property-item @(isSelected ? "selected" : "")">
                     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                        <MudIcon Icon="@Icons.Material.Filled.CheckCircle"
-                                 Color="Color.Success" Size="Size.Small" />
+                        @if (IsAdmin)
+                        {
+                            <MudCheckBox T="bool"
+                                         Value="@isSelected"
+                                         ValueChanged="@(v => ToggleProperty(key, v, weight))"
+                                         Color="Color.Primary"
+                                         Dense="true" />
+                        }
+                        else
+                        {
+                            <MudIcon Icon="@Icons.Material.Filled.CheckCircle"
+                                     Color="Color.Success" Size="Size.Small" />
+                        }
                         <div style="flex: 1; min-width: 0;">
                             <MudText Typo="Typo.body2" Style="font-weight: 500;">
                                 @FormatPropertyKey(key)
@@ -182,10 +195,22 @@
                                 </MudText>
                             }
                         </div>
-                        <MudText Typo="Typo.caption" Color="Color.Secondary">
-                            @weight.ToString("P0")
-                        </MudText>
                     </MudStack>
+
+                    @if (isSelected && IsAdmin)
+                    {
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mt-1 ml-10">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary" Style="min-width: 80px;">
+                                Trust: @(trustValue.ToString("P0"))
+                            </MudText>
+                            <MudSlider T="double"
+                                       Value="@trustValue"
+                                       ValueChanged="@(v => _selectedProperties[key] = v)"
+                                       Min="0.1" Max="1.0" Step="0.05"
+                                       Color="Color.Primary"
+                                       Style="flex: 1;" />
+                        </MudStack>
+                    }
                 </div>
             }
         </div>
@@ -278,8 +303,9 @@
     private readonly Dictionary<string, double> _selectedProperties = new();
 
     private bool CanSave =>
-        TestResult is { Success: true }
-        && _selectedProperties.Count > 0;
+        _selectedProperties.Count > 0
+        && (TestResult is { Success: true }
+            || (SampleResult is null && Provider.FieldWeights is { Count: > 0 }));
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 

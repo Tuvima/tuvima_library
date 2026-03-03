@@ -10,7 +10,8 @@ public static class WikidataPropertyDefaults
     /// <summary>A single Wikidata property used by the Universe knowledge model.</summary>
     public sealed record WikidataPropertyInfo(
         string PCode, string ClaimKey, string Category,
-        string EntityScope, double Confidence, bool IsBridge, bool Enabled);
+        string EntityScope, double Confidence, bool IsBridge, bool Enabled,
+        string StageApplicability = "Media Match");
 
     /// <summary>A bridge identifier entry for QID cross-referencing.</summary>
     public sealed record BridgeEntry(string PCode, string RequestField);
@@ -37,11 +38,11 @@ public static class WikidataPropertyDefaults
         new("P58",   "screenwriter",  "People", "Work",   0.9,  false, true),
         new("P161",  "cast_member",   "People", "Work",   0.9,  false, true),
         new("P86",   "composer",      "People", "Work",   0.9,  false, true),
-        new("P18",   "headshot_url",  "People", "Person", 0.9,  false, true),
-        new("P106",  "occupation",    "People", "Person", 0.85, false, true),
-        new("P569",  "date_of_birth", "People", "Person", 0.9,  false, true),
-        new("P570",  "date_of_death", "People", "Person", 0.9,  false, true),
-        new("P27",   "citizenship",   "People", "Person", 0.85, false, true),
+        new("P18",   "headshot_url",  "People", "Person", 0.9,  false, true, "Human Hub"),
+        new("P106",  "occupation",    "People", "Person", 0.85, false, true, "Human Hub"),
+        new("P569",  "date_of_birth", "People", "Person", 0.9,  false, true, "Human Hub"),
+        new("P570",  "date_of_death", "People", "Person", 0.9,  false, true, "Human Hub"),
+        new("P27",   "citizenship",   "People", "Person", 0.85, false, true, "Human Hub"),
 
         // Lore & Narrative
         new("P674",  "characters",         "Lore & Narrative", "Work", 0.85, false, true),
@@ -64,10 +65,10 @@ public static class WikidataPropertyDefaults
         new("P3398", "audible_id", "Bridges: Movies/TV", "Work", 1.0, true, true),
 
         // Social Pivot
-        new("P2003", "instagram", "Social Pivot", "Person", 0.9, false, true),
-        new("P2002", "twitter",   "Social Pivot", "Person", 0.9, false, true),
-        new("P7085", "tiktok",    "Social Pivot", "Person", 0.9, false, true),
-        new("P856",  "website",   "Social Pivot", "Person", 0.9, false, true),
+        new("P2003", "instagram", "Social Pivot", "Person", 0.9, false, true, "Human Hub"),
+        new("P2002", "twitter",   "Social Pivot", "Person", 0.9, false, true, "Human Hub"),
+        new("P7085", "tiktok",    "Social Pivot", "Person", 0.9, false, true, "Human Hub"),
+        new("P856",  "website",   "Social Pivot", "Person", 0.9, false, true, "Human Hub"),
     ];
 
     /// <summary>Returns bridge identifier entries used for QID cross-referencing.</summary>
