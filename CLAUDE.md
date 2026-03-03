@@ -708,9 +708,9 @@ The Settings sidebar is restructured into three groups:
 | **Server** | Library, Connectivity, API Keys, Conflicts, Users, Maintenance |
 
 Four new Settings tabs:
-- **Connection Vault** (replaces Providers tab) — stage-aware provider management with coloured stage badges (Stage 1=blue, Stage 2=purple, Stage 3=green), provider status dots, enable/disable toggles
-- **Property Mapper** — per-provider field mapping editor with sample data fetching and preview cards (hidden on mobile)
-- **Matching Pipeline** — visual three-column pipeline diagram with provider cards per stage, flow arrows, and pipeline configuration sliders (hidden on mobile)
+- **Connection Vault** (replaces Providers tab) — stage-grouped provider management (Stage 1: Retail Match, Stage 2: Universe, Stage 3: Human Hub) with expandable rows that embed `ProviderEditPanel` for endpoint editing, connection testing, property fetching, trust sliders, and save/delete. Filters out `local_filesystem` and `wikidata` (managed in Universe tab). Mobile uses slide-over drawer.
+- **Property Mapper** — deprecated, redirects to Connection Vault. Field mapping is now managed within each provider's edit panel. Kept as a stub for backward compatibility with deep-link URLs.
+- **Matching Pipeline** — media-type-specific pipeline view (Audiobooks, Books, Comics, Movies, TV Shows — alphabetical tabs). Three-stage diagram with Primary/Failover provider ordering in Stages 1 and 3. Stage 2 ("Universe") always shows Wikidata as "Always active". Providers filtered by domain + `hydration_stages` array. Pipeline configuration sliders at bottom (concurrency, timeouts, thresholds). No mobile view.
 - **Needs Review** — review queue table with trigger chips, confidence gauges, resolve/dismiss actions, live SignalR updates
 
 **Profile avatar notification badge:** The profile avatar (top-right in the AppBar) shows a `MudBadge` with the pending review count, kept current via SignalR. This ensures the user sees pending reviews globally.
@@ -1212,10 +1212,10 @@ src/Tanaste.Web/
 │   │   ├── SettingsSidebar.razor        Sidebar navigation with search, badges, collapsible sections (defines SettingsSection enum)
 │   │   ├── GeneralTab.razor             [Preferences] Appearance: dark/light toggle + accent colour swatches
 │   │   ├── NavigationTab.razor          [Preferences] Navigation config: Action Cluster toggles + Tray Libraries
-│   │   ├── ConnectionVaultTab.razor     [Metadata] Stage-aware provider management (replaces ProvidersSettingsTab)
-│   │   ├── PropertyMapperTab.razor      [Metadata] Per-provider field mapping editor with sample preview
-│   │   ├── UniverseSettingsTab.razor    [Metadata] Wikidata universe provider: bridge identifiers + property map
-│   │   ├── MatchingPipelineTab.razor    [Metadata] Visual three-stage pipeline diagram + config sliders
+│   │   ├── ConnectionVaultTab.razor     [Metadata] Stage-grouped provider management with expandable editing via ProviderEditPanel
+│   │   ├── PropertyMapperTab.razor      [Metadata] Deprecated — redirects to Connection Vault (kept for backward compat)
+│   │   ├── UniverseSettingsTab.razor    [Metadata] Wikidata universe provider: bridge identifiers + property map (read-only)
+│   │   ├── MatchingPipelineTab.razor    [Metadata] Media-type pipeline view with Primary/Failover ordering + config sliders
 │   │   ├── NeedsReviewTab.razor         [Metadata] Review queue: trigger chips, confidence gauges, resolve/dismiss
 │   │   ├── LibrariesTab.razor           [Server] Watch Folder + Library Folder configuration
 │   │   ├── ConnectivityTab.razor        [Server] Engine connectivity status

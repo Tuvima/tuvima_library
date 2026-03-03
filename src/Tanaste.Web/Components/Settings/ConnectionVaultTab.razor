@@ -1,68 +1,190 @@
 @namespace Tanaste.Web.Components.Settings
 @inject UIOrchestratorService Orchestrator
 @inject DeviceContextService DeviceContext
+@inject ISnackbar Snackbar
 
-@* Connection Vault — stage-aware provider management.
-   Replaces the legacy ProvidersSettingsTab with hydration stage grouping,
-   stage badge chips, and sample record preview. *@
+@* Connection Vault — stage-aware provider management with expandable editing.
+   Providers are grouped by hydration stage (1: Retail Match, 2: Universe,
+   3: Human Hub). Each provider row expands to show the ProviderEditPanel
+   for endpoint configuration, connection testing, property fetching, and
+   trust slider management. *@
 
-<MudText Typo="Typo.h5" Class="mb-2">Connection Vault</MudText>
-<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
-    Manage external metadata providers grouped by hydration stage.
-</MudText>
+<MudPaper Elevation="0" Style="@GlassStyle">
 
-@if (_loading)
+    @* ── Header ──────────────────────────────────────────────────────────── *@
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+        <MudIcon Icon="@Icons.Material.Outlined.Hub" Color="Color.Primary" Class="mr-2" />
+        <MudText Typo="Typo.h6">Connection Vault</MudText>
+    </MudStack>
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+        Manage external metadata providers. Expand a provider to test connections,
+        fetch properties, and configure field mappings.
+    </MudText>
+
+    @* ── Loading / error states ──────────────────────────────────────────── *@
+    @if (_loading)
+    {
+        <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+    }
+    else if (_engineDown)
+    {
+        <MudAlert Severity="Severity.Error" Class="mt-2">
+            Cannot reach the Engine — please make sure it is running.
+        </MudAlert>
+    }
+    else
+    {
+        @* ── Stage 1: Retail Match ───────────────────────────────────────── *@
+        @RenderStageSection(1, "Stage 1: Retail Match", Color.Info,
+            "Retail metadata providers. The scoring engine resolves field conflicts.")
+
+        @* ── Stage 2: Universe ───────────────────────────────────────────── *@
+        <MudPaper Elevation="0" Class="pa-4 mb-4"
+                  Style="background: var(--tanaste-glass-bg); border: 1px solid var(--tanaste-glass-border); border-radius: 16px;">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+                <MudChip T="string" Color="Color.Secondary" Size="Size.Small" Variant="Variant.Filled">
+                    Stage 2
+                </MudChip>
+                <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">Stage 2: Universe</MudText>
+            </MudStack>
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3">
+                Wikidata QID resolution via bridge identifiers from Stage 1.
+            </MudText>
+            <MudAlert Severity="Severity.Info" Variant="Variant.Text" Dense="true">
+                Wikidata handles this stage automatically. Configure it in
+                <strong>Universe Schema</strong>.
+            </MudAlert>
+        </MudPaper>
+
+        @* ── Stage 3: Human Hub ──────────────────────────────────────────── *@
+        @RenderStageSection(3, "Stage 3: Human Hub", Color.Success,
+            "Person enrichment — headshots, bios, narrator credits, social links.")
+    }
+</MudPaper>
+
+@* ── Mobile slide-over drawer ────────────────────────────────────────── *@
+@if (IsMobile && _drawerProvider is not null)
 {
-    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4" />
-}
-else if (_providers.Count == 0)
-{
-    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-4">
-        No providers configured. Check <code>config/providers/</code> for provider definitions.
-    </MudAlert>
-}
-else
-{
-    @* ── Stage 1: Retail Match ──────────────────────────────────────────── *@
-    @RenderStageGroup(1, "Stage 1: Retail Match", Color.Info,
-        "All matching providers run concurrently. The scoring engine resolves field conflicts.")
+    <MudDrawer Open="@_drawerOpen"
+               OpenChanged="@OnDrawerOpenChanged"
+               Anchor="Anchor.End"
+               Width="100%"
+               Overlay="true"
+               Variant="DrawerVariant.Temporary"
+               Style="@DrawerStyle">
+        <div class="pa-4">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
+                <MudIconButton Icon="@Icons.Material.Filled.ArrowBack"
+                               Color="Color.Default"
+                               Size="Size.Medium"
+                               OnClick="@CloseDrawer" />
+                <MudText Typo="Typo.h6" Style="flex: 1;">@_drawerProvider.DisplayName</MudText>
+            </MudStack>
 
-    @* ── Stage 2: Universal Bridge ──────────────────────────────────────── *@
-    @RenderStageGroup(2, "Stage 2: Universal Bridge", Color.Secondary,
-        "Wikidata QID resolution via bridge identifiers from Stage 1.")
-
-    @* ── Stage 3: Human Hub ─────────────────────────────────────────────── *@
-    @RenderStageGroup(3, "Stage 3: Human Hub", Color.Success,
-        "Person enrichment — headshots, bios, narrator credits, social links.")
+            <ProviderEditPanel Provider="@_drawerProvider"
+                               IsAdmin="@HasAdminAccess"
+                               OnTestClicked="@(() => TestProvider(_drawerProvider.Name))"
+                               OnSampleClicked="@(() => FetchSample(_drawerProvider.Name))"
+                               OnSaveClicked="@(config => SaveProvider(_drawerProvider.Name, config))"
+                               OnDeleteClicked="@(() => DeleteProvider(_drawerProvider.Name))"
+                               TestResult="@GetTestResult(_drawerProvider.Name)"
+                               SampleResult="@GetSampleResult(_drawerProvider.Name)"
+                               IsTesting="@IsProviderTesting(_drawerProvider.Name)"
+                               IsFetchingSample="@IsProviderFetchingSample(_drawerProvider.Name)"
+                               IsSaving="@_saving" />
+        </div>
+    </MudDrawer>
 }
 
 @code {
+    /// <summary>Current user role for authorisation gating.</summary>
     [Parameter] public string CurrentRole { get; set; } = "Administrator";
 
-    private List<ProviderStatusDto> _providers = [];
+    // ── State ────────────────────────────────────────────────────────────────
+
     private bool _loading = true;
+    private bool _engineDown;
+    private bool _saving;
+
+    private List<ProviderStatusDto> _providers = [];
+    private string? _expandedProvider;
+
+    // Mobile drawer.
+    private bool _drawerOpen;
+    private ProviderStatusDto? _drawerProvider;
+
+    // Per-provider test/sample results.
+    private readonly Dictionary<string, ProviderTestResultDto> _testResults = new();
+    private readonly Dictionary<string, ProviderSampleResultDto> _sampleResults = new();
+    private readonly HashSet<string> _testingProviders = [];
+    private readonly HashSet<string> _fetchingSampleProviders = [];
+
+    // ── Computed ──────────────────────────────────────────────────────────────
+
+    private bool HasAdminAccess =>
+        string.Equals(CurrentRole, "Administrator", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(CurrentRole, "Curator", StringComparison.OrdinalIgnoreCase);
 
     private bool IsAdmin =>
         string.Equals(CurrentRole, "Administrator", StringComparison.OrdinalIgnoreCase);
 
+    private bool IsMobile =>
+        string.Equals(DeviceContext.Settings.Pages.ServerSettings.SidebarLayout,
+                      "drawer", StringComparison.OrdinalIgnoreCase);
+
+    // ── Lifecycle ─────────────────────────────────────────────────────────────
+
     protected override async Task OnInitializedAsync()
     {
-        _loading = true;
-        _providers = (await Orchestrator.GetProviderStatusAsync()).ToList();
-        _loading = false;
+        await LoadProvidersAsync();
     }
+
+    private async Task LoadProvidersAsync()
+    {
+        _loading = true;
+        _engineDown = false;
+
+        try
+        {
+            var providers = await Orchestrator.GetProviderStatusAsync();
+            if (providers is null || providers.Count == 0)
+            {
+                _engineDown = true;
+                return;
+            }
+
+            // Exclude local_filesystem (internal) and wikidata (shown in Universe tab).
+            _providers = providers
+                .Where(p => !string.Equals(p.Name, "local_filesystem", StringComparison.OrdinalIgnoreCase))
+                .Where(p => !string.Equals(p.Name, "wikidata", StringComparison.OrdinalIgnoreCase))
+                .OrderBy(p => p.Name)
+                .ToList();
+        }
+        catch
+        {
+            _engineDown = true;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    // ── Provider filtering ───────────────────────────────────────────────────
 
     private List<ProviderStatusDto> GetProvidersForStage(int stage) =>
         _providers
             .Where(p => (p.HydrationStages ?? [1]).Contains(stage))
             .ToList();
 
-    private RenderFragment RenderStageGroup(int stage, string title, Color accentColor, string description) => __builder =>
+    // ── Stage section rendering ──────────────────────────────────────────────
+
+    private RenderFragment RenderStageSection(int stage, string title, Color accentColor, string description) => __builder =>
     {
         var stageProviders = GetProvidersForStage(stage);
-        if (stageProviders.Count == 0) return;
 
-        <MudPaper Elevation="0" Class="pa-4 mb-4" Style="background: var(--tanaste-glass-bg); border: 1px solid var(--tanaste-glass-border); border-radius: 16px;">
+        <MudPaper Elevation="0" Class="pa-4 mb-4"
+                  Style="background: var(--tanaste-glass-bg); border: 1px solid var(--tanaste-glass-border); border-radius: 16px;">
             <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
                 <MudChip T="string" Color="@accentColor" Size="Size.Small" Variant="Variant.Filled">
                     Stage @stage
@@ -71,48 +193,310 @@ else
             </MudStack>
             <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3">@description</MudText>
 
-            @foreach (var provider in stageProviders)
+            @if (stageProviders.Count == 0)
             {
-                <MudPaper Elevation="0" Class="pa-3 mb-2" Style="background: var(--tanaste-hover-overlay); border-radius: 12px;">
-                    <MudStack Row="true" AlignItems="AlignItems.Center">
-                        @* Status dot *@
-                        <MudIcon Icon="@Icons.Material.Filled.Circle"
-                                 Size="Size.Small"
-                                 Color="@(provider.Enabled && provider.IsReachable ? Color.Success
-                                         : provider.Enabled ? Color.Warning : Color.Error)"
-                                 Style="font-size: 10px;" />
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Style="font-style: italic;">
+                    No providers assigned to this stage.
+                </MudText>
+            }
+            else
+            {
+                <div class="provider-list">
+                    @foreach (var provider in stageProviders)
+                    {
+                        var isExpanded = _expandedProvider == provider.Name;
 
-                        @* Provider name *@
-                        <MudText Typo="Typo.body1" Style="flex: 1; font-weight: 500;">
-                            @provider.DisplayName
-                        </MudText>
+                        <div class="provider-row @(isExpanded ? "expanded" : "")"
+                             @key="@($"{stage}-{provider.Name}")">
 
-                        @* Stage badges *@
-                        @foreach (var s in provider.HydrationStages ?? [1])
-                        {
-                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
-                                     Color="@(s == 1 ? Color.Info : s == 2 ? Color.Secondary : Color.Success)">
-                                S@(s)
-                            </MudChip>
-                        }
+                            @* ── Collapsed row header ─────────────────────────── *@
+                            <div class="provider-row-header"
+                                 @onclick="@(() => OnRowClicked(provider))">
 
-                        @* Enable/disable toggle *@
-                        @if (IsAdmin)
-                        {
-                            <MudSwitch T="bool" Value="@provider.Enabled"
-                                       ValueChanged="@(async val => await ToggleProviderAsync(provider.Name, val))"
-                                       Color="Color.Primary" />
-                        }
-                    </MudStack>
-                </MudPaper>
+                                @* Status dot *@
+                                <div class="provider-status-dot"
+                                     style="@StatusDotStyle(provider)"
+                                     title="@StatusTitle(provider)">
+                                </div>
+
+                                @* Provider name *@
+                                <div style="flex: 1; min-width: 0;">
+                                    <MudText Typo="Typo.body1" Style="font-weight: 500;">
+                                        @provider.DisplayName
+                                    </MudText>
+                                </div>
+
+                                @* Stage badges *@
+                                @foreach (var s in provider.HydrationStages ?? [1])
+                                {
+                                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                                             Color="@(s == 1 ? Color.Info : s == 2 ? Color.Secondary : Color.Success)">
+                                        S@(s)
+                                    </MudChip>
+                                }
+
+                                @* Enable/disable toggle (admin only) *@
+                                @if (IsAdmin)
+                                {
+                                    <MudSwitch T="bool" Value="@provider.Enabled"
+                                               ValueChanged="@(async val => await ToggleProviderAsync(provider.Name, val))"
+                                               Color="Color.Primary"
+                                               @onclick:stopPropagation="true" />
+                                }
+
+                                @* Expand chevron (web only) *@
+                                @if (!IsMobile)
+                                {
+                                    <MudIcon Icon="@(isExpanded
+                                                      ? Icons.Material.Filled.ExpandLess
+                                                      : Icons.Material.Filled.ExpandMore)"
+                                             Size="Size.Small"
+                                             Style="color: var(--tanaste-text-muted);" />
+                                }
+                            </div>
+
+                            @* ── Expanded inline section (web only) ───────────── *@
+                            @if (isExpanded && !IsMobile)
+                            {
+                                <div class="provider-expanded-content">
+                                    <ProviderEditPanel Provider="@provider"
+                                                       IsAdmin="@HasAdminAccess"
+                                                       OnTestClicked="@(() => TestProvider(provider.Name))"
+                                                       OnSampleClicked="@(() => FetchSample(provider.Name))"
+                                                       OnSaveClicked="@(config => SaveProvider(provider.Name, config))"
+                                                       OnDeleteClicked="@(() => DeleteProvider(provider.Name))"
+                                                       TestResult="@GetTestResult(provider.Name)"
+                                                       SampleResult="@GetSampleResult(provider.Name)"
+                                                       IsTesting="@IsProviderTesting(provider.Name)"
+                                                       IsFetchingSample="@IsProviderFetchingSample(provider.Name)"
+                                                       IsSaving="@_saving" />
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
             }
         </MudPaper>
     };
 
+    // ── Row interaction ──────────────────────────────────────────────────────
+
+    private void OnRowClicked(ProviderStatusDto provider)
+    {
+        if (IsMobile)
+        {
+            _drawerProvider = provider;
+            _drawerOpen = true;
+        }
+        else
+        {
+            _expandedProvider = _expandedProvider == provider.Name ? null : provider.Name;
+        }
+    }
+
+    // ── Mobile drawer ────────────────────────────────────────────────────────
+
+    private void OnDrawerOpenChanged(bool open)
+    {
+        _drawerOpen = open;
+        if (!open) _drawerProvider = null;
+    }
+
+    private void CloseDrawer()
+    {
+        _drawerOpen = false;
+        _drawerProvider = null;
+    }
+
+    // ── Provider actions ─────────────────────────────────────────────────────
+
     private async Task ToggleProviderAsync(string name, bool enabled)
     {
         await Orchestrator.UpdateProviderAsync(name, enabled);
-        _providers = (await Orchestrator.GetProviderStatusAsync()).ToList();
+        await LoadProvidersAsync();
         StateHasChanged();
     }
+
+    private async Task TestProvider(string name)
+    {
+        _testingProviders.Add(name);
+        _testResults.Remove(name);
+        StateHasChanged();
+
+        try
+        {
+            var result = await Orchestrator.TestProviderAsync(name);
+            if (result is not null)
+                _testResults[name] = result;
+        }
+        finally
+        {
+            _testingProviders.Remove(name);
+            StateHasChanged();
+        }
+    }
+
+    private async Task FetchSample(string name)
+    {
+        _fetchingSampleProviders.Add(name);
+        _sampleResults.Remove(name);
+        StateHasChanged();
+
+        try
+        {
+            var result = await Orchestrator.FetchProviderSampleAsync(
+                name, "The Fellowship of the Ring", "J.R.R. Tolkien",
+                isbn: "9780547928210");
+            if (result is not null)
+                _sampleResults[name] = result;
+        }
+        finally
+        {
+            _fetchingSampleProviders.Remove(name);
+            StateHasChanged();
+        }
+    }
+
+    private async Task SaveProvider(string name, ProviderConfigUpdateDto config)
+    {
+        _saving = true;
+        StateHasChanged();
+
+        try
+        {
+            var success = await Orchestrator.SaveProviderConfigAsync(name, config);
+            if (success)
+            {
+                Snackbar.Add($"{name} configuration saved.", Severity.Success);
+                await LoadProvidersAsync();
+                _expandedProvider = null;
+                CloseDrawer();
+            }
+            else
+            {
+                Snackbar.Add($"Failed to save {name} configuration.", Severity.Error);
+            }
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task DeleteProvider(string name)
+    {
+        _saving = true;
+        StateHasChanged();
+
+        try
+        {
+            var success = await Orchestrator.DeleteProviderAsync(name);
+            if (success)
+            {
+                Snackbar.Add($"{name} has been disabled.", Severity.Info);
+                await LoadProvidersAsync();
+                _expandedProvider = null;
+                CloseDrawer();
+            }
+            else
+            {
+                Snackbar.Add($"Failed to disable {name}.", Severity.Error);
+            }
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private ProviderTestResultDto? GetTestResult(string name) =>
+        _testResults.TryGetValue(name, out var r) ? r : null;
+
+    private ProviderSampleResultDto? GetSampleResult(string name) =>
+        _sampleResults.TryGetValue(name, out var r) ? r : null;
+
+    private bool IsProviderTesting(string name) => _testingProviders.Contains(name);
+    private bool IsProviderFetchingSample(string name) => _fetchingSampleProviders.Contains(name);
+
+    private static string StatusDotStyle(ProviderStatusDto p)
+    {
+        var color = p.Enabled && p.IsReachable
+            ? "var(--mud-palette-success)"
+            : !p.Enabled
+                ? "var(--tanaste-text-muted)"
+                : "var(--mud-palette-error)";
+
+        return $"width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; background-color: {color};";
+    }
+
+    private static string StatusTitle(ProviderStatusDto p)
+    {
+        if (!p.Enabled) return "Disabled";
+        return p.IsReachable ? "Connected" : "Unreachable";
+    }
+
+    // ── Styles ────────────────────────────────────────────────────────────────
+
+    private const string GlassStyle =
+        "background: var(--tanaste-glass-bg); " +
+        "border: 1px solid var(--tanaste-glass-border); " +
+        "backdrop-filter: blur(20px); " +
+        "-webkit-backdrop-filter: blur(20px); " +
+        "border-radius: 24px; " +
+        "padding: 24px;";
+
+    private const string DrawerStyle =
+        "background: var(--tanaste-glass-bg); " +
+        "border-left: 1px solid var(--tanaste-glass-border); " +
+        "backdrop-filter: blur(20px); " +
+        "-webkit-backdrop-filter: blur(20px);";
 }
+
+<style>
+    /* ── Provider list container ──────────────────────────────────────── */
+    .provider-list {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    /* ── Individual provider row ──────────────────────────────────────── */
+    .provider-row {
+        border-radius: 12px;
+        border: 1px solid transparent;
+        transition: border-color 0.15s ease, background 0.15s ease;
+    }
+
+    .provider-row.expanded {
+        border-color: var(--tanaste-glass-border);
+        background: var(--tanaste-glass-bg);
+    }
+
+    /* ── Row header (always visible) ─────────────────────────────────── */
+    .provider-row-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        cursor: pointer;
+        border-radius: 12px;
+        transition: background 0.15s ease;
+        user-select: none;
+    }
+
+    .provider-row-header:hover {
+        background: var(--tanaste-hover-overlay);
+    }
+
+    /* ── Status dot ──────────────────────────────────────────────────── */
+    .provider-status-dot {
+        flex-shrink: 0;
+    }
+
+    /* ── Expanded content ─────────────────────────────────────────────── */
+    .provider-expanded-content {
+        padding: 0 16px 16px 32px;
+    }
+</style>

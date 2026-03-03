@@ -1,12 +1,12 @@
 @namespace Tanaste.Web.Components.Settings
 @inject UIOrchestratorService Orchestrator
 
-@* Matching Pipeline — visual three-stage pipeline diagram with provider cards,
-   flow arrows, and pipeline configuration panel. *@
+@* Matching Pipeline — media-type-specific three-stage pipeline view with
+   Primary/Failover ordering and pipeline configuration. *@
 
 <MudText Typo="Typo.h5" Class="mb-2">Matching Pipeline</MudText>
-<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
-    Visualise the three-stage hydration pipeline and configure timeouts, thresholds, and concurrency.
+<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-5">
+    Configure the three-stage enrichment pipeline for each media type.
 </MudText>
 
 @if (_loading)
@@ -15,27 +15,44 @@
 }
 else
 {
-    @* ── Pipeline diagram ──────────────────────────────────────────────── *@
-    <div class="pipeline-diagram mb-6">
-        @RenderStageColumn(1, "Retail Match", Color.Info,
-            _providers.Where(p => (p.HydrationStages ?? [1]).Contains(1)).ToList())
-
-        <div class="pipeline-arrow">
-            <MudIcon Icon="@Icons.Material.Filled.ArrowForward" Color="Color.Secondary" />
-        </div>
-
-        @RenderStageColumn(2, "Universal Bridge", Color.Secondary,
-            _providers.Where(p => (p.HydrationStages ?? [1]).Contains(2)).ToList())
-
-        <div class="pipeline-arrow">
-            <MudIcon Icon="@Icons.Material.Filled.ArrowForward" Color="Color.Secondary" />
-        </div>
-
-        @RenderStageColumn(3, "Human Hub", Color.Success,
-            _providers.Where(p => (p.HydrationStages ?? [1]).Contains(3)).ToList())
+    @* ── Media-type selector ──────────────────────────────────────────── *@
+    <div class="mp-media-tabs mb-5">
+        @foreach (var mt in MediaTypes)
+        {
+            var mediaType = mt;
+            var isActive = _selectedMediaType == mediaType;
+            <button class="mp-tab @(isActive ? "mp-tab--active" : "")"
+                    @onclick="@(() => _selectedMediaType = mediaType)">
+                @mediaType
+            </button>
+        }
     </div>
 
-    @* ── Pipeline configuration ────────────────────────────────────────── *@
+    @* ── Three-stage pipeline ─────────────────────────────────────────── *@
+    <div class="mp-pipeline mb-8">
+        @RenderStage(1, "Retail Match", Color.Info, GetStageProviders(1), true)
+
+        <div class="mp-connector">
+            <div class="mp-connector-line"></div>
+            <MudIcon Icon="@Icons.Material.Filled.ArrowForward" Size="Size.Small"
+                     Style="color: var(--tanaste-text-muted);" />
+            <div class="mp-connector-line"></div>
+        </div>
+
+        @RenderStage(2, "Universe", Color.Secondary, GetStageProviders(2), false)
+
+        <div class="mp-connector">
+            <div class="mp-connector-line"></div>
+            <MudIcon Icon="@Icons.Material.Filled.ArrowForward" Size="Size.Small"
+                     Style="color: var(--tanaste-text-muted);" />
+            <div class="mp-connector-line"></div>
+        </div>
+
+        @RenderStage(3, "Human Hub", Color.Success, GetStageProviders(3), true)
+    </div>
+
+    @* ── Pipeline configuration ───────────────────────────────────────── *@
+    <MudDivider Class="mb-5" />
     <MudText Typo="Typo.subtitle1" Class="mb-3" Style="font-weight: 600;">Pipeline Configuration</MudText>
 
     @if (_settings is not null)
@@ -103,15 +120,57 @@ else
     private bool _loading = true;
     private bool _saving;
     private bool _saved;
+    private string _selectedMediaType = "Audiobooks";
+
+    private static readonly string[] MediaTypes =
+        ["Audiobooks", "Books", "Comics", "Movies", "TV Shows"];
+
+    // ── Lifecycle ─────────────────────────────────────────────────────────
 
     protected override async Task OnInitializedAsync()
     {
         _loading = true;
-        _providers = (await Orchestrator.GetProviderStatusAsync()).ToList();
+        var providers = await Orchestrator.GetProviderStatusAsync();
+        _providers = providers
+            .Where(p => !string.Equals(p.Name, "local_filesystem", StringComparison.OrdinalIgnoreCase))
+            .ToList();
         _settings = await Orchestrator.GetHydrationSettingsAsync();
         _settings ??= new HydrationSettingsDto();
         _loading = false;
     }
+
+    // ── Media-type to provider domain mapping ─────────────────────────────
+
+    private static string GetDomainForMediaType(string mediaType) => mediaType switch
+    {
+        "Audiobooks" => "Audiobook",
+        "Books"      => "Ebook",
+        "Comics"     => "Comic",
+        "Movies"     => "Video",
+        "TV Shows"   => "Video",
+        _            => ""
+    };
+
+    // ── Provider filtering per stage + media type ─────────────────────────
+
+    private List<ProviderStatusDto> GetStageProviders(int stage)
+    {
+        var domain = GetDomainForMediaType(_selectedMediaType);
+
+        return _providers
+            .Where(p => (p.HydrationStages ?? [1]).Contains(stage))
+            .Where(p => stage == 2 // Stage 2 always shows all providers (Wikidata)
+                      || string.Equals(p.Domain, domain, StringComparison.OrdinalIgnoreCase)
+                      || string.Equals(p.Domain, "Universal", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+    }
+
+    // ── Primary / Failover label ──────────────────────────────────────────
+
+    private static string GetRoleLabel(int index) =>
+        index == 0 ? "Primary" : $"Failover {index}";
+
+    // ── Settings persistence ──────────────────────────────────────────────
 
     private async Task SaveSettingsAsync()
     {
@@ -126,60 +185,225 @@ else
         StateHasChanged();
     }
 
-    private RenderFragment RenderStageColumn(int stage, string label, Color color, List<ProviderStatusDto> providers) => __builder =>
+    // ── Stage card rendering ──────────────────────────────────────────────
+
+    private RenderFragment RenderStage(int stage, string name, Color accentColor,
+        List<ProviderStatusDto> providers, bool showRoles) => __builder =>
     {
-        <div class="pipeline-stage">
-            <MudPaper Elevation="0" Class="pa-3"
-                      Style="background: var(--tanaste-glass-bg); border: 1px solid var(--tanaste-glass-border); border-radius: 16px; min-width: 180px;">
-                <MudStack AlignItems="AlignItems.Center" Spacing="1" Class="mb-2">
-                    <MudChip T="string" Color="@color" Size="Size.Small" Variant="Variant.Filled">
-                        Stage @stage
-                    </MudChip>
-                    <MudText Typo="Typo.subtitle2" Align="Align.Center" Style="font-weight: 600;">
-                        @label
-                    </MudText>
-                </MudStack>
+        var accentCss = accentColor switch
+        {
+            Color.Info      => "var(--mud-palette-info)",
+            Color.Secondary => "var(--mud-palette-secondary)",
+            Color.Success   => "var(--mud-palette-success)",
+            _               => "var(--mud-palette-primary)"
+        };
+
+        <div class="mp-stage">
+            <div class="mp-stage-accent" style="background: @accentCss;"></div>
+            <div class="mp-stage-body">
+                <MudChip T="string" Color="@accentColor" Size="Size.Small"
+                         Variant="Variant.Filled" Class="mb-2"
+                         Style="font-weight: 600; align-self: flex-start;">
+                    Stage @stage
+                </MudChip>
+                <MudText Typo="Typo.subtitle1" Style="font-weight: 600;" Class="mb-3">
+                    @name
+                </MudText>
 
                 @if (providers.Count == 0)
                 {
-                    <MudText Typo="Typo.caption" Color="Color.Secondary" Align="Align.Center">
-                        No providers
-                    </MudText>
+                    <div class="mp-empty">
+                        <MudIcon Icon="@Icons.Material.Outlined.LayersClear" Size="Size.Medium"
+                                 Style="color: var(--tanaste-text-muted); opacity: 0.4;" />
+                        <MudText Typo="Typo.caption" Color="Color.Secondary"
+                                 Align="Align.Center" Class="mt-2">
+                            No providers configured<br />for @_selectedMediaType yet.
+                        </MudText>
+                    </div>
                 }
                 else
                 {
-                    @foreach (var p in providers)
-                    {
-                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
-                                 Color="@(p.Enabled ? Color.Default : Color.Error)"
-                                 Class="mb-1" Style="width: 100%; justify-content: flex-start;">
-                            @p.DisplayName
-                        </MudChip>
-                    }
+                    <div class="mp-providers">
+                        @for (var i = 0; i < providers.Count; i++)
+                        {
+                            var idx = i;
+                            var p = providers[idx];
+                            var isHealthy = p.Enabled && p.IsReachable;
+
+                            <div class="mp-provider @(idx == 0 && showRoles ? "mp-provider--primary" : "")">
+                                <span class="mp-dot @(isHealthy ? "mp-dot--ok" : "mp-dot--err")"
+                                      title="@(isHealthy ? "Online" : "Offline or disabled")"></span>
+                                <span class="mp-provider-name">@p.DisplayName</span>
+                                @if (showRoles)
+                                {
+                                    <MudChip T="string" Size="Size.Small"
+                                             Variant="@(idx == 0 ? Variant.Filled : Variant.Outlined)"
+                                             Color="@(idx == 0 ? Color.Primary : Color.Default)"
+                                             Class="mp-role-chip">
+                                        @GetRoleLabel(idx)
+                                    </MudChip>
+                                }
+                                else
+                                {
+                                    <span class="mp-always-active">Always active</span>
+                                }
+                            </div>
+                        }
+                    </div>
                 }
-            </MudPaper>
+            </div>
         </div>
     };
 }
 
 <style>
-    .pipeline-diagram {
+    /* ── Media-type tab selector ────────────────────────────────────── */
+    .mp-media-tabs {
         display: flex;
-        align-items: center;
-        gap: 8px;
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+
+    .mp-tab {
+        padding: 8px 20px;
+        border-radius: 20px;
+        border: 1px solid var(--tanaste-glass-border);
+        background: var(--tanaste-glass-bg);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        color: var(--tanaste-text-muted);
+        cursor: pointer;
+        font-size: 0.875rem;
+        font-weight: 500;
+        font-family: inherit;
+        transition: all 0.2s ease;
+        user-select: none;
+    }
+
+    .mp-tab:hover {
+        background: var(--tanaste-hover-overlay);
+        border-color: var(--mud-palette-primary);
+    }
+
+    .mp-tab--active {
+        background: var(--mud-palette-primary);
+        color: var(--mud-palette-primary-text);
+        border-color: var(--mud-palette-primary);
+    }
+
+    /* ── Pipeline layout ────────────────────────────────────────────── */
+    .mp-pipeline {
+        display: flex;
+        align-items: stretch;
+        gap: 0;
         overflow-x: auto;
-        padding: 8px 0;
+        padding: 4px 0;
     }
 
-    .pipeline-stage {
+    /* ── Stage card ─────────────────────────────────────────────────── */
+    .mp-stage {
         flex: 1;
-        min-width: 180px;
+        min-width: 220px;
+        background: var(--tanaste-glass-bg);
+        border: 1px solid var(--tanaste-glass-border);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        border-radius: 16px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
     }
 
-    .pipeline-arrow {
+    .mp-stage-accent {
+        height: 4px;
+        width: 100%;
+    }
+
+    .mp-stage-body {
+        padding: 16px;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+    }
+
+    /* ── Connector arrow ────────────────────────────────────────────── */
+    .mp-connector {
         display: flex;
         align-items: center;
-        padding: 0 4px;
-        opacity: 0.5;
+        padding: 0 2px;
+        gap: 0;
+        flex-shrink: 0;
+    }
+
+    .mp-connector-line {
+        width: 12px;
+        height: 2px;
+        background: var(--tanaste-glass-border);
+    }
+
+    /* ── Provider list ──────────────────────────────────────────────── */
+    .mp-providers {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-top: auto;
+    }
+
+    .mp-provider {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid transparent;
+        transition: border-color 0.15s ease;
+    }
+
+    .mp-provider--primary {
+        border-color: var(--mud-palette-primary);
+    }
+
+    /* ── Status dot ─────────────────────────────────────────────────── */
+    .mp-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        flex-shrink: 0;
+    }
+
+    .mp-dot--ok {
+        background: var(--mud-palette-success);
+    }
+
+    .mp-dot--err {
+        background: var(--mud-palette-error);
+    }
+
+    .mp-provider-name {
+        flex: 1;
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+
+    .mp-role-chip {
+        font-size: 0.7rem !important;
+        height: 22px !important;
+    }
+
+    .mp-always-active {
+        font-size: 0.75rem;
+        color: var(--tanaste-text-muted);
+        font-style: italic;
+    }
+
+    /* ── Empty state ────────────────────────────────────────────────── */
+    .mp-empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 32px 16px;
+        margin-top: auto;
     }
 </style>

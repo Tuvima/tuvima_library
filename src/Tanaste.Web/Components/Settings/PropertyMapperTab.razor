@@ -1,93 +1,15 @@
 @namespace Tanaste.Web.Components.Settings
-@inject UIOrchestratorService Orchestrator
 
-@* Property Mapper — field mapping editor for config-driven providers.
-   Shows JSON path extraction rules, sample data preview, and transform picker. *@
+@* Property Mapper — retired. Field mapping is now part of the Connection Vault.
+   This component is kept for backward compatibility with deep-link URLs.
+   Settings.razor redirects PropertyMapper → ConnectionVaultTab. *@
 
-<MudText Typo="Typo.h5" Class="mb-2">Property Mapper</MudText>
-<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
-    Configure how each provider maps its response data to Tanaste claim keys.
-</MudText>
-
-@* ── Provider selector ────────────────────────────────────────────────── *@
-<MudSelect T="string" Label="Provider" @bind-Value="_selectedProvider"
-           Variant="Variant.Outlined" Class="mb-4" Style="max-width: 400px;"
-           AnchorOrigin="Origin.BottomCenter">
-    @foreach (var p in _providers)
-    {
-        <MudSelectItem Value="@p.Name">@p.DisplayName</MudSelectItem>
-    }
-</MudSelect>
-
-@if (string.IsNullOrWhiteSpace(_selectedProvider))
-{
-    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
-        Select a provider above to view and edit its field mappings.
-    </MudAlert>
-}
-else if (_sampleLoading)
-{
-    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4" />
-}
-else if (_sampleResult is not null)
-{
-    <MudText Typo="Typo.subtitle1" Class="mb-2" Style="font-weight: 600;">
-        Sample Claims from @_selectedProvider
-    </MudText>
-    <MudSimpleTable Dense="true" Hover="true" Bordered="true" Class="mb-4"
-                    Style="border-radius: 12px; overflow: hidden;">
-        <thead>
-            <tr>
-                <th>Claim Key</th>
-                <th>Value</th>
-                <th>Confidence</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var claim in _sampleResult.Claims)
-            {
-                <tr>
-                    <td><MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">@claim.Key</MudChip></td>
-                    <td style="max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">@claim.Value</td>
-                    <td>@claim.Confidence.ToString("F2")</td>
-                </tr>
-            }
-        </tbody>
-    </MudSimpleTable>
-}
-
-@if (!string.IsNullOrWhiteSpace(_selectedProvider))
-{
-    <MudButton Variant="Variant.Outlined" Color="Color.Primary"
-               StartIcon="@Icons.Material.Filled.Science"
-               OnClick="@FetchSampleAsync" Disabled="@_sampleLoading">
-        Fetch Sample
-    </MudButton>
-}
+<MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-4">
+    Field mapping is now managed in the <strong>Connection Vault</strong>.
+    Expand any provider to configure its field mappings, test connections, and fetch properties.
+</MudAlert>
 
 @code {
-    private List<ProviderStatusDto> _providers = [];
-    private string? _selectedProvider;
-    private ProviderSampleResultDto? _sampleResult;
-    private bool _sampleLoading;
-
-    protected override async Task OnInitializedAsync()
-    {
-        _providers = (await Orchestrator.GetProviderStatusAsync()).ToList();
-    }
-
-    private async Task FetchSampleAsync()
-    {
-        if (string.IsNullOrWhiteSpace(_selectedProvider)) return;
-
-        _sampleLoading = true;
-        StateHasChanged();
-
-        _sampleResult = await Orchestrator.FetchProviderSampleAsync(
-            _selectedProvider, "The Fellowship of the Ring", "J.R.R. Tolkien",
-            isbn: "9780547928210", asin: "B007978NPG");
-
-        _sampleLoading = false;
-        StateHasChanged();
-    }
+    // Intentionally empty — this tab is deprecated.
+    // Settings.razor renders ConnectionVaultTab for the PropertyMapper route.
 }
