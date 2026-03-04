@@ -3,10 +3,7 @@
   <defs>
     <style>
       .tl-mark { fill: url(#tl-radial-gradient); }
-      .tl-text { fill: #1A1A24; }
-      @media (prefers-color-scheme: dark) {
-        .tl-text { fill: rgba(255,255,255,0.87); }
-      }
+      .tl-text { fill: rgba(255,255,255,0.87); }
     </style>
     <radialGradient id="tl-radial-gradient" cx="131.11" cy="128.5" fx="131.11" fy="128.5" r="129.81" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#fffbcc"/>

@@ -323,6 +323,9 @@ public sealed class FolderSettingsResponse
 
     [JsonPropertyName("library_root")]
     public string LibraryRoot { get; init; } = string.Empty;
+
+    [JsonPropertyName("staging_directory")]
+    public string StagingDirectory { get; init; } = string.Empty;
 }
 
 public sealed class UpdateFoldersRequest
@@ -332,6 +335,9 @@ public sealed class UpdateFoldersRequest
 
     [JsonPropertyName("library_root")]
     public string? LibraryRoot { get; init; }
+
+    [JsonPropertyName("staging_directory")]
+    public string? StagingDirectory { get; init; }
 }
 
 // ── POST /settings/test-path ───────────────────────────────────────────────────

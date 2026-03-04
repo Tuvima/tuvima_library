@@ -182,6 +182,7 @@ builder.Services.PostConfigure<IngestionOptions>(opts =>
         var core = configLoader.LoadCore();
         if (!string.IsNullOrWhiteSpace(core.WatchDirectory))       opts.WatchDirectory       = core.WatchDirectory;
         if (!string.IsNullOrWhiteSpace(core.LibraryRoot))          opts.LibraryRoot          = core.LibraryRoot;
+        if (!string.IsNullOrWhiteSpace(core.StagingDirectory))     opts.StagingDirectory     = core.StagingDirectory;
         if (!string.IsNullOrWhiteSpace(core.OrganizationTemplate)) opts.OrganizationTemplate = core.OrganizationTemplate;
     }
     catch

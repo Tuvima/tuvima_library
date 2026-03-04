@@ -427,13 +427,16 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
             // Guard: reject any organization that would place the file in "Other".
             // This catches unmapped media types (Unknown, null) and ensures the file
-            // goes to review instead of a catch-all folder.
+            // goes to staging/review instead of a catch-all folder.
             if (relative.StartsWith("Other", StringComparison.OrdinalIgnoreCase))
             {
                 _logger.LogWarning(
                     "Organization blocked — resolved category is 'Other' for {Path}. " +
-                    "Creating review item instead.",
+                    "Moving to staging and creating review item.",
                     candidate.Path);
+
+                currentPath = await MoveToStagingAsync(currentPath, ct)
+                                  .ConfigureAwait(false) ?? currentPath;
 
                 await CreateIngestionReviewItemAsync(
                     assetId, ReviewTrigger.LowConfidence, scored.OverallConfidence,
@@ -456,20 +459,26 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                  && !passesGate)
         {
             // Confidence too low for organization and no user-locked claims.
-            // Create a review item so the user knows this file needs attention.
-            // The hydration pipeline may also create review items asynchronously,
-            // but this ensures immediate visibility regardless of pipeline outcome.
+            // Move to staging to keep the watch folder clean, and create a
+            // review item so the user knows this file needs attention.
             _logger.LogInformation(
                 "Confidence {Confidence:P0} below organization threshold (0.85) for {Path}. " +
-                "Creating review item.",
+                "Moving to staging and creating review item.",
                 scored.OverallConfidence, candidate.Path);
+
+            currentPath = await MoveToStagingAsync(currentPath, ct)
+                              .ConfigureAwait(false) ?? currentPath;
 
             await CreateIngestionReviewItemAsync(
                 assetId, ReviewTrigger.LowConfidence, scored.OverallConfidence,
                 $"Overall confidence {scored.OverallConfidence:P0} below organization threshold (85%). " +
-                "File remains in Watch Folder until reviewed.",
+                "File moved to staging for review.",
                 ct).ConfigureAwait(false);
         }
+
+        // Update stored path when the file was moved (organized or staged).
+        if (!string.Equals(currentPath, candidate.Path, StringComparison.Ordinal))
+            await _assetRepo.UpdateFilePathAsync(assetId, currentPath, ct).ConfigureAwait(false);
 
         // Step 11b: write sidecar XML and persist cover art.
         // Only runs when AutoOrganize triggered (same confidence/lock gate) so
@@ -785,19 +794,23 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         var relative = _organizer.CalculatePath(synth, _options.OrganizationTemplate);
 
         // Guard: never re-organize into the "Other" category. If the media type
-        // couldn't be determined from canonical values, create a review item so the
-        // user can manually classify the file.
+        // couldn't be determined from canonical values, move to staging and create
+        // a review item so the user can manually classify the file.
         if (relative.StartsWith("Other", StringComparison.OrdinalIgnoreCase))
         {
             _logger.LogWarning(
                 "Re-organization blocked for {Hash} — resolved category is 'Other'. " +
-                "Creating review item instead.",
+                "Moving to staging and creating review item.",
                 existing.ContentHash[..12]);
+
+            var staged = await MoveToStagingAsync(currentPath, ct).ConfigureAwait(false);
+            if (staged is not null)
+                await _assetRepo.UpdateFilePathAsync(existing.Id, staged, ct).ConfigureAwait(false);
 
             await CreateIngestionReviewItemAsync(
                 existing.Id, ReviewTrigger.LowConfidence, 0.0,
                 $"Re-organization would place file in 'Other' category (media type unknown). " +
-                "Manual classification required.",
+                "File moved to staging for manual classification.",
                 ct).ConfigureAwait(false);
             return;
         }
@@ -828,6 +841,44 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 "Re-organize move failed for {Hash} ({Source} → {Dest})",
                 existing.ContentHash[..12], currentPath, destPath);
         }
+    }
+
+    // =========================================================================
+    // Staging
+    // =========================================================================
+
+    /// <summary>
+    /// Moves a file from the Watch Folder to the Staging directory.
+    /// Returns the new path on success, or <see langword="null"/> when staging
+    /// is not configured or the move fails.
+    /// </summary>
+    private async Task<string?> MoveToStagingAsync(string currentPath, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(_options.StagingDirectory))
+            return null;
+
+        // Only stage files that are currently in the Watch Folder.
+        if (!string.IsNullOrWhiteSpace(_options.WatchDirectory)
+            && !currentPath.StartsWith(
+                    _options.WatchDirectory, StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        var destPath = Path.Combine(
+            _options.StagingDirectory,
+            Path.GetFileName(currentPath));
+
+        bool moved = await _organizer.ExecuteMoveAsync(currentPath, destPath, ct)
+                                      .ConfigureAwait(false);
+        if (moved)
+        {
+            _logger.LogInformation(
+                "Staged unresolved file: {Source} → {Dest}", currentPath, destPath);
+            return destPath;
+        }
+
+        _logger.LogWarning(
+            "Staging move failed for {Source} → {Dest}", currentPath, destPath);
+        return null;
     }
 
     // =========================================================================

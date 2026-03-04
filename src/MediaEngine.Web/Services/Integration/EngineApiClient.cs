@@ -348,7 +348,7 @@ public sealed class EngineApiClient : IEngineApiClient
     {
         try
         {
-            var body = new { watch_directory = settings.WatchDirectory, library_root = settings.LibraryRoot };
+            var body = new { watch_directory = settings.WatchDirectory, library_root = settings.LibraryRoot, staging_directory = settings.StagingDirectory };
             var resp = await _http.PutAsJsonAsync("/settings/folders", body, ct);
 
             if (!resp.IsSuccessStatusCode)

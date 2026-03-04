@@ -93,6 +93,46 @@
         <div class="mb-5" />
     }
 
+    @* Staging Folder *@
+    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-1">
+        <MudIcon Icon="@Icons.Material.Filled.Circle"
+                 Size="Size.Small"
+                 Color="@(_stagingHealthy ? Color.Success : Color.Default)" />
+        <MudText Typo="Typo.subtitle2">Staging Folder</MudText>
+        <MudChip T="string" Size="Size.Small" Color="Color.Default">Optional</MudChip>
+    </MudStack>
+    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2">
+        Holding area for files that can't be auto-organized yet. Keeps the Watch Folder clean.
+    </MudText>
+    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-2">
+        <MudTextField @bind-Value="_stagingDir"
+                      Placeholder="/path/to/staging"
+                      Variant="Variant.Outlined"
+                      FullWidth="true"
+                      Immediate="true"
+                      Margin="Margin.Dense" />
+        <MudButton Variant="Variant.Outlined"
+                   Color="Color.Primary"
+                   OnClick="@TestStagingPathAsync"
+                   Disabled="@(string.IsNullOrWhiteSpace(_stagingDir) || _testingStaging)"
+                   Style="white-space: nowrap; min-width: 110px;">
+            @(_testingStaging ? "Testing..." : "Test Path")
+        </MudButton>
+    </MudStack>
+    @if (_stagingTestResult is not null)
+    {
+        <MudChip T="string"
+                 Color="@GetTestColor(_stagingTestResult)"
+                 Size="Size.Small"
+                 Class="mb-5">
+            @GetTestLabel(_stagingTestResult)
+        </MudChip>
+    }
+    else
+    {
+        <div class="mb-5" />
+    }
+
     <MudDivider Class="my-6" />
 
     @* Organization Template *@
@@ -178,13 +218,17 @@
 
     private string              _watchDir              = string.Empty;
     private string              _libraryRoot           = string.Empty;
+    private string              _stagingDir            = string.Empty;
     private PathTestResultDto?  _watchTestResult;
     private PathTestResultDto?  _libTestResult;
+    private PathTestResultDto?  _stagingTestResult;
     private bool                _testingWatch;
     private bool                _testingLib;
+    private bool                _testingStaging;
     private bool                _savingFolders;
     private bool                _watchHealthy;
     private bool                _libraryHealthy;
+    private bool                _stagingHealthy;
 
     // Template state
     private string              _organizationTemplate  = string.Empty;
@@ -201,6 +245,7 @@
         {
             _watchDir    = settings.WatchDirectory;
             _libraryRoot = settings.LibraryRoot;
+            _stagingDir  = settings.StagingDirectory;
         }
 
         // Load organization template.
@@ -232,6 +277,9 @@
         else if (!string.IsNullOrWhiteSpace(_libraryRoot)
             && string.Equals(path, _libraryRoot, StringComparison.OrdinalIgnoreCase))
             _libraryHealthy = healthy;
+        else if (!string.IsNullOrWhiteSpace(_stagingDir)
+            && string.Equals(path, _stagingDir, StringComparison.OrdinalIgnoreCase))
+            _stagingHealthy = healthy;
 
         InvokeAsync(StateHasChanged);
     }
@@ -248,6 +296,12 @@
         {
             var r = await Orchestrator.TestPathAsync(_libraryRoot);
             _libraryHealthy = r is { Exists: true, HasRead: true, HasWrite: true };
+        }
+
+        if (!string.IsNullOrWhiteSpace(_stagingDir))
+        {
+            var r = await Orchestrator.TestPathAsync(_stagingDir);
+            _stagingHealthy = r is { Exists: true, HasRead: true, HasWrite: true };
         }
     }
 
@@ -286,6 +340,24 @@
         else
         {
             _libraryHealthy = _libTestResult is { Exists: true, HasRead: true, HasWrite: true };
+        }
+    }
+
+    private async Task TestStagingPathAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_stagingDir)) return;
+        _testingStaging    = true;
+        _stagingTestResult = await Orchestrator.TestPathAsync(_stagingDir);
+        _testingStaging    = false;
+
+        if (_stagingTestResult is null)
+        {
+            Snackbar.Add("Cannot reach the Engine — please make sure it is running.", Severity.Error);
+            _stagingHealthy = false;
+        }
+        else
+        {
+            _stagingHealthy = _stagingTestResult is { Exists: true, HasRead: true, HasWrite: true };
         }
     }
 
@@ -374,8 +446,30 @@
             _libraryHealthy = true;
         }
 
+        // Validate Staging Folder (optional — if provided, must have read + write).
+        if (!string.IsNullOrWhiteSpace(_stagingDir))
+        {
+            var r = await Orchestrator.TestPathAsync(_stagingDir);
+            _stagingTestResult = r;
+            if (r is null)
+            {
+                Snackbar.Add("Cannot reach the Engine — please make sure it is running.", Severity.Error);
+                _savingFolders = false;
+                return;
+            }
+            if (r is not { HasRead: true, HasWrite: true })
+            {
+                Snackbar.Add("Staging Folder is not accessible — please check the path and permissions.",
+                    Severity.Error);
+                _stagingHealthy = false;
+                _savingFolders  = false;
+                return;
+            }
+            _stagingHealthy = true;
+        }
+
         // Save folder settings.
-        var dto     = new FolderSettingsDto(_watchDir, _libraryRoot);
+        var dto     = new FolderSettingsDto(_watchDir, _libraryRoot, _stagingDir);
         var success = await Orchestrator.UpdateFolderSettingsAsync(dto);
 
         // Save organization template (if provided).

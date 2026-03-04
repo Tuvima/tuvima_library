@@ -33,6 +33,13 @@ public sealed class IngestionOptions
         "{Category}/{HubName} ({Year})/{Format}/{HubName} ({Edition}){Ext}";
 
     /// <summary>
+    /// Holding area for files that cannot be auto-organized (low confidence,
+    /// unknown media type, or "Other" category).  Keeps the Watch Folder clean.
+    /// When empty, unresolved files remain in the Watch Folder.
+    /// </summary>
+    public string StagingDirectory { get; set; } = string.Empty;
+
+    /// <summary>
     /// When <see langword="true"/> the engine automatically moves accepted files
     /// to <see cref="LibraryRoot"/> using <see cref="OrganizationTemplate"/>.
     /// Default: <see langword="false"/> (safe mode — monitor only).

@@ -1,6 +1,10 @@
 <div align="center">
 
-<img src="assets/images/tuvima-logo.svg" alt="Tuvima Library" height="90" />
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/images/tuvima-logo-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="assets/images/tuvima-logo.svg">
+  <img src="assets/images/tuvima-logo.svg" alt="Tuvima Library" height="90" />
+</picture>
 
 **The Private Universe Discovery & Media Engine.**
 

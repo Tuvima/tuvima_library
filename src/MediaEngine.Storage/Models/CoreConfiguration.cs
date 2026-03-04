@@ -43,6 +43,14 @@ public sealed class CoreConfiguration
     public string LibraryRoot { get; set; } = string.Empty;
 
     /// <summary>
+    /// Holding area for files that cannot be auto-organized (low confidence,
+    /// unknown media type, or "Other" category).  Keeps the Watch Folder clean.
+    /// When empty, unresolved files remain in the Watch Folder.
+    /// </summary>
+    [JsonPropertyName("staging_directory")]
+    public string StagingDirectory { get; set; } = string.Empty;
+
+    /// <summary>
     /// Tokenised path template for file organisation (e.g.
     /// <c>{Category}/{HubName} ({Year})/{Format} - {Edition}/</c>).
     /// Overrides the default template when set.
