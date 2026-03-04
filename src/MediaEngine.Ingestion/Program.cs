@@ -34,7 +34,7 @@ var host = Host.CreateDefaultBuilder(args)
     {
         var config = ctx.Configuration;
 
-        // ── Ingestion options ──────────────────────────────────
+        // ── Ingestion options ──────────────────────────────────────────
         services.Configure<IngestionOptions>(
             config.GetSection(IngestionOptions.SectionName));
 
@@ -55,11 +55,31 @@ var host = Host.CreateDefaultBuilder(args)
         // ── Configuration Directory Loader ───────────────────
         // Reads individual config files from config/ directory.
         // Auto-migrates from legacy manifest on first run.
-        string configDir    = config["MediaEngine:ConfigDirectory"] ?? "config";
+        string configDir = config["MediaEngine:ConfigDirectory"] ?? "config";
         string manifestPath = config["MediaEngine:ManifestPath"] ?? "legacy_manifest.json";
-        var    configLoader = new ConfigurationDirectoryLoader(configDir, manifestPath);
+        var configLoader = new ConfigurationDirectoryLoader(configDir, manifestPath);
         services.AddSingleton<IStorageManifest>(configLoader);
         services.AddSingleton<IConfigurationLoader>(configLoader);
+
+        // PostConfigure: override appsettings.json values with any paths
+        // previously saved via PUT /settings/folders (stored in config/core.json).
+        // Without this the worker always starts with WatchDirectory = "" even
+        // after the user has saved a path via the Settings page.
+        services.PostConfigure<IngestionOptions>(opts =>
+        {
+            try
+            {
+                var core = configLoader.LoadCore();
+                if (!string.IsNullOrWhiteSpace(core.WatchDirectory)) opts.WatchDirectory = core.WatchDirectory;
+                if (!string.IsNullOrWhiteSpace(core.LibraryRoot)) opts.LibraryRoot = core.LibraryRoot;
+                if (!string.IsNullOrWhiteSpace(core.StagingDirectory)) opts.StagingDirectory = core.StagingDirectory;
+                if (!string.IsNullOrWhiteSpace(core.OrganizationTemplate)) opts.OrganizationTemplate = core.OrganizationTemplate;
+            }
+            catch
+            {
+                // First run — config may not yet have folder keys; appsettings.json values stand.
+            }
+        });
 
         // Bootstrap the default universe config if it doesn't exist yet.
         if (configLoader.LoadConfig<UniverseConfiguration>("universe", "wikidata") is null)
@@ -169,6 +189,13 @@ var host = Host.CreateDefaultBuilder(args)
         // ── Metadata harvesting & person enrichment (Phase 9) ──
         services.AddSingleton<IMetadataHarvestingService, MetadataHarvestingService>();
         services.AddSingleton<IRecursiveIdentityService, RecursiveIdentityService>();
+
+        // ── Hydration pipeline + review queue ──────────────────
+        // Required by IngestionEngine constructor — missing from the worker host
+        // caused a DI crash at startup, preventing the FileSystemWatcher from ever
+        // starting (which is why files in the watch folder were not picked up).
+        services.AddSingleton<IHydrationPipelineService, HydrationPipelineService>();
+        services.AddSingleton<IReviewQueueRepository, ReviewQueueRepository>();
 
         // ── Sidecar writer + library scanner (Phase 7) ─────────
         services.AddSingleton<ISidecarWriter, SidecarWriter>();
