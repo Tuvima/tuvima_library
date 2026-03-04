@@ -1,0 +1,287 @@
+@namespace MediaEngine.Web.Components.Settings
+@inject UIOrchestratorService Orchestrator
+@inject ThemeService ThemeService
+@inject DeviceContextService DeviceContext
+@inject IJSRuntime JS
+@inject ISnackbar Snackbar
+@implements IDisposable
+
+@* General — merged Profile identity + Appearance preferences.
+   Layout driven by device context:
+     "full"       → Web: all sections visible (profile + avatar colour + appearance + accent)
+     "stacked"    → Mobile: compact profile, fewer swatches
+     "theme-only" → Television / Automotive: only dark-mode toggle (and possibly locked) *@
+
+@{
+    var layout = DeviceContext.Settings.Pages.Preferences.GeneralTabLayout;
+    var swatchCount = DeviceContext.Settings.Pages.Preferences.ColorSwatchCount;
+    var showProfile = !DeviceContext.IsFeatureDisabled("profile_section") && layout != "theme-only";
+    var showColorPicker = !DeviceContext.IsFeatureDisabled("color_picker") && layout != "theme-only";
+    var forceDark = DeviceContext.Settings.Constraints.ForceDarkMode;
+}
+
+<MudPaper Elevation="0" Style="@GlassStyle">
+
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+        <MudIcon Icon="@Icons.Material.Outlined.Tune" Color="Color.Primary" Class="mr-2" />
+        <MudText Typo="Typo.h6">General</MudText>
+    </MudStack>
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
+        @(layout == "theme-only" ? "Visual preferences." : "Your identity and visual preferences.")
+    </MudText>
+
+    @if (_loading)
+    {
+        <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4" />
+    }
+    else
+    {
+        @* ── Profile section (hidden on TV/automotive) ─────────────────── *@
+
+        @if (showProfile)
+        {
+            @* Avatar preview *@
+            <MudStack AlignItems="AlignItems.Center" Class="mb-6">
+                <MudAvatar Size="Size.Large"
+                           Style="@($"background: {_avatarColor}; width: 80px; height: 80px; font-size: 2rem;")">
+                    @(_displayName.Length > 0 ? _displayName[0].ToString().ToUpper() : "?")
+                </MudAvatar>
+            </MudStack>
+
+            @* Display name — hidden when text input is disallowed (TV/automotive) *@
+            @if (DeviceContext.Settings.Constraints.AllowTextInput)
+            {
+                <MudTextField @bind-Value="_displayName"
+                              Label="Display Name"
+                              Variant="Variant.Outlined"
+                              FullWidth="true"
+                              Immediate="true"
+                              MaxLength="50"
+                              Class="mb-4" />
+            }
+
+            @* Role (read-only) *@
+            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4" Spacing="2">
+                <MudText Typo="Typo.subtitle2">Role:</MudText>
+                <MudChip T="string" Size="Size.Small"
+                         Color="@(_role == "Administrator" ? Color.Primary : _role == "Curator" ? Color.Info : Color.Default)">
+                    @_role
+                </MudChip>
+            </MudStack>
+
+            @* Avatar colour — hidden when color_picker is disabled *@
+            @if (showColorPicker)
+            {
+                <MudText Typo="Typo.subtitle2" Class="mb-1">Avatar Colour</MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3">
+                    Choose a colour for your avatar circle.
+                </MudText>
+
+                <MudStack Row="true" Spacing="2" Style="flex-wrap: wrap;" Class="mb-6">
+                    @foreach (var hex in _avatarPresets.Take(swatchCount))
+                    {
+                        <MudAvatar Size="Size.Medium"
+                                   Style="@AvatarSwatchStyle(hex)"
+                                   @onclick="@(() => { _avatarColor = hex; })" />
+                    }
+                </MudStack>
+            }
+
+            <MudDivider Class="my-6" />
+        }
+
+        @* ── Appearance section ───────────────────────────────────────── *@
+
+        <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+            <MudIcon Icon="@Icons.Material.Outlined.Palette" Color="Color.Primary" Class="mr-2" />
+            <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">Appearance</MudText>
+        </MudStack>
+
+        @* Dark / Light mode *@
+        <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-6">
+            <MudIcon Icon="@(_isDark ? Icons.Material.Filled.DarkMode : Icons.Material.Filled.LightMode)"
+                     Color="Color.Secondary" Class="mr-2" />
+            <MudText Style="flex: 1;">Dark Mode</MudText>
+            @if (forceDark)
+            {
+                @* Automotive: dark mode forced — show a locked indicator *@
+                <MudChip T="string" Size="Size.Small" Color="Color.Default"
+                         Icon="@Icons.Material.Filled.Lock">
+                    Always On
+                </MudChip>
+            }
+            else
+            {
+                <MudSwitch T="bool"
+                           Value="@_isDark"
+                           ValueChanged="@ToggleDarkMode"
+                           Color="Color.Primary" />
+            }
+        </MudStack>
+
+        @* Accent colour — hidden when color_picker is disabled or theme-only *@
+        @if (showColorPicker && swatchCount > 0)
+        {
+            <MudText Typo="Typo.subtitle2" Class="mb-1">Accent Colour</MudText>
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3">
+                Choose a primary colour that tints buttons, progress bars, and active highlights.
+            </MudText>
+
+            <MudStack Row="true" Spacing="2" Style="flex-wrap: wrap;" Class="mb-6">
+                @foreach (var (hex, label) in _accentPresets.Take(swatchCount))
+                {
+                    <MudTooltip Text="@label" Arrow="true" Placement="Placement.Top">
+                        <MudAvatar Size="Size.Medium"
+                                   Style="@AccentSwatchStyle(hex)"
+                                   @onclick="@(() => SetAccent(hex))" />
+                    </MudTooltip>
+                }
+            </MudStack>
+        }
+
+        @* ── Save button (only when profile section is visible) ──────── *@
+
+        @if (showProfile)
+        {
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       FullWidth="true"
+                       OnClick="@SaveProfileAsync"
+                       Disabled="@(_saving || string.IsNullOrWhiteSpace(_displayName))">
+                @(_saving ? "Saving..." : "Save Profile")
+            </MudButton>
+        }
+    }
+
+</MudPaper>
+
+@code {
+
+    private const string GlassStyle =
+        "background: var(--app-glass-bg); " +
+        "border: 1px solid var(--app-glass-border); " +
+        "backdrop-filter: blur(10px); " +
+        "-webkit-backdrop-filter: blur(10px); " +
+        "border-radius: 32px; " +
+        "padding: 32px;";
+
+    // ── Avatar colour presets ────────────────────────────────────────────────────
+
+    private static readonly string[] _avatarPresets =
+    [
+        "#7C4DFF", "#00BFA5", "#FF8F00", "#E91E63",
+        "#2196F3", "#4CAF50", "#FF5722", "#9C27B0",
+    ];
+
+    // ── Accent colour presets ────────────────────────────────────────────────────
+
+    private static readonly (string Hex, string Label)[] _accentPresets =
+    [
+        ("#7C4DFF", "Violet"),
+        ("#00BFA5", "Teal"),
+        ("#FF8F00", "Amber"),
+        ("#E91E63", "Pink"),
+        ("#2196F3", "Blue"),
+        ("#4CAF50", "Green"),
+        ("#FF5722", "Deep Orange"),
+        ("#9C27B0", "Purple"),
+    ];
+
+    // ── State ────────────────────────────────────────────────────────────────────
+
+    private bool    _loading     = true;
+    private bool    _saving;
+    private Guid    _profileId;
+    private string  _displayName = string.Empty;
+    private string  _avatarColor = "#7C4DFF";
+    private string  _role        = "Administrator";
+    private bool    _isDark      = true;
+
+    // ── Lifecycle ────────────────────────────────────────────────────────────────
+
+    protected override async Task OnInitializedAsync()
+    {
+        _isDark = ThemeService.IsDarkMode;
+        ThemeService.OnThemeChanged += OnThemeUpdated;
+        DeviceContext.OnChanged += OnDeviceChanged;
+        await LoadProfileAsync();
+    }
+
+    public void Dispose()
+    {
+        ThemeService.OnThemeChanged -= OnThemeUpdated;
+        DeviceContext.OnChanged -= OnDeviceChanged;
+    }
+
+    private void OnDeviceChanged() => InvokeAsync(StateHasChanged);
+
+    // ── Profile ──────────────────────────────────────────────────────────────────
+
+    private async Task LoadProfileAsync()
+    {
+        _loading = true;
+        var profiles = await Orchestrator.GetProfilesAsync();
+        if (profiles is { Count: > 0 })
+        {
+            var active = profiles[0];
+            _profileId   = active.Id;
+            _displayName = active.DisplayName;
+            _avatarColor = active.AvatarColor;
+            _role        = active.Role;
+        }
+        _loading = false;
+    }
+
+    private async Task SaveProfileAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_displayName)) return;
+        _saving = true;
+
+        var ok = await Orchestrator.UpdateProfileAsync(_profileId, _displayName.Trim(), _avatarColor, _role);
+        if (ok)
+            Snackbar.Add("Profile updated", Severity.Success);
+        else
+            Snackbar.Add("Could not save profile — is the Engine running?", Severity.Error);
+
+        _saving = false;
+    }
+
+    // ── Appearance ───────────────────────────────────────────────────────────────
+
+    private void OnThemeUpdated()
+    {
+        _isDark = ThemeService.IsDarkMode;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ToggleDarkMode(bool value)
+    {
+        // Don't allow toggling when dark mode is forced by the device.
+        if (DeviceContext.Settings.Constraints.ForceDarkMode) return;
+
+        ThemeService.ToggleTheme();
+        _isDark = ThemeService.IsDarkMode;
+        await JS.InvokeVoidAsync("setThemeClass", _isDark);
+    }
+
+    private void SetAccent(string hex) => ThemeService.SetHubAccent(hex);
+
+    // ── Swatch styles ────────────────────────────────────────────────────────────
+
+    private string AvatarSwatchStyle(string hex)
+    {
+        bool isActive = _avatarColor.Equals(hex, StringComparison.OrdinalIgnoreCase);
+        return $"background: {hex}; cursor: pointer; " +
+               $"border: 3px solid {(isActive ? "var(--app-swatch-active)" : "var(--app-swatch-border)")}; " +
+               "transition: border 0.2s ease;";
+    }
+
+    private string AccentSwatchStyle(string hex)
+    {
+        var currentPrimary = ThemeService.Theme.PaletteDark.Primary.ToString();
+        bool isActive = currentPrimary.Equals(hex, StringComparison.OrdinalIgnoreCase);
+        return $"background: {hex}; cursor: pointer; " +
+               $"border: 3px solid {(isActive ? "var(--app-swatch-active)" : "var(--app-swatch-border)")}; " +
+               "transition: border 0.2s ease;";
+    }
+}

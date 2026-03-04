@@ -1,0 +1,166 @@
+@page "/"
+@inject UIOrchestratorService  Orchestrator
+@inject ThemeService            ThemeService
+@inject UniverseStateContainer  State
+@inject DeviceContextService    DeviceContext
+@implements IDisposable
+
+<PageTitle>Tuvima Library — Last Journey</PageTitle>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4"
+                       Style="border-radius: 8px;" />
+}
+else if (_error is not null)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-4">@_error</MudAlert>
+}
+else
+{
+    @* ── Pending files alert (Watch Folder) — respects device settings ── *@
+    @if (!DeviceContext.IsFeatureDisabled("pending_files_alert") && _pendingDisplay != "hidden")
+    {
+        <PendingFilesAlert Class="mb-4" DisplayMode="@_pendingDisplay" />
+    }
+
+    @* ── Last Journey section header ── *@
+    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
+        <MudText Typo="Typo.h5" Style="font-weight: 600;">Last Journey</MudText>
+
+        @if (!DeviceContext.IsFeatureDisabled("view_toggle"))
+        {
+            @* View mode toggle — visual only; Compact List wiring is a future enhancement *@
+            <MudToggleGroup T="string" @bind-Value="_viewMode"
+                            Style="border-radius: 20px; overflow: hidden;"
+                            Color="Color.Primary" CheckMark="false">
+                <MudToggleItem T="string" Value="@("grid")" Text="Comfortable Grid" />
+                <MudToggleItem T="string" Value="@("list")" Text="Compact List" />
+            </MudToggleGroup>
+        }
+    </MudStack>
+
+    @* ── Hero tile — respects hub_hero_enabled and hub_hero_layout ── *@
+    @if (_showHero)
+    {
+        <HubHero Hub="@_heroHub" Layout="@DeviceContext.Settings.Pages.Home.HubHeroLayout" />
+    }
+
+    @* ── Your Universes grid (non-hero hubs) ── *@
+    <UniverseStack Hubs="@_nonHeroHubs"
+                   Class="mt-2"
+                   OnHubSelected="HandleHubSelected"
+                   Columns="@DeviceContext.Settings.Pages.Home.BentoColumns"
+                   TileStyle="@DeviceContext.Settings.Pages.Home.BentoTileStyle" />
+}
+
+@code {
+    private bool               _loading = true;
+    private string?            _error;
+    private HubViewModel?      _heroHub;
+    private List<HubViewModel> _hubs = [];
+    private List<HubViewModel> _nonHeroHubs = [];
+    private string             _viewMode = "grid";
+
+    // ── Device-context computed helpers ──────────────────────────────────────
+
+    private string _pendingDisplay =>
+        DeviceContext.Settings.Pages.Home.PendingFilesDisplay;
+
+    private bool _showHero =>
+        DeviceContext.Settings.Pages.Home.HubHeroEnabled
+        && DeviceContext.Settings.Pages.Home.HubHeroLayout != "hidden";
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Subscribe before loading so no MediaAdded event is missed.
+        State.OnStateChanged += OnStateChanged;
+
+        // Start the SignalR Intercom channel (idempotent; non-fatal on failure).
+        await Orchestrator.StartSignalRAsync();
+
+        await LoadHubsAsync(showSpinner: true);
+    }
+
+    // ── Hub loading ───────────────────────────────────────────────────────────
+
+    private async Task LoadHubsAsync(bool showSpinner = true)
+    {
+        if (showSpinner)
+            _loading = true;
+
+        _error = null;
+
+        try
+        {
+            _hubs = await Orchestrator.GetHubsAsync();
+
+            // Apply the active Virtual Library filter (OR logic across MediaTypes).
+            ApplyFilter();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Could not reach the Engine: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    /// <summary>
+    /// Derives hero and non-hero hubs from the filtered hub list.
+    /// Called after hub load and when the NavigationTray filter changes.
+    /// </summary>
+    private void ApplyFilter()
+    {
+        var filtered = State.FilteredHubs;
+        _heroHub = filtered.FirstOrDefault();
+
+        // Non-hero hubs: skip the first one (shown in HubHero).
+        _nonHeroHubs = filtered.Count > 1 ? filtered.Skip(1).ToList() : [];
+
+        // Prime the accent colour from the hero hub so the app bar and
+        // primary-coloured MudBlazor components match on first load.
+        if (_heroHub is not null)
+            ThemeService.SetHubAccent(_heroHub.DominantHexColor);
+    }
+
+    // ── Hub selection ─────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Called by <see cref="UniverseStack"/> when the user clicks a Hub tile.
+    /// Shifts the MudThemeProvider primary accent to that Hub's brand colour
+    /// and promotes the selected hub to the hero position.
+    /// </summary>
+    private void HandleHubSelected(HubViewModel hub)
+    {
+        ThemeService.SetHubAccent(hub.DominantHexColor);
+        _heroHub     = hub;
+        _nonHeroHubs = State.FilteredHubs.Where(h => h.Id != hub.Id).ToList();
+    }
+
+    // ── SignalR live refresh ──────────────────────────────────────────────────
+
+    private void OnStateChanged()
+    {
+        InvokeAsync(() =>
+        {
+            // If hubs are already loaded, just re-apply filter (e.g. tray selection changed).
+            if (State.IsLoaded && _hubs.Count > 0)
+            {
+                ApplyFilter();
+                StateHasChanged();
+            }
+            else
+            {
+                _ = LoadHubsAsync(showSpinner: false).ContinueWith(_ => InvokeAsync(StateHasChanged));
+            }
+        });
+    }
+
+    public void Dispose()
+    {
+        State.OnStateChanged -= OnStateChanged;
+    }
+}

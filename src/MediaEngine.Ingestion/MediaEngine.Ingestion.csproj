@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+  <PropertyGroup>
+    <RootNamespace>MediaEngine.Ingestion</RootNamespace>
+    <AssemblyName>MediaEngine.Ingestion</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      Domain types (MediaAsset, AssetStatus) and intelligence/processor services
+      are all required by the full ingestion pipeline.
+      System.Threading.Channels is part of the net10.0 BCL — no NuGet needed.
+    -->
+    <ProjectReference Include="..\MediaEngine.Domain\MediaEngine.Domain.csproj" />
+    <ProjectReference Include="..\MediaEngine.Intelligence\MediaEngine.Intelligence.csproj" />
+    <ProjectReference Include="..\MediaEngine.Processors\MediaEngine.Processors.csproj" />
+    <!--
+      Phase B (B-06): External metadata providers (AppleBooks, Audnexus, Wikidata)
+      and services (MetadataHarvestingService, RecursiveIdentityService) are required
+      by the IngestionEngine constructor.  Previously missing — caused DI crash.
+    -->
+    <ProjectReference Include="..\MediaEngine.Providers\MediaEngine.Providers.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <PackageReference Include="Microsoft.Extensions.Http" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="TagLibSharp" />
+  </ItemGroup>
+
+</Project>

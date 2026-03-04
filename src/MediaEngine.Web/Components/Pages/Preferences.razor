@@ -1,0 +1,13 @@
+@page "/preferences"
+@rendermode InteractiveServer
+@namespace MediaEngine.Web.Components.Pages
+@inject NavigationManager Nav
+
+@* Backward-compatibility redirect: /preferences now forwards to /settings. *@
+
+@code {
+    protected override void OnInitialized()
+    {
+        Nav.NavigateTo("/settings", replace: true);
+    }
+}

@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <RootNamespace>MediaEngine.Api</RootNamespace>
+    <AssemblyName>MediaEngine.Api</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Swashbuckle 7.x: intentionally pinned — see Directory.Packages.props for rationale. -->
+    <PackageReference Include="Swashbuckle.AspNetCore" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- All 5 existing projects -->
+    <ProjectReference Include="..\MediaEngine.Domain\MediaEngine.Domain.csproj" />
+    <ProjectReference Include="..\MediaEngine.Ingestion\MediaEngine.Ingestion.csproj" />
+    <ProjectReference Include="..\MediaEngine.Intelligence\MediaEngine.Intelligence.csproj" />
+    <ProjectReference Include="..\MediaEngine.Processors\MediaEngine.Processors.csproj" />
+    <ProjectReference Include="..\MediaEngine.Storage\MediaEngine.Storage.csproj" />
+    <ProjectReference Include="..\MediaEngine.Providers\MediaEngine.Providers.csproj" />
+    <ProjectReference Include="..\MediaEngine.Identity\MediaEngine.Identity.csproj" />
+  </ItemGroup>
+
+</Project>

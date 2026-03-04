@@ -1,8 +1,0 @@
-{
-  "schema_version": "2.0",
-  "database_path": "tanaste.db",
-  "data_root": "",
-  "watch_directory": "",
-  "library_root": "",
-  "organization_template": "{Category}/{HubName} ({Year})/{Format} - {Edition}"
-}

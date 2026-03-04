@@ -1,0 +1,352 @@
+@namespace MediaEngine.Web.Components.Settings
+@inject UIOrchestratorService Orchestrator
+@inject ISnackbar Snackbar
+
+@* Curator's Drawer — glassmorphic side drawer for metadata correction.
+   Opens when the user wants to "Fix Match" on a work/edition.
+   Search → select candidate → confirm correction → user-locked claim. *@
+
+<MudDrawer Open="@Open"
+           OpenChanged="@OnOpenChangedHandler"
+           Anchor="Anchor.End"
+           Width="480px"
+           Overlay="true"
+           Variant="DrawerVariant.Temporary"
+           Style="@DrawerStyle">
+
+    @* ── Header ─────────────────────────────────────────────────────────── *@
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="pa-4">
+        <MudIcon Icon="@Icons.Material.Outlined.EditNote" Color="Color.Primary" Class="mr-2" />
+        <MudText Typo="Typo.h6" Style="flex: 1;">Correct Metadata</MudText>
+        <MudIconButton Icon="@Icons.Material.Filled.Close"
+                       Color="Color.Default"
+                       Size="Size.Small"
+                       OnClick="@CloseDrawer" />
+    </MudStack>
+
+    <MudDivider Class="mb-2" />
+
+    @* ── Entity context ──────────────────────────────────────────────── *@
+    @if (EntityId != Guid.Empty)
+    {
+        <MudPaper Elevation="0" Style="@InnerCardStyle" Class="mx-4 mb-4">
+            <MudText Typo="Typo.caption" Color="Color.Secondary">Currently editing</MudText>
+            <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">@CurrentTitle</MudText>
+        </MudPaper>
+    }
+
+    @* ── Search ──────────────────────────────────────────────────────── *@
+    <div class="px-4 mb-4">
+        <MudTextField @bind-Value="_query"
+                      Label="Search by title, ISBN, or Wikidata ID"
+                      Variant="Variant.Outlined"
+                      Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Filled.Search"
+                      FullWidth="true"
+                      Immediate="true"
+                      DebounceInterval="400"
+                      OnDebounceIntervalElapsed="@SearchAsync"
+                      Margin="Margin.Dense" />
+    </div>
+
+    @* ── Search results ──────────────────────────────────────────────── *@
+    @if (_searching)
+    {
+        <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mx-4 mb-2" />
+    }
+    else if (_results.Count > 0)
+    {
+        <div class="px-4" style="overflow-y: auto; max-height: calc(100vh - 400px);">
+            @foreach (var r in _results)
+            {
+                bool isSelected = _selectedResult?.WorkId == r.WorkId;
+                <MudPaper Elevation="0"
+                          Style="@(isSelected ? SelectedResultStyle : ResultCardStyle)"
+                          Class="mb-2 cursor-pointer"
+                          @onclick="@(() => SelectResult(r))">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        <MudIcon Icon="@Icons.Material.Filled.MenuBook"
+                                 Color="Color.Primary" Size="Size.Small" />
+                        <div style="min-width: 0; flex: 1;">
+                            <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">
+                                @r.Title
+                            </MudText>
+                            @if (!string.IsNullOrEmpty(r.Author))
+                            {
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                    @r.Author
+                                </MudText>
+                            }
+                        </div>
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">
+                            @r.MediaType
+                        </MudChip>
+                    </MudStack>
+                    @if (!string.IsNullOrEmpty(r.HubDisplayName))
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-1">
+                            Hub: @r.HubDisplayName
+                        </MudText>
+                    }
+                </MudPaper>
+            }
+        </div>
+    }
+    else if (!string.IsNullOrWhiteSpace(_query) && _query.Length >= 2 && !_searching)
+    {
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="px-4">
+            No results found for "@_query".
+        </MudText>
+    }
+
+    @* ── Selected candidate preview ──────────────────────────────────── *@
+    @if (_selectedResult is not null)
+    {
+        <MudDivider Class="my-3" />
+        <MudPaper Elevation="0" Style="@InnerCardStyle" Class="mx-4 mb-2">
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-1">
+                New values from selected candidate:
+            </MudText>
+            <MudStack Spacing="1">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary" Style="min-width: 60px;">
+                        Title:
+                    </MudText>
+                    <MudText Typo="Typo.body2" Style="font-weight: 600;">
+                        @_selectedResult.Title
+                    </MudText>
+                </MudStack>
+                @if (!string.IsNullOrEmpty(_selectedResult.Author))
+                {
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary" Style="min-width: 60px;">
+                            Author:
+                        </MudText>
+                        <MudText Typo="Typo.body2" Style="font-weight: 600;">
+                            @_selectedResult.Author
+                        </MudText>
+                    </MudStack>
+                }
+            </MudStack>
+        </MudPaper>
+
+        <div class="px-4 mb-4">
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       FullWidth="true"
+                       StartIcon="@Icons.Material.Filled.Lock"
+                       OnClick="@ApplyCorrectionAsync"
+                       Disabled="@_applying">
+                @(_applying ? "Applying..." : "Apply Correction")
+            </MudButton>
+        </div>
+    }
+
+    @* ── Claim history ───────────────────────────────────────────────── *@
+    @if (EntityId != Guid.Empty)
+    {
+        <MudDivider Class="my-2" />
+        <MudExpansionPanels Elevation="0" Class="px-4 mb-4">
+            <MudExpansionPanel Text="Claim History"
+                               Style="background: transparent;"
+                               Expanded="false">
+                @if (_claimsLoading)
+                {
+                    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-2" />
+                }
+                else if (_claims.Count == 0)
+                {
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        No claims recorded for this entity.
+                    </MudText>
+                }
+                else
+                {
+                    @foreach (var claim in _claims)
+                    {
+                        <MudPaper Elevation="0" Style="@ClaimCardStyle" Class="mb-1">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                <MudChip T="string" Size="Size.Small"
+                                         Color="@(claim.IsUserLocked ? Color.Warning : Color.Default)"
+                                         Variant="Variant.Outlined">
+                                    @claim.ClaimKey
+                                </MudChip>
+                                <MudText Typo="Typo.body2" Style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis;">
+                                    @claim.ClaimValue
+                                </MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                    @claim.Confidence.ToString("P0")
+                                </MudText>
+                                @if (claim.IsUserLocked)
+                                {
+                                    <MudIcon Icon="@Icons.Material.Filled.Lock"
+                                             Size="Size.Small" Color="Color.Warning" />
+                                }
+                            </MudStack>
+                        </MudPaper>
+                    }
+                }
+            </MudExpansionPanel>
+        </MudExpansionPanels>
+    }
+
+</MudDrawer>
+
+@code {
+
+    private const string DrawerStyle =
+        "background: var(--app-glass-bg); " +
+        "border-left: 1px solid var(--app-glass-border); " +
+        "backdrop-filter: blur(20px); " +
+        "-webkit-backdrop-filter: blur(20px);";
+
+    private const string InnerCardStyle =
+        "background: var(--app-glass-inner-bg); " +
+        "border: 1px solid var(--app-glass-inner-border); " +
+        "border-radius: 16px; " +
+        "padding: 16px;";
+
+    private const string ResultCardStyle =
+        "background: var(--app-glass-inner-bg); " +
+        "border: 1px solid var(--app-glass-inner-border); " +
+        "border-radius: 12px; " +
+        "padding: 12px; " +
+        "transition: border 0.2s ease;";
+
+    private const string SelectedResultStyle =
+        "background: var(--app-glass-inner-bg); " +
+        "border: 2px solid var(--mud-palette-primary); " +
+        "border-radius: 12px; " +
+        "padding: 12px; " +
+        "transition: border 0.2s ease;";
+
+    private const string ClaimCardStyle =
+        "background: rgba(255,255,255,0.03); " +
+        "border: 1px solid rgba(255,255,255,0.06); " +
+        "border-radius: 8px; " +
+        "padding: 8px 12px;";
+
+    // ── Parameters ──────────────────────────────────────────────────────────────
+
+    /// <summary>Whether the drawer is open. Two-way bound from parent.</summary>
+    [Parameter] public bool Open { get; set; }
+    [Parameter] public EventCallback<bool> OpenChanged { get; set; }
+
+    /// <summary>The entity (Work or Edition) being corrected.</summary>
+    [Parameter] public Guid EntityId { get; set; }
+
+    /// <summary>Current title of the entity for display.</summary>
+    [Parameter] public string CurrentTitle { get; set; } = string.Empty;
+
+    /// <summary>Fires after a correction is successfully applied.</summary>
+    [Parameter] public EventCallback OnCorrected { get; set; }
+
+    // ── State ────────────────────────────────────────────────────────────────────
+
+    private string                     _query          = string.Empty;
+    private bool                       _searching;
+    private List<SearchResultViewModel> _results        = [];
+    private SearchResultViewModel?     _selectedResult;
+    private bool                       _applying;
+    private bool                       _claimsLoading;
+    private List<ClaimHistoryDto>      _claims         = [];
+
+    // ── Lifecycle ────────────────────────────────────────────────────────────────
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Open && EntityId != Guid.Empty)
+        {
+            await LoadClaimHistoryAsync();
+        }
+    }
+
+    // ── Handlers ─────────────────────────────────────────────────────────────────
+
+    private async Task SearchAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_query) || _query.Length < 2)
+        {
+            _results = [];
+            _selectedResult = null;
+            return;
+        }
+
+        _searching = true;
+        _results = await Orchestrator.SearchWorksAsync(_query);
+        _searching = false;
+    }
+
+    private void SelectResult(SearchResultViewModel result)
+    {
+        _selectedResult = result;
+    }
+
+    private async Task ApplyCorrectionAsync()
+    {
+        if (_selectedResult is null || EntityId == Guid.Empty) return;
+        _applying = true;
+
+        // Lock the title claim.
+        var titleOk = await Orchestrator.LockClaimAsync(
+            EntityId, "title", _selectedResult.Title);
+
+        // Lock the author claim if available.
+        bool authorOk = true;
+        if (!string.IsNullOrEmpty(_selectedResult.Author))
+        {
+            authorOk = await Orchestrator.LockClaimAsync(
+                EntityId, "author", _selectedResult.Author);
+        }
+
+        _applying = false;
+
+        if (titleOk && authorOk)
+        {
+            Snackbar.Add("Metadata corrected — user-locked claims applied.", Severity.Success);
+            _selectedResult = null;
+            _query = string.Empty;
+            _results = [];
+
+            // Refresh claim history.
+            await LoadClaimHistoryAsync();
+
+            // Notify parent.
+            await OnCorrected.InvokeAsync();
+        }
+        else
+        {
+            Snackbar.Add("Could not apply correction — is the Engine running?", Severity.Error);
+        }
+    }
+
+    private async Task LoadClaimHistoryAsync()
+    {
+        if (EntityId == Guid.Empty) return;
+        _claimsLoading = true;
+        _claims = await Orchestrator.GetClaimHistoryAsync(EntityId);
+        _claimsLoading = false;
+    }
+
+    private async Task CloseDrawer()
+    {
+        Open = false;
+        await OpenChanged.InvokeAsync(false);
+        ResetState();
+    }
+
+    private async Task OnOpenChangedHandler(bool open)
+    {
+        Open = open;
+        await OpenChanged.InvokeAsync(open);
+        if (!open) ResetState();
+    }
+
+    private void ResetState()
+    {
+        _query          = string.Empty;
+        _results        = [];
+        _selectedResult = null;
+        _applying       = false;
+    }
+}

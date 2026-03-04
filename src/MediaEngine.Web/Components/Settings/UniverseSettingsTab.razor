@@ -1,0 +1,238 @@
+@namespace MediaEngine.Web.Components.Settings
+
+@* Universe Settings — permanent, read-only reference for the Wikidata universe provider.
+
+   Wikidata is the permanent universe provider. It spans all media types and
+   provides authoritative Q-identifiers, external bridge IDs, and deep
+   enrichment data via SPARQL. This page is purely informational — no editing,
+   no testing, no Engine connection required. It renders instantly from
+   compiled default data. *@
+
+<MudPaper Elevation="0" Style="@GlassStyle">
+
+    @* ── Header ────────────────────────────────────────────────────────────── *@
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+        <MudIcon Icon="@Icons.Material.Outlined.Public" Color="Color.Primary" Class="mr-2" />
+        <MudText Typo="Typo.h6">Universe Provider</MudText>
+    </MudStack>
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+        Wikidata is the permanent universe provider. It connects your library to the
+        open knowledge graph — linking every book, film, and person to authoritative
+        identifiers across all platforms.
+    </MudText>
+
+    @* ── Provider info card ────────────────────────────────────────────── *@
+    <MudPaper Elevation="0" Class="pa-4 mb-4" Style="@InfoCardStyle">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+            <MudIcon Icon="@Icons.Material.Outlined.Hub" Color="Color.Primary" />
+            <div style="flex: 1;">
+                <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">Wikidata</MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                    https://www.wikidata.org
+                </MudText>
+            </div>
+            <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">
+                SPARQL
+            </MudChip>
+        </MudStack>
+    </MudPaper>
+
+    @* ── Bridges section ───────────────────────────────────────────────── *@
+    <MudExpansionPanels Elevation="0" Dense="true" Class="mb-4"
+                        Style="background: transparent;">
+        <MudExpansionPanel Text="Bridge Identifiers"
+                           MaxHeight="2000"
+                           Style="background: transparent; border: 1px solid var(--app-glass-border); border-radius: 16px;">
+            <TitleContent>
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Outlined.Link" Size="Size.Small" Color="Color.Primary" />
+                    <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">Bridge Identifiers</MudText>
+                    <MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined">
+                        @_bridges.Count
+                    </MudChip>
+                </MudStack>
+            </TitleContent>
+            <ChildContent>
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                    Bridges connect Wikidata to your other providers. When the Engine finds a
+                    Wikidata entry for a work, it uses these bridge properties to cross-reference
+                    with Apple Books, Open Library, and more. Order determines priority — the first
+                    matching bridge wins.
+                </MudText>
+
+                <MudSimpleTable Dense="true" Hover="true"
+                                Style="background: transparent;">
+                    <thead>
+                        <tr>
+                            <th style="width: 40px;">#</th>
+                            <th>Property</th>
+                            <th>Target Provider</th>
+                            <th>Request Field</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @for (var i = 0; i < _bridges.Count; i++)
+                        {
+                            var bridge = _bridges[i];
+                            var idx = i;
+                            <tr>
+                                <td>
+                                    <MudText Typo="Typo.body2" Color="Color.Secondary">@(idx + 1)</MudText>
+                                </td>
+                                <td>
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                        <MudText Typo="Typo.body2" Style="font-weight: 600;">@bridge.PCode</MudText>
+                                        <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                            — @GetBridgeLabel(bridge.PCode)
+                                        </MudText>
+                                    </MudStack>
+                                </td>
+                                <td>
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Primary"
+                                             Variant="Variant.Text">
+                                        @GetTargetProvider(bridge.PCode)
+                                    </MudChip>
+                                </td>
+                                <td>
+                                    <code style="font-size: 0.8rem;">@bridge.RequestField</code>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </MudSimpleTable>
+            </ChildContent>
+        </MudExpansionPanel>
+    </MudExpansionPanels>
+
+    @* ── Property map section ──────────────────────────────────────────── *@
+    <MudExpansionPanels Elevation="0" Dense="true"
+                        Style="background: transparent;">
+        <MudExpansionPanel Text="Property Map"
+                           MaxHeight="4000"
+                           Style="background: transparent; border: 1px solid var(--app-glass-border); border-radius: 16px;">
+            <TitleContent>
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Outlined.Map" Size="Size.Small" Color="Color.Primary" />
+                    <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">Property Map</MudText>
+                    <MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined">
+                        @_propertyCount properties
+                    </MudChip>
+                </MudStack>
+            </TitleContent>
+            <ChildContent>
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                    Wikidata properties mapped to claim keys. Each property carries
+                    a confidence value used during scoring. Bridge properties link to external
+                    platforms.
+                </MudText>
+
+                @foreach (var category in _propertiesByCategory)
+                {
+                    <MudText Typo="Typo.overline" Color="Color.Primary" Class="mt-3 mb-1"
+                             Style="letter-spacing: 0.08em;">
+                        @category.Key
+                    </MudText>
+
+                    <MudSimpleTable Dense="true" Hover="true"
+                                    Style="background: transparent; margin-bottom: 8px;">
+                        <thead>
+                            <tr>
+                                <th>P-Code</th>
+                                <th>Claim Key</th>
+                                <th>Scope</th>
+                                <th style="width: 80px;">Confidence</th>
+                                <th style="width: 60px;">Enabled</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var prop in category.Value)
+                            {
+                                <tr style="@(!prop.Enabled ? "opacity: 0.5;" : "")">
+                                    <td>
+                                        <MudText Typo="Typo.body2" Style="font-weight: 500;">
+                                            @prop.PCode
+                                        </MudText>
+                                    </td>
+                                    <td>
+                                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                            <code style="font-size: 0.8rem;">@prop.ClaimKey</code>
+                                            @if (prop.IsBridge)
+                                            {
+                                                <MudChip T="string" Size="Size.Small" Color="Color.Warning"
+                                                         Variant="Variant.Outlined"
+                                                         Style="font-size: 0.65rem;">
+                                                    Bridge
+                                                </MudChip>
+                                            }
+                                        </MudStack>
+                                    </td>
+                                    <td>
+                                        <MudText Typo="Typo.caption">@prop.EntityScope</MudText>
+                                    </td>
+                                    <td>
+                                        <MudText Typo="Typo.body2">@prop.Confidence.ToString("P0")</MudText>
+                                    </td>
+                                    <td>
+                                        <MudIcon Icon="@(prop.Enabled
+                                                          ? Icons.Material.Filled.CheckCircle
+                                                          : Icons.Material.Filled.Cancel)"
+                                                 Color="@(prop.Enabled ? Color.Success : Color.Error)"
+                                                 Size="Size.Small" />
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </MudSimpleTable>
+                }
+            </ChildContent>
+        </MudExpansionPanel>
+    </MudExpansionPanels>
+</MudPaper>
+
+@code {
+    // ── State (all compiled defaults from shared WikidataPropertyDefaults) ───
+
+    private readonly List<WikidataPropertyDefaults.BridgeEntry> _bridges =
+        WikidataPropertyDefaults.GetBridgeEntries();
+
+    private Dictionary<string, List<WikidataPropertyDefaults.WikidataPropertyInfo>> _propertiesByCategory = new();
+    private int _propertyCount;
+
+    // ── Lifecycle ─────────────────────────────────────────────────────────
+
+    protected override void OnInitialized()
+    {
+        var allProps = WikidataPropertyDefaults.GetAllProperties();
+        _propertiesByCategory = allProps
+            .GroupBy(p => p.Category)
+            .OrderBy(g => WikidataPropertyDefaults.CategoryOrder(g.Key))
+            .ToDictionary(g => g.Key, g => g.OrderBy(p => p.PCode).ToList());
+        _propertyCount = allProps.Count;
+    }
+
+    // ── Helpers (delegated to shared defaults) ────────────────────────────
+
+    private static string GetBridgeLabel(string pCode) =>
+        WikidataPropertyDefaults.GetBridgeLabel(pCode);
+
+    private static string GetTargetProvider(string pCode) =>
+        WikidataPropertyDefaults.GetTargetProvider(pCode);
+
+    // ── Styles ───────────────────────────────────────────────────────────
+
+    private const string GlassStyle =
+        "background: var(--app-glass-bg); " +
+        "border: 1px solid var(--app-glass-border); " +
+        "backdrop-filter: blur(20px); " +
+        "-webkit-backdrop-filter: blur(20px); " +
+        "border-radius: 24px; " +
+        "padding: 24px;";
+
+    private const string InfoCardStyle =
+        "background: var(--app-glass-bg); " +
+        "border: 1px solid var(--app-glass-border); " +
+        "border-left: 4px solid var(--mud-palette-primary); " +
+        "backdrop-filter: blur(10px); " +
+        "-webkit-backdrop-filter: blur(10px); " +
+        "border-radius: 16px;";
+}

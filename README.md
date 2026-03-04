@@ -1,10 +1,10 @@
 <div align="center">
 
-<img src="assets/images/tanaste-logo.svg" alt="Tanaste — The Unified Media Intelligence Kernel" height="90" />
+<img src="assets/images/tuvima-logo.svg" alt="Tuvima Library" height="90" />
 
-**The Private Universe Discovery & Playback Engine.**
+**The Private Universe Discovery & Media Engine.**
 
-*Tanaste automatically unifies your Ebooks, Audiobooks, Comics, Music, TV Shows, and Movies into single intelligent Hubs — with built-in streaming, reading, and listening — powered by a local-first engine that never touches the cloud.*
+*Tuvima Library automatically unifies your Ebooks, Audiobooks, Comics, Music, TV Shows, and Movies into single intelligent Hubs — with built-in streaming, reading, and listening — powered by a local-first engine that never touches the cloud.*
 
 <br/>
 
@@ -17,33 +17,13 @@
 
 ---
 
-## 📖 The Name Tanaste
-
-The name **Tanaste** is drawn from Tolkien's Quenya — the High-Elvish language constructed for *The Lord of the Rings*. In Quenya, *tanaste* carries the meaning of **"Presentation"**: the act of bringing something forward, making it known, giving it form.
-
-That single word is the entire design philosophy of this project.
-
-Your media collection already exists. The stories are already there — scattered across folders, split into formats, buried under inconsistent filenames. Tanaste does not create your library. It **presents** it. It takes the raw, fragmented reality of files on a hard drive and surfaces it as something coherent, beautiful, and navigable.
-
-> *"Tanaste: to present, to bring forth, to make appear as one."*
-
-Every feature in this project is an expression of that word:
-
-- The **Intelligence Engine** works silently in the background so that when you finally look at your library, it is already whole — presented, not assembled.
-- The **Hub** is the act of presentation made structural: the book, the film, and the audiobook of the same story do not live in separate places. They are brought forward together, as one.
-- The **Bento Dashboard** is where the internal act of presentation becomes visible — the translucent, glass-surfaced interface that is the final form of everything the Engine has already understood.
-
-The name is a quiet promise: whatever you add to this system, Tanaste will find its place, understand its context, and present it back to you as if it always belonged there.
-
----
-
-## 🧠 What is Tanaste?
+## 🧠 What is Tuvima Library?
 
 You have a book. Then you find the movie adaptation. Then you grab the audiobook for the commute. Three files. Three folders. Three separate apps. Zero connection between them.
 
-**Tanaste presents them as one.**
+**Tuvima Library presents them as one.**
 
-Drop your files into a Watch Folder, and Tanaste's Intelligence Engine automatically reads the metadata inside each file, scores it for reliability, and groups everything that belongs to the same story into a single **Hub**. The Hub for *Dune* becomes the single, unified presentation of that story in your collection — your EPUB, your 4K video, your audiobook, and your comic all brought forward together into one visual tile. You navigate by story, not by file type or folder.
+Drop your files into a Watch Folder, and the Intelligence Engine automatically reads the metadata inside each file, scores it for reliability, and groups everything that belongs to the same story into a single **Hub**. The Hub for *Dune* becomes the single, unified presentation of that story in your collection — your EPUB, your 4K video, your audiobook, and your comic all brought forward together into one visual tile. You navigate by story, not by file type or folder.
 
 The Bento Dashboard is where this act of presentation reaches the screen: a glassmorphic, asymmetric grid of Hub tiles that reflects what the Intelligence Engine already knows about your library. The interface is the presentation layer. Everything behind it is inference and order.
 
@@ -67,7 +47,7 @@ All cards and panels use **glassmorphic styling** with 32px corner radii, `backd
 > *Live updates are pushed directly to your browser via the Intercom channel the moment a new file is detected — no page refresh, no manual sync. The Dashboard is always a real-time reflection of what the Engine knows.*
 
 ### 🤖 The Intelligence Engine (Field-Specific Weighted Voter)
-Tanaste never asks you to manually enter a title, year, or author. Instead, it uses a **Field-Specific Weighted Voter** system:
+The Engine never asks you to manually enter a title, year, or author. Instead, it uses a **Field-Specific Weighted Voter** system:
 
 - Every piece of metadata from every source (embedded file tags, filenames, external providers) is recorded as a **Claim**
 - Each Claim carries a **per-field trust weight** based on how reliable its source is *for that specific kind of data* — for example, Audnexus is authoritative for audiobook narrators (weight 0.9), while Open Library excels at series data (weight 0.9) but is not a dedicated cover-art source
@@ -75,14 +55,14 @@ Tanaste never asks you to manually enter a title, year, or author. Instead, it u
 - If the vote is too close to call, the conflict is surfaced in the dashboard for a single human decision — the only time you ever need to intervene
 - **User-Locked Claims** — when you manually set a metadata value, that claim is locked. The engine gives it a weight of 1.0 and cannot override it on any future re-score
 
-Provider trust levels are **never hard-coded**. Every weight lives in `tanaste_master.json` so you can tune them at any time without touching code.
+Provider trust levels are **never hard-coded**. Every weight lives in the provider config files (`config/providers/`) so you can tune them at any time without touching code.
 
 All original Claims are preserved forever. Nothing is overwritten. Full audit history, always.
 
 ### 🔒 Privacy-First by Design
 - **Local SQLite database** — your entire library catalogue lives in a single file on your own hard drive. No cloud sync, no telemetry
 - **Secret Store** — API keys for external metadata providers (e.g. TMDB, MusicBrainz) are encrypted at rest using your OS's built-in protection layer. Never stored as plain text
-- **Guest Key system** — any external tool that connects to Tanaste must present a named, revocable API key. You control exactly who has access and can revoke a key in seconds without affecting others
+- **Guest Key system** — any external tool that connects to the Engine must present a named, revocable API key. You control exactly who has access and can revoke a key in seconds without affecting others
 
 ### 🚗 Automotive Mode *(Planned)*
 A dedicated high-contrast display mode with oversized buttons and enlarged text — designed for safe, glanceable use on a media room TV or a tablet mounted in a vehicle. One toggle switches the entire dashboard into this mode; one toggle switches it back.
@@ -107,32 +87,32 @@ A dedicated high-contrast display mode with oversized buttons and enlarged text 
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/shyfaruqi/tanaste.git
-cd tanaste
+git clone https://github.com/Tuvima/tuvima_library.git
+cd tuvima_library
 
-# 2. Create your local configuration file
-cp tanaste_master.example.json tanaste_master.json
+# 2. Create your local configuration
+cp -r config.example config
 ```
 
-Open `tanaste_master.json` and set these two values:
+Open `config/core.json` and set these values:
 
 ```json
 {
-  "database_path": "/your/path/tanaste.db",
+  "database_path": "/your/path/library.db",
   "data_root":     "/your/media/library"
 }
 ```
 
 ```bash
 # 3. Start the Intelligence Engine (headless, API-only mode)
-dotnet run --project src/Tanaste.Api
+dotnet run --project src/MediaEngine.Api
 
 # Engine is now running at:
 #   http://localhost:61495
 #   Swagger UI: http://localhost:61495/swagger
 
 # 4. (Optional) Start the visual Dashboard
-dotnet run --project src/Tanaste.Web
+dotnet run --project src/MediaEngine.Web
 
 # Dashboard is now running at:
 #   http://localhost:5016
@@ -143,32 +123,31 @@ dotnet test
 
 ### Configuration Reference
 
-`tanaste_master.json` accepts the following settings:
+Settings are stored in `config/` as individual JSON files grouped by concern:
 
-| Setting | What it controls | Default |
-|---|---|---|
-| `database_path` | Where the library database file is stored | `tanaste.db` |
-| `data_root` | Root directory for organised media files | *(required)* |
-| `ingestion.watch_directory` | The inbox folder Tanaste monitors for new files | *(required)* |
-| `scoring.auto_link_threshold` | Confidence required to auto-assign a file to a Hub (0–1) | `0.85` |
-| `scoring.conflict_threshold` | Confidence below which a metadata field is flagged for review (0–1) | `0.60` |
-| `scoring.stale_claim_decay_days` | Days before a Claim's trust weight decays | `90` |
-| `maintenance.vacuum_on_startup` | Compact the database on startup to reclaim space | `false` |
+| File | What it controls |
+|---|---|
+| `config/core.json` | Database path, data root, library root, schema version |
+| `config/scoring.json` | Auto-link threshold, conflict threshold, stale claim decay |
+| `config/maintenance.json` | Vacuum on startup, retention days, sync interval |
+| `config/hydration.json` | Pipeline stage timeouts, concurrency, confidence thresholds |
+| `config/providers/*.json` | Per-provider endpoints, trust weights, throttle, enabled state |
+| `config/universe/*.json` | Wikidata property map, bridge lookups, value transforms |
 
 ---
 
 ## 🏗️ Architecture
 
-Tanaste is built on a **headless Engine + visual Dashboard** split. The two parts are completely independent.
+Tuvima Library is built on a **headless Engine + visual Dashboard** split. The two parts are completely independent.
 
 ```
 ┌─────────────────────────────────────────┐
-│             Tanaste.Web                  │  ← Visual Dashboard (Blazor Server)
+│             MediaEngine.Web             │  ← Visual Dashboard (Blazor Server)
 │         browser dashboard               │    Connects via HTTP + SignalR
 └────────────────┬────────────────────────┘
                  │  HTTP / SignalR
 ┌────────────────▼────────────────────────┐
-│             Tanaste.Api                  │  ← Intelligence Engine (Headless API)
+│             MediaEngine.Api             │  ← Intelligence Engine (Headless API)
 │    all logic, data, file operations     │    Runs independently; no UI required
 └────────┬────────────────────────────────┘
          │
@@ -186,12 +165,12 @@ Tanaste is built on a **headless Engine + visual Dashboard** split. The two part
 **Internal Engine layers** (each depends only on the one above it):
 
 ```
-Tanaste.Domain          ← Business rules and data shapes (zero dependencies)
-  └─ Tanaste.Storage    ← Database reads and writes
-      └─ Tanaste.Intelligence  ← Scoring, deduplication, conflict resolution
-          └─ Tanaste.Processors  ← File-type readers (EPUB, video, comic)
-              └─ Tanaste.Ingestion  ← Watch folder, file queue, background worker
-                  └─ Tanaste.Api    ← HTTP endpoints and SignalR hub
+MediaEngine.Domain          ← Business rules and data shapes (zero dependencies)
+  └─ MediaEngine.Storage    ← Database reads and writes
+      └─ MediaEngine.Intelligence  ← Scoring, deduplication, conflict resolution
+          └─ MediaEngine.Processors  ← File-type readers (EPUB, video, comic)
+              └─ MediaEngine.Ingestion  ← Watch folder, file queue, background worker
+                  └─ MediaEngine.Api    ← HTTP endpoints and SignalR hub
 ```
 
 ---
@@ -200,49 +179,49 @@ Tanaste.Domain          ← Business rules and data shapes (zero dependencies)
 
 **The database is a cache of the filesystem, not the other way around.**
 
-Every file that Tanaste organises carries its own self-describing manifest — a `tanaste.xml` sidecar written directly alongside it on disk. If the database is ever wiped or migrated, the library can be fully reconstructed from those XML files alone. Nothing is ever lost that cannot be recovered from disk.
+Every file that the Engine organises carries its own self-describing manifest — a `library.xml` sidecar written directly alongside it on disk. If the database is ever wiped or migrated, the library can be fully reconstructed from those XML files alone. Nothing is ever lost that cannot be recovered from disk.
 
 ### Hub-First Folder Structure
 
-When AutoOrganize is enabled and a file scores above the confidence threshold (≥ 0.85) or has a user-locked metadata value, Tanaste moves it into a clean, human-readable hierarchy:
+When AutoOrganize is enabled and a file scores above the confidence threshold (≥ 0.85) or has a user-locked metadata value, the Engine moves it into a clean, human-readable hierarchy:
 
 ```
 {Library Root}/
   Books/
     The Hobbit (1937)/
-      tanaste.xml                    ← Hub sidecar — human-readable identity + metadata
+      library.xml                    ← Hub sidecar — human-readable identity + metadata
       Epub - Standard/
         The Hobbit.epub
-        tanaste.xml                  ← Edition sidecar — content hash, title, author, locks
+        library.xml                  ← Edition sidecar — content hash, title, author, locks
         cover.jpg                    ← Cover art (always on disk, never stored in DB)
 ```
 
 The top-level category (`Books`, `Comics`, `Videos`, `Audio`) is derived from the file's detected media type. The Hub name is the scored title canonical value. The format folder identifies the media type and edition. The file is then placed inside, alongside its XML sidecar and cover image.
 
-### The tanaste.xml Sidecar
+### The library.xml Sidecar
 
 Each sidecar is a small XML file with two schemas:
 
-- **Hub-level** (`<tanaste-hub>`) — stores the Hub's display name, year, Wikidata identifier, and franchise. Written once per Hub folder; idempotent on repeat ingestion of the same Hub.
-- **Edition-level** (`<tanaste-edition>`) — stores all metadata canonical values (title, author, media type, ISBN, ASIN), the content hash (permanent file identity), the cover-art path, and a list of any user-locked claims with their lock timestamps.
+- **Hub-level** (`<library-hub>`) — stores the Hub's display name, year, Wikidata identifier, and franchise. Written once per Hub folder; idempotent on repeat ingestion of the same Hub.
+- **Edition-level** (`<library-edition>`) — stores all metadata canonical values (title, author, media type, ISBN, ASIN), the content hash (permanent file identity), the cover-art path, and a list of any user-locked claims with their lock timestamps.
 
 ### The Great Inhale — Rebuilding from Disk
 
-If the database is deleted or corrupted, call `POST /ingestion/library-scan` from the Engine API (or via the Dashboard). Tanaste will:
+If the database is deleted or corrupted, call `POST /ingestion/library-scan` from the Engine API (or via the Dashboard). The Engine will:
 
-1. Recursively walk every folder under the Library Root looking for `tanaste.xml` files.
+1. Recursively walk every folder under the Library Root looking for `library.xml` files.
 2. For each **Hub sidecar**: create or update the corresponding Hub record. XML always wins on conflict.
 3. For each **Edition sidecar**: find the existing MediaAsset by its content hash, then restore all canonical values and any user-locked claims. Files not yet present in the database are skipped — a normal ingestion pass is needed to create them.
 
 The Great Inhale is a **read-only XML scan** — it reads XML only, performs no file hashing and no metadata extraction, and completes in seconds even for large libraries.
 
-> **The design constraint:** Cover art is never stored in the database. `cover.jpg` is always read from disk. The `tanaste.xml` sidecar is the single portable source of truth.
+> **The design constraint:** Cover art is never stored in the database. `cover.jpg` is always read from disk. The `library.xml` sidecar is the single portable source of truth.
 
 ---
 
 ## 🌐 Supported Metadata Providers
 
-Tanaste ships with six built-in zero-key providers and supports additional providers that require a free API key. All config-driven — adding a new REST+JSON provider is a zero-code operation.
+Tuvima Library ships with six built-in zero-key providers and supports additional providers that require a free API key. All config-driven — adding a new REST+JSON provider is a zero-code operation.
 
 ### Built-in (Zero-Key)
 
@@ -269,30 +248,31 @@ All network calls run on a **background channel** (`Channel<HarvestRequest>`, bo
 
 **Recursive Person Enrichment** — each author and narrator found in a file's embedded tags gets a `Person` record linked to the asset. Unenriched persons are automatically queued for a Wikidata lookup. When the headshot and biography arrive, a `PersonEnriched` SignalR event pops the data into the Dashboard card in real time.
 
-**To enable providers**, set `"enabled": true` for each entry in the `providers` array of `tanaste_master.json`, and add your local URL overrides to the `provider_endpoints` section if needed:
+**To enable providers**, edit the individual provider config files in `config/providers/`:
 
 ```json
-"provider_endpoints": {
-    "apple_books":     "https://itunes.apple.com",
-    "audnexus":        "https://api.audnexus.com",
-    "wikidata_api":    "https://www.wikidata.org/w/api.php",
-    "wikidata_sparql": "https://query.wikidata.org/sparql"
+{
+  "name": "audnexus",
+  "enabled": true,
+  "endpoints": {
+    "base_url": "https://api.audnexus.com"
+  }
 }
 ```
 
-All URLs live in `tanaste_master.json` — changing a provider's base address requires only a config edit, never a recompile.
+All URLs and settings live in per-provider config files — changing a provider's base address requires only a config edit, never a recompile.
 
 ---
 
 ## 🔌 Arr Compatibility (Radarr / Sonarr)
 
-Tanaste's Engine exposes a standard HTTP API secured by an **`X-Api-Key` header** — the same authentication pattern used by Radarr, Sonarr, Lidarr, and the broader \*Arr ecosystem.
+The Engine exposes a standard HTTP API secured by an **`X-Api-Key` header** — the same authentication pattern used by Radarr, Sonarr, Lidarr, and the broader \*Arr ecosystem.
 
 **To connect an external app:**
 
-1. Open the Tanaste Swagger UI at `http://localhost:61495/swagger`
+1. Open the Swagger UI at `http://localhost:61495/swagger`
 2. Use `POST /admin/api-keys` to create a named key for your app (e.g. `"Radarr integration"`)
-3. Add the key as an `X-Api-Key` header in your external app's Tanaste connection settings
+3. Add the key as an `X-Api-Key` header in your external app's connection settings
 4. Revoke it any time with `DELETE /admin/api-keys/{id}` — other apps are unaffected
 
 External apps can query Hubs, trigger library scans, and resolve metadata conflicts via the Engine's full REST API without ever opening the Dashboard.
@@ -314,7 +294,7 @@ External apps can query Hubs, trigger library scans, and resolve metadata confli
 | **Phase 9** | External Metadata — Apple Books, Audnexus, Open Library, Google Books, Wikidata SPARQL; Recursive Person Enrichment; Config-driven universal adapter |
 | **Phase A** | Wikidata property map (50+ P-codes), person social links, sidecar XML bridges |
 | **Phase B** | SPARQL deep-hydration engine, Two-Stage Handshake (bridge IDs → title → SPARQL) |
-| **Library Org** | Hub-first folder structure, tanaste.xml sidecars, Great Inhale rebuild, AutoOrganize |
+| **Library Org** | Hub-first folder structure, library.xml sidecars, Great Inhale rebuild, AutoOrganize |
 | **Security** | API keys (generate/revoke), role-based auth (Admin/Curator/Consumer), rate limiting, path traversal protection, SignalR auth |
 | **Config** | Directory-based config (`config/`), auto-migration from legacy, per-provider files, universe knowledge model |
 | **Activity** | System activity ledger, configurable retention, daily pruning |
@@ -374,9 +354,9 @@ External apps can query Hubs, trigger library scans, and resolve metadata confli
 
 ## 📄 License
 
-Tanaste is free and open-source software, licensed under the **GNU Affero General Public License v3.0 (AGPLv3)**.
+Tuvima Library is free and open-source software, licensed under the **GNU Affero General Public License v3.0 (AGPLv3)**.
 
-> This means you are free to use, modify, and distribute Tanaste — but if you deploy a modified version as a network service, you must also make your modifications available under the same license.
+> This means you are free to use, modify, and distribute Tuvima Library — but if you deploy a modified version as a network service, you must also make your modifications available under the same license.
 
 See the [`LICENSE`](LICENSE) file for the full license text.
 
@@ -388,6 +368,6 @@ All dependencies are MIT or Apache 2.0 licensed and are compatible with AGPLv3.
 
 *Built with care for people who take their media library seriously.*
 
-[Report a Bug](https://github.com/shyfaruqi/tanaste/issues) · [Request a Feature](https://github.com/shyfaruqi/tanaste/issues) · [View the Engine API](http://localhost:61495/swagger)
+[Report a Bug](https://github.com/Tuvima/tuvima_library/issues) · [Request a Feature](https://github.com/Tuvima/tuvima_library/issues) · [View the Engine API](http://localhost:61495/swagger)
 
 </div>

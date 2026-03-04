@@ -1,9 +1,0 @@
-@* DefaultLayout resolved via typeof(Tanaste.Web.Shared.MainLayout) — fully-qualified to
-   avoid ambiguity with the legacy Components/Layout/MainLayout stub.
-   See Section 2.1 of the UI ASD: layout components live in /Shared. *@
-<Router AppAssembly="typeof(Program).Assembly" NotFoundPage="typeof(Pages.NotFound)">
-    <Found Context="routeData">
-        <RouteView RouteData="routeData" DefaultLayout="typeof(Tanaste.Web.Shared.MainLayout)" />
-        <FocusOnNavigate RouteData="routeData" Selector="h1" />
-    </Found>
-</Router>

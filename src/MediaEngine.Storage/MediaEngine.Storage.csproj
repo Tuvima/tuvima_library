@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>MediaEngine.Storage</RootNamespace>
+    <AssemblyName>MediaEngine.Storage</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- ORM-less SQLite access via Microsoft.Data.Sqlite -->
+    <PackageReference Include="Microsoft.Data.Sqlite" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      Storage implements repository contracts defined in Domain and maps rows to
+      Domain aggregates (MediaAsset, AssetStatus).  Domain has no back-reference.
+    -->
+    <ProjectReference Include="..\MediaEngine.Domain\MediaEngine.Domain.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Embed DDL so DatabaseConnection can initialise a fresh database without
+         requiring the .sql file to be present at runtime. -->
+    <EmbeddedResource Include="Schema\schema.sql" />
+  </ItemGroup>
+
+</Project>

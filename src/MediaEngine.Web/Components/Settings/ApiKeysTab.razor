@@ -1,0 +1,351 @@
+@namespace MediaEngine.Web.Components.Settings
+@inject UIOrchestratorService Orchestrator
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
+
+@* Guest API Keys — generate, view, copy, reveal prefix, and revoke access keys. *@
+
+<MudPaper Elevation="0" Style="@GlassStyle">
+
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
+        <MudIcon Icon="@Icons.Material.Filled.VpnKey" Color="Color.Primary" Class="mr-2" />
+        <MudText Typo="Typo.h6">Guest API Keys</MudText>
+        <MudSpacer />
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Add"
+                   OnClick="@OpenGenerateDialog"
+                   Disabled="@_loading">
+            Generate Key
+        </MudButton>
+    </MudStack>
+
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+        Any application connecting to the Engine — Radarr, Sonarr, a mobile app — must present
+        a valid Guest API Key. Each key is labelled and can be revoked individually.
+    </MudText>
+
+    @if (_loading)
+    {
+        <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-2" />
+    }
+    else if (_keys.Count == 0)
+    {
+        <MudAlert Severity="Severity.Info" Class="mt-2">
+            No Guest API Keys have been issued yet. Generate one to allow external connections.
+        </MudAlert>
+    }
+    else
+    {
+        <MudTable Items="@_keys" Dense="true" Hover="true" Breakpoint="Breakpoint.Sm"
+                  Style="background: transparent;">
+            <HeaderContent>
+                <MudTh>Label</MudTh>
+                <MudTh>Key</MudTh>
+                <MudTh>Created</MudTh>
+                <MudTh Style="text-align:right">Actions</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd>
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                        <MudIcon Icon="@Icons.Material.Filled.Key" Size="Size.Small"
+                                 Color="Color.Secondary" />
+                        <MudText>@context.Label</MudText>
+                    </MudStack>
+                </MudTd>
+                <MudTd>
+                    <code style="font-family: monospace; font-size: 0.85rem;
+                                  background: rgba(0,0,0,0.2); padding: 4px 8px;
+                                  border-radius: 6px;">
+                        @GetKeyDisplay(context.Id)
+                    </code>
+                </MudTd>
+                <MudTd>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        @context.CreatedAt.LocalDateTime.ToString("MMM d, yyyy · HH:mm")
+                    </MudText>
+                </MudTd>
+                <MudTd Style="text-align:right">
+                    <MudIconButton Icon="@(_revealedKeys.Contains(context.Id)
+                                             ? Icons.Material.Filled.VisibilityOff
+                                             : Icons.Material.Filled.Visibility)"
+                                   Color="Color.Default"
+                                   Size="Size.Small"
+                                   title="Toggle key prefix visibility"
+                                   OnClick="@(() => ToggleReveal(context.Id))" />
+                    <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline"
+                                   Color="Color.Error"
+                                   Size="Size.Small"
+                                   title="Revoke this key"
+                                   OnClick="@(() => RevokeKeyAsync(context))" />
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+
+        @* Revoke All Keys *@
+        <MudButton Variant="Variant.Outlined"
+                   Color="Color.Error"
+                   FullWidth="true"
+                   StartIcon="@Icons.Material.Filled.DeleteSweep"
+                   OnClick="@OpenRevokeAllDialog"
+                   Class="mt-4"
+                   Disabled="@_revokingAll">
+            Revoke All Keys
+        </MudButton>
+    }
+</MudPaper>
+
+@* ── Generate Key dialog ─────────────────────────────────────────────────── *@
+<MudDialog @bind-Visible="_generateOpen" Options="_dialogOptions">
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.VpnKey" Class="mr-2" />
+            Generate Guest API Key
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudTextField @bind-Value="_newLabel"
+                      Label="Label"
+                      Placeholder="e.g. Radarr integration, Mobile app"
+                      Variant="Variant.Outlined"
+                      FullWidth="true"
+                      Class="mb-2"
+                      Immediate="true" />
+
+        @if (_newKey is not null)
+        {
+            <MudAlert Severity="Severity.Warning" Class="mt-4" Icon="@Icons.Material.Filled.Warning">
+                <MudText Typo="Typo.subtitle2" Class="mb-2">
+                    Copy this key now — it will not be shown again.
+                </MudText>
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                    <code style="font-family: monospace; font-size: 0.85rem;
+                                  background: rgba(0,0,0,0.4); padding: 6px 12px;
+                                  border-radius: 8px; word-break: break-all; flex: 1;">
+                        @_newKey.Key
+                    </code>
+                    <MudIconButton Icon="@(_copyAnimating
+                                             ? Icons.Material.Filled.Check
+                                             : Icons.Material.Filled.ContentCopy)"
+                                   Color="@(_copyAnimating ? Color.Success : Color.Default)"
+                                   Size="Size.Small"
+                                   title="Copy key to clipboard"
+                                   OnClick="@CopyKeyAsync" />
+                </MudStack>
+            </MudAlert>
+        }
+    </DialogContent>
+    <DialogActions>
+        @if (_newKey is null)
+        {
+            <MudButton OnClick="@CloseGenerateDialog">Cancel</MudButton>
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       Disabled="@(string.IsNullOrWhiteSpace(_newLabel) || _generating)"
+                       OnClick="@GenerateKeyAsync">
+                @(_generating ? "Generating..." : "Generate")
+            </MudButton>
+        }
+        else
+        {
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Success"
+                       StartIcon="@Icons.Material.Filled.Check"
+                       OnClick="@DismissNewKey">
+                I've saved the key
+            </MudButton>
+        }
+    </DialogActions>
+</MudDialog>
+
+@* ── Revoke All Confirmation dialog ──────────────────────────────────────── *@
+<MudDialog @bind-Visible="_revokeAllOpen" Options="_dialogOptions">
+    <TitleContent>
+        <MudText Typo="Typo.h6" Color="Color.Error">
+            <MudIcon Icon="@Icons.Material.Filled.Warning" Class="mr-2" Color="Color.Error" />
+            Revoke All Guest API Keys
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudText Typo="Typo.body1">
+            This will revoke <strong>all @_keys.Count</strong> Guest API Keys immediately.
+            Any application currently connected to the Engine will lose access.
+        </MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-2">
+            This action cannot be undone.
+        </MudText>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@CloseRevokeAllDialog">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Error"
+                   OnClick="@RevokeAllKeysAsync"
+                   Disabled="@_revokingAll">
+            @(_revokingAll ? "Revoking..." : "Revoke All")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+
+    private const string GlassStyle =
+        "background: var(--app-glass-bg); " +
+        "border: 1px solid var(--app-glass-border); " +
+        "backdrop-filter: blur(10px); " +
+        "-webkit-backdrop-filter: blur(10px); " +
+        "border-radius: 32px; " +
+        "padding: 32px;";
+
+    // ── State ────────────────────────────────────────────────────────────────────
+
+    private bool                  _loading      = true;
+    private List<ApiKeyViewModel> _keys         = [];
+    private bool                  _generateOpen;
+    private bool                  _generating;
+    private string                _newLabel     = string.Empty;
+    private NewApiKeyViewModel?   _newKey;
+    private bool                  _copyAnimating;
+    private bool                  _revokeAllOpen;
+    private bool                  _revokingAll;
+
+    private readonly HashSet<Guid> _revealedKeys = [];
+
+    private readonly DialogOptions _dialogOptions = new()
+    {
+        MaxWidth         = MaxWidth.Small,
+        FullWidth        = true,
+        CloseOnEscapeKey = true,
+    };
+
+    // ── Lifecycle ────────────────────────────────────────────────────────────────
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshKeysAsync();
+    }
+
+    // ── Key display helpers ──────────────────────────────────────────────────────
+
+    private string GetKeyDisplay(Guid keyId)
+    {
+        if (_revealedKeys.Contains(keyId))
+        {
+            // Show first 8 chars of the key ID as a hash prefix hint.
+            return keyId.ToString("N")[..8] + "...";
+        }
+        return "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022";
+    }
+
+    private void ToggleReveal(Guid keyId)
+    {
+        if (!_revealedKeys.Remove(keyId))
+            _revealedKeys.Add(keyId);
+    }
+
+    // ── Handlers ─────────────────────────────────────────────────────────────────
+
+    private async Task RefreshKeysAsync()
+    {
+        _loading = true;
+        _keys    = await Orchestrator.GetApiKeysAsync();
+        _loading = false;
+    }
+
+    private void OpenGenerateDialog()
+    {
+        _newLabel      = string.Empty;
+        _newKey        = null;
+        _copyAnimating = false;
+        _generateOpen  = true;
+    }
+
+    private void CloseGenerateDialog()
+    {
+        _generateOpen  = false;
+        _newKey        = null;
+        _newLabel      = string.Empty;
+        _copyAnimating = false;
+    }
+
+    private async Task GenerateKeyAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_newLabel)) return;
+        _generating = true;
+        _newKey     = await Orchestrator.CreateApiKeyAsync(_newLabel.Trim());
+        _generating = false;
+
+        if (_newKey is null)
+        {
+            Snackbar.Add("Could not generate key — is the Engine running?", Severity.Error);
+            _generateOpen = false;
+        }
+        else
+        {
+            await RefreshKeysAsync();
+        }
+    }
+
+    private async Task CopyKeyAsync()
+    {
+        if (_newKey is null) return;
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", _newKey.Key);
+
+        // Animate icon: ContentCopy → Check (green) for 1.5 seconds.
+        _copyAnimating = true;
+        StateHasChanged();
+
+        await Task.Delay(1500);
+        _copyAnimating = false;
+        StateHasChanged();
+
+        Snackbar.Add("Key copied to clipboard", Severity.Success);
+    }
+
+    private async Task DismissNewKey()
+    {
+        _newKey        = null;
+        _generateOpen  = false;
+        _newLabel      = string.Empty;
+        _copyAnimating = false;
+        await RefreshKeysAsync();
+    }
+
+    private async Task RevokeKeyAsync(ApiKeyViewModel key)
+    {
+        var ok = await Orchestrator.RevokeApiKeyAsync(key.Id);
+        if (ok)
+        {
+            Snackbar.Add($"Key \"{key.Label}\" revoked", Severity.Info);
+            _revealedKeys.Remove(key.Id);
+            await RefreshKeysAsync();
+        }
+        else
+        {
+            Snackbar.Add("Revoke failed — is the Engine running?", Severity.Error);
+        }
+    }
+
+    // ── Revoke All ───────────────────────────────────────────────────────────────
+
+    private void OpenRevokeAllDialog() => _revokeAllOpen = true;
+
+    private void CloseRevokeAllDialog() => _revokeAllOpen = false;
+
+    private async Task RevokeAllKeysAsync()
+    {
+        _revokingAll = true;
+
+        var revoked = await Orchestrator.RevokeAllApiKeysAsync();
+
+        _revealedKeys.Clear();
+        _revokeAllOpen = false;
+        _revokingAll   = false;
+
+        if (revoked > 0)
+            Snackbar.Add($"All {revoked} keys revoked", Severity.Info);
+        else
+            Snackbar.Add("Could not revoke keys — is the Engine running?", Severity.Warning);
+
+        await RefreshKeysAsync();
+    }
+}

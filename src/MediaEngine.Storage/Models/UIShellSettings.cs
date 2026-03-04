@@ -1,0 +1,41 @@
+using System.Text.Json.Serialization;
+
+namespace MediaEngine.Storage.Models;
+
+/// <summary>
+/// Configuration for the app shell — the AppBar and Intent Dock that wrap every page.
+///
+/// <para>
+/// Styles control visual density and sizing. The Intent Dock item list controls which
+/// browsing intents are available on the floating dock.
+/// </para>
+/// </summary>
+public sealed class UIShellSettings
+{
+    /// <summary>
+    /// AppBar visual density: <c>full</c> (desktop), <c>compact</c> (mobile),
+    /// <c>oversized</c> (television), <c>minimal</c> (automotive).
+    /// </summary>
+    [JsonPropertyName("appbar_style")]
+    public string AppBarStyle { get; set; } = "full";
+
+    /// <summary>
+    /// Logo variant displayed in the AppBar centre: <c>wordmark</c> (full logo + text),
+    /// <c>icon</c> (mark only), <c>wordmark-large</c> (TV), <c>icon-large</c> (automotive).
+    /// </summary>
+    [JsonPropertyName("logo_variant")]
+    public string LogoVariant { get; set; } = "wordmark";
+
+    /// <summary>
+    /// Intent names displayed on the floating dock. Default: all four intents.
+    /// Automotive restricts this to <c>["Hubs", "Listen"]</c>.
+    /// </summary>
+    [JsonPropertyName("intent_dock_items")]
+    public List<string> IntentDockItems { get; set; } = ["Hubs", "Watch", "Read", "Listen"];
+
+    /// <summary>
+    /// Intent Dock sizing: <c>normal</c> (standard) or <c>oversized</c> (TV/automotive).
+    /// </summary>
+    [JsonPropertyName("intent_dock_style")]
+    public string IntentDockStyle { get; set; } = "normal";
+}

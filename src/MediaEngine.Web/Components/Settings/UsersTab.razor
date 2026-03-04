@@ -1,0 +1,252 @@
+@namespace MediaEngine.Web.Components.Settings
+@inject UIOrchestratorService Orchestrator
+@inject ISnackbar Snackbar
+
+@* Users — profile management: list, create, and delete profiles. *@
+
+<MudPaper Elevation="0" Style="@GlassStyle">
+
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
+        <MudIcon Icon="@Icons.Material.Outlined.Group" Color="Color.Primary" Class="mr-2" />
+        <MudText Typo="Typo.h6">Users</MudText>
+        <MudSpacer />
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.PersonAdd"
+                   OnClick="@OpenCreateDialog"
+                   Disabled="@_loading">
+            Create Profile
+        </MudButton>
+    </MudStack>
+
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+        Manage the profiles that have access to this Tuvima Library instance.
+        The seed profile (Owner) cannot be deleted.
+    </MudText>
+
+    @if (_loading)
+    {
+        <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-2" />
+    }
+    else if (_profiles.Count == 0)
+    {
+        <MudAlert Severity="Severity.Info" Class="mt-2">
+            No profiles found. Create one to get started.
+        </MudAlert>
+    }
+    else
+    {
+        <MudTable Items="@_profiles" Dense="true" Hover="true" Breakpoint="Breakpoint.Sm"
+                  Style="background: transparent;">
+            <HeaderContent>
+                <MudTh>Avatar</MudTh>
+                <MudTh>Display Name</MudTh>
+                <MudTh>Role</MudTh>
+                <MudTh>Created</MudTh>
+                <MudTh Style="text-align:right">Actions</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd>
+                    <MudAvatar Size="Size.Small"
+                               Style="@($"background: {context.AvatarColor}; font-size: 0.75rem;")">
+                        @(context.DisplayName.Length > 0 ? context.DisplayName[0].ToString().ToUpper() : "?")
+                    </MudAvatar>
+                </MudTd>
+                <MudTd>
+                    <MudText>@context.DisplayName</MudText>
+                </MudTd>
+                <MudTd>
+                    <MudChip T="string" Size="Size.Small"
+                             Color="@(context.Role == "Administrator" ? Color.Primary
+                                      : context.Role == "Curator" ? Color.Info
+                                      : Color.Default)">
+                        @context.Role
+                    </MudChip>
+                </MudTd>
+                <MudTd>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        @context.CreatedAt.LocalDateTime.ToString("MMM d, yyyy")
+                    </MudText>
+                </MudTd>
+                <MudTd Style="text-align:right">
+                    <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline"
+                                   Color="Color.Error"
+                                   Size="Size.Small"
+                                   title="Delete profile"
+                                   Disabled="@context.IsSeed"
+                                   OnClick="@(() => DeleteProfileAsync(context))" />
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+</MudPaper>
+
+@* ── Create Profile dialog ────────────────────────────────────────────────── *@
+<MudDialog @bind-Visible="_createOpen" Options="_dialogOptions">
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.PersonAdd" Class="mr-2" />
+            Create Profile
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudTextField @bind-Value="_newDisplayName"
+                      Label="Display Name"
+                      Placeholder="e.g. Alice, Bob"
+                      Variant="Variant.Outlined"
+                      FullWidth="true"
+                      Immediate="true"
+                      MaxLength="50"
+                      Class="mb-4" />
+
+        <MudSelect @bind-Value="_newRole"
+                   Label="Role"
+                   Variant="Variant.Outlined"
+                   FullWidth="true"
+                   Class="mb-4">
+            <MudSelectItem Value="@("Administrator")">Administrator</MudSelectItem>
+            <MudSelectItem Value="@("Curator")">Curator</MudSelectItem>
+            <MudSelectItem Value="@("Consumer")">Consumer</MudSelectItem>
+        </MudSelect>
+
+        @* Avatar colour *@
+        <MudText Typo="Typo.subtitle2" Class="mb-1">Avatar Colour</MudText>
+        <MudStack Row="true" Spacing="2" Style="flex-wrap: wrap;" Class="mb-2">
+            @foreach (var hex in _avatarPresets)
+            {
+                <MudAvatar Size="Size.Medium"
+                           Style="@CreateSwatchStyle(hex)"
+                           @onclick="@(() => { _newAvatarColor = hex; })" />
+            }
+        </MudStack>
+
+        @* Preview *@
+        <MudStack AlignItems="AlignItems.Center" Class="mt-4">
+            <MudAvatar Size="Size.Large"
+                       Style="@($"background: {_newAvatarColor}; width: 64px; height: 64px; font-size: 1.5rem;")">
+                @(_newDisplayName.Length > 0 ? _newDisplayName[0].ToString().ToUpper() : "?")
+            </MudAvatar>
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@CloseCreateDialog">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   Disabled="@(string.IsNullOrWhiteSpace(_newDisplayName) || _creating)"
+                   OnClick="@CreateProfileAsync">
+            @(_creating ? "Creating..." : "Create")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+
+    private const string GlassStyle =
+        "background: var(--app-glass-bg); " +
+        "border: 1px solid var(--app-glass-border); " +
+        "backdrop-filter: blur(10px); " +
+        "-webkit-backdrop-filter: blur(10px); " +
+        "border-radius: 32px; " +
+        "padding: 32px;";
+
+    private static readonly string[] _avatarPresets =
+    [
+        "#7C4DFF", "#00BFA5", "#FF8F00", "#E91E63",
+        "#2196F3", "#4CAF50", "#FF5722", "#9C27B0",
+    ];
+
+    // ── State ────────────────────────────────────────────────────────────────────
+
+    private bool                    _loading  = true;
+    private List<ProfileViewModel>  _profiles = [];
+
+    // Create dialog state
+    private bool   _createOpen;
+    private bool   _creating;
+    private string _newDisplayName = string.Empty;
+    private string _newRole        = "Consumer";
+    private string _newAvatarColor = "#7C4DFF";
+
+    private readonly DialogOptions _dialogOptions = new()
+    {
+        MaxWidth         = MaxWidth.Small,
+        FullWidth        = true,
+        CloseOnEscapeKey = true,
+    };
+
+    // ── Lifecycle ────────────────────────────────────────────────────────────────
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshProfilesAsync();
+    }
+
+    // ── Handlers ─────────────────────────────────────────────────────────────────
+
+    private async Task RefreshProfilesAsync()
+    {
+        _loading  = true;
+        _profiles = await Orchestrator.GetProfilesAsync();
+        _loading  = false;
+    }
+
+    private void OpenCreateDialog()
+    {
+        _newDisplayName = string.Empty;
+        _newRole        = "Consumer";
+        _newAvatarColor = "#7C4DFF";
+        _createOpen     = true;
+    }
+
+    private void CloseCreateDialog()
+    {
+        _createOpen     = false;
+        _newDisplayName = string.Empty;
+    }
+
+    private async Task CreateProfileAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_newDisplayName)) return;
+        _creating = true;
+
+        var ok = await Orchestrator.CreateProfileAsync(
+            _newDisplayName.Trim(), _newAvatarColor, _newRole);
+
+        _creating = false;
+
+        if (ok)
+        {
+            Snackbar.Add($"Profile \"{_newDisplayName.Trim()}\" created", Severity.Success);
+            _createOpen = false;
+            await RefreshProfilesAsync();
+        }
+        else
+        {
+            Snackbar.Add("Could not create profile — is the Engine running?", Severity.Error);
+        }
+    }
+
+    private async Task DeleteProfileAsync(ProfileViewModel profile)
+    {
+        if (profile.IsSeed) return;
+
+        var ok = await Orchestrator.DeleteProfileAsync(profile.Id);
+        if (ok)
+        {
+            Snackbar.Add($"Profile \"{profile.DisplayName}\" deleted", Severity.Info);
+            await RefreshProfilesAsync();
+        }
+        else
+        {
+            Snackbar.Add("Could not delete profile — is the Engine running?", Severity.Error);
+        }
+    }
+
+    private string CreateSwatchStyle(string hex)
+    {
+        bool isActive = _newAvatarColor.Equals(hex, StringComparison.OrdinalIgnoreCase);
+        return $"background: {hex}; cursor: pointer; " +
+               $"border: 3px solid {(isActive ? "var(--app-swatch-active)" : "var(--app-swatch-border)")}; " +
+               "transition: border 0.2s ease;";
+    }
+}

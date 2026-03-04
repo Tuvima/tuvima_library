@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>MediaEngine.Providers</RootNamespace>
+    <AssemblyName>MediaEngine.Providers</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      IHttpClientFactory-based named HTTP clients for all three zero-key adapters.
+      MIT license — approved for AGPLv3 compatibility (see CLAUDE.md §5.1).
+    -->
+    <PackageReference Include="Microsoft.Extensions.Http" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      Domain contracts (IMetadataClaimRepository, IMetadataHarvestingService, etc.)
+      and domain entities (Person, MetadataClaim, CanonicalValue).
+      Domain has no back-reference to Providers.
+    -->
+    <ProjectReference Include="..\MediaEngine.Domain\MediaEngine.Domain.csproj" />
+    <!--
+      Storage repositories (IMetadataClaimRepository, ICanonicalValueRepository,
+      IPersonRepository implementations) needed by MetadataHarvestingService.
+    -->
+    <ProjectReference Include="..\MediaEngine.Storage\MediaEngine.Storage.csproj" />
+    <!--
+      Intelligence scoring engine (IScoringEngine) needed by
+      MetadataHarvestingService to re-score entities after harvesting new claims.
+    -->
+    <ProjectReference Include="..\MediaEngine.Intelligence\MediaEngine.Intelligence.csproj" />
+  </ItemGroup>
+
+</Project>
