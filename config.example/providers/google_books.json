@@ -53,7 +53,8 @@
       "name": "title_search",
       "priority": 2,
       "required_fields": ["title"],
-      "url_template": "{base_url}/volumes?q=intitle:{title}+inauthor:{author}&maxResults=25",
+      "url_template": "{base_url}/volumes?q={query}&maxResults=25",
+      "query_template": "{title} {author}",
       "results_path": "items",
       "result_index": 0,
       "max_results": 25

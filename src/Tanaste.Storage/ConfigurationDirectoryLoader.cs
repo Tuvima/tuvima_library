@@ -17,7 +17,7 @@ namespace Tanaste.Storage;
 ///   maintenance.json          ← MaintenanceSettings
 ///   providers/                ← Per-provider ProviderConfiguration
 ///     local_filesystem.json
-///     apple_books_ebook.json
+///     apple_books.json
 ///     wikidata.json
 ///     …
 ///   universe/                 ← Universe knowledge models
@@ -272,6 +272,10 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
         if (!Directory.Exists(dir))
             return [];
 
+        // Auto-migrate: if old split Apple Books configs exist but merged one does not,
+        // create the merged config and rename old files.
+        MigrateAppleBooksIfNeeded(dir);
+
         var results = new List<ProviderConfiguration>();
         foreach (var file in Directory.EnumerateFiles(dir, "*.json"))
         {
@@ -280,6 +284,59 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
                 results.Add(config);
         }
         return results;
+    }
+
+    /// <summary>
+    /// If old split Apple Books configs (apple_books_ebook.json, apple_books_audiobook.json) exist
+    /// but the merged apple_books.json does not, creates the merged config and renames old files.
+    /// </summary>
+    private static void MigrateAppleBooksIfNeeded(string providerDir)
+    {
+        var mergedPath   = Path.Combine(providerDir, "apple_books.json");
+        var ebookPath    = Path.Combine(providerDir, "apple_books_ebook.json");
+        var audiobookPath = Path.Combine(providerDir, "apple_books_audiobook.json");
+
+        if (File.Exists(mergedPath))
+            return; // Already migrated
+
+        if (!File.Exists(ebookPath) && !File.Exists(audiobookPath))
+            return; // Nothing to migrate
+
+        // Write the merged config with media-type-scoped strategies.
+        var merged = new ProviderConfiguration
+        {
+            Name           = "apple_books",
+            Version        = "2.0",
+            Enabled        = true,
+            Weight         = 0.7,
+            Domain         = ProviderDomain.Universal,
+            DisplayName    = "Apple Books",
+            AdapterType    = "config_driven",
+            ProviderId     = "b1000001-e000-4000-8000-000000000001",
+            CapabilityTags = ["cover", "title", "author", "description", "genre"],
+            AvailableFields = ["title", "author", "cover", "description", "genre", "rating", "apple_books_id"],
+            FieldWeights   = new() { ["cover"] = 0.85, ["title"] = 0.7, ["author"] = 0.7, ["description"] = 0.85, ["genre"] = 0.7, ["rating"] = 0.7 },
+            Endpoints      = new() { ["api"] = "https://itunes.apple.com" },
+            ThrottleMs     = 300,
+            MaxConcurrency = 1,
+            HydrationStages = [1],
+            CanHandle      = new() { MediaTypes = ["Epub", "Audiobook"], EntityTypes = ["Work", "MediaAsset"] },
+            HttpClient     = new() { TimeoutSeconds = 10 },
+        };
+
+        var json = JsonSerializer.Serialize(merged, new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+        });
+        File.WriteAllText(mergedPath, json);
+
+        // Rename old files so they are no longer loaded.
+        if (File.Exists(ebookPath))
+            File.Move(ebookPath, ebookPath + ".migrated", overwrite: true);
+        if (File.Exists(audiobookPath))
+            File.Move(audiobookPath, audiobookPath + ".migrated", overwrite: true);
     }
 
     /// <inheritdoc/>

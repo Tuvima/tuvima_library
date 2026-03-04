@@ -796,6 +796,7 @@ public sealed class TanasteApiClient : ITanasteApiClient
             return raw?.Results?.Select(r => new MetadataSearchResultDto
             {
                 Title          = r.Title,
+                Author         = r.Author,
                 Description    = r.Description,
                 Year           = r.Year,
                 ThumbnailUrl   = r.ThumbnailUrl,
@@ -990,6 +991,7 @@ public sealed class TanasteApiClient : ITanasteApiClient
 
     private sealed record MetadataSearchResultRaw(
         [property: JsonPropertyName("title")]            string  Title,
+        [property: JsonPropertyName("author")]           string? Author,
         [property: JsonPropertyName("description")]      string? Description,
         [property: JsonPropertyName("year")]             string? Year,
         [property: JsonPropertyName("thumbnail_url")]    string? ThumbnailUrl,

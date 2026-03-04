@@ -45,6 +45,7 @@ public sealed class ReviewItemViewModel
     public string? ResolvedBy { get; set; }
 
     /// <summary>Entity title (best-available), populated from canonical values.</summary>
+    [JsonPropertyName("entity_title")]
     public string? EntityTitle { get; set; }
 
     /// <summary>The media type of the entity (e.g. "Epub", "Audiobook").</summary>
@@ -63,7 +64,7 @@ public sealed class ReviewResolveRequestDto
 
     /// <summary>
     /// When resolving via search results, the provider that produced the
-    /// selected match (e.g. "apple_books_ebook").
+    /// selected match (e.g. "apple_books").
     /// </summary>
     [JsonPropertyName("provider_name")]
     public string? ProviderName { get; set; }

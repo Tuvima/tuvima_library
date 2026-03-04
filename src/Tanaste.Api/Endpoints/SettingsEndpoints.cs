@@ -35,8 +35,6 @@ public static class SettingsEndpoints
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             ["apple_books"]           = "Apple Books",
-            ["apple_books_ebook"]     = "Apple Books",
-            ["apple_books_audiobook"] = "Apple Books",
             ["audnexus"]              = "Audnexus",
             ["wikidata"]              = "Wikidata",
             ["local_filesystem"]      = "Local Filesystem",
@@ -51,8 +49,6 @@ public static class SettingsEndpoints
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             ["apple_books"]           = "apple_books",
-            ["apple_books_ebook"]     = "apple_books",
-            ["apple_books_audiobook"] = "apple_books",
             ["audnexus"]              = "audnexus",
             ["wikidata"]              = "wikidata_api",
             ["open_library"]          = "open_library",

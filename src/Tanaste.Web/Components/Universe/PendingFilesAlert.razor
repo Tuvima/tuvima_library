@@ -1,12 +1,11 @@
 @namespace Tanaste.Web.Components.Universe
 @inject UIOrchestratorService Orchestrator
 @inject UniverseStateContainer State
-@inject ISnackbar Snackbar
+@inject NavigationManager Nav
 @implements IDisposable
 
-@* Pending Files Alert — shown on the Home page when files are sitting in the
-   Watch Folder awaiting processing.  Provides a "Process Now" button to trigger
-   a re-scan of the Watch Folder.
+@* Pending Files Alert — shown on the Home page when files are in the
+   review queue.  Provides a "Review Now" button that navigates to Needs Review.
 
    Display modes (driven by device context):
      "expandable" → Default: full alert with expand/collapse file list
@@ -22,7 +21,7 @@
                  Color="Color.Warning"
                  Icon="@Icons.Material.Filled.FolderOpen"
                  Class="@Class">
-            @_files.Count @(_files.Count == 1 ? "file" : "files") pending
+            @_files.Count @(_files.Count == 1 ? "file" : "files") to review
         </MudChip>
     }
     else
@@ -34,16 +33,15 @@
                          Color="Color.Warning" Class="mr-2" />
                 <MudText Typo="Typo.body1" Style="flex: 1;">
                     <strong>@_files.Count</strong> @(_files.Count == 1 ? "file" : "files")
-                    awaiting processing in the Watch Folder
+                    in the review queue
                 </MudText>
 
                 <MudButton Variant="Variant.Outlined"
                            Size="Size.Small"
                            Color="Color.Primary"
-                           StartIcon="@Icons.Material.Filled.Refresh"
-                           Disabled="@_rescanning"
-                           OnClick="@TriggerRescanAsync">
-                    @(_rescanning ? "Processing..." : "Process Now")
+                           StartIcon="@Icons.Material.Filled.RateReview"
+                           OnClick="@(() => Nav.NavigateTo("/settings/needs-review"))">
+                    Review Now
                 </MudButton>
 
                 <MudIconButton Icon="@(_expanded
@@ -99,7 +97,6 @@
 
     private List<Tanaste.Web.Models.ViewDTOs.WatchFolderFileViewModel> _files = [];
     private bool _expanded;
-    private bool _rescanning;
 
     protected override async Task OnInitializedAsync()
     {
@@ -110,52 +107,6 @@
     private async Task LoadFilesAsync()
     {
         _files = await Orchestrator.GetWatchFolderAsync();
-    }
-
-    private async Task TriggerRescanAsync()
-    {
-        _rescanning = true;
-        try
-        {
-            var ok = await Orchestrator.TriggerRescanAsync();
-            if (!ok)
-            {
-                Snackbar.Add(
-                    "Could not trigger rescan. Check that the Engine is running and a Watch Folder is configured.",
-                    Severity.Warning);
-                return;
-            }
-
-            Snackbar.Add("Rescan triggered — processing files now.", Severity.Success);
-
-            // The debounce settle delay is ~2 s, plus file-lock probe and processing
-            // time.  Poll at increasing intervals so the user sees files disappear
-            // as soon as they are processed.
-            var before = _files.Count;
-            int[] pollDelays = [3000, 4000, 5000]; // cumulative: 3 s, 7 s, 12 s
-
-            foreach (var delay in pollDelays)
-            {
-                await Task.Delay(delay);
-                await LoadFilesAsync();
-                StateHasChanged();
-
-                if (_files.Count == 0)
-                    break; // All files processed — stop polling.
-            }
-
-            if (_files.Count > 0 && _files.Count >= before)
-            {
-                Snackbar.Add(
-                    "Files are still in the Watch Folder — they may need more time to process, " +
-                    "or may require manual review due to low confidence scoring.",
-                    Severity.Info);
-            }
-        }
-        finally
-        {
-            _rescanning = false;
-        }
     }
 
     /// <summary>

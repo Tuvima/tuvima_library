@@ -5,13 +5,11 @@
 @inject ISnackbar Snackbar
 @implements IDisposable
 
-@* Needs Review — review queue with filter chips, inline review panel with
-   provider dropdown, live search results, and Skip Universe button. *@
+@* Needs Review — clean review queue with inline search panel. *@
 
 <MudText Typo="Typo.h5" Class="mb-2">Needs Review</MudText>
 <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
-    Items that need your attention — failed content matches, universe linking issues,
-    and low-confidence results.
+    Items that need your attention — search for the correct match and select it.
 </MudText>
 
 @* ── Filter chips ──────────────────────────────────────────────────────── *@
@@ -39,7 +37,7 @@ else if (FilteredItems.Count == 0)
     <MudAlert Severity="Severity.Success" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.CheckCircle">
         @if (_filterMode == FilterMode.All)
         {
-            <text>No items pending review. The hydration pipeline resolved everything automatically.</text>
+            <text>No items pending review.</text>
         }
         else
         {
@@ -49,108 +47,63 @@ else if (FilteredItems.Count == 0)
 }
 else
 {
-    <MudText Typo="Typo.subtitle2" Color="Color.Secondary" Class="mb-2">
-        @FilteredItems.Count pending item@(FilteredItems.Count != 1 ? "s" : "")
-    </MudText>
-
-    @* ── Queue list ─────────────────────────────────────────────────── *@
     @foreach (var item in FilteredItems)
     {
-        <MudPaper Class="pa-3 mb-3" Elevation="0"
+        <MudPaper Class="pa-3 mb-2" Elevation="0"
                   Style="border: 1px solid var(--mud-palette-lines-default); border-radius: 12px;">
 
-            @* ── Item header row ───────────────────────────────────────── *@
-            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-2">
+            @* ── Item row: title + actions ───────────────────────────────── *@
+            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
                 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                     <div>
                         <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">
-                            @(item.EntityTitle ?? item.EntityId.ToString()[..8] + "...")
+                            @(item.EntityTitle ?? item.Detail ?? item.EntityId.ToString()[..8] + "...")
                         </MudText>
                         <MudText Typo="Typo.caption" Color="Color.Secondary">
-                            @item.EntityType @(!string.IsNullOrWhiteSpace(item.MediaType) ? $" \u2022 {item.MediaType}" : "")
+                            @FormatMediaType(item.MediaType) @(!string.IsNullOrWhiteSpace(item.MediaType) ? " \u2022 " : "")@FormatTrigger(item.Trigger)
                         </MudText>
                     </div>
-                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
-                             Color="@TriggerColor(item.Trigger)">
-                        @FormatTrigger(item.Trigger)
-                    </MudChip>
                 </MudStack>
 
-                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                    @if (item.ConfidenceScore.HasValue)
-                    {
-                        <div style="width: 60px;">
-                            <MudProgressLinear Value="@(item.ConfidenceScore.Value * 100)"
-                                              Color="@ConfidenceColor(item.ConfidenceScore.Value)"
-                                              Rounded="true" Size="Size.Small" />
-                        </div>
-                        <MudText Typo="Typo.caption">@item.ConfidenceScore.Value.ToString("P0")</MudText>
-                    }
-                    <MudText Typo="Typo.caption" Color="Color.Secondary">@item.CreatedAt.LocalDateTime.ToString("g")</MudText>
-                </MudStack>
-            </MudStack>
-
-            @* ── Action buttons ────────────────────────────────────────── *@
-            <MudStack Row="true" Spacing="1">
-                <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary"
-                           StartIcon="@Icons.Material.Filled.Search"
-                           OnClick="@(() => ToggleReviewPanel(item))">
-                    @(_expandedItemId == item.Id ? "Close" : "Review")
-                </MudButton>
-                @if (IsUniverseTrigger(item.Trigger))
-                {
-                    <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Warning"
-                               StartIcon="@Icons.Material.Filled.SkipNext"
-                               OnClick="@(() => SkipUniverseAsync(item))">
-                        Skip Universe
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                    <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary"
+                               OnClick="@(() => ToggleReviewPanel(item))">
+                        @(_expandedItemId == item.Id ? "Close" : "Review")
                     </MudButton>
-                }
-                <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Default"
-                           OnClick="@(() => DismissItemAsync(item.Id))">
-                    Dismiss
-                </MudButton>
+                    <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Default"
+                               OnClick="@(() => DismissItemAsync(item.Id))">
+                        Dismiss
+                    </MudButton>
+                </MudStack>
             </MudStack>
 
-            @* ── Expanded review panel ──────────────────────────────── *@
+            @* ── Expanded search panel ────────────────────────────────── *@
             @if (_expandedItemId == item.Id)
             {
                 <MudDivider Class="my-3" />
 
-                @* ── Provider dropdown + search input ────────────────── *@
-                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-3" Wrap="Wrap.Wrap">
-                    <MudText Typo="Typo.body2" Style="font-weight: 500;">Search provider:</MudText>
+                @* ── Provider + search bar ───────────────────────────── *@
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-3">
                     <MudSelect T="string" @bind-Value="_selectedProvider" Dense="true"
-                               Variant="Variant.Outlined" Style="max-width: 280px;"
-                               Margin="Margin.Dense">
+                               Variant="Variant.Outlined" Label="Provider"
+                               Style="max-width: 200px;" Margin="Margin.Dense">
                         @foreach (var p in GetSlottedProviders(item.MediaType))
                         {
-                            <MudSelectItem Value="@p.Name">
-                                @p.DisplayName @(p.IsAutomatic ? " (Automatic Match)" : "")
-                            </MudSelectItem>
+                            <MudSelectItem Value="@p.Name">@p.DisplayName</MudSelectItem>
                         }
                     </MudSelect>
                     <MudTextField T="string" @bind-Value="_searchQuery" Variant="Variant.Outlined"
-                                  Placeholder="Search title..." Margin="Margin.Dense"
-                                  Style="max-width: 280px;"
-                                  Adornment="Adornment.End"
-                                  AdornmentIcon="@Icons.Material.Filled.Search"
-                                  OnAdornmentClick="@(() => ExecuteSearchAsync())" />
-                    <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary"
+                                  Label="Search Term" Margin="Margin.Dense"
+                                  Style="flex: 1;"
+                                  OnKeyUp="@OnSearchKeyUp" />
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
                                Disabled="@(string.IsNullOrWhiteSpace(_selectedProvider) || string.IsNullOrWhiteSpace(_searchQuery))"
                                OnClick="@ExecuteSearchAsync">
                         Search
                     </MudButton>
                 </MudStack>
 
-                @* ── Edit Manually ─────────────────────────────────────── *@
-                <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Secondary"
-                           StartIcon="@Icons.Material.Filled.Edit"
-                           OnClick="@(() => OpenEditDialog(item))"
-                           Class="mb-2">
-                    Edit Manually
-                </MudButton>
-
-                @* ── Search results ────────────────────────────────────── *@
+                @* ── Search results ──────────────────────────────────── *@
                 @if (_searching)
                 {
                     <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-2" />
@@ -158,11 +111,8 @@ else
 
                 @if (_searchResults.Count > 0)
                 {
-                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2">
-                        @_searchResults.Count result@(_searchResults.Count != 1 ? "s" : "")
-                    </MudText>
-
-                    <div style="max-height: 480px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
+                    <div style="max-height: 520px; overflow-y: auto; border: 1px solid var(--mud-palette-lines-default);
+                                border-radius: 8px; background: var(--mud-palette-surface);">
                         @foreach (var result in _searchResults)
                         {
                             <SearchResultCard Result="@result"
@@ -176,6 +126,14 @@ else
                         No results found. Try a different search term or provider.
                     </MudAlert>
                 }
+
+                @* ── Manual edit ─────────────────────────────────────── *@
+                <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Secondary"
+                           StartIcon="@Icons.Material.Filled.Edit"
+                           OnClick="@(() => OpenEditDialog(item))"
+                           Class="mt-2">
+                    Edit Manually
+                </MudButton>
             }
         </MudPaper>
     }
@@ -255,7 +213,7 @@ else
 
     // ── Review panel toggle ──────────────────────────────────────────────
 
-    private void ToggleReviewPanel(ReviewItemViewModel item)
+    private async Task ToggleReviewPanel(ReviewItemViewModel item)
     {
         if (_expandedItemId == item.Id)
         {
@@ -275,6 +233,12 @@ else
         // Pre-select primary provider for this media type.
         var slottedProviders = GetSlottedProviders(item.MediaType);
         _selectedProvider = slottedProviders.FirstOrDefault()?.Name ?? string.Empty;
+
+        // Auto-search if we have both a title and a provider.
+        if (!string.IsNullOrWhiteSpace(_searchQuery) && !string.IsNullOrWhiteSpace(_selectedProvider))
+        {
+            await ExecuteSearchAsync();
+        }
     }
 
     private void CollapseReviewPanel()
@@ -289,30 +253,31 @@ else
 
     /// <summary>
     /// Returns providers suitable for searching the given media type.
-    /// Slotted providers appear first (primary marked as "Automatic Match").
-    /// Excludes local_filesystem/local_processor. Adds Wikidata as "Universe".
+    /// Only shows providers from the slot assignments for this media type,
+    /// plus Wikidata as "Universe" provider.
     /// </summary>
     private List<SlottedProviderInfo> GetSlottedProviders(string? mediaType)
     {
         var result = new List<SlottedProviderInfo>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        // 1. Add slotted providers first (in slot order).
+        // 1. Add slotted providers (in slot order).
         var mediaTypeName = MapMediaTypeToSlotKey(mediaType);
         if (!string.IsNullOrWhiteSpace(mediaTypeName) && _slots.TryGetValue(mediaTypeName, out var slot))
         {
-            TryAddSlotted(slot.Primary, true);
-            TryAddSlotted(slot.Secondary, false);
-            TryAddSlotted(slot.Tertiary, false);
+            TryAddSlotted(slot.Primary);
+            TryAddSlotted(slot.Secondary);
+            TryAddSlotted(slot.Tertiary);
         }
 
-        // 2. Add remaining providers that can handle this media type.
+        // 2. Add remaining enabled providers that can handle this media type.
         foreach (var p in _providers.Where(p => p.Enabled))
         {
             if (IsExcludedProvider(p.Name)) continue;
             if (IsWikidataProvider(p.Name)) continue;
             if (!seen.Add(p.Name)) continue;
 
+            // Only show providers that explicitly support this media type.
             if (!string.IsNullOrEmpty(mediaType) && p.MediaTypes is { Count: > 0 })
             {
                 if (!p.MediaTypes.Any(mt =>
@@ -320,28 +285,28 @@ else
                     continue;
             }
 
-            result.Add(new(p.Name, p.DisplayName, false));
+            result.Add(new(p.Name, p.DisplayName ?? ProviderAccentMap.GetDisplayName(p.Name)));
         }
 
-        // 3. Add Wikidata at the end as "Universe" provider.
+        // 3. Add Wikidata at the end.
         var wikidata = _providers.FirstOrDefault(p => IsWikidataProvider(p.Name));
         if (wikidata is { Enabled: true })
-            result.Add(new(wikidata.Name, "Wikidata (Universe)", false));
+            result.Add(new(wikidata.Name, "Wikidata (Universe)"));
 
         return result;
 
-        void TryAddSlotted(string? name, bool isAutomatic)
+        void TryAddSlotted(string? name)
         {
             if (string.IsNullOrWhiteSpace(name)) return;
             if (IsExcludedProvider(name)) return;
             if (!seen.Add(name)) return;
             var provider = _providers.FirstOrDefault(p =>
                 string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase));
-            result.Add(new(name, provider?.DisplayName ?? ProviderAccentMap.GetDisplayName(name), isAutomatic));
+            result.Add(new(name, provider?.DisplayName ?? ProviderAccentMap.GetDisplayName(name)));
         }
     }
 
-    private sealed record SlottedProviderInfo(string Name, string DisplayName, bool IsAutomatic);
+    private sealed record SlottedProviderInfo(string Name, string DisplayName);
 
     private static bool IsExcludedProvider(string name) =>
         string.Equals(name, "local_filesystem", StringComparison.OrdinalIgnoreCase) ||
@@ -350,9 +315,6 @@ else
     private static bool IsWikidataProvider(string name) =>
         string.Equals(name, "wikidata", StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>
-    /// Maps a media type string (e.g. "Epub") to the slot key (e.g. "Books").
-    /// </summary>
     private static string? MapMediaTypeToSlotKey(string? mediaType) => mediaType?.ToLowerInvariant() switch
     {
         "epub"      => "Books",
@@ -381,6 +343,12 @@ else
         StateHasChanged();
     }
 
+    private async Task OnSearchKeyUp(Microsoft.AspNetCore.Components.Web.KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+            await ExecuteSearchAsync();
+    }
+
     // ── Select a match ───────────────────────────────────────────────────
 
     private async Task SelectMatchAsync(ReviewItemViewModel item, MetadataSearchResultDto result)
@@ -395,30 +363,11 @@ else
         {
             _items.RemoveAll(i => i.Id == item.Id);
             CollapseReviewPanel();
-            Snackbar.Add($"Resolved: {item.EntityTitle ?? "item"} matched to \"{result.Title}\".",
-                         Severity.Success);
+            Snackbar.Add($"Resolved: matched to \"{result.Title}\".", Severity.Success);
         }
         else
         {
             Snackbar.Add("Failed to resolve item. Check the Engine connection.", Severity.Error);
-        }
-    }
-
-    // ── Skip Universe ───────────────────────────────────────────────────
-
-    private async Task SkipUniverseAsync(ReviewItemViewModel item)
-    {
-        var ok = await Orchestrator.SkipUniverseAsync(item.Id);
-        if (ok)
-        {
-            _items.RemoveAll(i => i.Id == item.Id);
-            CollapseReviewPanel();
-            Snackbar.Add($"Universe matching skipped for \"{item.EntityTitle ?? "item"}\".",
-                         Severity.Info);
-        }
-        else
-        {
-            Snackbar.Add("Failed to skip universe. Check the Engine connection.", Severity.Error);
         }
     }
 
@@ -450,16 +399,13 @@ else
         _editMediaType   = item.MediaType;
         _editReviewItemId = item.Id;
 
-        // Load current canonical values for this entity from claim history.
         var claims = await Orchestrator.GetClaimHistoryAsync(item.EntityId);
         _editCurrentValues = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        // Use the most recent claim per key as the current value.
         foreach (var claim in claims.OrderByDescending(c => c.ClaimedAt))
         {
             _editCurrentValues.TryAdd(claim.ClaimKey, claim.ClaimValue);
         }
 
-        // Ensure the title is populated.
         if (!string.IsNullOrWhiteSpace(item.EntityTitle))
             _editCurrentValues.TryAdd("title", item.EntityTitle);
 
@@ -469,7 +415,6 @@ else
 
     private async Task OnEditSaved(Dictionary<string, string> changes)
     {
-        // After manual override, resolve the review item.
         if (_editReviewItemId.HasValue)
         {
             var request = new ReviewResolveRequestDto
@@ -502,18 +447,14 @@ else
 
     // ── Helpers ──────────────────────────────────────────────────────────
 
-    private static bool IsUniverseTrigger(string trigger) =>
-        UniverseMatchTriggers.Contains(trigger);
-
-    private static Color TriggerColor(string trigger) => trigger switch
+    private static string FormatMediaType(string? mediaType) => mediaType switch
     {
-        "LowConfidence"       => Color.Warning,
-        "MultipleQidMatches"  => Color.Info,
-        "UserFixMatch"        => Color.Primary,
-        "ArbiterNeedsReview"  => Color.Error,
-        "ContentMatchFailed"  => Color.Warning,
-        "UniverseMatchFailed" => Color.Info,
-        _                     => Color.Default,
+        "Epub"      => "Book",
+        "Audiobook" => "Audiobook",
+        "Comic"     => "Comic",
+        "Movie"     => "Movie",
+        "TvShow"    => "TV Show",
+        _           => mediaType ?? "",
     };
 
     private static string FormatTrigger(string trigger) => trigger switch
@@ -525,13 +466,6 @@ else
         "ContentMatchFailed"  => "Content Match Failed",
         "UniverseMatchFailed" => "Universe Match Failed",
         _                     => trigger,
-    };
-
-    private static Color ConfidenceColor(double score) => score switch
-    {
-        >= 0.8  => Color.Success,
-        >= 0.6  => Color.Warning,
-        _       => Color.Error,
     };
 
     public void Dispose()

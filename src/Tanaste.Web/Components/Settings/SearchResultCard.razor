@@ -1,14 +1,14 @@
 @namespace Tanaste.Web.Components.Settings
 
-@* A single search result card shown in the Needs Review resolution panel.
-   Displays provider thumbnail, title (bold), year, description (2-line clamp),
-   and a "Select" button that fires OnSelected. *@
+@* A single search result row matching the reference layout:
+   [Thumbnail] [Title (bold) + by Author + description] [Year] *@
 
-<MudPaper Class="d-flex pa-3 gap-3 search-result-card" Elevation="0"
-          Style="border: 1px solid var(--mud-palette-lines-default); border-radius: 12px;">
+<div class="search-result-row" @onclick="@(() => OnSelected.InvokeAsync(Result))"
+     style="display: flex; gap: 12px; padding: 10px 12px; border-bottom: 1px solid var(--mud-palette-lines-default);
+            cursor: pointer; transition: background 0.15s ease;">
 
     @* ── Thumbnail ────────────────────────────────────────────────── *@
-    <div style="flex-shrink: 0; width: 64px; height: 96px; border-radius: 8px; overflow: hidden;
+    <div style="flex-shrink: 0; width: 56px; height: 80px; border-radius: 6px; overflow: hidden;
                 background: var(--mud-palette-surface); display: flex; align-items: center; justify-content: center;">
         @if (!string.IsNullOrWhiteSpace(Result.ThumbnailUrl))
         {
@@ -19,58 +19,50 @@
         else
         {
             <MudIcon Icon="@Icons.Material.Filled.ImageNotSupported"
-                     Size="Size.Medium" Color="Color.Secondary" />
+                     Size="Size.Small" Color="Color.Secondary" />
         }
     </div>
 
     @* ── Text content ─────────────────────────────────────────────── *@
-    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
-        <MudText Typo="Typo.subtitle1" Style="font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px;">
+        <MudText Typo="Typo.body1" Style="font-weight: 600;">
             @Result.Title
         </MudText>
 
         @if (!string.IsNullOrWhiteSpace(Result.Author))
         {
-            <MudText Typo="Typo.body2" Style="font-weight: 500;">@Result.Author</MudText>
-        }
-
-        @if (!string.IsNullOrWhiteSpace(Result.Year))
-        {
-            <MudText Typo="Typo.caption" Color="Color.Secondary">@Result.Year</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                by @Result.Author
+            </MudText>
         }
 
         @if (!string.IsNullOrWhiteSpace(Result.Description))
         {
             <MudText Typo="Typo.body2" Color="Color.Secondary"
-                     Style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
-                            overflow: hidden; text-overflow: ellipsis; line-height: 1.4;">
+                     Style="display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+                            overflow: hidden; text-overflow: ellipsis; line-height: 1.4; margin-top: 2px; font-size: 0.8rem;">
                 @Result.Description
             </MudText>
         }
+    </div>
 
-        @if (Result.Confidence > 0)
-        {
-            <MudText Typo="Typo.caption" Color="Color.Tertiary">
-                Confidence: @Result.Confidence.ToString("P0")
+    @* ── Year (top-right) ────────────────────────────────────────── *@
+    @if (!string.IsNullOrWhiteSpace(Result.Year))
+    {
+        <div style="flex-shrink: 0; padding-top: 2px;">
+            <MudText Typo="Typo.body1" Style="font-weight: 500;">
+                @Result.Year
             </MudText>
-        }
-    </div>
-
-    @* ── Select button ────────────────────────────────────────────── *@
-    <div style="flex-shrink: 0; display: flex; align-items: center;">
-        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
-                   OnClick="@(() => OnSelected.InvokeAsync(Result))">
-            Select
-        </MudButton>
-    </div>
-</MudPaper>
+        </div>
+    }
+</div>
 
 @code {
     /// <summary>The search result to display.</summary>
     [Parameter, EditorRequired]
     public MetadataSearchResultDto Result { get; set; } = null!;
 
-    /// <summary>Fired when the user clicks the "Select" button.</summary>
+    /// <summary>Fired when the user clicks the row.</summary>
     [Parameter]
     public EventCallback<MetadataSearchResultDto> OnSelected { get; set; }
 }
