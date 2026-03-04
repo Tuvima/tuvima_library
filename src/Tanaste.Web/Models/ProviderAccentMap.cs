@@ -8,6 +8,11 @@ namespace Tanaste.Web.Models;
 /// </summary>
 public static class ProviderAccentMap
 {
+    /// <summary>Returns whether this provider should be visible in the UI.
+    /// Local filesystem is the internal embedded-metadata extractor, not a user-facing provider.</summary>
+    public static bool IsVisibleProvider(string providerKey) =>
+        !string.Equals(providerKey, "local_filesystem", StringComparison.OrdinalIgnoreCase);
+
     /// <summary>Returns (HexColour, MaterialIcon) for a provider config name.</summary>
     public static (string Color, string Icon) GetAccent(string providerKey) => providerKey switch
     {
@@ -17,7 +22,6 @@ public static class ProviderAccentMap
         "open_library"          => ("#4CAF50", Icons.Material.Filled.LocalLibrary),
         "google_books"          => ("#4285F4", Icons.Material.Filled.Book),
         "wikidata"              => ("#339966", Icons.Material.Filled.Hub),
-        "local_filesystem"      => ("#78909C", Icons.Material.Filled.Folder),
         _                       => ("#90A4AE", Icons.Material.Filled.Cloud),
     };
 
@@ -30,7 +34,6 @@ public static class ProviderAccentMap
         "open_library"          => "Open Library",
         "google_books"          => "Google Books",
         "wikidata"              => "Wikidata",
-        "local_filesystem"      => "Local File",
         _                       => FormatProviderName(providerKey),
     };
 

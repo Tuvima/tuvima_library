@@ -1,10 +1,11 @@
 @namespace Tanaste.Web.Components.Settings
 @using Tanaste.Web.Models
 
-@* Compact provider chip rendered inside MudDropZone columns and the disabled pool.
-   Shows a coloured accent bar, priority badge, provider name, and status dot. *@
+@* Compact provider chip rendered inside MudDropZone columns and the available providers row.
+   Shows a coloured accent bar, priority badge, provider name, and status dot.
+   Supports highlight/dim states for hover-driven column compatibility hints. *@
 
-<div class="matrix-chip @(IsDisabled ? "disabled" : "")"
+<div class="@ChipCssClass"
      style="--chip-accent: @Item.Color;"
      @onclick="@OnChipClicked"
      @onclick:stopPropagation="true">
@@ -12,7 +13,7 @@
     @* ── Accent bar ─────────────────────────── *@
     <div class="chip-accent-bar"></div>
 
-    @* ── Priority badge (only in columns, not disabled pool) ── *@
+    @* ── Priority badge (only in columns, not available row) ── *@
     @if (!IsDisabled)
     {
         <div class="chip-priority @(Position == 0 ? "primary" : "")">
@@ -46,11 +47,29 @@
     /// <summary>0-based position within the column (used for badge).</summary>
     [Parameter] public int Position { get; set; }
 
-    /// <summary>Whether this chip is in the disabled pool (no priority badge).</summary>
+    /// <summary>Whether this chip is in the available providers row (no priority badge).</summary>
     [Parameter] public bool IsDisabled { get; set; }
 
     /// <summary>Fires when the chip is clicked (opens provider flyout).</summary>
     [Parameter] public EventCallback OnEditClicked { get; set; }
+
+    /// <summary>When true, this chip is highlighted (its provider is hovered and supports this column).</summary>
+    [Parameter] public bool IsHighlighted { get; set; }
+
+    /// <summary>When true, this chip is dimmed (another provider is hovered).</summary>
+    [Parameter] public bool IsDimmed { get; set; }
+
+    private string ChipCssClass
+    {
+        get
+        {
+            var cls = "matrix-chip";
+            if (IsDisabled) cls += " disabled";
+            if (IsHighlighted) cls += " highlighted";
+            if (IsDimmed) cls += " dimmed";
+            return cls;
+        }
+    }
 
     private async Task OnChipClicked()
     {
@@ -70,7 +89,7 @@
         background: var(--tanaste-glass-bg);
         cursor: grab;
         user-select: none;
-        transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
         min-height: 36px;
     }
 
@@ -84,7 +103,17 @@
     }
 
     .matrix-chip.disabled {
-        opacity: 0.7;
+        opacity: 0.8;
+    }
+
+    .matrix-chip.highlighted {
+        border-color: var(--mud-palette-success);
+        box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.35);
+    }
+
+    .matrix-chip.dimmed {
+        opacity: 0.25;
+        pointer-events: none;
     }
 
     .chip-accent-bar {

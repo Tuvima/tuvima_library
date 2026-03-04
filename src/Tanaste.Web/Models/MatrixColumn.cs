@@ -30,4 +30,10 @@ public sealed class MatrixColumn
 
     /// <summary>Left-to-right display order.</summary>
     public int SortOrder { get; set; }
+
+    /// <summary>Whether this column is pinned (Universe column is always last and visually sticky).</summary>
+    public bool IsPinned { get; set; }
+
+    /// <summary>Whether this column was extracted from the Universe group (shows X to return it).</summary>
+    public bool IsExtractedFromUniverse { get; set; }
 }

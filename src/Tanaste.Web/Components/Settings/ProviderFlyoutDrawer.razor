@@ -1,0 +1,255 @@
+@namespace Tanaste.Web.Components.Settings
+@using Tanaste.Web.Models
+@using Tanaste.Web.Models.ViewDTOs
+
+@* Provider Flyout Drawer — full provider configuration surface shown inside
+   the Connection Vault's MudDrawer flyout. Contains:
+   1. Bridge configuration (drag-drop priority for Universe cross-referencing)
+   2. Available fields with trust sliders
+   3. Endpoint test
+   4. Enable/disable toggle
+   5. Save/close actions
+   For Wikidata, delegates to WikidataVaultPanel instead. *@
+
+<div class="provider-flyout">
+
+    @* ── Header ────────────────────────────────────────────────────── *@
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
+        <div class="flyout-provider-badge" style="background: @_accent.Color;">
+            <MudIcon Icon="@_accent.Icon" Size="Size.Small" Style="color: white;" />
+        </div>
+        <div style="flex: 1;">
+            <MudText Typo="Typo.h6" Style="font-weight: 600;">
+                @ProviderAccentMap.GetDisplayName(Provider.Name)
+            </MudText>
+            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                @Provider.Name
+            </MudText>
+        </div>
+        <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
+                       OnClick="@(() => OnClose.InvokeAsync())" />
+    </MudStack>
+
+    <MudDivider Class="mb-4" />
+
+    @if (IsWikidataProvider)
+    {
+        @* ── Wikidata delegates to its own panel ──────────────────── *@
+        <WikidataVaultPanel Provider="@Provider"
+                            IsAdmin="@IsAdmin"
+                            OnTestClicked="@OnTestClicked"
+                            OnSaveClicked="@OnSaveClicked"
+                            TestResult="@TestResult"
+                            IsTesting="@IsTesting"
+                            IsSaving="@IsSaving" />
+    }
+    else
+    {
+        @* ── Section 1: Bridge Configuration ──────────────────────── *@
+        @if (_bridgeItems.Count > 0)
+        {
+            <MudText Typo="Typo.overline" Color="Color.Primary" Class="mb-2"
+                     Style="letter-spacing: 0.08em;">
+                BRIDGE TO UNIVERSE (@_bridgeItems.Count)
+            </MudText>
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3">
+                Drag to reorder. The Engine tries bridge identifiers top-to-bottom to find the matching Universe entity.
+            </MudText>
+
+            <MudDropContainer T="BridgePriorityItem"
+                              @ref="_bridgeDropContainer"
+                              Items="@_bridgeItems"
+                              ItemsSelector="@((item, zone) => item.Zone == zone)"
+                              ItemDropped="@OnBridgeDropped"
+                              Class="mb-4">
+
+                <ChildContent>
+                    <MudDropZone T="BridgePriorityItem"
+                                 Identifier="bridge_list"
+                                 AllowReorder="true"
+                                 Class="bridge-drop-zone">
+                    </MudDropZone>
+                </ChildContent>
+
+                <ItemRenderer>
+                    <div class="bridge-card" @key="context.ClaimKey">
+                        <div class="bridge-badge">@(context.Order + 1)</div>
+                        <MudIcon Icon="@FieldDictionary.GetIcon(context.ClaimKey)"
+                                 Size="Size.Small" Style="opacity: 0.7;" />
+                        <div style="flex: 1;">
+                            <MudText Typo="Typo.body2" Style="font-weight: 500;">
+                                @context.DisplayName
+                            </MudText>
+                        </div>
+                        <MudIcon Icon="@Icons.Material.Filled.ArrowForward"
+                                 Size="Size.Small" Style="opacity: 0.3;" />
+                        <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Outlined">
+                            @context.WikidataPCode
+                        </MudChip>
+                    </div>
+                </ItemRenderer>
+            </MudDropContainer>
+
+            <MudDivider Class="mb-4" />
+        }
+
+        @* ── Section 2: Available Fields ──────────────────────────── *@
+        <ProviderEditPanel Provider="@Provider"
+                           IsAdmin="@IsAdmin"
+                           OnTestClicked="@OnTestClicked"
+                           OnSaveClicked="@OnSaveClicked"
+                           OnDeleteClicked="@OnDeleteClicked"
+                           TestResult="@TestResult"
+                           IsTesting="@IsTesting"
+                           IsSaving="@IsSaving" />
+    }
+</div>
+
+@code {
+    /// <summary>The provider being edited.</summary>
+    [Parameter, EditorRequired]
+    public ProviderStatusDto Provider { get; set; } = default!;
+
+    /// <summary>Whether the current user has admin access.</summary>
+    [Parameter] public bool IsAdmin { get; set; }
+
+    /// <summary>Whether this is the Wikidata universe provider.</summary>
+    [Parameter] public bool IsWikidataProvider { get; set; }
+
+    /// <summary>Fires when the close button is clicked.</summary>
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    /// <summary>Fires when save is clicked with the assembled config.</summary>
+    [Parameter] public EventCallback<ProviderConfigUpdateDto> OnSaveClicked { get; set; }
+
+    /// <summary>Fires when the test button is clicked.</summary>
+    [Parameter] public EventCallback OnTestClicked { get; set; }
+
+    /// <summary>Fires when the delete/disable button is clicked.</summary>
+    [Parameter] public EventCallback OnDeleteClicked { get; set; }
+
+    /// <summary>Latest test result for this provider.</summary>
+    [Parameter] public ProviderTestResultDto? TestResult { get; set; }
+
+    /// <summary>Whether a test is currently running.</summary>
+    [Parameter] public bool IsTesting { get; set; }
+
+    /// <summary>Whether a save operation is in progress.</summary>
+    [Parameter] public bool IsSaving { get; set; }
+
+    // ── State ─────────────────────────────────────────────────────────────────
+
+    private List<BridgePriorityItem> _bridgeItems = [];
+    private MudDropContainer<BridgePriorityItem>? _bridgeDropContainer;
+    private (string Color, string Icon) _accent;
+
+    // ── Lifecycle ──────────────────────────────────────────────────────────────
+
+    protected override void OnParametersSet()
+    {
+        _accent = ProviderAccentMap.GetAccent(Provider.Name);
+        BuildBridgeItems();
+    }
+
+    // ── Bridge items ───────────────────────────────────────────────────────────
+
+    private void BuildBridgeItems()
+    {
+        var bridges = WikidataPropertyDefaults.GetBridgeEntries();
+        var providerFields = (Provider.AvailableFields ?? [])
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        _bridgeItems = [];
+        var order = 0;
+
+        foreach (var bridge in bridges)
+        {
+            if (providerFields.Contains(bridge.RequestField))
+            {
+                _bridgeItems.Add(new BridgePriorityItem
+                {
+                    ClaimKey = bridge.RequestField,
+                    DisplayName = WikidataPropertyDefaults.GetBridgeLabel(bridge.PCode),
+                    WikidataPCode = bridge.PCode,
+                    Order = order++,
+                });
+            }
+        }
+    }
+
+    private void OnBridgeDropped(MudItemDropInfo<BridgePriorityItem> info)
+    {
+        var item = info.Item;
+        if (item is null) return;
+
+        item.Order = info.IndexInZone;
+
+        // Recalculate orders for all bridge items.
+        var sorted = _bridgeItems
+            .OrderBy(b => b.Order)
+            .ToList();
+
+        for (var i = 0; i < sorted.Count; i++)
+            sorted[i].Order = i;
+    }
+}
+
+<style>
+    .provider-flyout {
+        padding: 4px 0;
+    }
+
+    .flyout-provider-badge {
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        margin-right: 8px;
+    }
+
+    .bridge-drop-zone {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        min-height: 40px;
+    }
+
+    .bridge-card {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border-radius: 10px;
+        border: 1px solid var(--tanaste-glass-border);
+        background: var(--tanaste-glass-bg);
+        cursor: grab;
+        user-select: none;
+        transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .bridge-card:hover {
+        border-color: var(--mud-palette-info);
+        box-shadow: 0 0 0 1px var(--mud-palette-info);
+    }
+
+    .bridge-card:active {
+        cursor: grabbing;
+    }
+
+    .bridge-badge {
+        font-size: 0.6rem;
+        font-weight: 700;
+        min-width: 18px;
+        height: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        background: var(--mud-palette-info);
+        color: white;
+        flex-shrink: 0;
+    }
+</style>
