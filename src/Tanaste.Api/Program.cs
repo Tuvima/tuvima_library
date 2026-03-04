@@ -195,6 +195,10 @@ builder.Services.AddSingleton<IFileWatcher, FileWatcher>();
 builder.Services.AddSingleton<DebounceQueue>();
 builder.Services.AddSingleton<IFileOrganizer, FileOrganizer>();
 builder.Services.AddSingleton<IMetadataTagger, EpubMetadataTagger>();
+builder.Services.AddSingleton<IMetadataTagger, AudioMetadataTagger>();
+builder.Services.AddSingleton<IMetadataTagger, VideoMetadataTagger>();
+builder.Services.AddSingleton<IMetadataTagger, ComicMetadataTagger>();
+builder.Services.AddSingleton<IWriteBackService, Tanaste.Ingestion.Services.WriteBackService>();
 builder.Services.AddSingleton<IBackgroundWorker, BackgroundWorker>();
 
 // IngestionEngine registered as a singleton, IIngestionEngine interface, AND a

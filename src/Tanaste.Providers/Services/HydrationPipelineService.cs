@@ -53,6 +53,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     private readonly IConfigurationLoader _configLoader;
     private readonly IRecursiveIdentityService _identity;
     private readonly IReviewQueueRepository _reviewRepo;
+    private readonly IWriteBackService _writeBack;
     private readonly ISystemActivityRepository _activityRepo;
     private readonly ILogger<HydrationPipelineService> _logger;
 
@@ -68,6 +69,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         IConfigurationLoader configLoader,
         IRecursiveIdentityService identity,
         IReviewQueueRepository reviewRepo,
+        IWriteBackService writeBack,
         ISystemActivityRepository activityRepo,
         ILogger<HydrationPipelineService> logger)
     {
@@ -80,6 +82,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         ArgumentNullException.ThrowIfNull(configLoader);
         ArgumentNullException.ThrowIfNull(identity);
         ArgumentNullException.ThrowIfNull(reviewRepo);
+        ArgumentNullException.ThrowIfNull(writeBack);
         ArgumentNullException.ThrowIfNull(activityRepo);
         ArgumentNullException.ThrowIfNull(logger);
 
@@ -92,6 +95,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         _configLoader   = configLoader;
         _identity       = identity;
         _reviewRepo     = reviewRepo;
+        _writeBack      = writeBack;
         _activityRepo   = activityRepo;
         _logger         = logger;
 
@@ -215,6 +219,22 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 "HydrationStageCompleted",
                 new HydrationStageCompletedEvent(request.EntityId, 1, stage1Claims, "content_match"),
                 ct).ConfigureAwait(false);
+
+            // Write-back: write resolved metadata to the physical file after auto-match.
+            if (request.EntityType == EntityType.MediaAsset)
+            {
+                try
+                {
+                    await _writeBack.WriteMetadataAsync(request.EntityId, "auto_match", ct)
+                        .ConfigureAwait(false);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _logger.LogWarning(ex,
+                        "Write-back after Stage 1 failed for entity {Id}; continuing",
+                        request.EntityId);
+                }
+            }
         }
         else if (primaryProvider is not null)
         {
@@ -302,6 +322,22 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                     "HydrationStageCompleted",
                     new HydrationStageCompletedEvent(request.EntityId, 2, stage2Claims, "universe_match"),
                     ct).ConfigureAwait(false);
+
+                // Write-back: write universe-enriched metadata to the physical file.
+                if (request.EntityType == EntityType.MediaAsset)
+                {
+                    try
+                    {
+                        await _writeBack.WriteMetadataAsync(request.EntityId, "universe_enrichment", ct)
+                            .ConfigureAwait(false);
+                    }
+                    catch (Exception ex) when (ex is not OperationCanceledException)
+                    {
+                        _logger.LogWarning(ex,
+                            "Write-back after Stage 2 failed for entity {Id}; continuing",
+                            request.EntityId);
+                    }
+                }
             }
             else if (!string.IsNullOrEmpty(request.PreResolvedQid))
             {

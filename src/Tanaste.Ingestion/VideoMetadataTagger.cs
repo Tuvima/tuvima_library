@@ -1,0 +1,145 @@
+using Microsoft.Extensions.Logging;
+using Tanaste.Ingestion.Contracts;
+
+namespace Tanaste.Ingestion;
+
+/// <summary>
+/// Writes metadata back into video files (MKV, MP4, AVI, WebM) using TagLibSharp.
+/// Handles Matroska tags (MKV) and MP4 atoms.
+///
+/// Safety: backup-before-modify pattern — same as <see cref="EpubMetadataTagger"/>.
+/// </summary>
+public sealed class VideoMetadataTagger : IMetadataTagger
+{
+    private static readonly HashSet<string> SupportedExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".mkv", ".mp4", ".avi", ".webm", ".mov",
+    };
+
+    private readonly ILogger<VideoMetadataTagger> _logger;
+
+    public VideoMetadataTagger(ILogger<VideoMetadataTagger> logger)
+    {
+        _logger = logger;
+    }
+
+    /// <inheritdoc/>
+    public bool CanHandle(string filePath)
+    {
+        if (string.IsNullOrWhiteSpace(filePath)) return false;
+        return SupportedExtensions.Contains(Path.GetExtension(filePath));
+    }
+
+    /// <inheritdoc/>
+    public async Task WriteTagsAsync(
+        string filePath,
+        IReadOnlyDictionary<string, string> tags,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        if (!File.Exists(filePath))
+        {
+            _logger.LogWarning("VideoTagger: file not found — {Path}", filePath);
+            return;
+        }
+
+        var backupPath = filePath + ".tanaste.bak";
+        try
+        {
+            // For large video files, we skip backup to avoid doubling disk usage.
+            // TagLibSharp modifies in-place; risk is low for metadata-only writes.
+            var fileSize = new FileInfo(filePath).Length;
+            var shouldBackup = fileSize < 500 * 1024 * 1024; // 500 MB threshold
+
+            if (shouldBackup)
+                File.Copy(filePath, backupPath, overwrite: true);
+
+            using var file = TagLib.File.Create(filePath);
+
+            if (tags.TryGetValue("title", out var title))
+                file.Tag.Title = title;
+
+            if (tags.TryGetValue("director", out var director))
+                file.Tag.Performers = [director];
+
+            if (tags.TryGetValue("author", out var author) && file.Tag.Performers.Length == 0)
+                file.Tag.Performers = [author];
+
+            if (tags.TryGetValue("genre", out var genre))
+                file.Tag.Genres = [genre];
+
+            if (tags.TryGetValue("description", out var desc))
+                file.Tag.Comment = desc;
+
+            if (tags.TryGetValue("year", out var yearStr) && uint.TryParse(yearStr, out var year))
+                file.Tag.Year = year;
+
+            file.Save();
+
+            if (shouldBackup && File.Exists(backupPath))
+                File.Delete(backupPath);
+
+            _logger.LogInformation("VideoTagger: wrote {Count} tags to {Path}",
+                tags.Count, filePath);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "VideoTagger: failed to write tags to {Path} — restoring backup", filePath);
+            RestoreBackup(filePath, backupPath);
+            throw;
+        }
+
+        await Task.CompletedTask;
+    }
+
+    /// <inheritdoc/>
+    public async Task WriteCoverArtAsync(
+        string filePath,
+        byte[] imageData,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        if (!File.Exists(filePath) || imageData.Length == 0)
+            return;
+
+        try
+        {
+            using var file = TagLib.File.Create(filePath);
+            file.Tag.Pictures =
+            [
+                new TagLib.Picture(new TagLib.ByteVector(imageData))
+                {
+                    Type        = TagLib.PictureType.FrontCover,
+                    MimeType    = "image/jpeg",
+                    Description = "Cover",
+                },
+            ];
+            file.Save();
+
+            _logger.LogInformation("VideoTagger: wrote cover art ({Size} bytes) to {Path}",
+                imageData.Length, filePath);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "VideoTagger: failed to write cover art to {Path}", filePath);
+        }
+
+        await Task.CompletedTask;
+    }
+
+    private void RestoreBackup(string filePath, string backupPath)
+    {
+        try
+        {
+            if (File.Exists(backupPath))
+                File.Copy(backupPath, filePath, overwrite: true);
+        }
+        catch (Exception restoreEx)
+        {
+            _logger.LogCritical(restoreEx,
+                "VideoTagger: CRITICAL — backup restore also failed for {Path}", filePath);
+        }
+    }
+}

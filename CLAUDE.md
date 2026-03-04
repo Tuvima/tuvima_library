@@ -1100,6 +1100,7 @@ Never guess silently. If Claude is unsure about an approach, it must say so:
 | xUnit 2 | Apache 2.0 | Phase 4 (Tests) |
 | coverlet | MIT | Phase 4 (Tests) |
 | Microsoft.Extensions.Http | MIT | Phase 9 (Providers) — `IHttpClientFactory` named HTTP clients |
+| TagLibSharp | LGPL-2.1 | Sprint 6 (Ingestion) — Audio + video metadata tag writing (ID3v2, MP4 atoms, Vorbis, MKV) |
 
 ### 5.2 — Mandatory Workflow
 

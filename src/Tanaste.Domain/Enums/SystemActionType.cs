@@ -69,4 +69,7 @@ public static class SystemActionType
 
     /// <summary>A user manually overrode metadata fields via the Edit Metadata dialog.</summary>
     public const string MetadataManualOverride = "MetadataManualOverride";
+
+    /// <summary>Resolved metadata was written back into the physical media file's embedded tags.</summary>
+    public const string MetadataWrittenToFile = "MetadataWrittenToFile";
 }

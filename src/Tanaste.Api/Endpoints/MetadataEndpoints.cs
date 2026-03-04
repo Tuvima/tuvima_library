@@ -302,6 +302,7 @@ public static class MetadataEndpoints
             IMetadataClaimRepository claimRepo,
             ICanonicalValueRepository canonicalRepo,
             ISystemActivityRepository activityRepo,
+            IWriteBackService writeBack,
             IEventPublisher publisher,
             CancellationToken ct) =>
         {
@@ -368,6 +369,16 @@ public static class MetadataEndpoints
                 provider_name  = "user_manual",
                 updated_fields = updatedKeys.ToArray(),
             }, ct);
+
+            // 5. Write-back: write manual overrides to the physical file.
+            try
+            {
+                await writeBack.WriteMetadataAsync(entityId, "manual_override", ct);
+            }
+            catch
+            {
+                // Non-fatal — write-back failure should not prevent override success.
+            }
 
             return Results.Ok(new MetadataOverrideResponse
             {

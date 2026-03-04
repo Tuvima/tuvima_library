@@ -11,9 +11,10 @@
     <!-- Swashbuckle 7.x: kept at 7.x intentionally â€” upgrading to 10.x requires
          switching Program.cs to the new .NET 9+ OpenAPI infrastructure. -->
     <PackageVersion Include="Swashbuckle.AspNetCore" Version="7.3.1" />
+    <PackageVersion Include="TagLibSharp" Version="2.3.0" />
     <PackageVersion Include="VersOne.Epub" Version="3.1.0" />
     <!-- IHttpClientFactory lifecycle management for external metadata adapters.
-         MIT license — approved for AGPLv3 compatibility (see CLAUDE.md §5.1). -->
+         MIT license ï¿½ approved for AGPLv3 compatibility (see CLAUDE.md ï¿½5.1). -->
     <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.3" />
     <!-- UI -->
     <PackageVersion Include="MudBlazor" Version="9.0.0" />

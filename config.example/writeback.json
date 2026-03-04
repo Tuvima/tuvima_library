@@ -1,0 +1,9 @@
+{
+  "enabled": true,
+  "write_on_auto_match": true,
+  "write_on_manual_override": true,
+  "write_on_universe_enrichment": true,
+  "backup_before_write": true,
+  "fields_to_write": "all",
+  "exclude_fields": []
+}
