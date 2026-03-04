@@ -72,4 +72,45 @@ public static class SystemActionType
 
     /// <summary>Resolved metadata was written back into the physical media file's embedded tags.</summary>
     public const string MetadataWrittenToFile = "MetadataWrittenToFile";
+
+    // ── Ingestion Pipeline Lifecycle ─────────────────────────────────────
+
+    /// <summary>The ingestion engine started and began watching a directory.</summary>
+    public const string ServerStarted = "ServerStarted";
+
+    /// <summary>The ingestion engine was stopped.</summary>
+    public const string ServerStopped = "ServerStopped";
+
+    /// <summary>A new file was detected in the watch folder and queued for processing.</summary>
+    public const string FileDetected = "FileDetected";
+
+    /// <summary>The SHA-256 content hash was computed for a file.</summary>
+    public const string FileHashed = "FileHashed";
+
+    /// <summary>A file was skipped because it is a duplicate of an existing asset.</summary>
+    public const string DuplicateSkipped = "DuplicateSkipped";
+
+    /// <summary>A file was processed by the processor registry (metadata extracted).</summary>
+    public const string FileProcessed = "FileProcessed";
+
+    /// <summary>The scoring engine assigned a confidence score to a file's metadata.</summary>
+    public const string FileScored = "FileScored";
+
+    /// <summary>A Hub → Work → Edition entity chain was created or linked for a file.</summary>
+    public const string EntityChainCreated = "EntityChainCreated";
+
+    /// <summary>Cover art was saved to disk alongside the organized file.</summary>
+    public const string CoverArtSaved = "CoverArtSaved";
+
+    /// <summary>Metadata tags were written back into the media file's embedded tags.</summary>
+    public const string MetadataTagsWritten = "MetadataTagsWritten";
+
+    /// <summary>A file was enqueued for external metadata enrichment via the hydration pipeline.</summary>
+    public const string HydrationEnqueued = "HydrationEnqueued";
+
+    /// <summary>A corrupt file was quarantined and excluded from further processing.</summary>
+    public const string FileQuarantined = "FileQuarantined";
+
+    /// <summary>A file was moved to the staging directory for manual review.</summary>
+    public const string MovedToStaging = "MovedToStaging";
 }

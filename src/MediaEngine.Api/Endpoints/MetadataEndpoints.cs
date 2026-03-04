@@ -125,7 +125,7 @@ public static class MetadataEndpoints
         .RequireAdminOrCurator();
 
         // ── PATCH /metadata/resolve (legacy) ─────────────────────────────────
-        group.MapMethods("/resolve", ["PATCH"], async (
+        group.MapMethods("/resolve", ["PATCH"], (
             ResolveRequest request,
             IDatabaseConnection db,
             ITransactionJournal journal,

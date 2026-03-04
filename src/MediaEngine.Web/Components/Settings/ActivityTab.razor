@@ -341,6 +341,20 @@
         ["ReviewItemResolved"]        = (Icons.Material.Filled.CheckCircle,       "Review Resolved",           "#4caf50"),
         ["MetadataManualOverride"]    = (Icons.Material.Filled.Edit,             "Manual Override",            "#ab47bc"),
         ["MetadataWrittenToFile"]     = (Icons.Material.Filled.SaveAlt,          "Written to File",            "#78909c"),
+        // ── Ingestion Pipeline Lifecycle ──────────────────────────────────
+        ["ServerStarted"]             = (Icons.Material.Filled.PowerSettingsNew, "Server Started",             "#4caf50"),
+        ["ServerStopped"]             = (Icons.Material.Filled.PowerOff,         "Server Stopped",             "#f44336"),
+        ["FileDetected"]              = (Icons.Material.Filled.FiberNew,         "File Detected",              "#2196f3"),
+        ["FileHashed"]                = (Icons.Material.Filled.Fingerprint,      "File Hashed",                "#78909c"),
+        ["DuplicateSkipped"]          = (Icons.Material.Filled.ContentCopy,      "Duplicate Skipped",          "#ff9800"),
+        ["FileProcessed"]             = (Icons.Material.Filled.Analytics,        "File Processed",             "#26a69a"),
+        ["FileScored"]                = (Icons.Material.Filled.Score,            "File Scored",                "#ab47bc"),
+        ["EntityChainCreated"]        = (Icons.Material.Filled.AccountTree,      "Entity Chain Created",       "#4caf50"),
+        ["CoverArtSaved"]             = (Icons.Material.Filled.Image,            "Cover Art Saved",            "#4caf50"),
+        ["MetadataTagsWritten"]       = (Icons.Material.Filled.Label,            "Tags Written to File",       "#78909c"),
+        ["HydrationEnqueued"]         = (Icons.Material.Filled.CloudQueue,       "Hydration Enqueued",         "#2196f3"),
+        ["FileQuarantined"]           = (Icons.Material.Filled.ReportProblem,    "File Quarantined",           "#f44336"),
+        ["MovedToStaging"]            = (Icons.Material.Filled.MoveToInbox,      "Moved to Staging",           "#ff9800"),
     };
 
     private static string ActionIcon(string actionType) =>

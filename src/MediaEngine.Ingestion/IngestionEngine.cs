@@ -139,6 +139,13 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 _watcher.AddDirectory(_options.WatchDirectory, _options.IncludeSubdirectories);
                 _logger.LogInformation(
                     "IngestionEngine started. Watching: {Path}", _options.WatchDirectory);
+
+                await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
+                {
+                    ActionType = Domain.Enums.SystemActionType.ServerStarted,
+                    EntityType = "Server",
+                    Detail     = $"Ingestion engine started. Watching: {_options.WatchDirectory}",
+                }, stoppingToken).ConfigureAwait(false);
             }
             catch (DirectoryNotFoundException)
             {
@@ -190,6 +197,14 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         _watcher.Stop();
         _debounce.Complete();
         await _worker.DrainAsync(cancellationToken).ConfigureAwait(false);
+
+        await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
+        {
+            ActionType = Domain.Enums.SystemActionType.ServerStopped,
+            EntityType = "Server",
+            Detail     = "Ingestion engine stopped.",
+        }, cancellationToken).ConfigureAwait(false);
+
         await base.StopAsync(cancellationToken).ConfigureAwait(false);
         _logger.LogInformation("IngestionEngine stopped.");
     }
@@ -277,11 +292,27 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         await SafePublishAsync("IngestionStarted", new IngestionStartedEvent(
             candidate.Path, DateTimeOffset.UtcNow), ct).ConfigureAwait(false);
 
+        // Activity: file detected.
+        await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
+        {
+            ActionType = Domain.Enums.SystemActionType.FileDetected,
+            EntityType = "MediaAsset",
+            Detail     = $"File detected: {Path.GetFileName(candidate.Path)}",
+        }, ct).ConfigureAwait(false);
+
         // Step 4: hash.
         var hash = await _hasher.ComputeAsync(candidate.Path, ct).ConfigureAwait(false);
 
         await SafePublishAsync("IngestionHashed", new IngestionHashedEvent(
             candidate.Path, hash.Hex, hash.FileSize, hash.Elapsed), ct).ConfigureAwait(false);
+
+        // Activity: file hashed.
+        await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
+        {
+            ActionType = Domain.Enums.SystemActionType.FileHashed,
+            EntityType = "MediaAsset",
+            Detail     = $"File hashed: {Path.GetFileName(candidate.Path)} — {hash.Hex[..12]} ({hash.FileSize:N0} bytes, {hash.Elapsed.TotalMilliseconds:N0}ms)",
+        }, ct).ConfigureAwait(false);
 
         // Step 5: duplicate check.
         // If the file is already ingested but still sitting in the Watch Folder
@@ -291,6 +322,15 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         var existing = await _assetRepo.FindByHashAsync(hash.Hex, ct).ConfigureAwait(false);
         if (existing is not null)
         {
+            // Activity: duplicate skipped.
+            await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
+            {
+                ActionType = Domain.Enums.SystemActionType.DuplicateSkipped,
+                EntityId   = existing.Id,
+                EntityType = "MediaAsset",
+                Detail     = $"Duplicate detected: {Path.GetFileName(candidate.Path)} — matches existing asset {hash.Hex[..12]}",
+            }, ct).ConfigureAwait(false);
+
             await TryReorganizeExistingAsync(existing, candidate.Path, ct)
                 .ConfigureAwait(false);
             return;
@@ -299,11 +339,28 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         // Step 6: process.
         var result = await _processors.ProcessAsync(candidate.Path, ct).ConfigureAwait(false);
 
+        // Activity: file processed.
+        await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
+        {
+            ActionType = Domain.Enums.SystemActionType.FileProcessed,
+            EntityType = "MediaAsset",
+            Detail     = $"File processed: {Path.GetFileName(candidate.Path)} — detected type: {result.DetectedType}, {result.Claims.Count} claim(s) extracted",
+        }, ct).ConfigureAwait(false);
+
         // Step 7: quarantine corrupt files.
         if (result.IsCorrupt)
         {
             _logger.LogWarning("Corrupt file quarantined: {Path} — {Reason}",
                 candidate.Path, result.CorruptReason);
+
+            // Activity: file quarantined.
+            await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
+            {
+                ActionType = Domain.Enums.SystemActionType.FileQuarantined,
+                EntityType = "MediaAsset",
+                Detail     = $"File quarantined: {Path.GetFileName(candidate.Path)} — {result.CorruptReason}",
+            }, ct).ConfigureAwait(false);
+
             await SafePublishAsync("IngestionFailed", new IngestionFailedEvent(
                 candidate.Path,
                 $"Corrupt: {result.CorruptReason}",
@@ -326,6 +383,15 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         };
 
         var scored = await _scorer.ScoreEntityAsync(scoringContext, ct).ConfigureAwait(false);
+
+        // Activity: file scored.
+        await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
+        {
+            ActionType = Domain.Enums.SystemActionType.FileScored,
+            EntityId   = assetId,
+            EntityType = "MediaAsset",
+            Detail     = $"File scored: {Path.GetFileName(candidate.Path)} — confidence: {scored.OverallConfidence:P0}, {scored.FieldScores.Count} field(s)",
+        }, ct).ConfigureAwait(false);
 
         // Phase 9: persist claims (append-only; enables re-scoring on weight changes).
         await _claimRepo.InsertBatchAsync(claims, ct).ConfigureAwait(false);
@@ -371,6 +437,17 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             result.DetectedType,
             candidate.Metadata,
             ct).ConfigureAwait(false);
+
+        // Activity: entity chain created.
+        var chainTitle = candidate.Metadata?.GetValueOrDefault("title", "Unknown") ?? "Unknown";
+        await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
+        {
+            ActionType = Domain.Enums.SystemActionType.EntityChainCreated,
+            EntityId   = assetId,
+            EntityType = "MediaAsset",
+            HubName    = chainTitle,
+            Detail     = $"Entity chain linked: \"{chainTitle}\" (Edition {editionId.ToString()[..8]})",
+        }, ct).ConfigureAwait(false);
 
         // Step 10: insert asset.
         var asset = new MediaAsset
@@ -421,6 +498,16 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             EntityType = EntityType.MediaAsset,
             MediaType  = result.DetectedType,
             Hints      = BuildHints(candidate.Metadata),
+        }, ct).ConfigureAwait(false);
+
+        // Activity: hydration enqueued.
+        await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
+        {
+            ActionType = Domain.Enums.SystemActionType.HydrationEnqueued,
+            EntityId   = assetId,
+            EntityType = "MediaAsset",
+            HubName    = resolvedTitle,
+            Detail     = $"Queued for metadata enrichment: \"{resolvedTitle}\"",
         }, ct).ConfigureAwait(false);
 
         // Phase 9: trigger recursive person enrichment for authors/narrators.
@@ -568,6 +655,16 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 await File.WriteAllBytesAsync(
                     Path.Combine(editionFolder, "cover.jpg"),
                     result.CoverImage, ct).ConfigureAwait(false);
+
+                // Activity: cover art saved.
+                await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
+                {
+                    ActionType = Domain.Enums.SystemActionType.CoverArtSaved,
+                    EntityId   = assetId,
+                    EntityType = "MediaAsset",
+                    HubName    = resolvedTitle,
+                    Detail     = $"Cover art saved: {result.CoverImage.Length:N0} bytes → {Path.Combine(editionFolder, "cover.jpg")}",
+                }, ct).ConfigureAwait(false);
             }
         }
 
@@ -583,6 +680,17 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 if (result.CoverImage is { Length: > 0 })
                     await tagger.WriteCoverArtAsync(currentPath, result.CoverImage, ct)
                                  .ConfigureAwait(false);
+
+                // Activity: metadata tags written.
+                await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
+                {
+                    ActionType = Domain.Enums.SystemActionType.MetadataTagsWritten,
+                    EntityId   = assetId,
+                    EntityType = "MediaAsset",
+                    HubName    = resolvedTitle,
+                    Detail     = $"Tags written to file: {Path.GetFileName(currentPath)} — {candidate.Metadata.Count} tag(s)" +
+                                 (result.CoverImage is { Length: > 0 } ? " + cover art" : ""),
+                }, ct).ConfigureAwait(false);
             }
         }
     }
@@ -927,6 +1035,15 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         {
             _logger.LogInformation(
                 "Staged unresolved file: {Source} → {Dest}", currentPath, destPath);
+
+            // Activity: moved to staging.
+            await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
+            {
+                ActionType = Domain.Enums.SystemActionType.MovedToStaging,
+                EntityType = "MediaAsset",
+                Detail     = $"Moved to staging: {Path.GetFileName(currentPath)} → {destPath}",
+            }, ct).ConfigureAwait(false);
+
             return destPath;
         }
 
@@ -1050,6 +1167,15 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             };
 
             await _reviewRepo.InsertAsync(entry, ct).ConfigureAwait(false);
+
+            // Activity: review item created.
+            await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
+            {
+                ActionType = Domain.Enums.SystemActionType.ReviewItemCreated,
+                EntityId   = entityId,
+                EntityType = "MediaAsset",
+                Detail     = $"Sent to review: {trigger} — {detail}",
+            }, ct).ConfigureAwait(false);
 
             await SafePublishAsync("ReviewItemCreated", new
             {

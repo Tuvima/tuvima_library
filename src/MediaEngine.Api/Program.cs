@@ -25,11 +25,11 @@ using MediaEngine.Providers.Services;
 using MediaEngine.Identity;
 using MediaEngine.Identity.Contracts;
 
-var builder = WebApplication.CreateBuilder(args);
-var config  = builder.Configuration;
+WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
+ConfigurationManager config  = builder.Configuration;
 
 // ── CORS ──────────────────────────────────────────────────────────────────────
-var allowedOrigins = config
+string[] allowedOrigins = config
     .GetSection("MediaEngine:Cors:AllowedOrigins")
     .Get<string[]>() ?? [];
 
@@ -123,7 +123,7 @@ builder.Services.AddSingleton<IConfigurationLoader>(configLoader);
 // in MediaEngine.Providers. This bootstrap bridges the two projects.
 if (configLoader.LoadConfig<UniverseConfiguration>("universe", "wikidata") is null)
 {
-    var defaultUniverse = WikidataSparqlPropertyMap.ExportAsUniverseConfiguration();
+    UniverseConfiguration defaultUniverse = WikidataSparqlPropertyMap.ExportAsUniverseConfiguration();
     configLoader.SaveConfig("universe", "wikidata", defaultUniverse);
 }
 builder.Services.AddSingleton<ITransactionJournal, TransactionJournal>();
@@ -179,11 +179,11 @@ builder.Services.PostConfigure<IngestionOptions>(opts =>
 {
     try
     {
-        var core = configLoader.LoadCore();
-        if (!string.IsNullOrWhiteSpace(core.WatchDirectory))       opts.WatchDirectory       = core.WatchDirectory;
-        if (!string.IsNullOrWhiteSpace(core.LibraryRoot))          opts.LibraryRoot          = core.LibraryRoot;
-        if (!string.IsNullOrWhiteSpace(core.StagingDirectory))     opts.StagingDirectory     = core.StagingDirectory;
-        if (!string.IsNullOrWhiteSpace(core.OrganizationTemplate)) opts.OrganizationTemplate = core.OrganizationTemplate;
+        CoreConfiguration core = configLoader.LoadCore();
+        if (!string.IsNullOrWhiteSpace(core.WatchDirectory))       { opts.WatchDirectory       = core.WatchDirectory; }
+        if (!string.IsNullOrWhiteSpace(core.LibraryRoot))          { opts.LibraryRoot          = core.LibraryRoot; }
+        if (!string.IsNullOrWhiteSpace(core.StagingDirectory))     { opts.StagingDirectory     = core.StagingDirectory; }
+        if (!string.IsNullOrWhiteSpace(core.OrganizationTemplate)) { opts.OrganizationTemplate = core.OrganizationTemplate; }
     }
     catch
     {
@@ -243,24 +243,24 @@ builder.Services.AddHttpClient("wikidata_sparql", c =>
 // All providers are registered regardless of Enabled state — the pipeline services
 // check Enabled before using them, but the Settings UI needs adapter access for
 // testing and configuring disabled providers.
-foreach (var providerConfig in configLoader.LoadAllProviders())
+foreach (ProviderConfiguration providerConfig in configLoader.LoadAllProviders())
 {
     if (!string.Equals(providerConfig.AdapterType, "config_driven", StringComparison.OrdinalIgnoreCase))
-        continue;
+    { continue; }
 
-    var name = providerConfig.Name;
-    var timeout = providerConfig.HttpClient?.TimeoutSeconds ?? 10;
-    var userAgent = providerConfig.HttpClient?.UserAgent;
+    string name = providerConfig.Name;
+    int timeout = providerConfig.HttpClient?.TimeoutSeconds ?? 10;
+    string? userAgent = providerConfig.HttpClient?.UserAgent;
 
     builder.Services.AddHttpClient(name, c =>
     {
         c.Timeout = TimeSpan.FromSeconds(timeout);
         if (!string.IsNullOrEmpty(userAgent))
-            c.DefaultRequestHeaders.UserAgent.ParseAdd(userAgent);
+        { c.DefaultRequestHeaders.UserAgent.ParseAdd(userAgent); }
     });
 
     // Capture for closure.
-    var cfg = providerConfig;
+    ProviderConfiguration cfg = providerConfig;
     builder.Services.AddSingleton<IExternalMetadataProvider>(sp =>
         new ConfigDrivenAdapter(
             cfg,
@@ -298,7 +298,7 @@ builder.Services.AddSingleton<UISettingsCascadeResolver>();
 builder.Services.AddSingleton<UISettingsCacheRepository>();
 
 // ── Build ─────────────────────────────────────────────────────────────────────
-var app = builder.Build();
+WebApplication app = builder.Build();
 
 // ── UI Settings cache warm-up ─────────────────────────────────────────────────
 // Populate the SQLite cache from config/ui/ files so API reads are fast from
@@ -306,7 +306,7 @@ var app = builder.Build();
 // read directly from files.
 try
 {
-    var uiCache = app.Services.GetRequiredService<UISettingsCacheRepository>();
+    UISettingsCacheRepository uiCache = app.Services.GetRequiredService<UISettingsCacheRepository>();
     uiCache.RebuildFromFiles(configLoader);
 }
 catch (Exception ex)
