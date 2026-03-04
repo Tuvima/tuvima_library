@@ -78,4 +78,29 @@ public interface IExternalMetadataProvider
     Task<IReadOnlyList<ProviderClaim>> FetchAsync(
         ProviderLookupRequest request,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// Searches the external provider and returns multiple result candidates for
+    /// user selection (e.g. Needs Review resolution panel).
+    ///
+    /// Unlike <see cref="FetchAsync"/> which returns the single best match as claims,
+    /// this method returns up to <paramref name="limit"/> result items, each carrying
+    /// a title, description, thumbnail, and provider-specific item ID for subsequent
+    /// direct lookup.
+    ///
+    /// Default implementation returns an empty list — providers that do not support
+    /// multi-result search do not need to override this.
+    /// </summary>
+    /// <param name="request">Contextual hints for the search.</param>
+    /// <param name="limit">Maximum number of results to return.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>Zero or more search result items.  Never <c>null</c>.</returns>
+    Task<IReadOnlyList<SearchResultItem>> SearchAsync(
+        ProviderLookupRequest request,
+        int limit = 25,
+        CancellationToken ct = default)
+    {
+        // Default: no multi-result support. Override in adapters that support it.
+        return Task.FromResult<IReadOnlyList<SearchResultItem>>([]);
+    }
 }

@@ -177,16 +177,24 @@ public sealed class WorkDto
     [JsonPropertyName("sequence_index")]
     public int? SequenceIndex { get; init; }
 
+    [JsonPropertyName("universe_mismatch")]
+    public bool UniverseMismatch { get; init; }
+
+    [JsonPropertyName("universe_mismatch_at")]
+    public DateTimeOffset? UniverseMismatchAt { get; init; }
+
     [JsonPropertyName("canonical_values")]
     public List<CanonicalValueDto> CanonicalValues { get; init; } = [];
 
     public static WorkDto FromDomain(Work work) => new()
     {
-        Id              = work.Id,
-        HubId           = work.HubId,
-        MediaType       = work.MediaType.ToString(),
-        SequenceIndex   = work.SequenceIndex,
-        CanonicalValues = work.CanonicalValues.Select(CanonicalValueDto.FromDomain).ToList(),
+        Id                 = work.Id,
+        HubId              = work.HubId,
+        MediaType          = work.MediaType.ToString(),
+        SequenceIndex      = work.SequenceIndex,
+        UniverseMismatch   = work.UniverseMismatch,
+        UniverseMismatchAt = work.UniverseMismatchAt,
+        CanonicalValues    = work.CanonicalValues.Select(CanonicalValueDto.FromDomain).ToList(),
     };
 }
 

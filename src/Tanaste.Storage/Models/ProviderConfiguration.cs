@@ -39,6 +39,14 @@ public sealed class ProviderConfiguration
     public ProviderDomain Domain { get; set; } = ProviderDomain.Universal;
 
     /// <summary>
+    /// Relative path to the provider's SVG icon (e.g. <c>"images/providers/apple_books_ebook.svg"</c>).
+    /// Used by the Dashboard to display a visual identifier for each provider.
+    /// The path is relative to <c>wwwroot/</c>.
+    /// </summary>
+    [JsonPropertyName("icon")]
+    public string? Icon { get; set; }
+
+    /// <summary>
     /// Declarative list of metadata fields this provider is considered an expert in
     /// (e.g. <c>["cover", "narrator", "series"]</c>). Shown in the Dashboard.
     /// </summary>
@@ -210,6 +218,14 @@ public sealed class SearchStrategyConfig
     /// </summary>
     [JsonPropertyName("tolerate_404")]
     public bool Tolerate404 { get; set; }
+
+    /// <summary>
+    /// Maximum number of results to return in multi-result search mode.
+    /// Overrides the <c>limit</c> parameter passed to <c>SearchAsync</c> when set
+    /// to a positive value. Default 0 means "use the caller's limit".
+    /// </summary>
+    [JsonPropertyName("max_results")]
+    public int MaxResults { get; set; }
 }
 
 /// <summary>

@@ -1,0 +1,42 @@
+{
+  "name": "musicbrainz",
+  "version": "1.0",
+  "enabled": false,
+  "weight": 0.7,
+  "domain": "Music",
+  "icon": "images/providers/musicbrainz.svg",
+  "capability_tags": ["title", "author", "year", "genre", "musicbrainz_id"],
+  "available_fields": ["title", "author", "year", "genre", "cover", "musicbrainz_id", "isrc"],
+  "field_weights": {
+    "title": 0.85,
+    "author": 0.9,
+    "year": 0.9,
+    "genre": 0.7,
+    "cover": 0.6,
+    "musicbrainz_id": 1.0,
+    "isrc": 0.95
+  },
+  "endpoints": {
+    "api": "https://musicbrainz.org/ws/2"
+  },
+  "throttle_ms": 1000,
+  "max_concurrency": 1,
+  "hydration_stages": [1],
+
+  "adapter_type": "config_driven",
+  "provider_id": "b6000006-0000-4000-8000-000000000007",
+  "display_name": "MusicBrainz",
+
+  "http_client": {
+    "timeout_seconds": 10,
+    "user_agent": "Tanaste/1.0 (https://github.com/shyfaruqi/tanaste)"
+  },
+
+  "can_handle": {
+    "media_types": ["Music"],
+    "entity_types": ["Work", "MediaAsset"]
+  },
+
+  "search_strategies": [],
+  "field_mappings": []
+}

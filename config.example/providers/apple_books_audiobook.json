@@ -1,11 +1,12 @@
 {
   "name": "apple_books_audiobook",
-  "version": "1.1",
+  "version": "1.2",
   "enabled": true,
   "weight": 0.7,
   "domain": "Audiobook",
-  "capability_tags": ["cover", "title", "author", "description"],
-  "available_fields": ["title", "author", "cover", "description"],
+  "icon": "images/providers/apple_books_audiobook.svg",
+  "capability_tags": ["cover", "title", "author", "description", "genre"],
+  "available_fields": ["title", "author", "cover", "description", "genre", "apple_books_id"],
   "field_weights": {
     "cover": 0.6,
     "title": 0.7,
@@ -48,6 +49,8 @@
     { "claim_key": "title",       "json_path": "collectionName", "confidence": 0.7 },
     { "claim_key": "author",      "json_path": "artistName",     "confidence": 0.7 },
     { "claim_key": "cover",       "json_path": "artworkUrl100",  "confidence": 0.85, "transform": "regex_replace", "transform_args": "100x100bb\\.jpg|600x600bb.jpg" },
-    { "claim_key": "description", "json_path": "description",    "confidence": 0.85, "transform": "strip_html" }
+    { "claim_key": "description", "json_path": "description",    "confidence": 0.85, "transform": "strip_html" },
+    { "claim_key": "genre",       "json_path": "primaryGenreName", "confidence": 0.7 },
+    { "claim_key": "apple_books_id", "json_path": "collectionId", "confidence": 0.95, "transform": "to_string" }
   ]
 }

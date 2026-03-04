@@ -1,0 +1,44 @@
+{
+  "name": "tmdb",
+  "version": "1.0",
+  "enabled": false,
+  "weight": 0.7,
+  "domain": "Video",
+  "icon": "images/providers/tmdb.svg",
+  "capability_tags": ["title", "director", "cast_member", "year", "genre", "description", "cover", "tmdb_id"],
+  "available_fields": ["title", "director", "cast_member", "year", "genre", "description", "cover", "tmdb_id", "imdb_id", "rating"],
+  "field_weights": {
+    "title": 0.85,
+    "director": 0.9,
+    "cast_member": 0.9,
+    "year": 0.9,
+    "genre": 0.85,
+    "description": 0.85,
+    "cover": 0.9,
+    "tmdb_id": 1.0,
+    "imdb_id": 0.95,
+    "rating": 0.8
+  },
+  "endpoints": {
+    "api": "https://api.themoviedb.org/3"
+  },
+  "throttle_ms": 250,
+  "max_concurrency": 1,
+  "hydration_stages": [1],
+
+  "adapter_type": "config_driven",
+  "provider_id": "b7000007-0000-4000-8000-000000000008",
+  "display_name": "TMDB",
+
+  "http_client": {
+    "timeout_seconds": 10
+  },
+
+  "can_handle": {
+    "media_types": ["Movie", "TvShow"],
+    "entity_types": ["Work", "MediaAsset"]
+  },
+
+  "search_strategies": [],
+  "field_mappings": []
+}

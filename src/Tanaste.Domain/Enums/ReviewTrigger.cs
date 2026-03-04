@@ -32,4 +32,19 @@ public static class ReviewTrigger
     /// the NeedsReview disposition band (between Conflict and AutoLink thresholds).
     /// </summary>
     public const string ArbiterNeedsReview = "ArbiterNeedsReview";
+
+    /// <summary>
+    /// Stage 1 (Content Match) failed to find a match using the primary provider.
+    /// The file's unique identifiers (ISBN, ASIN, etc.) and title did not resolve
+    /// to any result. The user must manually select a match.
+    /// </summary>
+    public const string ContentMatchFailed = "ContentMatchFailed";
+
+    /// <summary>
+    /// Stage 2 (Universe Match) failed to link the entity to Wikidata.
+    /// Bridge ID lookup, secondary ID lookup, and title search all either failed
+    /// or returned confidence below the auto-accept threshold. The user must
+    /// manually select a QID or skip universe matching.
+    /// </summary>
+    public const string UniverseMatchFailed = "UniverseMatchFailed";
 }

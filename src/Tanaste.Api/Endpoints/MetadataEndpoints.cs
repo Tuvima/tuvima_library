@@ -3,6 +3,8 @@ using Tanaste.Api.Security;
 using Tanaste.Domain.Contracts;
 using Tanaste.Domain.Entities;
 using Tanaste.Domain.Enums;
+using Tanaste.Providers.Contracts;
+using Tanaste.Providers.Models;
 using Tanaste.Storage.Contracts;
 
 namespace Tanaste.Api.Endpoints;
@@ -225,6 +227,72 @@ public static class MetadataEndpoints
         .WithName("HydrateEntity")
         .WithSummary("Run the three-stage hydration pipeline for a Work or Edition entity. Admin or Curator.")
         .Produces<HydrateResponse>(StatusCodes.Status200OK)
+        .RequireAdminOrCurator();
+
+        // ── POST /metadata/search ─────────────────────────────────────────
+        group.MapPost("/search", async (
+            MetadataSearchRequest request,
+            IEnumerable<IExternalMetadataProvider> providers,
+            IConfigurationLoader configLoader,
+            CancellationToken ct) =>
+        {
+            if (string.IsNullOrWhiteSpace(request.ProviderName))
+                return Results.BadRequest("provider_name is required.");
+
+            if (string.IsNullOrWhiteSpace(request.Query))
+                return Results.BadRequest("query is required.");
+
+            // Find the named provider.
+            var provider = providers.FirstOrDefault(
+                p => string.Equals(p.Name, request.ProviderName, StringComparison.OrdinalIgnoreCase));
+
+            if (provider is null)
+                return Results.NotFound($"Provider '{request.ProviderName}' not found.");
+
+            // Parse media type.
+            var mediaType = Domain.Enums.MediaType.Unknown;
+            if (!string.IsNullOrEmpty(request.MediaType))
+                Enum.TryParse(request.MediaType, ignoreCase: true, out mediaType);
+
+            // Resolve base URL from provider config.
+            var providerConfig = configLoader.LoadProvider(request.ProviderName);
+            var baseUrl = providerConfig?.Endpoints.Values.FirstOrDefault() ?? string.Empty;
+
+            // Build the lookup request using the search query as the title hint.
+            var lookupRequest = new ProviderLookupRequest
+            {
+                EntityId   = Guid.Empty,
+                EntityType = EntityType.MediaAsset,
+                MediaType  = mediaType,
+                Title      = request.Query,
+                BaseUrl    = baseUrl,
+            };
+
+            var limit = Math.Clamp(request.Limit, 1, 50);
+            var results = await provider.SearchAsync(lookupRequest, limit, ct);
+
+            var response = new MetadataSearchResponse
+            {
+                ProviderName = request.ProviderName,
+                Query        = request.Query,
+                Results = results.Select(r => new SearchResultResponse
+                {
+                    Title          = r.Title,
+                    Description    = r.Description,
+                    Year           = r.Year,
+                    ThumbnailUrl   = r.ThumbnailUrl,
+                    ProviderItemId = r.ProviderItemId,
+                    Confidence     = r.Confidence,
+                }).ToList(),
+            };
+
+            return Results.Ok(response);
+        })
+        .WithName("SearchMetadata")
+        .WithSummary("Search an external metadata provider for multiple result candidates. Admin or Curator.")
+        .Produces<MetadataSearchResponse>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator();
 
         return app;

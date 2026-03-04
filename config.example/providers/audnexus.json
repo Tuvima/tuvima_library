@@ -1,11 +1,12 @@
 {
   "name": "audnexus",
-  "version": "1.1",
+  "version": "1.2",
   "enabled": true,
   "weight": 0.7,
   "domain": "Audiobook",
-  "capability_tags": ["narrator", "series", "series_position", "cover", "author", "title", "description", "asin"],
-  "available_fields": ["title", "author", "narrator", "series", "series_position", "cover", "description", "asin"],
+  "icon": "images/providers/audnexus.svg",
+  "capability_tags": ["narrator", "series", "series_position", "cover", "author", "title", "description", "asin", "genre"],
+  "available_fields": ["title", "author", "narrator", "series", "series_position", "cover", "description", "asin", "genre", "year"],
   "field_weights": {
     "narrator": 0.9,
     "series": 0.9,
@@ -14,7 +15,9 @@
     "author": 0.75,
     "title": 0.7,
     "description": 0.7,
-    "asin": 0.95
+    "asin": 0.95,
+    "genre": 0.7,
+    "year": 0.7
   },
   "endpoints": {
     "api": "https://api.audnexus.com"
@@ -55,6 +58,8 @@
     { "claim_key": "series_position", "json_path": "seriesPrimary.position", "confidence": 0.9 },
     { "claim_key": "cover",           "json_path": "image",              "confidence": 0.9 },
     { "claim_key": "description",     "json_path": "summary",            "confidence": 0.7,  "transform": "strip_html" },
-    { "claim_key": "asin",            "json_path": "asin",               "confidence": 0.95 }
+    { "claim_key": "asin",            "json_path": "asin",               "confidence": 0.95 },
+    { "claim_key": "genre",           "json_path": "genres[*].name",     "confidence": 0.7,  "transform": "array_join", "transform_args": ", " },
+    { "claim_key": "year",            "json_path": "releaseDate",        "confidence": 0.7,  "transform": "first_n_chars", "transform_args": "4" }
   ]
 }

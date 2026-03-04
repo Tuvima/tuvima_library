@@ -141,6 +141,227 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         return [];
     }
 
+    /// <summary>
+    /// Searches the provider and returns up to <paramref name="limit"/> result candidates,
+    /// each with enough context for the user to visually identify a match (title, description,
+    /// year, thumbnail, provider item ID).
+    ///
+    /// Reuses the same URL building and HTTP infrastructure as <see cref="FetchAsync"/>,
+    /// but iterates the results array instead of picking a single result.
+    /// </summary>
+    public async Task<IReadOnlyList<SearchResultItem>> SearchAsync(
+        ProviderLookupRequest request,
+        int limit = 25,
+        CancellationToken ct = default)
+    {
+        if (!CanHandle(request.MediaType) || !CanHandle(request.EntityType))
+            return [];
+
+        var strategies = _config.SearchStrategies?
+            .OrderBy(s => s.Priority)
+            .ToList();
+
+        if (strategies is null or { Count: 0 })
+            return [];
+
+        // Use the lesser of caller limit, strategy max_results, and a hard cap of 50.
+        var effectiveLimit = limit;
+
+        foreach (var strategy in strategies)
+        {
+            if (!AllRequiredFieldsPresent(strategy, request))
+                continue;
+
+            // Strategies without a results_path return a single object — not useful
+            // for multi-result search. Skip to the next strategy.
+            if (string.IsNullOrEmpty(strategy.ResultsPath))
+                continue;
+
+            // Per-strategy cap.
+            if (strategy.MaxResults > 0)
+                effectiveLimit = Math.Min(effectiveLimit, strategy.MaxResults);
+
+            try
+            {
+                var results = await ExecuteSearchStrategyAsync(strategy, request, effectiveLimit, ct)
+                    .ConfigureAwait(false);
+
+                if (results.Count > 0)
+                    return results;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex) when (ex is HttpRequestException or System.Text.Json.JsonException or InvalidOperationException)
+            {
+                _logger.LogWarning(ex,
+                    "{Provider}/{Strategy}: search failed, trying next strategy",
+                    Name, strategy.Name);
+            }
+        }
+
+        return [];
+    }
+
+    /// <summary>
+    /// Executes a search strategy and extracts multiple result items from the response array.
+    /// </summary>
+    private async Task<IReadOnlyList<SearchResultItem>> ExecuteSearchStrategyAsync(
+        SearchStrategyConfig strategy,
+        ProviderLookupRequest request,
+        int limit,
+        CancellationToken ct)
+    {
+        var url = BuildUrl(strategy, request);
+        _logger.LogDebug("{Provider}/{Strategy}: SEARCH {Url}", Name, strategy.Name, url);
+
+        await _throttle.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            if (_config.ThrottleMs > 0)
+            {
+                var elapsed = (DateTime.UtcNow - _lastCallUtc).TotalMilliseconds;
+                if (elapsed < _config.ThrottleMs)
+                    await Task.Delay(
+                        TimeSpan.FromMilliseconds(_config.ThrottleMs - elapsed), ct)
+                        .ConfigureAwait(false);
+            }
+
+            using var client = _httpFactory.CreateClient(_config.Name);
+            using var response = await client.GetAsync(url, ct).ConfigureAwait(false);
+            _lastCallUtc = DateTime.UtcNow;
+
+            if (response.StatusCode == System.Net.HttpStatusCode.NotFound
+                && strategy.Tolerate404)
+                return [];
+
+            response.EnsureSuccessStatusCode();
+
+            var json = await response.Content
+                .ReadFromJsonAsync<System.Text.Json.Nodes.JsonNode>(cancellationToken: ct)
+                .ConfigureAwait(false);
+
+            if (json is null)
+                return [];
+
+            // Navigate to results array.
+            var resultsNode = JsonPathEvaluator.Evaluate(json, strategy.ResultsPath!);
+            if (resultsNode is not System.Text.Json.Nodes.JsonArray arr || arr.Count == 0)
+                return [];
+
+            var items = new List<SearchResultItem>();
+            var count = Math.Min(arr.Count, limit);
+
+            for (int i = 0; i < count; i++)
+            {
+                var resultNode = arr[i];
+                if (resultNode is null)
+                    continue;
+
+                var item = ExtractSearchResultItem(resultNode);
+                if (item is not null)
+                    items.Add(item);
+            }
+
+            _logger.LogDebug(
+                "{Provider}/{Strategy}: search returned {Count} items",
+                Name, strategy.Name, items.Count);
+
+            return items;
+        }
+        finally
+        {
+            _throttle.Release();
+        }
+    }
+
+    /// <summary>
+    /// Extracts a <see cref="SearchResultItem"/> from a single JSON result object
+    /// using the configured field mappings. Looks for title, description, year,
+    /// cover/thumbnail, and a provider item ID.
+    /// </summary>
+    private SearchResultItem? ExtractSearchResultItem(System.Text.Json.Nodes.JsonNode resultNode)
+    {
+        if (_config.FieldMappings is null or { Count: 0 })
+            return null;
+
+        string? title = null;
+        string? description = null;
+        string? year = null;
+        string? thumbnailUrl = null;
+        string? providerItemId = null;
+        double confidence = 0.5;
+
+        foreach (var mapping in _config.FieldMappings)
+        {
+            var node = JsonPathEvaluator.Evaluate(resultNode, mapping.JsonPath);
+            if (node is null)
+                continue;
+
+            var raw = JsonPathEvaluator.GetStringValue(node);
+            if (string.IsNullOrWhiteSpace(raw))
+                continue;
+
+            // Apply transform if configured.
+            if (!string.IsNullOrEmpty(mapping.Transform))
+            {
+                raw = !string.IsNullOrEmpty(mapping.TransformArgs)
+                    ? ValueTransformRegistry.Apply(mapping.Transform, raw, mapping.TransformArgs)
+                    : ValueTransformRegistry.Apply(mapping.Transform, raw);
+            }
+
+            if (string.IsNullOrWhiteSpace(raw))
+                continue;
+
+            switch (mapping.ClaimKey.ToLowerInvariant())
+            {
+                case "title":
+                    title ??= raw;
+                    break;
+                case "description":
+                    description ??= raw;
+                    break;
+                case "year":
+                    year ??= raw;
+                    break;
+                case "cover":
+                    thumbnailUrl ??= raw;
+                    break;
+                // Provider-specific IDs for direct follow-up lookup.
+                case "isbn":
+                case "asin":
+                case "apple_books_id":
+                case "goodreads_id":
+                case "audible_id":
+                case "tmdb_id":
+                case "imdb_id":
+                case "comicvine_id":
+                case "musicbrainz_id":
+                case "spotify_id":
+                    providerItemId ??= raw;
+                    break;
+            }
+
+            // Use the highest configured confidence from any mapped field.
+            if (mapping.Confidence > confidence)
+                confidence = mapping.Confidence;
+        }
+
+        // Must have at least a title to be a valid result.
+        if (string.IsNullOrWhiteSpace(title))
+            return null;
+
+        return new SearchResultItem(
+            Title:          title,
+            Description:    description,
+            Year:           year,
+            ThumbnailUrl:   thumbnailUrl,
+            ProviderItemId: providerItemId,
+            Confidence:     confidence,
+            ProviderName:   Name);
+    }
+
     // ── Strategy execution ──────────────────────────────────────────────────
 
     private async Task<IReadOnlyList<ProviderClaim>> ExecuteStrategyAsync(

@@ -46,6 +46,24 @@ public sealed class Work
     public int? SequenceIndex { get; set; }
 
     // -------------------------------------------------------------------------
+    // Universe matching state
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Indicates the user explicitly skipped Universe (Wikidata) matching for
+    /// this Work. When <c>true</c>, the pipeline will not attempt Stage 2
+    /// universe linking and the Work is treated as content-matched only.
+    /// Stored as INTEGER (0/1) in the <c>works</c> table.
+    /// </summary>
+    public bool UniverseMismatch { get; set; }
+
+    /// <summary>
+    /// Timestamp when <see cref="UniverseMismatch"/> was set to <c>true</c>.
+    /// Null when universe matching has not been skipped.
+    /// </summary>
+    public DateTimeOffset? UniverseMismatchAt { get; set; }
+
+    // -------------------------------------------------------------------------
     // Children
     // -------------------------------------------------------------------------
 

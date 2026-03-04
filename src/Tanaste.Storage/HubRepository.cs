@@ -37,7 +37,8 @@ public sealed class HubRepository : IHubRepository
             cmd.CommandText = """
                 SELECT h.id, h.universe_id, h.display_name, h.created_at,
                        h.universe_status,
-                       w.id, w.media_type, w.sequence_index
+                       w.id, w.media_type, w.sequence_index,
+                       w.universe_mismatch, w.universe_mismatch_at
                 FROM   hubs h
                 LEFT JOIN works w ON w.hub_id = h.id
                 ORDER  BY h.created_at, w.id;
@@ -68,10 +69,12 @@ public sealed class HubRepository : IHubRepository
                     {
                         var work = new Work
                         {
-                            Id            = workId,
-                            HubId         = hubId,
-                            MediaType     = Enum.Parse<MediaType>(reader.GetString(6), ignoreCase: true),
-                            SequenceIndex = reader.IsDBNull(7) ? null : reader.GetInt32(7),
+                            Id                 = workId,
+                            HubId              = hubId,
+                            MediaType          = Enum.Parse<MediaType>(reader.GetString(6), ignoreCase: true),
+                            SequenceIndex      = reader.IsDBNull(7) ? null : reader.GetInt32(7),
+                            UniverseMismatch   = !reader.IsDBNull(8) && reader.GetInt32(8) == 1,
+                            UniverseMismatchAt = reader.IsDBNull(9) ? null : DateTimeOffset.Parse(reader.GetString(9)),
                         };
                         works[workId] = work;
                         hub.Works.Add(work);

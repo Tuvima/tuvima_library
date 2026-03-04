@@ -328,6 +328,22 @@ public sealed class DatabaseConnection : IDatabaseConnection
             ddl:    "ALTER TABLE hubs ADD COLUMN universe_status TEXT NOT NULL DEFAULT 'Unknown' " +
                     "CHECK (universe_status IN ('Rich', 'Limited', 'None', 'Unknown'));");
 
+        // Migration M-015: Add universe_mismatch columns to works.
+        // Tracks when a user explicitly skips Universe (Wikidata) matching for
+        // a Work.  universe_mismatch is a boolean flag; universe_mismatch_at
+        // records when the skip was applied.
+        MigrateAddColumnIfMissing(
+            conn,
+            table:  "works",
+            column: "universe_mismatch",
+            ddl:    "ALTER TABLE works ADD COLUMN universe_mismatch INTEGER NOT NULL DEFAULT 0 " +
+                    "CHECK (universe_mismatch IN (0, 1));");
+        MigrateAddColumnIfMissing(
+            conn,
+            table:  "works",
+            column: "universe_mismatch_at",
+            ddl:    "ALTER TABLE works ADD COLUMN universe_mismatch_at TEXT;");
+
         // Seed S-001: provider_registry entries for all known providers.
         // metadata_claims.provider_id has a FK to provider_registry(id), so these
         // rows MUST exist before any claim is written.  INSERT OR IGNORE makes this

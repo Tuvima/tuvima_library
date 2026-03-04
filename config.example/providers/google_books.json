@@ -1,11 +1,12 @@
 {
   "name": "google_books",
-  "version": "1.1",
+  "version": "1.2",
   "enabled": true,
   "weight": 0.65,
   "domain": "Ebook",
-  "capability_tags": ["title", "author", "cover", "description", "isbn", "year", "rating", "publisher", "page_count", "language"],
-  "available_fields": ["title", "author", "year", "description", "cover", "isbn", "rating", "publisher", "page_count", "language"],
+  "icon": "images/providers/google_books.svg",
+  "capability_tags": ["title", "author", "cover", "description", "isbn", "year", "rating", "publisher", "page_count", "language", "genre"],
+  "available_fields": ["title", "author", "year", "description", "cover", "isbn", "rating", "publisher", "page_count", "language", "genre"],
   "field_weights": {
     "title": 0.7,
     "author": 0.75,
@@ -16,7 +17,8 @@
     "rating": 0.7,
     "publisher": 0.75,
     "page_count": 0.8,
-    "language": 0.7
+    "language": 0.7,
+    "genre": 0.7
   },
   "endpoints": {
     "api": "https://www.googleapis.com/books/v1"
@@ -51,9 +53,10 @@
       "name": "title_search",
       "priority": 2,
       "required_fields": ["title"],
-      "url_template": "{base_url}/volumes?q=intitle:{title}+inauthor:{author}&maxResults=5",
+      "url_template": "{base_url}/volumes?q=intitle:{title}+inauthor:{author}&maxResults=25",
       "results_path": "items",
-      "result_index": 0
+      "result_index": 0,
+      "max_results": 25
     }
   ],
 
@@ -67,6 +70,7 @@
     { "claim_key": "rating",      "json_path": "volumeInfo.averageRating",              "confidence": 0.7,  "transform": "to_string" },
     { "claim_key": "publisher",   "json_path": "volumeInfo.publisher",                  "confidence": 0.75 },
     { "claim_key": "page_count",  "json_path": "volumeInfo.pageCount",                  "confidence": 0.8,  "transform": "to_string" },
-    { "claim_key": "language",    "json_path": "volumeInfo.language",                   "confidence": 0.7 }
+    { "claim_key": "language",    "json_path": "volumeInfo.language",                   "confidence": 0.7 },
+    { "claim_key": "genre",       "json_path": "volumeInfo.categories",                 "confidence": 0.7,  "transform": "array_join", "transform_args": ", " }
   ]
 }
