@@ -4,9 +4,8 @@
 @inject DeviceContextService DeviceContext
 @inject ISnackbar Snackbar
 
-@* Connection Vault — manage metadata providers and field priorities.
-   Universe (Wikidata) pinned at top. Field priorities use vertical cards
-   with drag-handle reordering. Provider Connections for testing endpoints. *@
+@* Connection Vault — Metadata Prioritization Matrix with drag-and-drop
+   provider priority configuration per media type. *@
 
 <MudPaper Elevation="0" Style="@GlassStyle">
 
@@ -16,8 +15,7 @@
         <MudText Typo="Typo.h6">Connection Vault</MudText>
     </MudStack>
     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
-        Manage metadata providers and field priorities. Reorder providers within each
-        field card to set which source wins.
+        Drag providers into each field column to set priority. Position 1 wins.
     </MudText>
 
     @* ── Loading / error ──────────────────────────────────────────────────── *@
@@ -33,210 +31,166 @@
     }
     else
     {
-        @* ── Universe Provider (Wikidata) — pinned ────────────────────── *@
-        @if (GetWikidataProvider() is { } wikidata)
-        {
-            var isExpanded = _expandedProvider == wikidata.Name;
-
-            <MudPaper Elevation="0" Class="pa-4 mb-4"
-                      Style="background: var(--tanaste-glass-bg); border: 1px solid var(--tanaste-glass-border); border-left: 4px solid var(--mud-palette-primary); border-radius: 16px;">
-
-                <div class="provider-row-header"
-                     @onclick="@(() => ToggleExpanded(wikidata.Name))">
-
-                    <div class="provider-status-dot"
-                         style="@StatusDotStyle(wikidata)"
-                         title="@StatusTitle(wikidata)"></div>
-
-                    <div style="flex: 1; min-width: 0;">
-                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                            <MudText Typo="Typo.body1" Style="font-weight: 600;">
-                                @wikidata.DisplayName
-                            </MudText>
-                            <MudChip T="string" Size="Size.Small" Variant="Variant.Filled"
-                                     Color="Color.Primary" Style="font-size: 0.65rem;">
-                                Universe Provider
-                            </MudChip>
-                        </MudStack>
-                        <MudText Typo="Typo.caption" Color="Color.Secondary">
-                            QID resolution, bridge identifiers, and person enrichment across all media types.
-                        </MudText>
-                    </div>
-
-                    @if (IsAdmin)
-                    {
-                        <MudSwitch T="bool" Value="@wikidata.Enabled"
-                                   ValueChanged="@(async val => await ToggleProviderAsync(wikidata.Name, val))"
-                                   Color="Color.Primary"
-                                   @onclick:stopPropagation="true" />
-                    }
-
-                    @if (!IsMobile)
-                    {
-                        <MudIcon Icon="@(isExpanded
-                                          ? Icons.Material.Filled.ExpandLess
-                                          : Icons.Material.Filled.ExpandMore)"
-                                 Size="Size.Small"
-                                 Style="color: var(--tanaste-text-muted);" />
-                    }
-                </div>
-
-                @if (isExpanded && !IsMobile)
-                {
-                    <div class="provider-expanded-content">
-                        <WikidataVaultPanel Provider="@wikidata"
-                                            IsAdmin="@HasAdminAccess"
-                                            OnTestClicked="@(() => TestProvider(wikidata.Name))"
-                                            OnSaveClicked="@(config => SaveProvider(wikidata.Name, config))"
-                                            TestResult="@GetTestResult(wikidata.Name)"
-                                            IsTesting="@IsProviderTesting(wikidata.Name)"
-                                            IsSaving="@_saving" />
-                    </div>
-                }
-            </MudPaper>
-        }
-
-        @* ── Field Priorities — grouped by media type ─────────────────── *@
+        @* ━━━━━━ SECTION 1: Metadata Prioritization Matrix ━━━━━━ *@
         <MudPaper Elevation="0" Class="pa-4 mb-4"
                   Style="background: var(--tanaste-glass-bg); border: 1px solid var(--tanaste-glass-border); border-radius: 16px;">
 
             <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-3">
-                <MudIcon Icon="@Icons.Material.Filled.Sort" Size="Size.Small"
+                <MudIcon Icon="@Icons.Material.Filled.GridView" Size="Size.Small"
                          Style="color: var(--tanaste-text-muted);" />
-                <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">Field Priorities</MudText>
+                <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">
+                    Metadata Prioritization Matrix
+                </MudText>
             </MudStack>
-            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3">
-                Each field card shows which providers supply that data. Reorder providers
-                to set which source the scoring engine prefers.
-            </MudText>
 
-            @foreach (var group in _mediaTypeGroups)
-            {
-                var groupProviders = GetProvidersForMediaType(group.DomainKey);
-                var isGroupExpanded = IsGroupExpanded(group.Key);
+            @* ── Media type tabs ────────────────────────────────────── *@
+            <MudTabs ActivePanelIndex="_activeTabIndex"
+                     ActivePanelIndexChanged="@OnTabChanged"
+                     Rounded="true" ApplyEffectsToContainer="true"
+                     Class="mb-4"
+                     MinimumTabWidth="80px">
 
-                <div class="media-type-group @(isGroupExpanded ? "expanded" : "")">
-                    <div class="media-type-header"
-                         @onclick="@(() => ToggleGroup(group.Key))">
-                        <MudIcon Icon="@(isGroupExpanded
-                                          ? Icons.Material.Filled.ExpandMore
-                                          : Icons.Material.Filled.ChevronRight)"
-                                 Size="Size.Small"
-                                 Style="color: var(--tanaste-text-muted);" />
-                        <MudIcon Icon="@group.Icon" Size="Size.Small"
-                                 Color="Color.Primary" />
-                        <MudText Typo="Typo.subtitle2" Style="font-weight: 600; flex: 1;">
-                            @group.Label
-                        </MudText>
-                        <MudChip T="string" Size="Size.Small" Variant="Variant.Text"
-                                 Color="Color.Default">
-                            @groupProviders.Count providers
-                        </MudChip>
-                    </div>
+                @foreach (var tab in MediaTypeTabs)
+                {
+                    <MudTabPanel Text="@tab.Label" Icon="@tab.Icon" BadgeColor="Color.Primary"
+                                 BadgeDot="@_dirtyTabs.Contains(MediaTypeTabs.IndexOf(tab))">
 
-                    @if (isGroupExpanded)
-                    {
-                        <div class="media-type-content">
-                            @if (groupProviders.Count == 0)
+                        <div class="@(_flyoutOpen ? "matrix-grayed-out" : "")">
+                            @if (ActiveMatrixItems.Count == 0)
                             {
                                 <MudText Typo="Typo.body2" Color="Color.Secondary"
-                                         Style="font-style: italic; padding: 8px 0;">
-                                    No providers configured for @group.Label yet.
+                                         Style="font-style: italic; padding: 16px 0;">
+                                    No providers configured for @tab.Label yet.
                                 </MudText>
                             }
                             else
                             {
-                                var fields = BuildFieldPriorities(group.Key, groupProviders);
-
-                                <div class="field-cards-grid">
-                                    @foreach (var field in fields)
-                                    {
-                                        <div class="field-card">
-                                            @* ── Field header ─────────────────── *@
-                                            <div class="field-card-header">
-                                                <MudIcon Icon="@FieldDictionary.GetIcon(field.FieldKey)"
-                                                         Size="Size.Small" Color="Color.Primary" />
-                                                <MudText Typo="Typo.body2" Style="font-weight: 600; flex: 1;">
-                                                    @FieldDictionary.GetDisplayName(field.FieldKey)
-                                                </MudText>
-                                                <MudChip T="string" Size="Size.Small"
-                                                         Variant="Variant.Text"
-                                                         Color="Color.Default"
-                                                         Style="font-size: 0.65rem;">
-                                                    @field.Providers.Count source@(field.Providers.Count != 1 ? "s" : "")
-                                                </MudChip>
-                                            </div>
-
-                                            @* ── Provider priority list (vertical) *@
-                                            <div class="field-provider-list">
-                                                @for (var i = 0; i < field.Providers.Count; i++)
+                                <MudDropContainer T="MatrixItem"
+                                                  @ref="_dropContainer"
+                                                  Items="@ActiveMatrixItems"
+                                                  ItemsSelector="@((item, zone) => item.Zone == zone)"
+                                                  ItemDropped="@OnItemDropped"
+                                                  CanDropClass="matrix-can-drop"
+                                                  NoDropClass="matrix-no-drop"
+                                                  ApplyDropClassesOnDragStarted="true">
+                                    <ChildContent>
+                                        @* ── Column zones (horizontal scroll) ──── *@
+                                        <div class="matrix-columns-scroll">
+                                            <div class="matrix-columns">
+                                                @foreach (var column in ActiveColumns.OrderBy(c => c.SortOrder))
                                                 {
-                                                    var entry = field.Providers[i];
-                                                    var idx = i;
-                                                    var weight = GetFieldWeight(entry.ProviderName, field.FieldKey);
-
-                                                    <div class="field-provider-item @(idx == 0 ? "primary" : "")">
-                                                        @* 6-dot grip handle *@
-                                                        <div class="grip-handle" title="Drag to reorder">
-                                                            <MudIcon Icon="@Icons.Material.Filled.DragIndicator"
+                                                    <div class="matrix-column">
+                                                        @* Column header *@
+                                                        <div class="matrix-column-header">
+                                                            <MudIcon Icon="@column.Icon"
                                                                      Size="Size.Small"
-                                                                     Style="color: var(--tanaste-text-muted); opacity: 0.5;" />
-                                                        </div>
-
-                                                        @* Priority badge *@
-                                                        <div class="priority-badge @(idx == 0 ? "primary" : "")">
-                                                            @(idx + 1)
-                                                        </div>
-
-                                                        @* Provider name *@
-                                                        <div style="flex: 1; min-width: 0;">
+                                                                     Color="Color.Primary" />
                                                             <MudText Typo="Typo.body2"
-                                                                     Style="@(idx == 0 ? "font-weight: 600;" : "")">
-                                                                @entry.DisplayName
+                                                                     Style="font-weight: 600; flex: 1; white-space: nowrap;">
+                                                                @column.DisplayName
                                                             </MudText>
+                                                            @if (column.IsGroup && IsAdmin)
+                                                            {
+                                                                <MudMenu Icon="@Icons.Material.Filled.UnfoldMore"
+                                                                         Size="Size.Small"
+                                                                         Dense="true"
+                                                                         AnchorOrigin="Origin.BottomCenter"
+                                                                         title="Extract individual fields">
+                                                                    @foreach (var ck in column.ClaimKeys.OrderBy(k => FieldDictionary.GetDisplayName(k)))
+                                                                    {
+                                                                        var key = ck;
+                                                                        <MudMenuItem OnClick="@(() => ExtractFieldFromUniverse(key))">
+                                                                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                                                                <MudIcon Icon="@FieldDictionary.GetIcon(key)" Size="Size.Small" />
+                                                                                <MudText Typo="Typo.body2">@FieldDictionary.GetDisplayName(key)</MudText>
+                                                                            </MudStack>
+                                                                        </MudMenuItem>
+                                                                    }
+                                                                </MudMenu>
+                                                            }
+                                                            @if (column.IsUserAdded && IsAdmin)
+                                                            {
+                                                                <MudIconButton Icon="@Icons.Material.Filled.Close"
+                                                                               Size="Size.Small"
+                                                                               OnClick="@(() => RemoveColumn(column))"
+                                                                               title="Remove this field column" />
+                                                            }
                                                         </div>
 
-                                                        @* Weight indicator *@
-                                                        <MudText Typo="Typo.caption" Color="Color.Secondary"
-                                                                 Style="min-width: 40px; text-align: right;">
-                                                            @weight.ToString("P0")
-                                                        </MudText>
+                                                        @* Drop zone *@
+                                                        <MudDropZone T="MatrixItem"
+                                                                     Identifier="@column.ZoneId"
+                                                                     AllowReorder="true"
+                                                                     CanDrop="@(item => CanDropInColumn(item, column))"
+                                                                     Class="matrix-drop-zone" />
+                                                    </div>
+                                                }
 
-                                                        @* Move buttons *@
-                                                        @if (IsAdmin && field.Providers.Count > 1)
-                                                        {
-                                                            <div class="move-buttons">
-                                                                <MudIconButton Icon="@Icons.Material.Filled.KeyboardArrowUp"
-                                                                               Size="Size.Small"
-                                                                               Disabled="@(idx == 0)"
-                                                                               OnClick="@(() => MovePriority(group.Key, field.FieldKey, idx, -1))"
-                                                                               Style="padding: 0; min-width: 24px; min-height: 20px;" />
-                                                                <MudIconButton Icon="@Icons.Material.Filled.KeyboardArrowDown"
-                                                                               Size="Size.Small"
-                                                                               Disabled="@(idx == field.Providers.Count - 1)"
-                                                                               OnClick="@(() => MovePriority(group.Key, field.FieldKey, idx, 1))"
-                                                                               Style="padding: 0; min-width: 24px; min-height: 20px;" />
-                                                            </div>
-                                                        }
+                                                @* ── Add field button ──────────────── *@
+                                                @if (IsAdmin)
+                                                {
+                                                    <div class="matrix-add-column">
+                                                        <MudMenu Icon="@Icons.Material.Filled.Add"
+                                                                 Variant="Variant.Outlined"
+                                                                 Color="Color.Primary"
+                                                                 Size="Size.Small"
+                                                                 Dense="true"
+                                                                 AnchorOrigin="Origin.BottomCenter"
+                                                                 title="Add a field column">
+                                                            @foreach (var field in GetAddableFields())
+                                                            {
+                                                                var key = field.Key;
+                                                                <MudMenuItem OnClick="@(() => AddColumn(key))">
+                                                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                                                        <MudIcon Icon="@field.Value.Icon" Size="Size.Small" />
+                                                                        <MudText Typo="Typo.body2">@field.Value.DisplayName</MudText>
+                                                                    </MudStack>
+                                                                </MudMenuItem>
+                                                            }
+                                                        </MudMenu>
                                                     </div>
                                                 }
                                             </div>
                                         </div>
-                                    }
-                                </div>
 
-                                @if (_dirtyGroups.Contains(group.Key) && IsAdmin)
+                                        @* ── Disabled / available providers pool ── *@
+                                        <div class="matrix-disabled-pool">
+                                            <MudText Typo="Typo.overline" Color="Color.Secondary"
+                                                     Style="letter-spacing: 0.08em;" Class="mb-1">
+                                                AVAILABLE PROVIDERS — drag into columns above
+                                            </MudText>
+                                            <MudDropZone T="MatrixItem"
+                                                         Identifier="disabled"
+                                                         AllowReorder="false"
+                                                         Class="matrix-disabled-zone" />
+                                        </div>
+                                    </ChildContent>
+
+                                    <ItemRenderer>
+                                        @{
+                                            var pos = GetItemPosition(context);
+                                        }
+                                        <MatrixProviderChip Item="@context"
+                                                            Position="@pos"
+                                                            IsDisabled="@(context.Zone == "disabled")"
+                                                            OnEditClicked="@(() => OpenProviderFlyout(context))" />
+                                    </ItemRenderer>
+                                </MudDropContainer>
+
+                                @* ── Save button ──────────────────────── *@
+                                @if (_dirtyTabs.Contains(_activeTabIndex) && IsAdmin)
                                 {
                                     <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-3">
                                         <MudButton Variant="Variant.Filled"
                                                    Color="Color.Primary"
                                                    Size="Size.Small"
                                                    StartIcon="@Icons.Material.Filled.Save"
-                                                   OnClick="@(() => SavePrioritiesAsync(group.Key))"
+                                                   OnClick="@SaveMatrixPrioritiesAsync"
                                                    Disabled="@_saving">
                                             @if (_saving)
                                             {
-                                                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
+                                                <MudProgressCircular Size="Size.Small"
+                                                                     Indeterminate="true" Class="mr-1" />
                                                 @:Saving…
                                             }
                                             else
@@ -248,16 +202,16 @@
                                 }
                             }
                         </div>
-                    }
-                </div>
-            }
+                    </MudTabPanel>
+                }
+            </MudTabs>
         </MudPaper>
 
-        @* ── Provider Connections (collapsible) ───────────────────────── *@
+        @* ━━━━━━ SECTION 2: Provider Connections ━━━━━━ *@
         <MudPaper Elevation="0" Class="pa-4 mb-4"
                   Style="background: var(--tanaste-glass-bg); border: 1px solid var(--tanaste-glass-border); border-radius: 16px;">
 
-            <div class="media-type-header"
+            <div class="section-header"
                  @onclick="@(() => _connectionsExpanded = !_connectionsExpanded)">
                 <MudIcon Icon="@(_connectionsExpanded
                                   ? Icons.Material.Filled.ExpandMore
@@ -271,7 +225,7 @@
                 </MudText>
                 <MudChip T="string" Size="Size.Small" Variant="Variant.Text"
                          Color="Color.Default">
-                    @GetNonWikidataProviders().Count
+                    @_providers.Count
                 </MudChip>
             </div>
 
@@ -282,7 +236,7 @@
                 </MudText>
 
                 <div class="provider-list">
-                    @foreach (var provider in GetNonWikidataProviders())
+                    @foreach (var provider in _providers)
                     {
                         var isExpanded = _expandedProvider == provider.Name;
 
@@ -336,14 +290,27 @@
                             @if (isExpanded && !IsMobile)
                             {
                                 <div class="provider-expanded-content">
-                                    <ProviderEditPanel Provider="@provider"
-                                                       IsAdmin="@HasAdminAccess"
-                                                       OnTestClicked="@(() => TestProvider(provider.Name))"
-                                                       OnSaveClicked="@(config => SaveProvider(provider.Name, config))"
-                                                       OnDeleteClicked="@(() => DeleteProvider(provider.Name))"
-                                                       TestResult="@GetTestResult(provider.Name)"
-                                                       IsTesting="@IsProviderTesting(provider.Name)"
-                                                       IsSaving="@_saving" />
+                                    @if (IsWikidata(provider.Name))
+                                    {
+                                        <WikidataVaultPanel Provider="@provider"
+                                                            IsAdmin="@HasAdminAccess"
+                                                            OnTestClicked="@(() => TestProvider(provider.Name))"
+                                                            OnSaveClicked="@(config => SaveProvider(provider.Name, config))"
+                                                            TestResult="@GetTestResult(provider.Name)"
+                                                            IsTesting="@IsProviderTesting(provider.Name)"
+                                                            IsSaving="@_saving" />
+                                    }
+                                    else
+                                    {
+                                        <ProviderEditPanel Provider="@provider"
+                                                           IsAdmin="@HasAdminAccess"
+                                                           OnTestClicked="@(() => TestProvider(provider.Name))"
+                                                           OnSaveClicked="@(config => SaveProvider(provider.Name, config))"
+                                                           OnDeleteClicked="@(() => DeleteProvider(provider.Name))"
+                                                           TestResult="@GetTestResult(provider.Name)"
+                                                           IsTesting="@IsProviderTesting(provider.Name)"
+                                                           IsSaving="@_saving" />
+                                    }
                                 </div>
                             }
                         </div>
@@ -352,11 +319,11 @@
             }
         </MudPaper>
 
-        @* ── Advanced Pipeline Config (collapsible) ───────────────────── *@
+        @* ━━━━━━ SECTION 3: Advanced Pipeline Config ━━━━━━ *@
         <MudPaper Elevation="0" Class="pa-4"
                   Style="background: var(--tanaste-glass-bg); border: 1px solid var(--tanaste-glass-border); border-radius: 16px;">
 
-            <div class="media-type-header"
+            <div class="section-header"
                  @onclick="@(() => _advancedExpanded = !_advancedExpanded)">
                 <MudIcon Icon="@(_advancedExpanded
                                   ? Icons.Material.Filled.ExpandMore
@@ -384,44 +351,38 @@
                                 <MudNumericField T="int" Label="Stage Concurrency"
                                                  @bind-Value="_hydrationSettings.StageConcurrency"
                                                  Min="1" Max="10"
-                                                 Variant="Variant.Outlined"
-                                                 Margin="Margin.Dense" />
+                                                 Variant="Variant.Outlined" Margin="Margin.Dense" />
                             </MudItem>
                             <MudItem xs="12" sm="6">
                                 <MudNumericField T="int" Label="Stage 1 Timeout (seconds)"
                                                  @bind-Value="_hydrationSettings.Stage1TimeoutSeconds"
                                                  Min="5" Max="120"
-                                                 Variant="Variant.Outlined"
-                                                 Margin="Margin.Dense" />
+                                                 Variant="Variant.Outlined" Margin="Margin.Dense" />
                             </MudItem>
                             <MudItem xs="12" sm="6">
                                 <MudNumericField T="int" Label="Stage 2 Timeout (seconds)"
                                                  @bind-Value="_hydrationSettings.Stage2TimeoutSeconds"
                                                  Min="5" Max="120"
-                                                 Variant="Variant.Outlined"
-                                                 Margin="Margin.Dense" />
+                                                 Variant="Variant.Outlined" Margin="Margin.Dense" />
                             </MudItem>
                             <MudItem xs="12" sm="6">
                                 <MudNumericField T="int" Label="Stage 3 Timeout (seconds)"
                                                  @bind-Value="_hydrationSettings.Stage3TimeoutSeconds"
                                                  Min="5" Max="120"
-                                                 Variant="Variant.Outlined"
-                                                 Margin="Margin.Dense" />
+                                                 Variant="Variant.Outlined" Margin="Margin.Dense" />
                             </MudItem>
                             <MudItem xs="12" sm="6">
                                 <MudNumericField T="double" Label="Disambiguation Threshold"
                                                  @bind-Value="_hydrationSettings.DisambiguationThreshold"
                                                  Min="0.0" Max="1.0" Step="0.05"
-                                                 Variant="Variant.Outlined"
-                                                 Margin="Margin.Dense"
+                                                 Variant="Variant.Outlined" Margin="Margin.Dense"
                                                  Format="F2" />
                             </MudItem>
                             <MudItem xs="12" sm="6">
                                 <MudNumericField T="double" Label="Auto-Review Threshold"
                                                  @bind-Value="_hydrationSettings.AutoReviewConfidenceThreshold"
                                                  Min="0.0" Max="1.0" Step="0.05"
-                                                 Variant="Variant.Outlined"
-                                                 Margin="Margin.Dense"
+                                                 Variant="Variant.Outlined" Margin="Margin.Dense"
                                                  Format="F2" />
                             </MudItem>
                         </MudGrid>
@@ -492,6 +453,50 @@
     </MudDrawer>
 }
 
+@* ── Provider editing flyout (desktop) ───────────────────────────────── *@
+@if (!IsMobile && _flyoutProvider is not null)
+{
+    <MudDrawer Open="@_flyoutOpen"
+               OpenChanged="@OnFlyoutOpenChanged"
+               Anchor="Anchor.End"
+               Width="420px"
+               Overlay="true"
+               Variant="DrawerVariant.Temporary"
+               Style="@DrawerStyle">
+        <div class="pa-4">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
+                <MudIconButton Icon="@Icons.Material.Filled.Close"
+                               Color="Color.Default"
+                               Size="Size.Medium"
+                               OnClick="@CloseFlyout" />
+                <MudText Typo="Typo.h6" Style="flex: 1;">@_flyoutProvider.DisplayName</MudText>
+            </MudStack>
+
+            @if (IsWikidata(_flyoutProvider.Name))
+            {
+                <WikidataVaultPanel Provider="@_flyoutProvider"
+                                    IsAdmin="@HasAdminAccess"
+                                    OnTestClicked="@(() => TestProvider(_flyoutProvider.Name))"
+                                    OnSaveClicked="@(config => SaveProvider(_flyoutProvider.Name, config))"
+                                    TestResult="@GetTestResult(_flyoutProvider.Name)"
+                                    IsTesting="@IsProviderTesting(_flyoutProvider.Name)"
+                                    IsSaving="@_saving" />
+            }
+            else
+            {
+                <ProviderEditPanel Provider="@_flyoutProvider"
+                                   IsAdmin="@HasAdminAccess"
+                                   OnTestClicked="@(() => TestProvider(_flyoutProvider.Name))"
+                                   OnSaveClicked="@(config => SaveProvider(_flyoutProvider.Name, config))"
+                                   OnDeleteClicked="@(() => DeleteProvider(_flyoutProvider.Name))"
+                                   TestResult="@GetTestResult(_flyoutProvider.Name)"
+                                   IsTesting="@IsProviderTesting(_flyoutProvider.Name)"
+                                   IsSaving="@_saving" />
+            }
+        </div>
+    </MudDrawer>
+}
+
 @code {
     /// <summary>Current user role for authorisation gating.</summary>
     [Parameter] public string CurrentRole { get; set; } = "Administrator";
@@ -508,20 +513,13 @@
     // Collapsible sections.
     private bool _connectionsExpanded;
     private bool _advancedExpanded;
-    private readonly Dictionary<string, bool> _groupExpansion = new()
-    {
-        ["books"] = true,
-        ["audiobooks"] = true,
-        ["comics"] = false,
-        ["movies"] = false,
-        ["tvshows"] = false,
-    };
 
-    // Priority tracking — tracks which groups have unsaved changes.
-    private readonly HashSet<string> _dirtyGroups = [];
-
-    // Mutable priority state: groupKey → fieldKey → ordered list of (providerName, displayName).
-    private readonly Dictionary<string, Dictionary<string, List<PriorityEntry>>> _priorities = new();
+    // Matrix state.
+    private int _activeTabIndex;
+    private MudDropContainer<MatrixItem>? _dropContainer;
+    private readonly Dictionary<int, List<MatrixItem>> _matrixItemsByTab = new();
+    private readonly Dictionary<int, List<MatrixColumn>> _matrixColumnsByTab = new();
+    private readonly HashSet<int> _dirtyTabs = [];
 
     // Pipeline config.
     private HydrationSettingsDto? _hydrationSettings;
@@ -530,25 +528,28 @@
     private bool _drawerOpen;
     private ProviderStatusDto? _drawerProvider;
 
+    // Desktop flyout.
+    private bool _flyoutOpen;
+    private ProviderStatusDto? _flyoutProvider;
+
     // Per-provider test results.
     private readonly Dictionary<string, ProviderTestResultDto> _testResults = new();
     private readonly HashSet<string> _testingProviders = [];
 
-    // ── Media type group definitions ─────────────────────────────────────────
+    // ── Media type tab definitions ─────────────────────────────────────────
 
-    private static readonly MediaTypeGroup[] _mediaTypeGroups =
+    private static readonly List<MediaTypeTab> MediaTypeTabs =
     [
-        new("books",      "Books",      "Ebook",     Icons.Material.Outlined.MenuBook),
-        new("audiobooks", "Audiobooks", "Audiobook", Icons.Material.Outlined.Headphones),
-        new("comics",     "Comics",     "Comic",     Icons.Material.Outlined.CollectionsBookmark),
-        new("movies",     "Movies",     "Video",     Icons.Material.Outlined.Movie),
-        new("tvshows",    "TV Shows",   "Video",     Icons.Material.Outlined.Tv),
+        new("Books",      "Ebook",     Icons.Material.Outlined.MenuBook),
+        new("Audiobooks", "Audiobook", Icons.Material.Outlined.Headphones),
+        new("Comics",     "Comic",     Icons.Material.Outlined.CollectionsBookmark),
+        new("Movies",     "Video",     Icons.Material.Outlined.Movie),
+        new("TV Shows",   "Video",     Icons.Material.Outlined.Tv),
     ];
 
-    private sealed record MediaTypeGroup(string Key, string Label, string DomainKey, string Icon);
-    private sealed record PriorityEntry(string ProviderName, string DisplayName);
+    private sealed record MediaTypeTab(string Label, string DomainKey, string Icon);
 
-    // ── Computed ──────────────────────────────────────────────────────────────
+    // ── Computed ────────────────────────────────────────────────────────────
 
     private bool HasAdminAccess =>
         string.Equals(CurrentRole, "Administrator", StringComparison.OrdinalIgnoreCase)
@@ -561,7 +562,13 @@
         string.Equals(DeviceContext.Settings.Pages.ServerSettings.SidebarLayout,
                       "drawer", StringComparison.OrdinalIgnoreCase);
 
-    // ── Lifecycle ─────────────────────────────────────────────────────────────
+    private List<MatrixItem> ActiveMatrixItems =>
+        _matrixItemsByTab.TryGetValue(_activeTabIndex, out var items) ? items : [];
+
+    private List<MatrixColumn> ActiveColumns =>
+        _matrixColumnsByTab.TryGetValue(_activeTabIndex, out var cols) ? cols : [];
+
+    // ── Lifecycle ───────────────────────────────────────────────────────────
 
     protected override async Task OnInitializedAsync()
     {
@@ -583,12 +590,8 @@
                 return;
             }
 
-            _providers = providers
-                .Where(p => !string.Equals(p.Name, "local_filesystem", StringComparison.OrdinalIgnoreCase))
-                .OrderBy(p => p.Name)
-                .ToList();
-
-            BuildPriorities();
+            _providers = providers.OrderBy(p => p.Name).ToList();
+            BuildAllMatrices();
         }
         catch
         {
@@ -602,156 +605,345 @@
 
     private async Task LoadHydrationSettingsAsync()
     {
-        try
+        try { _hydrationSettings = await Orchestrator.GetHydrationSettingsAsync(); }
+        catch { /* Non-fatal */ }
+    }
+
+    // ── Matrix building ────────────────────────────────────────────────────
+
+    private void BuildAllMatrices()
+    {
+        _matrixItemsByTab.Clear();
+        _matrixColumnsByTab.Clear();
+
+        for (var i = 0; i < MediaTypeTabs.Count; i++)
         {
-            _hydrationSettings = await Orchestrator.GetHydrationSettingsAsync();
-        }
-        catch
-        {
-            // Non-fatal — Advanced section shows fallback message.
+            var tab = MediaTypeTabs[i];
+            var columns = FieldDictionary.GetDefaultColumns();
+            var items = BuildMatrixItemsForTab(tab, columns);
+            _matrixColumnsByTab[i] = columns;
+            _matrixItemsByTab[i] = items;
         }
     }
 
-    // ── Priority model ───────────────────────────────────────────────────────
-
-    private void BuildPriorities()
+    private List<MatrixItem> BuildMatrixItemsForTab(MediaTypeTab tab, List<MatrixColumn> columns)
     {
-        _priorities.Clear();
+        var relevantProviders = GetRelevantProviders(tab.DomainKey);
+        var items = new List<MatrixItem>();
+        var seenDisplayNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var group in _mediaTypeGroups)
+        // Build a provider info lookup, deduplicating Apple Books.
+        var providerInfos = new List<(ProviderStatusDto Provider, string DisplayName, string Color, string Icon)>();
+        foreach (var provider in relevantProviders)
         {
-            var groupProviders = GetProvidersForMediaType(group.DomainKey);
-            var fields = new Dictionary<string, List<PriorityEntry>>();
+            var displayName = ProviderAccentMap.GetDisplayName(provider.Name);
+            if (!seenDisplayNames.Add(displayName)) continue;
+            var (color, icon) = ProviderAccentMap.GetAccent(provider.Name);
+            providerInfos.Add((provider, displayName, color, icon));
+        }
 
-            // Collect all fields from available_fields (preferred) or fall back to field_weights.
-            foreach (var provider in groupProviders)
+        // For each column, find providers that have existing field weights and place them.
+        foreach (var column in columns)
+        {
+            var columnItems = new List<(MatrixItem Item, double BestWeight)>();
+
+            foreach (var (provider, displayName, color, icon) in providerInfos)
             {
-                var fieldKeys = GetProviderFieldKeys(provider);
+                var supported = GetProviderFieldKeys(provider);
+                var supportsColumn = column.ClaimKeys.Any(ck =>
+                    supported.Contains(ck, StringComparer.OrdinalIgnoreCase));
+                if (!supportsColumn) continue;
 
-                foreach (var fieldKey in fieldKeys)
+                // Find the best existing weight for any claim key in this column.
+                var bestWeight = column.ClaimKeys
+                    .Select(ck => GetFieldWeight(provider.Name, ck))
+                    .Max();
+
+                // Only place if there's a meaningful weight (provider was previously configured).
+                if (bestWeight > 0.01)
                 {
-                    if (!fields.ContainsKey(fieldKey))
-                        fields[fieldKey] = [];
-
-                    fields[fieldKey].Add(new PriorityEntry(provider.Name, provider.DisplayName));
+                    columnItems.Add((new MatrixItem
+                    {
+                        ProviderKey = provider.Name,
+                        DisplayName = displayName,
+                        Zone = column.ZoneId,
+                        SupportedFields = new HashSet<string>(supported, StringComparer.OrdinalIgnoreCase),
+                        Color = color,
+                        Icon = icon,
+                        Enabled = provider.Enabled,
+                    }, bestWeight));
                 }
             }
 
-            // Sort each field's providers by their existing weight (descending = highest priority first).
-            foreach (var (fieldKey, entries) in fields)
+            // Sort by weight descending (highest = position 0).
+            var ordered = columnItems.OrderByDescending(x => x.BestWeight).ToList();
+            for (var i = 0; i < ordered.Count; i++)
             {
-                fields[fieldKey] = entries
-                    .OrderByDescending(e => GetFieldWeight(e.ProviderName, fieldKey))
-                    .ToList();
+                ordered[i].Item.Order = i;
+                items.Add(ordered[i].Item);
             }
-
-            _priorities[group.Key] = fields;
         }
-    }
 
-    /// <summary>Gets the field keys a provider supports (from available_fields or field_weights).</summary>
-    private static IEnumerable<string> GetProviderFieldKeys(ProviderStatusDto provider)
-    {
-        if (provider.AvailableFields is { Count: > 0 })
-            return provider.AvailableFields;
-        if (provider.FieldWeights is { Count: > 0 })
-            return provider.FieldWeights.Keys;
-        return [];
-    }
-
-    private List<FieldPriorityView> BuildFieldPriorities(string groupKey, List<ProviderStatusDto> groupProviders)
-    {
-        // Use cached priorities if available; rebuild if not.
-        if (!_priorities.TryGetValue(groupKey, out var cached))
+        // Providers not placed in any column go to the disabled pool.
+        var placedKeys = items.Select(i => i.ProviderKey).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var (provider, displayName, color, icon) in providerInfos)
         {
-            BuildPriorities();
-            cached = _priorities.GetValueOrDefault(groupKey);
+            if (placedKeys.Contains(provider.Name)) continue;
+            var supported = GetProviderFieldKeys(provider);
+            items.Add(new MatrixItem
+            {
+                ProviderKey = provider.Name,
+                DisplayName = displayName,
+                Zone = "disabled",
+                Order = 0,
+                SupportedFields = new HashSet<string>(supported, StringComparer.OrdinalIgnoreCase),
+                Color = color,
+                Icon = icon,
+                Enabled = provider.Enabled,
+            });
         }
 
-        if (cached is null) return [];
-
-        return cached
-            .OrderBy(kv => FieldSortOrder(kv.Key))
-            .Select(kv => new FieldPriorityView { FieldKey = kv.Key, Providers = kv.Value })
-            .ToList();
+        return items;
     }
 
-    private sealed class FieldPriorityView
+    // ── MudDropContainer handlers ──────────────────────────────────────────
+
+    private void OnItemDropped(MudItemDropInfo<MatrixItem> info)
     {
-        public string FieldKey { get; init; } = string.Empty;
-        public List<PriorityEntry> Providers { get; set; } = [];
-    }
+        var item = info.Item;
+        if (item is null) return;
+        var targetZone = info.DropzoneIdentifier;
+        var sourceZone = item.Zone;
 
-    /// <summary>Gets the field weight for a provider+field pair.</summary>
-    private double GetFieldWeight(string providerName, string fieldKey)
-    {
-        var provider = _providers.FirstOrDefault(p => p.Name == providerName);
-        if (provider?.FieldWeights?.TryGetValue(fieldKey, out var w) == true)
-            return w;
-        return provider?.DefaultWeight ?? 0.5;
-    }
+        // Update the item.
+        item.Zone = targetZone;
+        item.Order = info.IndexInZone;
 
-    // ── Priority reordering ──────────────────────────────────────────────────
+        // Recalculate orders in the target zone.
+        RecalculateOrders(targetZone);
+        if (sourceZone != targetZone)
+            RecalculateOrders(sourceZone);
 
-    private void MovePriority(string groupKey, string fieldKey, int index, int direction)
-    {
-        if (!_priorities.TryGetValue(groupKey, out var fields)) return;
-        if (!fields.TryGetValue(fieldKey, out var entries)) return;
-
-        var newIndex = index + direction;
-        if (newIndex < 0 || newIndex >= entries.Count) return;
-
-        // Swap.
-        (entries[index], entries[newIndex]) = (entries[newIndex], entries[index]);
-        _dirtyGroups.Add(groupKey);
+        _dirtyTabs.Add(_activeTabIndex);
         StateHasChanged();
     }
 
-    private async Task SavePrioritiesAsync(string groupKey)
+    private void RecalculateOrders(string zone)
     {
-        if (!_priorities.TryGetValue(groupKey, out var fields)) return;
+        var zoneItems = ActiveMatrixItems
+            .Where(i => i.Zone == zone)
+            .OrderBy(i => i.Order)
+            .ToList();
 
+        for (var i = 0; i < zoneItems.Count; i++)
+            zoneItems[i].Order = i;
+    }
+
+    private static bool CanDropInColumn(MatrixItem item, MatrixColumn column) =>
+        column.ClaimKeys.Any(ck =>
+            item.SupportedFields.Contains(ck, StringComparer.OrdinalIgnoreCase));
+
+    private int GetItemPosition(MatrixItem item)
+    {
+        if (item.Zone == "disabled") return 0;
+        return ActiveMatrixItems
+            .Where(i => i.Zone == item.Zone)
+            .OrderBy(i => i.Order)
+            .ToList()
+            .IndexOf(item);
+    }
+
+    // ── Tab switching ──────────────────────────────────────────────────────
+
+    private void OnTabChanged(int newIndex)
+    {
+        _activeTabIndex = newIndex;
+        _dropContainer?.Refresh();
+    }
+
+    // ── Column management ──────────────────────────────────────────────────
+
+    private void ExtractFieldFromUniverse(string claimKey)
+    {
+        var universeCol = ActiveColumns.FirstOrDefault(c => c.ZoneId == "universe_info");
+        if (universeCol is null || !universeCol.ClaimKeys.Contains(claimKey)) return;
+
+        // Remove from Universe group.
+        universeCol.ClaimKeys.Remove(claimKey);
+
+        // Create new column.
+        var newCol = new MatrixColumn
+        {
+            ZoneId = claimKey,
+            DisplayName = FieldDictionary.GetDisplayName(claimKey),
+            Icon = FieldDictionary.GetIcon(claimKey),
+            ClaimKeys = [claimKey],
+            IsGroup = false,
+            IsUserAdded = true,
+            SortOrder = ActiveColumns.Max(c => c.SortOrder) + 1,
+        };
+        ActiveColumns.Add(newCol);
+
+        // Clone providers from Universe zone that support this field.
+        var universeProviders = ActiveMatrixItems
+            .Where(i => i.Zone == "universe_info"
+                     && i.SupportedFields.Contains(claimKey, StringComparer.OrdinalIgnoreCase))
+            .ToList();
+
+        for (var i = 0; i < universeProviders.Count; i++)
+        {
+            var src = universeProviders[i];
+            ActiveMatrixItems.Add(new MatrixItem
+            {
+                ProviderKey = src.ProviderKey,
+                DisplayName = src.DisplayName,
+                SupportedFields = src.SupportedFields,
+                Color = src.Color,
+                Icon = src.Icon,
+                Enabled = src.Enabled,
+                Zone = claimKey,
+                Order = i,
+            });
+        }
+
+        _dirtyTabs.Add(_activeTabIndex);
+        _dropContainer?.Refresh();
+    }
+
+    private void RemoveColumn(MatrixColumn column)
+    {
+        // Move items back to disabled (remove duplicates — keep one per provider in disabled).
+        var columnItems = ActiveMatrixItems.Where(i => i.Zone == column.ZoneId).ToList();
+        foreach (var item in columnItems)
+            ActiveMatrixItems.Remove(item);
+
+        // If this was extracted from Universe, re-absorb the claim key.
+        if (column.IsUserAdded && column.ClaimKeys.Count == 1)
+        {
+            var universeCol = ActiveColumns.FirstOrDefault(c => c.ZoneId == "universe_info");
+            if (universeCol is not null && FieldDictionary.UniverseGroupFields.Contains(column.ClaimKeys[0]))
+                universeCol.ClaimKeys.Add(column.ClaimKeys[0]);
+        }
+
+        ActiveColumns.Remove(column);
+        _dirtyTabs.Add(_activeTabIndex);
+        _dropContainer?.Refresh();
+    }
+
+    private void AddColumn(string claimKey)
+    {
+        if (ActiveColumns.Any(c => c.ZoneId == claimKey)) return;
+
+        ActiveColumns.Add(new MatrixColumn
+        {
+            ZoneId = claimKey,
+            DisplayName = FieldDictionary.GetDisplayName(claimKey),
+            Icon = FieldDictionary.GetIcon(claimKey),
+            ClaimKeys = [claimKey],
+            IsGroup = false,
+            IsUserAdded = true,
+            SortOrder = ActiveColumns.Max(c => c.SortOrder) + 1,
+        });
+
+        _dirtyTabs.Add(_activeTabIndex);
+        _dropContainer?.Refresh();
+    }
+
+    private IEnumerable<KeyValuePair<string, FieldDictionary.FieldInfo>> GetAddableFields()
+    {
+        var existingZones = ActiveColumns
+            .Select(c => c.ZoneId)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var groupedFields = ActiveColumns
+            .Where(c => c.IsGroup)
+            .SelectMany(c => c.ClaimKeys)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        return FieldDictionary.Fields
+            .Where(f => !existingZones.Contains(f.Key) && !groupedFields.Contains(f.Key))
+            .OrderBy(f => f.Value.Category)
+            .ThenBy(f => f.Value.DisplayName);
+    }
+
+    // ── Save ───────────────────────────────────────────────────────────────
+
+    private async Task SaveMatrixPrioritiesAsync()
+    {
         _saving = true;
         StateHasChanged();
 
         try
         {
-            // Collect updated field weights per provider.
+            var tab = MediaTypeTabs[_activeTabIndex];
             var providerWeights = new Dictionary<string, Dictionary<string, double>>();
 
-            foreach (var (fieldKey, entries) in fields)
+            foreach (var column in ActiveColumns)
             {
-                for (var i = 0; i < entries.Count; i++)
-                {
-                    var weight = PriorityToWeight(i);
-                    var providerName = entries[i].ProviderName;
+                var zoneItems = ActiveMatrixItems
+                    .Where(i => i.Zone == column.ZoneId)
+                    .OrderBy(i => i.Order)
+                    .ToList();
 
-                    if (!providerWeights.ContainsKey(providerName))
+                for (var position = 0; position < zoneItems.Count; position++)
+                {
+                    var item = zoneItems[position];
+                    var realKey = ResolveProviderKeyForSave(item, tab.DomainKey);
+                    var weight = PriorityToWeight(position);
+
+                    if (!providerWeights.TryGetValue(realKey, out var weights))
                     {
-                        // Start from existing weights.
-                        var existing = _providers.FirstOrDefault(p => p.Name == providerName);
-                        providerWeights[providerName] = existing?.FieldWeights is not null
+                        var existing = _providers.FirstOrDefault(p => p.Name == realKey);
+                        weights = existing?.FieldWeights is not null
                             ? new Dictionary<string, double>(existing.FieldWeights)
                             : new();
+                        providerWeights[realKey] = weights;
                     }
 
-                    providerWeights[providerName][fieldKey] = weight;
+                    foreach (var claimKey in column.ClaimKeys)
+                    {
+                        if (item.SupportedFields.Contains(claimKey, StringComparer.OrdinalIgnoreCase))
+                            weights[claimKey] = weight;
+                    }
                 }
             }
 
-            // Save each affected provider.
+            // Disabled providers: set weight to 0 for fields in visible columns.
+            var allColumnFields = ActiveColumns
+                .SelectMany(c => c.ClaimKeys)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var item in ActiveMatrixItems.Where(i => i.Zone == "disabled"))
+            {
+                var realKey = ResolveProviderKeyForSave(item, tab.DomainKey);
+                if (!providerWeights.TryGetValue(realKey, out var weights))
+                {
+                    var existing = _providers.FirstOrDefault(p => p.Name == realKey);
+                    weights = existing?.FieldWeights is not null
+                        ? new Dictionary<string, double>(existing.FieldWeights)
+                        : new();
+                    providerWeights[realKey] = weights;
+                }
+
+                foreach (var field in allColumnFields
+                    .Where(f => item.SupportedFields.Contains(f, StringComparer.OrdinalIgnoreCase)))
+                {
+                    weights[field] = 0.0;
+                }
+            }
+
+            // Save each provider.
             var allSuccess = true;
             foreach (var (providerName, weights) in providerWeights)
             {
                 var config = new ProviderConfigUpdateDto { FieldWeights = weights };
-                var success = await Orchestrator.SaveProviderConfigAsync(providerName, config);
-                if (!success) allSuccess = false;
+                if (!await Orchestrator.SaveProviderConfigAsync(providerName, config))
+                    allSuccess = false;
             }
 
             if (allSuccess)
             {
-                Snackbar.Add($"Priorities saved for {groupKey}.", Severity.Success);
-                _dirtyGroups.Remove(groupKey);
+                Snackbar.Add($"Priorities saved for {tab.Label}.", Severity.Success);
+                _dirtyTabs.Remove(_activeTabIndex);
                 await LoadProvidersAsync();
             }
             else
@@ -765,58 +957,46 @@
         }
     }
 
-    /// <summary>Maps a 0-based priority position to a field weight value.</summary>
     private static double PriorityToWeight(int position) =>
         Math.Max(0.15, 0.95 - (position * 0.10));
 
-    // ── Provider helpers ─────────────────────────────────────────────────────
+    private static string ResolveProviderKeyForSave(MatrixItem item, string domainKey) =>
+        item.DisplayName.Equals("Apple Books", StringComparison.OrdinalIgnoreCase)
+            ? domainKey.Equals("Audiobook", StringComparison.OrdinalIgnoreCase)
+                ? "apple_books_audiobook"
+                : "apple_books_ebook"
+            : item.ProviderKey;
 
-    private List<ProviderStatusDto> GetProvidersForMediaType(string domainKey) =>
+    // ── Provider helpers ───────────────────────────────────────────────────
+
+    private List<ProviderStatusDto> GetRelevantProviders(string domainKey) =>
         _providers
-            .Where(p => !IsWikidata(p.Name)
-                && string.Equals(p.Domain, domainKey, StringComparison.OrdinalIgnoreCase))
+            .Where(p =>
+                string.Equals(p.Domain, domainKey, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(p.Domain, "Universal", StringComparison.OrdinalIgnoreCase))
             .ToList();
 
-    private List<ProviderStatusDto> GetNonWikidataProviders() =>
-        _providers.Where(p => !IsWikidata(p.Name)).ToList();
+    private static IEnumerable<string> GetProviderFieldKeys(ProviderStatusDto provider)
+    {
+        if (provider.AvailableFields is { Count: > 0 })
+            return provider.AvailableFields;
+        if (provider.FieldWeights is { Count: > 0 })
+            return provider.FieldWeights.Keys;
+        return [];
+    }
 
-    private ProviderStatusDto? GetWikidataProvider() =>
-        _providers.FirstOrDefault(p => IsWikidata(p.Name));
+    private double GetFieldWeight(string providerName, string fieldKey)
+    {
+        var provider = _providers.FirstOrDefault(p => p.Name == providerName);
+        if (provider?.FieldWeights?.TryGetValue(fieldKey, out var w) == true)
+            return w;
+        return 0.0;
+    }
 
     private static bool IsWikidata(string name) =>
         string.Equals(name, "wikidata", StringComparison.OrdinalIgnoreCase);
 
-    // ── Group expansion ──────────────────────────────────────────────────────
-
-    private bool IsGroupExpanded(string key) =>
-        _groupExpansion.TryGetValue(key, out var expanded) && expanded;
-
-    private void ToggleGroup(string key)
-    {
-        if (_groupExpansion.TryGetValue(key, out var expanded))
-            _groupExpansion[key] = !expanded;
-        else
-            _groupExpansion[key] = true;
-    }
-
-    // ── Row interaction ──────────────────────────────────────────────────────
-
-    private void ToggleExpanded(string name)
-    {
-        if (IsMobile)
-        {
-            var provider = _providers.FirstOrDefault(p => p.Name == name);
-            if (provider is not null)
-            {
-                _drawerProvider = provider;
-                _drawerOpen = true;
-            }
-        }
-        else
-        {
-            _expandedProvider = _expandedProvider == name ? null : name;
-        }
-    }
+    // ── Row interaction / flyout ────────────────────────────────────────────
 
     private void OnRowClicked(ProviderStatusDto provider)
     {
@@ -831,7 +1011,36 @@
         }
     }
 
-    // ── Mobile drawer ────────────────────────────────────────────────────────
+    private void OpenProviderFlyout(MatrixItem item)
+    {
+        var provider = _providers.FirstOrDefault(p => p.Name == item.ProviderKey);
+        if (provider is null) return;
+
+        if (IsMobile)
+        {
+            _drawerProvider = provider;
+            _drawerOpen = true;
+        }
+        else
+        {
+            _flyoutProvider = provider;
+            _flyoutOpen = true;
+        }
+    }
+
+    private void OnFlyoutOpenChanged(bool open)
+    {
+        _flyoutOpen = open;
+        if (!open) _flyoutProvider = null;
+    }
+
+    private void CloseFlyout()
+    {
+        _flyoutOpen = false;
+        _flyoutProvider = null;
+    }
+
+    // ── Mobile drawer ──────────────────────────────────────────────────────
 
     private void OnDrawerOpenChanged(bool open)
     {
@@ -845,7 +1054,7 @@
         _drawerProvider = null;
     }
 
-    // ── Provider actions ─────────────────────────────────────────────────────
+    // ── Provider actions ───────────────────────────────────────────────────
 
     private async Task ToggleProviderAsync(string name, bool enabled)
     {
@@ -886,6 +1095,7 @@
                 Snackbar.Add($"{name} configuration saved.", Severity.Success);
                 await LoadProvidersAsync();
                 _expandedProvider = null;
+                CloseFlyout();
                 CloseDrawer();
             }
             else
@@ -912,6 +1122,7 @@
                 Snackbar.Add($"{name} has been disabled.", Severity.Info);
                 await LoadProvidersAsync();
                 _expandedProvider = null;
+                CloseFlyout();
                 CloseDrawer();
             }
             else
@@ -945,43 +1156,21 @@
         }
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
+    // ── Helpers ─────────────────────────────────────────────────────────────
 
     private ProviderTestResultDto? GetTestResult(string name) =>
         _testResults.TryGetValue(name, out var r) ? r : null;
 
     private bool IsProviderTesting(string name) => _testingProviders.Contains(name);
 
-    /// <summary>Sort order for fields — most important first.</summary>
-    private static int FieldSortOrder(string key) =>
-        key switch
-        {
-            "cover" => 0,
-            "title" => 1,
-            "author" => 2,
-            "description" => 3,
-            "narrator" => 4,
-            "series" => 5,
-            "series_position" => 6,
-            "year" => 7,
-            "isbn" => 8,
-            "asin" => 9,
-            "rating" => 10,
-            "publisher" => 11,
-            "page_count" => 12,
-            "language" => 13,
-            "genre" => 14,
-            _ => 100,
-        };
-
     private static string FormatDomain(string domain) =>
         domain switch
         {
-            "Ebook" => "Books",
+            "Ebook"     => "Books",
             "Audiobook" => "Audiobooks",
-            "Video" => "Video",
+            "Video"     => "Video",
             "Universal" => "Universal",
-            _ => domain,
+            _           => domain,
         };
 
     private static string StatusDotStyle(ProviderStatusDto p)
@@ -1001,7 +1190,7 @@
         return p.IsReachable ? "Connected" : "Unreachable";
     }
 
-    // ── Styles ────────────────────────────────────────────────────────────────
+    // ── Styles ──────────────────────────────────────────────────────────────
 
     private const string GlassStyle =
         "background: var(--tanaste-glass-bg); " +
@@ -1019,14 +1208,112 @@
 }
 
 <style>
-    /* ── Provider list container ──────────────────────────────────────── */
+    /* ── Section headers ───────────────────────────────────────────── */
+    .section-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 12px;
+        cursor: pointer;
+        border-radius: 12px;
+        transition: background 0.15s ease;
+        user-select: none;
+    }
+
+    .section-header:hover {
+        background: var(--tanaste-hover-overlay);
+    }
+
+    /* ── Matrix columns layout ─────────────────────────────────────── */
+    .matrix-columns-scroll {
+        overflow-x: auto;
+        padding-bottom: 8px;
+        margin-bottom: 16px;
+    }
+
+    .matrix-columns {
+        display: flex;
+        gap: 12px;
+        min-width: min-content;
+    }
+
+    .matrix-column {
+        min-width: 180px;
+        max-width: 220px;
+        flex-shrink: 0;
+    }
+
+    .matrix-column-header {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 12px;
+        border-bottom: 2px solid var(--mud-palette-primary);
+        margin-bottom: 8px;
+        min-height: 40px;
+    }
+
+    /* ── Drop zones ────────────────────────────────────────────────── */
+    .matrix-drop-zone {
+        min-height: 120px;
+        border: 1px dashed var(--tanaste-glass-border);
+        border-radius: 12px;
+        padding: 6px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        transition: border-color 0.2s ease, background 0.2s ease;
+    }
+
+    .matrix-can-drop {
+        border-color: var(--mud-palette-primary) !important;
+        background: rgba(var(--mud-palette-primary-rgb), 0.04);
+    }
+
+    .matrix-no-drop {
+        border-color: var(--mud-palette-error) !important;
+        background: rgba(var(--mud-palette-error-rgb), 0.03);
+    }
+
+    /* ── Disabled / available pool ─────────────────────────────────── */
+    .matrix-disabled-pool {
+        margin-top: 16px;
+        padding: 12px;
+        border: 1px solid var(--tanaste-glass-border);
+        border-radius: 16px;
+        background: rgba(0, 0, 0, 0.02);
+    }
+
+    .matrix-disabled-zone {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        min-height: 48px;
+        padding: 4px;
+    }
+
+    /* ── Add column button ─────────────────────────────────────────── */
+    .matrix-add-column {
+        min-width: 48px;
+        display: flex;
+        align-items: flex-start;
+        padding-top: 8px;
+    }
+
+    /* ── Flyout active — gray out matrix ──────────────────────────── */
+    .matrix-grayed-out {
+        opacity: 0.4;
+        pointer-events: none;
+        transition: opacity 0.3s ease;
+    }
+
+    /* ── Provider list (connections section) ────────────────────────── */
     .provider-list {
         display: flex;
         flex-direction: column;
         gap: 2px;
     }
 
-    /* ── Individual provider row ──────────────────────────────────────── */
     .provider-row {
         border-radius: 12px;
         border: 1px solid transparent;
@@ -1038,7 +1325,6 @@
         background: var(--tanaste-glass-bg);
     }
 
-    /* ── Row header (always visible) ─────────────────────────────────── */
     .provider-row-header {
         display: flex;
         align-items: center;
@@ -1060,122 +1346,5 @@
 
     .provider-expanded-content {
         padding: 0 16px 16px 32px;
-    }
-
-    /* ── Media type groups ────────────────────────────────────────────── */
-    .media-type-group {
-        border-radius: 12px;
-        border: 1px solid transparent;
-        margin-bottom: 2px;
-        transition: border-color 0.15s ease;
-    }
-
-    .media-type-group.expanded {
-        border-color: var(--tanaste-glass-border);
-        margin-bottom: 8px;
-    }
-
-    .media-type-header {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 10px 12px;
-        cursor: pointer;
-        border-radius: 12px;
-        transition: background 0.15s ease;
-        user-select: none;
-    }
-
-    .media-type-header:hover {
-        background: var(--tanaste-hover-overlay);
-    }
-
-    .media-type-content {
-        padding: 4px 16px 16px 32px;
-    }
-
-    /* ── Field cards grid ─────────────────────────────────────────────── */
-    .field-cards-grid {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-    }
-
-    .field-card {
-        border: 1px solid var(--tanaste-glass-border);
-        border-radius: 12px;
-        padding: 12px;
-        background: transparent;
-        transition: border-color 0.15s ease;
-    }
-
-    .field-card:hover {
-        border-color: var(--mud-palette-primary);
-    }
-
-    .field-card-header {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin-bottom: 8px;
-    }
-
-    /* ── Provider priority list (within field card) ──────────────────── */
-    .field-provider-list {
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-    }
-
-    .field-provider-item {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 6px 8px;
-        border-radius: 8px;
-        transition: background 0.15s ease;
-    }
-
-    .field-provider-item:hover {
-        background: var(--tanaste-hover-overlay);
-    }
-
-    .field-provider-item.primary {
-        background: rgba(var(--mud-palette-primary-rgb), 0.06);
-    }
-
-    .grip-handle {
-        cursor: grab;
-        display: flex;
-        align-items: center;
-        padding: 0 2px;
-    }
-
-    .grip-handle:active {
-        cursor: grabbing;
-    }
-
-    .priority-badge {
-        font-size: 0.65rem;
-        font-weight: 700;
-        min-width: 20px;
-        height: 20px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 50%;
-        background: var(--tanaste-glass-border);
-        color: var(--tanaste-text-muted);
-    }
-
-    .priority-badge.primary {
-        background: var(--mud-palette-primary);
-        color: white;
-    }
-
-    .move-buttons {
-        display: flex;
-        flex-direction: column;
-        gap: 0;
     }
 </style>
