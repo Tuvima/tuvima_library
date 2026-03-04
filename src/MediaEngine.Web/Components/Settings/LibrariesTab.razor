@@ -1,21 +1,90 @@
 @namespace MediaEngine.Web.Components.Settings
 @inject UIOrchestratorService Orchestrator
+@inject DeviceContextService DeviceContext
 @inject ISnackbar Snackbar
 @implements IDisposable
 
-@* Folder configuration — Watch Folder + Library Folder with health status dots. *@
+@* Folder configuration — Library Folder (primary), Watch Folder, Staging Folder, and file naming template.
+   Read-only on mobile. Not available on television / automotive. *@
 
+@{
+    var readOnly    = DeviceContext.IsMobile;
+    var unavailable = DeviceContext.IsTelevision || DeviceContext.IsAutomotive;
+}
+
+@if (unavailable)
+{
+    <MudPaper Elevation="0" Style="@GlassStyle">
+        <MudStack AlignItems="AlignItems.Center" Spacing="3" Class="py-8">
+            <MudIcon Icon="@Icons.Material.Outlined.DesktopAccessDisabled"
+                     Color="Color.Secondary"
+                     Style="font-size: 3rem;" />
+            <MudText Typo="Typo.h6" Color="Color.Secondary">Not Available</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Style="text-align: center;">
+                Library folder settings are not available on this device.
+                Please use the web or mobile interface to configure your library.
+            </MudText>
+        </MudStack>
+    </MudPaper>
+}
+else
+{
 <MudPaper Elevation="0" Style="@GlassStyle">
 
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
         <MudIcon Icon="@Icons.Material.Outlined.FolderOpen" Color="Color.Primary" Class="mr-2" />
         <MudText Typo="Typo.h6">File Management</MudText>
+        @if (readOnly)
+        {
+            <MudChip T="string" Size="Size.Small" Color="Color.Default"
+                     Icon="@Icons.Material.Outlined.Visibility"
+                     Style="margin-left: auto;">
+                View Only
+            </MudChip>
+        }
     </MudStack>
     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
         Tell me where to find and keep your media.
     </MudText>
 
-    @* Watch Folder *@
+    @* ── Library Folder (primary — shown first, with more prominence) ─────────── *@
+    <MudPaper Elevation="0" Style="@PrimaryFolderCardStyle" Class="mb-6 pa-4">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-1">
+            <MudIcon Icon="@Icons.Material.Filled.Circle"
+                     Size="Size.Small"
+                     Color="@(_libraryHealthy ? Color.Success : Color.Error)" />
+            <MudText Typo="Typo.subtitle1" Style="font-weight: 700;">Library Folder</MudText>
+        </MudStack>
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+            The organised library root — this is where your files will live after they are processed.
+        </MudText>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-2">
+            <MudTextField @bind-Value="_libraryRoot"
+                          Placeholder="/path/to/library"
+                          Variant="Variant.Outlined"
+                          FullWidth="true"
+                          Immediate="true"
+                          ReadOnly="@readOnly"
+                          Margin="Margin.Dense" />
+            <MudButton Variant="Variant.Outlined"
+                       Color="Color.Primary"
+                       OnClick="@TestLibraryPathAsync"
+                       Disabled="@(string.IsNullOrWhiteSpace(_libraryRoot) || _testingLib || readOnly)"
+                       Style="white-space: nowrap; min-width: 110px;">
+                @(_testingLib ? "Testing..." : "Test Path")
+            </MudButton>
+        </MudStack>
+        @if (_libTestResult is not null)
+        {
+            <MudChip T="string"
+                     Color="@GetTestColor(_libTestResult)"
+                     Size="Size.Small">
+                @GetTestLabel(_libTestResult)
+            </MudChip>
+        }
+    </MudPaper>
+
+    @* ── Watch Folder ─────────────────────────────────────────────────────────── *@
     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-1">
         <MudIcon Icon="@Icons.Material.Filled.Circle"
                  Size="Size.Small"
@@ -31,11 +100,12 @@
                       Variant="Variant.Outlined"
                       FullWidth="true"
                       Immediate="true"
+                      ReadOnly="@readOnly"
                       Margin="Margin.Dense" />
         <MudButton Variant="Variant.Outlined"
                    Color="Color.Primary"
                    OnClick="@TestWatchPathAsync"
-                   Disabled="@(string.IsNullOrWhiteSpace(_watchDir) || _testingWatch)"
+                   Disabled="@(string.IsNullOrWhiteSpace(_watchDir) || _testingWatch || readOnly)"
                    Style="white-space: nowrap; min-width: 110px;">
             @(_testingWatch ? "Testing..." : "Test Path")
         </MudButton>
@@ -54,46 +124,7 @@
         <div class="mb-5" />
     }
 
-    @* Library Folder *@
-    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-1">
-        <MudIcon Icon="@Icons.Material.Filled.Circle"
-                 Size="Size.Small"
-                 Color="@(_libraryHealthy ? Color.Success : Color.Error)" />
-        <MudText Typo="Typo.subtitle2">Library Folder</MudText>
-    </MudStack>
-    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2">
-        Where should my organised library live?
-    </MudText>
-    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-2">
-        <MudTextField @bind-Value="_libraryRoot"
-                      Placeholder="/path/to/library"
-                      Variant="Variant.Outlined"
-                      FullWidth="true"
-                      Immediate="true"
-                      Margin="Margin.Dense" />
-        <MudButton Variant="Variant.Outlined"
-                   Color="Color.Primary"
-                   OnClick="@TestLibraryPathAsync"
-                   Disabled="@(string.IsNullOrWhiteSpace(_libraryRoot) || _testingLib)"
-                   Style="white-space: nowrap; min-width: 110px;">
-            @(_testingLib ? "Testing..." : "Test Path")
-        </MudButton>
-    </MudStack>
-    @if (_libTestResult is not null)
-    {
-        <MudChip T="string"
-                 Color="@GetTestColor(_libTestResult)"
-                 Size="Size.Small"
-                 Class="mb-5">
-            @GetTestLabel(_libTestResult)
-        </MudChip>
-    }
-    else
-    {
-        <div class="mb-5" />
-    }
-
-    @* Staging Folder *@
+    @* ── Staging Folder ───────────────────────────────────────────────────────── *@
     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-1">
         <MudIcon Icon="@Icons.Material.Filled.Circle"
                  Size="Size.Small"
@@ -110,11 +141,12 @@
                       Variant="Variant.Outlined"
                       FullWidth="true"
                       Immediate="true"
+                      ReadOnly="@readOnly"
                       Margin="Margin.Dense" />
         <MudButton Variant="Variant.Outlined"
                    Color="Color.Primary"
                    OnClick="@TestStagingPathAsync"
-                   Disabled="@(string.IsNullOrWhiteSpace(_stagingDir) || _testingStaging)"
+                   Disabled="@(string.IsNullOrWhiteSpace(_stagingDir) || _testingStaging || readOnly)"
                    Style="white-space: nowrap; min-width: 110px;">
             @(_testingStaging ? "Testing..." : "Test Path")
         </MudButton>
@@ -135,12 +167,12 @@
 
     <MudDivider Class="my-6" />
 
-    @* Organization Template *@
+    @* ── Folder and File Naming ───────────────────────────────────────────────── *@
     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-1">
         <MudIcon Icon="@Icons.Material.Filled.AccountTree"
                  Size="Size.Small"
                  Color="Color.Primary" />
-        <MudText Typo="Typo.subtitle2">Organization Template</MudText>
+        <MudText Typo="Typo.subtitle2">Folder and File Naming</MudText>
     </MudStack>
     <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2">
         Defines how files are organized in the library. Tokens in parentheses are
@@ -148,10 +180,11 @@
         are collapsed.
     </MudText>
     <MudTextField @bind-Value="_organizationTemplate"
-                  Placeholder="{Category}/{HubName} ({Year})/{Format}/{HubName} ({Edition}){Ext}"
+                  Placeholder="@DefaultOrganizationTemplate"
                   Variant="Variant.Outlined"
                   FullWidth="true"
                   Immediate="true"
+                  ReadOnly="@readOnly"
                   Margin="Margin.Dense"
                   Class="mb-2" />
     <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2">
@@ -165,9 +198,17 @@
         <MudButton Variant="Variant.Outlined"
                    Color="Color.Primary"
                    OnClick="@PreviewTemplateAsync"
-                   Disabled="@(string.IsNullOrWhiteSpace(_organizationTemplate) || _previewingTemplate)"
+                   Disabled="@(string.IsNullOrWhiteSpace(_organizationTemplate) || _previewingTemplate || readOnly)"
                    Style="white-space: nowrap; min-width: 110px;">
             @(_previewingTemplate ? "Checking..." : "Preview")
+        </MudButton>
+        <MudButton Variant="Variant.Text"
+                   Color="Color.Default"
+                   OnClick="@ResetTemplateToDefault"
+                   Disabled="@readOnly"
+                   StartIcon="@Icons.Material.Outlined.RestartAlt"
+                   Style="white-space: nowrap;">
+            Reset to Default
         </MudButton>
     </MudStack>
 
@@ -189,17 +230,23 @@
         <div class="mb-5" />
     }
 
-    <MudButton Variant="Variant.Filled"
-               Color="Color.Primary"
-               FullWidth="true"
-               OnClick="@SaveFoldersAsync"
-               Disabled="@_savingFolders">
-        @(_savingFolders ? "Saving..." : "Save Changes")
-    </MudButton>
+    @if (!readOnly)
+    {
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   FullWidth="true"
+                   OnClick="@SaveFoldersAsync"
+                   Disabled="@_savingFolders">
+            @(_savingFolders ? "Saving..." : "Save Changes")
+        </MudButton>
+    }
 
 </MudPaper>
+}
 
 @code {
+
+    private const string DefaultOrganizationTemplate = "{Category}/{Author}/{Title} ({Edition}){Ext}";
 
     private const string GlassStyle =
         "background: var(--app-glass-bg); " +
@@ -213,6 +260,12 @@
         "background: var(--app-glass-inner-bg); " +
         "border: 1px solid var(--app-glass-inner-border); " +
         "border-radius: 12px;";
+
+    private const string PrimaryFolderCardStyle =
+        "background: var(--app-glass-inner-bg); " +
+        "border: 1px solid var(--mud-palette-primary); " +
+        "border-left: 4px solid var(--mud-palette-primary); " +
+        "border-radius: 16px;";
 
     // ── State ────────────────────────────────────────────────────────────────────
 
@@ -240,6 +293,8 @@
 
     protected override async Task OnInitializedAsync()
     {
+        DeviceContext.OnChanged += OnDeviceChanged;
+
         var settings = await Orchestrator.GetFolderSettingsAsync();
         if (settings is not null)
         {
@@ -255,6 +310,10 @@
             _organizationTemplate = tmpl.Template;
             _templatePreview      = tmpl.Preview;
         }
+        else
+        {
+            _organizationTemplate = DefaultOrganizationTemplate;
+        }
 
         // Run initial health checks based on current folder settings.
         await CheckInitialHealthAsync();
@@ -265,7 +324,10 @@
     public void Dispose()
     {
         Orchestrator.OnFolderHealthChanged -= HandleFolderHealthChanged;
+        DeviceContext.OnChanged            -= OnDeviceChanged;
     }
+
+    private void OnDeviceChanged() => InvokeAsync(StateHasChanged);
 
     // ── Folder health event ─────────────────────────────────────────────────────
 
@@ -368,13 +430,6 @@
         _templatePreview    = null;
         _templateError      = null;
 
-        // Use the PUT endpoint which validates and returns a preview — but don't persist.
-        // Actually, use GET with the current saved template to show its preview,
-        // or do a round-trip validation. Simplest: just call PUT to validate;
-        // if we don't want to save, we can use a separate approach.
-        // For now, call UpdateOrganizationTemplateAsync which validates + saves + returns preview.
-        // This is fine because "Preview" can be a save+preview action.
-        // Better: just save the template since the user will click Save Changes anyway.
         var result = await Orchestrator.UpdateOrganizationTemplateAsync(_organizationTemplate);
 
         if (result is not null)
@@ -387,6 +442,13 @@
         }
 
         _previewingTemplate = false;
+    }
+
+    private void ResetTemplateToDefault()
+    {
+        _organizationTemplate = DefaultOrganizationTemplate;
+        _templatePreview      = null;
+        _templateError        = null;
     }
 
     private async Task SaveFoldersAsync()
