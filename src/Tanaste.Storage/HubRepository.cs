@@ -177,4 +177,24 @@ public sealed class HubRepository : IHubRepository
 
         return Task.FromResult(hub.Id);
     }
+
+    /// <inheritdoc/>
+    public Task SetUniverseMismatchAsync(Guid workId, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        var conn = _db.Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            UPDATE works
+            SET    universe_mismatch    = 1,
+                   universe_mismatch_at = @now
+            WHERE  id = @id;
+            """;
+        cmd.Parameters.AddWithValue("@id",  workId.ToString());
+        cmd.Parameters.AddWithValue("@now", DateTimeOffset.UtcNow.ToString("O"));
+        cmd.ExecuteNonQuery();
+
+        return Task.CompletedTask;
+    }
 }

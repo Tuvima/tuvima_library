@@ -28,4 +28,11 @@ public interface IHubRepository
     /// Returns the hub's <see cref="Hub.Id"/>.
     /// </summary>
     Task<Guid> UpsertAsync(Hub hub, CancellationToken ct = default);
+
+    /// <summary>
+    /// Sets <c>universe_mismatch = 1</c> and <c>universe_mismatch_at</c> on a Work
+    /// identified by <paramref name="workId"/>. Used when the user explicitly skips
+    /// Universe (Wikidata) matching for a Work via the Needs Review tab.
+    /// </summary>
+    Task SetUniverseMismatchAsync(Guid workId, CancellationToken ct = default);
 }

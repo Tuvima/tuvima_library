@@ -347,6 +347,18 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         return ok;
     }
 
+    /// <summary>Skips Universe matching for a review item and dismisses it.</summary>
+    public async Task<bool> SkipUniverseAsync(Guid id, CancellationToken ct = default)
+    {
+        var ok = await _api.SkipUniverseAsync(id, ct);
+        if (ok)
+        {
+            _reviewCount = Math.Max(0, _reviewCount - 1);
+            _state.Invalidate();
+        }
+        return ok;
+    }
+
     /// <summary>Fires when the review count changes (from SignalR events or explicit actions).</summary>
     public event Action? OnReviewCountChanged;
 

@@ -180,6 +180,9 @@ public interface ITanasteApiClient
     /// <summary>POST /review/{id}/dismiss — dismiss a review item.</summary>
     Task<bool> DismissReviewItemAsync(Guid id, CancellationToken ct = default);
 
+    /// <summary>POST /review/{id}/skip-universe — skip Universe matching and dismiss the item.</summary>
+    Task<bool> SkipUniverseAsync(Guid id, CancellationToken ct = default);
+
     // ── Provider slots (/settings/provider-slots) ──────────────────────────
 
     /// <summary>GET /settings/provider-slots — current Primary/Secondary/Tertiary slots per media type.</summary>

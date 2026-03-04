@@ -46,6 +46,10 @@ public sealed class ReviewItemViewModel
 
     /// <summary>Entity title (best-available), populated from canonical values.</summary>
     public string? EntityTitle { get; set; }
+
+    /// <summary>The media type of the entity (e.g. "Epub", "Audiobook").</summary>
+    [JsonPropertyName("media_type")]
+    public string? MediaType { get; set; }
 }
 
 /// <summary>Request body for resolving a review queue item.</summary>
@@ -56,6 +60,19 @@ public sealed class ReviewResolveRequestDto
 
     [JsonPropertyName("field_overrides")]
     public List<FieldOverrideDto>? FieldOverrides { get; set; }
+
+    /// <summary>
+    /// When resolving via search results, the provider that produced the
+    /// selected match (e.g. "apple_books_ebook").
+    /// </summary>
+    [JsonPropertyName("provider_name")]
+    public string? ProviderName { get; set; }
+
+    /// <summary>
+    /// The provider-specific item identifier for the selected match.
+    /// </summary>
+    [JsonPropertyName("provider_item_id")]
+    public string? ProviderItemId { get; set; }
 }
 
 /// <summary>A single field override applied when resolving a review item.</summary>

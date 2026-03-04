@@ -1,0 +1,71 @@
+@namespace Tanaste.Web.Components.Settings
+
+@* A single search result card shown in the Needs Review resolution panel.
+   Displays provider thumbnail, title (bold), year, description (2-line clamp),
+   and a "Select" button that fires OnSelected. *@
+
+<MudPaper Class="d-flex pa-3 gap-3 search-result-card" Elevation="0"
+          Style="border: 1px solid var(--mud-palette-lines-default); border-radius: 12px;">
+
+    @* ── Thumbnail ────────────────────────────────────────────────── *@
+    <div style="flex-shrink: 0; width: 64px; height: 96px; border-radius: 8px; overflow: hidden;
+                background: var(--mud-palette-surface); display: flex; align-items: center; justify-content: center;">
+        @if (!string.IsNullOrWhiteSpace(Result.ThumbnailUrl))
+        {
+            <img src="@Result.ThumbnailUrl" alt="@Result.Title"
+                 style="width: 100%; height: 100%; object-fit: cover;"
+                 loading="lazy" />
+        }
+        else
+        {
+            <MudIcon Icon="@Icons.Material.Filled.ImageNotSupported"
+                     Size="Size.Medium" Color="Color.Secondary" />
+        }
+    </div>
+
+    @* ── Text content ─────────────────────────────────────────────── *@
+    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+        <MudText Typo="Typo.subtitle1" Style="font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+            @Result.Title
+        </MudText>
+
+        @if (!string.IsNullOrWhiteSpace(Result.Year))
+        {
+            <MudText Typo="Typo.caption" Color="Color.Secondary">@Result.Year</MudText>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(Result.Description))
+        {
+            <MudText Typo="Typo.body2" Color="Color.Secondary"
+                     Style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+                            overflow: hidden; text-overflow: ellipsis; line-height: 1.4;">
+                @Result.Description
+            </MudText>
+        }
+
+        @if (Result.Confidence > 0)
+        {
+            <MudText Typo="Typo.caption" Color="Color.Tertiary">
+                Confidence: @Result.Confidence.ToString("P0")
+            </MudText>
+        }
+    </div>
+
+    @* ── Select button ────────────────────────────────────────────── *@
+    <div style="flex-shrink: 0; display: flex; align-items: center;">
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                   OnClick="@(() => OnSelected.InvokeAsync(Result))">
+            Select
+        </MudButton>
+    </div>
+</MudPaper>
+
+@code {
+    /// <summary>The search result to display.</summary>
+    [Parameter, EditorRequired]
+    public MetadataSearchResultDto Result { get; set; } = null!;
+
+    /// <summary>Fired when the user clicks the "Select" button.</summary>
+    [Parameter]
+    public EventCallback<MetadataSearchResultDto> OnSelected { get; set; }
+}

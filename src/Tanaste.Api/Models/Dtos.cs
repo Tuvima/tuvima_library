@@ -800,7 +800,14 @@ public sealed class ReviewItemDto
     [JsonPropertyName("resolved_by")]
     public string? ResolvedBy { get; init; }
 
-    public static ReviewItemDto FromDomain(Domain.Entities.ReviewQueueEntry e) => new()
+    /// <summary>
+    /// The media type of the entity (e.g. "Epub", "Audiobook"), populated
+    /// via a Work lookup when EntityType is "MediaAsset".
+    /// </summary>
+    [JsonPropertyName("media_type")]
+    public string? MediaType { get; init; }
+
+    public static ReviewItemDto FromDomain(Domain.Entities.ReviewQueueEntry e, string? mediaType = null) => new()
     {
         Id              = e.Id,
         EntityId        = e.EntityId,
@@ -814,6 +821,7 @@ public sealed class ReviewItemDto
         CreatedAt       = e.CreatedAt,
         ResolvedAt      = e.ResolvedAt,
         ResolvedBy      = e.ResolvedBy,
+        MediaType       = mediaType,
     };
 }
 
@@ -824,6 +832,20 @@ public sealed class ReviewResolveRequest
 
     [JsonPropertyName("field_overrides")]
     public List<FieldOverrideDto>? FieldOverrides { get; init; }
+
+    /// <summary>
+    /// When resolving via search results, the provider that produced the
+    /// selected match (e.g. "apple_books_ebook").
+    /// </summary>
+    [JsonPropertyName("provider_name")]
+    public string? ProviderName { get; init; }
+
+    /// <summary>
+    /// The provider-specific item identifier for the selected match.
+    /// Used to re-fetch full metadata from the provider.
+    /// </summary>
+    [JsonPropertyName("provider_item_id")]
+    public string? ProviderItemId { get; init; }
 }
 
 public sealed class FieldOverrideDto

@@ -707,6 +707,16 @@ public sealed class TanasteApiClient : ITanasteApiClient
         catch { return false; }
     }
 
+    public async Task<bool> SkipUniverseAsync(Guid id, CancellationToken ct = default)
+    {
+        try
+        {
+            var resp = await _http.PostAsJsonAsync($"/review/{id}/skip-universe", new { }, ct);
+            return resp.IsSuccessStatusCode;
+        }
+        catch { return false; }
+    }
+
     // ── Provider slots (/settings/provider-slots) ───────────────────────
 
     public async Task<Dictionary<string, ProviderSlotDto>?> GetProviderSlotsAsync(

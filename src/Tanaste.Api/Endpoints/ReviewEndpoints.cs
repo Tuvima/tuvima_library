@@ -32,7 +32,7 @@ public static class ReviewEndpoints
             CancellationToken ct) =>
         {
             var items = await reviewRepo.GetPendingAsync(limit ?? 50, ct);
-            var dtos = items.Select(ReviewItemDto.FromDomain).ToList();
+            var dtos = items.Select(e => ReviewItemDto.FromDomain(e)).ToList();
             return Results.Ok(dtos);
         })
         .WithName("GetPendingReviews")
@@ -191,6 +191,53 @@ public static class ReviewEndpoints
         })
         .WithName("DismissReviewItem")
         .WithSummary("Dismiss a review queue item as irrelevant.")
+        .Produces(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status404NotFound)
+        .Produces(StatusCodes.Status400BadRequest)
+        .RequireAdminOrCurator();
+
+        // ── POST /review/{id}/skip-universe ────────────────────────────────
+        group.MapPost("/{id:guid}/skip-universe", async (
+            Guid id,
+            IReviewQueueRepository reviewRepo,
+            IHubRepository hubRepo,
+            IEventPublisher publisher,
+            ISystemActivityRepository activityRepo,
+            CancellationToken ct) =>
+        {
+            var item = await reviewRepo.GetByIdAsync(id, ct);
+            if (item is null)
+                return Results.NotFound();
+
+            if (item.Status != ReviewStatus.Pending)
+                return Results.BadRequest("Review item is not pending.");
+
+            // 1. Set universe_mismatch flag on the Work.
+            await hubRepo.SetUniverseMismatchAsync(item.EntityId, ct);
+
+            // 2. Dismiss the review item.
+            await reviewRepo.UpdateStatusAsync(id, ReviewStatus.Dismissed, "user", ct);
+
+            // 3. Log activity.
+            await activityRepo.LogAsync(new SystemActivityEntry
+            {
+                ActionType = SystemActionType.ReviewItemResolved,
+                EntityId   = item.EntityId,
+                Detail     = "Universe matching skipped by user — Work marked as content-matched only.",
+            }, ct);
+
+            // 4. Broadcast event.
+            await publisher.PublishAsync("ReviewItemResolved", new
+            {
+                review_item_id = id,
+                entity_id      = item.EntityId,
+                status         = "Dismissed",
+            }, ct);
+
+            return Results.Ok(new { skipped = true, review_item_id = id });
+        })
+        .WithName("SkipUniverseMatch")
+        .WithSummary("Skip Universe (Wikidata) matching for this item. Sets universe_mismatch on the Work and dismisses the review item.")
         .Produces(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status404NotFound)
         .Produces(StatusCodes.Status400BadRequest)
