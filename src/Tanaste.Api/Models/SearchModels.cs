@@ -58,6 +58,10 @@ public sealed class SearchResultResponse
     [JsonPropertyName("title")]
     public string Title { get; init; } = string.Empty;
 
+    /// <summary>Author, artist, or creator name.</summary>
+    [JsonPropertyName("author")]
+    public string? Author { get; init; }
+
     /// <summary>Short description or summary.</summary>
     [JsonPropertyName("description")]
     public string? Description { get; init; }

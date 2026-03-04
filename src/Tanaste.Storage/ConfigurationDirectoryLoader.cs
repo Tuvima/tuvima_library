@@ -79,7 +79,7 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
     /// </summary>
     private static readonly Dictionary<string, string[]> EndpointToProviders = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["apple_books"]     = ["apple_books_ebook", "apple_books_audiobook"],
+        ["apple_books"]     = ["apple_books"],
         ["audnexus"]        = ["audnexus"],
         ["wikidata_api"]    = ["wikidata"],
         ["wikidata_sparql"] = ["wikidata"],
@@ -499,25 +499,13 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
 
         SaveProvider(new ProviderConfiguration
         {
-            Name           = "apple_books_ebook",
+            Name           = "apple_books",
             Enabled        = true,
             Weight         = 0.7,
-            Domain         = ProviderDomain.Ebook,
+            Domain         = ProviderDomain.Universal,
             CapabilityTags = ["cover", "description", "rating"],
-            FieldWeights   = new() { ["cover"] = 0.9, ["description"] = 0.9, ["rating"] = 0.8 },
-            Endpoints      = new() { ["apple_books"] = "https://itunes.apple.com" },
-            ThrottleMs     = 300,
-        });
-
-        SaveProvider(new ProviderConfiguration
-        {
-            Name           = "apple_books_audiobook",
-            Enabled        = true,
-            Weight         = 0.7,
-            Domain         = ProviderDomain.Audiobook,
-            CapabilityTags = ["cover"],
-            FieldWeights   = new() { ["cover"] = 0.6 },
-            Endpoints      = new() { ["apple_books"] = "https://itunes.apple.com" },
+            FieldWeights   = new() { ["cover"] = 0.85, ["description"] = 0.85, ["rating"] = 0.7 },
+            Endpoints      = new() { ["api"] = "https://itunes.apple.com" },
             ThrottleMs     = 300,
         });
 
@@ -788,8 +776,7 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
     /// </summary>
     private static int GetDefaultThrottleMs(string providerName) => providerName switch
     {
-        "apple_books_ebook"     => 300,
-        "apple_books_audiobook" => 300,
+        "apple_books"           => 300,
         "wikidata"              => 1100,  // Wikidata 1 req/sec policy
         _                      => 0,     // No throttle by default
     };

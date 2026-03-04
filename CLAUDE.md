@@ -158,7 +158,7 @@ Each piece of metadata (e.g. the title "Dune") is a **Claim**. Claims come from 
 | Filename | `dune_part1.epub` | Medium (0.5) |
 | External metadata provider | `Dune (Frank Herbert, 1965)` | Configurable per field |
 
-The key upgrade over a simple weighted vote: each provider carries a **per-field trust weight** that reflects how reliable it is *for that specific kind of data*. Audnexus is the gold standard for audiobook narrators (weight 0.9) and series data (0.9) but is only moderately trusted for cover art. Wikidata is the definitive authority for franchise identifiers (weight 1.0). Apple Books splits into two provider entries — one for ebooks, one for audiobooks — because its field-weight profile differs between the two domains.
+The key upgrade over a simple weighted vote: each provider carries a **per-field trust weight** that reflects how reliable it is *for that specific kind of data*. Audnexus is the gold standard for audiobook narrators (weight 0.9) and series data (0.9) but is only moderately trusted for cover art. Wikidata is the definitive authority for franchise identifiers (weight 1.0). Apple Books is a single provider that supports multiple media types (ebooks and audiobooks) through media-type-scoped search strategies and field mappings.
 
 All of these weights live in `tanaste_master.json` and can be changed at any time without touching code.
 
@@ -252,8 +252,7 @@ Three official SVG logo files exist. **Never replace logo placements with hand-w
 
 | Provider | What it contributes | Trust weights |
 |---|---|---|
-| **Apple Books (Ebook)** | Cover art (600×600), description, rating, title | cover 0.85, description 0.85, rating 0.8, title 0.7 |
-| **Apple Books (Audiobook)** | Cover art (600×600), description, rating, title | same profile, separate provider ID |
+| **Apple Books** | Cover art (600×600), description, rating, title. Single config supporting both ebooks and audiobooks via media-type-scoped search strategies. | cover 0.85, description 0.85, rating 0.8, title 0.7 |
 | **Audnexus** | Narrator, series, series position, cover art, author | narrator/series/cover/series_pos 0.9, author 0.75 |
 | **Open Library** | Title, author, year, cover art, ISBN, series | title 0.75, author 0.8, year 0.85, cover 0.7, isbn 0.9 |
 | **Google Books** | Title, author, year, cover art, ISBN, description, page count, publisher | title 0.75, author 0.8, year 0.85, cover 0.7, isbn 0.9 |
@@ -281,8 +280,11 @@ The four REST+JSON providers (Apple Books, Audnexus, Open Library, Google Books)
 Each config file declares:
 - `adapter_type: "config_driven"` — tells the DI registration loop to use the universal adapter
 - `provider_id` — stable GUID for `metadata_claims.provider_id` foreign keys
-- `search_strategies[]` — ordered URL template strategies with `required_fields`, `tolerate_404`, `results_path`
-- `field_mappings[]` — JSON path extraction rules with named transforms and confidence values
+- `can_handle.media_types[]` — which media types this provider supports (e.g. `["Epub", "Audiobook"]`)
+- `search_strategies[]` — ordered URL template strategies with `required_fields`, `tolerate_404`, `results_path`, and optional `media_types` scoping
+- `field_mappings[]` — JSON path extraction rules with named transforms, confidence values, and optional `media_types` scoping
+
+**Media-type scoping on strategies and field mappings:** A single provider config can support multiple media types by declaring `media_types` arrays on individual strategies and mappings. When a search or fetch request includes a media type, only matching strategies/mappings are used. Strategies and mappings with no `media_types` array are universal (apply to all media types). `MediaType.Unknown` acts as a wildcard, returning all strategies/mappings regardless of scoping.
 
 Adding a new REST+JSON provider is a **zero-code operation**: drop a config file in `config/providers/`, restart, done.
 
@@ -522,8 +524,8 @@ config/
                                      disambiguation/confidence thresholds (§3.13)
   providers/
     local_filesystem.json         ← Per-provider: weight, enabled, endpoints,
-    apple_books_ebook.json           field_weights, throttle_ms, max_concurrency,
-    apple_books_audiobook.json       hydration_stages (§3.13)
+    apple_books.json                 field_weights, throttle_ms, max_concurrency,
+                                       hydration_stages, media-type-scoped strategies (§3.13)
     audnexus.json
     open_library.json
     google_books.json
@@ -708,7 +710,7 @@ The Settings sidebar is restructured into three groups:
 | **Server** | Library, Connectivity, API Keys, Conflicts, Users, Maintenance |
 
 Three Settings tabs in the Metadata group:
-- **Connection Vault** — unified provider management with four sections: (1) Wikidata Universe Provider pinned at top with dedicated `WikidataVaultPanel` for SPARQL testing and bridge browsing. (2) **Field Priorities** — collapsible media-type groups (Books, Audiobooks, Comics, Movies, TV Shows) with per-field provider priority ordering. Users reorder providers via up/down arrows; priority position maps to field weights automatically (Position 1 = 0.95, Position 2 = 0.85, etc.). No percentages shown — just numbered priority lists. (3) **Provider Connections** — collapsible section for testing endpoints, enable/disable toggles, and `ProviderEditPanel` configuration. (4) **Advanced** — collapsible section with pipeline config (concurrency, timeouts, thresholds) absorbed from the former Matching Pipeline tab. Provider display names no longer include media type in parentheses (e.g. "Apple Books" not "Apple Books (Ebooks)") since the media type is conveyed by the group. Mobile uses slide-over drawer.
+- **Connection Vault** — unified provider slot assignment via drag-drop. Media-type tabs (Books, Audiobooks, Comics, Movies, TV Shows) each show three priority slots (Primary — Automatic Match, Secondary — Manual Fallback 1, Tertiary — Manual Fallback 2). **All providers** appear in every media-type tab regardless of their `can_handle.media_types` — copy semantics means dragging a provider to a slot creates a copy; the provider stays in the available pool. Users can mix and match providers across media types as they choose. Provider cards show health status, accent colour, and a config flyout for endpoint/timeout/API key editing.
 - **Needs Review** — review queue table with trigger chips, confidence gauges, resolve/dismiss actions, live SignalR updates
 - **Activity** — date-grouped timeline of all Engine actions (ingestion, metadata hydration, review resolution, pruning). Configurable retention period (default 60 days) at the top. Load-more pagination. Entries show action icon, label, hub name chip, entity type chip, detail text, and formatted time. Replaces the activity section formerly in MaintenanceTab.
 

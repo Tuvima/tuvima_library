@@ -179,85 +179,42 @@
         }
     }
 
-    // ── Media-type to provider mapping ────────────────────────────────────
+    // ── Provider helpers ─────────────────────────────────────────────────
 
-    /// <summary>Maps media type tab names to ProviderStatusDto media type filter values.</summary>
-    private static readonly Dictionary<string, string[]> MediaTypeFilterMap = new()
+    /// <summary>Returns ALL visible providers (excluding wikidata/local_filesystem) for any media type tab.</summary>
+    private List<ProviderStatusDto> GetAllVisibleProviders()
     {
-        ["Books"]      = ["Epub"],
-        ["Audiobooks"] = ["Audiobook"],
-        ["Comics"]     = ["Comic"],
-        ["Movies"]     = ["Movie"],
-        ["TV Shows"]   = ["TvShow"],
-    };
-
-    /// <summary>
-    /// Maps provider domain strings to media type filter values.
-    /// Fallback when <c>MediaTypes</c> is empty (older config files without <c>can_handle</c>).
-    /// </summary>
-    private static readonly Dictionary<string, string[]> DomainFallbackMap =
-        new(StringComparer.OrdinalIgnoreCase)
-    {
-        ["Ebook"]     = ["Epub"],
-        ["Audiobook"] = ["Audiobook"],
-        ["Comic"]     = ["Comic"],
-        ["Video"]     = ["Movie", "TvShow"],
-        ["Universal"] = ["Epub", "Audiobook", "Comic", "Movie", "TvShow"],
-    };
-
-    /// <summary>Returns providers that can handle the given media type, excluding wikidata/local_filesystem.</summary>
-    private List<ProviderStatusDto> GetProvidersForMediaType(string mediaType)
-    {
-        if (!MediaTypeFilterMap.TryGetValue(mediaType, out var filterValues))
-            return [];
-
         return _providers
             .Where(p => ProviderAccentMap.IsVisibleProvider(p.Name))
             .Where(p => !string.Equals(p.Name, "wikidata", StringComparison.OrdinalIgnoreCase))
-            .Where(p => MatchesMediaType(p, filterValues))
             .ToList();
-    }
-
-    private static bool MatchesMediaType(ProviderStatusDto p, string[] filterValues)
-    {
-        // Primary: check explicit MediaTypes from can_handle config.
-        if (p.MediaTypes is { Count: > 0 })
-        {
-            return p.MediaTypes.Any(mt =>
-                filterValues.Any(fv => string.Equals(mt, fv, StringComparison.OrdinalIgnoreCase)));
-        }
-
-        // Fallback: derive from domain.
-        if (!string.IsNullOrEmpty(p.Domain)
-            && DomainFallbackMap.TryGetValue(p.Domain, out var domainTypes))
-        {
-            return domainTypes.Any(dt =>
-                filterValues.Any(fv => string.Equals(dt, fv, StringComparison.OrdinalIgnoreCase)));
-        }
-
-        return false;
     }
 
     // ── Drag-drop model ──────────────────────────────────────────────────
 
+    /// <summary>
+    /// Creates drag items with copy semantics: all providers appear in "available"
+    /// at all times. Slotted providers get additional entries in their slot zones.
+    /// </summary>
     private List<ProviderDragItem> GetDragItems(string mediaType)
     {
-        var available = GetProvidersForMediaType(mediaType);
+        var allProviders = GetAllVisibleProviders();
         var slot = GetSlot(mediaType);
         var items = new List<ProviderDragItem>();
 
-        foreach (var provider in available)
+        // Always add all providers to the available pool.
+        foreach (var provider in allProviders)
         {
-            string zone = "available";
-            if (string.Equals(provider.Name, slot.Primary, StringComparison.OrdinalIgnoreCase))
-                zone = "primary";
-            else if (string.Equals(provider.Name, slot.Secondary, StringComparison.OrdinalIgnoreCase))
-                zone = "secondary";
-            else if (string.Equals(provider.Name, slot.Tertiary, StringComparison.OrdinalIgnoreCase))
-                zone = "tertiary";
-
-            items.Add(new ProviderDragItem { ProviderName = provider.Name, Zone = zone });
+            items.Add(new ProviderDragItem { ProviderName = provider.Name, Zone = "available" });
         }
+
+        // Add slotted providers as copies in their slot zones.
+        if (!string.IsNullOrWhiteSpace(slot.Primary))
+            items.Add(new ProviderDragItem { ProviderName = slot.Primary, Zone = "primary" });
+        if (!string.IsNullOrWhiteSpace(slot.Secondary))
+            items.Add(new ProviderDragItem { ProviderName = slot.Secondary, Zone = "secondary" });
+        if (!string.IsNullOrWhiteSpace(slot.Tertiary))
+            items.Add(new ProviderDragItem { ProviderName = slot.Tertiary, Zone = "tertiary" });
 
         return items;
     }
@@ -275,15 +232,8 @@
         var targetZone = dropInfo.DropzoneIdentifier;
         var slot = GetSlot(mediaType);
 
-        // Clear the provider from any existing slot.
-        if (string.Equals(slot.Primary, providerName, StringComparison.OrdinalIgnoreCase))
-            slot = slot with { Primary = null };
-        if (string.Equals(slot.Secondary, providerName, StringComparison.OrdinalIgnoreCase))
-            slot = slot with { Secondary = null };
-        if (string.Equals(slot.Tertiary, providerName, StringComparison.OrdinalIgnoreCase))
-            slot = slot with { Tertiary = null };
-
-        // If dropping into a slot, also evict whoever was there.
+        // Copy semantics: simply assign the provider to the target slot.
+        // Dropping to "available" clears the provider from its current slot.
         switch (targetZone)
         {
             case "primary":
@@ -295,7 +245,15 @@
             case "tertiary":
                 slot = slot with { Tertiary = providerName };
                 break;
-            // "available" = remove from all slots (already done above).
+            case "available":
+                // Remove provider from whichever slot it occupies.
+                if (string.Equals(slot.Primary, providerName, StringComparison.OrdinalIgnoreCase))
+                    slot = slot with { Primary = null };
+                if (string.Equals(slot.Secondary, providerName, StringComparison.OrdinalIgnoreCase))
+                    slot = slot with { Secondary = null };
+                if (string.Equals(slot.Tertiary, providerName, StringComparison.OrdinalIgnoreCase))
+                    slot = slot with { Tertiary = null };
+                break;
         }
 
         _slots[mediaType] = slot;

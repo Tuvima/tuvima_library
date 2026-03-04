@@ -29,10 +29,28 @@ public static class ReviewEndpoints
         group.MapGet("/pending", async (
             int? limit,
             IReviewQueueRepository reviewRepo,
+            ICanonicalValueRepository canonicalRepo,
             CancellationToken ct) =>
         {
             var items = await reviewRepo.GetPendingAsync(limit ?? 50, ct);
-            var dtos = items.Select(e => ReviewItemDto.FromDomain(e)).ToList();
+
+            // Enrich each item with entity_title and media_type from canonical values.
+            var dtos = new List<ReviewItemDto>(items.Count);
+            foreach (var e in items)
+            {
+                var canonicals = await canonicalRepo.GetByEntityAsync(e.EntityId, ct);
+                var lookup = canonicals.ToDictionary(
+                    c => c.Key, c => c.Value, StringComparer.OrdinalIgnoreCase);
+
+                lookup.TryGetValue("title", out var title);
+                if (string.IsNullOrWhiteSpace(title))
+                    lookup.TryGetValue("file_name", out title);
+
+                lookup.TryGetValue("media_type", out var mediaType);
+
+                dtos.Add(ReviewItemDto.FromDomain(e, mediaType, title));
+            }
+
             return Results.Ok(dtos);
         })
         .WithName("GetPendingReviews")
@@ -57,13 +75,24 @@ public static class ReviewEndpoints
         group.MapGet("/{id:guid}", async (
             Guid id,
             IReviewQueueRepository reviewRepo,
+            ICanonicalValueRepository canonicalRepo,
             CancellationToken ct) =>
         {
             var item = await reviewRepo.GetByIdAsync(id, ct);
             if (item is null)
                 return Results.NotFound();
 
-            return Results.Ok(ReviewItemDto.FromDomain(item));
+            var canonicals = await canonicalRepo.GetByEntityAsync(item.EntityId, ct);
+            var lookup = canonicals.ToDictionary(
+                c => c.Key, c => c.Value, StringComparer.OrdinalIgnoreCase);
+
+            lookup.TryGetValue("title", out var title);
+            if (string.IsNullOrWhiteSpace(title))
+                lookup.TryGetValue("file_name", out title);
+
+            lookup.TryGetValue("media_type", out var mediaType);
+
+            return Results.Ok(ReviewItemDto.FromDomain(item, mediaType, title));
         })
         .WithName("GetReviewItem")
         .WithSummary("Get a single review queue item with full details.")

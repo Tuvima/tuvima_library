@@ -88,8 +88,9 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         if (!CanHandle(request.MediaType) || !CanHandle(request.EntityType))
             return [];
 
-        var strategies = _config.SearchStrategies?
-            .OrderBy(s => s.Priority)
+        var strategies = FilterStrategiesByMediaType(
+            _config.SearchStrategies, request.MediaType)
+            ?.OrderBy(s => s.Priority)
             .ToList();
 
         if (strategies is null or { Count: 0 })
@@ -157,8 +158,9 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         if (!CanHandle(request.MediaType) || !CanHandle(request.EntityType))
             return [];
 
-        var strategies = _config.SearchStrategies?
-            .OrderBy(s => s.Priority)
+        var strategies = FilterStrategiesByMediaType(
+            _config.SearchStrategies, request.MediaType)
+            ?.OrderBy(s => s.Priority)
             .ToList();
 
         if (strategies is null or { Count: 0 })
@@ -259,7 +261,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                 if (resultNode is null)
                     continue;
 
-                var item = ExtractSearchResultItem(resultNode);
+                var item = ExtractSearchResultItem(resultNode, request.MediaType);
                 if (item is not null)
                     items.Add(item);
             }
@@ -281,19 +283,21 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
     /// using the configured field mappings. Looks for title, description, year,
     /// cover/thumbnail, and a provider item ID.
     /// </summary>
-    private SearchResultItem? ExtractSearchResultItem(System.Text.Json.Nodes.JsonNode resultNode)
+    private SearchResultItem? ExtractSearchResultItem(System.Text.Json.Nodes.JsonNode resultNode, MediaType mediaType = MediaType.Unknown)
     {
-        if (_config.FieldMappings is null or { Count: 0 })
+        var filteredMappings = FilterMappingsByMediaType(_config.FieldMappings, mediaType);
+        if (filteredMappings.Count == 0)
             return null;
 
         string? title = null;
+        string? author = null;
         string? description = null;
         string? year = null;
         string? thumbnailUrl = null;
         string? providerItemId = null;
         double confidence = 0.5;
 
-        foreach (var mapping in _config.FieldMappings)
+        foreach (var mapping in filteredMappings)
         {
             var node = JsonPathEvaluator.Evaluate(resultNode, mapping.JsonPath);
             if (node is null)
@@ -318,6 +322,9 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             {
                 case "title":
                     title ??= raw;
+                    break;
+                case "author":
+                    author ??= raw;
                     break;
                 case "description":
                     description ??= raw;
@@ -354,6 +361,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
 
         return new SearchResultItem(
             Title:          title,
+            Author:         author,
             Description:    description,
             Year:           year,
             ThumbnailUrl:   thumbnailUrl,
@@ -412,8 +420,8 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             if (resultNode is null)
                 return [];
 
-            // Extract claims from field mappings.
-            return ExtractClaims(resultNode);
+            // Extract claims from field mappings (filtered by media type).
+            return ExtractClaims(resultNode, request.MediaType);
         }
         finally
         {
@@ -504,14 +512,15 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
 
     // ── Claim extraction ────────────────────────────────────────────────────
 
-    private IReadOnlyList<ProviderClaim> ExtractClaims(JsonNode resultNode)
+    private IReadOnlyList<ProviderClaim> ExtractClaims(JsonNode resultNode, MediaType mediaType = MediaType.Unknown)
     {
-        if (_config.FieldMappings is null or { Count: 0 })
+        var mappings = FilterMappingsByMediaType(_config.FieldMappings, mediaType);
+        if (mappings.Count == 0)
             return [];
 
         var claims = new List<ProviderClaim>();
 
-        foreach (var mapping in _config.FieldMappings)
+        foreach (var mapping in mappings)
         {
             var node = JsonPathEvaluator.Evaluate(resultNode, mapping.JsonPath);
             if (node is null)
@@ -664,6 +673,55 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             "person_name" => request.PersonName,
             _ => null
         };
+    }
+
+    // ── Media type filtering ────────────────────────────────────────────────
+
+    /// <summary>
+    /// Filters search strategies by the request's media type.
+    /// Strategies with no <c>media_types</c> filter are always included (universal).
+    /// Strategies with a <c>media_types</c> list are only included if the request's
+    /// media type matches one of the listed values.
+    /// </summary>
+    private static List<SearchStrategyConfig>? FilterStrategiesByMediaType(
+        List<SearchStrategyConfig>? strategies, MediaType mediaType)
+    {
+        if (strategies is null or { Count: 0 })
+            return strategies;
+
+        // Unknown = wildcard — return all strategies.
+        if (mediaType == MediaType.Unknown)
+            return strategies;
+
+        var mediaTypeStr = mediaType.ToString();
+        return strategies
+            .Where(s => s.MediaTypes is null or { Count: 0 }
+                     || s.MediaTypes.Any(mt =>
+                            string.Equals(mt, mediaTypeStr, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+    }
+
+    /// <summary>
+    /// Filters field mappings by the request's media type.
+    /// Mappings with no <c>media_types</c> filter are always included (universal).
+    /// Unknown media type = wildcard (return all).
+    /// </summary>
+    private static List<FieldMappingConfig> FilterMappingsByMediaType(
+        List<FieldMappingConfig>? mappings, MediaType mediaType)
+    {
+        if (mappings is null or { Count: 0 })
+            return [];
+
+        // Unknown = wildcard — return all mappings.
+        if (mediaType == MediaType.Unknown)
+            return mappings;
+
+        var mediaTypeStr = mediaType.ToString();
+        return mappings
+            .Where(m => m.MediaTypes is null or { Count: 0 }
+                     || m.MediaTypes.Any(mt =>
+                            string.Equals(mt, mediaTypeStr, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────

@@ -846,12 +846,22 @@ public sealed class ReviewItemDto
 
     /// <summary>
     /// The media type of the entity (e.g. "Epub", "Audiobook"), populated
-    /// via a Work lookup when EntityType is "MediaAsset".
+    /// from canonical values.
     /// </summary>
     [JsonPropertyName("media_type")]
     public string? MediaType { get; init; }
 
-    public static ReviewItemDto FromDomain(Domain.Entities.ReviewQueueEntry e, string? mediaType = null) => new()
+    /// <summary>
+    /// Best-available display title for the entity (from canonical "title",
+    /// falling back to "file_name" canonical, then detail string).
+    /// </summary>
+    [JsonPropertyName("entity_title")]
+    public string? EntityTitle { get; init; }
+
+    public static ReviewItemDto FromDomain(
+        Domain.Entities.ReviewQueueEntry e,
+        string? mediaType = null,
+        string? entityTitle = null) => new()
     {
         Id              = e.Id,
         EntityId        = e.EntityId,
@@ -866,6 +876,7 @@ public sealed class ReviewItemDto
         ResolvedAt      = e.ResolvedAt,
         ResolvedBy      = e.ResolvedBy,
         MediaType       = mediaType,
+        EntityTitle     = entityTitle,
     };
 }
 

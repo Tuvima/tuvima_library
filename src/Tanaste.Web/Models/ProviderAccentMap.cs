@@ -16,6 +16,7 @@ public static class ProviderAccentMap
     /// <summary>Returns (HexColour, MaterialIcon) for a provider config name.</summary>
     public static (string Color, string Icon) GetAccent(string providerKey) => providerKey switch
     {
+        "apple_books"           => ("#FF2D55", Icons.Material.Filled.MenuBook),
         "apple_books_ebook"     => ("#FF2D55", Icons.Material.Filled.MenuBook),
         "apple_books_audiobook" => ("#FF2D55", Icons.Material.Filled.Headphones),
         "audnexus"              => ("#FF9500", Icons.Material.Filled.Hearing),
@@ -30,6 +31,7 @@ public static class ProviderAccentMap
     /// <summary>Returns a deduplicated display name for the UI (e.g. "Apple Books" instead of "apple_books_ebook").</summary>
     public static string GetDisplayName(string providerKey) => providerKey switch
     {
+        "apple_books"           => "Apple Books",
         "apple_books_ebook"     => "Apple Books",
         "apple_books_audiobook" => "Apple Books",
         "audnexus"              => "Audnexus",

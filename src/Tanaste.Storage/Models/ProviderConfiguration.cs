@@ -258,6 +258,15 @@ public sealed class SearchStrategyConfig
     /// </summary>
     [JsonPropertyName("max_results")]
     public int MaxResults { get; set; }
+
+    /// <summary>
+    /// Optional media type filter. When non-empty, this strategy is only used
+    /// when the request's media type matches one of these values.
+    /// When empty/null, the strategy is used for all media types.
+    /// Values: <c>"Epub"</c>, <c>"Audiobook"</c>, <c>"Movie"</c>, <c>"Comic"</c>, <c>"TvShow"</c>.
+    /// </summary>
+    [JsonPropertyName("media_types")]
+    public List<string>? MediaTypes { get; set; }
 }
 
 /// <summary>
@@ -293,4 +302,13 @@ public sealed class FieldMappingConfig
     /// </summary>
     [JsonPropertyName("transform_args")]
     public string? TransformArgs { get; set; }
+
+    /// <summary>
+    /// Optional media type filter. When non-empty, this mapping is only used
+    /// when the request's media type matches one of these values.
+    /// When empty/null, the mapping is used for all media types.
+    /// Values: <c>"Epub"</c>, <c>"Audiobook"</c>, <c>"Movie"</c>, <c>"Comic"</c>, <c>"TvShow"</c>.
+    /// </summary>
+    [JsonPropertyName("media_types")]
+    public List<string>? MediaTypes { get; set; }
 }

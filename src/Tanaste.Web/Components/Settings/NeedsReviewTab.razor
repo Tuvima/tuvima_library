@@ -230,6 +230,7 @@ else
     private Guid? _expandedItemId;
     private string _selectedProvider = string.Empty;
     private string _searchQuery = string.Empty;
+    private string? _currentMediaType;
     private List<MetadataSearchResultDto> _searchResults = [];
     private bool _searching;
     private bool _searchExecuted;
@@ -263,6 +264,7 @@ else
         }
 
         _expandedItemId = item.Id;
+        _currentMediaType = item.MediaType;
         _searchResults = [];
         _searchExecuted = false;
         _searching = false;
@@ -286,46 +288,67 @@ else
     // ── Provider dropdown helpers ─────────────────────────────────────────
 
     /// <summary>
-    /// Returns the slotted providers (Primary, Secondary, Tertiary) for the
-    /// given media type, plus their display info. Primary is listed first
-    /// with an "Automatic Match" badge.
+    /// Returns providers suitable for searching the given media type.
+    /// Slotted providers appear first (primary marked as "Automatic Match").
+    /// Excludes local_filesystem/local_processor. Adds Wikidata as "Universe".
     /// </summary>
     private List<SlottedProviderInfo> GetSlottedProviders(string? mediaType)
     {
         var result = new List<SlottedProviderInfo>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        // 1. Add slotted providers first (in slot order).
         var mediaTypeName = MapMediaTypeToSlotKey(mediaType);
-
-        if (string.IsNullOrWhiteSpace(mediaTypeName) || !_slots.TryGetValue(mediaTypeName, out var slot))
+        if (!string.IsNullOrWhiteSpace(mediaTypeName) && _slots.TryGetValue(mediaTypeName, out var slot))
         {
-            // Fallback: return all enabled providers.
-            foreach (var p in _providers.Where(p => p.Enabled))
-                result.Add(new(p.Name, p.DisplayName, false));
-            return result;
+            TryAddSlotted(slot.Primary, true);
+            TryAddSlotted(slot.Secondary, false);
+            TryAddSlotted(slot.Tertiary, false);
         }
 
-        void TryAdd(string? name, bool isAutomatic)
+        // 2. Add remaining providers that can handle this media type.
+        foreach (var p in _providers.Where(p => p.Enabled))
         {
-            if (string.IsNullOrWhiteSpace(name)) return;
-            var provider = _providers.FirstOrDefault(p => p.Name == name);
-            var displayName = provider?.DisplayName ?? name;
-            result.Add(new(name, displayName, isAutomatic));
+            if (IsExcludedProvider(p.Name)) continue;
+            if (IsWikidataProvider(p.Name)) continue;
+            if (!seen.Add(p.Name)) continue;
+
+            if (!string.IsNullOrEmpty(mediaType) && p.MediaTypes is { Count: > 0 })
+            {
+                if (!p.MediaTypes.Any(mt =>
+                    string.Equals(mt, mediaType, StringComparison.OrdinalIgnoreCase)))
+                    continue;
+            }
+
+            result.Add(new(p.Name, p.DisplayName, false));
         }
 
-        TryAdd(slot.Primary, true);
-        TryAdd(slot.Secondary, false);
-        TryAdd(slot.Tertiary, false);
-
-        // If no slotted providers, fall back to all enabled.
-        if (result.Count == 0)
-        {
-            foreach (var p in _providers.Where(p => p.Enabled))
-                result.Add(new(p.Name, p.DisplayName, false));
-        }
+        // 3. Add Wikidata at the end as "Universe" provider.
+        var wikidata = _providers.FirstOrDefault(p => IsWikidataProvider(p.Name));
+        if (wikidata is { Enabled: true })
+            result.Add(new(wikidata.Name, "Wikidata (Universe)", false));
 
         return result;
+
+        void TryAddSlotted(string? name, bool isAutomatic)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return;
+            if (IsExcludedProvider(name)) return;
+            if (!seen.Add(name)) return;
+            var provider = _providers.FirstOrDefault(p =>
+                string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase));
+            result.Add(new(name, provider?.DisplayName ?? ProviderAccentMap.GetDisplayName(name), isAutomatic));
+        }
     }
 
     private sealed record SlottedProviderInfo(string Name, string DisplayName, bool IsAutomatic);
+
+    private static bool IsExcludedProvider(string name) =>
+        string.Equals(name, "local_filesystem", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(name, "local_processor", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsWikidataProvider(string name) =>
+        string.Equals(name, "wikidata", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// Maps a media type string (e.g. "Epub") to the slot key (e.g. "Books").
@@ -352,7 +375,7 @@ else
         StateHasChanged();
 
         _searchResults = await Orchestrator.SearchMetadataAsync(
-            _selectedProvider, _searchQuery, limit: 25);
+            _selectedProvider, _searchQuery, mediaType: _currentMediaType, limit: 25);
         _searching = false;
         _searchExecuted = true;
         StateHasChanged();

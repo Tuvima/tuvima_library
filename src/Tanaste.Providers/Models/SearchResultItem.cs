@@ -11,6 +11,7 @@ namespace Tanaste.Providers.Models;
 /// subsequent direct lookup.
 /// </summary>
 /// <param name="Title">The title of the matched item.</param>
+/// <param name="Author">The author, artist, or creator name, if available.</param>
 /// <param name="Description">A short description or summary (may be HTML-stripped).</param>
 /// <param name="Year">Publication or release year, if available.</param>
 /// <param name="ThumbnailUrl">URL to a thumbnail/cover image, if available.</param>
@@ -22,6 +23,7 @@ namespace Tanaste.Providers.Models;
 /// <param name="ProviderName">Name of the provider that produced this result.</param>
 public sealed record SearchResultItem(
     string Title,
+    string? Author,
     string? Description,
     string? Year,
     string? ThumbnailUrl,

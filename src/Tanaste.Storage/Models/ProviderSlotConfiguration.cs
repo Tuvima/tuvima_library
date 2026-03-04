@@ -59,8 +59,8 @@ public sealed class ProviderSlotConfiguration
     [JsonPropertyName("slots")]
     public Dictionary<string, ProviderSlotConfig> Slots { get; set; } = new()
     {
-        ["Books"]      = new() { Primary = "apple_books_ebook",   Secondary = "google_books",          Tertiary = "open_library" },
-        ["Audiobooks"] = new() { Primary = "audnexus",            Secondary = "apple_books_audiobook", Tertiary = null },
+        ["Books"]      = new() { Primary = "apple_books",  Secondary = "google_books",  Tertiary = "open_library" },
+        ["Audiobooks"] = new() { Primary = "audnexus",    Secondary = "apple_books",   Tertiary = null },
         ["Comics"]     = new() { Primary = null,                  Secondary = null,                    Tertiary = null },
         ["Movies"]     = new() { Primary = null,                  Secondary = null,                    Tertiary = null },
         ["TV Shows"]   = new() { Primary = null,                  Secondary = null,                    Tertiary = null },

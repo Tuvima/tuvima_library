@@ -34,6 +34,7 @@ public static class SettingsEndpoints
     private static readonly IReadOnlyDictionary<string, string> _displayNames =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
+            ["apple_books"]           = "Apple Books",
             ["apple_books_ebook"]     = "Apple Books",
             ["apple_books_audiobook"] = "Apple Books",
             ["audnexus"]              = "Audnexus",
@@ -49,6 +50,7 @@ public static class SettingsEndpoints
     private static readonly IReadOnlyDictionary<string, string> _endpointKeys =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
+            ["apple_books"]           = "apple_books",
             ["apple_books_ebook"]     = "apple_books",
             ["apple_books_audiobook"] = "apple_books",
             ["audnexus"]              = "audnexus",

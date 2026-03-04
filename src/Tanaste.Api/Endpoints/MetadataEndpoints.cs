@@ -278,6 +278,7 @@ public static class MetadataEndpoints
                 Results = results.Select(r => new SearchResultResponse
                 {
                     Title          = r.Title,
+                    Author         = r.Author,
                     Description    = r.Description,
                     Year           = r.Year,
                     ThumbnailUrl   = r.ThumbnailUrl,

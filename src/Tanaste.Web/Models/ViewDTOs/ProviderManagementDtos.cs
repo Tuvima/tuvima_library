@@ -113,6 +113,9 @@ public sealed class MetadataSearchResultDto
     [JsonPropertyName("title")]
     public string Title { get; set; } = string.Empty;
 
+    [JsonPropertyName("author")]
+    public string? Author { get; set; }
+
     [JsonPropertyName("description")]
     public string? Description { get; set; }
 

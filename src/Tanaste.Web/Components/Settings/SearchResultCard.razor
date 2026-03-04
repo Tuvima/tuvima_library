@@ -29,6 +29,11 @@
             @Result.Title
         </MudText>
 
+        @if (!string.IsNullOrWhiteSpace(Result.Author))
+        {
+            <MudText Typo="Typo.body2" Style="font-weight: 500;">@Result.Author</MudText>
+        }
+
         @if (!string.IsNullOrWhiteSpace(Result.Year))
         {
             <MudText Typo="Typo.caption" Color="Color.Secondary">@Result.Year</MudText>

@@ -105,12 +105,12 @@ public sealed class ManifestParser : IStorageManifest
             },
             new ProviderBootstrap
             {
-                Name           = "apple_books_ebook",
+                Name           = "apple_books",
                 Enabled        = true,
                 Weight         = 0.7,
-                Domain         = ProviderDomain.Ebook,
+                Domain         = ProviderDomain.Universal,
                 CapabilityTags = ["cover", "description", "rating"],
-                FieldWeights   = new() { ["cover"] = 0.9, ["description"] = 0.9, ["rating"] = 0.8 },
+                FieldWeights   = new() { ["cover"] = 0.85, ["description"] = 0.85, ["rating"] = 0.7 },
             },
             new ProviderBootstrap
             {
@@ -129,15 +129,6 @@ public sealed class ManifestParser : IStorageManifest
                 Domain         = ProviderDomain.Audiobook,
                 CapabilityTags = ["cover", "narrator", "series"],
                 FieldWeights   = new() { ["cover"] = 0.9, ["narrator"] = 0.9, ["series"] = 0.9 },
-            },
-            new ProviderBootstrap
-            {
-                Name           = "apple_books_audiobook",
-                Enabled        = true,
-                Weight         = 0.7,
-                Domain         = ProviderDomain.Audiobook,
-                CapabilityTags = ["cover"],
-                FieldWeights   = new() { ["cover"] = 0.6 },
             },
             new ProviderBootstrap
             {
