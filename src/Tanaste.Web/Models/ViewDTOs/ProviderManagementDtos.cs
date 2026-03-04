@@ -75,3 +75,48 @@ public sealed class FieldMappingDto
     [JsonPropertyName("transform_args")]
     public string? TransformArgs { get; set; }
 }
+
+// ── Provider Slot DTOs ─────────────────────────────────────────────────────
+
+/// <summary>
+/// Provider slot assignment for a single media type.
+/// Maps from <c>GET /settings/provider-slots</c>.
+/// </summary>
+public sealed class ProviderSlotDto
+{
+    [JsonPropertyName("primary")]
+    public string? Primary { get; set; }
+
+    [JsonPropertyName("secondary")]
+    public string? Secondary { get; set; }
+
+    [JsonPropertyName("tertiary")]
+    public string? Tertiary { get; set; }
+}
+
+// ── Metadata Search DTOs ───────────────────────────────────────────────────
+
+/// <summary>
+/// A single search result from a metadata provider search.
+/// Maps from <c>POST /metadata/search</c>.
+/// </summary>
+public sealed class MetadataSearchResultDto
+{
+    [JsonPropertyName("title")]
+    public string Title { get; set; } = string.Empty;
+
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
+
+    [JsonPropertyName("year")]
+    public string? Year { get; set; }
+
+    [JsonPropertyName("thumbnail_url")]
+    public string? ThumbnailUrl { get; set; }
+
+    [JsonPropertyName("provider_item_id")]
+    public string? ProviderItemId { get; set; }
+
+    [JsonPropertyName("confidence")]
+    public double Confidence { get; set; }
+}

@@ -636,6 +636,36 @@ public static class SettingsEndpoints
         .Produces(StatusCodes.Status200OK)
         .RequireAdmin();
 
+        // ── GET /settings/provider-slots ──────────────────────────────────────
+        grp.MapGet("/provider-slots", (IConfigurationLoader configLoader) =>
+        {
+            var slots = configLoader.LoadSlots();
+            return Results.Ok(slots.Slots);
+        })
+        .WithName("GetProviderSlots")
+        .WithSummary("Load provider slot assignments per media type.")
+        .Produces<Dictionary<string, ProviderSlotConfig>>(StatusCodes.Status200OK)
+        .RequireAdminOrCurator();
+
+        // ── PUT /settings/provider-slots ──────────────────────────────────────
+        grp.MapPut("/provider-slots", (
+            Dictionary<string, ProviderSlotConfig> slots,
+            IConfigurationLoader configLoader) =>
+        {
+            if (slots is null || slots.Count == 0)
+                return Results.BadRequest(new { error = "Slot assignments cannot be empty." });
+
+            var config = new ProviderSlotConfiguration { Slots = slots };
+            configLoader.SaveSlots(config);
+
+            return Results.Ok(new { saved = true });
+        })
+        .WithName("SaveProviderSlots")
+        .WithSummary("Save provider slot assignments per media type.")
+        .Produces(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
+        .RequireAdmin();
+
         return app;
     }
 

@@ -707,6 +707,90 @@ public sealed class TanasteApiClient : ITanasteApiClient
         catch { return false; }
     }
 
+    // ── Provider slots (/settings/provider-slots) ───────────────────────
+
+    public async Task<Dictionary<string, ProviderSlotDto>?> GetProviderSlotsAsync(
+        CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<Dictionary<string, ProviderSlotDto>>(
+                "/settings/provider-slots", ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /settings/provider-slots failed");
+            LastError = ex.Message;
+            return null;
+        }
+    }
+
+    public async Task<bool> UpdateProviderSlotsAsync(
+        Dictionary<string, ProviderSlotDto> slots, CancellationToken ct = default)
+    {
+        try
+        {
+            var resp = await _http.PutAsJsonAsync("/settings/provider-slots", slots, ct);
+            if (!resp.IsSuccessStatusCode)
+            {
+                var detail = await resp.Content.ReadAsStringAsync(ct);
+                _logger.LogWarning("PUT /settings/provider-slots returned {Status}: {Detail}",
+                    (int)resp.StatusCode, detail);
+                LastError = $"HTTP {(int)resp.StatusCode}: {detail}";
+            }
+            return resp.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "PUT /settings/provider-slots failed");
+            LastError = ex.Message;
+            return false;
+        }
+    }
+
+    // ── Metadata search (/metadata/search) ────────────────────────────────
+
+    public async Task<List<MetadataSearchResultDto>> SearchMetadataAsync(
+        string providerName, string query, string? mediaType = null,
+        int limit = 25, CancellationToken ct = default)
+    {
+        try
+        {
+            var body = new
+            {
+                provider_name = providerName,
+                query,
+                media_type = mediaType,
+                limit,
+            };
+            var resp = await _http.PostAsJsonAsync("/metadata/search", body, ct);
+            if (!resp.IsSuccessStatusCode)
+            {
+                var detail = await resp.Content.ReadAsStringAsync(ct);
+                _logger.LogWarning("POST /metadata/search returned {Status}: {Detail}",
+                    (int)resp.StatusCode, detail);
+                LastError = $"HTTP {(int)resp.StatusCode}: {detail}";
+                return [];
+            }
+            var raw = await resp.Content.ReadFromJsonAsync<MetadataSearchRaw>(ct);
+            return raw?.Results?.Select(r => new MetadataSearchResultDto
+            {
+                Title          = r.Title,
+                Description    = r.Description,
+                Year           = r.Year,
+                ThumbnailUrl   = r.ThumbnailUrl,
+                ProviderItemId = r.ProviderItemId,
+                Confidence     = r.Confidence,
+            }).ToList() ?? [];
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /metadata/search failed");
+            LastError = ex.Message;
+            return [];
+        }
+    }
+
     // ── Hydration settings (/settings/hydration) ────────────────────────
 
     public async Task<HydrationSettingsDto?> GetHydrationSettingsAsync(
@@ -852,4 +936,17 @@ public sealed class TanasteApiClient : ITanasteApiClient
 
     private sealed record RevokeAllRaw(
         [property: JsonPropertyName("revoked_count")] int RevokedCount);
+
+    private sealed record MetadataSearchRaw(
+        [property: JsonPropertyName("provider_name")] string                    ProviderName,
+        [property: JsonPropertyName("query")]         string                    Query,
+        [property: JsonPropertyName("results")]       List<MetadataSearchResultRaw> Results);
+
+    private sealed record MetadataSearchResultRaw(
+        [property: JsonPropertyName("title")]            string  Title,
+        [property: JsonPropertyName("description")]      string? Description,
+        [property: JsonPropertyName("year")]             string? Year,
+        [property: JsonPropertyName("thumbnail_url")]    string? ThumbnailUrl,
+        [property: JsonPropertyName("provider_item_id")] string? ProviderItemId,
+        [property: JsonPropertyName("confidence")]       double  Confidence);
 }

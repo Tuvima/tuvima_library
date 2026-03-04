@@ -69,6 +69,7 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
     private const string ScoringFileName     = "scoring.json";
     private const string MaintenanceFileName = "maintenance.json";
     private const string HydrationFileName   = "hydration.json";
+    private const string SlotsFileName       = "slots.json";
 
     // ── Endpoint distribution map for legacy migration ────────────────────────
 
@@ -229,6 +230,25 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
     /// <inheritdoc/>
     public void SaveHydration(HydrationSettings settings) =>
         SaveFile(HydrationFileName, settings);
+
+    /// <inheritdoc/>
+    public ProviderSlotConfiguration LoadSlots()
+    {
+        // Slots are stored as a flat dictionary in slots.json (not wrapped in ProviderSlotConfiguration).
+        var raw = LoadFile<Dictionary<string, ProviderSlotConfig>>(SlotsFileName);
+        if (raw is null || raw.Count == 0)
+            return new ProviderSlotConfiguration();
+
+        return new ProviderSlotConfiguration { Slots = raw };
+    }
+
+    /// <inheritdoc/>
+    public void SaveSlots(ProviderSlotConfiguration slots)
+    {
+        ArgumentNullException.ThrowIfNull(slots);
+        // Store as a flat dictionary (matching slots.json format).
+        SaveFile(SlotsFileName, slots.Slots);
+    }
 
     /// <inheritdoc/>
     public ProviderConfiguration? LoadProvider(string name)
@@ -466,6 +486,7 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
         SaveCore(new CoreConfiguration());
         SaveScoring(new ScoringSettings());
         SaveMaintenance(new MaintenanceSettings());
+        SaveSlots(new ProviderSlotConfiguration());
 
         // Default providers — same set as the legacy CreateDefaultManifest()
         SaveProvider(new ProviderConfiguration

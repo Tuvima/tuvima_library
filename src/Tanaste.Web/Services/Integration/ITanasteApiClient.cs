@@ -180,6 +180,21 @@ public interface ITanasteApiClient
     /// <summary>POST /review/{id}/dismiss — dismiss a review item.</summary>
     Task<bool> DismissReviewItemAsync(Guid id, CancellationToken ct = default);
 
+    // ── Provider slots (/settings/provider-slots) ──────────────────────────
+
+    /// <summary>GET /settings/provider-slots — current Primary/Secondary/Tertiary slots per media type.</summary>
+    Task<Dictionary<string, ProviderSlotDto>?> GetProviderSlotsAsync(CancellationToken ct = default);
+
+    /// <summary>PUT /settings/provider-slots — save slot assignments for all media types.</summary>
+    Task<bool> UpdateProviderSlotsAsync(Dictionary<string, ProviderSlotDto> slots, CancellationToken ct = default);
+
+    // ── Metadata search (/metadata/search) ───────────────────────────────
+
+    /// <summary>POST /metadata/search — multi-result metadata search against a specific provider.</summary>
+    Task<List<MetadataSearchResultDto>> SearchMetadataAsync(
+        string providerName, string query, string? mediaType = null,
+        int limit = 25, CancellationToken ct = default);
+
     // ── Hydration settings (/settings/hydration) ──────────────────────────
 
     /// <summary>GET /settings/hydration — load hydration pipeline configuration.</summary>

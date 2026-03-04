@@ -52,6 +52,14 @@ public interface IConfigurationLoader
     /// <summary>Persist hydration settings to <c>config/hydration.json</c>.</summary>
     void SaveHydration(HydrationSettings settings);
 
+    // ── Provider Slots ──────────────────────────────────────────────────────
+
+    /// <summary>Load provider slot assignments per media type from <c>config/slots.json</c>.</summary>
+    ProviderSlotConfiguration LoadSlots();
+
+    /// <summary>Persist provider slot assignments to <c>config/slots.json</c>.</summary>
+    void SaveSlots(ProviderSlotConfiguration slots);
+
     // ── Providers ────────────────────────────────────────────────────────────
 
     /// <summary>

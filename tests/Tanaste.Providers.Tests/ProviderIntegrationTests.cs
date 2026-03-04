@@ -440,6 +440,8 @@ file sealed class IntegrationConfigLoader : IConfigurationLoader
     public void SaveMaintenance(MaintenanceSettings settings) { }
     public HydrationSettings LoadHydration() => new();
     public void SaveHydration(HydrationSettings settings) { }
+    public ProviderSlotConfiguration LoadSlots() => new();
+    public void SaveSlots(ProviderSlotConfiguration slots) { }
     public ProviderConfiguration? LoadProvider(string name) => null;
     public void SaveProvider(ProviderConfiguration config) { }
     public IReadOnlyList<ProviderConfiguration> LoadAllProviders() => [];

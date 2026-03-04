@@ -1,0 +1,27 @@
+{
+  "Books": {
+    "primary": "apple_books_ebook",
+    "secondary": "google_books",
+    "tertiary": "open_library"
+  },
+  "Audiobooks": {
+    "primary": "audnexus",
+    "secondary": "apple_books_audiobook",
+    "tertiary": null
+  },
+  "Comics": {
+    "primary": null,
+    "secondary": null,
+    "tertiary": null
+  },
+  "Movies": {
+    "primary": null,
+    "secondary": null,
+    "tertiary": null
+  },
+  "TV Shows": {
+    "primary": null,
+    "secondary": null,
+    "tertiary": null
+  }
+}

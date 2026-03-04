@@ -3,11 +3,18 @@ using System.Text.Json.Serialization;
 namespace Tanaste.Storage.Models;
 
 /// <summary>
-/// Configuration for the three-stage hydration pipeline.
+/// Configuration for the two-stage hydration pipeline.
 ///
 /// Loaded from <c>config/hydration.json</c>. Controls concurrency, timeouts,
 /// disambiguation thresholds, and the confidence gate that triggers review
 /// queue entries.
+///
+/// <list type="bullet">
+///   <item><b>Stage 1 — Content Match:</b> runs only the primary provider from
+///     <c>config/slots.json</c> for the file's media type.</item>
+///   <item><b>Stage 2 — Universe Match:</b> Wikidata QID resolution via bridge IDs,
+///     SPARQL deep hydration, and person enrichment.</item>
+/// </list>
 /// </summary>
 public sealed class HydrationSettings
 {
@@ -59,4 +66,13 @@ public sealed class HydrationSettings
     /// </summary>
     [JsonPropertyName("skip_stage2_without_bridge_ids")]
     public bool SkipStage2WithoutBridgeIds { get; set; }
+
+    /// <summary>
+    /// Minimum confidence for a Wikidata title search match to be auto-accepted
+    /// during Stage 2 (Universe Match). Below this threshold, a
+    /// <see cref="Domain.Enums.ReviewTrigger.UniverseMatchFailed"/> review item
+    /// is created for user verification.
+    /// </summary>
+    [JsonPropertyName("universe_title_search_auto_accept")]
+    public double UniverseTitleSearchAutoAccept { get; set; } = 0.80;
 }
