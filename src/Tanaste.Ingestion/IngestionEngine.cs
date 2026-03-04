@@ -72,6 +72,9 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     // Hub → Work → Edition scaffold creation.
     private readonly IMediaEntityChainFactory _chainFactory;
 
+    // Review queue — created when confidence is too low or category is "Other".
+    private readonly IReviewQueueRepository _reviewRepo;
+
     public IngestionEngine(
         IFileWatcher              watcher,
         DebounceQueue             debounce,
@@ -90,7 +93,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         IHydrationPipelineService  pipeline,
         IRecursiveIdentityService  identity,
         ISidecarWriter             sidecar,
-        IMediaEntityChainFactory   chainFactory)
+        IMediaEntityChainFactory   chainFactory,
+        IReviewQueueRepository     reviewRepo)
     {
         _watcher       = watcher;
         _debounce      = debounce;
@@ -110,6 +114,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         _identity      = identity;
         _sidecar       = sidecar;
         _chainFactory  = chainFactory;
+        _reviewRepo    = reviewRepo;
     }
 
     // =========================================================================
@@ -334,6 +339,20 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 IsConflicted = f.IsConflicted,
             })
             .ToList();
+
+        // Always persist the detected media_type as a canonical value so that
+        // TryReorganizeExistingAsync (and any future re-score) knows the file type.
+        // Without this, re-organization from canonical values loses the media type
+        // and defaults to "Other".
+        canonicals.Add(new CanonicalValue
+        {
+            EntityId     = assetId,
+            Key          = "media_type",
+            Value        = result.DetectedType.ToString(),
+            LastScoredAt = scored.ScoredAt,
+            IsConflicted = false,
+        });
+
         await _canonicalRepo.UpsertBatchAsync(canonicals, ct).ConfigureAwait(false);
 
         // Enrich the candidate with resolved metadata.
@@ -393,21 +412,63 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         // Gate: only organize when we have high-confidence metadata or an explicit
         // user-locked claim. This prevents poorly-tagged files from being committed
         // to the library structure before enough information is available.
+        // Additional guard: if the resolved category is "Other" (unknown/unmapped
+        // media type), always flag for review instead of organizing.
         bool hasUserLock    = claims.Any(c => c.IsUserLocked);
         bool highConfidence = scored.OverallConfidence >= 0.85;
+        bool passesGate     = highConfidence || hasUserLock;
 
         string currentPath = candidate.Path;
         if (_options.AutoOrganize
             && !string.IsNullOrWhiteSpace(_options.LibraryRoot)
-            && (highConfidence || hasUserLock))
+            && passesGate)
         {
             var relative = _organizer.CalculatePath(candidate, _options.OrganizationTemplate);
-            var destPath = Path.Combine(_options.LibraryRoot, relative,
-                                         Path.GetFileName(candidate.Path));
 
-            bool moved = await _organizer.ExecuteMoveAsync(currentPath, destPath, ct)
-                                          .ConfigureAwait(false);
-            if (moved) currentPath = destPath;
+            // Guard: reject any organization that would place the file in "Other".
+            // This catches unmapped media types (Unknown, null) and ensures the file
+            // goes to review instead of a catch-all folder.
+            if (relative.StartsWith("Other", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogWarning(
+                    "Organization blocked — resolved category is 'Other' for {Path}. " +
+                    "Creating review item instead.",
+                    candidate.Path);
+
+                await CreateIngestionReviewItemAsync(
+                    assetId, ReviewTrigger.LowConfidence, scored.OverallConfidence,
+                    $"File would be organized into 'Other' category (media type: {result.DetectedType}). " +
+                    "Manual review required.",
+                    ct).ConfigureAwait(false);
+            }
+            else
+            {
+                var destPath = Path.Combine(_options.LibraryRoot, relative,
+                                             Path.GetFileName(candidate.Path));
+
+                bool moved = await _organizer.ExecuteMoveAsync(currentPath, destPath, ct)
+                                              .ConfigureAwait(false);
+                if (moved) currentPath = destPath;
+            }
+        }
+        else if (_options.AutoOrganize
+                 && !string.IsNullOrWhiteSpace(_options.LibraryRoot)
+                 && !passesGate)
+        {
+            // Confidence too low for organization and no user-locked claims.
+            // Create a review item so the user knows this file needs attention.
+            // The hydration pipeline may also create review items asynchronously,
+            // but this ensures immediate visibility regardless of pipeline outcome.
+            _logger.LogInformation(
+                "Confidence {Confidence:P0} below organization threshold (0.85) for {Path}. " +
+                "Creating review item.",
+                scored.OverallConfidence, candidate.Path);
+
+            await CreateIngestionReviewItemAsync(
+                assetId, ReviewTrigger.LowConfidence, scored.OverallConfidence,
+                $"Overall confidence {scored.OverallConfidence:P0} below organization threshold (85%). " +
+                "File remains in Watch Folder until reviewed.",
+                ct).ConfigureAwait(false);
         }
 
         // Step 11b: write sidecar XML and persist cover art.
@@ -722,6 +783,25 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         };
 
         var relative = _organizer.CalculatePath(synth, _options.OrganizationTemplate);
+
+        // Guard: never re-organize into the "Other" category. If the media type
+        // couldn't be determined from canonical values, create a review item so the
+        // user can manually classify the file.
+        if (relative.StartsWith("Other", StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogWarning(
+                "Re-organization blocked for {Hash} — resolved category is 'Other'. " +
+                "Creating review item instead.",
+                existing.ContentHash[..12]);
+
+            await CreateIngestionReviewItemAsync(
+                existing.Id, ReviewTrigger.LowConfidence, 0.0,
+                $"Re-organization would place file in 'Other' category (media type unknown). " +
+                "Manual classification required.",
+                ct).ConfigureAwait(false);
+            return;
+        }
+
         var destPath = Path.Combine(
             _options.LibraryRoot, relative, Path.GetFileName(currentPath));
 
@@ -824,6 +904,66 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             refs.Add(new PersonReference("Narrator", narrator.Trim()));
 
         return refs;
+    }
+
+    /// <summary>
+    /// Creates a review queue entry from the ingestion pipeline. Used when the
+    /// confidence gate blocks organization or when the file would be placed in
+    /// the "Other" category.
+    /// </summary>
+    private async Task CreateIngestionReviewItemAsync(
+        Guid entityId,
+        string trigger,
+        double confidence,
+        string detail,
+        CancellationToken ct)
+    {
+        try
+        {
+            // Check if a pending review item already exists for this entity
+            // (the hydration pipeline may also create one asynchronously).
+            var existing = await _reviewRepo.GetByEntityAsync(entityId, ct)
+                .ConfigureAwait(false);
+
+            if (existing.Any(r => r.Status == Domain.Enums.ReviewStatus.Pending))
+            {
+                _logger.LogDebug(
+                    "Review item already exists for entity {Id} — skipping duplicate.",
+                    entityId);
+                return;
+            }
+
+            var entry = new ReviewQueueEntry
+            {
+                Id              = Guid.NewGuid(),
+                EntityId        = entityId,
+                EntityType      = "MediaAsset",
+                Trigger         = trigger,
+                ConfidenceScore = confidence,
+                Detail          = detail,
+                CreatedAt       = DateTimeOffset.UtcNow,
+            };
+
+            await _reviewRepo.InsertAsync(entry, ct).ConfigureAwait(false);
+
+            await SafePublishAsync("ReviewItemCreated", new
+            {
+                review_id   = entry.Id,
+                entity_id   = entityId,
+                trigger,
+                confidence,
+            }, ct).ConfigureAwait(false);
+
+            _logger.LogInformation(
+                "Review item created for entity {Id}: {Trigger} — {Detail}",
+                entityId, trigger, detail);
+        }
+        catch (Exception ex)
+        {
+            // Review item creation failure must not abort the ingestion pipeline.
+            _logger.LogWarning(ex,
+                "Failed to create review item for entity {Id}", entityId);
+        }
     }
 
     /// <summary>

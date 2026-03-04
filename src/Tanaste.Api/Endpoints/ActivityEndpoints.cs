@@ -79,6 +79,30 @@ public static class ActivityEndpoints
         .Produces<ActivityStatsResponse>(StatusCodes.Status200OK)
         .RequireAdminOrCurator();
 
+        // PUT /activity/retention — update retention period.
+        group.MapPut("/retention", (
+            int days,
+            IConfigurationLoader configLoader) =>
+        {
+            if (days < 1 || days > 365)
+                return Results.BadRequest("Retention must be between 1 and 365 days.");
+
+            var maintenance = configLoader.LoadMaintenance();
+            maintenance.ActivityRetentionDays = days;
+            configLoader.SaveMaintenance(maintenance);
+
+            return Results.Ok(new ActivityStatsResponse
+            {
+                TotalEntries  = 0,
+                RetentionDays = days,
+            });
+        })
+        .WithName("UpdateActivityRetention")
+        .WithSummary("Updates the activity retention period in days.")
+        .Produces<ActivityStatsResponse>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
+        .RequireAdmin();
+
         return app;
     }
 }

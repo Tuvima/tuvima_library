@@ -262,6 +262,10 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     public Task<PruneResultViewModel?> TriggerPruneAsync(CancellationToken ct = default)
         => _api.TriggerPruneAsync(ct);
 
+    /// <summary>Updates the activity retention period in days.</summary>
+    public Task<bool> UpdateRetentionAsync(int days, CancellationToken ct = default)
+        => _api.UpdateRetentionAsync(days, ct);
+
     /// <summary>Fires when the activity log changes. Components should use InvokeAsync(StateHasChanged).</summary>
     public event Action? OnActivityChanged
     {

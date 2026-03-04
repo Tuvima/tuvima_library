@@ -704,12 +704,13 @@ The Settings sidebar is restructured into three groups:
 | Group | Items |
 |---|---|
 | **Preferences** | General, Playback, Navigation |
-| **Metadata** | Connection Vault, Needs Review |
+| **Metadata** | Connection Vault, Needs Review, Activity |
 | **Server** | Library, Connectivity, API Keys, Conflicts, Users, Maintenance |
 
-Two Settings tabs in the Metadata group:
+Three Settings tabs in the Metadata group:
 - **Connection Vault** — unified provider management with four sections: (1) Wikidata Universe Provider pinned at top with dedicated `WikidataVaultPanel` for SPARQL testing and bridge browsing. (2) **Field Priorities** — collapsible media-type groups (Books, Audiobooks, Comics, Movies, TV Shows) with per-field provider priority ordering. Users reorder providers via up/down arrows; priority position maps to field weights automatically (Position 1 = 0.95, Position 2 = 0.85, etc.). No percentages shown — just numbered priority lists. (3) **Provider Connections** — collapsible section for testing endpoints, enable/disable toggles, and `ProviderEditPanel` configuration. (4) **Advanced** — collapsible section with pipeline config (concurrency, timeouts, thresholds) absorbed from the former Matching Pipeline tab. Provider display names no longer include media type in parentheses (e.g. "Apple Books" not "Apple Books (Ebooks)") since the media type is conveyed by the group. Mobile uses slide-over drawer.
 - **Needs Review** — review queue table with trigger chips, confidence gauges, resolve/dismiss actions, live SignalR updates
+- **Activity** — date-grouped timeline of all Engine actions (ingestion, metadata hydration, review resolution, pruning). Configurable retention period (default 60 days) at the top. Load-more pagination. Entries show action icon, label, hub name chip, entity type chip, detail text, and formatted time. Replaces the activity section formerly in MaintenanceTab.
 
 Absorbed/removed tabs:
 - **Property Mapper** — removed (file deleted). Deep-link URLs redirect to Connection Vault via `Settings.razor` switch.
@@ -1218,6 +1219,7 @@ src/Tanaste.Web/
 │   │   ├── ConnectionVaultTab.razor     [Metadata] Unified vault: Wikidata pinned, media-type field priorities, provider connections, pipeline config
 │   │   ├── UniverseSettingsTab.razor    [Metadata] Wikidata universe provider: bridge identifiers + property map (read-only, orphaned)
 │   │   ├── NeedsReviewTab.razor         [Metadata] Review queue: trigger chips, confidence gauges, resolve/dismiss
+│   │   ├── ActivityTab.razor            [Metadata] Date-grouped activity timeline, configurable retention, prune
 │   │   ├── LibrariesTab.razor           [Server] Watch Folder + Library Folder configuration
 │   │   ├── ConnectivityTab.razor        [Server] Engine connectivity status
 │   │   ├── ApiKeysTab.razor             [Server] Guest API Keys: generate, revoke, copy-to-clipboard
@@ -1240,7 +1242,7 @@ src/Tanaste.Web/
 │       ├── PersonDetail.razor          (TARGET STATE) Person detail: headshot, bio, social links, works
 │       ├── Statistics.razor            (TARGET STATE) Library + personal stats, charts
 │       ├── Login.razor                 (TARGET STATE) Profile selection + PIN/password login
-│       ├── Settings.razor              Unified settings: sidebar + content, 15 tabs in 3 groups (Preferences/Metadata/Server)
+│       ├── Settings.razor              Unified settings: sidebar + content, 16 tabs in 3 groups (Preferences/Metadata/Server)
 │       └── NotFound.razor              404 page
 │
 ├── Models/

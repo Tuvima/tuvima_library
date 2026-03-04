@@ -1,0 +1,426 @@
+@namespace Tanaste.Web.Components.Settings
+@inject UIOrchestratorService Orchestrator
+@inject ISnackbar Snackbar
+
+@* Activity — Date-grouped timeline of all Engine actions: ingestion, metadata,
+   organization, review resolution. Configurable retention at the top. *@
+
+<MudPaper Elevation="0" Style="@GlassStyle">
+
+    @* ── Section Header ──────────────────────────────────────────────────── *@
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+        <MudIcon Icon="@Icons.Material.Outlined.Timeline" Color="Color.Primary" Class="mr-2" />
+        <MudText Typo="Typo.h6" Style="flex: 1;">Activity</MudText>
+        <MudIconButton Icon="@Icons.Material.Filled.Refresh"
+                       Size="Size.Small"
+                       Color="Color.Default"
+                       title="Refresh"
+                       OnClick="@RefreshAsync" />
+    </MudStack>
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
+        Timeline of every action the Engine has performed on your library.
+    </MudText>
+
+    @* ── Retention config ────────────────────────────────────────────────── *@
+    <MudPaper Elevation="0" Style="@InnerCardStyle" Class="mb-6">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+            <MudIcon Icon="@Icons.Material.Outlined.DateRange"
+                     Size="Size.Small" Color="Color.Primary" />
+            <MudText Typo="Typo.body2" Style="white-space: nowrap;">
+                Keep activity for
+            </MudText>
+            <MudNumericField @bind-Value="_retentionDays"
+                             Min="1" Max="365"
+                             Variant="Variant.Outlined"
+                             Margin="Margin.Dense"
+                             Style="max-width: 90px;"
+                             Immediate="false" />
+            <MudText Typo="Typo.body2">days</MudText>
+            <MudButton Variant="Variant.Outlined"
+                       Color="Color.Primary"
+                       Size="Size.Small"
+                       OnClick="@SaveRetentionAsync"
+                       Disabled="@(_savingRetention || _retentionDays == _savedRetentionDays)">
+                @(_savingRetention ? "Saving..." : "Save")
+            </MudButton>
+            <MudSpacer />
+            @if (_stats is not null)
+            {
+                <MudChip T="string" Size="Size.Small" Color="Color.Default"
+                         Style="opacity: 0.7;">
+                    @_stats.TotalEntries.ToString("N0") entries
+                </MudChip>
+            }
+            <MudButton Variant="Variant.Text"
+                       Color="Color.Warning"
+                       Size="Size.Small"
+                       StartIcon="@Icons.Material.Filled.CleaningServices"
+                       OnClick="@TriggerPruneAsync"
+                       Disabled="@_pruning">
+                @(_pruning ? "Pruning..." : "Prune Now")
+            </MudButton>
+        </MudStack>
+    </MudPaper>
+
+    @if (_loading)
+    {
+        <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4" />
+    }
+    else if (_entries.Count == 0)
+    {
+        <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="pa-8">
+            <MudIcon Icon="@Icons.Material.Filled.EventNote"
+                     Size="Size.Large"
+                     Style="font-size: 3rem; opacity: 0.3;" />
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Align="Align.Center">
+                No activity recorded yet. Events will appear here as the Engine
+                ingests files, enriches metadata, and manages your library.
+            </MudText>
+        </MudStack>
+    }
+    else
+    {
+        @* ── Date-grouped timeline ───────────────────────────────────────── *@
+        @foreach (var group in _groupedEntries)
+        {
+            @* Date header *@
+            <div class="activity-date-header">
+                <MudIcon Icon="@Icons.Material.Filled.CalendarToday"
+                         Size="Size.Small"
+                         Style="color: var(--mud-palette-primary); opacity: 0.8;" />
+                <MudText Typo="Typo.subtitle2" Style="font-weight: 600; color: var(--mud-palette-primary);">
+                    @group.DateLabel
+                </MudText>
+            </div>
+
+            <MudPaper Elevation="0" Style="@InnerCardStyle" Class="mb-4">
+                <MudStack Spacing="0">
+                    @foreach (var entry in group.Entries)
+                    {
+                        <div class="activity-timeline-row">
+                            @* Timeline icon + connector line *@
+                            <div class="activity-timeline-dot">
+                                <div class="activity-icon-circle" style="@IconCircleStyle(entry.ActionType)">
+                                    <MudIcon Icon="@ActionIcon(entry.ActionType)"
+                                             Size="Size.Small"
+                                             Style="font-size: 0.85rem; color: white;" />
+                                </div>
+                                <div class="activity-timeline-line" />
+                            </div>
+
+                            @* Entry content *@
+                            <div class="activity-entry-content">
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                    <MudText Typo="Typo.body2" Style="font-weight: 600;">
+                                        @ActionLabel(entry.ActionType)
+                                    </MudText>
+                                    @if (!string.IsNullOrEmpty(entry.HubName))
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Primary"
+                                                 Style="font-size: 0.7rem; height: 20px;">
+                                            @entry.HubName
+                                        </MudChip>
+                                    }
+                                    @if (!string.IsNullOrEmpty(entry.EntityType))
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Default"
+                                                 Variant="Variant.Outlined"
+                                                 Style="font-size: 0.65rem; height: 18px; opacity: 0.7;">
+                                            @entry.EntityType
+                                        </MudChip>
+                                    }
+                                    <MudSpacer />
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary"
+                                             Style="white-space: nowrap;">
+                                        @FormatTime(entry.OccurredAt)
+                                    </MudText>
+                                </MudStack>
+
+                                @if (!string.IsNullOrEmpty(entry.Detail))
+                                {
+                                    <MudText Typo="Typo.body2" Color="Color.Secondary"
+                                             Style="margin-top: 2px; line-height: 1.4;">
+                                        @entry.Detail
+                                    </MudText>
+                                }
+                            </div>
+                        </div>
+                    }
+                </MudStack>
+            </MudPaper>
+        }
+
+        @* Load more *@
+        @if (_entries.Count >= _limit)
+        {
+            <MudStack AlignItems="AlignItems.Center" Class="mt-2 mb-4">
+                <MudButton Variant="Variant.Text"
+                           Color="Color.Primary"
+                           OnClick="@LoadMoreAsync"
+                           Disabled="@_loadingMore">
+                    @(_loadingMore ? "Loading..." : "Load More")
+                </MudButton>
+            </MudStack>
+        }
+    }
+
+</MudPaper>
+
+@code {
+    // ── Style constants ──────────────────────────────────────────────────────────
+
+    private const string GlassStyle =
+        "background: var(--tanaste-glass-bg); " +
+        "border: 1px solid var(--tanaste-glass-border); " +
+        "backdrop-filter: blur(10px); " +
+        "-webkit-backdrop-filter: blur(10px); " +
+        "border-radius: 32px; " +
+        "padding: 32px;";
+
+    private const string InnerCardStyle =
+        "background: var(--tanaste-glass-inner-bg); " +
+        "border: 1px solid var(--tanaste-glass-inner-border); " +
+        "border-radius: 16px; " +
+        "padding: 24px;";
+
+    // ── State ────────────────────────────────────────────────────────────────────
+
+    private bool _loading = true;
+    private bool _loadingMore;
+    private bool _pruning;
+    private bool _savingRetention;
+    private int  _limit = 100;
+    private int  _retentionDays = 60;
+    private int  _savedRetentionDays = 60;
+
+    private List<ActivityEntryViewModel> _entries = [];
+    private ActivityStatsViewModel?      _stats;
+    private List<DateGroup>              _groupedEntries = [];
+
+    // ── Lifecycle ────────────────────────────────────────────────────────────────
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshAsync();
+    }
+
+    private async Task RefreshAsync()
+    {
+        _loading = true;
+        StateHasChanged();
+
+        var entriesTask = Orchestrator.GetRecentActivityAsync(_limit);
+        var statsTask   = Orchestrator.GetActivityStatsAsync();
+        await Task.WhenAll(entriesTask, statsTask);
+
+        _entries = entriesTask.Result;
+        _stats   = statsTask.Result;
+
+        if (_stats is not null)
+        {
+            _retentionDays      = _stats.RetentionDays;
+            _savedRetentionDays = _stats.RetentionDays;
+        }
+
+        RebuildGroups();
+        _loading = false;
+    }
+
+    private async Task LoadMoreAsync()
+    {
+        _loadingMore = true;
+        StateHasChanged();
+
+        _limit += 100;
+        var entries = await Orchestrator.GetRecentActivityAsync(_limit);
+        _entries = entries;
+        RebuildGroups();
+
+        _loadingMore = false;
+    }
+
+    // ── Retention ────────────────────────────────────────────────────────────────
+
+    private async Task SaveRetentionAsync()
+    {
+        _savingRetention = true;
+        StateHasChanged();
+
+        var success = await Orchestrator.UpdateRetentionAsync(_retentionDays);
+        _savingRetention = false;
+
+        if (success)
+        {
+            _savedRetentionDays = _retentionDays;
+            Snackbar.Add($"Retention updated to {_retentionDays} days", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add("Failed to update retention — is the Engine running?", Severity.Error);
+        }
+    }
+
+    private async Task TriggerPruneAsync()
+    {
+        _pruning = true;
+        StateHasChanged();
+
+        var result = await Orchestrator.TriggerPruneAsync();
+        _pruning = false;
+
+        if (result is not null)
+        {
+            Snackbar.Add($"Pruned {result.Deleted} entries", Severity.Success);
+            await RefreshAsync();
+        }
+        else
+        {
+            Snackbar.Add("Prune failed — is the Engine running?", Severity.Error);
+        }
+    }
+
+    // ── Date grouping ────────────────────────────────────────────────────────────
+
+    private void RebuildGroups()
+    {
+        _groupedEntries = _entries
+            .GroupBy(e =>
+            {
+                if (DateTimeOffset.TryParse(e.OccurredAt, out var ts))
+                    return ts.LocalDateTime.Date;
+                return DateTime.Today;
+            })
+            .OrderByDescending(g => g.Key)
+            .Select(g => new DateGroup
+            {
+                Date      = g.Key,
+                DateLabel = FormatDateLabel(g.Key),
+                Entries   = g.ToList(),
+            })
+            .ToList();
+    }
+
+    private static string FormatDateLabel(DateTime date)
+    {
+        var today = DateTime.Today;
+        if (date == today) return "Today";
+        if (date == today.AddDays(-1)) return "Yesterday";
+        if (date >= today.AddDays(-6)) return date.ToString("dddd");  // e.g. "Monday"
+        return date.ToString("MMMM d, yyyy");                        // e.g. "February 28, 2026"
+    }
+
+    private static string FormatTime(string occurredAt)
+    {
+        if (DateTimeOffset.TryParse(occurredAt, out var ts))
+            return ts.LocalDateTime.ToString("h:mm tt");  // e.g. "4:23 PM"
+        return "—";
+    }
+
+    // ── Action type display helpers ──────────────────────────────────────────────
+
+    private static readonly Dictionary<string, (string Icon, string Label, string Bg)> ActionMeta = new()
+    {
+        ["FileIngested"]              = (Icons.Material.Filled.FilePresent,       "File Ingested",              "#4caf50"),
+        ["MetadataHydrated"]          = (Icons.Material.Filled.Science,           "Metadata Hydrated",          "#2196f3"),
+        ["HashVerified"]              = (Icons.Material.Filled.Fingerprint,       "Hash Verified",              "#2196f3"),
+        ["PathUpdated"]               = (Icons.Material.Filled.DriveFileMove,     "Path Updated",               "#ff9800"),
+        ["SyncCompleted"]             = (Icons.Material.Filled.CloudDone,         "Sync Completed",             "#4caf50"),
+        ["CrawlStarted"]             = (Icons.Material.Filled.Search,            "Crawl Started",              "#2196f3"),
+        ["CrawlFinished"]            = (Icons.Material.Filled.SearchOff,         "Crawl Finished",             "#4caf50"),
+        ["MetadataRefreshed"]         = (Icons.Material.Filled.Autorenew,         "Metadata Refreshed",         "#2196f3"),
+        ["SidecarUpdated"]            = (Icons.Material.Filled.Description,       "Sidecar Updated",            "#78909c"),
+        ["ActivityPruned"]            = (Icons.Material.Filled.CleaningServices,  "Activity Pruned",            "#ff9800"),
+        ["BridgeSyncUpdated"]         = (Icons.Material.Filled.Link,             "Bridge Sync Updated",        "#2196f3"),
+        ["PersonHydrated"]            = (Icons.Material.Filled.Person,           "Person Hydrated",            "#4caf50"),
+        ["WeeklySyncStarted"]         = (Icons.Material.Filled.Sync,             "Weekly Sync Started",        "#2196f3"),
+        ["AffiliateGenerated"]        = (Icons.Material.Filled.LocalOffer,       "Affiliate Generated",        "#4caf50"),
+        ["HydrationStage1Completed"]  = (Icons.Material.Filled.LooksOne,         "Content Match Complete",     "#26a69a"),
+        ["HydrationStage2Completed"]  = (Icons.Material.Filled.LooksTwo,         "Universe Match Complete",    "#26a69a"),
+        ["HydrationStage3Completed"]  = (Icons.Material.Filled.Looks3,           "Person Enrichment Complete", "#26a69a"),
+        ["ReviewItemCreated"]         = (Icons.Material.Filled.RateReview,        "Sent to Review",            "#ff9800"),
+        ["ReviewItemResolved"]        = (Icons.Material.Filled.CheckCircle,       "Review Resolved",           "#4caf50"),
+        ["MetadataManualOverride"]    = (Icons.Material.Filled.Edit,             "Manual Override",            "#ab47bc"),
+        ["MetadataWrittenToFile"]     = (Icons.Material.Filled.SaveAlt,          "Written to File",            "#78909c"),
+    };
+
+    private static string ActionIcon(string actionType) =>
+        ActionMeta.TryGetValue(actionType, out var m) ? m.Icon : Icons.Material.Filled.Info;
+
+    private static string ActionLabel(string actionType) =>
+        ActionMeta.TryGetValue(actionType, out var m) ? m.Label : actionType;
+
+    private static string IconCircleStyle(string actionType)
+    {
+        var bg = ActionMeta.TryGetValue(actionType, out var m) ? m.Bg : "#78909c";
+        return $"background: {bg};";
+    }
+
+    // ── Records ──────────────────────────────────────────────────────────────────
+
+    private sealed class DateGroup
+    {
+        public DateTime Date { get; init; }
+        public string DateLabel { get; init; } = string.Empty;
+        public List<ActivityEntryViewModel> Entries { get; init; } = [];
+    }
+}
+
+<style>
+    /* ── Date header ──────────────────────────────────────────────────── */
+    .activity-date-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 4px 6px 4px;
+        margin-top: 4px;
+    }
+
+    /* ── Timeline row ─────────────────────────────────────────────────── */
+    .activity-timeline-row {
+        display: flex;
+        gap: 14px;
+        align-items: flex-start;
+    }
+
+    .activity-timeline-dot {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 32px;
+        flex-shrink: 0;
+    }
+
+    .activity-icon-circle {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .activity-timeline-line {
+        flex: 1;
+        width: 2px;
+        background: var(--tanaste-glass-border);
+        margin-top: 4px;
+        min-height: 12px;
+    }
+
+    /* Hide connector line on last item in each group */
+    .activity-timeline-row:last-child .activity-timeline-line {
+        visibility: hidden;
+    }
+
+    .activity-entry-content {
+        flex: 1;
+        padding-bottom: 16px;
+        min-width: 0;
+    }
+
+    /* Last item in group: less bottom padding */
+    .activity-timeline-row:last-child .activity-entry-content {
+        padding-bottom: 4px;
+    }
+</style>

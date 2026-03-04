@@ -181,6 +181,7 @@
         [
             new(SettingsSection.ConnectionVault,   Icons.Material.Outlined.Hub,         "Metadata",           true, null),
             new(SettingsSection.NeedsReview,        Icons.Material.Outlined.RateReview,  "Needs Review",       true, "review"),
+            new(SettingsSection.Activity,           Icons.Material.Outlined.Timeline,    "Activity",           true, null),
         ]),
 
         new("Server", "Server", true,
@@ -273,7 +274,7 @@
         // Preferences
         General, Playback, Navigation,
         // Metadata
-        ConnectionVault, PropertyMapper, Universe, MatchingPipeline, NeedsReview,
+        ConnectionVault, PropertyMapper, Universe, MatchingPipeline, NeedsReview, Activity,
         // Server
         Library, Connectivity, ApiKeys, Conflicts, Users, Maintenance,
         // Legacy alias — kept so existing deep links to /settings/providers redirect correctly.

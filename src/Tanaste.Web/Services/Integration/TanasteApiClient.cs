@@ -605,6 +605,16 @@ public sealed class TanasteApiClient : ITanasteApiClient
         catch { return null; }
     }
 
+    public async Task<bool> UpdateRetentionAsync(int days, CancellationToken ct = default)
+    {
+        try
+        {
+            var resp = await _http.PutAsync($"/activity/retention?days={days}", null, ct);
+            return resp.IsSuccessStatusCode;
+        }
+        catch { return false; }
+    }
+
     // ── Organization template ────────────────────────────────────────────────
 
     public async Task<OrganizationTemplateDto?> GetOrganizationTemplateAsync(

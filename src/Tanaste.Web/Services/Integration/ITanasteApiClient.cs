@@ -152,6 +152,9 @@ public interface ITanasteApiClient
     /// <summary>POST /activity/prune — manually prune old activity entries.</summary>
     Task<PruneResultViewModel?> TriggerPruneAsync(CancellationToken ct = default);
 
+    /// <summary>PUT /activity/retention?days= — update retention period.</summary>
+    Task<bool> UpdateRetentionAsync(int days, CancellationToken ct = default);
+
     // ── UI Settings (/settings/ui) ───────────────────────────────────────────────
 
     /// <summary>

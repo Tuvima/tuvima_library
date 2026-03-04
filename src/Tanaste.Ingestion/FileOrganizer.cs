@@ -342,8 +342,11 @@ public sealed class FileOrganizer : IFileOrganizer
         MediaType.Epub      => "Books",
         MediaType.Comic     => "Comics",
         MediaType.Movie     => "Videos",
+        MediaType.TvShow    => "TV Shows",
         MediaType.Audiobook => "Audio",
-        _                   => "Other",
+        MediaType.Music     => "Music",
+        MediaType.Podcast   => "Podcasts",
+        _                   => "Other",  // Unknown, null — caught by upstream guard
     };
 
     /// <summary>
