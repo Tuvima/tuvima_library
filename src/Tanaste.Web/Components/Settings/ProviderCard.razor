@@ -1,8 +1,10 @@
 @namespace Tanaste.Web.Components.Settings
 @using Tanaste.Web.Models
 @using Tanaste.Web.Models.ViewDTOs
+@inject UIOrchestratorService Orchestrator
+@inject ISnackbar Snackbar
 
-@* ProviderCard — simple card with accent bar, display name, and health dot.
+@* ProviderCard — card with accent bar, display name, health dot, and config flyout.
    Used in the Metadata tab for drag-drop provider slot assignment. *@
 
 <div class="provider-card @(IsSlotted ? "provider-card-slotted" : "")"
@@ -20,11 +22,30 @@
         @ProviderAccentMap.GetDisplayName(Provider.Name)
     </MudText>
 
+    @* API key badge — shows when a key is required *@
+    @if (Provider.RequiresApiKey)
+    {
+        <MudTooltip Text="@(Provider.HasApiKey ? "API key configured" : "API key required")"
+                    Arrow="true" Placement="Placement.Top">
+            <MudIcon Icon="@Icons.Material.Filled.Key"
+                     Size="Size.Small"
+                     Style="@($"color: {(Provider.HasApiKey ? "#4CAF50" : "#FF9800")}; flex-shrink: 0;")" />
+        </MudTooltip>
+    }
+
     @* Health dot *@
     <MudTooltip Text="@(Provider.IsReachable ? "Online" : "Unreachable")"
                 Arrow="true" Placement="Placement.Top">
         <div class="provider-health-dot @(Provider.IsReachable ? "health-online" : "health-offline")"></div>
     </MudTooltip>
+
+    @* Config button (three dots) *@
+    <MudIconButton Icon="@Icons.Material.Filled.MoreVert"
+                   Size="Size.Small"
+                   Color="Color.Default"
+                   title="Configure provider"
+                   OnClick="@ToggleFlyout"
+                   Style="margin-left: 2px; flex-shrink: 0;" />
 
     @* Remove button (only shown when slotted) *@
     @if (IsSlotted && OnRemove.HasDelegate)
@@ -34,9 +55,97 @@
                        Color="Color.Default"
                        title="Remove from slot"
                        OnClick="@(() => OnRemove.InvokeAsync())"
-                       Style="margin-left: 4px;" />
+                       Style="margin-left: 2px;" />
     }
 </div>
+
+@* Config flyout popover *@
+@if (_flyoutOpen)
+{
+    <MudPaper Elevation="4" Class="provider-flyout">
+        <MudStack Spacing="3">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">
+                    @ProviderAccentMap.GetDisplayName(Provider.Name) Settings
+                </MudText>
+                <MudIconButton Icon="@Icons.Material.Filled.Close"
+                               Size="Size.Small"
+                               OnClick="@CloseFlyout" />
+            </MudStack>
+
+            @* Endpoint *@
+            <MudTextField T="string"
+                          @bind-Value="_editEndpoint"
+                          Label="Endpoint URL"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Language" />
+
+            @* Timeout *@
+            <MudNumericField T="int"
+                             @bind-Value="_editTimeout"
+                             Label="Timeout (seconds)"
+                             Variant="Variant.Outlined"
+                             Margin="Margin.Dense"
+                             Min="1" Max="120"
+                             Adornment="Adornment.Start"
+                             AdornmentIcon="@Icons.Material.Filled.Timer" />
+
+            @* Throttle *@
+            <MudNumericField T="int"
+                             @bind-Value="_editThrottle"
+                             Label="Throttle (ms between requests)"
+                             Variant="Variant.Outlined"
+                             Margin="Margin.Dense"
+                             Min="0" Max="60000"
+                             Adornment="Adornment.Start"
+                             AdornmentIcon="@Icons.Material.Filled.Speed" />
+
+            @* API Key — only shown when provider requires one *@
+            @if (Provider.RequiresApiKey)
+            {
+                <MudTextField T="string"
+                              @bind-Value="_editApiKey"
+                              Label="API Key"
+                              Variant="Variant.Outlined"
+                              Margin="Margin.Dense"
+                              InputType="@(_showApiKey ? InputType.Text : InputType.Password)"
+                              Placeholder="Enter your API key"
+                              Adornment="Adornment.End"
+                              AdornmentIcon="@(_showApiKey ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
+                              OnAdornmentClick="@(() => _showApiKey = !_showApiKey)" />
+
+                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                    @GetApiKeyHelpText()
+                </MudText>
+            }
+
+            @* Enabled toggle *@
+            <MudSwitch T="bool" @bind-Value="_editEnabled"
+                       Label="Enabled" Color="Color.Primary" />
+
+            @* Action buttons *@
+            <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2">
+                <MudButton Variant="Variant.Text"
+                           Color="Color.Default"
+                           Size="Size.Small"
+                           OnClick="@CloseFlyout">Cancel</MudButton>
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           Size="Size.Small"
+                           OnClick="@SaveConfigAsync"
+                           Disabled="@_saving">
+                    @if (_saving)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                    }
+                    Save
+                </MudButton>
+            </MudStack>
+        </MudStack>
+    </MudPaper>
+}
 
 @code {
     /// <summary>The provider status data to display.</summary>
@@ -48,12 +157,111 @@
     /// <summary>Fires when the user clicks the remove (X) button.</summary>
     [Parameter] public EventCallback OnRemove { get; set; }
 
+    /// <summary>Fires after a config save succeeds so the parent can refresh.</summary>
+    [Parameter] public EventCallback OnConfigSaved { get; set; }
+
     private (string Color, string Icon) _accent;
+    private bool _flyoutOpen;
+    private bool _saving;
+    private bool _showApiKey;
+
+    // Editable fields
+    private string _editEndpoint = string.Empty;
+    private int _editTimeout = 10;
+    private int _editThrottle;
+    private string _editApiKey = string.Empty;
+    private bool _editEnabled = true;
 
     protected override void OnParametersSet()
     {
         _accent = ProviderAccentMap.GetAccent(Provider.Name);
     }
+
+    private void ToggleFlyout()
+    {
+        if (_flyoutOpen)
+        {
+            CloseFlyout();
+            return;
+        }
+
+        // Populate fields from current provider state.
+        _editEndpoint = Provider.Endpoints?.TryGetValue("api", out var url) == true
+            ? url
+            : Provider.Endpoints?.Values.FirstOrDefault() ?? string.Empty;
+        _editTimeout = Provider.TimeoutSeconds > 0 ? Provider.TimeoutSeconds : 10;
+        _editThrottle = Provider.ThrottleMs;
+        _editApiKey = string.Empty; // Never pre-fill API keys for security.
+        _editEnabled = Provider.Enabled;
+        _showApiKey = false;
+
+        _flyoutOpen = true;
+    }
+
+    private void CloseFlyout()
+    {
+        _flyoutOpen = false;
+    }
+
+    private async Task SaveConfigAsync()
+    {
+        _saving = true;
+        try
+        {
+            var config = new ProviderConfigUpdateDto
+            {
+                Enabled  = _editEnabled,
+                Weight   = Provider.DefaultWeight,
+                Endpoints = new Dictionary<string, string>
+                {
+                    ["api"] = _editEndpoint,
+                },
+                ThrottleMs      = _editThrottle,
+                MaxConcurrency  = Provider.MaxConcurrency,
+                TimeoutSeconds  = _editTimeout,
+                ApiKey          = Provider.RequiresApiKey && !string.IsNullOrEmpty(_editApiKey)
+                    ? _editApiKey
+                    : null,
+            };
+
+            // Merge existing endpoints so we don't lose secondary keys (e.g. sparql).
+            if (Provider.Endpoints is not null)
+            {
+                foreach (var (k, v) in Provider.Endpoints)
+                {
+                    if (!string.Equals(k, "api", StringComparison.OrdinalIgnoreCase))
+                        config.Endpoints[k] = v;
+                }
+            }
+
+            var ok = await Orchestrator.SaveProviderConfigAsync(Provider.Name, config);
+
+            if (ok)
+            {
+                Snackbar.Add($"{ProviderAccentMap.GetDisplayName(Provider.Name)} settings saved.", Severity.Success);
+                _flyoutOpen = false;
+
+                if (OnConfigSaved.HasDelegate)
+                    await OnConfigSaved.InvokeAsync();
+            }
+            else
+            {
+                Snackbar.Add("Failed to save provider settings.", Severity.Error);
+            }
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private string GetApiKeyHelpText() => Provider.ApiKeyDelivery switch
+    {
+        "bearer" => "Sent as a Bearer token in the Authorization header.",
+        "query"  => $"Appended as ?{Provider.ApiKeyParamName ?? "api_key"}= to each request.",
+        "header" => $"Sent in the {Provider.ApiKeyParamName ?? "X-Api-Key"} header.",
+        _        => "Required for this provider to function.",
+    };
 }
 
 <style>
@@ -71,7 +279,7 @@
         user-select: none;
         transition: box-shadow 0.15s ease, border-color 0.15s ease;
         position: relative;
-        overflow: hidden;
+        overflow: visible;
     }
 
     .provider-card:hover {
@@ -114,5 +322,21 @@
     .health-offline {
         background: #F44336;
         box-shadow: 0 0 4px rgba(244, 67, 54, 0.5);
+    }
+
+    /* Config flyout */
+    .provider-flyout {
+        position: absolute;
+        top: calc(100% + 8px);
+        right: 0;
+        z-index: 1000;
+        width: 360px;
+        padding: 20px;
+        border-radius: 16px;
+        background: var(--tanaste-glass-bg, rgba(30, 30, 30, 0.95));
+        border: 1px solid var(--tanaste-glass-border, rgba(255,255,255,0.1));
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
     }
 </style>

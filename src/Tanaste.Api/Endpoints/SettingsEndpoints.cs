@@ -41,6 +41,8 @@ public static class SettingsEndpoints
             ["local_filesystem"]      = "Local Filesystem",
             ["open_library"]          = "Open Library",
             ["google_books"]          = "Google Books",
+            ["tmdb"]                  = "TMDB",
+            ["comic_vine"]            = "Comic Vine",
         };
 
     // Maps provider name → key in manifest.ProviderEndpoints for the reachability probe.
@@ -237,7 +239,7 @@ public static class SettingsEndpoints
                     probeCts.CancelAfter(TimeSpan.FromSeconds(3));
                     try
                     {
-                        using var req  = new HttpRequestMessage(HttpMethod.Head, baseUrl);
+                        using var req  = new HttpRequestMessage(HttpMethod.Get, baseUrl);
                         using var resp = await http.SendAsync(
                             req, HttpCompletionOption.ResponseHeadersRead, probeCts.Token);
                         // Any response (even 4xx) confirms the server is reachable.
@@ -543,6 +545,18 @@ public static class SettingsEndpoints
                     .ToList();
             }
 
+            // HTTP client settings: timeout and API key.
+            if (request.TimeoutSeconds.HasValue)
+            {
+                existing.HttpClient ??= new Tanaste.Storage.Models.HttpClientConfig();
+                existing.HttpClient.TimeoutSeconds = Math.Clamp(request.TimeoutSeconds.Value, 1, 120);
+            }
+            if (request.ApiKey is not null)
+            {
+                existing.HttpClient ??= new Tanaste.Storage.Models.HttpClientConfig();
+                existing.HttpClient.ApiKey = request.ApiKey;
+            }
+
             configLoader.SaveProvider(existing);
 
             var displayName = ResolveDisplayName(existing);
@@ -716,7 +730,7 @@ public static class SettingsEndpoints
             Name             = provider.Name,
             DisplayName      = displayName,
             Enabled          = provider.Enabled,
-            IsZeroKey        = true,
+            IsZeroKey        = !provider.RequiresApiKey,
             IsReachable      = isReachable,
             Domain           = provider.Domain.ToString(),
             CapabilityTags   = provider.CapabilityTags,
@@ -728,6 +742,11 @@ public static class SettingsEndpoints
             MaxConcurrency   = provider.MaxConcurrency,
             AvailableFields  = provider.AvailableFields,
             MediaTypes       = mediaTypes,
+            RequiresApiKey   = provider.RequiresApiKey,
+            HasApiKey        = !string.IsNullOrWhiteSpace(provider.HttpClient?.ApiKey),
+            ApiKeyDelivery   = provider.HttpClient?.ApiKeyDelivery,
+            ApiKeyParamName  = provider.HttpClient?.ApiKeyParamName,
+            TimeoutSeconds   = provider.HttpClient?.TimeoutSeconds ?? 10,
             FieldMappings    = provider.FieldMappings?.Select(fm => new FieldMappingResponse
             {
                 ClaimKey   = fm.ClaimKey,
@@ -746,6 +765,7 @@ public static class SettingsEndpoints
     {
         ProviderDomain.Ebook     => ["Epub"],
         ProviderDomain.Audiobook => ["Audiobook"],
+        ProviderDomain.Comic     => ["Comic"],
         ProviderDomain.Video     => ["Movie", "TvShow"],
         ProviderDomain.Universal => ["Epub", "Audiobook", "Comic", "Movie", "TvShow"],
         _                        => [],

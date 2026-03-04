@@ -17,6 +17,8 @@ public enum ProviderDomain
     Ebook,
     /// <summary>Audiobook oriented provider (e.g. Audnexus, Apple Books for audio).</summary>
     Audiobook,
+    /// <summary>Comic and graphic novel oriented provider (e.g. Comic Vine).</summary>
+    Comic,
     /// <summary>Film and TV oriented provider (e.g. TMDB, IMDb).</summary>
     Video,
 }

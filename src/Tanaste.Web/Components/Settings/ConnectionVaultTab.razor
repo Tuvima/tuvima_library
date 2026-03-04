@@ -120,7 +120,8 @@
                                         {
                                             <ProviderCard Provider="@provider"
                                                           IsSlotted="@(context.Zone != "available")"
-                                                          OnRemove="@(() => RemoveFromSlot(context, mt))" />
+                                                          OnRemove="@(() => RemoveFromSlot(context, mt))"
+                                                          OnConfigSaved="@RefreshProvidersAsync" />
                                         }
                                     }
                                 </ItemRenderer>
@@ -199,6 +200,7 @@
     {
         ["Ebook"]     = ["Epub"],
         ["Audiobook"] = ["Audiobook"],
+        ["Comic"]     = ["Comic"],
         ["Video"]     = ["Movie", "TvShow"],
         ["Universal"] = ["Epub", "Audiobook", "Comic", "Movie", "TvShow"],
     };
@@ -328,6 +330,22 @@
     }
 
     private void OnTabChanged(int _) { /* Re-render with new tab's data */ }
+
+    private async Task RefreshProvidersAsync()
+    {
+        try
+        {
+            _providers = await Orchestrator.GetProviderStatusAsync();
+            var wikidata = _providers.FirstOrDefault(p =>
+                string.Equals(p.Name, "wikidata", StringComparison.OrdinalIgnoreCase));
+            _wikidataReachable = wikidata?.IsReachable ?? false;
+            StateHasChanged();
+        }
+        catch
+        {
+            // Non-fatal: provider list will be stale but usable.
+        }
+    }
 
     // ── Drag item model ──────────────────────────────────────────────────
 

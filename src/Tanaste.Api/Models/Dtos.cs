@@ -416,6 +416,21 @@ public sealed class ProviderStatusResponse
 
     [JsonPropertyName("media_types")]
     public List<string> MediaTypes { get; init; } = [];
+
+    [JsonPropertyName("requires_api_key")]
+    public bool RequiresApiKey { get; init; }
+
+    [JsonPropertyName("has_api_key")]
+    public bool HasApiKey { get; init; }
+
+    [JsonPropertyName("api_key_delivery")]
+    public string? ApiKeyDelivery { get; init; }
+
+    [JsonPropertyName("api_key_param_name")]
+    public string? ApiKeyParamName { get; init; }
+
+    [JsonPropertyName("timeout_seconds")]
+    public int TimeoutSeconds { get; init; } = 10;
 }
 
 /// <summary>Field mapping entry for provider status response.</summary>
@@ -519,6 +534,14 @@ public sealed class ProviderConfigUpdateRequest
 
     [JsonPropertyName("field_mappings")]
     public List<FieldMappingUpdateDto>? FieldMappings { get; init; }
+
+    /// <summary>Timeout in seconds for HTTP requests. Null = no change.</summary>
+    [JsonPropertyName("timeout_seconds")]
+    public int? TimeoutSeconds { get; init; }
+
+    /// <summary>API key for providers that require authentication. Null = no change; empty = clear.</summary>
+    [JsonPropertyName("api_key")]
+    public string? ApiKey { get; init; }
 }
 
 /// <summary>Field mapping entry in a provider config update.</summary>

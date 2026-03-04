@@ -55,6 +55,14 @@ public sealed class ProviderConfigUpdateDto
 
     [JsonPropertyName("field_mappings")]
     public List<FieldMappingDto>? FieldMappings { get; set; }
+
+    /// <summary>Timeout in seconds for HTTP requests. Null = no change.</summary>
+    [JsonPropertyName("timeout_seconds")]
+    public int? TimeoutSeconds { get; set; }
+
+    /// <summary>API key for providers that require authentication. Null = no change; empty = clear.</summary>
+    [JsonPropertyName("api_key")]
+    public string? ApiKey { get; set; }
 }
 
 /// <summary>Field mapping entry for config-driven provider editing.</summary>

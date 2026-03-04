@@ -144,6 +144,14 @@ public sealed class ProviderConfiguration
     /// </summary>
     [JsonPropertyName("field_mappings")]
     public List<FieldMappingConfig>? FieldMappings { get; set; }
+
+    /// <summary>
+    /// When <c>true</c>, this provider requires an API key to function.
+    /// The Dashboard shows this as a configuration requirement.
+    /// Zero-key providers (the default) work without any authentication.
+    /// </summary>
+    [JsonPropertyName("requires_api_key")]
+    public bool RequiresApiKey { get; set; }
 }
 
 /// <summary>HTTP client configuration for config-driven provider adapters.</summary>
@@ -154,6 +162,30 @@ public sealed class HttpClientConfig
 
     [JsonPropertyName("user_agent")]
     public string? UserAgent { get; set; }
+
+    /// <summary>
+    /// API key or token for authenticated providers (e.g. TMDB Bearer token, Comic Vine API key).
+    /// Stored in the provider config file. Empty or <c>null</c> = no key configured.
+    /// </summary>
+    [JsonPropertyName("api_key")]
+    public string? ApiKey { get; set; }
+
+    /// <summary>
+    /// How the API key is delivered to the provider. Values:
+    /// <c>"bearer"</c> — sent as <c>Authorization: Bearer {key}</c> header (e.g. TMDB).
+    /// <c>"query"</c> — appended as a query parameter using <see cref="ApiKeyParamName"/> (e.g. Comic Vine).
+    /// <c>"header"</c> — sent as a custom header using <see cref="ApiKeyParamName"/> as the header name.
+    /// Default: <c>null</c> (no API key delivery).
+    /// </summary>
+    [JsonPropertyName("api_key_delivery")]
+    public string? ApiKeyDelivery { get; set; }
+
+    /// <summary>
+    /// The query parameter name (for <c>"query"</c> delivery) or header name (for <c>"header"</c> delivery).
+    /// Example: <c>"api_key"</c> for Comic Vine query parameter.
+    /// </summary>
+    [JsonPropertyName("api_key_param_name")]
+    public string? ApiKeyParamName { get; set; }
 }
 
 /// <summary>Media type and entity type capability filters for config-driven adapters.</summary>

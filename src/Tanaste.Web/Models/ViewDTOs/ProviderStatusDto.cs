@@ -22,4 +22,9 @@ public sealed record ProviderStatusDto(
     [property: JsonPropertyName("throttle_ms")]       int ThrottleMs                                       = 0,
     [property: JsonPropertyName("max_concurrency")]   int MaxConcurrency                                   = 1,
     [property: JsonPropertyName("available_fields")]  List<string>? AvailableFields                        = null,
-    [property: JsonPropertyName("media_types")]       List<string>? MediaTypes                              = null);
+    [property: JsonPropertyName("media_types")]       List<string>? MediaTypes                              = null,
+    [property: JsonPropertyName("requires_api_key")]  bool RequiresApiKey                                  = false,
+    [property: JsonPropertyName("has_api_key")]       bool HasApiKey                                       = false,
+    [property: JsonPropertyName("api_key_delivery")]  string? ApiKeyDelivery                               = null,
+    [property: JsonPropertyName("api_key_param_name")]string? ApiKeyParamName                              = null,
+    [property: JsonPropertyName("timeout_seconds")]   int TimeoutSeconds                                   = 10);
