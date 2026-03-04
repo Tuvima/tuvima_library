@@ -190,6 +190,19 @@
         ["TV Shows"]   = ["TvShow"],
     };
 
+    /// <summary>
+    /// Maps provider domain strings to media type filter values.
+    /// Fallback when <c>MediaTypes</c> is empty (older config files without <c>can_handle</c>).
+    /// </summary>
+    private static readonly Dictionary<string, string[]> DomainFallbackMap =
+        new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["Ebook"]     = ["Epub"],
+        ["Audiobook"] = ["Audiobook"],
+        ["Video"]     = ["Movie", "TvShow"],
+        ["Universal"] = ["Epub", "Audiobook", "Comic", "Movie", "TvShow"],
+    };
+
     /// <summary>Returns providers that can handle the given media type, excluding wikidata/local_filesystem.</summary>
     private List<ProviderStatusDto> GetProvidersForMediaType(string mediaType)
     {
@@ -199,9 +212,28 @@
         return _providers
             .Where(p => ProviderAccentMap.IsVisibleProvider(p.Name))
             .Where(p => !string.Equals(p.Name, "wikidata", StringComparison.OrdinalIgnoreCase))
-            .Where(p => p.MediaTypes?.Any(mt =>
-                filterValues.Any(fv => string.Equals(mt, fv, StringComparison.OrdinalIgnoreCase))) ?? false)
+            .Where(p => MatchesMediaType(p, filterValues))
             .ToList();
+    }
+
+    private static bool MatchesMediaType(ProviderStatusDto p, string[] filterValues)
+    {
+        // Primary: check explicit MediaTypes from can_handle config.
+        if (p.MediaTypes is { Count: > 0 })
+        {
+            return p.MediaTypes.Any(mt =>
+                filterValues.Any(fv => string.Equals(mt, fv, StringComparison.OrdinalIgnoreCase)));
+        }
+
+        // Fallback: derive from domain.
+        if (!string.IsNullOrEmpty(p.Domain)
+            && DomainFallbackMap.TryGetValue(p.Domain, out var domainTypes))
+        {
+            return domainTypes.Any(dt =>
+                filterValues.Any(fv => string.Equals(dt, fv, StringComparison.OrdinalIgnoreCase)));
+        }
+
+        return false;
     }
 
     // ── Drag-drop model ──────────────────────────────────────────────────

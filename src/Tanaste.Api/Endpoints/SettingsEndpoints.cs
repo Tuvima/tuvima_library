@@ -706,6 +706,11 @@ public static class SettingsEndpoints
         string displayName,
         bool isReachable = false)
     {
+        // Prefer explicit can_handle.media_types; fall back to domain-derived media types.
+        var mediaTypes = provider.CanHandle?.MediaTypes;
+        if (mediaTypes is null || mediaTypes.Count == 0)
+            mediaTypes = DeriveMediaTypesFromDomain(provider.Domain);
+
         return new ProviderStatusResponse
         {
             Name             = provider.Name,
@@ -722,7 +727,7 @@ public static class SettingsEndpoints
             ThrottleMs       = provider.ThrottleMs,
             MaxConcurrency   = provider.MaxConcurrency,
             AvailableFields  = provider.AvailableFields,
-            MediaTypes       = provider.CanHandle?.MediaTypes ?? [],
+            MediaTypes       = mediaTypes,
             FieldMappings    = provider.FieldMappings?.Select(fm => new FieldMappingResponse
             {
                 ClaimKey   = fm.ClaimKey,
@@ -732,4 +737,17 @@ public static class SettingsEndpoints
             }).ToList(),
         };
     }
+
+    /// <summary>
+    /// Derives media type capabilities from the provider's domain when
+    /// <c>can_handle.media_types</c> is missing or empty in the config file.
+    /// </summary>
+    private static List<string> DeriveMediaTypesFromDomain(ProviderDomain domain) => domain switch
+    {
+        ProviderDomain.Ebook     => ["Epub"],
+        ProviderDomain.Audiobook => ["Audiobook"],
+        ProviderDomain.Video     => ["Movie", "TvShow"],
+        ProviderDomain.Universal => ["Epub", "Audiobook", "Comic", "Movie", "TvShow"],
+        _                        => [],
+    };
 }
