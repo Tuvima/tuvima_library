@@ -760,6 +760,27 @@ public sealed class HydrateResponse
     public string Message { get; init; } = string.Empty;
 }
 
+// ── PUT /metadata/{entityId}/override ──────────────────────────────────────
+
+public sealed class MetadataOverrideRequest
+{
+    /// <summary>Map of claim keys to user-chosen values.</summary>
+    [JsonPropertyName("fields")]
+    public Dictionary<string, string> Fields { get; init; } = new();
+}
+
+public sealed class MetadataOverrideResponse
+{
+    [JsonPropertyName("entity_id")]
+    public Guid EntityId { get; init; }
+
+    [JsonPropertyName("fields_updated")]
+    public int FieldsUpdated { get; init; }
+
+    [JsonPropertyName("overridden_at")]
+    public DateTimeOffset OverriddenAt { get; init; }
+}
+
 // ── Review Queue DTOs ────────────────────────────────────────────────────────
 
 public sealed class ReviewItemDto

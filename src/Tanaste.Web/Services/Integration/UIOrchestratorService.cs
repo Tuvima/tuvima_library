@@ -362,6 +362,18 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     /// <summary>Fires when the review count changes (from SignalR events or explicit actions).</summary>
     public event Action? OnReviewCountChanged;
 
+    // ── Metadata Override ────────────────────────────────────────────────
+
+    /// <summary>Overrides metadata fields for an entity and invalidates the hub cache.</summary>
+    public async Task<bool> OverrideMetadataAsync(
+        Guid entityId, Dictionary<string, string> fields, CancellationToken ct = default)
+    {
+        var ok = await _api.OverrideMetadataAsync(entityId, fields, ct);
+        if (ok)
+            _state.Invalidate();
+        return ok;
+    }
+
     // ── Hydration Settings ────────────────────────────────────────────────
 
     /// <summary>Returns hydration pipeline settings.</summary>

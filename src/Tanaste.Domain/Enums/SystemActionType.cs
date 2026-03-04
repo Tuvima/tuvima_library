@@ -66,4 +66,7 @@ public static class SystemActionType
 
     /// <summary>A review queue item was resolved or dismissed by a user.</summary>
     public const string ReviewItemResolved = "ReviewItemResolved";
+
+    /// <summary>A user manually overrode metadata fields via the Edit Metadata dialog.</summary>
+    public const string MetadataManualOverride = "MetadataManualOverride";
 }

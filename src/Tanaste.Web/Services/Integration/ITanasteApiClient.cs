@@ -198,6 +198,11 @@ public interface ITanasteApiClient
         string providerName, string query, string? mediaType = null,
         int limit = 25, CancellationToken ct = default);
 
+    // ── Metadata override (/metadata/{entityId}/override) ─────────────────
+
+    /// <summary>PUT /metadata/{entityId}/override — create user-locked claims for multiple fields.</summary>
+    Task<bool> OverrideMetadataAsync(Guid entityId, Dictionary<string, string> fields, CancellationToken ct = default);
+
     // ── Hydration settings (/settings/hydration) ──────────────────────────
 
     /// <summary>GET /settings/hydration — load hydration pipeline configuration.</summary>

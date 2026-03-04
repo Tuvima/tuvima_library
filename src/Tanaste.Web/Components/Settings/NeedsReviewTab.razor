@@ -142,6 +142,14 @@ else
                     </MudButton>
                 </MudStack>
 
+                @* ── Edit Manually ─────────────────────────────────────── *@
+                <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Secondary"
+                           StartIcon="@Icons.Material.Filled.Edit"
+                           OnClick="@(() => OpenEditDialog(item))"
+                           Class="mb-2">
+                    Edit Manually
+                </MudButton>
+
                 @* ── Search results ────────────────────────────────────── *@
                 @if (_searching)
                 {
@@ -172,6 +180,13 @@ else
         </MudPaper>
     }
 }
+
+@* ── Edit Metadata dialog ─────────────────────────────────────────────── *@
+<MetadataEditDialog @bind-Visible="_editDialogOpen"
+                    EntityId="@_editEntityId"
+                    MediaType="@_editMediaType"
+                    CurrentValues="@_editCurrentValues"
+                    OnSaved="@OnEditSaved" />
 
 @code {
     private List<ReviewItemViewModel> _items = [];
@@ -396,6 +411,59 @@ else
                 CollapseReviewPanel();
             StateHasChanged();
         }
+    }
+
+    // ── Edit Manually dialog ─────────────────────────────────────────────
+
+    private bool _editDialogOpen;
+    private Guid _editEntityId;
+    private string? _editMediaType;
+    private Dictionary<string, string>? _editCurrentValues;
+    private Guid? _editReviewItemId;
+
+    private async Task OpenEditDialog(ReviewItemViewModel item)
+    {
+        _editEntityId    = item.EntityId;
+        _editMediaType   = item.MediaType;
+        _editReviewItemId = item.Id;
+
+        // Load current canonical values for this entity from claim history.
+        var claims = await Orchestrator.GetClaimHistoryAsync(item.EntityId);
+        _editCurrentValues = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        // Use the most recent claim per key as the current value.
+        foreach (var claim in claims.OrderByDescending(c => c.ClaimedAt))
+        {
+            _editCurrentValues.TryAdd(claim.ClaimKey, claim.ClaimValue);
+        }
+
+        // Ensure the title is populated.
+        if (!string.IsNullOrWhiteSpace(item.EntityTitle))
+            _editCurrentValues.TryAdd("title", item.EntityTitle);
+
+        _editDialogOpen = true;
+        StateHasChanged();
+    }
+
+    private async Task OnEditSaved(Dictionary<string, string> changes)
+    {
+        // After manual override, resolve the review item.
+        if (_editReviewItemId.HasValue)
+        {
+            var request = new ReviewResolveRequestDto
+            {
+                FieldOverrides = changes.Select(kv => new FieldOverrideDto
+                {
+                    Key   = kv.Key,
+                    Value = kv.Value,
+                }).ToList(),
+            };
+            await Orchestrator.ResolveReviewAsync(_editReviewItemId.Value, request);
+            _items.RemoveAll(i => i.Id == _editReviewItemId.Value);
+            CollapseReviewPanel();
+        }
+
+        _editReviewItemId = null;
+        StateHasChanged();
     }
 
     // ── SignalR refresh ──────────────────────────────────────────────────

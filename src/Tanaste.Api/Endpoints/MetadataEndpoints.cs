@@ -295,6 +295,93 @@ public static class MetadataEndpoints
         .Produces(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator();
 
+        // ── PUT /metadata/{entityId}/override ────────────────────────────
+        group.MapPut("/{entityId:guid}/override", async (
+            Guid entityId,
+            MetadataOverrideRequest request,
+            IMetadataClaimRepository claimRepo,
+            ICanonicalValueRepository canonicalRepo,
+            ISystemActivityRepository activityRepo,
+            IEventPublisher publisher,
+            CancellationToken ct) =>
+        {
+            if (request.Fields.Count == 0)
+                return Results.BadRequest("At least one field override is required.");
+
+            var now = DateTimeOffset.UtcNow;
+            var updatedKeys = new List<string>();
+
+            var claims = new List<MetadataClaim>();
+            var canonicals = new List<CanonicalValue>();
+
+            foreach (var (key, value) in request.Fields)
+            {
+                if (string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(value))
+                    continue;
+
+                // 1. Create a user-locked claim (confidence 1.0, never overridden).
+                claims.Add(new MetadataClaim
+                {
+                    Id           = Guid.NewGuid(),
+                    EntityId     = entityId,
+                    ProviderId   = UserManualProviderId,
+                    ClaimKey     = key,
+                    ClaimValue   = value,
+                    Confidence   = 1.0,
+                    ClaimedAt    = now,
+                    IsUserLocked = true,
+                });
+
+                // 2. Prepare canonical value upsert.
+                canonicals.Add(new CanonicalValue
+                {
+                    EntityId     = entityId,
+                    Key          = key,
+                    Value        = value,
+                    LastScoredAt = now,
+                });
+
+                updatedKeys.Add(key);
+            }
+
+            // Persist all claims and canonical values in batch.
+            if (claims.Count > 0)
+                await claimRepo.InsertBatchAsync(claims, ct);
+            if (canonicals.Count > 0)
+                await canonicalRepo.UpsertBatchAsync(canonicals, ct);
+
+            if (updatedKeys.Count == 0)
+                return Results.BadRequest("No valid field overrides provided.");
+
+            // 3. Log to activity ledger.
+            await activityRepo.LogAsync(new SystemActivityEntry
+            {
+                ActionType = SystemActionType.MetadataManualOverride,
+                EntityId   = entityId,
+                Detail     = $"Manual override: {updatedKeys.Count} field(s) — {string.Join(", ", updatedKeys)}.",
+            }, ct);
+
+            // 4. Broadcast so the Dashboard refreshes.
+            await publisher.PublishAsync("MetadataHarvested", new
+            {
+                entity_id      = entityId,
+                provider_name  = "user_manual",
+                updated_fields = updatedKeys.ToArray(),
+            }, ct);
+
+            return Results.Ok(new MetadataOverrideResponse
+            {
+                EntityId       = entityId,
+                FieldsUpdated  = updatedKeys.Count,
+                OverriddenAt   = now,
+            });
+        })
+        .WithName("OverrideMetadata")
+        .WithSummary("Manually override metadata fields for an entity. Creates user-locked claims at confidence 1.0.")
+        .Produces<MetadataOverrideResponse>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
+        .RequireAdminOrCurator();
+
         return app;
     }
 }

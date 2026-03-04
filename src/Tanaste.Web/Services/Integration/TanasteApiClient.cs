@@ -801,6 +801,32 @@ public sealed class TanasteApiClient : ITanasteApiClient
         }
     }
 
+    // ── Metadata override (/metadata/{entityId}/override) ──────────────
+
+    public async Task<bool> OverrideMetadataAsync(
+        Guid entityId, Dictionary<string, string> fields, CancellationToken ct = default)
+    {
+        try
+        {
+            var body = new { fields };
+            var resp = await _http.PutAsJsonAsync($"/metadata/{entityId}/override", body, ct);
+            if (!resp.IsSuccessStatusCode)
+            {
+                var detail = await resp.Content.ReadAsStringAsync(ct);
+                _logger.LogWarning("PUT /metadata/{EntityId}/override returned {Status}: {Detail}",
+                    entityId, (int)resp.StatusCode, detail);
+                LastError = $"HTTP {(int)resp.StatusCode}: {detail}";
+            }
+            return resp.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "PUT /metadata/{EntityId}/override failed", entityId);
+            LastError = ex.Message;
+            return false;
+        }
+    }
+
     // ── Hydration settings (/settings/hydration) ────────────────────────
 
     public async Task<HydrationSettingsDto?> GetHydrationSettingsAsync(
