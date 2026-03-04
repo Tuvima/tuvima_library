@@ -1,4 +1,5 @@
 # Feature: Library Dashboard (Home, Navigation, Bento Grid)
+> **Mirrors:** `CLAUDE.md` §3.4 (Dashboard UI) — keep both in sync per `.agent/SYNC-MAP.md`
 
 > Last audited: 2026-03-01 | Auditor: Claude (Product-Led Architect)
 

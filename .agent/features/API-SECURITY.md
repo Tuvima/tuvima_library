@@ -1,5 +1,7 @@
 # Feature: API Security & Guest Key System
 
+> **Mirrors:** `CLAUDE.md` §3.3 (Security) — keep both in sync per `.agent/SYNC-MAP.md`
+
 > Last audited: 2026-03-01 | Phase A Security Foundation applied: 2026-03-01
 
 ---

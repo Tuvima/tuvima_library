@@ -21,7 +21,7 @@ public sealed class MetadataSearchRequest
 
     /// <summary>
     /// Media type to scope the search. Values: <c>"Epub"</c>, <c>"Audiobook"</c>,
-    /// <c>"Movie"</c>, <c>"Comic"</c>, <c>"TvShow"</c>, <c>"Music"</c>.
+    /// <c>"Movies"</c>, <c>"Comic"</c>, <c>"TV"</c>, <c>"Music"</c>.
     /// </summary>
     [JsonPropertyName("media_type")]
     public string? MediaType { get; init; }

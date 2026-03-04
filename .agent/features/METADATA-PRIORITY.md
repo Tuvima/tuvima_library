@@ -1,5 +1,7 @@
 # Feature: Metadata Priority (The Weighted Voter)
 
+> **Mirrors:** `CLAUDE.md` §3.6 (Metadata Adapters) — keep both in sync per `.agent/SYNC-MAP.md`
+
 > Last audited: 2026-03-01 | Auditor: Claude (Product-Led Architect)
 
 ---

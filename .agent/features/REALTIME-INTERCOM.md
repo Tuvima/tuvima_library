@@ -1,4 +1,6 @@
-# Feature: Real-Time Intercom (SignalR Live Updates)
+# Feature: Real-Time Intercom
+
+> **Mirrors:** `CLAUDE.md` §3.4 (Dashboard UI — Real-time updates) — keep both in sync per `.agent/SYNC-MAP.md`
 
 > Last audited: 2026-03-01 | Auditor: Claude (Product-Led Architect)
 

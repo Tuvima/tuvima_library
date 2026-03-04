@@ -1,4 +1,6 @@
-# Feature: Ingestion Pipeline (Watch Folder → Library)
+# Feature: Ingestion Pipeline
+
+> **Mirrors:** `CLAUDE.md` §3.1 (Watch Folder), §3.13 (Hydration Pipeline) — keep both in sync per `.agent/SYNC-MAP.md`
 
 > Last audited: 2026-03-01 | Auditor: Claude (Product-Led Architect)
 

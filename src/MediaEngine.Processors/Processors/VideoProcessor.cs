@@ -49,11 +49,11 @@ public sealed class VideoProcessor : IMediaProcessor
 
     /// <inheritdoc/>
     /// <remarks>
-    /// Defaults to <see cref="MediaType.Movie"/>; higher-level routing logic
-    /// may reclassify to <see cref="MediaType.TvShow"/> once episode metadata
+    /// Defaults to <see cref="MediaType.Movies"/>; higher-level routing logic
+    /// may reclassify to <see cref="MediaType.TV"/> once episode metadata
     /// has been reconciled against Hub canonical values.
     /// </remarks>
-    public MediaType SupportedType => MediaType.Movie;
+    public MediaType SupportedType => MediaType.Movies;
 
     /// <inheritdoc/>
     /// <remarks>
@@ -98,7 +98,7 @@ public sealed class VideoProcessor : IMediaProcessor
         return new ProcessorResult
         {
             FilePath     = filePath,
-            DetectedType = MediaType.Movie,
+            DetectedType = MediaType.Movies,
             Claims       = BuildClaims(filePath, container, meta),
         };
     }
@@ -204,7 +204,7 @@ public sealed class VideoProcessor : IMediaProcessor
     private static ProcessorResult Corrupt(string filePath, string reason) => new()
     {
         FilePath      = filePath,
-        DetectedType  = MediaType.Movie,
+        DetectedType  = MediaType.Movies,
         IsCorrupt     = true,
         CorruptReason = reason,
     };

@@ -1,5 +1,7 @@
 # Feature: Hub System (Domain Model & Library Structure)
 
+> **Mirrors:** `CLAUDE.md` §1 (Hub Concept) — keep both in sync per `.agent/SYNC-MAP.md`
+
 > Last audited: 2026-03-01 | Auditor: Claude (Product-Led Architect)
 
 ---

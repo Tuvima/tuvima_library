@@ -1,6 +1,7 @@
 # Feature: Metadata Source Management
 
-> Last updated: 2026-03-01 | Author: Claude (Product-Led Solutions Architect)
+> **Mirrors:** `CLAUDE.md` §3.2 (Weighted Voter), §3.6 (Metadata Adapters) — keep both in sync per `.agent/SYNC-MAP.md`
+> Last audited: 2026-03-01 | Auditor: Claude (Product-Led Solutions Architect)
 
 ---
 

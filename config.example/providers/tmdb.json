@@ -42,7 +42,7 @@
   },
 
   "can_handle": {
-    "media_types": ["Movie", "TvShow"],
+    "media_types": ["Movies", "TV"],
     "entity_types": ["Work", "MediaAsset"]
   },
 

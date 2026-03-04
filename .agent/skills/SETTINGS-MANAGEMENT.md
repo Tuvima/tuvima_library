@@ -1,5 +1,7 @@
 # Skill: Settings Management
 
+> **Mirrors:** `CLAUDE.md` §3.11 (Configuration Architecture) — keep both in sync per `.agent/SYNC-MAP.md`
+
 > Last updated: 2026-03-01
 
 ---

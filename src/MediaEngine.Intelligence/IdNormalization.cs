@@ -174,11 +174,11 @@ public static class IdNormalization
     /// </summary>
     public static IReadOnlyList<string> GetPrimaryIdFields(MediaType type) => type switch
     {
-        MediaType.Epub      => ["isbn"],
-        MediaType.Audiobook => ["asin", "isbn"],
-        MediaType.Music     => ["isrc"],
-        MediaType.Movie     => ["tmdb_id", "imdb_id"],
-        MediaType.TvShow    => ["tmdb_id", "imdb_id"],
+        MediaType.Books      => ["isbn"],
+        MediaType.Audiobooks => ["asin", "isbn"],
+        MediaType.Music      => ["isrc"],
+        MediaType.Movies     => ["tmdb_id", "imdb_id"],
+        MediaType.TV         => ["tmdb_id", "imdb_id"],
         MediaType.Comic     => ["comicvine_id"],
         _                   => [],
     };

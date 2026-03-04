@@ -1175,6 +1175,32 @@ git push
 | `.vs/`, `.idea/` | Editor preferences — personal, not shared |
 | `appsettings.*.json` containing real keys | Contains secrets — only example files go in git |
 
+### 5.3 — Cross-Agent Synchronization
+
+> **Two AI assistants work on this repository.** This file (`CLAUDE.md`) is the **canonical source of truth** for all project knowledge. The `.agent/` directory contains supplementary files read by **Antigravity (Gemini)**. Both must stay in sync.
+
+**Sync mapping — CLAUDE.md → `.agent/` files:**
+
+| CLAUDE.md section | `.agent/` file | Content |
+|---|---|---|
+| §3.1 (Watch Folder) | `features/INGESTION-PIPELINE.md` | Ingestion flow, settle/lock/fingerprint/scan/identify/move |
+| §3.2 (Weighted Voter) | `features/METADATA-MANAGEMENT.md`, `skills/METADATA-SCORING.md` | Claim system, trust weights, per-field voting |
+| §3.3 (Security) | `features/API-SECURITY.md`, `features/ROLE-ACCESS-MODEL.md`, `skills/API-SECURITY.md` | Auth, roles, rate limiting, path traversal |
+| §3.4 (Dashboard UI) | `features/LIBRARY-DASHBOARD.md`, `skills/DASHBOARD-UI.md` | Bento grid, theming, state management |
+| §3.6 (Metadata Adapters) | `features/METADATA-MANAGEMENT.md`, `features/METADATA-PRIORITY.md` | Provider config, harvest pipeline, person enrichment |
+| §3.8 (Activity Ledger) | `features/SETTINGS-OVERVIEW.md` | Maintenance tab, activity timeline |
+| §3.12 (Device Profiles) | `features/SETTINGS-OVERVIEW.md` | UI config cascade, device detection |
+| §3.13 (Hydration Pipeline) | `features/INGESTION-PIPELINE.md` | Three-stage pipeline, review queue |
+| §6 (Dashboard Layout) | `skills/DASHBOARD-UI.md` | Feature-sliced file locations |
+| FIX-PLAN tiers | `FIX-PLAN.md` | Systematic fix plan, tier-based issue tracking |
+
+**When to sync:**
+- After updating any section of `CLAUDE.md` listed above, update the corresponding `.agent/` file(s) to reflect the same information.
+- After creating a new feature or skill in `.agent/`, ensure `CLAUDE.md` has a matching section.
+- The `.agent/SYNC-MAP.md` file contains the reverse mapping for Antigravity's reference.
+
+**Step 4 addition:** Add `.agent/` files to the documentation update table when architectural decisions affect feature or skill docs.
+
 ---
 
 ## 6. Structure Reference — Feature-Sliced Dashboard Layout

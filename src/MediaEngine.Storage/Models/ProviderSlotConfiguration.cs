@@ -81,11 +81,11 @@ public sealed class ProviderSlotConfiguration
     /// </summary>
     public static string MediaTypeToDisplayName(Domain.Enums.MediaType mediaType) => mediaType switch
     {
-        Domain.Enums.MediaType.Epub      => "Books",
-        Domain.Enums.MediaType.Audiobook => "Audiobooks",
-        Domain.Enums.MediaType.Comic     => "Comics",
-        Domain.Enums.MediaType.Movie     => "Movies",
-        Domain.Enums.MediaType.TvShow    => "TV Shows",
+        Domain.Enums.MediaType.Books      => "Books",
+        Domain.Enums.MediaType.Audiobooks => "Audiobooks",
+        Domain.Enums.MediaType.Comic      => "Comics",
+        Domain.Enums.MediaType.Movies     => "Movies",
+        Domain.Enums.MediaType.TV         => "TV Shows",
         _                                => "Books", // Default fallback
     };
 }

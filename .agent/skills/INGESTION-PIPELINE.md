@@ -1,5 +1,7 @@
 # Skill: Ingestion Pipeline Operations
 
+> **Mirrors:** `CLAUDE.md` §3.1 (Watch Folder), §3.7 (Library Organization) — keep both in sync per `.agent/SYNC-MAP.md`
+
 > Last updated: 2026-03-01
 
 ---

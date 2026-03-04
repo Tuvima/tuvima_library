@@ -1,5 +1,7 @@
 # Skill: Dashboard UI Operations
 
+> **Mirrors:** `CLAUDE.md` §6 (Feature-Sliced Dashboard Layout) — keep both in sync per `.agent/SYNC-MAP.md`
+
 > Last updated: 2026-03-01
 
 ---

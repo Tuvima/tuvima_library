@@ -1,4 +1,6 @@
-# Feature: Viewer vs. Admin Access Model
+# Feature: Role Access Model
+
+> **Mirrors:** `CLAUDE.md` §3.3 (Security) — keep both in sync per `.agent/SYNC-MAP.md`
 
 > Last audited: 2026-03-01 | Auditor: Claude (Product-Led Architect)
 

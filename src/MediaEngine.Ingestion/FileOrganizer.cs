@@ -20,7 +20,7 @@ namespace MediaEngine.Ingestion;
 ///   {Title}      — title claim (confidence-winner)
 ///   {Author}     — author claim
 ///   {Year}       — year claim (4-digit integer)
-///   {MediaType}  — MediaType enum name (Movie, Epub, Comic, …)
+///   {MediaType}  — MediaType enum name (Movies, Books, Comic, …)
 ///   {Extension}  — file extension WITHOUT leading dot (e.g. "mp4", "epub")
 ///   {Series}     — series claim
 ///   {Publisher}  — publisher claim
@@ -339,13 +339,13 @@ public sealed class FileOrganizer : IFileOrganizer
     /// </summary>
     private static string ResolveCategoryFromMediaType(MediaType? mt) => mt switch
     {
-        MediaType.Epub      => "Books",
-        MediaType.Comic     => "Comics",
-        MediaType.Movie     => "Videos",
-        MediaType.TvShow    => "TV Shows",
-        MediaType.Audiobook => "Audio",
-        MediaType.Music     => "Music",
-        MediaType.Podcast   => "Podcasts",
+        MediaType.Books      => "Books",
+        MediaType.Comic      => "Comics",
+        MediaType.Movies     => "Videos",
+        MediaType.TV         => "TV Shows",
+        MediaType.Audiobooks => "Audio",
+        MediaType.Music      => "Music",
+        MediaType.Podcasts   => "Podcasts",
         _                   => "Other",  // Unknown, null — caught by upstream guard
     };
 

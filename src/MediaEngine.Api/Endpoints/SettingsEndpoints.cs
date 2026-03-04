@@ -373,7 +373,7 @@ public static class SettingsEndpoints
             {
                 EntityId    = Guid.NewGuid(),
                 EntityType  = EntityType.Work,
-                MediaType   = isAudiobook ? MediaType.Audiobook : MediaType.Epub,
+                MediaType   = isAudiobook ? MediaType.Audiobooks : MediaType.Books,
                 Title       = "The Fellowship of the Ring",
                 Author      = "J.R.R. Tolkien",
                 Isbn        = "9780547928210",
@@ -468,7 +468,7 @@ public static class SettingsEndpoints
             var baseUrl = GetBaseUrlForProvider(providerConfig);
             var sparqlUrl = providerConfig.Endpoints.TryGetValue("wikidata_sparql", out var sp) ? sp : null;
 
-            var mediaType = MediaType.Epub; // Default.
+            var mediaType = MediaType.Books; // Default.
             if (!string.IsNullOrWhiteSpace(request.MediaType)
                 && Enum.TryParse<MediaType>(request.MediaType, true, out var parsed))
             {
@@ -771,11 +771,11 @@ public static class SettingsEndpoints
     /// </summary>
     private static List<string> DeriveMediaTypesFromDomain(ProviderDomain domain) => domain switch
     {
-        ProviderDomain.Ebook     => ["Epub"],
-        ProviderDomain.Audiobook => ["Audiobook"],
+        ProviderDomain.Ebook     => ["Books"],
+        ProviderDomain.Audiobook => ["Audiobooks"],
         ProviderDomain.Comic     => ["Comic"],
-        ProviderDomain.Video     => ["Movie", "TvShow"],
-        ProviderDomain.Universal => ["Epub", "Audiobook", "Comic", "Movie", "TvShow"],
+        ProviderDomain.Video     => ["Movies", "TV"],
+        ProviderDomain.Universal => ["Books", "Audiobooks", "Comic", "Movies", "TV"],
         _                        => [],
     };
 }

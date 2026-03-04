@@ -1,5 +1,7 @@
 # Skill: API Security & Authentication
 
+> **Mirrors:** `CLAUDE.md` §3.3 (Security) — keep both in sync per `.agent/SYNC-MAP.md`
+
 > Last updated: 2026-03-01
 
 ---

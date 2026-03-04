@@ -1,5 +1,7 @@
 # Feature: Settings & Preferences
 
+> **Mirrors:** `CLAUDE.md` §3.8 (Activity Ledger), §3.12 (Device Profiles) — keep both in sync per `.agent/SYNC-MAP.md`
+
 > Last audited: 2026-03-01 | Auditor: Claude (Product-Led Architect)
 
 ---
