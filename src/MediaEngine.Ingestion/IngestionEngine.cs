@@ -75,6 +75,9 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     // Review queue — created when confidence is too low or category is "Other".
     private readonly IReviewQueueRepository _reviewRepo;
 
+    // Activity ledger — records every significant ingestion event.
+    private readonly ISystemActivityRepository _activityRepo;
+
     public IngestionEngine(
         IFileWatcher              watcher,
         DebounceQueue             debounce,
@@ -94,7 +97,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         IRecursiveIdentityService  identity,
         ISidecarWriter             sidecar,
         IMediaEntityChainFactory   chainFactory,
-        IReviewQueueRepository     reviewRepo)
+        IReviewQueueRepository     reviewRepo,
+        ISystemActivityRepository  activityRepo)
     {
         _watcher       = watcher;
         _debounce      = debounce;
@@ -115,6 +119,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         _sidecar       = sidecar;
         _chainFactory  = chainFactory;
         _reviewRepo    = reviewRepo;
+        _activityRepo  = activityRepo;
     }
 
     // =========================================================================
@@ -385,9 +390,24 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             return;
         }
 
+        var resolvedTitle  = candidate.Metadata?.GetValueOrDefault("title",  "Unknown") ?? "Unknown";
+        var resolvedAuthor = candidate.Metadata?.GetValueOrDefault("author", string.Empty) ?? string.Empty;
+
         _logger.LogInformation(
-            "Ingested [{Type}] {Path} (hash={Hash})",
-            result.DetectedType, candidate.Path, hash.Hex[..12]);
+            "Ingested [{Type}] '{Title}' (confidence={Confidence:P0}, hash={Hash})",
+            result.DetectedType, resolvedTitle, scored.OverallConfidence, hash.Hex[..12]);
+
+        // Log to activity ledger so the Activity tab shows what was ingested and matched.
+        string confidenceLabel = scored.OverallConfidence >= 0.85 ? "auto-matched" : "low confidence";
+        string authorPart      = string.IsNullOrWhiteSpace(resolvedAuthor) ? string.Empty : $" by {resolvedAuthor}";
+        await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
+        {
+            ActionType = Domain.Enums.SystemActionType.FileIngested,
+            EntityId   = assetId,
+            EntityType = "MediaAsset",
+            HubName    = resolvedTitle,
+            Detail     = $"{result.DetectedType}: \"{resolvedTitle}\"{authorPart} — {confidenceLabel} ({scored.OverallConfidence:P0}). Source: {Path.GetFileName(candidate.Path)}.",
+        }, ct).ConfigureAwait(false);
 
         await SafePublishAsync("IngestionCompleted", new IngestionCompletedEvent(
             candidate.Path,
@@ -446,12 +466,24 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             }
             else
             {
-                var destPath = Path.Combine(_options.LibraryRoot, relative,
-                                             Path.GetFileName(candidate.Path));
+                // template already resolves the full relative path including filename
+                // (e.g. "{Category}/{Author}/{Title} ({Edition}){Ext}" → "Books/Author/Title.epub")
+                var destPath = Path.Combine(_options.LibraryRoot, relative);
 
                 bool moved = await _organizer.ExecuteMoveAsync(currentPath, destPath, ct)
                                               .ConfigureAwait(false);
-                if (moved) currentPath = destPath;
+                if (moved)
+                {
+                    await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
+                    {
+                        ActionType = Domain.Enums.SystemActionType.PathUpdated,
+                        EntityId   = assetId,
+                        EntityType = "MediaAsset",
+                        HubName    = candidate.Metadata?.GetValueOrDefault("title", "Unknown"),
+                        Detail     = $"Auto-organized: {candidate.Path} → {destPath}",
+                    }, ct).ConfigureAwait(false);
+                    currentPath = destPath;
+                }
             }
         }
         else if (_options.AutoOrganize
@@ -466,8 +498,21 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 "Moving to staging and creating review item.",
                 scored.OverallConfidence, candidate.Path);
 
+            var prevPath = currentPath;
             currentPath = await MoveToStagingAsync(currentPath, ct)
                               .ConfigureAwait(false) ?? currentPath;
+
+            if (!string.Equals(currentPath, prevPath, StringComparison.Ordinal))
+            {
+                await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
+                {
+                    ActionType = Domain.Enums.SystemActionType.PathUpdated,
+                    EntityId   = assetId,
+                    EntityType = "MediaAsset",
+                    HubName    = candidate.Metadata?.GetValueOrDefault("title", "Unknown"),
+                    Detail     = $"Moved to staging (confidence {scored.OverallConfidence:P0} below 85%): {Path.GetFileName(prevPath)}",
+                }, ct).ConfigureAwait(false);
+            }
 
             await CreateIngestionReviewItemAsync(
                 assetId, ReviewTrigger.LowConfidence, scored.OverallConfidence,
@@ -639,8 +684,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         if (_options.AutoOrganize && !string.IsNullOrWhiteSpace(_options.LibraryRoot))
         {
             var relative = _organizer.CalculatePath(candidate, _options.OrganizationTemplate);
-            var destPath = Path.Combine(_options.LibraryRoot, relative,
-                                         Path.GetFileName(filePath));
+            // template already resolves the full relative path including filename
+            var destPath = Path.Combine(_options.LibraryRoot, relative);
 
             ops.Add(new PendingOperation
             {
@@ -815,8 +860,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             return;
         }
 
-        var destPath = Path.Combine(
-            _options.LibraryRoot, relative, Path.GetFileName(currentPath));
+        // template already resolves the full relative path including filename
+        var destPath = Path.Combine(_options.LibraryRoot, relative);
 
         bool moved = await _organizer.ExecuteMoveAsync(currentPath, destPath, ct)
                                       .ConfigureAwait(false);
@@ -829,6 +874,15 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             _logger.LogInformation(
                 "Re-organized existing asset {Hash} → {Dest}",
                 existing.ContentHash[..12], destPath);
+
+            await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
+            {
+                ActionType = Domain.Enums.SystemActionType.PathUpdated,
+                EntityId   = existing.Id,
+                EntityType = "MediaAsset",
+                HubName    = metadata.GetValueOrDefault("title", "Unknown"),
+                Detail     = $"Re-organized: {currentPath} → {destPath}",
+            }, ct).ConfigureAwait(false);
 
             await SafePublishAsync("IngestionCompleted", new IngestionCompletedEvent(
                 destPath,
@@ -1031,7 +1085,26 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         }
         catch (Exception ex)
         {
-        _logger.LogDebug(ex, "Event publish failed for '{Event}' \xe2\x80\x94 pipeline continues", eventName);
+            _logger.LogDebug(ex, "Event publish failed for '{Event}' — pipeline continues", eventName);
+        }
+    }
+
+    /// <summary>
+    /// Writes a <see cref="Domain.Entities.SystemActivityEntry"/> to the activity ledger
+    /// without propagating exceptions.  Activity logging must never abort the pipeline.
+    /// </summary>
+    private async Task SafeActivityLogAsync(
+        Domain.Entities.SystemActivityEntry entry,
+        CancellationToken ct)
+    {
+        try
+        {
+            await _activityRepo.LogAsync(entry, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Activity log write failed for action '{Action}' — pipeline continues",
+                entry.ActionType);
         }
     }
 }

@@ -97,6 +97,7 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<ICanonicalValueRepository, CanonicalValueRepository>();
         services.AddSingleton<IPersonRepository, PersonRepository>();
         services.AddSingleton<IMediaEntityChainFactory, MediaEntityChainFactory>();
+        services.AddSingleton<ISystemActivityRepository, SystemActivityRepository>();
 
         // ── File watching / debounce ───────────────────────────
         services.AddSingleton<IFileWatcher, FileWatcher>();
