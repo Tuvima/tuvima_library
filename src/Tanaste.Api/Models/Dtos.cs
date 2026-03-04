@@ -413,6 +413,9 @@ public sealed class ProviderStatusResponse
 
     [JsonPropertyName("available_fields")]
     public List<string> AvailableFields { get; init; } = [];
+
+    [JsonPropertyName("media_types")]
+    public List<string> MediaTypes { get; init; } = [];
 }
 
 /// <summary>Field mapping entry for provider status response.</summary>

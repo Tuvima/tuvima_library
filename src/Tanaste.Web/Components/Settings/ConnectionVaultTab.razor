@@ -2,22 +2,21 @@
 @using Tanaste.Web.Models
 @using Tanaste.Web.Models.ViewDTOs
 @inject UIOrchestratorService Orchestrator
-@inject DeviceContextService DeviceContext
 @inject ISnackbar Snackbar
 
-@* Connection Vault — Universe-First Metadata Pipeline configuration.
-   Media type tabs → Universe extraction row → Matrix columns → Available providers.
-   Provider Connections removed; all config accessible via click → flyout. *@
+@* Metadata tab — simplified provider slot assignment.
+   Users pick a Primary + up to 2 secondary providers per media type
+   via drag-drop. All configuration complexity lives in JSON files. *@
 
 <MudPaper Elevation="0" Style="@GlassStyle">
 
     @* ── Header ──────────────────────────────────────────────────────────── *@
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
         <MudIcon Icon="@Icons.Material.Outlined.Hub" Color="Color.Primary" Class="mr-2" />
-        <MudText Typo="Typo.h6">Connection Vault</MudText>
+        <MudText Typo="Typo.h6">Metadata</MudText>
     </MudStack>
     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
-        Drag providers into each field column to set priority. Position 1 wins. Hover a provider to see which columns it supports.
+        Select providers for each media type. Drag a provider into a slot to set priority.
     </MudText>
 
     @* ── Loading / error ──────────────────────────────────────────────────── *@
@@ -33,387 +32,141 @@
     }
     else
     {
-        @* ━━━━━━ SECTION 1: Metadata Prioritization Matrix ━━━━━━ *@
-        <MudPaper Elevation="0" Class="pa-4 mb-4"
-                  Style="background: var(--tanaste-glass-bg); border: 1px solid var(--tanaste-glass-border); border-radius: 16px;">
-
-            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-3">
-                <MudIcon Icon="@Icons.Material.Filled.GridView" Size="Size.Small"
-                         Style="color: var(--tanaste-text-muted);" />
-                <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">
-                    Metadata Prioritization Matrix
+        @* ── Universe indicator ────────────────────────────────────────────── *@
+        <MudPaper Elevation="0" Class="pa-3 mb-4"
+                  Style="background: var(--tanaste-glass-bg); border: 1px solid var(--tanaste-glass-border); border-radius: 12px;">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <div class="provider-health-dot @(_wikidataReachable ? "health-online" : "health-offline")"
+                     style="width: 12px; height: 12px;"></div>
+                <MudText Typo="Typo.body1" Style="font-weight: 500;">
+                    @(_wikidataReachable ? "Universe Connected" : "Universe Unavailable")
+                </MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary" Style="flex: 1;">
+                    Wikidata provides cross-media identification, series data, and creator profiles.
                 </MudText>
             </MudStack>
+        </MudPaper>
 
-            @* ── Media type tabs (large icons + labels) ─────────────────── *@
-            <MudTabs ActivePanelIndex="_activeTabIndex"
-                     ActivePanelIndexChanged="@OnTabChanged"
-                     Rounded="true" ApplyEffectsToContainer="true"
-                     Class="mb-4 vault-media-tabs"
-                     MinimumTabWidth="90px">
-
-                @foreach (var tab in MediaTypeTabs)
-                {
-                    var tabIndex = MediaTypeTabs.IndexOf(tab);
-                    var isActive = _activeTabIndex == tabIndex;
-
-                    <MudTabPanel>
-                        <TabContent>
-                            <div class="vault-tab-content">
-                                <MudIcon Icon="@tab.Icon" Size="Size.Large"
-                                         Color="@(isActive ? Color.Primary : Color.Default)" />
-                                <MudText Typo="Typo.caption"
-                                         Style="@(isActive ? "font-weight: 700; color: var(--mud-palette-primary);" : "")">
-                                    @tab.Label
-                                </MudText>
-                                @if (_dirtyTabs.Contains(tabIndex))
-                                {
-                                    <div class="vault-tab-dirty-dot"></div>
-                                }
-                            </div>
-                        </TabContent>
-                        <ChildContent>
-                            @* ── Tab panel content ──────────────────────── *@
-                            <MudDropContainer T="MatrixItem"
-                                              @ref="_dropContainer"
-                                              Items="@ActiveMatrixItems"
+        @* ── Media type tabs ──────────────────────────────────────────────── *@
+        <MudTabs Elevation="0" Rounded="true" ApplyEffectsToContainer="true"
+                 ActivePanelIndexChanged="@OnTabChanged">
+            @foreach (var mt in _mediaTypes)
+            {
+                <MudTabPanel Text="@mt">
+                    <div class="slot-layout">
+                        @* ── Left column: available providers ────────────── *@
+                        <div class="slot-available-providers">
+                            <MudText Typo="Typo.subtitle2" Class="mb-2" Style="color: var(--tanaste-text-muted);">
+                                Available Providers
+                            </MudText>
+                            <MudDropContainer T="ProviderDragItem"
+                                              Items="@GetDragItems(mt)"
                                               ItemsSelector="@((item, zone) => item.Zone == zone)"
-                                              ItemDropped="@OnItemDropped"
-                                              Class="matrix-container">
-
+                                              ItemDropped="@(args => OnItemDropped(args, mt))"
+                                              Class="slot-drop-container">
                                 <ChildContent>
-                                    @* ── Universe Extraction Row ──────── *@
-                                    @if (ActiveUniverseColumn is { ClaimKeys.Count: > 0 })
-                                    {
-                                        <div class="universe-extraction-row">
-                                            <MudText Typo="Typo.overline" Color="Color.Secondary" Class="mb-1"
-                                                     Style="letter-spacing: 0.08em;">
-                                                UNIVERSE PROPERTIES — extract to create a column
-                                                (@ActiveUniverseColumn.ClaimKeys.Count)
-                                            </MudText>
-                                            <div class="universe-pills">
-                                                @foreach (var ck in ActiveUniverseColumn.ClaimKeys
-                                                    .OrderBy(k => FieldDictionary.GetDisplayName(k)))
-                                                {
-                                                    var key = ck;
-                                                    <MudChip T="string"
-                                                             Icon="@FieldDictionary.GetIcon(key)"
-                                                             OnClose="@(() => ExtractFieldFromUniverse(key))"
-                                                             CloseIcon="@Icons.Material.Filled.ArrowBack"
-                                                             Color="Color.Primary"
-                                                             Variant="Variant.Outlined"
-                                                             Size="Size.Small"
-                                                             title="Extract to its own column">
-                                                        @FieldDictionary.GetDisplayName(key)
-                                                    </MudChip>
-                                                }
-                                            </div>
-                                        </div>
-                                    }
-
-                                    @* ── Matrix Columns ───────────────── *@
-                                    <div class="matrix-columns-scroll">
-                                        <div class="matrix-columns">
-                                            @foreach (var column in ActiveColumns
-                                                .Where(c => !c.IsPinned)
-                                                .OrderBy(c => c.SortOrder))
-                                            {
-                                                <div class="matrix-column @(IsColumnHighlighted(column) ? "column-highlight" : "") @(IsColumnDimmed(column) ? "column-dimmed" : "")">
-                                                    @* Column header *@
-                                                    <div class="matrix-column-header">
-                                                        <MudIcon Icon="@column.Icon" Size="Size.Small"
-                                                                 Style="color: var(--tanaste-text-muted);" />
-                                                        <MudText Typo="Typo.caption" Style="font-weight: 600; flex: 1;">
-                                                            @column.DisplayName
-                                                        </MudText>
-
-                                                        @if (column.IsExtractedFromUniverse && IsAdmin)
-                                                        {
-                                                            <MudIconButton Icon="@Icons.Material.Filled.Close"
-                                                                           Size="Size.Small"
-                                                                           OnClick="@(() => RemoveColumn(column))"
-                                                                           title="Return to Universe" />
-                                                        }
-                                                    </div>
-
-                                                    @* Drop zone *@
-                                                    <MudDropZone T="MatrixItem"
-                                                                 Identifier="@column.ZoneId"
-                                                                 AllowReorder="true"
-                                                                 CanDrop="@(item => CanDropInColumn(item, column))"
-                                                                 NoDropClass="matrix-no-drop"
-                                                                 Class="matrix-drop-zone" />
-                                                </div>
-                                            }
-
-                                            @* ── Universe column (pinned, accent styling) ── *@
-                                            @if (ActiveUniverseColumn is not null)
-                                            {
-                                                <div class="matrix-column universe-column @(IsColumnHighlighted(ActiveUniverseColumn) ? "column-highlight" : "") @(IsColumnDimmed(ActiveUniverseColumn) ? "column-dimmed" : "")">
-                                                    <div class="matrix-column-header">
-                                                        <MudIcon Icon="@Icons.Material.Filled.Hub" Size="Size.Small"
-                                                                 Color="Color.Primary" />
-                                                        <MudText Typo="Typo.caption" Style="font-weight: 600; flex: 1; color: var(--mud-palette-primary);">
-                                                            Universe
-                                                        </MudText>
-                                                        <MudChip T="string" Size="Size.Small" Color="Color.Primary"
-                                                                 Variant="Variant.Outlined"
-                                                                 Style="font-size: 0.6rem; height: 20px;">
-                                                            Last Step
-                                                        </MudChip>
-                                                    </div>
-
-                                                    <MudDropZone T="MatrixItem"
-                                                                 Identifier="universe_info"
-                                                                 AllowReorder="true"
-                                                                 CanDrop="@(item => CanDropInColumn(item, ActiveUniverseColumn))"
-                                                                 NoDropClass="matrix-no-drop"
-                                                                 Class="matrix-drop-zone" />
-                                                </div>
-                                            }
-                                        </div>
-                                    </div>
-
-                                    @* ── Available Providers Row ───────── *@
-                                    <div class="available-providers-row">
-                                        <MudText Typo="Typo.overline" Color="Color.Success" Class="mb-2"
-                                                 Style="letter-spacing: 0.08em;">
-                                            AVAILABLE PROVIDERS — drag into columns above
+                                    @* Available pool *@
+                                    <MudDropZone T="ProviderDragItem"
+                                                 Identifier="available"
+                                                 Class="slot-available-zone"
+                                                 AllowReorder="false"
+                                                 CanDrop="@(_ => true)">
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2">
+                                            Drag providers to the slots on the right.
                                         </MudText>
-                                        <MudDropZone T="MatrixItem"
-                                                     Identifier="disabled"
+                                    </MudDropZone>
+
+                                    @* ── Right area: slot drop zones ─────────── *@
+                                    <div class="slot-zones-column">
+                                        <MudDropZone T="ProviderDragItem"
+                                                     Identifier="primary"
+                                                     Class="slot-zone slot-zone-primary"
                                                      AllowReorder="false"
-                                                     Class="available-providers-zone" />
+                                                     CanDrop="@(_ => true)">
+                                            <MudText Typo="Typo.subtitle2" Style="color: var(--mud-palette-primary); font-weight: 600;">
+                                                Primary — Automatic Match
+                                            </MudText>
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                                This provider runs automatically when files are added.
+                                            </MudText>
+                                        </MudDropZone>
+
+                                        <MudDropZone T="ProviderDragItem"
+                                                     Identifier="secondary"
+                                                     Class="slot-zone"
+                                                     AllowReorder="false"
+                                                     CanDrop="@(_ => true)">
+                                            <MudText Typo="Typo.subtitle2" Style="color: var(--tanaste-text-muted);">
+                                                Secondary — Manual Fallback 1
+                                            </MudText>
+                                        </MudDropZone>
+
+                                        <MudDropZone T="ProviderDragItem"
+                                                     Identifier="tertiary"
+                                                     Class="slot-zone"
+                                                     AllowReorder="false"
+                                                     CanDrop="@(_ => true)">
+                                            <MudText Typo="Typo.subtitle2" Style="color: var(--tanaste-text-muted);">
+                                                Tertiary — Manual Fallback 2
+                                            </MudText>
+                                        </MudDropZone>
                                     </div>
                                 </ChildContent>
 
                                 <ItemRenderer>
                                     @{
-                                        var pos = GetItemPosition(context);
-                                        var isInDisabled = context.Zone == "disabled";
+                                        var provider = _providers.FirstOrDefault(p => p.Name == context.ProviderName);
+                                        if (provider is not null)
+                                        {
+                                            <ProviderCard Provider="@provider"
+                                                          IsSlotted="@(context.Zone != "available")"
+                                                          OnRemove="@(() => RemoveFromSlot(context, mt))" />
+                                        }
                                     }
-
-                                    <div @onmouseenter="@(() => { if (isInDisabled) OnProviderHoverEnter(context.ProviderKey); })"
-                                         @onmouseleave="@(() => { if (isInDisabled) OnProviderHoverLeave(); })">
-                                        <MatrixProviderChip Item="@context"
-                                                            Position="@pos"
-                                                            IsDisabled="@isInDisabled"
-                                                            IsHighlighted="@IsProviderChipHighlighted(context)"
-                                                            IsDimmed="@IsProviderChipDimmed(context)"
-                                                            OnEditClicked="@(() => OpenProviderFlyout(context))" />
-                                    </div>
                                 </ItemRenderer>
                             </MudDropContainer>
-
-                            @* ── Save button ──────────────────────────── *@
-                            @if (_dirtyTabs.Contains(_activeTabIndex))
-                            {
-                                <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-3">
-                                    <MudButton Variant="Variant.Filled"
-                                               Color="Color.Primary"
-                                               OnClick="@SaveMatrixPrioritiesAsync"
-                                               Disabled="@_saving"
-                                               StartIcon="@Icons.Material.Filled.Save">
-                                        @if (_saving)
-                                        {
-                                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
-                                            @:Saving…
-                                        }
-                                        else
-                                        {
-                                            @:Save Priorities
-                                        }
-                                    </MudButton>
-                                </MudStack>
-                            }
-                        </ChildContent>
-                    </MudTabPanel>
-                }
-            </MudTabs>
-        </MudPaper>
-
-        @* ━━━━━━ SECTION 2: Advanced Pipeline Config (collapsible) ━━━━━━ *@
-        <MudPaper Elevation="0" Class="pa-0 mb-4"
-                  Style="background: var(--tanaste-glass-bg); border: 1px solid var(--tanaste-glass-border); border-radius: 16px;">
-
-            <div class="section-header" @onclick="@(() => _advancedExpanded = !_advancedExpanded)">
-                <MudIcon Icon="@(_advancedExpanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
-                         Size="Size.Small" Style="color: var(--tanaste-text-muted);" />
-                <MudIcon Icon="@Icons.Material.Filled.Tune" Size="Size.Small"
-                         Style="color: var(--tanaste-text-muted);" />
-                <MudText Typo="Typo.subtitle2" Style="flex: 1; font-weight: 600;">
-                    Advanced
-                </MudText>
-            </div>
-
-            @if (_advancedExpanded && _hydrationSettings is not null)
-            {
-                <div class="pa-4 pt-0">
-                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
-                        Pipeline concurrency, timeouts, and thresholds. These rarely need changing.
-                    </MudText>
-
-                    <MudGrid Spacing="3">
-                        <MudItem xs="12" sm="6">
-                            <MudNumericField @bind-Value="_hydrationSettings.StageConcurrency"
-                                             Label="Stage Concurrency" Variant="Variant.Outlined"
-                                             Margin="Margin.Dense" Min="1" Max="10" />
-                        </MudItem>
-                        <MudItem xs="12" sm="6">
-                            <MudNumericField @bind-Value="_hydrationSettings.Stage1TimeoutSeconds"
-                                             Label="Stage 1 Timeout (s)" Variant="Variant.Outlined"
-                                             Margin="Margin.Dense" Min="5" Max="120" />
-                        </MudItem>
-                        <MudItem xs="12" sm="6">
-                            <MudNumericField @bind-Value="_hydrationSettings.Stage2TimeoutSeconds"
-                                             Label="Stage 2 Timeout (s)" Variant="Variant.Outlined"
-                                             Margin="Margin.Dense" Min="5" Max="120" />
-                        </MudItem>
-                        <MudItem xs="12" sm="6">
-                            <MudNumericField @bind-Value="_hydrationSettings.Stage3TimeoutSeconds"
-                                             Label="Stage 3 Timeout (s)" Variant="Variant.Outlined"
-                                             Margin="Margin.Dense" Min="5" Max="120" />
-                        </MudItem>
-                        <MudItem xs="12" sm="6">
-                            <MudNumericField @bind-Value="_hydrationSettings.DisambiguationThreshold"
-                                             Label="Disambiguation Threshold" Variant="Variant.Outlined"
-                                             Margin="Margin.Dense" Min="0.1" Max="1.0" Step="0.05" />
-                        </MudItem>
-                        <MudItem xs="12" sm="6">
-                            <MudNumericField @bind-Value="_hydrationSettings.AutoReviewConfidenceThreshold"
-                                             Label="Auto-Review Threshold" Variant="Variant.Outlined"
-                                             Margin="Margin.Dense" Min="0.1" Max="1.0" Step="0.05" />
-                        </MudItem>
-                        <MudItem xs="12" sm="6">
-                            <MudNumericField @bind-Value="_hydrationSettings.MaxQidCandidates"
-                                             Label="Max QID Candidates" Variant="Variant.Outlined"
-                                             Margin="Margin.Dense" Min="1" Max="20" />
-                        </MudItem>
-                        <MudItem xs="12" sm="6">
-                            <MudCheckBox @bind-Value="_hydrationSettings.SkipStage2WithoutBridgeIds"
-                                         Label="Skip Stage 2 without bridge IDs"
-                                         Dense="true" Color="Color.Primary" />
-                        </MudItem>
-                    </MudGrid>
-
-                    <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-4">
-                        <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                                   Size="Size.Small"
-                                   OnClick="@SaveHydrationSettingsAsync"
-                                   Disabled="@_saving"
-                                   StartIcon="@Icons.Material.Filled.Save">
-                            Save Pipeline Config
-                        </MudButton>
-                    </MudStack>
-                </div>
+                        </div>
+                    </div>
+                </MudTabPanel>
             }
-        </MudPaper>
+        </MudTabs>
     }
+
 </MudPaper>
 
-@* ── Provider Flyout Drawer ──────────────────────────────────────────── *@
-<MudDrawer @bind-Open="_flyoutOpen"
-           Anchor="Anchor.End"
-           Elevation="4"
-           Variant="DrawerVariant.Temporary"
-           Width="420px"
-           Style="@DrawerStyle">
-    <div class="pa-4">
-        @if (_flyoutProvider is not null)
-        {
-            <ProviderFlyoutDrawer Provider="@_flyoutProvider"
-                                  IsAdmin="@IsAdmin"
-                                  IsWikidataProvider="@IsWikidata(_flyoutProvider.Name)"
-                                  OnClose="@CloseFlyout"
-                                  OnTestClicked="@(() => TestProvider(_flyoutProvider.Name))"
-                                  OnSaveClicked="@(config => SaveProvider(_flyoutProvider.Name, config))"
-                                  OnDeleteClicked="@(() => DeleteProvider(_flyoutProvider.Name))"
-                                  TestResult="@GetTestResult(_flyoutProvider.Name)"
-                                  IsTesting="@IsProviderTesting(_flyoutProvider.Name)"
-                                  IsSaving="@_saving" />
-        }
-    </div>
-</MudDrawer>
-
 @code {
-    /// <summary>Current user role (from settings page parent).</summary>
     [Parameter] public string CurrentRole { get; set; } = "Administrator";
 
-    // ── State ──────────────────────────────────────────────────────────────
-
-    private bool _loading;
+    private bool _loading = true;
     private bool _engineDown;
-    private bool _saving;
-    private int _activeTabIndex;
-    private string? _hoveredProviderKey;
-    private bool _flyoutOpen;
-    private ProviderStatusDto? _flyoutProvider;
-    private bool _advancedExpanded;
-    private MudDropContainer<MatrixItem>? _dropContainer;
+    private bool _wikidataReachable;
 
-    private List<ProviderStatusDto> _providers = [];
-    private HydrationSettingsDto? _hydrationSettings;
+    private IReadOnlyList<ProviderStatusDto> _providers = [];
+    private Dictionary<string, ProviderSlotDto> _slots = new();
 
-    private readonly Dictionary<int, List<MatrixItem>> _matrixItemsByTab = new();
-    private readonly Dictionary<int, List<MatrixColumn>> _matrixColumnsByTab = new();
-    private readonly HashSet<int> _dirtyTabs = [];
-    private readonly HashSet<string> _testingProviders = [];
-    private readonly Dictionary<string, ProviderTestResultDto?> _testResults = new();
+    private static readonly string[] _mediaTypes =
+        ["Books", "Audiobooks", "Comics", "Movies", "TV Shows"];
 
-    // ── Media type tabs ───────────────────────────────────────────────────
-
-    private static readonly List<MediaTypeTab> MediaTypeTabs =
-    [
-        new("Books",      "Ebook",     Icons.Material.Filled.MenuBook),
-        new("Audiobooks", "Audiobook", Icons.Material.Filled.Headphones),
-        new("Comics",     "Ebook",     Icons.Material.Filled.Collections),
-        new("Movies",     "Video",     Icons.Material.Filled.Movie),
-        new("TV Shows",   "Video",     Icons.Material.Filled.Tv),
-    ];
-
-    private sealed record MediaTypeTab(string Label, string DomainKey, string Icon);
-
-    // ── Computed ────────────────────────────────────────────────────────────
-
-    private bool IsAdmin =>
-        string.Equals(CurrentRole, "Administrator", StringComparison.OrdinalIgnoreCase);
-
-    private List<MatrixItem> ActiveMatrixItems =>
-        _matrixItemsByTab.TryGetValue(_activeTabIndex, out var items) ? items : [];
-
-    private List<MatrixColumn> ActiveColumns =>
-        _matrixColumnsByTab.TryGetValue(_activeTabIndex, out var cols) ? cols : [];
-
-    private MatrixColumn? ActiveUniverseColumn =>
-        ActiveColumns.FirstOrDefault(c => c.IsPinned && c.ZoneId == "universe_info");
-
-    // ── Lifecycle ───────────────────────────────────────────────────────────
+    // ── Lifecycle ──────────────────────────────────────────────────────────
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadProvidersAsync();
-        _ = LoadHydrationSettingsAsync();
-    }
-
-    private async Task LoadProvidersAsync()
-    {
-        _loading = true;
-        _engineDown = false;
-
         try
         {
-            var providers = await Orchestrator.GetProviderStatusAsync();
-            if (providers is null || providers.Count == 0)
+            _providers = await Orchestrator.GetProviderStatusAsync();
+            if (_providers.Count == 0)
             {
                 _engineDown = true;
                 return;
             }
 
-            _providers = providers
-                .Where(p => ProviderAccentMap.IsVisibleProvider(p.Name))
-                .OrderBy(p => p.Name)
-                .ToList();
-            BuildAllMatrices();
+            var slots = await Orchestrator.GetProviderSlotsAsync();
+            _slots = slots ?? new Dictionary<string, ProviderSlotDto>();
+
+            // Check Wikidata reachability.
+            var wikidata = _providers.FirstOrDefault(p =>
+                string.Equals(p.Name, "wikidata", StringComparison.OrdinalIgnoreCase));
+            _wikidataReachable = wikidata?.IsReachable ?? false;
         }
         catch
         {
@@ -425,695 +178,229 @@
         }
     }
 
-    private async Task LoadHydrationSettingsAsync()
+    // ── Media-type to provider mapping ────────────────────────────────────
+
+    /// <summary>Maps media type tab names to ProviderStatusDto media type filter values.</summary>
+    private static readonly Dictionary<string, string[]> MediaTypeFilterMap = new()
     {
-        try { _hydrationSettings = await Orchestrator.GetHydrationSettingsAsync(); }
-        catch { /* Non-fatal */ }
+        ["Books"]      = ["Epub"],
+        ["Audiobooks"] = ["Audiobook"],
+        ["Comics"]     = ["Comic"],
+        ["Movies"]     = ["Movie"],
+        ["TV Shows"]   = ["TvShow"],
+    };
+
+    /// <summary>Returns providers that can handle the given media type, excluding wikidata/local_filesystem.</summary>
+    private List<ProviderStatusDto> GetProvidersForMediaType(string mediaType)
+    {
+        if (!MediaTypeFilterMap.TryGetValue(mediaType, out var filterValues))
+            return [];
+
+        return _providers
+            .Where(p => ProviderAccentMap.IsVisibleProvider(p.Name))
+            .Where(p => !string.Equals(p.Name, "wikidata", StringComparison.OrdinalIgnoreCase))
+            .Where(p => p.MediaTypes?.Any(mt =>
+                filterValues.Any(fv => string.Equals(mt, fv, StringComparison.OrdinalIgnoreCase))) ?? false)
+            .ToList();
     }
 
-    // ── Matrix building ────────────────────────────────────────────────────
+    // ── Drag-drop model ──────────────────────────────────────────────────
 
-    private void BuildAllMatrices()
+    private List<ProviderDragItem> GetDragItems(string mediaType)
     {
-        _matrixItemsByTab.Clear();
-        _matrixColumnsByTab.Clear();
+        var available = GetProvidersForMediaType(mediaType);
+        var slot = GetSlot(mediaType);
+        var items = new List<ProviderDragItem>();
 
-        for (var i = 0; i < MediaTypeTabs.Count; i++)
+        foreach (var provider in available)
         {
-            var tab = MediaTypeTabs[i];
-            var columns = FieldDictionary.GetDefaultColumns();
-            var items = BuildMatrixItemsForTab(tab, columns);
-            _matrixColumnsByTab[i] = columns;
-            _matrixItemsByTab[i] = items;
-        }
-    }
+            string zone = "available";
+            if (string.Equals(provider.Name, slot.Primary, StringComparison.OrdinalIgnoreCase))
+                zone = "primary";
+            else if (string.Equals(provider.Name, slot.Secondary, StringComparison.OrdinalIgnoreCase))
+                zone = "secondary";
+            else if (string.Equals(provider.Name, slot.Tertiary, StringComparison.OrdinalIgnoreCase))
+                zone = "tertiary";
 
-    private List<MatrixItem> BuildMatrixItemsForTab(MediaTypeTab tab, List<MatrixColumn> columns)
-    {
-        var relevantProviders = GetRelevantProviders(tab.DomainKey);
-        var items = new List<MatrixItem>();
-        var seenDisplayNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        // Build provider info lookup, deduplicating Apple Books per tab.
-        var providerInfos = new List<(ProviderStatusDto Provider, string DisplayName, string Color, string Icon)>();
-        foreach (var provider in relevantProviders)
-        {
-            var displayName = ProviderAccentMap.GetDisplayName(provider.Name);
-            if (!seenDisplayNames.Add(displayName)) continue;
-            var (color, icon) = ProviderAccentMap.GetAccent(provider.Name);
-            providerInfos.Add((provider, displayName, color, icon));
-        }
-
-        // For each column, find providers that support it and place by existing weight.
-        foreach (var column in columns)
-        {
-            var columnItems = new List<(MatrixItem Item, double BestWeight)>();
-
-            foreach (var (provider, displayName, color, icon) in providerInfos)
-            {
-                var supported = GetProviderFieldKeys(provider);
-                var supportsColumn = column.ClaimKeys.Any(ck =>
-                    supported.Contains(ck, StringComparer.OrdinalIgnoreCase));
-                if (!supportsColumn) continue;
-
-                var bestWeight = column.ClaimKeys
-                    .Select(ck => GetFieldWeight(provider.Name, ck))
-                    .Max();
-
-                if (bestWeight > 0.01)
-                {
-                    columnItems.Add((new MatrixItem
-                    {
-                        ProviderKey = provider.Name,
-                        DisplayName = displayName,
-                        Zone = column.ZoneId,
-                        SupportedFields = new HashSet<string>(supported, StringComparer.OrdinalIgnoreCase),
-                        Color = color,
-                        Icon = icon,
-                        Enabled = provider.Enabled,
-                    }, bestWeight));
-                }
-            }
-
-            var ordered = columnItems.OrderByDescending(x => x.BestWeight).ToList();
-            for (var i = 0; i < ordered.Count; i++)
-            {
-                ordered[i].Item.Order = i;
-                items.Add(ordered[i].Item);
-            }
-        }
-
-        // Providers not placed in any column go to the available row.
-        var placedKeys = items.Select(i => i.ProviderKey).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        foreach (var (provider, displayName, color, icon) in providerInfos)
-        {
-            if (placedKeys.Contains(provider.Name)) continue;
-            var supported = GetProviderFieldKeys(provider);
-            items.Add(new MatrixItem
-            {
-                ProviderKey = provider.Name,
-                DisplayName = displayName,
-                Zone = "disabled",
-                Order = 0,
-                SupportedFields = new HashSet<string>(supported, StringComparer.OrdinalIgnoreCase),
-                Color = color,
-                Icon = icon,
-                Enabled = provider.Enabled,
-            });
+            items.Add(new ProviderDragItem { ProviderName = provider.Name, Zone = zone });
         }
 
         return items;
     }
 
-    // ── MudDropContainer handlers ──────────────────────────────────────────
-
-    private void OnItemDropped(MudItemDropInfo<MatrixItem> info)
+    private ProviderSlotDto GetSlot(string mediaType)
     {
-        var item = info.Item;
-        if (item is null) return;
-        var targetZone = info.DropzoneIdentifier;
-        var sourceZone = item.Zone;
+        return _slots.TryGetValue(mediaType, out var slot) ? slot : new ProviderSlotDto();
+    }
 
-        item.Zone = targetZone;
-        item.Order = info.IndexInZone;
+    private async Task OnItemDropped(MudItemDropInfo<ProviderDragItem> dropInfo, string mediaType)
+    {
+        if (dropInfo.Item is null) return;
 
-        RecalculateOrders(targetZone);
-        if (sourceZone != targetZone)
-            RecalculateOrders(sourceZone);
+        var providerName = dropInfo.Item.ProviderName;
+        var targetZone = dropInfo.DropzoneIdentifier;
+        var slot = GetSlot(mediaType);
 
-        _dirtyTabs.Add(_activeTabIndex);
+        // Clear the provider from any existing slot.
+        if (string.Equals(slot.Primary, providerName, StringComparison.OrdinalIgnoreCase))
+            slot = slot with { Primary = null };
+        if (string.Equals(slot.Secondary, providerName, StringComparison.OrdinalIgnoreCase))
+            slot = slot with { Secondary = null };
+        if (string.Equals(slot.Tertiary, providerName, StringComparison.OrdinalIgnoreCase))
+            slot = slot with { Tertiary = null };
+
+        // If dropping into a slot, also evict whoever was there.
+        switch (targetZone)
+        {
+            case "primary":
+                slot = slot with { Primary = providerName };
+                break;
+            case "secondary":
+                slot = slot with { Secondary = providerName };
+                break;
+            case "tertiary":
+                slot = slot with { Tertiary = providerName };
+                break;
+            // "available" = remove from all slots (already done above).
+        }
+
+        _slots[mediaType] = slot;
+        await SaveSlotsAsync();
+    }
+
+    private async Task RemoveFromSlot(ProviderDragItem item, string mediaType)
+    {
+        var slot = GetSlot(mediaType);
+        var name = item.ProviderName;
+
+        if (string.Equals(slot.Primary, name, StringComparison.OrdinalIgnoreCase))
+            slot = slot with { Primary = null };
+        if (string.Equals(slot.Secondary, name, StringComparison.OrdinalIgnoreCase))
+            slot = slot with { Secondary = null };
+        if (string.Equals(slot.Tertiary, name, StringComparison.OrdinalIgnoreCase))
+            slot = slot with { Tertiary = null };
+
+        _slots[mediaType] = slot;
+        await SaveSlotsAsync();
+    }
+
+    private async Task SaveSlotsAsync()
+    {
+        var ok = await Orchestrator.UpdateProviderSlotsAsync(_slots);
+        if (ok)
+            Snackbar.Add("Provider slots saved.", Severity.Success);
+        else
+            Snackbar.Add("Failed to save provider slots.", Severity.Error);
+
         StateHasChanged();
     }
 
-    private void RecalculateOrders(string zone)
-    {
-        var zoneItems = ActiveMatrixItems
-            .Where(i => i.Zone == zone)
-            .OrderBy(i => i.Order)
-            .ToList();
+    private void OnTabChanged(int _) { /* Re-render with new tab's data */ }
 
-        for (var i = 0; i < zoneItems.Count; i++)
-            zoneItems[i].Order = i;
+    // ── Drag item model ──────────────────────────────────────────────────
+
+    private sealed class ProviderDragItem
+    {
+        public string ProviderName { get; set; } = string.Empty;
+        public string Zone { get; set; } = "available";
     }
 
-    private static bool CanDropInColumn(MatrixItem item, MatrixColumn column) =>
-        column.ClaimKeys.Any(ck =>
-            item.SupportedFields.Contains(ck, StringComparer.OrdinalIgnoreCase));
-
-    private int GetItemPosition(MatrixItem item)
-    {
-        if (item.Zone == "disabled") return 0;
-        return ActiveMatrixItems
-            .Where(i => i.Zone == item.Zone)
-            .OrderBy(i => i.Order)
-            .ToList()
-            .IndexOf(item);
-    }
-
-    // ── Tab switching ──────────────────────────────────────────────────────
-
-    private void OnTabChanged(int newIndex)
-    {
-        _activeTabIndex = newIndex;
-        _hoveredProviderKey = null;
-        _dropContainer?.Refresh();
-    }
-
-    // ── Hover highlight logic ─────────────────────────────────────────────
-
-    private void OnProviderHoverEnter(string providerKey)
-    {
-        _hoveredProviderKey = providerKey;
-        StateHasChanged();
-    }
-
-    private void OnProviderHoverLeave()
-    {
-        _hoveredProviderKey = null;
-        StateHasChanged();
-    }
-
-    private bool IsColumnHighlighted(MatrixColumn column)
-    {
-        if (_hoveredProviderKey is null) return false;
-        var item = ActiveMatrixItems.FirstOrDefault(i =>
-            i.ProviderKey == _hoveredProviderKey && i.Zone == "disabled");
-        if (item is null) return false;
-        return column.ClaimKeys.Any(ck =>
-            item.SupportedFields.Contains(ck, StringComparer.OrdinalIgnoreCase));
-    }
-
-    private bool IsColumnDimmed(MatrixColumn column)
-    {
-        if (_hoveredProviderKey is null) return false;
-        return !IsColumnHighlighted(column);
-    }
-
-    private bool IsProviderChipHighlighted(MatrixItem item)
-    {
-        if (_hoveredProviderKey is null || item.Zone == "disabled") return false;
-        return item.ProviderKey == _hoveredProviderKey;
-    }
-
-    private bool IsProviderChipDimmed(MatrixItem item)
-    {
-        if (_hoveredProviderKey is null || item.Zone == "disabled") return false;
-        return item.ProviderKey != _hoveredProviderKey;
-    }
-
-    // ── Column management ──────────────────────────────────────────────────
-
-    private void ExtractFieldFromUniverse(string claimKey)
-    {
-        var universeCol = ActiveUniverseColumn;
-        if (universeCol is null || !universeCol.ClaimKeys.Contains(claimKey)) return;
-
-        // Remove from Universe group.
-        universeCol.ClaimKeys.Remove(claimKey);
-
-        // Create new column (insert before Universe).
-        var maxNonPinned = ActiveColumns
-            .Where(c => !c.IsPinned)
-            .Select(c => c.SortOrder)
-            .DefaultIfEmpty(-1)
-            .Max();
-
-        var newCol = new MatrixColumn
-        {
-            ZoneId = claimKey,
-            DisplayName = FieldDictionary.GetDisplayName(claimKey),
-            Icon = FieldDictionary.GetIcon(claimKey),
-            ClaimKeys = [claimKey],
-            IsGroup = false,
-            IsUserAdded = true,
-            IsExtractedFromUniverse = true,
-            SortOrder = maxNonPinned + 1,
-        };
-        ActiveColumns.Add(newCol);
-
-        // Clone providers from Universe zone that support this field.
-        var universeProviders = ActiveMatrixItems
-            .Where(i => i.Zone == "universe_info"
-                     && i.SupportedFields.Contains(claimKey, StringComparer.OrdinalIgnoreCase))
-            .ToList();
-
-        for (var i = 0; i < universeProviders.Count; i++)
-        {
-            var src = universeProviders[i];
-            ActiveMatrixItems.Add(new MatrixItem
-            {
-                ProviderKey = src.ProviderKey,
-                DisplayName = src.DisplayName,
-                SupportedFields = src.SupportedFields,
-                Color = src.Color,
-                Icon = src.Icon,
-                Enabled = src.Enabled,
-                Zone = claimKey,
-                Order = i,
-            });
-        }
-
-        _dirtyTabs.Add(_activeTabIndex);
-        _dropContainer?.Refresh();
-    }
-
-    private void RemoveColumn(MatrixColumn column)
-    {
-        // Remove items in this column.
-        var columnItems = ActiveMatrixItems.Where(i => i.Zone == column.ZoneId).ToList();
-        foreach (var item in columnItems)
-            ActiveMatrixItems.Remove(item);
-
-        // If extracted from Universe, re-absorb the claim key.
-        if (column.IsExtractedFromUniverse && column.ClaimKeys.Count == 1)
-        {
-            var universeCol = ActiveUniverseColumn;
-            if (universeCol is not null && FieldDictionary.UniverseGroupFields.Contains(column.ClaimKeys[0]))
-                universeCol.ClaimKeys.Add(column.ClaimKeys[0]);
-        }
-
-        ActiveColumns.Remove(column);
-        _dirtyTabs.Add(_activeTabIndex);
-        _dropContainer?.Refresh();
-    }
-
-    // ── Save ───────────────────────────────────────────────────────────────
-
-    private async Task SaveMatrixPrioritiesAsync()
-    {
-        _saving = true;
-        StateHasChanged();
-
-        try
-        {
-            var tab = MediaTypeTabs[_activeTabIndex];
-            var providerWeights = new Dictionary<string, Dictionary<string, double>>();
-
-            foreach (var column in ActiveColumns)
-            {
-                var zoneItems = ActiveMatrixItems
-                    .Where(i => i.Zone == column.ZoneId)
-                    .OrderBy(i => i.Order)
-                    .ToList();
-
-                for (var position = 0; position < zoneItems.Count; position++)
-                {
-                    var item = zoneItems[position];
-                    var realKey = ResolveProviderKeyForSave(item, tab.DomainKey);
-                    var weight = PriorityToWeight(position);
-
-                    if (!providerWeights.TryGetValue(realKey, out var weights))
-                    {
-                        var existing = _providers.FirstOrDefault(p => p.Name == realKey);
-                        weights = existing?.FieldWeights is not null
-                            ? new Dictionary<string, double>(existing.FieldWeights)
-                            : new();
-                        providerWeights[realKey] = weights;
-                    }
-
-                    foreach (var claimKey in column.ClaimKeys)
-                    {
-                        if (item.SupportedFields.Contains(claimKey, StringComparer.OrdinalIgnoreCase))
-                            weights[claimKey] = weight;
-                    }
-                }
-            }
-
-            // Disabled providers: set weight to 0 for fields in visible columns.
-            var allColumnFields = ActiveColumns
-                .SelectMany(c => c.ClaimKeys)
-                .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-            foreach (var item in ActiveMatrixItems.Where(i => i.Zone == "disabled"))
-            {
-                var realKey = ResolveProviderKeyForSave(item, tab.DomainKey);
-                if (!providerWeights.TryGetValue(realKey, out var weights))
-                {
-                    var existing = _providers.FirstOrDefault(p => p.Name == realKey);
-                    weights = existing?.FieldWeights is not null
-                        ? new Dictionary<string, double>(existing.FieldWeights)
-                        : new();
-                    providerWeights[realKey] = weights;
-                }
-
-                foreach (var field in allColumnFields
-                    .Where(f => item.SupportedFields.Contains(f, StringComparer.OrdinalIgnoreCase)))
-                {
-                    weights[field] = 0.0;
-                }
-            }
-
-            // Save each provider.
-            var allSuccess = true;
-            foreach (var (providerName, weights) in providerWeights)
-            {
-                var config = new ProviderConfigUpdateDto { FieldWeights = weights };
-                if (!await Orchestrator.SaveProviderConfigAsync(providerName, config))
-                    allSuccess = false;
-            }
-
-            if (allSuccess)
-            {
-                Snackbar.Add($"Priorities saved for {tab.Label}.", Severity.Success);
-                _dirtyTabs.Remove(_activeTabIndex);
-                await LoadProvidersAsync();
-            }
-            else
-            {
-                Snackbar.Add("Some priorities failed to save.", Severity.Error);
-            }
-        }
-        finally
-        {
-            _saving = false;
-        }
-    }
-
-    private static double PriorityToWeight(int position) =>
-        Math.Max(0.15, 0.95 - (position * 0.10));
-
-    private static string ResolveProviderKeyForSave(MatrixItem item, string domainKey) =>
-        item.DisplayName.Equals("Apple Books", StringComparison.OrdinalIgnoreCase)
-            ? domainKey.Equals("Audiobook", StringComparison.OrdinalIgnoreCase)
-                ? "apple_books_audiobook"
-                : "apple_books_ebook"
-            : item.ProviderKey;
-
-    // ── Provider helpers ───────────────────────────────────────────────────
-
-    private List<ProviderStatusDto> GetRelevantProviders(string domainKey) =>
-        _providers
-            .Where(p =>
-                string.Equals(p.Domain, domainKey, StringComparison.OrdinalIgnoreCase)
-                || string.Equals(p.Domain, "Universal", StringComparison.OrdinalIgnoreCase))
-            .ToList();
-
-    private static IEnumerable<string> GetProviderFieldKeys(ProviderStatusDto provider)
-    {
-        if (provider.AvailableFields is { Count: > 0 })
-            return provider.AvailableFields;
-        if (provider.FieldWeights is { Count: > 0 })
-            return provider.FieldWeights.Keys;
-        return [];
-    }
-
-    private double GetFieldWeight(string providerName, string fieldKey)
-    {
-        var provider = _providers.FirstOrDefault(p => p.Name == providerName);
-        if (provider?.FieldWeights?.TryGetValue(fieldKey, out var w) == true)
-            return w;
-        return 0.0;
-    }
-
-    private static bool IsWikidata(string name) =>
-        string.Equals(name, "wikidata", StringComparison.OrdinalIgnoreCase);
-
-    // ── Flyout ─────────────────────────────────────────────────────────────
-
-    private void OpenProviderFlyout(MatrixItem item)
-    {
-        var provider = _providers.FirstOrDefault(p => p.Name == item.ProviderKey);
-        if (provider is null) return;
-
-        _flyoutProvider = provider;
-        _flyoutOpen = true;
-    }
-
-    private void CloseFlyout()
-    {
-        _flyoutOpen = false;
-        _flyoutProvider = null;
-    }
-
-    // ── Provider actions ───────────────────────────────────────────────────
-
-    private async Task TestProvider(string name)
-    {
-        _testingProviders.Add(name);
-        _testResults.Remove(name);
-        StateHasChanged();
-
-        try
-        {
-            var result = await Orchestrator.TestProviderAsync(name);
-            if (result is not null)
-                _testResults[name] = result;
-        }
-        finally
-        {
-            _testingProviders.Remove(name);
-            StateHasChanged();
-        }
-    }
-
-    private async Task SaveProvider(string name, ProviderConfigUpdateDto config)
-    {
-        _saving = true;
-        StateHasChanged();
-
-        try
-        {
-            var success = await Orchestrator.SaveProviderConfigAsync(name, config);
-            if (success)
-            {
-                Snackbar.Add($"{name} configuration saved.", Severity.Success);
-                await LoadProvidersAsync();
-                CloseFlyout();
-            }
-            else
-            {
-                Snackbar.Add($"Failed to save {name} configuration.", Severity.Error);
-            }
-        }
-        finally
-        {
-            _saving = false;
-        }
-    }
-
-    private async Task DeleteProvider(string name)
-    {
-        _saving = true;
-        StateHasChanged();
-
-        try
-        {
-            var success = await Orchestrator.DeleteProviderAsync(name);
-            if (success)
-            {
-                Snackbar.Add($"{name} has been disabled.", Severity.Info);
-                await LoadProvidersAsync();
-                CloseFlyout();
-            }
-            else
-            {
-                Snackbar.Add($"Failed to disable {name}.", Severity.Error);
-            }
-        }
-        finally
-        {
-            _saving = false;
-        }
-    }
-
-    private async Task SaveHydrationSettingsAsync()
-    {
-        if (_hydrationSettings is null) return;
-
-        _saving = true;
-        StateHasChanged();
-
-        try
-        {
-            var success = await Orchestrator.UpdateHydrationSettingsAsync(_hydrationSettings);
-            Snackbar.Add(
-                success ? "Pipeline configuration saved." : "Failed to save pipeline configuration.",
-                success ? Severity.Success : Severity.Error);
-        }
-        finally
-        {
-            _saving = false;
-        }
-    }
-
-    // ── Test helpers ───────────────────────────────────────────────────────
-
-    private ProviderTestResultDto? GetTestResult(string name) =>
-        _testResults.TryGetValue(name, out var r) ? r : null;
-
-    private bool IsProviderTesting(string name) => _testingProviders.Contains(name);
-
-    // ── Styles ──────────────────────────────────────────────────────────────
+    // ── Glass style ──────────────────────────────────────────────────────
 
     private const string GlassStyle =
         "background: var(--tanaste-glass-bg); " +
         "border: 1px solid var(--tanaste-glass-border); " +
         "backdrop-filter: blur(20px); " +
         "-webkit-backdrop-filter: blur(20px); " +
-        "border-radius: 24px; " +
-        "padding: 24px;";
-
-    private const string DrawerStyle =
-        "background: var(--tanaste-glass-bg); " +
-        "border-left: 1px solid var(--tanaste-glass-border); " +
-        "backdrop-filter: blur(20px); " +
-        "-webkit-backdrop-filter: blur(20px);";
+        "border-radius: 32px; " +
+        "padding: 32px;";
 }
 
 <style>
-    /* ── Section headers ───────────────────────────────────────────── */
-    .section-header {
+    /* ── Slot layout ──────────────────────────────────────────────── */
+    .slot-layout {
         display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 10px 12px;
-        cursor: pointer;
-        border-radius: 12px;
-        transition: background 0.15s ease;
-        user-select: none;
+        gap: 24px;
+        min-height: 300px;
     }
 
-    .section-header:hover {
+    .slot-available-providers {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .slot-drop-container {
+        display: flex;
+        gap: 24px;
+        min-height: 280px;
+    }
+
+    .slot-available-zone {
+        flex: 2;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 12px;
+        border: 2px dashed var(--tanaste-glass-border);
+        border-radius: 16px;
+        min-height: 200px;
+    }
+
+    .slot-zones-column {
+        flex: 3;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    /* ── Drop zone slots ──────────────────────────────────────────── */
+    .slot-zone {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 16px;
+        border: 2px dashed var(--tanaste-glass-border);
+        border-radius: 16px;
+        min-height: 80px;
+        transition: border-color 0.15s ease, background 0.15s ease;
+    }
+
+    .slot-zone:hover {
+        border-color: var(--mud-palette-primary);
         background: var(--tanaste-hover-overlay);
     }
 
-    /* ── Media type tabs (large icons) ──────────────────────────────── */
-    .vault-media-tabs .mud-tab {
-        min-width: 90px !important;
-    }
-
-    .vault-tab-content {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 4px;
-        padding: 8px 12px;
-        position: relative;
-    }
-
-    .vault-tab-dirty-dot {
-        width: 6px;
-        height: 6px;
-        border-radius: 50%;
-        background: var(--mud-palette-primary);
-        position: absolute;
-        top: 4px;
-        right: 4px;
-    }
-
-    /* ── Universe extraction row ────────────────────────────────────── */
-    .universe-extraction-row {
-        padding: 12px 16px;
-        margin-bottom: 12px;
-        border: 1px solid var(--tanaste-glass-border);
-        border-radius: 12px;
-        background: rgba(var(--mud-palette-primary-rgb, 123, 31, 162), 0.03);
-    }
-
-    .universe-pills {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 6px;
-    }
-
-    /* ── Matrix columns layout ──────────────────────────────────────── */
-    .matrix-columns-scroll {
-        overflow-x: auto;
-        padding-bottom: 8px;
-        margin-bottom: 16px;
-    }
-
-    .matrix-columns {
-        display: flex;
-        gap: 12px;
-        min-width: min-content;
-    }
-
-    .matrix-column {
-        min-width: 180px;
-        max-width: 220px;
-        flex-shrink: 0;
-        transition: opacity 0.2s ease;
-    }
-
-    .matrix-column-header {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        padding: 8px 10px;
-        border-bottom: 1px solid var(--tanaste-glass-border);
-        margin-bottom: 8px;
-    }
-
-    .matrix-drop-zone {
-        min-height: 60px;
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-        padding: 4px;
-        border-radius: 10px;
-        border: 1px dashed var(--tanaste-glass-border);
-        transition: border-color 0.2s ease, background 0.2s ease;
-        position: relative;
-    }
-
-    /* ── Universe column (accent styling, pinned right) ──────────────── */
-    .matrix-column.universe-column {
-        position: sticky;
-        right: 0;
-        z-index: 1;
-        background: var(--tanaste-glass-bg);
-        border-left: 4px solid var(--mud-palette-primary);
-        border-radius: 0 12px 12px 0;
-        padding-left: 8px;
-    }
-
-    .matrix-column.universe-column .matrix-column-header {
-        border-bottom-color: var(--mud-palette-primary);
-    }
-
-    /* ── Column hover highlights ──────────────────────────────────────── */
-    .matrix-column.column-highlight .matrix-drop-zone {
-        border-color: var(--mud-palette-success) !important;
-        background: rgba(76, 175, 80, 0.06);
+    .slot-zone-primary {
+        border-color: var(--mud-palette-primary);
         border-style: solid;
     }
 
-    .matrix-column.column-dimmed {
-        opacity: 0.35;
+    /* ── Health dot (shared with ProviderCard) ─────────────────── */
+    .provider-health-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        flex-shrink: 0;
     }
 
-    /* ── Drag denial ─────────────────────────────────────────────────── */
-    .matrix-no-drop {
-        border-color: var(--mud-palette-error) !important;
-        background: rgba(244, 67, 54, 0.04);
+    .health-online {
+        background: #4CAF50;
+        box-shadow: 0 0 4px rgba(76, 175, 80, 0.5);
     }
 
-    .matrix-no-drop::after {
-        content: "\26D4";
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        font-size: 1.2rem;
-        opacity: 0.4;
-        pointer-events: none;
+    .health-offline {
+        background: #F44336;
+        box-shadow: 0 0 4px rgba(244, 67, 54, 0.5);
     }
 
-    /* ── Available providers row ──────────────────────────────────────── */
-    .available-providers-row {
-        margin-top: 16px;
-        padding: 12px 16px;
-        border: 1px solid var(--tanaste-glass-border);
-        border-radius: 16px;
-        background: rgba(0, 0, 0, 0.02);
-    }
+    /* ── Responsive ────────────────────────────────────────────── */
+    @@media (max-width: 768px) {
+        .slot-drop-container {
+            flex-direction: column;
+        }
 
-    .available-providers-zone {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        min-height: 48px;
-        padding: 4px;
+        .slot-available-zone {
+            min-height: 100px;
+        }
     }
 </style>

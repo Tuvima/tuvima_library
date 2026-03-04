@@ -1,0 +1,118 @@
+@namespace Tanaste.Web.Components.Settings
+@using Tanaste.Web.Models
+@using Tanaste.Web.Models.ViewDTOs
+
+@* ProviderCard — simple card with accent bar, display name, and health dot.
+   Used in the Metadata tab for drag-drop provider slot assignment. *@
+
+<div class="provider-card @(IsSlotted ? "provider-card-slotted" : "")"
+     style="--provider-accent: @_accent.Color;">
+
+    @* Accent bar *@
+    <div class="provider-card-accent"></div>
+
+    @* Icon + name *@
+    <MudIcon Icon="@_accent.Icon"
+             Size="Size.Small"
+             Style="@($"color: {_accent.Color}; flex-shrink: 0;")" />
+
+    <MudText Typo="Typo.body1" Style="flex: 1; font-weight: 500;">
+        @ProviderAccentMap.GetDisplayName(Provider.Name)
+    </MudText>
+
+    @* Health dot *@
+    <MudTooltip Text="@(Provider.IsReachable ? "Online" : "Unreachable")"
+                Arrow="true" Placement="Placement.Top">
+        <div class="provider-health-dot @(Provider.IsReachable ? "health-online" : "health-offline")"></div>
+    </MudTooltip>
+
+    @* Remove button (only shown when slotted) *@
+    @if (IsSlotted && OnRemove.HasDelegate)
+    {
+        <MudIconButton Icon="@Icons.Material.Filled.Close"
+                       Size="Size.Small"
+                       Color="Color.Default"
+                       title="Remove from slot"
+                       OnClick="@(() => OnRemove.InvokeAsync())"
+                       Style="margin-left: 4px;" />
+    }
+</div>
+
+@code {
+    /// <summary>The provider status data to display.</summary>
+    [Parameter, EditorRequired] public ProviderStatusDto Provider { get; set; } = default!;
+
+    /// <summary>Whether this card is currently placed in a slot.</summary>
+    [Parameter] public bool IsSlotted { get; set; }
+
+    /// <summary>Fires when the user clicks the remove (X) button.</summary>
+    [Parameter] public EventCallback OnRemove { get; set; }
+
+    private (string Color, string Icon) _accent;
+
+    protected override void OnParametersSet()
+    {
+        _accent = ProviderAccentMap.GetAccent(Provider.Name);
+    }
+}
+
+<style>
+    .provider-card {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 14px;
+        border-radius: 12px;
+        background: var(--tanaste-glass-bg);
+        border: 1px solid var(--tanaste-glass-border);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        cursor: grab;
+        user-select: none;
+        transition: box-shadow 0.15s ease, border-color 0.15s ease;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .provider-card:hover {
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        border-color: var(--provider-accent);
+    }
+
+    .provider-card:active {
+        cursor: grabbing;
+    }
+
+    .provider-card-slotted {
+        background: var(--tanaste-active-overlay);
+    }
+
+    /* Left accent bar */
+    .provider-card-accent {
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 4px;
+        background: var(--provider-accent);
+        border-radius: 12px 0 0 12px;
+    }
+
+    /* Health indicator dot */
+    .provider-health-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        flex-shrink: 0;
+    }
+
+    .health-online {
+        background: #4CAF50;
+        box-shadow: 0 0 4px rgba(76, 175, 80, 0.5);
+    }
+
+    .health-offline {
+        background: #F44336;
+        box-shadow: 0 0 4px rgba(244, 67, 54, 0.5);
+    }
+</style>

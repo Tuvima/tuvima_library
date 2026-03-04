@@ -62,26 +62,6 @@ public static class FieldDictionary
             ["comicvine_id"]    = new("ComicVine ID",    "Bridge", Icons.Material.Filled.MenuBook),
         };
 
-    /// <summary>Claim keys that form the "Universe Information" group in the Prioritization Matrix.</summary>
-    public static readonly HashSet<string> UniverseGroupFields = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "series", "series_position", "franchise", "wikidata_qid",
-        "characters", "narrative_location", "main_subject", "fictional_universe",
-        "tmdb_id", "imdb_id", "goodreads_id", "apple_books_id", "audible_id",
-        "isbn", "asin", "comicvine_id", "musicbrainz_id", "spotify_id",
-    };
-
-    /// <summary>Returns the default columns for the Metadata Prioritization Matrix.</summary>
-    public static List<MatrixColumn> GetDefaultColumns() =>
-    [
-        new() { ZoneId = "cover",         DisplayName = "Cover Art",            Icon = Icons.Material.Filled.Image,         ClaimKeys = ["cover"],               IsGroup = false, SortOrder = 0 },
-        new() { ZoneId = "description",   DisplayName = "Description",          Icon = Icons.Material.Filled.Description,   ClaimKeys = ["description"],         IsGroup = false, SortOrder = 1 },
-        new() { ZoneId = "title",         DisplayName = "Title",                Icon = Icons.Material.Filled.Title,         ClaimKeys = ["title"],               IsGroup = false, SortOrder = 2 },
-        new() { ZoneId = "year",          DisplayName = "Year",                 Icon = Icons.Material.Filled.CalendarMonth, ClaimKeys = ["year"],                IsGroup = false, SortOrder = 3 },
-        new() { ZoneId = "rating",        DisplayName = "Rating",               Icon = Icons.Material.Filled.Star,          ClaimKeys = ["rating"],              IsGroup = false, SortOrder = 4 },
-        new() { ZoneId = "universe_info", DisplayName = "Universe Information", Icon = Icons.Material.Filled.Public,        ClaimKeys = [.. UniverseGroupFields], IsGroup = true, SortOrder = int.MaxValue, IsPinned = true },
-    ];
-
     /// <summary>Gets the display name for a claim key, or formats it as title case if unknown.</summary>
     public static string GetDisplayName(string claimKey)
     {

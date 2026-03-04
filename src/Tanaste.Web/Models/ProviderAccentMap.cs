@@ -37,6 +37,10 @@ public static class ProviderAccentMap
         _                       => FormatProviderName(providerKey),
     };
 
+    /// <summary>Returns the SVG icon path for a provider (user-provided artwork).</summary>
+    public static string GetIconPath(string providerKey) =>
+        $"images/providers/{providerKey}.svg";
+
     private static string FormatProviderName(string key) =>
         string.Join(' ', key.Split('_')
             .Select(w => w.Length > 0 ? char.ToUpperInvariant(w[0]) + w[1..] : w));

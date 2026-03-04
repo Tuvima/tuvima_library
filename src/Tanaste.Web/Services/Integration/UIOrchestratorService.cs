@@ -361,6 +361,25 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         HydrationSettingsDto settings, CancellationToken ct = default)
         => _api.UpdateHydrationSettingsAsync(settings, ct);
 
+    // ── Provider slots ──────────────────────────────────────────────────────
+
+    /// <summary>Returns provider slot assignments per media type.</summary>
+    public Task<Dictionary<string, ProviderSlotDto>?> GetProviderSlotsAsync(CancellationToken ct = default)
+        => _api.GetProviderSlotsAsync(ct);
+
+    /// <summary>Saves provider slot assignments. Returns true on success.</summary>
+    public Task<bool> UpdateProviderSlotsAsync(
+        Dictionary<string, ProviderSlotDto> slots, CancellationToken ct = default)
+        => _api.UpdateProviderSlotsAsync(slots, ct);
+
+    // ── Metadata search ─────────────────────────────────────────────────────
+
+    /// <summary>Searches a specific provider for metadata results.</summary>
+    public Task<List<MetadataSearchResultDto>> SearchMetadataAsync(
+        string providerName, string query, string? mediaType = null,
+        int limit = 25, CancellationToken ct = default)
+        => _api.SearchMetadataAsync(providerName, query, mediaType, limit, ct);
+
     // ── Conflicts ────────────────────────────────────────────────────────────
 
     /// <summary>

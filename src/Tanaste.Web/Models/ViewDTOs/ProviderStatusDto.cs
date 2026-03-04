@@ -21,4 +21,5 @@ public sealed record ProviderStatusDto(
     [property: JsonPropertyName("field_mappings")]    List<FieldMappingDto>? FieldMappings                 = null,
     [property: JsonPropertyName("throttle_ms")]       int ThrottleMs                                       = 0,
     [property: JsonPropertyName("max_concurrency")]   int MaxConcurrency                                   = 1,
-    [property: JsonPropertyName("available_fields")]  List<string>? AvailableFields                        = null);
+    [property: JsonPropertyName("available_fields")]  List<string>? AvailableFields                        = null,
+    [property: JsonPropertyName("media_types")]       List<string>? MediaTypes                              = null);

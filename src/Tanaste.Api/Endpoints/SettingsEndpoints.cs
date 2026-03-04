@@ -722,6 +722,7 @@ public static class SettingsEndpoints
             ThrottleMs       = provider.ThrottleMs,
             MaxConcurrency   = provider.MaxConcurrency,
             AvailableFields  = provider.AvailableFields,
+            MediaTypes       = provider.CanHandle?.MediaTypes ?? [],
             FieldMappings    = provider.FieldMappings?.Select(fm => new FieldMappingResponse
             {
                 ClaimKey   = fm.ClaimKey,
