@@ -30,7 +30,7 @@
         </MudText>
 
         <MudDropContainer T="ActionClusterDragItem" Items="_clusterItems"
-                          ItemsSelector="@((item, zone) => item.Zone == zone)" ItemUpdated="OnClusterItemUpdated"
+                          ItemsSelector="@((item, zone) => item.Zone == zone)" ItemDropped="OnClusterItemUpdated"
                           Class="nav-drag-list">
             <ChildContent>
                 <MudDropZone T="ActionClusterDragItem" Identifier="cluster" AllowReorder="true" Class="nav-drag-zone">
@@ -89,7 +89,7 @@
 
         @* ── Library Cards (reorderable + drop targets) ── *@
         <MudDropContainer T="TrayLibraryDragItem" Items="_trayItems"
-                          ItemsSelector="@((item, zone) => item.Zone == zone)" ItemUpdated="OnTrayItemUpdated" Class="nav-drag-list">
+                          ItemsSelector="@((item, zone) => item.Zone == zone)" ItemDropped="OnTrayItemUpdated" Class="nav-drag-list">
             <ChildContent>
                 <MudDropZone T="TrayLibraryDragItem" Identifier="tray" AllowReorder="true" Class="nav-drag-zone">
                 </MudDropZone>
