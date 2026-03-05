@@ -10,7 +10,7 @@ namespace MediaEngine.Providers;
 /// state and trigger a card re-render (cover-art pop-in effect).
 /// </summary>
 /// <param name="EntityId">The entity whose metadata was updated.</param>
-/// <param name="ProviderName">The adapter that produced the new claims (e.g. <c>"apple_books_ebook"</c>).</param>
+/// <param name="ProviderName">The adapter that produced the new claims (e.g. <c>"apple_books"</c>).</param>
 /// <param name="UpdatedFields">The claim keys that were written (e.g. <c>["cover", "description"]</c>).</param>
 public sealed record MetadataHarvestedEvent(
     Guid EntityId,

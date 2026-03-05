@@ -896,7 +896,7 @@ public sealed class ReviewResolveRequest
 
     /// <summary>
     /// When resolving via search results, the provider that produced the
-    /// selected match (e.g. "apple_books_ebook").
+    /// selected match (e.g. "apple_books").
     /// </summary>
     [JsonPropertyName("provider_name")]
     public string? ProviderName { get; init; }

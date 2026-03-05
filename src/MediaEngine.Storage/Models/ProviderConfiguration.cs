@@ -39,7 +39,7 @@ public sealed class ProviderConfiguration
     public ProviderDomain Domain { get; set; } = ProviderDomain.Universal;
 
     /// <summary>
-    /// Relative path to the provider's SVG icon (e.g. <c>"images/providers/apple_books_ebook.svg"</c>).
+    /// Relative path to the provider's SVG icon (e.g. <c>"images/providers/apple_books.svg"</c>).
     /// Used by the Dashboard to display a visual identifier for each provider.
     /// The path is relative to <c>wwwroot/</c>.
     /// </summary>

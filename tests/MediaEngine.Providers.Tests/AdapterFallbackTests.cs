@@ -30,7 +30,7 @@ public sealed class AdapterFallbackTests
     public async Task AppleBooks_Returns_Empty_On_HttpError()
     {
         // Arrange: load config, wire stub returning HTTP 503.
-        var config = LoadExampleConfig("apple_books_ebook");
+        var config = LoadExampleConfig("apple_books");
         var factory = BuildFactory(config.Name, HttpStatusCode.ServiceUnavailable);
         var adapter = new ConfigDrivenAdapter(
             config, factory, NullLogger<ConfigDrivenAdapter>.Instance);

@@ -42,7 +42,7 @@ public sealed class ProviderIntegrationTests
     [Fact]
     public async Task AppleBooks_Ebook_Returns_Claims_For_FellowshipOfTheRing()
     {
-        var adapter = BuildConfigDrivenAdapter("apple_books_ebook");
+        var adapter = BuildConfigDrivenAdapter("apple_books");
 
         var request = new ProviderLookupRequest
         {
@@ -71,7 +71,7 @@ public sealed class ProviderIntegrationTests
     [Fact]
     public async Task AppleBooks_Audiobook_Returns_Claims_For_FellowshipOfTheRing()
     {
-        var adapter = BuildConfigDrivenAdapter("apple_books_audiobook");
+        var adapter = BuildConfigDrivenAdapter("apple_books");
 
         var request = new ProviderLookupRequest
         {

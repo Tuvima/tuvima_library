@@ -10,7 +10,7 @@ namespace MediaEngine.Api.Models;
 public sealed class MetadataSearchRequest
 {
     /// <summary>
-    /// The registered name of the provider to search (e.g. <c>"apple_books_ebook"</c>).
+    /// The registered name of the provider to search (e.g. <c>"apple_books"</c>).
     /// </summary>
     [JsonPropertyName("provider_name")]
     public string ProviderName { get; init; } = string.Empty;

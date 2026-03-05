@@ -31,7 +31,7 @@
   },
 
   "can_handle": {
-    "media_types": ["Epub", "Audiobook"],
+    "media_types": ["Books", "Audiobooks"],
     "entity_types": ["Work", "MediaAsset"]
   },
 
@@ -45,7 +45,7 @@
       "results_path": "results",
       "result_index": 0,
       "max_results": 25,
-      "media_types": ["Epub"]
+      "media_types": ["Books"]
     },
     {
       "name": "audiobook_search",
@@ -56,20 +56,20 @@
       "results_path": "results",
       "result_index": 0,
       "max_results": 25,
-      "media_types": ["Audiobook"]
+      "media_types": ["Audiobooks"]
     }
   ],
 
   "field_mappings": [
-    { "claim_key": "title",          "json_path": "trackName",          "confidence": 0.7,  "media_types": ["Epub"] },
-    { "claim_key": "title",          "json_path": "collectionName",     "confidence": 0.7,  "media_types": ["Audiobook"] },
+    { "claim_key": "title",          "json_path": "trackName",          "confidence": 0.7,  "media_types": ["Books"] },
+    { "claim_key": "title",          "json_path": "collectionName",     "confidence": 0.7,  "media_types": ["Audiobooks"] },
     { "claim_key": "author",         "json_path": "artistName",         "confidence": 0.7 },
     { "claim_key": "cover",          "json_path": "artworkUrl100",      "confidence": 0.85, "transform": "regex_replace", "transform_args": "100x100bb\\.jpg|600x600bb.jpg" },
     { "claim_key": "description",    "json_path": "description",        "confidence": 0.85, "transform": "strip_html" },
-    { "claim_key": "genre",          "json_path": "genres",             "confidence": 0.7,  "transform": "array_join", "transform_args": ", ", "media_types": ["Epub"] },
-    { "claim_key": "genre",          "json_path": "primaryGenreName",   "confidence": 0.7,  "media_types": ["Audiobook"] },
-    { "claim_key": "rating",         "json_path": "averageUserRating",  "confidence": 0.7,  "transform": "to_string", "media_types": ["Epub"] },
-    { "claim_key": "apple_books_id", "json_path": "trackId",            "confidence": 0.95, "transform": "to_string", "media_types": ["Epub"] },
-    { "claim_key": "apple_books_id", "json_path": "collectionId",       "confidence": 0.95, "transform": "to_string", "media_types": ["Audiobook"] }
+    { "claim_key": "genre",          "json_path": "genres",             "confidence": 0.7,  "transform": "array_join", "transform_args": ", ", "media_types": ["Books"] },
+    { "claim_key": "genre",          "json_path": "primaryGenreName",   "confidence": 0.7,  "media_types": ["Audiobooks"] },
+    { "claim_key": "rating",         "json_path": "averageUserRating",  "confidence": 0.7,  "transform": "to_string", "media_types": ["Books"] },
+    { "claim_key": "apple_books_id", "json_path": "trackId",            "confidence": 0.95, "transform": "to_string", "media_types": ["Books"] },
+    { "claim_key": "apple_books_id", "json_path": "collectionId",       "confidence": 0.95, "transform": "to_string", "media_types": ["Audiobooks"] }
   ]
 }

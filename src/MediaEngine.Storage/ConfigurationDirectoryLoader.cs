@@ -320,7 +320,7 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
             ThrottleMs     = 300,
             MaxConcurrency = 1,
             HydrationStages = [1],
-            CanHandle      = new() { MediaTypes = ["Epub", "Audiobook"], EntityTypes = ["Work", "MediaAsset"] },
+            CanHandle      = new() { MediaTypes = ["Books", "Audiobooks"], EntityTypes = ["Work", "MediaAsset"] },
             HttpClient     = new() { TimeoutSeconds = 10 },
         };
 

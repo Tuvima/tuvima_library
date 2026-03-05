@@ -88,6 +88,17 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         if (!CanHandle(request.MediaType) || !CanHandle(request.EntityType))
             return [];
 
+        // Short-circuit when an API key is required but not configured.
+        if (_config.RequiresApiKey
+            && string.IsNullOrWhiteSpace(_config.HttpClient?.ApiKey))
+        {
+            _logger.LogWarning(
+                "{Provider}: requires an API key but none is configured — skipping. "
+                + "Set 'api_key' in the provider's http_client config.",
+                Name);
+            return [];
+        }
+
         var strategies = FilterStrategiesByMediaType(
             _config.SearchStrategies, request.MediaType)
             ?.OrderBy(s => s.Priority)
@@ -157,6 +168,16 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
     {
         if (!CanHandle(request.MediaType) || !CanHandle(request.EntityType))
             return [];
+
+        // Short-circuit when an API key is required but not configured.
+        if (_config.RequiresApiKey
+            && string.IsNullOrWhiteSpace(_config.HttpClient?.ApiKey))
+        {
+            _logger.LogWarning(
+                "{Provider}: requires an API key but none is configured — skipping search.",
+                Name);
+            return [];
+        }
 
         var strategies = FilterStrategiesByMediaType(
             _config.SearchStrategies, request.MediaType)

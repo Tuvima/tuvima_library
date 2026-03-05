@@ -1,7 +1,7 @@
 {
   "name": "audnexus",
   "version": "1.2",
-  "enabled": true,
+  "enabled": false,
   "weight": 0.7,
   "domain": "Audiobook",
   "icon": "images/providers/audnexus.svg",
@@ -29,6 +29,7 @@
   "adapter_type": "config_driven",
   "provider_id": "b2000002-a000-4000-8000-000000000003",
   "display_name": "Audnexus",
+  "degradation_note": "Audnexus API (api.audnex.us) is unmaintained since late 2024. DNS issues and frequent downtime. Re-enable if the API recovers.",
 
   "http_client": {
     "timeout_seconds": 10,
@@ -36,7 +37,7 @@
   },
 
   "can_handle": {
-    "media_types": ["Audiobook"],
+    "media_types": ["Audiobooks"],
     "entity_types": ["Work", "MediaAsset"]
   },
 

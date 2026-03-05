@@ -25,7 +25,7 @@ public interface IExternalMetadataProvider
     /// <summary>
     /// Human-readable adapter name.  Matches the <c>name</c> field in
     /// the provider config files.
-    /// Examples: <c>"apple_books_ebook"</c>, <c>"audnexus"</c>.
+    /// Examples: <c>"apple_books"</c>, <c>"audnexus"</c>.
     /// </summary>
     string Name { get; }
 

@@ -54,7 +54,7 @@ public sealed record IngestionProgressEvent(
 /// a re-render so cover art and other fields pop in as they arrive.
 /// </summary>
 /// <param name=EntityId>The entity whose metadata was updated.</param>
-/// <param name=ProviderName>The adapter that produced the claims (e.g. <c>apple_books_ebook</c>).</param>
+/// <param name=ProviderName>The adapter that produced the claims (e.g. <c>apple_books</c>).</param>
 /// <param name=UpdatedFields>Claim keys that changed (e.g. <c>[cover,description]</c>).</param>
 public sealed record MetadataHarvestedEvent(
     Guid   EntityId,

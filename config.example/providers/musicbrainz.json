@@ -1,9 +1,9 @@
 {
   "name": "musicbrainz",
   "version": "1.0",
-  "enabled": false,
+  "enabled": true,
   "weight": 0.7,
-  "domain": "Music",
+  "domain": "Universal",
   "icon": "images/providers/musicbrainz.svg",
   "capability_tags": ["title", "author", "year", "genre", "musicbrainz_id"],
   "available_fields": ["title", "author", "year", "genre", "cover", "musicbrainz_id", "isrc"],
@@ -19,7 +19,7 @@
   "endpoints": {
     "api": "https://musicbrainz.org/ws/2"
   },
-  "throttle_ms": 1000,
+  "throttle_ms": 1100,
   "max_concurrency": 1,
   "hydration_stages": [1],
 
@@ -37,6 +37,37 @@
     "entity_types": ["Work", "MediaAsset"]
   },
 
-  "search_strategies": [],
-  "field_mappings": []
+  "search_strategies": [
+    {
+      "name": "recording_search",
+      "priority": 1,
+      "required_fields": ["title"],
+      "url_template": "{base_url}/recording/?query={query}&fmt=json&limit=5",
+      "query_template": "{title} AND artist:{author}",
+      "results_path": "recordings",
+      "result_index": 0,
+      "max_results": 5
+    },
+    {
+      "name": "release_search",
+      "priority": 2,
+      "required_fields": ["title"],
+      "url_template": "{base_url}/release/?query={query}&fmt=json&limit=5",
+      "query_template": "{title} AND artist:{author}",
+      "results_path": "releases",
+      "result_index": 0,
+      "max_results": 5
+    }
+  ],
+
+  "field_mappings": [
+    { "claim_key": "title",          "json_path": "title",                          "confidence": 0.85 },
+    { "claim_key": "author",         "json_path": "artist-credit[0].name",          "confidence": 0.9 },
+    { "claim_key": "musicbrainz_id", "json_path": "id",                             "confidence": 1.0 },
+    { "claim_key": "year",           "json_path": "first-release-date",             "confidence": 0.9, "transform": "first_n_chars", "transform_args": "4" },
+    { "claim_key": "genre",          "json_path": "tags[*].name",                   "confidence": 0.7, "transform": "array_join", "transform_args": ", " },
+    { "claim_key": "isrc",           "json_path": "isrcs[0]",                       "confidence": 0.95 },
+    { "claim_key": "year",           "json_path": "date",                           "confidence": 0.9, "transform": "first_n_chars", "transform_args": "4" },
+    { "claim_key": "cover",          "json_path": "id",                             "confidence": 0.6, "transform": "url_template", "transform_args": "https://coverartarchive.org/release/{value}/front-250" }
+  ]
 }

@@ -36,7 +36,7 @@
   },
 
   "can_handle": {
-    "media_types": ["Epub"],
+    "media_types": ["Books"],
     "entity_types": ["Work", "MediaAsset"]
   },
 

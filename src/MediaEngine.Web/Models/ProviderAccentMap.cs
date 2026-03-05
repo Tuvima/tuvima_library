@@ -26,7 +26,7 @@ public static class ProviderAccentMap
         _                       => ("#90A4AE", Icons.Material.Filled.Cloud),
     };
 
-    /// <summary>Returns a deduplicated display name for the UI (e.g. "Apple Books" instead of "apple_books_ebook").</summary>
+    /// <summary>Returns a deduplicated display name for the UI (e.g. "Apple Books" instead of "apple_books").</summary>
     public static string GetDisplayName(string providerKey) => providerKey switch
     {
         "apple_books"           => "Apple Books",
