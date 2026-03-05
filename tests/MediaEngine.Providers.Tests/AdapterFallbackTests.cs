@@ -39,7 +39,7 @@ public sealed class AdapterFallbackTests
         {
             EntityId   = Guid.NewGuid(),
             EntityType = EntityType.MediaAsset,
-            MediaType  = MediaType.Epub,
+            MediaType  = MediaType.Books,
             Title      = "Dune",
             Author     = "Frank Herbert",
             BaseUrl    = "https://itunes.apple.com",
@@ -70,7 +70,7 @@ public sealed class AdapterFallbackTests
         {
             EntityId   = Guid.NewGuid(),
             EntityType = EntityType.MediaAsset,
-            MediaType  = MediaType.Audiobook,
+            MediaType  = MediaType.Audiobooks,
             Title      = "Project Hail Mary",
             Asin       = null, // <── No ASIN; strategy's required_fields skips immediately.
             BaseUrl    = "https://api.audnexus.com",

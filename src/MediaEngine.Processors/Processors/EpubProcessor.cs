@@ -49,7 +49,7 @@ public sealed class EpubProcessor : IMediaProcessor
     private const string MimeTypeEntryName = "mimetype";
 
     /// <inheritdoc/>
-    public MediaType SupportedType => MediaType.Epub;
+    public MediaType SupportedType => MediaType.Books;
 
     /// <inheritdoc/>
     /// <remarks>
@@ -109,7 +109,7 @@ public sealed class EpubProcessor : IMediaProcessor
         return new ProcessorResult
         {
             FilePath          = filePath,
-            DetectedType      = MediaType.Epub,
+            DetectedType      = MediaType.Books,
             Claims            = claims,
             CoverImage        = coverBytes,
             CoverImageMimeType = coverMime,
@@ -282,7 +282,7 @@ public sealed class EpubProcessor : IMediaProcessor
     private static ProcessorResult Corrupt(string filePath, string reason) => new()
     {
         FilePath     = filePath,
-        DetectedType = MediaType.Epub,
+        DetectedType = MediaType.Books,
         IsCorrupt    = true,
         CorruptReason = reason,
     };

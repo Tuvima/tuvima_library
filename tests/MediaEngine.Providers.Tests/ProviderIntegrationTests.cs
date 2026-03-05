@@ -48,7 +48,7 @@ public sealed class ProviderIntegrationTests
         {
             EntityId   = Guid.NewGuid(),
             EntityType = EntityType.MediaAsset,
-            MediaType  = MediaType.Epub,
+            MediaType  = MediaType.Books,
             Title      = "The Fellowship of the Ring",
             Author     = "J.R.R. Tolkien",
             BaseUrl    = "https://itunes.apple.com",
@@ -77,7 +77,7 @@ public sealed class ProviderIntegrationTests
         {
             EntityId   = Guid.NewGuid(),
             EntityType = EntityType.MediaAsset,
-            MediaType  = MediaType.Audiobook,
+            MediaType  = MediaType.Audiobooks,
             Title      = "The Fellowship of the Ring",
             Author     = "J.R.R. Tolkien",
             BaseUrl    = "https://itunes.apple.com",
@@ -103,7 +103,7 @@ public sealed class ProviderIntegrationTests
         {
             EntityId   = Guid.NewGuid(),
             EntityType = EntityType.MediaAsset,
-            MediaType  = MediaType.Epub,
+            MediaType  = MediaType.Books,
             Title      = "The Fellowship of the Ring",
             Author     = "J.R.R. Tolkien",
             Isbn       = "9780547928210",
@@ -134,7 +134,7 @@ public sealed class ProviderIntegrationTests
         {
             EntityId   = Guid.NewGuid(),
             EntityType = EntityType.MediaAsset,
-            MediaType  = MediaType.Epub,
+            MediaType  = MediaType.Books,
             Title      = "The Fellowship of the Ring",
             Isbn       = "9780547928210",
             BaseUrl    = "https://openlibrary.org",
@@ -157,7 +157,7 @@ public sealed class ProviderIntegrationTests
         {
             EntityId   = Guid.NewGuid(),
             EntityType = EntityType.MediaAsset,
-            MediaType  = MediaType.Epub,
+            MediaType  = MediaType.Books,
             Title      = "The Fellowship of the Ring",
             Author     = "J.R.R. Tolkien",
             Isbn       = "9780547928210",
@@ -194,7 +194,7 @@ public sealed class ProviderIntegrationTests
         {
             EntityId   = Guid.NewGuid(),
             EntityType = EntityType.MediaAsset,
-            MediaType  = MediaType.Audiobook,
+            MediaType  = MediaType.Audiobooks,
             Title      = "The Fellowship of the Ring",
             Asin       = "B007978NPG",
             BaseUrl    = "https://api.audnex.us",
@@ -223,7 +223,7 @@ public sealed class ProviderIntegrationTests
         {
             EntityId   = Guid.NewGuid(),
             EntityType = EntityType.MediaAsset,
-            MediaType  = MediaType.Audiobook,
+            MediaType  = MediaType.Audiobooks,
             Title      = "The Fellowship of the Ring",
             Asin       = null,
             BaseUrl    = "https://api.audnex.us",
@@ -256,7 +256,7 @@ public sealed class ProviderIntegrationTests
         {
             EntityId    = Guid.NewGuid(),
             EntityType  = EntityType.Work,
-            MediaType   = MediaType.Epub,
+            MediaType   = MediaType.Books,
             Title       = "The Fellowship of the Ring",
             Author      = "J.R.R. Tolkien",
             BaseUrl     = "https://www.wikidata.org/w/api.php",

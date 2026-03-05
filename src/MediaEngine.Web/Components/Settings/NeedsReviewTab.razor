@@ -317,11 +317,11 @@ else
 
     private static string? MapMediaTypeToSlotKey(string? mediaType) => mediaType?.ToLowerInvariant() switch
     {
-        "epub"      => "Books",
-        "audiobook" => "Audiobooks",
-        "comic"     => "Comics",
-        "movie"     => "Movies",
-        "tvshow"    => "TV Shows",
+        "books"      => "Books",
+        "audiobooks" => "Audiobooks",
+        "comic"      => "Comics",
+        "movies"     => "Movies",
+        "tv"         => "TV Shows",
         _           => null,
     };
 
@@ -449,11 +449,11 @@ else
 
     private static string FormatMediaType(string? mediaType) => mediaType switch
     {
-        "Epub"      => "Book",
-        "Audiobook" => "Audiobook",
-        "Comic"     => "Comic",
-        "Movie"     => "Movie",
-        "TvShow"    => "TV Show",
+        "Books"      => "Books",
+        "Audiobooks" => "Audiobooks",
+        "Comic"      => "Comic",
+        "Movies"     => "Movies",
+        "TV"         => "TV",
         _           => mediaType ?? "",
     };
 

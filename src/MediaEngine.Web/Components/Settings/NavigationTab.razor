@@ -62,9 +62,32 @@
             Tray Libraries
         </MudText>
         <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
-            Libraries shown in the bottom nav tray. Drag to reorder.
+            Libraries shown in the bottom nav tray. Drag media types onto a library to assign them, or drag libraries to reorder.
         </MudText>
 
+        @* ── Media Type Palette ── *@
+        <MudPaper Elevation="0" Class="nav-palette mb-4">
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2" Style="font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">
+                <MudIcon Icon="@Icons.Material.Outlined.Label" Size="Size.Small"
+                         Style="vertical-align: middle; margin-right: 4px; font-size: 14px;" />
+                Media Types — drag onto a library
+            </MudText>
+            <MudStack Row="true" Wrap="Wrap.Wrap" Spacing="1" AlignItems="AlignItems.Center">
+                @foreach (var mt in AllMediaTypes)
+                {
+                    <div class="nav-palette-chip"
+                         draggable="true"
+                         @ondragstart="@(() => OnMediaTypeDragStart(mt))"
+                         @ondragend="@OnMediaTypeDragEnd">
+                        <MudIcon Icon="@GetMediaTypeIcon(mt)" Size="Size.Small"
+                                 Style="@($"color: {GetMediaTypeChipColor(mt)}; font-size: 16px;")" />
+                        <span>@mt</span>
+                    </div>
+                }
+            </MudStack>
+        </MudPaper>
+
+        @* ── Library Cards (reorderable + drop targets) ── *@
         <MudDropContainer T="TrayLibraryDragItem" Items="_trayItems"
                           ItemsSelector="@((item, zone) => item.Zone == zone)" ItemUpdated="OnTrayItemUpdated" Class="nav-drag-list">
             <ChildContent>
@@ -74,8 +97,14 @@
             <ItemRenderer>
                 @{
                     var lib = context.Library;
+                    var isDragOver = _dragOverLibraryKey == lib.Key && !string.IsNullOrEmpty(_draggingMediaType);
                 }
-                <MudPaper Elevation="0" Class="nav-tray-card mb-2">
+                <div @ondragover="@(() => OnLibraryDragOver(lib.Key))"
+                     @ondragover:preventDefault="true"
+                     @ondragleave="@(() => OnLibraryDragLeave(lib.Key))"
+                     @ondrop="@(() => OnMediaTypeDropped(lib))">
+                <MudPaper Elevation="0"
+                          Class="@($"nav-tray-card mb-2{(isDragOver ? " nav-tray-card--drag-over" : "")}")">
                     @* ── Row 1: handle | icon | label | enable | delete ── *@
                     <div class="nav-drag-row">
                         <MudIcon Icon="@Icons.Material.Filled.DragIndicator" Size="Size.Small"
@@ -107,18 +136,33 @@
                         </MudSelect>
 
                         <MudStack Row="true" Wrap="Wrap.Wrap" Spacing="1" AlignItems="AlignItems.Center">
-                            @foreach (var mt in AllMediaTypes)
+                            @foreach (var mt in lib.MediaTypes)
                             {
-                                var isSelected = lib.MediaTypes.Contains(mt, StringComparer.OrdinalIgnoreCase);
-                                <MudChip T="string" Value="@mt" Color="@(isSelected? Color.Primary: Color.Default)"
-                                         Variant="@(isSelected ? MudBlazor.Variant.Filled : MudBlazor.Variant.Outlined)"
-                                         Size="Size.Small" OnClick="@(() => ToggleMediaType(lib, mt))">
+                                <MudChip T="string" Value="@mt" Color="Color.Primary"
+                                         Variant="MudBlazor.Variant.Filled"
+                                         Size="Size.Small" OnClose="@(() => ToggleMediaType(lib, mt))">
                                     @mt
                                 </MudChip>
                             }
+                            @if (lib.MediaTypes.Count == 0)
+                            {
+                                <MudText Typo="Typo.caption" Color="Color.Secondary" Style="font-style: italic;">
+                                    @(isDragOver ? "Release to add" : "Drop media types here, or shows all")
+                                </MudText>
+                            }
                         </MudStack>
                     </div>
+
+                    @* ── Drop indicator overlay ── *@
+                    @if (isDragOver)
+                    {
+                        <div class="nav-drop-indicator">
+                            <MudIcon Icon="@Icons.Material.Filled.Add" Size="Size.Small" />
+                            <span>Add @_draggingMediaType</span>
+                        </div>
+                    }
                 </MudPaper>
+                </div>
             </ItemRenderer>
         </MudDropContainer>
 
@@ -155,7 +199,12 @@
     private List<TrayLibraryDragItem> _trayItems = [];
 
     private static readonly string[] AllMediaTypes =
-        ["Movie", "TvShow", "Epub", "Audiobook", "Comic", "Podcast", "Music"];
+        ["Movies", "TV", "Books", "Audiobooks", "Comic", "Podcasts", "Music"];
+
+    // ── Drag-to-create state ──────────────────────────────────────────────
+
+    private string? _draggingMediaType;
+    private string? _dragOverLibraryKey;
 
     protected override void OnParametersSet()
     {
@@ -222,6 +271,73 @@
         "cast" => "Cast (Coming soon)",
         "profile" => "Profile Avatar",
         _ => key,
+    };
+
+    // ── Drag-to-create handlers ──────────────────────────────────────────
+
+    private void OnMediaTypeDragStart(string mediaType)
+    {
+        _draggingMediaType = mediaType;
+    }
+
+    private void OnMediaTypeDragEnd()
+    {
+        _draggingMediaType = null;
+        _dragOverLibraryKey = null;
+    }
+
+    private void OnLibraryDragOver(string libraryKey)
+    {
+        if (!string.IsNullOrEmpty(_draggingMediaType))
+            _dragOverLibraryKey = libraryKey;
+    }
+
+    private void OnLibraryDragLeave(string libraryKey)
+    {
+        if (_dragOverLibraryKey == libraryKey)
+            _dragOverLibraryKey = null;
+    }
+
+    private void OnMediaTypeDropped(VirtualLibrary lib)
+    {
+        if (string.IsNullOrEmpty(_draggingMediaType)) return;
+
+        // Add the media type if not already present.
+        if (!lib.MediaTypes.Contains(_draggingMediaType, StringComparer.OrdinalIgnoreCase))
+        {
+            lib.MediaTypes.Add(_draggingMediaType);
+            SyncTrayFromDragItems();
+            SaveConfig();
+        }
+
+        _draggingMediaType = null;
+        _dragOverLibraryKey = null;
+    }
+
+    // ── Media type palette helpers ────────────────────────────────────────
+
+    private static string GetMediaTypeIcon(string mt) => mt switch
+    {
+        "Movies"     => Icons.Material.Filled.Movie,
+        "TV"         => Icons.Material.Filled.LiveTv,
+        "Books"      => Icons.Material.Filled.MenuBook,
+        "Audiobooks" => Icons.Material.Filled.Headphones,
+        "Comic"      => Icons.Material.Filled.AutoStories,
+        "Podcasts"   => Icons.Material.Filled.Podcasts,
+        "Music"      => Icons.Material.Filled.MusicNote,
+        _            => Icons.Material.Filled.Category,
+    };
+
+    private static string GetMediaTypeChipColor(string mt) => mt switch
+    {
+        "Movies"     => "#00BFA5",
+        "TV"         => "#00BFA5",
+        "Books"      => "#FF8F00",
+        "Audiobooks" => "#EC407A",
+        "Comic"      => "#7C4DFF",
+        "Podcasts"   => "#EC407A",
+        "Music"      => "#EC407A",
+        _            => "#9E9E9E",
     };
 
     // ── Tray Library helpers ──────────────────────────────────────────────
@@ -364,11 +480,18 @@
         border: 1px solid var(--app-glass-border, rgba(255, 255, 255, 0.08)) !important;
         border-radius: 16px !important;
         padding: 4px 4px 8px 4px;
-        transition: border-color 0.15s ease;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        position: relative;
     }
 
     .nav-tray-card:hover {
         border-color: var(--mud-palette-primary-lighten) !important;
+    }
+
+    .nav-tray-card--drag-over {
+        border-color: var(--mud-palette-primary) !important;
+        box-shadow: 0 0 0 2px var(--mud-palette-primary-lighten),
+                    inset 0 0 16px rgba(var(--mud-palette-primary-rgb, 119, 107, 231), 0.08) !important;
     }
 
     .nav-tray-card .nav-drag-row {
@@ -385,6 +508,59 @@
         gap: 10px;
         padding: 0 12px 4px 40px;
         /* 40px left indent aligns with content past handle */
+    }
+
+    /* ── Media Type Palette ──────────────────────────────────── */
+    .nav-palette {
+        background: var(--app-glass-inner-bg, rgba(255, 255, 255, 0.03)) !important;
+        border: 1px dashed var(--app-glass-border, rgba(255, 255, 255, 0.12)) !important;
+        border-radius: 14px !important;
+        padding: 12px 16px;
+    }
+
+    .nav-palette-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 14px;
+        border-radius: 20px;
+        background: var(--app-glass-inner-bg, rgba(255, 255, 255, 0.06));
+        border: 1px solid var(--app-glass-border, rgba(255, 255, 255, 0.10));
+        font-size: 0.8125rem;
+        font-weight: 500;
+        color: var(--mud-palette-text-primary);
+        cursor: grab;
+        user-select: none;
+        transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+    }
+
+    .nav-palette-chip:hover {
+        background: var(--app-hover-overlay, rgba(255, 255, 255, 0.10));
+        border-color: var(--mud-palette-primary-lighten);
+        transform: translateY(-1px);
+    }
+
+    .nav-palette-chip:active {
+        cursor: grabbing;
+        transform: scale(0.96);
+    }
+
+    /* ── Drop indicator ──────────────────────────────────────── */
+    .nav-drop-indicator {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 4px 0;
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--mud-palette-primary);
+        animation: nav-drop-pulse 1s ease-in-out infinite;
+    }
+
+    @@keyframes nav-drop-pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.6; }
     }
 
     /* ── Responsive ───────────────────────────────────────────── */

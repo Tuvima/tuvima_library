@@ -68,7 +68,7 @@ public sealed class VirtualLibrary
 
     /// <summary>
     /// Media types this library includes using OR logic.
-    /// Values must match <c>MediaType</c> enum names (e.g., "Movie", "TvShow", "Epub").
+    /// Values must match <c>MediaType</c> enum names (e.g., "Movies", "TV", "Books").
     /// An empty list means "show all" — no filtering applied.
     /// </summary>
     [JsonPropertyName("mediaTypes")]
@@ -133,12 +133,12 @@ public static class NavigationDefaults
         {
             Libraries =
             [
-                new VirtualLibrary { Key = "tv",         Label = "TV",         Icon = "LiveTv",      MediaTypes = ["TvShow"],    Enabled = true },
-                new VirtualLibrary { Key = "movies",     Label = "Movies",     Icon = "Movie",       MediaTypes = ["Movie"],     Enabled = true },
-                new VirtualLibrary { Key = "books",      Label = "Books",      Icon = "MenuBook",    MediaTypes = ["Epub"],      Enabled = true },
-                new VirtualLibrary { Key = "audiobooks", Label = "Audiobooks", Icon = "Headphones",  MediaTypes = ["Audiobook"], Enabled = true },
-                new VirtualLibrary { Key = "comics",     Label = "Comics",     Icon = "AutoStories", MediaTypes = ["Comic"],     Enabled = true },
-                new VirtualLibrary { Key = "hubs",       Label = "Hubs",       Icon = "Category",    MediaTypes = [],            Enabled = true },
+                new VirtualLibrary { Key = "tv",         Label = "TV",         Icon = "LiveTv",      MediaTypes = ["TV"],         Enabled = true },
+                new VirtualLibrary { Key = "movies",     Label = "Movies",     Icon = "Movie",       MediaTypes = ["Movies"],     Enabled = true },
+                new VirtualLibrary { Key = "books",      Label = "Books",      Icon = "MenuBook",    MediaTypes = ["Books"],      Enabled = true },
+                new VirtualLibrary { Key = "audiobooks", Label = "Audiobooks", Icon = "Headphones",  MediaTypes = ["Audiobooks"], Enabled = true },
+                new VirtualLibrary { Key = "comics",     Label = "Comics",     Icon = "AutoStories", MediaTypes = ["Comic"],      Enabled = true },
+                new VirtualLibrary { Key = "hubs",       Label = "Hubs",       Icon = "Category",    MediaTypes = [],             Enabled = true },
             ],
         },
     };

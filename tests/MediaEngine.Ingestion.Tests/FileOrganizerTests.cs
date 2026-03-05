@@ -47,7 +47,7 @@ public class FileOrganizerTests
 
         var candidate = BuildCandidate(
             @"C:\watch\Abaddon's Gate.epub",
-            MediaType.Epub,
+            MediaType.Books,
             new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
                 ["title"]   = "Abaddon's Gate",
@@ -82,7 +82,7 @@ public class FileOrganizerTests
 
         var candidate = BuildCandidate(
             @"C:\watch\sample.epub",
-            MediaType.Epub,
+            MediaType.Books,
             new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
                 ["title"]   = "Sample Book",
@@ -110,7 +110,7 @@ public class FileOrganizerTests
 
         var candidate = BuildCandidate(
             @"C:\watch\book.epub",
-            MediaType.Epub,
+            MediaType.Books,
             new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
                 ["title"]  = "My Book",
@@ -133,7 +133,7 @@ public class FileOrganizerTests
 
         var candidate = BuildCandidate(
             @"C:\watch\dune.epub",
-            MediaType.Epub,
+            MediaType.Books,
             new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
                 ["title"]  = "Dune",
@@ -158,7 +158,7 @@ public class FileOrganizerTests
 
         var candidate = BuildCandidate(
             @"C:\watch\Abaddon's Gate.epub",
-            MediaType.Epub,
+            MediaType.Books,
             new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
                 ["title"]   = "Abaddon's Gate",
