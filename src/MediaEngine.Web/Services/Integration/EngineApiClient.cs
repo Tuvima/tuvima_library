@@ -768,6 +768,90 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    // ── Media types (/settings/media-types) ────────────────────────────────
+
+    public async Task<MediaTypeConfigurationDto?> GetMediaTypesAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<MediaTypeConfigurationDto>(
+                "/settings/media-types", ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /settings/media-types failed");
+            LastError = ex.Message;
+            return null;
+        }
+    }
+
+    public async Task<bool> SaveMediaTypesAsync(MediaTypeConfigurationDto config, CancellationToken ct = default)
+    {
+        try
+        {
+            var resp = await _http.PutAsJsonAsync("/settings/media-types", config, ct);
+            if (!resp.IsSuccessStatusCode)
+            {
+                var detail = await resp.Content.ReadAsStringAsync(ct);
+                _logger.LogWarning("PUT /settings/media-types returned {Status}: {Detail}",
+                    (int)resp.StatusCode, detail);
+                LastError = $"HTTP {(int)resp.StatusCode}: {detail}";
+            }
+            return resp.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "PUT /settings/media-types failed");
+            LastError = ex.Message;
+            return false;
+        }
+    }
+
+    public async Task<MediaTypeConfigurationDto?> AddMediaTypeAsync(
+        MediaTypeDefinitionDto newType, CancellationToken ct = default)
+    {
+        try
+        {
+            var resp = await _http.PostAsJsonAsync("/settings/media-types/add", newType, ct);
+            if (resp.IsSuccessStatusCode)
+                return await resp.Content.ReadFromJsonAsync<MediaTypeConfigurationDto>(ct);
+
+            var detail = await resp.Content.ReadAsStringAsync(ct);
+            _logger.LogWarning("POST /settings/media-types/add returned {Status}: {Detail}",
+                (int)resp.StatusCode, detail);
+            LastError = $"HTTP {(int)resp.StatusCode}: {detail}";
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /settings/media-types/add failed");
+            LastError = ex.Message;
+            return null;
+        }
+    }
+
+    public async Task<bool> DeleteMediaTypeAsync(string key, CancellationToken ct = default)
+    {
+        try
+        {
+            var resp = await _http.DeleteAsync($"/settings/media-types/{Uri.EscapeDataString(key)}", ct);
+            if (!resp.IsSuccessStatusCode)
+            {
+                var detail = await resp.Content.ReadAsStringAsync(ct);
+                _logger.LogWarning("DELETE /settings/media-types/{Key} returned {Status}: {Detail}",
+                    key, (int)resp.StatusCode, detail);
+                LastError = $"HTTP {(int)resp.StatusCode}: {detail}";
+            }
+            return resp.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "DELETE /settings/media-types/{Key} failed", key);
+            LastError = ex.Message;
+            return false;
+        }
+    }
+
     // ── Metadata search (/metadata/search) ────────────────────────────────
 
     public async Task<List<MetadataSearchResultDto>> SearchMetadataAsync(
@@ -878,6 +962,37 @@ public sealed class EngineApiClient : IEngineApiClient
             return false;
         }
     }
+
+    // ── Provider Icons ─────────────────────────────────────────────────────
+
+    public async Task<bool> UploadProviderIconAsync(
+        string name, Stream fileStream, string fileName, CancellationToken ct = default)
+    {
+        try
+        {
+            using var content = new MultipartFormDataContent();
+            var streamContent = new StreamContent(fileStream);
+            content.Add(streamContent, "file", fileName);
+
+            var resp = await _http.PostAsync($"/settings/providers/{name}/icon", content, ct);
+            if (!resp.IsSuccessStatusCode)
+            {
+                var detail = await resp.Content.ReadAsStringAsync(ct);
+                _logger.LogWarning("POST /settings/providers/{Name}/icon returned {Status}: {Detail}",
+                    name, (int)resp.StatusCode, detail);
+                LastError = $"HTTP {(int)resp.StatusCode}: {detail}";
+            }
+            return resp.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /settings/providers/{Name}/icon failed", name);
+            LastError = ex.Message;
+            return false;
+        }
+    }
+
+    public string GetProviderIconUrl(string name) => $"/settings/providers/{name}/icon";
 
     // ── UI Settings (/settings/ui) ──────────────────────────────────────────
 

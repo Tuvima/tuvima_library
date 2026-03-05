@@ -1,0 +1,61 @@
+{
+  "version": "1.0",
+  "types": [
+    {
+      "key": "books",
+      "display_name": "Books",
+      "icon": "MenuBook",
+      "extensions": [".epub"],
+      "category_folder": "Books",
+      "built_in": true
+    },
+    {
+      "key": "audiobooks",
+      "display_name": "Audiobooks",
+      "icon": "Headphones",
+      "extensions": [".m4b", ".mp3", ".m4a"],
+      "category_folder": "Audio",
+      "built_in": true
+    },
+    {
+      "key": "comics",
+      "display_name": "Comics",
+      "icon": "AutoStories",
+      "extensions": [".cbz", ".cbr"],
+      "category_folder": "Comics",
+      "built_in": true
+    },
+    {
+      "key": "movies",
+      "display_name": "Movies",
+      "icon": "Movie",
+      "extensions": [".mp4", ".mkv", ".webm", ".avi", ".m4v"],
+      "category_folder": "Videos",
+      "built_in": true
+    },
+    {
+      "key": "tv_shows",
+      "display_name": "TV Shows",
+      "icon": "Tv",
+      "extensions": [".mp4", ".mkv"],
+      "category_folder": "TV Shows",
+      "built_in": true
+    },
+    {
+      "key": "music",
+      "display_name": "Music",
+      "icon": "MusicNote",
+      "extensions": [".mp3", ".flac", ".ogg", ".m4a", ".aac", ".wav"],
+      "category_folder": "Music",
+      "built_in": true
+    },
+    {
+      "key": "podcasts",
+      "display_name": "Podcasts",
+      "icon": "Podcasts",
+      "extensions": [".mp3", ".m4a"],
+      "category_folder": "Podcasts",
+      "built_in": true
+    }
+  ]
+}

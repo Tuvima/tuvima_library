@@ -400,6 +400,35 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         Dictionary<string, ProviderSlotDto> slots, CancellationToken ct = default)
         => _api.UpdateProviderSlotsAsync(slots, ct);
 
+    // ── Media types ─────────────────────────────────────────────────────────
+
+    /// <summary>Returns media type definitions from the Engine.</summary>
+    public Task<MediaTypeConfigurationDto?> GetMediaTypesAsync(CancellationToken ct = default)
+        => _api.GetMediaTypesAsync(ct);
+
+    /// <summary>Saves all media type definitions. Returns true on success.</summary>
+    public Task<bool> SaveMediaTypesAsync(
+        MediaTypeConfigurationDto config, CancellationToken ct = default)
+        => _api.SaveMediaTypesAsync(config, ct);
+
+    /// <summary>Adds a single custom media type. Returns updated config on success.</summary>
+    public Task<MediaTypeConfigurationDto?> AddMediaTypeAsync(
+        MediaTypeDefinitionDto newType, CancellationToken ct = default)
+        => _api.AddMediaTypeAsync(newType, ct);
+
+    /// <summary>Deletes a custom media type by key. Returns true on success.</summary>
+    public Task<bool> DeleteMediaTypeAsync(string key, CancellationToken ct = default)
+        => _api.DeleteMediaTypeAsync(key, ct);
+
+    // ── Provider Icons ─────────────────────────────────────────────────────
+
+    /// <summary>Uploads a custom icon for a provider.</summary>
+    public Task<bool> UploadProviderIconAsync(string name, Stream fileStream, string fileName, CancellationToken ct = default)
+        => _api.UploadProviderIconAsync(name, fileStream, fileName, ct);
+
+    /// <summary>Returns the Engine URL path for a provider's icon.</summary>
+    public string GetProviderIconUrl(string name) => _api.GetProviderIconUrl(name);
+
     // ── Metadata search ─────────────────────────────────────────────────────
 
     /// <summary>Searches a specific provider for metadata results.</summary>

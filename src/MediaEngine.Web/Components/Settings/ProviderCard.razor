@@ -128,6 +128,30 @@
         <MudSwitch T="bool" @bind-Value="_editEnabled"
                    Label="Enabled" Color="Color.Primary" />
 
+        @* Custom icon upload *@
+        <MudText Typo="Typo.subtitle2" Class="mt-1">Custom Icon</MudText>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            @if (!string.IsNullOrWhiteSpace(_iconPreviewUrl))
+            {
+                <MudAvatar Size="Size.Medium" Style="border: 1px solid var(--app-glass-border);">
+                    <MudImage Src="@_iconPreviewUrl" Alt="Provider icon"
+                              Width="40" Height="40" ObjectFit="ObjectFit.Contain" />
+                </MudAvatar>
+            }
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                       StartIcon="@Icons.Material.Filled.Upload"
+                       HtmlTag="label" for="@_iconInputId">
+                Upload Icon
+            </MudButton>
+            <InputFile id="@_iconInputId" OnChange="@OnIconFileSelected"
+                       accept=".svg,.png,.jpg,.jpeg" style="display:none;" />
+        </MudStack>
+        @if (_iconUploading)
+        {
+            <MudProgressLinear Indeterminate="true" Color="Color.Primary" Size="Size.Small" />
+        }
+        <MudText Typo="Typo.caption" Color="Color.Secondary">SVG, PNG, or JPG — max 256 KB</MudText>
+
         @* Action buttons *@
         <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2">
             <MudButton Variant="Variant.Text"
@@ -166,6 +190,9 @@
     private bool _flyoutOpen;
     private bool _saving;
     private bool _showApiKey;
+    private bool _iconUploading;
+    private string? _iconPreviewUrl;
+    private readonly string _iconInputId = $"icon-upload-{Guid.NewGuid():N}";
 
     // Editable fields
     private string _editEndpoint = string.Empty;
@@ -196,6 +223,7 @@
         _editApiKey = string.Empty; // Never pre-fill API keys for security.
         _editEnabled = Provider.Enabled;
         _showApiKey = false;
+        _iconPreviewUrl = Orchestrator.GetProviderIconUrl(Provider.Name);
 
         _flyoutOpen = true;
     }
@@ -254,6 +282,48 @@
         finally
         {
             _saving = false;
+        }
+    }
+
+    private async Task OnIconFileSelected(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file.Size > 256 * 1024)
+        {
+            Snackbar.Add("Icon must be 256 KB or smaller.", Severity.Warning);
+            return;
+        }
+
+        _iconUploading = true;
+        StateHasChanged();
+
+        try
+        {
+            using var stream = file.OpenReadStream(maxAllowedSize: 256 * 1024);
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+            ms.Position = 0;
+
+            var ok = await Orchestrator.UploadProviderIconAsync(Provider.Name, ms, file.Name);
+            if (ok)
+            {
+                // Cache-bust by appending timestamp.
+                _iconPreviewUrl = $"{Orchestrator.GetProviderIconUrl(Provider.Name)}?t={DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
+                Snackbar.Add("Icon uploaded.", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add("Failed to upload icon.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Upload error: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _iconUploading = false;
+            StateHasChanged();
         }
     }
 

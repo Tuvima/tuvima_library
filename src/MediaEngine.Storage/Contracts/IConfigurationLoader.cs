@@ -60,6 +60,14 @@ public interface IConfigurationLoader
     /// <summary>Persist provider slot assignments to <c>config/slots.json</c>.</summary>
     void SaveSlots(ProviderSlotConfiguration slots);
 
+    // ── Media Types ──────────────────────────────────────────────────────────
+
+    /// <summary>Load media type definitions from <c>config/media_types.json</c>.</summary>
+    MediaTypeConfiguration LoadMediaTypes();
+
+    /// <summary>Persist media type definitions to <c>config/media_types.json</c>.</summary>
+    void SaveMediaTypes(MediaTypeConfiguration config);
+
     // ── Providers ────────────────────────────────────────────────────────────
 
     /// <summary>

@@ -1,0 +1,185 @@
+@namespace MediaEngine.Web.Components.Settings
+@using MediaEngine.Web.Models.ViewDTOs
+
+@* Dialog for adding a new custom media type.
+   Launched via IDialogService.ShowAsync<AddMediaTypeDialog>().
+   Returns a MediaTypeDefinitionDto on success. *@
+
+<MudDialog>
+    <DialogContent>
+        <MudTextField T="string" @bind-Value="_displayName" Label="Display Name"
+                      Placeholder="e.g. Documents, Personal Videos"
+                      Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-2"
+                      Immediate="true" />
+
+        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3">
+            Key: <code>@DerivedKey</code>
+        </MudText>
+
+        @* Icon picker — dropdown of available Material icons *@
+        <MudSelect T="string" @bind-Value="_selectedIcon" Label="Icon"
+                   Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-2"
+                   AnchorOrigin="Origin.BottomCenter" TransformOrigin="Origin.TopCenter"
+                   AdornmentIcon="@ResolveIcon(_selectedIcon)">
+            @foreach (var (name, icon) in IconOptions)
+            {
+                <MudSelectItem Value="@name">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        <MudIcon Icon="@icon" Size="Size.Small" />
+                        <MudText>@name</MudText>
+                    </MudStack>
+                </MudSelectItem>
+            }
+        </MudSelect>
+
+        @* File extensions *@
+        <MudText Typo="Typo.subtitle2" Class="mb-1 mt-2">File Extensions</MudText>
+        <MudStack Row="true" Wrap="Wrap.Wrap" Spacing="1" Class="mb-2">
+            @foreach (var ext in _extensions)
+            {
+                <MudChip T="string" Color="Color.Primary" Variant="Variant.Outlined"
+                         Size="Size.Small" OnClose="@(() => _extensions.Remove(ext))">
+                    @ext
+                </MudChip>
+            }
+        </MudStack>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-3">
+            <MudTextField T="string" @bind-Value="_newExtension" Label="Add extension"
+                          Placeholder=".pdf" Variant="Variant.Outlined" Margin="Margin.Dense"
+                          Style="max-width: 160px;"
+                          OnKeyUp="@OnExtensionKeyUp" />
+            <MudIconButton Icon="@Icons.Material.Filled.Add" Color="Color.Primary"
+                           Size="Size.Small" OnClick="AddExtension" />
+        </MudStack>
+
+        @* Category folder *@
+        <MudTextField T="string" @bind-Value="_categoryFolder" Label="Category Folder"
+                      Placeholder="e.g. Documents" HelperText="Subfolder in the library root"
+                      Variant="Variant.Outlined" Margin="Margin.Dense" />
+
+        @if (!string.IsNullOrWhiteSpace(_validationError))
+        {
+            <MudAlert Severity="Severity.Error" Class="mt-2" Dense="true">@_validationError</MudAlert>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton OnClick="Submit" Color="Color.Primary" Variant="Variant.Filled"
+                   Disabled="@(!IsValid)">Add</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
+
+    private string _displayName = string.Empty;
+    private string _selectedIcon = "Description";
+    private List<string> _extensions = [];
+    private string _newExtension = string.Empty;
+    private string _categoryFolder = string.Empty;
+    private string? _validationError;
+
+    private string DerivedKey => string.IsNullOrWhiteSpace(_displayName)
+        ? ""
+        : _displayName.Trim().ToLowerInvariant().Replace(' ', '_');
+
+    private bool IsValid =>
+        !string.IsNullOrWhiteSpace(_displayName)
+        && !string.IsNullOrWhiteSpace(DerivedKey)
+        && _extensions.Count > 0;
+
+    private void AddExtension()
+    {
+        var ext = _newExtension?.Trim().ToLowerInvariant() ?? "";
+        if (string.IsNullOrEmpty(ext)) return;
+        if (!ext.StartsWith('.')) ext = "." + ext;
+
+        if (!_extensions.Contains(ext, StringComparer.OrdinalIgnoreCase))
+        {
+            _extensions.Add(ext);
+        }
+        _newExtension = string.Empty;
+    }
+
+    private void OnExtensionKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") AddExtension();
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private void Submit()
+    {
+        _validationError = null;
+
+        if (string.IsNullOrWhiteSpace(_displayName))
+        {
+            _validationError = "Display name is required.";
+            return;
+        }
+        if (_extensions.Count == 0)
+        {
+            _validationError = "At least one file extension is required.";
+            return;
+        }
+
+        var folder = string.IsNullOrWhiteSpace(_categoryFolder)
+            ? _displayName.Trim()
+            : _categoryFolder.Trim();
+
+        var dto = new MediaTypeDefinitionDto
+        {
+            Key = DerivedKey,
+            DisplayName = _displayName.Trim(),
+            Icon = _selectedIcon,
+            Extensions = new List<string>(_extensions),
+            CategoryFolder = folder,
+            BuiltIn = false,
+        };
+
+        MudDialog.Close(DialogResult.Ok(dto));
+    }
+
+    // ── Icon gallery ──────────────────────────────────────────────────────
+
+    private static readonly List<(string Name, string Icon)> IconOptions =
+    [
+        ("MenuBook",      Icons.Material.Filled.MenuBook),
+        ("Headphones",    Icons.Material.Filled.Headphones),
+        ("AutoStories",   Icons.Material.Filled.AutoStories),
+        ("Movie",         Icons.Material.Filled.Movie),
+        ("Tv",            Icons.Material.Filled.Tv),
+        ("MusicNote",     Icons.Material.Filled.MusicNote),
+        ("Podcasts",      Icons.Material.Filled.Podcasts),
+        ("Description",   Icons.Material.Filled.Description),
+        ("Folder",        Icons.Material.Filled.Folder),
+        ("Photo",         Icons.Material.Filled.Photo),
+        ("VideoLibrary",  Icons.Material.Filled.VideoLibrary),
+        ("AudioFile",     Icons.Material.Filled.AudioFile),
+        ("Article",       Icons.Material.Filled.Article),
+        ("Book",          Icons.Material.Filled.Book),
+        ("LibraryBooks",  Icons.Material.Filled.LibraryBooks),
+        ("LocalLibrary",  Icons.Material.Filled.LocalLibrary),
+        ("Hearing",       Icons.Material.Filled.Hearing),
+        ("Mic",           Icons.Material.Filled.Mic),
+        ("Album",         Icons.Material.Filled.Album),
+        ("Camera",        Icons.Material.Filled.Camera),
+        ("Image",         Icons.Material.Filled.Image),
+        ("PictureAsPdf",  Icons.Material.Filled.PictureAsPdf),
+        ("Code",          Icons.Material.Filled.Code),
+        ("Science",       Icons.Material.Filled.Science),
+        ("School",        Icons.Material.Filled.School),
+        ("SportsEsports", Icons.Material.Filled.SportsEsports),
+        ("Newspaper",     Icons.Material.Filled.Newspaper),
+        ("Dashboard",     Icons.Material.Filled.Dashboard),
+        ("Star",          Icons.Material.Filled.Star),
+        ("Cloud",         Icons.Material.Filled.Cloud),
+    ];
+
+    private static string ResolveIcon(string iconName)
+    {
+        if (string.IsNullOrWhiteSpace(iconName)) return Icons.Material.Filled.Description;
+        var match = IconOptions.FirstOrDefault(o => string.Equals(o.Name, iconName, StringComparison.OrdinalIgnoreCase));
+        return match.Icon ?? Icons.Material.Filled.Description;
+    }
+}

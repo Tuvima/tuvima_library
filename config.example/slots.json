@@ -5,8 +5,8 @@
     "tertiary": "open_library"
   },
   "Audiobooks": {
-    "primary": "audnexus",
-    "secondary": "apple_books",
+    "primary": "apple_books",
+    "secondary": "google_books",
     "tertiary": null
   },
   "Comics": {

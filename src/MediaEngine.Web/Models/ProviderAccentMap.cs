@@ -13,18 +13,67 @@ public static class ProviderAccentMap
     public static bool IsVisibleProvider(string providerKey) =>
         !string.Equals(providerKey, "local_filesystem", StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>Returns (HexColour, MaterialIcon) for a provider config name.</summary>
-    public static (string Color, string Icon) GetAccent(string providerKey) => providerKey switch
+    /// <summary>Returns (HexColour, MaterialIcon) for a provider config name.
+    /// If <paramref name="customIconName"/> is provided, resolves it from the icon lookup
+    /// before falling back to the hardcoded switch.</summary>
+    public static (string Color, string Icon) GetAccent(string providerKey, string? customIconName = null)
     {
-        "apple_books"           => ("#FF2D55", Icons.Material.Filled.MenuBook),
-        "audnexus"              => ("#FF9500", Icons.Material.Filled.Hearing),
-        "open_library"          => ("#4CAF50", Icons.Material.Filled.LocalLibrary),
-        "google_books"          => ("#4285F4", Icons.Material.Filled.Book),
-        "wikidata"              => ("#339966", Icons.Material.Filled.Hub),
-        "tmdb"                  => ("#01B4E4", Icons.Material.Filled.Movie),
-        "comic_vine"            => ("#E91E63", Icons.Material.Filled.AutoStories),
-        "musicbrainz"           => ("#BA478F", Icons.Material.Filled.MusicNote),
-        _                       => ("#90A4AE", Icons.Material.Filled.Cloud),
+        var (color, defaultIcon) = providerKey switch
+        {
+            "apple_books"           => ("#FF2D55", Icons.Material.Filled.MenuBook),
+            "audnexus"              => ("#FF9500", Icons.Material.Filled.Hearing),
+            "open_library"          => ("#4CAF50", Icons.Material.Filled.LocalLibrary),
+            "google_books"          => ("#4285F4", Icons.Material.Filled.Book),
+            "wikidata"              => ("#339966", Icons.Material.Filled.Hub),
+            "tmdb"                  => ("#01B4E4", Icons.Material.Filled.Movie),
+            "comic_vine"            => ("#E91E63", Icons.Material.Filled.AutoStories),
+            "musicbrainz"           => ("#BA478F", Icons.Material.Filled.MusicNote),
+            _                       => ("#90A4AE", Icons.Material.Filled.Cloud),
+        };
+
+        if (!string.IsNullOrWhiteSpace(customIconName)
+            && MaterialIconLookup.TryGetValue(customIconName, out var resolved))
+        {
+            return (color, resolved);
+        }
+
+        return (color, defaultIcon);
+    }
+
+    /// <summary>Lookup dictionary mapping common Material icon names to their string constants.</summary>
+    private static readonly Dictionary<string, string> MaterialIconLookup = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["MenuBook"]      = Icons.Material.Filled.MenuBook,
+        ["Headphones"]    = Icons.Material.Filled.Headphones,
+        ["AutoStories"]   = Icons.Material.Filled.AutoStories,
+        ["Movie"]         = Icons.Material.Filled.Movie,
+        ["Tv"]            = Icons.Material.Filled.Tv,
+        ["MusicNote"]     = Icons.Material.Filled.MusicNote,
+        ["Podcasts"]      = Icons.Material.Filled.Podcasts,
+        ["Description"]   = Icons.Material.Filled.Description,
+        ["Folder"]        = Icons.Material.Filled.Folder,
+        ["Photo"]         = Icons.Material.Filled.Photo,
+        ["VideoLibrary"]  = Icons.Material.Filled.VideoLibrary,
+        ["AudioFile"]     = Icons.Material.Filled.AudioFile,
+        ["Article"]       = Icons.Material.Filled.Article,
+        ["Book"]          = Icons.Material.Filled.Book,
+        ["LibraryBooks"]  = Icons.Material.Filled.LibraryBooks,
+        ["LocalLibrary"]  = Icons.Material.Filled.LocalLibrary,
+        ["Hearing"]       = Icons.Material.Filled.Hearing,
+        ["Mic"]           = Icons.Material.Filled.Mic,
+        ["Album"]         = Icons.Material.Filled.Album,
+        ["Camera"]        = Icons.Material.Filled.Camera,
+        ["Image"]         = Icons.Material.Filled.Image,
+        ["PictureAsPdf"]  = Icons.Material.Filled.PictureAsPdf,
+        ["Code"]          = Icons.Material.Filled.Code,
+        ["Science"]       = Icons.Material.Filled.Science,
+        ["School"]        = Icons.Material.Filled.School,
+        ["SportsEsports"] = Icons.Material.Filled.SportsEsports,
+        ["Newspaper"]     = Icons.Material.Filled.Newspaper,
+        ["Dashboard"]     = Icons.Material.Filled.Dashboard,
+        ["Star"]          = Icons.Material.Filled.Star,
+        ["Cloud"]         = Icons.Material.Filled.Cloud,
+        ["Hub"]           = Icons.Material.Filled.Hub,
     };
 
     /// <summary>Returns a deduplicated display name for the UI (e.g. "Apple Books" instead of "apple_books").</summary>

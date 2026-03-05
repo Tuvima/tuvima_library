@@ -60,7 +60,7 @@ public sealed class ProviderSlotConfiguration
     public Dictionary<string, ProviderSlotConfig> Slots { get; set; } = new()
     {
         ["Books"]      = new() { Primary = "apple_books",  Secondary = "google_books",  Tertiary = "open_library" },
-        ["Audiobooks"] = new() { Primary = "audnexus",    Secondary = "apple_books",   Tertiary = null },
+        ["Audiobooks"] = new() { Primary = "apple_books", Secondary = "google_books",  Tertiary = null },
         ["Comics"]     = new() { Primary = null,                  Secondary = null,                    Tertiary = null },
         ["Movies"]     = new() { Primary = null,                  Secondary = null,                    Tertiary = null },
         ["TV Shows"]   = new() { Primary = null,                  Secondary = null,                    Tertiary = null },
@@ -86,6 +86,8 @@ public sealed class ProviderSlotConfiguration
         Domain.Enums.MediaType.Comic      => "Comics",
         Domain.Enums.MediaType.Movies     => "Movies",
         Domain.Enums.MediaType.TV         => "TV Shows",
+        Domain.Enums.MediaType.Music     => "Music",
+        Domain.Enums.MediaType.Podcasts  => "Podcasts",
         _                                => "Books", // Default fallback
     };
 }

@@ -681,6 +681,25 @@ public static class SettingsEndpoints
             if (slots is null || slots.Count == 0)
                 return Results.BadRequest(new { error = "Slot assignments cannot be empty." });
 
+            // Validate: no provider may occupy more than one slot per media type.
+            foreach (var (mediaType, slot) in slots)
+            {
+                var assigned = new List<string>(3);
+                if (!string.IsNullOrWhiteSpace(slot.Primary))   assigned.Add(slot.Primary);
+                if (!string.IsNullOrWhiteSpace(slot.Secondary)) assigned.Add(slot.Secondary);
+                if (!string.IsNullOrWhiteSpace(slot.Tertiary))  assigned.Add(slot.Tertiary);
+
+                var duplicate = assigned
+                    .GroupBy(n => n, StringComparer.OrdinalIgnoreCase)
+                    .FirstOrDefault(g => g.Count() > 1)?.Key;
+
+                if (duplicate is not null)
+                    return Results.BadRequest(new
+                    {
+                        error = $"Provider '{duplicate}' appears in multiple slots for '{mediaType}'. Each provider may only occupy one slot per media type."
+                    });
+            }
+
             var config = new ProviderSlotConfiguration { Slots = slots };
             configLoader.SaveSlots(config);
 
@@ -691,6 +710,181 @@ public static class SettingsEndpoints
         .Produces(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status400BadRequest)
         .RequireAdmin();
+
+        // ── GET /settings/media-types ──────────────────────────────────────────
+        grp.MapGet("/media-types", (IConfigurationLoader configLoader) =>
+        {
+            var config = configLoader.LoadMediaTypes();
+            return Results.Ok(config);
+        })
+        .WithName("GetMediaTypes")
+        .WithSummary("Load media type definitions including icons, extensions, and category folders.")
+        .Produces<MediaTypeConfiguration>(StatusCodes.Status200OK)
+        .RequireAdminOrCurator();
+
+        // ── PUT /settings/media-types ──────────────────────────────────────────
+        grp.MapPut("/media-types", (
+            MediaTypeConfiguration config,
+            IConfigurationLoader configLoader) =>
+        {
+            if (config?.Types is null || config.Types.Count == 0)
+                return Results.BadRequest(new { error = "At least one media type is required." });
+
+            var dupKeys = config.Types
+                .GroupBy(t => t.Key, StringComparer.OrdinalIgnoreCase)
+                .FirstOrDefault(g => g.Count() > 1)?.Key;
+            if (dupKeys is not null)
+                return Results.BadRequest(new { error = $"Duplicate media type key: '{dupKeys}'." });
+
+            var dupNames = config.Types
+                .GroupBy(t => t.DisplayName, StringComparer.OrdinalIgnoreCase)
+                .FirstOrDefault(g => g.Count() > 1)?.Key;
+            if (dupNames is not null)
+                return Results.BadRequest(new { error = $"Duplicate media type display name: '{dupNames}'." });
+
+            configLoader.SaveMediaTypes(config);
+            return Results.Ok(new { saved = true });
+        })
+        .WithName("SaveMediaTypes")
+        .WithSummary("Save media type definitions including custom types.")
+        .Produces(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
+        .RequireAdmin();
+
+        // ── POST /settings/media-types/add ────────────────────────────────────
+        grp.MapPost("/media-types/add", (
+            MediaTypeDefinition newType,
+            IConfigurationLoader configLoader) =>
+        {
+            if (string.IsNullOrWhiteSpace(newType.Key) || string.IsNullOrWhiteSpace(newType.DisplayName))
+                return Results.BadRequest(new { error = "Key and display name are required." });
+
+            var config = configLoader.LoadMediaTypes();
+
+            if (config.Types.Any(t => string.Equals(t.Key, newType.Key, StringComparison.OrdinalIgnoreCase)))
+                return Results.BadRequest(new { error = $"Media type key '{newType.Key}' already exists." });
+
+            if (config.Types.Any(t => string.Equals(t.DisplayName, newType.DisplayName, StringComparison.OrdinalIgnoreCase)))
+                return Results.BadRequest(new { error = $"Media type '{newType.DisplayName}' already exists." });
+
+            newType.BuiltIn = false;
+            config.Types.Add(newType);
+            configLoader.SaveMediaTypes(config);
+
+            return Results.Ok(config);
+        })
+        .WithName("AddMediaType")
+        .WithSummary("Add a custom media type definition.")
+        .Produces<MediaTypeConfiguration>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
+        .RequireAdmin();
+
+        // ── DELETE /settings/media-types/{key} ────────────────────────────────
+        grp.MapDelete("/media-types/{key}", (
+            string key,
+            IConfigurationLoader configLoader) =>
+        {
+            var config = configLoader.LoadMediaTypes();
+            var existing = config.Types.FirstOrDefault(
+                t => string.Equals(t.Key, key, StringComparison.OrdinalIgnoreCase));
+
+            if (existing is null)
+                return Results.NotFound(new { error = $"Media type '{key}' not found." });
+
+            if (existing.BuiltIn)
+                return Results.BadRequest(new { error = "Built-in media types cannot be deleted." });
+
+            config.Types.Remove(existing);
+            configLoader.SaveMediaTypes(config);
+
+            // Clean up orphaned slot assignments for this media type.
+            var slots = configLoader.LoadSlots();
+            if (slots.Slots.Remove(existing.DisplayName))
+                configLoader.SaveSlots(slots);
+
+            return Results.NoContent();
+        })
+        .WithName("DeleteMediaType")
+        .WithSummary("Remove a custom media type definition.")
+        .Produces(StatusCodes.Status204NoContent)
+        .Produces(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAdmin();
+
+        // ── Provider Icon Upload ──────────────────────────────────────────────
+
+        grp.MapPost("/providers/{name}/icon", async (
+            string name,
+            HttpRequest request,
+            IConfiguration config) =>
+        {
+            if (!request.HasFormContentType)
+                return Results.BadRequest(new { error = "Expected multipart form data." });
+
+            var form = await request.ReadFormAsync();
+            var file = form.Files.FirstOrDefault();
+            if (file is null || file.Length == 0)
+                return Results.BadRequest(new { error = "No file uploaded." });
+
+            if (file.Length > 256 * 1024)
+                return Results.BadRequest(new { error = "Icon must be 256 KB or smaller." });
+
+            var ext = Path.GetExtension(file.FileName)?.ToLowerInvariant();
+            if (ext is not ".svg" and not ".png" and not ".jpg" and not ".jpeg")
+                return Results.BadRequest(new { error = "Allowed formats: SVG, PNG, JPG." });
+
+            var configDir = config["MediaEngine:ConfigDirectory"] ?? "config";
+            var iconsDir  = Path.Combine(configDir, "icons");
+            Directory.CreateDirectory(iconsDir);
+
+            // Remove any existing icon for this provider.
+            foreach (var existing in Directory.EnumerateFiles(iconsDir, $"{name}.*"))
+                File.Delete(existing);
+
+            var filePath = Path.Combine(iconsDir, $"{name}{ext}");
+            await using var stream = File.Create(filePath);
+            await file.CopyToAsync(stream);
+
+            return Results.Ok(new { path = $"/settings/providers/{name}/icon" });
+        })
+        .WithName("UploadProviderIcon")
+        .WithSummary("Upload an icon (SVG/PNG/JPG, max 256KB) for a provider.")
+        .Accepts<IFormFile>("multipart/form-data")
+        .Produces(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
+        .DisableAntiforgery()
+        .RequireAdmin();
+
+        grp.MapGet("/providers/{name}/icon", (
+            string name,
+            IConfiguration config) =>
+        {
+            var configDir = config["MediaEngine:ConfigDirectory"] ?? "config";
+            var iconsDir  = Path.Combine(configDir, "icons");
+
+            if (!Directory.Exists(iconsDir))
+                return Results.NotFound();
+
+            var match = Directory.EnumerateFiles(iconsDir, $"{name}.*").FirstOrDefault();
+            if (match is null)
+                return Results.NotFound();
+
+            var ext = Path.GetExtension(match).ToLowerInvariant();
+            var contentType = ext switch
+            {
+                ".svg"  => "image/svg+xml",
+                ".png"  => "image/png",
+                ".jpg"  => "image/jpeg",
+                ".jpeg" => "image/jpeg",
+                _       => "application/octet-stream",
+            };
+
+            return Results.File(match, contentType);
+        })
+        .WithName("GetProviderIcon")
+        .WithSummary("Serve the uploaded icon for a provider.")
+        .Produces(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status404NotFound);
 
         return app;
     }

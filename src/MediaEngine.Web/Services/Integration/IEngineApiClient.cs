@@ -206,6 +206,20 @@ public interface IEngineApiClient
     /// <summary>PUT /metadata/{entityId}/override — create user-locked claims for multiple fields.</summary>
     Task<bool> OverrideMetadataAsync(Guid entityId, Dictionary<string, string> fields, CancellationToken ct = default);
 
+    // ── Media types (/settings/media-types) ────────────────────────────────
+
+    /// <summary>GET /settings/media-types — load media type definitions.</summary>
+    Task<MediaTypeConfigurationDto?> GetMediaTypesAsync(CancellationToken ct = default);
+
+    /// <summary>PUT /settings/media-types — save all media type definitions.</summary>
+    Task<bool> SaveMediaTypesAsync(MediaTypeConfigurationDto config, CancellationToken ct = default);
+
+    /// <summary>POST /settings/media-types/add — add a single custom media type.</summary>
+    Task<MediaTypeConfigurationDto?> AddMediaTypeAsync(MediaTypeDefinitionDto newType, CancellationToken ct = default);
+
+    /// <summary>DELETE /settings/media-types/{key} — delete a custom media type.</summary>
+    Task<bool> DeleteMediaTypeAsync(string key, CancellationToken ct = default);
+
     // ── Hydration settings (/settings/hydration) ──────────────────────────
 
     /// <summary>GET /settings/hydration — load hydration pipeline configuration.</summary>
@@ -213,6 +227,14 @@ public interface IEngineApiClient
 
     /// <summary>PUT /settings/hydration — save hydration pipeline configuration.</summary>
     Task<bool> UpdateHydrationSettingsAsync(HydrationSettingsDto settings, CancellationToken ct = default);
+
+    // ── Provider Icons ───────────────────────────────────────────────────────
+
+    /// <summary>POST /settings/providers/{name}/icon — upload a provider icon.</summary>
+    Task<bool> UploadProviderIconAsync(string name, Stream fileStream, string fileName, CancellationToken ct = default);
+
+    /// <summary>Returns the URL path for a provider's icon, or null if none exists.</summary>
+    string GetProviderIconUrl(string name);
 
     /// <summary>
     /// Most recent error message from the last failed API call.

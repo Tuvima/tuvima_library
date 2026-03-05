@@ -69,6 +69,7 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
     private const string MaintenanceFileName = "maintenance.json";
     private const string HydrationFileName   = "hydration.json";
     private const string SlotsFileName       = "slots.json";
+    private const string MediaTypesFileName  = "media_types.json";
 
     // ── Endpoint distribution map for legacy migration ────────────────────────
 
@@ -248,6 +249,18 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
         ArgumentNullException.ThrowIfNull(slots);
         // Store as a flat dictionary (matching slots.json format).
         SaveFile(SlotsFileName, slots.Slots);
+    }
+
+    /// <inheritdoc/>
+    public MediaTypeConfiguration LoadMediaTypes() =>
+        LoadFile<MediaTypeConfiguration>(MediaTypesFileName)
+        ?? new MediaTypeConfiguration();
+
+    /// <inheritdoc/>
+    public void SaveMediaTypes(MediaTypeConfiguration config)
+    {
+        ArgumentNullException.ThrowIfNull(config);
+        SaveFile(MediaTypesFileName, config);
     }
 
     /// <inheritdoc/>
@@ -544,6 +557,7 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
         SaveScoring(new ScoringSettings());
         SaveMaintenance(new MaintenanceSettings());
         SaveSlots(new ProviderSlotConfiguration());
+        SaveMediaTypes(new MediaTypeConfiguration());
 
         // Default providers — same set as the legacy CreateDefaultManifest()
         SaveProvider(new ProviderConfiguration
