@@ -47,4 +47,13 @@ public static class ReviewTrigger
     /// manually select a QID or skip universe matching.
     /// </summary>
     public const string UniverseMatchFailed = "UniverseMatchFailed";
+
+    /// <summary>
+    /// The media type could not be determined with sufficient confidence.
+    /// The file's container format is shared across multiple media types
+    /// (e.g. MP3 → Audiobook/Music/Podcast, MP4 → Movie/TV Show) and
+    /// heuristic analysis did not produce a clear winner. The user must
+    /// manually select the correct media type.
+    /// </summary>
+    public const string AmbiguousMediaType = "AmbiguousMediaType";
 }

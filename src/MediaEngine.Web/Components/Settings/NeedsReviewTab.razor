@@ -26,6 +26,10 @@
              Color="Color.Info" OnClick="@(() => SetFilter(FilterMode.UniverseMatch))">
         Universe Match (@UniverseMatchCount)
     </MudChip>
+    <MudChip T="string" Size="Size.Small" Variant="@(_filterMode == FilterMode.MediaType ? Variant.Filled : Variant.Outlined)"
+             Color="Color.Tertiary" OnClick="@(() => SetFilter(FilterMode.MediaType))">
+        Media Type (@MediaTypeCount)
+    </MudChip>
 </MudStack>
 
 @if (_loading)
@@ -82,58 +86,92 @@ else
             {
                 <MudDivider Class="my-3" />
 
-                @* ── Provider + search bar ───────────────────────────── *@
-                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-3">
-                    <MudSelect T="string" @bind-Value="_selectedProvider" Dense="true"
-                               Variant="Variant.Outlined" Label="Provider"
-                               Style="max-width: 200px;" Margin="Margin.Dense">
-                        @foreach (var p in GetSlottedProviders(item.MediaType))
+                @if (item.Trigger == "AmbiguousMediaType")
+                {
+                    @* ── Media type candidate selection ─────────────── *@
+                    <MudText Typo="Typo.body2" Class="mb-2">
+                        Select the correct media type for this file:
+                    </MudText>
+                    <MudStack Row="true" Spacing="2" Class="mb-2" Wrap="Wrap.Wrap">
+                        @foreach (var candidate in ParseMediaTypeCandidates(item.CandidatesJson))
                         {
-                            <MudSelectItem Value="@p.Name">@p.DisplayName</MudSelectItem>
+                            <MudPaper Class="pa-3" Elevation="0"
+                                      Style="border: 1px solid var(--mud-palette-lines-default); border-radius: 12px;
+                                             min-width: 180px; cursor: pointer;"
+                                      @onclick="@(() => ReclassifyAsync(item, candidate.Type))">
+                                <MudStack AlignItems="AlignItems.Center" Spacing="1">
+                                    <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">
+                                        @candidate.Type
+                                    </MudText>
+                                    <MudProgressLinear Value="@(candidate.Confidence * 100)" Color="@ConfidenceColor(candidate.Confidence)"
+                                                       Size="Size.Small" Rounded="true" Style="width: 120px;" />
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary" Align="Align.Center">
+                                        @($"{candidate.Confidence:P0}")
+                                    </MudText>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary" Align="Align.Center"
+                                             Style="font-size: 0.7rem; max-width: 200px; word-break: break-word;">
+                                        @candidate.Reason
+                                    </MudText>
+                                </MudStack>
+                            </MudPaper>
                         }
-                    </MudSelect>
-                    <MudTextField T="string" @bind-Value="_searchQuery" Variant="Variant.Outlined"
-                                  Label="Search Term" Margin="Margin.Dense"
-                                  Style="flex: 1;"
-                                  OnKeyUp="@OnSearchKeyUp" />
-                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                               Disabled="@(string.IsNullOrWhiteSpace(_selectedProvider) || string.IsNullOrWhiteSpace(_searchQuery))"
-                               OnClick="@ExecuteSearchAsync">
-                        Search
+                    </MudStack>
+                }
+                else
+                {
+                    @* ── Provider + search bar ───────────────────────────── *@
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-3">
+                        <MudSelect T="string" @bind-Value="_selectedProvider" Dense="true"
+                                   Variant="Variant.Outlined" Label="Provider"
+                                   Style="max-width: 200px;" Margin="Margin.Dense">
+                            @foreach (var p in GetSlottedProviders(item.MediaType))
+                            {
+                                <MudSelectItem Value="@p.Name">@p.DisplayName</MudSelectItem>
+                            }
+                        </MudSelect>
+                        <MudTextField T="string" @bind-Value="_searchQuery" Variant="Variant.Outlined"
+                                      Label="Search Term" Margin="Margin.Dense"
+                                      Style="flex: 1;"
+                                      OnKeyUp="@OnSearchKeyUp" />
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                   Disabled="@(string.IsNullOrWhiteSpace(_selectedProvider) || string.IsNullOrWhiteSpace(_searchQuery))"
+                                   OnClick="@ExecuteSearchAsync">
+                            Search
+                        </MudButton>
+                    </MudStack>
+
+                    @* ── Search results ──────────────────────────────────── *@
+                    @if (_searching)
+                    {
+                        <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-2" />
+                    }
+
+                    @if (_searchResults.Count > 0)
+                    {
+                        <div style="max-height: 520px; overflow-y: auto; border: 1px solid var(--mud-palette-lines-default);
+                                    border-radius: 8px; background: var(--mud-palette-surface);">
+                            @foreach (var result in _searchResults)
+                            {
+                                <SearchResultCard Result="@result"
+                                                 OnSelected="@(r => SelectMatchAsync(item, r))" />
+                            }
+                        </div>
+                    }
+                    else if (_searchExecuted && !_searching)
+                    {
+                        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true">
+                            No results found. Try a different search term or provider.
+                        </MudAlert>
+                    }
+
+                    @* ── Manual edit ─────────────────────────────────────── *@
+                    <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Secondary"
+                               StartIcon="@Icons.Material.Filled.Edit"
+                               OnClick="@(() => OpenEditDialog(item))"
+                               Class="mt-2">
+                        Edit Manually
                     </MudButton>
-                </MudStack>
-
-                @* ── Search results ──────────────────────────────────── *@
-                @if (_searching)
-                {
-                    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-2" />
                 }
-
-                @if (_searchResults.Count > 0)
-                {
-                    <div style="max-height: 520px; overflow-y: auto; border: 1px solid var(--mud-palette-lines-default);
-                                border-radius: 8px; background: var(--mud-palette-surface);">
-                        @foreach (var result in _searchResults)
-                        {
-                            <SearchResultCard Result="@result"
-                                             OnSelected="@(r => SelectMatchAsync(item, r))" />
-                        }
-                    </div>
-                }
-                else if (_searchExecuted && !_searching)
-                {
-                    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true">
-                        No results found. Try a different search term or provider.
-                    </MudAlert>
-                }
-
-                @* ── Manual edit ─────────────────────────────────────── *@
-                <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Secondary"
-                           StartIcon="@Icons.Material.Filled.Edit"
-                           OnClick="@(() => OpenEditDialog(item))"
-                           Class="mt-2">
-                    Edit Manually
-                </MudButton>
             }
         </MudPaper>
     }
@@ -153,7 +191,7 @@ else
     // ── Filter state ──────────────────────────────────────────────────────
     private FilterMode _filterMode = FilterMode.All;
 
-    private enum FilterMode { All, ContentMatch, UniverseMatch }
+    private enum FilterMode { All, ContentMatch, UniverseMatch, MediaType }
 
     private static readonly HashSet<string> ContentMatchTriggers =
     [
@@ -168,15 +206,22 @@ else
         "MultipleQidMatches",
     ];
 
+    private static readonly HashSet<string> MediaTypeTriggers =
+    [
+        "AmbiguousMediaType",
+    ];
+
     private List<ReviewItemViewModel> FilteredItems => _filterMode switch
     {
         FilterMode.ContentMatch  => _items.Where(i => ContentMatchTriggers.Contains(i.Trigger)).ToList(),
         FilterMode.UniverseMatch => _items.Where(i => UniverseMatchTriggers.Contains(i.Trigger)).ToList(),
+        FilterMode.MediaType     => _items.Where(i => MediaTypeTriggers.Contains(i.Trigger)).ToList(),
         _                        => _items,
     };
 
     private int ContentMatchCount  => _items.Count(i => ContentMatchTriggers.Contains(i.Trigger));
     private int UniverseMatchCount => _items.Count(i => UniverseMatchTriggers.Contains(i.Trigger));
+    private int MediaTypeCount     => _items.Count(i => MediaTypeTriggers.Contains(i.Trigger));
 
     private void SetFilter(FilterMode mode)
     {
@@ -465,8 +510,58 @@ else
         "ArbiterNeedsReview"  => "Arbiter Flag",
         "ContentMatchFailed"  => "Content Match Failed",
         "UniverseMatchFailed" => "Universe Match Failed",
+        "AmbiguousMediaType"  => "Ambiguous Type",
         _                     => trigger,
     };
+
+    // ── Media type disambiguation helpers ─────────────────────────────
+
+    private sealed record MediaTypeCandidateView(string Type, double Confidence, string Reason);
+
+    private static List<MediaTypeCandidateView> ParseMediaTypeCandidates(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return [];
+
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            var result = new List<MediaTypeCandidateView>();
+            foreach (var element in doc.RootElement.EnumerateArray())
+            {
+                var type = element.GetProperty("type").GetString() ?? "Unknown";
+                var conf = element.GetProperty("confidence").GetDouble();
+                var reason = element.TryGetProperty("reason", out var r) ? r.GetString() ?? "" : "";
+                result.Add(new MediaTypeCandidateView(type, conf, reason));
+            }
+            return result;
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    private static Color ConfidenceColor(double confidence) => confidence switch
+    {
+        >= 0.70 => Color.Success,
+        >= 0.40 => Color.Warning,
+        _       => Color.Error,
+    };
+
+    private async Task ReclassifyAsync(ReviewItemViewModel item, string mediaType)
+    {
+        var ok = await Orchestrator.ReclassifyMediaTypeAsync(item.EntityId, mediaType);
+        if (ok)
+        {
+            _items.RemoveAll(i => i.Id == item.Id);
+            CollapseReviewPanel();
+            Snackbar.Add($"Reclassified as {mediaType}.", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add("Failed to reclassify. Check the Engine connection.", Severity.Error);
+        }
+    }
 
     public void Dispose()
     {

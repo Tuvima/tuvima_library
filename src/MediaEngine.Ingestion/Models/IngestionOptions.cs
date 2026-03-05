@@ -58,4 +58,21 @@ public sealed class IngestionOptions
     /// Default: <see langword="true"/>.
     /// </summary>
     public bool IncludeSubdirectories { get; set; } = true;
+
+    // ── Media Type Disambiguation ────────────────────────────────────
+
+    /// <summary>
+    /// Minimum confidence for auto-assigning a media type without review.
+    /// Populated from <c>config/disambiguation.json</c> at startup.
+    /// Default: 0.70.
+    /// </summary>
+    public double MediaTypeAutoAssignThreshold { get; set; } = 0.70;
+
+    /// <summary>
+    /// Minimum confidence for creating a review queue entry (provisional assignment).
+    /// Below this threshold, the file is assigned <c>MediaType.Unknown</c>.
+    /// Populated from <c>config/disambiguation.json</c> at startup.
+    /// Default: 0.40.
+    /// </summary>
+    public double MediaTypeReviewThreshold { get; set; } = 0.40;
 }

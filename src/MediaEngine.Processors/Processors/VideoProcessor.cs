@@ -1,4 +1,6 @@
+using System.Text.RegularExpressions;
 using MediaEngine.Domain.Enums;
+using MediaEngine.Domain.Models;
 using MediaEngine.Processors.Contracts;
 using MediaEngine.Processors.Models;
 
@@ -17,6 +19,14 @@ namespace MediaEngine.Processors.Processors;
 ///  • AVI: bytes 0-3 = "RIFF" + bytes 8-11 = "AVI " (RIFF/AVI)
 ///
 ///  At least 12 bytes are read for detection; no more than 16 are needed.
+///
+/// ──────────────────────────────────────────────────────────────────
+/// Disambiguation (Movie vs TV)
+/// ──────────────────────────────────────────────────────────────────
+///  All video containers are ambiguous between Movie and TV. Heuristic
+///  signals (filename patterns, duration, path keywords, file size)
+///  produce <see cref="MediaTypeCandidate"/> entries with confidence
+///  scores. The top candidate becomes <see cref="ProcessorResult.DetectedType"/>.
 ///
 /// ──────────────────────────────────────────────────────────────────
 /// Metadata extraction (spec: Phase 5 – Content Extraction; FFmpeg stub)
@@ -49,17 +59,16 @@ public sealed class VideoProcessor : IMediaProcessor
 
     /// <inheritdoc/>
     /// <remarks>
-    /// Defaults to <see cref="MediaType.Movies"/>; higher-level routing logic
-    /// may reclassify to <see cref="MediaType.TV"/> once episode metadata
-    /// has been reconciled against Hub canonical values.
+    /// Defaults to <see cref="MediaType.Movies"/>; when disambiguation
+    /// produces a top candidate of <see cref="MediaType.TV"/>, that type
+    /// is used instead.
     /// </remarks>
     public MediaType SupportedType => MediaType.Movies;
 
     /// <inheritdoc/>
     /// <remarks>
-    /// Priority 90 — below EpubProcessor (100) and above ComicProcessor (85),
-    /// but this processor's magic-byte signatures are distinct from ZIP-based
-    /// formats, so priority ordering has no practical effect on detection.
+    /// Priority 90 — below EpubProcessor (100) and AudioProcessor (95),
+    /// above ComicProcessor (85).
     /// </remarks>
     public int Priority => 90;
 
@@ -95,11 +104,16 @@ public sealed class VideoProcessor : IMediaProcessor
 
         ct.ThrowIfCancellationRequested();
 
+        var claims = BuildClaims(filePath, container, meta);
+        var candidates = BuildMediaTypeCandidates(filePath, meta);
+        var topType = candidates.Count > 0 ? candidates[0].Type : MediaType.Movies;
+
         return new ProcessorResult
         {
-            FilePath     = filePath,
-            DetectedType = MediaType.Movies,
-            Claims       = BuildClaims(filePath, container, meta),
+            FilePath            = filePath,
+            DetectedType        = topType,
+            Claims              = claims,
+            MediaTypeCandidates = candidates,
         };
     }
 
@@ -192,6 +206,162 @@ public sealed class VideoProcessor : IMediaProcessor
         }
 
         return claims;
+    }
+
+    // -------------------------------------------------------------------------
+    // Media type disambiguation (Movie vs TV)
+    // -------------------------------------------------------------------------
+
+    /// <summary>Default TV filename patterns (SxxExx, 1x01, etc.).</summary>
+    private static readonly Regex[] TvFilenamePatterns =
+    [
+        new(@"S\d{2}E\d{2}", RegexOptions.IgnoreCase | RegexOptions.Compiled),
+        new(@"\d{1,2}x\d{2}", RegexOptions.Compiled),
+    ];
+
+    private static List<MediaTypeCandidate> BuildMediaTypeCandidates(
+        string filePath, VideoMetadata? meta)
+    {
+        const double baseScore = 0.35;
+        double movieScore = baseScore;
+        double tvScore    = baseScore;
+
+        var reasons = new List<string>();
+
+        var filename = Path.GetFileNameWithoutExtension(filePath) ?? "";
+
+        // --- Filename pattern: SxxExx or NxNN ---
+        bool hasTvPattern = false;
+        foreach (var pattern in TvFilenamePatterns)
+        {
+            if (pattern.IsMatch(filename))
+            {
+                hasTvPattern = true;
+                break;
+            }
+        }
+
+        if (hasTvPattern)
+        {
+            movieScore -= 0.30;
+            tvScore    += 0.35;
+            reasons.Add("Filename matches TV pattern (SxxExx)");
+        }
+
+        // --- Duration ---
+        if (meta?.Duration is { TotalMinutes: > 0 } dur)
+        {
+            double minutes = dur.TotalMinutes;
+            if (minutes > 60)
+            {
+                movieScore += 0.20;
+                tvScore    -= 0.05;
+                reasons.Add($"Duration {minutes:F0}min (long, typical movie)");
+            }
+            else if (minutes is >= 15 and <= 45)
+            {
+                movieScore -= 0.10;
+                tvScore    += 0.20;
+                reasons.Add($"Duration {minutes:F0}min (typical TV episode)");
+            }
+        }
+
+        // --- Path keywords ---
+        var pathLower = filePath.Replace('\\', '/').ToLowerInvariant();
+        if (ContainsAny(pathLower, "season", "series", "tv", "show", "shows"))
+        {
+            movieScore -= 0.25;
+            tvScore    += 0.30;
+            reasons.Add("Path contains TV keyword");
+        }
+        else if (ContainsAny(pathLower, "movie", "movies", "film", "films"))
+        {
+            movieScore += 0.25;
+            tvScore    -= 0.20;
+            reasons.Add("Path contains movie keyword");
+        }
+
+        // --- File size ---
+        try
+        {
+            var fileSizeBytes = new FileInfo(filePath).Length;
+            double fileSizeGb = fileSizeBytes / (1024.0 * 1024 * 1024);
+            if (fileSizeGb > 4)
+            {
+                movieScore += 0.15;
+                tvScore    -= 0.05;
+                reasons.Add($"File size {fileSizeGb:F1}GB (large, typical movie)");
+            }
+        }
+        catch { /* ignore file access errors */ }
+
+        // --- Multiple similarly-named files in folder (episode batch) ---
+        try
+        {
+            var dir = Path.GetDirectoryName(filePath);
+            if (dir is not null)
+            {
+                var ext = Path.GetExtension(filePath);
+                var siblings = Directory.GetFiles(dir, $"*{ext}")
+                    .Where(f => !string.Equals(f, filePath, StringComparison.OrdinalIgnoreCase))
+                    .ToArray();
+
+                if (siblings.Length >= 3)
+                {
+                    movieScore -= 0.10;
+                    tvScore    += 0.20;
+                    reasons.Add($"{siblings.Length + 1} video files in folder (episode batch)");
+                }
+            }
+        }
+        catch { /* ignore directory access errors */ }
+
+        // Normalize scores to [0.0, 1.0]
+        var candidates = new List<(MediaType type, double score, string label)>
+        {
+            (MediaType.Movies, movieScore, "Movie"),
+            (MediaType.TV,     tvScore,    "TV"),
+        };
+
+        double maxScore = candidates.Max(c => c.score);
+        double minScore = candidates.Min(c => c.score);
+        double range    = maxScore - minScore;
+
+        var reasonStr = reasons.Count > 0
+            ? string.Join("; ", reasons)
+            : "No strong signals";
+
+        var result = new List<MediaTypeCandidate>();
+
+        foreach (var (type, score, label) in candidates.OrderByDescending(c => c.score))
+        {
+            // Normalize: if scores are equal, each gets 0.50.
+            // Otherwise, scale to [0.20, 0.90] range.
+            double normalized = range > 0
+                ? 0.20 + 0.70 * (score - minScore) / range
+                : 0.50;
+
+            result.Add(new MediaTypeCandidate
+            {
+                Type       = type,
+                Confidence = Math.Round(Math.Clamp(normalized, 0.10, 0.95), 2),
+                Reason     = $"{label}: {reasonStr}",
+            });
+        }
+
+        return result;
+    }
+
+    // -------------------------------------------------------------------------
+    // Helpers
+    // -------------------------------------------------------------------------
+
+    private static bool ContainsAny(string text, params string[] keywords)
+    {
+        foreach (var kw in keywords)
+            if (text.Contains(kw, StringComparison.OrdinalIgnoreCase))
+                return true;
+        return false;
     }
 
     private static ExtractedClaim Claim(string key, string value, double confidence) => new()

@@ -79,6 +79,18 @@ var host = Host.CreateDefaultBuilder(args)
             {
                 // First run — config may not yet have folder keys; appsettings.json values stand.
             }
+
+            // Overlay disambiguation thresholds from config/disambiguation.json.
+            try
+            {
+                var disambiguation = configLoader.LoadDisambiguation();
+                opts.MediaTypeAutoAssignThreshold = disambiguation.MediaTypeAutoAssignThreshold;
+                opts.MediaTypeReviewThreshold     = disambiguation.MediaTypeReviewThreshold;
+            }
+            catch
+            {
+                // First run — defaults from IngestionOptions stand.
+            }
         });
 
         // Bootstrap the default universe config if it doesn't exist yet.
@@ -115,6 +127,7 @@ var host = Host.CreateDefaultBuilder(args)
 
             // Processors ordered by priority (registry sorts internally).
             registry.Register(new EpubProcessor());
+            registry.Register(new AudioProcessor());
             registry.Register(new VideoProcessor(
                 sp.GetRequiredService<IVideoMetadataExtractor>()));
             registry.Register(new ComicProcessor());

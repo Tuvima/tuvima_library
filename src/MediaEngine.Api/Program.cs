@@ -143,6 +143,7 @@ builder.Services.AddSingleton<IProcessorRegistry>(sp =>
 {
     var registry = new MediaProcessorRegistry();
     registry.Register(new EpubProcessor());
+    registry.Register(new AudioProcessor());
     registry.Register(new VideoProcessor(sp.GetRequiredService<IVideoMetadataExtractor>()));
     registry.Register(new ComicProcessor());
     registry.Register(new GenericFileProcessor());
@@ -189,6 +190,18 @@ builder.Services.PostConfigure<IngestionOptions>(opts =>
     catch
     {
         // First run — config may not yet have folder keys; appsettings.json values stand.
+    }
+
+    // Overlay disambiguation thresholds from config/disambiguation.json.
+    try
+    {
+        var disambiguation = configLoader.LoadDisambiguation();
+        opts.MediaTypeAutoAssignThreshold = disambiguation.MediaTypeAutoAssignThreshold;
+        opts.MediaTypeReviewThreshold     = disambiguation.MediaTypeReviewThreshold;
+    }
+    catch
+    {
+        // First run — defaults from IngestionOptions stand.
     }
 });
 

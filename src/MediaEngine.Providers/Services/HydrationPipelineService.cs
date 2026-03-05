@@ -220,6 +220,50 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 new HydrationStageCompletedEvent(request.EntityId, 1, stage1Claims, "content_match"),
                 ct).ConfigureAwait(false);
 
+            // Post-hydration auto-resolve: if Stage 1 returned 3+ claims and this
+            // entity has a pending AmbiguousMediaType review item, the provider match
+            // confirms the media type — auto-resolve the review item.
+            if (stage1Claims >= 3 && request.EntityType == EntityType.MediaAsset)
+            {
+                try
+                {
+                    var reviews = await _reviewRepo.GetByEntityAsync(request.EntityId, ct)
+                        .ConfigureAwait(false);
+                    foreach (var review in reviews.Where(r =>
+                        r.Status == ReviewStatus.Pending &&
+                        r.Trigger == ReviewTrigger.AmbiguousMediaType))
+                    {
+                        await _reviewRepo.UpdateStatusAsync(
+                            review.Id, ReviewStatus.Resolved, "auto_hydration", ct)
+                            .ConfigureAwait(false);
+
+                        await _activityRepo.LogAsync(new SystemActivityEntry
+                        {
+                            ActionType = SystemActionType.ReviewItemResolved,
+                            EntityId   = request.EntityId,
+                            Detail     = $"AmbiguousMediaType auto-resolved: Stage 1 returned {stage1Claims} claims, confirming media type.",
+                        }, ct).ConfigureAwait(false);
+
+                        await _eventPublisher.PublishAsync("ReviewItemResolved", new
+                        {
+                            review_item_id = review.Id,
+                            entity_id      = request.EntityId,
+                            status         = "Resolved",
+                        }, ct).ConfigureAwait(false);
+
+                        _logger.LogInformation(
+                            "AmbiguousMediaType review auto-resolved for entity {Id} — {Claims} claims confirmed type",
+                            request.EntityId, stage1Claims);
+                    }
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _logger.LogWarning(ex,
+                        "Failed to auto-resolve AmbiguousMediaType review for entity {Id}",
+                        request.EntityId);
+                }
+            }
+
             // Write-back: write resolved metadata to the physical file after auto-match.
             if (request.EntityType == EntityType.MediaAsset)
             {

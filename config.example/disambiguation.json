@@ -1,0 +1,24 @@
+{
+  "media_type_auto_assign_threshold": 0.70,
+  "media_type_review_threshold": 0.40,
+  "audio_heuristics": {
+    "duration_long_minutes": 60,
+    "duration_short_minutes": 7,
+    "low_bitrate_kbps": 96,
+    "high_bitrate_kbps": 192,
+    "large_file_mb": 100,
+    "path_keywords_audiobook": ["audiobook", "audiobooks", "narrated"],
+    "path_keywords_music": ["music", "songs", "albums", "tracks"],
+    "path_keywords_podcast": ["podcast", "podcasts", "episodes"],
+    "genre_audiobook": ["audiobook", "speech", "spoken word"],
+    "genre_podcast": ["podcast"]
+  },
+  "video_heuristics": {
+    "tv_filename_patterns": ["S\\d{2}E\\d{2}", "\\d{1,2}x\\d{2}"],
+    "movie_duration_minutes": 60,
+    "tv_duration_range_minutes": [15, 45],
+    "large_file_gb": 4,
+    "path_keywords_movie": ["movie", "movies", "film", "films"],
+    "path_keywords_tv": ["season", "series", "tv", "show", "shows"]
+  }
+}

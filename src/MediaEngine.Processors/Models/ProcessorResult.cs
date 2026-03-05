@@ -1,4 +1,5 @@
 using MediaEngine.Domain.Enums;
+using MediaEngine.Domain.Models;
 
 namespace MediaEngine.Processors.Models;
 
@@ -57,4 +58,17 @@ public sealed class ProcessorResult
     /// <see langword="null"/> when <see cref="IsCorrupt"/> is <see langword="false"/>.
     /// </summary>
     public string? CorruptReason { get; init; }
+
+    /// <summary>
+    /// When non-empty, the processor detected an ambiguous container format
+    /// (e.g. MP3, M4A, MP4) that could map to multiple <see cref="MediaType"/> values.
+    /// Each candidate carries a heuristic confidence score and explanation.
+    ///
+    /// The ingestion engine uses these candidates instead of <see cref="DetectedType"/>
+    /// alone to resolve the correct media type via the Weighted Voter system.
+    /// <see cref="DetectedType"/> is set to the top candidate for backward compatibility.
+    ///
+    /// Empty for unambiguous formats (EPUB, CBZ, M4B, FLAC, etc.).
+    /// </summary>
+    public IReadOnlyList<MediaTypeCandidate> MediaTypeCandidates { get; init; } = [];
 }

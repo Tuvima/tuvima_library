@@ -745,9 +745,63 @@ Absorbed/removed tabs:
 - **Maintenance** — Pipeline configuration (timeouts, thresholds, concurrency) lives in `config/hydration.json` — zero code changes to tune behaviour. The dual-path architecture preserves backward compatibility with the existing person enrichment flow.
 - **Privacy** — Only titles, ISBNs, ASINs, and bridge IDs leave the machine. All review decisions and hydrated data live locally.
 
-### 3.14 — Playback & Streaming Architecture (Target State)
+### 3.14 — Media Type Disambiguation During Ingestion
 
-> **Note:** Sections 3.14–3.19 were renumbered when §3.13 (Three-Stage Hydration Pipeline) was inserted.
+**Plain English:** Some file formats map to multiple possible media types — an MP3 could be an audiobook, music, or a podcast; an MP4 could be a movie or a TV show. Magic bytes detect the container format but not the content type. This system uses heuristic signals (duration, genre tags, chapter markers, filename patterns, folder context) to vote on the most likely media type, routing ambiguous cases to the review queue for user resolution.
+
+**How it works:**
+
+Media type is treated as a **voted claim** — consistent with the Weighted Voter architecture. Multiple heuristic signals emit competing `media_type` candidates with varying confidence. The scoring engine resolves the winner.
+
+| Signal source | Confidence range | Examples |
+|---|---|---|
+| Magic bytes (unambiguous) | 0.95–1.0 | EPUB → Books, CBZ → Comics, M4B → Audiobooks |
+| Processor heuristics | 0.30–0.80 | Duration, bitrate, chapter markers, genre tag |
+| Filename/path patterns | 0.25–0.65 | "S01E01" → TV, path contains "audiobooks" |
+| User lock | 1.0 | Manual override (always wins) |
+
+**Confidence thresholds:**
+- **≥ 0.70** (`auto_assign_threshold`) — accept automatically, proceed normally
+- **0.40–0.70** (`review_threshold`) — accept provisionally, create `AmbiguousMediaType` review queue entry
+- **< 0.40** — assign `MediaType.Unknown`, block auto-organize, create review entry
+
+**AudioProcessor (new):**
+- Priority: **95** (above VideoProcessor at 90)
+- Unambiguous: M4B → Audiobooks (0.98), FLAC/OGG/WAV → Music (0.95)
+- Ambiguous (MP3, M4A): heuristic signals — duration bands, chapter markers, genre tags, album/track metadata, bitrate, path keywords, file size
+- Base score 0.25 per type (Audiobook, Music, Podcast), signals additive, normalized to [0.0, 1.0]
+
+**VideoProcessor (enhanced):**
+- Heuristic signals: TV filename patterns (`SxxExx`, `NxNN`), duration bands, path keywords, file size, sibling file count
+- Base score 0.35 per type (Movie, TV), signals additive, normalized to [0.20, 0.90]
+
+**Pipeline integration (Step 6a):**
+Inserted between Step 6 (Process) and canonical value persistence. When `ProcessorResult.MediaTypeCandidates` is non-empty, the top candidate's confidence is checked against thresholds. The auto-organize gate blocks organization when `mediaTypeNeedsReview` is true.
+
+**Review resolution:**
+- `POST /metadata/{entityId}/reclassify` — creates user-locked `media_type` claim at 1.0, upserts canonical value, resolves review item, re-triggers hydration
+- NeedsReviewTab shows candidate cards with confidence bars for `AmbiguousMediaType` items
+- Post-hydration auto-resolve: if Stage 1 returns ≥ 3 claims, auto-resolves pending `AmbiguousMediaType` review items
+
+**Configuration (`config.example/disambiguation.json`):**
+Thresholds and all heuristic parameters (duration bands, bitrate thresholds, path keywords, genre tags, TV filename patterns) are configurable. Thresholds are surfaced to `IngestionOptions` via `PostConfigure` (no new project references to Ingestion).
+
+**Key types:**
+- `MediaTypeCandidate` (`Tanaste.Domain.Models`) — candidate with Type, Confidence, Reason
+- `AudioProcessor` (`Tanaste.Processors.Processors`) — audio format detection + heuristic disambiguation
+- `DisambiguationSettings` (`Tanaste.Storage.Models`) — typed config model
+- `ProcessorResult.MediaTypeCandidates` — list of candidates emitted by processors
+- `ReviewTrigger.AmbiguousMediaType` — review queue trigger constant
+
+**Why this matters to the business:**
+- **Reliability** — Ambiguous files are surfaced for user decision instead of being silently misclassified. Unambiguous formats (EPUB, CBZ, M4B) continue to work exactly as before.
+- **Extensibility** — Adding new heuristic signals or adjusting weights requires only a config edit. The candidate voting pattern extends naturally to future media types (Music, Podcasts).
+- **Maintenance** — All thresholds and heuristic parameters live in `config/disambiguation.json`. Zero code changes to tune behaviour.
+- **Performance** — Heuristic analysis runs in-process during ingestion with no external calls. No impact on ingestion speed.
+
+### 3.15 — Playback & Streaming Architecture (Target State)
+
+> **Note:** Sections 3.15–3.20 were renumbered when §3.14 (Media Type Disambiguation) was inserted.
 
 > **Status:** Not yet implemented. This section describes the target architecture for in-browser media consumption.
 
@@ -791,7 +845,7 @@ Absorbed/removed tabs:
 - **Privacy** — All playback happens locally. No telemetry, no cloud sync.
 - **Performance** — Prefetching (comics), segmented serving (EPUB chapters), and byte-range streaming (audio/video) ensure smooth playback even for large files.
 
-### 3.15 — Authentication & Multi-User (Target State)
+### 3.16 — Authentication & Multi-User (Target State)
 
 > **Status:** Not yet implemented. Profiles exist with roles but no login system.
 
@@ -818,7 +872,7 @@ Absorbed/removed tabs:
 - **Reliability** — Session-based auth ensures progress is always attributed to the correct person.
 - **Extensibility** — OIDC support can be layered on later without changing the profile model.
 
-### 3.16 — Transcoding Pipeline (Target State)
+### 3.17 — Transcoding Pipeline (Target State)
 
 > **Status:** Not yet implemented. `IVideoMetadataExtractor` is a stub.
 
@@ -868,7 +922,7 @@ Absorbed/removed tabs:
 - **Extensibility** — Quality profiles are configurable. New profiles can be added without code changes.
 - **Maintenance** — Storage limits prevent shadow copies from consuming the entire drive.
 
-### 3.17 — Music Domain Model (Target State)
+### 3.18 — Music Domain Model (Target State)
 
 > **Status:** Not yet implemented. No music media type exists.
 
@@ -899,7 +953,7 @@ Absorbed/removed tabs:
 - **Maintenance** — MusicBrainz is a zero-key provider. Spotify requires a free API key but brings high-quality artwork.
 - **Privacy** — Only artist names and album titles are sent to external services.
 
-### 3.18 — Interoperability & Ecosystem (Target State)
+### 3.19 — Interoperability & Ecosystem (Target State)
 
 > **Status:** Not yet implemented.
 
@@ -938,7 +992,7 @@ Absorbed/removed tabs:
 - **Reliability** — The import wizard reduces migration friction. Users don't lose their existing watched/read progress.
 - **Privacy** — Webhooks are outbound-only and user-configured. No telemetry.
 
-### 3.19 — Browse & Discovery Pages (Target State)
+### 3.20 — Browse & Discovery Pages (Target State)
 
 > **Status:** Not yet implemented. Only the Home grid and Settings page exist.
 
@@ -1191,6 +1245,7 @@ git push
 | §3.8 (Activity Ledger) | `features/SETTINGS-OVERVIEW.md` | Maintenance tab, activity timeline |
 | §3.12 (Device Profiles) | `features/SETTINGS-OVERVIEW.md` | UI config cascade, device detection |
 | §3.13 (Hydration Pipeline) | `features/INGESTION-PIPELINE.md` | Three-stage pipeline, review queue |
+| §3.14 (Media Type Disambiguation) | `features/INGESTION-PIPELINE.md` | Heuristic disambiguation, confidence thresholds, review queue |
 | §6 (Dashboard Layout) | `skills/DASHBOARD-UI.md` | Feature-sliced file locations |
 | FIX-PLAN tiers | `FIX-PLAN.md` | Systematic fix plan, tier-based issue tracking |
 

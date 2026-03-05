@@ -442,6 +442,8 @@ file sealed class IntegrationConfigLoader : IConfigurationLoader
     public void SaveHydration(HydrationSettings settings) { }
     public ProviderSlotConfiguration LoadSlots() => new();
     public void SaveSlots(ProviderSlotConfiguration slots) { }
+    public DisambiguationSettings LoadDisambiguation() => new();
+    public void SaveDisambiguation(DisambiguationSettings settings) { }
     public MediaTypeConfiguration LoadMediaTypes() => new();
     public void SaveMediaTypes(MediaTypeConfiguration config) { }
     public ProviderConfiguration? LoadProvider(string name) => null;

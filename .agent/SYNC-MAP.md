@@ -1,6 +1,6 @@
 # Antigravity ↔ Claude Code — Sync Map
 
-> **Last synced:** 2026-03-04
+> **Last synced:** 2026-03-05
 >
 > **Canonical source of truth:** `CLAUDE.md` (repo root)
 >
@@ -21,7 +21,7 @@
 
 | `.agent/` file | `CLAUDE.md` section(s) | Content |
 |---|---|---|
-| `features/INGESTION-PIPELINE.md` | §3.1 (Watch Folder), §3.13 (Hydration Pipeline) | Ingestion flow, three-stage pipeline, review queue |
+| `features/INGESTION-PIPELINE.md` | §3.1 (Watch Folder), §3.13 (Hydration Pipeline), §3.14 (Media Type Disambiguation) | Ingestion flow, three-stage pipeline, review queue, media type disambiguation |
 | `features/METADATA-MANAGEMENT.md` | §3.2 (Weighted Voter), §3.6 (Metadata Adapters) | Claim system, trust weights, provider config |
 | `features/METADATA-PRIORITY.md` | §3.6 (Metadata Adapters) | Provider priority, field weights, harvest pipeline |
 | `features/API-SECURITY.md` | §3.3 (Security) | Auth, rate limiting, path traversal, SignalR auth |

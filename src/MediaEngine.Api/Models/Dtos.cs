@@ -960,3 +960,27 @@ public sealed class WatchFolderFileDto
     [JsonPropertyName("last_modified")]
     public DateTimeOffset LastModified { get; init; }
 }
+
+// ── POST /metadata/{entityId}/reclassify ──────────────────────────────────────
+
+public sealed class ReclassifyRequest
+{
+    /// <summary>The new media type to assign (e.g. "Audiobooks", "Music", "Movies", "TV").</summary>
+    [JsonPropertyName("media_type")]
+    public string MediaType { get; init; } = string.Empty;
+}
+
+public sealed class ReclassifyResponse
+{
+    [JsonPropertyName("entity_id")]
+    public Guid EntityId { get; init; }
+
+    [JsonPropertyName("new_media_type")]
+    public string NewMediaType { get; init; } = string.Empty;
+
+    [JsonPropertyName("reclassified_at")]
+    public DateTimeOffset ReclassifiedAt { get; init; }
+
+    [JsonPropertyName("review_resolved")]
+    public bool ReviewResolved { get; init; }
+}

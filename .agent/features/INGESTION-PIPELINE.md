@@ -1,6 +1,6 @@
 # Feature: Ingestion Pipeline
 
-> **Mirrors:** `CLAUDE.md` §3.1 (Watch Folder), §3.13 (Hydration Pipeline) — keep both in sync per `.agent/SYNC-MAP.md`
+> **Mirrors:** `CLAUDE.md` §3.1 (Watch Folder), §3.13 (Hydration Pipeline), §3.14 (Media Type Disambiguation) — keep both in sync per `.agent/SYNC-MAP.md`
 
 > Last audited: 2026-03-01 | Auditor: Claude (Product-Led Architect)
 
@@ -13,9 +13,10 @@ The user drops a file (book, movie, audiobook, comic) into a designated "Watch F
 1. **Detection** — The system notices the file within seconds.
 2. **Waiting** — It pauses briefly to make sure the file is fully copied (not half-written).
 3. **Fingerprinting** — It creates a unique barcode (SHA-256 hash) that permanently identifies this file, even if it's renamed or moved later.
-4. **Scanning** — The appropriate reader (EPUB, video, comic, or generic) opens the file and extracts all embedded information: title, author, year, cover art, series, etc.
-5. **Scoring** — The Weighted Voter evaluates all extracted data and determines the most trustworthy value for each field.
-6. **Hub assignment** — The system decides which Hub (story group) this file belongs to, or creates a new one.
+4. **Scanning** — The appropriate reader (EPUB, video, audio, comic, or generic) opens the file and extracts all embedded information: title, author, year, cover art, series, etc.
+5. **Media Type Disambiguation** — For ambiguous formats (MP3, M4A, MP4), heuristic signals (duration, genre tags, chapter markers, filename patterns, folder context) vote on the most likely media type. High-confidence results are accepted automatically; uncertain ones are sent to the review queue.
+6. **Scoring** — The Weighted Voter evaluates all extracted data and determines the most trustworthy value for each field.
+7. **Hub assignment** — The system decides which Hub (story group) this file belongs to, or creates a new one.
 7. **Organising** — If scoring confidence is high enough (≥85%) or the user has locked any metadata value, the file is moved to a clean, human-readable folder structure in the Library.
 8. **Sidecar writing** — A companion `tanaste.xml` file is written alongside the organised file, preserving all metadata in a human-readable format.
 9. **Cover art** — The cover image is extracted and saved as `cover.jpg` next to the file.
@@ -42,6 +43,10 @@ All of this happens without the user lifting a finger after the initial folder s
 | IPR-10 | Rapid-fire OS events for the same file are coalesced — only the final state is processed. | DebounceQueue (2-second settle delay) |
 | IPR-11 | Failed file-lock probes (file still in use after ~127 seconds) emit a failed candidate for logging, not a silent drop. | DebounceQueue (IsFailed flag) |
 | IPR-12 | On startup, existing files in the Watch Folder are scanned — the system reconciles its state without missing anything. | IngestionEngine (startup differential scan) |
+| IPR-13 | Ambiguous media types (MP3→Audiobook/Music/Podcast, MP4→Movie/TV) are resolved by heuristic signals. Confidence ≥0.70 = auto-accept; 0.40–0.70 = review queue; <0.40 = Unknown. | IngestionEngine (Step 6a) |
+| IPR-14 | Files with unresolved media type ambiguity are blocked from auto-organisation regardless of overall confidence. | IngestionEngine (auto-organize gate) |
+| IPR-15 | Post-hydration auto-resolve: if Stage 1 providers return ≥3 claims, pending AmbiguousMediaType review items are auto-resolved. | HydrationPipelineService |
+| IPR-16 | Users can reclassify media type at any time via `POST /metadata/{entityId}/reclassify`, which creates a user-locked claim and re-triggers hydration. | MetadataEndpoints |
 
 ---
 
@@ -52,7 +57,8 @@ All of this happens without the user lifting a finger after the initial folder s
 | File detection (FileWatcher) | **PASS** | Correct, with 64KB buffer to reduce missed events. |
 | Debounce & settle (DebounceQueue) | **PASS** | Sophisticated concurrency model with proper cancellation. |
 | Hashing (AssetHasher) | **PASS** | Performant, zero-allocation streaming SHA-256. |
-| Media processing (Processors) | **PASS** | EPUB, Video, Comic, and Generic processors all working. |
+| Media processing (Processors) | **PASS** | EPUB, Video, Audio, Comic, and Generic processors all working. |
+| Media type disambiguation | **PASS** | AudioProcessor and VideoProcessor emit heuristic candidates. Step 6a resolves with confidence thresholds. Review queue integration working. |
 | Scoring integration | **PASS** | Per-field scoring with conflict detection. |
 | Auto-organisation | **PASS** | Confidence gate, template-based paths, collision-safe moves. |
 | Sidecar writing | **PASS** | Both Hub and Edition XML schemas functional. |

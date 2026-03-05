@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Hosting;
+﻿using System.Text.Json;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using MediaEngine.Domain.Aggregates;
@@ -411,7 +412,48 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             })
             .ToList();
 
-        // Always persist the detected media_type as a canonical value so that
+        // Step 6a: media type resolution from processor candidates.
+        // When a processor emits MediaTypeCandidates (ambiguous formats like MP3, MP4),
+        // the top candidate's confidence determines auto-assign vs review queue.
+        var resolvedMediaType = result.DetectedType;
+        bool mediaTypeIsConflicted = false;
+        bool mediaTypeNeedsReview  = false;
+
+        if (result.MediaTypeCandidates.Count > 0)
+        {
+            var topCandidate = result.MediaTypeCandidates[0];
+
+            if (topCandidate.Confidence >= _options.MediaTypeAutoAssignThreshold)
+            {
+                // High confidence — accept automatically.
+                resolvedMediaType = topCandidate.Type;
+                _logger.LogInformation(
+                    "Media type auto-assigned: {Type} ({Confidence:P0}) for {Path}",
+                    topCandidate.Type, topCandidate.Confidence, candidate.Path);
+            }
+            else if (topCandidate.Confidence >= _options.MediaTypeReviewThreshold)
+            {
+                // Medium confidence — accept provisionally, flag for review.
+                resolvedMediaType     = topCandidate.Type;
+                mediaTypeIsConflicted = true;
+                mediaTypeNeedsReview  = true;
+                _logger.LogInformation(
+                    "Media type provisional: {Type} ({Confidence:P0}) for {Path} — flagged for review",
+                    topCandidate.Type, topCandidate.Confidence, candidate.Path);
+            }
+            else
+            {
+                // Low confidence — assign Unknown, flag for review.
+                resolvedMediaType     = MediaType.Unknown;
+                mediaTypeIsConflicted = true;
+                mediaTypeNeedsReview  = true;
+                _logger.LogWarning(
+                    "Media type ambiguous ({Confidence:P0}) for {Path} — assigned Unknown, flagged for review",
+                    topCandidate.Confidence, candidate.Path);
+            }
+        }
+
+        // Always persist the resolved media_type as a canonical value so that
         // TryReorganizeExistingAsync (and any future re-score) knows the file type.
         // Without this, re-organization from canonical values loses the media type
         // and defaults to "Other".
@@ -419,22 +461,42 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         {
             EntityId     = assetId,
             Key          = "media_type",
-            Value        = result.DetectedType.ToString(),
+            Value        = resolvedMediaType.ToString(),
             LastScoredAt = scored.ScoredAt,
-            IsConflicted = false,
+            IsConflicted = mediaTypeIsConflicted,
         });
 
         await _canonicalRepo.UpsertBatchAsync(canonicals, ct).ConfigureAwait(false);
 
+        // Create AmbiguousMediaType review item when media type confidence is below threshold.
+        if (mediaTypeNeedsReview && result.MediaTypeCandidates.Count > 0)
+        {
+            var candidatesJson = JsonSerializer.Serialize(
+                result.MediaTypeCandidates.Select(c => new
+                {
+                    type       = c.Type.ToString(),
+                    confidence = c.Confidence,
+                    reason     = c.Reason,
+                }),
+                new JsonSerializerOptions { WriteIndented = false });
+
+            await CreateAmbiguousMediaTypeReviewItemAsync(
+                assetId,
+                result.MediaTypeCandidates[0].Confidence,
+                candidatesJson,
+                result.MediaTypeCandidates[0].Reason,
+                ct).ConfigureAwait(false);
+        }
+
         // Enrich the candidate with resolved metadata.
         candidate.Metadata          = BuildMetadataDict(scored);
-        candidate.DetectedMediaType = result.DetectedType;
+        candidate.DetectedMediaType = resolvedMediaType;
 
         // Step 9b: create Hub → Work → Edition chain so the FK on media_assets
         // can be satisfied.  The factory reuses an existing Hub when a matching
         // display name is found; otherwise it creates a fresh chain.
         var editionId = await _chainFactory.EnsureEntityChainAsync(
-            result.DetectedType,
+            resolvedMediaType,
             candidate.Metadata,
             ct).ConfigureAwait(false);
 
@@ -472,7 +534,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
         _logger.LogInformation(
             "Ingested [{Type}] '{Title}' (confidence={Confidence:P0}, hash={Hash})",
-            result.DetectedType, resolvedTitle, scored.OverallConfidence, hash.Hex[..12]);
+            resolvedMediaType, resolvedTitle, scored.OverallConfidence, hash.Hex[..12]);
 
         // Log to activity ledger so the Activity tab shows what was ingested and matched.
         string confidenceLabel = scored.OverallConfidence >= 0.85 ? "auto-matched" : "low confidence";
@@ -483,12 +545,12 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             EntityId   = assetId,
             EntityType = "MediaAsset",
             HubName    = resolvedTitle,
-            Detail     = $"{result.DetectedType}: \"{resolvedTitle}\"{authorPart} — {confidenceLabel} ({scored.OverallConfidence:P0}). Source: {Path.GetFileName(candidate.Path)}.",
+            Detail     = $"{resolvedMediaType}: \"{resolvedTitle}\"{authorPart} — {confidenceLabel} ({scored.OverallConfidence:P0}). Source: {Path.GetFileName(candidate.Path)}.",
         }, ct).ConfigureAwait(false);
 
         await SafePublishAsync("IngestionCompleted", new IngestionCompletedEvent(
             candidate.Path,
-            result.DetectedType.ToString(),
+            resolvedMediaType.ToString(),
             DateTimeOffset.UtcNow), ct).ConfigureAwait(false);
 
         // Phase 9→Pipeline: enqueue non-blocking three-stage hydration pipeline.
@@ -496,7 +558,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         {
             EntityId   = assetId,
             EntityType = EntityType.MediaAsset,
-            MediaType  = result.DetectedType,
+            MediaType  = resolvedMediaType,
             Hints      = BuildHints(candidate.Metadata),
         }, ct).ConfigureAwait(false);
 
@@ -521,9 +583,11 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         // to the library structure before enough information is available.
         // Additional guard: if the resolved category is "Other" (unknown/unmapped
         // media type), always flag for review instead of organizing.
+        // Disambiguation guard: if media type is ambiguous (needs review), block
+        // organization until the user resolves the type.
         bool hasUserLock    = claims.Any(c => c.IsUserLocked);
         bool highConfidence = scored.OverallConfidence >= 0.85;
-        bool passesGate     = highConfidence || hasUserLock;
+        bool passesGate     = (highConfidence || hasUserLock) && !mediaTypeNeedsReview;
 
         string currentPath = candidate.Path;
         if (_options.AutoOrganize
@@ -547,7 +611,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
                 await CreateIngestionReviewItemAsync(
                     assetId, ReviewTrigger.LowConfidence, scored.OverallConfidence,
-                    $"File would be organized into 'Other' category (media type: {result.DetectedType}). " +
+                    $"File would be organized into 'Other' category (media type: {resolvedMediaType}). " +
                     "Manual review required.",
                     ct).ConfigureAwait(false);
             }
@@ -1194,6 +1258,72 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             // Review item creation failure must not abort the ingestion pipeline.
             _logger.LogWarning(ex,
                 "Failed to create review item for entity {Id}", entityId);
+        }
+    }
+
+    /// <summary>
+    /// Creates an <see cref="ReviewTrigger.AmbiguousMediaType"/> review queue entry
+    /// with the full list of media type candidates serialized as JSON.
+    /// </summary>
+    private async Task CreateAmbiguousMediaTypeReviewItemAsync(
+        Guid entityId,
+        double confidence,
+        string candidatesJson,
+        string detail,
+        CancellationToken ct)
+    {
+        try
+        {
+            var existing = await _reviewRepo.GetByEntityAsync(entityId, ct)
+                .ConfigureAwait(false);
+
+            if (existing.Any(r => r.Status == Domain.Enums.ReviewStatus.Pending
+                                  && r.Trigger == ReviewTrigger.AmbiguousMediaType))
+            {
+                _logger.LogDebug(
+                    "AmbiguousMediaType review item already exists for entity {Id} — skipping.",
+                    entityId);
+                return;
+            }
+
+            var entry = new ReviewQueueEntry
+            {
+                Id              = Guid.NewGuid(),
+                EntityId        = entityId,
+                EntityType      = "MediaAsset",
+                Trigger         = ReviewTrigger.AmbiguousMediaType,
+                ConfidenceScore = confidence,
+                CandidatesJson  = candidatesJson,
+                Detail          = detail,
+                CreatedAt       = DateTimeOffset.UtcNow,
+            };
+
+            await _reviewRepo.InsertAsync(entry, ct).ConfigureAwait(false);
+
+            await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
+            {
+                ActionType = Domain.Enums.SystemActionType.ReviewItemCreated,
+                EntityId   = entityId,
+                EntityType = "MediaAsset",
+                Detail     = $"Ambiguous media type: {detail}",
+            }, ct).ConfigureAwait(false);
+
+            await SafePublishAsync("ReviewItemCreated", new
+            {
+                review_id   = entry.Id,
+                entity_id   = entityId,
+                trigger     = ReviewTrigger.AmbiguousMediaType,
+                confidence,
+            }, ct).ConfigureAwait(false);
+
+            _logger.LogInformation(
+                "AmbiguousMediaType review item created for entity {Id}: {Detail}",
+                entityId, detail);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Failed to create AmbiguousMediaType review item for entity {Id}", entityId);
         }
     }
 

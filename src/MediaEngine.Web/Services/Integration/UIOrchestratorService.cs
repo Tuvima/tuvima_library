@@ -363,6 +363,19 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         return ok;
     }
 
+    /// <summary>Reclassifies a media asset to a different media type.</summary>
+    public async Task<bool> ReclassifyMediaTypeAsync(
+        Guid entityId, string mediaType, CancellationToken ct = default)
+    {
+        var ok = await _api.ReclassifyMediaTypeAsync(entityId, mediaType, ct);
+        if (ok)
+        {
+            _reviewCount = Math.Max(0, _reviewCount - 1);
+            _state.Invalidate();
+        }
+        return ok;
+    }
+
     /// <summary>Fires when the review count changes (from SignalR events or explicit actions).</summary>
     public event Action? OnReviewCountChanged;
 

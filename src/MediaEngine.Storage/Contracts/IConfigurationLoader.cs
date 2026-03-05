@@ -60,6 +60,14 @@ public interface IConfigurationLoader
     /// <summary>Persist provider slot assignments to <c>config/slots.json</c>.</summary>
     void SaveSlots(ProviderSlotConfiguration slots);
 
+    // ── Disambiguation ─────────────────────────────────────────────────────
+
+    /// <summary>Load media type disambiguation settings from <c>config/disambiguation.json</c>.</summary>
+    DisambiguationSettings LoadDisambiguation();
+
+    /// <summary>Persist disambiguation settings to <c>config/disambiguation.json</c>.</summary>
+    void SaveDisambiguation(DisambiguationSettings settings);
+
     // ── Media Types ──────────────────────────────────────────────────────────
 
     /// <summary>Load media type definitions from <c>config/media_types.json</c>.</summary>

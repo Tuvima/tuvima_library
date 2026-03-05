@@ -3,6 +3,7 @@ using MediaEngine.Api.Security;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
+using MediaEngine.Domain.Models;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Models;
 using MediaEngine.Storage.Contracts;
@@ -391,6 +392,117 @@ public static class MetadataEndpoints
         .WithName("OverrideMetadata")
         .WithSummary("Manually override metadata fields for an entity. Creates user-locked claims at confidence 1.0.")
         .Produces<MetadataOverrideResponse>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
+        .RequireAdminOrCurator();
+
+        // ── POST /metadata/{entityId}/reclassify ──────────────────────────────
+        group.MapPost("/{entityId:guid}/reclassify", async (
+            Guid entityId,
+            ReclassifyRequest request,
+            IMetadataClaimRepository claimRepo,
+            ICanonicalValueRepository canonicalRepo,
+            IReviewQueueRepository reviewRepo,
+            IHydrationPipelineService pipeline,
+            IEventPublisher publisher,
+            ISystemActivityRepository activityRepo,
+            CancellationToken ct) =>
+        {
+            if (string.IsNullOrWhiteSpace(request.MediaType))
+                return Results.BadRequest("media_type is required.");
+
+            // Validate the media type string parses to a known MediaType enum value.
+            if (!Enum.TryParse<Domain.Enums.MediaType>(request.MediaType, ignoreCase: true, out var newMediaType)
+                || newMediaType == Domain.Enums.MediaType.Unknown)
+            {
+                return Results.BadRequest($"Invalid media type: {request.MediaType}");
+            }
+
+            var now = DateTimeOffset.UtcNow;
+
+            // 1. Create a user-locked media_type claim at confidence 1.0.
+            var claim = new MetadataClaim
+            {
+                Id           = Guid.NewGuid(),
+                EntityId     = entityId,
+                ProviderId   = UserManualProviderId,
+                ClaimKey     = "media_type",
+                ClaimValue   = newMediaType.ToString(),
+                Confidence   = 1.0,
+                ClaimedAt    = now,
+                IsUserLocked = true,
+            };
+            await claimRepo.InsertBatchAsync([claim], ct);
+
+            // 2. Upsert the canonical media_type value.
+            await canonicalRepo.UpsertBatchAsync([new CanonicalValue
+            {
+                EntityId     = entityId,
+                Key          = "media_type",
+                Value        = newMediaType.ToString(),
+                LastScoredAt = now,
+                IsConflicted = false,
+            }], ct);
+
+            // 3. Resolve any pending AmbiguousMediaType review items for this entity.
+            bool reviewResolved = false;
+            var reviews = await reviewRepo.GetByEntityAsync(entityId, ct);
+            foreach (var review in reviews.Where(r =>
+                r.Status == ReviewStatus.Pending &&
+                r.Trigger == ReviewTrigger.AmbiguousMediaType))
+            {
+                await reviewRepo.UpdateStatusAsync(review.Id, ReviewStatus.Resolved, "user", ct);
+                reviewResolved = true;
+            }
+
+            // 4. Re-trigger hydration with the correct media type.
+            var canonicals = await canonicalRepo.GetByEntityAsync(entityId, ct);
+            var hints = canonicals.ToDictionary(
+                c => c.Key, c => c.Value, StringComparer.OrdinalIgnoreCase);
+
+            await pipeline.EnqueueAsync(new HarvestRequest
+            {
+                EntityId   = entityId,
+                EntityType = EntityType.MediaAsset,
+                MediaType  = newMediaType,
+                Hints      = hints,
+            }, ct);
+
+            // 5. Log activity.
+            await activityRepo.LogAsync(new SystemActivityEntry
+            {
+                ActionType = SystemActionType.MetadataRefreshed,
+                EntityId   = entityId,
+                EntityType = "MediaAsset",
+                Detail     = $"Media type reclassified to {newMediaType} by user.",
+            }, ct);
+
+            // 6. Broadcast events.
+            await publisher.PublishAsync("MetadataHarvested", new
+            {
+                entity_id  = entityId,
+                media_type = newMediaType.ToString(),
+            }, ct);
+
+            if (reviewResolved)
+            {
+                await publisher.PublishAsync("ReviewItemResolved", new
+                {
+                    entity_id = entityId,
+                    status    = "Resolved",
+                }, ct);
+            }
+
+            return Results.Ok(new ReclassifyResponse
+            {
+                EntityId        = entityId,
+                NewMediaType    = newMediaType.ToString(),
+                ReclassifiedAt  = now,
+                ReviewResolved  = reviewResolved,
+            });
+        })
+        .WithName("ReclassifyMediaType")
+        .WithSummary("Reclassify a media asset to a different media type. Creates a user-locked claim and re-triggers hydration.")
+        .Produces<ReclassifyResponse>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status400BadRequest)
         .RequireAdminOrCurator();
 

@@ -727,6 +727,19 @@ public sealed class EngineApiClient : IEngineApiClient
         catch { return false; }
     }
 
+    public async Task<bool> ReclassifyMediaTypeAsync(
+        Guid entityId, string mediaType, CancellationToken ct = default)
+    {
+        try
+        {
+            var resp = await _http.PostAsJsonAsync(
+                $"/metadata/{entityId}/reclassify",
+                new { media_type = mediaType }, ct);
+            return resp.IsSuccessStatusCode;
+        }
+        catch { return false; }
+    }
+
     // ── Provider slots (/settings/provider-slots) ───────────────────────
 
     public async Task<Dictionary<string, ProviderSlotDto>?> GetProviderSlotsAsync(

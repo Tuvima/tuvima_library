@@ -9,4 +9,9 @@
     <PackageReference Include="VersOne.Epub" />
   </ItemGroup>
 
+  <!-- TagLibSharp: Audio metadata reader (ID3, MP4 atoms, Vorbis); LGPL-2.1. -->
+  <ItemGroup>
+    <PackageReference Include="TagLibSharp" />
+  </ItemGroup>
+
 </Project>
