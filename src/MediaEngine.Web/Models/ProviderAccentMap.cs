@@ -23,6 +23,7 @@ public static class ProviderAccentMap
         "wikidata"              => ("#339966", Icons.Material.Filled.Hub),
         "tmdb"                  => ("#01B4E4", Icons.Material.Filled.Movie),
         "comic_vine"            => ("#E91E63", Icons.Material.Filled.AutoStories),
+        "musicbrainz"           => ("#BA478F", Icons.Material.Filled.MusicNote),
         _                       => ("#90A4AE", Icons.Material.Filled.Cloud),
     };
 
@@ -36,6 +37,7 @@ public static class ProviderAccentMap
         "wikidata"              => "Wikidata",
         "tmdb"                  => "TMDB",
         "comic_vine"            => "Comic Vine",
+        "musicbrainz"           => "MusicBrainz",
         _                       => FormatProviderName(providerKey),
     };
 

@@ -42,6 +42,7 @@ public static class SettingsEndpoints
             ["google_books"]          = "Google Books",
             ["tmdb"]                  = "TMDB",
             ["comic_vine"]            = "Comic Vine",
+            ["musicbrainz"]           = "MusicBrainz",
         };
 
     // Maps provider name → key in manifest.ProviderEndpoints for the reachability probe.
@@ -55,6 +56,7 @@ public static class SettingsEndpoints
             ["google_books"]          = "google_books",
             ["tmdb"]                  = "tmdb",
             ["comic_vine"]            = "comic_vine",
+            ["musicbrainz"]           = "musicbrainz",
         };
 
     public static IEndpointRouteBuilder MapSettingsEndpoints(this IEndpointRouteBuilder app)
