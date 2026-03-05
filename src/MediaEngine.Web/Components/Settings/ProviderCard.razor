@@ -59,93 +59,95 @@
     }
 </div>
 
-@* Config flyout popover *@
-@if (_flyoutOpen)
-{
-    <MudPaper Elevation="4" Class="provider-flyout">
-        <MudStack Spacing="3">
-            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
-                <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">
-                    @ProviderAccentMap.GetDisplayName(Provider.Name) Settings
-                </MudText>
-                <MudIconButton Icon="@Icons.Material.Filled.Close"
-                               Size="Size.Small"
-                               OnClick="@CloseFlyout" />
-            </MudStack>
+@* Config flyout — rendered via MudPopover (portal) so it escapes the card's stacking context *@
+<MudPopover Open="@_flyoutOpen"
+            AnchorOrigin="Origin.BottomRight"
+            TransformOrigin="Origin.TopRight"
+            Paper="true"
+            Elevation="8"
+            Class="provider-flyout-popover">
+    <MudStack Spacing="3">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+            <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">
+                @ProviderAccentMap.GetDisplayName(Provider.Name) Settings
+            </MudText>
+            <MudIconButton Icon="@Icons.Material.Filled.Close"
+                           Size="Size.Small"
+                           OnClick="@CloseFlyout" />
+        </MudStack>
 
-            @* Endpoint *@
+        @* Endpoint *@
+        <MudTextField T="string"
+                      @bind-Value="_editEndpoint"
+                      Label="Endpoint URL"
+                      Variant="Variant.Outlined"
+                      Margin="Margin.Dense"
+                      Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Filled.Language" />
+
+        @* Timeout *@
+        <MudNumericField T="int"
+                         @bind-Value="_editTimeout"
+                         Label="Timeout (seconds)"
+                         Variant="Variant.Outlined"
+                         Margin="Margin.Dense"
+                         Min="1" Max="120"
+                         Adornment="Adornment.Start"
+                         AdornmentIcon="@Icons.Material.Filled.Timer" />
+
+        @* Throttle *@
+        <MudNumericField T="int"
+                         @bind-Value="_editThrottle"
+                         Label="Throttle (ms between requests)"
+                         Variant="Variant.Outlined"
+                         Margin="Margin.Dense"
+                         Min="0" Max="60000"
+                         Adornment="Adornment.Start"
+                         AdornmentIcon="@Icons.Material.Filled.Speed" />
+
+        @* API Key — only shown when provider requires one *@
+        @if (Provider.RequiresApiKey)
+        {
             <MudTextField T="string"
-                          @bind-Value="_editEndpoint"
-                          Label="Endpoint URL"
+                          @bind-Value="_editApiKey"
+                          Label="API Key"
                           Variant="Variant.Outlined"
                           Margin="Margin.Dense"
-                          Adornment="Adornment.Start"
-                          AdornmentIcon="@Icons.Material.Filled.Language" />
+                          InputType="@(_showApiKey ? InputType.Text : InputType.Password)"
+                          Placeholder="Enter your API key"
+                          Adornment="Adornment.End"
+                          AdornmentIcon="@(_showApiKey ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
+                          OnAdornmentClick="@(() => _showApiKey = !_showApiKey)" />
 
-            @* Timeout *@
-            <MudNumericField T="int"
-                             @bind-Value="_editTimeout"
-                             Label="Timeout (seconds)"
-                             Variant="Variant.Outlined"
-                             Margin="Margin.Dense"
-                             Min="1" Max="120"
-                             Adornment="Adornment.Start"
-                             AdornmentIcon="@Icons.Material.Filled.Timer" />
+            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                @GetApiKeyHelpText()
+            </MudText>
+        }
 
-            @* Throttle *@
-            <MudNumericField T="int"
-                             @bind-Value="_editThrottle"
-                             Label="Throttle (ms between requests)"
-                             Variant="Variant.Outlined"
-                             Margin="Margin.Dense"
-                             Min="0" Max="60000"
-                             Adornment="Adornment.Start"
-                             AdornmentIcon="@Icons.Material.Filled.Speed" />
+        @* Enabled toggle *@
+        <MudSwitch T="bool" @bind-Value="_editEnabled"
+                   Label="Enabled" Color="Color.Primary" />
 
-            @* API Key — only shown when provider requires one *@
-            @if (Provider.RequiresApiKey)
-            {
-                <MudTextField T="string"
-                              @bind-Value="_editApiKey"
-                              Label="API Key"
-                              Variant="Variant.Outlined"
-                              Margin="Margin.Dense"
-                              InputType="@(_showApiKey ? InputType.Text : InputType.Password)"
-                              Placeholder="Enter your API key"
-                              Adornment="Adornment.End"
-                              AdornmentIcon="@(_showApiKey ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
-                              OnAdornmentClick="@(() => _showApiKey = !_showApiKey)" />
-
-                <MudText Typo="Typo.caption" Color="Color.Secondary">
-                    @GetApiKeyHelpText()
-                </MudText>
-            }
-
-            @* Enabled toggle *@
-            <MudSwitch T="bool" @bind-Value="_editEnabled"
-                       Label="Enabled" Color="Color.Primary" />
-
-            @* Action buttons *@
-            <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2">
-                <MudButton Variant="Variant.Text"
-                           Color="Color.Default"
-                           Size="Size.Small"
-                           OnClick="@CloseFlyout">Cancel</MudButton>
-                <MudButton Variant="Variant.Filled"
-                           Color="Color.Primary"
-                           Size="Size.Small"
-                           OnClick="@SaveConfigAsync"
-                           Disabled="@_saving">
-                    @if (_saving)
-                    {
-                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
-                    }
-                    Save
-                </MudButton>
-            </MudStack>
+        @* Action buttons *@
+        <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2">
+            <MudButton Variant="Variant.Text"
+                       Color="Color.Default"
+                       Size="Size.Small"
+                       OnClick="@CloseFlyout">Cancel</MudButton>
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       Size="Size.Small"
+                       OnClick="@SaveConfigAsync"
+                       Disabled="@_saving">
+                @if (_saving)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                }
+                Save
+            </MudButton>
         </MudStack>
-    </MudPaper>
-}
+    </MudStack>
+</MudPopover>
 
 @code {
     /// <summary>The provider status data to display.</summary>
@@ -324,19 +326,15 @@
         box-shadow: 0 0 4px rgba(244, 67, 54, 0.5);
     }
 
-    /* Config flyout */
-    .provider-flyout {
-        position: absolute;
-        top: calc(100% + 8px);
-        right: 0;
-        z-index: 1000;
+    /* Config flyout — styled via MudPopover portal (z-index handled by MudBlazor) */
+    .provider-flyout-popover {
         width: 360px;
         padding: 20px;
-        border-radius: 16px;
-        background: var(--app-glass-bg, rgba(30, 30, 30, 0.95));
-        border: 1px solid var(--app-glass-border, rgba(255,255,255,0.1));
+        border-radius: 16px !important;
+        background: var(--app-glass-bg, rgba(30, 30, 30, 0.95)) !important;
+        border: 1px solid var(--app-glass-border, rgba(255,255,255,0.1)) !important;
         backdrop-filter: blur(20px);
         -webkit-backdrop-filter: blur(20px);
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important;
     }
 </style>

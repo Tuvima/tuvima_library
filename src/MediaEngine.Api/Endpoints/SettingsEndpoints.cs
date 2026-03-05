@@ -53,6 +53,8 @@ public static class SettingsEndpoints
             ["wikidata"]              = "wikidata_api",
             ["open_library"]          = "open_library",
             ["google_books"]          = "google_books",
+            ["tmdb"]                  = "tmdb",
+            ["comic_vine"]            = "comic_vine",
         };
 
     public static IEndpointRouteBuilder MapSettingsEndpoints(this IEndpointRouteBuilder app)

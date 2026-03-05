@@ -17,6 +17,7 @@ using MediaEngine.Processors.Contracts;
 using MediaEngine.Processors.Processors;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
+using MediaEngine.Storage.Models;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Providers.Adapters;
 using MediaEngine.Providers.Contracts;
