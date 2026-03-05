@@ -48,227 +48,257 @@
             </MudStack>
         </MudPaper>
 
-        @* ── Media type tabs ──────────────────────────────────────────────── *@
-        <MudStack Row="true" AlignItems="AlignItems.End" Spacing="2" Class="mb-2">
-            <MudTabs Elevation="0" Rounded="true" ApplyEffectsToContainer="true"
-                     ActivePanelIndexChanged="@OnTabChanged" Style="flex: 1;">
-                @foreach (var def in _mediaTypeDefinitions)
-                {
-                    <MudTabPanel>
-                        <TabContent>
-                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
-                                <MudIcon Icon="@ResolveIcon(def.Icon)" Size="Size.Small" />
-                                <MudText>@def.DisplayName</MudText>
-                                <MudIconButton Icon="@Icons.Material.Filled.MoreVert"
-                                               Size="Size.Small"
-                                               Color="Color.Default"
-                                               title="Configure media type"
-                                               OnClick="@(() => OpenMediaTypeConfig(def))"
-                                               Style="opacity: 0.5; margin-left: 2px;" />
-                            </MudStack>
-                        </TabContent>
+        @* ── Media type selector cards ─────────────────────────────────────── *@
+        <div class="media-type-cards-row">
+            @foreach (var def in _mediaTypeDefinitions)
+            {
+                var isActive = string.Equals(def.DisplayName, _activeMediaType, StringComparison.Ordinal);
+                <div class="media-type-card @(isActive ? "media-type-card-active" : "")"
+                     @onclick="@(() => _activeMediaType = def.DisplayName)">
+                    <MudIcon Icon="@ResolveIcon(def.Icon)" Size="Size.Large"
+                             Style="@($"color: {(isActive ? "var(--mud-palette-primary)" : "var(--app-text-muted)")};")"/>
+                    <MudText Typo="Typo.caption" Style="@($"font-weight: {(isActive ? "600" : "400")}; color: {(isActive ? "var(--mud-palette-primary-text)" : "var(--app-text-muted)")};")">
+                        @def.DisplayName
+                    </MudText>
+                    <span class="media-type-card-menu" @onclick:stopPropagation="true">
+                        <MudIconButton Icon="@Icons.Material.Filled.MoreVert"
+                                       Size="Size.Small"
+                                       Color="@(isActive ? Color.Primary : Color.Default)"
+                                       title="Configure media type"
+                                       OnClick="@(() => OpenMediaTypeConfigDialog(def))" />
+                    </span>
+                </div>
+            }
+            @* Add media type *@
+            <MudTooltip Text="Add custom media type" Arrow="true" Placement="Placement.Top">
+                <div class="media-type-card media-type-card-add" @onclick="@OpenAddMediaTypeDialog">
+                    <MudIcon Icon="@Icons.Material.Filled.Add" Size="Size.Large"
+                             Style="color: var(--app-text-muted);"/>
+                    <MudText Typo="Typo.caption" Style="color: var(--app-text-muted);">Add</MudText>
+                </div>
+            </MudTooltip>
+        </div>
+
+        @* ── Active media type content ──────────────────────────────────────── *@
+        @if ((_mediaTypeDefinitions.FirstOrDefault(d => d.DisplayName == _activeMediaType)
+              ?? _mediaTypeDefinitions.FirstOrDefault()) is { } activeDef)
+        {
+            @* Extension chips *@
+            @if (activeDef.Extensions.Count > 0)
+            {
+                <MudStack Row="true" Spacing="1" Class="mb-3" Style="flex-wrap: wrap;">
+                    @foreach (var ext in activeDef.Extensions)
+                    {
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                                 Color="Color.Default" Style="font-size: 0.7rem;">@ext</MudChip>
+                    }
+                </MudStack>
+            }
+
+            @* Slot layout *@
+            <div class="slot-layout">
+                <div class="slot-available-providers">
+                    <MudText Typo="Typo.subtitle2" Class="mb-2" Style="color: var(--app-text-muted);">
+                        Available Providers
+                    </MudText>
+                    <MudDropContainer T="ProviderDragItem"
+                                      Items="@GetDragItems(activeDef.DisplayName)"
+                                      ItemsSelector="@((item, zone) => item.Zone == zone)"
+                                      ItemDropped="@(args => OnItemDropped(args, activeDef.DisplayName))"
+                                      Class="slot-drop-container">
                         <ChildContent>
-                            @* Extension chips *@
-                            @if (def.Extensions.Count > 0)
-                            {
-                                <MudStack Row="true" Spacing="1" Class="mb-3 mt-1" Style="flex-wrap: wrap;">
-                                    @foreach (var ext in def.Extensions)
-                                    {
-                                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
-                                                 Color="Color.Default" Style="font-size: 0.7rem;">@ext</MudChip>
-                                    }
-                                </MudStack>
-                            }
+                            <MudDropZone T="ProviderDragItem"
+                                         Identifier="available"
+                                         Class="slot-available-zone"
+                                         AllowReorder="false"
+                                         CanDrop="@(_ => true)">
+                                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2">
+                                    Drag providers to the slots on the right.
+                                </MudText>
+                            </MudDropZone>
 
-                            @* Slot layout *@
-                            <div class="slot-layout">
-                                <div class="slot-available-providers">
-                                    <MudText Typo="Typo.subtitle2" Class="mb-2" Style="color: var(--app-text-muted);">
-                                        Available Providers
+                            <div class="slot-zones-column">
+                                <MudDropZone T="ProviderDragItem"
+                                             Identifier="primary"
+                                             Class="slot-zone slot-zone-primary"
+                                             AllowReorder="false"
+                                             CanDrop="@(_ => true)">
+                                    <MudText Typo="Typo.subtitle2" Style="color: var(--mud-palette-primary); font-weight: 600;">
+                                        Primary — Automatic Match
                                     </MudText>
-                                    <MudDropContainer T="ProviderDragItem"
-                                                      Items="@GetDragItems(def.DisplayName)"
-                                                      ItemsSelector="@((item, zone) => item.Zone == zone)"
-                                                      ItemDropped="@(args => OnItemDropped(args, def.DisplayName))"
-                                                      Class="slot-drop-container">
-                                        <ChildContent>
-                                            <MudDropZone T="ProviderDragItem"
-                                                         Identifier="available"
-                                                         Class="slot-available-zone"
-                                                         AllowReorder="false"
-                                                         CanDrop="@(_ => true)">
-                                                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2">
-                                                    Drag providers to the slots on the right.
-                                                </MudText>
-                                            </MudDropZone>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                        This provider runs automatically when files are added.
+                                    </MudText>
+                                </MudDropZone>
 
-                                            <div class="slot-zones-column">
-                                                <MudDropZone T="ProviderDragItem"
-                                                             Identifier="primary"
-                                                             Class="slot-zone slot-zone-primary"
-                                                             AllowReorder="false"
-                                                             CanDrop="@(_ => true)">
-                                                    <MudText Typo="Typo.subtitle2" Style="color: var(--mud-palette-primary); font-weight: 600;">
-                                                        Primary — Automatic Match
-                                                    </MudText>
-                                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
-                                                        This provider runs automatically when files are added.
-                                                    </MudText>
-                                                </MudDropZone>
+                                <MudDropZone T="ProviderDragItem"
+                                             Identifier="secondary"
+                                             Class="slot-zone"
+                                             AllowReorder="false"
+                                             CanDrop="@(_ => true)">
+                                    <MudText Typo="Typo.subtitle2" Style="color: var(--app-text-muted);">
+                                        Secondary — Manual Fallback 1
+                                    </MudText>
+                                </MudDropZone>
 
-                                                <MudDropZone T="ProviderDragItem"
-                                                             Identifier="secondary"
-                                                             Class="slot-zone"
-                                                             AllowReorder="false"
-                                                             CanDrop="@(_ => true)">
-                                                    <MudText Typo="Typo.subtitle2" Style="color: var(--app-text-muted);">
-                                                        Secondary — Manual Fallback 1
-                                                    </MudText>
-                                                </MudDropZone>
-
-                                                <MudDropZone T="ProviderDragItem"
-                                                             Identifier="tertiary"
-                                                             Class="slot-zone"
-                                                             AllowReorder="false"
-                                                             CanDrop="@(_ => true)">
-                                                    <MudText Typo="Typo.subtitle2" Style="color: var(--app-text-muted);">
-                                                        Tertiary — Manual Fallback 2
-                                                    </MudText>
-                                                </MudDropZone>
-                                            </div>
-                                        </ChildContent>
-
-                                        <ItemRenderer>
-                                            @{
-                                                var provider = _providers.FirstOrDefault(p => p.Name == context.ProviderName);
-                                                if (provider is not null)
-                                                {
-                                                    <ProviderCard Provider="@provider"
-                                                                  IsSlotted="@(context.Zone != "available")"
-                                                                  OnRemove="@(() => RemoveFromSlot(context, def.DisplayName))"
-                                                                  OnConfigSaved="@RefreshProvidersAsync" />
-                                                }
-                                            }
-                                        </ItemRenderer>
-                                    </MudDropContainer>
-                                </div>
+                                <MudDropZone T="ProviderDragItem"
+                                             Identifier="tertiary"
+                                             Class="slot-zone"
+                                             AllowReorder="false"
+                                             CanDrop="@(_ => true)">
+                                    <MudText Typo="Typo.subtitle2" Style="color: var(--app-text-muted);">
+                                        Tertiary — Manual Fallback 2
+                                    </MudText>
+                                </MudDropZone>
                             </div>
                         </ChildContent>
-                    </MudTabPanel>
-                }
-            </MudTabs>
 
-            @* Add media type button *@
-            <MudTooltip Text="Add custom media type" Arrow="true" Placement="Placement.Top">
-                <MudIconButton Icon="@Icons.Material.Filled.Add"
-                               Color="Color.Primary"
-                               Size="Size.Medium"
-                               OnClick="@OpenAddMediaTypeDialog"
-                               Style="margin-bottom: 4px;" />
-            </MudTooltip>
-        </MudStack>
+                        <ItemRenderer>
+                            @{
+                                var provider = _providers.FirstOrDefault(p => p.Name == context.ProviderName);
+                                if (provider is not null)
+                                {
+                                    <ProviderCard Provider="@provider"
+                                                  IsSlotted="@(context.Zone != "available")"
+                                                  OnRemove="@(() => RemoveFromSlot(context, activeDef.DisplayName))"
+                                                  OnConfigSaved="@RefreshProvidersAsync" />
+                                }
+                            }
+                        </ItemRenderer>
+                    </MudDropContainer>
+
+                    @* ── Unavailable providers (disabled or offline) ─────────────── *@
+                    @if (GetUnavailableProviders() is { Count: > 0 } unavailableProviders)
+                    {
+                        <MudDivider Class="my-4" />
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-2">
+                            <MudIcon Icon="@Icons.Material.Filled.PowerOff" Size="Size.Small"
+                                     Style="color: var(--app-text-muted);" />
+                            <MudText Typo="Typo.subtitle2" Style="color: var(--app-text-muted);">
+                                Unavailable Providers
+                            </MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                — disabled or offline, cannot be assigned to slots
+                            </MudText>
+                        </MudStack>
+                        <MudStack Spacing="1">
+                            @foreach (var p in unavailableProviders)
+                            {
+                                <div style="opacity: 0.5; pointer-events: none;">
+                                    <ProviderCard Provider="@p"
+                                                  IsSlotted="false"
+                                                  OnConfigSaved="@RefreshProvidersAsync" />
+                                </div>
+                            }
+                        </MudStack>
+                    }
+                </div>
+            </div>
+        }
     }
 
 </MudPaper>
 
-@* ── Media type config popover ────────────────────────────────────────── *@
-<MudPopover Open="@_configOpen"
-            AnchorOrigin="Origin.BottomCenter"
-            TransformOrigin="Origin.TopCenter"
-            Paper="true"
-            Elevation="8"
-            Class="media-type-config-popover">
-    @if (_editingType is not null)
-    {
-        <MudStack Spacing="3">
-            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
-                <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">
-                    @(_editingType.BuiltIn ? _editingType.DisplayName : "Edit Media Type")
-                </MudText>
-                <MudIconButton Icon="@Icons.Material.Filled.Close"
-                               Size="Size.Small"
-                               OnClick="@CloseMediaTypeConfig" />
-            </MudStack>
-
-            @* Display name *@
-            <MudTextField T="string"
-                          @bind-Value="_editDisplayName"
-                          Label="Display Name"
-                          Variant="Variant.Outlined"
-                          Margin="Margin.Dense"
-                          ReadOnly="@_editingType.BuiltIn"
-                          Adornment="Adornment.Start"
-                          AdornmentIcon="@Icons.Material.Filled.Label" />
-
-            @* Icon *@
-            <MudTextField T="string"
-                          @bind-Value="_editIcon"
-                          Label="Icon (Material icon name)"
-                          Variant="Variant.Outlined"
-                          Margin="Margin.Dense"
-                          Placeholder="e.g. MenuBook, Movie, Headphones"
-                          Adornment="Adornment.Start"
-                          AdornmentIcon="@ResolveIcon(_editIcon)" />
-
-            @* Category folder *@
-            <MudTextField T="string"
-                          @bind-Value="_editCategoryFolder"
-                          Label="Category Folder"
-                          Variant="Variant.Outlined"
-                          Margin="Margin.Dense"
-                          Adornment="Adornment.Start"
-                          AdornmentIcon="@Icons.Material.Filled.Folder" />
-
-            @* Extensions *@
-            <MudText Typo="Typo.caption" Color="Color.Secondary">File Extensions</MudText>
-            <MudStack Row="true" Spacing="1" Style="flex-wrap: wrap;">
-                @foreach (var ext in _editExtensions)
-                {
-                    <MudChip T="string" Size="Size.Small" Color="Color.Primary"
-                             Variant="Variant.Outlined"
-                             OnClose="@(() => _editExtensions.Remove(ext))">@ext</MudChip>
-                }
-            </MudStack>
-            <MudStack Row="true" Spacing="1">
+@* ── Media type config dialog ─────────────────────────────────────────── *@
+<MudDialog @bind-Visible="_configOpen" Options="_configDialogOptions">
+    <TitleContent>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            @if (_editingType is not null)
+            {
+                <MudIcon Icon="@ResolveIcon(_editingType.Icon)" Color="Color.Primary" />
+            }
+            <MudText Typo="Typo.h6">
+                @(_editingType is null ? "Configure" : (_editingType.BuiltIn ? _editingType.DisplayName : "Edit Media Type"))
+            </MudText>
+            @if (_editingType?.BuiltIn == true)
+            {
+                <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">Built-in</MudChip>
+            }
+        </MudStack>
+    </TitleContent>
+    <DialogContent>
+        @if (_editingType is not null)
+        {
+            <MudStack Spacing="3">
+                @* Display name *@
                 <MudTextField T="string"
-                              @bind-Value="_newExtension"
-                              Label="Add extension"
+                              @bind-Value="_editDisplayName"
+                              Label="Display Name"
                               Variant="Variant.Outlined"
                               Margin="Margin.Dense"
-                              Placeholder=".pdf"
-                              Style="flex: 1;" />
-                <MudIconButton Icon="@Icons.Material.Filled.Add"
-                               Size="Size.Medium"
-                               Color="Color.Primary"
-                               OnClick="@AddExtension" />
-            </MudStack>
+                              ReadOnly="@_editingType.BuiltIn"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Label" />
 
-            @* Action buttons *@
-            <MudStack Row="true" Justify="Justify.SpaceBetween">
-                @if (!_editingType.BuiltIn)
-                {
-                    <MudButton Variant="Variant.Text" Color="Color.Error"
-                               Size="Size.Small"
-                               StartIcon="@Icons.Material.Filled.Delete"
-                               OnClick="@RequestDeleteMediaType">Delete</MudButton>
-                }
-                else
-                {
-                    <div></div>
-                }
-                <MudStack Row="true" Spacing="2">
-                    <MudButton Variant="Variant.Text" Color="Color.Default"
-                               Size="Size.Small"
-                               OnClick="@CloseMediaTypeConfig">Cancel</MudButton>
-                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                               Size="Size.Small"
-                               OnClick="@SaveMediaTypeConfigAsync"
-                               Disabled="@_savingType">Save</MudButton>
-                </MudStack>
+                @* Icon *@
+                <MudSelect T="string" @bind-Value="_editIcon"
+                           Label="Icon"
+                           Variant="Variant.Outlined"
+                           Margin="Margin.Dense"
+                           AnchorOrigin="Origin.BottomCenter"
+                           TransformOrigin="Origin.TopCenter"
+                           AdornmentIcon="@ResolveIcon(_editIcon)">
+                    @foreach (var (name, icon) in IconMap)
+                    {
+                        <MudSelectItem Value="@name">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                <MudIcon Icon="@icon" Size="Size.Small" />
+                                <MudText>@name</MudText>
+                            </MudStack>
+                        </MudSelectItem>
+                    }
+                </MudSelect>
+
+                @* Category folder *@
+                <MudTextField T="string"
+                              @bind-Value="_editCategoryFolder"
+                              Label="Category Folder"
+                              Variant="Variant.Outlined"
+                              Margin="Margin.Dense"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Folder" />
+
+                @* Extensions *@
+                <div>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-1">File Extensions</MudText>
+                    <MudStack Row="true" Spacing="1" Style="flex-wrap: wrap;" Class="mb-2">
+                        @foreach (var ext in _editExtensions)
+                        {
+                            <MudChip T="string" Size="Size.Small" Color="Color.Primary"
+                                     Variant="Variant.Outlined"
+                                     OnClose="@(() => _editExtensions.Remove(ext))">@ext</MudChip>
+                        }
+                    </MudStack>
+                    <MudStack Row="true" Spacing="1">
+                        <MudTextField T="string"
+                                      @bind-Value="_newExtension"
+                                      Label="Add extension"
+                                      Variant="Variant.Outlined"
+                                      Margin="Margin.Dense"
+                                      Placeholder=".pdf"
+                                      Style="flex: 1;" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Add"
+                                       Size="Size.Medium"
+                                       Color="Color.Primary"
+                                       OnClick="@AddExtension" />
+                    </MudStack>
+                </div>
             </MudStack>
-        </MudStack>
-    }
-</MudPopover>
+        }
+    </DialogContent>
+    <DialogActions>
+        @if (_editingType?.BuiltIn == false)
+        {
+            <MudButton Color="Color.Error" StartIcon="@Icons.Material.Filled.Delete"
+                       OnClick="@RequestDeleteMediaType">Delete</MudButton>
+        }
+        <MudSpacer />
+        <MudButton OnClick="@CloseMediaTypeConfig">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   OnClick="@SaveMediaTypeConfigAsync"
+                   Disabled="@_savingType">Save</MudButton>
+    </DialogActions>
+</MudDialog>
 
 @* ── Delete confirmation dialog ────────────────────────────────── *@
 <MudDialog @bind-Visible="_confirmDeleteOpen">
@@ -296,6 +326,15 @@
     private IReadOnlyList<ProviderStatusDto> _providers = [];
     private Dictionary<string, ProviderSlotDto> _slots = new();
     private List<MediaTypeDefinitionDto> _mediaTypeDefinitions = [];
+    private string _activeMediaType = string.Empty;
+
+    private readonly DialogOptions _configDialogOptions = new()
+    {
+        MaxWidth = MaxWidth.Small,
+        FullWidth = true,
+        CloseOnEscapeKey = true,
+        CloseButton = true,
+    };
 
     // ── Media type config editing state ──────────────────────────────────
     private bool _configOpen;
@@ -366,6 +405,7 @@
 
             var mediaTypesConfig = await Orchestrator.GetMediaTypesAsync();
             _mediaTypeDefinitions = mediaTypesConfig?.Types ?? MediaTypeConfigurationDto.Defaults();
+            _activeMediaType = _mediaTypeDefinitions.FirstOrDefault()?.DisplayName ?? string.Empty;
 
             // Check Wikidata reachability.
             var wikidata = _providers.FirstOrDefault(p =>
@@ -384,12 +424,23 @@
 
     // ── Provider helpers ─────────────────────────────────────────────────
 
-    /// <summary>Returns ALL visible providers (excluding wikidata/local_filesystem) for any media type tab.</summary>
+    /// <summary>Returns available providers (enabled + reachable) for drag-drop slots.</summary>
     private List<ProviderStatusDto> GetAllVisibleProviders()
     {
         return _providers
             .Where(p => ProviderAccentMap.IsVisibleProvider(p.Name))
             .Where(p => !string.Equals(p.Name, "wikidata", StringComparison.OrdinalIgnoreCase))
+            .Where(p => p.Enabled && p.IsReachable)
+            .ToList();
+    }
+
+    /// <summary>Returns providers that are disabled or offline — shown in the non-interactive section.</summary>
+    private List<ProviderStatusDto> GetUnavailableProviders()
+    {
+        return _providers
+            .Where(p => ProviderAccentMap.IsVisibleProvider(p.Name))
+            .Where(p => !string.Equals(p.Name, "wikidata", StringComparison.OrdinalIgnoreCase))
+            .Where(p => !p.Enabled || !p.IsReachable)
             .ToList();
     }
 
@@ -511,6 +562,8 @@
     }
 
     // ── Media type config ────────────────────────────────────────────────
+
+    private void OpenMediaTypeConfigDialog(MediaTypeDefinitionDto def) => OpenMediaTypeConfig(def);
 
     private void OpenMediaTypeConfig(MediaTypeDefinitionDto def)
     {
@@ -737,16 +790,66 @@
         box-shadow: 0 0 4px rgba(244, 67, 54, 0.5);
     }
 
-    /* ── Media type config popover ────────────────────────────── */
-    .media-type-config-popover {
-        width: 380px;
-        padding: 20px;
-        border-radius: 16px !important;
-        background: var(--app-glass-bg, rgba(30, 30, 30, 0.95)) !important;
-        border: 1px solid var(--app-glass-border, rgba(255,255,255,0.1)) !important;
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important;
+    /* ── Media type cards row ─────────────────────────────────── */
+    .media-type-cards-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+
+    .media-type-card {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 14px 12px 10px;
+        width: 90px;
+        border-radius: 16px;
+        background: var(--app-glass-bg);
+        border: 1px solid var(--app-glass-border);
+        cursor: pointer;
+        position: relative;
+        transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+        user-select: none;
+    }
+
+    .media-type-card:hover {
+        border-color: var(--mud-palette-primary);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+
+    .media-type-card-active {
+        border-color: var(--mud-palette-primary) !important;
+        background: var(--app-active-overlay, rgba(var(--mud-palette-primary-rgb), 0.08)) !important;
+        box-shadow: 0 0 0 2px rgba(var(--mud-palette-primary-rgb), 0.2);
+    }
+
+    .media-type-card-add {
+        border-style: dashed;
+        opacity: 0.7;
+    }
+
+    .media-type-card-add:hover {
+        opacity: 1;
+    }
+
+    /* The "..." menu button — shown on hover */
+    .media-type-card-menu {
+        position: absolute;
+        top: 2px;
+        right: 2px;
+        opacity: 0;
+        transition: opacity 0.15s ease;
+    }
+
+    .media-type-card:hover .media-type-card-menu {
+        opacity: 1;
+    }
+
+    .media-type-card-active .media-type-card-menu {
+        opacity: 1;
     }
 
     /* ── Responsive ────────────────────────────────────────────── */
