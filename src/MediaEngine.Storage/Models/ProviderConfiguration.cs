@@ -152,6 +152,13 @@ public sealed class ProviderConfiguration
     /// </summary>
     [JsonPropertyName("requires_api_key")]
     public bool RequiresApiKey { get; set; }
+
+    /// <summary>
+    /// Optional Material icon name for the Dashboard UI (e.g. "MenuBook", "Headphones").
+    /// When set, overrides the default accent icon from <c>ProviderAccentMap</c>.
+    /// </summary>
+    [JsonPropertyName("custom_icon_name")]
+    public string? CustomIconName { get; set; }
 }
 
 /// <summary>HTTP client configuration for config-driven provider adapters.</summary>

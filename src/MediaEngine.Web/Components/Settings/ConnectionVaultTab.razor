@@ -184,7 +184,7 @@
                         <MudStack Spacing="1">
                             @foreach (var p in unavailableProviders)
                             {
-                                <div style="opacity: 0.5; pointer-events: none;">
+                                <div class="provider-unavailable-wrapper">
                                     <ProviderCard Provider="@p"
                                                   IsSlotted="false"
                                                   OnConfigSaved="@RefreshProvidersAsync" />
@@ -788,6 +788,19 @@
     .health-offline {
         background: #F44336;
         box-shadow: 0 0 4px rgba(244, 67, 54, 0.5);
+    }
+
+    /* ── Unavailable provider wrapper ─────────────────────────── */
+    .provider-unavailable-wrapper {
+        opacity: 0.55;
+    }
+
+    .provider-unavailable-wrapper .provider-card {
+        cursor: default !important;
+    }
+
+    .provider-unavailable-wrapper .provider-card:active {
+        cursor: default !important;
     }
 
     /* ── Media type cards row ─────────────────────────────────── */

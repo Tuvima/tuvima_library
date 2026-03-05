@@ -27,4 +27,5 @@ public sealed record ProviderStatusDto(
     [property: JsonPropertyName("has_api_key")]       bool HasApiKey                                       = false,
     [property: JsonPropertyName("api_key_delivery")]  string? ApiKeyDelivery                               = null,
     [property: JsonPropertyName("api_key_param_name")]string? ApiKeyParamName                              = null,
-    [property: JsonPropertyName("timeout_seconds")]   int TimeoutSeconds                                   = 10);
+    [property: JsonPropertyName("timeout_seconds")]   int TimeoutSeconds                                   = 10,
+    [property: JsonPropertyName("custom_icon_name")]  string? CustomIconName                               = null);

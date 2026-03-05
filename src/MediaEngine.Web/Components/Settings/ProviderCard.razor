@@ -128,8 +128,31 @@
         <MudSwitch T="bool" @bind-Value="_editEnabled"
                    Label="Enabled" Color="Color.Primary" />
 
-        @* Custom icon upload *@
-        <MudText Typo="Typo.subtitle2" Class="mt-1">Custom Icon</MudText>
+        @* Icon — Material icon picker + optional file upload *@
+        <MudText Typo="Typo.subtitle2" Class="mt-1">Icon</MudText>
+
+        @* Material icon picker *@
+        <MudSelect T="string" @bind-Value="_editIconName"
+                   Label="Icon (Material)"
+                   Variant="Variant.Outlined"
+                   Margin="Margin.Dense"
+                   AnchorOrigin="Origin.BottomCenter"
+                   TransformOrigin="Origin.TopCenter"
+                   Clearable="true"
+                   AdornmentIcon="@(string.IsNullOrEmpty(_editIconName) ? Icons.Material.Filled.EmojiSymbols : ProviderAccentMap.GetAccent(Provider.Name, _editIconName).Icon)"
+                   HelperText="Overrides the default icon for this provider">
+            @foreach (var (name, icon) in ProviderAccentMap.IconOptions)
+            {
+                <MudSelectItem Value="@name">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        <MudIcon Icon="@icon" Size="Size.Small" />
+                        <MudText>@name</MudText>
+                    </MudStack>
+                </MudSelectItem>
+            }
+        </MudSelect>
+
+        @* Custom image upload *@
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
             @if (!string.IsNullOrWhiteSpace(_iconPreviewUrl))
             {
@@ -138,10 +161,10 @@
                               Width="40" Height="40" ObjectFit="ObjectFit.Contain" />
                 </MudAvatar>
             }
-            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+            <MudButton Variant="Variant.Outlined" Color="Color.Default" Size="Size.Small"
                        StartIcon="@Icons.Material.Filled.Upload"
                        HtmlTag="label" for="@_iconInputId">
-                Upload Icon
+                Upload Image
             </MudButton>
             <InputFile id="@_iconInputId" OnChange="@OnIconFileSelected"
                        accept=".svg,.png,.jpg,.jpeg" style="display:none;" />
@@ -200,10 +223,11 @@
     private int _editThrottle;
     private string _editApiKey = string.Empty;
     private bool _editEnabled = true;
+    private string _editIconName = string.Empty;
 
     protected override void OnParametersSet()
     {
-        _accent = ProviderAccentMap.GetAccent(Provider.Name);
+        _accent = ProviderAccentMap.GetAccent(Provider.Name, Provider.CustomIconName);
     }
 
     private void ToggleFlyout()
@@ -222,6 +246,7 @@
         _editThrottle = Provider.ThrottleMs;
         _editApiKey = string.Empty; // Never pre-fill API keys for security.
         _editEnabled = Provider.Enabled;
+        _editIconName = Provider.CustomIconName ?? string.Empty;
         _showApiKey = false;
         _iconPreviewUrl = Orchestrator.GetProviderIconUrl(Provider.Name);
 
@@ -252,6 +277,7 @@
                 ApiKey          = Provider.RequiresApiKey && !string.IsNullOrEmpty(_editApiKey)
                     ? _editApiKey
                     : null,
+                CustomIconName  = _editIconName, // empty string = clear override
             };
 
             // Merge existing endpoints so we don't lose secondary keys (e.g. sparql).

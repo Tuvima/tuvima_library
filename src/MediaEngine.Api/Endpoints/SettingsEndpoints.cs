@@ -568,6 +568,8 @@ public static class SettingsEndpoints
                 existing.HttpClient ??= new MediaEngine.Storage.Models.HttpClientConfig();
                 existing.HttpClient.ApiKey = request.ApiKey;
             }
+            if (request.CustomIconName is not null)
+                existing.CustomIconName = string.IsNullOrWhiteSpace(request.CustomIconName) ? null : request.CustomIconName;
 
             configLoader.SaveProvider(existing);
 
@@ -953,6 +955,7 @@ public static class SettingsEndpoints
             ApiKeyDelivery   = provider.HttpClient?.ApiKeyDelivery,
             ApiKeyParamName  = provider.HttpClient?.ApiKeyParamName,
             TimeoutSeconds   = provider.HttpClient?.TimeoutSeconds ?? 10,
+            CustomIconName   = provider.CustomIconName,
             FieldMappings    = provider.FieldMappings?.Select(fm => new FieldMappingResponse
             {
                 ClaimKey   = fm.ClaimKey,

@@ -437,6 +437,10 @@ public sealed class ProviderStatusResponse
 
     [JsonPropertyName("timeout_seconds")]
     public int TimeoutSeconds { get; init; } = 10;
+
+    /// <summary>Optional Material icon name override (e.g. "MenuBook"). Null = use default accent icon.</summary>
+    [JsonPropertyName("custom_icon_name")]
+    public string? CustomIconName { get; init; }
 }
 
 /// <summary>Field mapping entry for provider status response.</summary>
@@ -548,6 +552,10 @@ public sealed class ProviderConfigUpdateRequest
     /// <summary>API key for providers that require authentication. Null = no change; empty = clear.</summary>
     [JsonPropertyName("api_key")]
     public string? ApiKey { get; init; }
+
+    /// <summary>Material icon name override (e.g. "MenuBook"). Null = no change; empty string = clear override.</summary>
+    [JsonPropertyName("custom_icon_name")]
+    public string? CustomIconName { get; init; }
 }
 
 /// <summary>Field mapping entry in a provider config update.</summary>

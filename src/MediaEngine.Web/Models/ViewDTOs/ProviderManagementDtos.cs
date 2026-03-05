@@ -63,6 +63,10 @@ public sealed class ProviderConfigUpdateDto
     /// <summary>API key for providers that require authentication. Null = no change; empty = clear.</summary>
     [JsonPropertyName("api_key")]
     public string? ApiKey { get; set; }
+
+    /// <summary>Material icon name override (e.g. "MenuBook"). Null = no change; empty = clear.</summary>
+    [JsonPropertyName("custom_icon_name")]
+    public string? CustomIconName { get; set; }
 }
 
 /// <summary>Field mapping entry for config-driven provider editing.</summary>
