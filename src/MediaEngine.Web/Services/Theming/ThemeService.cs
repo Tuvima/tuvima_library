@@ -66,8 +66,8 @@ public sealed class ThemeService
             Primary             = primaryHex,
             PrimaryDarken       = DarkenHex(primaryHex),
             PrimaryLighten      = LightenHex(primaryHex),
-            Secondary           = "#00BFA5",
-            SecondaryDarken     = "#009688",
+            Secondary           = "#9E9E9E",
+            SecondaryDarken     = "#737373",
             Background          = "#0A0A0A",   // Cinema — near-black
             BackgroundGray      = "#111111",
             Surface             = "#161616",   // Cinema surface
@@ -94,8 +94,8 @@ public sealed class ThemeService
             Primary             = DarkenHex(primaryHex, 0.80),
             PrimaryDarken       = DarkenHex(primaryHex, 0.55),
             PrimaryLighten      = LightenHex(primaryHex, 32),
-            Secondary           = "#00897B",
-            SecondaryDarken     = "#00695C",
+            Secondary           = "#6B7280",
+            SecondaryDarken     = "#4B5563",
             Background          = "#F5F5F5",   // Editorial — off-white
             BackgroundGray      = "#EBEBEB",
             Surface             = "#FFFFFF",   // Editorial surface — pure white
