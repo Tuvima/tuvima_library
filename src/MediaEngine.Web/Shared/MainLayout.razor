@@ -21,56 +21,23 @@
 }
 
 <MudLayout>
-    @* ── Header: Logo left, Action Cluster right ── *@
-    <MudAppBar Elevation="0" Class="@AppBarClass">
+    @* ── Left Navigation Dock ── *@
+    <LeftDock Config="@_navigationConfig.Tray"
+              ActiveLibraryKey="@State.ActiveLibraryFilter?.Key"
+              AvailableMediaTypes="@State.AvailableMediaTypes"
+              OnLibrarySelected="@OnLibrarySelected"
+              OnSearchRequested="@(() => _palette?.Toggle())"
+              AvatarColor="@_avatarColor"
+              AvatarInitial="@_avatarInitial"
+              DisplayName="@_displayName"
+              ReviewCount="@_reviewCount" />
 
-        @* Logo — anchored left as home link.
-             AppLogo inlines the SVG so CSS color inheritance works
-             and the wordmark correctly adapts to dark / light mode. *@
-        <MudLink Href="/" Underline="Underline.None" Class="d-flex align-center" Style="text-decoration: none;">
-            <AppLogo Style="@LogoStyle" />
-        </MudLink>
-
-        <MudSpacer />
-
-        @* Action Cluster — configurable icon buttons on the right *@
-        @{
-            var cluster = _navigationConfig.ActionCluster;
-        }
-
-        @foreach (var item in cluster.Items.Where(i => i.Enabled))
-        {
-            @if (item.Key == "cast" && !DeviceContext.IsFeatureDisabled("avatar_menu"))
-            {
-                <MudTooltip Text="Cast — Coming soon" Arrow="true" Placement="Placement.Bottom">
-                    <MudIconButton Icon="@Icons.Material.Filled.Cast" Color="Color.Inherit" Disabled="true"
-                                   title="Cast — Coming soon" />
-                </MudTooltip>
-            }
-            else if (item.Key == "profile" && !DeviceContext.IsFeatureDisabled("avatar_menu"))
-            {
-                <MudBadge Content="@_reviewCount" Color="Color.Error" Overlap="true"
-                          Visible="@(_reviewCount > 0)" Bordered="true">
-                    <MudAvatar Size="Size.Medium" Style="@($"background: {_avatarColor}; cursor: pointer;")" title="Settings"
-                               @onclick="@(() => Nav.NavigateTo("/settings"))">
-                        @_avatarInitial
-                    </MudAvatar>
-                </MudBadge>
-            }
-        }
-    </MudAppBar>
-
-    @* Full-width main content — padding and max-width driven by device context *@
+    @* Full-width main content — left padding clears the narrow dock *@
     <MudMainContent Class="@ContentClass">
-        <MudContainer MaxWidth="@ContentMaxWidth" Class="mt-4">
+        <MudContainer MaxWidth="@ContentMaxWidth" Class="py-6 px-4 px-md-8">
             @Body
         </MudContainer>
     </MudMainContent>
-
-    @* Floating Navigation Tray — content-aware virtual library filter + search *@
-    <NavigationTray Config="@_navigationConfig.Tray" ActiveLibraryKey="@State.ActiveLibraryFilter?.Key"
-                    AvailableMediaTypes="@State.AvailableMediaTypes" OnLibrarySelected="@OnLibrarySelected"
-                    OnSearchRequested="@(() => _palette?.Toggle())" />
 </MudLayout>
 
 @code {
@@ -78,9 +45,10 @@
 
     private CommandPalette? _palette;
 
-    // Profile state for the header action cluster.
-    private string _avatarColor = "#7C4DFF";
+    // Profile state for the dock.
+    private string _avatarColor = "#C9922E";
     private string _avatarInitial = "?";
+    private string _displayName = "User";
 
     // Navigation configuration — loaded from profile, falls back to defaults.
     private NavigationConfigViewModel _navigationConfig = NavigationDefaults.CreateDefault();
@@ -88,34 +56,10 @@
     // Review queue badge count for profile avatar.
     private int _reviewCount;
 
-    // ── AppBar styling driven by Shell.AppBarStyle ──────────────────────────
-
-    private string AppBarClass =>
-        DeviceContext.Settings.Shell.AppBarStyle switch
-        {
-            "compact" => "spatial-appbar spatial-appbar-compact",
-            "oversized" => "spatial-appbar spatial-appbar-oversized",
-            "minimal" => "spatial-appbar spatial-appbar-minimal",
-            _ => "spatial-appbar",
-        };
-
-    // ── Logo variant driven by Shell.LogoVariant ────────────────────────────
-    // LogoSrc removed: the logo is now an inline <AppLogo> SVG component
-    // so that CSS color inheritance reaches the wordmark paths.
-
-    private string LogoStyle =>
-        DeviceContext.Settings.Shell.LogoVariant switch
-        {
-            "icon" => "height: 28px; display: block;",
-            "icon-large" => "height: 44px; display: block;",
-            "wordmark-large" => "height: 48px; display: block;",
-            _ => "height: 32px; display: block;",
-        };
-
-    // ── Content area driven by device context ───────────────────────────────
+    // ── Content area — left padding for the fixed dock ────────────────────
 
     private string ContentClass =>
-        $"pt-16 {DeviceContext.Settings.ContentPadding}";
+        $"main-content-with-dock {DeviceContext.Settings.ContentPadding}";
 
     private MaxWidth ContentMaxWidth =>
         DeviceContext.Settings.ContentMaxWidth switch
@@ -140,13 +84,11 @@
     {
         if (firstRender)
         {
-            // Detect the device class from the browser (URL param → localStorage → auto).
+            // Detect the device class from the browser.
             var detectedDevice = await JS.InvokeAsync<string>("detectDeviceClass");
-
-            // Initialise the device context with resolved settings from the Engine.
             await DeviceContext.InitialiseAsync(detectedDevice);
 
-            // Apply dark mode from resolved settings (device may force dark mode).
+            // Apply dark mode from resolved settings.
             if (DeviceContext.Settings.Constraints.ForceDarkMode && !ThemeService.IsDarkMode)
             {
                 ThemeService.ToggleTheme();
@@ -157,22 +99,16 @@
                 _isDark = ThemeService.IsDarkMode;
             }
 
-            // Apply accent colour from resolved settings.
-            if (!string.IsNullOrWhiteSpace(DeviceContext.Settings.AccentColor))
-            {
-                ThemeService.SetHubAccent(DeviceContext.Settings.AccentColor);
-            }
-
-            // Register Ctrl+K to open the Command Palette (only if enabled).
+            // Register Ctrl+K to open the Command Palette.
             if (!DeviceContext.IsFeatureDisabled("command_palette"))
             {
                 await JS.InvokeVoidAsync("registerCtrlK", DotNetObjectReference.Create(this));
             }
 
-            // Seed the body class so logos render correctly before any toggle.
+            // Seed the body class so logos render correctly.
             await JS.InvokeVoidAsync("setThemeClass", _isDark);
 
-            // Load the active profile for the avatar dropdown.
+            // Load the active profile.
             await LoadActiveProfileAsync();
 
             // Load review badge count and subscribe to changes.
@@ -208,6 +144,7 @@
                 _avatarInitial = profile.DisplayName.Length > 0
                     ? profile.DisplayName[0].ToString().ToUpper()
                     : "?";
+                _displayName = profile.DisplayName;
                 _navigationConfig = NavigationDefaults.Deserialize(profile.NavigationConfig);
                 StateHasChanged();
             }
@@ -250,3 +187,10 @@
 
     [Inject] private IJSRuntime JS { get; set; } = default!;
 }
+
+<style>
+    /* Content area clears the fixed 64px dock */
+    .main-content-with-dock {
+        padding-left: 80px !important;
+    }
+</style>

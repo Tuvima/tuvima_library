@@ -119,25 +119,7 @@
             }
         </MudStack>
 
-        @* Accent colour — hidden when color_picker is disabled or theme-only *@
-        @if (showColorPicker && swatchCount > 0)
-        {
-            <MudText Typo="Typo.subtitle2" Class="mb-1">Accent Colour</MudText>
-            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3">
-                Choose a primary colour that tints buttons, progress bars, and active highlights.
-            </MudText>
-
-            <MudStack Row="true" Spacing="2" Style="flex-wrap: wrap;" Class="mb-6">
-                @foreach (var (hex, label) in _accentPresets.Take(swatchCount))
-                {
-                    <MudTooltip Text="@label" Arrow="true" Placement="Placement.Top">
-                        <MudAvatar Size="Size.Medium"
-                                   Style="@AccentSwatchStyle(hex)"
-                                   @onclick="@(() => SetAccent(hex))" />
-                    </MudTooltip>
-                }
-            </MudStack>
-        }
+        @* Accent colour removed — fixed golden amber accent is now used globally. *@
 
         @* ── Save button (only when profile section is visible) ──────── *@
 
@@ -173,19 +155,7 @@
         "#2196F3", "#4CAF50", "#FF5722", "#9C27B0",
     ];
 
-    // ── Accent colour presets ────────────────────────────────────────────────────
-
-    private static readonly (string Hex, string Label)[] _accentPresets =
-    [
-        ("#7C4DFF", "Violet"),
-        ("#00BFA5", "Teal"),
-        ("#FF8F00", "Amber"),
-        ("#E91E63", "Pink"),
-        ("#2196F3", "Blue"),
-        ("#4CAF50", "Green"),
-        ("#FF5722", "Deep Orange"),
-        ("#9C27B0", "Purple"),
-    ];
+    // Accent colour presets removed — fixed golden amber accent is used globally.
 
     // ── State ────────────────────────────────────────────────────────────────────
 
@@ -264,22 +234,11 @@
         await JS.InvokeVoidAsync("setThemeClass", _isDark);
     }
 
-    private void SetAccent(string hex) => ThemeService.SetHubAccent(hex);
-
     // ── Swatch styles ────────────────────────────────────────────────────────────
 
     private string AvatarSwatchStyle(string hex)
     {
         bool isActive = _avatarColor.Equals(hex, StringComparison.OrdinalIgnoreCase);
-        return $"background: {hex}; cursor: pointer; " +
-               $"border: 3px solid {(isActive ? "var(--app-swatch-active)" : "var(--app-swatch-border)")}; " +
-               "transition: border 0.2s ease;";
-    }
-
-    private string AccentSwatchStyle(string hex)
-    {
-        var currentPrimary = ThemeService.Theme.PaletteDark.Primary.ToString();
-        bool isActive = currentPrimary.Equals(hex, StringComparison.OrdinalIgnoreCase);
         return $"background: {hex}; cursor: pointer; " +
                $"border: 3px solid {(isActive ? "var(--app-swatch-active)" : "var(--app-swatch-border)")}; " +
                "transition: border 0.2s ease;";

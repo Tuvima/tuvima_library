@@ -5,7 +5,7 @@
 @inject DeviceContextService    DeviceContext
 @implements IDisposable
 
-<PageTitle>Tuvima Library — Last Journey</PageTitle>
+<PageTitle>Tuvima Library</PageTitle>
 
 @if (_loading)
 {
@@ -24,30 +24,70 @@ else
         <PendingFilesAlert Class="mb-4" DisplayMode="@_pendingDisplay" />
     }
 
-    @* ── Last Journey section header ── *@
-    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
-        <MudText Typo="Typo.h5" Style="font-weight: 600;">Last Journey</MudText>
-
-        @if (!DeviceContext.IsFeatureDisabled("view_toggle"))
-        {
-            @* View mode toggle — visual only; Compact List wiring is a future enhancement *@
-            <MudToggleGroup T="string" @bind-Value="_viewMode"
-                            Style="border-radius: 20px; overflow: hidden;"
-                            Color="Color.Primary" CheckMark="false">
-                <MudToggleItem T="string" Value="@("grid")" Text="Comfortable Grid" />
-                <MudToggleItem T="string" Value="@("list")" Text="Compact List" />
-            </MudToggleGroup>
-        }
-    </MudStack>
-
-    @* ── Hero tile — respects hub_hero_enabled and hub_hero_layout ── *@
+    @* ── Hero banners ── *@
     @if (_showHero)
     {
-        <HubHero Hub="@_heroHub" Layout="@DeviceContext.Settings.Pages.Home.HubHeroLayout" />
+        <HubHero Hub="@_heroHub"
+                 SecondaryHub="@_secondaryHub"
+                 Layout="@DeviceContext.Settings.Pages.Home.HubHeroLayout" />
     }
 
-    @* ── Your Universes grid (non-hero hubs) ── *@
-    <UniverseStack Hubs="@_nonHeroHubs"
+    @* ── Continue your Journey (horizontal scroll row) ── *@
+    @if (_nonHeroHubs is { Count: > 0 })
+    {
+        <MudText Typo="Typo.h5" Class="mb-3" Style="font-weight: 600;">
+            Continue your Journey
+        </MudText>
+
+        <div class="content-row mb-6">
+            @foreach (var hub in _nonHeroHubs.Take(8))
+            {
+                <div class="content-card" @onclick="() => HandleHubSelected(hub)">
+                    <div class="content-card-artwork"
+                         style="background: linear-gradient(145deg, @(hub.DominantHexColor)55, @(hub.DominantHexColor)22);">
+                        <MudIcon Icon="@GetHubIcon(hub)"
+                                 Style="font-size: 40px; color: rgba(255,255,255,0.35);" />
+                    </div>
+                    <div class="content-card-info">
+                        <span class="content-card-title">@hub.DisplayName</span>
+                        <span class="content-card-meta">
+                            @hub.WorkCount @(hub.WorkCount == 1 ? "work" : "works") · @hub.MediaTypes
+                        </span>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    @* ── Recently Added ── *@
+    @if (_recentHubs is { Count: > 0 })
+    {
+        <MudText Typo="Typo.h5" Class="mb-3" Style="font-weight: 600;">
+            Recently Added
+        </MudText>
+
+        <div class="content-row mb-6">
+            @foreach (var hub in _recentHubs.Take(8))
+            {
+                <div class="content-card" @onclick="() => HandleHubSelected(hub)">
+                    <div class="content-card-artwork"
+                         style="background: linear-gradient(145deg, @(hub.DominantHexColor)55, @(hub.DominantHexColor)22);">
+                        <MudIcon Icon="@GetHubIcon(hub)"
+                                 Style="font-size: 40px; color: rgba(255,255,255,0.35);" />
+                    </div>
+                    <div class="content-card-info">
+                        <span class="content-card-title">@hub.DisplayName</span>
+                        <span class="content-card-meta">
+                            @hub.WorkCount @(hub.WorkCount == 1 ? "work" : "works") · @hub.MediaTypes
+                        </span>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    @* ── Your Universes grid (all hubs) ── *@
+    <UniverseStack Hubs="@State.FilteredHubs.ToList()"
                    Class="mt-2"
                    OnHubSelected="HandleHubSelected"
                    Columns="@DeviceContext.Settings.Pages.Home.BentoColumns"
@@ -58,9 +98,10 @@ else
     private bool               _loading = true;
     private string?            _error;
     private HubViewModel?      _heroHub;
+    private HubViewModel?      _secondaryHub;
     private List<HubViewModel> _hubs = [];
     private List<HubViewModel> _nonHeroHubs = [];
-    private string             _viewMode = "grid";
+    private List<HubViewModel> _recentHubs = [];
 
     // ── Device-context computed helpers ──────────────────────────────────────
 
@@ -73,12 +114,8 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        // Subscribe before loading so no MediaAdded event is missed.
         State.OnStateChanged += OnStateChanged;
-
-        // Start the SignalR Intercom channel (idempotent; non-fatal on failure).
         await Orchestrator.StartSignalRAsync();
-
         await LoadHubsAsync(showSpinner: true);
     }
 
@@ -94,8 +131,6 @@ else
         try
         {
             _hubs = await Orchestrator.GetHubsAsync();
-
-            // Apply the active Virtual Library filter (OR logic across MediaTypes).
             ApplyFilter();
         }
         catch (Exception ex)
@@ -108,36 +143,44 @@ else
         }
     }
 
-    /// <summary>
-    /// Derives hero and non-hero hubs from the filtered hub list.
-    /// Called after hub load and when the NavigationTray filter changes.
-    /// </summary>
     private void ApplyFilter()
     {
         var filtered = State.FilteredHubs;
         _heroHub = filtered.FirstOrDefault();
+        _secondaryHub = filtered.Count > 1 ? filtered[1] : null;
 
-        // Non-hero hubs: skip the first one (shown in HubHero).
-        _nonHeroHubs = filtered.Count > 1 ? filtered.Skip(1).ToList() : [];
+        // Non-hero hubs: skip the first two (used in hero banners).
+        _nonHeroHubs = filtered.Count > 2 ? filtered.Skip(2).ToList() : [];
 
-        // Prime the accent colour from the hero hub so the app bar and
-        // primary-coloured MudBlazor components match on first load.
-        if (_heroHub is not null)
-            ThemeService.SetHubAccent(_heroHub.DominantHexColor);
+        // Recently added: reverse order of all hubs for the "Recently Added" row.
+        _recentHubs = filtered.AsEnumerable().Reverse().ToList();
     }
 
     // ── Hub selection ─────────────────────────────────────────────────────────
 
-    /// <summary>
-    /// Called by <see cref="UniverseStack"/> when the user clicks a Hub tile.
-    /// Shifts the MudThemeProvider primary accent to that Hub's brand colour
-    /// and promotes the selected hub to the hero position.
-    /// </summary>
     private void HandleHubSelected(HubViewModel hub)
     {
-        ThemeService.SetHubAccent(hub.DominantHexColor);
-        _heroHub     = hub;
-        _nonHeroHubs = State.FilteredHubs.Where(h => h.Id != hub.Id).ToList();
+        _heroHub = hub;
+        _secondaryHub = State.FilteredHubs.FirstOrDefault(h => h.Id != hub.Id);
+        _nonHeroHubs = State.FilteredHubs.Where(h => h.Id != hub.Id && h.Id != _secondaryHub?.Id).ToList();
+    }
+
+    // ── Icon helper ──────────────────────────────────────────────────────────
+
+    private static string GetHubIcon(HubViewModel hub)
+    {
+        var types = hub.Works.Select(w => w.MediaType.ToLowerInvariant()).Distinct().ToList();
+
+        if (types.Any(t => t.Contains("video") || t.Contains("movie")))
+            return MudBlazor.Icons.Material.Filled.PlayCircle;
+        if (types.Any(t => t.Contains("epub") || t.Contains("book")))
+            return MudBlazor.Icons.Material.Filled.MenuBook;
+        if (types.Any(t => t.Contains("audio")))
+            return MudBlazor.Icons.Material.Filled.Headphones;
+        if (types.Any(t => t.Contains("comic") || t.Contains("cbz") || t.Contains("cbr")))
+            return MudBlazor.Icons.Material.Filled.AutoStories;
+
+        return MudBlazor.Icons.Material.Filled.Folder;
     }
 
     // ── SignalR live refresh ──────────────────────────────────────────────────
@@ -146,7 +189,6 @@ else
     {
         InvokeAsync(() =>
         {
-            // If hubs are already loaded, just re-apply filter (e.g. tray selection changed).
             if (State.IsLoaded && _hubs.Count > 0)
             {
                 ApplyFilter();
@@ -164,3 +206,80 @@ else
         State.OnStateChanged -= OnStateChanged;
     }
 }
+
+<style>
+    /* ── Horizontal content row ──────────────────────────────────────── */
+    .content-row {
+        display: flex;
+        gap: 16px;
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+        padding-bottom: 8px;
+        scrollbar-width: thin;
+    }
+
+    .content-row::-webkit-scrollbar {
+        height: 4px;
+    }
+
+    .content-row::-webkit-scrollbar-thumb {
+        background: var(--app-glass-border);
+        border-radius: 4px;
+    }
+
+    /* ── Content card ────────────────────────────────────────────────── */
+    .content-card {
+        flex-shrink: 0;
+        width: 200px;
+        cursor: pointer;
+        scroll-snap-align: start;
+        transition: transform 0.2s ease;
+    }
+
+    .content-card:hover {
+        transform: translateY(-3px);
+    }
+
+    .content-card-artwork {
+        width: 100%;
+        aspect-ratio: 2 / 3;
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 8px;
+        overflow: hidden;
+    }
+
+    .content-card-info {
+        display: flex;
+        flex-direction: column;
+        padding: 0 4px;
+    }
+
+    .content-card-title {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.9rem;
+        font-weight: 600;
+        line-height: 1.3;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .content-card-meta {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.8rem;
+        font-weight: 400;
+        color: var(--app-text-muted);
+        margin-top: 2px;
+    }
+
+    /* ── Responsive ──────────────────────────────────────────────────── */
+    @@media (max-width: 600px) {
+        .content-card {
+            width: 150px;
+        }
+    }
+</style>

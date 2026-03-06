@@ -15,7 +15,7 @@ namespace MediaEngine.Web.Services.Theming;
 /// </summary>
 public sealed class ThemeService
 {
-    private const string DefaultPrimary = "#7C4DFF"; // deep violet
+    private const string DefaultPrimary = "#C9922E"; // golden amber (from logo gradient)
 
     /// <summary>Default to Dark Mode as specified in Section 1.2 of the UI ASD.</summary>
     public bool IsDarkMode { get; private set; } = true;
@@ -41,19 +41,13 @@ public sealed class ThemeService
     }
 
     /// <summary>
-    /// Rebuilds the theme with <paramref name="hexColor"/> as the primary accent
-    /// (darkened and lightened variants are computed automatically) and notifies all
-    /// subscribed components to re-render with the new palette.
+    /// Legacy API — previously rebuilt the theme with a dynamic accent colour.
+    /// Now a no-op: the accent is fixed to golden amber (<see cref="DefaultPrimary"/>).
+    /// Retained so existing callers compile without changes; they will be cleaned up over time.
     /// </summary>
-    /// <param name="hexColor">
-    /// Hex colour string, with or without a leading <c>#</c>
-    /// (e.g. <c>"#FF8F00"</c> or <c>"FF8F00"</c>).
-    /// </param>
     public void SetHubAccent(string hexColor)
     {
-        if (string.IsNullOrWhiteSpace(hexColor)) return;
-        Theme = BuildTheme(hexColor);
-        OnThemeChanged?.Invoke();
+        // No-op: accent is fixed to golden amber.
     }
 
     // ── Theme construction ─────────────────────────────────────────────────────

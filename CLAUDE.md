@@ -221,6 +221,15 @@ The real-time intercom (`/hubs/intercom`) requires authentication via `X-Api-Key
 
 ### 3.4 — Dashboard UI Features
 
+**Left Navigation Dock**
+The Dashboard uses a Plex-inspired left navigation dock instead of a top AppBar. The dock has two states: narrow (64px, icon-only, fixed left) and expanded (260px, hover-triggered overlay with labels and full logo). The content area has permanent left padding (80px) to clear the narrow dock. The expanded state overlays content — it does not push. Glassmorphic styling with `backdrop-filter: blur(20px)`.
+
+**Fixed Golden Amber Accent**
+The accent colour is fixed to golden amber (#C9922E, derived from the logo gradient). The `ThemeService.SetHubAccent()` method is a no-op. The Settings General tab does not offer accent colour selection — only avatar colour and dark/light mode toggle.
+
+**Sunrise Gradient Background**
+The background uses an animated multi-stop gradient that shifts slowly (25s cycle). Light mode: pinks, peach, lavender, cream. Dark mode: deep navy, indigo, plum. The animation uses `background-size: 400% 400%` with `@keyframes gradientShift`.
+
 **Bento Grid**
 The Hub overview uses an asymmetric card layout inspired by Japanese bento boxes — wider cards for recently accessed Hubs, narrower cards for the rest. This creates a visually rich layout that naturally draws attention to what matters most, without the user having to configure anything.
 
@@ -236,8 +245,8 @@ Three official SVG logo files exist. **Never replace logo placements with hand-w
 
 | File | Location in repo | Use when… |
 |---|---|---|
-| `tanaste-logo.svg` | `src/Tanaste.Web/wwwroot/images/` and `assets/images/` | Full horizontal logo — mark + "TANASTE" wordmark. Use in the Dashboard AppBar and anywhere a full branded header is needed. |
-| `tanaste-icon.svg` | `src/Tanaste.Web/wwwroot/images/`, `wwwroot/favicon.svg`, and `assets/images/` | Square icon mark only. Use as favicon, drawer icon, app icon, or any small/square slot. |
+| `tanaste-logo.svg` | `src/Tanaste.Web/wwwroot/images/` and `assets/images/` | Full horizontal logo — mark + "TANASTE" wordmark. Use in the expanded LeftDock and anywhere a full branded header is needed. |
+| `tanaste-icon.svg` | `src/Tanaste.Web/wwwroot/images/`, `wwwroot/favicon.svg`, and `assets/images/` | Square icon mark only. Use as favicon, narrow LeftDock icon, app icon, or any small/square slot. |
 | `tanaste-hero.svg` | `assets/images/` | Mark + wordmark + subtitle ("The Unified Media Intelligence Kernel"). Use in README hero and marketing contexts only. |
 
 **Color note:** All three SVGs use hardcoded fills: white (`#fff`) for highlight layers and black (default) for the main strokes. They are designed primarily for dark backgrounds (as used in the Dashboard). On light backgrounds, the mark renders as a black design — which is clean and intentional.
@@ -605,7 +614,7 @@ Example files in `config.example/ui/`. Live files in `config/ui/` gitignored.
 - `DeviceContextService` (`Tanaste.Web.Services.Theming`) — per-circuit scoped; replaced `AutomotiveModeService`
 - `ResolvedUISettingsViewModel` + DTOs (`Tanaste.Web.Models.ViewDTOs`) — Dashboard view model
 
-**Adapted components:** MainLayout, NavigationTray, SettingsTabBar (5 layout modes), GeneralTab (conditional sections), Home, HubHero (4 layout variants), BentoGrid (dynamic columns), UniverseStack, PendingFilesAlert (expandable/badge/hidden), ServerSettings (redirect guard), Preferences (conditional links).
+**Adapted components:** MainLayout, LeftDock, SettingsTabBar (5 layout modes), GeneralTab (conditional sections), Home, HubHero (4 layout variants), BentoGrid (dynamic columns), UniverseStack, PendingFilesAlert (expandable/badge/hidden), ServerSettings (redirect guard), Preferences (conditional links).
 
 **Why this matters to the business:**
 - **Extensibility** — Adding a new device class is one JSON file + one entry in the cascade resolver. No code changes in the Dashboard.
@@ -1293,7 +1302,7 @@ src/Tanaste.Web/
 │   │
 │   ├── Navigation/           ← Navigation and search components
 │   │   ├── CommandPalette.razor        Ctrl+K global search and navigation
-│   │   └── NavigationTray.razor        Content-aware bottom tray: Virtual Libraries + Search
+│   │   └── LeftDock.razor               Plex-inspired left dock: narrow (64px, icons) / expanded (260px, labels + logo)
 │   │
 │   ├── Settings/             ← Settings page tab components (3 groups: Preferences, Metadata, Server)
 │   │   ├── SettingsSidebar.razor        Sidebar navigation with search, badges, collapsible sections (defines SettingsSection enum)
@@ -1341,8 +1350,8 @@ src/Tanaste.Web/
 │       └── ResolvedUISettingsViewModel.cs  Device-resolved UI configuration (8 DTO classes)
 │
 └── Shared/                   ← Top-level layout shell (used by every page)
-    ├── MainLayout.razor                App chrome: glassmorphic AppBar, Intent Dock, dark-mode toggle, review badge on profile avatar
-    ├── NavMenu.razor                   Deprecated stub (replaced by Intent Dock + Command Palette)
+    ├── MainLayout.razor                App chrome: LeftDock, dark-mode toggle, review badge on profile avatar (no AppBar)
+    ├── NavMenu.razor                   Deprecated stub (replaced by LeftDock + Command Palette)
     └── _Imports.razor                  Namespace imports for all Shared components
 ```
 

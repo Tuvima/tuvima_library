@@ -2,9 +2,8 @@
 @inject DeviceContextService DeviceContext
 @implements IDisposable
 
-@* "Your Universes" Bento grid — Spatial Bento design.
-   All tiles are 1×1 (hero is handled separately by HubHero).
-   Each tile shows: title, work count, and media-type icons row.
+@* "Your Universes" Bento grid — clean minimalist design.
+   All tiles are 1x1. Each tile shows: title and metadata line.
    Column count and tile style driven by device context via parent parameters. *@
 
 @if (VisibleHubs is { Count: > 0 })
@@ -29,12 +28,12 @@
                         @hub.DisplayName
                     </MudText>
 
-                    @* ── Work count ── *@
+                    @* ── Metadata line: work count · media types ── *@
                     <MudText Typo="Typo.body2" Style="color: var(--app-text-muted);">
-                        @hub.WorkCount @(hub.WorkCount == 1 ? "work" : "works")
+                        @hub.WorkCount @(hub.WorkCount == 1 ? "work" : "works") · @hub.MediaTypes
                     </MudText>
 
-                    @* ── Media type icons row — pushed to bottom ── *@
+                    @* ── Media type icons row ── *@
                     <MudStack Row="true" Spacing="2" Class="mt-auto pt-3"
                               AlignItems="AlignItems.Center">
                         @foreach (var icon in GetDistinctMediaIcons(hub))
@@ -51,21 +50,20 @@
 }
 else if (VisibleHubs is { Count: 0 } && Hubs is { Count: > 0 })
 {
-    @* Filter active (e.g. Automotive Mode) but no matching hubs *@
     <MudPaper Class="pa-8 d-flex flex-column align-center" Elevation="0"
-              Style="background: var(--app-glass-inner-bg); border-radius: 32px; border: 1px solid var(--app-glass-inner-border);">
+              Style="background: var(--app-glass-inner-bg); border-radius: 20px; border: 1px solid var(--app-glass-inner-border);">
         <MudIcon Icon="@Icons.Material.Filled.FilterAlt"
                  Size="Size.Large" Color="Color.Secondary" Class="mb-3" />
         <MudText Typo="Typo.h6" Class="mb-2">No matching Hubs</MudText>
         <MudText Typo="Typo.body2" Style="color: var(--app-text-muted);">
-            Try a different intent filter from the dock below.
+            Try a different filter from the dock.
         </MudText>
     </MudPaper>
 }
 else
 {
     <MudPaper Class="pa-8 d-flex flex-column align-center" Elevation="0"
-              Style="background: var(--app-glass-inner-bg); border-radius: 32px; border: 1px solid var(--app-glass-inner-border);">
+              Style="background: var(--app-glass-inner-bg); border-radius: 20px; border: 1px solid var(--app-glass-inner-border);">
         <MudIcon Icon="@Icons.Material.Filled.LibraryAdd"
                  Size="Size.Large" Color="Color.Secondary" Class="mb-3" />
         <MudText Typo="Typo.h6" Class="mb-2">Your library is empty</MudText>
@@ -79,29 +77,12 @@ else
     [Parameter] public List<HubViewModel>?         Hubs          { get; set; }
     [Parameter] public string?                     Class         { get; set; }
     [Parameter] public EventCallback<HubViewModel> OnHubSelected { get; set; }
-
-    /// <summary>
-    /// Number of columns for the BentoGrid. Driven by
-    /// <c>DeviceContext.Settings.Pages.Home.BentoColumns</c>.
-    /// When 0, the grid uses its default responsive behaviour.
-    /// </summary>
     [Parameter] public int Columns { get; set; }
-
-    /// <summary>
-    /// Tile style hint: "normal", "large" (TV), "audio-only" (automotive).
-    /// Driven by <c>DeviceContext.Settings.Pages.Home.BentoTileStyle</c>.
-    /// </summary>
     [Parameter] public string TileStyle { get; set; } = "normal";
 
-    /// <summary>Whether tiles should use the large visual style (TV).</summary>
     private bool IsLargeTile =>
         string.Equals(TileStyle, "large", StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>
-    /// Filtered hub list: in audio-only tile style only Audio-type hubs are shown.
-    /// In Automotive mode (which uses audio-only) this filters to audio hubs.
-    /// In normal mode every hub passes through.
-    /// </summary>
     private List<HubViewModel> VisibleHubs =>
         Hubs is null
             ? []
@@ -117,10 +98,6 @@ else
     public void Dispose() =>
         DeviceContext.OnChanged -= OnDeviceChanged;
 
-    /// <summary>
-    /// Returns distinct media-type icons for a hub (video, book, audio, comic).
-    /// Each icon appears at most once regardless of how many Works share that type.
-    /// </summary>
     private static List<string> GetDistinctMediaIcons(HubViewModel hub)
     {
         var icons = new List<string>();

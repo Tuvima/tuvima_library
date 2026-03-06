@@ -1,230 +1,208 @@
 @namespace MediaEngine.Web.Components.Universe
 
-@* "Last Journey" Smart Tile — Spatial Bento hero card.
-   Supports multiple layouts driven by device context:
-     "two-column"           → Default web: artwork (left) + info (right)
-     "stacked"              → Mobile: vertical stack, centred
-     "two-column-oversized" → Television: larger artwork, bigger text
-     "hidden"               → Automotive: not rendered (parent handles this) *@
+@* Hero Banner Row — Plex-inspired wide banner cards at the top of the Home page.
+   Primary banner: "Continue Watching" with the first Hub.
+   Secondary banner: "Next Up" with the second Hub.
+   Uses mock progress data until UserState API exists.
 
-@if (Hub is not null && Layout != "hidden")
+   Layout variants:
+     "two-column"           → Default web: two banners side by side
+     "stacked"              → Mobile: single banner, stacked
+     "two-column-oversized" → Television: larger banners
+     "hidden"               → Not rendered *@
+
+@if (Layout != "hidden")
 {
-    <div class="hub-hero @LayoutClass" style="@HeroGlowStyle">
-        <div class="hero-glass-overlay" />
-
-        <div class="hero-inner">
-            @* ── Artwork column ── *@
-            <div class="hero-artwork">
-                <div class="hero-artwork-placeholder"
-                     style="background: linear-gradient(145deg, @(Hub.DominantHexColor)44, @(Hub.DominantHexColor)11);">
-                    <MudIcon Icon="@Icons.Material.Filled.Movie"
-                             Style="@($"font-size: {ArtworkIconSize}px; color: var(--app-icon-soft);")" />
+    <div class="hero-banner-row @LayoutClass">
+        @* ── Primary Banner ── *@
+        @if (Hub is not null)
+        {
+            <div class="hero-banner hero-banner-primary" style="@BannerBgStyle(Hub)">
+                <div class="hero-banner-overlay" />
+                <div class="hero-banner-content">
+                    <span class="hero-banner-tag">CONTINUE WATCHING</span>
+                    <h2 class="hero-banner-title">@Hub.DisplayName</h2>
+                    <p class="hero-banner-subtitle">@HubMeta(Hub)</p>
                 </div>
             </div>
+        }
 
-            @* ── Info column: title + progress ── *@
-            <div class="hero-info">
-                <MudText Typo="@TitleTypo" Class="mb-1" Style="font-weight: 600;">
-                    @Hub.DisplayName: Last Journey
-                </MudText>
-                <MudText Typo="Typo.body1" Style="color: var(--app-text-soft);" Class="mb-1">
-                    Continue your Journey in @Hub.DisplayName
-                </MudText>
-                <MudText Typo="Typo.body2" Style="color: var(--app-text-faint);" Class="mb-4">
-                    @Hub.MediaTypes — @Hub.WorkCount @(Hub.WorkCount == 1 ? "work" : "works")
-                </MudText>
-
-                @* ── Progress indicators ── *@
-                <MudStack Row="@(!IsStacked)" Spacing="3" Class="hero-progress-row">
-                    <ProgressIndicator Icon="@Icons.Material.Filled.PlayCircle"
-                                       Value="@WatchValue"
-                                       Percent="@WatchPercent"
-                                       Label="@WatchLabel" />
-
-                    <ProgressIndicator Icon="@Icons.Material.Filled.MenuBook"
-                                       Value="@ReadValue"
-                                       Percent="@ReadPercent"
-                                       Label="@ReadLabel" />
-
-                    <ProgressIndicator Icon="@Icons.Material.Filled.Headphones"
-                                       Value="@ListenValue"
-                                       Percent="@ListenPercent"
-                                       Label="@ListenLabel" />
-                </MudStack>
+        @* ── Secondary Banner ── *@
+        @if (SecondaryHub is not null && !IsStacked)
+        {
+            <div class="hero-banner hero-banner-secondary" style="@BannerBgStyle(SecondaryHub)">
+                <div class="hero-banner-overlay" />
+                <div class="hero-banner-content">
+                    <span class="hero-banner-tag">NEXT UP IN THE COLLECTION</span>
+                    <h2 class="hero-banner-title">@SecondaryHub.DisplayName</h2>
+                    <p class="hero-banner-subtitle">@HubMeta(SecondaryHub)</p>
+                </div>
             </div>
-        </div>
+        }
     </div>
 }
 
 @code {
     [Parameter] public HubViewModel? Hub { get; set; }
+    [Parameter] public HubViewModel? SecondaryHub { get; set; }
 
     /// <summary>
-    /// Layout variant driven by <c>DeviceContext.Settings.Pages.Home.HubHeroLayout</c>.
+    /// Layout variant driven by DeviceContext.
     /// Accepted values: "two-column" (default), "stacked", "two-column-oversized", "hidden".
     /// </summary>
     [Parameter] public string Layout { get; set; } = "two-column";
 
-    // ── Layout helpers ─────────────────────────────────────────────────────────
-
     private bool IsStacked =>
         string.Equals(Layout, "stacked", StringComparison.OrdinalIgnoreCase);
 
-    private bool IsOversized =>
-        string.Equals(Layout, "two-column-oversized", StringComparison.OrdinalIgnoreCase);
-
     private string LayoutClass => Layout switch
     {
-        "stacked"              => "hub-hero-stacked",
-        "two-column-oversized" => "hub-hero-oversized",
+        "stacked"              => "hero-banner-row-stacked",
+        "two-column-oversized" => "hero-banner-row-oversized",
         _                      => string.Empty,
     };
 
-    private Typo TitleTypo => IsOversized ? Typo.h3 : Typo.h4;
+    private string BannerBgStyle(HubViewModel hub)
+    {
+        var hex = hub.DominantHexColor ?? "#C9922E";
+        return $"--banner-accent: {hex};";
+    }
 
-    private int ArtworkIconSize => IsOversized ? 80 : 64;
-
-    // ── Progress data (placeholder until UserState API exists) ────────────────
-
-    private string WatchValue   => HasVideo  ? "—"  : "—";
-    private double WatchPercent => 0;
-    private string WatchLabel   => HasVideo  ? "Watch" : "No video";
-
-    private string ReadValue    => HasBook   ? "—"  : "—";
-    private double ReadPercent  => 0;
-    private string ReadLabel    => HasBook   ? "Read"  : "No book";
-
-    private string ListenValue  => HasAudio  ? "—"  : "—";
-    private double ListenPercent => 0;
-    private string ListenLabel  => HasAudio  ? "Listen" : "No audio";
-
-    // ── Media type presence helpers ──────────────────────────────────────────
-
-    private bool HasVideo => Hub?.Works.Any(w =>
-        w.MediaType.Contains("video", StringComparison.OrdinalIgnoreCase) ||
-        w.MediaType.Contains("movie", StringComparison.OrdinalIgnoreCase)) ?? false;
-
-    private bool HasBook => Hub?.Works.Any(w =>
-        w.MediaType.Contains("epub", StringComparison.OrdinalIgnoreCase) ||
-        w.MediaType.Contains("book", StringComparison.OrdinalIgnoreCase)) ?? false;
-
-    private bool HasAudio => Hub?.Works.Any(w =>
-        w.MediaType.Contains("audio", StringComparison.OrdinalIgnoreCase)) ?? false;
-
-    // ── Dynamic glow from hub accent colour ─────────────────────────────────
-
-    private string HeroGlowStyle =>
-        $"--hero-glow: {Hub?.DominantHexColor ?? "#7C4DFF"}33; " +
-        $"--hero-border: {Hub?.DominantHexColor ?? "#7C4DFF"}40;";
+    private string HubMeta(HubViewModel hub) =>
+        $"{hub.MediaTypes} — {hub.WorkCount} {(hub.WorkCount == 1 ? "work" : "works")}";
 }
 
 <style>
-    .hub-hero {
-        position: relative;
-        overflow: hidden;
-        border-radius: 32px;
-        background: var(--app-glass-inner-bg);
-        border: 1px solid var(--hero-border, rgba(124, 77, 255, 0.25));
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
-        box-shadow:
-            0 8px 40px rgba(0, 0, 0, 0.40),
-            0 0 80px var(--hero-glow, rgba(124, 77, 255, 0.20));
+    /* ── Banner row container ────────────────────────────────────────── */
+    .hero-banner-row {
+        display: flex;
+        gap: 20px;
         margin-bottom: 2rem;
     }
 
-    .hero-glass-overlay {
+    .hero-banner-row-stacked {
+        flex-direction: column;
+    }
+
+    /* ── Individual banner card ──────────────────────────────────────── */
+    .hero-banner {
+        position: relative;
+        border-radius: 20px;
+        overflow: hidden;
+        min-height: 260px;
+        display: flex;
+        align-items: flex-end;
+        cursor: pointer;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        background: linear-gradient(
+            135deg,
+            color-mix(in srgb, var(--banner-accent, #C9922E) 30%, #1a1a2e) 0%,
+            color-mix(in srgb, var(--banner-accent, #C9922E) 10%, #0d0d1a) 100%
+        );
+    }
+
+    .hero-banner:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+    }
+
+    .hero-banner-primary {
+        flex: 2;
+        min-height: 300px;
+    }
+
+    .hero-banner-secondary {
+        flex: 1;
+        min-height: 260px;
+    }
+
+    /* ── Dark gradient overlay for text readability ──────────────────── */
+    .hero-banner-overlay {
         position: absolute;
         inset: 0;
-        background: radial-gradient(ellipse at 80% 20%, var(--hero-glow, rgba(124, 77, 255, 0.15)), transparent 70%);
+        background: linear-gradient(
+            to top,
+            rgba(0, 0, 0, 0.80) 0%,
+            rgba(0, 0, 0, 0.30) 40%,
+            transparent 70%
+        );
         pointer-events: none;
     }
 
-    .hero-inner {
+    /* ── Banner text content ─────────────────────────────────────────── */
+    .hero-banner-content {
         position: relative;
         z-index: 1;
-        display: flex;
-        gap: 2rem;
         padding: 1.5rem 2rem;
-        align-items: center;
-    }
-
-    .hero-artwork {
-        flex-shrink: 0;
-        width: 180px;
-        height: 240px;
-    }
-
-    .hero-artwork-placeholder {
         width: 100%;
-        height: 100%;
-        border-radius: 20px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border: 1px solid var(--app-glass-border);
     }
 
-    .hero-info {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
+    .hero-banner-tag {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.7rem;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        color: rgba(255, 255, 255, 0.65);
+        text-transform: uppercase;
+        display: block;
+        margin-bottom: 6px;
     }
 
-    .hero-progress-row {
-        flex-wrap: wrap;
+    .hero-banner-title {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 1.6rem;
+        font-weight: 700;
+        color: #ffffff;
+        margin: 0 0 4px 0;
+        line-height: 1.2;
     }
 
-    /* ── Stacked layout (mobile) ─────────────────────────────────────────── */
-    .hub-hero-stacked .hero-inner {
-        flex-direction: column;
-        text-align: center;
-        padding: 1.25rem;
+    .hero-banner-primary .hero-banner-title {
+        font-size: 2rem;
     }
 
-    .hub-hero-stacked .hero-artwork {
-        width: 140px;
-        height: 190px;
+    .hero-banner-subtitle {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.9rem;
+        font-weight: 400;
+        color: rgba(255, 255, 255, 0.70);
+        margin: 0;
     }
 
-    .hub-hero-stacked .hero-progress-row {
-        justify-content: center;
+    /* ── Oversized layout (television) ──────────────────────────────── */
+    .hero-banner-row-oversized .hero-banner {
+        min-height: 380px;
     }
 
-    /* ── Oversized layout (television) ───────────────────────────────────── */
-    .hub-hero-oversized {
-        border-radius: 40px;
+    .hero-banner-row-oversized .hero-banner-title {
+        font-size: 2.4rem;
     }
 
-    .hub-hero-oversized .hero-inner {
+    .hero-banner-row-oversized .hero-banner-content {
         padding: 2.5rem 3rem;
-        gap: 3rem;
     }
 
-    .hub-hero-oversized .hero-artwork {
-        width: 240px;
-        height: 320px;
+    /* ── Stacked layout (mobile) ────────────────────────────────────── */
+    .hero-banner-row-stacked .hero-banner-primary {
+        min-height: 220px;
     }
 
-    .hub-hero-oversized .hero-artwork-placeholder {
-        border-radius: 28px;
-    }
-
-    /* Responsive fallback: stack on small viewports regardless of layout */
+    /* ── Responsive fallback ────────────────────────────────────────── */
     @@media (max-width: 768px) {
-        .hero-inner {
+        .hero-banner-row {
             flex-direction: column;
-            text-align: center;
-            padding: 1.25rem;
         }
 
-        .hero-artwork {
-            width: 140px;
-            height: 190px;
+        .hero-banner-primary {
+            min-height: 220px;
         }
 
-        .hero-progress-row {
-            justify-content: center;
+        .hero-banner-secondary {
+            display: none;
+        }
+
+        .hero-banner-title {
+            font-size: 1.4rem !important;
         }
     }
 </style>

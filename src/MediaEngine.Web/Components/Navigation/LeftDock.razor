@@ -1,0 +1,300 @@
+@namespace MediaEngine.Web.Components.Navigation
+@inject NavigationManager Nav
+@inject DeviceContextService DeviceContext
+@inject UIOrchestratorService Orchestrator
+@implements IDisposable
+
+@using MediaEngine.Web.Models.ViewDTOs
+
+@* Left Navigation Dock — Plex-inspired translucent sidebar.
+   Narrow state (64px): icon-only, fixed left.
+   Expanded state (hover, 280px): overlay with labels + full logo.
+   Content area has permanent left margin for the narrow dock. *@
+
+<div class="left-dock @(_expanded ? "left-dock-expanded" : "")"
+     @onmouseenter="@(() => _expanded = true)"
+     @onmouseleave="@(() => _expanded = false)">
+
+    @* ── Logo area ── *@
+    <div class="dock-logo">
+        @if (_expanded)
+        {
+            <MudLink Href="/" Underline="Underline.None" Style="text-decoration: none; display: flex; align-items: center;">
+                <AppLogo Style="height: 36px; display: block;" />
+            </MudLink>
+        }
+        else
+        {
+            <MudLink Href="/" Underline="Underline.None" Style="text-decoration: none; display: flex; align-items: center; justify-content: center;">
+                <img src="images/tuvima-icon.svg" alt="Tuvima" style="height: 32px; width: 32px;" />
+            </MudLink>
+        }
+    </div>
+
+    @* ── Navigation items ── *@
+    <nav class="dock-nav">
+
+        @* Search *@
+        <div class="dock-item @(IsActive("/search") ? "dock-item-active" : "")"
+             @onclick="@(() => OnSearchRequested.InvokeAsync())"
+             title="Search (Ctrl+K)">
+            <MudIcon Icon="@Icons.Material.Filled.Search" Size="Size.Small" />
+            @if (_expanded)
+            {
+                <span class="dock-label">Search</span>
+            }
+        </div>
+
+        @* Home *@
+        <div class="dock-item @(IsActive("/") ? "dock-item-active" : "")"
+             @onclick="@(() => Nav.NavigateTo("/"))"
+             title="Home">
+            <MudIcon Icon="@Icons.Material.Outlined.Home" Size="Size.Small" />
+            @if (_expanded)
+            {
+                <span class="dock-label">Home</span>
+            }
+        </div>
+
+        @* Virtual Libraries *@
+        @foreach (var lib in Config.Libraries.Where(l => l.Enabled))
+        {
+            var isShowAll = lib.MediaTypes.Count == 0;
+            if (!isShowAll && !HasMatchingContent(lib)) continue;
+
+            var isActive = string.Equals(ActiveLibraryKey, lib.Key, StringComparison.OrdinalIgnoreCase);
+
+            <div class="dock-item @(isActive ? "dock-item-active" : "")"
+                 @onclick="@(() => SelectLibrary(lib))"
+                 title="@lib.Label">
+                <MudIcon Icon="@NavigationDefaults.GetMudIcon(lib.Icon)" Size="Size.Small" />
+                @if (_expanded)
+                {
+                    <span class="dock-label">@lib.Label</span>
+                }
+            </div>
+        }
+    </nav>
+
+    @* ── Bottom section: Settings, Profile, Clock ── *@
+    <div class="dock-bottom">
+
+        @* Settings *@
+        <div class="dock-item @(IsActive("/settings") ? "dock-item-active" : "")"
+             @onclick="@(() => Nav.NavigateTo("/settings"))"
+             title="Settings">
+            <MudIcon Icon="@Icons.Material.Outlined.Settings" Size="Size.Small" />
+            @if (_expanded)
+            {
+                <span class="dock-label">Settings</span>
+            }
+        </div>
+
+        @* Profile avatar *@
+        <div class="dock-item" title="Profile" @onclick="@(() => Nav.NavigateTo("/settings/general"))">
+            <MudBadge Content="@ReviewCount" Color="Color.Error" Overlap="true"
+                      Visible="@(ReviewCount > 0)" Bordered="true">
+                <MudAvatar Size="Size.Small" Style="@($"background: {AvatarColor}; cursor: pointer; width: 28px; height: 28px; font-size: 0.75rem;")">
+                    @AvatarInitial
+                </MudAvatar>
+            </MudBadge>
+            @if (_expanded)
+            {
+                <span class="dock-label">@DisplayName</span>
+            }
+        </div>
+
+        @* Clock *@
+        <div class="dock-clock">
+            <span class="dock-clock-text">@_currentTime</span>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public TrayConfig Config { get; set; } = new();
+    [Parameter] public string? ActiveLibraryKey { get; set; }
+    [Parameter] public EventCallback<VirtualLibrary?> OnLibrarySelected { get; set; }
+    [Parameter] public HashSet<string> AvailableMediaTypes { get; set; } = [];
+    [Parameter] public EventCallback OnSearchRequested { get; set; }
+    [Parameter] public string AvatarColor { get; set; } = "#C9922E";
+    [Parameter] public string AvatarInitial { get; set; } = "?";
+    [Parameter] public string DisplayName { get; set; } = "User";
+    [Parameter] public int ReviewCount { get; set; }
+
+    private bool _expanded;
+    private string _currentTime = DateTime.Now.ToString("h:mmtt").ToLower();
+    private Timer? _clockTimer;
+
+    protected override void OnInitialized()
+    {
+        DeviceContext.OnChanged += OnDeviceChanged;
+        _clockTimer = new Timer(UpdateClock, null, TimeSpan.Zero, TimeSpan.FromSeconds(30));
+    }
+
+    private void UpdateClock(object? state)
+    {
+        _currentTime = DateTime.Now.ToString("h:mmtt").ToUpper();
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OnDeviceChanged() => InvokeAsync(StateHasChanged);
+
+    private bool IsActive(string path) =>
+        Nav.Uri.EndsWith(path, StringComparison.OrdinalIgnoreCase)
+        || (path == "/" && Nav.Uri.EndsWith(Nav.BaseUri.TrimEnd('/'), StringComparison.OrdinalIgnoreCase));
+
+    private bool HasMatchingContent(VirtualLibrary lib) =>
+        lib.MediaTypes.Any(mt => AvailableMediaTypes.Contains(mt, StringComparer.OrdinalIgnoreCase));
+
+    private async Task SelectLibrary(VirtualLibrary lib)
+    {
+        if (lib.MediaTypes.Count == 0 ||
+            string.Equals(ActiveLibraryKey, lib.Key, StringComparison.OrdinalIgnoreCase))
+        {
+            await OnLibrarySelected.InvokeAsync(null);
+        }
+        else
+        {
+            await OnLibrarySelected.InvokeAsync(lib);
+        }
+    }
+
+    public void Dispose()
+    {
+        DeviceContext.OnChanged -= OnDeviceChanged;
+        _clockTimer?.Dispose();
+    }
+}
+
+<style>
+    /* ── Narrow dock (default) ───────────────────────────────────────── */
+    .left-dock {
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        width: 64px;
+        z-index: 1200;
+        display: flex;
+        flex-direction: column;
+        padding: 16px 8px;
+
+        background: var(--app-glass-bg);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border-right: 1px solid var(--app-glass-border);
+
+        transition: width 0.25s ease;
+        overflow: hidden;
+    }
+
+    /* ── Expanded dock (hover overlay) ───────────────────────────────── */
+    .left-dock-expanded {
+        width: 260px;
+        box-shadow: 4px 0 24px rgba(0, 0, 0, 0.15);
+    }
+
+    .app-dark .left-dock-expanded {
+        box-shadow: 4px 0 32px rgba(0, 0, 0, 0.50);
+    }
+
+    /* ── Logo area ───────────────────────────────────────────────────── */
+    .dock-logo {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 48px;
+        margin-bottom: 16px;
+        flex-shrink: 0;
+    }
+
+    .left-dock-expanded .dock-logo {
+        justify-content: flex-start;
+        padding-left: 12px;
+    }
+
+    /* ── Navigation area ─────────────────────────────────────────────── */
+    .dock-nav {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    /* ── Dock item (shared style) ────────────────────────────────────── */
+    .dock-item {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 10px 12px;
+        border-radius: 12px;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: background 0.15s ease;
+        min-height: 40px;
+    }
+
+    .left-dock:not(.left-dock-expanded) .dock-item {
+        justify-content: center;
+        padding: 10px;
+    }
+
+    .dock-item:hover {
+        background: var(--app-hover-overlay);
+    }
+
+    .dock-item-active {
+        background: var(--app-active-overlay);
+    }
+
+    .dock-item-active:hover {
+        background: var(--app-active-overlay);
+    }
+
+    /* ── Label (only visible when expanded) ──────────────────────────── */
+    .dock-label {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.9rem;
+        font-weight: 500;
+        color: var(--app-text-soft);
+    }
+
+    .dock-item-active .dock-label {
+        font-weight: 600;
+    }
+
+    /* ── Bottom section ──────────────────────────────────────────────── */
+    .dock-bottom {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        flex-shrink: 0;
+        margin-top: 8px;
+        border-top: 1px solid var(--app-glass-border);
+        padding-top: 8px;
+    }
+
+    /* ── Clock ────────────────────────────────────────────────────────── */
+    .dock-clock {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 8px 12px;
+        min-height: 36px;
+    }
+
+    .dock-clock-text {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.8rem;
+        font-weight: 500;
+        color: var(--app-text-muted);
+        letter-spacing: 0.02em;
+    }
+
+    .left-dock-expanded .dock-clock {
+        justify-content: flex-start;
+    }
+</style>

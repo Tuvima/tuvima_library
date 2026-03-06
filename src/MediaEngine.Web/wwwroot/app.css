@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   Tuvima Library — Global Stylesheet (Spatial Bento Design)
+   Tuvima Library — Global Stylesheet (Minimalist Design)
    Component-level styles live in their respective .razor files.
    This file owns global / body-level rules and CSS custom properties.
    ══════════════════════════════════════════════════════════════════════════ */
@@ -13,8 +13,6 @@
 }
 
 /* ── Theme-aware CSS custom properties ────────────────────────────────── */
-/* Every glassmorphic surface and muted text colour reads from these vars.
-   Components never need hardcoded rgba(255,255,255,...) or dark-only hex. */
 
 :root {
     /* Light-mode defaults */
@@ -28,11 +26,12 @@
     --app-icon-muted:         rgba(0, 0, 0, 0.40);
     --app-icon-soft:          rgba(0, 0, 0, 0.55);
     --app-hover-overlay:      rgba(0, 0, 0, 0.04);
-    --app-active-overlay:     rgba(124, 77, 255, 0.12);
+    --app-active-overlay:     rgba(201, 146, 46, 0.15);
     --app-swatch-border:      rgba(0, 0, 0, 0.15);
     --app-swatch-active:      rgba(0, 0, 0, 0.70);
     --app-shadow:             0 4px 16px rgba(0, 0, 0, 0.08);
     --app-inset-glow:         0 0 0 1px rgba(0, 0, 0, 0.03) inset;
+    --app-dock-width:         64px;
 }
 
 .app-dark {
@@ -46,38 +45,40 @@
     --app-icon-muted:         rgba(255, 255, 255, 0.35);
     --app-icon-soft:          rgba(255, 255, 255, 0.55);
     --app-hover-overlay:      rgba(255, 255, 255, 0.05);
-    --app-active-overlay:     rgba(124, 77, 255, 0.18);
+    --app-active-overlay:     rgba(201, 146, 46, 0.22);
     --app-swatch-border:      rgba(255, 255, 255, 0.10);
     --app-swatch-active:      rgba(255, 255, 255, 0.80);
     --app-shadow:             0 8px 32px rgba(0, 0, 0, 0.50);
     --app-inset-glow:         0 0 0 1px rgba(255, 255, 255, 0.04) inset;
 }
 
-/* ── Body — background adapts to theme ────────────────────────────────── */
+/* ── Animated gradient background ────────────────────────────────────── */
+
+@keyframes gradientShift {
+    0%   { background-position: 0% 50%; }
+    25%  { background-position: 100% 50%; }
+    50%  { background-position: 100% 0%; }
+    75%  { background-position: 0% 100%; }
+    100% { background-position: 0% 50%; }
+}
+
+/* Light mode: warm sunrise gradient (oranges, pinks, light purples) */
 body {
     margin: 0;
-    background-color: #F4F4F8;
-    transition: background-color 0.3s ease;
+    background: linear-gradient(135deg, #fce4ec, #fff3e0, #f3e5f5, #e8eaf6, #fff8e1, #fce4ec);
+    background-size: 400% 400%;
+    animation: gradientShift 25s ease infinite;
+    transition: background 0.5s ease;
 }
 
+/* Dark mode: deep navy / indigo / purple gradient */
 body.app-dark {
-    background-color:   #0F0F14;
-    background-image:   url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n' x='0' y='0'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='0.10'/%3E%3C/svg%3E");
-    background-repeat:  repeat;
-    background-size:    200px 200px;
-}
-
-/* ── Spatial AppBar — glassmorphic header adapts to theme ─────────────── */
-.spatial-appbar {
-    background: var(--app-glass-bg) !important;
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border-bottom: 1px solid var(--app-glass-border);
-    box-shadow: none !important;
+    background: linear-gradient(135deg, #1a0a2e, #0d1b3e, #1b1040, #0a1628, #120828, #1a0a2e);
+    background-size: 400% 400%;
+    animation: gradientShift 25s ease infinite;
 }
 
 /* ── Logo colour theming ─────────────────────────────────────────────── */
-/* The logo SVG uses fill:currentColor so it inherits text colour.       */
 .app-logo {
     color: #1A1A24;
 }
