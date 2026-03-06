@@ -32,6 +32,13 @@
     --app-shadow:             0 4px 16px rgba(0, 0, 0, 0.08);
     --app-inset-glow:         0 0 0 1px rgba(0, 0, 0, 0.03) inset;
     --app-dock-width:         64px;
+
+    /* Dock panel — light mode: near-white, slightly frosted */
+    --app-dock-bg:            rgba(252, 252, 252, 0.94);
+    --app-dock-border:        rgba(0, 0, 0, 0.07);
+    --app-dock-text:          rgba(0, 0, 0, 0.80);
+    --app-dock-text-muted:    rgba(0, 0, 0, 0.40);
+    --app-dock-hover:         rgba(0, 0, 0, 0.05);
 }
 
 .app-dark {
@@ -50,6 +57,13 @@
     --app-swatch-active:      rgba(255, 255, 255, 0.80);
     --app-shadow:             0 8px 32px rgba(0, 0, 0, 0.50);
     --app-inset-glow:         0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+
+    /* Dock panel — dark mode: near-black, solid */
+    --app-dock-bg:            rgba(14, 14, 14, 0.97);
+    --app-dock-border:        rgba(255, 255, 255, 0.06);
+    --app-dock-text:          rgba(255, 255, 255, 0.82);
+    --app-dock-text-muted:    rgba(255, 255, 255, 0.38);
+    --app-dock-hover:         rgba(255, 255, 255, 0.06);
 }
 
 /* ── Animated gradient background ────────────────────────────────────── */

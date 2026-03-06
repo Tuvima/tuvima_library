@@ -45,17 +45,6 @@
             }
         </div>
 
-        @* Home *@
-        <div class="dock-item @(IsActive("/") ? "dock-item-active" : "")"
-             @onclick="@(() => Nav.NavigateTo("/"))"
-             title="Home">
-            <MudIcon Icon="@Icons.Material.Outlined.Home" Size="Size.Small" />
-            @if (_expanded)
-            {
-                <span class="dock-label">Home</span>
-            }
-        </div>
-
         @* Virtual Libraries *@
         @foreach (var lib in Config.Libraries.Where(l => l.Enabled))
         {
@@ -168,22 +157,25 @@
 }
 
 <style>
-    /* ── Narrow dock (default) ───────────────────────────────────────── */
+    /* ── Floating panel — narrow (default) ───────────────────────────── */
     .left-dock {
         position: fixed;
-        top: 0;
+        top: 12px;
         left: 0;
-        bottom: 0;
+        bottom: 12px;
         width: 64px;
         z-index: 1200;
         display: flex;
         flex-direction: column;
         padding: 16px 8px;
 
-        background: var(--app-glass-bg);
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
-        border-right: 1px solid var(--app-glass-border);
+        background: var(--app-dock-bg);
+        backdrop-filter: blur(24px);
+        -webkit-backdrop-filter: blur(24px);
+        border: 1px solid var(--app-dock-border);
+
+        /* Flush left edge, rounded right corners */
+        border-radius: 0 20px 20px 0;
 
         transition: width 0.25s ease;
         overflow: hidden;
@@ -191,12 +183,12 @@
 
     /* ── Expanded dock (hover overlay) ───────────────────────────────── */
     .left-dock-expanded {
-        width: 260px;
-        box-shadow: 4px 0 24px rgba(0, 0, 0, 0.15);
+        width: 240px;
+        box-shadow: 8px 0 32px rgba(0, 0, 0, 0.12);
     }
 
     .app-dark .left-dock-expanded {
-        box-shadow: 4px 0 32px rgba(0, 0, 0, 0.50);
+        box-shadow: 8px 0 40px rgba(0, 0, 0, 0.55);
     }
 
     /* ── Logo area ───────────────────────────────────────────────────── */
@@ -205,13 +197,13 @@
         align-items: center;
         justify-content: center;
         height: 48px;
-        margin-bottom: 16px;
+        margin-bottom: 20px;
         flex-shrink: 0;
     }
 
     .left-dock-expanded .dock-logo {
         justify-content: flex-start;
-        padding-left: 12px;
+        padding-left: 8px;
     }
 
     /* ── Navigation area ─────────────────────────────────────────────── */
@@ -219,7 +211,7 @@
         flex: 1;
         display: flex;
         flex-direction: column;
-        gap: 2px;
+        gap: 0;
         overflow-y: auto;
         overflow-x: hidden;
     }
@@ -228,52 +220,59 @@
     .dock-item {
         display: flex;
         align-items: center;
-        gap: 14px;
-        padding: 10px 12px;
-        border-radius: 12px;
+        gap: 16px;
+        padding: 11px 12px;
+        border-radius: 10px;
         cursor: pointer;
         white-space: nowrap;
-        transition: background 0.15s ease;
-        min-height: 40px;
+        transition: background 0.15s ease, color 0.15s ease;
+        min-height: 44px;
+        color: var(--app-dock-text);
     }
 
     .left-dock:not(.left-dock-expanded) .dock-item {
         justify-content: center;
-        padding: 10px;
+        padding: 11px;
     }
 
     .dock-item:hover {
-        background: var(--app-hover-overlay);
+        background: var(--app-dock-hover);
     }
 
+    /* Active: no background fill — amber icon + label with underline */
     .dock-item-active {
-        background: var(--app-active-overlay);
+        background: transparent;
+        color: #C9922E;
     }
 
     .dock-item-active:hover {
-        background: var(--app-active-overlay);
+        background: var(--app-dock-hover);
     }
 
     /* ── Label (only visible when expanded) ──────────────────────────── */
     .dock-label {
         font-family: 'Montserrat', sans-serif;
-        font-size: 0.9rem;
+        font-size: 1rem;
         font-weight: 500;
-        color: var(--app-text-soft);
+        color: inherit;
     }
 
     .dock-item-active .dock-label {
-        font-weight: 600;
+        font-weight: 700;
+        text-decoration: underline;
+        text-decoration-color: #C9922E;
+        text-underline-offset: 4px;
+        text-decoration-thickness: 2px;
     }
 
     /* ── Bottom section ──────────────────────────────────────────────── */
     .dock-bottom {
         display: flex;
         flex-direction: column;
-        gap: 2px;
+        gap: 0;
         flex-shrink: 0;
         margin-top: 8px;
-        border-top: 1px solid var(--app-glass-border);
+        border-top: 1px solid var(--app-dock-border);
         padding-top: 8px;
     }
 
@@ -290,8 +289,8 @@
         font-family: 'Montserrat', sans-serif;
         font-size: 0.8rem;
         font-weight: 500;
-        color: var(--app-text-muted);
-        letter-spacing: 0.02em;
+        color: var(--app-dock-text-muted);
+        letter-spacing: 0.03em;
     }
 
     .left-dock-expanded .dock-clock {
