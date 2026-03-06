@@ -61,7 +61,10 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             : Guid.NewGuid();
 
         // Parse can_handle filters into enum sets for fast lookup.
-        _mediaTypes = ParseEnumSet<MediaType>(config.CanHandle?.MediaTypes);
+        // Normalize legacy media type names (Epub → Books, Audiobook → Audiobooks).
+        var normalizedMediaTypes = config.CanHandle?.MediaTypes?
+            .Select(NormalizeMediaType).ToList();
+        _mediaTypes = ParseEnumSet<MediaType>(normalizedMediaTypes);
         _entityTypes = ParseEnumSet<EntityType>(config.CanHandle?.EntityTypes);
     }
 
@@ -134,8 +137,8 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                     return claims;
                 }
 
-                _logger.LogDebug(
-                    "{Provider}/{Strategy}: no claims produced, trying next",
+                _logger.LogInformation(
+                    "{Provider}/{Strategy}: zero results from API, trying next strategy",
                     Name, strategy.Name);
             }
             catch (OperationCanceledException)
@@ -237,7 +240,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         CancellationToken ct)
     {
         var url = BuildUrl(strategy, request);
-        _logger.LogDebug("{Provider}/{Strategy}: SEARCH {Url}", Name, strategy.Name, url);
+        _logger.LogInformation("{Provider}/{Strategy}: SEARCH {Url}", Name, strategy.Name, url);
 
         await _throttle.WaitAsync(ct).ConfigureAwait(false);
         try
@@ -254,6 +257,10 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             using var client = _httpFactory.CreateClient(_config.Name);
             using var response = await client.GetAsync(url, ct).ConfigureAwait(false);
             _lastCallUtc = DateTime.UtcNow;
+
+            _logger.LogInformation(
+                "{Provider}/{Strategy}: HTTP {StatusCode}",
+                Name, strategy.Name, (int)response.StatusCode);
 
             if (response.StatusCode == System.Net.HttpStatusCode.NotFound
                 && strategy.Tolerate404)
@@ -718,7 +725,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         return strategies
             .Where(s => s.MediaTypes is null or { Count: 0 }
                      || s.MediaTypes.Any(mt =>
-                            string.Equals(mt, mediaTypeStr, StringComparison.OrdinalIgnoreCase)))
+                            string.Equals(NormalizeMediaType(mt), mediaTypeStr, StringComparison.OrdinalIgnoreCase)))
             .ToList();
     }
 
@@ -741,9 +748,26 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         return mappings
             .Where(m => m.MediaTypes is null or { Count: 0 }
                      || m.MediaTypes.Any(mt =>
-                            string.Equals(mt, mediaTypeStr, StringComparison.OrdinalIgnoreCase)))
+                            string.Equals(NormalizeMediaType(mt), mediaTypeStr, StringComparison.OrdinalIgnoreCase)))
             .ToList();
     }
+
+    // ── Legacy media type normalization ─────────────────────────────────────
+
+    /// <summary>
+    /// Maps pre-rename media type names to their current enum equivalents.
+    /// Configs written before the enum rename used "Epub"/"Audiobook"; the
+    /// current enum has "Books"/"Audiobooks".
+    /// </summary>
+    private static readonly Dictionary<string, string> LegacyMediaTypeMap =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Epub"]      = "Books",
+            ["Audiobook"] = "Audiobooks",
+        };
+
+    private static string NormalizeMediaType(string value)
+        => LegacyMediaTypeMap.TryGetValue(value, out var normalized) ? normalized : value;
 
     // ── Helpers ──────────────────────────────────────────────────────────────
 

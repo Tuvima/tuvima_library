@@ -1,4 +1,5 @@
 @namespace MediaEngine.Web.Components.Settings
+@using Microsoft.AspNetCore.Components.Forms
 @using MediaEngine.Web.Models
 @using MediaEngine.Web.Models.ViewDTOs
 @inject UIOrchestratorService Orchestrator
@@ -38,11 +39,43 @@
                 No editable fields available for this entity.
             </MudAlert>
         }
+
+        @* ── Cover art upload ──────────────────────────────────────────── *@
+        <MudDivider Class="my-3" />
+        <MudText Typo="Typo.subtitle2" Class="mb-2">Cover Art</MudText>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+            @if (_coverPreviewUrl is not null)
+            {
+                <div style="width: 60px; height: 90px; border-radius: 6px; overflow: hidden;
+                            border: 1px solid var(--mud-palette-lines-default);">
+                    <img src="@_coverPreviewUrl" alt="Cover preview"
+                         style="width: 100%; height: 100%; object-fit: cover;" />
+                </div>
+            }
+            <MudFileUpload T="IBrowserFile" Accept=".jpg,.jpeg,.png"
+                           FilesChanged="@OnCoverFileSelected"
+                           MaximumFileCount="1">
+                <CustomContent>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.CloudUpload"
+                               Size="Size.Small"
+                               OnClick="@context.OpenFilePickerAsync">
+                        @(_coverFile is null ? "Choose Image" : _coverFile.Name)
+                    </MudButton>
+                </CustomContent>
+            </MudFileUpload>
+            @if (_coverFile is not null)
+            {
+                <MudIconButton Icon="@Icons.Material.Filled.Clear"
+                               Size="Size.Small" Color="Color.Default"
+                               OnClick="@ClearCoverFile" />
+            }
+        </MudStack>
     </DialogContent>
     <DialogActions>
         <MudButton OnClick="Cancel" Color="Color.Default">Cancel</MudButton>
         <MudButton OnClick="SaveAsync" Color="Color.Primary" Variant="Variant.Filled"
-                   Disabled="@(_saving || !HasChanges)">
+                   Disabled="@(_saving || !(HasChanges || _coverFile is not null))">
             @(_saving ? "Saving..." : "Save")
         </MudButton>
     </DialogActions>
@@ -77,6 +110,10 @@
     private bool _saving;
     private string? _entityTitle;
 
+    // Cover upload state.
+    private IBrowserFile? _coverFile;
+    private string? _coverPreviewUrl;
+
     /// <summary>
     /// Fields to present based on media type. Core fields first, then any
     /// existing canonical values not yet listed.
@@ -97,6 +134,8 @@
             : new(StringComparer.OrdinalIgnoreCase);
 
         _entityTitle = _originalValues.GetValueOrDefault("title");
+        _coverFile = null;
+        _coverPreviewUrl = null;
         BuildEditableFields();
     }
 
@@ -157,10 +196,28 @@
 
     private async Task SaveAsync()
     {
-        if (!HasChanges) return;
+        if (!HasChanges && _coverFile is null) return;
 
         _saving = true;
         StateHasChanged();
+
+        // Upload cover first (if selected).
+        if (_coverFile is not null)
+        {
+            try
+            {
+                await using var stream = _coverFile.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024);
+                var coverOk = await Orchestrator.UploadCoverAsync(EntityId, stream, _coverFile.Name);
+                if (coverOk)
+                    Snackbar.Add("Cover art uploaded.", Severity.Success);
+                else
+                    Snackbar.Add("Cover upload failed.", Severity.Warning);
+            }
+            catch (Exception)
+            {
+                Snackbar.Add("Cover upload failed — file may be too large.", Severity.Warning);
+            }
+        }
 
         // Build the changed-fields dictionary.
         var changes = new Dictionary<string, string>();
@@ -175,26 +232,52 @@
             }
         }
 
-        if (changes.Count == 0)
+        if (changes.Count > 0)
         {
-            _saving = false;
-            return;
+            var ok = await Orchestrator.OverrideMetadataAsync(EntityId, changes);
+            if (ok)
+            {
+                Snackbar.Add($"Updated {changes.Count} field(s) successfully.", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add("Failed to save metadata overrides.", Severity.Error);
+                _saving = false;
+                return;
+            }
         }
 
-        var ok = await Orchestrator.OverrideMetadataAsync(EntityId, changes);
         _saving = false;
+        await OnSaved.InvokeAsync(changes);
+        await Close();
+    }
 
-        if (ok)
+    // ── Cover file helpers ──────────────────────────────────────────────────
+
+    private async Task OnCoverFileSelected(IBrowserFile file)
+    {
+        _coverFile = file;
+        // Generate preview data URL.
+        try
         {
-            Snackbar.Add($"Updated {changes.Count} field(s) successfully.", Severity.Success);
-            await OnSaved.InvokeAsync(changes);
-            await Close();
+            await using var stream = file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024);
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+            var base64 = Convert.ToBase64String(ms.ToArray());
+            var mime = file.ContentType ?? "image/jpeg";
+            _coverPreviewUrl = $"data:{mime};base64,{base64}";
         }
-        else
+        catch
         {
-            Snackbar.Add("Failed to save metadata overrides. Check the Engine connection.",
-                         Severity.Error);
+            _coverPreviewUrl = null;
         }
+        StateHasChanged();
+    }
+
+    private void ClearCoverFile()
+    {
+        _coverFile = null;
+        _coverPreviewUrl = null;
     }
 
     private async Task Cancel() => await Close();

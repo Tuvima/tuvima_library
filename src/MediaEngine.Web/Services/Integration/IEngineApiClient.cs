@@ -234,6 +234,11 @@ public interface IEngineApiClient
     /// <summary>PUT /settings/hydration — save hydration pipeline configuration.</summary>
     Task<bool> UpdateHydrationSettingsAsync(HydrationSettingsDto settings, CancellationToken ct = default);
 
+    // ── Cover Art Upload ───────────────────────────────────────────────────
+
+    /// <summary>POST /metadata/{entityId}/cover — upload cover art for a media asset.</summary>
+    Task<bool> UploadCoverAsync(Guid entityId, Stream fileStream, string fileName, CancellationToken ct = default);
+
     // ── Provider Icons ───────────────────────────────────────────────────────
 
     /// <summary>POST /settings/providers/{name}/icon — upload a provider icon.</summary>

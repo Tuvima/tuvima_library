@@ -1,14 +1,20 @@
 @namespace MediaEngine.Web.Components.Settings
 
 @* A single search result row matching the reference layout:
-   [Thumbnail] [Title (bold) + by Author + description] [Year] *@
+   [Thumbnail] [Title (bold) + by Author + description] [Year]
+   Supports click-to-highlight via IsSelected; confirm is separate. *@
 
-<div class="search-result-row" @onclick="@(() => OnSelected.InvokeAsync(Result))"
-     style="display: flex; gap: 12px; padding: 10px 12px; border-bottom: 1px solid var(--mud-palette-lines-default);
-            cursor: pointer; transition: background 0.15s ease;">
+<div class="search-result-row @(IsSelected ? "search-result-selected" : "")"
+     @onclick="@(() => OnSelected.InvokeAsync(Result))"
+     style="display: flex; gap: 14px; padding: 12px 14px;
+            border-bottom: 1px solid var(--mud-palette-lines-default);
+            cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease;
+            @(IsSelected
+                ? "border-left: 3px solid var(--mud-palette-primary); background: rgba(var(--mud-palette-primary-rgb), 0.08);"
+                : "border-left: 3px solid transparent;")">
 
-    @* ── Thumbnail ────────────────────────────────────────────────── *@
-    <div style="flex-shrink: 0; width: 56px; height: 80px; border-radius: 6px; overflow: hidden;
+    @* ── Thumbnail (120×180px) ───────────────────────────────────── *@
+    <div style="flex-shrink: 0; width: 120px; height: 180px; border-radius: 8px; overflow: hidden;
                 background: var(--mud-palette-surface); display: flex; align-items: center; justify-content: center;">
         @if (!string.IsNullOrWhiteSpace(Result.ThumbnailUrl))
         {
@@ -24,7 +30,7 @@
     </div>
 
     @* ── Text content ─────────────────────────────────────────────── *@
-    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px;">
+    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
         <MudText Typo="Typo.body1" Style="font-weight: 600;">
             @Result.Title
         </MudText>
@@ -51,7 +57,7 @@
     {
         <div style="flex-shrink: 0; padding-top: 2px;">
             <MudText Typo="Typo.body1" Style="font-weight: 500;">
-                @Result.Year
+                @MediaEngine.Web.Shared.DateFormatHelper.FormatFriendlyDate(Result.Year)
             </MudText>
         </div>
     }
@@ -62,7 +68,11 @@
     [Parameter, EditorRequired]
     public MetadataSearchResultDto Result { get; set; } = null!;
 
-    /// <summary>Fired when the user clicks the row.</summary>
+    /// <summary>Whether this card is currently highlighted/selected.</summary>
+    [Parameter]
+    public bool IsSelected { get; set; }
+
+    /// <summary>Fired when the user clicks the row (for highlight, not confirmation).</summary>
     [Parameter]
     public EventCallback<MetadataSearchResultDto> OnSelected { get; set; }
 }

@@ -45,7 +45,12 @@ else if (FilteredItems.Count == 0)
         }
         else
         {
-            <text>No @(_filterMode == FilterMode.ContentMatch ? "content match" : "universe match") items pending.</text>
+            <text>No @(_filterMode switch {
+                FilterMode.ContentMatch  => "content match",
+                FilterMode.UniverseMatch => "universe match",
+                FilterMode.MediaType     => "media type",
+                _                        => ""
+            }) items pending.</text>
         }
     </MudAlert>
 }
@@ -153,9 +158,20 @@ else
                             @foreach (var result in _searchResults)
                             {
                                 <SearchResultCard Result="@result"
-                                                 OnSelected="@(r => SelectMatchAsync(item, r))" />
+                                                 IsSelected="@(result == _selectedSearchResult)"
+                                                 OnSelected="@(r => { _selectedSearchResult = r == _selectedSearchResult ? null : r; StateHasChanged(); })" />
                             }
                         </div>
+
+                        @if (_selectedSearchResult is not null)
+                        {
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                       FullWidth="true" Class="mt-3"
+                                       StartIcon="@Icons.Material.Filled.CheckCircle"
+                                       OnClick="@(() => SelectMatchAsync(item, _selectedSearchResult))">
+                                Confirm: "@(_selectedSearchResult.Title)"
+                            </MudButton>
+                        }
                     }
                     else if (_searchExecuted && !_searching)
                     {
@@ -235,6 +251,7 @@ else
     private string _searchQuery = string.Empty;
     private string? _currentMediaType;
     private List<MetadataSearchResultDto> _searchResults = [];
+    private MetadataSearchResultDto? _selectedSearchResult;
     private bool _searching;
     private bool _searchExecuted;
 
@@ -275,9 +292,17 @@ else
         // Pre-fill search query with entity title.
         _searchQuery = item.EntityTitle ?? string.Empty;
 
-        // Pre-select primary provider for this media type.
+        // Pre-select provider: Wikidata for universe triggers, primary for others.
         var slottedProviders = GetSlottedProviders(item.MediaType);
-        _selectedProvider = slottedProviders.FirstOrDefault()?.Name ?? string.Empty;
+        if (item.Trigger is "UniverseMatchFailed" or "MultipleQidMatches")
+        {
+            var wd = slottedProviders.FirstOrDefault(p => IsWikidataProvider(p.Name));
+            _selectedProvider = wd?.Name ?? slottedProviders.FirstOrDefault()?.Name ?? string.Empty;
+        }
+        else
+        {
+            _selectedProvider = slottedProviders.FirstOrDefault()?.Name ?? string.Empty;
+        }
 
         // Auto-search if we have both a title and a provider.
         if (!string.IsNullOrWhiteSpace(_searchQuery) && !string.IsNullOrWhiteSpace(_selectedProvider))
@@ -290,6 +315,7 @@ else
     {
         _expandedItemId = null;
         _searchResults = [];
+        _selectedSearchResult = null;
         _searchExecuted = false;
         _searching = false;
     }
@@ -379,6 +405,7 @@ else
 
         _searching = true;
         _searchExecuted = false;
+        _selectedSearchResult = null;
         StateHasChanged();
 
         _searchResults = await Orchestrator.SearchMetadataAsync(

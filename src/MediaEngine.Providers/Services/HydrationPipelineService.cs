@@ -54,6 +54,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     private readonly IRecursiveIdentityService _identity;
     private readonly IReviewQueueRepository _reviewRepo;
     private readonly IWriteBackService _writeBack;
+    private readonly IAutoOrganizeService _autoOrganize;
     private readonly ISystemActivityRepository _activityRepo;
     private readonly ILogger<HydrationPipelineService> _logger;
 
@@ -70,6 +71,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         IRecursiveIdentityService identity,
         IReviewQueueRepository reviewRepo,
         IWriteBackService writeBack,
+        IAutoOrganizeService autoOrganize,
         ISystemActivityRepository activityRepo,
         ILogger<HydrationPipelineService> logger)
     {
@@ -83,6 +85,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         ArgumentNullException.ThrowIfNull(identity);
         ArgumentNullException.ThrowIfNull(reviewRepo);
         ArgumentNullException.ThrowIfNull(writeBack);
+        ArgumentNullException.ThrowIfNull(autoOrganize);
         ArgumentNullException.ThrowIfNull(activityRepo);
         ArgumentNullException.ThrowIfNull(logger);
 
@@ -96,6 +99,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         _identity       = identity;
         _reviewRepo     = reviewRepo;
         _writeBack      = writeBack;
+        _autoOrganize   = autoOrganize;
         _activityRepo   = activityRepo;
         _logger         = logger;
 
@@ -208,13 +212,6 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
 
         if (stage1Claims > 0)
         {
-            await _activityRepo.LogAsync(new SystemActivityEntry
-            {
-                ActionType = SystemActionType.HydrationStage1Completed,
-                EntityId   = request.EntityId,
-                Detail     = $"Stage 1 (Content Match) completed: {stage1Claims} claims from {primaryProvider!.Name}",
-            }, ct).ConfigureAwait(false);
-
             await _eventPublisher.PublishAsync(
                 "HydrationStageCompleted",
                 new HydrationStageCompletedEvent(request.EntityId, 1, stage1Claims, "content_match"),
@@ -355,13 +352,6 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
 
             if (stage2Claims > 0)
             {
-                await _activityRepo.LogAsync(new SystemActivityEntry
-                {
-                    ActionType = SystemActionType.HydrationStage2Completed,
-                    EntityId   = request.EntityId,
-                    Detail     = $"Stage 2 (Universe Match) completed: {stage2Claims} claims, QID={result.WikidataQid ?? "none"}",
-                }, ct).ConfigureAwait(false);
-
                 await _eventPublisher.PublishAsync(
                     "HydrationStageCompleted",
                     new HydrationStageCompletedEvent(request.EntityId, 2, stage2Claims, "universe_match"),
@@ -460,6 +450,14 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                     $"Overall confidence {scored.OverallConfidence:P0} below threshold {hydration.AutoReviewConfidenceThreshold:P0}",
                     result, ct).ConfigureAwait(false);
             }
+            else if (scored.OverallConfidence >= scoring.AutoLinkThreshold)
+            {
+                // Confidence improved above the auto-organize threshold (0.85).
+                // Auto-resolve any pending LowConfidence or ContentMatchFailed
+                // review items and organize the file from staging into the library.
+                await TryAutoResolveAndOrganizeAsync(
+                    request, scored.OverallConfidence, ct).ConfigureAwait(false);
+            }
         }
 
         _logger.LogInformation(
@@ -468,6 +466,70 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             result.TotalClaimsAdded, result.NeedsReview);
 
         return result;
+    }
+
+    // ── Auto-resolve after hydration ─────────────────────────────────────────
+
+    /// <summary>
+    /// When hydration improves an entity's confidence above the auto-link
+    /// threshold (0.85), auto-resolve any pending <see cref="ReviewTrigger.LowConfidence"/>
+    /// or <see cref="ReviewTrigger.ContentMatchFailed"/> review items, then
+    /// attempt to organize the file from staging into the library.
+    /// </summary>
+    private async Task TryAutoResolveAndOrganizeAsync(
+        HarvestRequest request, double confidence, CancellationToken ct)
+    {
+        try
+        {
+            var reviews = await _reviewRepo.GetByEntityAsync(request.EntityId, ct)
+                .ConfigureAwait(false);
+
+            var resolvable = reviews.Where(r =>
+                r.Status == ReviewStatus.Pending &&
+                r.Trigger is ReviewTrigger.LowConfidence
+                          or ReviewTrigger.ContentMatchFailed).ToList();
+
+            if (resolvable.Count == 0)
+                return;
+
+            foreach (var review in resolvable)
+            {
+                await _reviewRepo.UpdateStatusAsync(
+                    review.Id, ReviewStatus.Resolved, "auto_hydration", ct)
+                    .ConfigureAwait(false);
+
+                await _activityRepo.LogAsync(new SystemActivityEntry
+                {
+                    ActionType = SystemActionType.ReviewItemResolved,
+                    EntityId   = request.EntityId,
+                    Detail     = $"Auto-resolved ({review.Trigger}): confidence improved to {confidence:P0} after hydration.",
+                }, ct).ConfigureAwait(false);
+
+                await _eventPublisher.PublishAsync("ReviewItemResolved", new
+                {
+                    review_item_id = review.Id,
+                    entity_id      = request.EntityId,
+                    status         = "Resolved",
+                }, ct).ConfigureAwait(false);
+
+                _logger.LogInformation(
+                    "Review item {ReviewId} auto-resolved for entity {EntityId} — confidence {Confidence:P0}",
+                    review.Id, request.EntityId, confidence);
+            }
+
+            // Now attempt to organize the file from staging into the library.
+            if (request.EntityType == EntityType.MediaAsset)
+            {
+                await _autoOrganize.TryAutoOrganizeAsync(request.EntityId, ct)
+                    .ConfigureAwait(false);
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex,
+                "Auto-resolve after hydration failed for entity {Id}",
+                request.EntityId);
+        }
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

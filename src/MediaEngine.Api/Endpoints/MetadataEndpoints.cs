@@ -235,8 +235,11 @@ public static class MetadataEndpoints
             MetadataSearchRequest request,
             IEnumerable<IExternalMetadataProvider> providers,
             IConfigurationLoader configLoader,
+            ILoggerFactory loggerFactory,
             CancellationToken ct) =>
         {
+            var searchLogger = loggerFactory.CreateLogger("MetadataSearch");
+
             if (string.IsNullOrWhiteSpace(request.ProviderName))
                 return Results.BadRequest("provider_name is required.");
 
@@ -255,6 +258,10 @@ public static class MetadataEndpoints
             if (!string.IsNullOrEmpty(request.MediaType))
                 Enum.TryParse(request.MediaType, ignoreCase: true, out mediaType);
 
+            searchLogger.LogInformation(
+                "Search: provider={Provider}, mediaType={MediaType}, query={Query}",
+                request.ProviderName, mediaType, request.Query);
+
             // Resolve base URL from provider config.
             var providerConfig = configLoader.LoadProvider(request.ProviderName);
             var baseUrl = providerConfig?.Endpoints.Values.FirstOrDefault() ?? string.Empty;
@@ -271,6 +278,10 @@ public static class MetadataEndpoints
 
             var limit = Math.Clamp(request.Limit, 1, 50);
             var results = await provider.SearchAsync(lookupRequest, limit, ct);
+
+            searchLogger.LogInformation(
+                "Search complete: provider={Provider}, results={Count}",
+                request.ProviderName, results.Count);
 
             var response = new MetadataSearchResponse
             {
@@ -505,6 +516,67 @@ public static class MetadataEndpoints
         .Produces<ReclassifyResponse>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status400BadRequest)
         .RequireAdminOrCurator();
+
+        // ── POST /metadata/{entityId}/cover ─────────────────────────────────
+        group.MapPost("/{entityId:guid}/cover", async (
+            Guid entityId,
+            IMediaAssetRepository assetRepo,
+            ISystemActivityRepository activityRepo,
+            HttpRequest httpRequest,
+            ILoggerFactory loggerFactory,
+            CancellationToken ct) =>
+        {
+            var coverLogger = loggerFactory.CreateLogger("CoverUpload");
+
+            if (!httpRequest.HasFormContentType)
+                return Results.BadRequest("Expected multipart form data.");
+
+            var form = await httpRequest.ReadFormAsync(ct);
+            var file = form.Files.FirstOrDefault();
+            if (file is null || file.Length == 0)
+                return Results.BadRequest("No file provided.");
+
+            // Validate content type.
+            var allowed = new[] { "image/jpeg", "image/png", "image/jpg" };
+            if (!allowed.Any(a => string.Equals(file.ContentType, a, StringComparison.OrdinalIgnoreCase)))
+                return Results.BadRequest("Only JPEG and PNG images are accepted.");
+
+            // Load the asset to find its file path.
+            var asset = await assetRepo.FindByIdAsync(entityId, ct);
+            if (asset is null)
+                return Results.NotFound($"Asset {entityId} not found.");
+
+            // Derive edition folder from the asset's file path.
+            var editionFolder = Path.GetDirectoryName(asset.FilePathRoot);
+            if (string.IsNullOrEmpty(editionFolder) || !Directory.Exists(editionFolder))
+                return Results.BadRequest("Cannot determine edition folder for this asset.");
+
+            // Save as cover.jpg in the edition folder.
+            var coverPath = Path.Combine(editionFolder, "cover.jpg");
+            await using var stream = file.OpenReadStream();
+            await using var fs = new FileStream(coverPath, FileMode.Create, FileAccess.Write);
+            await stream.CopyToAsync(fs, ct);
+
+            coverLogger.LogInformation("Cover uploaded for {EntityId} → {Path}", entityId, coverPath);
+
+            // Log activity.
+            await activityRepo.LogAsync(new SystemActivityEntry
+            {
+                ActionType = SystemActionType.CoverArtSaved,
+                EntityId   = entityId,
+                EntityType = "MediaAsset",
+                Detail     = $"Cover art uploaded manually",
+            }, ct);
+
+            return Results.Ok(new { entity_id = entityId, cover_path = "cover.jpg" });
+        })
+        .WithName("UploadCover")
+        .WithSummary("Upload cover art for a media asset.")
+        .Produces(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAdminOrCurator()
+        .DisableAntiforgery();
 
         return app;
     }

@@ -1,12 +1,17 @@
 @namespace MediaEngine.Web.Components.Settings
 
-@* Universe Settings — permanent, read-only reference for the Wikidata universe provider.
+@using MediaEngine.Web.Models.ViewDTOs
+@using MediaEngine.Web.Services.Integration
+
+@inject UIOrchestratorService Orchestrator
+@inject MudBlazor.ISnackbar Snackbar
+
+@* Universe Settings — editable configuration for the Wikidata universe provider.
 
    Wikidata is the permanent universe provider. It spans all media types and
    provides authoritative Q-identifiers, external bridge IDs, and deep
-   enrichment data via SPARQL. This page is purely informational — no editing,
-   no testing, no Engine connection required. It renders instantly from
-   compiled default data. *@
+   enrichment data via SPARQL. Endpoints, throttle, and concurrency are
+   editable; the property map and bridge identifiers are read-only. *@
 
 <MudPaper Elevation="0" Style="@GlassStyle">
 
@@ -34,6 +39,75 @@
             <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">
                 SPARQL
             </MudChip>
+        </MudStack>
+    </MudPaper>
+
+    @* ── Configuration (editable) ─────────────────────────────────────── *@
+    <MudPaper Elevation="0" Class="pa-4 mb-4" Style="@InfoCardStyle">
+        <MudText Typo="Typo.overline" Color="Color.Primary" Class="mb-2"
+                 Style="letter-spacing: 0.08em;">
+            CONFIGURATION
+        </MudText>
+
+        <MudGrid>
+            <MudItem xs="12" sm="6">
+                <MudTextField @bind-Value="_wikidataApiUrl"
+                              Label="API Endpoint"
+                              Placeholder="https://www.wikidata.org/w/api.php"
+                              Variant="Variant.Outlined"
+                              Margin="Margin.Dense"
+                              FullWidth="true"
+                              Adornment="Adornment.End"
+                              AdornmentIcon="@Icons.Material.Filled.Api" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudTextField @bind-Value="_sparqlUrl"
+                              Label="SPARQL Endpoint"
+                              Placeholder="https://query.wikidata.org/sparql"
+                              Variant="Variant.Outlined"
+                              Margin="Margin.Dense"
+                              FullWidth="true"
+                              Adornment="Adornment.End"
+                              AdornmentIcon="@Icons.Material.Filled.Storage" />
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudNumericField T="int" @bind-Value="_throttleMs"
+                                 Label="Throttle (ms)"
+                                 Min="0" Max="10000"
+                                 Variant="Variant.Outlined"
+                                 Margin="Margin.Dense" />
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudNumericField T="int" @bind-Value="_maxConcurrency"
+                                 Label="Max Concurrency"
+                                 Min="1" Max="5"
+                                 Variant="Variant.Outlined"
+                                 Margin="Margin.Dense" />
+            </MudItem>
+            <MudItem xs="12" sm="4" Class="d-flex align-center">
+                <MudSwitch T="bool" @bind-Value="_enabled"
+                           Label="Enabled"
+                           Color="Color.Primary" />
+            </MudItem>
+        </MudGrid>
+
+        <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-3" Spacing="2">
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       Size="Size.Small"
+                       StartIcon="@Icons.Material.Filled.Save"
+                       OnClick="@SaveConfigAsync"
+                       Disabled="@_saving">
+                @if (_saving)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
+                    @:Saving…
+                }
+                else
+                {
+                    @:Save
+                }
+            </MudButton>
         </MudStack>
     </MudPaper>
 
@@ -190,7 +264,14 @@
 </MudPaper>
 
 @code {
-    // ── State (all compiled defaults from shared WikidataPropertyDefaults) ───
+    // ── State ────────────────────────────────────────────────────────────
+
+    private string _wikidataApiUrl = string.Empty;
+    private string _sparqlUrl      = string.Empty;
+    private int    _throttleMs     = 1100;
+    private int    _maxConcurrency = 1;
+    private bool   _enabled        = true;
+    private bool   _saving;
 
     private readonly List<WikidataPropertyDefaults.BridgeEntry> _bridges =
         WikidataPropertyDefaults.GetBridgeEntries();
@@ -200,7 +281,7 @@
 
     // ── Lifecycle ─────────────────────────────────────────────────────────
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         var allProps = WikidataPropertyDefaults.GetAllProperties();
         _propertiesByCategory = allProps
@@ -208,6 +289,68 @@
             .OrderBy(g => WikidataPropertyDefaults.CategoryOrder(g.Key))
             .ToDictionary(g => g.Key, g => g.OrderBy(p => p.PCode).ToList());
         _propertyCount = allProps.Count;
+
+        try
+        {
+            var providers = await Orchestrator.GetProviderStatusAsync();
+            var wikidata = providers.FirstOrDefault(p =>
+                string.Equals(p.Name, "wikidata", StringComparison.OrdinalIgnoreCase));
+
+            if (wikidata is not null)
+            {
+                _enabled        = wikidata.Enabled;
+                _throttleMs     = wikidata.ThrottleMs > 0 ? wikidata.ThrottleMs : 1100;
+                _maxConcurrency = wikidata.MaxConcurrency > 0 ? wikidata.MaxConcurrency : 1;
+
+                if (wikidata.Endpoints is { Count: > 0 })
+                {
+                    _wikidataApiUrl = wikidata.Endpoints.TryGetValue("wikidata_api", out var api) ? api : string.Empty;
+                    _sparqlUrl      = wikidata.Endpoints.TryGetValue("wikidata_sparql", out var sparql) ? sparql : string.Empty;
+                }
+            }
+        }
+        catch
+        {
+            // Engine may be unreachable — keep defaults.
+        }
+    }
+
+    // ── Save ─────────────────────────────────────────────────────────────
+
+    private async Task SaveConfigAsync()
+    {
+        _saving = true;
+        StateHasChanged();
+
+        try
+        {
+            var config = new ProviderConfigUpdateDto
+            {
+                Enabled        = _enabled,
+                ThrottleMs     = _throttleMs,
+                MaxConcurrency = _maxConcurrency,
+                Endpoints = new Dictionary<string, string>
+                {
+                    ["wikidata_api"]    = _wikidataApiUrl,
+                    ["wikidata_sparql"] = _sparqlUrl,
+                },
+            };
+
+            var ok = await Orchestrator.SaveProviderConfigAsync("wikidata", config);
+
+            Snackbar.Add(
+                ok ? "Wikidata configuration saved." : "Failed to save configuration.",
+                ok ? MudBlazor.Severity.Success : MudBlazor.Severity.Error);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", MudBlazor.Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+            StateHasChanged();
+        }
     }
 
     // ── Helpers (delegated to shared defaults) ────────────────────────────

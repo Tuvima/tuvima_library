@@ -277,6 +277,117 @@ public sealed class ProviderIntegrationTests
         }
     }
 
+    // ── Search tests (multi-result SearchAsync) ─────────────────────────────
+
+    [Fact]
+    public async Task AppleBooks_Search_Returns_Results()
+    {
+        var adapter = BuildConfigDrivenAdapter("apple_books");
+
+        var request = new ProviderLookupRequest
+        {
+            EntityId   = Guid.NewGuid(),
+            EntityType = EntityType.MediaAsset,
+            MediaType  = MediaType.Books,
+            Title      = "The Fellowship of the Ring",
+            Author     = "J.R.R. Tolkien",
+            BaseUrl    = "https://itunes.apple.com",
+        };
+
+        var results = await adapter.SearchAsync(request, limit: 10);
+
+        _output.WriteLine($"Apple Books Search: {results.Count} results.");
+        foreach (var r in results)
+            _output.WriteLine($"  [{r.ProviderName}] \"{r.Title}\" by {r.Author} ({r.Year})");
+
+        Assert.NotEmpty(results);
+        Assert.All(results, r => Assert.False(string.IsNullOrWhiteSpace(r.Title)));
+    }
+
+    [Fact]
+    public async Task OpenLibrary_Search_Returns_Results()
+    {
+        var adapter = BuildConfigDrivenAdapter("open_library");
+
+        var request = new ProviderLookupRequest
+        {
+            EntityId   = Guid.NewGuid(),
+            EntityType = EntityType.MediaAsset,
+            MediaType  = MediaType.Books,
+            Title      = "The Fellowship of the Ring",
+            Author     = "J.R.R. Tolkien",
+            BaseUrl    = "https://openlibrary.org",
+        };
+
+        var results = await adapter.SearchAsync(request, limit: 10);
+
+        _output.WriteLine($"Open Library Search: {results.Count} results.");
+        foreach (var r in results)
+            _output.WriteLine($"  [{r.ProviderName}] \"{r.Title}\" by {r.Author} ({r.Year})");
+
+        Assert.NotEmpty(results);
+        Assert.All(results, r => Assert.False(string.IsNullOrWhiteSpace(r.Title)));
+    }
+
+    [Fact]
+    public async Task GoogleBooks_Search_Returns_Results()
+    {
+        var adapter = BuildConfigDrivenAdapter("google_books");
+
+        var request = new ProviderLookupRequest
+        {
+            EntityId   = Guid.NewGuid(),
+            EntityType = EntityType.MediaAsset,
+            MediaType  = MediaType.Books,
+            Title      = "The Fellowship of the Ring",
+            Author     = "J.R.R. Tolkien",
+            BaseUrl    = "https://www.googleapis.com/books/v1",
+        };
+
+        var results = await adapter.SearchAsync(request, limit: 10);
+
+        _output.WriteLine($"Google Books Search: {results.Count} results (may be rate-limited).");
+        foreach (var r in results)
+            _output.WriteLine($"  [{r.ProviderName}] \"{r.Title}\" by {r.Author} ({r.Year})");
+
+        // Google Books may return 429 — assert graceful degradation.
+        if (results.Count > 0)
+            Assert.All(results, r => Assert.False(string.IsNullOrWhiteSpace(r.Title)));
+    }
+
+    [Fact]
+    public async Task Wikidata_Search_Returns_QidClaims()
+    {
+        var factory = BuildRealHttpFactory("wikidata_api", "wikidata_sparql");
+        var stubConfig = new IntegrationConfigLoader();
+
+        using var loggerFactory = LoggerFactory.Create(builder =>
+            builder.AddProvider(new XUnitLoggerProvider(_output)).SetMinimumLevel(LogLevel.Debug));
+        var logger = loggerFactory.CreateLogger<WikidataAdapter>();
+
+        var adapter = new WikidataAdapter(factory, stubConfig, logger);
+
+        var request = new ProviderLookupRequest
+        {
+            EntityId      = Guid.NewGuid(),
+            EntityType    = EntityType.Work,
+            MediaType     = MediaType.Books,
+            Title         = "Dune",
+            Author        = "Frank Herbert",
+            BaseUrl       = "https://www.wikidata.org/w/api.php",
+            SparqlBaseUrl = "https://query.wikidata.org/sparql",
+        };
+
+        var claims = await adapter.FetchAsync(request);
+
+        _output.WriteLine($"Wikidata (Dune) Search: {claims.Count} claims.");
+        foreach (var c in claims.Take(10))
+            _output.WriteLine($"  [{c.Key}] = \"{(c.Value.Length > 80 ? c.Value[..80] + "…" : c.Value)}\"");
+
+        if (claims.Count > 0)
+            AssertHasClaim(claims, "wikidata_qid");
+    }
+
     // ── Config-driven adapter builder ───────────────────────────────────────
 
     private static readonly JsonSerializerOptions s_jsonOptions = new()

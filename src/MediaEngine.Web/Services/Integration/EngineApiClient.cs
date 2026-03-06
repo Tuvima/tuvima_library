@@ -990,6 +990,35 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    // ── Cover Art Upload ──────────────────────────────────────────────────
+
+    public async Task<bool> UploadCoverAsync(
+        Guid entityId, Stream fileStream, string fileName, CancellationToken ct = default)
+    {
+        try
+        {
+            using var content = new MultipartFormDataContent();
+            var streamContent = new StreamContent(fileStream);
+            content.Add(streamContent, "file", fileName);
+
+            var resp = await _http.PostAsync($"/metadata/{entityId}/cover", content, ct);
+            if (!resp.IsSuccessStatusCode)
+            {
+                var detail = await resp.Content.ReadAsStringAsync(ct);
+                _logger.LogWarning("POST /metadata/{EntityId}/cover returned {Status}: {Detail}",
+                    entityId, (int)resp.StatusCode, detail);
+                LastError = $"HTTP {(int)resp.StatusCode}: {detail}";
+            }
+            return resp.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /metadata/{EntityId}/cover failed", entityId);
+            LastError = ex.Message;
+            return false;
+        }
+    }
+
     // ── Provider Icons ─────────────────────────────────────────────────────
 
     public async Task<bool> UploadProviderIconAsync(

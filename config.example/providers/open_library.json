@@ -65,6 +65,7 @@
     { "claim_key": "year",      "json_path": "first_publish_year", "confidence": 0.85, "transform": "to_string" },
     { "claim_key": "cover",     "json_path": "cover_i",            "confidence": 0.7,  "transform": "url_template", "transform_args": "https://covers.openlibrary.org/b/id/{value}-L.jpg" },
     { "claim_key": "isbn",      "json_path": "isbn",               "confidence": 0.9,  "transform": "prefer_isbn13" },
+    { "claim_key": "description", "json_path": "first_sentence[0]",  "confidence": 0.6, "transform": "strip_html" },
     { "claim_key": "publisher", "json_path": "publisher[0]",       "confidence": 0.7 },
     { "claim_key": "language",  "json_path": "language[0]",        "confidence": 0.7 },
     { "claim_key": "genre",     "json_path": "subject",            "confidence": 0.65, "transform": "array_join", "transform_args": ", " }

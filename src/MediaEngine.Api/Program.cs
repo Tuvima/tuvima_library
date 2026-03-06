@@ -295,6 +295,7 @@ builder.Services.AddSingleton<IMetadataHarvestingService, MetadataHarvestingServ
 builder.Services.AddSingleton<IRecursiveIdentityService,  RecursiveIdentityService>();
 
 // ── Hydration pipeline (three-stage orchestrator) + review queue ─────────────
+builder.Services.AddSingleton<IAutoOrganizeService,       AutoOrganizeService>();
 builder.Services.AddSingleton<IHydrationPipelineService,  HydrationPipelineService>();
 builder.Services.AddSingleton<IReviewQueueRepository,     ReviewQueueRepository>();
 builder.Services.AddSingleton<IImageCacheRepository,      ImageCacheRepository>();
@@ -309,6 +310,8 @@ builder.Services.AddHostedService<ActivityPruningService>();
 
 // ── Library Reconciliation: periodic scan for missing files ──────────────────
 builder.Services.AddSingleton<LibraryReconciliationService>();
+builder.Services.AddSingleton<IReconciliationService>(sp =>
+    sp.GetRequiredService<LibraryReconciliationService>());
 builder.Services.AddHostedService<LibraryReconciliationService>(sp =>
     sp.GetRequiredService<LibraryReconciliationService>());
 

@@ -16,7 +16,7 @@ namespace MediaEngine.Api.Services;
 ///
 /// Follows the same loop pattern as <see cref="ActivityPruningService"/>.
 /// </summary>
-public sealed class LibraryReconciliationService : BackgroundService
+public sealed class LibraryReconciliationService : BackgroundService, IReconciliationService
 {
     private readonly IMediaAssetRepository       _assetRepo;
     private readonly IMetadataClaimRepository     _claimRepo;
@@ -41,12 +41,24 @@ public sealed class LibraryReconciliationService : BackgroundService
         _logger        = logger;
     }
 
+    // ── IReconciliationService ────────────────────────────────────────────
+
+    /// <inheritdoc />
+    async Task<ReconciliationSummary> IReconciliationService.ReconcileAsync(CancellationToken ct)
+    {
+        var result = await ReconcileAsync(ct).ConfigureAwait(false);
+        return new ReconciliationSummary(result.TotalScanned, result.MissingCount, result.ElapsedMs);
+    }
+
+    // ── BackgroundService ─────────────────────────────────────────────────
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("LibraryReconciliationService started");
 
-        // Initial delay to let the rest of the app start.
-        await Task.Delay(TimeSpan.FromMinutes(2), stoppingToken);
+        // No initial delay — the ingestion engine triggers the first
+        // reconciliation at startup before scanning the watch folder.
+        // This background loop handles the recurring schedule only.
 
         while (!stoppingToken.IsCancellationRequested)
         {

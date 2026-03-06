@@ -437,6 +437,12 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     public Task<bool> DeleteMediaTypeAsync(string key, CancellationToken ct = default)
         => _api.DeleteMediaTypeAsync(key, ct);
 
+    // ── Cover Art Upload ─────────────────────────────────────────────────
+
+    /// <summary>Uploads cover art for a media asset.</summary>
+    public Task<bool> UploadCoverAsync(Guid entityId, Stream fileStream, string fileName, CancellationToken ct = default)
+        => _api.UploadCoverAsync(entityId, fileStream, fileName, ct);
+
     // ── Provider Icons ─────────────────────────────────────────────────────
 
     /// <summary>Uploads a custom icon for a provider.</summary>
