@@ -124,6 +124,8 @@
                         var tier = GetDisplayTier(entry.ActionType);
                         var isMissing = tier == DisplayTier.RichMedia
                                      && _missingEntityIds.Contains(entry.RichData?.EntityId ?? "");
+                        var sc = GetStartupClusterData(entry.Id);
+                        var crawlData = GetCrawlPairData(entry.Id, entry.OccurredAt);
 
                         <div class="activity-timeline-row">
                             @* Timeline icon + connector line *@
@@ -140,7 +142,7 @@
                             <div class="activity-entry-content">
                                 @if (tier == DisplayTier.Simple)
                                 {
-                                    @* ── TIER 1: Simple — icon + label + time, nothing else ── *@
+                                    @* ── Simple — icon + label + time only ── *@
                                     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                                         <MudText Typo="Typo.body2" Style="font-weight: 600;">
                                             @ActionLabel(entry.ActionType)
@@ -151,6 +153,95 @@
                                             @FormatTime(entry.OccurredAt)
                                         </MudText>
                                     </MudStack>
+                                }
+                                else if (tier == DisplayTier.Startup)
+                                {
+                                    @* ── Startup cluster — ServerStarted + absorbed noise/recon ── *@
+                                    <div class="activity-expandable-row"
+                                         @onclick="@(() => { if (sc.HasDetails) ToggleExpanded(entry.Id); })">
+                                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2"
+                                                   Style="@(sc.HasDetails ? "cursor: pointer;" : "")">
+                                            <MudText Typo="Typo.body2" Style="font-weight: 600;">
+                                                Server Started
+                                            </MudText>
+                                            @if (sc.ReconWarning)
+                                            {
+                                                <MudChip T="string" Size="Size.Small" Color="Color.Warning"
+                                                         Style="font-size: 0.7rem; height: 20px;">
+                                                    Library issues found
+                                                </MudChip>
+                                            }
+                                            <MudSpacer />
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary"
+                                                     Style="white-space: nowrap;">
+                                                @FormatTime(entry.OccurredAt)
+                                            </MudText>
+                                            @if (sc.HasDetails)
+                                            {
+                                                <MudIcon Icon="@(_expandedEntryIds.Contains(entry.Id)
+                                                                  ? Icons.Material.Filled.ExpandLess
+                                                                  : Icons.Material.Filled.ExpandMore)"
+                                                         Size="Size.Small" Style="opacity: 0.5;" />
+                                            }
+                                        </MudStack>
+                                    </div>
+
+                                    @if (_expandedEntryIds.Contains(entry.Id) && sc.HasDetails)
+                                    {
+                                        <div class="activity-startup-details">
+                                            @foreach (var absorbed in sc.AbsorbedList)
+                                            {
+                                                <div class="activity-startup-row">
+                                                    <MudIcon Icon="@Icons.Material.Filled.CheckCircleOutline"
+                                                             Size="Size.Small"
+                                                             Style="font-size: 0.8rem; color: #4caf50; flex-shrink: 0;" />
+                                                    <MudText Typo="Typo.caption" Style="color: var(--app-text-soft);">
+                                                        @StartupAbsorbedLabel(absorbed)
+                                                    </MudText>
+                                                </div>
+                                            }
+                                            @if (sc.HasRecon && sc.ReconEntry is not null && ParseReconciliationData(sc.ReconEntry.ChangesJson ?? "") is { } sRecon)
+                                            {
+                                                <div class="activity-recon-summary" style="margin-top: 8px;">
+                                                    <MudStack Row="true" Spacing="4" AlignItems="AlignItems.Center">
+                                                        <div>
+                                                            <MudText Typo="Typo.h5" Style="font-weight: 700;">@sRecon.Total.ToString("N0")</MudText>
+                                                            <MudText Typo="Typo.caption" Color="Color.Secondary">scanned</MudText>
+                                                        </div>
+                                                        <div>
+                                                            <MudText Typo="Typo.h5"
+                                                                     Style="@($"font-weight: 700; color: {(sRecon.Missing > 0 ? "var(--mud-palette-warning)" : "var(--mud-palette-success)")};")">
+                                                                @sRecon.Missing.ToString("N0")
+                                                            </MudText>
+                                                            <MudText Typo="Typo.caption" Color="Color.Secondary">missing</MudText>
+                                                        </div>
+                                                        <div>
+                                                            <MudText Typo="Typo.h5" Style="font-weight: 700;">@FormatElapsed(sRecon.Elapsed)</MudText>
+                                                            <MudText Typo="Typo.caption" Color="Color.Secondary">elapsed</MudText>
+                                                        </div>
+                                                    </MudStack>
+                                                    @if (sRecon.MissingFiles.Count > 0)
+                                                    {
+                                                        <div style="margin-top: 10px; border-top: 1px solid var(--app-glass-inner-border); padding-top: 8px;">
+                                                            @foreach (var mf in sRecon.MissingFiles)
+                                                            {
+                                                                <div class="activity-recon-missing-row">
+                                                                    <MudIcon Icon="@Icons.Material.Filled.InsertDriveFile"
+                                                                             Size="Size.Small"
+                                                                             Style="font-size: 0.85rem; opacity: 0.5;" />
+                                                                    <MudText Typo="Typo.caption" Style="flex: 1; min-width: 0;">@mf.Filename</MudText>
+                                                                    <MudText Typo="Typo.caption" Color="Color.Secondary"
+                                                                             Style="font-size: 0.7rem; white-space: nowrap;">
+                                                                        @mf.Action
+                                                                    </MudText>
+                                                                </div>
+                                                            }
+                                                        </div>
+                                                    }
+                                                </div>
+                                            }
+                                        </div>
+                                    }
                                 }
                                 else if (tier == DisplayTier.RichMedia)
                                 {
@@ -267,6 +358,43 @@
                                                 </div>
                                             }
                                         </div>
+
+                                        @* Pipeline steps — collapsible ─────────── *@
+                                        @if (_ingestionSubSteps.TryGetValue(entry.Id, out var pipelineSteps) && pipelineSteps.Count > 0)
+                                        {
+                                            <div class="activity-pipeline-toggle"
+                                                 @onclick="@(() => TogglePipeline(entry.Id))">
+                                                <MudIcon Icon="@(_pipelineExpandedIds.Contains(entry.Id)
+                                                                  ? Icons.Material.Filled.ExpandLess
+                                                                  : Icons.Material.Filled.ExpandMore)"
+                                                         Size="Size.Small"
+                                                         Style="font-size: 0.8rem; opacity: 0.45;" />
+                                                <MudText Typo="Typo.caption" Color="Color.Secondary"
+                                                         Style="font-size: 0.72rem;">
+                                                    Pipeline steps
+                                                </MudText>
+                                            </div>
+                                            @if (_pipelineExpandedIds.Contains(entry.Id))
+                                            {
+                                                <div class="activity-pipeline-steps">
+                                                    @foreach (var step in pipelineSteps.OrderBy(s => s.OccurredAt))
+                                                    {
+                                                        <div class="activity-pipeline-row">
+                                                            <MudIcon Icon="@Icons.Material.Filled.CheckCircleOutline"
+                                                                     Style="font-size: 0.75rem; color: #4caf50; flex-shrink: 0;" />
+                                                            <MudText Typo="Typo.caption"
+                                                                     Style="flex: 1; color: var(--app-text-soft);">
+                                                                @PipelineStepLabel(step.ActionType)
+                                                            </MudText>
+                                                            <MudText Typo="Typo.caption" Color="Color.Secondary"
+                                                                     Style="white-space: nowrap; font-size: 0.7rem;">
+                                                                @FormatTime(step.OccurredAt)
+                                                            </MudText>
+                                                        </div>
+                                                    }
+                                                </div>
+                                            }
+                                        }
                                     }
                                     else if (!string.IsNullOrWhiteSpace(entry.Detail))
                                     {
@@ -451,6 +579,51 @@
                                         </div>
                                     }
                                 }
+                                else if (tier == DisplayTier.Crawl)
+                                {
+                                    @* ── TIER 4b: Crawl — CrawlStarted merged into CrawlFinished ── *@
+                                    <div class="activity-expandable-row"
+                                         @onclick="@(() => ToggleExpanded(entry.Id))">
+                                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2"
+                                                   Style="cursor: pointer;">
+                                            <MudIcon Icon="@Icons.Material.Filled.ManageSearch"
+                                                     Size="Size.Small"
+                                                     Style="color: var(--mud-palette-primary); opacity: 0.9;" />
+                                            <MudText Typo="Typo.body2" Style="font-weight: 600;">
+                                                Library Crawl
+                                            </MudText>
+                                            @if (!string.IsNullOrWhiteSpace(crawlData.Duration))
+                                            {
+                                                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                                                         Style="height: 18px; font-size: 0.68rem; opacity: 0.8;">
+                                                    @crawlData.Duration
+                                                </MudChip>
+                                            }
+                                            <MudSpacer />
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary"
+                                                     Style="white-space: nowrap;">
+                                                @FormatTime(entry.OccurredAt)
+                                            </MudText>
+                                            <MudIcon Icon="@(_expandedEntryIds.Contains(entry.Id)
+                                                              ? Icons.Material.Filled.ExpandLess
+                                                              : Icons.Material.Filled.ExpandMore)"
+                                                     Size="Size.Small"
+                                                     Style="opacity: 0.5;" />
+                                        </MudStack>
+                                    </div>
+                                    @if (_expandedEntryIds.Contains(entry.Id))
+                                    {
+                                        <div class="activity-expanded-content">
+                                            @if (!string.IsNullOrWhiteSpace(entry.Detail))
+                                            {
+                                                <MudText Typo="Typo.body2" Color="Color.Secondary"
+                                                         Style="line-height: 1.5;">
+                                                    @entry.Detail
+                                                </MudText>
+                                            }
+                                        </div>
+                                    }
+                                }
                                 else
                                 {
                                     @* ── TIER 5: Expandable — collapsed by default ── *@
@@ -490,6 +663,27 @@
                                                          Style="line-height: 1.5;">
                                                     @entry.Detail
                                                 </MudText>
+                                            }
+                                            @if (_hydrationStages.TryGetValue(entry.Id, out var hStages) && hStages.Count > 0)
+                                            {
+                                                <div style="margin-top: 10px; border-top: 1px solid var(--app-glass-inner-border); padding-top: 8px;">
+                                                    @foreach (var stage in hStages.OrderBy(s => s.OccurredAt))
+                                                    {
+                                                        var success = IsHydrationStageSuccess(stage);
+                                                        <div class="activity-pipeline-row">
+                                                            <MudIcon Icon="@(success ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Cancel)"
+                                                                     Size="Size.Small"
+                                                                     Style="@($"font-size: 0.85rem; color: {(success ? "var(--mud-palette-success)" : "var(--mud-palette-error)")}")" />
+                                                            <MudText Typo="Typo.caption" Style="flex: 1;">
+                                                                @HydrationStageLabel(stage.ActionType)
+                                                            </MudText>
+                                                            <MudText Typo="Typo.caption" Color="Color.Secondary"
+                                                                     Style="font-size: 0.7rem; white-space: nowrap; opacity: 0.7;">
+                                                                @FormatTime(stage.OccurredAt)
+                                                            </MudText>
+                                                        </div>
+                                                    }
+                                                </div>
                                             }
                                         </div>
                                     }
@@ -602,7 +796,7 @@
 
     // ── Display tier enum ─────────────────────────────────────────────────────────
 
-    private enum DisplayTier { Simple, RichMedia, ReviewResolved, Reconciliation, Expandable }
+    private enum DisplayTier { Simple, Startup, RichMedia, ReviewResolved, Reconciliation, Crawl, Expandable }
 
     // ── Filter options ────────────────────────────────────────────────────────────
 
@@ -637,11 +831,29 @@
     // Expand/collapse state for expandable entries.
     private readonly HashSet<long> _expandedEntryIds = [];
 
-    // Absorbed entry IDs (ReconciliationMissing absorbed into ReconciliationCompleted).
+    // Absorbed entry IDs — entries that are rolled up into a parent entry.
     private readonly HashSet<long> _absorbedEntryIds = [];
 
     // Entity IDs of files confirmed deleted (hides the reprocess button on FileIngested cards).
     private readonly HashSet<string> _missingEntityIds = new(StringComparer.OrdinalIgnoreCase);
+
+    // Pipeline sub-steps (FileDetected → MovedToStaging) grouped by parent FileIngested entry ID.
+    private readonly Dictionary<long, List<ActivityEntryViewModel>> _ingestionSubSteps = new();
+
+    // Hydration stage events grouped by parent MetadataHydrated entry ID.
+    private readonly Dictionary<long, List<ActivityEntryViewModel>> _hydrationStages = new();
+
+    // CrawlStarted entries indexed by their paired CrawlFinished entry ID.
+    private readonly Dictionary<long, ActivityEntryViewModel> _crawlStartPair = new();
+
+    // Noise / routine events absorbed into the nearest ServerStarted startup cluster.
+    private readonly Dictionary<long, List<ActivityEntryViewModel>> _startupAbsorbed = new();
+
+    // ReconciliationCompleted (with missing files) linked to the enclosing ServerStarted entry.
+    private readonly Dictionary<long, ActivityEntryViewModel> _startupRecon = new();
+
+    // FileIngested cards whose pipeline step section is currently expanded.
+    private readonly HashSet<long> _pipelineExpandedIds = [];
 
     // ── Reprocess dialog state ────────────────────────────────────────────────
     private bool                          _reprocessOpen;
@@ -824,29 +1036,158 @@
     {
         _absorbedEntryIds.Clear();
         _missingEntityIds.Clear();
+        _ingestionSubSteps.Clear();
+        _hydrationStages.Clear();
+        _crawlStartPair.Clear();
+        _startupAbsorbed.Clear();
+        _startupRecon.Clear();
 
-        // Build the missing entity ID set from ReconciliationMissing entries
-        // so we can hide the reprocess button on FileIngested cards for deleted assets.
+        // ── Missing entity IDs (for reprocess button guard) ─────────────────────
         foreach (var e in _entries.Where(e => e.ActionType == "ReconciliationMissing"))
-        {
-            if (e.EntityId is not null)
-                _missingEntityIds.Add(e.EntityId);
-        }
+            if (e.EntityId is not null) _missingEntityIds.Add(e.EntityId);
 
-        // Absorb ReconciliationMissing entries that fall within 5 minutes before
-        // a ReconciliationCompleted entry — they appear as a single timeline item.
-        var completedWithTs = _entries
+        // ── ReconciliationMissing → ReconciliationCompleted (within 5 min) ──────
+        var reconCompletedTs = _entries
             .Where(e => e.ActionType == "ReconciliationCompleted")
-            .Select(e => DateTimeOffset.TryParse(e.OccurredAt, out var t) ? t : (DateTimeOffset?)null)
-            .Where(t => t.HasValue)
+            .Select(e => ParseTs(e.OccurredAt))
+            .Where(t => t is not null)
             .Select(t => t!.Value)
             .ToList();
-
         foreach (var missing in _entries.Where(e => e.ActionType == "ReconciliationMissing"))
         {
-            if (!DateTimeOffset.TryParse(missing.OccurredAt, out var missingTs)) continue;
-            if (completedWithTs.Any(ct => ct >= missingTs && (ct - missingTs).TotalMinutes <= 5))
+            var ts = ParseTs(missing.OccurredAt);
+            if (ts is null) continue;
+            if (reconCompletedTs.Any(ct => ct >= ts.Value && (ct - ts.Value).TotalMinutes <= 5))
                 _absorbedEntryIds.Add(missing.Id);
+        }
+
+        // ── Ingestion sub-steps → FileIngested (within 5 min, same EntityId) ────
+        var ingSubTypes = new HashSet<string>
+        {
+            "FileDetected", "FileHashed", "FileProcessed", "FileScored",
+            "EntityChainCreated", "CoverArtSaved", "MetadataTagsWritten",
+            "HydrationEnqueued", "MovedToStaging",
+        };
+        var ingestedIndex = _entries
+            .Where(e => e.ActionType == "FileIngested")
+            .Select(e => (Entry: e, Ts: ParseTs(e.OccurredAt)))
+            .Where(x => x.Ts is not null)
+            .ToList();
+        foreach (var sub in _entries.Where(e => ingSubTypes.Contains(e.ActionType)))
+        {
+            var subTs = ParseTs(sub.OccurredAt);
+            if (subTs is null) continue;
+            var parent = ingestedIndex
+                .Where(x =>
+                    (sub.EntityId is null ||
+                     string.Equals(x.Entry.EntityId, sub.EntityId, StringComparison.OrdinalIgnoreCase))
+                    && x.Ts!.Value >= subTs.Value
+                    && (x.Ts.Value - subTs.Value).TotalMinutes <= 5)
+                .OrderBy(x => x.Ts)
+                .Select(x => x.Entry)
+                .FirstOrDefault();
+            if (parent is null) continue;
+            if (!_ingestionSubSteps.TryGetValue(parent.Id, out var subList))
+                _ingestionSubSteps[parent.Id] = subList = [];
+            subList.Add(sub);
+            _absorbedEntryIds.Add(sub.Id);
+        }
+
+        // ── Hydration stages → MetadataHydrated (within 5 min, same EntityId) ───
+        var hydStageTypes = new HashSet<string>
+        {
+            "HydrationStage1Completed", "HydrationStage2Completed", "HydrationStage3Completed",
+        };
+        var hydratedIndex = _entries
+            .Where(e => e.ActionType == "MetadataHydrated")
+            .Select(e => (Entry: e, Ts: ParseTs(e.OccurredAt)))
+            .Where(x => x.Ts is not null)
+            .ToList();
+        foreach (var stage in _entries.Where(e => hydStageTypes.Contains(e.ActionType)))
+        {
+            var stageTs = ParseTs(stage.OccurredAt);
+            if (stageTs is null) continue;
+            var parent = hydratedIndex
+                .Where(x =>
+                    (stage.EntityId is null ||
+                     string.Equals(x.Entry.EntityId, stage.EntityId, StringComparison.OrdinalIgnoreCase))
+                    && x.Ts!.Value >= stageTs.Value
+                    && (x.Ts.Value - stageTs.Value).TotalMinutes <= 5)
+                .OrderBy(x => x.Ts)
+                .Select(x => x.Entry)
+                .FirstOrDefault();
+            if (parent is null) continue;
+            if (!_hydrationStages.TryGetValue(parent.Id, out var stageList))
+                _hydrationStages[parent.Id] = stageList = [];
+            stageList.Add(stage);
+            _absorbedEntryIds.Add(stage.Id);
+        }
+
+        // ── CrawlStarted + CrawlFinished → pair ─────────────────────────────────
+        var crawlStartIndex = _entries
+            .Where(e => e.ActionType == "CrawlStarted")
+            .Select(e => (Entry: e, Ts: ParseTs(e.OccurredAt)))
+            .Where(x => x.Ts is not null)
+            .ToList();
+        foreach (var crawlEnd in _entries.Where(e => e.ActionType == "CrawlFinished"))
+        {
+            var endTs = ParseTs(crawlEnd.OccurredAt);
+            if (endTs is null) continue;
+            var matchedStart = crawlStartIndex
+                .Where(x => endTs.Value >= x.Ts!.Value && (endTs.Value - x.Ts.Value).TotalHours <= 2)
+                .OrderByDescending(x => x.Ts)
+                .Select(x => x.Entry)
+                .FirstOrDefault();
+            if (matchedStart is null) continue;
+            _crawlStartPair[crawlEnd.Id] = matchedStart;
+            _absorbedEntryIds.Add(matchedStart.Id);
+        }
+
+        // ── Startup cluster: noise + recon → ServerStarted ───────────────────────
+        var noiseTypes = new HashSet<string> { "ActivityPruned", "DuplicateSkipped", "OrphanCleaned" };
+        var serverStartIndex = _entries
+            .Where(e => e.ActionType == "ServerStarted")
+            .Select(e => (Entry: e, Ts: ParseTs(e.OccurredAt)))
+            .Where(x => x.Ts is not null)
+            .ToList();
+
+        foreach (var noise in _entries.Where(e => noiseTypes.Contains(e.ActionType)))
+        {
+            var noiseTs = ParseTs(noise.OccurredAt);
+            if (noiseTs is null) continue;
+            var match = serverStartIndex
+                .Where(x => Math.Abs((x.Ts!.Value - noiseTs.Value).TotalMinutes) <= 2)
+                .OrderBy(x => Math.Abs((x.Ts!.Value - noiseTs.Value).TotalMinutes))
+                .Select(x => x.Entry)
+                .FirstOrDefault();
+            if (match is null) continue;
+            if (!_startupAbsorbed.TryGetValue(match.Id, out var noiseList))
+                _startupAbsorbed[match.Id] = noiseList = [];
+            noiseList.Add(noise);
+            _absorbedEntryIds.Add(noise.Id);
+        }
+
+        foreach (var recon in _entries.Where(e => e.ActionType == "ReconciliationCompleted"))
+        {
+            var reconTs = ParseTs(recon.OccurredAt);
+            if (reconTs is null) continue;
+            var match = serverStartIndex
+                .Where(x => reconTs.Value >= x.Ts!.Value && (reconTs.Value - x.Ts.Value).TotalMinutes <= 5)
+                .OrderByDescending(x => x.Ts)
+                .Select(x => x.Entry)
+                .FirstOrDefault();
+            if (match is null) continue;
+            var reconData = string.IsNullOrWhiteSpace(recon.ChangesJson)
+                ? null : ParseReconciliationData(recon.ChangesJson);
+            if (reconData is { Missing: > 0 })
+                _startupRecon[match.Id] = recon;          // has issues — show as expanded sub-card
+            else
+            {
+                if (!_startupAbsorbed.TryGetValue(match.Id, out var reconList))
+                    _startupAbsorbed[match.Id] = reconList = [];
+                reconList.Add(recon);
+            }
+            _absorbedEntryIds.Add(recon.Id);
         }
 
         _groupedEntries = _entries
@@ -897,21 +1238,26 @@
 
     private static DisplayTier GetDisplayTier(string actionType) => actionType switch
     {
-        // Tier 1 — Simple: icon + label + time only
-        "ServerStarted"           => DisplayTier.Simple,
+        // Simple: icon + label + time only
         "ServerStopped"           => DisplayTier.Simple,
         "ActivityPruned"          => DisplayTier.Simple,
 
-        // Tier 2 — Rich media card: always visible (file ingested)
+        // Startup cluster: ServerStarted absorbs nearby noise and recon
+        "ServerStarted"           => DisplayTier.Startup,
+
+        // Rich media card: always visible (file ingested)
         "FileIngested"            => DisplayTier.RichMedia,
 
-        // Tier 3 — Review resolved: full media card with action badge
+        // Review resolved: full media card with action badge
         "ReviewItemResolved"      => DisplayTier.ReviewResolved,
 
-        // Tier 4 — Reconciliation: always-visible stats + missing file list
+        // Reconciliation: always-visible stats + missing file list
         "ReconciliationCompleted" => DisplayTier.Reconciliation,
 
-        // Tier 5 — Everything else: expandable
+        // Crawl pair: CrawlFinished absorbs its CrawlStarted counterpart
+        "CrawlFinished"           => DisplayTier.Crawl,
+
+        // Everything else: expandable
         _                         => DisplayTier.Expandable,
     };
 
@@ -1225,6 +1571,100 @@
         return $"background: {bg};";
     }
 
+    // ── Startup cluster helper ────────────────────────────────────────────────────
+
+    private sealed record StartupClusterData(
+        bool HasAbsorbed, bool HasRecon, bool HasDetails, bool ReconWarning,
+        List<ActivityEntryViewModel> AbsorbedList, ActivityEntryViewModel? ReconEntry);
+
+    private StartupClusterData GetStartupClusterData(long entryId)
+    {
+        var hasAbsorbed = _startupAbsorbed.TryGetValue(entryId, out var absorbedList) && absorbedList!.Count > 0;
+        var hasRecon    = _startupRecon.TryGetValue(entryId, out var recon);
+        var hasDetails  = hasAbsorbed || hasRecon;
+        var reconWarning = hasRecon && recon is not null
+                        && ParseReconciliationData(recon.ChangesJson ?? "") is { Missing: > 0 };
+        return new(hasAbsorbed, hasRecon, hasDetails, reconWarning, absorbedList ?? [], recon);
+    }
+
+    // ── Crawl pair helper ─────────────────────────────────────────────────────────
+
+    private sealed record CrawlPairData(string Duration, ActivityEntryViewModel? StartEntry);
+
+    private CrawlPairData GetCrawlPairData(long entryId, string finishedAt)
+    {
+        var start = _crawlStartPair.TryGetValue(entryId, out var s) ? s : null;
+        return new(CalcCrawlDuration(start?.OccurredAt, finishedAt), start);
+    }
+
+    // ── Grouping helpers ──────────────────────────────────────────────────────────
+
+    private static DateTimeOffset? ParseTs(string? s) =>
+        DateTimeOffset.TryParse(s, out var t) ? t : null;
+
+    private static string PipelineStepLabel(string actionType) => actionType switch
+    {
+        "FileDetected"        => "Spotted in watch folder",
+        "FileHashed"          => "Identity fingerprint created",
+        "FileProcessed"       => "Metadata read from file",
+        "FileScored"          => "Confidence score calculated",
+        "EntityChainCreated"  => "Added to library catalogue",
+        "CoverArtSaved"       => "Cover art saved",
+        "MetadataTagsWritten" => "Metadata saved back to file",
+        "HydrationEnqueued"   => "Queued for online enrichment",
+        "MovedToStaging"      => "Moved to library folder",
+        _                     => ActionLabel(actionType),
+    };
+
+    private static string HydrationStageLabel(string actionType) => actionType switch
+    {
+        "HydrationStage1Completed" => "Retail providers",
+        "HydrationStage2Completed" => "Wikidata match",
+        "HydrationStage3Completed" => "Person enrichment",
+        _                          => actionType,
+    };
+
+    private static bool IsHydrationStageSuccess(ActivityEntryViewModel stage)
+    {
+        if (string.IsNullOrWhiteSpace(stage.ChangesJson)) return true;
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(stage.ChangesJson);
+            if (doc.RootElement.TryGetProperty("success", out var s))
+                return s.GetBoolean();
+        }
+        catch { }
+        return true;
+    }
+
+    private static string StartupAbsorbedLabel(ActivityEntryViewModel entry) => entry.ActionType switch
+    {
+        "ActivityPruned"          => "Old activity entries cleaned up",
+        "DuplicateSkipped"        => "Duplicate file skipped",
+        "OrphanCleaned"           => "Orphaned catalogue entry removed",
+        "ReconciliationCompleted" =>
+            ParseReconciliationData(entry.ChangesJson ?? "") is { Total: var n }
+                ? $"Library check: all {n:N0} files present"
+                : "Library check completed",
+        _                         => ActionLabel(entry.ActionType),
+    };
+
+    private static string CalcCrawlDuration(string? startedAt, string? finishedAt)
+    {
+        if (ParseTs(startedAt) is not { } s || ParseTs(finishedAt) is not { } f) return string.Empty;
+        var span = f - s;
+        if (span.TotalSeconds < 1)  return $"{span.TotalMilliseconds:F0}ms";
+        if (span.TotalMinutes  < 1) return $"{span.TotalSeconds:F1}s";
+        return $"{(int)span.TotalMinutes}m {span.Seconds}s";
+    }
+
+    private void TogglePipeline(long entryId)
+    {
+        if (!_pipelineExpandedIds.Remove(entryId))
+            _pipelineExpandedIds.Add(entryId);
+        StateHasChanged();
+    }
+
     // ── Records ──────────────────────────────────────────────────────────────────
 
     private sealed class DateGroup
@@ -1374,6 +1814,67 @@
     }
 
     .activity-recon-missing-row:last-child {
+        border-bottom: none;
+    }
+
+    /* ── Startup cluster ──────────────────────────────────────── */
+    .activity-startup-details {
+        margin-top: 10px;
+        padding: 10px 14px;
+        background: var(--app-glass-inner-bg);
+        border: 1px solid var(--app-glass-inner-border);
+        border-radius: 10px;
+        animation: activity-expand 0.2s ease-out;
+    }
+
+    .activity-startup-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 5px 0;
+        border-bottom: 1px solid var(--app-glass-inner-border);
+        font-size: 0.78rem;
+    }
+
+    .activity-startup-row:last-child {
+        border-bottom: none;
+    }
+
+    /* ── Pipeline steps ───────────────────────────────────────── */
+    .activity-pipeline-toggle {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 8px;
+        padding: 4px 6px;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: background 0.15s ease;
+    }
+
+    .activity-pipeline-toggle:hover {
+        background: rgba(255, 255, 255, 0.05);
+    }
+
+    .activity-pipeline-steps {
+        margin-top: 6px;
+        padding: 8px 10px;
+        background: var(--app-glass-inner-bg);
+        border: 1px solid var(--app-glass-inner-border);
+        border-radius: 8px;
+        animation: activity-expand 0.18s ease-out;
+    }
+
+    .activity-pipeline-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 4px 0;
+        border-bottom: 1px solid var(--app-glass-inner-border);
+        font-size: 0.78rem;
+    }
+
+    .activity-pipeline-row:last-child {
         border-bottom: none;
     }
 </style>
