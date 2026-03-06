@@ -33,4 +33,10 @@ public interface IMetadataClaimRepository
     Task<IReadOnlyList<MetadataClaim>> GetByEntityAsync(
         Guid entityId,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// Deletes all claims for the given <paramref name="entityId"/>.
+    /// Used during orphan cleanup when the asset record is being removed.
+    /// </summary>
+    Task DeleteByEntityAsync(Guid entityId, CancellationToken ct = default);
 }

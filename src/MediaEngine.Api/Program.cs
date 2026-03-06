@@ -307,6 +307,11 @@ builder.Services.AddSingleton<ILibraryScanner, LibraryScanner>();
 builder.Services.AddSingleton<ISystemActivityRepository, SystemActivityRepository>();
 builder.Services.AddHostedService<ActivityPruningService>();
 
+// ── Library Reconciliation: periodic scan for missing files ──────────────────
+builder.Services.AddSingleton<LibraryReconciliationService>();
+builder.Services.AddHostedService<LibraryReconciliationService>(sp =>
+    sp.GetRequiredService<LibraryReconciliationService>());
+
 // ── UI Settings (three-tier cascade: Global → Device → Profile) ──────────────
 builder.Services.AddSingleton<UISettingsCascadeResolver>();
 builder.Services.AddSingleton<UISettingsCacheRepository>();

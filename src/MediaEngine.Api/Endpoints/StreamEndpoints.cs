@@ -82,6 +82,33 @@ public static class StreamEndpoints
         .RequireAnyRole()
         .RequireRateLimiting("streaming");
 
+        group.MapGet("/{assetId:guid}/cover", async (
+            Guid assetId,
+            IMediaAssetRepository assetRepo,
+            CancellationToken ct) =>
+        {
+            var asset = await assetRepo.FindByIdAsync(assetId, ct);
+            if (asset is null)
+                return Results.NotFound($"Asset '{assetId}' not found.");
+
+            var dir = Path.GetDirectoryName(asset.FilePathRoot);
+            if (string.IsNullOrEmpty(dir))
+                return Results.NotFound("Cannot resolve asset directory.");
+
+            var coverPath = Path.Combine(dir, "cover.jpg");
+            if (!File.Exists(coverPath))
+                return Results.NotFound("No cover art found for this asset.");
+
+            var bytes = await File.ReadAllBytesAsync(coverPath, ct);
+            return Results.File(bytes, "image/jpeg", "cover.jpg");
+        })
+        .WithName("GetAssetCover")
+        .WithSummary("Serve cover.jpg from the asset's edition folder.")
+        .Produces(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAnyRole()
+        .RequireRateLimiting("streaming");
+
         return app;
     }
 

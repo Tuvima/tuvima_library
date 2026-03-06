@@ -127,6 +127,20 @@ public sealed class MetadataClaimRepository : IMetadataClaimRepository
     // -------------------------------------------------------------------------
 
     /// <summary>
+    /// <inheritdoc/>
+    public Task DeleteByEntityAsync(Guid entityId, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        var conn = _db.Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "DELETE FROM metadata_claims WHERE entity_id = @entity_id;";
+        cmd.Parameters.AddWithValue("@entity_id", entityId.ToString());
+        cmd.ExecuteNonQuery();
+
+        return Task.CompletedTask;
+    }
+
     /// Maps the current reader row to a <see cref="MetadataClaim"/>.
     /// Column ordinals match the SELECT list used in every query in this class:
     ///   0=id, 1=entity_id, 2=provider_id, 3=claim_key, 4=claim_value,

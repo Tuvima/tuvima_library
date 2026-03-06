@@ -1,6 +1,8 @@
 @namespace MediaEngine.Web.Components.Settings
+@inject UIOrchestratorService Orchestrator
+@inject ISnackbar Snackbar
 
-@* Maintenance — Housekeeping tools: library crawl and weekly sync.
+@* Maintenance — Housekeeping tools: library reconciliation, crawl, and weekly sync.
    Activity timeline and retention policy have moved to the dedicated Activity tab
    under the Metadata settings group. *@
 
@@ -15,7 +17,40 @@
         Housekeeping tools for library integrity and periodic metadata refresh.
     </MudText>
 
-    @* ── Section 1: Library Crawl (stub for Phase 3) ──────────────────── *@
+    @* ── Section 1: Library Reconciliation ──────────────────────────────── *@
+
+    <MudPaper Elevation="0" Style="@InnerCardStyle" Class="mb-6">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+            <MudIcon Icon="@Icons.Material.Outlined.FactCheck"
+                     Color="Color.Primary" Class="mr-2" />
+            <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">
+                Library Reconciliation
+            </MudText>
+        </MudStack>
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+            Scan all library assets and verify their files still exist on disk.
+            Missing files are cleaned up automatically — orphaned cover art,
+            sidecar XML, and empty folders are removed.
+        </MudText>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.PlayArrow"
+                       OnClick="@RunReconciliationAsync"
+                       Disabled="@_reconciling">
+                @(_reconciling ? "Scanning..." : "Reconcile Now")
+            </MudButton>
+            @if (_lastResult is not null)
+            {
+                <MudChip T="string" Size="Size.Small" Color="Color.Default"
+                         Style="opacity: 0.8;">
+                    @_lastResult.TotalScanned scanned · @_lastResult.MissingCount missing · @(_lastResult.ElapsedMs)ms
+                </MudChip>
+            }
+        </MudStack>
+    </MudPaper>
+
+    @* ── Section 2: Library Crawl (stub) ────────────────────────────────── *@
 
     <MudPaper Elevation="0" Style="@InnerCardStyle" Class="mb-6">
         <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
@@ -31,7 +66,7 @@
         </MudText>
     </MudPaper>
 
-    @* ── Section 2: Weekly Sync (stub for Phase 4) ────────────────────── *@
+    @* ── Section 3: Weekly Sync (stub) ──────────────────────────────────── *@
 
     <MudPaper Elevation="0" Style="@InnerCardStyle">
         <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
@@ -65,4 +100,33 @@
         "border: 1px solid var(--app-glass-inner-border); " +
         "border-radius: 16px; " +
         "padding: 24px;";
+
+    // ── State ────────────────────────────────────────────────────────────────────
+
+    private bool _reconciling;
+    private ReconciliationResultDto? _lastResult;
+
+    // ── Actions ──────────────────────────────────────────────────────────────────
+
+    private async Task RunReconciliationAsync()
+    {
+        _reconciling = true;
+        StateHasChanged();
+
+        var result = await Orchestrator.TriggerReconciliationAsync();
+        _reconciling = false;
+
+        if (result is not null)
+        {
+            _lastResult = result;
+            var msg = result.MissingCount > 0
+                ? $"Reconciliation found {result.MissingCount} missing file(s) — cleaned up"
+                : "Reconciliation complete — all files present";
+            Snackbar.Add(msg, result.MissingCount > 0 ? Severity.Warning : Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add("Reconciliation failed — is the Engine running?", Severity.Error);
+        }
+    }
 }

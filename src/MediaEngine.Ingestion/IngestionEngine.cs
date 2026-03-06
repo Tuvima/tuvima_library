@@ -312,7 +312,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         {
             ActionType = Domain.Enums.SystemActionType.FileHashed,
             EntityType = "MediaAsset",
-            Detail     = $"File hashed: {Path.GetFileName(candidate.Path)} — {hash.Hex[..12]} ({hash.FileSize:N0} bytes, {hash.Elapsed.TotalMilliseconds:N0}ms)",
+            Detail     = $"Fingerprinted {Path.GetFileName(candidate.Path)} ({hash.FileSize:N0} bytes)",
         }, ct).ConfigureAwait(false);
 
         // Step 5: duplicate check.
@@ -323,18 +323,29 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         var existing = await _assetRepo.FindByHashAsync(hash.Hex, ct).ConfigureAwait(false);
         if (existing is not null)
         {
-            // Activity: duplicate skipped.
-            await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
+            // If the original file no longer exists, clean up the orphaned record
+            // and all associated filesystem artifacts, then fall through to process
+            // this file as a brand new asset.
+            if (!File.Exists(existing.FilePathRoot))
             {
-                ActionType = Domain.Enums.SystemActionType.DuplicateSkipped,
-                EntityId   = existing.Id,
-                EntityType = "MediaAsset",
-                Detail     = $"Duplicate detected: {Path.GetFileName(candidate.Path)} — matches existing asset {hash.Hex[..12]}",
-            }, ct).ConfigureAwait(false);
+                await CleanOrphanedAssetAsync(existing, ct).ConfigureAwait(false);
+                // Fall through — process as new asset below.
+            }
+            else
+            {
+                // Original file still exists — normal duplicate handling.
+                await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
+                {
+                    ActionType = Domain.Enums.SystemActionType.DuplicateSkipped,
+                    EntityId   = existing.Id,
+                    EntityType = "MediaAsset",
+                    Detail     = $"Duplicate skipped: {Path.GetFileName(candidate.Path)}",
+                }, ct).ConfigureAwait(false);
 
-            await TryReorganizeExistingAsync(existing, candidate.Path, ct)
-                .ConfigureAwait(false);
-            return;
+                await TryReorganizeExistingAsync(existing, candidate.Path, ct)
+                    .ConfigureAwait(false);
+                return;
+            }
         }
 
         // Step 6: process.
@@ -345,7 +356,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         {
             ActionType = Domain.Enums.SystemActionType.FileProcessed,
             EntityType = "MediaAsset",
-            Detail     = $"File processed: {Path.GetFileName(candidate.Path)} — detected type: {result.DetectedType}, {result.Claims.Count} claim(s) extracted",
+            Detail     = $"Scanned {Path.GetFileName(candidate.Path)} — {result.DetectedType}, {result.Claims.Count} claim(s)",
         }, ct).ConfigureAwait(false);
 
         // Step 7: quarantine corrupt files.
@@ -508,7 +519,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             EntityId   = assetId,
             EntityType = "MediaAsset",
             HubName    = chainTitle,
-            Detail     = $"Entity chain linked: \"{chainTitle}\" (Edition {editionId.ToString()[..8]})",
+            Detail     = $"Linked \"{chainTitle}\" to library",
         }, ct).ConfigureAwait(false);
 
         // Step 10: insert asset.
@@ -537,15 +548,31 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             resolvedMediaType, resolvedTitle, scored.OverallConfidence, hash.Hex[..12]);
 
         // Log to activity ledger so the Activity tab shows what was ingested and matched.
-        string confidenceLabel = scored.OverallConfidence >= 0.85 ? "auto-matched" : "low confidence";
-        string authorPart      = string.IsNullOrWhiteSpace(resolvedAuthor) ? string.Empty : $" by {resolvedAuthor}";
+        string authorPart = string.IsNullOrWhiteSpace(resolvedAuthor) ? string.Empty : $" by {resolvedAuthor}";
+
+        // Build structured JSON for the rich match card in the Dashboard.
+        var resolvedYear        = candidate.Metadata?.GetValueOrDefault("year", string.Empty) ?? string.Empty;
+        var resolvedDescription = candidate.Metadata?.GetValueOrDefault("description", string.Empty) ?? string.Empty;
+        var richJson = JsonSerializer.Serialize(new
+        {
+            title       = resolvedTitle,
+            author      = resolvedAuthor,
+            year        = resolvedYear,
+            media_type  = resolvedMediaType.ToString(),
+            confidence  = scored.OverallConfidence,
+            source_file = Path.GetFileName(candidate.Path),
+            description = resolvedDescription,
+            entity_id   = assetId.ToString(),
+        });
+
         await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
         {
-            ActionType = Domain.Enums.SystemActionType.FileIngested,
-            EntityId   = assetId,
-            EntityType = "MediaAsset",
-            HubName    = resolvedTitle,
-            Detail     = $"{resolvedMediaType}: \"{resolvedTitle}\"{authorPart} — {confidenceLabel} ({scored.OverallConfidence:P0}). Source: {Path.GetFileName(candidate.Path)}.",
+            ActionType  = Domain.Enums.SystemActionType.FileIngested,
+            EntityId    = assetId,
+            EntityType  = "MediaAsset",
+            HubName     = resolvedTitle,
+            ChangesJson = richJson,
+            Detail      = $"Media Detected — \"{resolvedTitle}\"{authorPart} ({scored.OverallConfidence:P0})",
         }, ct).ConfigureAwait(false);
 
         await SafePublishAsync("IngestionCompleted", new IngestionCompletedEvent(
@@ -631,7 +658,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                         EntityId   = assetId,
                         EntityType = "MediaAsset",
                         HubName    = candidate.Metadata?.GetValueOrDefault("title", "Unknown"),
-                        Detail     = $"Auto-organized: {candidate.Path} → {destPath}",
+                        Detail     = $"Organized {Path.GetFileName(candidate.Path)} → {Path.GetRelativePath(_options.LibraryRoot!, destPath)}",
                     }, ct).ConfigureAwait(false);
                     currentPath = destPath;
                 }
@@ -661,7 +688,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                     EntityId   = assetId,
                     EntityType = "MediaAsset",
                     HubName    = candidate.Metadata?.GetValueOrDefault("title", "Unknown"),
-                    Detail     = $"Moved to staging (confidence {scored.OverallConfidence:P0} below 85%): {Path.GetFileName(prevPath)}",
+                    Detail     = $"Staged {Path.GetFileName(prevPath)} (confidence {scored.OverallConfidence:P0})",
                 }, ct).ConfigureAwait(false);
             }
 
@@ -677,11 +704,11 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             await _assetRepo.UpdateFilePathAsync(assetId, currentPath, ct).ConfigureAwait(false);
 
         // Step 11b: write sidecar XML and persist cover art.
-        // Only runs when AutoOrganize triggered (same confidence/lock gate) so
-        // the sidecar is always co-located with the organized file.
-        if (_options.AutoOrganize
-            && !string.IsNullOrWhiteSpace(_options.LibraryRoot)
-            && (highConfidence || hasUserLock))
+        // Runs whenever the file was actually organized into the Library Root,
+        // regardless of which gate path got it there.
+        bool fileIsInLibrary = !string.IsNullOrWhiteSpace(_options.LibraryRoot)
+            && currentPath.StartsWith(_options.LibraryRoot, StringComparison.OrdinalIgnoreCase);
+        if (fileIsInLibrary)
         {
             string editionFolder = Path.GetDirectoryName(currentPath) ?? string.Empty;
             string hubFolder     = Path.GetDirectoryName(editionFolder) ?? string.Empty;
@@ -727,7 +754,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                     EntityId   = assetId,
                     EntityType = "MediaAsset",
                     HubName    = resolvedTitle,
-                    Detail     = $"Cover art saved: {result.CoverImage.Length:N0} bytes → {Path.Combine(editionFolder, "cover.jpg")}",
+                    Detail     = $"Cover art saved ({result.CoverImage.Length:N0} bytes)",
                 }, ct).ConfigureAwait(false);
             }
         }
@@ -1114,6 +1141,83 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         _logger.LogWarning(
             "Staging move failed for {Source} → {Dest}", currentPath, destPath);
         return null;
+    }
+
+    // =========================================================================
+    // Orphan cleanup
+    // =========================================================================
+
+    /// <summary>
+    /// Cleans up an orphaned asset whose file no longer exists on disk.
+    /// Removes filesystem artifacts (cover.jpg, library.xml, empty folders)
+    /// and deletes all associated DB records (claims, canonical values, asset).
+    /// </summary>
+    private async Task CleanOrphanedAssetAsync(
+        MediaAsset orphan, CancellationToken ct)
+    {
+        _logger.LogInformation(
+            "Cleaning orphaned asset {Id} — file missing at {Path}",
+            orphan.Id, orphan.FilePathRoot);
+
+        // 1. Clean filesystem artifacts from the edition folder.
+        var editionFolder = Path.GetDirectoryName(orphan.FilePathRoot);
+        if (!string.IsNullOrEmpty(editionFolder) && Directory.Exists(editionFolder))
+        {
+            SafeDeleteFile(Path.Combine(editionFolder, "cover.jpg"));
+            SafeDeleteFile(Path.Combine(editionFolder, "library.xml"));
+            TryDeleteEmptyDirectory(editionFolder);
+
+            // Also clean hub folder artifacts if edition was removed.
+            var hubFolder = Path.GetDirectoryName(editionFolder);
+            if (!string.IsNullOrEmpty(hubFolder) && Directory.Exists(hubFolder))
+            {
+                SafeDeleteFile(Path.Combine(hubFolder, "library.xml"));
+                TryDeleteEmptyDirectory(hubFolder);
+            }
+        }
+
+        // 2. Delete DB records: claims → canonical values → asset.
+        await _claimRepo.DeleteByEntityAsync(orphan.Id, ct).ConfigureAwait(false);
+        await _canonicalRepo.DeleteByEntityAsync(orphan.Id, ct).ConfigureAwait(false);
+        await _assetRepo.DeleteAsync(orphan.Id, ct).ConfigureAwait(false);
+
+        // 3. Log activity.
+        await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
+        {
+            ActionType = Domain.Enums.SystemActionType.OrphanCleaned,
+            EntityId   = orphan.Id,
+            EntityType = "MediaAsset",
+            Detail     = $"Orphan cleaned: {Path.GetFileName(orphan.FilePathRoot)} (file missing)",
+        }, ct).ConfigureAwait(false);
+    }
+
+    private static void SafeDeleteFile(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+        catch (IOException)
+        {
+            // Best-effort: if the file is locked, skip silently.
+        }
+    }
+
+    private static void TryDeleteEmptyDirectory(string path)
+    {
+        try
+        {
+            if (Directory.Exists(path) &&
+                !Directory.EnumerateFileSystemEntries(path).Any())
+            {
+                Directory.Delete(path);
+            }
+        }
+        catch (IOException)
+        {
+            // Best-effort: if the directory is locked, skip silently.
+        }
     }
 
     // =========================================================================

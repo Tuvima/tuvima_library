@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Options;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
+using MediaEngine.Api.Services;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.Models;
 
@@ -148,6 +149,27 @@ public static class IngestionEndpoints
         .Produces(StatusCodes.Status202Accepted)
         .Produces(StatusCodes.Status400BadRequest)
         .RequireAdminOrCurator();
+
+        // ── POST /ingestion/reconcile ─────────────────────────────────────────
+
+        group.MapPost("/reconcile", async (
+            LibraryReconciliationService reconciler,
+            CancellationToken ct) =>
+        {
+            var result = await reconciler.ReconcileAsync(ct);
+            return Results.Ok(new
+            {
+                total_scanned = result.TotalScanned,
+                missing_count = result.MissingCount,
+                elapsed_ms    = result.ElapsedMs,
+            });
+        })
+        .WithName("TriggerReconciliation")
+        .WithSummary(
+            "Scan all Normal-status assets and clean up any whose files " +
+            "are missing from disk.")
+        .Produces(StatusCodes.Status200OK)
+        .RequireAdmin();
 
         return app;
     }

@@ -61,11 +61,11 @@ All of this happens without the user lifting a finger after the initial folder s
 | Media type disambiguation | **PASS** | AudioProcessor and VideoProcessor emit heuristic candidates. Step 6a resolves with confidence thresholds. Review queue integration working. |
 | Scoring integration | **PASS** | Per-field scoring with conflict detection. |
 | Auto-organisation | **PASS** | Confidence gate, template-based paths, collision-safe moves. |
-| Sidecar writing | **PASS** | Both Hub and Edition XML schemas functional. |
+| Sidecar & cover art gate | **PASS** | Writes sidecar XML and cover.jpg whenever the file is in LibraryRoot (path-based check, not confidence re-check). |
 | Great Inhale (LibraryScanner) | **WARN** | Cannot restore the full Hub→Work→Edition→Asset chain after a complete database wipe. Only Hub records and existing-asset editions are restored. |
 | Background enrichment | **PASS** | Non-blocking queue with 3-way concurrency. |
 | Person enrichment | **WARN** | Working, but the `PersonEnriched` SignalR event has an empty person name (known bug — passes `Guid.Empty` to asset lookup). |
-| Deleted file handling | **FAIL** | Only logs the deletion. Does NOT mark the asset as orphaned or update the database. No reconciler exists. |
+| Deleted file handling | **PASS** | LibraryReconciliationService scans for missing files on a configurable interval (default 24h). Orphaned assets are fully cleaned (DB + filesystem). Duplicate check also handles orphans when file is missing. |
 | Watcher health monitoring | **FAIL** | Non-overflow FileSystemWatcher errors (e.g., network share disconnect) are swallowed. No recovery or notification mechanism. |
 | Standalone worker host | **FAIL** | Missing 6+ dependency registrations from Phase 9. Cannot start independently. Only the API host works. |
 
@@ -73,4 +73,4 @@ All of this happens without the user lifting a finger after the initial folder s
 
 ## PO Summary
 
-The ingestion pipeline is fully operational from file detection through organisation and enrichment. Files land in the Watch Folder, get fingerprinted, scored, organised, and enriched — all automatically. **Three gaps matter: (1) deleted files are logged but never cleaned up in the database, (2) if the filesystem watcher loses its connection (e.g., network drive goes offline), there's no recovery mechanism, and (3) the standalone worker mode is broken due to missing dependencies — only the full Engine works.**
+The ingestion pipeline is fully operational from file detection through organisation, enrichment, and reconciliation. Files land in the Watch Folder, get fingerprinted, scored, organised, and enriched — all automatically. The sidecar/cover art gate now correctly uses a path-based check. Orphaned duplicates are cleaned automatically. A scheduled reconciliation service detects missing files and cleans up artifacts. The activity log shows rich match cards with cover thumbnails, confidence bars, and reprocess buttons. **Two gaps remain: (1) if the filesystem watcher loses its connection (e.g., network drive goes offline), there's no recovery mechanism, and (2) the standalone worker mode is broken due to missing dependencies — only the full Engine works.**

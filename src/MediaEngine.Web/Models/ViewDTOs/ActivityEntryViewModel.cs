@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace MediaEngine.Web.Models.ViewDTOs;
@@ -36,6 +37,35 @@ public sealed class ActivityEntryViewModel
     public string? Detail { get; set; }
 
     // ── UI helpers ─────────────────────────────────────────────────────────────
+
+    private ActivityRichData? _richData;
+    private bool _richDataParsed;
+
+    /// <summary>
+    /// Structured match data for FileIngested entries.
+    /// Lazily deserialized from <see cref="ChangesJson"/>.
+    /// </summary>
+    [JsonIgnore]
+    public ActivityRichData? RichData
+    {
+        get
+        {
+            if (_richDataParsed) return _richData;
+            _richDataParsed = true;
+            if (ActionType == "FileIngested" && !string.IsNullOrWhiteSpace(ChangesJson))
+            {
+                try
+                {
+                    _richData = JsonSerializer.Deserialize<ActivityRichData>(ChangesJson);
+                }
+                catch
+                {
+                    // Gracefully handle malformed JSON.
+                }
+            }
+            return _richData;
+        }
+    }
 
     /// <summary>Human-friendly relative timestamp (e.g. "5m ago", "2h ago").</summary>
     public string RelativeTime
@@ -80,4 +110,50 @@ public sealed class ActivityStatsViewModel
 
     [JsonPropertyName("retention_days")]
     public int RetentionDays { get; set; }
+}
+
+/// <summary>
+/// Structured rich data for FileIngested activity entries.
+/// Deserialized from <see cref="ActivityEntryViewModel.ChangesJson"/>.
+/// </summary>
+public sealed class ActivityRichData
+{
+    [JsonPropertyName("title")]
+    public string? Title { get; set; }
+
+    [JsonPropertyName("author")]
+    public string? Author { get; set; }
+
+    [JsonPropertyName("year")]
+    public string? Year { get; set; }
+
+    [JsonPropertyName("media_type")]
+    public string? MediaType { get; set; }
+
+    [JsonPropertyName("confidence")]
+    public double Confidence { get; set; }
+
+    [JsonPropertyName("source_file")]
+    public string? SourceFile { get; set; }
+
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
+
+    [JsonPropertyName("entity_id")]
+    public string? EntityId { get; set; }
+}
+
+/// <summary>
+/// Response model for <c>POST /ingestion/reconcile</c>.
+/// </summary>
+public sealed class ReconciliationResultDto
+{
+    [JsonPropertyName("total_scanned")]
+    public int TotalScanned { get; set; }
+
+    [JsonPropertyName("missing_count")]
+    public int MissingCount { get; set; }
+
+    [JsonPropertyName("elapsed_ms")]
+    public long ElapsedMs { get; set; }
 }

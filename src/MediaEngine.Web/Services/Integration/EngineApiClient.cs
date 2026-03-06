@@ -90,6 +90,20 @@ public sealed class EngineApiClient : IEngineApiClient
         catch { return null; }
     }
 
+    // ── POST /ingestion/reconcile ─────────────────────────────────────────────
+
+    public async Task<ReconciliationResultDto?> TriggerReconciliationAsync(
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var resp = await _http.PostAsJsonAsync("/ingestion/reconcile", new { }, ct);
+            if (!resp.IsSuccessStatusCode) return null;
+            return await resp.Content.ReadFromJsonAsync<ReconciliationResultDto>(ct);
+        }
+        catch { return null; }
+    }
+
     // ── GET /ingestion/watch-folder ────────────────────────────────────────────
 
     public async Task<List<WatchFolderFileViewModel>> GetWatchFolderAsync(CancellationToken ct = default)

@@ -177,6 +177,42 @@ public sealed class MediaAssetRepository : IMediaAssetRepository
         return Task.CompletedTask;
     }
 
+    /// <inheritdoc/>
+    public Task DeleteAsync(Guid id, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        var conn = _db.Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "DELETE FROM media_assets WHERE id = @id;";
+        cmd.Parameters.AddWithValue("@id", id.ToString());
+        cmd.ExecuteNonQuery();
+
+        return Task.CompletedTask;
+    }
+
+    /// <inheritdoc/>
+    public Task<IReadOnlyList<MediaAsset>> ListByStatusAsync(AssetStatus status, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        var conn = _db.Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            SELECT id, edition_id, content_hash, file_path_root, status
+            FROM   media_assets
+            WHERE  status = @status;
+            """;
+        cmd.Parameters.AddWithValue("@status", status.ToString());
+
+        using var reader = cmd.ExecuteReader();
+        var results = new List<MediaAsset>();
+        while (reader.Read())
+            results.Add(MapRow(reader));
+
+        return Task.FromResult<IReadOnlyList<MediaAsset>>(results);
+    }
+
     // -------------------------------------------------------------------------
     // Private row mapper
     // -------------------------------------------------------------------------

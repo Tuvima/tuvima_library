@@ -41,4 +41,10 @@ public interface ICanonicalValueRepository
     /// </summary>
     Task<IReadOnlyList<CanonicalValue>> GetConflictedAsync(
         CancellationToken ct = default);
+
+    /// <summary>
+    /// Deletes all canonical values for the given <paramref name="entityId"/>.
+    /// Used during orphan cleanup when the asset record is being removed.
+    /// </summary>
+    Task DeleteByEntityAsync(Guid entityId, CancellationToken ct = default);
 }

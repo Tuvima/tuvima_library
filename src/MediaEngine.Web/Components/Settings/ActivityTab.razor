@@ -1,4 +1,6 @@
 @namespace MediaEngine.Web.Components.Settings
+@using MediaEngine.Web.Models
+@using MediaEngine.Web.Models.ViewDTOs
 @inject UIOrchestratorService Orchestrator
 @inject ISnackbar Snackbar
 
@@ -143,6 +145,90 @@
                                         @entry.Detail
                                     </MudText>
                                 }
+
+                                @* ── Rich match card for FileIngested entries ──── *@
+                                @if (entry.RichData is { } rich)
+                                {
+                                    <div class="activity-rich-card">
+                                        @* Thumbnail *@
+                                        <div class="activity-rich-thumb">
+                                            @if (!string.IsNullOrWhiteSpace(rich.EntityId))
+                                            {
+                                                <img src="@CoverUrl(rich.EntityId)"
+                                                     alt="@rich.Title"
+                                                     style="width: 100%; height: 100%; object-fit: cover;"
+                                                     loading="lazy"
+                                                     onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" />
+                                                <div style="display: none; width: 100%; height: 100%; align-items: center; justify-content: center;">
+                                                    <MudIcon Icon="@Icons.Material.Filled.MenuBook"
+                                                             Size="Size.Small" Color="Color.Secondary" />
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <MudIcon Icon="@Icons.Material.Filled.MenuBook"
+                                                         Size="Size.Small" Color="Color.Secondary" />
+                                            }
+                                        </div>
+
+                                        @* Details *@
+                                        <div class="activity-rich-details">
+                                            <MudText Typo="Typo.body2" Style="font-weight: 600;">
+                                                @rich.Title
+                                            </MudText>
+                                            @if (!string.IsNullOrWhiteSpace(rich.Author))
+                                            {
+                                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                                    by @rich.Author
+                                                </MudText>
+                                            }
+                                            @if (!string.IsNullOrWhiteSpace(rich.Description))
+                                            {
+                                                <MudText Typo="Typo.caption" Color="Color.Secondary"
+                                                         Style="display: -webkit-box; -webkit-line-clamp: 2;
+                                                                -webkit-box-orient: vertical; overflow: hidden;
+                                                                text-overflow: ellipsis; margin-top: 2px;
+                                                                font-size: 0.75rem; line-height: 1.4;">
+                                                    @TruncateDescription(rich.Description, 120)
+                                                </MudText>
+                                            }
+
+                                            @* Confidence bar *@
+                                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2"
+                                                       Style="margin-top: 4px;">
+                                                <MudProgressLinear Value="@(rich.Confidence * 100)"
+                                                                   Color="@ConfidenceColor(rich.Confidence)"
+                                                                   Size="Size.Small" Rounded="true"
+                                                                   Style="width: 80px;" />
+                                                <MudText Typo="Typo.caption" Style="font-size: 0.7rem;">
+                                                    @($"{rich.Confidence:P0}")
+                                                </MudText>
+                                                @if (!string.IsNullOrWhiteSpace(rich.Year))
+                                                {
+                                                    <MudText Typo="Typo.caption" Color="Color.Secondary"
+                                                             Style="font-size: 0.7rem;">
+                                                        @rich.Year
+                                                    </MudText>
+                                                }
+                                                @if (!string.IsNullOrWhiteSpace(rich.MediaType))
+                                                {
+                                                    <MudIcon Icon="@MediaTypeIcon(rich.MediaType)"
+                                                             Size="Size.Small"
+                                                             Style="font-size: 0.85rem; opacity: 0.7;" />
+                                                }
+                                            </MudStack>
+                                        </div>
+
+                                        @* Reprocess button *@
+                                        <div style="flex-shrink: 0; align-self: center;">
+                                            <MudIconButton Icon="@Icons.Material.Filled.Refresh"
+                                                           Size="Size.Small"
+                                                           Color="Color.Default"
+                                                           title="Reprocess"
+                                                           OnClick="@(() => OpenReprocessPanel(entry))" />
+                                        </div>
+                                    </div>
+                                }
                             </div>
                         </div>
                     }
@@ -165,6 +251,62 @@
     }
 
 </MudPaper>
+
+@* ── Reprocess dialog ──────────────────────────────────────────────────── *@
+<MudDialog @bind-Visible="_reprocessOpen" Options="@(new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true })">
+    <TitleContent>
+        <MudText Typo="Typo.h6">Reprocess — @(_reprocessEntry?.RichData?.Title ?? "Unknown")</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-3">
+            <MudSelect T="string" @bind-Value="_reprocessProvider" Dense="true"
+                       Variant="Variant.Outlined" Label="Provider"
+                       Style="max-width: 200px;" Margin="Margin.Dense">
+                @foreach (var p in GetReprocessProviders())
+                {
+                    <MudSelectItem Value="@p.Name">@p.DisplayName</MudSelectItem>
+                }
+            </MudSelect>
+            <MudTextField T="string" @bind-Value="_reprocessQuery" Variant="Variant.Outlined"
+                          Label="Search Term" Margin="Margin.Dense"
+                          Style="flex: 1;"
+                          OnKeyUp="@OnReprocessKeyUp" />
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       Disabled="@(string.IsNullOrWhiteSpace(_reprocessProvider) || string.IsNullOrWhiteSpace(_reprocessQuery))"
+                       OnClick="@ReprocessSearchAsync">
+                Search
+            </MudButton>
+        </MudStack>
+
+        @if (_reprocessSearching)
+        {
+            <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-2" />
+        }
+
+        @if (_reprocessResults.Count > 0)
+        {
+            <div style="max-height: 420px; overflow-y: auto; border: 1px solid var(--mud-palette-lines-default);
+                        border-radius: 8px; background: var(--mud-palette-surface);">
+                @foreach (var result in _reprocessResults)
+                {
+                    <SearchResultCard Result="@result"
+                                     OnSelected="@(r => ReprocessSelectAsync(r))" />
+                }
+            </div>
+        }
+        else if (_reprocessSearchExecuted && !_reprocessSearching)
+        {
+            <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true">
+                No results found. Try a different search term or provider.
+            </MudAlert>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton Variant="Variant.Text" Color="Color.Default" OnClick="@CloseReprocessDialog">
+            Cancel
+        </MudButton>
+    </DialogActions>
+</MudDialog>
 
 @code {
     // ── Style constants ──────────────────────────────────────────────────────────
@@ -197,11 +339,27 @@
     private ActivityStatsViewModel?      _stats;
     private List<DateGroup>              _groupedEntries = [];
 
+    // ── Reprocess dialog state ────────────────────────────────────────────────
+    private bool                          _reprocessOpen;
+    private ActivityEntryViewModel?       _reprocessEntry;
+    private string                        _reprocessProvider = string.Empty;
+    private string                        _reprocessQuery = string.Empty;
+    private List<MetadataSearchResultDto> _reprocessResults = [];
+    private bool                          _reprocessSearching;
+    private bool                          _reprocessSearchExecuted;
+    private IReadOnlyList<ProviderStatusDto> _providers = [];
+    private Dictionary<string, ProviderSlotDto> _slots = new();
+
     // ── Lifecycle ────────────────────────────────────────────────────────────────
 
     protected override async Task OnInitializedAsync()
     {
-        await RefreshAsync();
+        var refreshTask   = RefreshAsync();
+        var slotsTask     = Orchestrator.GetProviderSlotsAsync();
+        var providersTask = Orchestrator.GetProviderStatusAsync();
+        await Task.WhenAll(refreshTask, slotsTask, providersTask);
+        _slots     = slotsTask.Result ?? new();
+        _providers = providersTask.Result;
     }
 
     private async Task RefreshAsync()
@@ -316,6 +474,175 @@
         return "—";
     }
 
+    // ── Reprocess dialog ─────────────────────────────────────────────────────────
+
+    private void OpenReprocessPanel(ActivityEntryViewModel entry)
+    {
+        _reprocessEntry    = entry;
+        _reprocessQuery    = entry.RichData?.Title ?? string.Empty;
+        _reprocessResults  = [];
+        _reprocessSearching    = false;
+        _reprocessSearchExecuted = false;
+
+        // Pre-select primary provider.
+        var providers = GetReprocessProviders();
+        _reprocessProvider = providers.FirstOrDefault()?.Name ?? string.Empty;
+        _reprocessOpen = true;
+    }
+
+    private void CloseReprocessDialog()
+    {
+        _reprocessOpen = false;
+        _reprocessEntry = null;
+        _reprocessResults = [];
+    }
+
+    private sealed record ReprocessProviderInfo(string Name, string DisplayName);
+
+    private List<ReprocessProviderInfo> GetReprocessProviders()
+    {
+        var result = new List<ReprocessProviderInfo>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        // Add slotted providers first based on the media type.
+        var mediaType = _reprocessEntry?.RichData?.MediaType;
+        var slotKey = mediaType?.ToLowerInvariant() switch
+        {
+            "epub"      => "Books",
+            "audiobook" => "Audiobooks",
+            "comic"     => "Comics",
+            "movie"     => "Movies",
+            "tv"        => "TV Shows",
+            _           => null,
+        };
+
+        if (slotKey is not null && _slots.TryGetValue(slotKey, out var slot))
+        {
+            TryAdd(slot.Primary);
+            TryAdd(slot.Secondary);
+            TryAdd(slot.Tertiary);
+        }
+
+        // Add remaining enabled providers.
+        foreach (var p in _providers.Where(p => p.Enabled))
+        {
+            if (string.Equals(p.Name, "local_filesystem", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(p.Name, "local_processor", StringComparison.OrdinalIgnoreCase))
+                continue;
+            if (string.Equals(p.Name, "wikidata", StringComparison.OrdinalIgnoreCase))
+                continue;
+            if (!seen.Add(p.Name)) continue;
+            result.Add(new(p.Name, p.DisplayName ?? p.Name));
+        }
+
+        // Wikidata last.
+        var wd = _providers.FirstOrDefault(p =>
+            string.Equals(p.Name, "wikidata", StringComparison.OrdinalIgnoreCase));
+        if (wd is { Enabled: true })
+            result.Add(new(wd.Name, "Wikidata (Universe)"));
+
+        return result;
+
+        void TryAdd(string? name)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return;
+            if (!seen.Add(name)) return;
+            var p = _providers.FirstOrDefault(x =>
+                string.Equals(x.Name, name, StringComparison.OrdinalIgnoreCase));
+            result.Add(new(name, p?.DisplayName ?? name));
+        }
+    }
+
+    private async Task ReprocessSearchAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_reprocessProvider) || string.IsNullOrWhiteSpace(_reprocessQuery))
+            return;
+
+        _reprocessSearching = true;
+        _reprocessSearchExecuted = false;
+        StateHasChanged();
+
+        _reprocessResults = await Orchestrator.SearchMetadataAsync(
+            _reprocessProvider, _reprocessQuery,
+            mediaType: _reprocessEntry?.RichData?.MediaType, limit: 25);
+        _reprocessSearching = false;
+        _reprocessSearchExecuted = true;
+        StateHasChanged();
+    }
+
+    private async Task OnReprocessKeyUp(Microsoft.AspNetCore.Components.Web.KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+            await ReprocessSearchAsync();
+    }
+
+    private async Task ReprocessSelectAsync(MetadataSearchResultDto result)
+    {
+        if (_reprocessEntry?.RichData?.EntityId is not { } entityIdStr ||
+            !Guid.TryParse(entityIdStr, out var entityId))
+        {
+            Snackbar.Add("Missing entity reference — cannot reprocess.", Severity.Error);
+            return;
+        }
+
+        // Override with selected match fields.
+        var fields = new Dictionary<string, string>();
+        if (!string.IsNullOrWhiteSpace(result.Title))
+            fields["title"] = result.Title;
+        if (!string.IsNullOrWhiteSpace(result.Author))
+            fields["author"] = result.Author;
+        if (!string.IsNullOrWhiteSpace(result.Year))
+            fields["year"] = result.Year;
+        if (!string.IsNullOrWhiteSpace(result.Description))
+            fields["description"] = result.Description;
+
+        if (fields.Count > 0)
+        {
+            var ok = await Orchestrator.OverrideMetadataAsync(entityId, fields);
+            if (!ok)
+            {
+                Snackbar.Add("Failed to override metadata.", Severity.Error);
+                return;
+            }
+        }
+
+        // Re-trigger hydration.
+        await Orchestrator.TriggerHydrationAsync(entityId);
+
+        Snackbar.Add($"Reprocessed — \"{result.Title}\" selected", Severity.Success);
+        CloseReprocessDialog();
+        await RefreshAsync();
+    }
+
+    // ── Rich card helpers ─────────────────────────────────────────────────────
+
+    private static string CoverUrl(string entityId)
+        => $"/stream/{entityId}/cover";
+
+    private static string MediaTypeIcon(string? mediaType) => mediaType?.ToLowerInvariant() switch
+    {
+        "epub"      => Icons.Material.Filled.MenuBook,
+        "audiobook" => Icons.Material.Filled.Headphones,
+        "comic"     => Icons.Material.Filled.CollectionsBookmark,
+        "movie"     => Icons.Material.Filled.Movie,
+        "tv"        => Icons.Material.Filled.Tv,
+        "music"     => Icons.Material.Filled.MusicNote,
+        _           => Icons.Material.Filled.InsertDriveFile,
+    };
+
+    private static Color ConfidenceColor(double confidence) => confidence switch
+    {
+        >= 0.70 => Color.Success,
+        >= 0.40 => Color.Warning,
+        _       => Color.Error,
+    };
+
+    private static string TruncateDescription(string? desc, int max)
+    {
+        if (string.IsNullOrWhiteSpace(desc)) return string.Empty;
+        return desc.Length <= max ? desc : desc[..max] + "...";
+    }
+
     // ── Action type display helpers ──────────────────────────────────────────────
 
     private static readonly Dictionary<string, (string Icon, string Label, string Bg)> ActionMeta = new()
@@ -355,6 +682,9 @@
         ["HydrationEnqueued"]         = (Icons.Material.Filled.CloudQueue,       "Hydration Enqueued",         "#2196f3"),
         ["FileQuarantined"]           = (Icons.Material.Filled.ReportProblem,    "File Quarantined",           "#f44336"),
         ["MovedToStaging"]            = (Icons.Material.Filled.MoveToInbox,      "Moved to Staging",           "#ff9800"),
+        ["OrphanCleaned"]             = (Icons.Material.Filled.DeleteSweep,     "Orphan Cleaned",             "#ff9800"),
+        ["ReconciliationMissing"]     = (Icons.Material.Filled.SearchOff,       "Missing File Detected",      "#f44336"),
+        ["ReconciliationCompleted"]   = (Icons.Material.Filled.FactCheck,       "Reconciliation Complete",    "#4caf50"),
     };
 
     private static string ActionIcon(string actionType) =>
@@ -436,5 +766,38 @@
     /* Last item in group: less bottom padding */
     .activity-timeline-row:last-child .activity-entry-content {
         padding-bottom: 4px;
+    }
+
+    /* ── Rich match card ─────────────────────────────────────────── */
+    .activity-rich-card {
+        display: flex;
+        gap: 12px;
+        margin-top: 8px;
+        padding: 10px 12px;
+        background: var(--app-glass-inner-bg);
+        border: 1px solid var(--app-glass-inner-border);
+        border-radius: 12px;
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+    }
+
+    .activity-rich-thumb {
+        flex-shrink: 0;
+        width: 44px;
+        height: 64px;
+        border-radius: 6px;
+        overflow: hidden;
+        background: var(--mud-palette-surface);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .activity-rich-details {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
     }
 </style>

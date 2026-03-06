@@ -143,6 +143,20 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository
         return Task.FromResult<IReadOnlyList<CanonicalValue>>(results);
     }
 
+    /// <inheritdoc/>
+    public Task DeleteByEntityAsync(Guid entityId, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        var conn = _db.Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "DELETE FROM canonical_values WHERE entity_id = @entity_id;";
+        cmd.Parameters.AddWithValue("@entity_id", entityId.ToString());
+        cmd.ExecuteNonQuery();
+
+        return Task.CompletedTask;
+    }
+
     // -------------------------------------------------------------------------
     // Private row mapper
     // -------------------------------------------------------------------------

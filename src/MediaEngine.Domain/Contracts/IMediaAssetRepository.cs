@@ -64,4 +64,17 @@ public interface IMediaAssetRepository
     /// so subsequent lookups reflect the new location.
     /// </summary>
     Task UpdateFilePathAsync(Guid id, string newPath, CancellationToken ct = default);
+
+    /// <summary>
+    /// Permanently deletes the asset record identified by <paramref name="id"/>.
+    /// Used during orphan cleanup when the file no longer exists on disk.
+    /// </summary>
+    Task DeleteAsync(Guid id, CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns all assets with the given <paramref name="status"/>.
+    /// Used by the reconciliation service to scan for Normal-status assets
+    /// and verify their files still exist on disk.
+    /// </summary>
+    Task<IReadOnlyList<MediaAsset>> ListByStatusAsync(AssetStatus status, CancellationToken ct = default);
 }

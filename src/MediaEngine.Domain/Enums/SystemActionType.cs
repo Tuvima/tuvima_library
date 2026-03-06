@@ -113,4 +113,15 @@ public static class SystemActionType
 
     /// <summary>A file was moved to the staging directory for manual review.</summary>
     public const string MovedToStaging = "MovedToStaging";
+
+    // ── Orphan & Reconciliation ───────────────────────────────────────────
+
+    /// <summary>An orphaned asset was cleaned up (file missing, DB record deleted).</summary>
+    public const string OrphanCleaned = "OrphanCleaned";
+
+    /// <summary>The reconciliation service found a missing file.</summary>
+    public const string ReconciliationMissing = "ReconciliationMissing";
+
+    /// <summary>A library reconciliation scan completed.</summary>
+    public const string ReconciliationCompleted = "ReconciliationCompleted";
 }

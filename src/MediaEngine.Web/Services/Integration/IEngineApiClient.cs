@@ -25,6 +25,9 @@ public interface IEngineApiClient
     /// </summary>
     Task<LibraryScanResultViewModel?> TriggerLibraryScanAsync(CancellationToken ct = default);
 
+    /// <summary>POST /ingestion/reconcile — scan all assets and clean orphans.</summary>
+    Task<ReconciliationResultDto?> TriggerReconciliationAsync(CancellationToken ct = default);
+
     /// <summary>PATCH /metadata/resolve — manually override a metadata canonical value.</summary>
     Task<bool> ResolveMetadataAsync(
         Guid   entityId,

@@ -298,6 +298,15 @@ public sealed class MaintenanceSettings
     /// </summary>
     [JsonPropertyName("weekly_sync_batch_delay_ms")]
     public int WeeklySyncBatchDelayMs { get; set; } = 2000;
+
+    /// <summary>
+    /// Interval in hours between automatic library reconciliation scans.
+    /// The <c>LibraryReconciliationService</c> checks that every Normal-status
+    /// asset's file still exists on disk.
+    /// Default: 24 hours. Set to 0 to disable automatic reconciliation.
+    /// </summary>
+    [JsonPropertyName("reconciliation_interval_hours")]
+    public int ReconciliationIntervalHours { get; set; } = 24;
 }
 
 /// <summary>

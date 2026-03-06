@@ -266,6 +266,10 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     public Task<bool> UpdateRetentionAsync(int days, CancellationToken ct = default)
         => _api.UpdateRetentionAsync(days, ct);
 
+    /// <summary>Triggers a library reconciliation scan for missing files.</summary>
+    public Task<ReconciliationResultDto?> TriggerReconciliationAsync(CancellationToken ct = default)
+        => _api.TriggerReconciliationAsync(ct);
+
     /// <summary>Fires when the activity log changes. Components should use InvokeAsync(StateHasChanged).</summary>
     public event Action? OnActivityChanged
     {
