@@ -11,7 +11,7 @@
     [Parameter] public RenderFragment? ChildContent { get; set; }
     [Parameter] public int             ColSpan      { get; set; } = 1;
     [Parameter] public int             RowSpan      { get; set; } = 1;
-    [Parameter] public string          GlowColor    { get; set; } = "#C9922E";
+    [Parameter] public string          GlowColor    { get; set; } = "#EAB308";
     [Parameter] public string?         Class        { get; set; }
     [Parameter] public string?         Style        { get; set; }
 
@@ -31,7 +31,7 @@
             if (hex.Length == 3)
                 hex = $"{hex[0]}{hex[0]}{hex[1]}{hex[1]}{hex[2]}{hex[2]}";
             if (hex.Length != 6)
-                return $"rgba(201,146,46,{alpha:F2})";
+                return $"rgba(234,179,8,{alpha:F2})";
 
             var r = Convert.ToInt32(hex[..2], 16);
             var g = Convert.ToInt32(hex[2..4], 16);
@@ -40,7 +40,7 @@
         }
         catch
         {
-            return $"rgba(201,146,46,{alpha:F2})"; // fallback: golden amber
+            return $"rgba(234,179,8,{alpha:F2})"; // fallback: golden amber
         }
     }
 }
@@ -60,7 +60,7 @@
         box-shadow:
             0 2px 12px  rgba(0, 0, 0, 0.20),
             0 0  0 1px  rgba(255, 255, 255, 0.03) inset,
-            0 4px 20px  var(--bento-glow, rgba(201,146,46,0.12));
+            0 4px 20px  var(--bento-glow, rgba(234,179,8,0.12));
 
         transition:
             box-shadow   0.25s ease,
@@ -69,11 +69,11 @@
     }
 
     .bento-item:hover {
-        transform:    translateY(-3px);
-        border-color: var(--bento-border, rgba(201,146,46,0.20));
+        transform:    scale(1.02) translateY(-2px);
+        border-color: var(--bento-border, rgba(234,179,8,0.20));
         box-shadow:
             0 6px 28px  rgba(0, 0, 0, 0.30),
             0 0  0 1px  rgba(255, 255, 255, 0.05) inset,
-            0 10px 36px var(--bento-glow-hover, rgba(201,146,46,0.28));
+            0 10px 36px var(--bento-glow-hover, rgba(234,179,8,0.28));
     }
 </style>

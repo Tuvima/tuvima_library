@@ -21,27 +21,27 @@
                        GlowColor="@hub.DominantHexColor"
                        Class="@extraClass">
 
-                <div class="bento-hub-content" @onclick="() => OnHubSelected.InvokeAsync(hub)">
+                @* ── The Reveal tile ── *@
+                <div class="bento-hub-tile" @onclick="() => OnHubSelected.InvokeAsync(hub)">
 
-                    @* ── Title ── *@
-                    <MudText Typo="@(IsLargeTile ? Typo.h4 : Typo.h5)" Class="mb-1" Style="font-weight: 600;">
-                        @hub.DisplayName
-                    </MudText>
+                    @* Color-fill background derived from hub's dominant color *@
+                    <div class="bento-hub-bg" style="@HubBgStyle(hub.DominantHexColor)"></div>
 
-                    @* ── Metadata line: work count · media types ── *@
-                    <MudText Typo="Typo.body2" Style="color: var(--app-text-muted);">
-                        @hub.WorkCount @(hub.WorkCount == 1 ? "work" : "works") · @hub.MediaTypes
-                    </MudText>
-
-                    @* ── Media type icons row ── *@
-                    <MudStack Row="true" Spacing="2" Class="mt-auto pt-3"
-                              AlignItems="AlignItems.Center">
-                        @foreach (var icon in GetDistinctMediaIcons(hub))
-                        {
-                            <MudIcon Icon="@icon" Size="@(IsLargeTile ? Size.Medium : Size.Small)"
-                                     Style="color: var(--app-icon-muted); font-size: 22px;" />
-                        }
-                    </MudStack>
+                    @* Metadata panel — hidden by default, slides up on hover *@
+                    <div class="bento-hub-reveal">
+                        <span class="hub-reveal-title">@hub.DisplayName</span>
+                        <span class="hub-reveal-meta">
+                            @hub.WorkCount @(hub.WorkCount == 1 ? "work" : "works") · @hub.MediaTypes
+                        </span>
+                        <div class="hub-reveal-icons">
+                            @foreach (var icon in GetDistinctMediaIcons(hub))
+                            {
+                                <MudIcon Icon="@icon"
+                                         Size="@(IsLargeTile ? Size.Medium : Size.Small)"
+                                         Style="color: rgba(248,248,248,0.75); font-size: 18px;" />
+                            }
+                        </div>
+                    </div>
 
                 </div>
             </BentoItem>
@@ -98,6 +98,31 @@ else
     public void Dispose() =>
         DeviceContext.OnChanged -= OnDeviceChanged;
 
+    // ── Reveal helpers ────────────────────────────────────────────────────────
+
+    private static string HubBgStyle(string? hex)
+    {
+        if (string.IsNullOrWhiteSpace(hex))
+            return "background: linear-gradient(135deg, #2A2020 0%, #111111 100%);";
+        var dark = DimHex(hex);
+        return $"background: linear-gradient(135deg, {hex} 0%, {dark} 100%);";
+    }
+
+    private static string DimHex(string hex)
+    {
+        try
+        {
+            hex = hex.TrimStart('#');
+            if (hex.Length == 3) hex = $"{hex[0]}{hex[0]}{hex[1]}{hex[1]}{hex[2]}{hex[2]}";
+            if (hex.Length != 6) return "#1A1A1A";
+            var r = Math.Clamp((int)(Convert.ToInt32(hex[..2],  16) * 0.45), 0, 255);
+            var g = Math.Clamp((int)(Convert.ToInt32(hex[2..4], 16) * 0.45), 0, 255);
+            var b = Math.Clamp((int)(Convert.ToInt32(hex[4..6], 16) * 0.45), 0, 255);
+            return $"#{r:X2}{g:X2}{b:X2}";
+        }
+        catch { return "#1A1A1A"; }
+    }
+
     private static List<string> GetDistinctMediaIcons(HubViewModel hub)
     {
         var icons = new List<string>();
@@ -120,13 +145,78 @@ else
 }
 
 <style>
-    .bento-hub-content {
-        height:          100%;
-        min-height:      inherit;
-        padding:         1.5rem 1.75rem;
+    /* ── The Reveal tile ─────────────────────────────────────────── */
+    .bento-hub-tile {
+        position:   relative;
+        height:     100%;
+        min-height: inherit;
+        cursor:     pointer;
+        user-select: none;
+        overflow:   hidden; /* clips the reveal panel */
+    }
+
+    /* Color-fill background — fills the full tile */
+    .bento-hub-bg {
+        position:   absolute;
+        inset:      0;
+        transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* Subtle zoom on the bg when the tile is hovered */
+    .bento-hub-tile:hover .bento-hub-bg {
+        transform: scale(1.06);
+    }
+
+    /* Metadata panel — hidden below the tile, slides up on hover */
+    .bento-hub-reveal {
+        position:        absolute;
+        bottom:          0;
+        left:            0;
+        right:           0;
+        padding:         1rem 1.25rem 1.1rem;
+        background:      rgba(0, 0, 0, 0.55);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
         display:         flex;
         flex-direction:  column;
-        cursor:          pointer;
-        user-select:     none;
+        gap:             3px;
+        transform:       translateY(100%);
+        transition:      transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .bento-hub-tile:hover .bento-hub-reveal {
+        transform: translateY(0);
+    }
+
+    /* Title — SemiBold (600) per Media Titles spec */
+    .hub-reveal-title {
+        font-family:     'Montserrat', sans-serif;
+        font-size:       0.95rem;
+        font-weight:     600;
+        color:           #F8F8F8;
+        letter-spacing:  0;
+        line-height:     1.3;
+        white-space:     nowrap;
+        overflow:        hidden;
+        text-overflow:   ellipsis;
+        display:         block;
+    }
+
+    /* Metadata line — Medium (500), wide tracking, 70% opacity */
+    .hub-reveal-meta {
+        font-family:    'Montserrat', sans-serif;
+        font-size:      0.75rem;
+        font-weight:    500;
+        letter-spacing: 0.05em;
+        opacity:        0.70;
+        color:          #F8F8F8;
+        display:        block;
+    }
+
+    .hub-reveal-icons {
+        display:     flex;
+        gap:         6px;
+        align-items: center;
+        margin-top:  5px;
     }
 </style>
