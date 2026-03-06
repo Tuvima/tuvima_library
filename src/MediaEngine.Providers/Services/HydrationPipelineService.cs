@@ -181,6 +181,10 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         var sparqlBaseUrl = endpointMap.TryGetValue("wikidata_sparql", out var sparql)
             ? sparql : null;
 
+        _logger.LogDebug(
+            "Pipeline endpoint map: {Endpoints}",
+            string.Join(", ", endpointMap.Select(kv => $"{kv.Key}={kv.Value}")));
+
         // ── Stage 1: Content Match ────────────────────────────────────────────
         //
         // Runs ONLY the primary provider from slots.json for this media type.
@@ -188,6 +192,12 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
 
         var primaryProvider = ResolvePrimaryProvider(slots, provConfigs, request);
         var stage1Claims    = 0;
+
+        var titleHint = request.Hints.GetValueOrDefault("title", "(unknown)");
+        _logger.LogInformation(
+            "Pipeline Stage 1 starting for entity {Id} — title: \"{Title}\", media type: {MediaType}, provider: {Provider}",
+            request.EntityId, titleHint, request.MediaType,
+            primaryProvider?.Name ?? "(none)");
 
         if (primaryProvider is not null)
         {
@@ -279,6 +289,10 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         }
         else if (primaryProvider is not null)
         {
+            _logger.LogWarning(
+                "Pipeline Stage 1 produced no results for entity {Id} from provider '{Provider}'",
+                request.EntityId, primaryProvider.Name);
+
             // Primary provider ran but returned no results → ContentMatchFailed.
             await CreateReviewItemAsync(
                 request, ReviewTrigger.ContentMatchFailed, 0.0,
@@ -287,11 +301,14 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         }
         else
         {
-            // No primary provider configured for this media type.
-            _logger.LogDebug(
-                "No primary provider configured for {MediaType}; skipping Stage 1 for entity {Id}",
-                request.MediaType, request.EntityId);
+            _logger.LogWarning(
+                "Pipeline Stage 1 skipped for entity {Id}: no primary provider configured for {MediaType}",
+                request.EntityId, request.MediaType);
         }
+
+        _logger.LogInformation(
+            "Pipeline Stage 1 completed for entity {Id}: {ClaimCount} claims",
+            request.EntityId, stage1Claims);
 
         // ── Stage 2: Universe Match ───────────────────────────────────────────
         //
@@ -306,6 +323,12 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
 
         var bridgeHints  = ExtractBridgeHints(canonicals);
         var hasBridgeIds = bridgeHints.Count > 0;
+
+        _logger.LogInformation(
+            "Pipeline Stage 2 starting for entity {Id} — bridge IDs: [{BridgeKeys}], SPARQL URL: {HasSparql}",
+            request.EntityId,
+            hasBridgeIds ? string.Join(", ", bridgeHints.Keys) : "(none)",
+            sparqlBaseUrl is not null ? "configured" : "MISSING");
 
         if (hydration.SkipStage2WithoutBridgeIds && !hasBridgeIds
             && string.IsNullOrEmpty(request.PreResolvedQid))
@@ -624,6 +647,8 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     /// <summary>
     /// Creates a review queue entry and publishes events.
     /// Shared by ContentMatchFailed, UniverseMatchFailed, and LowConfidence triggers.
+    /// Includes dedup check: skips creation if a pending item with the same trigger
+    /// already exists for this entity.
     /// </summary>
     private async Task CreateReviewItemAsync(
         HarvestRequest request,
@@ -633,6 +658,19 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         HydrationResult result,
         CancellationToken ct)
     {
+        // Dedup: skip if a pending review with the same trigger already exists.
+        var existing = await _reviewRepo.GetByEntityAsync(request.EntityId, ct)
+            .ConfigureAwait(false);
+        if (existing.Any(r => r.Status == ReviewStatus.Pending && r.Trigger == trigger))
+        {
+            _logger.LogDebug(
+                "Review item '{Trigger}' already exists for entity {Id} — skipping duplicate",
+                trigger, request.EntityId);
+            result.NeedsReview  = true;
+            result.ReviewReason = trigger;
+            return;
+        }
+
         var reviewEntry = new ReviewQueueEntry
         {
             Id              = Guid.NewGuid(),

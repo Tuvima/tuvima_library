@@ -1066,7 +1066,7 @@
         {
             "FileDetected", "FileHashed", "FileProcessed", "FileScored",
             "EntityChainCreated", "CoverArtSaved", "MetadataTagsWritten",
-            "HydrationEnqueued", "MovedToStaging",
+            "HydrationEnqueued", "MovedToStaging", "PathUpdated",
         };
         var ingestedIndex = _entries
             .Where(e => e.ActionType == "FileIngested")
@@ -1612,7 +1612,8 @@
         "CoverArtSaved"       => "Cover art saved",
         "MetadataTagsWritten" => "Metadata saved back to file",
         "HydrationEnqueued"   => "Queued for online enrichment",
-        "MovedToStaging"      => "Moved to library folder",
+        "MovedToStaging"      => "Moved to staging folder",
+        "PathUpdated"         => "Organized into library",
         _                     => ActionLabel(actionType),
     };
 

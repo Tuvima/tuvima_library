@@ -1,5 +1,7 @@
 using System.Reflection;
 using MediaEngine.Api.Models;
+using MediaEngine.Api.Security;
+using MediaEngine.Ingestion.Contracts;
 
 namespace MediaEngine.Api.Endpoints;
 
@@ -28,6 +30,20 @@ public static class SystemEndpoints
         .WithName("GetSystemStatus")
         .WithSummary("Returns service health and version. Used by external apps to test connectivity.")
         .Produces<SystemStatusResponse>(StatusCodes.Status200OK);
+
+        app.MapGet("/system/watcher-status", (IFileWatcher watcher) =>
+            Results.Ok(new
+            {
+                running         = watcher.IsRunning,
+                directory_count = watcher.WatchedPaths.Count,
+                directories     = watcher.WatchedPaths,
+                event_count     = watcher.EventCount,
+                last_event_at   = watcher.LastEventAt,
+            }))
+        .WithTags("System")
+        .WithName("GetWatcherStatus")
+        .WithSummary("Returns file watcher diagnostic status.")
+        .RequireAdmin();
 
         return app;
     }

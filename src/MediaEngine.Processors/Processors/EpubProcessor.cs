@@ -1,5 +1,6 @@
 using System.IO.Compression;
 using System.Text;
+using System.Text.RegularExpressions;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Processors.Contracts;
 using MediaEngine.Processors.Models;
@@ -219,6 +220,24 @@ public sealed class EpubProcessor : IMediaProcessor
                          text.StartsWith("urn:isbn:", StringComparison.OrdinalIgnoreCase)))
                     {
                         claims.Add(Claim("isbn", text));
+                    }
+                }
+
+                // Fallback: detect bare ISBNs without scheme or prefix.
+                // Many EPUBs embed ISBNs as plain <dc:identifier>9781234567890</dc:identifier>.
+                if (!claims.Any(c => c.Key == "isbn"))
+                {
+                    foreach (var id in meta.Identifiers)
+                    {
+                        var raw = id.Identifier?.Trim().Replace("-", "");
+                        if (raw is null) continue;
+
+                        // ISBN-13 (978/979 prefix, 13 digits) or ISBN-10 (10 chars, last may be X)
+                        if (Regex.IsMatch(raw, @"^(97[89]\d{10}|\d{9}[\dXx])$"))
+                        {
+                            claims.Add(Claim("isbn", raw));
+                            break;
+                        }
                     }
                 }
             }

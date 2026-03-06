@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
 using MediaEngine.Domain.Contracts;
@@ -577,6 +578,127 @@ public static class MetadataEndpoints
         .Produces(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator()
         .DisableAntiforgery();
+
+        // ── GET /metadata/wikidata-test ────────────────────────────────────────
+        //
+        // Diagnostic endpoint for validating Wikidata search.  Directly calls the
+        // MediaWiki wbsearchentities API and/or SPARQL bridge lookup so the user
+        // can confirm Wikidata connectivity and search accuracy.
+        //
+        // Query params (at least one required):
+        //   ?title=Abaddon's Gate   — title search via wbsearchentities
+        //   ?isbn=9780316129077     — ISBN bridge lookup via SPARQL (P212)
+
+        group.MapGet("/wikidata-test", async (
+            string? title,
+            string? isbn,
+            IHttpClientFactory httpFactory,
+            IStorageManifest configLoader,
+            CancellationToken ct) =>
+        {
+            if (string.IsNullOrWhiteSpace(title) && string.IsNullOrWhiteSpace(isbn))
+                return Results.BadRequest(new { error = "Provide ?title= or ?isbn= query parameter." });
+
+            var provConfigs = ((Storage.ConfigurationDirectoryLoader)configLoader).LoadAllProviders();
+            var endpointMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var pc in provConfigs)
+                foreach (var (key, url) in pc.Endpoints)
+                    endpointMap.TryAdd(key, url);
+
+            var apiBaseUrl    = endpointMap.GetValueOrDefault("wikidata_api", "");
+            var sparqlBaseUrl = endpointMap.GetValueOrDefault("wikidata_sparql", "");
+
+            var results = new Dictionary<string, object?>
+            {
+                ["api_base_url"]    = apiBaseUrl,
+                ["sparql_base_url"] = sparqlBaseUrl,
+            };
+
+            // Title search via MediaWiki API.
+            if (!string.IsNullOrWhiteSpace(title))
+            {
+                if (string.IsNullOrWhiteSpace(apiBaseUrl))
+                {
+                    results["title_error"] = "wikidata_api endpoint not configured";
+                }
+                else
+                {
+                    var searchUrl = $"{apiBaseUrl.TrimEnd('/')}" +
+                        $"?action=wbsearchentities&search={Uri.EscapeDataString(title)}" +
+                        "&type=item&language=en&format=json&limit=5";
+
+                    results["title_search_url"] = searchUrl;
+
+                    try
+                    {
+                        using var apiClient = httpFactory.CreateClient("wikidata_api");
+                        var response = await apiClient.GetAsync(searchUrl, ct);
+                        var body     = await response.Content.ReadAsStringAsync(ct);
+                        var json     = JsonNode.Parse(body) as JsonObject;
+                        var search   = json?["search"]?.AsArray();
+
+                        results["title_result_count"] = search?.Count ?? 0;
+                        results["title_results"] = search?.Select(r => new
+                        {
+                            id          = r?["id"]?.GetValue<string>(),
+                            label       = r?["label"]?.GetValue<string>(),
+                            description = r?["description"]?.GetValue<string>(),
+                        }).ToArray();
+                        results["title_qid"] = search?.FirstOrDefault()?["id"]?.GetValue<string>();
+                    }
+                    catch (Exception ex)
+                    {
+                        results["title_error"] = ex.Message;
+                    }
+                }
+            }
+
+            // ISBN bridge lookup via SPARQL.
+            if (!string.IsNullOrWhiteSpace(isbn))
+            {
+                if (string.IsNullOrWhiteSpace(sparqlBaseUrl))
+                {
+                    results["isbn_error"] = "wikidata_sparql endpoint not configured";
+                }
+                else
+                {
+                    var sparql = Providers.Models.WikidataSparqlPropertyMap.BuildBridgeLookupQuery("P212", isbn);
+                    var sparqlUrl = $"{sparqlBaseUrl.TrimEnd('/')}?query={Uri.EscapeDataString(sparql)}&format=json";
+
+                    results["isbn_sparql_query"] = sparql;
+
+                    try
+                    {
+                        using var sparqlClient = httpFactory.CreateClient("wikidata_sparql");
+                        var response = await sparqlClient.GetAsync(sparqlUrl, ct);
+                        var body     = await response.Content.ReadAsStringAsync(ct);
+                        var json     = JsonNode.Parse(body) as JsonObject;
+                        var bindings = json?["results"]?["bindings"]?.AsArray();
+
+                        var itemUri = bindings?.FirstOrDefault()?["item"]?["value"]?.GetValue<string>();
+                        string? qid = null;
+                        if (itemUri is not null)
+                        {
+                            var lastSlash = itemUri.LastIndexOf('/');
+                            qid = lastSlash >= 0 ? itemUri[(lastSlash + 1)..] : itemUri;
+                        }
+
+                        results["isbn_qid"]          = qid;
+                        results["isbn_result_count"]  = bindings?.Count ?? 0;
+                    }
+                    catch (Exception ex)
+                    {
+                        results["isbn_error"] = ex.Message;
+                    }
+                }
+            }
+
+            return Results.Ok(results);
+        })
+        .WithName("WikidataTest")
+        .WithSummary("Diagnostic: test Wikidata search by title or ISBN bridge lookup.")
+        .Produces(StatusCodes.Status200OK)
+        .RequireAdmin();
 
         return app;
     }

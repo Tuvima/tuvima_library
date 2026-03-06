@@ -203,6 +203,13 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             ScanExistingFiles(_options.WatchDirectory, _options.IncludeSubdirectories);
         }
 
+        // Start the polling fallback in the background.
+        // FileSystemWatcher can miss events on certain configurations — the poller
+        // periodically sweeps the Watch Folder and synthesises Created events for
+        // files that the debounce queue hasn't seen yet.
+        if (_options.PollIntervalSeconds > 0)
+            _ = PollWatchDirectoryAsync(stoppingToken);
+
         // Consume candidates until the service is stopped.
         // If no watcher is active yet, this loop simply waits — new events will
         // flow once the user sets a Watch Folder via the Settings page.
@@ -547,12 +554,12 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
         await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
         {
-            ActionType  = Domain.Enums.SystemActionType.FileIngested,
+            ActionType  = Domain.Enums.SystemActionType.FileDetected,
             EntityId    = assetId,
             EntityType  = "MediaAsset",
             HubName     = resolvedTitle,
             ChangesJson = richJson,
-            Detail      = $"Media Detected — \"{resolvedTitle}\"{authorPart} ({scored.OverallConfidence:P0})",
+            Detail      = $"Detected — \"{resolvedTitle}\"{authorPart} ({scored.OverallConfidence:P0})",
         }, ct).ConfigureAwait(false);
 
         await SafePublishAsync("IngestionCompleted", new IngestionCompletedEvent(
@@ -744,6 +751,24 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 }, ct).ConfigureAwait(false);
             }
         }
+
+        // ── Phase 2 activity: FileIngested — fires after the full pipeline ──
+        // Summarises the outcome: organized, staged, or awaiting enrichment.
+        string outcome = fileIsInLibrary
+            ? $"Ingested — \"{resolvedTitle}\" → Library"
+            : passesGate
+                ? $"Ingested — \"{resolvedTitle}\" (awaiting enrichment)"
+                : $"Ingested — \"{resolvedTitle}\" (sent to review)";
+
+        await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
+        {
+            ActionType  = Domain.Enums.SystemActionType.FileIngested,
+            EntityId    = assetId,
+            EntityType  = "MediaAsset",
+            HubName     = resolvedTitle,
+            ChangesJson = richJson,
+            Detail      = outcome,
+        }, ct).ConfigureAwait(false);
     }
 
     private async Task HandleDeletedAsync(IngestionCandidate candidate, CancellationToken ct)
@@ -928,6 +953,78 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             _logger.LogInformation(
                 "Initial scan: enqueued {Count} existing file(s) from {Dir}",
                 count, directory);
+    }
+
+    // =========================================================================
+    // Polling fallback — safety net when FSW misses events
+    // =========================================================================
+
+    /// <summary>
+    /// Periodically sweeps the Watch Folder for files that the
+    /// <see cref="System.IO.FileSystemWatcher"/> may have missed.
+    /// Synthesises <c>Created</c> events into the debounce queue;
+    /// the normal hash-based duplicate check prevents double-processing.
+    /// </summary>
+    private async Task PollWatchDirectoryAsync(CancellationToken ct)
+    {
+        var interval = TimeSpan.FromSeconds(_options.PollIntervalSeconds);
+        _logger.LogInformation(
+            "Polling fallback active: sweeping Watch Folder every {Seconds}s",
+            _options.PollIntervalSeconds);
+
+        // Track paths we've already synthesised so we don't flood the queue
+        // on every sweep. Cleared when the set grows too large.
+        var knownPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        while (!ct.IsCancellationRequested)
+        {
+            try
+            {
+                await Task.Delay(interval, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) { break; }
+
+            if (string.IsNullOrWhiteSpace(_options.WatchDirectory)
+                || !Directory.Exists(_options.WatchDirectory))
+                continue;
+
+            try
+            {
+                var searchOption = _options.IncludeSubdirectories
+                    ? SearchOption.AllDirectories
+                    : SearchOption.TopDirectoryOnly;
+
+                int enqueued = 0;
+                foreach (var filePath in Directory.EnumerateFiles(
+                             _options.WatchDirectory, "*.*", searchOption))
+                {
+                    if (ct.IsCancellationRequested) break;
+                    if (knownPaths.Contains(filePath)) continue;
+
+                    knownPaths.Add(filePath);
+                    _debounce.Enqueue(new FileEvent
+                    {
+                        Path      = filePath,
+                        EventType = FileEventType.Created,
+                        OccurredAt = DateTimeOffset.UtcNow,
+                    });
+                    enqueued++;
+                }
+
+                if (enqueued > 0)
+                    _logger.LogInformation(
+                        "Poll sweep: enqueued {Count} new file(s) from {Dir}",
+                        enqueued, _options.WatchDirectory);
+
+                // Prevent unbounded growth — reset after 10 000 entries.
+                if (knownPaths.Count > 10_000)
+                    knownPaths.Clear();
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(ex, "Poll sweep failed for {Dir}", _options.WatchDirectory);
+            }
+        }
     }
 
     // =========================================================================
@@ -1275,11 +1372,12 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             var existing = await _reviewRepo.GetByEntityAsync(entityId, ct)
                 .ConfigureAwait(false);
 
-            if (existing.Any(r => r.Status == Domain.Enums.ReviewStatus.Pending))
+            if (existing.Any(r => r.Status == Domain.Enums.ReviewStatus.Pending
+                                  && r.Trigger == trigger))
             {
                 _logger.LogDebug(
-                    "Review item already exists for entity {Id} — skipping duplicate.",
-                    entityId);
+                    "Review item '{Trigger}' already exists for entity {Id} — skipping duplicate.",
+                    trigger, entityId);
                 return;
             }
 

@@ -59,6 +59,15 @@ public sealed class IngestionOptions
     /// </summary>
     public bool IncludeSubdirectories { get; set; } = true;
 
+    // ── Polling Fallback ────────────────────────────────────────────
+
+    /// <summary>
+    /// Interval in seconds between polling sweeps of the Watch Folder.
+    /// Acts as a safety net when <see cref="System.IO.FileSystemWatcher"/>
+    /// misses OS events. Set to 0 to disable polling. Default: 30.
+    /// </summary>
+    public int PollIntervalSeconds { get; set; } = 30;
+
     // ── Media Type Disambiguation ────────────────────────────────────
 
     /// <summary>

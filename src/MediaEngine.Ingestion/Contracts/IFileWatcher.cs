@@ -18,6 +18,18 @@ public interface IFileWatcher : IDisposable
     /// </summary>
     event EventHandler<FileEvent> FileDetected;
 
+    /// <summary>Total raw OS events received since startup.</summary>
+    long EventCount { get; }
+
+    /// <summary>Timestamp of the last raw OS event, or null if none.</summary>
+    DateTimeOffset? LastEventAt { get; }
+
+    /// <summary>Whether the watcher is currently active.</summary>
+    bool IsRunning { get; }
+
+    /// <summary>Paths currently being watched.</summary>
+    IReadOnlyList<string> WatchedPaths { get; }
+
     /// <summary>
     /// Registers a directory to be observed.
     /// May be called multiple times to watch several root paths.

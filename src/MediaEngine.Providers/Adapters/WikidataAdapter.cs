@@ -45,7 +45,7 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
 {
     // Stable provider GUID — never change; written to metadata_claims.provider_id.
     public static readonly Guid AdapterProviderId
-        = new("b3000003-w000-4000-8000-000000000004");
+        = new("b3000003-d000-4000-8000-000000000004");
 
     // ── IExternalMetadataProvider ─────────────────────────────────────────────
     public string Name          => "wikidata";
@@ -445,15 +445,6 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
             return [];
         }
 
-        // Require a SPARQL endpoint to be configured.
-        if (string.IsNullOrWhiteSpace(request.SparqlBaseUrl))
-        {
-            _logger.LogDebug(
-                "Wikidata work skipped for entity {Id}: no SPARQL base URL configured",
-                request.EntityId);
-            return [];
-        }
-
         // Load the universe configuration (property map, bridges, exclusions).
         // Falls back to compiled defaults if the file is missing or corrupt.
         var universeConfig = _configLoader.LoadConfig<UniverseConfiguration>("universe", "wikidata");
@@ -461,7 +452,8 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
             ? WikidataSparqlPropertyMap.BuildMapFromUniverse(universeConfig)
             : WikidataSparqlPropertyMap.DefaultMap;
 
-        var throttleGapMs = GetThrottleGapMs();
+        var throttleGapMs  = GetThrottleGapMs();
+        var hasSparql      = !string.IsNullOrWhiteSpace(request.SparqlBaseUrl);
 
         try
         {
@@ -475,35 +467,82 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
             if (!string.IsNullOrWhiteSpace(preResolvedQid))
             {
                 qid = preResolvedQid;
-                _logger.LogDebug(
+                _logger.LogInformation(
                     "Wikidata: using pre-resolved QID {Qid} for entity {Id}",
                     qid, request.EntityId);
             }
             else
             {
                 // ── Step 1: QID Cross-Reference via Bridge IDs ──────────────
-                var bridgePriority = universeConfig?.BridgeLookupPriority;
-                qid = await ResolveQidViaBridgesAsync(
-                    sparqlClient, request, bridgePriority, throttleGapMs, ct).ConfigureAwait(false);
+                // Bridge lookups require SPARQL; skip if endpoint is unavailable.
+                if (hasSparql)
+                {
+                    var bridgePriority = universeConfig?.BridgeLookupPriority;
+                    qid = await ResolveQidViaBridgesAsync(
+                        sparqlClient, request, bridgePriority, throttleGapMs, ct).ConfigureAwait(false);
+
+                    if (qid is not null)
+                    {
+                        _logger.LogInformation(
+                            "Wikidata: resolved QID {Qid} via bridge ID for entity {Id}",
+                            qid, request.EntityId);
+                    }
+                }
+                else
+                {
+                    _logger.LogWarning(
+                        "Wikidata: SPARQL endpoint not configured — bridge ID lookup skipped for entity {Id}",
+                        request.EntityId);
+                }
 
                 // ── Step 2: Fallback to MediaWiki Text Search ───────────────
+                // Title search uses the MediaWiki API, NOT SPARQL — works even
+                // when the SPARQL endpoint is unavailable.
                 if (qid is null && !string.IsNullOrWhiteSpace(request.Title))
                 {
+                    _logger.LogInformation(
+                        "Wikidata: attempting title search for \"{Title}\" (entity {Id})",
+                        request.Title, request.EntityId);
+
                     qid = await ResolveQidViaSearchAsync(
                         apiClient, request.BaseUrl, request.Title, throttleGapMs, ct)
                         .ConfigureAwait(false);
+
+                    if (qid is not null)
+                    {
+                        _logger.LogInformation(
+                            "Wikidata: title search found QID {Qid} for \"{Title}\" (entity {Id})",
+                            qid, request.Title, request.EntityId);
+                    }
+                    else
+                    {
+                        _logger.LogInformation(
+                            "Wikidata: title search returned no results for \"{Title}\" (entity {Id})",
+                            request.Title, request.EntityId);
+                    }
                 }
             }
 
             if (qid is null)
             {
-                _logger.LogDebug(
+                _logger.LogInformation(
                     "Wikidata: no QID found for entity {Id} (tried bridges + title search)",
                     request.EntityId);
                 return [];
             }
 
             // ── Step 3: SPARQL Deep Ingest ──────────────────────────────────
+            // If we found a QID but SPARQL is unavailable, return just the QID
+            // claim.  Partial success is better than no data.
+            if (!hasSparql)
+            {
+                _logger.LogWarning(
+                    "Wikidata: QID {Qid} found for entity {Id} but SPARQL unavailable — " +
+                    "returning QID claim only (no deep hydration)",
+                    qid, request.EntityId);
+
+                return [new ProviderClaim("wikidata_qid", qid, 1.0)];
+            }
             // Read scope exclusions from universe config (default: P18 excluded from Work).
             IReadOnlyCollection<string>? scopeExclusions = null;
             if (universeConfig?.ScopeExclusions.TryGetValue("Work", out var workExclusions) == true)
@@ -512,7 +551,7 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
             var sparql = WikidataSparqlPropertyMap.BuildWorkSparqlQuery(
                 qid, effectiveMap, scopeExclusions);
             var claims = await ExecuteSparqlQueryAsync(
-                sparqlClient, request.SparqlBaseUrl, sparql, qid,
+                sparqlClient, request.SparqlBaseUrl!, sparql, qid,
                 effectiveMap, scopeExclusions, throttleGapMs, ct).ConfigureAwait(false);
 
             _logger.LogInformation(
@@ -639,8 +678,9 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
 
     /// <summary>
     /// Fallback: search Wikidata by title using the MediaWiki API.
+    /// This does NOT require SPARQL — only the MediaWiki wbsearchentities endpoint.
     /// </summary>
-    private static async Task<string?> ResolveQidViaSearchAsync(
+    private async Task<string?> ResolveQidViaSearchAsync(
         HttpClient apiClient,
         string baseUrl,
         string title,
@@ -648,19 +688,40 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
         CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(baseUrl))
+        {
+            _logger.LogWarning(
+                "Wikidata title search skipped: MediaWiki API base URL is empty. " +
+                "Check that config/providers/wikidata.json has a valid 'wikidata_api' endpoint.");
             return null;
+        }
 
         var searchUrl = $"{baseUrl.TrimEnd('/')}" +
             $"?action=wbsearchentities&search={Uri.EscapeDataString(title)}" +
             "&type=item&language=en&format=json&limit=5";
 
+        _logger.LogDebug("Wikidata title search URL: {Url}", searchUrl);
+
         var searchJson = await ThrottledGetAsync<JsonObject>(apiClient, searchUrl, throttleGapMs, ct)
             .ConfigureAwait(false);
 
-        if (searchJson is null) return null;
+        if (searchJson is null)
+        {
+            _logger.LogWarning(
+                "Wikidata title search failed: API returned null for \"{Title}\"", title);
+            return null;
+        }
 
         var results = searchJson["search"]?.AsArray();
-        if (results is null) return null;
+        if (results is null || results.Count == 0)
+        {
+            _logger.LogInformation(
+                "Wikidata title search returned 0 results for \"{Title}\"", title);
+            return null;
+        }
+
+        _logger.LogDebug(
+            "Wikidata title search returned {Count} results for \"{Title}\"",
+            results.Count, title);
 
         // Take the first result — Wikidata ranks by relevance.
         var firstId = results.FirstOrDefault()?["id"]?.GetValue<string>();

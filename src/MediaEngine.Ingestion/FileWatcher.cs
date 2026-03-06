@@ -30,6 +30,23 @@ public sealed class FileWatcher : IFileWatcher
     private bool _running;
     private bool _disposed;
 
+    // Diagnostic counters for the watcher-status endpoint.
+    private long _eventCount;
+    private DateTimeOffset? _lastEventAt;
+
+    /// <summary>Total number of raw OS events received since startup.</summary>
+    public long EventCount => Interlocked.Read(ref _eventCount);
+
+    /// <summary>Timestamp of the last raw OS event received.</summary>
+    public DateTimeOffset? LastEventAt => _lastEventAt;
+
+    /// <summary>Whether the watcher is currently active.</summary>
+    public bool IsRunning => _running && !_disposed;
+
+    /// <summary>Paths currently being watched.</summary>
+    public IReadOnlyList<string> WatchedPaths =>
+        _watchers.Select(w => w.Path).ToList();
+
     // -------------------------------------------------------------------------
     // IFileWatcher
     // -------------------------------------------------------------------------
@@ -155,31 +172,42 @@ public sealed class FileWatcher : IFileWatcher
     // OS event handlers (called on the OS thread pool)
     // -------------------------------------------------------------------------
 
-    private void OnCreated(object _, System.IO.FileSystemEventArgs e) =>
+    private void OnCreated(object _, System.IO.FileSystemEventArgs e)
+    {
+        RecordOsEvent();
         Raise(new FileEvent
         {
             Path       = e.FullPath,
             EventType  = FileEventType.Created,
             OccurredAt = DateTimeOffset.UtcNow,
         });
+    }
 
-    private void OnChanged(object _, System.IO.FileSystemEventArgs e) =>
+    private void OnChanged(object _, System.IO.FileSystemEventArgs e)
+    {
+        RecordOsEvent();
         Raise(new FileEvent
         {
             Path       = e.FullPath,
             EventType  = FileEventType.Modified,
             OccurredAt = DateTimeOffset.UtcNow,
         });
+    }
 
-    private void OnDeleted(object _, System.IO.FileSystemEventArgs e) =>
+    private void OnDeleted(object _, System.IO.FileSystemEventArgs e)
+    {
+        RecordOsEvent();
         Raise(new FileEvent
         {
             Path       = e.FullPath,
             EventType  = FileEventType.Deleted,
             OccurredAt = DateTimeOffset.UtcNow,
         });
+    }
 
-    private void OnRenamed(object _, System.IO.RenamedEventArgs e) =>
+    private void OnRenamed(object _, System.IO.RenamedEventArgs e)
+    {
+        RecordOsEvent();
         Raise(new FileEvent
         {
             Path       = e.FullPath,
@@ -187,6 +215,7 @@ public sealed class FileWatcher : IFileWatcher
             EventType  = FileEventType.Renamed,
             OccurredAt = DateTimeOffset.UtcNow,
         });
+    }
 
     private void OnError(object _, System.IO.ErrorEventArgs e)
     {
@@ -207,6 +236,12 @@ public sealed class FileWatcher : IFileWatcher
     // -------------------------------------------------------------------------
     // Private helpers
     // -------------------------------------------------------------------------
+
+    private void RecordOsEvent()
+    {
+        Interlocked.Increment(ref _eventCount);
+        _lastEventAt = DateTimeOffset.UtcNow;
+    }
 
     private void Raise(FileEvent evt)
     {
