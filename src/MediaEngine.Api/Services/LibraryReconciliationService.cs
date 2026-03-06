@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text.Json;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
@@ -96,9 +97,13 @@ public sealed class LibraryReconciliationService : BackgroundService, IReconcili
     /// </summary>
     public async Task<ReconciliationResult> ReconcileAsync(CancellationToken ct = default)
     {
-        var sw = Stopwatch.StartNew();
-        var assets = await _assetRepo.ListByStatusAsync(AssetStatus.Normal, ct);
+        var sw        = Stopwatch.StartNew();
+        var startedAt = DateTimeOffset.UtcNow;
+        var assets    = await _assetRepo.ListByStatusAsync(AssetStatus.Normal, ct);
         int missingCount = 0;
+
+        // Collect missing-file details for the completion summary.
+        var missingFiles = new List<object>();
 
         foreach (var asset in assets)
         {
@@ -132,7 +137,16 @@ public sealed class LibraryReconciliationService : BackgroundService, IReconcili
             await _canonicalRepo.DeleteByEntityAsync(asset.Id, ct);
             await _assetRepo.DeleteAsync(asset.Id, ct);
 
-            // Log per-file activity.
+            // Collect details for the completion summary (no separate per-file entry needed).
+            missingFiles.Add(new
+            {
+                entity_id = asset.Id.ToString(),
+                filename  = Path.GetFileName(asset.FilePathRoot),
+                action    = "Records and artifacts deleted",
+            });
+
+            // Still log a per-file entry so the entity ID is recorded in the activity log
+            // (used by the Dashboard to hide the reprocess button for deleted assets).
             await _activityRepo.LogAsync(new SystemActivityEntry
             {
                 ActionType = SystemActionType.ReconciliationMissing,
@@ -146,13 +160,20 @@ public sealed class LibraryReconciliationService : BackgroundService, IReconcili
 
         sw.Stop();
 
-        // Log completion.
+        // Log completion with full details so the Dashboard can show a single grouped entry.
         await _activityRepo.LogAsync(new SystemActivityEntry
         {
             ActionType  = SystemActionType.ReconciliationCompleted,
             EntityType  = "System",
             Detail      = $"Reconciliation complete — scanned {assets.Count}, {missingCount} missing",
-            ChangesJson = $"{{\"total_scanned\":{assets.Count},\"missing_count\":{missingCount},\"elapsed_ms\":{sw.ElapsedMilliseconds}}}",
+            ChangesJson = JsonSerializer.Serialize(new
+            {
+                total_scanned  = assets.Count,
+                missing_count  = missingCount,
+                elapsed_ms     = sw.ElapsedMilliseconds,
+                started_at     = startedAt.ToString("O"),
+                missing_files  = missingFiles,
+            }),
         }, ct);
 
         _logger.LogInformation(

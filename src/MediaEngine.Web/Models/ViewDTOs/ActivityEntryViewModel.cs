@@ -67,6 +67,35 @@ public sealed class ActivityEntryViewModel
         }
     }
 
+    private ReviewRichData? _reviewData;
+    private bool _reviewDataParsed;
+
+    /// <summary>
+    /// Structured data for ReviewItemResolved entries (cover, title, author, year, desc, action).
+    /// Lazily deserialized from <see cref="ChangesJson"/>.
+    /// </summary>
+    [JsonIgnore]
+    public ReviewRichData? ReviewData
+    {
+        get
+        {
+            if (_reviewDataParsed) return _reviewData;
+            _reviewDataParsed = true;
+            if (ActionType == "ReviewItemResolved" && !string.IsNullOrWhiteSpace(ChangesJson))
+            {
+                try
+                {
+                    _reviewData = JsonSerializer.Deserialize<ReviewRichData>(ChangesJson);
+                }
+                catch
+                {
+                    // Gracefully handle malformed JSON.
+                }
+            }
+            return _reviewData;
+        }
+    }
+
     /// <summary>Human-friendly relative timestamp (e.g. "5m ago", "2h ago").</summary>
     public string RelativeTime
     {
@@ -110,6 +139,41 @@ public sealed class ActivityStatsViewModel
 
     [JsonPropertyName("retention_days")]
     public int RetentionDays { get; set; }
+}
+
+/// <summary>
+/// Structured rich data for ReviewItemResolved activity entries.
+/// Deserialized from <see cref="ActivityEntryViewModel.ChangesJson"/>.
+/// </summary>
+public sealed class ReviewRichData
+{
+    [JsonPropertyName("title")]
+    public string? Title { get; set; }
+
+    [JsonPropertyName("author")]
+    public string? Author { get; set; }
+
+    [JsonPropertyName("year")]
+    public string? Year { get; set; }
+
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
+
+    [JsonPropertyName("media_type")]
+    public string? MediaType { get; set; }
+
+    [JsonPropertyName("entity_id")]
+    public string? EntityId { get; set; }
+
+    /// <summary>"resolved", "dismissed", or "skipped".</summary>
+    [JsonPropertyName("action")]
+    public string? Action { get; set; }
+
+    [JsonPropertyName("qid")]
+    public string? Qid { get; set; }
+
+    [JsonPropertyName("field_overrides")]
+    public int FieldOverrides { get; set; }
 }
 
 /// <summary>

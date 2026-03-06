@@ -1,3 +1,4 @@
+using System.Text.Json;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
 using MediaEngine.Domain.Contracts;
@@ -159,13 +160,35 @@ public static class ReviewEndpoints
             // 3. Update review queue status.
             await reviewRepo.UpdateStatusAsync(id, ReviewStatus.Resolved, "user", ct);
 
-            // 4. Log activity.
+            // 4. Log activity with canonical values for Dashboard rich card.
+            var resolvedCanonicals = await canonicalRepo.GetByEntityAsync(item.EntityId, ct);
+            var resolvedLookup     = resolvedCanonicals.ToDictionary(
+                c => c.Key, c => c.Value, StringComparer.OrdinalIgnoreCase);
+            resolvedLookup.TryGetValue("title",       out var rTitle);
+            if (string.IsNullOrWhiteSpace(rTitle)) resolvedLookup.TryGetValue("file_name", out rTitle);
+            resolvedLookup.TryGetValue("author",      out var rAuthor);
+            resolvedLookup.TryGetValue("year",        out var rYear);
+            resolvedLookup.TryGetValue("description", out var rDesc);
+            resolvedLookup.TryGetValue("media_type",  out var rMediaType);
+
             await activityRepo.LogAsync(new SystemActivityEntry
             {
-                ActionType = SystemActionType.ReviewItemResolved,
-                EntityId   = item.EntityId,
-                Detail     = $"Review item resolved — QID: {request.SelectedQid ?? "none"}, "
-                           + $"{request.FieldOverrides?.Count ?? 0} field overrides.",
+                ActionType  = SystemActionType.ReviewItemResolved,
+                EntityId    = item.EntityId,
+                ChangesJson = JsonSerializer.Serialize(new
+                {
+                    title          = rTitle,
+                    author         = rAuthor,
+                    year           = rYear,
+                    description    = rDesc,
+                    media_type     = rMediaType,
+                    entity_id      = item.EntityId.ToString(),
+                    action         = "resolved",
+                    qid            = request.SelectedQid,
+                    field_overrides = request.FieldOverrides?.Count ?? 0,
+                }),
+                Detail      = $"Review resolved — QID: {request.SelectedQid ?? "none"}, "
+                            + $"{request.FieldOverrides?.Count ?? 0} field overrides.",
             }, ct);
 
             // 5. Broadcast event.
@@ -189,6 +212,7 @@ public static class ReviewEndpoints
         group.MapPost("/{id:guid}/dismiss", async (
             Guid id,
             IReviewQueueRepository reviewRepo,
+            ICanonicalValueRepository canonicalRepo,
             IEventPublisher publisher,
             ISystemActivityRepository activityRepo,
             CancellationToken ct) =>
@@ -202,11 +226,31 @@ public static class ReviewEndpoints
 
             await reviewRepo.UpdateStatusAsync(id, ReviewStatus.Dismissed, "user", ct);
 
+            var dismissCanonicals = await canonicalRepo.GetByEntityAsync(item.EntityId, ct);
+            var dismissLookup     = dismissCanonicals.ToDictionary(
+                c => c.Key, c => c.Value, StringComparer.OrdinalIgnoreCase);
+            dismissLookup.TryGetValue("title",       out var dTitle);
+            if (string.IsNullOrWhiteSpace(dTitle)) dismissLookup.TryGetValue("file_name", out dTitle);
+            dismissLookup.TryGetValue("author",      out var dAuthor);
+            dismissLookup.TryGetValue("year",        out var dYear);
+            dismissLookup.TryGetValue("description", out var dDesc);
+            dismissLookup.TryGetValue("media_type",  out var dMediaType);
+
             await activityRepo.LogAsync(new SystemActivityEntry
             {
-                ActionType = SystemActionType.ReviewItemResolved,
-                EntityId   = item.EntityId,
-                Detail     = "Review item dismissed by user.",
+                ActionType  = SystemActionType.ReviewItemResolved,
+                EntityId    = item.EntityId,
+                ChangesJson = JsonSerializer.Serialize(new
+                {
+                    title       = dTitle,
+                    author      = dAuthor,
+                    year        = dYear,
+                    description = dDesc,
+                    media_type  = dMediaType,
+                    entity_id   = item.EntityId.ToString(),
+                    action      = "dismissed",
+                }),
+                Detail      = "Review item dismissed by user.",
             }, ct);
 
             await publisher.PublishAsync("ReviewItemResolved", new
@@ -230,6 +274,7 @@ public static class ReviewEndpoints
             Guid id,
             IReviewQueueRepository reviewRepo,
             IHubRepository hubRepo,
+            ICanonicalValueRepository canonicalRepo,
             IEventPublisher publisher,
             ISystemActivityRepository activityRepo,
             CancellationToken ct) =>
@@ -247,12 +292,32 @@ public static class ReviewEndpoints
             // 2. Dismiss the review item.
             await reviewRepo.UpdateStatusAsync(id, ReviewStatus.Dismissed, "user", ct);
 
+            var skipCanonicals = await canonicalRepo.GetByEntityAsync(item.EntityId, ct);
+            var skipLookup     = skipCanonicals.ToDictionary(
+                c => c.Key, c => c.Value, StringComparer.OrdinalIgnoreCase);
+            skipLookup.TryGetValue("title",       out var sTitle);
+            if (string.IsNullOrWhiteSpace(sTitle)) skipLookup.TryGetValue("file_name", out sTitle);
+            skipLookup.TryGetValue("author",      out var sAuthor);
+            skipLookup.TryGetValue("year",        out var sYear);
+            skipLookup.TryGetValue("description", out var sDesc);
+            skipLookup.TryGetValue("media_type",  out var sMediaType);
+
             // 3. Log activity.
             await activityRepo.LogAsync(new SystemActivityEntry
             {
-                ActionType = SystemActionType.ReviewItemResolved,
-                EntityId   = item.EntityId,
-                Detail     = "Universe matching skipped by user — Work marked as content-matched only.",
+                ActionType  = SystemActionType.ReviewItemResolved,
+                EntityId    = item.EntityId,
+                ChangesJson = JsonSerializer.Serialize(new
+                {
+                    title       = sTitle,
+                    author      = sAuthor,
+                    year        = sYear,
+                    description = sDesc,
+                    media_type  = sMediaType,
+                    entity_id   = item.EntityId.ToString(),
+                    action      = "skipped",
+                }),
+                Detail      = "Universe matching skipped by user.",
             }, ct);
 
             // 4. Broadcast event.

@@ -120,7 +120,10 @@
                 <MudStack Spacing="0">
                     @foreach (var entry in group.Entries)
                     {
+                        if (_absorbedEntryIds.Contains(entry.Id)) continue;
                         var tier = GetDisplayTier(entry.ActionType);
+                        var isMissing = tier == DisplayTier.RichMedia
+                                     && _missingEntityIds.Contains(entry.RichData?.EntityId ?? "");
 
                         <div class="activity-timeline-row">
                             @* Timeline icon + connector line *@
@@ -157,6 +160,14 @@
                                             @ActionLabel(entry.ActionType)
                                         </MudText>
                                         <MudSpacer />
+                                        @if (isMissing)
+                                        {
+                                            <MudChip T="string" Size="Size.Small" Color="Color.Error"
+                                                     Icon="@Icons.Material.Filled.LinkOff"
+                                                     Style="font-size: 0.7rem; height: 20px;">
+                                                File removed
+                                            </MudChip>
+                                        }
                                         <MudText Typo="Typo.caption" Color="Color.Secondary"
                                                  Style="white-space: nowrap;">
                                             @FormatTime(entry.OccurredAt)
@@ -244,13 +255,122 @@
                                                 }
                                             </div>
 
-                                            @* Reprocess button *@
-                                            <div style="flex-shrink: 0; align-self: center;">
-                                                <MudIconButton Icon="@Icons.Material.Filled.Refresh"
-                                                               Size="Size.Small"
-                                                               Color="Color.Default"
-                                                               title="Reprocess"
-                                                               OnClick="@(() => OpenReprocessPanel(entry))" />
+                                            @* Reprocess button — hidden if file was removed *@
+                                            @if (!isMissing)
+                                            {
+                                                <div style="flex-shrink: 0; align-self: center;">
+                                                    <MudIconButton Icon="@Icons.Material.Filled.Refresh"
+                                                                   Size="Size.Small"
+                                                                   Color="Color.Default"
+                                                                   title="Reprocess"
+                                                                   OnClick="@(() => OpenReprocessPanel(entry))" />
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                    else if (!string.IsNullOrWhiteSpace(entry.Detail))
+                                    {
+                                        <MudText Typo="Typo.body2" Color="Color.Secondary"
+                                                 Style="margin-top: 2px; line-height: 1.4;">
+                                            @entry.Detail
+                                        </MudText>
+                                    }
+                                }
+                                else if (tier == DisplayTier.ReviewResolved)
+                                {
+                                    @* ── TIER 3: Review resolved — full media card ── *@
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                        <MudText Typo="Typo.body2" Style="font-weight: 600;">
+                                            @ActionLabel(entry.ActionType)
+                                        </MudText>
+                                        @if (entry.ReviewData?.Action is { } rvAction)
+                                        {
+                                            <MudChip T="string" Size="Size.Small"
+                                                     Style="@($"background: {ReviewActionColor(rvAction)}20; color: {ReviewActionColor(rvAction)}; font-size: 0.7rem; height: 20px; font-weight: 600;")">
+                                                @ReviewActionLabel(rvAction)
+                                            </MudChip>
+                                        }
+                                        <MudSpacer />
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary"
+                                                 Style="white-space: nowrap;">
+                                            @FormatTime(entry.OccurredAt)
+                                        </MudText>
+                                    </MudStack>
+
+                                    @if (entry.ReviewData is { } reviewRich)
+                                    {
+                                        <div class="activity-rich-card">
+                                            @* Thumbnail — always 120x180 (placeholder if no cover) *@
+                                            <div class="activity-rich-thumb">
+                                                @if (!string.IsNullOrWhiteSpace(reviewRich.EntityId))
+                                                {
+                                                    <img src="@CoverUrl(reviewRich.EntityId)"
+                                                         alt="@reviewRich.Title"
+                                                         style="width: 100%; height: 100%; object-fit: cover;"
+                                                         loading="lazy"
+                                                         onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" />
+                                                    <div style="display: none; width: 100%; height: 100%; align-items: center; justify-content: center;">
+                                                        <MudIcon Icon="@MediaTypeIcon(reviewRich.MediaType)"
+                                                                 Size="Size.Medium" Color="Color.Secondary" />
+                                                    </div>
+                                                }
+                                                else
+                                                {
+                                                    <MudIcon Icon="@MediaTypeIcon(reviewRich.MediaType)"
+                                                             Size="Size.Medium" Color="Color.Secondary" />
+                                                }
+                                            </div>
+
+                                            @* Details *@
+                                            <div class="activity-rich-details">
+                                                <MudText Typo="Typo.body1" Style="font-weight: 600;">
+                                                    @(reviewRich.Title ?? entry.Detail ?? "Unknown")
+                                                </MudText>
+                                                @if (!string.IsNullOrWhiteSpace(reviewRich.Author))
+                                                {
+                                                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                                        by @reviewRich.Author
+                                                    </MudText>
+                                                }
+                                                @if (!string.IsNullOrWhiteSpace(reviewRich.Year))
+                                                {
+                                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                                        @reviewRich.Year
+                                                    </MudText>
+                                                }
+                                                @if (!string.IsNullOrWhiteSpace(reviewRich.Description))
+                                                {
+                                                    <MudText Typo="Typo.body2" Color="Color.Secondary"
+                                                             Style="display: -webkit-box; -webkit-line-clamp: 4;
+                                                                    -webkit-box-orient: vertical; overflow: hidden;
+                                                                    text-overflow: ellipsis; margin-top: 4px;
+                                                                    font-size: 0.8rem; line-height: 1.5;">
+                                                        @TruncateDescription(reviewRich.Description, 280)
+                                                    </MudText>
+                                                }
+                                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2"
+                                                           Style="margin-top: 6px; flex-wrap: wrap;">
+                                                    @if (!string.IsNullOrWhiteSpace(reviewRich.MediaType))
+                                                    {
+                                                        <MudIcon Icon="@MediaTypeIcon(reviewRich.MediaType)"
+                                                                 Size="Size.Small"
+                                                                 Style="font-size: 0.9rem; opacity: 0.7;" />
+                                                    }
+                                                    @if (!string.IsNullOrWhiteSpace(reviewRich.Qid))
+                                                    {
+                                                        <MudText Typo="Typo.caption" Color="Color.Secondary"
+                                                                 Style="font-size: 0.72rem;">
+                                                            QID: @reviewRich.Qid
+                                                        </MudText>
+                                                    }
+                                                    @if (reviewRich.FieldOverrides > 0)
+                                                    {
+                                                        <MudText Typo="Typo.caption" Color="Color.Secondary"
+                                                                 Style="font-size: 0.72rem;">
+                                                            @reviewRich.FieldOverrides override@(reviewRich.FieldOverrides == 1 ? "" : "s")
+                                                        </MudText>
+                                                    }
+                                                </MudStack>
                                             </div>
                                         </div>
                                     }
@@ -262,9 +382,78 @@
                                         </MudText>
                                     }
                                 }
+                                else if (tier == DisplayTier.Reconciliation)
+                                {
+                                    @* ── TIER 4: Reconciliation — always-visible stats + missing file list ── *@
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                        <MudText Typo="Typo.body2" Style="font-weight: 600;">
+                                            @ActionLabel(entry.ActionType)
+                                        </MudText>
+                                        <MudSpacer />
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary"
+                                                 Style="white-space: nowrap;">
+                                            @ReconTimeLabel(entry)
+                                        </MudText>
+                                    </MudStack>
+
+                                    @if (!string.IsNullOrWhiteSpace(entry.ChangesJson)
+                                         && ParseReconciliationData(entry.ChangesJson) is { } reconData)
+                                    {
+                                        <div class="activity-recon-summary">
+                                            <MudStack Row="true" Spacing="4" AlignItems="AlignItems.Center">
+                                                <div>
+                                                    <MudText Typo="Typo.h5" Style="font-weight: 700;">
+                                                        @reconData.Total.ToString("N0")
+                                                    </MudText>
+                                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                                        scanned
+                                                    </MudText>
+                                                </div>
+                                                <div>
+                                                    <MudText Typo="Typo.h5"
+                                                             Style="@($"font-weight: 700; color: {(reconData.Missing > 0 ? "var(--mud-palette-warning)" : "var(--mud-palette-success)")};")">
+                                                        @reconData.Missing.ToString("N0")
+                                                    </MudText>
+                                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                                        missing
+                                                    </MudText>
+                                                </div>
+                                                <div>
+                                                    <MudText Typo="Typo.h5" Style="font-weight: 700;">
+                                                        @FormatElapsed(reconData.Elapsed)
+                                                    </MudText>
+                                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                                        elapsed
+                                                    </MudText>
+                                                </div>
+                                            </MudStack>
+
+                                            @if (reconData.MissingFiles.Count > 0)
+                                            {
+                                                <div style="margin-top: 12px; border-top: 1px solid var(--app-glass-inner-border); padding-top: 10px;">
+                                                    @foreach (var mf in reconData.MissingFiles)
+                                                    {
+                                                        <div class="activity-recon-missing-row">
+                                                            <MudIcon Icon="@Icons.Material.Filled.InsertDriveFile"
+                                                                     Size="Size.Small"
+                                                                     Style="font-size: 0.85rem; opacity: 0.5;" />
+                                                            <MudText Typo="Typo.caption" Style="flex: 1; min-width: 0;">
+                                                                @mf.Filename
+                                                            </MudText>
+                                                            <MudText Typo="Typo.caption" Color="Color.Secondary"
+                                                                     Style="font-size: 0.7rem; opacity: 0.7; white-space: nowrap;">
+                                                                @mf.Action
+                                                            </MudText>
+                                                        </div>
+                                                    }
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                }
                                 else
                                 {
-                                    @* ── TIER 3: Expandable — collapsed by default ── *@
+                                    @* ── TIER 5: Expandable — collapsed by default ── *@
                                     <div class="activity-expandable-row"
                                          @onclick="@(() => ToggleExpanded(entry.Id))">
                                         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2"
@@ -301,42 +490,6 @@
                                                          Style="line-height: 1.5;">
                                                     @entry.Detail
                                                 </MudText>
-                                            }
-
-                                            @* Parse ChangesJson for ReconciliationCompleted *@
-                                            @if (entry.ActionType == "ReconciliationCompleted"
-                                                 && !string.IsNullOrWhiteSpace(entry.ChangesJson)
-                                                 && ParseReconciliationData(entry.ChangesJson) is { } reconData)
-                                            {
-                                                <div class="activity-recon-summary">
-                                                    <MudStack Row="true" Spacing="4" AlignItems="AlignItems.Center">
-                                                        <div>
-                                                            <MudText Typo="Typo.h5" Style="font-weight: 700;">
-                                                                @reconData.total.ToString("N0")
-                                                            </MudText>
-                                                            <MudText Typo="Typo.caption" Color="Color.Secondary">
-                                                                scanned
-                                                            </MudText>
-                                                        </div>
-                                                        <div>
-                                                            <MudText Typo="Typo.h5"
-                                                                     Style="@($"font-weight: 700; color: {(reconData.missing > 0 ? "var(--mud-palette-warning)" : "var(--mud-palette-success)")};")">
-                                                                @reconData.missing.ToString("N0")
-                                                            </MudText>
-                                                            <MudText Typo="Typo.caption" Color="Color.Secondary">
-                                                                missing
-                                                            </MudText>
-                                                        </div>
-                                                        <div>
-                                                            <MudText Typo="Typo.h5" Style="font-weight: 700;">
-                                                                @FormatElapsed(reconData.elapsed)
-                                                            </MudText>
-                                                            <MudText Typo="Typo.caption" Color="Color.Secondary">
-                                                                elapsed
-                                                            </MudText>
-                                                        </div>
-                                                    </MudStack>
-                                                </div>
                                             }
                                         </div>
                                     }
@@ -449,7 +602,7 @@
 
     // ── Display tier enum ─────────────────────────────────────────────────────────
 
-    private enum DisplayTier { Simple, RichMedia, Expandable }
+    private enum DisplayTier { Simple, RichMedia, ReviewResolved, Reconciliation, Expandable }
 
     // ── Filter options ────────────────────────────────────────────────────────────
 
@@ -481,8 +634,14 @@
     private List<DateGroup>              _groupedEntries = [];
     private List<DateGroup>              _filteredGroupedEntries = [];
 
-    // Expand/collapse state for Tier 3 entries.
+    // Expand/collapse state for expandable entries.
     private readonly HashSet<long> _expandedEntryIds = [];
+
+    // Absorbed entry IDs (ReconciliationMissing absorbed into ReconciliationCompleted).
+    private readonly HashSet<long> _absorbedEntryIds = [];
+
+    // Entity IDs of files confirmed deleted (hides the reprocess button on FileIngested cards).
+    private readonly HashSet<string> _missingEntityIds = new(StringComparer.OrdinalIgnoreCase);
 
     // ── Reprocess dialog state ────────────────────────────────────────────────
     private bool                          _reprocessOpen;
@@ -663,6 +822,33 @@
 
     private void RebuildGroups()
     {
+        _absorbedEntryIds.Clear();
+        _missingEntityIds.Clear();
+
+        // Build the missing entity ID set from ReconciliationMissing entries
+        // so we can hide the reprocess button on FileIngested cards for deleted assets.
+        foreach (var e in _entries.Where(e => e.ActionType == "ReconciliationMissing"))
+        {
+            if (e.EntityId is not null)
+                _missingEntityIds.Add(e.EntityId);
+        }
+
+        // Absorb ReconciliationMissing entries that fall within 5 minutes before
+        // a ReconciliationCompleted entry — they appear as a single timeline item.
+        var completedWithTs = _entries
+            .Where(e => e.ActionType == "ReconciliationCompleted")
+            .Select(e => DateTimeOffset.TryParse(e.OccurredAt, out var t) ? t : (DateTimeOffset?)null)
+            .Where(t => t.HasValue)
+            .Select(t => t!.Value)
+            .ToList();
+
+        foreach (var missing in _entries.Where(e => e.ActionType == "ReconciliationMissing"))
+        {
+            if (!DateTimeOffset.TryParse(missing.OccurredAt, out var missingTs)) continue;
+            if (completedWithTs.Any(ct => ct >= missingTs && (ct - missingTs).TotalMinutes <= 5))
+                _absorbedEntryIds.Add(missing.Id);
+        }
+
         _groupedEntries = _entries
             .GroupBy(e =>
             {
@@ -711,32 +897,53 @@
 
     private static DisplayTier GetDisplayTier(string actionType) => actionType switch
     {
-        // Tier 1 — Simple: no expand, no detail
-        "ServerStarted"    => DisplayTier.Simple,
-        "ServerStopped"    => DisplayTier.Simple,
-        "ActivityPruned"   => DisplayTier.Simple,
+        // Tier 1 — Simple: icon + label + time only
+        "ServerStarted"           => DisplayTier.Simple,
+        "ServerStopped"           => DisplayTier.Simple,
+        "ActivityPruned"          => DisplayTier.Simple,
 
-        // Tier 2 — Rich media card: always visible
-        "FileIngested"     => DisplayTier.RichMedia,
+        // Tier 2 — Rich media card: always visible (file ingested)
+        "FileIngested"            => DisplayTier.RichMedia,
 
-        // Tier 3 — Everything else: expandable
-        _                  => DisplayTier.Expandable,
+        // Tier 3 — Review resolved: full media card with action badge
+        "ReviewItemResolved"      => DisplayTier.ReviewResolved,
+
+        // Tier 4 — Reconciliation: always-visible stats + missing file list
+        "ReconciliationCompleted" => DisplayTier.Reconciliation,
+
+        // Tier 5 — Everything else: expandable
+        _                         => DisplayTier.Expandable,
     };
 
     // ── Reconciliation data parsing ─────────────────────────────────────────────
 
-    private sealed record ReconData(int total, int missing, long elapsed);
+    private sealed record MissingFileInfo(string Filename, string Action);
+    private sealed record ReconData(int Total, int Missing, long Elapsed, string? StartedAt, List<MissingFileInfo> MissingFiles);
 
     private static ReconData? ParseReconciliationData(string json)
     {
         try
         {
-            using var doc = System.Text.Json.JsonDocument.Parse(json);
-            var root = doc.RootElement;
-            var total   = root.TryGetProperty("total_scanned", out var t) ? t.GetInt32() : 0;
-            var missing = root.TryGetProperty("missing_count", out var m) ? m.GetInt32() : 0;
-            var elapsed = root.TryGetProperty("elapsed_ms",    out var e) ? e.GetInt64() : 0L;
-            return new ReconData(total, missing, elapsed);
+            using var doc   = System.Text.Json.JsonDocument.Parse(json);
+            var root        = doc.RootElement;
+            var total       = root.TryGetProperty("total_scanned", out var t)  ? t.GetInt32()  : 0;
+            var missing     = root.TryGetProperty("missing_count", out var m)  ? m.GetInt32()  : 0;
+            var elapsed     = root.TryGetProperty("elapsed_ms",    out var e)  ? e.GetInt64()  : 0L;
+            var startedAt   = root.TryGetProperty("started_at",    out var sa) ? sa.GetString() : null;
+
+            var missingFiles = new List<MissingFileInfo>();
+            if (root.TryGetProperty("missing_files", out var mfArr)
+                && mfArr.ValueKind == System.Text.Json.JsonValueKind.Array)
+            {
+                foreach (var mf in mfArr.EnumerateArray())
+                {
+                    var fn = mf.TryGetProperty("filename", out var fnEl) ? fnEl.GetString() ?? "" : "";
+                    var ac = mf.TryGetProperty("action",   out var acEl) ? acEl.GetString() ?? "" : "";
+                    missingFiles.Add(new(fn, ac));
+                }
+            }
+
+            return new ReconData(total, missing, elapsed, startedAt, missingFiles);
         }
         catch
         {
@@ -749,6 +956,40 @@
         if (ms < 1000) return $"{ms}ms";
         return $"{ms / 1000.0:F1}s";
     }
+
+    private static string ReconTimeLabel(ActivityEntryViewModel entry)
+    {
+        var endLabel = FormatTime(entry.OccurredAt);
+        if (string.IsNullOrWhiteSpace(entry.ChangesJson)) return endLabel;
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(entry.ChangesJson);
+            if (doc.RootElement.TryGetProperty("started_at", out var sa)
+                && DateTimeOffset.TryParse(sa.GetString(), out var startTs))
+            {
+                var startLabel = startTs.LocalDateTime.ToString("h:mm tt");
+                return $"{startLabel} – {endLabel}";
+            }
+        }
+        catch { /* ignore */ }
+        return endLabel;
+    }
+
+    private static string ReviewActionColor(string? action) => action?.ToLowerInvariant() switch
+    {
+        "resolved"  => "#4caf50",
+        "dismissed" => "#ff9800",
+        "skipped"   => "#78909c",
+        _           => "#2196f3",
+    };
+
+    private static string ReviewActionLabel(string? action) => action?.ToLowerInvariant() switch
+    {
+        "resolved"  => "Resolved",
+        "dismissed" => "Dismissed",
+        "skipped"   => "Skipped",
+        _           => action ?? "Unknown",
+    };
 
     // ── Friendly date formatting ────────────────────────────────────────────────
 
@@ -1121,5 +1362,18 @@
         display: flex;
         flex-direction: column;
         gap: 2px;
+    }
+
+    /* ── Reconciliation missing file row ──────────────────────── */
+    .activity-recon-missing-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 4px 0;
+        border-bottom: 1px solid var(--app-glass-inner-border);
+    }
+
+    .activity-recon-missing-row:last-child {
+        border-bottom: none;
     }
 </style>
