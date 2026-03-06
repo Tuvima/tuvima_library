@@ -380,13 +380,16 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                     "Stage 2 for entity {Id} with pre-resolved QID '{Qid}' returned no claims",
                     request.EntityId, request.PreResolvedQid);
             }
-            else if (hasBridgeIds)
+            else
             {
-                // Had bridge IDs but Wikidata didn't match → UniverseMatchFailed.
+                // Stage 2 failed — create a review item regardless of whether bridge IDs were
+                // available, so failures are always visible to the user.
+                var reason = hasBridgeIds
+                    ? "Bridge ID lookup and title search failed to resolve a Wikidata QID"
+                    : "Title search failed to resolve a Wikidata QID — manual match required";
                 await CreateReviewItemAsync(
                     request, ReviewTrigger.UniverseMatchFailed, 0.0,
-                    "Bridge ID lookup and title search failed to resolve a Wikidata QID",
-                    result, ct).ConfigureAwait(false);
+                    reason, result, ct).ConfigureAwait(false);
             }
         }
 

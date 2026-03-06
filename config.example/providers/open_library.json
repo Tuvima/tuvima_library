@@ -5,8 +5,8 @@
   "weight": 0.7,
   "domain": "Ebook",
   "icon": "images/providers/open_library.svg",
-  "capability_tags": ["title", "author", "cover", "isbn", "year", "publisher", "language", "genre"],
-  "available_fields": ["title", "author", "year", "cover", "isbn", "publisher", "language", "genre"],
+  "capability_tags": ["title", "author", "cover", "isbn", "year", "description", "publisher", "language", "genre"],
+  "available_fields": ["title", "author", "year", "cover", "isbn", "description", "publisher", "language", "genre"],
   "field_weights": {
     "title": 0.75,
     "author": 0.8,

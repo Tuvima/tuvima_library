@@ -289,7 +289,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                 if (resultNode is null)
                     continue;
 
-                var item = ExtractSearchResultItem(resultNode, request.MediaType);
+                var item = ExtractSearchResultItem(resultNode, request.MediaType, request.Title);
                 if (item is not null)
                     items.Add(item);
             }
@@ -310,8 +310,16 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
     /// Extracts a <see cref="SearchResultItem"/> from a single JSON result object
     /// using the configured field mappings. Looks for title, description, year,
     /// cover/thumbnail, and a provider item ID.
+    /// <para>
+    /// The <paramref name="query"/> is used to compute a per-result match score via
+    /// word-overlap similarity so that the first result is not always scored identically
+    /// to the tenth. The confidence reflects how well the result matches the search terms.
+    /// </para>
     /// </summary>
-    private SearchResultItem? ExtractSearchResultItem(System.Text.Json.Nodes.JsonNode resultNode, MediaType mediaType = MediaType.Unknown)
+    private SearchResultItem? ExtractSearchResultItem(
+        System.Text.Json.Nodes.JsonNode resultNode,
+        MediaType mediaType = MediaType.Unknown,
+        string? query = null)
     {
         var filteredMappings = FilterMappingsByMediaType(_config.FieldMappings, mediaType);
         if (filteredMappings.Count == 0)
@@ -323,17 +331,24 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         string? year = null;
         string? thumbnailUrl = null;
         string? providerItemId = null;
-        double confidence = 0.5;
 
         foreach (var mapping in filteredMappings)
         {
             var node = JsonPathEvaluator.Evaluate(resultNode, mapping.JsonPath);
             if (node is null)
+            {
+                _logger.LogDebug("{Provider}: mapping '{Key}' (path '{Path}') — node not found",
+                    Name, mapping.ClaimKey, mapping.JsonPath);
                 continue;
+            }
 
             var raw = JsonPathEvaluator.GetStringValue(node);
             if (string.IsNullOrWhiteSpace(raw))
+            {
+                _logger.LogDebug("{Provider}: mapping '{Key}' (path '{Path}') — value is null or non-scalar",
+                    Name, mapping.ClaimKey, mapping.JsonPath);
                 continue;
+            }
 
             // Apply transform if configured.
             if (!string.IsNullOrEmpty(mapping.Transform))
@@ -344,7 +359,14 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             }
 
             if (string.IsNullOrWhiteSpace(raw))
+            {
+                _logger.LogDebug("{Provider}: mapping '{Key}' (path '{Path}') — empty after transform '{Transform}'",
+                    Name, mapping.ClaimKey, mapping.JsonPath, mapping.Transform);
                 continue;
+            }
+
+            _logger.LogDebug("{Provider}: mapping '{Key}' → '{Value}'",
+                Name, mapping.ClaimKey, raw.Length > 80 ? raw[..80] + "…" : raw);
 
             switch (mapping.ClaimKey.ToLowerInvariant())
             {
@@ -377,15 +399,23 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                     providerItemId ??= raw;
                     break;
             }
-
-            // Use the highest configured confidence from any mapped field.
-            if (mapping.Confidence > confidence)
-                confidence = mapping.Confidence;
         }
 
         // Must have at least a title to be a valid result.
         if (string.IsNullOrWhiteSpace(title))
             return null;
+
+        // Compute a per-result match score based on how closely the result's
+        // title (and author) match the original search query.
+        // This ensures result 1 scores higher than result 8 when the provider
+        // returns them in relevance order but with identical field weights.
+        var confidence = ComputeQueryMatchScore(query, title, author);
+
+        _logger.LogInformation(
+            "{Provider}: extracted result Title='{Title}' Author='{Author}' Year='{Year}' " +
+            "HasDesc={HasDesc} HasCover={HasCover} Score={Score:P0}",
+            Name, title, author ?? "—", year ?? "—",
+            description is not null, thumbnailUrl is not null, confidence);
 
         return new SearchResultItem(
             Title:          title,
@@ -397,6 +427,78 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             Confidence:     confidence,
             ProviderName:   Name);
     }
+
+    /// <summary>
+    /// Computes a per-result match score (0.0–1.0) by comparing the search
+    /// <paramref name="query"/> against the result's <paramref name="title"/>
+    /// using word-level overlap similarity.
+    ///
+    /// <para>
+    /// Algorithm:
+    /// <list type="bullet">
+    ///   <item>Tokenise both query and title into lowercase words (≥2 chars).</item>
+    ///   <item>Coverage = query words found in title / total query words.</item>
+    ///   <item>Precision = title words found in query / total title words.</item>
+    ///   <item>Score = harmonic mean (F1) of coverage and precision × 0.85.</item>
+    ///   <item>+0.12 bonus for exact (normalised) title match.</item>
+    ///   <item>+0.05 bonus if any author token appears in the query.</item>
+    ///   <item>Minimum 0.05 when the result has a title but no query is given.</item>
+    /// </list>
+    /// </para>
+    /// </summary>
+    private static double ComputeQueryMatchScore(string? query, string? title, string? author)
+    {
+        if (string.IsNullOrWhiteSpace(query) || string.IsNullOrWhiteSpace(title))
+            return 0.50; // No query context — neutral score.
+
+        var queryTokens = TokenizeText(query);
+        var titleTokens = TokenizeText(title);
+
+        if (queryTokens.Count == 0 || titleTokens.Count == 0)
+            return 0.50;
+
+        // Exact normalised match → near-perfect score.
+        if (string.Equals(
+                string.Join(' ', queryTokens.Order()),
+                string.Join(' ', titleTokens.Order()),
+                StringComparison.OrdinalIgnoreCase))
+            return 0.97;
+
+        // Coverage: fraction of query words that appear in the title.
+        int coverageHits = queryTokens.Count(q => titleTokens.Contains(q));
+        double coverage  = (double)coverageHits / queryTokens.Count;
+
+        // Precision: fraction of title words that appear in the query.
+        int precisionHits = titleTokens.Count(t => queryTokens.Contains(t));
+        double precision  = (double)precisionHits / titleTokens.Count;
+
+        // F1 (harmonic mean) scaled to 0.85 ceiling.
+        double f1 = (coverage + precision) > 0
+            ? 2.0 * coverage * precision / (coverage + precision)
+            : 0.0;
+        double score = f1 * 0.85;
+
+        // Author tokens in query → small bonus.
+        if (!string.IsNullOrWhiteSpace(author))
+        {
+            var authorTokens = TokenizeText(author);
+            bool authorInQuery = authorTokens.Any(a => queryTokens.Contains(a));
+            if (authorInQuery)
+                score += 0.05;
+        }
+
+        return Math.Clamp(score, 0.05, 0.97);
+    }
+
+    /// <summary>
+    /// Tokenises text into a lowercase word set suitable for similarity comparison.
+    /// Strips punctuation and filters out single-character tokens.
+    /// </summary>
+    private static HashSet<string> TokenizeText(string text)
+        => [.. text.ToLowerInvariant()
+            .Split([' ', ',', '.', '-', ':', ';', '\'', '"', '(', ')', '[', ']', '!', '?'],
+                   StringSplitOptions.RemoveEmptyEntries)
+            .Where(w => w.Length >= 2)];
 
     // ── Strategy execution ──────────────────────────────────────────────────
 
@@ -490,6 +592,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         url = ReplacePlaceholder(url, "{audible_id}", request.AudibleId, encode: true);
         url = ReplacePlaceholder(url, "{tmdb_id}", request.TmdbId, encode: true);
         url = ReplacePlaceholder(url, "{imdb_id}", request.ImdbId, encode: true);
+        url = ReplacePlaceholder(url, "{api_key}", _config.HttpClient?.ApiKey, encode: true);
 
         return url;
     }
@@ -721,7 +824,9 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         if (mediaType == MediaType.Unknown)
             return strategies;
 
-        var mediaTypeStr = mediaType.ToString();
+        // Normalize the incoming media type string so legacy enum names (e.g. "Epub")
+        // compare correctly against config values that use current names (e.g. "Books").
+        var mediaTypeStr = NormalizeMediaType(mediaType.ToString());
         return strategies
             .Where(s => s.MediaTypes is null or { Count: 0 }
                      || s.MediaTypes.Any(mt =>
@@ -744,7 +849,9 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         if (mediaType == MediaType.Unknown)
             return mappings;
 
-        var mediaTypeStr = mediaType.ToString();
+        // Normalize the incoming media type string so legacy enum names (e.g. "Epub")
+        // compare correctly against config values that use current names (e.g. "Books").
+        var mediaTypeStr = NormalizeMediaType(mediaType.ToString());
         return mappings
             .Where(m => m.MediaTypes is null or { Count: 0 }
                      || m.MediaTypes.Any(mt =>
