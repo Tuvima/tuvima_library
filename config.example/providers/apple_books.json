@@ -5,15 +5,16 @@
   "weight": 0.7,
   "domain": "Universal",
   "icon": "images/providers/apple_books.svg",
-  "capability_tags": ["cover", "title", "author", "description", "genre"],
-  "available_fields": ["title", "author", "cover", "description", "genre", "rating", "apple_books_id"],
+  "capability_tags": ["cover", "title", "author", "description", "genre", "year"],
+  "available_fields": ["title", "author", "cover", "description", "genre", "rating", "year", "apple_books_id"],
   "field_weights": {
     "cover": 0.85,
     "title": 0.7,
     "author": 0.7,
     "description": 0.85,
     "genre": 0.7,
-    "rating": 0.7
+    "rating": 0.7,
+    "year": 0.8
   },
   "endpoints": {
     "api": "https://itunes.apple.com"
@@ -67,6 +68,7 @@
     { "claim_key": "author",         "json_path": "artistName",         "confidence": 0.7 },
     { "claim_key": "cover",          "json_path": "artworkUrl100",      "confidence": 0.85, "transform": "regex_replace", "transform_args": "100x100bb\\.jpg|600x600bb.jpg" },
     { "claim_key": "description",    "json_path": "description",        "confidence": 0.85, "transform": "strip_html" },
+    { "claim_key": "year",           "json_path": "releaseDate",        "confidence": 0.8,  "transform": "first_n_chars", "transform_args": "4" },
     { "claim_key": "genre",          "json_path": "genres",             "confidence": 0.7,  "transform": "array_join", "transform_args": ", ", "media_types": ["Books"] },
     { "claim_key": "genre",          "json_path": "primaryGenreName",   "confidence": 0.7,  "media_types": ["Audiobooks"] },
     { "claim_key": "rating",         "json_path": "averageUserRating",  "confidence": 0.7,  "transform": "to_string", "media_types": ["Books"] },

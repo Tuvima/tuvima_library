@@ -52,13 +52,22 @@
         }
     </div>
 
-    @* ── Year (top-right) ────────────────────────────────────────── *@
-    @if (!string.IsNullOrWhiteSpace(Result.Year))
+    @* ── Year + Match % (top-right) ─────────────────────────────── *@
+    @if (!string.IsNullOrWhiteSpace(Result.Year) || Result.Confidence > 0)
     {
-        <div style="flex-shrink: 0; padding-top: 2px;">
-            <MudText Typo="Typo.body1" Style="font-weight: 500;">
-                @MediaEngine.Web.Shared.DateFormatHelper.FormatFriendlyDate(Result.Year)
-            </MudText>
+        <div style="flex-shrink: 0; padding-top: 2px; text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 2px;">
+            @if (!string.IsNullOrWhiteSpace(Result.Year))
+            {
+                <MudText Typo="Typo.body1" Style="font-weight: 500;">
+                    @MediaEngine.Web.Shared.DateFormatHelper.FormatFriendlyDate(Result.Year)
+                </MudText>
+            }
+            @if (Result.Confidence > 0)
+            {
+                <MudText Typo="Typo.caption" Color="Color.Secondary" Style="font-size: 0.72rem; white-space: nowrap;">
+                    @((Result.Confidence * 100).ToString("F0"))% match
+                </MudText>
+            }
         </div>
     }
 </div>

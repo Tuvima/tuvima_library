@@ -52,8 +52,9 @@ public static partial class ValueTransformRegistry
             // Pass value through unchanged (useful for int→string coercion in JSON)
             ["to_string"] = raw => raw,
 
-            // Remove all HTML tags
-            ["strip_html"] = raw => HtmlTagRegex().Replace(raw, string.Empty).Trim(),
+            // Remove all HTML tags and decode HTML entities (e.g. &amp; → &, &#39; → ')
+            ["strip_html"] = raw => System.Net.WebUtility.HtmlDecode(
+                HtmlTagRegex().Replace(raw, string.Empty).Trim()),
 
             // Join array elements with ", " (default). For JsonArray values, see Apply(name, raw, args).
             ["array_join"] = raw => raw,

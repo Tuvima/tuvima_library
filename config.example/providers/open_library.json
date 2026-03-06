@@ -43,7 +43,7 @@
       "name": "isbn_search",
       "priority": 1,
       "required_fields": ["isbn"],
-      "url_template": "{base_url}/search.json?isbn={isbn}&limit=3&fields=title,author_name,first_publish_year,cover_i,isbn,key,edition_key,seed,publisher,language,subject",
+      "url_template": "{base_url}/search.json?isbn={isbn}&limit=3&fields=title,author_name,first_publish_year,cover_i,isbn,key,edition_key,seed,publisher,language,subject,first_sentence",
       "results_path": "docs",
       "result_index": 0
     },
@@ -51,7 +51,7 @@
       "name": "title_search",
       "priority": 2,
       "required_fields": ["title"],
-      "url_template": "{base_url}/search.json?q={query}&limit=25&fields=title,author_name,first_publish_year,cover_i,isbn,key,edition_key,seed,publisher,language,subject",
+      "url_template": "{base_url}/search.json?q={query}&limit=25&fields=title,author_name,first_publish_year,cover_i,isbn,key,edition_key,seed,publisher,language,subject,first_sentence",
       "query_template": "{title} {author}",
       "results_path": "docs",
       "result_index": 0,
