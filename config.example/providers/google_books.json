@@ -1,7 +1,7 @@
 {
   "name": "google_books",
   "version": "1.2",
-  "enabled": true,
+  "enabled": false,
   "weight": 0.65,
   "domain": "Ebook",
   "icon": "images/providers/google_books.svg",

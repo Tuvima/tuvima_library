@@ -59,7 +59,7 @@ else
     @foreach (var item in FilteredItems)
     {
         <MudPaper Class="pa-3 mb-2" Elevation="0"
-                  Style="border: 1px solid var(--mud-palette-lines-default); border-radius: 12px;">
+                  Style="border: 1px solid var(--mud-palette-lines-default); border-radius: 6px;">
 
             @* ── Item row: title + actions ───────────────────────────────── *@
             <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
@@ -101,7 +101,7 @@ else
                         @foreach (var candidate in ParseMediaTypeCandidates(item.CandidatesJson))
                         {
                             <MudPaper Class="pa-3" Elevation="0"
-                                      Style="border: 1px solid var(--mud-palette-lines-default); border-radius: 12px;
+                                      Style="border: 1px solid var(--mud-palette-lines-default); border-radius: 6px;
                                              min-width: 180px; cursor: pointer;"
                                       @onclick="@(() => ReclassifyAsync(item, candidate.Type))">
                                 <MudStack AlignItems="AlignItems.Center" Spacing="1">
@@ -154,7 +154,7 @@ else
                     @if (_searchResults.Count > 0)
                     {
                         <div style="max-height: 520px; overflow-y: auto; border: 1px solid var(--mud-palette-lines-default);
-                                    border-radius: 8px; background: var(--mud-palette-surface);">
+                                    border-radius: 4px; background: var(--mud-palette-surface);">
                             @foreach (var result in _searchResults)
                             {
                                 <SearchResultCard Result="@result"

@@ -71,7 +71,7 @@
             <MudButton Variant="@(_activityFilter == filter.Key ? Variant.Filled : Variant.Outlined)"
                        Color="@(_activityFilter == filter.Key ? Color.Primary : Color.Default)"
                        Size="Size.Small"
-                       Style="text-transform: none; border-radius: 20px; min-width: auto; padding: 4px 14px;"
+                       Style="text-transform: none; border-radius: 12px; min-width: auto; padding: 4px 14px;"
                        OnClick="@(() => SetFilter(filter.Key))">
                 @filter.Label
             </MudButton>
@@ -381,7 +381,7 @@
                                             }
                                         </div>
 
-                                        @* Pipeline steps — collapsible ─────────── *@
+                                        @* Related events — collapsible ─────────── *@
                                         @if (_ingestionSubSteps.TryGetValue(entry.Id, out var pipelineSteps) && pipelineSteps.Count > 0)
                                         {
                                             <div class="activity-pipeline-toggle"
@@ -393,7 +393,7 @@
                                                          Style="font-size: 0.8rem; opacity: 0.45;" />
                                                 <MudText Typo="Typo.caption" Color="Color.Secondary"
                                                          Style="font-size: 0.72rem;">
-                                                    Pipeline steps
+                                                    Related events
                                                 </MudText>
                                             </div>
                                             @if (_pipelineExpandedIds.Contains(entry.Id))
@@ -767,7 +767,7 @@
         @if (_reprocessResults.Count > 0)
         {
             <div style="max-height: 420px; overflow-y: auto; border: 1px solid var(--mud-palette-lines-default);
-                        border-radius: 8px; background: var(--mud-palette-surface);">
+                        border-radius: 4px; background: var(--mud-palette-surface);">
                 @foreach (var result in _reprocessResults)
                 {
                     <SearchResultCard Result="@result"
@@ -807,13 +807,13 @@
         "border: 1px solid var(--app-glass-border); " +
         "backdrop-filter: blur(10px); " +
         "-webkit-backdrop-filter: blur(10px); " +
-        "border-radius: 32px; " +
+        "border-radius: 12px; " +
         "padding: 32px;";
 
     private const string InnerCardStyle =
         "background: var(--app-glass-inner-bg); " +
         "border: 1px solid var(--app-glass-inner-border); " +
-        "border-radius: 16px; " +
+        "border-radius: 8px; " +
         "padding: 24px;";
 
     // ── Display tier enum ─────────────────────────────────────────────────────────
@@ -1115,17 +1115,47 @@
             _absorbedEntryIds.Add(sub.Id);
         }
 
-        // ── Hydration stages → MetadataHydrated (within 5 min, same EntityId) ───
+        // ── Post-ingestion events → FileIngested (within 30 min, same EntityId) ──
+        var postIngestionTypes = new HashSet<string>
+        {
+            "PathUpdated", "MetadataHydrated", "PersonHydrated", "PersonEnriched",
+            "SidecarUpdated", "BridgeSyncUpdated", "MetadataRefreshed", "HashVerified",
+            "HydrationStage1Completed", "HydrationStage2Completed", "HydrationStage3Completed",
+            "ReviewItemResolved",
+        };
+        foreach (var post in _entries.Where(e => postIngestionTypes.Contains(e.ActionType)))
+        {
+            var postTs = ParseTs(post.OccurredAt);
+            if (postTs is null) continue;
+            var parent = ingestedIndex
+                .Where(x =>
+                    (post.EntityId is null ||
+                     string.Equals(x.Entry.EntityId, post.EntityId, StringComparison.OrdinalIgnoreCase))
+                    && postTs.Value >= x.Ts!.Value
+                    && (postTs.Value - x.Ts.Value).TotalMinutes <= 30)
+                .OrderByDescending(x => x.Ts)
+                .Select(x => x.Entry)
+                .FirstOrDefault();
+            if (parent is null) continue;
+            if (!_ingestionSubSteps.TryGetValue(parent.Id, out var subList))
+                _ingestionSubSteps[parent.Id] = subList = [];
+            subList.Add(post);
+            _absorbedEntryIds.Add(post.Id);
+        }
+
+        // ── Hydration stages → standalone MetadataHydrated (within 5 min) ──────
+        // Only for MetadataHydrated entries that were NOT absorbed into a FileIngested parent.
         var hydStageTypes = new HashSet<string>
         {
             "HydrationStage1Completed", "HydrationStage2Completed", "HydrationStage3Completed",
         };
         var hydratedIndex = _entries
-            .Where(e => e.ActionType == "MetadataHydrated")
+            .Where(e => e.ActionType == "MetadataHydrated" && !_absorbedEntryIds.Contains(e.Id))
             .Select(e => (Entry: e, Ts: ParseTs(e.OccurredAt)))
             .Where(x => x.Ts is not null)
             .ToList();
-        foreach (var stage in _entries.Where(e => hydStageTypes.Contains(e.ActionType)))
+        foreach (var stage in _entries.Where(e =>
+            hydStageTypes.Contains(e.ActionType) && !_absorbedEntryIds.Contains(e.Id)))
         {
             var stageTs = ParseTs(stage.OccurredAt);
             if (stageTs is null) continue;
@@ -1634,17 +1664,28 @@
 
     private static string PipelineStepLabel(string actionType) => actionType switch
     {
-        "FileDetected"        => "Spotted in watch folder",
-        "FileHashed"          => "Identity fingerprint created",
-        "FileProcessed"       => "Metadata read from file",
-        "FileScored"          => "Confidence score calculated",
-        "EntityChainCreated"  => "Added to library catalogue",
-        "CoverArtSaved"       => "Cover art saved",
-        "MetadataTagsWritten" => "Metadata saved back to file",
-        "HydrationEnqueued"   => "Queued for online enrichment",
-        "MovedToStaging"      => "Moved to staging folder",
-        "PathUpdated"         => "Organized into library",
-        _                     => ActionLabel(actionType),
+        "FileDetected"              => "Spotted in watch folder",
+        "FileHashed"                => "Identity fingerprint created",
+        "FileProcessed"             => "Metadata read from file",
+        "FileScored"                => "Confidence score calculated",
+        "EntityChainCreated"        => "Added to library catalogue",
+        "CoverArtSaved"             => "Cover art saved",
+        "MetadataTagsWritten"       => "Metadata saved back to file",
+        "HydrationEnqueued"         => "Queued for online enrichment",
+        "MovedToStaging"            => "Moved to staging folder",
+        "PathUpdated"               => "Organized",
+        "MetadataHydrated"          => "Metadata enriched",
+        "PersonHydrated"            => "Person enriched",
+        "PersonEnriched"            => "Person enriched",
+        "SidecarUpdated"            => "Sidecar written",
+        "BridgeSyncUpdated"         => "Bridge IDs synced",
+        "MetadataRefreshed"         => "Metadata refreshed",
+        "HashVerified"              => "Hash verified",
+        "HydrationStage1Completed"  => "Stage 1 complete",
+        "HydrationStage2Completed"  => "Stage 2 complete",
+        "HydrationStage3Completed"  => "Stage 3 complete",
+        "ReviewItemResolved"        => "Review resolved",
+        _                           => ActionLabel(actionType),
     };
 
     private static string HydrationStageLabel(string actionType) => actionType switch
@@ -1774,7 +1815,7 @@
 
     /* ── Expandable row ──────────────────────────────────────────── */
     .activity-expandable-row {
-        border-radius: 8px;
+        border-radius: 4px;
         padding: 2px 4px;
         transition: background 0.15s ease;
     }
@@ -1799,7 +1840,7 @@
         padding: 12px 16px;
         background: var(--app-glass-inner-bg);
         border: 1px solid var(--app-glass-inner-border);
-        border-radius: 10px;
+        border-radius: 6px;
     }
 
     /* ── Rich match card ─────────────────────────────────────────── */
@@ -1810,7 +1851,7 @@
         padding: 14px 16px;
         background: var(--app-glass-inner-bg);
         border: 1px solid var(--app-glass-inner-border);
-        border-radius: 12px;
+        border-radius: 6px;
         backdrop-filter: blur(8px);
         -webkit-backdrop-filter: blur(8px);
     }
@@ -1819,7 +1860,7 @@
         flex-shrink: 0;
         width: 120px;
         height: 180px;
-        border-radius: 8px;
+        border-radius: 4px;
         overflow: hidden;
         background: var(--mud-palette-surface);
         display: flex;
@@ -1854,7 +1895,7 @@
         padding: 10px 14px;
         background: var(--app-glass-inner-bg);
         border: 1px solid var(--app-glass-inner-border);
-        border-radius: 10px;
+        border-radius: 6px;
         animation: activity-expand 0.2s ease-out;
     }
 
@@ -1871,14 +1912,14 @@
         border-bottom: none;
     }
 
-    /* ── Pipeline steps ───────────────────────────────────────── */
+    /* ── Related events ───────────────────────────────────────── */
     .activity-pipeline-toggle {
         display: flex;
         align-items: center;
         gap: 6px;
         margin-top: 8px;
         padding: 4px 6px;
-        border-radius: 6px;
+        border-radius: 4px;
         cursor: pointer;
         transition: background 0.15s ease;
     }
@@ -1892,7 +1933,7 @@
         padding: 8px 10px;
         background: var(--app-glass-inner-bg);
         border: 1px solid var(--app-glass-inner-border);
-        border-radius: 8px;
+        border-radius: 4px;
         animation: activity-expand 0.18s ease-out;
     }
 

@@ -56,8 +56,8 @@ public sealed class ThemeService
     {
         LayoutProperties = new LayoutProperties
         {
-            // 32 px border radius for glassmorphic Spatial Bento design.
-            DefaultBorderRadius = "32px",
+            // 8 px border radius — rectangular with a light curve.
+            DefaultBorderRadius = "8px",
         },
 
         PaletteDark = new PaletteDark

@@ -107,11 +107,6 @@ else
 
     private int _reviewCount;
 
-    // ── Profile data (for NavigationTab) ──────────────────────────────────
-
-    private Guid    _profileId;
-    private string? _navigationConfigJson;
-
     // ── Curator's Drawer state (migrated from ServerSettings.razor) ─────────
 
     private bool   _drawerOpen;
@@ -142,9 +137,6 @@ else
 
         // Fetch badge counts eagerly for sidebar badges.
         await LoadReviewCountAsync();
-
-        // Load active profile for NavigationTab.
-        await LoadProfileAsync();
     }
 
     protected override void OnParametersSet()
@@ -206,31 +198,6 @@ else
         }
     }
 
-    // ── Profile loading ─────────────────────────────────────────────────────
-
-    private async Task LoadProfileAsync()
-    {
-        try
-        {
-            var profile = await Orchestrator.GetActiveProfileAsync();
-            if (profile is not null)
-            {
-                _profileId            = profile.Id;
-                _navigationConfigJson = profile.NavigationConfig;
-            }
-        }
-        catch
-        {
-            // Engine may be offline — defaults will be used.
-        }
-    }
-
-    private async Task OnNavigationConfigChanged()
-    {
-        await LoadProfileAsync();
-        StateHasChanged();
-    }
-
     // ── Curator's Drawer handlers (migrated from ServerSettings.razor) ──────
 
     /// <summary>
@@ -280,12 +247,8 @@ else
             case SettingsSidebar.SettingsSection.Playback:
                 <PlaybackTab />
                 break;
-            case SettingsSidebar.SettingsSection.Navigation:
-                <NavigationTab ProfileId="@_profileId"
-                               NavigationConfigJson="@_navigationConfigJson"
-                               OnConfigChanged="@OnNavigationConfigChanged" />
-                break;
             // ── Metadata group ────────────────────────────────────────────
+            case SettingsSidebar.SettingsSection.Navigation:     // legacy redirect
             case SettingsSidebar.SettingsSection.ConnectionVault:
             case SettingsSidebar.SettingsSection.Providers:       // legacy redirect
             case SettingsSidebar.SettingsSection.PropertyMapper:  // deprecated → absorbed

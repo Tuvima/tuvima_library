@@ -33,28 +33,71 @@
     }
     else
     {
-        @* ── Universe indicator ────────────────────────────────────────────── *@
-        <MudPaper Elevation="0" Class="pa-3 mb-4"
-                  Style="background: var(--app-glass-bg); border: 1px solid var(--app-glass-border); border-radius: 12px;">
-            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                <div class="provider-health-dot @(_wikidataReachable ? "health-online" : "health-offline")"
-                     style="width: 12px; height: 12px;"></div>
-                <MudText Typo="Typo.body1" Style="font-weight: 500;">
-                    Universe
-                </MudText>
-                <MudText Typo="Typo.caption" Color="Color.Secondary" Style="flex: 1;">
-                    Wikidata provides cross-media identification, series data, and creator profiles.
-                </MudText>
-            </MudStack>
-        </MudPaper>
+        @* ── Universe Provider — Wikidata (pinned, editable) ──────────────── *@
+        @if (WikidataProvider is { } wdProvider)
+        {
+            <MudPaper Elevation="0" Class="pa-4 mb-4"
+                      Style="background: var(--app-glass-bg);
+                             border: 1px solid var(--mud-palette-primary);
+                             border-left: 4px solid var(--mud-palette-primary);
+                             border-radius: 6px;">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-1">
+                    <div class="provider-health-dot @(_wikidataReachable ? "health-online" : "health-offline")"
+                         style="width: 12px; height: 12px;"></div>
+                    <MudText Typo="Typo.body1" Style="font-weight: 600;">Universe</MudText>
+                    <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">
+                        Wikidata
+                    </MudChip>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary" Style="flex: 1;">
+                        Cross-media identification, series data, and creator profiles.
+                    </MudText>
+                    <MudIconButton Icon="@(_wdExpanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
+                                   Size="Size.Small"
+                                   title="@(_wdExpanded ? "Collapse" : "Expand")"
+                                   OnClick="@(() => _wdExpanded = !_wdExpanded)" />
+                </MudStack>
+
+                @if (_wdExpanded)
+                {
+                    <WikidataVaultPanel Provider="@wdProvider"
+                                        IsAdmin="@HasAdminAccess"
+                                        OnTestClicked="@TestWikidataAsync"
+                                        OnSaveClicked="@SaveWikidataAsync"
+                                        TestResult="@_wdTestResult"
+                                        IsTesting="@_wdTesting"
+                                        IsSaving="@_wdSaving" />
+                }
+            </MudPaper>
+        }
 
         @* ── Media type selector cards ─────────────────────────────────────── *@
         <div class="media-type-cards-row">
-            @foreach (var def in _mediaTypeDefinitions)
+            @for (int i = 0; i < _mediaTypeDefinitions.Count; i++)
             {
+                var idx = i;
+                var def = _mediaTypeDefinitions[idx];
                 var isActive = string.Equals(def.DisplayName, _activeMediaType, StringComparison.Ordinal);
                 <div class="media-type-card @(isActive ? "media-type-card-active" : "")"
                      @onclick="@(() => _activeMediaType = def.DisplayName)">
+                    @* Reorder arrows *@
+                    <span class="media-type-card-reorder" @onclick:stopPropagation="true">
+                        @if (idx > 0)
+                        {
+                            <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft"
+                                           Size="Size.Small"
+                                           Style="padding: 2px; min-width: 0;"
+                                           title="Move left"
+                                           OnClick="@(() => MoveMediaType(idx, -1))" />
+                        }
+                        @if (idx < _mediaTypeDefinitions.Count - 1)
+                        {
+                            <MudIconButton Icon="@Icons.Material.Filled.ChevronRight"
+                                           Size="Size.Small"
+                                           Style="padding: 2px; min-width: 0;"
+                                           title="Move right"
+                                           OnClick="@(() => MoveMediaType(idx, 1))" />
+                        }
+                    </span>
                     <MudIcon Icon="@ResolveIcon(def.Icon)" Size="Size.Large"
                              Style="@($"color: {(isActive ? "var(--mud-palette-primary)" : "var(--app-text-muted)")};")"/>
                     <MudText Typo="Typo.caption" Style="@($"font-weight: {(isActive ? "600" : "400")}; color: {(isActive ? "var(--mud-palette-primary-text)" : "var(--app-text-muted)")};")">
@@ -335,6 +378,20 @@
         CloseOnEscapeKey = true,
         CloseButton = true,
     };
+
+    // ── Wikidata panel state ──────────────────────────────────────────────
+    private bool _wdExpanded;
+    private bool _wdTesting;
+    private bool _wdSaving;
+    private ProviderTestResultDto? _wdTestResult;
+
+    private ProviderStatusDto? WikidataProvider =>
+        _providers.FirstOrDefault(p =>
+            string.Equals(p.Name, "wikidata", StringComparison.OrdinalIgnoreCase));
+
+    private bool HasAdminAccess =>
+        string.Equals(CurrentRole, "Administrator", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(CurrentRole, "Curator", StringComparison.OrdinalIgnoreCase);
 
     // ── Media type config editing state ──────────────────────────────────
     private bool _configOpen;
@@ -694,6 +751,78 @@
         }
     }
 
+    // ── Wikidata handlers ───────────────────────────────────────────────
+
+    private async Task TestWikidataAsync()
+    {
+        _wdTesting = true;
+        _wdTestResult = null;
+        StateHasChanged();
+        try
+        {
+            _wdTestResult = await Orchestrator.TestProviderAsync("wikidata");
+        }
+        catch
+        {
+            _wdTestResult = new ProviderTestResultDto(false, 0, [], "Connection test failed.");
+        }
+        finally
+        {
+            _wdTesting = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task SaveWikidataAsync(ProviderConfigUpdateDto config)
+    {
+        _wdSaving = true;
+        StateHasChanged();
+        try
+        {
+            var ok = await Orchestrator.SaveProviderConfigAsync("wikidata", config);
+            if (ok)
+            {
+                Snackbar.Add("Wikidata settings saved.", Severity.Success);
+                await RefreshProvidersAsync();
+            }
+            else
+                Snackbar.Add("Failed to save Wikidata settings.", Severity.Error);
+        }
+        catch
+        {
+            Snackbar.Add("Error saving Wikidata settings.", Severity.Error);
+        }
+        finally
+        {
+            _wdSaving = false;
+            StateHasChanged();
+        }
+    }
+
+    // ── Media type reordering ────────────────────────────────────────────
+
+    private async Task MoveMediaType(int index, int direction)
+    {
+        int newIndex = index + direction;
+        if (newIndex < 0 || newIndex >= _mediaTypeDefinitions.Count) return;
+
+        (_mediaTypeDefinitions[index], _mediaTypeDefinitions[newIndex]) =
+            (_mediaTypeDefinitions[newIndex], _mediaTypeDefinitions[index]);
+
+        var config = new MediaTypeConfigurationDto
+        {
+            Version = "1.0",
+            Types = _mediaTypeDefinitions,
+        };
+        var ok = await Orchestrator.SaveMediaTypesAsync(config);
+        if (ok)
+            Snackbar.Add("Media type order saved.", Severity.Success);
+        else
+            Snackbar.Add("Failed to save order.", Severity.Error);
+
+        StateHasChanged();
+    }
+
     // ── Drag item model ──────────────────────────────────────────────────
 
     private sealed class ProviderDragItem
@@ -709,7 +838,7 @@
         "border: 1px solid var(--app-glass-border); " +
         "backdrop-filter: blur(20px); " +
         "-webkit-backdrop-filter: blur(20px); " +
-        "border-radius: 32px; " +
+        "border-radius: 12px; " +
         "padding: 32px;";
 }
 
@@ -739,7 +868,7 @@
         gap: 8px;
         padding: 12px;
         border: 2px dashed var(--app-glass-border);
-        border-radius: 16px;
+        border-radius: 8px;
         min-height: 200px;
     }
 
@@ -757,7 +886,7 @@
         gap: 8px;
         padding: 16px;
         border: 2px dashed var(--app-glass-border);
-        border-radius: 16px;
+        border-radius: 8px;
         min-height: 80px;
         transition: border-color 0.15s ease, background 0.15s ease;
     }
@@ -819,7 +948,7 @@
         gap: 6px;
         padding: 14px 12px 10px;
         width: 90px;
-        border-radius: 16px;
+        border-radius: 8px;
         background: var(--app-glass-bg);
         border: 1px solid var(--app-glass-border);
         cursor: pointer;
@@ -845,6 +974,24 @@
     }
 
     .media-type-card-add:hover {
+        opacity: 1;
+    }
+
+    /* Reorder arrows — shown on hover */
+    .media-type-card-reorder {
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        display: flex;
+        opacity: 0;
+        transition: opacity 0.15s ease;
+    }
+
+    .media-type-card:hover .media-type-card-reorder {
+        opacity: 1;
+    }
+
+    .media-type-card-active .media-type-card-reorder {
         opacity: 1;
     }
 
