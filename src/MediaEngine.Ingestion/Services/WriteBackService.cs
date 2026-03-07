@@ -85,6 +85,18 @@ public sealed class WriteBackService : IWriteBackService
             return;
         }
 
+        // Guard: only write back to files that are already in the Library Root.
+        // Writing metadata back to a file still in the Watch Folder modifies its
+        // content hash, which causes the watcher to re-detect it as a new file,
+        // triggering an infinite ingestion loop.
+        var core = _configLoader.LoadCore();
+        if (!string.IsNullOrWhiteSpace(core.LibraryRoot)
+            && !asset.FilePathRoot.StartsWith(core.LibraryRoot, StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogDebug("WriteBack: skipping — file is not yet in Library Root (still in watcher/staging)");
+            return;
+        }
+
         // Find a tagger for this file type.
         var tagger = _taggers.FirstOrDefault(t => t.CanHandle(asset.FilePathRoot));
         if (tagger is null)

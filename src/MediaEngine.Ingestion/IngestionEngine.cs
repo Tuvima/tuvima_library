@@ -698,7 +698,11 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         }
 
         // Step 12: write-back.
-        if (_options.WriteBack && candidate.Metadata is not null)
+        // Only write back to files that are already in the Library Root.
+        // Writing back to a file still in the Watch Folder would change its
+        // content hash, causing the watcher to re-detect it as a new file
+        // and creating an infinite re-ingestion loop.
+        if (_options.WriteBack && fileIsInLibrary && candidate.Metadata is not null)
         {
             var tagger = _taggers.FirstOrDefault(t => t.CanHandle(currentPath));
             if (tagger is not null)
@@ -961,10 +965,6 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             "Polling fallback active: sweeping Watch Folder every {Seconds}s",
             _options.PollIntervalSeconds);
 
-        // Track paths we've already synthesised so we don't flood the queue
-        // on every sweep. Cleared when the set grows too large.
-        var knownPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
         while (!ct.IsCancellationRequested)
         {
             try
@@ -983,14 +983,19 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                     ? SearchOption.AllDirectories
                     : SearchOption.TopDirectoryOnly;
 
+                // Re-enqueue every file in the watcher on each sweep.
+                // Files that have already been organized are moved out of the
+                // watcher directory and will naturally disappear from subsequent
+                // sweeps. Files still present get routed through the hash-based
+                // duplicate check: if already ingested, TryReorganizeExistingAsync
+                // moves them to the library. The debounce queue coalesces rapid
+                // events for the same path, preventing queue flooding.
                 int enqueued = 0;
                 foreach (var filePath in Directory.EnumerateFiles(
                              _options.WatchDirectory, "*.*", searchOption))
                 {
                     if (ct.IsCancellationRequested) break;
-                    if (knownPaths.Contains(filePath)) continue;
 
-                    knownPaths.Add(filePath);
                     _debounce.Enqueue(new FileEvent
                     {
                         Path      = filePath,
@@ -1002,12 +1007,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
                 if (enqueued > 0)
                     _logger.LogInformation(
-                        "Poll sweep: enqueued {Count} new file(s) from {Dir}",
+                        "Poll sweep: enqueued {Count} file(s) from {Dir}",
                         enqueued, _options.WatchDirectory);
-
-                // Prevent unbounded growth — reset after 10 000 entries.
-                if (knownPaths.Count > 10_000)
-                    knownPaths.Clear();
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -1119,6 +1120,45 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             _logger.LogInformation(
                 "Re-organized existing asset {Hash} → {Dest}",
                 existing.ContentHash[..12], destPath);
+
+            // Write edition sidecar now that the file is in the Library Root.
+            // This is the correct moment — first-ingestion skipped sidecar writing
+            // because AutoOrganize=false left the file in the Watch Folder.
+            string fileFolder = Path.GetDirectoryName(destPath) ?? string.Empty;
+            if (!string.IsNullOrEmpty(fileFolder))
+            {
+                try
+                {
+                    await _sidecar.WriteEditionSidecarAsync(fileFolder, new EditionSidecarData
+                    {
+                        Title         = metadata.GetValueOrDefault("title"),
+                        Author        = metadata.GetValueOrDefault("author"),
+                        MediaType     = mediaType?.ToString(),
+                        Isbn          = metadata.GetValueOrDefault("isbn"),
+                        Asin          = metadata.GetValueOrDefault("asin"),
+                        ContentHash   = existing.ContentHash,
+                        CoverPath     = "cover.jpg",
+                        UserLocks     = [],
+                        LastOrganized = DateTimeOffset.UtcNow,
+                    }, ct).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Sidecar write failed after re-organize for asset {Id}", existing.Id);
+                }
+            }
+
+            // Re-enqueue hydration so that PersistCoverFromUrlAsync runs with the
+            // updated file path (now in Library Root) and can download cover.jpg
+            // to the correct directory.  All stages are idempotent — duplicate
+            // claims are silently dropped by INSERT OR IGNORE.
+            await _pipeline.EnqueueAsync(new HarvestRequest
+            {
+                EntityId   = existing.Id,
+                EntityType = EntityType.MediaAsset,
+                MediaType  = mediaType ?? MediaType.Unknown,
+                Hints      = BuildHints(metadata),
+            }, ct).ConfigureAwait(false);
 
             await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
             {

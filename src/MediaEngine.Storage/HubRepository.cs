@@ -275,6 +275,30 @@ public sealed class HubRepository : IHubRepository
     }
 
     /// <inheritdoc/>
+    public Task<Guid?> GetWorkIdByMediaAssetAsync(Guid mediaAssetId, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        var conn = _db.Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            SELECT e.work_id
+            FROM   media_assets ma
+            JOIN   editions e ON e.id = ma.edition_id
+            WHERE  ma.id = @assetId
+            LIMIT  1;
+            """;
+        cmd.Parameters.AddWithValue("@assetId", mediaAssetId.ToString());
+
+        using var reader = cmd.ExecuteReader();
+        Guid? result = null;
+        if (reader.Read())
+            result = Guid.Parse(reader.GetString(0));
+
+        return Task.FromResult(result);
+    }
+
+    /// <inheritdoc/>
     public async Task AssignWorkToHubAsync(Guid workId, Guid hubId, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();

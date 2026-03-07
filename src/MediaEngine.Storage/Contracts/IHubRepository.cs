@@ -42,6 +42,12 @@ public interface IHubRepository
     Task InsertRelationshipsAsync(IReadOnlyList<HubRelationship> relationships, CancellationToken ct = default);
 
     /// <summary>
+    /// Resolves the Work ID for a given MediaAsset ID by joining through the
+    /// <c>editions</c> table. Returns null when the asset is not found.
+    /// </summary>
+    Task<Guid?> GetWorkIdByMediaAssetAsync(Guid mediaAssetId, CancellationToken ct = default);
+
+    /// <summary>
     /// Updates a Work's <c>hub_id</c> to assign it to a Hub.
     /// </summary>
     Task AssignWorkToHubAsync(Guid workId, Guid hubId, CancellationToken ct = default);

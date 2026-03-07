@@ -541,9 +541,6 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 r.Trigger is ReviewTrigger.LowConfidence
                           or ReviewTrigger.ContentMatchFailed).ToList();
 
-            if (resolvable.Count == 0)
-                return;
-
             foreach (var review in resolvable)
             {
                 await _reviewRepo.UpdateStatusAsync(
@@ -569,11 +566,18 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                     review.Id, request.EntityId, confidence);
             }
 
-            // Now attempt to organize the file from staging into the library.
+            // Always attempt to organize the file into the library when confidence
+            // is above the auto-link threshold, regardless of whether there were
+            // pending review items to resolve.
             if (request.EntityType == EntityType.MediaAsset)
             {
                 await _autoOrganize.TryAutoOrganizeAsync(request.EntityId, ct)
                     .ConfigureAwait(false);
+
+                // Now the file is in the Library Root — try downloading cover art.
+                // PersistCoverFromUrlAsync guards against watcher-path downloads,
+                // so this second call succeeds once the file is organized.
+                await PersistCoverFromUrlAsync(request.EntityId, ct).ConfigureAwait(false);
             }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -897,16 +901,31 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     /// Path B (QID pending): falls back to text-based provisional matching.
     /// </summary>
     private async Task RunHubIntelligenceAsync(
-        Guid workId, bool qidConfirmed, CancellationToken ct)
+        Guid mediaAssetId, bool qidConfirmed, CancellationToken ct)
     {
         try
         {
-            var canonicals = await _canonicalRepo.GetByEntityAsync(workId, ct)
+            // Resolve the actual Work ID from the MediaAsset ID.
+            // Claims and canonical values are indexed by MediaAsset ID,
+            // but works.hub_id must be updated using the Work's own ID.
+            var workId = await _hubRepo.GetWorkIdByMediaAssetAsync(mediaAssetId, ct)
+                .ConfigureAwait(false);
+
+            if (workId is null)
+            {
+                _logger.LogWarning(
+                    "Hub intelligence: could not resolve Work ID for asset {AssetId} — skipped",
+                    mediaAssetId);
+                return;
+            }
+
+            var canonicals = await _canonicalRepo.GetByEntityAsync(mediaAssetId, ct)
                 .ConfigureAwait(false);
 
             if (qidConfirmed)
             {
-                await RunFirmHubLinkAsync(workId, canonicals, ct).ConfigureAwait(false);
+                await RunFirmHubLinkAsync(workId.Value, mediaAssetId, canonicals, ct)
+                    .ConfigureAwait(false);
             }
             else
             {
@@ -914,14 +933,14 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 // For now, set wikidata_status to 'pending' (already the default).
                 _logger.LogDebug(
                     "Hub intelligence: no QID for work {WorkId} — leaving standalone (pending)",
-                    workId);
+                    workId.Value);
             }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogWarning(ex,
-                "Hub intelligence failed for work {WorkId}; work remains standalone",
-                workId);
+                "Hub intelligence failed for asset {AssetId}; work remains standalone",
+                mediaAssetId);
         }
     }
 
@@ -931,10 +950,10 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     /// then Tier 2 (based_on, preceded_by/followed_by).
     /// </summary>
     private async Task RunFirmHubLinkAsync(
-        Guid workId, IReadOnlyList<CanonicalValue> canonicals, CancellationToken ct)
+        Guid workId, Guid mediaAssetId, IReadOnlyList<CanonicalValue> canonicals, CancellationToken ct)
     {
-        // Extract relationship QIDs from multi-valued claims.
-        var claims = await _claimRepo.GetByEntityAsync(workId, ct).ConfigureAwait(false);
+        // Claims are indexed by MediaAsset ID; workId is used only for hub assignment.
+        var claims = await _claimRepo.GetByEntityAsync(mediaAssetId, ct).ConfigureAwait(false);
         var relClaims = ExtractRelationshipQids(claims);
 
         if (relClaims.Count == 0)
@@ -1141,6 +1160,20 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
 
             var fileDir = Path.GetDirectoryName(asset.FilePathRoot);
             if (string.IsNullOrEmpty(fileDir)) return;
+
+            // Guard: only download cover when the file is already in the Library Root.
+            // During first ingestion the file is still in the Watch Folder; downloading
+            // cover.jpg there would place it in the wrong directory and never alongside
+            // the organised media file.
+            var core = _configLoader.LoadCore();
+            if (!string.IsNullOrWhiteSpace(core.LibraryRoot)
+                && !asset.FilePathRoot.StartsWith(core.LibraryRoot, StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogDebug(
+                    "Cover download skipped for asset {Id} — file not yet in Library Root",
+                    assetId);
+                return;
+            }
 
             var coverPath = Path.Combine(fileDir, "cover.jpg");
             if (File.Exists(coverPath)) return; // already have a cover

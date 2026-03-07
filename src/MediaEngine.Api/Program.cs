@@ -252,6 +252,22 @@ builder.Services.AddHttpClient("wikidata_sparql", c =>
         "Tuvima Library/1.0 (https://github.com/Tuvima/tuvima_library)");
 });
 
+// Image download clients used by HydrationPipelineService (cover art) and
+// MetadataHarvestingService (person headshots).  Wikimedia Commons requires a
+// descriptive User-Agent header and honours HTTP redirects automatically.
+builder.Services.AddHttpClient("cover_download", c =>
+{
+    c.Timeout = TimeSpan.FromSeconds(20);
+    c.DefaultRequestHeaders.UserAgent.ParseAdd(
+        "Tuvima Library/1.0 (https://github.com/Tuvima/tuvima_library)");
+});
+builder.Services.AddHttpClient("headshot_download", c =>
+{
+    c.Timeout = TimeSpan.FromSeconds(20);
+    c.DefaultRequestHeaders.UserAgent.ParseAdd(
+        "Tuvima Library/1.0 (https://github.com/Tuvima/tuvima_library)");
+});
+
 // Config-driven providers: scan config/providers/ and register each one.
 // Named HttpClients + ConfigDrivenAdapter instances are created from config.
 // All providers are registered regardless of Enabled state — the pipeline services
