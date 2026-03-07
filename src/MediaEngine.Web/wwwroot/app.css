@@ -73,11 +73,14 @@
 body {
     margin: 0;
     background: #F5F5F5;
+    font-family: 'Montserrat', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
-/* Dark mode: Cinema — near-black */
+/* Dark mode: Cinema — pure black */
 body.app-dark {
-    background: #0A0A0A;
+    background: #000000;
 }
 
 /* ── Logo colour theming ─────────────────────────────────────────────── */
@@ -133,6 +136,16 @@ body.app-dark {
     border-radius: 16px !important;
     font-size: 0.8rem !important;
     text-transform: none !important;
+}
+
+/* ── Muted MudBlazor Input Overrides ─────────────────────────────────── */
+.mud-input-outlined-border:focus-within,
+.mud-input-focused .mud-input-outlined-border {
+    border-color: rgba(255, 255, 255, 0.8) !important;
+}
+
+.mud-input-filled-control {
+    background: rgba(255, 255, 255, 0.03) !important;
 }
 
 /* ── Blazor error boundary ───────────────────────────────────────────── */

@@ -62,26 +62,26 @@ public sealed class ThemeService
 
         PaletteDark = new PaletteDark
         {
-            // Cinematic dark palette
+            // Cinematic dark palette - muted and ultra-premium
             Primary             = primaryHex,
             PrimaryDarken       = DarkenHex(primaryHex),
             PrimaryLighten      = LightenHex(primaryHex),
-            Secondary           = "#9E9E9E",
-            SecondaryDarken     = "#737373",
-            Background          = "#0A0A0A",   // Cinema — near-black
-            BackgroundGray      = "#111111",
-            Surface             = "#161616",   // Cinema surface
-            AppbarBackground    = "#0A0A0A",
-            DrawerBackground    = "#0D0D0D",
-            DrawerText          = "#F8F8F8",
-            DrawerIcon          = "#A3A3A3",
-            TextPrimary         = "#F8F8F8",   // Cinema — near-white
-            TextSecondary       = "#A3A3A3",   // Cinema secondary
-            TextDisabled        = "rgba(248,248,248,0.38)",
-            ActionDefault       = "rgba(248,248,248,0.54)",
-            LinesDefault        = "rgba(255,255,255,0.10)",
-            Divider             = "rgba(255,255,255,0.10)",
-            OverlayDark         = "rgba(0,0,0,0.7)",
+            Secondary           = "#9CA3AF", // Muted grey for descriptions
+            SecondaryDarken     = "#4B5563", // Disabled/Dark grey
+            Background          = "#000000", // Pure black for immersive cinematic feel
+            BackgroundGray      = "#0A0A0A",
+            Surface             = "#0A0A0A", // Very dark grey for cards/surfaces
+            AppbarBackground    = "#000000",
+            DrawerBackground    = "#0A0A0A",
+            DrawerText          = "#F3F4F6", // Off-white to prevent eye strain
+            DrawerIcon          = "#9CA3AF",
+            TextPrimary         = "#F3F4F6", // Off-white
+            TextSecondary       = "#9CA3AF", // Muted grey
+            TextDisabled        = "#4B5563", // Dark grey
+            ActionDefault       = "rgba(243,244,246,0.54)",
+            LinesDefault        = "rgba(255,255,255,0.08)", // Extremely subtle border
+            Divider             = "rgba(255,255,255,0.08)", // Extremely subtle line
+            OverlayDark         = "rgba(0,0,0,0.8)",
             Error               = "#CF6679",
             Warning             = "#FFB74D",
             Info                = "#4FC3F7",
@@ -126,17 +126,22 @@ public sealed class ThemeService
                 LineHeight   = "1.6",
             },
             // Headlines — Bold, tight tracking
-            H1    = new H1Typography    { FontWeight = "700", LetterSpacing = "-0.02em", LineHeight = "1.1" },
+            H1    = new H1Typography    { FontWeight = "800", LetterSpacing = "-0.03em", LineHeight = "1.1" },
             // Section headers — SemiBold
-            H2    = new H2Typography    { FontWeight = "600", LetterSpacing = "0" },
-            H3    = new H3Typography    { FontWeight = "600" },
+            H2    = new H2Typography    { FontWeight = "700", LetterSpacing = "-0.02em" },
+            H3    = new H3Typography    { FontWeight = "700", LetterSpacing = "-0.02em" },
             // Media titles — SemiBold (H4/H5/H6)
-            H4    = new H4Typography    { FontWeight = "600" },
-            H5    = new H5Typography    { FontWeight = "600" },
-            H6    = new H6Typography    { FontWeight = "600" },
-            // Body — Regular, comfortable line-height
-            Body1 = new Body1Typography { FontSize = "1rem",   LineHeight = "1.6" },
-            Body2 = new Body2Typography { FontSize = "0.9rem", LineHeight = "1.6" },
+            H4    = new H4Typography    { FontWeight = "600", LetterSpacing = "-0.01em" },
+            H5    = new H5Typography    { FontWeight = "600", LetterSpacing = "-0.01em" },
+            H6    = new H6Typography    { FontWeight = "600", LetterSpacing = "-0.01em" },
+            // Body — Regular, comfortable line-height for readability
+            Body1 = new Body1Typography { FontWeight = "400", FontSize = "1rem",   LineHeight = "1.6" },
+            Body2 = new Body2Typography { FontWeight = "400", FontSize = "0.9rem", LineHeight = "1.6" },
+            // Subtitles & Component Titles
+            Subtitle1 = new Subtitle1Typography { FontWeight = "600", FontSize = "1rem", LineHeight = "1.5" },
+            Subtitle2 = new Subtitle2Typography { FontWeight = "500", FontSize = "0.875rem", LineHeight = "1.5" },
+            // Metadata Tags (Tiny, bold, wide tracking, uppercase)
+            Overline = new OverlineTypography { FontWeight = "600", FontSize = "0.7rem", LetterSpacing = "0.08em", TextTransform = "uppercase" }
         },
     };
 

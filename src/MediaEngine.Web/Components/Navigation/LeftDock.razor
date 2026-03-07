@@ -172,10 +172,10 @@
         background: var(--app-dock-bg);
         backdrop-filter: blur(20px);
         -webkit-backdrop-filter: blur(20px);
-        border: 1px solid var(--app-dock-border);
+        border: none; /* Borderless for premium feel */
 
         /* Flush left edge, rounded right corners */
-        border-radius: 0 12px 12px 0;
+        border-radius: 0 20px 20px 0;
 
         transition: width 0.25s ease;
         overflow: hidden;
@@ -239,14 +239,27 @@
         background: var(--app-dock-hover);
     }
 
-    /* Active: no background fill — amber icon + label with underline */
+    /* Active: no background fill — white icon + label, amber left-edge line */
     .dock-item-active {
         background: transparent;
-        color: #EAB308;
+        color: #F8F8F8;
+        position: relative;
+    }
+
+    /* Subtle vertical accent bar on the left edge */
+    .dock-item-active::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 25%;
+        height: 50%;
+        width: 3px;
+        background: #EAB308;
+        border-radius: 0 4px 4px 0;
     }
 
     .dock-item-active:hover {
-        background: var(--app-dock-hover);
+        background: transparent;
     }
 
     /* ── Label (only visible when expanded) ──────────────────────────── */
