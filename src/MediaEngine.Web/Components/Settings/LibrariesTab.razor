@@ -32,7 +32,7 @@ else
 <MudPaper Elevation="0" Style="@GlassStyle">
 
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
-        <MudIcon Icon="@Icons.Material.Outlined.FolderOpen" Color="Color.Primary" Class="mr-2" />
+        <MudIcon Icon="@Icons.Material.Outlined.FolderOpen" Color="Color.Default" Class="mr-2" />
         <MudText Typo="Typo.h6">File Management</MudText>
         @if (readOnly)
         {
@@ -171,7 +171,7 @@ else
     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-1">
         <MudIcon Icon="@Icons.Material.Filled.AccountTree"
                  Size="Size.Small"
-                 Color="Color.Primary" />
+                 Color="Color.Default" />
         <MudText Typo="Typo.subtitle2">Folder and File Naming</MudText>
     </MudStack>
     <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2">
@@ -263,8 +263,7 @@ else
 
     private const string PrimaryFolderCardStyle =
         "background: var(--app-glass-inner-bg); " +
-        "border: 1px solid var(--mud-palette-primary); " +
-        "border-left: 4px solid var(--mud-palette-primary); " +
+        "border: 1px solid var(--app-glass-inner-border); " +
         "border-radius: 8px;";
 
     // ── State ────────────────────────────────────────────────────────────────────

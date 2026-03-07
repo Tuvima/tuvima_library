@@ -11,7 +11,7 @@
 
     @* ── Section Header ──────────────────────────────────────────────────── *@
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
-        <MudIcon Icon="@Icons.Material.Outlined.Timeline" Color="Color.Primary" Class="mr-2" />
+        <MudIcon Icon="@Icons.Material.Outlined.Timeline" Color="Color.Default" Class="mr-2" />
         <MudText Typo="Typo.h6" Style="flex: 1;">Activity</MudText>
         <MudIconButton Icon="@Icons.Material.Filled.Refresh"
                        Size="Size.Small"
@@ -27,7 +27,7 @@
     <MudPaper Elevation="0" Style="@InnerCardStyle" Class="mb-6">
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
             <MudIcon Icon="@Icons.Material.Outlined.DateRange"
-                     Size="Size.Small" Color="Color.Primary" />
+                     Size="Size.Small" Color="Color.Default" />
             <MudText Typo="Typo.body2" Style="white-space: nowrap;">
                 Keep activity for
             </MudText>
@@ -69,7 +69,7 @@
         @foreach (var filter in FilterOptions)
         {
             <MudButton Variant="@(_activityFilter == filter.Key ? Variant.Filled : Variant.Outlined)"
-                       Color="@(_activityFilter == filter.Key ? Color.Primary : Color.Default)"
+                       Color="@(_activityFilter == filter.Key ? Color.Secondary : Color.Default)"
                        Size="Size.Small"
                        Style="text-transform: none; border-radius: 12px; min-width: auto; padding: 4px 14px;"
                        OnClick="@(() => SetFilter(filter.Key))">
@@ -110,8 +110,8 @@
             <div class="activity-date-header">
                 <MudIcon Icon="@Icons.Material.Filled.CalendarToday"
                          Size="Size.Small"
-                         Style="color: var(--mud-palette-primary); opacity: 0.8;" />
-                <MudText Typo="Typo.subtitle2" Style="font-weight: 600; color: var(--mud-palette-primary);">
+                         Style="opacity: 0.8;" />
+                <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">
                     @group.DateLabel
                 </MudText>
             </div>
@@ -610,7 +610,7 @@
                                                    Style="cursor: pointer;">
                                             <MudIcon Icon="@Icons.Material.Filled.ManageSearch"
                                                      Size="Size.Small"
-                                                     Style="color: var(--mud-palette-primary); opacity: 0.9;" />
+                                                     Style="opacity: 0.9;" />
                                             <MudText Typo="Typo.body2" Style="font-weight: 600;">
                                                 Library Crawl
                                             </MudText>

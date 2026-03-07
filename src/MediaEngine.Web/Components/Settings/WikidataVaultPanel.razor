@@ -11,7 +11,7 @@
 <div class="wikidata-vault-panel">
 
     @* ── Connection Details (editable) ──────────────────────────────────── *@
-    <MudText Typo="Typo.overline" Color="Color.Primary" Class="mb-1"
+    <MudText Typo="Typo.overline" Color="Color.Default" Class="mb-1"
              Style="letter-spacing: 0.08em;">
         CONNECTION DETAILS
     </MudText>
@@ -105,7 +105,7 @@
                            Style="background: transparent; border: 1px solid var(--app-glass-border); border-radius: 8px;">
             <TitleContent>
                 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                    <MudIcon Icon="@Icons.Material.Outlined.Link" Size="Size.Small" Color="Color.Primary" />
+                    <MudIcon Icon="@Icons.Material.Outlined.Link" Size="Size.Small" Color="Color.Default" />
                     <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">Bridge Identifiers</MudText>
                     <MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined">
                         @_bridges.Count
@@ -146,7 +146,7 @@
                                     </MudStack>
                                 </td>
                                 <td>
-                                    <MudChip T="string" Size="Size.Small" Color="Color.Primary"
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Default"
                                              Variant="Variant.Text">
                                         @WikidataPropertyDefaults.GetTargetProvider(bridge.PCode)
                                     </MudChip>
@@ -169,7 +169,7 @@
                            Style="background: transparent; border: 1px solid var(--app-glass-border); border-radius: 8px;">
             <TitleContent>
                 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                    <MudIcon Icon="@Icons.Material.Outlined.Map" Size="Size.Small" Color="Color.Primary" />
+                    <MudIcon Icon="@Icons.Material.Outlined.Map" Size="Size.Small" Color="Color.Default" />
                     <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">Property Map</MudText>
                     <MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined">
                         @_propertyCount properties
@@ -184,7 +184,7 @@
 
                 @foreach (var category in _propertiesByCategory)
                 {
-                    <MudText Typo="Typo.overline" Color="Color.Primary" Class="mt-3 mb-1"
+                    <MudText Typo="Typo.overline" Color="Color.Default" Class="mt-3 mb-1"
                              Style="letter-spacing: 0.08em;">
                         @category.Key
                     </MudText>

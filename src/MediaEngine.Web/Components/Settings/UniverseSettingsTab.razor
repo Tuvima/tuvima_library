@@ -17,7 +17,7 @@
 
     @* ── Header ────────────────────────────────────────────────────────────── *@
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
-        <MudIcon Icon="@Icons.Material.Outlined.Public" Color="Color.Primary" Class="mr-2" />
+        <MudIcon Icon="@Icons.Material.Outlined.Public" Color="Color.Default" Class="mr-2" />
         <MudText Typo="Typo.h6">Universe Provider</MudText>
     </MudStack>
     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
@@ -29,14 +29,14 @@
     @* ── Provider info card ────────────────────────────────────────────── *@
     <MudPaper Elevation="0" Class="pa-4 mb-4" Style="@InfoCardStyle">
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
-            <MudIcon Icon="@Icons.Material.Outlined.Hub" Color="Color.Primary" />
+            <MudIcon Icon="@Icons.Material.Outlined.Hub" Color="Color.Default" />
             <div style="flex: 1;">
                 <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">Wikidata</MudText>
                 <MudText Typo="Typo.caption" Color="Color.Secondary">
                     https://www.wikidata.org
                 </MudText>
             </div>
-            <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">
+            <MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined">
                 SPARQL
             </MudChip>
         </MudStack>
@@ -44,7 +44,7 @@
 
     @* ── Configuration (editable) ─────────────────────────────────────── *@
     <MudPaper Elevation="0" Class="pa-4 mb-4" Style="@InfoCardStyle">
-        <MudText Typo="Typo.overline" Color="Color.Primary" Class="mb-2"
+        <MudText Typo="Typo.overline" Color="Color.Default" Class="mb-2"
                  Style="letter-spacing: 0.08em;">
             CONFIGURATION
         </MudText>
@@ -119,7 +119,7 @@
                            Style="background: transparent; border: 1px solid var(--app-glass-border); border-radius: 8px;">
             <TitleContent>
                 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                    <MudIcon Icon="@Icons.Material.Outlined.Link" Size="Size.Small" Color="Color.Primary" />
+                    <MudIcon Icon="@Icons.Material.Outlined.Link" Size="Size.Small" Color="Color.Default" />
                     <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">Bridge Identifiers</MudText>
                     <MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined">
                         @_bridges.Count
@@ -162,7 +162,7 @@
                                     </MudStack>
                                 </td>
                                 <td>
-                                    <MudChip T="string" Size="Size.Small" Color="Color.Primary"
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Default"
                                              Variant="Variant.Text">
                                         @GetTargetProvider(bridge.PCode)
                                     </MudChip>
@@ -186,7 +186,7 @@
                            Style="background: transparent; border: 1px solid var(--app-glass-border); border-radius: 8px;">
             <TitleContent>
                 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                    <MudIcon Icon="@Icons.Material.Outlined.Map" Size="Size.Small" Color="Color.Primary" />
+                    <MudIcon Icon="@Icons.Material.Outlined.Map" Size="Size.Small" Color="Color.Default" />
                     <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">Property Map</MudText>
                     <MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined">
                         @_propertyCount properties
@@ -202,7 +202,7 @@
 
                 @foreach (var category in _propertiesByCategory)
                 {
-                    <MudText Typo="Typo.overline" Color="Color.Primary" Class="mt-3 mb-1"
+                    <MudText Typo="Typo.overline" Color="Color.Default" Class="mt-3 mb-1"
                              Style="letter-spacing: 0.08em;">
                         @category.Key
                     </MudText>
@@ -374,7 +374,6 @@
     private const string InfoCardStyle =
         "background: var(--app-glass-bg); " +
         "border: 1px solid var(--app-glass-border); " +
-        "border-left: 4px solid var(--mud-palette-primary); " +
         "backdrop-filter: blur(10px); " +
         "-webkit-backdrop-filter: blur(10px); " +
         "border-radius: 8px;";

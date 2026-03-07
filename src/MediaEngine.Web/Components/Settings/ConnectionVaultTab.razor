@@ -13,7 +13,7 @@
 
     @* ── Header ──────────────────────────────────────────────────────────── *@
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
-        <MudIcon Icon="@Icons.Material.Outlined.Hub" Color="Color.Primary" Class="mr-2" />
+        <MudIcon Icon="@Icons.Material.Outlined.Hub" Color="Color.Default" Class="mr-2" />
         <MudText Typo="Typo.h6">Metadata</MudText>
     </MudStack>
     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
@@ -37,15 +37,14 @@
         @if (WikidataProvider is { } wdProvider)
         {
             <MudPaper Elevation="0" Class="pa-4 mb-4"
-                      Style="background: var(--app-glass-bg);
-                             border: 1px solid var(--mud-palette-primary);
-                             border-left: 4px solid var(--mud-palette-primary);
-                             border-radius: 6px;">
+                      Style="background: var(--app-glass-inner-bg);
+                             border: 1px solid var(--app-glass-inner-border);
+                             border-radius: 8px;">
                 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-1">
                     <div class="provider-health-dot @(_wikidataReachable ? "health-online" : "health-offline")"
                          style="width: 12px; height: 12px;"></div>
                     <MudText Typo="Typo.body1" Style="font-weight: 600;">Universe</MudText>
-                    <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">
+                    <MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined">
                         Wikidata
                     </MudChip>
                     <MudText Typo="Typo.caption" Color="Color.Secondary" Style="flex: 1;">
