@@ -66,7 +66,7 @@
     { "claim_key": "title",          "json_path": "trackName",          "confidence": 0.7,  "media_types": ["Books"] },
     { "claim_key": "title",          "json_path": "collectionName",     "confidence": 0.7,  "media_types": ["Audiobooks"] },
     { "claim_key": "author",         "json_path": "artistName",         "confidence": 0.7 },
-    { "claim_key": "cover",          "json_path": "artworkUrl100",      "confidence": 0.85, "transform": "regex_replace", "transform_args": "100x100bb\\.jpg|600x600bb.jpg" },
+    { "claim_key": "cover",          "json_path": "artworkUrl100",      "confidence": 0.85, "transform": "regex_replace", "transform_args": "100x100bb\\.jpg|999x999bb.jpg" },
     { "claim_key": "description",    "json_path": "description",        "confidence": 0.85, "transform": "strip_html" },
     { "claim_key": "year",           "json_path": "releaseDate",        "confidence": 0.8,  "transform": "first_n_chars", "transform_args": "4" },
     { "claim_key": "genre",          "json_path": "genres",             "confidence": 0.7,  "transform": "array_join", "transform_args": ", ", "media_types": ["Books"] },

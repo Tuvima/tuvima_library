@@ -64,10 +64,14 @@ public static class IngestionEndpoints
 
             var result = await scanner.ScanAsync(root, ct);
 
+            // Also scan .people/ to recover person records from person.xml sidecars.
+            var peopleRecovered = await scanner.ScanPeopleAsync(root, ct);
+
             return Results.Ok(new LibraryScanResponse
             {
                 HubsUpserted     = result.HubsUpserted,
                 EditionsUpserted = result.EditionsUpserted,
+                PeopleRecovered  = peopleRecovered,
                 Errors           = result.Errors,
                 ElapsedMs        = (long)result.Elapsed.TotalMilliseconds,
             });

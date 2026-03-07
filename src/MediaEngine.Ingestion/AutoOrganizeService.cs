@@ -150,14 +150,33 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
             LastOrganized = DateTimeOffset.UtcNow,
         }, ct).ConfigureAwait(false);
 
-        await _sidecar.WriteHubSidecarAsync(hubFolder, new HubSidecarData
+        // Guard: only write the hub-level sidecar when the hub folder is at least one level
+        // below a category folder (i.e., the relative path contains a separator).
+        // With flat templates like "{Category}/{Author}/{Title}{Ext}", two calls to
+        // GetDirectoryName land on the category root (e.g., "Books/") rather than a real
+        // hub subfolder — writing library.xml there would create a stray file.
+        var relHubPath = Path.GetRelativePath(_options.LibraryRoot, hubFolder);
+        bool hubHasDepth = relHubPath.Contains(Path.DirectorySeparatorChar)
+                        || relHubPath.Contains('/');
+
+        if (hubHasDepth)
         {
-            DisplayName   = metadata.GetValueOrDefault("title", "Unknown"),
-            Year          = metadata.GetValueOrDefault("year"),
-            WikidataQid   = metadata.GetValueOrDefault("wikidata_qid"),
-            Franchise     = metadata.GetValueOrDefault("franchise"),
-            LastOrganized = DateTimeOffset.UtcNow,
-        }, ct).ConfigureAwait(false);
+            await _sidecar.WriteHubSidecarAsync(hubFolder, new HubSidecarData
+            {
+                DisplayName   = metadata.GetValueOrDefault("title", "Unknown"),
+                Year          = metadata.GetValueOrDefault("year"),
+                WikidataQid   = metadata.GetValueOrDefault("wikidata_qid"),
+                Franchise     = metadata.GetValueOrDefault("franchise"),
+                LastOrganized = DateTimeOffset.UtcNow,
+            }, ct).ConfigureAwait(false);
+        }
+        else
+        {
+            _logger.LogDebug(
+                "Hub sidecar skipped for {Id}: hubFolder '{HubFolder}' is a category root " +
+                "(template too shallow — hub sidecar requires a dedicated hub subfolder).",
+                assetId, hubFolder);
+        }
 
         _logger.LogInformation(
             "Auto-organized asset {Id} after hydration: {Source} → {Dest}",

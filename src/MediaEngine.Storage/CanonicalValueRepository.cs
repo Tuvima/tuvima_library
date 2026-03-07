@@ -169,6 +169,38 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository
         }
     }
 
+    /// <inheritdoc/>
+    public Task<IReadOnlyList<Guid>> FindByValueAsync(
+        string key,
+        string value,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        ArgumentException.ThrowIfNullOrWhiteSpace(key);
+        ArgumentException.ThrowIfNullOrWhiteSpace(value);
+
+        var conn = _db.Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            SELECT entity_id
+            FROM   canonical_values
+            WHERE  key   = @key   COLLATE NOCASE
+              AND  value = @value COLLATE NOCASE;
+            """;
+        cmd.Parameters.AddWithValue("@key",   key);
+        cmd.Parameters.AddWithValue("@value", value);
+
+        var results = new List<Guid>();
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+        {
+            ct.ThrowIfCancellationRequested();
+            results.Add(Guid.Parse(reader.GetString(0)));
+        }
+
+        return Task.FromResult<IReadOnlyList<Guid>>(results);
+    }
+
     // -------------------------------------------------------------------------
     // Private row mapper
     // -------------------------------------------------------------------------

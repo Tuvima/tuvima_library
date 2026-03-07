@@ -47,4 +47,17 @@ public interface ICanonicalValueRepository
     /// Used during orphan cleanup when the asset record is being removed.
     /// </summary>
     Task DeleteByEntityAsync(Guid entityId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns entity IDs where the canonical value for the given key matches
+    /// the given value (case-insensitive). Used by the Great Inhale people scanner
+    /// to rebuild person-media links by matching author/narrator names.
+    /// </summary>
+    /// <param name="key">The canonical value key (e.g. "author", "narrator").</param>
+    /// <param name="value">The value to match (case-insensitive).</param>
+    /// <param name="ct">Cancellation token.</param>
+    Task<IReadOnlyList<Guid>> FindByValueAsync(
+        string key,
+        string value,
+        CancellationToken ct = default);
 }

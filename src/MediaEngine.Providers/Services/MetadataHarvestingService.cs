@@ -58,6 +58,7 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
     private readonly IConfigurationLoader _configLoader;
     private readonly IHttpClientFactory _httpFactory;
     private readonly IImageCacheRepository _imageCache;
+    private readonly ISystemActivityRepository _activityRepo;
     private readonly ILogger<MetadataHarvestingService> _logger;
 
     // ── Constructor ───────────────────────────────────────────────────────────
@@ -72,6 +73,7 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         IConfigurationLoader configLoader,
         IHttpClientFactory httpFactory,
         IImageCacheRepository imageCache,
+        ISystemActivityRepository activityRepo,
         ILogger<MetadataHarvestingService> logger)
     {
         ArgumentNullException.ThrowIfNull(providers);
@@ -83,6 +85,7 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         ArgumentNullException.ThrowIfNull(configLoader);
         ArgumentNullException.ThrowIfNull(httpFactory);
         ArgumentNullException.ThrowIfNull(imageCache);
+        ArgumentNullException.ThrowIfNull(activityRepo);
         ArgumentNullException.ThrowIfNull(logger);
 
         _providers      = providers.ToList();
@@ -94,6 +97,7 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         _configLoader   = configLoader;
         _httpFactory    = httpFactory;
         _imageCache     = imageCache;
+        _activityRepo   = activityRepo;
         _logger         = logger;
 
         _channel = Channel.CreateBounded<HarvestRequest>(new BoundedChannelOptions(500)
@@ -309,7 +313,15 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
 
     /// <summary>
     /// Downloads headshot from Wikimedia Commons and writes person.xml sidecar
-    /// under <c>{LibraryRoot}/.people/{personId}/</c>.
+    /// under <c>{LibraryRoot}/.people/{SanitizedName}/</c>.
+    ///
+    /// Uses the person's display name for the folder (human-readable). Falls back
+    /// to GUID if no name is available. Collision detection reads the existing
+    /// person.xml's <c>&lt;id&gt;</c> element — if a different person occupies
+    /// the target folder, a short hash suffix is appended.
+    ///
+    /// The person.xml includes a <c>&lt;known-names&gt;</c> list tracking all
+    /// historical names, enabling reconnection after a database wipe.
     /// </summary>
     private async Task PersistPersonStorageAsync(
         Guid personId,
@@ -323,7 +335,40 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
             if (string.IsNullOrWhiteSpace(core.LibraryRoot))
                 return;
 
-            var personFolder = Path.Combine(core.LibraryRoot, ".people", personId.ToString());
+            var peopleRoot = Path.Combine(core.LibraryRoot, ".people");
+            Directory.CreateDirectory(peopleRoot);
+
+            // Resolve the folder name: sanitized person name, or GUID as fallback.
+            var folderName = person is not null && !string.IsNullOrWhiteSpace(person.Name)
+                ? SanitizeForFilesystem(person.Name)
+                : personId.ToString();
+
+            var personFolder = Path.Combine(peopleRoot, folderName);
+
+            // ── Rename detection: if this person already has a folder under a
+            //    different name (old name or GUID), rename it to the new name. ──
+            if (!Directory.Exists(personFolder) || ReadPersonIdFromXml(Path.Combine(personFolder, "person.xml")) != personId)
+            {
+                var renamed = TryRenameExistingPersonFolder(peopleRoot, personId, personFolder);
+                if (renamed)
+                {
+                    await LogPersonFolderRenamedAsync(personId, person?.Name ?? folderName, ct)
+                        .ConfigureAwait(false);
+                }
+            }
+
+            // Collision detection: if folder exists, read person.xml → check <id>.
+            if (Directory.Exists(personFolder))
+            {
+                var existingId = ReadPersonIdFromXml(Path.Combine(personFolder, "person.xml"));
+                if (existingId is not null && existingId != personId)
+                {
+                    // Different person occupies this folder — append short hash.
+                    folderName = $"{folderName} [{personId.ToString()[..4]}]";
+                    personFolder = Path.Combine(peopleRoot, folderName);
+                }
+            }
+
             Directory.CreateDirectory(personFolder);
 
             // Download headshot if URL is available and file doesn't exist.
@@ -367,19 +412,51 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
                 }
             }
 
-            // Write person.xml sidecar.
+            // Write person.xml sidecar with <id>, <known-names>, and all metadata.
             if (person is not null)
             {
+                // Build <known-names> list: merge existing names from any prior person.xml
+                // with the current name to preserve historical aliases.
+                var knownNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var existingXmlPath = Path.Combine(personFolder, "person.xml");
+                if (File.Exists(existingXmlPath))
+                {
+                    try
+                    {
+                        var existingDoc = System.Xml.Linq.XDocument.Load(existingXmlPath);
+                        var existingKnown = existingDoc.Root?
+                            .Element("known-names")?
+                            .Elements("name")
+                            .Select(e => e.Value.Trim())
+                            .Where(n => !string.IsNullOrWhiteSpace(n));
+
+                        if (existingKnown is not null)
+                            foreach (var n in existingKnown)
+                                knownNames.Add(n);
+                    }
+                    catch
+                    {
+                        // Corrupt XML — start fresh with just the current name.
+                    }
+                }
+                knownNames.Add(person.Name);
+
+                var knownNamesElement = new System.Xml.Linq.XElement("known-names");
+                foreach (var name in knownNames.OrderBy(n => n, StringComparer.OrdinalIgnoreCase))
+                    knownNamesElement.Add(new System.Xml.Linq.XElement("name", name));
+
                 var doc = new System.Xml.Linq.XDocument(
                     new System.Xml.Linq.XDeclaration("1.0", "utf-8", null),
                     new System.Xml.Linq.XElement("library-person",
                         new System.Xml.Linq.XAttribute("version", "1.0"),
                         new System.Xml.Linq.XElement("identity",
+                            new System.Xml.Linq.XElement("id",           personId.ToString()),
                             new System.Xml.Linq.XElement("name",         person.Name),
                             new System.Xml.Linq.XElement("role",         person.Role),
                             new System.Xml.Linq.XElement("wikidata-qid", person.WikidataQid ?? string.Empty),
                             new System.Xml.Linq.XElement("occupation",   person.Occupation  ?? string.Empty)
                         ),
+                        knownNamesElement,
                         new System.Xml.Linq.XElement("biography", person.Biography ?? string.Empty),
                         new System.Xml.Linq.XElement("social",
                             new System.Xml.Linq.XElement("instagram", person.Instagram ?? string.Empty),
@@ -390,7 +467,7 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
                         )
                     )
                 );
-                doc.Save(Path.Combine(personFolder, "person.xml"));
+                doc.Save(existingXmlPath);
             }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -398,6 +475,118 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
             _logger.LogWarning(ex,
                 "Person storage persistence failed for person {Id}; continuing",
                 personId);
+        }
+    }
+
+    /// <summary>
+    /// Reads the <c>&lt;id&gt;</c> element from a person.xml file.
+    /// Returns <c>null</c> if the file doesn't exist or can't be parsed.
+    /// Used for collision detection when multiple persons share the same display name.
+    /// </summary>
+    private static Guid? ReadPersonIdFromXml(string xmlPath)
+    {
+        try
+        {
+            if (!File.Exists(xmlPath)) return null;
+            var doc = System.Xml.Linq.XDocument.Load(xmlPath);
+            var idText = doc.Root?.Element("identity")?.Element("id")?.Value;
+            return Guid.TryParse(idText, out var id) ? id : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Sanitizes a string for use as a filesystem path segment.
+    /// Replaces invalid path characters with underscores and trims trailing dots
+    /// (which Windows silently strips, causing path mismatches).
+    /// </summary>
+    internal static string SanitizeForFilesystem(string name)
+    {
+        var invalid = Path.GetInvalidFileNameChars();
+        var sanitized = new char[name.Length];
+        for (var i = 0; i < name.Length; i++)
+            sanitized[i] = Array.IndexOf(invalid, name[i]) >= 0 ? '_' : name[i];
+
+        return new string(sanitized).TrimEnd('.', ' ');
+    }
+
+    /// <summary>
+    /// Scans .people/ for an existing folder owned by this person (matched by
+    /// person.xml &lt;id&gt;) and renames it to the target path if found.
+    /// Returns <c>true</c> if a rename was performed.
+    /// </summary>
+    private bool TryRenameExistingPersonFolder(
+        string peopleRoot, Guid personId, string targetFolder)
+    {
+        try
+        {
+            foreach (var subDir in Directory.GetDirectories(peopleRoot))
+            {
+                if (string.Equals(subDir, targetFolder, StringComparison.OrdinalIgnoreCase))
+                    continue; // Already the target folder.
+
+                var xmlPath = Path.Combine(subDir, "person.xml");
+                var existingId = ReadPersonIdFromXml(xmlPath);
+                if (existingId == personId)
+                {
+                    // Found this person's old folder — rename it.
+                    var oldName = Path.GetFileName(subDir);
+                    var newName = Path.GetFileName(targetFolder);
+
+                    // Ensure target doesn't exist (collision detection handles this later).
+                    if (!Directory.Exists(targetFolder))
+                    {
+                        Directory.Move(subDir, targetFolder);
+
+                        // Update the local_headshot_path if it pointed to the old folder.
+                        var oldHeadshot = Path.Combine(subDir, "headshot.jpg");
+                        var newHeadshot = Path.Combine(targetFolder, "headshot.jpg");
+                        if (File.Exists(newHeadshot))
+                        {
+                            _personRepo.UpdateLocalHeadshotPathAsync(
+                                personId, newHeadshot, CancellationToken.None)
+                                .GetAwaiter().GetResult();
+                        }
+
+                        _logger.LogInformation(
+                            "Renamed person folder: '{OldName}' → '{NewName}'",
+                            oldName, newName);
+                        return true;
+                    }
+                }
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex,
+                "Person folder rename failed for {PersonId}; continuing", personId);
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Logs a <see cref="SystemActionType.PersonFolderRenamed"/> activity entry.
+    /// </summary>
+    private async Task LogPersonFolderRenamedAsync(
+        Guid personId, string newName, CancellationToken ct)
+    {
+        try
+        {
+            await _activityRepo.LogAsync(new SystemActivityEntry
+            {
+                ActionType = SystemActionType.PersonFolderRenamed,
+                EntityId   = personId,
+                EntityType = "Person",
+                Detail     = $"Person folder renamed to \"{newName}\"",
+            }, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "Failed to log person folder rename activity");
         }
     }
 

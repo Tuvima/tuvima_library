@@ -372,12 +372,19 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             _logger.LogWarning("Corrupt file quarantined: {Path} — {Reason}",
                 candidate.Path, result.CorruptReason);
 
-            // Activity: file quarantined.
+            // Activity: media failed (replaces granular FileQuarantined).
+            var failedJson = JsonSerializer.Serialize(new
+            {
+                source_file = Path.GetFileName(candidate.Path),
+                reason      = result.CorruptReason,
+                error_type  = "corrupt_file",
+            });
             await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
             {
-                ActionType = Domain.Enums.SystemActionType.FileQuarantined,
-                EntityType = "MediaAsset",
-                Detail     = $"File quarantined: {Path.GetFileName(candidate.Path)} — {result.CorruptReason}",
+                ActionType  = Domain.Enums.SystemActionType.MediaFailed,
+                EntityType  = "MediaAsset",
+                ChangesJson = failedJson,
+                Detail      = $"Failed — {Path.GetFileName(candidate.Path)}: {result.CorruptReason}",
             }, ct).ConfigureAwait(false);
 
             await SafePublishAsync("IngestionFailed", new IngestionFailedEvent(
@@ -477,6 +484,22 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
         await _canonicalRepo.UpsertBatchAsync(canonicals, ct).ConfigureAwait(false);
 
+        // Create MetadataConflict review item when any canonical value has IsConflicted=true.
+        // Conflicts don't block organization — the file proceeds with the best-guess value.
+        var conflictedFields = canonicals
+            .Where(c => c.IsConflicted && c.Key != "media_type") // media_type handled separately
+            .Select(c => c.Key)
+            .ToList();
+
+        if (conflictedFields.Count > 0)
+        {
+            await CreateMetadataConflictReviewItemAsync(
+                assetId,
+                scored.OverallConfidence,
+                conflictedFields,
+                ct).ConfigureAwait(false);
+        }
+
         // Create AmbiguousMediaType review item when media type confidence is below threshold.
         if (mediaTypeNeedsReview && result.MediaTypeCandidates.Count > 0)
         {
@@ -552,15 +575,11 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             entity_id   = assetId.ToString(),
         });
 
-        await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
-        {
-            ActionType  = Domain.Enums.SystemActionType.FileDetected,
-            EntityId    = assetId,
-            EntityType  = "MediaAsset",
-            HubName     = resolvedTitle,
-            ChangesJson = richJson,
-            Detail      = $"Detected — \"{resolvedTitle}\"{authorPart} ({scored.OverallConfidence:P0})",
-        }, ct).ConfigureAwait(false);
+        // Demoted from activity ledger to debug log (Phase 5 — activity consolidation).
+        // The consolidated MediaAdded event is created at the end of the hydration pipeline.
+        _logger.LogDebug(
+            "FileDetected — \"{Title}\"{Author} ({Confidence:P0})",
+            resolvedTitle, authorPart, scored.OverallConfidence);
 
         await SafePublishAsync("IngestionCompleted", new IngestionCompletedEvent(
             candidate.Path,
@@ -610,7 +629,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                     "Moving to staging and creating review item.",
                     candidate.Path);
 
-                currentPath = await MoveToStagingAsync(currentPath, ct)
+                currentPath = await MoveToStagingAsync(currentPath, "LowConfidence", ct)
                                   .ConfigureAwait(false) ?? currentPath;
 
                 await CreateIngestionReviewItemAsync(
@@ -646,7 +665,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 scored.OverallConfidence, candidate.Path);
 
             var prevPath = currentPath;
-            currentPath = await MoveToStagingAsync(currentPath, ct)
+            currentPath = await MoveToStagingAsync(currentPath, "LowConfidence", ct)
                               .ConfigureAwait(false) ?? currentPath;
 
             await CreateIngestionReviewItemAsync(
@@ -714,16 +733,11 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                     await tagger.WriteCoverArtAsync(currentPath, result.CoverImage, ct)
                                  .ConfigureAwait(false);
 
-                // Activity: metadata tags written.
-                await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
-                {
-                    ActionType = Domain.Enums.SystemActionType.MetadataTagsWritten,
-                    EntityId   = assetId,
-                    EntityType = "MediaAsset",
-                    HubName    = resolvedTitle,
-                    Detail     = $"Tags written to file: {Path.GetFileName(currentPath)} — {candidate.Metadata.Count} tag(s)" +
-                                 (result.CoverImage is { Length: > 0 } ? " + cover art" : ""),
-                }, ct).ConfigureAwait(false);
+                // Demoted from activity ledger to debug log (Phase 5 — activity consolidation).
+                _logger.LogDebug(
+                    "MetadataTagsWritten — {File}: {Count} tag(s){Cover}",
+                    Path.GetFileName(currentPath), candidate.Metadata.Count,
+                    result.CoverImage is { Length: > 0 } ? " + cover art" : "");
             }
         }
 
@@ -753,15 +767,9 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 ? $"Ingested — \"{resolvedTitle}\" (awaiting enrichment)"
                 : $"Ingested — \"{resolvedTitle}\" (sent to review)";
 
-        await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
-        {
-            ActionType  = Domain.Enums.SystemActionType.FileIngested,
-            EntityId    = assetId,
-            EntityType  = "MediaAsset",
-            HubName     = resolvedTitle,
-            ChangesJson = finalRichJson,
-            Detail      = outcome,
-        }, ct).ConfigureAwait(false);
+        // Demoted from activity ledger to debug log (Phase 5 — activity consolidation).
+        // The consolidated MediaAdded event is created at the end of the hydration pipeline.
+        _logger.LogDebug("FileIngested — {Outcome}", outcome);
     }
 
     private async Task HandleDeletedAsync(IngestionCandidate candidate, CancellationToken ct)
@@ -1094,7 +1102,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 "Moving to staging and creating review item.",
                 existing.ContentHash[..12]);
 
-            var staged = await MoveToStagingAsync(currentPath, ct).ConfigureAwait(false);
+            var staged = await MoveToStagingAsync(currentPath, "LowConfidence", ct).ConfigureAwait(false);
             if (staged is not null)
                 await _assetRepo.UpdateFilePathAsync(existing.Id, staged, ct).ConfigureAwait(false);
 
@@ -1191,7 +1199,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     /// Returns the new path on success, or <see langword="null"/> when staging
     /// is not configured or the move fails.
     /// </summary>
-    private async Task<string?> MoveToStagingAsync(string currentPath, CancellationToken ct)
+    private async Task<string?> MoveToStagingAsync(
+        string currentPath, string triggerReason, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(_options.StagingDirectory))
             return null;
@@ -1202,23 +1211,33 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                     _options.WatchDirectory, StringComparison.OrdinalIgnoreCase))
             return null;
 
-        var destPath = Path.Combine(
-            _options.StagingDirectory,
-            Path.GetFileName(currentPath));
+        // Categorized subfolders based on trigger reason.
+        var subfolder = triggerReason switch
+        {
+            "LowConfidence"     => "low-confidence",
+            "AmbiguousMediaType" => "ambiguous-type",
+            _                   => "other",
+        };
+
+        var stagingSubDir = Path.Combine(_options.StagingDirectory, subfolder);
+        Directory.CreateDirectory(stagingSubDir);
+
+        var destPath = Path.Combine(stagingSubDir, Path.GetFileName(currentPath));
 
         bool moved = await _organizer.ExecuteMoveAsync(currentPath, destPath, ct)
                                       .ConfigureAwait(false);
         if (moved)
         {
             _logger.LogInformation(
-                "Staged unresolved file: {Source} → {Dest}", currentPath, destPath);
+                "Staged unresolved file: {Source} → {Dest} ({Trigger})",
+                currentPath, destPath, triggerReason);
 
             // Activity: moved to staging.
             await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
             {
                 ActionType = Domain.Enums.SystemActionType.MovedToStaging,
                 EntityType = "MediaAsset",
-                Detail     = $"Staged {Path.GetFileName(currentPath)} for review",
+                Detail     = $"Staged {Path.GetFileName(currentPath)} → {subfolder}/",
             }, ct).ConfigureAwait(false);
 
             return destPath;
@@ -1507,6 +1526,72 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         {
             _logger.LogWarning(ex,
                 "Failed to create AmbiguousMediaType review item for entity {Id}", entityId);
+        }
+    }
+
+    /// <summary>
+    /// Creates a <see cref="ReviewTrigger.MetadataConflict"/> review queue entry
+    /// when the scoring engine detects conflicting canonical values. The file still
+    /// organises with the best guess — conflicts don't block the confidence gate.
+    /// </summary>
+    private async Task CreateMetadataConflictReviewItemAsync(
+        Guid entityId,
+        double confidence,
+        List<string> conflictedFields,
+        CancellationToken ct)
+    {
+        try
+        {
+            var existing = await _reviewRepo.GetByEntityAsync(entityId, ct)
+                .ConfigureAwait(false);
+
+            if (existing.Any(r => r.Status == Domain.Enums.ReviewStatus.Pending
+                                  && r.Trigger == ReviewTrigger.MetadataConflict))
+            {
+                _logger.LogDebug(
+                    "MetadataConflict review item already exists for entity {Id} — skipping.",
+                    entityId);
+                return;
+            }
+
+            var detail = $"Conflicting metadata: {string.Join(", ", conflictedFields)}";
+            var entry = new ReviewQueueEntry
+            {
+                Id              = Guid.NewGuid(),
+                EntityId        = entityId,
+                EntityType      = "MediaAsset",
+                Trigger         = ReviewTrigger.MetadataConflict,
+                ConfidenceScore = confidence,
+                Detail          = detail,
+                CreatedAt       = DateTimeOffset.UtcNow,
+            };
+
+            await _reviewRepo.InsertAsync(entry, ct).ConfigureAwait(false);
+
+            await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
+            {
+                ActionType = Domain.Enums.SystemActionType.ReviewItemCreated,
+                EntityId   = entityId,
+                EntityType = "MediaAsset",
+                Detail     = detail,
+            }, ct).ConfigureAwait(false);
+
+            await SafePublishAsync("ReviewItemCreated", new
+            {
+                review_id   = entry.Id,
+                entity_id   = entityId,
+                trigger     = ReviewTrigger.MetadataConflict,
+                confidence,
+            }, ct).ConfigureAwait(false);
+
+            _logger.LogInformation(
+                "MetadataConflict review item created for entity {Id}: {Detail}",
+                entityId, detail);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Failed to create MetadataConflict review item for entity {Id}", entityId);
         }
     }
 

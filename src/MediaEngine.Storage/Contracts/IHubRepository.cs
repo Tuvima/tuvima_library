@@ -64,4 +64,11 @@ public interface IHubRepository
     /// Universe (Wikidata) matching for a Work via the Needs Review tab.
     /// </summary>
     Task SetUniverseMismatchAsync(Guid workId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Updates a Work's <c>wikidata_status</c> and stamps <c>wikidata_checked_at</c>.
+    /// Used after Wikidata QID resolution to mark a Work as "confirmed" or leave it
+    /// as "pending" with a timestamp.
+    /// </summary>
+    Task UpdateWorkWikidataStatusAsync(Guid workId, string status, CancellationToken ct = default);
 }

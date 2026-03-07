@@ -121,9 +121,6 @@
     /// </summary>
     [Parameter] public string CurrentRole { get; set; } = "Administrator";
 
-    /// <summary>Number of unresolved metadata conflicts (badge on Conflicts item).</summary>
-    [Parameter] public int ConflictCount { get; set; }
-
     /// <summary>Number of pending review items (badge on Needs Review item).</summary>
     [Parameter] public int ReviewCount { get; set; }
 
@@ -189,7 +186,6 @@
             new(SettingsSection.Activity,     Icons.Material.Outlined.Timeline,   "Activity",     true, null),
             new(SettingsSection.Connectivity, Icons.Material.Outlined.Wifi,       "Connectivity", true, null),
             new(SettingsSection.ApiKeys,      Icons.Material.Outlined.VpnKey,     "API Keys",     true, null),
-            new(SettingsSection.Conflicts,    Icons.Material.Outlined.Warning,    "Conflicts",    true, "conflicts"),
             new(SettingsSection.Users,        Icons.Material.Outlined.Group,      "Users",        true, null),
             new(SettingsSection.Maintenance,  Icons.Material.Outlined.Build,      "Maintenance",  true, null),
         ]),
@@ -240,9 +236,8 @@
     private int GetBadgeCount(string? badgeKey) =>
         badgeKey switch
         {
-            "conflicts" => ConflictCount,
-            "review"    => ReviewCount,
-            _           => 0,
+            "review" => ReviewCount,
+            _        => 0,
         };
 
     // ── Selection ───────────────────────────────────────────────────────────

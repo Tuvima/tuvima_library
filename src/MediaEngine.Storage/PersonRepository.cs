@@ -226,6 +226,92 @@ public sealed class PersonRepository : IPersonRepository
         return Task.FromResult(result);
     }
 
+    /// <inheritdoc/>
+    public Task<IReadOnlyList<Person>> ListAllAsync(CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        var conn = _db.Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            SELECT id, name, role, wikidata_qid, headshot_url, biography,
+                   created_at, enriched_at, occupation, instagram, twitter,
+                   tiktok, mastodon, website, local_headshot_path
+            FROM   persons
+            ORDER  BY name ASC;
+            """;
+
+        var results = new List<Person>();
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+        {
+            ct.ThrowIfCancellationRequested();
+            results.Add(MapRow(reader));
+        }
+
+        return Task.FromResult<IReadOnlyList<Person>>(results);
+    }
+
+    /// <inheritdoc/>
+    public Task<int> CountMediaLinksAsync(Guid personId, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        var conn = _db.Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            SELECT COUNT(*) FROM person_media_links WHERE person_id = @id;
+            """;
+        cmd.Parameters.AddWithValue("@id", personId.ToString());
+
+        var count = Convert.ToInt32(cmd.ExecuteScalar());
+        return Task.FromResult(count);
+    }
+
+    /// <inheritdoc/>
+    public Task<Person?> FindByQidAsync(string qid, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        ArgumentException.ThrowIfNullOrWhiteSpace(qid);
+
+        var conn = _db.Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            SELECT id, name, role, wikidata_qid, headshot_url, biography,
+                   created_at, enriched_at, occupation, instagram, twitter,
+                   tiktok, mastodon, website, local_headshot_path
+            FROM   persons
+            WHERE  wikidata_qid = @qid COLLATE NOCASE
+            LIMIT  1;
+            """;
+        cmd.Parameters.AddWithValue("@qid", qid);
+
+        using var reader = cmd.ExecuteReader();
+        var result = reader.Read() ? MapRow(reader) : null;
+        return Task.FromResult(result);
+    }
+
+    /// <inheritdoc/>
+    public Task DeleteAsync(Guid personId, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        var conn = _db.Open();
+
+        // Delete links first (FK-safe even without ON DELETE CASCADE).
+        using var linksCmd = conn.CreateCommand();
+        linksCmd.CommandText = "DELETE FROM person_media_links WHERE person_id = @id;";
+        linksCmd.Parameters.AddWithValue("@id", personId.ToString());
+        linksCmd.ExecuteNonQuery();
+
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "DELETE FROM persons WHERE id = @id;";
+        cmd.Parameters.AddWithValue("@id", personId.ToString());
+        cmd.ExecuteNonQuery();
+
+        return Task.CompletedTask;
+    }
+
     // -------------------------------------------------------------------------
     // Private row mapper
     // -------------------------------------------------------------------------

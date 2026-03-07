@@ -87,4 +87,30 @@ public interface IPersonRepository
     Task<IReadOnlyList<Person>> GetByMediaAssetAsync(
         Guid mediaAssetId,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns all person records in the database.
+    /// Used by the reconciliation service for orphan detection.
+    /// </summary>
+    Task<IReadOnlyList<Person>> ListAllAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns the number of media asset links for a given person.
+    /// Used by the reconciliation service to detect orphaned persons
+    /// (persons with zero linked media assets).
+    /// </summary>
+    Task<int> CountMediaLinksAsync(Guid personId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Finds a person by Wikidata QID.
+    /// Returns <c>null</c> if no matching person exists.
+    /// Used by the Great Inhale people scanner to match person.xml records by QID.
+    /// </summary>
+    Task<Person?> FindByQidAsync(string qid, CancellationToken ct = default);
+
+    /// <summary>
+    /// Deletes a person record and all associated media links.
+    /// Used by the reconciliation service when cleaning orphaned persons.
+    /// </summary>
+    Task DeleteAsync(Guid personId, CancellationToken ct = default);
 }

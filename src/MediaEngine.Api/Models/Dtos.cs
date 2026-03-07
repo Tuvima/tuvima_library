@@ -273,6 +273,10 @@ public sealed class LibraryScanResponse
     [JsonPropertyName("editions_upserted")]
     public int EditionsUpserted { get; init; }
 
+    /// <summary>Number of Person records recovered from .people/ person.xml sidecars.</summary>
+    [JsonPropertyName("people_recovered")]
+    public int PeopleRecovered { get; init; }
+
     /// <summary>Number of sidecar files that could not be parsed or hydrated.</summary>
     [JsonPropertyName("errors")]
     public int Errors { get; init; }

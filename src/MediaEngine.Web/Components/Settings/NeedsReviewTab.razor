@@ -214,6 +214,7 @@ else
         "ContentMatchFailed",
         "LowConfidence",
         "ArbiterNeedsReview",
+        "MetadataConflict",
     ];
 
     private static readonly HashSet<string> UniverseMatchTriggers =
@@ -538,6 +539,7 @@ else
         "ContentMatchFailed"  => "Content Match Failed",
         "UniverseMatchFailed" => "Universe Match Failed",
         "AmbiguousMediaType"  => "Ambiguous Type",
+        "MetadataConflict"    => "Metadata Conflict",
         _                     => trigger,
     };
 

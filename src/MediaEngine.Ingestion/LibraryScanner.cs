@@ -44,6 +44,7 @@ public sealed class LibraryScanner : ILibraryScanner
     private readonly IMediaAssetRepository      _assetRepo;
     private readonly ICanonicalValueRepository  _canonicalRepo;
     private readonly IMetadataClaimRepository   _claimRepo;
+    private readonly IPersonRepository          _personRepo;
     private readonly ILogger<LibraryScanner>    _logger;
 
     // Stable GUID representing the library-scanner as a "provider" when re-inserting
@@ -58,6 +59,7 @@ public sealed class LibraryScanner : ILibraryScanner
         IMediaAssetRepository     assetRepo,
         ICanonicalValueRepository canonicalRepo,
         IMetadataClaimRepository  claimRepo,
+        IPersonRepository         personRepo,
         ILogger<LibraryScanner>   logger)
     {
         _sidecar       = sidecar;
@@ -65,6 +67,7 @@ public sealed class LibraryScanner : ILibraryScanner
         _assetRepo     = assetRepo;
         _canonicalRepo = canonicalRepo;
         _claimRepo     = claimRepo;
+        _personRepo    = personRepo;
         _logger        = logger;
     }
 
@@ -129,6 +132,144 @@ public sealed class LibraryScanner : ILibraryScanner
             Elapsed          = sw.Elapsed,
         };
     }
+
+    // -------------------------------------------------------------------------
+    // People scanning (Great Inhale person recovery)
+    // -------------------------------------------------------------------------
+
+    /// <inheritdoc/>
+    public async Task<int> ScanPeopleAsync(
+        string libraryRoot,
+        CancellationToken ct = default)
+    {
+        var peopleRoot = Path.Combine(libraryRoot, ".people");
+        if (!Directory.Exists(peopleRoot))
+        {
+            _logger.LogDebug("No .people/ directory found; skipping people scan");
+            return 0;
+        }
+
+        int upserted = 0;
+        _logger.LogInformation("Great Inhale: scanning .people/ for person recovery");
+
+        foreach (var subDir in Directory.GetDirectories(peopleRoot))
+        {
+            ct.ThrowIfCancellationRequested();
+
+            var personXml = Path.Combine(subDir, "person.xml");
+            if (!File.Exists(personXml))
+                continue;
+
+            try
+            {
+                var doc = XDocument.Load(personXml);
+                if (doc.Root?.Name.LocalName != "library-person")
+                    continue;
+
+                var identity = doc.Root.Element("identity");
+                if (identity is null)
+                    continue;
+
+                var idText     = identity.Element("id")?.Value;
+                var name       = identity.Element("name")?.Value;
+                var qid        = identity.Element("wikidata-qid")?.Value;
+                var role       = identity.Element("role")?.Value ?? "Author";
+                var occupation = identity.Element("occupation")?.Value;
+
+                if (string.IsNullOrWhiteSpace(name))
+                    continue;
+
+                var personId = Guid.TryParse(idText, out var parsed) ? parsed : Guid.NewGuid();
+
+                // Resolve by QID first (most stable), then by name+role, then by ID.
+                Person? existing = null;
+                if (!string.IsNullOrWhiteSpace(qid))
+                    existing = await _personRepo.FindByQidAsync(qid, ct).ConfigureAwait(false);
+                existing ??= await _personRepo.FindByNameAsync(name, role, ct).ConfigureAwait(false);
+                existing ??= await _personRepo.FindByIdAsync(personId, ct).ConfigureAwait(false);
+
+                if (existing is null)
+                {
+                    // Create a new person record.
+                    var person = new Person
+                    {
+                        Id          = personId,
+                        Name        = name,
+                        Role        = role,
+                        WikidataQid = string.IsNullOrWhiteSpace(qid) ? null : qid,
+                        Occupation  = string.IsNullOrWhiteSpace(occupation) ? null : occupation,
+                    };
+
+                    // Read optional social/biography fields.
+                    person.Biography = doc.Root.Element("biography")?.Value;
+                    var social = doc.Root.Element("social");
+                    if (social is not null)
+                    {
+                        person.Instagram = NullIfEmpty(social.Element("instagram")?.Value);
+                        person.Twitter   = NullIfEmpty(social.Element("twitter")?.Value);
+                        person.TikTok    = NullIfEmpty(social.Element("tiktok")?.Value);
+                        person.Mastodon  = NullIfEmpty(social.Element("mastodon")?.Value);
+                        person.Website   = NullIfEmpty(social.Element("website")?.Value);
+                    }
+
+                    // Check if headshot exists on disk.
+                    var headshotPath = Path.Combine(subDir, "headshot.jpg");
+                    if (File.Exists(headshotPath))
+                        person.LocalHeadshotPath = headshotPath;
+
+                    await _personRepo.CreateAsync(person, ct).ConfigureAwait(false);
+                    existing = person;
+                }
+
+                // Rebuild person_media_links by matching known-names against
+                // canonical author/narrator values across all assets.
+                var knownNames = doc.Root.Element("known-names")?
+                    .Elements("name")
+                    .Select(e => e.Value.Trim())
+                    .Where(n => !string.IsNullOrWhiteSpace(n))
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase)
+                    ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+                // Always include the primary name.
+                knownNames.Add(name);
+
+                // Search for media assets with matching author/narrator canonical values.
+                foreach (var knownName in knownNames)
+                {
+                    var matchingAssets = await _canonicalRepo.FindByValueAsync(
+                        "author", knownName, ct).ConfigureAwait(false);
+                    foreach (var assetId in matchingAssets)
+                    {
+                        await _personRepo.LinkToMediaAssetAsync(
+                            assetId, existing.Id, role, ct).ConfigureAwait(false);
+                    }
+
+                    // Also try narrator matches.
+                    var narratorAssets = await _canonicalRepo.FindByValueAsync(
+                        "narrator", knownName, ct).ConfigureAwait(false);
+                    foreach (var assetId in narratorAssets)
+                    {
+                        await _personRepo.LinkToMediaAssetAsync(
+                            assetId, existing.Id, role, ct).ConfigureAwait(false);
+                    }
+                }
+
+                upserted++;
+                _logger.LogDebug(
+                    "Person recovered: '{Name}' (QID={Qid})", name, qid ?? "none");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Great Inhale: error processing person.xml at {Path}", personXml);
+            }
+        }
+
+        _logger.LogInformation("Great Inhale: recovered {Count} person record(s)", upserted);
+        return upserted;
+    }
+
+    private static string? NullIfEmpty(string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : value;
 
     // -------------------------------------------------------------------------
     // Hub hydration

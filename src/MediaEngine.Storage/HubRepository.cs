@@ -455,4 +455,25 @@ public sealed class HubRepository : IHubRepository
 
         return Task.CompletedTask;
     }
+
+    /// <inheritdoc />
+    public Task UpdateWorkWikidataStatusAsync(Guid workId, string status, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        var conn = _db.Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            UPDATE works
+            SET    wikidata_status     = @status,
+                   wikidata_checked_at = @now
+            WHERE  id = @id;
+            """;
+        cmd.Parameters.AddWithValue("@id",     workId.ToString());
+        cmd.Parameters.AddWithValue("@status", status);
+        cmd.Parameters.AddWithValue("@now",    DateTimeOffset.UtcNow.ToString("O"));
+        cmd.ExecuteNonQuery();
+
+        return Task.CompletedTask;
+    }
 }

@@ -1267,8 +1267,9 @@
         // Startup cluster: ServerStarted absorbs nearby noise and recon
         "ServerStarted"           => DisplayTier.Startup,
 
-        // Rich media card: always visible (file ingested)
+        // Rich media card: always visible (file ingested / media added)
         "FileIngested"            => DisplayTier.RichMedia,
+        "MediaAdded"              => DisplayTier.RichMedia,
 
         // Review resolved: full media card with action badge
         "ReviewItemResolved"      => DisplayTier.ReviewResolved,
@@ -1579,6 +1580,13 @@
         ["OrphanCleaned"]             = (Icons.Material.Filled.DeleteSweep,     "Orphan Cleaned",             "#ff9800"),
         ["ReconciliationMissing"]     = (Icons.Material.Filled.SearchOff,       "Missing File Detected",      "#f44336"),
         ["ReconciliationCompleted"]   = (Icons.Material.Filled.FactCheck,       "Reconciliation Complete",    "#4caf50"),
+        // ── Consolidated Pipeline Events ──────────────────────────────────
+        ["MediaAdded"]                = (Icons.Material.Filled.LibraryAdd,      "Media Added",                "#4caf50"),
+        ["MediaUpdated"]              = (Icons.Material.Filled.Update,          "Media Updated",              "#2196f3"),
+        ["MediaFailed"]               = (Icons.Material.Filled.Error,           "Media Failed",               "#f44336"),
+        // ── Folder Maintenance ────────────────────────────────────────────
+        ["FolderCleaned"]             = (Icons.Material.Filled.FolderDelete,    "Folder Cleaned",             "#ff9800"),
+        ["PersonFolderRenamed"]       = (Icons.Material.Filled.DriveFileRenameOutline, "Person Folder Renamed", "#2196f3"),
     };
 
     private static string ActionIcon(string actionType) =>

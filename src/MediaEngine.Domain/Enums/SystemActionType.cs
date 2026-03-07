@@ -135,4 +135,23 @@ public static class SystemActionType
 
     /// <summary>Two Hubs were merged when a shared relationship was discovered.</summary>
     public const string HubMerged = "HubMerged";
+
+    // ── Consolidated Pipeline Events ──────────────────────────────────
+
+    /// <summary>A media file was successfully ingested and enriched (end-to-end summary).</summary>
+    public const string MediaAdded = "MediaAdded";
+
+    /// <summary>Metadata was updated for an existing media item (re-hydration or re-score).</summary>
+    public const string MediaUpdated = "MediaUpdated";
+
+    /// <summary>A media file failed to ingest (corrupt, quarantined, or unprocessable).</summary>
+    public const string MediaFailed = "MediaFailed";
+
+    // ── Folder Maintenance ────────────────────────────────────────────
+
+    /// <summary>An empty folder was cleaned up during reconciliation.</summary>
+    public const string FolderCleaned = "FolderCleaned";
+
+    /// <summary>A person folder was renamed following a metadata update (e.g. name change).</summary>
+    public const string PersonFolderRenamed = "PersonFolderRenamed";
 }

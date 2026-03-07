@@ -801,6 +801,28 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
                     if (!string.IsNullOrWhiteSpace(claimValue))
                         claims.Add(new ProviderClaim(prop.ClaimKey, claimValue, prop.Confidence));
                 }
+
+                // For entity-valued multi-valued properties, also emit bare QIDs
+                // from the Uris GROUP_CONCAT (e.g. franchise_qid, series_qid).
+                if (prop.IsEntityValued)
+                {
+                    var urisConcatenated = binding.ContainsKey(varName + "Uris")
+                        ? binding[varName + "Uris"]?["value"]?.GetValue<string>()
+                        : null;
+
+                    if (!string.IsNullOrWhiteSpace(urisConcatenated))
+                    {
+                        var uris = urisConcatenated.Split(WikidataSparqlPropertyMap.MultiValueSeparator,
+                            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+                        foreach (var uri in uris)
+                        {
+                            var bareQid = StripEntityUri(uri);
+                            if (!string.IsNullOrWhiteSpace(bareQid))
+                                claims.Add(new ProviderClaim(prop.ClaimKey + "_qid", bareQid, prop.Confidence));
+                        }
+                    }
+                }
             }
             else
             {
@@ -821,10 +843,44 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
                 var claimValue = ValueTransformRegistry.Apply(prop.ValueTransform, rawValue);
                 if (!string.IsNullOrWhiteSpace(claimValue))
                     claims.Add(new ProviderClaim(prop.ClaimKey, claimValue, prop.Confidence));
+
+                // For entity-valued single-valued properties, also emit bare QID
+                // from the raw URI binding (e.g. based_on_qid).
+                if (prop.IsEntityValued)
+                {
+                    var entityUri = binding.ContainsKey(varName)
+                        ? binding[varName]?["value"]?.GetValue<string>()
+                        : null;
+
+                    if (!string.IsNullOrWhiteSpace(entityUri))
+                    {
+                        var bareQid = StripEntityUri(entityUri);
+                        if (!string.IsNullOrWhiteSpace(bareQid))
+                            claims.Add(new ProviderClaim(prop.ClaimKey + "_qid", bareQid, prop.Confidence));
+                    }
+                }
             }
         }
 
         return claims;
+    }
+
+    /// <summary>
+    /// Strips a Wikidata entity URI (e.g. <c>http://www.wikidata.org/entity/Q937618</c>)
+    /// to a bare QID (e.g. <c>Q937618</c>). Returns <c>null</c> if the value is not
+    /// a recognisable entity URI.
+    /// </summary>
+    private static string? StripEntityUri(string value)
+    {
+        const string prefix = "http://www.wikidata.org/entity/";
+        if (value.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            return value[prefix.Length..];
+
+        // Already a bare QID (e.g. "Q937618")?
+        if (value.Length > 1 && value[0] is 'Q' or 'q' && char.IsDigit(value[1]))
+            return value;
+
+        return null;
     }
 
     // ── Configuration Helpers ────────────────────────────────────────────────

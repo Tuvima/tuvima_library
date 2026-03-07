@@ -49,6 +49,14 @@ public static class ReviewTrigger
     public const string UniverseMatchFailed = "UniverseMatchFailed";
 
     /// <summary>
+    /// The scoring engine detected a metadata conflict: two or more claims for
+    /// the same field have confidence values within the conflict epsilon. The file
+    /// is still organised with the best guess, but the user should verify the
+    /// conflicting field.
+    /// </summary>
+    public const string MetadataConflict = "MetadataConflict";
+
+    /// <summary>
     /// The media type could not be determined with sufficient confidence.
     /// The file's container format is shared across multiple media types
     /// (e.g. MP3 → Audiobook/Music/Podcast, MP4 → Movie/TV Show) and

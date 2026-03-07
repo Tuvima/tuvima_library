@@ -510,7 +510,24 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 await TryAutoResolveAndOrganizeAsync(
                     request, scored.OverallConfidence, ct).ConfigureAwait(false);
             }
+
+            // Check for metadata conflicts after post-hydration re-scoring.
+            // Conflicts don't block organization — just surface them for user review.
+            var conflictedFields = scored.FieldScores
+                .Where(f => f.IsConflicted && f.Key != "media_type")
+                .Select(f => f.Key)
+                .ToList();
+
+            if (conflictedFields.Count > 0)
+            {
+                await CreateMetadataConflictReviewItemAsync(
+                    request.EntityId, scored.OverallConfidence, conflictedFields, ct)
+                    .ConfigureAwait(false);
+            }
         }
+
+        // Create a single consolidated MediaAdded activity entry at the very end.
+        await CreateMediaAddedEntryAsync(request.EntityId, result, ct).ConfigureAwait(false);
 
         _logger.LogInformation(
             "Hydration pipeline complete for entity {Id}: S1={S1} S2={S2} total={Total} review={Review}",
@@ -675,6 +692,116 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     }
 
     /// <summary>
+    /// Creates a single consolidated <see cref="SystemActionType.MediaAdded"/> activity
+    /// entry at the END of the hydration pipeline. Reads final canonical values to build
+    /// a rich JSON payload: title, author, year, media_type, cover URL, hub_name,
+    /// confidence, organized_path, wikidata_qid, stage claim counts, needs_review flag.
+    /// Wrapped in try/catch — never aborts the pipeline.
+    /// </summary>
+    private async Task CreateMediaAddedEntryAsync(
+        Guid entityId, HydrationResult result, CancellationToken ct)
+    {
+        try
+        {
+            var canonicals = await _canonicalRepo.GetByEntityAsync(entityId, ct)
+                .ConfigureAwait(false);
+
+            string? Val(string key) => canonicals.FirstOrDefault(c => c.Key == key)?.Value;
+
+            var title     = Val("title")      ?? "Unknown";
+            var author    = Val("author")      ?? string.Empty;
+            var year      = Val("year")        ?? string.Empty;
+            var mediaType = Val("media_type")  ?? string.Empty;
+            var qid       = Val("wikidata_qid");
+
+            // Look up the asset to get the final file path.
+            var asset = await _assetRepo.FindByIdAsync(entityId, ct).ConfigureAwait(false);
+            var organizedPath = asset?.FilePathRoot;
+
+            // Cover art URL for Dashboard rich card display.
+            var coverUrl = $"/stream/{entityId}/cover";
+
+            // Resolve hub name from the work → hub chain.
+            string? hubName = null;
+            var workId = await _hubRepo.GetWorkIdByMediaAssetAsync(entityId, ct)
+                .ConfigureAwait(false);
+            if (workId is not null)
+            {
+                var allHubs = await _hubRepo.GetAllAsync(ct).ConfigureAwait(false);
+                var parentHub = allHubs.FirstOrDefault(h =>
+                    h.Works.Any(w => w.Id == workId.Value));
+                hubName = parentHub?.DisplayName;
+            }
+
+            // Compute overall confidence from current canonical state.
+            double confidence = 0;
+            try
+            {
+                var allClaims = await _claimRepo.GetByEntityAsync(entityId, ct)
+                    .ConfigureAwait(false);
+                var providerConfigs = _configLoader.LoadAllProviders();
+                var scoring = _configLoader.LoadScoring();
+                var (weights, fieldWeights) = ScoringHelper.BuildWeightMaps(providerConfigs, _providers);
+                var ctx = new Intelligence.Models.ScoringContext
+                {
+                    EntityId             = entityId,
+                    Claims               = allClaims,
+                    ProviderWeights      = weights,
+                    ProviderFieldWeights = fieldWeights,
+                    Configuration        = new Intelligence.Models.ScoringConfiguration
+                    {
+                        AutoLinkThreshold     = scoring.AutoLinkThreshold,
+                        ConflictThreshold     = scoring.ConflictThreshold,
+                        ConflictEpsilon       = scoring.ConflictEpsilon,
+                        StaleClaimDecayDays   = scoring.StaleClaimDecayDays,
+                        StaleClaimDecayFactor = scoring.StaleClaimDecayFactor,
+                    },
+                };
+                var scored = await _scoringEngine.ScoreEntityAsync(ctx, ct)
+                    .ConfigureAwait(false);
+                confidence = scored.OverallConfidence;
+            }
+            catch
+            {
+                // If scoring fails, use 0 — the MediaAdded entry is still useful.
+            }
+
+            var authorPart = string.IsNullOrWhiteSpace(author) ? string.Empty : $" by {author}";
+            var richJson = System.Text.Json.JsonSerializer.Serialize(new
+            {
+                title,
+                author,
+                year,
+                media_type      = mediaType,
+                confidence,
+                cover           = coverUrl,
+                hub_name        = hubName ?? string.Empty,
+                organized_path  = organizedPath ?? string.Empty,
+                wikidata_qid    = qid ?? string.Empty,
+                stage1_claims   = result.Stage1ClaimsAdded,
+                stage2_claims   = result.Stage2ClaimsAdded,
+                needs_review    = result.NeedsReview,
+                entity_id       = entityId.ToString(),
+            });
+
+            await _activityRepo.LogAsync(new SystemActivityEntry
+            {
+                ActionType  = SystemActionType.MediaAdded,
+                EntityId    = entityId,
+                EntityType  = "MediaAsset",
+                HubName     = hubName ?? title,
+                ChangesJson = richJson,
+                Detail      = $"Added — \"{title}\"{authorPart}",
+            }, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex,
+                "Failed to create MediaAdded activity entry for entity {Id}", entityId);
+        }
+    }
+
+    /// <summary>
     /// Creates a review queue entry and publishes events.
     /// Shared by ContentMatchFailed, UniverseMatchFailed, and LowConfidence triggers.
     /// Includes dedup check: skips creation if a pending item with the same trigger
@@ -735,6 +862,69 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 reviewEntry.Id, request.EntityId, trigger,
                 titleCanonical?.Value),
             ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Creates a <see cref="ReviewTrigger.MetadataConflict"/> review queue entry
+    /// when the scoring engine detects conflicting canonical values after hydration.
+    /// Conflicts don't block organization — the file proceeds with the best guess.
+    /// </summary>
+    private async Task CreateMetadataConflictReviewItemAsync(
+        Guid entityId,
+        double confidence,
+        List<string> conflictedFields,
+        CancellationToken ct)
+    {
+        try
+        {
+            // Dedup: skip if a pending MetadataConflict review already exists.
+            var existing = await _reviewRepo.GetByEntityAsync(entityId, ct)
+                .ConfigureAwait(false);
+
+            if (existing.Any(r => r.Status == ReviewStatus.Pending
+                                  && r.Trigger == ReviewTrigger.MetadataConflict))
+            {
+                _logger.LogDebug(
+                    "MetadataConflict review item already exists for entity {Id} — skipping.",
+                    entityId);
+                return;
+            }
+
+            var detail = $"Conflicting metadata: {string.Join(", ", conflictedFields)}";
+            var entry = new ReviewQueueEntry
+            {
+                Id              = Guid.NewGuid(),
+                EntityId        = entityId,
+                EntityType      = "MediaAsset",
+                Trigger         = ReviewTrigger.MetadataConflict,
+                ConfidenceScore = confidence,
+                Detail          = detail,
+                CreatedAt       = DateTimeOffset.UtcNow,
+            };
+
+            await _reviewRepo.InsertAsync(entry, ct).ConfigureAwait(false);
+
+            await _activityRepo.LogAsync(new SystemActivityEntry
+            {
+                ActionType = SystemActionType.ReviewItemCreated,
+                EntityId   = entityId,
+                Detail     = detail,
+            }, ct).ConfigureAwait(false);
+
+            await _eventPublisher.PublishAsync(
+                "ReviewItemCreated",
+                new ReviewItemCreatedEvent(entry.Id, entityId, ReviewTrigger.MetadataConflict, null),
+                ct).ConfigureAwait(false);
+
+            _logger.LogInformation(
+                "MetadataConflict review item created for entity {Id}: {Detail}",
+                entityId, detail);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex,
+                "Failed to create MetadataConflict review item for entity {Id}", entityId);
+        }
     }
 
     /// <summary>
@@ -926,11 +1116,18 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             {
                 await RunFirmHubLinkAsync(workId.Value, mediaAssetId, canonicals, ct)
                     .ConfigureAwait(false);
+
+                // Mark the Work's wikidata_status as "confirmed" now that QID is verified.
+                await _hubRepo.UpdateWorkWikidataStatusAsync(workId.Value, "confirmed", ct)
+                    .ConfigureAwait(false);
             }
             else
             {
                 // Path B: provisional text-based matching — leave for future sprint.
-                // For now, set wikidata_status to 'pending' (already the default).
+                // Stamp wikidata_checked_at so we know we tried, but leave status as "pending".
+                await _hubRepo.UpdateWorkWikidataStatusAsync(workId.Value, "pending", ct)
+                    .ConfigureAwait(false);
+
                 _logger.LogDebug(
                     "Hub intelligence: no QID for work {WorkId} — leaving standalone (pending)",
                     workId.Value);
@@ -1042,16 +1239,9 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                     .ConfigureAwait(false);
             }
 
-            await _activityRepo.LogAsync(new SystemActivityEntry
-            {
-                ActionType = SystemActionType.HubAssigned,
-                HubName    = matchedHub.DisplayName,
-                EntityId   = workId,
-                Detail     = $"Work assigned to Hub '{matchedHub.DisplayName}' (firm link)",
-            }, ct).ConfigureAwait(false);
-
-            _logger.LogInformation(
-                "Hub intelligence: work {WorkId} assigned to existing Hub {HubId} '{HubName}'",
+            // Demoted from activity ledger to debug log (Phase 5 — activity consolidation).
+            _logger.LogDebug(
+                "HubAssigned — work {WorkId} assigned to existing Hub {HubId} '{HubName}'",
                 workId, matchedHub.Id, matchedHub.DisplayName);
         }
         else if (allRelationships.Count > 0)
@@ -1077,25 +1267,10 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             await _hubRepo.AssignWorkToHubAsync(workId, newHub.Id, ct)
                 .ConfigureAwait(false);
 
-            await _activityRepo.LogAsync(new SystemActivityEntry
-            {
-                ActionType = SystemActionType.HubCreated,
-                HubName    = displayName,
-                EntityId   = newHub.Id,
-                Detail     = $"Hub '{displayName}' created from {bestRel.RelType} ({bestRel.RelQid})",
-            }, ct).ConfigureAwait(false);
-
-            await _activityRepo.LogAsync(new SystemActivityEntry
-            {
-                ActionType = SystemActionType.HubAssigned,
-                HubName    = displayName,
-                EntityId   = workId,
-                Detail     = $"Work assigned to new Hub '{displayName}' (firm link)",
-            }, ct).ConfigureAwait(false);
-
-            _logger.LogInformation(
-                "Hub intelligence: created new Hub {HubId} '{HubName}' for work {WorkId}",
-                newHub.Id, displayName, workId);
+            // Demoted from activity ledger to debug log (Phase 5 — activity consolidation).
+            _logger.LogDebug(
+                "HubCreated — Hub '{HubName}' created from {RelType} ({Qid}); work {WorkId} assigned",
+                displayName, bestRel.RelType, bestRel.RelQid, workId);
         }
     }
 
@@ -1108,6 +1283,23 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     {
         string[] relKeys = ["franchise", "series", "fictional_universe", "based_on", "preceded_by", "followed_by"];
 
+        // Build a quick lookup for companion _qid claims (e.g. "franchise_qid" → ["Q937618", ...]).
+        var qidLookup = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var c in claims)
+        {
+            if (c.ClaimKey.EndsWith("_qid", StringComparison.OrdinalIgnoreCase)
+                && !string.IsNullOrWhiteSpace(c.ClaimValue))
+            {
+                var baseKey = c.ClaimKey[..^4]; // "franchise_qid" → "franchise"
+                if (!qidLookup.TryGetValue(baseKey, out var list))
+                {
+                    list = [];
+                    qidLookup[baseKey] = list;
+                }
+                list.Add(c.ClaimValue.Trim());
+            }
+        }
+
         var result = new List<(string RelType, List<(string Qid, string? Label)> Qids)>();
 
         foreach (var key in relKeys)
@@ -1119,16 +1311,21 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
 
             if (matchingClaims.Count == 0) continue;
 
-            var qids = new List<(string Qid, string? Label)>();
-            foreach (var claim in matchingClaims)
-            {
-                var value = claim.ClaimValue.Trim();
+            // Get companion QIDs for this relationship key, if available.
+            qidLookup.TryGetValue(key, out var companionQids);
 
-                // For entity-valued properties, the claim value is the label (human-readable).
-                // We need to check if we also have a wikidata_qid canonical or if the value
-                // itself is a QID. In practice, multi-valued entity properties store labels.
-                // The raw QID URIs are available as separate claims.
-                qids.Add((value, value));
+            var qids = new List<(string Qid, string? Label)>();
+            for (var i = 0; i < matchingClaims.Count; i++)
+            {
+                var label = matchingClaims[i].ClaimValue.Trim();
+
+                // Use the companion QID if available (matched by position);
+                // fall back to the label value if no companion QID exists.
+                var actualQid = companionQids is not null && i < companionQids.Count
+                    ? companionQids[i]
+                    : label;
+
+                qids.Add((actualQid, label));
             }
 
             if (qids.Count > 0)
