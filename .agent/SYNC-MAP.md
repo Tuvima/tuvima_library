@@ -1,6 +1,6 @@
 # Antigravity ↔ Claude Code — Sync Map
 
-> **Last synced:** 2026-03-05
+> **Last synced:** 2026-03-07
 >
 > **Canonical source of truth:** `CLAUDE.md` (repo root)
 >

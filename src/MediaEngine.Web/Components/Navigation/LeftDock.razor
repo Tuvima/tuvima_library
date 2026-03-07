@@ -1,49 +1,21 @@
 @namespace MediaEngine.Web.Components.Navigation
 @inject NavigationManager Nav
 @inject DeviceContextService DeviceContext
-@inject UIOrchestratorService Orchestrator
 @implements IDisposable
 
 @using MediaEngine.Web.Models.ViewDTOs
 
-@* Left Navigation Dock — Plex-inspired translucent sidebar.
-   Narrow state (64px): icon-only, fixed left.
-   Expanded state (hover, 280px): overlay with labels + full logo.
-   Content area has permanent left margin for the narrow dock. *@
+@* Left Navigation Dock — icon-only vertical rail for page navigation.
+   Narrow state (52px): icon-only, fixed left.
+   Expanded state (hover, 200px): overlay with labels (no logo).
+   Logo, search, profile, and clock have moved to the TopBar. *@
 
 <div class="left-dock @(_expanded ? "left-dock-expanded" : "")"
      @onmouseenter="@(() => _expanded = true)"
      @onmouseleave="@(() => _expanded = false)">
 
-    @* ── Logo area ── *@
-    <div class="dock-logo">
-        @if (_expanded)
-        {
-            <MudLink Href="/" Underline="Underline.None" Style="text-decoration: none; display: flex; align-items: center;">
-                <AppLogo Style="height: 36px; display: block;" />
-            </MudLink>
-        }
-        else
-        {
-            <MudLink Href="/" Underline="Underline.None" Style="text-decoration: none; display: flex; align-items: center; justify-content: center;">
-                <img src="images/tuvima-icon.svg" alt="Tuvima" style="height: 32px; width: 32px;" />
-            </MudLink>
-        }
-    </div>
-
     @* ── Navigation items ── *@
     <nav class="dock-nav">
-
-        @* Search *@
-        <div class="dock-item @(IsActive("/search") ? "dock-item-active" : "")"
-             @onclick="@(() => OnSearchRequested.InvokeAsync())"
-             title="Search (Ctrl+K)">
-            <MudIcon Icon="@Icons.Material.Filled.Search" Size="Size.Small" />
-            @if (_expanded)
-            {
-                <span class="dock-label">Search</span>
-            }
-        </div>
 
         @* Virtual Libraries *@
         @foreach (var lib in Config.Libraries.Where(l => l.Enabled))
@@ -65,10 +37,8 @@
         }
     </nav>
 
-    @* ── Bottom section: Settings, Profile, Clock ── *@
+    @* ── Bottom: Settings only ── *@
     <div class="dock-bottom">
-
-        @* Settings *@
         <div class="dock-item @(IsActive("/settings") ? "dock-item-active" : "")"
              @onclick="@(() => Nav.NavigateTo("/settings"))"
              title="Settings">
@@ -78,25 +48,6 @@
                 <span class="dock-label">Settings</span>
             }
         </div>
-
-        @* Profile avatar *@
-        <div class="dock-item" title="Profile" @onclick="@(() => Nav.NavigateTo("/settings/general"))">
-            <MudBadge Content="@ReviewCount" Color="Color.Error" Overlap="true"
-                      Visible="@(ReviewCount > 0)" Bordered="true">
-                <MudAvatar Size="Size.Small" Style="@($"background: {AvatarColor}; cursor: pointer; width: 28px; height: 28px; font-size: 0.75rem;")">
-                    @AvatarInitial
-                </MudAvatar>
-            </MudBadge>
-            @if (_expanded)
-            {
-                <span class="dock-label">@DisplayName</span>
-            }
-        </div>
-
-        @* Clock *@
-        <div class="dock-clock">
-            <span class="dock-clock-text">@_currentTime</span>
-        </div>
     </div>
 </div>
 
@@ -105,6 +56,8 @@
     [Parameter] public string? ActiveLibraryKey { get; set; }
     [Parameter] public EventCallback<VirtualLibrary?> OnLibrarySelected { get; set; }
     [Parameter] public HashSet<string> AvailableMediaTypes { get; set; } = [];
+
+    // Legacy parameters retained for backward compat — ignored, values live in TopBar now.
     [Parameter] public EventCallback OnSearchRequested { get; set; }
     [Parameter] public string AvatarColor { get; set; } = "#C9922E";
     [Parameter] public string AvatarInitial { get; set; } = "?";
@@ -112,19 +65,10 @@
     [Parameter] public int ReviewCount { get; set; }
 
     private bool _expanded;
-    private string _currentTime = DateTime.Now.ToString("h:mmtt").ToLower();
-    private Timer? _clockTimer;
 
     protected override void OnInitialized()
     {
         DeviceContext.OnChanged += OnDeviceChanged;
-        _clockTimer = new Timer(UpdateClock, null, TimeSpan.Zero, TimeSpan.FromSeconds(30));
-    }
-
-    private void UpdateClock(object? state)
-    {
-        _currentTime = DateTime.Now.ToString("h:mmtt").ToUpper();
-        InvokeAsync(StateHasChanged);
     }
 
     private void OnDeviceChanged() => InvokeAsync(StateHasChanged);
@@ -152,7 +96,6 @@
     public void Dispose()
     {
         DeviceContext.OnChanged -= OnDeviceChanged;
-        _clockTimer?.Dispose();
     }
 }
 
@@ -163,19 +106,18 @@
         top: 12px;
         left: 0;
         bottom: 12px;
-        width: 64px;
+        width: 52px;
         z-index: 1200;
         display: flex;
         flex-direction: column;
-        padding: 16px 8px;
+        padding: 12px 6px;
 
         background: var(--app-dock-bg);
         backdrop-filter: blur(20px);
         -webkit-backdrop-filter: blur(20px);
-        border: none; /* Borderless for premium feel */
+        border: none;
 
-        /* Flush left edge, rounded right corners */
-        border-radius: 0 20px 20px 0;
+        border-radius: 0 16px 16px 0;
 
         transition: width 0.25s ease;
         overflow: hidden;
@@ -183,27 +125,8 @@
 
     /* ── Expanded dock (hover overlay) ───────────────────────────────── */
     .left-dock-expanded {
-        width: 240px;
-        box-shadow: 8px 0 32px rgba(0, 0, 0, 0.12);
-    }
-
-    .app-dark .left-dock-expanded {
+        width: 200px;
         box-shadow: 8px 0 40px rgba(0, 0, 0, 0.55);
-    }
-
-    /* ── Logo area ───────────────────────────────────────────────────── */
-    .dock-logo {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        height: 48px;
-        margin-bottom: 20px;
-        flex-shrink: 0;
-    }
-
-    .left-dock-expanded .dock-logo {
-        justify-content: flex-start;
-        padding-left: 8px;
     }
 
     /* ── Navigation area ─────────────────────────────────────────────── */
@@ -220,33 +143,32 @@
     .dock-item {
         display: flex;
         align-items: center;
-        gap: 16px;
-        padding: 11px 12px;
+        gap: 14px;
+        padding: 10px 10px;
         border-radius: 6px;
         cursor: pointer;
         white-space: nowrap;
         transition: background 0.15s ease, color 0.15s ease;
-        min-height: 44px;
+        min-height: 40px;
         color: var(--app-dock-text);
     }
 
     .left-dock:not(.left-dock-expanded) .dock-item {
         justify-content: center;
-        padding: 11px;
+        padding: 10px;
     }
 
     .dock-item:hover {
         background: var(--app-dock-hover);
     }
 
-    /* Active: no background fill — white icon + label, amber left-edge line */
+    /* Active: white icon + label, amber left-edge line */
     .dock-item-active {
         background: transparent;
         color: #F8F8F8;
         position: relative;
     }
 
-    /* Subtle vertical accent bar on the left edge */
     .dock-item-active::before {
         content: "";
         position: absolute;
@@ -265,7 +187,7 @@
     /* ── Label (only visible when expanded) ──────────────────────────── */
     .dock-label {
         font-family: 'Montserrat', sans-serif;
-        font-size: 1rem;
+        font-size: 0.9rem;
         font-weight: 500;
         color: inherit;
     }
@@ -281,28 +203,6 @@
         gap: 0;
         flex-shrink: 0;
         margin-top: 8px;
-        border-top: 1px solid var(--app-dock-border);
         padding-top: 8px;
-    }
-
-    /* ── Clock ────────────────────────────────────────────────────────── */
-    .dock-clock {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 8px 12px;
-        min-height: 36px;
-    }
-
-    .dock-clock-text {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 0.8rem;
-        font-weight: 500;
-        color: var(--app-dock-text-muted);
-        letter-spacing: 0.03em;
-    }
-
-    .left-dock-expanded .dock-clock {
-        justify-content: flex-start;
     }
 </style>

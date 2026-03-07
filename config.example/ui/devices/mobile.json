@@ -5,8 +5,7 @@
     "features_disabled": ["view_toggle", "property_mapper", "matching_pipeline", "universe_schema_editing"],
     "pages_disabled": [],
     "allow_text_input": true,
-    "min_touch_target_px": 48,
-    "force_dark_mode": false
+    "min_touch_target_px": 48
   },
   "content_padding": "pa-2",
   "content_max_width": "Full",
@@ -14,15 +13,19 @@
     "appbar_style": "compact",
     "logo_variant": "icon",
     "intent_dock_items": ["Hubs", "Watch", "Read", "Listen"],
-    "intent_dock_style": "normal"
+    "intent_dock_style": "normal",
+    "top_bar_visible": true,
+    "top_bar_style": "mobile",
+    "dock_visible": false
   },
   "pages": {
     "home": {
       "hub_hero_enabled": true,
-      "hub_hero_layout": "stacked",
+      "hub_hero_layout": "cinematic",
       "progress_cards_layout": "stacked",
       "bento_columns": 1,
       "bento_tile_style": "normal",
+      "swimlane_card_width": 140,
       "pending_files_display": "badge"
     },
     "preferences": {

@@ -1,204 +1,275 @@
 @namespace MediaEngine.Web.Components.Universe
 
-@* Hero Banner Row — Plex-inspired wide banner cards at the top of the Home page.
-   Primary banner: "Continue Watching" with the first Hub.
-   Secondary banner: "Next Up" with the second Hub.
-   Uses mock progress data until UserState API exists.
+@using MediaEngine.Web.Services.Integration
 
-   Layout variants:
-     "two-column"           → Default web: two banners side by side
-     "stacked"              → Mobile: single banner, stacked
-     "two-column-oversized" → Television: larger banners
-     "hidden"               → Not rendered *@
+@* Cinematic Hero Banner — Single full-width banner with blurred cover art backdrop.
+   Displays the primary Hub with dark vignette overlay and metadata badges.
+   Gracefully falls back to a gradient when no cover art is available. *@
 
-@if (Layout != "hidden")
+@if (Visible && Hub is not null)
 {
-    <div class="hero-banner-row @LayoutClass">
-        @* ── Primary Banner ── *@
-        @if (Hub is not null)
+    <div class="hero-cinema @SizeClass" @onclick="OnClick">
+
+        @* ── Blurred cover art background ── *@
+        @if (!string.IsNullOrEmpty(Hub.CoverUrl))
         {
-            <div class="hero-banner hero-banner-primary" style="@BannerBgStyle(Hub)">
-                <div class="hero-banner-overlay" />
-                <div class="hero-banner-content">
-                    <span class="hero-banner-tag">CONTINUE WATCHING</span>
-                    <h2 class="hero-banner-title">@Hub.DisplayName</h2>
-                    <p class="hero-banner-subtitle">@HubMeta(Hub)</p>
-                </div>
-            </div>
+            <img src="@Hub.CoverUrl"
+                 alt=""
+                 class="hero-cinema-bg" />
         }
 
-        @* ── Secondary Banner ── *@
-        @if (SecondaryHub is not null && !IsStacked)
+        @* ── Dark vignette overlay ── *@
+        <div class="hero-cinema-vignette" />
+
+        @* ── Accent colour fallback gradient (when no cover art) ── *@
+        @if (string.IsNullOrEmpty(Hub.CoverUrl))
         {
-            <div class="hero-banner hero-banner-secondary" style="@BannerBgStyle(SecondaryHub)">
-                <div class="hero-banner-overlay" />
-                <div class="hero-banner-content">
-                    <span class="hero-banner-tag">NEXT UP IN THE COLLECTION</span>
-                    <h2 class="hero-banner-title">@SecondaryHub.DisplayName</h2>
-                    <p class="hero-banner-subtitle">@HubMeta(SecondaryHub)</p>
-                </div>
-            </div>
+            <div class="hero-cinema-gradient" style="--hero-accent: @(Hub.DominantHexColor ?? "#C9922E");" />
         }
+
+        @* ── Content at bottom-left ── *@
+        <div class="hero-cinema-content">
+            <h2 class="hero-cinema-title">@Hub.DisplayName</h2>
+
+            @* Metadata badges *@
+            <div class="hero-cinema-badges">
+                @if (!string.IsNullOrEmpty(Hub.Year))
+                {
+                    <span class="hero-badge">@Hub.Year</span>
+                }
+                @if (!string.IsNullOrEmpty(Hub.PrimaryMediaType))
+                {
+                    <span class="hero-badge">@FormatMediaType(Hub.PrimaryMediaType)</span>
+                }
+                @if (!string.IsNullOrEmpty(Hub.Genre))
+                {
+                    @foreach (var genre in Hub.Genre.Split(',', ';').Take(2).Select(g => g.Trim()).Where(g => g.Length > 0))
+                    {
+                        <span class="hero-badge">@genre</span>
+                    }
+                }
+                @if (!string.IsNullOrEmpty(Hub.Rating))
+                {
+                    <span class="hero-badge">@Hub.Rating</span>
+                }
+                @if (Hub.WorkCount > 1)
+                {
+                    <span class="hero-badge">@Hub.WorkCount works</span>
+                }
+            </div>
+
+            @* Series info *@
+            @if (!string.IsNullOrEmpty(Hub.Series))
+            {
+                <p class="hero-cinema-series">@Hub.Series</p>
+            }
+
+            @* Author/creator *@
+            @if (!string.IsNullOrEmpty(Hub.Author))
+            {
+                <p class="hero-cinema-subtitle">@Hub.Author</p>
+            }
+
+            @* Description *@
+            @if (!string.IsNullOrEmpty(Hub.Description))
+            {
+                <p class="hero-cinema-description">@Truncate(Hub.Description, 200)</p>
+            }
+        </div>
     </div>
 }
 
 @code {
     [Parameter] public HubViewModel? Hub { get; set; }
-    [Parameter] public HubViewModel? SecondaryHub { get; set; }
 
-    /// <summary>
-    /// Layout variant driven by DeviceContext.
-    /// Accepted values: "two-column" (default), "stacked", "two-column-oversized", "hidden".
-    /// </summary>
-    [Parameter] public string Layout { get; set; } = "two-column";
+    /// <summary>Controls visibility. Driven by device-context hero settings.</summary>
+    [Parameter] public bool Visible { get; set; } = true;
 
-    private bool IsStacked =>
-        string.Equals(Layout, "stacked", StringComparison.OrdinalIgnoreCase);
+    /// <summary>Callback when the hero banner is clicked.</summary>
+    [Parameter] public EventCallback<HubViewModel> OnHubClicked { get; set; }
 
-    private string LayoutClass => Layout switch
+    private string SizeClass => "hero-cinema-desktop";
+
+    private async Task OnClick()
     {
-        "stacked"              => "hero-banner-row-stacked",
-        "two-column-oversized" => "hero-banner-row-oversized",
-        _                      => string.Empty,
-    };
-
-    private string BannerBgStyle(HubViewModel hub)
-    {
-        var hex = hub.DominantHexColor ?? "#C9922E";
-        return $"--banner-accent: {hex};";
+        if (Hub is not null)
+            await OnHubClicked.InvokeAsync(Hub);
     }
 
-    private string HubMeta(HubViewModel hub) =>
-        $"{hub.MediaTypes} — {hub.WorkCount} {(hub.WorkCount == 1 ? "work" : "works")}";
+    private static string Truncate(string text, int maxLength) =>
+        text.Length <= maxLength ? text : text[..maxLength].TrimEnd() + "…";
+
+    private static string FormatMediaType(string mediaType)
+    {
+        var t = mediaType.ToLowerInvariant();
+        if (t.Contains("epub") || t.Contains("book"))  return "Book";
+        if (t.Contains("video") || t.Contains("movie")) return "Movie";
+        if (t.Contains("audio") || t.Contains("m4b"))   return "Audiobook";
+        if (t.Contains("comic") || t.Contains("cbz"))   return "Comic";
+        if (t.Contains("mkv") || t.Contains("mp4"))     return "Video";
+        return mediaType;
+    }
 }
 
 <style>
-    /* ── Banner row container ────────────────────────────────────────── */
-    .hero-banner-row {
-        display: flex;
-        gap: 20px;
-        margin-bottom: 2rem;
-    }
-
-    .hero-banner-row-stacked {
-        flex-direction: column;
-    }
-
-    /* ── Individual banner card ──────────────────────────────────────── */
-    .hero-banner {
+    /* ── Cinematic hero container ──────────────────────────────────────── */
+    .hero-cinema {
         position: relative;
-        border-radius: 12px;
+        border-radius: 16px;
         overflow: hidden;
-        min-height: 260px;
+        cursor: pointer;
+        margin-bottom: 2rem;
         display: flex;
         align-items: flex-end;
-        cursor: pointer;
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
-        background: #111111;
+        background: #0A0A0A;
+        transition: transform 0.25s ease, box-shadow 0.25s ease;
     }
 
-    .hero-banner:hover {
+    .hero-cinema:hover {
         transform: translateY(-2px);
-        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+        box-shadow: 0 16px 48px rgba(0, 0, 0, 0.50);
     }
 
-    .hero-banner-primary {
-        flex: 2;
-        min-height: 300px;
+    .hero-cinema-desktop {
+        min-height: 400px;
     }
 
-    .hero-banner-secondary {
-        flex: 1;
-        min-height: 260px;
+    /* ── Blurred cover art background image ────────────────────────────── */
+    .hero-cinema-bg {
+        position: absolute;
+        inset: -30px;
+        width: calc(100% + 60px);
+        height: calc(100% + 60px);
+        object-fit: cover;
+        filter: blur(24px) brightness(0.5);
+        transform: scale(1.1);
+        pointer-events: none;
+        z-index: 0;
     }
 
-    /* ── Dark gradient overlay for text readability ──────────────────── */
-    .hero-banner-overlay {
+    /* ── Dark vignette overlay for text readability ─────────────────────── */
+    .hero-cinema-vignette {
         position: absolute;
         inset: 0;
         background: linear-gradient(
             to top,
-            rgba(0, 0, 0, 0.80) 0%,
-            rgba(0, 0, 0, 0.30) 40%,
-            transparent 70%
+            rgba(0, 0, 0, 0.85) 0%,
+            rgba(0, 0, 0, 0.40) 40%,
+            rgba(0, 0, 0, 0.15) 70%,
+            rgba(0, 0, 0, 0.10) 100%
         );
         pointer-events: none;
-    }
-
-    /* ── Banner text content ─────────────────────────────────────────── */
-    .hero-banner-content {
-        position: relative;
         z-index: 1;
-        padding: 1.5rem 2rem;
+    }
+
+    /* ── Gradient fallback (no cover art) ──────────────────────────────── */
+    .hero-cinema-gradient {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+            135deg,
+            var(--hero-accent) 0%,
+            rgba(0, 0, 0, 0.80) 60%,
+            #0A0A0A 100%
+        );
+        opacity: 0.4;
+        pointer-events: none;
+        z-index: 0;
+    }
+
+    /* ── Content overlay (bottom-left) ─────────────────────────────────── */
+    .hero-cinema-content {
+        position: relative;
+        z-index: 2;
+        padding: 2rem 2.5rem;
         width: 100%;
+        max-width: 700px;
     }
 
-    .hero-banner-tag {
+    .hero-cinema-title {
         font-family: 'Montserrat', sans-serif;
-        font-size: 0.7rem;
-        font-weight: 600;
-        letter-spacing: 0.08em;
-        color: rgba(255, 255, 255, 0.65);
-        text-transform: uppercase;
-        display: block;
-        margin-bottom: 6px;
-    }
-
-    .hero-banner-title {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 1.6rem;
+        font-size: 2.4rem;
         font-weight: 700;
         color: #ffffff;
-        margin: 0 0 4px 0;
-        line-height: 1.2;
+        margin: 0 0 10px 0;
+        line-height: 1.15;
+        text-shadow: 0 2px 12px rgba(0, 0, 0, 0.50);
     }
 
-    .hero-banner-primary .hero-banner-title {
-        font-size: 2rem;
+    /* ── Metadata badges ───────────────────────────────────────────────── */
+    .hero-cinema-badges {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-bottom: 10px;
     }
 
-    .hero-banner-subtitle {
+    .hero-badge {
         font-family: 'Montserrat', sans-serif;
-        font-size: 0.9rem;
+        font-size: 0.72rem;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        padding: 4px 10px;
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.12);
+        color: rgba(255, 255, 255, 0.85);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        border: 1px solid rgba(255, 255, 255, 0.10);
+        text-transform: uppercase;
+    }
+
+    .hero-cinema-series {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: rgba(255, 255, 255, 0.55);
+        margin: 0 0 4px 0;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        text-shadow: 0 1px 6px rgba(0, 0, 0, 0.40);
+    }
+
+    .hero-cinema-subtitle {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 1rem;
         font-weight: 400;
         color: rgba(255, 255, 255, 0.70);
+        margin: 0 0 8px 0;
+        text-shadow: 0 1px 6px rgba(0, 0, 0, 0.40);
+    }
+
+    .hero-cinema-description {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.88rem;
+        font-weight: 300;
+        line-height: 1.5;
+        color: rgba(255, 255, 255, 0.50);
         margin: 0;
+        text-shadow: 0 1px 4px rgba(0, 0, 0, 0.30);
     }
 
-    /* ── Oversized layout (television) ──────────────────────────────── */
-    .hero-banner-row-oversized .hero-banner {
-        min-height: 380px;
-    }
-
-    .hero-banner-row-oversized .hero-banner-title {
-        font-size: 2.4rem;
-    }
-
-    .hero-banner-row-oversized .hero-banner-content {
-        padding: 2.5rem 3rem;
-    }
-
-    /* ── Stacked layout (mobile) ────────────────────────────────────── */
-    .hero-banner-row-stacked .hero-banner-primary {
-        min-height: 220px;
-    }
-
-    /* ── Responsive fallback ────────────────────────────────────────── */
+    /* ── Responsive ────────────────────────────────────────────────────── */
     @@media (max-width: 768px) {
-        .hero-banner-row {
-            flex-direction: column;
+        .hero-cinema-desktop {
+            min-height: 240px;
         }
 
-        .hero-banner-primary {
-            min-height: 220px;
+        .hero-cinema-content {
+            padding: 1.25rem 1.5rem;
         }
 
-        .hero-banner-secondary {
-            display: none;
+        .hero-cinema-title {
+            font-size: 1.5rem;
         }
 
-        .hero-banner-title {
-            font-size: 1.4rem !important;
+        .hero-cinema-subtitle {
+            font-size: 0.85rem;
+        }
+
+        .hero-badge {
+            font-size: 0.65rem;
+            padding: 3px 8px;
         }
     }
 </style>

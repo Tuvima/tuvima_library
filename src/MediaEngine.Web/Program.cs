@@ -13,8 +13,7 @@ builder.Services.AddRazorComponents()
 builder.Services.AddMudServices();
 
 // ── Theming ───────────────────────────────────────────────────────────────────
-// Singleton: one theme instance shared across all connections; toggle is per-connection
-// (components hold their own _isDark flag synced via ThemeService.OnThemeChanged).
+// Singleton: dark-mode-only theme shared across all connections.
 builder.Services.AddSingleton<ThemeService>();
 
 // ── Engine API HTTP Client ────────────────────────────────────────────────────

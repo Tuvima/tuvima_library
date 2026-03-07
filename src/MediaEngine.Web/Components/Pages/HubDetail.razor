@@ -1,0 +1,363 @@
+@page "/hub/{Id:guid}"
+@inject UIOrchestratorService  Orchestrator
+@inject UniverseStateContainer  State
+@inject NavigationManager       Nav
+
+<PageTitle>@(_hub?.DisplayName ?? "Hub") — Tuvima Library</PageTitle>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4"
+                       Style="border-radius: 4px;" />
+}
+else if (_hub is null)
+{
+    <MudAlert Severity="Severity.Warning" Class="mb-4">Hub not found.</MudAlert>
+    <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => Nav.NavigateTo("/"))">
+        Back to Home
+    </MudButton>
+}
+else
+{
+    @* ── Back link ── *@
+    <MudButton Variant="Variant.Text" Color="Color.Default"
+               StartIcon="@Icons.Material.Filled.ArrowBack"
+               OnClick="@(() => Nav.NavigateTo("/"))"
+               Class="hub-detail-back mb-2">
+        Home
+    </MudButton>
+
+    @* ── Cinematic hero banner (reuse HubHero) ── *@
+    <HubHero Hub="@_hub" Visible="true" />
+
+    @* ── Works list ── *@
+    @if (_hub.Works.Count > 0)
+    {
+        <div class="hub-detail-works">
+            <h3 class="hub-detail-section-title">
+                @(_hub.Works.Count == 1 ? "1 Work" : $"{_hub.Works.Count} Works")
+            </h3>
+
+            @foreach (var group in _workGroups)
+            {
+                @if (_workGroups.Count > 1)
+                {
+                    <h4 class="hub-detail-group-title">@group.Label</h4>
+                }
+
+                <div class="hub-detail-work-list">
+                    @foreach (var work in group.Works)
+                    {
+                        <div class="hub-detail-work-card">
+                            @if (!string.IsNullOrEmpty(work.CoverUrl))
+                            {
+                                <img src="@work.CoverUrl" alt="@work.Title"
+                                     class="hub-detail-work-cover" loading="lazy" />
+                            }
+                            else
+                            {
+                                <div class="hub-detail-work-cover-placeholder">
+                                    <MudIcon Icon="@GetWorkIcon(work.MediaType)"
+                                             Style="font-size: 32px; color: rgba(255,255,255,0.25);" />
+                                </div>
+                            }
+
+                            <div class="hub-detail-work-info">
+                                <span class="hub-detail-work-title">@work.Title</span>
+
+                                @if (!string.IsNullOrEmpty(work.Author))
+                                {
+                                    <span class="hub-detail-work-meta">@work.Author</span>
+                                }
+
+                                <div class="hub-detail-work-badges">
+                                    @if (!string.IsNullOrEmpty(work.Year))
+                                    {
+                                        <span class="hub-detail-badge">@work.Year</span>
+                                    }
+                                    <span class="hub-detail-badge">@FormatMediaType(work.MediaType)</span>
+                                    @if (!string.IsNullOrEmpty(work.Narrator))
+                                    {
+                                        <span class="hub-detail-badge">Narrated by @work.Narrator</span>
+                                    }
+                                    @if (!string.IsNullOrEmpty(work.SeriesPosition))
+                                    {
+                                        <span class="hub-detail-badge">Part @work.SeriesPosition</span>
+                                    }
+                                </div>
+
+                                @if (!string.IsNullOrEmpty(work.Description))
+                                {
+                                    <p class="hub-detail-work-desc">@Truncate(work.Description, 300)</p>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    }
+
+    @* ── Metadata panel ── *@
+    <div class="hub-detail-metadata">
+        <h3 class="hub-detail-section-title">Details</h3>
+        <div class="hub-detail-meta-grid">
+            @foreach (var entry in GetMetadataEntries())
+            {
+                <div class="hub-detail-meta-row">
+                    <span class="hub-detail-meta-label">@entry.Label</span>
+                    <span class="hub-detail-meta-value">@entry.Value</span>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private bool _loading = true;
+    private HubViewModel? _hub;
+    private List<WorkGroup> _workGroups = [];
+
+    private sealed record WorkGroup(string Label, List<WorkViewModel> Works);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _loading = true;
+
+        // Try cached hubs first; load from Engine if needed.
+        if (!State.IsLoaded)
+            await Orchestrator.GetHubsAsync();
+
+        _hub = State.Hubs.FirstOrDefault(h => h.Id == Id);
+
+        if (_hub is not null)
+        {
+            _workGroups = _hub.Works
+                .GroupBy(w => FormatMediaType(w.MediaType))
+                .Select(g => new WorkGroup(g.Key, g.OrderBy(w => w.SequenceIndex ?? int.MaxValue).ToList()))
+                .ToList();
+        }
+
+        _loading = false;
+    }
+
+    private List<(string Label, string Value)> GetMetadataEntries()
+    {
+        if (_hub is null) return [];
+
+        var entries = new List<(string, string)>();
+
+        if (!string.IsNullOrEmpty(_hub.Author))   entries.Add(("Author", _hub.Author));
+        if (!string.IsNullOrEmpty(_hub.Year))      entries.Add(("Year", _hub.Year));
+        if (!string.IsNullOrEmpty(_hub.Genre))     entries.Add(("Genre", _hub.Genre));
+        if (!string.IsNullOrEmpty(_hub.Series))    entries.Add(("Series", _hub.Series));
+        if (!string.IsNullOrEmpty(_hub.Rating))    entries.Add(("Rating", _hub.Rating));
+        entries.Add(("Media Types", _hub.MediaTypes));
+        entries.Add(("Works", _hub.WorkCount.ToString()));
+        entries.Add(("Added", _hub.CreatedAt.LocalDateTime.ToString("d MMM yyyy")));
+
+        return entries;
+    }
+
+    private static string Truncate(string text, int maxLength) =>
+        text.Length <= maxLength ? text : text[..maxLength].TrimEnd() + "\u2026";
+
+    private static string FormatMediaType(string mediaType)
+    {
+        var t = mediaType.ToLowerInvariant();
+        if (t.Contains("epub") || t.Contains("book"))  return "Book";
+        if (t.Contains("video") || t.Contains("movie")) return "Movie";
+        if (t.Contains("audio") || t.Contains("m4b"))   return "Audiobook";
+        if (t.Contains("comic") || t.Contains("cbz"))   return "Comic";
+        if (t.Contains("mkv") || t.Contains("mp4"))     return "Video";
+        return mediaType;
+    }
+
+    private static string GetWorkIcon(string mediaType)
+    {
+        var t = mediaType.ToLowerInvariant();
+        if (t.Contains("video") || t.Contains("movie")) return Icons.Material.Filled.PlayCircle;
+        if (t.Contains("epub") || t.Contains("book"))   return Icons.Material.Filled.MenuBook;
+        if (t.Contains("audio"))                         return Icons.Material.Filled.Headphones;
+        if (t.Contains("comic") || t.Contains("cbz") || t.Contains("cbr")) return Icons.Material.Filled.AutoStories;
+        return Icons.Material.Filled.Folder;
+    }
+}
+
+<style>
+    /* ── Back button ── */
+    .hub-detail-back {
+        color: rgba(248, 248, 248, 0.60) !important;
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.85rem;
+        text-transform: none;
+        letter-spacing: 0;
+    }
+
+    /* ── Section titles ── */
+    .hub-detail-section-title {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: rgba(248, 248, 248, 0.90);
+        margin: 0 0 16px 0;
+    }
+
+    /* ── Works section ── */
+    .hub-detail-works {
+        margin-bottom: 2rem;
+    }
+
+    .hub-detail-group-title {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: rgba(248, 248, 248, 0.55);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin: 0 0 12px 0;
+    }
+
+    .hub-detail-work-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-bottom: 1.5rem;
+    }
+
+    .hub-detail-work-card {
+        display: flex;
+        gap: 16px;
+        padding: 16px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        transition: background 0.2s ease;
+    }
+
+    .hub-detail-work-card:hover {
+        background: rgba(255, 255, 255, 0.08);
+    }
+
+    .hub-detail-work-cover {
+        width: 80px;
+        height: 120px;
+        object-fit: cover;
+        border-radius: 6px;
+        flex-shrink: 0;
+    }
+
+    .hub-detail-work-cover-placeholder {
+        width: 80px;
+        height: 120px;
+        border-radius: 6px;
+        flex-shrink: 0;
+        background: rgba(255, 255, 255, 0.04);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .hub-detail-work-info {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+    }
+
+    .hub-detail-work-title {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 1rem;
+        font-weight: 600;
+        color: rgba(248, 248, 248, 0.90);
+        margin-bottom: 4px;
+    }
+
+    .hub-detail-work-meta {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.85rem;
+        color: rgba(248, 248, 248, 0.50);
+        margin-bottom: 8px;
+    }
+
+    .hub-detail-work-badges {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        margin-bottom: 8px;
+    }
+
+    .hub-detail-badge {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.65rem;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        padding: 3px 8px;
+        border-radius: 4px;
+        background: rgba(255, 255, 255, 0.10);
+        color: rgba(255, 255, 255, 0.75);
+        text-transform: uppercase;
+    }
+
+    .hub-detail-work-desc {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.82rem;
+        font-weight: 300;
+        line-height: 1.5;
+        color: rgba(248, 248, 248, 0.45);
+        margin: 0;
+    }
+
+    /* ── Metadata panel ── */
+    .hub-detail-metadata {
+        margin-bottom: 2rem;
+    }
+
+    .hub-detail-meta-grid {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 8px 24px;
+        padding: 16px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .hub-detail-meta-label {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: rgba(248, 248, 248, 0.45);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+
+    .hub-detail-meta-value {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.85rem;
+        color: rgba(248, 248, 248, 0.80);
+    }
+
+    /* ── Responsive ── */
+    @@media (max-width: 768px) {
+        .hub-detail-work-card {
+            padding: 12px;
+        }
+
+        .hub-detail-work-cover,
+        .hub-detail-work-cover-placeholder {
+            width: 60px;
+            height: 90px;
+        }
+
+        .hub-detail-meta-grid {
+            grid-template-columns: 1fr;
+            gap: 4px 0;
+        }
+
+        .hub-detail-meta-label {
+            margin-top: 8px;
+        }
+    }
+</style>

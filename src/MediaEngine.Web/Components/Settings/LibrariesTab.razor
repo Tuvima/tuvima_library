@@ -32,8 +32,7 @@ else
 {
 <MudPaper Elevation="0" Style="@GlassStyle">
 
-    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
-        <MudIcon Icon="@Icons.Material.Outlined.FolderOpen" Color="Color.Default" Class="mr-2" />
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-6">
         <MudText Typo="Typo.h6">Library Paths</MudText>
         @if (readOnly)
         {
@@ -44,9 +43,6 @@ else
             </MudChip>
         }
     </MudStack>
-    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
-        Tell me where to find and keep your media.
-    </MudText>
 
     @* ── Library Folder ─────────────────────────────────────────────────────── *@
     <div class="folder-path-row mb-5">
@@ -58,14 +54,14 @@ else
             <MudTextField @bind-Value="_libraryRoot"
                           @bind-Value:after="@(() => OnPathChanged(nameof(_libraryRoot)))"
                           Placeholder="/path/to/library"
-                          Variant="Variant.Outlined"
+                          Variant="Variant.Text"
                           FullWidth="true"
                           Immediate="true"
                           ReadOnly="@readOnly"
                           Margin="Margin.Dense" />
             <MudIconButton Icon="@Icons.Material.Outlined.FolderOpen"
                            Size="Size.Medium"
-                           Color="Color.Primary"
+                           Color="Color.Default"
                            Disabled="@readOnly"
                            OnClick="@(() => BrowseAsync(nameof(_libraryRoot)))"
                            title="Browse folders" />
@@ -85,14 +81,14 @@ else
             <MudTextField @bind-Value="_watchDir"
                           @bind-Value:after="@(() => OnPathChanged(nameof(_watchDir)))"
                           Placeholder="/path/to/watch"
-                          Variant="Variant.Outlined"
+                          Variant="Variant.Text"
                           FullWidth="true"
                           Immediate="true"
                           ReadOnly="@readOnly"
                           Margin="Margin.Dense" />
             <MudIconButton Icon="@Icons.Material.Outlined.FolderOpen"
                            Size="Size.Medium"
-                           Color="Color.Primary"
+                           Color="Color.Default"
                            Disabled="@readOnly"
                            OnClick="@(() => BrowseAsync(nameof(_watchDir)))"
                            title="Browse folders" />
@@ -114,14 +110,14 @@ else
             <MudTextField @bind-Value="_stagingDir"
                           @bind-Value:after="@(() => OnPathChanged(nameof(_stagingDir)))"
                           Placeholder="/path/to/staging"
-                          Variant="Variant.Outlined"
+                          Variant="Variant.Text"
                           FullWidth="true"
                           Immediate="true"
                           ReadOnly="@readOnly"
                           Margin="Margin.Dense" />
             <MudIconButton Icon="@Icons.Material.Outlined.FolderOpen"
                            Size="Size.Medium"
-                           Color="Color.Primary"
+                           Color="Color.Default"
                            Disabled="@readOnly"
                            OnClick="@(() => BrowseAsync(nameof(_stagingDir)))"
                            title="Browse folders" />
@@ -134,31 +130,17 @@ else
     <MudDivider Class="my-6" />
 
     @* ── Folder and File Naming ─────────────────────────────────────────────── *@
-    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-1">
-        <MudIcon Icon="@Icons.Material.Filled.AccountTree"
-                 Size="Size.Small"
-                 Color="Color.Default" />
-        <MudText Typo="Typo.subtitle2">Folder and File Naming</MudText>
+    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-3">
+        <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">Folder and File Naming</MudText>
     </MudStack>
-    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2">
-        Defines how files are organized in the library. Tokens in parentheses are
-        conditional — when the value is empty, the parentheses and surrounding space
-        are collapsed.
-    </MudText>
     <MudTextField @bind-Value="_organizationTemplate"
                   Placeholder="@DefaultOrganizationTemplate"
-                  Variant="Variant.Outlined"
+                  Variant="Variant.Text"
                   FullWidth="true"
                   Immediate="true"
                   ReadOnly="@readOnly"
                   Margin="Margin.Dense"
-                  Class="mb-2" />
-    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2">
-        Available tokens: <code>{Category}</code>, <code>{HubName}</code>,
-        <code>{Year}</code>, <code>{Format}</code>, <code>{Edition}</code>,
-        <code>{Ext}</code>, <code>{Title}</code>, <code>{Author}</code>,
-        <code>{Series}</code>, <code>{Publisher}</code>
-    </MudText>
+                  Class="mb-4" />
 
     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-2">
         <MudButton Variant="Variant.Outlined"
@@ -198,13 +180,14 @@ else
 
     @if (!readOnly)
     {
-        <MudButton Variant="Variant.Filled"
-                   Color="Color.Primary"
-                   FullWidth="true"
-                   OnClick="@SaveFoldersAsync"
-                   Disabled="@_savingFolders">
-            @(_savingFolders ? "Saving..." : "Save Changes")
-        </MudButton>
+        <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-4">
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       OnClick="@SaveFoldersAsync"
+                       Disabled="@_savingFolders">
+                @(_savingFolders ? "Saving..." : "Save Changes")
+            </MudButton>
+        </MudStack>
     }
 
 </MudPaper>

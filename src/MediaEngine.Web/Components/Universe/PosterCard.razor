@@ -1,0 +1,186 @@
+@namespace MediaEngine.Web.Components.Universe
+
+@using MediaEngine.Web.Services.Integration
+
+@* PosterCard — Individual poster art tile with cover image, title, and metadata badges.
+   Used inside PosterSwimlane for horizontal scrolling rows. *@
+
+<div class="poster-card" style="width: @(Width)px;" @onclick="OnClick">
+    <div class="poster-card-artwork" style="@ArtworkStyle">
+        @if (!string.IsNullOrEmpty(Hub.CoverUrl))
+        {
+            <img src="@Hub.CoverUrl"
+                 alt="@Hub.DisplayName"
+                 class="poster-card-img"
+                 loading="lazy" />
+        }
+        else
+        {
+            <MudIcon Icon="@GetHubIcon()"
+                     Style="font-size: 48px; color: rgba(255,255,255,0.25);" />
+        }
+
+        @if (IsNew)
+        {
+            <span class="poster-new-badge">NEW</span>
+        }
+    </div>
+    <div class="poster-card-info">
+        <span class="poster-card-title">@Hub.DisplayName</span>
+        @if (!string.IsNullOrEmpty(Subtitle))
+        {
+            <span class="poster-card-subtitle">@Subtitle</span>
+        }
+        <div class="poster-card-meta">
+            @if (!string.IsNullOrEmpty(Hub.Year))
+            {
+                <span class="poster-meta-badge">@Hub.Year</span>
+            }
+            @if (!string.IsNullOrEmpty(Hub.PrimaryMediaType))
+            {
+                <span class="poster-meta-badge">@FormatMediaType(Hub.PrimaryMediaType)</span>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public HubViewModel Hub { get; set; } = default!;
+    [Parameter] public EventCallback<HubViewModel> OnHubSelected { get; set; }
+    [Parameter] public int Width { get; set; } = 180;
+
+    private bool IsNew => DateTimeOffset.UtcNow - Hub.CreatedAt < TimeSpan.FromDays(7);
+
+    private string? Subtitle =>
+        Hub.Author ?? Hub.Genre?.Split(',', ';').FirstOrDefault()?.Trim();
+
+    private string ArtworkStyle =>
+        string.IsNullOrEmpty(Hub.CoverUrl)
+            ? $"background: linear-gradient(135deg, {Hub.DominantHexColor}33, #1A1A1A);"
+            : string.Empty;
+
+    private async Task OnClick() => await OnHubSelected.InvokeAsync(Hub);
+
+    private string GetHubIcon()
+    {
+        var types = Hub.Works.Select(w => w.MediaType.ToLowerInvariant()).Distinct().ToList();
+        if (types.Any(t => t.Contains("video") || t.Contains("movie")))
+            return MudBlazor.Icons.Material.Filled.PlayCircle;
+        if (types.Any(t => t.Contains("epub") || t.Contains("book")))
+            return MudBlazor.Icons.Material.Filled.MenuBook;
+        if (types.Any(t => t.Contains("audio")))
+            return MudBlazor.Icons.Material.Filled.Headphones;
+        if (types.Any(t => t.Contains("comic") || t.Contains("cbz") || t.Contains("cbr")))
+            return MudBlazor.Icons.Material.Filled.AutoStories;
+        return MudBlazor.Icons.Material.Filled.Folder;
+    }
+
+    private static string FormatMediaType(string mediaType)
+    {
+        var t = mediaType.ToLowerInvariant();
+        if (t.Contains("epub") || t.Contains("book"))  return "Book";
+        if (t.Contains("video") || t.Contains("movie")) return "Movie";
+        if (t.Contains("audio") || t.Contains("m4b"))   return "Audiobook";
+        if (t.Contains("comic") || t.Contains("cbz"))   return "Comic";
+        if (t.Contains("mkv") || t.Contains("mp4"))     return "Video";
+        return mediaType;
+    }
+}
+
+<style>
+    .poster-card {
+        flex-shrink: 0;
+        cursor: pointer;
+        scroll-snap-align: start;
+        transition: transform 0.2s ease;
+    }
+
+    .poster-card:hover {
+        transform: translateY(-4px);
+    }
+
+    .poster-card:hover .poster-card-artwork {
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.40);
+    }
+
+    .poster-card-artwork {
+        position: relative;
+        width: 100%;
+        aspect-ratio: 2 / 3;
+        border-radius: 8px;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #1A1A1A;
+        margin-bottom: 8px;
+        transition: box-shadow 0.2s ease;
+    }
+
+    .poster-new-badge {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.6rem;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        padding: 3px 8px;
+        border-radius: 4px;
+        background: #C9922E;
+        color: #ffffff;
+        z-index: 1;
+    }
+
+    .poster-card-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .poster-card-info {
+        display: flex;
+        flex-direction: column;
+        padding: 0 2px;
+    }
+
+    .poster-card-title {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.85rem;
+        font-weight: 600;
+        line-height: 1.3;
+        color: rgba(248, 248, 248, 0.90);
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        margin-bottom: 2px;
+    }
+
+    .poster-card-subtitle {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.75rem;
+        font-weight: 400;
+        line-height: 1.3;
+        color: rgba(248, 248, 248, 0.45);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin-bottom: 4px;
+    }
+
+    .poster-card-meta {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+
+    .poster-meta-badge {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.65rem;
+        font-weight: 500;
+        letter-spacing: 0.03em;
+        color: var(--app-text-muted);
+        text-transform: uppercase;
+    }
+</style>

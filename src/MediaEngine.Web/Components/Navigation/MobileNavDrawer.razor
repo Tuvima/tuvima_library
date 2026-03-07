@@ -1,0 +1,101 @@
+@namespace MediaEngine.Web.Components.Navigation
+
+@using MediaEngine.Web.Models.ViewDTOs
+
+@* MobileNavDrawer — Slide-out navigation drawer for mobile devices.
+   Triggered by hamburger icon in the TopBar. Contains the same nav items as LeftDock. *@
+
+<MudDrawer @bind-Open="@Open" Anchor="Anchor.Left" Variant="@DrawerVariant.Temporary"
+           Elevation="0" Class="mobile-nav-drawer">
+
+    @* ── Logo at top ── *@
+    <div class="mobile-nav-logo">
+        <MudLink Href="/" Underline="Underline.None" Style="text-decoration: none;">
+            <AppLogo Style="height: 28px; display: block;" />
+        </MudLink>
+    </div>
+
+    <MudDivider Class="mb-2" Style="border-color: rgba(255,255,255,0.06);" />
+
+    @* ── Navigation items ── *@
+    <MudNavMenu Color="Color.Inherit" Class="mobile-nav-menu">
+
+        @foreach (var lib in Config.Libraries.Where(l => l.Enabled))
+        {
+            var isShowAll = lib.MediaTypes.Count == 0;
+            if (!isShowAll && !HasMatchingContent(lib)) continue;
+
+            var isActive = string.Equals(ActiveLibraryKey, lib.Key, StringComparison.OrdinalIgnoreCase);
+
+            <MudNavLink Icon="@NavigationDefaults.GetMudIcon(lib.Icon)"
+                        IconColor="@(isActive ? Color.Primary : Color.Inherit)"
+                        OnClick="@(() => SelectLibrary(lib))"
+                        Style="@(isActive ? "color: #F8F8F8; font-weight: 600;" : "")">
+                @lib.Label
+            </MudNavLink>
+        }
+
+        <MudDivider Class="my-2" Style="border-color: rgba(255,255,255,0.06);" />
+
+        <MudNavLink Href="/settings" Icon="@Icons.Material.Outlined.Settings">
+            Settings
+        </MudNavLink>
+    </MudNavMenu>
+</MudDrawer>
+
+@code {
+    [Parameter] public bool Open { get; set; }
+    [Parameter] public EventCallback<bool> OpenChanged { get; set; }
+    [Parameter] public TrayConfig Config { get; set; } = new();
+    [Parameter] public string? ActiveLibraryKey { get; set; }
+    [Parameter] public HashSet<string> AvailableMediaTypes { get; set; } = [];
+    [Parameter] public EventCallback<VirtualLibrary?> OnLibrarySelected { get; set; }
+
+    private bool HasMatchingContent(VirtualLibrary lib) =>
+        lib.MediaTypes.Any(mt => AvailableMediaTypes.Contains(mt, StringComparer.OrdinalIgnoreCase));
+
+    private async Task SelectLibrary(VirtualLibrary lib)
+    {
+        if (lib.MediaTypes.Count == 0 ||
+            string.Equals(ActiveLibraryKey, lib.Key, StringComparison.OrdinalIgnoreCase))
+        {
+            await OnLibrarySelected.InvokeAsync(null);
+        }
+        else
+        {
+            await OnLibrarySelected.InvokeAsync(lib);
+        }
+
+        // Close drawer after selection
+        Open = false;
+        await OpenChanged.InvokeAsync(false);
+    }
+}
+
+<style>
+    .mobile-nav-drawer {
+        background: rgba(10, 10, 10, 0.95) !important;
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        min-width: 260px;
+    }
+
+    .mobile-nav-logo {
+        padding: 20px 16px 12px;
+    }
+
+    .mobile-nav-menu {
+        padding: 0 8px;
+    }
+
+    .mobile-nav-menu .mud-nav-link {
+        color: rgba(248, 248, 248, 0.70);
+        border-radius: 8px;
+        margin-bottom: 2px;
+    }
+
+    .mobile-nav-menu .mud-nav-link:hover {
+        background: rgba(255, 255, 255, 0.06);
+        color: rgba(248, 248, 248, 0.95);
+    }
+</style>

@@ -118,7 +118,7 @@ public sealed class UIFeatureFlagsDto
     public bool ColorPicker { get; set; } = true;
 }
 
-/// <summary>Shell-level layout configuration (AppBar, logo, dock).</summary>
+/// <summary>Shell-level layout configuration (TopBar, logo, dock).</summary>
 public sealed class UIShellSettingsDto
 {
     [JsonPropertyName("appbar_style")]
@@ -132,6 +132,15 @@ public sealed class UIShellSettingsDto
 
     [JsonPropertyName("intent_dock_style")]
     public string IntentDockStyle { get; set; } = "normal";
+
+    [JsonPropertyName("top_bar_visible")]
+    public bool TopBarVisible { get; set; } = true;
+
+    [JsonPropertyName("top_bar_style")]
+    public string TopBarStyle { get; set; } = "full";
+
+    [JsonPropertyName("dock_visible")]
+    public bool DockVisible { get; set; } = true;
 }
 
 /// <summary>Per-page layout settings (Home, Preferences, Server Settings).</summary>
@@ -167,6 +176,9 @@ public sealed class UIHomePageSettingsDto
 
     [JsonPropertyName("pending_files_display")]
     public string PendingFilesDisplay { get; set; } = "expandable";
+
+    [JsonPropertyName("swimlane_card_width")]
+    public int SwimlaneCardWidth { get; set; } = 180;
 }
 
 /// <summary>Preferences page layout settings.</summary>

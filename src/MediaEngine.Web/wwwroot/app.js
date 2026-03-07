@@ -1,15 +1,11 @@
 // app.js — Global JavaScript helpers for the Dashboard
 
 /**
- * Toggles theme classes on <body> to drive CSS custom properties and logo
- * colour adaptation.  Called from MainLayout whenever the theme is toggled
- * or the page first renders.
- *
- * @param {boolean} isDark - true when the Dashboard is in dark mode.
+ * Ensures the dark theme class is applied to <body>.
+ * Called from MainLayout on first render. Light mode has been removed.
  */
-window.setThemeClass = function (isDark) {
-    document.body.classList.toggle('app-dark', isDark);
-    document.body.classList.toggle('app-light', !isDark);
+window.setThemeClass = function () {
+    document.body.classList.add('app-dark');
 };
 
 /**

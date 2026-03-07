@@ -1,0 +1,177 @@
+@namespace MediaEngine.Web.Components.Navigation
+
+@* TopBar — Horizontal navigation bar at the top of the content area.
+   Contains: app logo (wordmark), search icon, notification bell with review badge, profile avatar.
+   Adapts to device context: full (desktop), mobile (hamburger + compact), simplified (TV), minimal (automotive). *@
+
+<header class="top-bar @VariantClass">
+    @if (Variant == "mobile")
+    {
+        @* Mobile: hamburger on left, logo centered, actions on right *@
+        <MudIconButton Icon="@Icons.Material.Filled.Menu"
+                       Color="Color.Inherit"
+                       Size="Size.Medium"
+                       OnClick="@OnHamburgerClick"
+                       aria-label="Open navigation" />
+
+        <div class="top-bar-logo top-bar-logo-center">
+            <a href="/"><AppLogo Style="height: 24px; display: block;" /></a>
+        </div>
+
+        <div class="top-bar-actions">
+            <MudBadge Content="@ReviewCount" Visible="@(ReviewCount > 0)"
+                      Color="Color.Error" Overlap="true" Class="top-bar-badge">
+                <MudIconButton Icon="@Icons.Material.Outlined.Notifications"
+                               Color="Color.Inherit" Size="Size.Small"
+                               Href="/settings/needs-review"
+                               aria-label="Review queue" />
+            </MudBadge>
+            <MudAvatar Size="Size.Small"
+                       Style="@($"background: {AvatarColor}; width: 32px; height: 32px; font-size: 0.85rem; cursor: pointer;")"
+                       @onclick="@(() => Nav.NavigateTo("/settings/general"))">
+                @AvatarInitial
+            </MudAvatar>
+        </div>
+    }
+    else if (Variant is "simplified" or "minimal")
+    {
+        @* TV/Automotive: logo only (simplified) or icon-only (minimal) *@
+        <div class="top-bar-logo">
+            @if (Variant == "minimal")
+            {
+                <a href="/"><img src="images/tuvima-icon.svg" alt="Tuvima" style="height: 28px;" /></a>
+            }
+            else
+            {
+                <a href="/"><AppLogo Style="height: 28px; display: block;" /></a>
+            }
+        </div>
+        <div class="top-bar-spacer"></div>
+    }
+    else
+    {
+        @* Desktop (full): logo left, spacer, search + bell + avatar right *@
+        <div class="top-bar-logo">
+            <a href="/"><AppLogo Style="height: 28px; display: block;" /></a>
+        </div>
+
+        <div class="top-bar-spacer"></div>
+
+        <div class="top-bar-actions">
+            <MudTooltip Text="Search (Ctrl+K)">
+                <MudIconButton Icon="@Icons.Material.Outlined.Search"
+                               Color="Color.Inherit"
+                               Size="Size.Medium"
+                               OnClick="@OnSearchRequested"
+                               aria-label="Search" />
+            </MudTooltip>
+
+            <MudBadge Content="@ReviewCount" Visible="@(ReviewCount > 0)"
+                      Color="Color.Error" Overlap="true" Class="top-bar-badge">
+                <MudIconButton Icon="@Icons.Material.Outlined.Notifications"
+                               Color="Color.Inherit" Size="Size.Medium"
+                               Href="/settings/needs-review"
+                               aria-label="Review queue" />
+            </MudBadge>
+
+            <MudTooltip Text="@DisplayName">
+                <MudAvatar Size="Size.Small"
+                           Style="@($"background: {AvatarColor}; width: 36px; height: 36px; font-size: 0.9rem; cursor: pointer;")"
+                           @onclick="@(() => Nav.NavigateTo("/settings/general"))">
+                    @AvatarInitial
+                </MudAvatar>
+            </MudTooltip>
+        </div>
+    }
+</header>
+
+@code {
+    [Parameter] public EventCallback OnSearchRequested { get; set; }
+    [Parameter] public EventCallback OnHamburgerClick { get; set; }
+    [Parameter] public int ReviewCount { get; set; }
+    [Parameter] public string AvatarColor { get; set; } = "#C9922E";
+    [Parameter] public string AvatarInitial { get; set; } = "?";
+    [Parameter] public string DisplayName { get; set; } = "User";
+
+    /// <summary>
+    /// Layout variant: "full" (desktop), "mobile", "simplified" (TV), "minimal" (automotive).
+    /// </summary>
+    [Parameter] public string Variant { get; set; } = "full";
+
+    private string VariantClass => Variant switch
+    {
+        "mobile" => "top-bar-mobile",
+        "simplified" => "top-bar-simplified",
+        "minimal" => "top-bar-minimal",
+        _ => "top-bar-full",
+    };
+
+    [Inject] private NavigationManager Nav { get; set; } = default!;
+}
+
+<style>
+    .top-bar {
+        position: fixed;
+        top: 0;
+        left: var(--app-dock-width, 64px);
+        right: 0;
+        height: 56px;
+        z-index: 1100;
+        display: flex;
+        align-items: center;
+        padding: 0 24px;
+        gap: 12px;
+        background: rgba(0, 0, 0, 0.4);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+    }
+
+    /* Mobile: dock hidden, top bar starts from edge */
+    .top-bar-mobile {
+        left: 0;
+        padding: 0 12px;
+    }
+
+    /* TV/Automotive: dock hidden, top bar starts from edge */
+    .top-bar-simplified,
+    .top-bar-minimal {
+        left: 0;
+        height: 64px;
+        padding: 0 32px;
+    }
+
+    .top-bar-logo a {
+        display: flex;
+        align-items: center;
+        text-decoration: none;
+    }
+
+    .top-bar-logo-center {
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+    }
+
+    .top-bar-spacer {
+        flex: 1;
+    }
+
+    .top-bar-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .top-bar .mud-icon-button {
+        color: rgba(248, 248, 248, 0.70);
+    }
+
+    .top-bar .mud-icon-button:hover {
+        color: rgba(248, 248, 248, 0.95);
+        background: rgba(255, 255, 255, 0.06);
+    }
+
+    .top-bar-badge .mud-badge {
+        font-size: 0.65rem;
+    }
+</style>

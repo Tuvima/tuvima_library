@@ -9,7 +9,7 @@
 
 @using MediaEngine.Web.Models.ViewDTOs
 
-<MudThemeProvider Theme="@ThemeService.Theme" IsDarkMode="@_isDark" />
+<MudThemeProvider Theme="@ThemeService.Theme" IsDarkMode="true" />
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider />
@@ -21,18 +21,35 @@
 }
 
 <MudLayout>
-    @* ── Left Navigation Dock ── *@
-    <LeftDock Config="@_navigationConfig.Tray"
-              ActiveLibraryKey="@State.ActiveLibraryFilter?.Key"
-              AvailableMediaTypes="@State.AvailableMediaTypes"
-              OnLibrarySelected="@OnLibrarySelected"
-              OnSearchRequested="@(() => _palette?.Toggle())"
-              AvatarColor="@_avatarColor"
-              AvatarInitial="@_avatarInitial"
-              DisplayName="@_displayName"
-              ReviewCount="@_reviewCount" />
+    @* ── Top Navigation Bar ── *@
+    <TopBar Variant="@TopBarVariant"
+            OnSearchRequested="@(() => _palette?.Toggle())"
+            OnHamburgerClick="@(() => _mobileDrawerOpen = !_mobileDrawerOpen)"
+            ReviewCount="@_reviewCount"
+            AvatarColor="@_avatarColor"
+            AvatarInitial="@_avatarInitial"
+            DisplayName="@_displayName" />
 
-    @* Full-width main content — left padding clears the narrow dock *@
+    @* ── Mobile Navigation Drawer (slide-out, mobile only) ── *@
+    @if (DeviceContext.IsMobile)
+    {
+        <MobileNavDrawer @bind-Open="@_mobileDrawerOpen"
+                         Config="@_navigationConfig.Tray"
+                         ActiveLibraryKey="@State.ActiveLibraryFilter?.Key"
+                         AvailableMediaTypes="@State.AvailableMediaTypes"
+                         OnLibrarySelected="@OnLibrarySelected" />
+    }
+
+    @* ── Left Navigation Dock (when config says visible) ── *@
+    @if (ShowDock)
+    {
+        <LeftDock Config="@_navigationConfig.Tray"
+                  ActiveLibraryKey="@State.ActiveLibraryFilter?.Key"
+                  AvailableMediaTypes="@State.AvailableMediaTypes"
+                  OnLibrarySelected="@OnLibrarySelected" />
+    }
+
+    @* Full-width main content — top padding clears top bar, left clears dock *@
     <MudMainContent Class="@ContentClass">
         <MudContainer MaxWidth="@ContentMaxWidth" Class="py-6 px-4 px-md-8">
             @Body
@@ -41,11 +58,10 @@
 </MudLayout>
 
 @code {
-    private bool _isDark = true;
-
     private CommandPalette? _palette;
+    private bool _mobileDrawerOpen;
 
-    // Profile state for the dock.
+    // Profile state for the top bar and dock.
     private string _avatarColor = "#C9922E";
     private string _avatarInitial = "?";
     private string _displayName = "User";
@@ -53,13 +69,27 @@
     // Navigation configuration — loaded from profile, falls back to defaults.
     private NavigationConfigViewModel _navigationConfig = NavigationDefaults.CreateDefault();
 
-    // Review queue badge count for profile avatar.
+    // Review queue badge count for notification bell.
     private int _reviewCount;
 
-    // ── Content area — left padding for the fixed dock ────────────────────
+    // ── Top bar variant based on device class ─────────────────────────────
 
-    private string ContentClass =>
-        $"main-content-with-dock {DeviceContext.Settings.ContentPadding}";
+    private string TopBarVariant => DeviceContext.Settings.Shell.TopBarStyle;
+
+    // ── Content area — top padding for top bar, left for dock ─────────────
+
+    private bool ShowDock => DeviceContext.Settings.Shell.DockVisible;
+
+    private string ContentClass
+    {
+        get
+        {
+            var classes = "main-content-with-topbar";
+            if (ShowDock) classes += " main-content-with-dock";
+            classes += $" {DeviceContext.Settings.ContentPadding}";
+            return classes;
+        }
+    }
 
     private MaxWidth ContentMaxWidth =>
         DeviceContext.Settings.ContentMaxWidth switch
@@ -75,8 +105,6 @@
 
     protected override void OnInitialized()
     {
-        _isDark = ThemeService.IsDarkMode;
-        ThemeService.OnThemeChanged += OnThemeUpdated;
         DeviceContext.OnChanged += OnDeviceContextChanged;
     }
 
@@ -88,25 +116,14 @@
             var detectedDevice = await JS.InvokeAsync<string>("detectDeviceClass");
             await DeviceContext.InitialiseAsync(detectedDevice);
 
-            // Apply dark mode from resolved settings.
-            if (DeviceContext.Settings.Constraints.ForceDarkMode && !ThemeService.IsDarkMode)
-            {
-                ThemeService.ToggleTheme();
-                _isDark = true;
-            }
-            else
-            {
-                _isDark = ThemeService.IsDarkMode;
-            }
-
             // Register Ctrl+K to open the Command Palette.
             if (!DeviceContext.IsFeatureDisabled("command_palette"))
             {
                 await JS.InvokeVoidAsync("registerCtrlK", DotNetObjectReference.Create(this));
             }
 
-            // Seed the body class so logos render correctly.
-            await JS.InvokeVoidAsync("setThemeClass", _isDark);
+            // Apply dark theme class to body.
+            await JS.InvokeVoidAsync("setThemeClass");
 
             // Load the active profile.
             await LoadActiveProfileAsync();
@@ -121,12 +138,6 @@
 
     [JSInvokable]
     public void OpenPalette() => _palette?.Open();
-
-    private void OnThemeUpdated()
-    {
-        _isDark = ThemeService.IsDarkMode;
-        InvokeAsync(StateHasChanged);
-    }
 
     private void OnDeviceContextChanged()
     {
@@ -180,7 +191,6 @@
 
     public void Dispose()
     {
-        ThemeService.OnThemeChanged -= OnThemeUpdated;
         DeviceContext.OnChanged -= OnDeviceContextChanged;
         Orchestrator.OnReviewCountChanged -= OnReviewCountChanged;
     }
@@ -189,8 +199,13 @@
 }
 
 <style>
-    /* Content area clears the fixed 64px dock */
+    /* Content area clears the fixed 52px dock */
     .main-content-with-dock {
-        padding-left: 80px !important;
+        padding-left: 68px !important;
+    }
+
+    /* Content area clears the fixed 56px top bar */
+    .main-content-with-topbar {
+        padding-top: 56px !important;
     }
 </style>

@@ -9,8 +9,7 @@
     ],
     "pages_disabled": ["server_settings"],
     "allow_text_input": false,
-    "min_touch_target_px": 64,
-    "force_dark_mode": false
+    "min_touch_target_px": 64
   },
   "content_padding": "pa-6",
   "content_max_width": "Full",
@@ -19,15 +18,19 @@
     "appbar_style": "oversized",
     "logo_variant": "wordmark-large",
     "intent_dock_items": ["Hubs", "Watch", "Read", "Listen"],
-    "intent_dock_style": "oversized"
+    "intent_dock_style": "oversized",
+    "top_bar_visible": true,
+    "top_bar_style": "simplified",
+    "dock_visible": false
   },
   "pages": {
     "home": {
       "hub_hero_enabled": true,
-      "hub_hero_layout": "two-column-oversized",
+      "hub_hero_layout": "cinematic",
       "progress_cards_layout": "row-oversized",
       "bento_columns": 2,
       "bento_tile_style": "large",
+      "swimlane_card_width": 240,
       "pending_files_display": "hidden"
     },
     "preferences": {

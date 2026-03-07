@@ -1,8 +1,8 @@
 @page "/"
 @inject UIOrchestratorService  Orchestrator
-@inject ThemeService            ThemeService
 @inject UniverseStateContainer  State
 @inject DeviceContextService    DeviceContext
+@inject NavigationManager       Nav
 @implements IDisposable
 
 <PageTitle>Tuvima Library</PageTitle>
@@ -24,84 +24,48 @@ else
         <PendingFilesAlert Class="mb-4" DisplayMode="@_pendingDisplay" />
     }
 
-    @* ── Hero banners ── *@
+    @* ── Cinematic Hero Banner ── *@
     @if (_showHero)
     {
         <HubHero Hub="@_heroHub"
-                 SecondaryHub="@_secondaryHub"
-                 Layout="@DeviceContext.Settings.Pages.Home.HubHeroLayout" />
+                 Visible="true"
+                 OnHubClicked="HandleHubSelected" />
     }
 
-    @* ── Continue your Journey (horizontal scroll row) ── *@
-    @if (_nonHeroHubs is { Count: > 0 })
+    @* ── Your Library (all hubs minus hero) ── *@
+    <PosterSwimlane Title="Your Library"
+                    Hubs="@_nonHeroHubs.Take(12).ToList()"
+                    OnHubSelected="HandleHubSelected"
+                    CardWidth="@_cardWidth" />
+
+    @* ── Recently Added (newest first) ── *@
+    <PosterSwimlane Title="Recently Added"
+                    Hubs="@_recentHubs.Take(12).ToList()"
+                    OnHubSelected="HandleHubSelected"
+                    CardWidth="@_cardWidth" />
+
+    @* ── Media-type grouped swimlanes ── *@
+    @foreach (var group in _mediaTypeGroups)
     {
-        <MudText Typo="Typo.h5" Class="mb-3" Style="font-weight: 600;">
-            Continue your Journey
-        </MudText>
-
-        <div class="content-row mb-6">
-            @foreach (var hub in _nonHeroHubs.Take(8))
-            {
-                <div class="content-card" @onclick="() => HandleHubSelected(hub)">
-                    <div class="content-card-artwork"
-                         style="background: #1A1A1A;">
-                        <MudIcon Icon="@GetHubIcon(hub)"
-                                 Style="font-size: 40px; color: rgba(255,255,255,0.35);" />
-                    </div>
-                    <div class="content-card-info">
-                        <span class="content-card-title">@hub.DisplayName</span>
-                        <span class="content-card-meta">
-                            @hub.WorkCount @(hub.WorkCount == 1 ? "work" : "works") · @hub.MediaTypes
-                        </span>
-                    </div>
-                </div>
-            }
-        </div>
+        <PosterSwimlane Title="@group.Title"
+                        Hubs="@group.Hubs"
+                        OnHubSelected="HandleHubSelected"
+                        CardWidth="@_cardWidth" />
     }
-
-    @* ── Recently Added ── *@
-    @if (_recentHubs is { Count: > 0 })
-    {
-        <MudText Typo="Typo.h5" Class="mb-3" Style="font-weight: 600;">
-            Recently Added
-        </MudText>
-
-        <div class="content-row mb-6">
-            @foreach (var hub in _recentHubs.Take(8))
-            {
-                <div class="content-card" @onclick="() => HandleHubSelected(hub)">
-                    <div class="content-card-artwork"
-                         style="background: #1A1A1A;">
-                        <MudIcon Icon="@GetHubIcon(hub)"
-                                 Style="font-size: 40px; color: rgba(255,255,255,0.35);" />
-                    </div>
-                    <div class="content-card-info">
-                        <span class="content-card-title">@hub.DisplayName</span>
-                        <span class="content-card-meta">
-                            @hub.WorkCount @(hub.WorkCount == 1 ? "work" : "works") · @hub.MediaTypes
-                        </span>
-                    </div>
-                </div>
-            }
-        </div>
-    }
-
-    @* ── Your Universes grid (all hubs) ── *@
-    <UniverseStack Hubs="@State.FilteredHubs.ToList()"
-                   Class="mt-2"
-                   OnHubSelected="HandleHubSelected"
-                   Columns="@DeviceContext.Settings.Pages.Home.BentoColumns"
-                   TileStyle="@DeviceContext.Settings.Pages.Home.BentoTileStyle" />
 }
 
 @code {
     private bool               _loading = true;
     private string?            _error;
     private HubViewModel?      _heroHub;
-    private HubViewModel?      _secondaryHub;
     private List<HubViewModel> _hubs = [];
     private List<HubViewModel> _nonHeroHubs = [];
     private List<HubViewModel> _recentHubs = [];
+    private List<MediaTypeGroup> _mediaTypeGroups = [];
+
+    private int _cardWidth => DeviceContext.Settings.Pages.Home.SwimlaneCardWidth;
+
+    private sealed record MediaTypeGroup(string Title, IReadOnlyList<HubViewModel> Hubs);
 
     // ── Device-context computed helpers ──────────────────────────────────────
 
@@ -147,40 +111,38 @@ else
     {
         var filtered = State.FilteredHubs;
         _heroHub = filtered.FirstOrDefault();
-        _secondaryHub = filtered.Count > 1 ? filtered[1] : null;
 
-        // Non-hero hubs: skip the first two (used in hero banners).
-        _nonHeroHubs = filtered.Count > 2 ? filtered.Skip(2).ToList() : [];
+        // Non-hero hubs: skip the hero hub.
+        _nonHeroHubs = filtered.Count > 1 ? filtered.Skip(1).ToList() : [];
 
-        // Recently added: reverse order of all hubs for the "Recently Added" row.
-        _recentHubs = filtered.AsEnumerable().Reverse().ToList();
+        // Recently added: newest first by creation date.
+        _recentHubs = filtered.OrderByDescending(h => h.CreatedAt).ToList();
+
+        // Group hubs by primary media type for swimlanes.
+        _mediaTypeGroups = filtered
+            .Where(h => !string.IsNullOrEmpty(h.PrimaryMediaType))
+            .GroupBy(h => FormatMediaType(h.PrimaryMediaType!))
+            .Where(g => g.Count() >= 2)
+            .Select(g => new MediaTypeGroup(g.Key, g.ToList()))
+            .ToList();
+    }
+
+    private static string FormatMediaType(string mediaType)
+    {
+        var t = mediaType.ToLowerInvariant();
+        if (t.Contains("epub") || t.Contains("book"))  return "Books";
+        if (t.Contains("video") || t.Contains("movie")) return "Movies";
+        if (t.Contains("audio") || t.Contains("m4b"))   return "Audiobooks";
+        if (t.Contains("comic") || t.Contains("cbz"))   return "Comics";
+        if (t.Contains("mkv") || t.Contains("mp4"))     return "Videos";
+        return mediaType;
     }
 
     // ── Hub selection ─────────────────────────────────────────────────────────
 
     private void HandleHubSelected(HubViewModel hub)
     {
-        _heroHub = hub;
-        _secondaryHub = State.FilteredHubs.FirstOrDefault(h => h.Id != hub.Id);
-        _nonHeroHubs = State.FilteredHubs.Where(h => h.Id != hub.Id && h.Id != _secondaryHub?.Id).ToList();
-    }
-
-    // ── Icon helper ──────────────────────────────────────────────────────────
-
-    private static string GetHubIcon(HubViewModel hub)
-    {
-        var types = hub.Works.Select(w => w.MediaType.ToLowerInvariant()).Distinct().ToList();
-
-        if (types.Any(t => t.Contains("video") || t.Contains("movie")))
-            return MudBlazor.Icons.Material.Filled.PlayCircle;
-        if (types.Any(t => t.Contains("epub") || t.Contains("book")))
-            return MudBlazor.Icons.Material.Filled.MenuBook;
-        if (types.Any(t => t.Contains("audio")))
-            return MudBlazor.Icons.Material.Filled.Headphones;
-        if (types.Any(t => t.Contains("comic") || t.Contains("cbz") || t.Contains("cbr")))
-            return MudBlazor.Icons.Material.Filled.AutoStories;
-
-        return MudBlazor.Icons.Material.Filled.Folder;
+        Nav.NavigateTo($"/hub/{hub.Id}");
     }
 
     // ── SignalR live refresh ──────────────────────────────────────────────────
@@ -207,79 +169,3 @@ else
     }
 }
 
-<style>
-    /* ── Horizontal content row ──────────────────────────────────────── */
-    .content-row {
-        display: flex;
-        gap: 16px;
-        overflow-x: auto;
-        scroll-snap-type: x mandatory;
-        padding-bottom: 8px;
-        scrollbar-width: thin;
-    }
-
-    .content-row::-webkit-scrollbar {
-        height: 4px;
-    }
-
-    .content-row::-webkit-scrollbar-thumb {
-        background: var(--app-glass-border);
-        border-radius: 4px;
-    }
-
-    /* ── Content card ────────────────────────────────────────────────── */
-    .content-card {
-        flex-shrink: 0;
-        width: 200px;
-        cursor: pointer;
-        scroll-snap-align: start;
-        transition: transform 0.2s ease;
-    }
-
-    .content-card:hover {
-        transform: translateY(-3px);
-    }
-
-    .content-card-artwork {
-        width: 100%;
-        aspect-ratio: 2 / 3;
-        border-radius: 8px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin-bottom: 8px;
-        overflow: hidden;
-    }
-
-    .content-card-info {
-        display: flex;
-        flex-direction: column;
-        padding: 0 4px;
-    }
-
-    .content-card-title {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 0.9rem;
-        font-weight: 600;
-        line-height: 1.3;
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-    }
-
-    .content-card-meta {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 0.8rem;
-        font-weight: 400;
-        color: var(--app-text-muted);
-        margin-top: 2px;
-    }
-
-    /* ── Responsive ──────────────────────────────────────────────────── */
-    @@media (max-width: 600px) {
-        .content-card {
-            width: 150px;
-        }
-    }
-</style>

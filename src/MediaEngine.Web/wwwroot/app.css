@@ -12,37 +12,9 @@
     font-display: swap;
 }
 
-/* ── Theme-aware CSS custom properties ────────────────────────────────── */
+/* ── CSS custom properties (dark-only cinematic theme) ────────────────── */
 
 :root {
-    /* Light-mode (Editorial) defaults */
-    --app-glass-bg:           rgba(255, 255, 255, 0.60);
-    --app-glass-border:       rgba(0, 0, 0, 0.10);
-    --app-glass-inner-bg:     rgba(0, 0, 0, 0.03);
-    --app-glass-inner-border: rgba(0, 0, 0, 0.06);
-    --app-text-muted:         rgba(23, 23, 23, 0.50);
-    --app-text-soft:          rgba(23, 23, 23, 0.65);
-    --app-text-faint:         rgba(23, 23, 23, 0.38);
-    --app-icon-muted:         rgba(23, 23, 23, 0.40);
-    --app-icon-soft:          rgba(23, 23, 23, 0.55);
-    --app-hover-overlay:      rgba(0, 0, 0, 0.04);
-    --app-active-overlay:     rgba(234, 179, 8, 0.15);
-    --app-swatch-border:      rgba(0, 0, 0, 0.15);
-    --app-swatch-active:      rgba(0, 0, 0, 0.70);
-    --app-shadow:             0 4px 16px rgba(0, 0, 0, 0.08);
-    --app-inset-glow:         0 0 0 1px rgba(0, 0, 0, 0.03) inset;
-    --app-dock-width:         64px;
-
-    /* Dock panel — light mode: 60% white glass */
-    --app-dock-bg:            rgba(255, 255, 255, 0.60);
-    --app-dock-border:        rgba(0, 0, 0, 0.07);
-    --app-dock-text:          rgba(23, 23, 23, 0.80);
-    --app-dock-text-muted:    rgba(23, 23, 23, 0.40);
-    --app-dock-hover:         rgba(0, 0, 0, 0.05);
-}
-
-.app-dark {
-    /* Dark-mode (Cinema) */
     --app-glass-bg:           rgba(22, 22, 22, 0.70);
     --app-glass-border:       rgba(255, 255, 255, 0.08);
     --app-glass-inner-bg:     rgba(255, 255, 255, 0.04);
@@ -58,8 +30,9 @@
     --app-swatch-active:      rgba(255, 255, 255, 0.80);
     --app-shadow:             0 8px 32px rgba(0, 0, 0, 0.50);
     --app-inset-glow:         0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+    --app-dock-width:         52px;
 
-    /* Dock panel — dark mode: 40% black glass */
+    /* Dock panel */
     --app-dock-bg:            rgba(0, 0, 0, 0.40);
     --app-dock-border:        rgba(255, 255, 255, 0.06);
     --app-dock-text:          rgba(248, 248, 248, 0.82);
@@ -67,27 +40,18 @@
     --app-dock-hover:         rgba(255, 255, 255, 0.06);
 }
 
-/* ── Flat cinematic backgrounds ──────────────────────────────────────── */
+/* ── Cinematic background ─────────────────────────────────────────────── */
 
-/* Light mode: Editorial — clean off-white */
 body {
     margin: 0;
-    background: #F5F5F5;
+    background: #000000;
     font-family: 'Montserrat', sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
 }
 
-/* Dark mode: Cinema — pure black */
-body.app-dark {
-    background: #000000;
-}
-
-/* ── Logo colour theming ─────────────────────────────────────────────── */
+/* ── Logo colour ──────────────────────────────────────────────────────── */
 .app-logo {
-    color: #1A1A24;
-}
-.app-dark .app-logo {
     color: rgba(255,255,255,0.87);
 }
 

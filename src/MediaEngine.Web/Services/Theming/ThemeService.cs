@@ -3,52 +3,25 @@ using MudBlazor;
 namespace MediaEngine.Web.Services.Theming;
 
 /// <summary>
-/// Manages the active UI theme.  Singleton: the MudTheme object is shared across
-/// all circuits; each circuit holds its own <c>_isDark</c> flag, synced via
-/// <see cref="OnThemeChanged"/>.
-///
-/// <para>
-/// <b>Dynamic accent:</b> call <see cref="SetHubAccent"/> when the user selects a Hub.
-/// This rebuilds <see cref="Theme"/> with the Hub's brand colour as the primary
-/// accent and fires <see cref="OnThemeChanged"/> so every subscribed circuit re-renders.
-/// </para>
+/// Manages the active UI theme. Dark mode only — light mode has been removed.
+/// The accent colour is fixed to golden amber.
 /// </summary>
 public sealed class ThemeService
 {
     private const string DefaultPrimary = "#EAB308"; // amber gold — cinematic accent
 
-    /// <summary>Default to Dark Mode as specified in Section 1.2 of the UI ASD.</summary>
-    public bool IsDarkMode { get; private set; } = true;
+    /// <summary>Always dark — light mode has been removed.</summary>
+    public bool IsDarkMode => true;
 
     /// <summary>
-    /// The active MudBlazor theme.  Rebuilt each time <see cref="SetHubAccent"/> is called;
-    /// <c>MainLayout</c> reads this property on every re-render triggered by <see cref="OnThemeChanged"/>.
+    /// The active MudBlazor theme. Uses the cinematic dark palette exclusively.
     /// </summary>
-    public MudTheme Theme { get; private set; } = BuildTheme(DefaultPrimary);
+    public MudTheme Theme { get; } = BuildTheme(DefaultPrimary);
 
     /// <summary>
-    /// Fired on dark/light toggle and on Hub accent changes so components can update
-    /// their local state.  May fire from a background thread — use
-    /// <c>InvokeAsync(StateHasChanged)</c> in component handlers.
+    /// Legacy API — retained so existing callers compile. No-op: accent is fixed.
     /// </summary>
-    public event Action? OnThemeChanged;
-
-    /// <summary>Toggles dark / light mode and notifies subscribers.</summary>
-    public void ToggleTheme()
-    {
-        IsDarkMode = !IsDarkMode;
-        OnThemeChanged?.Invoke();
-    }
-
-    /// <summary>
-    /// Legacy API — previously rebuilt the theme with a dynamic accent colour.
-    /// Now a no-op: the accent is fixed to golden amber (<see cref="DefaultPrimary"/>).
-    /// Retained so existing callers compile without changes; they will be cleaned up over time.
-    /// </summary>
-    public void SetHubAccent(string hexColor)
-    {
-        // No-op: accent is fixed to golden amber.
-    }
+    public void SetHubAccent(string hexColor) { }
 
     // ── Theme construction ─────────────────────────────────────────────────────
 
@@ -66,55 +39,26 @@ public sealed class ThemeService
             Primary             = primaryHex,
             PrimaryDarken       = DarkenHex(primaryHex),
             PrimaryLighten      = LightenHex(primaryHex),
-            Secondary           = "#9CA3AF", // Muted grey for descriptions
-            SecondaryDarken     = "#4B5563", // Disabled/Dark grey
-            Background          = "#000000", // Pure black for immersive cinematic feel
+            Secondary           = "#9CA3AF",
+            SecondaryDarken     = "#4B5563",
+            Background          = "#000000",
             BackgroundGray      = "#0A0A0A",
-            Surface             = "#0A0A0A", // Very dark grey for cards/surfaces
+            Surface             = "#0A0A0A",
             AppbarBackground    = "#000000",
             DrawerBackground    = "#0A0A0A",
-            DrawerText          = "#F3F4F6", // Off-white to prevent eye strain
+            DrawerText          = "#F3F4F6",
             DrawerIcon          = "#9CA3AF",
-            TextPrimary         = "#F3F4F6", // Off-white
-            TextSecondary       = "#9CA3AF", // Muted grey
-            TextDisabled        = "#4B5563", // Dark grey
+            TextPrimary         = "#F3F4F6",
+            TextSecondary       = "#9CA3AF",
+            TextDisabled        = "#4B5563",
             ActionDefault       = "rgba(243,244,246,0.54)",
-            LinesDefault        = "rgba(255,255,255,0.08)", // Extremely subtle border
-            Divider             = "rgba(255,255,255,0.08)", // Extremely subtle line
+            LinesDefault        = "rgba(255,255,255,0.08)",
+            Divider             = "rgba(255,255,255,0.08)",
             OverlayDark         = "rgba(0,0,0,0.8)",
             Error               = "#CF6679",
             Warning             = "#FFB74D",
             Info                = "#4FC3F7",
             Success             = "#81C784",
-        },
-
-        PaletteLight = new PaletteLight
-        {
-            // Editorial light palette
-            Primary             = DarkenHex(primaryHex, 0.80),
-            PrimaryDarken       = DarkenHex(primaryHex, 0.55),
-            PrimaryLighten      = LightenHex(primaryHex, 32),
-            Secondary           = "#6B7280",
-            SecondaryDarken     = "#4B5563",
-            Background          = "#F5F5F5",   // Editorial — off-white
-            BackgroundGray      = "#EBEBEB",
-            Surface             = "#FFFFFF",   // Editorial surface — pure white
-            AppbarBackground    = "#FFFFFF",
-            AppbarText          = "#171717",
-            DrawerBackground    = "#FFFFFF",
-            DrawerText          = "#171717",
-            DrawerIcon          = "#525252",
-            TextPrimary         = "#171717",   // Editorial — near-black
-            TextSecondary       = "#525252",   // Editorial secondary
-            TextDisabled        = "rgba(23,23,23,0.38)",
-            ActionDefault       = "rgba(23,23,23,0.54)",
-            LinesDefault        = "rgba(0,0,0,0.10)",
-            Divider             = "rgba(0,0,0,0.10)",
-            OverlayDark         = "rgba(0,0,0,0.4)",
-            Error               = "#D32F2F",
-            Warning             = "#EF6C00",
-            Info                = "#0277BD",
-            Success             = "#2E7D32",
         },
 
         Typography = new Typography

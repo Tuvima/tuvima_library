@@ -223,17 +223,25 @@ The real-time intercom (`/hubs/intercom`) requires authentication via `X-Api-Key
 
 ### 3.4 — Dashboard UI Features
 
-**Left Navigation Dock**
-The Dashboard uses a Plex-inspired left navigation dock instead of a top AppBar. The dock has two states: narrow (64px, icon-only, fixed left) and expanded (260px, hover-triggered overlay with labels and full logo). The content area has permanent left padding (80px) to clear the narrow dock. The expanded state overlays content — it does not push. Glassmorphic styling with `backdrop-filter: blur(20px)`.
+**Dark-Mode-Only Cinematic Design**
+The Dashboard is dark-mode only — light mode has been fully removed. Background is solid `#000000`. All CSS custom properties are set for dark surfaces with glassmorphic blur overlays.
+
+**Dual Navigation: TopBar + LeftDock**
+The Dashboard uses a horizontal top bar and an icon-only left dock:
+- **TopBar** (`TopBar.razor`): Fixed horizontal bar at top (`height: 56px`). Contains: AppLogo wordmark (left), spacer, search icon + notification bell (with review count badge) + profile avatar (right). Four layout variants: `full` (desktop), `mobile` (hamburger + centered logo), `simplified` (TV: logo only), `minimal` (automotive: icon only). Glassmorphic styling: `rgba(0,0,0,0.4)` with `backdrop-filter: blur(12px)`.
+- **LeftDock** (`LeftDock.razor`): Icon-only rail (`52px` wide, desktop only). Contains Virtual Library navigation icons + Settings. Hover-expands to `200px` with labels (no logo section). 3px amber active bar on left edge. No border — blends via glassmorphic blur.
+- **MobileNavDrawer** (`MobileNavDrawer.razor`): Slide-out drawer for mobile. Triggered by hamburger in TopBar. Contains AppLogo + nav items matching dock. `MudDrawer` with `DrawerVariant.Temporary`.
+
+Content area: `padding-top: 56px` (TopBar), `padding-left: 68px` (dock, desktop only).
 
 **Fixed Golden Amber Accent**
-The accent colour is fixed to golden amber (#C9922E, derived from the logo gradient). The `ThemeService.SetHubAccent()` method is a no-op. The Settings General tab does not offer accent colour selection — only avatar colour and dark/light mode toggle.
+The accent colour is fixed to golden amber (#C9922E, derived from the logo gradient). The `ThemeService.SetHubAccent()` method is a no-op. The Settings General tab offers avatar colour selection only.
 
-**Sunrise Gradient Background**
-The background uses an animated multi-stop gradient that shifts slowly (25s cycle). Light mode: pinks, peach, lavender, cream. Dark mode: deep navy, indigo, plum. The animation uses `background-size: 400% 400%` with `@keyframes gradientShift`.
+**Cinematic Hero Banner**
+The Home page hero uses a single full-width cinematic banner with blurred cover art (`filter: blur(24px)`) as backdrop, a dark vignette overlay, metadata badges (year, media type), and the Hub title + author. Falls back to a gradient when no cover art is available. Replaces the previous two-column layout.
 
-**Bento Grid**
-The Hub overview uses an asymmetric card layout inspired by Japanese bento boxes — wider cards for recently accessed Hubs, narrower cards for the rest. This creates a visually rich layout that naturally draws attention to what matters most, without the user having to configure anything.
+**Poster Swimlanes**
+The Hub overview uses horizontal-scrolling poster-art rows (`PosterSwimlane.razor` + `PosterCard.razor`) instead of a Bento grid. Rows: "Continue your Journey", "Recently Added", then media-type-grouped swimlanes. Cards show cover art (2:3 aspect ratio) with title and metadata badges below. Hidden scrollbar, scroll-snap for touch. Card width driven by device config (`swimlane_card_width`).
 
 **Automotive Mode** *(planned)*
 A high-contrast, large-button display mode designed for use at a distance (e.g. on a media room TV or tablet mounted in a vehicle). All text is enlarged, all touch targets are oversized, and non-essential interface elements are hidden. Activated by a single toggle.
@@ -616,7 +624,7 @@ Example files in `config.example/ui/`. Live files in `config/ui/` gitignored.
 - `DeviceContextService` (`MediaEngine.Web.Services.Theming`) — per-circuit scoped; replaced `AutomotiveModeService`
 - `ResolvedUISettingsViewModel` + DTOs (`MediaEngine.Web.Models.ViewDTOs`) — Dashboard view model
 
-**Adapted components:** MainLayout, LeftDock, SettingsTabBar (5 layout modes), GeneralTab (conditional sections), Home, HubHero (4 layout variants), BentoGrid (dynamic columns), UniverseStack, PendingFilesAlert (expandable/badge/hidden), ServerSettings (redirect guard), Preferences (conditional links).
+**Adapted components:** MainLayout, TopBar (4 variants), LeftDock, MobileNavDrawer, SettingsTabBar (5 layout modes), GeneralTab (conditional sections), Home, HubHero (cinematic banner), PosterSwimlane + PosterCard, BentoGrid (dynamic columns), PendingFilesAlert (expandable/badge/hidden), ServerSettings (redirect guard), Preferences (conditional links).
 
 **Why this matters to the business:**
 - **Extensibility** — Adding a new device class is one JSON file + one entry in the cascade resolver. No code changes in the Dashboard.
@@ -1289,14 +1297,15 @@ src/MediaEngine.Web/
 │   │   └── PlaybackStateService.cs     Active session management, progress sync, audio persistence
 │   │
 │   └── Theming/              ← ALL visual configuration lives here
-│       ├── ThemeService.cs             Dark/light mode, colour palette, corner radii
+│       ├── ThemeService.cs             Dark-mode-only theme, colour palette, corner radii
 │       └── DeviceContextService.cs     Per-circuit device class + resolved UI settings
 │
 ├── Components/
 │   ├── Universe/             ← Hub-related visual components
-│   │   ├── HubHero.razor               "Last Journey" hero: artwork + progress indicators
-│   │   ├── ProgressIndicator.razor     Reusable progress card (icon + bar + label)
-│   │   └── UniverseStack.razor         "Your Universes" Bento grid (all 1×1 tiles)
+│   │   ├── HubHero.razor               Cinematic hero: blurred cover art backdrop + vignette + metadata badges
+│   │   ├── PosterCard.razor            Poster art tile: cover image, title, metadata badges
+│   │   ├── PosterSwimlane.razor        Horizontal scrolling row of PosterCards with hidden scrollbar
+│   │   └── ProgressIndicator.razor     Reusable progress card (icon + bar + label)
 │   │
 │   ├── Bento/                ← The layout grid system (reusable)
 │   │   ├── BentoGrid.razor             CSS grid container (3-col desktop, dock clearance)
@@ -1304,11 +1313,14 @@ src/MediaEngine.Web/
 │   │
 │   ├── Navigation/           ← Navigation and search components
 │   │   ├── CommandPalette.razor        Ctrl+K global search and navigation
-│   │   └── LeftDock.razor               Plex-inspired left dock: narrow (64px, icons) / expanded (260px, labels + logo)
+│   │   ├── TopBar.razor                Horizontal top bar: logo, search, bell, profile (4 variants)
+│   │   ├── LeftDock.razor              Icon-only left dock: 52px narrow / 200px hover-expand
+│   │   ├── MobileNavDrawer.razor       Slide-out navigation drawer for mobile
+│   │   └── AppLogo.razor               Inline SVG wordmark logo
 │   │
 │   ├── Settings/             ← Settings page tab components (3 groups: Preferences, Metadata, Server)
 │   │   ├── SettingsSidebar.razor        Sidebar navigation with search, badges, collapsible sections (defines SettingsSection enum)
-│   │   ├── GeneralTab.razor             [Preferences] Appearance: dark/light toggle + accent colour swatches
+│   │   ├── GeneralTab.razor             [Preferences] Profile: display name, avatar colour swatches
 │   │   ├── NavigationTab.razor          [Preferences] Navigation config: Action Cluster toggles + Tray Libraries
 │   │   ├── ConnectionVaultTab.razor     [Metadata] Unified vault: Wikidata pinned, media-type field priorities, provider connections, pipeline config
 │   │   ├── UniverseSettingsTab.razor    [Metadata] Wikidata universe provider: bridge identifiers + property map (read-only, orphaned)
@@ -1330,7 +1342,7 @@ src/MediaEngine.Web/
 │   │   └── VideoPlayer.razor            Full-screen video player with HLS, subtitles, chapters
 │   │
 │   └── Pages/                ← Full-page views (routed)
-│       ├── Home.razor                  Library overview: Continue Journey + Recently Added + Smart Collections + Universe Grid
+│       ├── Home.razor                  Library overview: Cinematic Hero + Poster Swimlanes (Continue Journey, Recently Added, media-type groups)
 │       ├── HubDetail.razor             (TARGET STATE) Hub detail: artwork, works, persons, social pivot
 │       ├── WorkDetail.razor            (TARGET STATE) Work detail: editions, metadata, play button
 │       ├── PersonDetail.razor          (TARGET STATE) Person detail: headshot, bio, social links, works
@@ -1341,7 +1353,7 @@ src/MediaEngine.Web/
 │
 ├── Models/
 │   └── ViewDTOs/             ← Data shapes used ONLY by the Dashboard (never shared with Engine)
-│       ├── HubViewModel.cs             Hub for display: DisplayName, WorkCount, MediaTypes
+│       ├── HubViewModel.cs             Hub for display: DisplayName, WorkCount, MediaTypes, CoverUrl, Year, PrimaryMediaType
 │       ├── WorkViewModel.cs            Work for display: Title, Author, Year helpers
 │       ├── UniverseViewModel.cs        Flattened cross-media library view + DominantHexColor
 │       ├── SystemStatusViewModel.cs    Engine health probe result
@@ -1352,7 +1364,7 @@ src/MediaEngine.Web/
 │       └── ResolvedUISettingsViewModel.cs  Device-resolved UI configuration (8 DTO classes)
 │
 └── Shared/                   ← Top-level layout shell (used by every page)
-    ├── MainLayout.razor                App chrome: LeftDock, dark-mode toggle, review badge on profile avatar (no AppBar)
+    ├── MainLayout.razor                App chrome: TopBar + LeftDock + MobileNavDrawer, review badge on profile avatar
     ├── NavMenu.razor                   Deprecated stub (replaced by LeftDock + Command Palette)
     └── _Imports.razor                  Namespace imports for all Shared components
 ```

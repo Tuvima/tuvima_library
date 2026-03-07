@@ -1,7 +1,7 @@
-# Feature: Library Dashboard (Home, Navigation, Bento Grid)
+# Feature: Library Dashboard (Home, Navigation, Cinematic Hero, Poster Swimlanes)
 > **Mirrors:** `CLAUDE.md` §3.4 (Dashboard UI) — keep both in sync per `.agent/SYNC-MAP.md`
 
-> Last audited: 2026-03-01 | Auditor: Claude (Product-Led Architect)
+> Last audited: 2026-03-07 | Auditor: Claude (Product-Led Architect)
 
 ---
 
@@ -9,18 +9,24 @@
 
 ### Home Page (`/`)
 
-When the user opens the Dashboard, they see their entire library presented as a visual grid:
+When the user opens the Dashboard, they see a cinematic streaming-style interface:
 
-1. **Last Journey (Hero Tile)** — The most prominent tile at the top, showing the user's most recently selected Hub with artwork, title, and three progress indicators (Watch, Read, Listen).
-2. **Your Universes (Bento Grid)** — A responsive, asymmetric card grid showing all remaining Hubs. Each tile displays the Hub name, work count, and media-type icons (book, video, comic, audio).
-3. **Selecting a Hub** — Clicking any tile in the grid promotes it to the Hero position and shifts the app's accent colour to match that Hub's dominant colour.
+1. **Cinematic Hero Banner** — A full-width banner with blurred cover art background, dark vignette overlay, and metadata badges (year, media type, work count). Shows the first Hub in the library.
+2. **Poster Swimlanes** — Horizontal scrolling rows of poster-art cards (2:3 aspect ratio). Rows include "Continue your Journey" (stub), "Recently Added" (stub), and then media-type-grouped swimlanes (Books, Movies, Comics, Audio).
+3. **Selecting a Hub** — Clicking any poster card navigates to the Hub (detail page not yet built).
 
-### Navigation
+### Navigation — Dual Architecture
 
-- **Command Palette (Ctrl+K)** — A global search overlay. Type 2+ characters to search across all Hubs and Works. Results show media-type icons and colour coding. Selecting a result attempts to navigate to the Hub detail page.
-- **Intent Dock** — A floating bottom bar with four buttons: Hubs, Watch, Read, Listen. Designed to filter the library view by content intent.
-- **Avatar Menu** — Top-left dropdown with links to Preferences and (for admins) Server Settings.
-- **Dark/Light Toggle** — Top-right button to switch themes instantly.
+The Dashboard uses a dual navigation system:
+
+- **TopBar** (`TopBar.razor`) — Fixed horizontal bar at top (56px height). Contains: logo (AppLogo wordmark), spacer, search icon, notification bell (MudBadge with review count), profile avatar. Four variants driven by device config: `"full"` (desktop), `"mobile"` (hamburger + logo + compact actions), `"simplified"` (TV: logo only), `"minimal"` (automotive: icon only). Glassmorphic styling with `backdrop-filter: blur(10px)`.
+- **LeftDock** (`LeftDock.razor`) — Icon-only vertical rail on the left (52px). Shows virtual library icons from TrayConfig. Active item has 3px amber left bar. Hover-expands to 200px with text labels. Glassmorphic blur(20px), no borders. Hidden on mobile/TV/automotive via `DockVisible` config flag.
+- **MobileNavDrawer** (`MobileNavDrawer.razor`) — Slide-out drawer triggered by hamburger in mobile TopBar. Contains AppLogo + nav items matching dock libraries + Settings link.
+- **Command Palette (Ctrl+K)** — Global search overlay. Type 2+ characters to search across all Hubs and Works.
+
+### Dark Mode Only
+
+The Dashboard is dark-mode only. All light-mode CSS, the dark/light toggle, and ThemeService light palette have been removed. `IsDarkMode` is always `true`.
 
 ### Real-time Updates
 
@@ -32,15 +38,16 @@ The Dashboard maintains a live connection to the Engine via SignalR. When a new 
 
 | # | Rule | Where enforced |
 |---|------|----------------|
-| LDR-01 | The first Hub in the list is displayed as the Hero tile. | Home.razor |
-| LDR-02 | Clicking a Hub tile promotes it to Hero and updates the accent colour. | Home.razor + ThemeService |
+| LDR-01 | The first Hub is displayed in the cinematic hero banner. | Home.razor |
+| LDR-02 | Poster swimlanes group hubs by media type (requires 2+ hubs per type). | Home.razor |
 | LDR-03 | The Command Palette requires at least 2 characters before searching. | CommandPalette.razor |
 | LDR-04 | Search results are capped at 20 items. | HubEndpoints (server-side cap) |
-| LDR-05 | In Automotive Mode, only audio-type Hubs are shown in the grid. | UniverseStack.razor (IsAudio filter) |
-| LDR-06 | The activity log is capped at 100 entries (oldest dropped first). | UniverseStateContainer |
+| LDR-05 | Dock visibility is config-driven via `DockVisible` in UIShellSettingsDto. | MainLayout.razor |
+| LDR-06 | TopBar variant is config-driven via `TopBarStyle` in UIShellSettingsDto. | MainLayout.razor |
 | LDR-07 | SignalR reconnects automatically with backoff: 0s → 2s → 10s → 30s. | UIOrchestratorService |
 | LDR-08 | Hub cache is invalidated when MediaAdded or MetadataHarvested events arrive. | UniverseStateContainer |
-| LDR-09 | The Dashboard degrades gracefully when the Engine is offline — loading states and error alerts are shown. | Home.razor, MainLayout.razor |
+| LDR-09 | The Dashboard degrades gracefully when the Engine is offline. | Home.razor, MainLayout.razor |
+| LDR-10 | Swimlane card width is device-configurable via `SwimlaneCardWidth`. | Home.razor |
 
 ---
 
@@ -48,19 +55,21 @@ The Dashboard maintains a live connection to the Engine via SignalR. When a new 
 
 | Area | Status | Notes |
 |------|--------|-------|
-| Home page layout | **PASS** | Hero + Bento grid working with responsive columns (1-col mobile, 3-col desktop). |
-| Hub tiles (BentoItem) | **PASS** | Glassmorphic styling with dynamic glow, hover effects, and colour coding. |
-| Real-time updates (SignalR) | **PASS** | Connection, reconnection, event routing, and cache invalidation all working. |
+| Cinematic hero banner | **PASS** | Blurred cover art, vignette overlay, metadata badges. Fallback gradient when no cover. |
+| Poster swimlanes | **PASS** | Horizontal scrolling, scroll-snap, media-type grouping. |
+| TopBar (desktop) | **PASS** | Logo, search, bell, avatar. Review badge count. |
+| TopBar (mobile) | **PASS** | Hamburger, logo, compact actions. |
+| LeftDock (desktop) | **PASS** | Icon-only 52px rail, hover-expand to 200px, amber active bar. |
+| MobileNavDrawer | **PASS** | Slide-out drawer with libraries and settings. |
+| Real-time updates (SignalR) | **PASS** | Connection, reconnection, event routing, cache invalidation. |
 | Command Palette search | **PASS** | Real-time search with media-type icons and colour coding. |
-| Command Palette navigation | **FAIL** | Selecting a search result navigates to `/hub/{hubId}`, but **no Hub detail page exists**. Users land on the 404 page. |
-| Intent Dock (filtering) | **FAIL** | The dock renders correctly, but the `OnIntentChanged` callback is never wired in the layout. Clicking Watch / Read / Listen has no effect. |
-| Progress indicators (Hero) | **FAIL** | All three bars (Watch, Read, Listen) show "--" and 0%. The UserState API required to populate them does not exist. |
-| Compact List view | **WARN** | Toggle button exists but has no effect — list view is not implemented. |
-| Automotive Mode | **PASS** | Audio-only filtering works in the UniverseStack component. |
-| Universe grouping | **WARN** | Universe entity exists in the domain but is never surfaced in the Dashboard. All Hubs display in a flat list. |
+| Command Palette navigation | **FAIL** | Selecting a result navigates to `/hub/{hubId}`, but no Hub detail page exists. |
+| Continue Journey swimlane | **STUB** | Placeholder — UserState API does not exist yet. |
+| Recently Added swimlane | **STUB** | Placeholder — `/hubs/recent` endpoint does not exist yet. |
+| Cover art in hero/posters | **PARTIAL** | Uses `cover` canonical value (provider URLs). Works when providers have been run. |
 
 ---
 
 ## PO Summary
 
-The Library Dashboard presents your collection as a beautiful, responsive Bento grid with live updates from the Engine. Hubs display correctly with media-type icons and accent colours. **Three features are visually present but not yet connected: (1) the Command Palette's search results lead to a non-existent Hub detail page, (2) the Intent Dock's filter buttons do nothing, and (3) the Hero tile's progress bars are always empty because progress tracking isn't built yet.**
+The Library Dashboard presents your collection as a cinematic streaming interface. A full-width hero banner shows blurred cover artwork with metadata badges. Poster-art swimlanes replace the old Bento grid, grouping content by media type (Books, Movies, Comics, Audio). Navigation uses a dual system: a horizontal TopBar at the top (logo, search, bell, profile) plus an icon-only LeftDock on desktop. Mobile uses a hamburger menu that opens a slide-out drawer. **The Dashboard is dark-mode only.** Key gaps: Hub detail page doesn't exist yet, "Continue Journey" and "Recently Added" swimlanes are stubs pending API endpoints.

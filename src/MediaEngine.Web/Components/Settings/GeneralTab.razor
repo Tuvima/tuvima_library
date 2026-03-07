@@ -1,23 +1,20 @@
 @namespace MediaEngine.Web.Components.Settings
 @inject UIOrchestratorService Orchestrator
-@inject ThemeService ThemeService
 @inject DeviceContextService DeviceContext
-@inject IJSRuntime JS
 @inject ISnackbar Snackbar
 @implements IDisposable
 
-@* General — merged Profile identity + Appearance preferences.
+@* General — Profile identity + visual preferences.
    Layout driven by device context:
-     "full"       → Web: all sections visible (profile + avatar colour + appearance + accent)
+     "full"       → Web: all sections visible (profile + avatar colour)
      "stacked"    → Mobile: compact profile, fewer swatches
-     "theme-only" → Television / Automotive: only dark-mode toggle (and possibly locked) *@
+     "theme-only" → Television / Automotive: minimal display *@
 
 @{
     var layout = DeviceContext.Settings.Pages.Preferences.GeneralTabLayout;
     var swatchCount = DeviceContext.Settings.Pages.Preferences.ColorSwatchCount;
     var showProfile = !DeviceContext.IsFeatureDisabled("profile_section") && layout != "theme-only";
     var showColorPicker = !DeviceContext.IsFeatureDisabled("color_picker") && layout != "theme-only";
-    var forceDark = DeviceContext.Settings.Constraints.ForceDarkMode;
 }
 
 <MudPaper Elevation="0" Style="@GlassStyle">
@@ -90,37 +87,6 @@
             <MudDivider Class="my-6" />
         }
 
-        @* ── Appearance section ───────────────────────────────────────── *@
-
-        <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
-            <MudIcon Icon="@Icons.Material.Outlined.Palette" Color="Color.Default" Class="mr-2" />
-            <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">Appearance</MudText>
-        </MudStack>
-
-        @* Dark / Light mode *@
-        <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-6">
-            <MudIcon Icon="@(_isDark ? Icons.Material.Filled.DarkMode : Icons.Material.Filled.LightMode)"
-                     Color="Color.Secondary" Class="mr-2" />
-            <MudText Style="flex: 1;">Dark Mode</MudText>
-            @if (forceDark)
-            {
-                @* Automotive: dark mode forced — show a locked indicator *@
-                <MudChip T="string" Size="Size.Small" Color="Color.Default"
-                         Icon="@Icons.Material.Filled.Lock">
-                    Always On
-                </MudChip>
-            }
-            else
-            {
-                <MudSwitch T="bool"
-                           Value="@_isDark"
-                           ValueChanged="@ToggleDarkMode"
-                           Color="Color.Primary" />
-            }
-        </MudStack>
-
-        @* Accent colour removed — fixed golden amber accent is now used globally. *@
-
         @* ── Save button (only when profile section is visible) ──────── *@
 
         @if (showProfile)
@@ -155,8 +121,6 @@
         "#2196F3", "#4CAF50", "#FF5722", "#9C27B0",
     ];
 
-    // Accent colour presets removed — fixed golden amber accent is used globally.
-
     // ── State ────────────────────────────────────────────────────────────────────
 
     private bool    _loading     = true;
@@ -165,21 +129,17 @@
     private string  _displayName = string.Empty;
     private string  _avatarColor = "#7C4DFF";
     private string  _role        = "Administrator";
-    private bool    _isDark      = true;
 
     // ── Lifecycle ────────────────────────────────────────────────────────────────
 
     protected override async Task OnInitializedAsync()
     {
-        _isDark = ThemeService.IsDarkMode;
-        ThemeService.OnThemeChanged += OnThemeUpdated;
         DeviceContext.OnChanged += OnDeviceChanged;
         await LoadProfileAsync();
     }
 
     public void Dispose()
     {
-        ThemeService.OnThemeChanged -= OnThemeUpdated;
         DeviceContext.OnChanged -= OnDeviceChanged;
     }
 
@@ -214,24 +174,6 @@
             Snackbar.Add("Could not save profile — is the Engine running?", Severity.Error);
 
         _saving = false;
-    }
-
-    // ── Appearance ───────────────────────────────────────────────────────────────
-
-    private void OnThemeUpdated()
-    {
-        _isDark = ThemeService.IsDarkMode;
-        InvokeAsync(StateHasChanged);
-    }
-
-    private async Task ToggleDarkMode(bool value)
-    {
-        // Don't allow toggling when dark mode is forced by the device.
-        if (DeviceContext.Settings.Constraints.ForceDarkMode) return;
-
-        ThemeService.ToggleTheme();
-        _isDark = ThemeService.IsDarkMode;
-        await JS.InvokeVoidAsync("setThemeClass", _isDark);
     }
 
     // ── Swatch styles ────────────────────────────────────────────────────────────

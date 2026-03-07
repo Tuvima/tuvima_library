@@ -1,0 +1,69 @@
+@namespace MediaEngine.Web.Components.Universe
+
+@* PosterSwimlane — Horizontal scrolling row of PosterCards.
+   Features: section title, hidden scrollbar, scroll-snap, touch-friendly. *@
+
+@if (Hubs is { Count: > 0 })
+{
+    <div class="swimlane-section @Class">
+        <div class="swimlane-header">
+            <h3 class="swimlane-title">@Title</h3>
+        </div>
+
+        <div class="swimlane-scroll">
+            @foreach (var hub in Hubs)
+            {
+                <PosterCard Hub="@hub"
+                            OnHubSelected="OnHubSelected"
+                            Width="@CardWidth" />
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+    [Parameter] public IReadOnlyList<HubViewModel> Hubs { get; set; } = [];
+    [Parameter] public EventCallback<HubViewModel> OnHubSelected { get; set; }
+    [Parameter] public int CardWidth { get; set; } = 180;
+    [Parameter] public string? Class { get; set; }
+}
+
+<style>
+    .swimlane-section {
+        margin-bottom: 2rem;
+    }
+
+    .swimlane-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 12px;
+        padding: 0 2px;
+    }
+
+    .swimlane-title {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: rgba(248, 248, 248, 0.90);
+        margin: 0;
+        line-height: 1.3;
+    }
+
+    .swimlane-scroll {
+        display: flex;
+        gap: 16px;
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+        padding-bottom: 8px;
+
+        /* Hide scrollbar across browsers */
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+    }
+
+    .swimlane-scroll::-webkit-scrollbar {
+        display: none;
+    }
+</style>

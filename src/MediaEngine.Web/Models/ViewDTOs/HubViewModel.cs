@@ -24,6 +24,30 @@ public sealed class HubViewModel
     public string MediaTypes => string.Join(", ", Works.Select(w => w.MediaType).Distinct());
     public bool   HasWorks   => Works.Count > 0;
 
+    /// <summary>Cover art URL from the first Work's canonical "cover" value (external provider URL).</summary>
+    public string? CoverUrl => Works.Select(w => w.CoverUrl).FirstOrDefault(u => !string.IsNullOrEmpty(u));
+
+    /// <summary>Release year from the first Work with a year value.</summary>
+    public string? Year => Works.Select(w => w.Year).FirstOrDefault(y => !string.IsNullOrEmpty(y));
+
+    /// <summary>Primary media type string from the first Work (e.g. "Epub", "Video").</summary>
+    public string? PrimaryMediaType => Works.FirstOrDefault()?.MediaType;
+
+    /// <summary>Best description across all works.</summary>
+    public string? Description => Works.Select(w => w.Description).FirstOrDefault(d => !string.IsNullOrEmpty(d));
+
+    /// <summary>Best author/creator across all works.</summary>
+    public string? Author => Works.Select(w => w.Author).FirstOrDefault(a => !string.IsNullOrEmpty(a));
+
+    /// <summary>Genre tags from the first Work with genre data.</summary>
+    public string? Genre => Works.Select(w => w.Genre).FirstOrDefault(g => !string.IsNullOrEmpty(g));
+
+    /// <summary>Series name from the first Work with series data.</summary>
+    public string? Series => Works.Select(w => w.Series).FirstOrDefault(s => !string.IsNullOrEmpty(s));
+
+    /// <summary>Rating from the first Work with a rating.</summary>
+    public string? Rating => Works.Select(w => w.Rating).FirstOrDefault(r => !string.IsNullOrEmpty(r));
+
     /// <summary>
     /// Brand hex colour derived from the dominant media type across this Hub's Works.
     /// Driven by <see cref="UniverseMapper.ColourForHub"/> so all colour logic
