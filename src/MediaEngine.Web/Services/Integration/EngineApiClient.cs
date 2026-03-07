@@ -413,6 +413,35 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    public async Task<BrowseDirectoryResultDto?> BrowseDirectoryAsync(
+        string?           path,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var body = new { path };
+            var resp = await _http.PostAsJsonAsync("/settings/browse-directory", body, ct);
+
+            if (!resp.IsSuccessStatusCode)
+            {
+                var detail = await resp.Content.ReadAsStringAsync(ct);
+                _logger.LogWarning(
+                    "POST /settings/browse-directory returned {Status}: {Detail}",
+                    (int)resp.StatusCode, detail);
+                LastError = $"HTTP {(int)resp.StatusCode}: {detail}";
+                return null;
+            }
+
+            return await resp.Content.ReadFromJsonAsync<BrowseDirectoryResultDto>(ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /settings/browse-directory failed");
+            LastError = ex.Message;
+            return null;
+        }
+    }
+
     public async Task<IReadOnlyList<ProviderStatusDto>> GetProviderStatusAsync(
         CancellationToken ct = default)
     {

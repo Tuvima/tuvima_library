@@ -367,6 +367,26 @@ public sealed class TestPathResponse
     public bool HasWrite { get; init; }
 }
 
+// ── POST /settings/browse-directory ────────────────────────────────────────────
+
+public sealed class BrowseDirectoryRequest
+{
+    [JsonPropertyName("path")]
+    public string? Path { get; init; }
+}
+
+public sealed class BrowseDirectoryResponse
+{
+    [JsonPropertyName("current_path")]
+    public string CurrentPath { get; init; } = string.Empty;
+
+    [JsonPropertyName("parent_path")]
+    public string? ParentPath { get; init; }
+
+    [JsonPropertyName("directories")]
+    public List<string> Directories { get; init; } = [];
+}
+
 // ── PUT /settings/providers/{name} ─────────────────────────────────────────────
 
 public sealed class UpdateProviderRequest

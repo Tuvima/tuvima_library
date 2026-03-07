@@ -202,6 +202,69 @@ public static class SettingsEndpoints
         .Produces<TestPathResponse>(StatusCodes.Status200OK)
         .RequireAdmin();
 
+        // ── POST /settings/browse-directory ────────────────────────────────────────
+
+        grp.MapPost("/browse-directory", (BrowseDirectoryRequest request) =>
+        {
+            var path = request.Path?.Trim();
+
+            // Empty/null → list drive roots.
+            if (string.IsNullOrEmpty(path))
+            {
+                var drives = DriveInfo.GetDrives()
+                    .Where(d => d.IsReady)
+                    .Select(d => d.Name)
+                    .Order()
+                    .ToList();
+
+                return Results.Ok(new BrowseDirectoryResponse
+                {
+                    CurrentPath = string.Empty,
+                    ParentPath  = null,
+                    Directories = drives,
+                });
+            }
+
+            // Path traversal validation.
+            var pathError = PathValidator.Validate(path);
+            if (pathError is not null)
+                return Results.BadRequest(new { error = pathError });
+
+            if (!Directory.Exists(path))
+                return Results.Ok(new BrowseDirectoryResponse
+                {
+                    CurrentPath = path,
+                    ParentPath  = Path.GetDirectoryName(path),
+                    Directories = [],
+                });
+
+            List<string> dirs;
+            try
+            {
+                dirs = Directory.GetDirectories(path)
+                    .Select(Path.GetFileName)
+                    .Where(n => n is not null && !n.StartsWith('.'))
+                    .Select(n => n!)
+                    .Order()
+                    .ToList();
+            }
+            catch
+            {
+                dirs = [];
+            }
+
+            return Results.Ok(new BrowseDirectoryResponse
+            {
+                CurrentPath = path,
+                ParentPath  = Path.GetDirectoryName(path),
+                Directories = dirs,
+            });
+        })
+        .WithName("BrowseDirectory")
+        .WithSummary("Lists subdirectories at the given path, or drive roots if path is empty.")
+        .Produces<BrowseDirectoryResponse>(StatusCodes.Status200OK)
+        .RequireAdmin();
+
         // ── PUT /settings/providers/{name} ───────────────────────────────────────
 
         grp.MapPut("/providers/{name}", (

@@ -208,6 +208,10 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     public Task<PathTestResultDto?> TestPathAsync(string path, CancellationToken ct = default)
         => _api.TestPathAsync(path, ct);
 
+    /// <summary>Lists subdirectories at the given path, or drive roots when the path is empty.</summary>
+    public Task<BrowseDirectoryResultDto?> BrowseDirectoryAsync(string? path, CancellationToken ct = default)
+        => _api.BrowseDirectoryAsync(path, ct);
+
     /// <summary>Returns enabled state and live reachability for all registered metadata providers.</summary>
     public Task<IReadOnlyList<ProviderStatusDto>> GetProviderStatusAsync(CancellationToken ct = default)
         => _api.GetProviderStatusAsync(ct);

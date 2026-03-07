@@ -2,6 +2,7 @@
 @inject UIOrchestratorService Orchestrator
 @inject DeviceContextService DeviceContext
 @inject ISnackbar Snackbar
+@inject IDialogService DialogService
 @implements IDisposable
 
 @* Folder configuration — Library Folder (primary), Watch Folder, Staging Folder, and file naming template.
@@ -33,7 +34,7 @@ else
 
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
         <MudIcon Icon="@Icons.Material.Outlined.FolderOpen" Color="Color.Default" Class="mr-2" />
-        <MudText Typo="Typo.h6">File Management</MudText>
+        <MudText Typo="Typo.h6">Library Paths</MudText>
         @if (readOnly)
         {
             <MudChip T="string" Size="Size.Small" Color="Color.Default"
@@ -47,127 +48,92 @@ else
         Tell me where to find and keep your media.
     </MudText>
 
-    @* ── Library Folder (primary — shown first, with more prominence) ─────────── *@
-    <MudPaper Elevation="0" Style="@PrimaryFolderCardStyle" Class="mb-6 pa-4">
-        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-1">
-            <MudIcon Icon="@Icons.Material.Filled.Circle"
-                     Size="Size.Small"
-                     Color="@(_libraryHealthy ? Color.Success : Color.Error)" />
-            <MudText Typo="Typo.subtitle1" Style="font-weight: 700;">Library Folder</MudText>
+    @* ── Library Folder ─────────────────────────────────────────────────────── *@
+    <div class="folder-path-row mb-5">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-1">
+            <div class="health-dot @HealthClass(_libraryHealthy, _libValidating, _libraryRoot)" />
+            <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">Library Folder</MudText>
         </MudStack>
-        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
-            The organised library root — this is where your files will live after they are processed.
-        </MudText>
-        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-2">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
             <MudTextField @bind-Value="_libraryRoot"
+                          @bind-Value:after="@(() => OnPathChanged(nameof(_libraryRoot)))"
                           Placeholder="/path/to/library"
                           Variant="Variant.Outlined"
                           FullWidth="true"
                           Immediate="true"
                           ReadOnly="@readOnly"
                           Margin="Margin.Dense" />
-            <MudButton Variant="Variant.Outlined"
-                       Color="Color.Primary"
-                       OnClick="@TestLibraryPathAsync"
-                       Disabled="@(string.IsNullOrWhiteSpace(_libraryRoot) || _testingLib || readOnly)"
-                       Style="white-space: nowrap; min-width: 110px;">
-                @(_testingLib ? "Testing..." : "Test Path")
-            </MudButton>
+            <MudIconButton Icon="@Icons.Material.Outlined.FolderOpen"
+                           Size="Size.Medium"
+                           Color="Color.Primary"
+                           Disabled="@readOnly"
+                           OnClick="@(() => BrowseAsync(nameof(_libraryRoot)))"
+                           title="Browse folders" />
         </MudStack>
-        @if (_libTestResult is not null)
-        {
-            <MudChip T="string"
-                     Color="@GetTestColor(_libTestResult)"
-                     Size="Size.Small">
-                @GetTestLabel(_libTestResult)
-            </MudChip>
-        }
-    </MudPaper>
+        <MudText Typo="Typo.caption" Style="@StatusStyle(_libraryHealthy, _libValidating, _libraryRoot)" Class="mt-1">
+            @StatusLabel(_libTestResult, _libValidating, _libraryRoot)
+        </MudText>
+    </div>
 
-    @* ── Watch Folder ─────────────────────────────────────────────────────────── *@
-    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-1">
-        <MudIcon Icon="@Icons.Material.Filled.Circle"
-                 Size="Size.Small"
-                 Color="@(_watchHealthy ? Color.Success : Color.Error)" />
-        <MudText Typo="Typo.subtitle2">Watch Folder</MudText>
-    </MudStack>
-    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2">
-        Where should I look for new files?
-    </MudText>
-    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-2">
-        <MudTextField @bind-Value="_watchDir"
-                      Placeholder="/path/to/watch"
-                      Variant="Variant.Outlined"
-                      FullWidth="true"
-                      Immediate="true"
-                      ReadOnly="@readOnly"
-                      Margin="Margin.Dense" />
-        <MudButton Variant="Variant.Outlined"
-                   Color="Color.Primary"
-                   OnClick="@TestWatchPathAsync"
-                   Disabled="@(string.IsNullOrWhiteSpace(_watchDir) || _testingWatch || readOnly)"
-                   Style="white-space: nowrap; min-width: 110px;">
-            @(_testingWatch ? "Testing..." : "Test Path")
-        </MudButton>
-    </MudStack>
-    @if (_watchTestResult is not null)
-    {
-        <MudChip T="string"
-                 Color="@GetTestColor(_watchTestResult)"
-                 Size="Size.Small"
-                 Class="mb-5">
-            @GetTestLabel(_watchTestResult)
-        </MudChip>
-    }
-    else
-    {
-        <div class="mb-5" />
-    }
+    @* ── Watch Folder ───────────────────────────────────────────────────────── *@
+    <div class="folder-path-row mb-5">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-1">
+            <div class="health-dot @HealthClass(_watchHealthy, _watchValidating, _watchDir)" />
+            <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">Watch Folder</MudText>
+        </MudStack>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+            <MudTextField @bind-Value="_watchDir"
+                          @bind-Value:after="@(() => OnPathChanged(nameof(_watchDir)))"
+                          Placeholder="/path/to/watch"
+                          Variant="Variant.Outlined"
+                          FullWidth="true"
+                          Immediate="true"
+                          ReadOnly="@readOnly"
+                          Margin="Margin.Dense" />
+            <MudIconButton Icon="@Icons.Material.Outlined.FolderOpen"
+                           Size="Size.Medium"
+                           Color="Color.Primary"
+                           Disabled="@readOnly"
+                           OnClick="@(() => BrowseAsync(nameof(_watchDir)))"
+                           title="Browse folders" />
+        </MudStack>
+        <MudText Typo="Typo.caption" Style="@StatusStyle(_watchHealthy, _watchValidating, _watchDir)" Class="mt-1">
+            @StatusLabel(_watchTestResult, _watchValidating, _watchDir)
+        </MudText>
+    </div>
 
-    @* ── Staging Folder ───────────────────────────────────────────────────────── *@
-    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-1">
-        <MudIcon Icon="@Icons.Material.Filled.Circle"
-                 Size="Size.Small"
-                 Color="@(_stagingHealthy ? Color.Success : Color.Default)" />
-        <MudText Typo="Typo.subtitle2">Staging Folder</MudText>
-        <MudChip T="string" Size="Size.Small" Color="Color.Default">Optional</MudChip>
-    </MudStack>
-    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2">
-        Holding area for files that can't be auto-organized yet. Keeps the Watch Folder clean.
-    </MudText>
-    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-2">
-        <MudTextField @bind-Value="_stagingDir"
-                      Placeholder="/path/to/staging"
-                      Variant="Variant.Outlined"
-                      FullWidth="true"
-                      Immediate="true"
-                      ReadOnly="@readOnly"
-                      Margin="Margin.Dense" />
-        <MudButton Variant="Variant.Outlined"
-                   Color="Color.Primary"
-                   OnClick="@TestStagingPathAsync"
-                   Disabled="@(string.IsNullOrWhiteSpace(_stagingDir) || _testingStaging || readOnly)"
-                   Style="white-space: nowrap; min-width: 110px;">
-            @(_testingStaging ? "Testing..." : "Test Path")
-        </MudButton>
-    </MudStack>
-    @if (_stagingTestResult is not null)
-    {
-        <MudChip T="string"
-                 Color="@GetTestColor(_stagingTestResult)"
-                 Size="Size.Small"
-                 Class="mb-5">
-            @GetTestLabel(_stagingTestResult)
-        </MudChip>
-    }
-    else
-    {
-        <div class="mb-5" />
-    }
+    @* ── Staging Folder ─────────────────────────────────────────────────────── *@
+    <div class="folder-path-row mb-5">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-1">
+            <div class="health-dot @HealthClass(_stagingHealthy, _stagingValidating, _stagingDir)" />
+            <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">Staging Folder</MudText>
+            <MudChip T="string" Size="Size.Small" Color="Color.Default"
+                     Style="font-size: 0.65rem; height: 18px;">Optional</MudChip>
+        </MudStack>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+            <MudTextField @bind-Value="_stagingDir"
+                          @bind-Value:after="@(() => OnPathChanged(nameof(_stagingDir)))"
+                          Placeholder="/path/to/staging"
+                          Variant="Variant.Outlined"
+                          FullWidth="true"
+                          Immediate="true"
+                          ReadOnly="@readOnly"
+                          Margin="Margin.Dense" />
+            <MudIconButton Icon="@Icons.Material.Outlined.FolderOpen"
+                           Size="Size.Medium"
+                           Color="Color.Primary"
+                           Disabled="@readOnly"
+                           OnClick="@(() => BrowseAsync(nameof(_stagingDir)))"
+                           title="Browse folders" />
+        </MudStack>
+        <MudText Typo="Typo.caption" Style="@StatusStyle(_stagingHealthy, _stagingValidating, _stagingDir)" Class="mt-1">
+            @StatusLabel(_stagingTestResult, _stagingValidating, _stagingDir)
+        </MudText>
+    </div>
 
     <MudDivider Class="my-6" />
 
-    @* ── Folder and File Naming ───────────────────────────────────────────────── *@
+    @* ── Folder and File Naming ─────────────────────────────────────────────── *@
     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-1">
         <MudIcon Icon="@Icons.Material.Filled.AccountTree"
                  Size="Size.Small"
@@ -244,6 +210,28 @@ else
 </MudPaper>
 }
 
+<style>
+    .folder-path-row {
+        position: relative;
+    }
+    .health-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        flex-shrink: 0;
+        transition: background 0.2s ease;
+    }
+    .health-dot.health-ok     { background: #4caf50; }
+    .health-dot.health-error  { background: #f44336; }
+    .health-dot.health-idle   { background: rgba(255, 255, 255, 0.2); }
+    .health-dot.health-busy   { background: #ff9800; animation: health-pulse 1s ease-in-out infinite; }
+
+    @@keyframes health-pulse {
+        0%, 100% { opacity: 1; }
+        50%      { opacity: 0.3; }
+    }
+</style>
+
 @code {
 
     private const string DefaultOrganizationTemplate = "{Category}/{Author}/{Title} ({Edition}){Ext}";
@@ -261,11 +249,6 @@ else
         "border: 1px solid var(--app-glass-inner-border); " +
         "border-radius: 6px;";
 
-    private const string PrimaryFolderCardStyle =
-        "background: var(--app-glass-inner-bg); " +
-        "border: 1px solid var(--app-glass-inner-border); " +
-        "border-radius: 8px;";
-
     // ── State ────────────────────────────────────────────────────────────────────
 
     private string              _watchDir              = string.Empty;
@@ -274,9 +257,9 @@ else
     private PathTestResultDto?  _watchTestResult;
     private PathTestResultDto?  _libTestResult;
     private PathTestResultDto?  _stagingTestResult;
-    private bool                _testingWatch;
-    private bool                _testingLib;
-    private bool                _testingStaging;
+    private bool                _watchValidating;
+    private bool                _libValidating;
+    private bool                _stagingValidating;
     private bool                _savingFolders;
     private bool                _watchHealthy;
     private bool                _libraryHealthy;
@@ -287,6 +270,11 @@ else
     private string?             _templatePreview;
     private string?             _templateError;
     private bool                _previewingTemplate;
+
+    // Debounce timers for auto-validation
+    private Timer? _watchTimer;
+    private Timer? _libTimer;
+    private Timer? _stagingTimer;
 
     // ── Lifecycle ────────────────────────────────────────────────────────────────
 
@@ -324,6 +312,9 @@ else
     {
         Orchestrator.OnFolderHealthChanged -= HandleFolderHealthChanged;
         DeviceContext.OnChanged            -= OnDeviceChanged;
+        _watchTimer?.Dispose();
+        _libTimer?.Dispose();
+        _stagingTimer?.Dispose();
     }
 
     private void OnDeviceChanged() => InvokeAsync(StateHasChanged);
@@ -350,77 +341,141 @@ else
         if (!string.IsNullOrWhiteSpace(_watchDir))
         {
             var r = await Orchestrator.TestPathAsync(_watchDir);
-            _watchHealthy = r is { Exists: true, HasRead: true, HasWrite: true };
+            _watchTestResult = r;
+            _watchHealthy    = r is { Exists: true, HasRead: true, HasWrite: true };
         }
 
         if (!string.IsNullOrWhiteSpace(_libraryRoot))
         {
             var r = await Orchestrator.TestPathAsync(_libraryRoot);
+            _libTestResult  = r;
             _libraryHealthy = r is { Exists: true, HasRead: true, HasWrite: true };
         }
 
         if (!string.IsNullOrWhiteSpace(_stagingDir))
         {
             var r = await Orchestrator.TestPathAsync(_stagingDir);
-            _stagingHealthy = r is { Exists: true, HasRead: true, HasWrite: true };
+            _stagingTestResult = r;
+            _stagingHealthy    = r is { Exists: true, HasRead: true, HasWrite: true };
         }
     }
 
-    // ── Handlers ─────────────────────────────────────────────────────────────────
+    // ── Debounced auto-validation ───────────────────────────────────────────────
 
-    private async Task TestWatchPathAsync()
+    private void OnPathChanged(string field)
     {
-        if (string.IsNullOrWhiteSpace(_watchDir)) return;
-        _testingWatch    = true;
+        switch (field)
+        {
+            case nameof(_libraryRoot):
+                _libTestResult = null;
+                _libValidating = false;
+                _libTimer?.Dispose();
+                if (!string.IsNullOrWhiteSpace(_libraryRoot))
+                    _libTimer = new Timer(_ => InvokeAsync(ValidateLibraryAsync), null, 800, Timeout.Infinite);
+                else
+                    _libraryHealthy = false;
+                break;
+
+            case nameof(_watchDir):
+                _watchTestResult = null;
+                _watchValidating = false;
+                _watchTimer?.Dispose();
+                if (!string.IsNullOrWhiteSpace(_watchDir))
+                    _watchTimer = new Timer(_ => InvokeAsync(ValidateWatchAsync), null, 800, Timeout.Infinite);
+                else
+                    _watchHealthy = false;
+                break;
+
+            case nameof(_stagingDir):
+                _stagingTestResult = null;
+                _stagingValidating = false;
+                _stagingTimer?.Dispose();
+                if (!string.IsNullOrWhiteSpace(_stagingDir))
+                    _stagingTimer = new Timer(_ => InvokeAsync(ValidateStagingAsync), null, 800, Timeout.Infinite);
+                else
+                    _stagingHealthy = false;
+                break;
+        }
+    }
+
+    private async Task ValidateLibraryAsync()
+    {
+        _libValidating = true;
+        StateHasChanged();
+        _libTestResult  = await Orchestrator.TestPathAsync(_libraryRoot);
+        _libraryHealthy = _libTestResult is { Exists: true, HasRead: true, HasWrite: true };
+        _libValidating  = false;
+        StateHasChanged();
+    }
+
+    private async Task ValidateWatchAsync()
+    {
+        _watchValidating = true;
+        StateHasChanged();
         _watchTestResult = await Orchestrator.TestPathAsync(_watchDir);
-        _testingWatch    = false;
-
-        if (_watchTestResult is null)
-        {
-            Snackbar.Add("Cannot reach the Engine — please make sure it is running.", Severity.Error);
-            _watchHealthy = false;
-        }
-        else
-        {
-            _watchHealthy = _watchTestResult is { Exists: true, HasRead: true, HasWrite: true };
-        }
+        _watchHealthy    = _watchTestResult is { Exists: true, HasRead: true, HasWrite: true };
+        _watchValidating = false;
+        StateHasChanged();
     }
 
-    private async Task TestLibraryPathAsync()
+    private async Task ValidateStagingAsync()
     {
-        if (string.IsNullOrWhiteSpace(_libraryRoot)) return;
-        _testingLib    = true;
-        _libTestResult = await Orchestrator.TestPathAsync(_libraryRoot);
-        _testingLib    = false;
-
-        if (_libTestResult is null)
-        {
-            Snackbar.Add("Cannot reach the Engine — please make sure it is running.", Severity.Error);
-            _libraryHealthy = false;
-        }
-        else
-        {
-            _libraryHealthy = _libTestResult is { Exists: true, HasRead: true, HasWrite: true };
-        }
-    }
-
-    private async Task TestStagingPathAsync()
-    {
-        if (string.IsNullOrWhiteSpace(_stagingDir)) return;
-        _testingStaging    = true;
+        _stagingValidating = true;
+        StateHasChanged();
         _stagingTestResult = await Orchestrator.TestPathAsync(_stagingDir);
-        _testingStaging    = false;
+        _stagingHealthy    = _stagingTestResult is { Exists: true, HasRead: true, HasWrite: true };
+        _stagingValidating = false;
+        StateHasChanged();
+    }
 
-        if (_stagingTestResult is null)
+    // ── Browse dialog ───────────────────────────────────────────────────────────
+
+    private async Task BrowseAsync(string field)
+    {
+        var currentPath = field switch
         {
-            Snackbar.Add("Cannot reach the Engine — please make sure it is running.", Severity.Error);
-            _stagingHealthy = false;
-        }
-        else
+            nameof(_libraryRoot) => _libraryRoot,
+            nameof(_watchDir)    => _watchDir,
+            nameof(_stagingDir)  => _stagingDir,
+            _                    => string.Empty,
+        };
+
+        var parameters = new DialogParameters<FolderBrowserDialog>
         {
-            _stagingHealthy = _stagingTestResult is { Exists: true, HasRead: true, HasWrite: true };
+            { x => x.InitialPath, currentPath },
+        };
+
+        var options = new DialogOptions
+        {
+            MaxWidth    = MaxWidth.Small,
+            FullWidth   = true,
+            CloseButton = true,
+        };
+
+        var dialog = await DialogService.ShowAsync<FolderBrowserDialog>("Browse Folders", parameters, options);
+        var result = await dialog.Result;
+
+        if (result is { Canceled: false, Data: string selectedPath })
+        {
+            switch (field)
+            {
+                case nameof(_libraryRoot):
+                    _libraryRoot = selectedPath;
+                    await ValidateLibraryAsync();
+                    break;
+                case nameof(_watchDir):
+                    _watchDir = selectedPath;
+                    await ValidateWatchAsync();
+                    break;
+                case nameof(_stagingDir):
+                    _stagingDir = selectedPath;
+                    await ValidateStagingAsync();
+                    break;
+            }
         }
     }
+
+    // ── Template handlers ───────────────────────────────────────────────────────
 
     private async Task PreviewTemplateAsync()
     {
@@ -449,6 +504,8 @@ else
         _templatePreview      = null;
         _templateError        = null;
     }
+
+    // ── Save ────────────────────────────────────────────────────────────────────
 
     private async Task SaveFoldersAsync()
     {
@@ -566,14 +623,31 @@ else
         _savingFolders = false;
     }
 
-    private static Color GetTestColor(PathTestResultDto r) =>
-        !r.Exists              ? Color.Error   :
-        r.HasRead && r.HasWrite ? Color.Success :
-                                  Color.Warning;
+    // ── Display helpers ─────────────────────────────────────────────────────────
 
-    private static string GetTestLabel(PathTestResultDto r) =>
-        !r.Exists               ? "Folder not found"              :
-        r.HasRead && r.HasWrite  ? "Read & Write access confirmed" :
-        r.HasRead               ? "Read only — cannot write"      :
-                                   "Access denied";
+    private static string HealthClass(bool healthy, bool validating, string path) =>
+        validating                        ? "health-busy"  :
+        string.IsNullOrWhiteSpace(path)   ? "health-idle"  :
+        healthy                           ? "health-ok"    :
+                                            "health-error";
+
+    private static string StatusStyle(bool healthy, bool validating, string path)
+    {
+        var color = validating                      ? "var(--mud-palette-warning)" :
+                    string.IsNullOrWhiteSpace(path) ? "var(--app-text-soft)"       :
+                    healthy                         ? "var(--mud-palette-success)"  :
+                                                      "var(--mud-palette-error)";
+        return $"color: {color}; font-size: 0.75rem;";
+    }
+
+    private static string StatusLabel(PathTestResultDto? result, bool validating, string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))   return " ";
+        if (validating)                        return "Checking...";
+        if (result is null)                    return " ";
+        if (!result.Exists)                    return "Folder not found";
+        if (result.HasRead && result.HasWrite) return "Read & Write access confirmed";
+        if (result.HasRead)                    return "Read only — cannot write";
+        return "Access denied";
+    }
 }

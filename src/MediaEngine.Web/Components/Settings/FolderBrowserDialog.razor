@@ -1,0 +1,171 @@
+@namespace MediaEngine.Web.Components.Settings
+@inject UIOrchestratorService Orchestrator
+
+<MudDialog>
+    <TitleContent>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Outlined.FolderOpen" />
+            <MudText Typo="Typo.h6">Browse Folders</MudText>
+        </MudStack>
+    </TitleContent>
+
+    <DialogContent>
+        @* ── Breadcrumb / current path ──────────────────────────── *@
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-3">
+            <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward"
+                           Size="Size.Small"
+                           Disabled="@(string.IsNullOrEmpty(_currentPath) || _loading)"
+                           OnClick="@NavigateUpAsync"
+                           title="Up one level" />
+            <MudIconButton Icon="@Icons.Material.Filled.Home"
+                           Size="Size.Small"
+                           Disabled="@(string.IsNullOrEmpty(_currentPath) || _loading)"
+                           OnClick="@NavigateToRootAsync"
+                           title="Drive roots" />
+            <MudText Typo="Typo.body2"
+                     Style="font-family: monospace; word-break: break-all; flex: 1; padding: 4px 8px;
+                            background: var(--app-glass-inner-bg); border-radius: 4px;
+                            border: 1px solid var(--app-glass-inner-border);">
+                @(string.IsNullOrEmpty(_currentPath) ? "My Computer" : _currentPath)
+            </MudText>
+        </MudStack>
+
+        @* ── Directory list ─────────────────────────────────────── *@
+        <div style="min-height: 260px; max-height: 360px; overflow-y: auto;
+                    border: 1px solid var(--app-glass-inner-border); border-radius: 6px;
+                    background: var(--app-glass-inner-bg);">
+
+            @if (_loading)
+            {
+                <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center"
+                          Style="padding: 48px 0;">
+                    <MudProgressCircular Indeterminate="true" Size="Size.Medium"
+                                         Color="Color.Primary" />
+                </MudStack>
+            }
+            else if (_directories.Count == 0)
+            {
+                <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center"
+                          Style="padding: 48px 0;">
+                    <MudIcon Icon="@Icons.Material.Outlined.FolderOff"
+                             Color="Color.Secondary" Style="font-size: 2rem;" />
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        No accessible folders
+                    </MudText>
+                </MudStack>
+            }
+            else
+            {
+                @foreach (var dir in _directories)
+                {
+                    <div class="folder-browser-row" @onclick="@(() => NavigateIntoAsync(dir))">
+                        <MudIcon Icon="@Icons.Material.Filled.Folder"
+                                 Size="Size.Small"
+                                 Style="color: var(--mud-palette-primary); flex-shrink: 0;" />
+                        <MudText Typo="Typo.body2" Style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                            @dir
+                        </MudText>
+                    </div>
+                }
+            }
+        </div>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton OnClick="Cancel" Color="Color.Default" Variant="Variant.Text">Cancel</MudButton>
+        <MudButton OnClick="Select" Color="Color.Primary" Variant="Variant.Filled"
+                   Disabled="@string.IsNullOrEmpty(_currentPath)">
+            Select Folder
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+<style>
+    .folder-browser-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 14px;
+        cursor: pointer;
+        transition: background 0.12s ease;
+    }
+    .folder-browser-row:hover {
+        background: rgba(255, 255, 255, 0.06);
+    }
+    .folder-browser-row:active {
+        background: rgba(255, 255, 255, 0.1);
+    }
+</style>
+
+@code {
+
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = null!;
+
+    /// <summary>Initial path to open the dialog at. Null/empty starts at drive roots.</summary>
+    [Parameter]
+    public string? InitialPath { get; set; }
+
+    // ── State ──────────────────────────────────────────────────────────────────
+
+    private string        _currentPath = string.Empty;
+    private string?       _parentPath;
+    private List<string>  _directories = [];
+    private bool          _loading;
+
+    // ── Lifecycle ──────────────────────────────────────────────────────────────
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!string.IsNullOrWhiteSpace(InitialPath) && Directory.Exists(InitialPath))
+            await LoadAsync(InitialPath);
+        else
+            await LoadAsync(null);
+    }
+
+    // ── Navigation ─────────────────────────────────────────────────────────────
+
+    private async Task LoadAsync(string? path)
+    {
+        _loading = true;
+        StateHasChanged();
+
+        var result = await Orchestrator.BrowseDirectoryAsync(path);
+
+        if (result is not null)
+        {
+            _currentPath = result.CurrentPath;
+            _parentPath  = result.ParentPath;
+            _directories = result.Directories;
+        }
+        else
+        {
+            _directories = [];
+        }
+
+        _loading = false;
+        StateHasChanged();
+    }
+
+    private Task NavigateIntoAsync(string dirName)
+    {
+        var target = string.IsNullOrEmpty(_currentPath)
+            ? dirName                                          // drive root selected
+            : Path.Combine(_currentPath, dirName);
+        return LoadAsync(target);
+    }
+
+    private Task NavigateUpAsync()
+        => LoadAsync(_parentPath);
+
+    private Task NavigateToRootAsync()
+        => LoadAsync(null);
+
+    // ── Dialog actions ─────────────────────────────────────────────────────────
+
+    private void Select()
+        => MudDialog.Close(DialogResult.Ok(_currentPath));
+
+    private void Cancel()
+        => MudDialog.Cancel();
+}

@@ -112,6 +112,9 @@ public interface IEngineApiClient
     /// <summary>POST /settings/test-path — probe a directory for existence, read, and write access.</summary>
     Task<PathTestResultDto?> TestPathAsync(string path, CancellationToken ct = default);
 
+    /// <summary>POST /settings/browse-directory — list subdirectories or drive roots.</summary>
+    Task<BrowseDirectoryResultDto?> BrowseDirectoryAsync(string? path, CancellationToken ct = default);
+
     /// <summary>GET /settings/providers — enabled state and live reachability for all providers.</summary>
     Task<IReadOnlyList<ProviderStatusDto>> GetProviderStatusAsync(CancellationToken ct = default);
 
