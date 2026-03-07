@@ -57,4 +57,12 @@ public sealed class WikidataPropertyConfig
     /// </summary>
     [JsonPropertyName("value_transform")]
     public string? ValueTransform { get; set; }
+
+    /// <summary>
+    /// When <c>true</c>, the SPARQL query uses <c>GROUP_CONCAT</c> to collect
+    /// all values. The adapter splits the concatenated result and emits one
+    /// claim per value.
+    /// </summary>
+    [JsonPropertyName("is_multi_valued")]
+    public bool IsMultiValued { get; set; }
 }

@@ -13,6 +13,7 @@ namespace MediaEngine.Storage;
 public sealed class DatabaseConnection : IDatabaseConnection
 {
     private readonly string _databasePath;
+    private readonly SemaphoreSlim _writeLock = new(1, 1);
     private SqliteConnection? _connection;
 
     /// <param name="databasePath">
@@ -360,6 +361,13 @@ public sealed class DatabaseConnection : IDatabaseConnection
             fix.ExecuteNonQuery();
         }
 
+        // Migration M-017: Hub virtualization — hub_relationships, collections,
+        // works table recreation (nullable hub_id + wikidata_status + wikidata_checked_at).
+        MigrateHubVirtualization(conn);
+
+        // Migration M-018: Add local_headshot_path to persons for centralized people storage.
+        MigratePersonHeadshotPath(conn);
+
         // Seed S-001: provider_registry entries for all known providers.
         // metadata_claims.provider_id has a FK to provider_registry(id), so these
         // rows MUST exist before any claim is written.  INSERT OR IGNORE makes this
@@ -576,6 +584,95 @@ public sealed class DatabaseConnection : IDatabaseConnection
     }
 
     /// <summary>
+    /// Migration M-017: Hub virtualization.
+    /// 1. Create hub_relationships table.
+    /// 2. Add wikidata_status + wikidata_checked_at to works (via ALTER TABLE).
+    /// 3. Create collections + collection_items schema stubs.
+    ///
+    /// Note: hub_id is already effectively nullable in SQLite (ON DELETE SET NULL
+    /// in the FK constraint). The domain model change to Guid? requires no schema
+    /// recreation — SQLite does not enforce non-null on FK columns unless explicitly
+    /// constrained. We add the new columns via ALTER TABLE for safety.
+    /// </summary>
+    private static void MigrateHubVirtualization(SqliteConnection conn)
+    {
+        // hub_relationships table
+        MigrateCreateTableIfMissing(
+            conn,
+            probeTable:  "hub_relationships",
+            probeColumn: "id",
+            ddl: """
+                CREATE TABLE IF NOT EXISTS hub_relationships (
+                    id            TEXT NOT NULL PRIMARY KEY,
+                    hub_id        TEXT NOT NULL REFERENCES hubs(id) ON DELETE CASCADE,
+                    rel_type      TEXT NOT NULL,
+                    rel_qid       TEXT NOT NULL,
+                    rel_label     TEXT,
+                    confidence    REAL NOT NULL DEFAULT 0.9,
+                    discovered_at TEXT NOT NULL DEFAULT (datetime('now'))
+                );
+                CREATE INDEX IF NOT EXISTS idx_hub_rel_type_qid ON hub_relationships (rel_type, rel_qid);
+                CREATE INDEX IF NOT EXISTS idx_hub_rel_hub_id ON hub_relationships (hub_id);
+                """);
+
+        // Add wikidata_status to works (default 'pending')
+        MigrateAddColumnIfMissing(
+            conn,
+            table:  "works",
+            column: "wikidata_status",
+            ddl:    "ALTER TABLE works ADD COLUMN wikidata_status TEXT DEFAULT 'pending';");
+
+        // Add wikidata_checked_at to works
+        MigrateAddColumnIfMissing(
+            conn,
+            table:  "works",
+            column: "wikidata_checked_at",
+            ddl:    "ALTER TABLE works ADD COLUMN wikidata_checked_at TEXT;");
+
+        // Collections schema stub
+        MigrateCreateTableIfMissing(
+            conn,
+            probeTable:  "collections",
+            probeColumn: "id",
+            ddl: """
+                CREATE TABLE IF NOT EXISTS collections (
+                    id              TEXT NOT NULL PRIMARY KEY,
+                    name            TEXT NOT NULL,
+                    collection_type TEXT NOT NULL DEFAULT 'custom',
+                    profile_id      TEXT REFERENCES profiles(id) ON DELETE CASCADE,
+                    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+                );
+                """);
+
+        MigrateCreateTableIfMissing(
+            conn,
+            probeTable:  "collection_items",
+            probeColumn: "id",
+            ddl: """
+                CREATE TABLE IF NOT EXISTS collection_items (
+                    id            TEXT NOT NULL PRIMARY KEY,
+                    collection_id TEXT NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
+                    work_id       TEXT NOT NULL REFERENCES works(id) ON DELETE CASCADE,
+                    sort_order    INTEGER NOT NULL DEFAULT 0,
+                    added_at      TEXT NOT NULL DEFAULT (datetime('now'))
+                );
+                """);
+    }
+
+    /// <summary>
+    /// Migration M-018: Add <c>local_headshot_path</c> column to the <c>persons</c>
+    /// table for centralized people storage under <c>.people/</c>.
+    /// </summary>
+    private static void MigratePersonHeadshotPath(SqliteConnection conn)
+    {
+        MigrateAddColumnIfMissing(
+            conn,
+            table:  "persons",
+            column: "local_headshot_path",
+            ddl:    "ALTER TABLE persons ADD COLUMN local_headshot_path TEXT;");
+    }
+
+    /// <summary>
     /// Executes a VACUUM to reclaim unused pages.
     /// Spec: "SHOULD perform a VACUUM during low-activity maintenance windows."
     /// Call when <c>MaintenanceSettings.VacuumOnStartup</c> is <c>true</c>.
@@ -589,10 +686,19 @@ public sealed class DatabaseConnection : IDatabaseConnection
     }
 
     /// <inheritdoc/>
+    public Task AcquireWriteLockAsync(CancellationToken ct = default)
+        => _writeLock.WaitAsync(ct);
+
+    /// <inheritdoc/>
+    public void ReleaseWriteLock()
+        => _writeLock.Release();
+
+    /// <inheritdoc/>
     public void Dispose()
     {
         _connection?.Dispose();
         _connection = null;
+        _writeLock.Dispose();
     }
 
     // -------------------------------------------------------------------------

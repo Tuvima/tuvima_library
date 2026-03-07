@@ -42,7 +42,7 @@ The user opens Server Settings from the avatar menu — but this menu item only 
 
 **Libraries tab (working)**
 - Set the Watch Folder path (your "inbox" where you drop files).
-- Set the Library Folder path (where Tanaste organises files).
+- Set the Library Folder path (where Tuvima Library organises files).
 - Both paths show a live health dot: green = accessible, red = not accessible.
 - "Test Path" buttons probe the folder for existence, read access, and write access.
 - Set the Organisation Template — a tokenised pattern that controls how files are named and nested when organised.

@@ -64,6 +64,22 @@ public interface IPersonRepository
         CancellationToken ct = default);
 
     /// <summary>
+    /// Updates the <c>local_headshot_path</c> column for the given person.
+    /// Called after a headshot is downloaded to disk.
+    /// </summary>
+    Task UpdateLocalHeadshotPathAsync(
+        Guid id,
+        string path,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns a single person by ID, or <c>null</c> if not found.
+    /// </summary>
+    Task<Person?> FindByIdAsync(
+        Guid id,
+        CancellationToken ct = default);
+
+    /// <summary>
     /// Returns all persons linked to a given media asset.
     /// </summary>
     /// <param name="mediaAssetId">The media asset whose persons to retrieve.</param>

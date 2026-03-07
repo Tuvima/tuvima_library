@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Threading.Channels;
 using Microsoft.Extensions.Logging;
@@ -8,6 +9,7 @@ using MediaEngine.Domain.Models;
 using MediaEngine.Intelligence.Contracts;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Models;
+using MediaEngine.Domain.Aggregates;
 using MediaEngine.Storage.Contracts;
 using MediaEngine.Storage.Models;
 
@@ -53,6 +55,10 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     private readonly IConfigurationLoader _configLoader;
     private readonly IRecursiveIdentityService _identity;
     private readonly IReviewQueueRepository _reviewRepo;
+    private readonly IHubRepository _hubRepo;
+    private readonly IMediaAssetRepository _assetRepo;
+    private readonly IImageCacheRepository _imageCache;
+    private readonly IHttpClientFactory _httpFactory;
     private readonly IWriteBackService _writeBack;
     private readonly IAutoOrganizeService _autoOrganize;
     private readonly ISystemActivityRepository _activityRepo;
@@ -70,6 +76,10 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         IConfigurationLoader configLoader,
         IRecursiveIdentityService identity,
         IReviewQueueRepository reviewRepo,
+        IHubRepository hubRepo,
+        IMediaAssetRepository assetRepo,
+        IImageCacheRepository imageCache,
+        IHttpClientFactory httpFactory,
         IWriteBackService writeBack,
         IAutoOrganizeService autoOrganize,
         ISystemActivityRepository activityRepo,
@@ -84,6 +94,10 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         ArgumentNullException.ThrowIfNull(configLoader);
         ArgumentNullException.ThrowIfNull(identity);
         ArgumentNullException.ThrowIfNull(reviewRepo);
+        ArgumentNullException.ThrowIfNull(hubRepo);
+        ArgumentNullException.ThrowIfNull(assetRepo);
+        ArgumentNullException.ThrowIfNull(imageCache);
+        ArgumentNullException.ThrowIfNull(httpFactory);
         ArgumentNullException.ThrowIfNull(writeBack);
         ArgumentNullException.ThrowIfNull(autoOrganize);
         ArgumentNullException.ThrowIfNull(activityRepo);
@@ -98,6 +112,10 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         _configLoader   = configLoader;
         _identity       = identity;
         _reviewRepo     = reviewRepo;
+        _hubRepo        = hubRepo;
+        _assetRepo      = assetRepo;
+        _imageCache     = imageCache;
+        _httpFactory     = httpFactory;
         _writeBack      = writeBack;
         _autoOrganize   = autoOrganize;
         _activityRepo   = activityRepo;
@@ -285,6 +303,9 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                         "Write-back after Stage 1 failed for entity {Id}; continuing",
                         request.EntityId);
                 }
+
+                // Download cover art from provider URL if no cover.jpg exists yet.
+                await PersistCoverFromUrlAsync(request.EntityId, ct).ConfigureAwait(false);
             }
         }
         else if (primaryProvider is not null)
@@ -379,6 +400,11 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                     "HydrationStageCompleted",
                     new HydrationStageCompletedEvent(request.EntityId, 2, stage2Claims, "universe_match"),
                     ct).ConfigureAwait(false);
+
+                // Hub Intelligence: assign Work to a Hub based on Wikidata relationships.
+                var qidConfirmed = result.WikidataQid is not null;
+                await RunHubIntelligenceAsync(request.EntityId, qidConfirmed, ct)
+                    .ConfigureAwait(false);
 
                 // Write-back: write universe-enriched metadata to the physical file.
                 if (request.EntityType == EntityType.MediaAsset)
@@ -861,6 +887,303 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             BaseUrl        = baseUrl,
             SparqlBaseUrl  = sparqlBaseUrl,
         };
+    }
+
+    // ── Hub Intelligence ──────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Assigns a Work to a Hub based on Wikidata relationship properties.
+    /// Path A (QID confirmed): uses franchise/series/universe QIDs for firm linking.
+    /// Path B (QID pending): falls back to text-based provisional matching.
+    /// </summary>
+    private async Task RunHubIntelligenceAsync(
+        Guid workId, bool qidConfirmed, CancellationToken ct)
+    {
+        try
+        {
+            var canonicals = await _canonicalRepo.GetByEntityAsync(workId, ct)
+                .ConfigureAwait(false);
+
+            if (qidConfirmed)
+            {
+                await RunFirmHubLinkAsync(workId, canonicals, ct).ConfigureAwait(false);
+            }
+            else
+            {
+                // Path B: provisional text-based matching — leave for future sprint.
+                // For now, set wikidata_status to 'pending' (already the default).
+                _logger.LogDebug(
+                    "Hub intelligence: no QID for work {WorkId} — leaving standalone (pending)",
+                    workId);
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex,
+                "Hub intelligence failed for work {WorkId}; work remains standalone",
+                workId);
+        }
+    }
+
+    /// <summary>
+    /// Path A: firm Hub assignment using Wikidata relationship QIDs.
+    /// Searches Tier 1 (franchise, series, fictional_universe) first,
+    /// then Tier 2 (based_on, preceded_by/followed_by).
+    /// </summary>
+    private async Task RunFirmHubLinkAsync(
+        Guid workId, IReadOnlyList<CanonicalValue> canonicals, CancellationToken ct)
+    {
+        // Extract relationship QIDs from multi-valued claims.
+        var claims = await _claimRepo.GetByEntityAsync(workId, ct).ConfigureAwait(false);
+        var relClaims = ExtractRelationshipQids(claims);
+
+        if (relClaims.Count == 0)
+        {
+            _logger.LogDebug(
+                "Hub intelligence: work {WorkId} has QID but no groupable relationships — standalone",
+                workId);
+            return;
+        }
+
+        // Tier 1: franchise, series, fictional_universe
+        string[] tier1Types = ["franchise", "series", "fictional_universe"];
+        // Tier 2: based_on, preceded_by, followed_by
+        string[] tier2Types = ["based_on", "preceded_by", "followed_by"];
+
+        Hub? matchedHub = null;
+        var allRelationships = new List<HubRelationship>();
+
+        // Search Tier 1 first
+        foreach (var (relType, qids) in relClaims.Where(r => tier1Types.Contains(r.RelType)))
+        {
+            foreach (var (qid, label) in qids)
+            {
+                var hub = await _hubRepo.FindByRelationshipQidAsync(relType, qid, ct)
+                    .ConfigureAwait(false);
+                if (hub is not null)
+                {
+                    matchedHub = hub;
+                    break;
+                }
+
+                allRelationships.Add(new HubRelationship
+                {
+                    Id           = Guid.NewGuid(),
+                    RelType      = relType,
+                    RelQid       = qid,
+                    RelLabel     = label,
+                    Confidence   = relType is "fictional_universe" ? 0.8 : 0.9,
+                    DiscoveredAt = DateTimeOffset.UtcNow,
+                });
+            }
+            if (matchedHub is not null) break;
+        }
+
+        // Search Tier 2 if no Tier 1 match
+        if (matchedHub is null)
+        {
+            foreach (var (relType, qids) in relClaims.Where(r => tier2Types.Contains(r.RelType)))
+            {
+                foreach (var (qid, label) in qids)
+                {
+                    var hub = await _hubRepo.FindByRelationshipQidAsync(relType, qid, ct)
+                        .ConfigureAwait(false);
+                    if (hub is not null)
+                    {
+                        matchedHub = hub;
+                        break;
+                    }
+
+                    allRelationships.Add(new HubRelationship
+                    {
+                        Id           = Guid.NewGuid(),
+                        RelType      = MapToNarrativeChain(relType),
+                        RelQid       = qid,
+                        RelLabel     = label,
+                        Confidence   = 0.8,
+                        DiscoveredAt = DateTimeOffset.UtcNow,
+                    });
+                }
+                if (matchedHub is not null) break;
+            }
+        }
+
+        if (matchedHub is not null)
+        {
+            // Assign to existing hub.
+            await _hubRepo.AssignWorkToHubAsync(workId, matchedHub.Id, ct)
+                .ConfigureAwait(false);
+
+            // Add any new relationships the hub doesn't have yet.
+            if (allRelationships.Count > 0)
+            {
+                foreach (var r in allRelationships)
+                    r.HubId = matchedHub.Id;
+                await _hubRepo.InsertRelationshipsAsync(allRelationships, ct)
+                    .ConfigureAwait(false);
+            }
+
+            await _activityRepo.LogAsync(new SystemActivityEntry
+            {
+                ActionType = SystemActionType.HubAssigned,
+                HubName    = matchedHub.DisplayName,
+                EntityId   = workId,
+                Detail     = $"Work assigned to Hub '{matchedHub.DisplayName}' (firm link)",
+            }, ct).ConfigureAwait(false);
+
+            _logger.LogInformation(
+                "Hub intelligence: work {WorkId} assigned to existing Hub {HubId} '{HubName}'",
+                workId, matchedHub.Id, matchedHub.DisplayName);
+        }
+        else if (allRelationships.Count > 0)
+        {
+            // Create a new Hub from the highest-confidence relationship.
+            var bestRel = allRelationships.OrderByDescending(r => r.Confidence).First();
+            var displayName = bestRel.RelLabel ?? bestRel.RelQid;
+
+            var newHub = new Hub
+            {
+                Id          = Guid.NewGuid(),
+                DisplayName = displayName,
+                CreatedAt   = DateTimeOffset.UtcNow,
+            };
+
+            await _hubRepo.UpsertAsync(newHub, ct).ConfigureAwait(false);
+
+            foreach (var r in allRelationships)
+                r.HubId = newHub.Id;
+            await _hubRepo.InsertRelationshipsAsync(allRelationships, ct)
+                .ConfigureAwait(false);
+
+            await _hubRepo.AssignWorkToHubAsync(workId, newHub.Id, ct)
+                .ConfigureAwait(false);
+
+            await _activityRepo.LogAsync(new SystemActivityEntry
+            {
+                ActionType = SystemActionType.HubCreated,
+                HubName    = displayName,
+                EntityId   = newHub.Id,
+                Detail     = $"Hub '{displayName}' created from {bestRel.RelType} ({bestRel.RelQid})",
+            }, ct).ConfigureAwait(false);
+
+            await _activityRepo.LogAsync(new SystemActivityEntry
+            {
+                ActionType = SystemActionType.HubAssigned,
+                HubName    = displayName,
+                EntityId   = workId,
+                Detail     = $"Work assigned to new Hub '{displayName}' (firm link)",
+            }, ct).ConfigureAwait(false);
+
+            _logger.LogInformation(
+                "Hub intelligence: created new Hub {HubId} '{HubName}' for work {WorkId}",
+                newHub.Id, displayName, workId);
+        }
+    }
+
+    /// <summary>
+    /// Extracts relationship QIDs from claims (franchise, series, fictional_universe,
+    /// based_on, preceded_by, followed_by). Groups by relationship type.
+    /// </summary>
+    private static List<(string RelType, List<(string Qid, string? Label)> Qids)> ExtractRelationshipQids(
+        IReadOnlyList<MetadataClaim> claims)
+    {
+        string[] relKeys = ["franchise", "series", "fictional_universe", "based_on", "preceded_by", "followed_by"];
+
+        var result = new List<(string RelType, List<(string Qid, string? Label)> Qids)>();
+
+        foreach (var key in relKeys)
+        {
+            var matchingClaims = claims
+                .Where(c => string.Equals(c.ClaimKey, key, StringComparison.OrdinalIgnoreCase)
+                         && !string.IsNullOrWhiteSpace(c.ClaimValue))
+                .ToList();
+
+            if (matchingClaims.Count == 0) continue;
+
+            var qids = new List<(string Qid, string? Label)>();
+            foreach (var claim in matchingClaims)
+            {
+                var value = claim.ClaimValue.Trim();
+
+                // For entity-valued properties, the claim value is the label (human-readable).
+                // We need to check if we also have a wikidata_qid canonical or if the value
+                // itself is a QID. In practice, multi-valued entity properties store labels.
+                // The raw QID URIs are available as separate claims.
+                qids.Add((value, value));
+            }
+
+            if (qids.Count > 0)
+                result.Add((key, qids));
+        }
+
+        return result;
+    }
+
+    /// <summary>Maps preceded_by/followed_by to the narrative_chain rel_type.</summary>
+    private static string MapToNarrativeChain(string relType)
+        => relType is "preceded_by" or "followed_by" ? "narrative_chain" : relType;
+
+    // ── Cover art download ───────────────────────────────────────────────────
+
+    /// <summary>
+    /// Downloads cover art from a provider-supplied URL and saves it as
+    /// <c>cover.jpg</c> in the media file's directory.  Skips if the file
+    /// already has a cover or if no cover URL canonical value exists.
+    /// Uses <see cref="IImageCacheRepository"/> for content-hash dedup.
+    /// </summary>
+    private async Task PersistCoverFromUrlAsync(Guid assetId, CancellationToken ct)
+    {
+        try
+        {
+            // 1. Look up the asset to find its file path.
+            var asset = await _assetRepo.FindByIdAsync(assetId, ct).ConfigureAwait(false);
+            if (asset is null) return;
+
+            var fileDir = Path.GetDirectoryName(asset.FilePathRoot);
+            if (string.IsNullOrEmpty(fileDir)) return;
+
+            var coverPath = Path.Combine(fileDir, "cover.jpg");
+            if (File.Exists(coverPath)) return; // already have a cover
+
+            // 2. Check for a cover URL in canonical values.
+            var canonicals = await _canonicalRepo.GetByEntityAsync(assetId, ct)
+                .ConfigureAwait(false);
+            var coverUrl = canonicals
+                .Where(c => c.Key is "cover" or "cover_url")
+                .Select(c => c.Value)
+                .FirstOrDefault(v => v.StartsWith("http", StringComparison.OrdinalIgnoreCase));
+
+            if (string.IsNullOrEmpty(coverUrl)) return;
+
+            // 3. Download the image.
+            using var client = _httpFactory.CreateClient("cover_download");
+            var bytes = await client.GetByteArrayAsync(coverUrl, ct).ConfigureAwait(false);
+            if (bytes.Length == 0) return;
+
+            // 4. Content-hash dedup via image cache.
+            var hash = Convert.ToHexStringLower(SHA256.HashData(bytes));
+            var cached = await _imageCache.FindByHashAsync(hash, ct).ConfigureAwait(false);
+            if (cached is not null && File.Exists(cached))
+            {
+                // Same image already exists elsewhere — copy it.
+                File.Copy(cached, coverPath, overwrite: false);
+            }
+            else
+            {
+                await File.WriteAllBytesAsync(coverPath, bytes, ct).ConfigureAwait(false);
+                await _imageCache.InsertAsync(hash, coverPath, coverUrl, ct).ConfigureAwait(false);
+            }
+
+            _logger.LogInformation(
+                "Cover art downloaded for asset {Id} from {Url}",
+                assetId, coverUrl);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex,
+                "Cover art download failed for asset {Id}; continuing",
+                assetId);
+        }
     }
 
     // ── IAsyncDisposable ──────────────────────────────────────────────────────

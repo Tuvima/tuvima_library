@@ -1,4 +1,4 @@
-# Tanaste — Systematic Fix Plan
+# Tuvima Library — Systematic Fix Plan
 
 > Generated: 2026-03-01 | Based on: Full system audit across 7 feature areas
 
@@ -65,10 +65,10 @@ These are features that appear to work but lead to errors or no-ops.
 Three quick-win items resolved:
 - **B-04** — Deleted files now marked Orphaned via `FindByPathRootAsync` + `HandleDeletedAsync` rewrite.
 - **B-05** — Conflict surfacing end-to-end: `is_conflicted` column (M-007), persistence in IngestionEngine + MetadataHarvestingService, `GET /metadata/conflicts` endpoint, ConflictsTab in Dashboard.
-- **B-06** — Worker Host DI fix: 12+ missing registrations added to `Ingestion/Program.cs` + project reference to `Tanaste.Providers` + `Microsoft.Extensions.Http`.
+- **B-06** — Worker Host DI fix: 12+ missing registrations added to `Ingestion/Program.cs` + project reference to `MediaEngine.Providers` + `Microsoft.Extensions.Http`.
 
 Files created: `Components/Settings/ConflictsTab.razor`, `Models/ViewDTOs/ConflictViewModel.cs`.
-Files changed: `CanonicalValue.cs`, `IMediaAssetRepository.cs`, `ICanonicalValueRepository.cs`, `schema.sql`, `DatabaseConnection.cs`, `MediaAssetRepository.cs`, `CanonicalValueRepository.cs`, `IngestionEngine.cs`, `MetadataEndpoints.cs`, `Dtos.cs`, `MetadataHarvestingService.cs`, `Tanaste.Ingestion.csproj`, `Ingestion/Program.cs`, `UIOrchestratorService.cs`, `ITanasteApiClient.cs`, `TanasteApiClient.cs`, `SettingsTabBar.razor`, `ServerSettings.razor`.
+Files changed: `CanonicalValue.cs`, `IMediaAssetRepository.cs`, `ICanonicalValueRepository.cs`, `schema.sql`, `DatabaseConnection.cs`, `MediaAssetRepository.cs`, `CanonicalValueRepository.cs`, `IngestionEngine.cs`, `MetadataEndpoints.cs`, `Dtos.cs`, `MetadataHarvestingService.cs`, `MediaEngine.Ingestion.csproj`, `Ingestion/Program.cs`, `UIOrchestratorService.cs`, `ILibraryApiClient.cs`, `LibraryApiClient.cs`, `SettingsTabBar.razor`, `ServerSettings.razor`.
 
 ### B-01: Hub detail page does not exist
 **What's wrong:** The Command Palette search navigates to `/hub/{hubId}`, but no page exists at that route. Users land on the 404 page.

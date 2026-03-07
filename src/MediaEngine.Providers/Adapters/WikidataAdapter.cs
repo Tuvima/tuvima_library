@@ -769,24 +769,59 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
 
             var varName = prop.PCode.ToLowerInvariant();
 
-            // Prefer the label variable for entity-valued properties.
-            string? rawValue = null;
-            if (binding.ContainsKey(varName + "Label"))
+            if (prop.IsMultiValued)
             {
-                rawValue = binding[varName + "Label"]?["value"]?.GetValue<string>();
+                // Multi-valued: read from GROUP_CONCAT result variables.
+                string? concatenated = null;
+
+                if (prop.IsEntityValued)
+                {
+                    // Labels for display and canonical values.
+                    concatenated = binding.ContainsKey(varName + "Labels")
+                        ? binding[varName + "Labels"]?["value"]?.GetValue<string>()
+                        : null;
+                }
+                else
+                {
+                    concatenated = binding.ContainsKey(varName + "All")
+                        ? binding[varName + "All"]?["value"]?.GetValue<string>()
+                        : null;
+                }
+
+                if (string.IsNullOrWhiteSpace(concatenated))
+                    continue;
+
+                // Split on the GROUP_CONCAT separator and emit one claim per value.
+                var values = concatenated.Split(WikidataSparqlPropertyMap.MultiValueSeparator,
+                    StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+                foreach (var val in values)
+                {
+                    var claimValue = ValueTransformRegistry.Apply(prop.ValueTransform, val);
+                    if (!string.IsNullOrWhiteSpace(claimValue))
+                        claims.Add(new ProviderClaim(prop.ClaimKey, claimValue, prop.Confidence));
+                }
             }
+            else
+            {
+                // Single-valued: original behavior.
+                string? rawValue = null;
+                if (binding.ContainsKey(varName + "Label"))
+                {
+                    rawValue = binding[varName + "Label"]?["value"]?.GetValue<string>();
+                }
 
-            rawValue ??= binding.ContainsKey(varName)
-                ? binding[varName]?["value"]?.GetValue<string>()
-                : null;
+                rawValue ??= binding.ContainsKey(varName)
+                    ? binding[varName]?["value"]?.GetValue<string>()
+                    : null;
 
-            if (string.IsNullOrWhiteSpace(rawValue))
-                continue;
+                if (string.IsNullOrWhiteSpace(rawValue))
+                    continue;
 
-            // Apply value transformations based on property type.
-            var claimValue = ValueTransformRegistry.Apply(prop.ValueTransform, rawValue);
-            if (!string.IsNullOrWhiteSpace(claimValue))
-                claims.Add(new ProviderClaim(prop.ClaimKey, claimValue, prop.Confidence));
+                var claimValue = ValueTransformRegistry.Apply(prop.ValueTransform, rawValue);
+                if (!string.IsNullOrWhiteSpace(claimValue))
+                    claims.Add(new ProviderClaim(prop.ClaimKey, claimValue, prop.Confidence));
+            }
         }
 
         return claims;

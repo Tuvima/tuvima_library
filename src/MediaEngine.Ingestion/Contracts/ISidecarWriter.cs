@@ -55,4 +55,23 @@ public interface ISidecarWriter
     Task<EditionSidecarData?> ReadEditionSidecarAsync(
         string xmlPath,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// Writes (or overwrites) <c>person.xml</c> inside
+    /// <paramref name="personFolderPath"/>.
+    /// Creates the folder if it does not exist.
+    /// </summary>
+    Task WritePersonSidecarAsync(
+        string personFolderPath,
+        PersonSidecarData data,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// Reads a person sidecar at <paramref name="xmlPath"/>.
+    /// Returns null if the file cannot be parsed or does not contain a
+    /// <c>&lt;library-person&gt;</c> root element.
+    /// </summary>
+    Task<PersonSidecarData?> ReadPersonSidecarAsync(
+        string xmlPath,
+        CancellationToken ct = default);
 }

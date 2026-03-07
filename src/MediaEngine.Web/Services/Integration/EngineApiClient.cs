@@ -1114,7 +1114,7 @@ public sealed class EngineApiClient : IEngineApiClient
 
     private sealed record WorkRaw(
         [property: JsonPropertyName("id")]               Guid                      Id,
-        [property: JsonPropertyName("hub_id")]           Guid                      HubId,
+        [property: JsonPropertyName("hub_id")]           Guid?                     HubId,
         [property: JsonPropertyName("media_type")]       string                    MediaType,
         [property: JsonPropertyName("sequence_index")]   int?                      SequenceIndex,
         [property: JsonPropertyName("canonical_values")] List<CanonicalValueRaw>   CanonicalValues);
@@ -1135,7 +1135,7 @@ public sealed class EngineApiClient : IEngineApiClient
 
     private sealed record SearchRawResult(
         [property: JsonPropertyName("work_id")]          Guid    WorkId,
-        [property: JsonPropertyName("hub_id")]           Guid    HubId,
+        [property: JsonPropertyName("hub_id")]           Guid?   HubId,
         [property: JsonPropertyName("title")]            string  Title,
         [property: JsonPropertyName("author")]           string? Author,
         [property: JsonPropertyName("media_type")]       string  MediaType,

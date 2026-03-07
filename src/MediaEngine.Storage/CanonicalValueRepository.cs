@@ -32,61 +32,67 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository
     // -------------------------------------------------------------------------
 
     /// <inheritdoc/>
-    public Task UpsertBatchAsync(
+    public async Task UpsertBatchAsync(
         IReadOnlyList<CanonicalValue> values,
         CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
 
         if (values.Count == 0)
-            return Task.CompletedTask;
+            return;
 
-        var conn = _db.Open();
-
-        // Single transaction: atomicity + significant write-performance gain.
-        using var tx = conn.BeginTransaction();
+        await _db.AcquireWriteLockAsync(ct).ConfigureAwait(false);
         try
         {
-            using var cmd = conn.CreateCommand();
-            cmd.Transaction = tx;
-            // INSERT OR REPLACE honours the (entity_id, key) PRIMARY KEY:
-            // if a row already exists it is deleted then re-inserted with the
-            // new value and timestamp.
-            cmd.CommandText = """
-                INSERT OR REPLACE INTO canonical_values
-                    (entity_id, key, value, last_scored_at, is_conflicted)
-                VALUES
-                    (@entity_id, @key, @value, @last_scored_at, @is_conflicted);
-                """;
+            var conn = _db.Open();
 
-            var pEntityId      = cmd.Parameters.Add("@entity_id",      SqliteType.Text);
-            var pKey           = cmd.Parameters.Add("@key",            SqliteType.Text);
-            var pValue         = cmd.Parameters.Add("@value",          SqliteType.Text);
-            var pLastScoredAt  = cmd.Parameters.Add("@last_scored_at", SqliteType.Text);
-            var pIsConflicted  = cmd.Parameters.Add("@is_conflicted",  SqliteType.Integer);
-
-            foreach (var cv in values)
+            // Single transaction: atomicity + significant write-performance gain.
+            using var tx = conn.BeginTransaction();
+            try
             {
-                ct.ThrowIfCancellationRequested();
+                using var cmd = conn.CreateCommand();
+                cmd.Transaction = tx;
+                // INSERT OR REPLACE honours the (entity_id, key) PRIMARY KEY:
+                // if a row already exists it is deleted then re-inserted with the
+                // new value and timestamp.
+                cmd.CommandText = """
+                    INSERT OR REPLACE INTO canonical_values
+                        (entity_id, key, value, last_scored_at, is_conflicted)
+                    VALUES
+                        (@entity_id, @key, @value, @last_scored_at, @is_conflicted);
+                    """;
 
-                pEntityId.Value     = cv.EntityId.ToString();
-                pKey.Value          = cv.Key;
-                pValue.Value        = cv.Value;
-                pLastScoredAt.Value = cv.LastScoredAt.ToString("o"); // ISO-8601 round-trip
-                pIsConflicted.Value = cv.IsConflicted ? 1 : 0;
+                var pEntityId      = cmd.Parameters.Add("@entity_id",      SqliteType.Text);
+                var pKey           = cmd.Parameters.Add("@key",            SqliteType.Text);
+                var pValue         = cmd.Parameters.Add("@value",          SqliteType.Text);
+                var pLastScoredAt  = cmd.Parameters.Add("@last_scored_at", SqliteType.Text);
+                var pIsConflicted  = cmd.Parameters.Add("@is_conflicted",  SqliteType.Integer);
 
-                cmd.ExecuteNonQuery();
+                foreach (var cv in values)
+                {
+                    ct.ThrowIfCancellationRequested();
+
+                    pEntityId.Value     = cv.EntityId.ToString();
+                    pKey.Value          = cv.Key;
+                    pValue.Value        = cv.Value;
+                    pLastScoredAt.Value = cv.LastScoredAt.ToString("o"); // ISO-8601 round-trip
+                    pIsConflicted.Value = cv.IsConflicted ? 1 : 0;
+
+                    cmd.ExecuteNonQuery();
+                }
+
+                tx.Commit();
             }
-
-            tx.Commit();
+            catch
+            {
+                tx.Rollback();
+                throw;
+            }
         }
-        catch
+        finally
         {
-            tx.Rollback();
-            throw;
+            _db.ReleaseWriteLock();
         }
-
-        return Task.CompletedTask;
     }
 
     /// <inheritdoc/>
@@ -144,17 +150,23 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository
     }
 
     /// <inheritdoc/>
-    public Task DeleteByEntityAsync(Guid entityId, CancellationToken ct = default)
+    public async Task DeleteByEntityAsync(Guid entityId, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
 
-        var conn = _db.Open();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = "DELETE FROM canonical_values WHERE entity_id = @entity_id;";
-        cmd.Parameters.AddWithValue("@entity_id", entityId.ToString());
-        cmd.ExecuteNonQuery();
-
-        return Task.CompletedTask;
+        await _db.AcquireWriteLockAsync(ct).ConfigureAwait(false);
+        try
+        {
+            var conn = _db.Open();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "DELETE FROM canonical_values WHERE entity_id = @entity_id;";
+            cmd.Parameters.AddWithValue("@entity_id", entityId.ToString());
+            cmd.ExecuteNonQuery();
+        }
+        finally
+        {
+            _db.ReleaseWriteLock();
+        }
     }
 
     // -------------------------------------------------------------------------

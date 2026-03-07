@@ -48,7 +48,7 @@ Each API key carries one of three roles that determines which endpoints it can a
 | ASR-08 | CORS origins are restricted to specific localhost ports. | Program.cs (BlazorWasm policy) |
 | ASR-09 | All SQL queries use parameterized statements -- no injection vectors. | All repositories |
 | ASR-10 | Every endpoint requires authentication (except `/system/status` and Swagger). | ApiKeyMiddleware (mandatory auth with exempt paths) |
-| ASR-11 | Localhost requests bypass authentication when `Tanaste:Security:LocalhostBypass` is true (default). | ApiKeyMiddleware (loopback detection) |
+| ASR-11 | Localhost requests bypass authentication when `MediaEngine:Security:LocalhostBypass` is true (default). | ApiKeyMiddleware (loopback detection) |
 | ASR-12 | Each API key carries a role (Administrator, Curator, Consumer) checked per-endpoint. | RoleAuthorizationFilter + endpoint `.RequireAdmin()` / `.RequireAdminOrCurator()` / `.RequireAnyRole()` |
 | ASR-13 | Folder-related endpoints reject paths containing `..` traversal segments or targeting system directories. | PathValidator (defence-in-depth, applied in SettingsEndpoints) |
 | ASR-14 | SignalR hub connections require authentication via `X-Api-Key` header, `access_token` query string, or localhost bypass. | IntercomAuthFilter (IHubFilter) |
@@ -94,7 +94,7 @@ Each API key carries one of three roles that determines which endpoints it can a
 | Secret encryption at rest | **PASS** | Data Protection API with purpose isolation. |
 | Secret masking in API responses | **PASS** | Consistent `********` masking. |
 | SQL injection protection | **PASS** | All queries parameterized. |
-| Localhost bypass | **PASS** | Configurable via `Tanaste:Security:LocalhostBypass` (default: true). |
+| Localhost bypass | **PASS** | Configurable via `MediaEngine:Security:LocalhostBypass` (default: true). |
 | HTTPS enforcement | **WARN** | No `UseHttpsRedirection()` in the pipeline. API keys sent over plain HTTP would be in cleartext. |
 | Key expiration | **WARN** | Keys are valid forever. No expiration, rotation, or last-used tracking. |
 | Unsalted key hashes | **WARN** | SHA-256 without per-key salt. Acceptable for 256-bit random keys but deviates from best practice. |

@@ -1,0 +1,11 @@
+{
+  "relationship_types": {
+    "franchise":          { "enabled": true, "min_items": 1, "tier": 1 },
+    "series":             { "enabled": true, "min_items": 1, "tier": 1 },
+    "fictional_universe": { "enabled": true, "min_items": 2, "tier": 1 },
+    "based_on":           { "enabled": true, "min_items": 2, "tier": 2 },
+    "narrative_chain":    { "enabled": true, "min_items": 2, "tier": 2 },
+    "characters":         { "enabled": false, "min_items": 5, "tier": 3 },
+    "narrative_location": { "enabled": false, "min_items": 5, "tier": 3 }
+  }
+}

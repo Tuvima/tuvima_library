@@ -124,4 +124,15 @@ public static class SystemActionType
 
     /// <summary>A library reconciliation scan completed.</summary>
     public const string ReconciliationCompleted = "ReconciliationCompleted";
+
+    // ── Hub Intelligence ───────────────────────────────────────────────
+
+    /// <summary>A new Hub was created from Wikidata relationship data.</summary>
+    public const string HubCreated = "HubCreated";
+
+    /// <summary>A Work was assigned to a Hub (firm or provisional link).</summary>
+    public const string HubAssigned = "HubAssigned";
+
+    /// <summary>Two Hubs were merged when a shared relationship was discovered.</summary>
+    public const string HubMerged = "HubMerged";
 }

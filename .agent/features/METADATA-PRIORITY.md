@@ -8,7 +8,7 @@
 
 ## What the user sees
 
-When a file is added to the library, Tanaste automatically fills in its title, author, year, cover art, and other details. Multiple sources may disagree — the file's own embedded data might say one thing, an online provider might say another. The user never has to resolve this manually unless the system genuinely cannot decide.
+When a file is added to the library, Tuvima Library automatically fills in its title, author, year, cover art, and other details. Multiple sources may disagree — the file's own embedded data might say one thing, an online provider might say another. The user never has to resolve this manually unless the system genuinely cannot decide.
 
 On the **Metadata tab** in Server Settings, the user sees every active source displayed as a card with:
 - A traffic-light status dot (green = online, red = offline, grey = disabled).

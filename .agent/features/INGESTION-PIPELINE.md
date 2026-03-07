@@ -18,7 +18,7 @@ The user drops a file (book, movie, audiobook, comic) into a designated "Watch F
 6. **Scoring** — The Weighted Voter evaluates all extracted data and determines the most trustworthy value for each field.
 7. **Hub assignment** — The system decides which Hub (story group) this file belongs to, or creates a new one.
 7. **Organising** — If scoring confidence is high enough (≥85%) or the user has locked any metadata value, the file is moved to a clean, human-readable folder structure in the Library.
-8. **Sidecar writing** — A companion `tanaste.xml` file is written alongside the organised file, preserving all metadata in a human-readable format.
+8. **Sidecar writing** — A companion `library.xml` file is written alongside the organised file, preserving all metadata in a human-readable format.
 9. **Cover art** — The cover image is extracted and saved as `cover.jpg` next to the file.
 10. **Background enrichment** — External sources (Apple Books, Audnexus, Wikidata) are quietly queried for better metadata. Results pop in moments later.
 11. **Person enrichment** — Authors and narrators are identified, linked, and enriched with portraits from Wikidata.
@@ -37,7 +37,7 @@ All of this happens without the user lifting a finger after the initial folder s
 | IPR-04 | File moves use collision-safe renaming — existing files are never overwritten. Suffixes ` (2)`, ` (3)`, etc. are appended. | FileOrganizer (collision handling) |
 | IPR-05 | File moves retry with exponential backoff on I/O errors (up to 5 attempts). | FileOrganizer (retry logic) |
 | IPR-06 | Cover art is never stored in the database — it lives as `cover.jpg` on disk next to the file. | IngestionEngine (filesystem-first rule) |
-| IPR-07 | The tanaste.xml sidecar is the portable source of truth — if the database is wiped, the library can be rebuilt from XML. | SidecarWriter + LibraryScanner (Great Inhale) |
+| IPR-07 | The library.xml sidecar is the portable source of truth — if the database is wiped, the library can be rebuilt from XML. | SidecarWriter + LibraryScanner (Great Inhale) |
 | IPR-08 | External metadata enrichment is never in the critical path — a failed network call returns empty results. The file remains in the library with its local metadata. | MetadataHarvestingService (non-blocking queue) |
 | IPR-09 | The Watch Folder is monitored in real time — new files are detected within seconds. | FileWatcher (FileSystemWatcher with 64KB buffer) |
 | IPR-10 | Rapid-fire OS events for the same file are coalesced — only the final state is processed. | DebounceQueue (2-second settle delay) |

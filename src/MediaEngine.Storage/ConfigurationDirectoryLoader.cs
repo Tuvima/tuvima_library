@@ -364,18 +364,22 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
     /// <inheritdoc/>
     public T? LoadConfig<T>(string subdirectory, string name) where T : class
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(subdirectory);
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
-        return LoadFile<T>(Path.Combine(subdirectory, $"{name}.json"));
+        var relativePath = string.IsNullOrWhiteSpace(subdirectory)
+            ? $"{name}.json"
+            : Path.Combine(subdirectory, $"{name}.json");
+        return LoadFile<T>(relativePath);
     }
 
     /// <inheritdoc/>
     public void SaveConfig<T>(string subdirectory, string name, T config) where T : class
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(subdirectory);
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentNullException.ThrowIfNull(config);
-        SaveFile(Path.Combine(subdirectory, $"{name}.json"), config);
+        var relativePath = string.IsNullOrWhiteSpace(subdirectory)
+            ? $"{name}.json"
+            : Path.Combine(subdirectory, $"{name}.json");
+        SaveFile(relativePath, config);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

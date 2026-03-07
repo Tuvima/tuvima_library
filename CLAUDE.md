@@ -1,21 +1,23 @@
-# CLAUDE.md — Tanaste Project Memory
+# CLAUDE.md — Tuvima Library Project Memory
 
 > **Who reads this file?**
 > Every Claude session working on this repository reads this file automatically before doing anything else.
-> It is the single, authoritative source of truth for what Tanaste is, how it is built, and how to work on it.
+> It is the single, authoritative source of truth for what Tuvima Library is, how it is built, and how to work on it.
 > It bridges the Product Owner's business goals with the technical team's execution.
 
 ---
 
 ## 1. Project Overview
 
-### What is Tanaste?
+### What is Tuvima Library?
 
 #### Name & Vision
 
-The name **Tanaste** is derived from Tolkien's Quenya (High-Elvish) language, where *tanas* carries the meaning of **"Presentation"** — the act of bringing something forward and making it whole.
+**Tuvima Library** is the product name. **Tuvima** is the company. Code namespaces use `MediaEngine.*` intentionally — decoupled from branding for future resilience.
 
-This is the project's core philosophy: Tanaste does not create a library. It **presents** one. The stories already exist on the hard drive, fragmented across formats and folders. Tanaste's job is to find them, understand them, unify them, and surface the result as something coherent and beautiful — as if it always belonged together.
+The project's core philosophy is **Presentation** — the act of bringing something forward and making it whole.
+
+Tuvima Library does not create a library. It **presents** one. The stories already exist on the hard drive, fragmented across formats and folders. The Library's job is to find them, understand them, unify them, and surface the result as something coherent and beautiful — as if it always belonged together.
 
 Every feature exists in service of that word:
 - The **Intelligence Engine** works invisibly so the library is already whole when you look at it.
@@ -26,7 +28,7 @@ Every feature exists in service of that word:
 
 #### What it does
 
-**Tanaste** is a **unified media intelligence platform** that runs entirely on your own machine — no cloud account, no subscription, no data leaving your home.
+**Tuvima Library** is a **unified media intelligence platform** that runs entirely on your own machine — no cloud account, no subscription, no data leaving your home.
 
 Its core job is to bring order to a large, messy media collection spread across folders. You point it at your hard drive, and it automatically:
 
@@ -39,7 +41,7 @@ Its core job is to bring order to a large, messy media collection spread across 
 
 ### The Hub Concept
 
-The central idea in Tanaste is the **Hub**.
+The central idea in Tuvima Library is the **Hub**.
 
 A Hub is the single digital home for a *story* — not just one file format, but every version of that story in your collection.
 
@@ -49,7 +51,7 @@ A Hub is the single digital home for a *story* — not just one file format, but
 > - *The audiobook narration*
 > - *The graphic novel adaptation (CBZ comic)*
 
-All four live under one Hub. Tanaste links them together automatically by comparing their metadata. You browse by story, not by file type.
+All four live under one Hub. Tuvima Library links them together automatically by comparing their metadata. You browse by story, not by file type.
 
 The Hub hierarchy works like this:
 
@@ -87,7 +89,7 @@ A single power user who wants complete, private control over a large media colle
 
 ### Headless Design — Engine and Dashboard are Separate
 
-**This is a critical architectural decision.** The Tanaste *Engine* (the intelligence and data layer) is completely separate from the *Dashboard* (the visual interface).
+**This is a critical architectural decision.** The Tuvima Library *Engine* (the intelligence and data layer) is completely separate from the *Dashboard* (the visual interface).
 
 **Why this matters to the business:**
 - **Extensibility:** Other applications — like Radarr, Sonarr, or a custom mobile app — can connect directly to the Engine without needing the Dashboard. The Engine speaks a universal language (HTTP/JSON) that any app can understand.
@@ -96,26 +98,26 @@ A single power user who wants complete, private control over a large media colle
 
 | Part | Technical project | Role |
 |---|---|---|
-| The Engine | `Tanaste.Api` | Handles all intelligence, data, and file operations. Exposes an API that any app can talk to. |
-| The Dashboard | `Tanaste.Web` | The browser interface. Purely visual — it asks the Engine for data and displays it. |
+| The Engine | `MediaEngine.Api` | Handles all intelligence, data, and file operations. Exposes an API that any app can talk to. |
+| The Dashboard | `MediaEngine.Web` | The browser interface. Purely visual — it asks the Engine for data and displays it. |
 
 ### Source Code Layout (Plain English)
 
 | Folder | What it is | Plain-English role |
 |---|---|---|
-| `src/Tanaste.Domain` | The Rulebook | Defines what a Hub, Work, and Edition *are*. No external tools — pure business logic. |
-| `src/Tanaste.Storage` | The Filing Clerk | Reads and writes the SQLite database. Keeps all library data safe. |
-| `src/Tanaste.Intelligence` | The Analyst | Runs the Weighted Voter system. Scores metadata Claims. Detects duplicates. |
-| `src/Tanaste.Processors` | The Scanner | Opens each file type (EPUB, video, comic) and extracts its embedded information. |
-| `src/Tanaste.Providers` | The Research Team | Fetches enriched metadata from external sources (Apple Books, Audnexus, Wikidata). Runs non-blocking on a background channel. |
-| `src/Tanaste.Ingestion` | The Mail Room | Watches the Watch Folder. Queues new files. Manages the safe move of files into the organised library. |
-| `src/Tanaste.Api` | The Reception Desk | The Engine's public interface. Exposes all features over HTTP. Hosts the real-time intercom. |
-| `src/Tanaste.Web` | The Showroom | The browser Dashboard. Uses the Feature-Sliced layout (see Section 6). |
+| `src/MediaEngine.Domain` | The Rulebook | Defines what a Hub, Work, and Edition *are*. No external tools — pure business logic. |
+| `src/MediaEngine.Storage` | The Filing Clerk | Reads and writes the SQLite database. Keeps all library data safe. |
+| `src/MediaEngine.Intelligence` | The Analyst | Runs the Weighted Voter system. Scores metadata Claims. Detects duplicates. |
+| `src/MediaEngine.Processors` | The Scanner | Opens each file type (EPUB, video, comic) and extracts its embedded information. |
+| `src/MediaEngine.Providers` | The Research Team | Fetches enriched metadata from external sources (Apple Books, Audnexus, Wikidata). Runs non-blocking on a background channel. |
+| `src/MediaEngine.Ingestion` | The Mail Room | Watches the Watch Folder. Queues new files. Manages the safe move of files into the organised library. |
+| `src/MediaEngine.Api` | The Reception Desk | The Engine's public interface. Exposes all features over HTTP. Hosts the real-time intercom. |
+| `src/MediaEngine.Web` | The Showroom | The browser Dashboard. Uses the Feature-Sliced layout (see Section 6). |
 | `tests/` | The Quality Inspector | Automated checks for every module. |
 
 ### Dashboard Internal Layout (Feature-Sliced Design)
 
-Inside `src/Tanaste.Web`, the code is organised by *what it does*, not by *what type of code it is*. This matches industry best practice for maintainable interfaces.
+Inside `src/MediaEngine.Web`, the code is organised by *what it does*, not by *what type of code it is*. This matches industry best practice for maintainable interfaces.
 
 | Folder | Purpose |
 |---|---|
@@ -144,7 +146,7 @@ Inside `src/Tanaste.Web`, the code is organised by *what it does*, not by *what 
 5. **Identify** — The Analyst runs the Weighted Voter to assign the file to a Hub (or create a new one).
 6. **Move** — The file is moved from the inbox to a clean, organised folder structure in the library.
 
-**Why this matters to the business:** Once configured, the library manages itself. Drop files in; Tanaste does the rest.
+**Why this matters to the business:** Once configured, the library manages itself. Drop files in; the Library does the rest.
 
 ### 3.2 — The Field-Specific Weighted Voter (Intelligence Engine)
 
@@ -160,7 +162,7 @@ Each piece of metadata (e.g. the title "Dune") is a **Claim**. Claims come from 
 
 The key upgrade over a simple weighted vote: each provider carries a **per-field trust weight** that reflects how reliable it is *for that specific kind of data*. Audnexus is the gold standard for audiobook narrators (weight 0.9) and series data (0.9) but is only moderately trusted for cover art. Wikidata is the definitive authority for franchise identifiers (weight 1.0). Apple Books is a single provider that supports multiple media types (ebooks and audiobooks) through media-type-scoped search strategies and field mappings.
 
-All of these weights live in `tanaste_master.json` and can be changed at any time without touching code.
+All of these weights live in `tuvima_master.json` and can be changed at any time without touching code.
 
 **User-Locked Claims:** When you manually set a metadata value, that Claim is permanently locked. The engine gives it a confidence of 1.0 and never overrides it on any future re-score — regardless of what any external provider says.
 
@@ -173,7 +175,7 @@ If two Claims are too close to pick a clear winner, the field is flagged as **Co
 - **Transparent conflicts** — the user is only bothered when the machine genuinely cannot decide.
 - **Provenance preserved** — every Claim is kept forever (append-only). History is never lost.
 - **Reliability** — user-set values can never be silently overridden by the scoring engine.
-- **Maintenance** — all weights live in `tanaste_master.json`; zero code changes needed to re-tune trust levels.
+- **Maintenance** — all weights live in `tuvima_master.json`; zero code changes needed to re-tune trust levels.
 - **Extensibility** — future providers simply declare their field weights in the JSON; the engine picks them up with no new code.
 
 ### 3.3 — Security: Secret Store & Guest Keys
@@ -192,7 +194,7 @@ Any application that wants to talk to the Engine must present a valid API key. K
 **Mandatory Authentication (Phase A Security Foundation)**
 Every Engine endpoint requires authentication, with two exceptions:
 - `/system/status` — health probe, always open.
-- Localhost requests — when `Tanaste:Security:LocalhostBypass` is `true` (the default), requests from the local machine are treated as Administrator without needing a key. This preserves the local development experience.
+- Localhost requests — when `MediaEngine:Security:LocalhostBypass` is `true` (the default), requests from the local machine are treated as Administrator without needing a key. This preserves the local development experience.
 
 All other unauthenticated requests receive 401 Unauthorized.
 
@@ -245,13 +247,13 @@ Three official SVG logo files exist. **Never replace logo placements with hand-w
 
 | File | Location in repo | Use when… |
 |---|---|---|
-| `tanaste-logo.svg` | `src/Tanaste.Web/wwwroot/images/` and `assets/images/` | Full horizontal logo — mark + "TANASTE" wordmark. Use in the expanded LeftDock and anywhere a full branded header is needed. |
-| `tanaste-icon.svg` | `src/Tanaste.Web/wwwroot/images/`, `wwwroot/favicon.svg`, and `assets/images/` | Square icon mark only. Use as favicon, narrow LeftDock icon, app icon, or any small/square slot. |
-| `tanaste-hero.svg` | `assets/images/` | Mark + wordmark + subtitle ("The Unified Media Intelligence Kernel"). Use in README hero and marketing contexts only. |
+| `tuvima-logo.svg` | `src/MediaEngine.Web/wwwroot/images/` and `assets/images/` | Full horizontal logo — mark + "TUVIMA" wordmark. Use in the expanded LeftDock and anywhere a full branded header is needed. |
+| `tuvima-icon.svg` | `src/MediaEngine.Web/wwwroot/images/`, `wwwroot/favicon.svg`, and `assets/images/` | Square icon mark only. Use as favicon, narrow LeftDock icon, app icon, or any small/square slot. |
+| `tuvima-hero.svg` | `assets/images/` | Mark + wordmark + subtitle ("The Unified Media Intelligence Kernel"). Use in README hero and marketing contexts only. |
 
 **Color note:** All three SVGs use hardcoded fills: white (`#fff`) for highlight layers and black (default) for the main strokes. They are designed primarily for dark backgrounds (as used in the Dashboard). On light backgrounds, the mark renders as a black design — which is clean and intentional.
 
-**Source files** are in `C:\Users\shaya\OneDrive\Documents\Projects\Tanaste\Graphics\` (outside the repo — designer originals). Do not modify the SVGs in the repo directly; request updated exports from the source files.
+**Source files** are in `C:\Users\shaya\OneDrive\Documents\Projects\Tuvima\Graphics\` (outside the repo — designer originals). Do not modify the SVGs in the repo directly; request updated exports from the source files.
 
 ### 3.6 — External Metadata Adapters & Recursive Person Enrichment (Phase 9)
 
@@ -284,7 +286,7 @@ When a file's metadata contains an author or narrator name, the Engine:
 
 **Config-Driven Universal Adapter:**
 
-The four REST+JSON providers (Apple Books, Audnexus, Open Library, Google Books) are powered by a single `ConfigDrivenAdapter` class (`src/Tanaste.Providers/Adapters/ConfigDrivenAdapter.cs`) that reads its entire behaviour from the provider's JSON config file in `config/providers/`. No individual adapter classes exist for these providers — they were retired in favour of the universal adapter.
+The four REST+JSON providers (Apple Books, Audnexus, Open Library, Google Books) are powered by a single `ConfigDrivenAdapter` class (`src/MediaEngine.Providers/Adapters/ConfigDrivenAdapter.cs`) that reads its entire behaviour from the provider's JSON config file in `config/providers/`. No individual adapter classes exist for these providers — they were retired in favour of the universal adapter.
 
 Each config file declares:
 - `adapter_type: "config_driven"` — tells the DI registration loop to use the universal adapter
@@ -300,12 +302,12 @@ Adding a new REST+JSON provider is a **zero-code operation**: drop a config file
 **Wikidata stays as a coded adapter** (`WikidataAdapter`) — its SPARQL-based intelligence cannot be expressed as URL templates + JSON path extraction.
 
 **Key types:**
-- `ConfigDrivenAdapter` (`Tanaste.Providers.Adapters`) — universal adapter implementing `IExternalMetadataProvider`
-- `JsonPathEvaluator` (`Tanaste.Providers.Models`) — static utility navigating `System.Text.Json.Nodes.JsonNode` with dot-notation, array indexing, and wildcard iteration
-- `ValueTransformRegistry` (`Tanaste.Providers.Models`) — named transform functions (to_string, strip_html, url_template, regex_replace, prefer_isbn13, array_join, array_nested_join, first_n_chars, fallback_key)
+- `ConfigDrivenAdapter` (`MediaEngine.Providers.Adapters`) — universal adapter implementing `IExternalMetadataProvider`
+- `JsonPathEvaluator` (`MediaEngine.Providers.Models`) — static utility navigating `System.Text.Json.Nodes.JsonNode` with dot-notation, array indexing, and wildcard iteration
+- `ValueTransformRegistry` (`MediaEngine.Providers.Models`) — named transform functions (to_string, strip_html, url_template, regex_replace, prefer_isbn13, array_join, array_nested_join, first_n_chars, fallback_key)
 
 **Key architectural rules for this subsystem:**
-- `Tanaste.Ingestion` has **zero new project references**. All interfaces (`IMetadataHarvestingService`, `IRecursiveIdentityService`, `IMetadataClaimRepository`, `ICanonicalValueRepository`) live in `Tanaste.Domain.Contracts` — which Ingestion already references.
+- `MediaEngine.Ingestion` has **zero new project references**. All interfaces (`IMetadataHarvestingService`, `IRecursiveIdentityService`, `IMetadataClaimRepository`, `ICanonicalValueRepository`) live in `MediaEngine.Domain.Contracts` — which Ingestion already references.
 - All provider configuration lives in `config/providers/{name}.json` — endpoints, trust weights, search strategies, field mappings, throttle, concurrency. Changing any of these requires only a config edit, never a recompile.
 - Provider GUIDs are stable strings in each config file's `provider_id` field (not looked up from the DB at runtime) so new `MetadataClaim` rows can be written without a DB round-trip.
 - Throttle rules and concurrency limits are per-provider in their config files. The `ConfigDrivenAdapter` enforces them via `SemaphoreSlim` + timestamp gap.
@@ -320,7 +322,7 @@ Adding a new REST+JSON provider is a **zero-code operation**: drop a config file
 
 ### 3.7 — Library Organization & Sidecar System (Filesystem-First)
 
-**Plain English:** After a file is ingested and scored with sufficient confidence, Tanaste organises it into a clean, human-readable folder structure and writes an XML companion file alongside it. This XML file is the portable source of truth: if the database is ever wiped, the library can be rebuilt from it in seconds.
+**Plain English:** After a file is ingested and scored with sufficient confidence, the Library organises it into a clean, human-readable folder structure and writes an XML companion file alongside it. This XML file is the portable source of truth: if the database is ever wiped, the library can be rebuilt from it in seconds.
 
 **Filesystem-First design invariant:**
 - The **database is a cache of the filesystem, not the master copy.** XML always wins on conflict during a Great Inhale.
@@ -330,10 +332,10 @@ Adding a new REST+JSON provider is a **zero-code operation**: drop a config file
 ```
 {LibraryRoot}/{Category}/{HubName} ({Year})/{Format} - {Edition}/
   {filename}.epub          ← the organised media file
-  tanaste.xml              ← Edition-level sidecar (this folder)
+  library.xml              ← Edition-level sidecar (this folder)
   cover.jpg                ← Cover art extracted from the file
 {LibraryRoot}/{Category}/{HubName} ({Year})/
-  tanaste.xml              ← Hub-level sidecar (parent folder)
+  library.xml              ← Hub-level sidecar (parent folder)
 ```
 
 `{Category}` is derived from `MediaType` enum: `Books` (Epub), `Comics`, `Videos` (Movie), `Audio` (Audiobook), `Other`.
@@ -345,32 +347,32 @@ scored.OverallConfidence >= 0.85  ||  claims.Any(c => c.IsUserLocked)
 ```
 Files that score below 0.85 with no user locks are left in the Watch Folder and not moved — they wait for more data. The threshold reuses `AutoLinkThreshold = 0.85` from `ScoringConfiguration` (single source of truth).
 
-**tanaste.xml schemas:**
-- `<tanaste-hub version="1.0">` — `identity/display-name`, `identity/year`, `identity/wikidata-qid`, `identity/franchise`, `last-organized`.
-- `<tanaste-edition version="1.0">` — `identity/title`, `identity/author`, `identity/media-type`, `identity/isbn`, `identity/asin`, `content-hash`, `cover-path`, `user-locks` (zero or more `<claim key=".." value=".." locked-at=".."/>`), `last-organized`.
+**library.xml schemas:**
+- `<library-hub version="1.0">` — `identity/display-name`, `identity/year`, `identity/wikidata-qid`, `identity/franchise`, `last-organized`.
+- `<library-edition version="1.0">` — `identity/title`, `identity/author`, `identity/media-type`, `identity/isbn`, `identity/asin`, `content-hash`, `cover-path`, `user-locks` (zero or more `<claim key=".." value=".." locked-at=".."/>`), `last-organized`.
 
 **Key types and services:**
-- `ISidecarWriter` / `SidecarWriter` (`Tanaste.Ingestion`) — reads and writes both XML schemas using `System.Xml.Linq` (BCL — no new NuGet dependency). `WriteHubSidecarAsync(hubFolderPath, data)`, `WriteEditionSidecarAsync(editionFolderPath, data)`, `ReadHubSidecarAsync(xmlPath)`, `ReadEditionSidecarAsync(xmlPath)`. Both read methods return `null` on any exception (resilient).
-- `ILibraryScanner` / `LibraryScanner` (`Tanaste.Ingestion`) — Great Inhale implementation. Recursively enumerates `tanaste.xml` files; peeks root element name via `XmlReader` (fast, no full load); dispatches to `HydrateHubAsync` or `HydrateEditionAsync`. Stable provider GUID `c9d8e7f6-a5b4-4321-fedc-0102030405c9` for re-inserted user-locked claims.
-- `LibraryScanResult` (`Tanaste.Ingestion.Models`) — scan outcome counts: `HubsUpserted`, `EditionsUpserted`, `Errors`, `Elapsed`.
-- `HubSidecarData`, `EditionSidecarData`, `UserLockedClaim` (`Tanaste.Ingestion.Models`) — POCOs for XML data exchange between `SidecarWriter` and `LibraryScanner`.
+- `ISidecarWriter` / `SidecarWriter` (`MediaEngine.Ingestion`) — reads and writes both XML schemas using `System.Xml.Linq` (BCL — no new NuGet dependency). `WriteHubSidecarAsync(hubFolderPath, data)`, `WriteEditionSidecarAsync(editionFolderPath, data)`, `ReadHubSidecarAsync(xmlPath)`, `ReadEditionSidecarAsync(xmlPath)`. Both read methods return `null` on any exception (resilient).
+- `ILibraryScanner` / `LibraryScanner` (`MediaEngine.Ingestion`) — Great Inhale implementation. Recursively enumerates `library.xml` files; peeks root element name via `XmlReader` (fast, no full load); dispatches to `HydrateHubAsync` or `HydrateEditionAsync`. Stable provider GUID `c9d8e7f6-a5b4-4321-fedc-0102030405c9` for re-inserted user-locked claims.
+- `LibraryScanResult` (`MediaEngine.Ingestion.Models`) — scan outcome counts: `HubsUpserted`, `EditionsUpserted`, `Errors`, `Elapsed`.
+- `HubSidecarData`, `EditionSidecarData`, `UserLockedClaim` (`MediaEngine.Ingestion.Models`) — POCOs for XML data exchange between `SidecarWriter` and `LibraryScanner`.
 - `IHubRepository.FindByDisplayNameAsync` + `IHubRepository.UpsertAsync` — added to support Hub hydration in Great Inhale.
-- `Hub.DisplayName` (`Tanaste.Domain.Aggregates`) — human-readable hub name; populated at organise time and restored from XML.
+- `Hub.DisplayName` (`MediaEngine.Domain.Aggregates`) — human-readable hub name; populated at organise time and restored from XML.
 - Migration **M-004** — `ALTER TABLE hubs ADD COLUMN display_name TEXT;` — applied in `DatabaseConnection.RunStartupChecks()`.
 
 **API endpoint:**
 - `POST /ingestion/library-scan` — triggers Great Inhale. Returns `LibraryScanResponse` with hub/edition counts and elapsed time. Requires `LibraryRoot` to be configured; returns 400 if unset or if the directory does not exist.
-- Dashboard client method: `TriggerLibraryScanAsync()` on `ITanasteApiClient` / `TanasteApiClient`.
+- Dashboard client method: `TriggerLibraryScanAsync()` on `ILibraryApiClient` / `LibraryApiClient`.
 
 **wikidata_qid canonical key:**
-`wikidata_qid` is used as a Work-level canonical value key (produced by the Wikidata adapter in Phase 9). It is written into the Hub-level tanaste.xml as `<identity/wikidata-qid>` for portability.
+`wikidata_qid` is used as a Work-level canonical value key (produced by the Wikidata adapter in Phase 9). It is written into the Hub-level library.xml as `<identity/wikidata-qid>` for portability.
 
 **Great Inhale scope constraints:**
 Edition-level hydration **requires the MediaAsset to already exist in the database** (matched by content hash). It cannot create a `Hub → Work → Edition → MediaAsset` chain from scratch after a complete wipe — that requires a full re-ingestion pass (no `IWorkRepository` or `IEditionRepository` exist yet). Hub-level hydration creates Hub records unconditionally.
 
 **Why this matters to the business:**
 - **Reliability** — A complete database wipe is recoverable. Drop the database file; run Great Inhale; the library is back.
-- **Maintenance** — The XML schema is human-readable. A user can open `tanaste.xml` in any text editor and understand exactly what Tanaste knows about a file.
+- **Maintenance** — The XML schema is human-readable. A user can open `library.xml` in any text editor and understand exactly what the Library knows about a file.
 - **Privacy** — All data lives on disk under the Library Root. No external dependency, no cloud sync.
 - **Performance** — Great Inhale reads XML only (no file hashing, no metadata extraction). A library of thousands of files scans in seconds.
 
@@ -380,7 +382,7 @@ Edition-level hydration **requires the MediaAsset to already exist in the databa
 
 **Schema:** A dedicated `system_activity` table (migration M-008) stores entries with: timestamp, action type, optional hub name, entity reference, user attribution, a JSON changes snippet, and a human-readable detail string. Indices on `occurred_at` and `action_type` for fast queries.
 
-**Retention:** Configurable via `activity_retention_days` in `tanaste_master.json` (default: 60 days). A daily `ActivityPruningService` (BackgroundService) runs every 24 hours and deletes entries older than the retention period.
+**Retention:** Configurable via `activity_retention_days` in `tuvima_master.json` (default: 60 days). A daily `ActivityPruningService` (BackgroundService) runs every 24 hours and deletes entries older than the retention period.
 
 **API Endpoints:**
 - `GET /activity/recent?limit=50` — most recent entries (Admin or Curator)
@@ -392,12 +394,12 @@ Edition-level hydration **requires the MediaAsset to already exist in the databa
 **Design decision: New table vs extending `transaction_log`.** The existing `transaction_log` has a synchronous `void Log()` interface used throughout the codebase. A new `ISystemActivityRepository` with async-first `Task LogAsync()` is cleaner and avoids breaking existing callers. Both tables coexist.
 
 **Key types:**
-- `SystemActivityEntry` (`Tanaste.Domain.Entities`) — domain entity
-- `SystemActionType` (`Tanaste.Domain.Enums`) — string constants (FileIngested, MetadataHydrated, HashVerified, PathUpdated, SyncCompleted, CrawlStarted, CrawlFinished, MetadataRefreshed, SidecarUpdated, ActivityPruned)
-- `ISystemActivityRepository` (`Tanaste.Domain.Contracts`) — async-first contract
-- `SystemActivityRepository` (`Tanaste.Storage`) — SQLite implementation
-- `ActivityPruningService` (`Tanaste.Api.Services`) — daily BackgroundService
-- `ActivityEndpoints` (`Tanaste.Api.Endpoints`) — minimal API group
+- `SystemActivityEntry` (`MediaEngine.Domain.Entities`) — domain entity
+- `SystemActionType` (`MediaEngine.Domain.Enums`) — string constants (FileIngested, MetadataHydrated, HashVerified, PathUpdated, SyncCompleted, CrawlStarted, CrawlFinished, MetadataRefreshed, SidecarUpdated, ActivityPruned)
+- `ISystemActivityRepository` (`MediaEngine.Domain.Contracts`) — async-first contract
+- `SystemActivityRepository` (`MediaEngine.Storage`) — SQLite implementation
+- `ActivityPruningService` (`MediaEngine.Api.Services`) — daily BackgroundService
+- `ActivityEndpoints` (`MediaEngine.Api.Endpoints`) — minimal API group
 
 **Why this matters to the business:**
 - **Reliability** — Complete audit trail of every automated action the Engine performs.
@@ -410,7 +412,7 @@ Edition-level hydration **requires the MediaAsset to already exist in the databa
 
 **Configurable Wikidata Property Map:**
 
-A `WikidataSparqlPropertyMap` contains the Master Authority Table — 50+ Wikidata property entries across 8 categories: Core Identity, People (Work-scoped), People (Person-scoped), Lore & Narrative, Bridges: Books, Bridges: Movies/TV, Bridges: Comics/Anime, Bridges: Music/Audio, and Social Pivot. Each entry maps a Wikidata P-code (e.g. `P179` → `series`) to a Tanaste claim key with a configured confidence and scope (Work, Person, or Both).
+A `WikidataSparqlPropertyMap` contains the Master Authority Table — 50+ Wikidata property entries across 8 categories: Core Identity, People (Work-scoped), People (Person-scoped), Lore & Narrative, Bridges: Books, Bridges: Movies/TV, Bridges: Comics/Anime, Bridges: Music/Audio, and Social Pivot. Each entry maps a Wikidata P-code (e.g. `P179` → `series`) to a Library claim key with a configured confidence and scope (Work, Person, or Both).
 
 The defaults live in code (`WikidataSparqlPropertyMap.DefaultMap`) and are exported to `config/universe/wikidata.json` on first run. Users can override confidence values, remap claim keys, reorder bridge lookups, or disable properties entirely by editing the universe config file — zero code changes needed. The adapter loads the universe config at runtime and falls back to compiled defaults if the file is missing or corrupt. (See §3.11 for the full configuration architecture.)
 
@@ -426,7 +428,7 @@ Static helpers generate SPARQL queries:
 - **M-010:** Adds six nullable TEXT columns to `persons`: `occupation` (Wikidata P106), `instagram` (P2003), `twitter` (P2002), `tiktok` (P7085), `mastodon` (P4033), `website` (P856). These power the Social Pivot — direct links to official creator feeds.
 
 **Sidecar XML expansion (v1.1):**
-Both Hub-level and Edition-level `tanaste.xml` sidecars now carry a `<bridges>` section that records every external bridge identifier harvested from Wikidata SPARQL:
+Both Hub-level and Edition-level `library.xml` sidecars now carry a `<bridges>` section that records every external bridge identifier harvested from Wikidata SPARQL:
 ```xml
 <bridges>
   <bridge key="tmdb_id" value="438631"/>
@@ -442,26 +444,26 @@ This ensures the library can be reconstructed from the filesystem alone — even
 **New activity ledger entries:**
 Four new `SystemActionType` constants log hydrator actions: `BridgeSyncUpdated` (external bridge ID synced), `PersonHydrated` (person enriched with social links), `WeeklySyncStarted` (weekly refresh cycle began), `AffiliateGenerated` (affiliate link built from bridge ID).
 
-**tanaste_master.json configuration additions:**
+**tuvima_master.json configuration additions:**
 - `wikidata_property_map` — list of property overrides (P-code, claim key, confidence, enabled)
 - `maintenance.weekly_sync_interval_days` (default: 7), `weekly_sync_batch_size` (default: 50), `weekly_sync_batch_delay_ms` (default: 2000)
 - `affiliate_settings.amazon_affiliate_tag`, `affiliate_settings.show_affiliate_disclosure` (default: true)
 
 **Key types introduced:**
-- `WikidataProperty` (`Tanaste.Providers.Models`) — property descriptor record (PCode, ClaimKey, Category, EntityScope, Confidence, IsBridge, Enabled)
-- `WikidataSparqlPropertyMap` (`Tanaste.Providers.Models`) — static property map + SPARQL query builders
-- `WikidataPropertyMapOverride` (`Tanaste.Storage.Models`) — JSON-configurable override shape
-- `AffiliateSettings` (`Tanaste.Storage.Models`) — affiliate tag configuration
+- `WikidataProperty` (`MediaEngine.Providers.Models`) — property descriptor record (PCode, ClaimKey, Category, EntityScope, Confidence, IsBridge, Enabled)
+- `WikidataSparqlPropertyMap` (`MediaEngine.Providers.Models`) — static property map + SPARQL query builders
+- `WikidataPropertyMapOverride` (`MediaEngine.Storage.Models`) — JSON-configurable override shape
+- `AffiliateSettings` (`MediaEngine.Storage.Models`) — affiliate tag configuration
 
 **Why this matters to the business:**
-- **Extensibility** — Adding a new Wikidata property is one JSON entry in `tanaste_master.json`. Zero code changes. A single SPARQL query replaces dozens of individual API calls.
+- **Extensibility** — Adding a new Wikidata property is one JSON entry in `tuvima_master.json`. Zero code changes. A single SPARQL query replaces dozens of individual API calls.
 - **Reliability** — All 50+ property defaults are compiled into the code. If the config file is missing or corrupt, the defaults still work. Sidecar XML preserves all external IDs on disk.
 - **Privacy** — Only titles, ISBNs, and ASINs leave the machine during SPARQL queries. Everything hydrated lives on disk.
 - **Maintenance** — The property map is editable via settings. Confidence values, claim keys, and enabled flags can all be changed without touching code.
 
 ### 3.10 — Universal Metadata Hydrator: Librarian Workflow (Phase B)
 
-**Plain English:** Phase B replaces the placeholder Wikidata work lookup with a full SPARQL deep-hydration engine. You can now click a button on the Dashboard — or call a single Engine action — and Tanaste reaches out to Wikidata, finds the matching creative work by its bridge identifiers, and pulls back every known property: series name, franchise, characters, narrative location, and dozens of external platform links (TMDB, IMDb, Goodreads, Apple Books, etc.). All of this happens in a single SPARQL query. The Wikidata provider is also now pinned at the top of the Metadata tab as the "Universe Provider" — reflecting its unique role as the one source that spans all media types.
+**Plain English:** Phase B replaces the placeholder Wikidata work lookup with a full SPARQL deep-hydration engine. You can now click a button on the Dashboard — or call a single Engine action — and the Library reaches out to Wikidata, finds the matching creative work by its bridge identifiers, and pulls back every known property: series name, franchise, characters, narrative location, and dozens of external platform links (TMDB, IMDb, Goodreads, Apple Books, etc.). All of this happens in a single SPARQL query. The Wikidata provider is also now pinned at the top of the Metadata tab as the "Universe Provider" — reflecting its unique role as the one source that spans all media types.
 
 **SPARQL deep-hydration algorithm (WikidataAdapter.FetchWorkAsync):**
 
@@ -510,8 +512,8 @@ The `MetadataProviderCard` gained an `IsUniverseProvider` parameter that trigger
 The provider card's capability icon set expanded from 12 entries to 60+ entries, covering every claim key in the Master Authority Table. Icons are drawn from the Material Design icon set and organised by category (core identity, people, lore, bridges, social).
 
 **Key types introduced:**
-- `HydrateResultViewModel` (`Tanaste.Web.Models.ViewDTOs`) — Dashboard DTO for hydration results
-- `HydrateResponse` (`Tanaste.Api.Models`) — Engine DTO matching the Dashboard shape
+- `HydrateResultViewModel` (`MediaEngine.Web.Models.ViewDTOs`) — Dashboard DTO for hydration results
+- `HydrateResponse` (`MediaEngine.Api.Models`) — Engine DTO matching the Dashboard shape
 
 **Why this matters to the business:**
 - **Extensibility** — A single SPARQL query now replaces what would have been dozens of individual API calls to different platforms. Adding support for a new Wikidata property is still one JSON entry.
@@ -521,12 +523,12 @@ The provider card's capability icon set expanded from 12 entries to 60+ entries,
 
 ### 3.11 — Configuration Architecture Standard
 
-**Plain English:** All Engine settings live in a structured `config/` directory as individual JSON files, grouped by concern. This replaces the legacy single-file `tanaste_master.json` approach. The old file is automatically migrated on first run and renamed to `.migrated`.
+**Plain English:** All Engine settings live in a structured `config/` directory as individual JSON files, grouped by concern. This replaces the legacy single-file `tuvima_master.json` approach. The old file is automatically migrated on first run and renamed to `.migrated`.
 
 **Directory layout:**
 ```
 config/
-  tanaste.json                    ← Core: paths, schema version, org template
+  library.json                    ← Core: paths, schema version, org template
   scoring.json                    ← Scoring: thresholds, decay
   maintenance.json                ← Maintenance: retention, vacuum, sync
   hydration.json                  ← Hydration pipeline: stage timeouts, concurrency,
@@ -558,14 +560,14 @@ config/
 7. **Migration contract** — the `ConfigurationDirectoryLoader` auto-migrates from the legacy single-file format on first run. The legacy file is renamed to `.migrated`.
 8. **Fallback resilience** — compiled defaults in `WikidataSparqlPropertyMap.DefaultMap` serve as fallback if config files are missing or corrupt.
 9. **Transform registry in code, transform assignment in config** — transform functions are behaviour (live in `ValueTransformRegistry.cs`); which property uses which transform is data (lives in `config/universe/wikidata.json`).
-10. **Config directory path** — specified in `appsettings.json` as `Tanaste:ConfigDirectory` (default: `"config"`). Legacy `Tanaste:ManifestPath` is still checked as fallback for backward compatibility.
+10. **Config directory path** — specified in `appsettings.json` as `MediaEngine:ConfigDirectory` (default: `"config"`). Legacy `MediaEngine:ManifestPath` is still checked as fallback for backward compatibility.
 
 **Key types:**
-- `IConfigurationLoader` (`Tanaste.Storage.Contracts`) — granular config access contract: `LoadCore()`, `LoadScoring()`, `LoadMaintenance()`, `LoadProvider(name)`, `LoadAllProviders()`, generic `LoadConfig<T>(subdirectory, name)`.
-- `ConfigurationDirectoryLoader` (`Tanaste.Storage`) — implements both `IConfigurationLoader` (new granular access) and `IStorageManifest` (backward compat). Auto-migrates legacy files; `.bak` rotation on every save.
-- `CoreConfiguration`, `ProviderConfiguration` (`Tanaste.Storage.Models`) — settings models.
-- `UniverseConfiguration`, `WikidataPropertyConfig`, `BridgeLookupEntry` (`Tanaste.Providers.Models`) — universe knowledge model.
-- `ValueTransformRegistry` (`Tanaste.Providers.Models`) — named transform function registry.
+- `IConfigurationLoader` (`MediaEngine.Storage.Contracts`) — granular config access contract: `LoadCore()`, `LoadScoring()`, `LoadMaintenance()`, `LoadProvider(name)`, `LoadAllProviders()`, generic `LoadConfig<T>(subdirectory, name)`.
+- `ConfigurationDirectoryLoader` (`MediaEngine.Storage`) — implements both `IConfigurationLoader` (new granular access) and `IStorageManifest` (backward compat). Auto-migrates legacy files; `.bak` rotation on every save.
+- `CoreConfiguration`, `ProviderConfiguration` (`MediaEngine.Storage.Models`) — settings models.
+- `UniverseConfiguration`, `WikidataPropertyConfig`, `BridgeLookupEntry` (`MediaEngine.Providers.Models`) — universe knowledge model.
+- `ValueTransformRegistry` (`MediaEngine.Providers.Models`) — named transform function registry.
 
 **Why this matters to the business:**
 - **Extensibility** — Adding a new Wikidata property, reordering bridge lookups, or disabling a transform is a JSON edit. Zero code changes.
@@ -607,12 +609,12 @@ Example files in `config.example/ui/`. Live files in `config/ui/` gitignored.
 **Dashboard device detection:** JS interop checks URL param `?device=`, then `localStorage`, then auto-detects (viewport ≤768px + touch = mobile, else web). Television/automotive require explicit selection.
 
 **Key types:**
-- `UIGlobalSettings`, `UIFeatureFlags`, `UIShellSettings`, `UIPageSettings` + 3 nested, `UIDeviceProfile` + `UIDeviceConstraints`, `UIProfileSettings`, `ResolvedUISettings` (`Tanaste.Storage.Models`)
-- `UISettingsCascadeResolver` (`Tanaste.Storage`) — merges Global+Device+Profile
-- `UISettingsCacheRepository` (`Tanaste.Storage`) — SQLite cache CRUD
-- `UISettingsEndpoints` (`Tanaste.Api.Endpoints`) — 7 API endpoints including `GET /settings/ui/resolved`
-- `DeviceContextService` (`Tanaste.Web.Services.Theming`) — per-circuit scoped; replaced `AutomotiveModeService`
-- `ResolvedUISettingsViewModel` + DTOs (`Tanaste.Web.Models.ViewDTOs`) — Dashboard view model
+- `UIGlobalSettings`, `UIFeatureFlags`, `UIShellSettings`, `UIPageSettings` + 3 nested, `UIDeviceProfile` + `UIDeviceConstraints`, `UIProfileSettings`, `ResolvedUISettings` (`MediaEngine.Storage.Models`)
+- `UISettingsCascadeResolver` (`MediaEngine.Storage`) — merges Global+Device+Profile
+- `UISettingsCacheRepository` (`MediaEngine.Storage`) — SQLite cache CRUD
+- `UISettingsEndpoints` (`MediaEngine.Api.Endpoints`) — 7 API endpoints including `GET /settings/ui/resolved`
+- `DeviceContextService` (`MediaEngine.Web.Services.Theming`) — per-circuit scoped; replaced `AutomotiveModeService`
+- `ResolvedUISettingsViewModel` + DTOs (`MediaEngine.Web.Models.ViewDTOs`) — Dashboard view model
 
 **Adapted components:** MainLayout, LeftDock, SettingsTabBar (5 layout modes), GeneralTab (conditional sections), Home, HubHero (4 layout variants), BentoGrid (dynamic columns), UniverseStack, PendingFilesAlert (expandable/badge/hidden), ServerSettings (redirect guard), Preferences (conditional links).
 
@@ -732,20 +734,20 @@ Absorbed/removed tabs:
 **Mobile constraints:** `property_mapper`, `matching_pipeline`, and `universe_schema_editing` are added to `features_disabled` on mobile devices. Only Needs Review and Connection Vault (status view) are visible in the Metadata group on mobile.
 
 **Key types:**
-- `HydrationStage` (`Tanaste.Domain.Enums`) — `RetailMatch = 1, UniversalBridge = 2, HumanHub = 3`
-- `ReviewTrigger`, `ReviewStatus` (`Tanaste.Domain.Enums`) — trigger/status enums
-- `ReviewQueueEntry` (`Tanaste.Domain.Entities`) — domain entity
-- `HydrationResult` (`Tanaste.Domain.Models`) — pipeline result with per-stage claim counts
-- `IHydrationPipelineService` (`Tanaste.Domain.Contracts`) — `EnqueueAsync` + `RunSynchronousAsync`
-- `IReviewQueueRepository` (`Tanaste.Domain.Contracts`) — CRUD for review queue
-- `IImageCacheRepository` (`Tanaste.Domain.Contracts`) — content-hash image cache
-- `HydrationPipelineService` (`Tanaste.Providers.Services`) — three-stage orchestrator
-- `ScoringHelper` (`Tanaste.Providers.Services`) — shared claim-persist-score helper
-- `ReviewQueueRepository`, `ImageCacheRepository` (`Tanaste.Storage`) — SQLite implementations
-- `HydrationSettings` (`Tanaste.Storage.Models`) — pipeline config model
-- `ReviewEndpoints` (`Tanaste.Api.Endpoints`) — review queue API
-- `ConnectionVaultTab`, `NeedsReviewTab` (`Tanaste.Web.Components.Settings`) — Dashboard settings tabs (PropertyMapperTab and MatchingPipelineTab removed — absorbed into ConnectionVault)
-- `ReviewItemViewModel`, `ReviewResolveRequestDto`, `HydrationSettingsDto` (`Tanaste.Web.Models.ViewDTOs`) — Dashboard DTOs
+- `HydrationStage` (`MediaEngine.Domain.Enums`) — `RetailMatch = 1, UniversalBridge = 2, HumanHub = 3`
+- `ReviewTrigger`, `ReviewStatus` (`MediaEngine.Domain.Enums`) — trigger/status enums
+- `ReviewQueueEntry` (`MediaEngine.Domain.Entities`) — domain entity
+- `HydrationResult` (`MediaEngine.Domain.Models`) — pipeline result with per-stage claim counts
+- `IHydrationPipelineService` (`MediaEngine.Domain.Contracts`) — `EnqueueAsync` + `RunSynchronousAsync`
+- `IReviewQueueRepository` (`MediaEngine.Domain.Contracts`) — CRUD for review queue
+- `IImageCacheRepository` (`MediaEngine.Domain.Contracts`) — content-hash image cache
+- `HydrationPipelineService` (`MediaEngine.Providers.Services`) — three-stage orchestrator
+- `ScoringHelper` (`MediaEngine.Providers.Services`) — shared claim-persist-score helper
+- `ReviewQueueRepository`, `ImageCacheRepository` (`MediaEngine.Storage`) — SQLite implementations
+- `HydrationSettings` (`MediaEngine.Storage.Models`) — pipeline config model
+- `ReviewEndpoints` (`MediaEngine.Api.Endpoints`) — review queue API
+- `ConnectionVaultTab`, `NeedsReviewTab` (`MediaEngine.Web.Components.Settings`) — Dashboard settings tabs (PropertyMapperTab and MatchingPipelineTab removed — absorbed into ConnectionVault)
+- `ReviewItemViewModel`, `ReviewResolveRequestDto`, `HydrationSettingsDto` (`MediaEngine.Web.Models.ViewDTOs`) — Dashboard DTOs
 
 **Why this matters to the business:**
 - **Reliability** — Ambiguous matches are surfaced to the user instead of being silently dropped. The review queue ensures no metadata decision is made without confidence.
@@ -796,9 +798,9 @@ Inserted between Step 6 (Process) and canonical value persistence. When `Process
 Thresholds and all heuristic parameters (duration bands, bitrate thresholds, path keywords, genre tags, TV filename patterns) are configurable. Thresholds are surfaced to `IngestionOptions` via `PostConfigure` (no new project references to Ingestion).
 
 **Key types:**
-- `MediaTypeCandidate` (`Tanaste.Domain.Models`) — candidate with Type, Confidence, Reason
-- `AudioProcessor` (`Tanaste.Processors.Processors`) — audio format detection + heuristic disambiguation
-- `DisambiguationSettings` (`Tanaste.Storage.Models`) — typed config model
+- `MediaTypeCandidate` (`MediaEngine.Domain.Models`) — candidate with Type, Confidence, Reason
+- `AudioProcessor` (`MediaEngine.Processors.Processors`) — audio format detection + heuristic disambiguation
+- `DisambiguationSettings` (`MediaEngine.Storage.Models`) — typed config model
 - `ProcessorResult.MediaTypeCandidates` — list of candidates emitted by processors
 - `ReviewTrigger.AmbiguousMediaType` — review queue trigger constant
 
@@ -814,7 +816,7 @@ Thresholds and all heuristic parameters (duration bands, bitrate thresholds, pat
 
 > **Status:** Not yet implemented. This section describes the target architecture for in-browser media consumption.
 
-**Plain English:** Tanaste becomes a full media server by embedding high-quality players for every media type directly in the browser. Users can read books, watch movies, listen to audiobooks, and browse comics without leaving the Dashboard.
+**Plain English:** Tuvima Library becomes a full media server by embedding high-quality players for every media type directly in the browser. Users can read books, watch movies, listen to audiobooks, and browse comics without leaving the Dashboard.
 
 **Four built-in players:**
 
@@ -885,7 +887,7 @@ Thresholds and all heuristic parameters (duration bands, bitrate thresholds, pat
 
 > **Status:** Not yet implemented. `IVideoMetadataExtractor` is a stub.
 
-**Plain English:** Tanaste uses FFmpeg to convert video files into formats that every device can play smoothly. It can transcode on-the-fly when you press play, or pre-create mobile-friendly copies overnight so streaming is instant.
+**Plain English:** Tuvima Library uses FFmpeg to convert video files into formats that every device can play smoothly. It can transcode on-the-fly when you press play, or pre-create mobile-friendly copies overnight so streaming is instant.
 
 **FFmpeg integration (`FFmpegService`):**
 - Auto-detect FFmpeg/FFprobe installation paths
@@ -906,7 +908,7 @@ Thresholds and all heuristic parameters (duration bands, bitrate thresholds, pat
 - Priority: user-requested > scheduled > background
 - Background service runs on configurable schedule (default: daily at 3:00 AM)
 - Scans library for video assets without mobile-optimized copies
-- Creates lower-bitrate variants (720p H.264 for mobile) stored at `{LibraryRoot}/.tanaste-shadow/{assetId}/{quality}.mp4`
+- Creates lower-bitrate variants (720p H.264 for mobile) stored at `{LibraryRoot}/.tuvima-shadow/{assetId}/{quality}.mp4`
 - Respects hardware limits (1 concurrent transcode by default, configurable)
 - Progress reporting via SignalR (`TranscodeProgress` event)
 - Automatic cleanup when source asset is deleted
@@ -966,7 +968,7 @@ Thresholds and all heuristic parameters (duration bands, bitrate thresholds, pat
 
 > **Status:** Not yet implemented.
 
-**Plain English:** Tanaste speaks the languages that other apps already understand. Ebook readers can browse your library via OPDS. Audiobook apps can connect via an Audiobookshelf-compatible interface. External tools get notified via webhooks when new content arrives.
+**Plain English:** Tuvima Library speaks the languages that other apps already understand. Ebook readers can browse your library via OPDS. Audiobook apps can connect via an Audiobookshelf-compatible interface. External tools get notified via webhooks when new content arrives.
 
 **OPDS 1.2 catalog (`/opds/`):**
 - Atom XML feeds: root, search (OpenSearch), categories (by media type, author, series), recently added
@@ -983,13 +985,13 @@ Thresholds and all heuristic parameters (duration bands, bitrate thresholds, pat
 **Webhook system:**
 - Configuration: `config/webhooks.json` — list of URL + events + HMAC secret
 - Events: `FileIngested`, `MetadataHydrated`, `TranscodeCompleted`, `PersonEnriched`
-- Delivery: HTTP POST with `X-Tanaste-Signature` HMAC-SHA256 header
+- Delivery: HTTP POST with `X-Tuvima-Signature` HMAC-SHA256 header
 - Use cases: Discord/Telegram notifications for new content, automation triggers
 
 **Import wizard:**
-- Plex: read Plex SQLite DB (`com.plexapp.plugins.library.db`), map sections → Tanaste Hubs, import watched status
+- Plex: read Plex SQLite DB (`com.plexapp.plugins.library.db`), map sections → Library Hubs, import watched status
 - Calibre: read `metadata.db`, import books with existing metadata
-- Jellyfin: read NFO sidecar files alongside media, map to Tanaste claims
+- Jellyfin: read NFO sidecar files alongside media, map to Library claims
 
 **PWA capabilities:**
 - Web app manifest + service worker for installable experience
@@ -1133,7 +1135,7 @@ Never guess silently. If Claude is unsure about an approach, it must say so:
 > **⚠️ This project is licensed under the GNU Affero General Public License v3.0 (AGPLv3). This cannot be changed without the Product Owner's explicit decision.**
 
 **What this means in practice:**
-- AGPLv3 is a "share-alike" license. If Tanaste is ever run as a network service (even privately), any modifications must also be released under AGPLv3.
+- AGPLv3 is a "share-alike" license. If Tuvima Library is ever run as a network service (even privately), any modifications must also be released under AGPLv3.
 - **Every new tool added to the project must have a compatible license.** Claude must check the license before adding anything.
 
 **Compatibility guide:**
@@ -1232,7 +1234,7 @@ git push
 
 | File / Pattern | Reason |
 |---|---|
-| `tanaste_master.json` | Contains local paths and secrets — gitignored |
+| `tuvima_master.json` | Contains local paths and secrets — gitignored |
 | `*.db` | Local database file — user data, not code |
 | `bin/`, `obj/` | Assembled output — regenerated automatically |
 | `.vs/`, `.idea/` | Editor preferences — personal, not shared |
@@ -1269,15 +1271,15 @@ git push
 
 ## 6. Structure Reference — Feature-Sliced Dashboard Layout
 
-All Dashboard code in `src/Tanaste.Web/` follows the **Feature-Sliced** pattern. Every new piece of UI code must go into the correct slice. Claude must respect this layout and never mix responsibilities between slices.
+All Dashboard code in `src/MediaEngine.Web/` follows the **Feature-Sliced** pattern. Every new piece of UI code must go into the correct slice. Claude must respect this layout and never mix responsibilities between slices.
 
 ```
-src/Tanaste.Web/
+src/MediaEngine.Web/
 │
 ├── Services/
 │   ├── Integration/          ← ALL communication with the Engine lives here
-│   │   ├── ITanasteApiClient.cs        Contract for HTTP calls to the Engine
-│   │   ├── TanasteApiClient.cs         Implementation: makes HTTP calls, maps raw JSON
+│   │   ├── ILibraryApiClient.cs         Contract for HTTP calls to the Engine
+│   │   ├── LibraryApiClient.cs          Implementation: makes HTTP calls, maps raw JSON
 │   │   ├── UniverseStateContainer.cs   Per-session cache: hubs, universe view, progress
 │   │   ├── UIOrchestratorService.cs    Orchestrator: bridges HTTP + SignalR + state cache
 │   │   ├── UniverseMapper.cs           Maps Engine data → flat Dashboard view model
@@ -1359,7 +1361,7 @@ src/Tanaste.Web/
 
 | New code type | Where it goes |
 |---|---|
-| A new call to the Engine | `Services/Integration/TanasteApiClient.cs` + `ITanasteApiClient.cs` |
+| A new call to the Engine | `Services/Integration/LibraryApiClient.cs` + `ILibraryApiClient.cs` |
 | A new data shape for the Dashboard | `Models/ViewDTOs/` |
 | A new reusable visual component | `Components/<FeatureName>/` |
 | A new full page | `Components/Pages/` |
@@ -1376,7 +1378,7 @@ src/Tanaste.Web/
 | Role | Detail |
 |---|---|
 | Product Owner | Shaya |
-| Repository | [github.com/shyfaruqi/tanaste](https://github.com/shyfaruqi/tanaste) |
+| Repository | [github.com/shyfaruqi/tuvima-library](https://github.com/shyfaruqi/tuvima-library) |
 | License | AGPLv3 |
 | Engine base URL (local dev) | `http://localhost:61495` |
 | Dashboard URL (local dev) | `http://localhost:5016` |

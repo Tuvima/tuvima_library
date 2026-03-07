@@ -16,17 +16,17 @@ This skill covers the Weighted Voter system — how metadata Claims are collecte
 
 | File | Role |
 |------|------|
-| `src/Tanaste.Intelligence/ScoringEngine.cs` | Groups claims by key, scores per field, computes overall confidence |
-| `src/Tanaste.Intelligence/ConflictResolver.cs` | Applies provider weights, stale decay, groups by value, detects conflicts |
-| `src/Tanaste.Intelligence/IdentityMatcher.cs` | Matches works to hubs via hard-ID short-circuit + fuzzy field average |
-| `src/Tanaste.Intelligence/HubArbiter.cs` | Selects the best Hub for a Work based on IdentityMatcher scores |
-| `src/Tanaste.Intelligence/Models/ScoringConfiguration.cs` | Thresholds: auto-link 0.85, conflict 0.60, epsilon 0.05, stale decay 90d/0.8 |
-| `src/Tanaste.Domain/Entities/MetadataClaim.cs` | Append-only claim record (key, value, confidence, provider, timestamp) |
-| `src/Tanaste.Domain/Entities/CanonicalValue.cs` | Scored winner per field per entity |
-| `src/Tanaste.Storage/Models/TanasteMasterManifest.cs` | Provider definitions, field weights, scoring settings |
-| `src/Tanaste.Api/Endpoints/SettingsEndpoints.cs` | Provider status + toggle endpoints |
-| `src/Tanaste.Web/Components/Settings/MetadataTab.razor` | Provider cards with weights and reachability |
-| `src/Tanaste.Web/Components/Settings/CuratorsDrawer.razor` | Manual claim locking and history |
+| `src/MediaEngine.Intelligence/ScoringEngine.cs` | Groups claims by key, scores per field, computes overall confidence |
+| `src/MediaEngine.Intelligence/ConflictResolver.cs` | Applies provider weights, stale decay, groups by value, detects conflicts |
+| `src/MediaEngine.Intelligence/IdentityMatcher.cs` | Matches works to hubs via hard-ID short-circuit + fuzzy field average |
+| `src/MediaEngine.Intelligence/HubArbiter.cs` | Selects the best Hub for a Work based on IdentityMatcher scores |
+| `src/MediaEngine.Intelligence/Models/ScoringConfiguration.cs` | Thresholds: auto-link 0.85, conflict 0.60, epsilon 0.05, stale decay 90d/0.8 |
+| `src/MediaEngine.Domain/Entities/MetadataClaim.cs` | Append-only claim record (key, value, confidence, provider, timestamp) |
+| `src/MediaEngine.Domain/Entities/CanonicalValue.cs` | Scored winner per field per entity |
+| `src/MediaEngine.Storage/Models/LibraryMasterManifest.cs` | Provider definitions, field weights, scoring settings |
+| `src/MediaEngine.Api/Endpoints/SettingsEndpoints.cs` | Provider status + toggle endpoints |
+| `src/MediaEngine.Web/Components/Settings/MetadataTab.razor` | Provider cards with weights and reachability |
+| `src/MediaEngine.Web/Components/Settings/CuratorsDrawer.razor` | Manual claim locking and history |
 
 ---
 
@@ -52,9 +52,9 @@ Overall entity confidence = mean of all field confidences.
 
 ## How to add a new provider
 
-1. Create a class implementing `IExternalMetadataProvider` in `src/Tanaste.Providers/`.
+1. Create a class implementing `IExternalMetadataProvider` in `src/MediaEngine.Providers/`.
 2. Assign a stable hardcoded GUID (never looked up from DB at runtime).
-3. Add the provider entry to `tanaste_master.json` under `providers` with:
+3. Add the provider entry to `tuvima_master.json` under `providers` with:
    - `name`, `version`, `enabled`, `weight`, `domain`, `capability_tags`, `field_weights`
 4. Add the base URL to `provider_endpoints` in the manifest.
 5. Register the class in `Program.cs` DI container.
@@ -66,7 +66,7 @@ No changes to existing providers or scoring code are needed.
 
 ## How to change trust weights
 
-Currently: edit `tanaste_master.json` directly. No API endpoint or UI editor exists.
+Currently: edit `tuvima_master.json` directly. No API endpoint or UI editor exists.
 
 Future: a weight editor on the Metadata tab would allow runtime adjustment with live preview of scoring impact.
 
@@ -79,7 +79,7 @@ Future: a weight editor on the Metadata tab would allow runtime adjustment with 
 3. Clicks "Apply Correction" — this calls `PATCH /metadata/lock-claim` with `entityId`, `key`, and `value`.
 4. Engine creates a new MetadataClaim with `IsUserLocked = true` and `Confidence = 1.0`.
 5. Re-scoring runs; the locked Claim always wins, overriding all provider claims.
-6. Locked Claims survive any future re-scoring and are written into the tanaste.xml sidecar for portability.
+6. Locked Claims survive any future re-scoring and are written into the library.xml sidecar for portability.
 
 ---
 

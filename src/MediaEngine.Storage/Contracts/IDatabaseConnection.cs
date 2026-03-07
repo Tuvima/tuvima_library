@@ -26,4 +26,18 @@ public interface IDatabaseConnection : IDisposable
     /// Throws <see cref="InvalidOperationException"/> if integrity_check does not return "ok".
     /// </summary>
     void RunStartupChecks();
+
+    /// <summary>
+    /// Acquires the global write-serialization lock.
+    /// All code that calls <c>BeginTransaction()</c> MUST acquire this first
+    /// to prevent "cannot start a transaction within a transaction" errors
+    /// when multiple threads share the singleton connection.
+    /// </summary>
+    Task AcquireWriteLockAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// Releases the global write-serialization lock.
+    /// Must be called in a <c>finally</c> block after the transaction completes.
+    /// </summary>
+    void ReleaseWriteLock();
 }

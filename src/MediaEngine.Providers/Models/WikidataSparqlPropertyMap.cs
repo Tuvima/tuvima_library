@@ -140,6 +140,7 @@ public static class WikidataSparqlPropertyMap
                 Enabled        = prop.Enabled,
                 IsEntityValued = prop.IsEntityValued,
                 ValueTransform = prop.ValueTransform,
+                IsMultiValued  = prop.IsMultiValued,
             };
         }
 
@@ -197,6 +198,7 @@ public static class WikidataSparqlPropertyMap
                 Enabled        = config.Enabled,
                 IsEntityValued = config.IsEntityValued,
                 ValueTransform = config.ValueTransform,
+                IsMultiValued  = config.IsMultiValued,
             };
         }
 
@@ -250,9 +252,16 @@ public static class WikidataSparqlPropertyMap
     // ── Private Helpers ──────────────────────────────────────────────────────
 
     /// <summary>
+    /// The separator used in SPARQL GROUP_CONCAT for multi-valued properties.
+    /// The adapter splits on this to produce individual claims.
+    /// </summary>
+    public const string MultiValueSeparator = "|||";
+
+    /// <summary>
     /// Builds the Wikidata SPARQL query for a given QID and set of properties.
     /// Uses OPTIONAL clauses so missing properties don't exclude the entity.
     /// For entity-valued properties, fetches rdfs:label in English.
+    /// For multi-valued properties, uses GROUP_CONCAT to collect all values.
     /// </summary>
     private static string BuildSparqlQuery(string qid, IReadOnlyList<WikidataProperty> props)
     {
@@ -260,16 +269,39 @@ public static class WikidataSparqlPropertyMap
             return string.Empty;
 
         var sb = new StringBuilder(2048);
+        var hasMultiValued = props.Any(p => p.IsMultiValued);
 
-        // SELECT clause — one variable per property
+        // SELECT clause — one variable per property.
+        // Multi-valued properties use GROUP_CONCAT in the SELECT.
         sb.Append("SELECT");
         foreach (var p in props)
         {
             var varName = p.PCode.ToLowerInvariant(); // e.g. ?p179
-            sb.Append(" ?").Append(varName);
-            // Entity-valued properties also get a label variable
-            if (p.IsEntityValued)
-                sb.Append(" ?").Append(varName).Append("Label");
+
+            if (p.IsMultiValued)
+            {
+                // GROUP_CONCAT for multi-valued: collects all values with ||| separator.
+                if (p.IsEntityValued)
+                {
+                    // Concatenate the labels (human-readable), not the raw QIDs.
+                    sb.Append(" (GROUP_CONCAT(DISTINCT ?").Append(varName).Append("Label; separator=\"")
+                      .Append(MultiValueSeparator).Append("\") AS ?").Append(varName).Append("Labels)");
+                    // Also concatenate raw entity URIs for QID extraction (Hub relationships).
+                    sb.Append(" (GROUP_CONCAT(DISTINCT STR(?").Append(varName).Append("); separator=\"")
+                      .Append(MultiValueSeparator).Append("\") AS ?").Append(varName).Append("Uris)");
+                }
+                else
+                {
+                    sb.Append(" (GROUP_CONCAT(DISTINCT ?").Append(varName).Append("; separator=\"")
+                      .Append(MultiValueSeparator).Append("\") AS ?").Append(varName).Append("All)");
+                }
+            }
+            else
+            {
+                sb.Append(" ?").Append(varName);
+                if (p.IsEntityValued)
+                    sb.Append(" ?").Append(varName).Append("Label");
+            }
         }
         sb.AppendLine();
 
@@ -294,6 +326,25 @@ public static class WikidataSparqlPropertyMap
         }
 
         sb.AppendLine("}");
+
+        // GROUP BY is needed when GROUP_CONCAT is used — group on all non-aggregated variables.
+        if (hasMultiValued)
+        {
+            var nonAggregated = props.Where(p => !p.IsMultiValued).ToList();
+            if (nonAggregated.Count > 0)
+            {
+                sb.Append("GROUP BY");
+                foreach (var p in nonAggregated)
+                {
+                    var varName = p.PCode.ToLowerInvariant();
+                    sb.Append(" ?").Append(varName);
+                    if (p.IsEntityValued)
+                        sb.Append(" ?").Append(varName).Append("Label");
+                }
+                sb.AppendLine();
+            }
+        }
+
         sb.AppendLine("LIMIT 1");
 
         return sb.ToString();
@@ -307,7 +358,7 @@ public static class WikidataSparqlPropertyMap
 
         void Add(string pCode, string claimKey, string category,
                  string scope = "Work", double confidence = 0.9, bool bridge = false,
-                 bool entityValued = false, string? transform = null)
+                 bool entityValued = false, string? transform = null, bool multiValued = false)
         {
             map[pCode] = new WikidataProperty
             {
@@ -319,44 +370,46 @@ public static class WikidataSparqlPropertyMap
                 IsBridge       = bridge,
                 IsEntityValued = entityValued,
                 ValueTransform = transform,
+                IsMultiValued  = multiValued,
             };
         }
 
         // ── Core Identity (Work-scoped) ──────────────────────────────────
-        Add("P31",   "instance_of",     "Core Identity",                       entityValued: true);
+        Add("P31",   "instance_of",     "Core Identity",                       entityValued: true, multiValued: true);
+        Add("P136",  "genre",           "Core Identity", confidence: 0.8,      entityValued: true, multiValued: true);
         Add("P1476", "title",           "Core Identity");
-        Add("P179",  "series",          "Core Identity",                       entityValued: true);
+        Add("P179",  "series",          "Core Identity",                       entityValued: true, multiValued: true);
         Add("P1545", "series_position", "Core Identity",                       transform: "numeric_portion");
-        Add("P8345", "franchise",       "Core Identity",                       entityValued: true);
-        Add("P155",  "preceded_by",     "Core Identity", confidence: 0.8,      entityValued: true);
-        Add("P156",  "followed_by",     "Core Identity", confidence: 0.8,      entityValued: true);
+        Add("P8345", "franchise",       "Core Identity",                       entityValued: true, multiValued: true);
+        Add("P155",  "preceded_by",     "Core Identity", confidence: 0.8,      entityValued: true, multiValued: true);
+        Add("P156",  "followed_by",     "Core Identity", confidence: 0.8,      entityValued: true, multiValued: true);
         Add("P577",  "year",            "Core Identity",                       transform: "year_from_iso");
 
         // ── People — Work-scoped (link Work → Person QID) ───────────────
         Add("P50",  "author",       "People",                                  entityValued: true);
         Add("P110", "illustrator",  "People",                                  entityValued: true);
         Add("P57",  "director",     "People",                                  entityValued: true);
-        Add("P161", "cast_member",  "People",                                  entityValued: true);
+        Add("P161", "cast_member",  "People",                                  entityValued: true, multiValued: true);
         Add("P987", "narrator",     "People",                                  entityValued: true);
-        Add("P725", "voice_actor",  "People",                                  entityValued: true);
-        Add("P58",  "screenwriter", "People",                                  entityValued: true);
-        Add("P86",  "composer",     "People",                                  entityValued: true);
+        Add("P725", "voice_actor",  "People",                                  entityValued: true, multiValued: true);
+        Add("P58",  "screenwriter", "People",                                  entityValued: true, multiValued: true);
+        Add("P86",  "composer",     "People",                                  entityValued: true, multiValued: true);
 
         // ── People — Person-scoped (enrich the Person entity itself) ────
         // P18 (Image): Person-only — copyright constraint.
         // Wikimedia Commons headshots of public figures are not copyrighted.
         // Media cover art comes exclusively from Apple Books, Audnexus, and TMDB.
-        Add("P800", "notable_work", "People", scope: "Person", confidence: 0.85, entityValued: true);
+        Add("P800", "notable_work", "People", scope: "Person", confidence: 0.85, entityValued: true, multiValued: true);
         Add("P18",  "headshot_url", "People", scope: "Person",                  transform: "commons_url");
-        Add("P106", "occupation",   "People", scope: "Person", confidence: 0.85, entityValued: true);
+        Add("P106", "occupation",   "People", scope: "Person", confidence: 0.85, entityValued: true, multiValued: true);
 
         // ── Lore & Narrative (Work-scoped) ───────────────────────────────
-        Add("P840",  "narrative_location", "Lore & Narrative", confidence: 0.8, entityValued: true);
-        Add("P674",  "characters",         "Lore & Narrative", confidence: 0.8, entityValued: true);
-        Add("P921",  "main_subject",       "Lore & Narrative", confidence: 0.8, entityValued: true);
-        Add("P1434", "fictional_universe", "Lore & Narrative", confidence: 0.8, entityValued: true);
-        Add("P144",  "based_on",           "Lore & Narrative", confidence: 0.8, entityValued: true);
-        Add("P4584", "first_appearance",   "Lore & Narrative", confidence: 0.8, entityValued: true);
+        Add("P840",  "narrative_location", "Lore & Narrative", confidence: 0.8, entityValued: true, multiValued: true);
+        Add("P674",  "characters",         "Lore & Narrative", confidence: 0.8, entityValued: true, multiValued: true);
+        Add("P921",  "main_subject",       "Lore & Narrative", confidence: 0.8, entityValued: true, multiValued: true);
+        Add("P1434", "fictional_universe", "Lore & Narrative", confidence: 0.8, entityValued: true, multiValued: true);
+        Add("P144",  "based_on",           "Lore & Narrative", confidence: 0.8, entityValued: true, multiValued: true);
+        Add("P4584", "first_appearance",   "Lore & Narrative", confidence: 0.8, entityValued: true, multiValued: true);
 
         // ── Bridges: Books (Work-scoped) ─────────────────────────────────
         Add("P3861", "apple_books_id", "Bridges: Books", confidence: 1.0, bridge: true);

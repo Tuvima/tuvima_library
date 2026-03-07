@@ -629,14 +629,6 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                                               .ConfigureAwait(false);
                 if (moved)
                 {
-                    await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
-                    {
-                        ActionType = Domain.Enums.SystemActionType.PathUpdated,
-                        EntityId   = assetId,
-                        EntityType = "MediaAsset",
-                        HubName    = candidate.Metadata?.GetValueOrDefault("title", "Unknown"),
-                        Detail     = $"Organized {Path.GetFileName(candidate.Path)} to Library",
-                    }, ct).ConfigureAwait(false);
                     currentPath = destPath;
                 }
             }
@@ -657,18 +649,6 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             currentPath = await MoveToStagingAsync(currentPath, ct)
                               .ConfigureAwait(false) ?? currentPath;
 
-            if (!string.Equals(currentPath, prevPath, StringComparison.Ordinal))
-            {
-                await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
-                {
-                    ActionType = Domain.Enums.SystemActionType.PathUpdated,
-                    EntityId   = assetId,
-                    EntityType = "MediaAsset",
-                    HubName    = candidate.Metadata?.GetValueOrDefault("title", "Unknown"),
-                    Detail     = $"Staged {Path.GetFileName(prevPath)} (confidence {scored.OverallConfidence:P0})",
-                }, ct).ConfigureAwait(false);
-            }
-
             await CreateIngestionReviewItemAsync(
                 assetId, ReviewTrigger.LowConfidence, scored.OverallConfidence,
                 $"Overall confidence {scored.OverallConfidence:P0} below organization threshold (85%). " +
@@ -687,13 +667,14 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             && currentPath.StartsWith(_options.LibraryRoot, StringComparison.OrdinalIgnoreCase);
         if (fileIsInLibrary)
         {
-            string editionFolder = Path.GetDirectoryName(currentPath) ?? string.Empty;
-            string hubFolder     = Path.GetDirectoryName(editionFolder) ?? string.Empty;
-            var    meta          = candidate.Metadata
-                                   ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            string fileFolder = Path.GetDirectoryName(currentPath) ?? string.Empty;
+            var    meta       = candidate.Metadata
+                                ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
             // Edition-level sidecar — records file identity, user locks, cover path.
-            await _sidecar.WriteEditionSidecarAsync(editionFolder, new EditionSidecarData
+            // Hub sidecar is no longer written; Hubs are virtual intelligence-driven
+            // collections assigned during Stage 2 of the hydration pipeline.
+            await _sidecar.WriteEditionSidecarAsync(fileFolder, new EditionSidecarData
             {
                 Title         = meta.GetValueOrDefault("title"),
                 Author        = meta.GetValueOrDefault("author"),
@@ -706,22 +687,12 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 LastOrganized = DateTimeOffset.UtcNow,
             }, ct).ConfigureAwait(false);
 
-            // Hub-level sidecar — records work identity (idempotent; last ingest wins).
-            await _sidecar.WriteHubSidecarAsync(hubFolder, new HubSidecarData
-            {
-                DisplayName   = meta.GetValueOrDefault("title", "Unknown"),
-                Year          = meta.GetValueOrDefault("year"),
-                WikidataQid   = meta.GetValueOrDefault("wikidata_qid"),
-                Franchise     = meta.GetValueOrDefault("franchise"),
-                LastOrganized = DateTimeOffset.UtcNow,
-            }, ct).ConfigureAwait(false);
-
             // Persist cover art as cover.jpg alongside the Edition sidecar.
             // Cover images are NEVER stored in the database — always read from disk.
             if (result.CoverImage is { Length: > 0 })
             {
                 await File.WriteAllBytesAsync(
-                    Path.Combine(editionFolder, "cover.jpg"),
+                    Path.Combine(fileFolder, "cover.jpg"),
                     result.CoverImage, ct).ConfigureAwait(false);
             }
         }
@@ -754,6 +725,24 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
         // ── Phase 2 activity: FileIngested — fires after the full pipeline ──
         // Summarises the outcome: organized, staged, or awaiting enrichment.
+        // Rebuild richJson to include organization destination (PathUpdated is folded in).
+        string? organizedTo = fileIsInLibrary ? currentPath
+            : !string.Equals(currentPath, candidate.Path, StringComparison.Ordinal) ? "staging"
+            : null;
+
+        var finalRichJson = JsonSerializer.Serialize(new
+        {
+            title        = resolvedTitle,
+            author       = resolvedAuthor,
+            year         = candidate.Metadata?.GetValueOrDefault("year", string.Empty) ?? string.Empty,
+            media_type   = resolvedMediaType.ToString(),
+            confidence   = scored.OverallConfidence,
+            source_file  = Path.GetFileName(candidate.Path),
+            description  = candidate.Metadata?.GetValueOrDefault("description", string.Empty) ?? string.Empty,
+            entity_id    = assetId.ToString(),
+            organized_to = organizedTo,
+        });
+
         string outcome = fileIsInLibrary
             ? $"Ingested — \"{resolvedTitle}\" → Library"
             : passesGate
@@ -766,7 +755,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             EntityId    = assetId,
             EntityType  = "MediaAsset",
             HubName     = resolvedTitle,
-            ChangesJson = richJson,
+            ChangesJson = finalRichJson,
             Detail      = outcome,
         }, ct).ConfigureAwait(false);
     }
@@ -1223,14 +1212,6 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             SafeDeleteFile(Path.Combine(editionFolder, "cover.jpg"));
             SafeDeleteFile(Path.Combine(editionFolder, "library.xml"));
             TryDeleteEmptyDirectory(editionFolder);
-
-            // Also clean hub folder artifacts if edition was removed.
-            var hubFolder = Path.GetDirectoryName(editionFolder);
-            if (!string.IsNullOrEmpty(hubFolder) && Directory.Exists(hubFolder))
-            {
-                SafeDeleteFile(Path.Combine(hubFolder, "library.xml"));
-                TryDeleteEmptyDirectory(hubFolder);
-            }
         }
 
         // 2. Delete DB records: claims → canonical values → asset.

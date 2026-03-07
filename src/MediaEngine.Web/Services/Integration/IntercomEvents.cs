@@ -12,12 +12,12 @@
 /// </code>
 /// </summary>
 /// <param name="WorkId">The newly ingested Work's unique identifier.</param>
-/// <param name="HubId">The Hub this Work was assigned to.</param>
+/// <param name="HubId">The Hub this Work was assigned to, or <c>null</c> if standalone.</param>
 /// <param name="MediaType">Domain media-type string (e.g. "Epub", "Video", "Cbz").</param>
 /// <param name="Title">Best-available title for immediate display before a full hub refresh.</param>
 public sealed record MediaAddedEvent(
     Guid   WorkId,
-    Guid   HubId,
+    Guid?  HubId,
     string MediaType,
     string Title);
 

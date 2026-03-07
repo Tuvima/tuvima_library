@@ -359,6 +359,7 @@ app.MapReviewEndpoints();
 app.MapSettingsEndpoints();
 app.MapUISettingsEndpoints();
 app.MapProfileEndpoints();
+app.MapPersonEndpoints();
 app.MapActivityEndpoints();
 
 app.Run();

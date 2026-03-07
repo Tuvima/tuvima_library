@@ -84,7 +84,7 @@
 
         return results.Select(r => new PaletteItem(
             Label:    r.Title,
-            Href:     $"/hub/{r.HubId}",
+            Href:     r.HubId is { } hubId ? $"/hub/{hubId}" : $"/work/{r.WorkId}",
             Icon:     MediaIcon(r.MediaType),
             Color:    MediaColor(r.MediaType),
             Subtitle: BuildSubtitle(r)));

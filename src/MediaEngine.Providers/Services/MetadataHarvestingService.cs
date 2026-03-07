@@ -56,6 +56,8 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
     private readonly IScoringEngine _scoringEngine;
     private readonly IEventPublisher _eventPublisher;
     private readonly IConfigurationLoader _configLoader;
+    private readonly IHttpClientFactory _httpFactory;
+    private readonly IImageCacheRepository _imageCache;
     private readonly ILogger<MetadataHarvestingService> _logger;
 
     // ── Constructor ───────────────────────────────────────────────────────────
@@ -68,6 +70,8 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         IScoringEngine scoringEngine,
         IEventPublisher eventPublisher,
         IConfigurationLoader configLoader,
+        IHttpClientFactory httpFactory,
+        IImageCacheRepository imageCache,
         ILogger<MetadataHarvestingService> logger)
     {
         ArgumentNullException.ThrowIfNull(providers);
@@ -77,6 +81,8 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         ArgumentNullException.ThrowIfNull(scoringEngine);
         ArgumentNullException.ThrowIfNull(eventPublisher);
         ArgumentNullException.ThrowIfNull(configLoader);
+        ArgumentNullException.ThrowIfNull(httpFactory);
+        ArgumentNullException.ThrowIfNull(imageCache);
         ArgumentNullException.ThrowIfNull(logger);
 
         _providers      = providers.ToList();
@@ -86,6 +92,8 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         _scoringEngine  = scoringEngine;
         _eventPublisher = eventPublisher;
         _configLoader   = configLoader;
+        _httpFactory    = httpFactory;
+        _imageCache     = imageCache;
         _logger         = logger;
 
         _channel = Channel.CreateBounded<HarvestRequest>(new BoundedChannelOptions(500)
@@ -274,9 +282,9 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         if (!string.Equals(provider.Name, "wikidata", StringComparison.OrdinalIgnoreCase))
             return;
 
-        var qid        = claims.FirstOrDefault(c => c.Key == "wikidata_qid")?.Value;
+        var qid         = claims.FirstOrDefault(c => c.Key == "wikidata_qid")?.Value;
         var headshotUrl = claims.FirstOrDefault(c => c.Key == "headshot_url")?.Value;
-        var biography  = claims.FirstOrDefault(c => c.Key == "biography")?.Value;
+        var biography   = claims.FirstOrDefault(c => c.Key == "biography")?.Value;
 
         if (qid is null && headshotUrl is null && biography is null)
             return;
@@ -284,14 +292,113 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         await _personRepo.UpdateEnrichmentAsync(request.EntityId, qid, headshotUrl, biography, ct)
             .ConfigureAwait(false);
 
-        // Look up the name for the event payload.
-        var persons = await _personRepo.GetByMediaAssetAsync(Guid.Empty, ct).ConfigureAwait(false);
-        // Note: GetByMediaAssetAsync with Empty GUID returns 0 results — use a direct person lookup.
-        // We'll publish with whatever info we have from the claims.
+        // Look up the person for event payload and people storage.
+        var person = await _personRepo.FindByIdAsync(request.EntityId, ct)
+            .ConfigureAwait(false);
+        var personName = person?.Name ?? string.Empty;
+
+        // Persist headshot + person sidecar under {LibraryRoot}/.people/{personId}/
+        await PersistPersonStorageAsync(request.EntityId, person, headshotUrl, ct)
+            .ConfigureAwait(false);
+
         await _eventPublisher.PublishAsync(
             "PersonEnriched",
-            new PersonEnrichedEvent(request.EntityId, string.Empty, headshotUrl, qid),
+            new PersonEnrichedEvent(request.EntityId, personName, headshotUrl, qid),
             ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Downloads headshot from Wikimedia Commons and writes person.xml sidecar
+    /// under <c>{LibraryRoot}/.people/{personId}/</c>.
+    /// </summary>
+    private async Task PersistPersonStorageAsync(
+        Guid personId,
+        Person? person,
+        string? headshotUrl,
+        CancellationToken ct)
+    {
+        try
+        {
+            var core = _configLoader.LoadCore();
+            if (string.IsNullOrWhiteSpace(core.LibraryRoot))
+                return;
+
+            var personFolder = Path.Combine(core.LibraryRoot, ".people", personId.ToString());
+            Directory.CreateDirectory(personFolder);
+
+            // Download headshot if URL is available and file doesn't exist.
+            var headshotPath = Path.Combine(personFolder, "headshot.jpg");
+            if (!string.IsNullOrEmpty(headshotUrl) && !File.Exists(headshotPath))
+            {
+                try
+                {
+                    using var client = _httpFactory.CreateClient("headshot_download");
+                    var bytes = await client.GetByteArrayAsync(headshotUrl, ct)
+                        .ConfigureAwait(false);
+
+                    if (bytes.Length > 0)
+                    {
+                        var hash = Convert.ToHexStringLower(
+                            System.Security.Cryptography.SHA256.HashData(bytes));
+                        var cached = await _imageCache.FindByHashAsync(hash, ct)
+                            .ConfigureAwait(false);
+
+                        if (cached is not null && File.Exists(cached))
+                        {
+                            File.Copy(cached, headshotPath, overwrite: false);
+                        }
+                        else
+                        {
+                            await File.WriteAllBytesAsync(headshotPath, bytes, ct)
+                                .ConfigureAwait(false);
+                            await _imageCache.InsertAsync(hash, headshotPath, headshotUrl, ct)
+                                .ConfigureAwait(false);
+                        }
+
+                        await _personRepo.UpdateLocalHeadshotPathAsync(personId, headshotPath, ct)
+                            .ConfigureAwait(false);
+                    }
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _logger.LogWarning(ex,
+                        "Headshot download failed for person {Id}; continuing",
+                        personId);
+                }
+            }
+
+            // Write person.xml sidecar.
+            if (person is not null)
+            {
+                var doc = new System.Xml.Linq.XDocument(
+                    new System.Xml.Linq.XDeclaration("1.0", "utf-8", null),
+                    new System.Xml.Linq.XElement("library-person",
+                        new System.Xml.Linq.XAttribute("version", "1.0"),
+                        new System.Xml.Linq.XElement("identity",
+                            new System.Xml.Linq.XElement("name",         person.Name),
+                            new System.Xml.Linq.XElement("role",         person.Role),
+                            new System.Xml.Linq.XElement("wikidata-qid", person.WikidataQid ?? string.Empty),
+                            new System.Xml.Linq.XElement("occupation",   person.Occupation  ?? string.Empty)
+                        ),
+                        new System.Xml.Linq.XElement("biography", person.Biography ?? string.Empty),
+                        new System.Xml.Linq.XElement("social",
+                            new System.Xml.Linq.XElement("instagram", person.Instagram ?? string.Empty),
+                            new System.Xml.Linq.XElement("twitter",   person.Twitter   ?? string.Empty),
+                            new System.Xml.Linq.XElement("tiktok",    person.TikTok    ?? string.Empty),
+                            new System.Xml.Linq.XElement("mastodon",  person.Mastodon  ?? string.Empty),
+                            new System.Xml.Linq.XElement("website",   person.Website   ?? string.Empty)
+                        )
+                    )
+                );
+                doc.Save(Path.Combine(personFolder, "person.xml"));
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex,
+                "Person storage persistence failed for person {Id}; continuing",
+                personId);
+        }
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

@@ -8,7 +8,7 @@
 
 ## User Experience
 
-The Hub is the central concept in Tanaste. Instead of browsing by file type (all my books, all my movies), you browse by *story*. A single Hub — say "Dune" — contains every version of that story in your collection: the ebook, the audiobook, the movie, the graphic novel.
+The Hub is the central concept in Tuvima Library. Instead of browsing by file type (all my books, all my movies), you browse by *story*. A single Hub — say "Dune" — contains every version of that story in your collection: the ebook, the audiobook, the movie, the graphic novel.
 
 ### What the user sees today
 

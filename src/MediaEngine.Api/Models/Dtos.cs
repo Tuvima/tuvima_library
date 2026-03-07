@@ -123,7 +123,7 @@ public sealed class SearchResultDto
     public Guid WorkId { get; init; }
 
     [JsonPropertyName("hub_id")]
-    public Guid HubId { get; init; }
+    public Guid? HubId { get; init; }
 
     [JsonPropertyName("title")]
     public string Title { get; init; } = string.Empty;
@@ -169,7 +169,7 @@ public sealed class WorkDto
     public Guid Id { get; init; }
 
     [JsonPropertyName("hub_id")]
-    public Guid HubId { get; init; }
+    public Guid? HubId { get; init; }
 
     [JsonPropertyName("media_type")]
     public string MediaType { get; init; } = string.Empty;

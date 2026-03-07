@@ -205,6 +205,9 @@ public sealed class ActivityRichData
 
     [JsonPropertyName("entity_id")]
     public string? EntityId { get; set; }
+
+    [JsonPropertyName("organized_to")]
+    public string? OrganizedTo { get; set; }
 }
 
 /// <summary>

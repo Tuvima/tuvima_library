@@ -35,7 +35,7 @@ Each source appears as a floating card showing:
 Administrators can click the "Add Source" button to open a three-step wizard:
 
 1. **Basic Details** — enter a source name, endpoint URL, and optional API key
-2. **Advanced Mapping** — configure how the source's response fields map to Tanaste metadata keys (placeholder)
+2. **Advanced Mapping** — configure how the source's response fields map to Tuvima Library metadata keys (placeholder)
 3. **Verify Connection** — test connectivity to the source endpoint (placeholder)
 
 The wizard collects information in preparation for Engine-side custom source registration, which is planned for a future update.

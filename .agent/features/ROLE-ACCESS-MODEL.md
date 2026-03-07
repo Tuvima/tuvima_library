@@ -8,7 +8,7 @@
 
 ## The three roles
 
-Tanaste defines three user roles, each with a progressively wider scope of control:
+Tuvima Library defines three user roles, each with a progressively wider scope of control:
 
 | Role | Purpose | Can personalise? | Can curate? | Can administer? |
 |------|---------|------------------|-------------|-----------------|
@@ -67,7 +67,7 @@ Tanaste defines three user roles, each with a progressively wider scope of contr
 
 ## What "GATING REQUIRED" means
 
-The Dashboard hides UI elements based on role — but the Engine does not enforce roles. Today this is acceptable because Tanaste runs on localhost and the only user is the Product Owner. **However, the moment Guest API Keys are issued to external tools (Radarr, Sonarr, a mobile app), those tools will have unrestricted access to every endpoint — including user management and API key revocation.**
+The Dashboard hides UI elements based on role — but the Engine does not enforce roles. Today this is acceptable because Tuvima Library runs on localhost and the only user is the Product Owner. **However, the moment Guest API Keys are issued to external tools (Radarr, Sonarr, a mobile app), those tools will have unrestricted access to every endpoint — including user management and API key revocation.**
 
 Before external access is enabled, the Engine needs:
 1. A way to associate an API Key with a role (or inherit the issuing user's role).

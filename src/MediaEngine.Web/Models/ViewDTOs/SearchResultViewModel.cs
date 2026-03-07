@@ -7,7 +7,7 @@ namespace MediaEngine.Web.Models.ViewDTOs;
 public sealed class SearchResultViewModel
 {
     public Guid    WorkId         { get; init; }
-    public Guid    HubId          { get; init; }
+    public Guid?   HubId          { get; init; }
     public string  Title          { get; init; } = string.Empty;
     public string? Author         { get; init; }
     public string  MediaType      { get; init; } = string.Empty;

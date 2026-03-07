@@ -30,7 +30,7 @@ public sealed class IngestionOptions
     /// Example: <c>"{Category}/{HubName} ({Year})/{Format}/{HubName} ({Edition}){Ext}"</c>.
     /// </summary>
     public string OrganizationTemplate { get; set; } =
-        "{Category}/{HubName} ({Year})/{Format}/{HubName} ({Edition}){Ext}";
+        "{Category}/{Author}/{Title}{Ext}";
 
     /// <summary>
     /// Holding area for files that cannot be auto-organized (low confidence,

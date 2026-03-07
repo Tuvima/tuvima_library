@@ -16,15 +16,15 @@ This skill covers the Engine's security model — API key middleware, secret man
 
 | File | Role |
 |------|------|
-| `src/Tanaste.Api/Middleware/ApiKeyMiddleware.cs` | Request authentication (validate-if-present model) |
-| `src/Tanaste.Api/Services/ApiKeyService.cs` | Key generation (256-bit random) and SHA-256 hashing |
-| `src/Tanaste.Api/Services/DataProtectionSecretStore.cs` | Provider secret encryption at rest |
-| `src/Tanaste.Api/Services/FolderHealthService.cs` | Background health probe (broadcasts paths via SignalR) |
-| `src/Tanaste.Api/Hubs/CommunicationHub.cs` | SignalR hub (server-to-client only) |
-| `src/Tanaste.Api/Services/SignalREventPublisher.cs` | Broadcasts events to all connected clients |
-| `src/Tanaste.Api/Endpoints/AdminEndpoints.cs` | API key CRUD + provider config management |
-| `src/Tanaste.Storage/ApiKeyRepository.cs` | Key hash storage (plaintext never stored) |
-| `src/Tanaste.Storage/ProviderConfigurationRepository.cs` | Encrypted secret storage |
+| `src/MediaEngine.Api/Middleware/ApiKeyMiddleware.cs` | Request authentication (validate-if-present model) |
+| `src/MediaEngine.Api/Services/ApiKeyService.cs` | Key generation (256-bit random) and SHA-256 hashing |
+| `src/MediaEngine.Api/Services/DataProtectionSecretStore.cs` | Provider secret encryption at rest |
+| `src/MediaEngine.Api/Services/FolderHealthService.cs` | Background health probe (broadcasts paths via SignalR) |
+| `src/MediaEngine.Api/Hubs/CommunicationHub.cs` | SignalR hub (server-to-client only) |
+| `src/MediaEngine.Api/Services/SignalREventPublisher.cs` | Broadcasts events to all connected clients |
+| `src/MediaEngine.Api/Endpoints/AdminEndpoints.cs` | API key CRUD + provider config management |
+| `src/MediaEngine.Storage/ApiKeyRepository.cs` | Key hash storage (plaintext never stored) |
+| `src/MediaEngine.Storage/ProviderConfigurationRepository.cs` | Encrypted secret storage |
 
 ---
 

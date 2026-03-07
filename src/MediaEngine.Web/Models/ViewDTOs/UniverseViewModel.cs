@@ -38,7 +38,7 @@ public sealed class UniverseViewModel
 public sealed class MediaItemViewModel
 {
     public Guid            Id               { get; init; }
-    public Guid            HubId            { get; init; }
+    public Guid?           HubId            { get; init; }
 
     /// <summary>Raw media-type string from the domain enum (e.g. "Epub", "Video", "Cbz").</summary>
     public string          MediaType        { get; init; } = string.Empty;

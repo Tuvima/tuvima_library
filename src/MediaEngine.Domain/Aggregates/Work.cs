@@ -12,7 +12,7 @@ namespace MediaEngine.Domain.Aggregates;
 /// physical form of the same content.
 ///
 /// Spec invariants:
-/// • "A Work MUST NOT exist without a parent Hub." — <see cref="HubId"/> is non-nullable.
+/// • Standalone Works (no franchise/series/universe data) have HubId = null.
 /// • "A Work linked to a Series MUST contain a SequenceIndex." — enforced at
 ///   the application layer using <see cref="SequenceIndex"/>.
 ///
@@ -24,12 +24,11 @@ public sealed class Work
     public Guid Id { get; set; }
 
     /// <summary>
-    /// Parent Hub.  Non-nullable: every Work belongs to a Hub.
-    /// When a Hub is deleted, the storage layer reassigns orphaned Works to the
-    /// System-Default Hub (not represented as null here).
-    /// Spec: "A Work MUST NOT exist without a parent Hub."
+    /// Parent Hub. Nullable: Works without franchise/series/universe data
+    /// are standalone. Hub assignment is driven by Wikidata relationship
+    /// properties during Stage 2 of the hydration pipeline.
     /// </summary>
-    public Guid HubId { get; set; }
+    public Guid? HubId { get; set; }
 
     /// <summary>
     /// The kind of intellectual content this Work contains.
@@ -62,6 +61,18 @@ public sealed class Work
     /// Null when universe matching has not been skipped.
     /// </summary>
     public DateTimeOffset? UniverseMismatchAt { get; set; }
+
+    /// <summary>
+    /// Wikidata lookup status: "confirmed" (QID found, firm link),
+    /// "pending" (no QID yet, recheck periodically), "skipped" (user decision).
+    /// </summary>
+    public string WikidataStatus { get; set; } = "pending";
+
+    /// <summary>
+    /// Timestamp of the last Wikidata lookup attempt.
+    /// Used by the weekly sync to prioritize pending items for recheck.
+    /// </summary>
+    public DateTimeOffset? WikidataCheckedAt { get; set; }
 
     // -------------------------------------------------------------------------
     // Children

@@ -30,67 +30,73 @@ public sealed class MetadataClaimRepository : IMetadataClaimRepository
     // -------------------------------------------------------------------------
 
     /// <inheritdoc/>
-    public Task InsertBatchAsync(
+    public async Task InsertBatchAsync(
         IReadOnlyList<MetadataClaim> claims,
         CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
 
         if (claims.Count == 0)
-            return Task.CompletedTask;
+            return;
 
-        var conn = _db.Open();
-
-        // Wrap the batch in a single transaction for atomicity + performance.
-        using var tx = conn.BeginTransaction();
+        await _db.AcquireWriteLockAsync(ct).ConfigureAwait(false);
         try
         {
-            using var cmd = conn.CreateCommand();
-            cmd.Transaction = tx;
-            cmd.CommandText = """
-                INSERT INTO metadata_claims
-                    (id, entity_id, provider_id, claim_key, claim_value,
-                     confidence, claimed_at, is_user_locked)
-                VALUES
-                    (@id, @entity_id, @provider_id, @claim_key, @claim_value,
-                     @confidence, @claimed_at, @is_user_locked);
-                """;
+            var conn = _db.Open();
 
-            // Create parameters once and rebind values per row.
-            var pId            = cmd.Parameters.Add("@id",             SqliteType.Text);
-            var pEntityId      = cmd.Parameters.Add("@entity_id",      SqliteType.Text);
-            var pProviderId    = cmd.Parameters.Add("@provider_id",    SqliteType.Text);
-            var pClaimKey      = cmd.Parameters.Add("@claim_key",      SqliteType.Text);
-            var pClaimValue    = cmd.Parameters.Add("@claim_value",    SqliteType.Text);
-            var pConfidence    = cmd.Parameters.Add("@confidence",     SqliteType.Real);
-            var pClaimedAt     = cmd.Parameters.Add("@claimed_at",     SqliteType.Text);
-            var pIsUserLocked  = cmd.Parameters.Add("@is_user_locked", SqliteType.Integer);
-
-            foreach (var claim in claims)
+            // Wrap the batch in a single transaction for atomicity + performance.
+            using var tx = conn.BeginTransaction();
+            try
             {
-                ct.ThrowIfCancellationRequested();
+                using var cmd = conn.CreateCommand();
+                cmd.Transaction = tx;
+                cmd.CommandText = """
+                    INSERT INTO metadata_claims
+                        (id, entity_id, provider_id, claim_key, claim_value,
+                         confidence, claimed_at, is_user_locked)
+                    VALUES
+                        (@id, @entity_id, @provider_id, @claim_key, @claim_value,
+                         @confidence, @claimed_at, @is_user_locked);
+                    """;
 
-                pId.Value           = claim.Id.ToString();
-                pEntityId.Value     = claim.EntityId.ToString();
-                pProviderId.Value   = claim.ProviderId.ToString();
-                pClaimKey.Value     = claim.ClaimKey;
-                pClaimValue.Value   = claim.ClaimValue;
-                pConfidence.Value   = claim.Confidence;
-                pClaimedAt.Value    = claim.ClaimedAt.ToString("o"); // ISO-8601 round-trip
-                pIsUserLocked.Value = claim.IsUserLocked ? 1 : 0;
+                // Create parameters once and rebind values per row.
+                var pId            = cmd.Parameters.Add("@id",             SqliteType.Text);
+                var pEntityId      = cmd.Parameters.Add("@entity_id",      SqliteType.Text);
+                var pProviderId    = cmd.Parameters.Add("@provider_id",    SqliteType.Text);
+                var pClaimKey      = cmd.Parameters.Add("@claim_key",      SqliteType.Text);
+                var pClaimValue    = cmd.Parameters.Add("@claim_value",    SqliteType.Text);
+                var pConfidence    = cmd.Parameters.Add("@confidence",     SqliteType.Real);
+                var pClaimedAt     = cmd.Parameters.Add("@claimed_at",     SqliteType.Text);
+                var pIsUserLocked  = cmd.Parameters.Add("@is_user_locked", SqliteType.Integer);
 
-                cmd.ExecuteNonQuery();
+                foreach (var claim in claims)
+                {
+                    ct.ThrowIfCancellationRequested();
+
+                    pId.Value           = claim.Id.ToString();
+                    pEntityId.Value     = claim.EntityId.ToString();
+                    pProviderId.Value   = claim.ProviderId.ToString();
+                    pClaimKey.Value     = claim.ClaimKey;
+                    pClaimValue.Value   = claim.ClaimValue;
+                    pConfidence.Value   = claim.Confidence;
+                    pClaimedAt.Value    = claim.ClaimedAt.ToString("o"); // ISO-8601 round-trip
+                    pIsUserLocked.Value = claim.IsUserLocked ? 1 : 0;
+
+                    cmd.ExecuteNonQuery();
+                }
+
+                tx.Commit();
             }
-
-            tx.Commit();
+            catch
+            {
+                tx.Rollback();
+                throw;
+            }
         }
-        catch
+        finally
         {
-            tx.Rollback();
-            throw;
+            _db.ReleaseWriteLock();
         }
-
-        return Task.CompletedTask;
     }
 
     /// <inheritdoc/>
@@ -128,17 +134,23 @@ public sealed class MetadataClaimRepository : IMetadataClaimRepository
 
     /// <summary>
     /// <inheritdoc/>
-    public Task DeleteByEntityAsync(Guid entityId, CancellationToken ct = default)
+    public async Task DeleteByEntityAsync(Guid entityId, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
 
-        var conn = _db.Open();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = "DELETE FROM metadata_claims WHERE entity_id = @entity_id;";
-        cmd.Parameters.AddWithValue("@entity_id", entityId.ToString());
-        cmd.ExecuteNonQuery();
-
-        return Task.CompletedTask;
+        await _db.AcquireWriteLockAsync(ct).ConfigureAwait(false);
+        try
+        {
+            var conn = _db.Open();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "DELETE FROM metadata_claims WHERE entity_id = @entity_id;";
+            cmd.Parameters.AddWithValue("@entity_id", entityId.ToString());
+            cmd.ExecuteNonQuery();
+        }
+        finally
+        {
+            _db.ReleaseWriteLock();
+        }
     }
 
     /// Maps the current reader row to a <see cref="MetadataClaim"/>.

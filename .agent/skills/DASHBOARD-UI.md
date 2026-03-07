@@ -16,25 +16,25 @@ This skill covers all Dashboard visual components, navigation, state management,
 
 | File | Role |
 |------|------|
-| `src/Tanaste.Web/Shared/MainLayout.razor` | App shell: AppBar (logo left, action cluster right), Ctrl+K, NavigationTray |
-| `src/Tanaste.Web/Components/Pages/Home.razor` | Library overview: Hero + Bento grid |
-| `src/Tanaste.Web/Components/Pages/NotFound.razor` | 404 page |
-| `src/Tanaste.Web/Components/Universe/HubHero.razor` | Last Journey hero tile (artwork + progress) |
-| `src/Tanaste.Web/Components/Universe/ProgressIndicator.razor` | Reusable progress card (icon + bar + label) |
-| `src/Tanaste.Web/Components/Universe/UniverseStack.razor` | Your Universes Bento grid |
-| `src/Tanaste.Web/Components/Bento/BentoGrid.razor` | CSS grid container (responsive) |
-| `src/Tanaste.Web/Components/Bento/BentoItem.razor` | Glassmorphic tile with dynamic glow |
-| `src/Tanaste.Web/Components/Navigation/CommandPalette.razor` | Ctrl+K global search overlay |
-| `src/Tanaste.Web/Components/Navigation/NavigationTray.razor` | Content-aware bottom tray: Virtual Libraries + Search |
-| `src/Tanaste.Web/Services/Integration/UniverseStateContainer.cs` | Per-circuit state cache |
-| `src/Tanaste.Web/Services/Integration/UniverseMapper.cs` | Hub→ViewModel mapping + colour classification |
-| `src/Tanaste.Web/Services/Theming/ThemeService.cs` | Dark/light mode, accent colour |
+| `src/MediaEngine.Web/Shared/MainLayout.razor` | App shell: AppBar (logo left, action cluster right), Ctrl+K, NavigationTray |
+| `src/MediaEngine.Web/Components/Pages/Home.razor` | Library overview: Hero + Bento grid |
+| `src/MediaEngine.Web/Components/Pages/NotFound.razor` | 404 page |
+| `src/MediaEngine.Web/Components/Universe/HubHero.razor` | Last Journey hero tile (artwork + progress) |
+| `src/MediaEngine.Web/Components/Universe/ProgressIndicator.razor` | Reusable progress card (icon + bar + label) |
+| `src/MediaEngine.Web/Components/Universe/UniverseStack.razor` | Your Universes Bento grid |
+| `src/MediaEngine.Web/Components/Bento/BentoGrid.razor` | CSS grid container (responsive) |
+| `src/MediaEngine.Web/Components/Bento/BentoItem.razor` | Glassmorphic tile with dynamic glow |
+| `src/MediaEngine.Web/Components/Navigation/CommandPalette.razor` | Ctrl+K global search overlay |
+| `src/MediaEngine.Web/Components/Navigation/NavigationTray.razor` | Content-aware bottom tray: Virtual Libraries + Search |
+| `src/MediaEngine.Web/Services/Integration/UniverseStateContainer.cs` | Per-circuit state cache |
+| `src/MediaEngine.Web/Services/Integration/UniverseMapper.cs` | Hub→ViewModel mapping + colour classification |
+| `src/MediaEngine.Web/Services/Theming/ThemeService.cs` | Dark/light mode, accent colour |
 
 ---
 
 ## Adding a new page
 
-1. Create a `.razor` file in `src/Tanaste.Web/Components/Pages/`.
+1. Create a `.razor` file in `src/MediaEngine.Web/Components/Pages/`.
 2. Add `@page "/your-route"` directive.
 3. Inject `UIOrchestratorService` for Engine data, `ThemeService` for theming.
 4. If the page needs live updates, call `Orchestrator.StartSignalRAsync()` in `OnAfterRenderAsync`.
@@ -48,8 +48,8 @@ This skill covers all Dashboard visual components, navigation, state management,
    - `Bento/` for layout grid pieces
    - `Navigation/` for navigation/search
    - `Settings/` for settings tab components
-2. Use `@namespace Tanaste.Web.Components.<Folder>`.
-3. Follow the glassmorphic styling pattern (use CSS custom properties `--tanaste-glass-*`).
+2. Use `@namespace MediaEngine.Web.Components.<Folder>`.
+3. Follow the glassmorphic styling pattern (use CSS custom properties `--tuvima-glass-*`).
 
 ---
 
@@ -57,10 +57,10 @@ This skill covers all Dashboard visual components, navigation, state management,
 
 | Property | Purpose |
 |----------|---------|
-| `--tanaste-glass-bg` | Glass background (transparent white/black) |
-| `--tanaste-glass-border` | Glass border colour |
-| `--tanaste-glass-inner-bg` | Inner card background |
-| `--tanaste-glass-inner-border` | Inner card border |
+| `--tuvima-glass-bg` | Glass background (transparent white/black) |
+| `--tuvima-glass-border` | Glass border colour |
+| `--tuvima-glass-inner-bg` | Inner card background |
+| `--tuvima-glass-inner-border` | Inner card border |
 | `--mud-palette-primary` | Accent colour (set via ThemeService) |
 
 ---

@@ -4,7 +4,7 @@ namespace MediaEngine.Web.Models.ViewDTOs;
 public sealed class WorkViewModel
 {
     public Guid                         Id              { get; init; }
-    public Guid                         HubId           { get; init; }
+    public Guid?                        HubId           { get; init; }
     public string                       MediaType       { get; init; } = string.Empty;
     public int?                         SequenceIndex   { get; init; }
     public List<CanonicalValueViewModel> CanonicalValues { get; init; } = [];

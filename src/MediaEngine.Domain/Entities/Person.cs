@@ -92,6 +92,13 @@ public sealed class Person
     public string? Website { get; set; }
 
     /// <summary>
+    /// Path to the locally downloaded headshot image under
+    /// <c>{LibraryRoot}/.people/{id}/headshot.jpg</c>.
+    /// Null until the headshot has been downloaded from Wikimedia Commons.
+    /// </summary>
+    public string? LocalHeadshotPath { get; set; }
+
+    /// <summary>
     /// When this person record was first created.
     /// Defaults to <see cref="DateTimeOffset.UtcNow"/> at construction time.
     /// Maps to <c>persons.created_at</c> (ISO-8601 TEXT in SQLite).

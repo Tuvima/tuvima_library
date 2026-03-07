@@ -45,7 +45,8 @@ public sealed class PersonRepository : IPersonRepository
         // For non-ASCII author names (e.g. Björn) this gives best-effort matching.
         cmd.CommandText = """
             SELECT id, name, role, wikidata_qid, headshot_url, biography,
-                   created_at, enriched_at
+                   created_at, enriched_at, occupation, instagram, twitter,
+                   tiktok, mastodon, website, local_headshot_path
             FROM   persons
             WHERE  name = @name COLLATE NOCASE
               AND  role = @role COLLATE NOCASE
@@ -160,7 +161,8 @@ public sealed class PersonRepository : IPersonRepository
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             SELECT p.id, p.name, p.role, p.wikidata_qid, p.headshot_url, p.biography,
-                   p.created_at, p.enriched_at
+                   p.created_at, p.enriched_at, p.occupation, p.instagram, p.twitter,
+                   p.tiktok, p.mastodon, p.website, p.local_headshot_path
             FROM   persons p
             JOIN   person_media_links l ON l.person_id = p.id
             WHERE  l.media_asset_id = @media_asset_id
@@ -179,6 +181,51 @@ public sealed class PersonRepository : IPersonRepository
         return Task.FromResult<IReadOnlyList<Person>>(results);
     }
 
+    /// <inheritdoc/>
+    public Task UpdateLocalHeadshotPathAsync(
+        Guid id,
+        string path,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        var conn = _db.Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            UPDATE persons
+            SET    local_headshot_path = @path
+            WHERE  id = @id;
+            """;
+        cmd.Parameters.AddWithValue("@path", path);
+        cmd.Parameters.AddWithValue("@id",   id.ToString());
+        cmd.ExecuteNonQuery();
+
+        return Task.CompletedTask;
+    }
+
+    /// <inheritdoc/>
+    public Task<Person?> FindByIdAsync(Guid id, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        var conn = _db.Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            SELECT id, name, role, wikidata_qid, headshot_url, biography,
+                   created_at, enriched_at, occupation, instagram, twitter,
+                   tiktok, mastodon, website, local_headshot_path
+            FROM   persons
+            WHERE  id = @id
+            LIMIT  1;
+            """;
+        cmd.Parameters.AddWithValue("@id", id.ToString());
+
+        using var reader = cmd.ExecuteReader();
+        var result = reader.Read() ? MapRow(reader) : null;
+        return Task.FromResult(result);
+    }
+
     // -------------------------------------------------------------------------
     // Private row mapper
     // -------------------------------------------------------------------------
@@ -187,17 +234,25 @@ public sealed class PersonRepository : IPersonRepository
     /// Maps the current reader row to a <see cref="Person"/>.
     /// Column ordinals match the SELECT list used in every query in this class:
     ///   0=id, 1=name, 2=role, 3=wikidata_qid, 4=headshot_url, 5=biography,
-    ///   6=created_at, 7=enriched_at
+    ///   6=created_at, 7=enriched_at, 8=occupation, 9=instagram, 10=twitter,
+    ///   11=tiktok, 12=mastodon, 13=website, 14=local_headshot_path
     /// </summary>
     private static Person MapRow(SqliteDataReader r) => new()
     {
-        Id           = Guid.Parse(r.GetString(0)),
-        Name         = r.GetString(1),
-        Role         = r.GetString(2),
-        WikidataQid  = r.IsDBNull(3) ? null : r.GetString(3),
-        HeadshotUrl  = r.IsDBNull(4) ? null : r.GetString(4),
-        Biography    = r.IsDBNull(5) ? null : r.GetString(5),
-        CreatedAt    = DateTimeOffset.Parse(r.GetString(6)),
-        EnrichedAt   = r.IsDBNull(7) ? null : DateTimeOffset.Parse(r.GetString(7)),
+        Id                = Guid.Parse(r.GetString(0)),
+        Name              = r.GetString(1),
+        Role              = r.GetString(2),
+        WikidataQid       = r.IsDBNull(3) ? null : r.GetString(3),
+        HeadshotUrl       = r.IsDBNull(4) ? null : r.GetString(4),
+        Biography         = r.IsDBNull(5) ? null : r.GetString(5),
+        CreatedAt         = DateTimeOffset.Parse(r.GetString(6)),
+        EnrichedAt        = r.IsDBNull(7) ? null : DateTimeOffset.Parse(r.GetString(7)),
+        Occupation        = r.IsDBNull(8) ? null : r.GetString(8),
+        Instagram         = r.IsDBNull(9) ? null : r.GetString(9),
+        Twitter           = r.IsDBNull(10) ? null : r.GetString(10),
+        TikTok            = r.IsDBNull(11) ? null : r.GetString(11),
+        Mastodon          = r.IsDBNull(12) ? null : r.GetString(12),
+        Website           = r.IsDBNull(13) ? null : r.GetString(13),
+        LocalHeadshotPath = r.IsDBNull(14) ? null : r.GetString(14),
     };
 }

@@ -21,10 +21,12 @@ namespace MediaEngine.Ingestion;
 /// </summary>
 public sealed class SidecarWriter : ISidecarWriter
 {
-    private const string FileName     = "library.xml";
-    private const string HubRootName  = "library-hub";
-    private const string EdRootName   = "library-edition";
-    private const string Version      = "1.1";
+    private const string FileName        = "library.xml";
+    private const string PersonFileName = "person.xml";
+    private const string HubRootName    = "library-hub";
+    private const string EdRootName     = "library-edition";
+    private const string PersonRootName = "library-person";
+    private const string Version        = "1.1";
 
 
     // -------------------------------------------------------------------------
@@ -196,6 +198,77 @@ public sealed class SidecarWriter : ISidecarWriter
         catch
         {
             return Task.FromResult<EditionSidecarData?>(null);
+        }
+    }
+
+    /// <inheritdoc/>
+    public Task WritePersonSidecarAsync(
+        string personFolderPath,
+        PersonSidecarData data,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        Directory.CreateDirectory(personFolderPath);
+
+        var doc = new XDocument(
+            new XDeclaration("1.0", "utf-8", null),
+            new XElement(PersonRootName,
+                new XAttribute("version", "1.0"),
+                new XElement("identity",
+                    new XElement("name",         data.Name),
+                    new XElement("role",         data.Role),
+                    new XElement("wikidata-qid", data.WikidataQid ?? string.Empty),
+                    new XElement("occupation",   data.Occupation  ?? string.Empty)
+                ),
+                new XElement("biography", data.Biography ?? string.Empty),
+                new XElement("social",
+                    new XElement("instagram", data.Instagram ?? string.Empty),
+                    new XElement("twitter",   data.Twitter   ?? string.Empty),
+                    new XElement("tiktok",    data.TikTok    ?? string.Empty),
+                    new XElement("mastodon",  data.Mastodon  ?? string.Empty),
+                    new XElement("website",   data.Website   ?? string.Empty)
+                )
+            )
+        );
+
+        doc.Save(Path.Combine(personFolderPath, PersonFileName));
+        return Task.CompletedTask;
+    }
+
+    /// <inheritdoc/>
+    public Task<PersonSidecarData?> ReadPersonSidecarAsync(
+        string xmlPath,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        try
+        {
+            var doc  = XDocument.Load(xmlPath);
+            var root = doc.Root;
+            if (root?.Name.LocalName != PersonRootName)
+                return Task.FromResult<PersonSidecarData?>(null);
+
+            var identity = root.Element("identity");
+            var social   = root.Element("social");
+            var result   = new PersonSidecarData
+            {
+                Name        = identity?.Element("name")?.Value         ?? string.Empty,
+                Role        = identity?.Element("role")?.Value         ?? string.Empty,
+                WikidataQid = NullIfEmpty(identity?.Element("wikidata-qid")?.Value),
+                Occupation  = NullIfEmpty(identity?.Element("occupation")?.Value),
+                Biography   = NullIfEmpty(root.Element("biography")?.Value),
+                Instagram   = NullIfEmpty(social?.Element("instagram")?.Value),
+                Twitter     = NullIfEmpty(social?.Element("twitter")?.Value),
+                TikTok      = NullIfEmpty(social?.Element("tiktok")?.Value),
+                Mastodon    = NullIfEmpty(social?.Element("mastodon")?.Value),
+                Website     = NullIfEmpty(social?.Element("website")?.Value),
+            };
+
+            return Task.FromResult<PersonSidecarData?>(result);
+        }
+        catch
+        {
+            return Task.FromResult<PersonSidecarData?>(null);
         }
     }
 

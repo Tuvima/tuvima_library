@@ -16,19 +16,19 @@ This skill covers the full file ingestion lifecycle — from Watch Folder detect
 
 | File | Role |
 |------|------|
-| `src/Tanaste.Ingestion/FileWatcher.cs` | OS-level file detection (FileSystemWatcher wrapper) |
-| `src/Tanaste.Ingestion/DebounceQueue.cs` | Event coalescing, settle timer, file-lock probing |
-| `src/Tanaste.Ingestion/IngestionEngine.cs` | 12-step pipeline orchestrator (BackgroundService) |
-| `src/Tanaste.Ingestion/AssetHasher.cs` | SHA-256 streaming fingerprinting |
-| `src/Tanaste.Ingestion/BackgroundWorker.cs` | Bounded-concurrency task queue |
-| `src/Tanaste.Ingestion/FileOrganizer.cs` | Template-based path resolution + collision-safe moves |
-| `src/Tanaste.Ingestion/SidecarWriter.cs` | tanaste.xml read/write (Hub + Edition schemas) |
-| `src/Tanaste.Ingestion/LibraryScanner.cs` | Great Inhale — rebuild DB from sidecar XML |
-| `src/Tanaste.Ingestion/EpubMetadataTagger.cs` | Write-back metadata into EPUB files |
-| `src/Tanaste.Providers/Services/MetadataHarvestingService.cs` | Background external metadata enrichment queue |
-| `src/Tanaste.Providers/Services/RecursiveIdentityService.cs` | Author/narrator person creation + linking |
-| `src/Tanaste.Storage/MediaEntityChainFactory.cs` | Hub→Work→Edition chain creation |
-| `src/Tanaste.Api/Endpoints/IngestionEndpoints.cs` | Dry-run scan + Great Inhale API surface |
+| `src/MediaEngine.Ingestion/FileWatcher.cs` | OS-level file detection (FileSystemWatcher wrapper) |
+| `src/MediaEngine.Ingestion/DebounceQueue.cs` | Event coalescing, settle timer, file-lock probing |
+| `src/MediaEngine.Ingestion/IngestionEngine.cs` | 12-step pipeline orchestrator (BackgroundService) |
+| `src/MediaEngine.Ingestion/AssetHasher.cs` | SHA-256 streaming fingerprinting |
+| `src/MediaEngine.Ingestion/BackgroundWorker.cs` | Bounded-concurrency task queue |
+| `src/MediaEngine.Ingestion/FileOrganizer.cs` | Template-based path resolution + collision-safe moves |
+| `src/MediaEngine.Ingestion/SidecarWriter.cs` | library.xml read/write (Hub + Edition schemas) |
+| `src/MediaEngine.Ingestion/LibraryScanner.cs` | Great Inhale — rebuild DB from sidecar XML |
+| `src/MediaEngine.Ingestion/EpubMetadataTagger.cs` | Write-back metadata into EPUB files |
+| `src/MediaEngine.Providers/Services/MetadataHarvestingService.cs` | Background external metadata enrichment queue |
+| `src/MediaEngine.Providers/Services/RecursiveIdentityService.cs` | Author/narrator person creation + linking |
+| `src/MediaEngine.Storage/MediaEntityChainFactory.cs` | Hub→Work→Edition chain creation |
+| `src/MediaEngine.Api/Endpoints/IngestionEndpoints.cs` | Dry-run scan + Great Inhale API surface |
 
 ---
 
@@ -57,7 +57,7 @@ This skill covers the full file ingestion lifecycle — from Watch Folder detect
 
 ## How to add a new file processor
 
-1. Create a class implementing `IMediaProcessor` in `src/Tanaste.Processors/Processors/`.
+1. Create a class implementing `IMediaProcessor` in `src/MediaEngine.Processors/Processors/`.
 2. Set `SupportedType` to the matching `MediaType` enum value.
 3. Set `Priority` (higher = tried first; existing: EPUB=100, Video=90, Comic=85).
 4. Implement `CanProcess(byte[])` — inspect magic bytes to identify the format.
@@ -69,7 +69,7 @@ This skill covers the full file ingestion lifecycle — from Watch Folder detect
 
 ## How to add a new metadata tagger (write-back)
 
-1. Create a class implementing `IMetadataTagger` in `src/Tanaste.Ingestion/`.
+1. Create a class implementing `IMetadataTagger` in `src/MediaEngine.Ingestion/`.
 2. Implement `CanHandle(MediaType)` — return true for supported types.
 3. Implement `WriteTagsAsync()` and `WriteCoverArtAsync()`.
 4. Register as `IMetadataTagger` in `Program.cs` DI container.

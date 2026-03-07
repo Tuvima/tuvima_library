@@ -73,4 +73,12 @@ public sealed record WikidataProperty
     /// which property uses which transform is data, not code.
     /// </summary>
     public string? ValueTransform { get; init; }
+
+    /// <summary>
+    /// When <c>true</c>, the SPARQL query uses <c>GROUP_CONCAT</c> to collect
+    /// all values for this property. The adapter splits the result on <c>"|||"</c>
+    /// and emits one <see cref="Domain.Models.ProviderClaim"/> per value.
+    /// Multi-valued properties include genre, characters, cast_member, narrative_location, etc.
+    /// </summary>
+    public bool IsMultiValued { get; init; }
 }

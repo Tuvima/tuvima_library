@@ -187,7 +187,7 @@ public sealed class UniverseStateContainer
             DateTimeOffset.UtcNow, ActivityKind.MediaAdded,
             "library_add",
             $"New {ev.MediaType.ToLowerInvariant()} added: \"{ev.Title}\"",
-            $"Assigned to Hub {ev.HubId:N}"));
+            ev.HubId is { } hubId ? $"Assigned to Hub {hubId:N}" : "Standalone (no Hub)"));
         Invalidate();
     }
 
