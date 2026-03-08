@@ -47,8 +47,14 @@
         @* Settings *@
         <div class="dock-item @(IsActive("/settings", "settings") ? "dock-item-active" : "")"
              @onclick="@(() => Nav.NavigateTo("/settings"))"
-             title="Settings">
-            <MudIcon Icon="@Icons.Material.Outlined.Settings" Size="Size.Medium" />
+             title="@(ReviewCount > 0 ? $"Settings ({ReviewCount} pending review)" : "Settings")">
+            <MudBadge Content="@(ReviewCount > 0 ? ReviewCount.ToString() : null)"
+                      Color="Color.Error"
+                      Overlap="true"
+                      Dot="@(ReviewCount > 0)"
+                      Visible="@(ReviewCount > 0)">
+                <MudIcon Icon="@Icons.Material.Outlined.Settings" Size="Size.Medium" />
+            </MudBadge>
             @if (_expanded)
             {
                 <span class="dock-label">Settings</span>
