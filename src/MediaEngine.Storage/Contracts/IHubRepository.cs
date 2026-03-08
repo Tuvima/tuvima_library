@@ -71,4 +71,17 @@ public interface IHubRepository
     /// as "pending" with a timestamp.
     /// </summary>
     Task UpdateWorkWikidataStatusAsync(Guid workId, string status, CancellationToken ct = default);
+
+    /// <summary>
+    /// Removes orphaned hierarchy records that no longer have children:
+    /// <list type="number">
+    ///   <item>Editions with zero MediaAssets.</item>
+    ///   <item>Works with zero Editions (after the Edition pass).</item>
+    ///   <item>Hubs with zero Works (after the Work pass), including their
+    ///     <c>hub_relationships</c> rows.</item>
+    /// </list>
+    /// Returns the total number of rows deleted across all three passes.
+    /// Call this after bulk-deleting MediaAssets to keep the hierarchy clean.
+    /// </summary>
+    Task<int> PruneOrphanedHierarchyAsync(CancellationToken ct = default);
 }

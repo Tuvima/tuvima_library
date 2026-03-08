@@ -483,4 +483,63 @@ public sealed class HubRepository : IHubRepository
 
         return Task.CompletedTask;
     }
+
+    /// <inheritdoc/>
+    public Task<int> PruneOrphanedHierarchyAsync(CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        using var conn  = _db.CreateConnection();
+        int total = 0;
+
+        // Pass 1: Remove editions that have no media assets.
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = """
+                DELETE FROM editions
+                WHERE id NOT IN (
+                    SELECT DISTINCT edition_id FROM media_assets
+                );
+                """;
+            total += cmd.ExecuteNonQuery();
+        }
+
+        // Pass 2: Remove works that have no editions (after pass 1).
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = """
+                DELETE FROM works
+                WHERE id NOT IN (
+                    SELECT DISTINCT work_id FROM editions
+                );
+                """;
+            total += cmd.ExecuteNonQuery();
+        }
+
+        // Pass 3: Remove hubs that have no works (after pass 2),
+        // including their child hub_relationships rows.
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = """
+                DELETE FROM hub_relationships
+                WHERE hub_id NOT IN (
+                    SELECT DISTINCT hub_id FROM works
+                );
+                """;
+            cmd.ExecuteNonQuery(); // relationships are not counted in the total
+        }
+
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = """
+                DELETE FROM hubs
+                WHERE id NOT IN (
+                    SELECT DISTINCT hub_id FROM works
+                );
+                """;
+            total += cmd.ExecuteNonQuery();
+        }
+
+        return Task.FromResult(total);
+    }
 }

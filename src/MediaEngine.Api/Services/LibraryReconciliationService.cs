@@ -36,6 +36,9 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
     private readonly ICanonicalValueRepository    _canonicalRepo;
     private readonly ISystemActivityRepository    _activityRepo;
     private readonly IPersonRepository            _personRepo;
+    private readonly IReviewQueueRepository       _reviewRepo;
+    private readonly IHubRepository              _hubRepo;
+    private readonly IEventPublisher              _publisher;
     private readonly IConfigurationLoader         _configLoader;
     private readonly ILogger<LibraryReconciliationService> _logger;
 
@@ -55,6 +58,9 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
         ICanonicalValueRepository   canonicalRepo,
         ISystemActivityRepository   activityRepo,
         IPersonRepository           personRepo,
+        IReviewQueueRepository      reviewRepo,
+        IHubRepository              hubRepo,
+        IEventPublisher             publisher,
         IConfigurationLoader        configLoader,
         ILogger<LibraryReconciliationService> logger)
     {
@@ -63,6 +69,9 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
         _canonicalRepo = canonicalRepo;
         _activityRepo  = activityRepo;
         _personRepo    = personRepo;
+        _reviewRepo    = reviewRepo;
+        _hubRepo       = hubRepo;
+        _publisher     = publisher;
         _configLoader  = configLoader;
         _logger        = logger;
     }
@@ -162,6 +171,10 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
             await _canonicalRepo.DeleteByEntityAsync(asset.Id, ct);
             await _assetRepo.DeleteAsync(asset.Id, ct);
 
+            // Dismiss any pending review queue items for this entity so they
+            // no longer appear in the Needs Review tab after the file is gone.
+            await _reviewRepo.DismissAllByEntityAsync(asset.Id, ct);
+
             // Collect details for the completion summary (no separate per-file entry needed).
             missingFiles.Add(new
             {
@@ -181,6 +194,21 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
             }, ct);
 
             missingCount++;
+        }
+
+        // ── Database hierarchy pruning ────────────────────────────────────────
+        // After deleting MediaAssets, remove any Editions / Works / Hubs that
+        // are now empty so they stop appearing on the home page.
+        int hierarchyPruned = 0;
+        if (missingCount > 0)
+        {
+            hierarchyPruned = await _hubRepo.PruneOrphanedHierarchyAsync(ct);
+            if (hierarchyPruned > 0)
+            {
+                _logger.LogInformation(
+                    "Reconciliation: pruned {Count} orphaned hierarchy records (editions/works/hubs)",
+                    hierarchyPruned);
+            }
         }
 
         // ── Folder Maintenance Passes ───────────────────────────────────────
@@ -220,11 +248,12 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
         {
             ActionType  = SystemActionType.ReconciliationCompleted,
             EntityType  = "System",
-            Detail      = $"Reconciliation complete — scanned {assets.Count}, {missingCount} missing, {foldersCleanedCount} empty folders cleaned, {orphanPeopleCount} orphan people removed, {staleGuidFoldersCount} stale GUID folders removed, {staleSidecarsCount} stale root sidecars cleaned",
+            Detail      = $"Reconciliation complete — scanned {assets.Count}, {missingCount} missing, {hierarchyPruned} hierarchy rows pruned, {foldersCleanedCount} empty folders cleaned, {orphanPeopleCount} orphan people removed, {staleGuidFoldersCount} stale GUID folders removed, {staleSidecarsCount} stale root sidecars cleaned",
             ChangesJson = JsonSerializer.Serialize(new
             {
                 total_scanned        = assets.Count,
                 missing_count        = missingCount,
+                hierarchy_pruned     = hierarchyPruned,
                 folders_cleaned      = foldersCleanedCount,
                 orphan_people        = orphanPeopleCount,
                 stale_guid_folders   = staleGuidFoldersCount,
@@ -235,11 +264,29 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
             }),
         }, ct);
 
+        // Broadcast a library-changed event so Dashboard circuits that are already
+        // open invalidate their hub cache and refresh the home page.
+        if (missingCount > 0)
+        {
+            try
+            {
+                await _publisher.PublishAsync("MediaRemoved", new
+                {
+                    source        = "reconciliation",
+                    removed_count = missingCount,
+                }, ct);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(ex, "Failed to publish MediaRemoved SignalR event after reconciliation");
+            }
+        }
+
         _logger.LogInformation(
-            "Reconciliation complete: {Total} scanned, {Missing} missing, " +
+            "Reconciliation complete: {Total} scanned, {Missing} missing, {HierarchyPruned} hierarchy rows pruned, " +
             "{FoldersCleaned} empty folders, {OrphanPeople} orphan people, " +
             "{StaleGuid} stale GUID folders, {StaleSidecars} stale root sidecars, {Elapsed}ms",
-            assets.Count, missingCount, foldersCleanedCount,
+            assets.Count, missingCount, hierarchyPruned, foldersCleanedCount,
             orphanPeopleCount, staleGuidFoldersCount, staleSidecarsCount, sw.ElapsedMilliseconds);
 
         return new ReconciliationResult(assets.Count, missingCount, sw.ElapsedMilliseconds);

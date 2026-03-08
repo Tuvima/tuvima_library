@@ -601,6 +601,15 @@ public sealed class UIOrchestratorService : IAsyncDisposable
             _state.PushPersonEnriched(ev);
         });
 
+        // ── "MediaRemoved" ────────────────────────────────────────────────────
+        // A file was removed (orphaned during ingestion scan or reconciliation).
+        // Invalidate the hub cache so the home page refreshes on next render.
+        _hubConnection.On("MediaRemoved", () =>
+        {
+            _logger.LogInformation("Intercom ← MediaRemoved: invalidating hub cache");
+            _state.Invalidate();
+        });
+
         // ── "WatchFolderActive" ───────────────────────────────────────────────
         // The Watch Folder has been updated; notify state container so interested
         // components (e.g. Settings page connection indicator) can react.

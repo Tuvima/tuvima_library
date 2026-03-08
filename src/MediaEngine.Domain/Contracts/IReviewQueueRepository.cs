@@ -63,4 +63,12 @@ public interface IReviewQueueRepository
     /// Used for sidebar badge count and global notification badge.
     /// </summary>
     Task<int> GetPendingCountAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// Bulk-dismisses all <c>Pending</c> review items that reference
+    /// <paramref name="entityId"/>. Called by reconciliation when a MediaAsset
+    /// is deleted so stale review items are cleaned up automatically.
+    /// Returns the number of items dismissed.
+    /// </summary>
+    Task<int> DismissAllByEntityAsync(Guid entityId, CancellationToken ct = default);
 }

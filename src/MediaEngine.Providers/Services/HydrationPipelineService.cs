@@ -583,7 +583,11 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             var resolvable = reviews.Where(r =>
                 r.Status == ReviewStatus.Pending &&
                 r.Trigger is ReviewTrigger.LowConfidence
-                          or ReviewTrigger.ContentMatchFailed).ToList();
+                          or ReviewTrigger.ContentMatchFailed
+                          or ReviewTrigger.UniverseMatchFailed).ToList();
+            // UniverseMatchFailed is auto-resolved here because high confidence from
+            // Stage 1 providers (Apple Books, Audnexus, etc.) is sufficient to
+            // identify and organise the file — Wikidata matching is optional enrichment.
 
             foreach (var review in resolvable)
             {

@@ -181,6 +181,28 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
         return Task.FromResult(count);
     }
 
+    /// <inheritdoc/>
+    public Task<int> DismissAllByEntityAsync(Guid entityId, CancellationToken ct = default)
+    {
+        using var conn = _db.CreateConnection();
+        using var cmd  = conn.CreateCommand();
+        cmd.CommandText = """
+            UPDATE review_queue
+            SET    status      = @dismissed,
+                   resolved_at = @now,
+                   resolved_by = 'reconciliation'
+            WHERE  entity_id = @entityId
+              AND  status     = @pending;
+            """;
+        cmd.Parameters.AddWithValue("@dismissed", ReviewStatus.Dismissed);
+        cmd.Parameters.AddWithValue("@now",        DateTimeOffset.UtcNow.ToString("O"));
+        cmd.Parameters.AddWithValue("@entityId",   entityId.ToString());
+        cmd.Parameters.AddWithValue("@pending",    ReviewStatus.Pending);
+
+        var rows = cmd.ExecuteNonQuery();
+        return Task.FromResult(rows);
+    }
+
     // ── Row mapping ─────────────────────────────────────────────────────────────
 
     private static ReviewQueueEntry MapRow(SqliteDataReader reader)
