@@ -82,9 +82,9 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
     {
         _logger.LogInformation("LibraryReconciliationService started");
 
-        // No initial delay — the ingestion engine triggers the first
-        // reconciliation at startup before scanning the watch folder.
-        // This background loop handles the recurring schedule only.
+        // The IngestionEngine already runs reconciliation at startup (Step 2),
+        // so this background loop waits the full interval before its first run
+        // to avoid a duplicate reconciliation within seconds of boot.
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -95,8 +95,8 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
 
                 if (intervalHours > 0)
                 {
-                    await ReconcileAsync(stoppingToken);
                     await Task.Delay(TimeSpan.FromHours(intervalHours), stoppingToken);
+                    await ReconcileAsync(stoppingToken);
                 }
                 else
                 {

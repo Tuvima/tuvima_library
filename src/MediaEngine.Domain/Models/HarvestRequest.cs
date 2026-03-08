@@ -50,4 +50,12 @@ public sealed class HarvestRequest
     /// disambiguation review item by selecting a specific QID candidate.
     /// </summary>
     public string? PreResolvedQid { get; init; }
+
+    /// <summary>
+    /// When <c>true</c>, this request is a re-enqueue for cover art download
+    /// after auto-organization. The pipeline still runs (claims are appended,
+    /// cover is downloaded) but the <c>MediaAdded</c> activity entry is suppressed
+    /// to avoid duplicating the original entry.
+    /// </summary>
+    public bool SuppressActivityEntry { get; init; }
 }

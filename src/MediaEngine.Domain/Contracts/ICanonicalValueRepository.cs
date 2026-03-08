@@ -49,6 +49,13 @@ public interface ICanonicalValueRepository
     Task DeleteByEntityAsync(Guid entityId, CancellationToken ct = default);
 
     /// <summary>
+    /// Deletes a single canonical value by entity ID and key.
+    /// No-op if the key does not exist. Used to retract a value when the
+    /// underlying resource is no longer available (e.g. cover download failed).
+    /// </summary>
+    Task DeleteByKeyAsync(Guid entityId, string key, CancellationToken ct = default);
+
+    /// <summary>
     /// Returns entity IDs where the canonical value for the given key matches
     /// the given value (case-insensitive). Used by the Great Inhale people scanner
     /// to rebuild person-media links by matching author/narrator names.

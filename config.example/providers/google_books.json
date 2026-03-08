@@ -71,7 +71,7 @@
     { "claim_key": "author",      "json_path": "volumeInfo.authors[0]",                 "confidence": 0.75 },
     { "claim_key": "year",        "json_path": "volumeInfo.publishedDate",              "confidence": 0.8,  "transform": "first_n_chars", "transform_args": "4" },
     { "claim_key": "description", "json_path": "volumeInfo.description",                "confidence": 0.8,  "transform": "strip_html" },
-    { "claim_key": "cover",       "json_path": "volumeInfo.imageLinks.thumbnail",       "confidence": 0.75, "transform": "regex_replace", "transform_args": "zoom=\\d+|zoom=1" },
+    { "claim_key": "cover",       "json_path": "volumeInfo.imageLinks.thumbnail",       "confidence": 0.75, "transform": "regex_replace", "transform_args": "=s\\d+|=s0" },
     { "claim_key": "isbn",        "json_path": "volumeInfo.industryIdentifiers",        "confidence": 0.85, "transform": "prefer_isbn13" },
     { "claim_key": "rating",      "json_path": "volumeInfo.averageRating",              "confidence": 0.7,  "transform": "to_string" },
     { "claim_key": "publisher",   "json_path": "volumeInfo.publisher",                  "confidence": 0.75 },

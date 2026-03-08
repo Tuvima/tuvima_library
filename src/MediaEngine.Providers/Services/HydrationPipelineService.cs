@@ -141,7 +141,15 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     public ValueTask EnqueueAsync(HarvestRequest request, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(request);
-        _channel.Writer.TryWrite(request);
+
+        if (!_channel.Writer.TryWrite(request))
+        {
+            _logger.LogError(
+                "Hydration queue overflow — request for entity {Id} was dropped. " +
+                "Consider increasing queue capacity or reducing ingestion rate.",
+                request.EntityId);
+        }
+
         return ValueTask.CompletedTask;
     }
 
@@ -171,8 +179,8 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
-                    _logger.LogWarning(ex,
-                        "Unhandled error in hydration pipeline for entity {Id}",
+                    _logger.LogError(ex,
+                        "Hydration pipeline failed for entity {Id} — no MediaAdded entry created",
                         request.EntityId);
                 }
             }
@@ -294,7 +302,10 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             }
 
             // Write-back: write resolved metadata to the physical file after auto-match.
-            if (request.EntityType == EntityType.MediaAsset)
+            // Skip on suppressed re-enqueue runs (cover-only) — the initial run
+            // already wrote metadata.
+            if (request.EntityType == EntityType.MediaAsset
+                && !request.SuppressActivityEntry)
             {
                 try
                 {
@@ -307,8 +318,12 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                         "Write-back after Stage 1 failed for entity {Id}; continuing",
                         request.EntityId);
                 }
+            }
 
-                // Download cover art from provider URL if no cover.jpg exists yet.
+            // Download cover art from provider URL if no cover.jpg exists yet.
+            // This runs even on suppressed re-enqueue — it's the reason for the re-enqueue.
+            if (request.EntityType == EntityType.MediaAsset)
+            {
                 await PersistCoverFromUrlAsync(request.EntityId, ct).ConfigureAwait(false);
             }
         }
@@ -411,7 +426,9 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                     .ConfigureAwait(false);
 
                 // Write-back: write universe-enriched metadata to the physical file.
-                if (request.EntityType == EntityType.MediaAsset)
+                // Skip on suppressed re-enqueue runs — the initial run already wrote.
+                if (request.EntityType == EntityType.MediaAsset
+                    && !request.SuppressActivityEntry)
                 {
                     try
                     {
@@ -531,7 +548,13 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         }
 
         // Create a single consolidated MediaAdded activity entry at the very end.
-        await CreateMediaAddedEntryAsync(request.EntityId, result, ct).ConfigureAwait(false);
+        // Skip when the caller set SuppressActivityEntry (e.g. re-enqueue from
+        // TryReorganizeExistingAsync for cover art download — the original
+        // pipeline run already logged the MediaAdded entry).
+        if (!request.SuppressActivityEntry)
+        {
+            await CreateMediaAddedEntryAsync(request.EntityId, result, ct).ConfigureAwait(false);
+        }
 
         _logger.LogInformation(
             "Hydration pipeline complete for entity {Id}: S1={S1} S2={S2} total={Total} review={Review}",
@@ -722,8 +745,18 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             var asset = await _assetRepo.FindByIdAsync(entityId, ct).ConfigureAwait(false);
             var organizedPath = asset?.FilePathRoot;
 
-            // Cover art URL for Dashboard rich card display.
-            var coverUrl = $"/stream/{entityId}/cover";
+            // Cover art URL for Dashboard rich card display — only emit when the
+            // actual cover.jpg file exists on disk to avoid broken images.
+            string? coverUrl = null;
+            if (asset is not null)
+            {
+                var assetDir = Path.GetDirectoryName(asset.FilePathRoot);
+                if (!string.IsNullOrEmpty(assetDir)
+                    && File.Exists(Path.Combine(assetDir, "cover.jpg")))
+                {
+                    coverUrl = $"/stream/{entityId}/cover";
+                }
+            }
 
             // Resolve hub name from the work → hub chain.
             string? hubName = null;
@@ -800,7 +833,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _logger.LogWarning(ex,
+            _logger.LogError(ex,
                 "Failed to create MediaAdded activity entry for entity {Id}", entityId);
         }
     }
@@ -1419,8 +1452,21 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogWarning(ex,
-                "Cover art download failed for asset {Id}; continuing",
+                "Cover art download failed for asset {Id}; retracting cover canonical value",
                 assetId);
+
+            // Retract the provider-sourced cover URL so downstream consumers
+            // (activity log, Dashboard cards) don't reference a nonexistent file.
+            try
+            {
+                await _canonicalRepo.DeleteByKeyAsync(assetId, "cover", ct)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception retractEx) when (retractEx is not OperationCanceledException)
+            {
+                _logger.LogWarning(retractEx,
+                    "Failed to retract cover canonical value for asset {Id}", assetId);
+            }
         }
     }
 

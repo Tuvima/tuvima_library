@@ -170,6 +170,27 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository
     }
 
     /// <inheritdoc/>
+    public async Task DeleteByKeyAsync(Guid entityId, string key, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        await _db.AcquireWriteLockAsync(ct).ConfigureAwait(false);
+        try
+        {
+            using var conn = _db.CreateConnection();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "DELETE FROM canonical_values WHERE entity_id = @entity_id AND key = @key;";
+            cmd.Parameters.AddWithValue("@entity_id", entityId.ToString());
+            cmd.Parameters.AddWithValue("@key", key);
+            cmd.ExecuteNonQuery();
+        }
+        finally
+        {
+            _db.ReleaseWriteLock();
+        }
+    }
+
+    /// <inheritdoc/>
     public Task<IReadOnlyList<Guid>> FindByValueAsync(
         string key,
         string value,

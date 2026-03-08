@@ -357,15 +357,26 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             }
             else
             {
-                // Original file still exists — normal duplicate handling.
-                await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
+                // Same-path re-detection (polling fallback or FSW echo): the file
+                // is already tracked and still at its original location.  Attempt
+                // re-organization silently — only log DuplicateSkipped when the
+                // candidate is a genuinely different file at a new path.
+                bool isSamePath = string.Equals(
+                    Path.GetFullPath(candidate.Path),
+                    Path.GetFullPath(existing.FilePathRoot),
+                    StringComparison.OrdinalIgnoreCase);
+
+                if (!isSamePath)
                 {
-                    ActionType     = Domain.Enums.SystemActionType.DuplicateSkipped,
-                    EntityId       = existing.Id,
-                    EntityType     = "MediaAsset",
-                    Detail         = $"Duplicate skipped: {Path.GetFileName(candidate.Path)}",
-                    IngestionRunId = ingestionRunId,
-                }, ct).ConfigureAwait(false);
+                    await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
+                    {
+                        ActionType     = Domain.Enums.SystemActionType.DuplicateSkipped,
+                        EntityId       = existing.Id,
+                        EntityType     = "MediaAsset",
+                        Detail         = $"Duplicate skipped: {Path.GetFileName(candidate.Path)}",
+                        IngestionRunId = ingestionRunId,
+                    }, ct).ConfigureAwait(false);
+                }
 
                 await TryReorganizeExistingAsync(existing, candidate.Path, ct)
                     .ConfigureAwait(false);
@@ -1219,14 +1230,15 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
             // Re-enqueue hydration so that PersistCoverFromUrlAsync runs with the
             // updated file path (now in Library Root) and can download cover.jpg
-            // to the correct directory.  All stages are idempotent — duplicate
-            // claims are silently dropped by INSERT OR IGNORE.
+            // to the correct directory.  SuppressActivityEntry avoids a duplicate
+            // MediaAdded entry — the original pipeline run already logged one.
             await _pipeline.EnqueueAsync(new HarvestRequest
             {
-                EntityId   = existing.Id,
-                EntityType = EntityType.MediaAsset,
-                MediaType  = mediaType ?? MediaType.Unknown,
-                Hints      = BuildHints(metadata),
+                EntityId              = existing.Id,
+                EntityType            = EntityType.MediaAsset,
+                MediaType             = mediaType ?? MediaType.Unknown,
+                Hints                 = BuildHints(metadata),
+                SuppressActivityEntry = true,
             }, ct).ConfigureAwait(false);
 
             await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
