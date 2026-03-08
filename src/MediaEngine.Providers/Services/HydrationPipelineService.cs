@@ -1164,13 +1164,21 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             }
             else
             {
-                // Path B: provisional text-based matching — leave for future sprint.
-                // Stamp wikidata_checked_at so we know we tried, but leave status as "pending".
+                // Path B: no Wikidata QID found.  Create a provisional singleton Hub so
+                // the work appears in the library immediately.  If the QID is confirmed
+                // later (e.g. via manual hydration) the firm-link path will reassign the
+                // work to a franchise/series Hub, and the singleton is pruned by reconciliation.
+                var title = canonicals
+                    .FirstOrDefault(c => c.Key.Equals("title", StringComparison.OrdinalIgnoreCase))
+                    ?.Value;
+                if (!string.IsNullOrWhiteSpace(title))
+                    await CreateSingletonHubAsync(workId.Value, title, ct).ConfigureAwait(false);
+
                 await _hubRepo.UpdateWorkWikidataStatusAsync(workId.Value, "pending", ct)
                     .ConfigureAwait(false);
 
                 _logger.LogDebug(
-                    "Hub intelligence: no QID for work {WorkId} — leaving standalone (pending)",
+                    "Hub intelligence: no QID for work {WorkId} — singleton hub created (pending)",
                     workId.Value);
             }
         }
@@ -1180,6 +1188,29 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 "Hub intelligence failed for asset {AssetId}; work remains standalone",
                 mediaAssetId);
         }
+    }
+
+    /// <summary>
+    /// Creates a singleton Hub for a standalone work, or reuses an existing Hub
+    /// with the same display name (case-insensitive).  Safe to call idempotently.
+    /// </summary>
+    private async Task CreateSingletonHubAsync(Guid workId, string title, CancellationToken ct)
+    {
+        var existing = await _hubRepo.FindByDisplayNameAsync(title, ct).ConfigureAwait(false);
+        if (existing is not null)
+        {
+            await _hubRepo.AssignWorkToHubAsync(workId, existing.Id, ct).ConfigureAwait(false);
+            return;
+        }
+
+        var hub = new Hub
+        {
+            Id          = Guid.NewGuid(),
+            DisplayName = title,
+            CreatedAt   = DateTimeOffset.UtcNow,
+        };
+        await _hubRepo.UpsertAsync(hub, ct).ConfigureAwait(false);
+        await _hubRepo.AssignWorkToHubAsync(workId, hub.Id, ct).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -1196,8 +1227,17 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
 
         if (relClaims.Count == 0)
         {
+            // QID confirmed but work is standalone (no franchise/series/universe relationships).
+            // Every work needs a Hub to appear in the library, so create a singleton Hub keyed
+            // on the canonical title.  If a Hub with that name already exists, reuse it.
+            var title = canonicals
+                .FirstOrDefault(c => c.Key.Equals("title", StringComparison.OrdinalIgnoreCase))
+                ?.Value;
+            if (!string.IsNullOrWhiteSpace(title))
+                await CreateSingletonHubAsync(workId, title, ct).ConfigureAwait(false);
+
             _logger.LogDebug(
-                "Hub intelligence: work {WorkId} has QID but no groupable relationships — standalone",
+                "Hub intelligence: work {WorkId} is standalone (QID confirmed, no relationships) — singleton hub",
                 workId);
             return;
         }

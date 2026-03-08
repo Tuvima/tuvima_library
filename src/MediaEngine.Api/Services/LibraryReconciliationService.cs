@@ -155,6 +155,7 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
             if (!string.IsNullOrEmpty(editionFolder) && Directory.Exists(editionFolder))
             {
                 SafeDeleteFile(Path.Combine(editionFolder, "cover.jpg"));
+                SafeDeleteFile(Path.Combine(editionFolder, "hero.jpg"));
                 SafeDeleteFile(Path.Combine(editionFolder, "library.xml"));
                 TryDeleteEmptyDirectory(editionFolder);
 
