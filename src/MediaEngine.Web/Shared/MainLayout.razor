@@ -46,7 +46,10 @@
         <LeftDock Config="@_navigationConfig.Tray"
                   ActiveLibraryKey="@State.ActiveLibraryFilter?.Key"
                   AvailableMediaTypes="@State.AvailableMediaTypes"
-                  OnLibrarySelected="@OnLibrarySelected" />
+                  OnLibrarySelected="@OnLibrarySelected"
+                  AvatarColor="@_avatarColor"
+                  AvatarInitial="@_avatarInitial"
+                  DisplayName="@_displayName" />
     }
 
     @* Full-width main content — top padding clears top bar, left clears dock *@
@@ -199,13 +202,13 @@
 }
 
 <style>
-    /* Content area clears the fixed 52px dock */
+    /* Dock is floating — no left padding offset needed */
     .main-content-with-dock {
-        padding-left: 68px !important;
+        /* intentionally empty — floating dock does not push content */
     }
 
-    /* Content area clears the fixed 56px top bar */
+    /* Content area clears the fixed 64px top bar */
     .main-content-with-topbar {
-        padding-top: 56px !important;
+        padding-top: 64px !important;
     }
 </style>

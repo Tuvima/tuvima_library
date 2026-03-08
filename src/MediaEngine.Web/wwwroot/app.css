@@ -15,7 +15,7 @@
 /* ── CSS custom properties (dark-only cinematic theme) ────────────────── */
 
 :root {
-    --app-glass-bg:           rgba(22, 22, 22, 0.70);
+    --app-glass-bg:           rgba(12, 16, 36, 0.80);
     --app-glass-border:       rgba(255, 255, 255, 0.08);
     --app-glass-inner-bg:     rgba(255, 255, 255, 0.04);
     --app-glass-inner-border: rgba(255, 255, 255, 0.06);
@@ -30,21 +30,22 @@
     --app-swatch-active:      rgba(255, 255, 255, 0.80);
     --app-shadow:             0 8px 32px rgba(0, 0, 0, 0.50);
     --app-inset-glow:         0 0 0 1px rgba(255, 255, 255, 0.04) inset;
-    --app-dock-width:         52px;
+    --app-dock-width:         0px;   /* Dock is floating — does not offset content */
+    --app-topbar-height:      64px;
 
-    /* Dock panel */
-    --app-dock-bg:            rgba(0, 0, 0, 0.40);
-    --app-dock-border:        rgba(255, 255, 255, 0.06);
+    /* Dock panel — dark blue glassmorphic */
+    --app-dock-bg:            rgba(8, 13, 30, 0.92);
+    --app-dock-border:        rgba(255, 255, 255, 0.09);
     --app-dock-text:          rgba(248, 248, 248, 0.82);
     --app-dock-text-muted:    rgba(248, 248, 248, 0.38);
-    --app-dock-hover:         rgba(255, 255, 255, 0.06);
+    --app-dock-hover:         rgba(255, 255, 255, 0.08);
 }
 
 /* ── Cinematic background ─────────────────────────────────────────────── */
 
 body {
     margin: 0;
-    background: #000000;
+    background: #060A16;
     font-family: 'Montserrat', sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;

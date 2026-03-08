@@ -16,8 +16,12 @@
         }
         else
         {
-            <MudIcon Icon="@GetHubIcon()"
-                     Style="font-size: 48px; color: rgba(255,255,255,0.25);" />
+            @* Book fallback — spine-style gradient with title *@
+            <div class="poster-card-book-spine">
+                <MudIcon Icon="@MudBlazor.Icons.Material.Filled.MenuBook"
+                         Style="font-size: 36px; color: rgba(255,255,255,0.18); margin-bottom: 8px;" />
+                <span class="poster-card-spine-title">@Hub.DisplayName</span>
+            </div>
         }
 
         @if (IsNew)
@@ -25,6 +29,7 @@
             <span class="poster-new-badge">NEW</span>
         }
 
+        @* Format badge — book formats only *@
         @if (!string.IsNullOrEmpty(Hub.PrimaryMediaType))
         {
             <span class="poster-format-badge"
@@ -33,18 +38,20 @@
     </div>
     <div class="poster-card-info">
         <span class="poster-card-title">@Hub.DisplayName</span>
-        @if (!string.IsNullOrEmpty(Subtitle))
+        @* Author — primary subtitle for books *@
+        @if (!string.IsNullOrEmpty(Hub.Author))
         {
-            <span class="poster-card-subtitle">@Subtitle</span>
+            <span class="poster-card-author">@Hub.Author</span>
+        }
+        @* Series — shown if author is available, or as fallback *@
+        @if (!string.IsNullOrEmpty(Hub.Series) && string.IsNullOrEmpty(Hub.Author))
+        {
+            <span class="poster-card-subtitle">@Hub.Series</span>
         }
         <div class="poster-card-meta">
             @if (!string.IsNullOrEmpty(Hub.Year))
             {
                 <span class="poster-meta-badge">@Hub.Year</span>
-            }
-            @if (!string.IsNullOrEmpty(Hub.PrimaryMediaType))
-            {
-                <span class="poster-meta-badge">@FormatMediaType(Hub.PrimaryMediaType)</span>
             }
         </div>
     </div>
@@ -57,40 +64,12 @@
 
     private bool IsNew => DateTimeOffset.UtcNow - Hub.CreatedAt < TimeSpan.FromDays(7);
 
-    private string? Subtitle =>
-        Hub.Author ?? Hub.Genre?.Split(',', ';').FirstOrDefault()?.Trim();
-
     private string ArtworkStyle =>
         string.IsNullOrEmpty(Hub.CoverUrl)
-            ? $"background: linear-gradient(135deg, {Hub.DominantHexColor}33, #1A1A1A);"
+            ? $"background: linear-gradient(160deg, {Hub.DominantHexColor ?? "#1A2040"}44 0%, #0D1230 100%);"
             : string.Empty;
 
     private async Task OnClick() => await OnHubSelected.InvokeAsync(Hub);
-
-    private string GetHubIcon()
-    {
-        var types = Hub.Works.Select(w => w.MediaType.ToLowerInvariant()).Distinct().ToList();
-        if (types.Any(t => t.Contains("video") || t.Contains("movie")))
-            return MudBlazor.Icons.Material.Filled.PlayCircle;
-        if (types.Any(t => t.Contains("epub") || t.Contains("book")))
-            return MudBlazor.Icons.Material.Filled.MenuBook;
-        if (types.Any(t => t.Contains("audio")))
-            return MudBlazor.Icons.Material.Filled.Headphones;
-        if (types.Any(t => t.Contains("comic") || t.Contains("cbz") || t.Contains("cbr")))
-            return MudBlazor.Icons.Material.Filled.AutoStories;
-        return MudBlazor.Icons.Material.Filled.Folder;
-    }
-
-    private static string FormatMediaType(string mediaType)
-    {
-        var t = mediaType.ToLowerInvariant();
-        if (t.Contains("epub") || t.Contains("book"))  return "Book";
-        if (t.Contains("video") || t.Contains("movie")) return "Movie";
-        if (t.Contains("audio") || t.Contains("m4b"))   return "Audiobook";
-        if (t.Contains("comic") || t.Contains("cbz"))   return "Comic";
-        if (t.Contains("mkv") || t.Contains("mp4"))     return "Video";
-        return mediaType;
-    }
 
     private string FormatBadgeText =>
         FormatBadgeLabel(Hub.PrimaryMediaType ?? string.Empty);
@@ -99,24 +78,22 @@
     {
         get
         {
-            var bucket = UniverseMapper.ClassifyBucketPublic(Hub.PrimaryMediaType ?? string.Empty);
-            return UniverseMapper.ColourFor(bucket);
+            var t = (Hub.PrimaryMediaType ?? string.Empty).ToLowerInvariant();
+            if (t.Contains("audio") || t.Contains("m4b")) return "rgba(139, 92, 246, 0.85)"; // purple for audiobooks
+            if (t.Contains("comic") || t.Contains("cbz")) return "rgba(20, 160, 100, 0.85)"; // teal for comics
+            return "rgba(37, 99, 235, 0.85)"; // blue for books (default)
         }
     }
 
     private static string FormatBadgeLabel(string mediaType)
     {
         var t = mediaType.ToLowerInvariant();
-        if (t.Contains("epub"))  return "EPUB";
-        if (t.Contains("book"))  return "BOOK";
-        if (t.Contains("m4b") || t.Contains("audiobook"))   return "AUDIOBOOK";
-        if (t.Contains("audio"))  return "AUDIO";
-        if (t.Contains("cbz") || t.Contains("cbr") || t.Contains("comic"))  return "COMIC";
-        if (t.Contains("movie"))  return "MOVIE";
-        if (t.Contains("mkv"))    return "4K";
-        if (t.Contains("mp4"))    return "MP4";
-        if (t.Contains("video"))  return "VIDEO";
-        return mediaType.ToUpperInvariant();
+        if (t.Contains("epub"))                                         return "EPUB";
+        if (t.Contains("book"))                                         return "BOOK";
+        if (t.Contains("m4b") || t.Contains("audiobook"))              return "AUDIOBOOK";
+        if (t.Contains("audio"))                                        return "AUDIO";
+        if (t.Contains("cbz") || t.Contains("cbr") || t.Contains("comic")) return "COMIC";
+        return "BOOK";
     }
 }
 
@@ -145,9 +122,33 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        background: #1A1A1A;
+        background: #0D1230;
         margin-bottom: 8px;
         transition: box-shadow 0.2s ease;
+    }
+
+    /* ── Book spine fallback — shown when no cover art ── */
+    .poster-card-book-spine {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 16px 10px;
+        width: 100%;
+        height: 100%;
+    }
+
+    .poster-card-spine-title {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.72rem;
+        font-weight: 600;
+        color: rgba(248, 248, 248, 0.30);
+        text-align: center;
+        line-height: 1.3;
+        display: -webkit-box;
+        -webkit-line-clamp: 4;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
     }
 
     .poster-new-badge {
@@ -205,12 +206,25 @@
         margin-bottom: 2px;
     }
 
-    .poster-card-subtitle {
+    /* Author — bold subtitle below title */
+    .poster-card-author {
         font-family: 'Montserrat', sans-serif;
         font-size: 0.75rem;
+        font-weight: 500;
+        line-height: 1.3;
+        color: rgba(248, 248, 248, 0.55);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin-bottom: 4px;
+    }
+
+    .poster-card-subtitle {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.72rem;
         font-weight: 400;
         line-height: 1.3;
-        color: rgba(248, 248, 248, 0.45);
+        color: rgba(248, 248, 248, 0.38);
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;

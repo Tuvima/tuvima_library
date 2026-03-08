@@ -4,15 +4,19 @@
 @implements IDisposable
 
 @using MediaEngine.Web.Models.ViewDTOs
+@using System.Threading
 
-@* Left Navigation Dock — icon-only vertical rail for page navigation.
-   Narrow state (52px): icon-only, fixed left.
-   Expanded state (hover, 200px): overlay with labels (no logo).
-   Logo, search, profile, and clock have moved to the TopBar. *@
+@* Left Navigation Dock — Floating glassmorphic panel below the TopBar.
+   Narrow state (64px): icon-only.
+   Expanded state (hover, 220px): overlay with labels.
+   Bottom: Settings → Profile avatar → Clock *@
 
 <div class="left-dock @(_expanded ? "left-dock-expanded" : "")"
      @onmouseenter="@(() => _expanded = true)"
      @onmouseleave="@(() => _expanded = false)">
+
+    @* ── Top spacer to push icons down from the very top ── *@
+    <div class="dock-top-spacer"></div>
 
     @* ── Navigation items ── *@
     <nav class="dock-nav">
@@ -28,7 +32,7 @@
             <div class="dock-item @(isActive ? "dock-item-active" : "")"
                  @onclick="@(() => SelectLibrary(lib))"
                  title="@lib.Label">
-                <MudIcon Icon="@NavigationDefaults.GetMudIcon(lib.Icon)" Size="Size.Small" />
+                <MudIcon Icon="@NavigationDefaults.GetMudIcon(lib.Icon)" Size="Size.Medium" />
                 @if (_expanded)
                 {
                     <span class="dock-label">@lib.Label</span>
@@ -37,15 +41,43 @@
         }
     </nav>
 
-    @* ── Bottom: Settings only ── *@
+    @* ── Bottom: Settings, Avatar, Clock ── *@
     <div class="dock-bottom">
+        @* Settings *@
         <div class="dock-item @(IsActive("/settings") ? "dock-item-active" : "")"
              @onclick="@(() => Nav.NavigateTo("/settings"))"
              title="Settings">
-            <MudIcon Icon="@Icons.Material.Outlined.Settings" Size="Size.Small" />
+            <MudIcon Icon="@Icons.Material.Outlined.Settings" Size="Size.Medium" />
             @if (_expanded)
             {
                 <span class="dock-label">Settings</span>
+            }
+        </div>
+
+        @* Profile avatar *@
+        <div class="dock-item dock-item-avatar"
+             @onclick="@(() => Nav.NavigateTo("/settings/general"))"
+             title="@DisplayName">
+            <MudAvatar Style="@($"background: {AvatarColor}; width: 36px; height: 36px; font-size: 0.9rem; flex-shrink: 0;")"
+                       Size="Size.Small">
+                @AvatarInitial
+            </MudAvatar>
+            @if (_expanded)
+            {
+                <span class="dock-label">@DisplayName</span>
+            }
+        </div>
+
+        @* Clock *@
+        <div class="dock-clock" title="@_clockDate">
+            <span class="dock-clock-time">@_clockTime</span>
+            @if (_expanded)
+            {
+                <span class="dock-clock-date">@_clockDate</span>
+            }
+            else
+            {
+                <span class="dock-clock-date-narrow">@_clockDateNarrow</span>
             }
         </div>
     </div>
@@ -57,7 +89,6 @@
     [Parameter] public EventCallback<VirtualLibrary?> OnLibrarySelected { get; set; }
     [Parameter] public HashSet<string> AvailableMediaTypes { get; set; } = [];
 
-    // Legacy parameters retained for backward compat — ignored, values live in TopBar now.
     [Parameter] public EventCallback OnSearchRequested { get; set; }
     [Parameter] public string AvatarColor { get; set; } = "#C9922E";
     [Parameter] public string AvatarInitial { get; set; } = "?";
@@ -66,9 +97,30 @@
 
     private bool _expanded;
 
+    // Clock state
+    private string _clockTime = string.Empty;
+    private string _clockDate = string.Empty;
+    private string _clockDateNarrow = string.Empty;
+    private Timer? _clockTimer;
+
     protected override void OnInitialized()
     {
         DeviceContext.OnChanged += OnDeviceChanged;
+        UpdateClock();
+        _clockTimer = new Timer(_ =>
+        {
+            UpdateClock();
+            InvokeAsync(StateHasChanged);
+        }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+    }
+
+    private void UpdateClock()
+    {
+        var now = DateTime.Now;
+        // Respect system's short-time culture format (12h vs 24h)
+        _clockTime = now.ToString("t");
+        _clockDate = now.ToString("ddd, MMM d");
+        _clockDateNarrow = now.ToString("ddd");
     }
 
     private void OnDeviceChanged() => InvokeAsync(StateHasChanged);
@@ -96,6 +148,7 @@
     public void Dispose()
     {
         DeviceContext.OnChanged -= OnDeviceChanged;
+        _clockTimer?.Dispose();
     }
 }
 
@@ -103,21 +156,22 @@
     /* ── Floating panel — narrow (default) ───────────────────────────── */
     .left-dock {
         position: fixed;
-        top: 12px;
-        left: 0;
+        top: 80px;   /* Below the 64px TopBar + 16px gap */
+        left: 12px;
         bottom: 12px;
-        width: 52px;
+        width: 64px;
         z-index: 1200;
         display: flex;
         flex-direction: column;
-        padding: 12px 6px;
+        padding: 0 6px 12px;
 
         background: var(--app-dock-bg);
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
-        border: none;
+        backdrop-filter: blur(24px);
+        -webkit-backdrop-filter: blur(24px);
+        border: 1px solid var(--app-dock-border);
+        box-shadow: 0 8px 40px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255,255,255,0.04) inset;
 
-        border-radius: 0 16px 16px 0;
+        border-radius: 18px;
 
         transition: width 0.25s ease;
         overflow: hidden;
@@ -125,8 +179,14 @@
 
     /* ── Expanded dock (hover overlay) ───────────────────────────────── */
     .left-dock-expanded {
-        width: 200px;
-        box-shadow: 8px 0 40px rgba(0, 0, 0, 0.55);
+        width: 220px;
+        box-shadow: 0 12px 48px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255,255,255,0.06) inset;
+    }
+
+    /* ── Top spacer — pushes icons down from the rounded top ─────────── */
+    .dock-top-spacer {
+        height: 16px;
+        flex-shrink: 0;
     }
 
     /* ── Navigation area ─────────────────────────────────────────────── */
@@ -134,28 +194,31 @@
         flex: 1;
         display: flex;
         flex-direction: column;
-        gap: 0;
+        gap: 2px;
         overflow-y: auto;
         overflow-x: hidden;
+        scrollbar-width: none;
     }
+
+    .dock-nav::-webkit-scrollbar { display: none; }
 
     /* ── Dock item (shared style) ────────────────────────────────────── */
     .dock-item {
         display: flex;
         align-items: center;
-        gap: 14px;
-        padding: 10px 10px;
-        border-radius: 6px;
+        gap: 12px;
+        padding: 10px 12px;
+        border-radius: 10px;
         cursor: pointer;
         white-space: nowrap;
         transition: background 0.15s ease, color 0.15s ease;
-        min-height: 40px;
+        min-height: 44px;
         color: var(--app-dock-text);
     }
 
     .left-dock:not(.left-dock-expanded) .dock-item {
         justify-content: center;
-        padding: 10px;
+        padding: 10px 0;
     }
 
     .dock-item:hover {
@@ -187,7 +250,7 @@
     /* ── Label (only visible when expanded) ──────────────────────────── */
     .dock-label {
         font-family: 'Montserrat', sans-serif;
-        font-size: 0.9rem;
+        font-size: 0.88rem;
         font-weight: 500;
         color: inherit;
     }
@@ -200,9 +263,57 @@
     .dock-bottom {
         display: flex;
         flex-direction: column;
-        gap: 0;
+        gap: 2px;
         flex-shrink: 0;
-        margin-top: 8px;
         padding-top: 8px;
+        border-top: 1px solid rgba(255, 255, 255, 0.06);
+        margin-top: 6px;
+    }
+
+    /* Avatar item — inherits dock-item but with avatar specifics */
+    .dock-item-avatar {
+        min-height: 44px;
+    }
+
+    /* ── Clock ───────────────────────────────────────────────────────── */
+    .dock-clock {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 8px 0 4px;
+        gap: 2px;
+        cursor: default;
+        overflow: hidden;
+    }
+
+    .left-dock-expanded .dock-clock {
+        align-items: flex-start;
+        padding-left: 12px;
+    }
+
+    .dock-clock-time {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.88rem;
+        font-weight: 600;
+        color: rgba(248, 248, 248, 0.80);
+        line-height: 1.2;
+        white-space: nowrap;
+    }
+
+    .dock-clock-date {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.72rem;
+        font-weight: 400;
+        color: var(--app-dock-text-muted);
+        white-space: nowrap;
+    }
+
+    .dock-clock-date-narrow {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.65rem;
+        font-weight: 400;
+        color: var(--app-dock-text-muted);
+        white-space: nowrap;
+        text-align: center;
     }
 </style>

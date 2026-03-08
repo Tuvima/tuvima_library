@@ -52,7 +52,7 @@
     {
         @* Desktop (full): logo left, spacer, search + bell + avatar right *@
         <div class="top-bar-logo">
-            <a href="/"><AppLogo Style="height: 28px; display: block;" /></a>
+            <a href="/"><AppLogo Style="height: 36px; display: block;" /></a>
         </div>
 
         <div class="top-bar-spacer"></div>
@@ -113,31 +113,32 @@
     .top-bar {
         position: fixed;
         top: 0;
-        left: var(--app-dock-width, 64px);
+        left: 0;
         right: 0;
-        height: 56px;
+        height: 64px;
         z-index: 1100;
         display: flex;
         align-items: center;
-        padding: 0 24px;
+        padding: 0 28px;
         gap: 12px;
-        background: rgba(0, 0, 0, 0.4);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
+        background: rgba(6, 10, 22, 0.60);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
     }
 
-    /* Mobile: dock hidden, top bar starts from edge */
+    /* Mobile: same full-width behaviour */
     .top-bar-mobile {
         left: 0;
-        padding: 0 12px;
+        padding: 0 16px;
     }
 
-    /* TV/Automotive: dock hidden, top bar starts from edge */
+    /* TV/Automotive: larger height */
     .top-bar-simplified,
     .top-bar-minimal {
         left: 0;
-        height: 64px;
-        padding: 0 32px;
+        height: 72px;
+        padding: 0 40px;
     }
 
     .top-bar-logo a {

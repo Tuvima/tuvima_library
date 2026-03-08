@@ -64,34 +64,38 @@ else
         <PendingFilesAlert Class="mb-4" DisplayMode="@_pendingDisplay" />
     }
 
-    @* ── Journey Hero (progress-based) or Hub Hero (random fallback) ── *@
+    @* ── Journey Hero or Hub Hero — full-bleed: extends behind TopBar ── *@
     @if (_journeyItem is not null && _showHero)
     {
-        <JourneyHero Item="@_journeyItem"
-                     OnResumeClicked="HandleResumeClicked" />
+        <div class="hero-bleed-wrapper">
+            <JourneyHero Item="@_journeyItem"
+                         OnResumeClicked="HandleResumeClicked" />
+        </div>
     }
     else if (_heroHub is not null && _showHero)
     {
-        <HubHero Hub="@_heroHub"
-                 Visible="true"
-                 OnHubClicked="HandleHubSelected" />
+        <div class="hero-bleed-wrapper">
+            <HubHero Hub="@_heroHub"
+                     Visible="true"
+                     OnHubClicked="HandleHubSelected" />
+        </div>
     }
 
-    @* ── Your Library (all hubs minus hero) ── *@
+    @* ── Your Library — books only ── *@
     <PosterSwimlane Title="Your Library"
                     TotalCount="@_nonHeroHubs.Count"
                     Hubs="@_nonHeroHubs.Take(12).ToList()"
                     OnHubSelected="HandleHubSelected"
                     CardWidth="@_cardWidth" />
 
-    @* ── Recently Added (newest first) ── *@
+    @* ── Recently Added — books only, newest first ── *@
     <PosterSwimlane Title="Recently Added"
                     TotalCount="@_recentHubs.Count"
                     Hubs="@_recentHubs.Take(12).ToList()"
                     OnHubSelected="HandleHubSelected"
                     CardWidth="@_cardWidth" />
 
-    @* ── Media-type grouped swimlanes ── *@
+    @* ── Grouped swimlanes (Books only — videos will get their own component) ── *@
     @foreach (var group in _mediaTypeGroups)
     {
         <PosterSwimlane Title="@group.Title"
@@ -165,26 +169,38 @@ else
 
     private void ApplyFilter()
     {
-        var filtered = State.FilteredHubs;
+        var all = State.FilteredHubs;
 
-        // Hero: random hub, preferring those with cover art.
+        // Book-centric: poster swimlanes show books only; videos get a separate component later.
+        var filtered = all.Where(IsBookHub).ToList();
+
+        // Hero: prefer books with cover art; fall back to any book.
         var withCovers = filtered.Where(h => !string.IsNullOrEmpty(h.CoverUrl)).ToList();
         var heroPool   = withCovers.Count > 0 ? withCovers : filtered;
         _heroHub       = heroPool.Count > 0 ? heroPool[Random.Shared.Next(heroPool.Count)] : null;
 
-        // Non-hero hubs: everything except the hero.
+        // Non-hero hubs: books except the hero.
         _nonHeroHubs = filtered.Where(h => h != _heroHub).ToList();
 
-        // Recently added: newest first by creation date.
+        // Recently added: newest first.
         _recentHubs = filtered.OrderByDescending(h => h.CreatedAt).ToList();
 
-        // Group hubs by primary media type for swimlanes.
+        // Group books by media type label (Books, Audiobooks, Comics).
         _mediaTypeGroups = filtered
             .Where(h => !string.IsNullOrEmpty(h.PrimaryMediaType))
             .GroupBy(h => FormatMediaType(h.PrimaryMediaType!))
             .Where(g => g.Count() >= 2)
             .Select(g => new MediaTypeGroup(g.Key, g.ToList()))
             .ToList();
+    }
+
+    private static bool IsBookHub(HubViewModel h)
+    {
+        var t = (h.PrimaryMediaType ?? string.Empty).ToLowerInvariant();
+        return t.Contains("epub") || t.Contains("book")
+            || t.Contains("audio") || t.Contains("m4b")
+            || t.Contains("comic") || t.Contains("cbz") || t.Contains("cbr")
+            || string.IsNullOrEmpty(t); // unknown type — include for now
     }
 
     private static string FormatMediaType(string mediaType)
@@ -252,6 +268,18 @@ else
 }
 
 <style>
+    /* ── Full-bleed hero wrapper — extends the hero behind the TopBar ─── */
+    /* Uses viewport-width trick to escape MudContainer constraints.      */
+    .hero-bleed-wrapper {
+        width: 100vw;
+        position: relative;
+        left: 50%;
+        transform: translateX(-50%);
+        /* Negate MudContainer's top padding (py-6 = 24px) + TopBar (64px) */
+        margin-top: -88px;
+        margin-bottom: 2.5rem;
+    }
+
     .home-empty-state {
         display: flex;
         flex-direction: column;
