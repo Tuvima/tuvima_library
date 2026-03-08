@@ -368,6 +368,20 @@ public sealed class DatabaseConnection : IDatabaseConnection
         // Migration M-018: Add local_headshot_path to persons for centralized people storage.
         MigratePersonHeadshotPath(conn);
 
+        // Migration M-019: Add content_hash and extended_properties to user_states.
+        // content_hash enables progress re-linking after file moves (Hash Dominance).
+        // extended_properties stores media-type-specific tracking data as a JSON blob.
+        MigrateAddColumnIfMissing(
+            conn,
+            table:  "user_states",
+            column: "content_hash",
+            ddl:    "ALTER TABLE user_states ADD COLUMN content_hash TEXT;");
+        MigrateAddColumnIfMissing(
+            conn,
+            table:  "user_states",
+            column: "extended_properties",
+            ddl:    "ALTER TABLE user_states ADD COLUMN extended_properties TEXT;");
+
         // Seed S-001: provider_registry entries for all known providers.
         // metadata_claims.provider_id has a FK to provider_registry(id), so these
         // rows MUST exist before any claim is written.  INSERT OR IGNORE makes this

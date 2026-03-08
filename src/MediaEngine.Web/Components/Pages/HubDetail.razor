@@ -35,7 +35,7 @@ else
     {
         <div class="hub-detail-works">
             <h3 class="hub-detail-section-title">
-                @(_hub.Works.Count == 1 ? "1 Work" : $"{_hub.Works.Count} Works")
+                @CollectionLabel(_hub)
             </h3>
 
             @foreach (var group in _workGroups)
@@ -98,6 +98,20 @@ else
         </div>
     }
 
+    @* ── People section ── *@
+    @if (_persons.Count > 0)
+    {
+        <div class="hub-detail-persons">
+            <h3 class="hub-detail-section-title">People</h3>
+            <div class="hub-detail-person-list">
+                @foreach (var person in _persons)
+                {
+                    <PersonCard Person="@person" />
+                }
+            </div>
+        </div>
+    }
+
     @* ── Metadata panel ── *@
     <div class="hub-detail-metadata">
         <h3 class="hub-detail-section-title">Details</h3>
@@ -119,6 +133,7 @@ else
     private bool _loading = true;
     private HubViewModel? _hub;
     private List<WorkGroup> _workGroups = [];
+    private List<PersonViewModel> _persons = [];
 
     private sealed record WorkGroup(string Label, List<WorkViewModel> Works);
 
@@ -138,6 +153,8 @@ else
                 .GroupBy(w => FormatMediaType(w.MediaType))
                 .Select(g => new WorkGroup(g.Key, g.OrderBy(w => w.SequenceIndex ?? int.MaxValue).ToList()))
                 .ToList();
+
+            _persons = await Orchestrator.GetPersonsByHubAsync(Id);
         }
 
         _loading = false;
@@ -155,10 +172,32 @@ else
         if (!string.IsNullOrEmpty(_hub.Series))    entries.Add(("Series", _hub.Series));
         if (!string.IsNullOrEmpty(_hub.Rating))    entries.Add(("Rating", _hub.Rating));
         entries.Add(("Media Types", _hub.MediaTypes));
-        entries.Add(("Works", _hub.WorkCount.ToString()));
+        entries.Add(("Items", _hub.WorkCount.ToString()));
         entries.Add(("Added", _hub.CreatedAt.LocalDateTime.ToString("d MMM yyyy")));
 
         return entries;
+    }
+
+    /// <summary>
+    /// Returns a user-friendly section heading based on the media types in this hub.
+    /// "Editions" for books, "Versions" for video, "In This Collection" for mixed.
+    /// </summary>
+    private static string CollectionLabel(HubViewModel hub)
+    {
+        var types = hub.Works.Select(w => w.MediaType.ToLowerInvariant()).Distinct().ToList();
+        int count = hub.Works.Count;
+
+        string label;
+        if (types.All(t => t.Contains("epub") || t.Contains("book")))
+            label = count == 1 ? "1 Edition" : $"{count} Editions";
+        else if (types.All(t => t.Contains("video") || t.Contains("movie") || t.Contains("mkv") || t.Contains("mp4")))
+            label = count == 1 ? "1 Version" : $"{count} Versions";
+        else if (types.Count == 1)
+            label = count == 1 ? "1 Item" : $"{count} Items";
+        else
+            label = $"In This Collection ({count})";
+
+        return label;
     }
 
     private static string Truncate(string text, int maxLength) =>
@@ -337,6 +376,17 @@ else
         font-family: 'Montserrat', sans-serif;
         font-size: 0.85rem;
         color: rgba(248, 248, 248, 0.80);
+    }
+
+    /* ── Persons section ── */
+    .hub-detail-persons {
+        margin-bottom: 2rem;
+    }
+
+    .hub-detail-person-list {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
     }
 
     /* ── Responsive ── */

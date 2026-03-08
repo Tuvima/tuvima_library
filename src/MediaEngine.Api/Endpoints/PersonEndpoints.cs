@@ -72,6 +72,58 @@ public static class PersonEndpoints
             return Results.NotFound("Headshot not available.");
         });
 
+        // GET /persons/by-hub/{hubId} — all persons linked to works in a hub.
+        group.MapGet("/by-hub/{hubId:guid}", async (
+            Guid hubId,
+            IPersonRepository personRepo,
+            IDatabaseConnection db,
+            CancellationToken ct) =>
+        {
+            // Find all media asset IDs for works in this hub.
+            var conn = db.Open();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = """
+                SELECT ma.id
+                FROM media_assets ma
+                JOIN editions e ON e.id = ma.edition_id
+                JOIN works w    ON w.id = e.work_id
+                WHERE w.hub_id = @hubId;
+                """;
+            cmd.Parameters.AddWithValue("@hubId", hubId.ToString());
+
+            var assetIds = new List<Guid>();
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+                assetIds.Add(Guid.Parse(reader.GetString(0)));
+
+            // Gather persons linked to those assets (deduplicated).
+            var seen = new HashSet<Guid>();
+            var persons = new List<object>();
+            foreach (var assetId in assetIds)
+            {
+                var linked = await personRepo.GetByMediaAssetAsync(assetId, ct);
+                foreach (var p in linked)
+                {
+                    if (seen.Add(p.Id))
+                    {
+                        persons.Add(new
+                        {
+                            id                 = p.Id,
+                            name               = p.Name,
+                            role               = p.Role,
+                            headshot_url       = p.HeadshotUrl,
+                            has_local_headshot = !string.IsNullOrEmpty(p.LocalHeadshotPath)
+                                                 && File.Exists(p.LocalHeadshotPath),
+                            biography          = p.Biography,
+                            occupation         = p.Occupation,
+                        });
+                    }
+                }
+            }
+
+            return Results.Ok(persons);
+        });
+
         return app;
     }
 }

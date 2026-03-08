@@ -132,10 +132,12 @@ CREATE TABLE IF NOT EXISTS canonical_values (
 -- Reconciliation is via media_assets.content_hash, ensuring user_states survive
 -- file moves (spec: Hash Dominance invariant â€“ enforced at application layer).
 CREATE TABLE IF NOT EXISTS user_states (
-    user_id       TEXT NOT NULL,
-    asset_id      TEXT NOT NULL REFERENCES media_assets(id) ON DELETE CASCADE,
-    progress_pct  REAL NOT NULL DEFAULT 0.0,
-    last_accessed TEXT NOT NULL DEFAULT (datetime('now')),
+    user_id             TEXT NOT NULL,
+    asset_id            TEXT NOT NULL REFERENCES media_assets(id) ON DELETE CASCADE,
+    content_hash        TEXT,
+    progress_pct        REAL NOT NULL DEFAULT 0.0,
+    last_accessed       TEXT NOT NULL DEFAULT (datetime('now')),
+    extended_properties TEXT,
     PRIMARY KEY (user_id, asset_id)
 );
 

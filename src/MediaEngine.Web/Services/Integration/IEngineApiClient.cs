@@ -250,6 +250,25 @@ public interface IEngineApiClient
     /// <summary>Returns the URL path for a provider's icon, or null if none exists.</summary>
     string GetProviderIconUrl(string name);
 
+    // ── Development Seed (/dev) ────────────────────────────────────────
+
+    /// <summary>POST /dev/seed-library — create test EPUBs in the Watch Folder (dev only).</summary>
+    Task<bool> SeedLibraryAsync(CancellationToken ct = default);
+
+    // ── Progress & Journey (/progress) ─────────────────────────────────
+
+    /// <summary>GET /progress/journey?userId={id}&amp;limit= — incomplete items with Work+Hub context.</summary>
+    Task<List<JourneyItemViewModel>> GetJourneyAsync(Guid? userId = null, int limit = 5, CancellationToken ct = default);
+
+    /// <summary>PUT /progress/{assetId} — upsert progress for a media asset.</summary>
+    Task<bool> SaveProgressAsync(Guid assetId, Guid? userId = null, double progressPct = 0,
+        Dictionary<string, string>? extendedProperties = null, CancellationToken ct = default);
+
+    // ── Persons by Hub (/persons/by-hub) ────────────────────────────────
+
+    /// <summary>GET /persons/by-hub/{hubId} — all persons linked to works in a hub.</summary>
+    Task<List<PersonViewModel>> GetPersonsByHubAsync(Guid hubId, CancellationToken ct = default);
+
     /// <summary>
     /// Most recent error message from the last failed API call.
     /// Useful for surfacing diagnostic details in the UI.

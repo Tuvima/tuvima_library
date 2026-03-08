@@ -25,6 +25,7 @@ using MediaEngine.Providers.Models;
 using MediaEngine.Providers.Services;
 using MediaEngine.Identity;
 using MediaEngine.Identity.Contracts;
+using MediaEngine.Api.DevSupport;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 ConfigurationManager config  = builder.Configuration;
@@ -331,6 +332,9 @@ builder.Services.AddSingleton<IReconciliationService>(sp =>
 builder.Services.AddHostedService<LibraryReconciliationService>(sp =>
     sp.GetRequiredService<LibraryReconciliationService>());
 
+// ── User State: progress tracking for media playback ─────────────────────────
+builder.Services.AddSingleton<IUserStateStore, UserStateRepository>();
+
 // ── UI Settings (three-tier cascade: Global → Device → Profile) ──────────────
 builder.Services.AddSingleton<UISettingsCascadeResolver>();
 builder.Services.AddSingleton<UISettingsCacheRepository>();
@@ -376,6 +380,13 @@ app.MapSettingsEndpoints();
 app.MapUISettingsEndpoints();
 app.MapProfileEndpoints();
 app.MapPersonEndpoints();
+app.MapProgressEndpoints();
 app.MapActivityEndpoints();
+
+// ── Development-only seed endpoints ──────────────────────────────────────────
+if (app.Environment.IsDevelopment())
+{
+    app.MapDevSeedEndpoints();
+}
 
 app.Run();

@@ -464,6 +464,33 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         int limit = 25, CancellationToken ct = default)
         => _api.SearchMetadataAsync(providerName, query, mediaType, limit, ct);
 
+    // ── Development Seed ────────────────────────────────────────────────
+
+    /// <summary>Seeds the library with test EPUBs (dev only).</summary>
+    public Task<bool> SeedLibraryAsync(CancellationToken ct = default)
+        => _api.SeedLibraryAsync(ct);
+
+    // ── Progress & Journey ────────────────────────────────────────────────
+
+    /// <summary>Returns incomplete journey items for the "Continue your Journey" hero.</summary>
+    public Task<List<JourneyItemViewModel>> GetJourneyAsync(
+        Guid? userId = null, int limit = 5, CancellationToken ct = default)
+        => _api.GetJourneyAsync(userId, limit, ct);
+
+    /// <summary>Saves progress for a media asset.</summary>
+    public Task<bool> SaveProgressAsync(
+        Guid assetId, Guid? userId = null, double progressPct = 0,
+        Dictionary<string, string>? extendedProperties = null,
+        CancellationToken ct = default)
+        => _api.SaveProgressAsync(assetId, userId, progressPct, extendedProperties, ct);
+
+    // ── Persons ──────────────────────────────────────────────────────────
+
+    /// <summary>Returns all persons linked to works in a hub.</summary>
+    public Task<List<PersonViewModel>> GetPersonsByHubAsync(
+        Guid hubId, CancellationToken ct = default)
+        => _api.GetPersonsByHubAsync(hubId, ct);
+
     // ── Conflicts ────────────────────────────────────────────────────────────
 
     /// <summary>

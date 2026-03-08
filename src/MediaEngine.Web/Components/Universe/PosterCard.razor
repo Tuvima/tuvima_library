@@ -24,6 +24,12 @@
         {
             <span class="poster-new-badge">NEW</span>
         }
+
+        @if (!string.IsNullOrEmpty(Hub.PrimaryMediaType))
+        {
+            <span class="poster-format-badge"
+                  style="background: @FormatBadgeColour;">@FormatBadgeText</span>
+        }
     </div>
     <div class="poster-card-info">
         <span class="poster-card-title">@Hub.DisplayName</span>
@@ -85,6 +91,33 @@
         if (t.Contains("mkv") || t.Contains("mp4"))     return "Video";
         return mediaType;
     }
+
+    private string FormatBadgeText =>
+        FormatBadgeLabel(Hub.PrimaryMediaType ?? string.Empty);
+
+    private string FormatBadgeColour
+    {
+        get
+        {
+            var bucket = UniverseMapper.ClassifyBucketPublic(Hub.PrimaryMediaType ?? string.Empty);
+            return UniverseMapper.ColourFor(bucket);
+        }
+    }
+
+    private static string FormatBadgeLabel(string mediaType)
+    {
+        var t = mediaType.ToLowerInvariant();
+        if (t.Contains("epub"))  return "EPUB";
+        if (t.Contains("book"))  return "BOOK";
+        if (t.Contains("m4b") || t.Contains("audiobook"))   return "AUDIOBOOK";
+        if (t.Contains("audio"))  return "AUDIO";
+        if (t.Contains("cbz") || t.Contains("cbr") || t.Contains("comic"))  return "COMIC";
+        if (t.Contains("movie"))  return "MOVIE";
+        if (t.Contains("mkv"))    return "4K";
+        if (t.Contains("mp4"))    return "MP4";
+        if (t.Contains("video"))  return "VIDEO";
+        return mediaType.ToUpperInvariant();
+    }
 }
 
 <style>
@@ -130,6 +163,21 @@
         background: #C9922E;
         color: #ffffff;
         z-index: 1;
+    }
+
+    .poster-format-badge {
+        position: absolute;
+        bottom: 8px;
+        right: 8px;
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.55rem;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        padding: 2px 6px;
+        border-radius: 4px;
+        color: #ffffff;
+        z-index: 1;
+        text-transform: uppercase;
     }
 
     .poster-card-img {

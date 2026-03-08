@@ -3,6 +3,7 @@
 @inject UniverseStateContainer  State
 @inject DeviceContextService    DeviceContext
 @inject NavigationManager       Nav
+@inject IWebHostEnvironment     Env
 @implements IDisposable
 
 <PageTitle>Tuvima Library</PageTitle>
@@ -16,6 +17,45 @@ else if (_error is not null)
 {
     <MudAlert Severity="Severity.Error" Class="mb-4">@_error</MudAlert>
 }
+else if (_hubs.Count == 0)
+{
+    @* ── Empty state — library has no content yet ── *@
+    <div class="home-empty-state">
+        <img src="/images/tuvima-icon.svg" alt="Tuvima" class="home-empty-icon" />
+        <h2 class="home-empty-title">Your library is empty</h2>
+        <p class="home-empty-subtitle">
+            Drop files into your Watch Folder, or seed the library with sample books to get started.
+        </p>
+
+        @if (Env.IsDevelopment())
+        {
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Warning"
+                       StartIcon="@Icons.Material.Filled.AutoStories"
+                       Size="MudBlazor.Size.Large"
+                       OnClick="HandleSeedLibrary"
+                       Disabled="@_seeding"
+                       Style="font-family: 'Montserrat', sans-serif; font-weight: 600; text-transform: none; border-radius: 8px;">
+                @if (_seeding)
+                {
+                    <MudProgressCircular Size="MudBlazor.Size.Small" Indeterminate="true" Class="mr-2" />
+                    <text>Seeding...</text>
+                }
+                else
+                {
+                    <text>Seed Library</text>
+                }
+            </MudButton>
+        }
+
+        @if (_seedMessage is not null)
+        {
+            <MudAlert Severity="Severity.Info" Class="mt-3" Style="max-width: 480px;">
+                @_seedMessage
+            </MudAlert>
+        }
+    </div>
+}
 else
 {
     @* ── Pending files alert (Watch Folder) — respects device settings ── *@
@@ -24,8 +64,13 @@ else
         <PendingFilesAlert Class="mb-4" DisplayMode="@_pendingDisplay" />
     }
 
-    @* ── Cinematic Hero Banner ── *@
-    @if (_showHero)
+    @* ── Journey Hero (progress-based) or Hub Hero (random fallback) ── *@
+    @if (_journeyItem is not null && _showHero)
+    {
+        <JourneyHero Item="@_journeyItem"
+                     OnResumeClicked="HandleResumeClicked" />
+    }
+    else if (_heroHub is not null && _showHero)
     {
         <HubHero Hub="@_heroHub"
                  Visible="true"
@@ -34,12 +79,14 @@ else
 
     @* ── Your Library (all hubs minus hero) ── *@
     <PosterSwimlane Title="Your Library"
+                    TotalCount="@_nonHeroHubs.Count"
                     Hubs="@_nonHeroHubs.Take(12).ToList()"
                     OnHubSelected="HandleHubSelected"
                     CardWidth="@_cardWidth" />
 
     @* ── Recently Added (newest first) ── *@
     <PosterSwimlane Title="Recently Added"
+                    TotalCount="@_recentHubs.Count"
                     Hubs="@_recentHubs.Take(12).ToList()"
                     OnHubSelected="HandleHubSelected"
                     CardWidth="@_cardWidth" />
@@ -48,6 +95,7 @@ else
     @foreach (var group in _mediaTypeGroups)
     {
         <PosterSwimlane Title="@group.Title"
+                        TotalCount="@group.Hubs.Count"
                         Hubs="@group.Hubs"
                         OnHubSelected="HandleHubSelected"
                         CardWidth="@_cardWidth" />
@@ -56,8 +104,11 @@ else
 
 @code {
     private bool               _loading = true;
+    private bool               _seeding;
     private string?            _error;
+    private string?            _seedMessage;
     private HubViewModel?      _heroHub;
+    private JourneyItemViewModel? _journeyItem;
     private List<HubViewModel> _hubs = [];
     private List<HubViewModel> _nonHeroHubs = [];
     private List<HubViewModel> _recentHubs = [];
@@ -95,6 +146,11 @@ else
         try
         {
             _hubs = await Orchestrator.GetHubsAsync();
+
+            // Load the most recently accessed incomplete item for the Journey hero.
+            var journey = await Orchestrator.GetJourneyAsync(limit: 1);
+            _journeyItem = journey.FirstOrDefault();
+
             ApplyFilter();
         }
         catch (Exception ex)
@@ -110,10 +166,14 @@ else
     private void ApplyFilter()
     {
         var filtered = State.FilteredHubs;
-        _heroHub = filtered.FirstOrDefault();
 
-        // Non-hero hubs: skip the hero hub.
-        _nonHeroHubs = filtered.Count > 1 ? filtered.Skip(1).ToList() : [];
+        // Hero: random hub, preferring those with cover art.
+        var withCovers = filtered.Where(h => !string.IsNullOrEmpty(h.CoverUrl)).ToList();
+        var heroPool   = withCovers.Count > 0 ? withCovers : filtered;
+        _heroHub       = heroPool.Count > 0 ? heroPool[Random.Shared.Next(heroPool.Count)] : null;
+
+        // Non-hero hubs: everything except the hero.
+        _nonHeroHubs = filtered.Where(h => h != _heroHub).ToList();
 
         // Recently added: newest first by creation date.
         _recentHubs = filtered.OrderByDescending(h => h.CreatedAt).ToList();
@@ -145,6 +205,28 @@ else
         Nav.NavigateTo($"/hub/{hub.Id}");
     }
 
+    private void HandleResumeClicked(JourneyItemViewModel item)
+    {
+        if (item.HubId.HasValue)
+            Nav.NavigateTo($"/hub/{item.HubId.Value}");
+    }
+
+    // ── Seed library (dev only) ──────────────────────────────────────────────
+
+    private async Task HandleSeedLibrary()
+    {
+        _seeding = true;
+        _seedMessage = null;
+        StateHasChanged();
+
+        bool success = await Orchestrator.SeedLibraryAsync();
+        _seeding = false;
+        _seedMessage = success
+            ? "7 books are being processed — they'll appear here momentarily."
+            : "Could not seed the library. Make sure the Watch Folder is configured.";
+        StateHasChanged();
+    }
+
     // ── SignalR live refresh ──────────────────────────────────────────────────
 
     private void OnStateChanged()
@@ -169,3 +251,40 @@ else
     }
 }
 
+<style>
+    .home-empty-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 60vh;
+        gap: 16px;
+        text-align: center;
+        padding: 2rem;
+    }
+
+    .home-empty-icon {
+        width: 80px;
+        height: 80px;
+        opacity: 0.4;
+        margin-bottom: 8px;
+    }
+
+    .home-empty-title {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 1.6rem;
+        font-weight: 700;
+        color: rgba(248, 248, 248, 0.85);
+        margin: 0;
+    }
+
+    .home-empty-subtitle {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.95rem;
+        font-weight: 400;
+        color: rgba(248, 248, 248, 0.50);
+        max-width: 420px;
+        line-height: 1.5;
+        margin: 0;
+    }
+</style>

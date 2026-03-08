@@ -86,6 +86,10 @@ public sealed class HubRepository : IHubRepository
         }
 
         // ── Query B: canonical values for all loaded works ────────────────────
+        // Canonical values are stored with EntityId = media_asset.id (the asset
+        // that was scored), not the work.id.  We join through editions →
+        // media_assets to resolve the correct asset IDs, then project the
+        // work_id so we can attach each value to the right Work object.
         if (works.Count > 0)
         {
             var workIds    = works.Keys.ToList();
@@ -93,9 +97,11 @@ public sealed class HubRepository : IHubRepository
 
             using var cmd2 = conn.CreateCommand();
             cmd2.CommandText = $"""
-                SELECT entity_id, key, value, last_scored_at
-                FROM   canonical_values
-                WHERE  entity_id IN ({string.Join(", ", paramNames)});
+                SELECT e.work_id, cv.entity_id, cv.key, cv.value, cv.last_scored_at
+                FROM   canonical_values cv
+                JOIN   media_assets ma ON ma.id = cv.entity_id
+                JOIN   editions e      ON e.id  = ma.edition_id
+                WHERE  e.work_id IN ({string.Join(", ", paramNames)});
                 """;
 
             for (int i = 0; i < workIds.Count; i++)
@@ -104,15 +110,16 @@ public sealed class HubRepository : IHubRepository
             using var reader2 = cmd2.ExecuteReader();
             while (reader2.Read())
             {
-                var entityId = Guid.Parse(reader2.GetString(0));
-                if (works.TryGetValue(entityId, out var work))
+                var workId   = Guid.Parse(reader2.GetString(0));
+                var entityId = Guid.Parse(reader2.GetString(1));
+                if (works.TryGetValue(workId, out var work))
                 {
                     work.CanonicalValues.Add(new CanonicalValue
                     {
                         EntityId     = entityId,
-                        Key          = reader2.GetString(1),
-                        Value        = reader2.GetString(2),
-                        LastScoredAt = DateTimeOffset.Parse(reader2.GetString(3)),
+                        Key          = reader2.GetString(2),
+                        Value        = reader2.GetString(3),
+                        LastScoredAt = DateTimeOffset.Parse(reader2.GetString(4)),
                     });
                 }
             }

@@ -1,0 +1,100 @@
+@namespace MediaEngine.Web.Components.Universe
+
+@using MediaEngine.Web.Models.ViewDTOs
+
+@* PersonCard — Compact author/narrator/director card.
+   Horizontal layout: headshot (48px rounded square) + name + role label.
+   Falls back to MudAvatar with initials when no headshot is available. *@
+
+<div class="person-card" @onclick="OnClick">
+    <div class="person-card-avatar">
+        @if (Person.HasLocalHeadshot)
+        {
+            <img src="@($"/persons/{Person.Id}/headshot")"
+                 alt="@Person.Name"
+                 class="person-card-headshot"
+                 loading="lazy" />
+        }
+        else if (!string.IsNullOrEmpty(Person.HeadshotUrl))
+        {
+            <img src="@Person.HeadshotUrl"
+                 alt="@Person.Name"
+                 class="person-card-headshot"
+                 loading="lazy" />
+        }
+        else
+        {
+            <MudAvatar Size="MudBlazor.Size.Large"
+                       Style="width: 48px; height: 48px; font-size: 0.95rem; font-weight: 600; background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.50);">
+                @Person.Initials
+            </MudAvatar>
+        }
+    </div>
+
+    <div class="person-card-info">
+        <span class="person-card-name">@Person.Name</span>
+        <span class="person-card-role">@Person.RoleLabel</span>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public PersonViewModel Person { get; set; } = default!;
+    [Parameter] public EventCallback<PersonViewModel> OnPersonClicked { get; set; }
+
+    private async Task OnClick() => await OnPersonClicked.InvokeAsync(Person);
+}
+
+<style>
+    .person-card {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 14px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        cursor: pointer;
+        transition: background 0.2s ease;
+        min-width: 180px;
+    }
+
+    .person-card:hover {
+        background: rgba(255, 255, 255, 0.08);
+    }
+
+    .person-card-avatar {
+        flex-shrink: 0;
+    }
+
+    .person-card-headshot {
+        width: 48px;
+        height: 48px;
+        border-radius: 8px;
+        object-fit: cover;
+    }
+
+    .person-card-info {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+    }
+
+    .person-card-name {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: rgba(248, 248, 248, 0.90);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .person-card-role {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.72rem;
+        font-weight: 500;
+        color: rgba(248, 248, 248, 0.40);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+</style>

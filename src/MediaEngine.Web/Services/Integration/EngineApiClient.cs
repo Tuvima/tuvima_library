@@ -1102,6 +1102,116 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    // ── Progress & Journey (/progress) ──────────────────────────────────
+
+    public async Task<List<JourneyItemViewModel>> GetJourneyAsync(
+        Guid? userId = null, int limit = 5, CancellationToken ct = default)
+    {
+        try
+        {
+            var url = $"/progress/journey?limit={limit}";
+            if (userId.HasValue)
+                url += $"&userId={userId.Value}";
+
+            var raw = await _http.GetFromJsonAsync<List<JourneyItemRaw>>(url, ct);
+            return raw?.Select(j => new JourneyItemViewModel
+            {
+                AssetId        = j.AssetId,
+                WorkId         = j.WorkId,
+                HubId          = j.HubId,
+                Title          = j.Title ?? string.Empty,
+                Author         = j.Author,
+                CoverUrl       = j.CoverUrl,
+                Narrator       = j.Narrator,
+                Series         = j.Series,
+                SeriesPosition = j.SeriesPosition,
+                Description    = j.Description,
+                MediaType      = j.MediaType ?? string.Empty,
+                ProgressPct    = j.ProgressPct,
+                LastAccessed   = j.LastAccessed,
+                HubDisplayName = j.HubDisplayName,
+                ExtendedProperties = j.ExtendedProperties ?? [],
+            }).ToList() ?? [];
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /progress/journey failed");
+            LastError = ex.Message;
+            return [];
+        }
+    }
+
+    public async Task<bool> SaveProgressAsync(
+        Guid assetId, Guid? userId = null, double progressPct = 0,
+        Dictionary<string, string>? extendedProperties = null,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var body = new
+            {
+                user_id = userId?.ToString(),
+                progress_pct = progressPct,
+                extended_properties = extendedProperties,
+            };
+            var resp = await _http.PutAsJsonAsync($"/progress/{assetId}", body, ct);
+            return resp.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "PUT /progress/{AssetId} failed", assetId);
+            LastError = ex.Message;
+            return false;
+        }
+    }
+
+    // ── Persons by Hub (/persons/by-hub) ─────────────────────────────────
+
+    // ── POST /dev/seed-library ─────────────────────────────────────────
+
+    public async Task<bool> SeedLibraryAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            var response = await _http.PostAsync("/dev/seed-library", null, ct);
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /dev/seed-library failed");
+            LastError = ex.Message;
+            return false;
+        }
+    }
+
+    // ── GET /persons/by-hub/{hubId} ─────────────────────────────────────
+
+    public async Task<List<PersonViewModel>> GetPersonsByHubAsync(
+        Guid hubId, CancellationToken ct = default)
+    {
+        try
+        {
+            var raw = await _http.GetFromJsonAsync<List<PersonRaw>>(
+                $"/persons/by-hub/{hubId}", ct);
+            return raw?.Select(p => new PersonViewModel
+            {
+                Id              = p.Id,
+                Name            = p.Name ?? string.Empty,
+                Role            = p.Role ?? string.Empty,
+                HeadshotUrl     = p.HeadshotUrl,
+                HasLocalHeadshot = p.HasLocalHeadshot,
+                Biography       = p.Biography,
+                Occupation      = p.Occupation,
+            }).ToList() ?? [];
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /persons/by-hub/{HubId} failed", hubId);
+            LastError = ex.Message;
+            return [];
+        }
+    }
+
     /// <summary>
     /// Most recent error message from the last failed API call.
     /// Useful for surfacing diagnostic details in the UI.
@@ -1197,4 +1307,30 @@ public sealed class EngineApiClient : IEngineApiClient
         [property: JsonPropertyName("thumbnail_url")]    string? ThumbnailUrl,
         [property: JsonPropertyName("provider_item_id")] string? ProviderItemId,
         [property: JsonPropertyName("confidence")]       double  Confidence);
+
+    private sealed record JourneyItemRaw(
+        [property: JsonPropertyName("asset_id")]            Guid                          AssetId,
+        [property: JsonPropertyName("work_id")]             Guid                          WorkId,
+        [property: JsonPropertyName("hub_id")]              Guid?                         HubId,
+        [property: JsonPropertyName("title")]               string?                       Title,
+        [property: JsonPropertyName("author")]              string?                       Author,
+        [property: JsonPropertyName("cover_url")]           string?                       CoverUrl,
+        [property: JsonPropertyName("narrator")]            string?                       Narrator,
+        [property: JsonPropertyName("series")]              string?                       Series,
+        [property: JsonPropertyName("series_position")]     string?                       SeriesPosition,
+        [property: JsonPropertyName("description")]         string?                       Description,
+        [property: JsonPropertyName("media_type")]          string?                       MediaType,
+        [property: JsonPropertyName("progress_pct")]        double                        ProgressPct,
+        [property: JsonPropertyName("last_accessed")]       DateTimeOffset                LastAccessed,
+        [property: JsonPropertyName("hub_display_name")]    string?                       HubDisplayName,
+        [property: JsonPropertyName("extended_properties")] Dictionary<string, string>?   ExtendedProperties);
+
+    private sealed record PersonRaw(
+        [property: JsonPropertyName("id")]                 Guid    Id,
+        [property: JsonPropertyName("name")]               string? Name,
+        [property: JsonPropertyName("role")]               string? Role,
+        [property: JsonPropertyName("headshot_url")]       string? HeadshotUrl,
+        [property: JsonPropertyName("has_local_headshot")] bool    HasLocalHeadshot,
+        [property: JsonPropertyName("biography")]          string? Biography,
+        [property: JsonPropertyName("occupation")]         string? Occupation);
 }
