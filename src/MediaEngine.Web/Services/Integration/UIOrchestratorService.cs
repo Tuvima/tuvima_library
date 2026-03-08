@@ -165,12 +165,17 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         return result is not null;
     }
 
-    /// <summary>Updates an existing user profile.</summary>
-    public Task<bool> UpdateProfileAsync(
+    /// <summary>Updates an existing user profile and notifies the layout to refresh.</summary>
+    public async Task<bool> UpdateProfileAsync(
         Guid id, string displayName, string avatarColor, string role,
         string? navigationConfig = null,
         CancellationToken ct = default)
-        => _api.UpdateProfileAsync(id, displayName, avatarColor, role, navigationConfig, ct);
+    {
+        var ok = await _api.UpdateProfileAsync(id, displayName, avatarColor, role, navigationConfig, ct);
+        if (ok)
+            OnProfileChanged?.Invoke();
+        return ok;
+    }
 
     /// <summary>Deletes a user profile. Cannot delete the seed Owner profile or the last Administrator.</summary>
     public Task<bool> DeleteProfileAsync(Guid id, CancellationToken ct = default)
@@ -386,6 +391,9 @@ public sealed class UIOrchestratorService : IAsyncDisposable
 
     /// <summary>Fires when the review count changes (from SignalR events or explicit actions).</summary>
     public event Action? OnReviewCountChanged;
+
+    /// <summary>Fires when the active profile is updated (display name or avatar colour).</summary>
+    public event Action? OnProfileChanged;
 
     // ── Metadata Override ────────────────────────────────────────────────
 

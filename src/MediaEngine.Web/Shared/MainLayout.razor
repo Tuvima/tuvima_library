@@ -123,6 +123,7 @@
             // Load review badge count and subscribe to changes.
             await LoadReviewCountAsync();
             Orchestrator.OnReviewCountChanged += OnReviewCountChanged;
+            Orchestrator.OnProfileChanged     += OnProfileChanged;
 
             StateHasChanged();
         }
@@ -175,10 +176,16 @@
         InvokeAsync(StateHasChanged);
     }
 
+    private void OnProfileChanged()
+    {
+        InvokeAsync(LoadActiveProfileAsync);
+    }
+
     public void Dispose()
     {
-        DeviceContext.OnChanged -= OnDeviceContextChanged;
-        Orchestrator.OnReviewCountChanged -= OnReviewCountChanged;
+        DeviceContext.OnChanged            -= OnDeviceContextChanged;
+        Orchestrator.OnReviewCountChanged  -= OnReviewCountChanged;
+        Orchestrator.OnProfileChanged      -= OnProfileChanged;
     }
 
     [Inject] private IJSRuntime JS { get; set; } = default!;

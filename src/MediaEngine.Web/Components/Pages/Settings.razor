@@ -5,6 +5,7 @@
 @inject NavigationManager Nav
 @inject DeviceContextService DeviceContext
 @inject UIOrchestratorService Orchestrator
+@implements IDisposable
 
 <PageTitle>Settings — Tuvima Library</PageTitle>
 
@@ -132,11 +133,25 @@ else
 
         // Fetch badge counts eagerly for sidebar badges.
         await LoadReviewCountAsync();
+
+        // Keep sidebar badge live while the Settings page is open.
+        Orchestrator.OnReviewCountChanged += OnReviewCountChanged;
     }
 
     protected override void OnParametersSet()
     {
         ParseSection();
+    }
+
+    public void Dispose()
+    {
+        Orchestrator.OnReviewCountChanged -= OnReviewCountChanged;
+    }
+
+    private void OnReviewCountChanged()
+    {
+        _reviewCount = Orchestrator.ReviewCount;
+        InvokeAsync(StateHasChanged);
     }
 
     // ── Deep-link parsing ───────────────────────────────────────────────────
