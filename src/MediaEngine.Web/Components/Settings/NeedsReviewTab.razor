@@ -5,191 +5,176 @@
 @inject ISnackbar Snackbar
 @implements IDisposable
 
-@* Needs Review — clean review queue with inline search panel. *@
+@* Needs Review — items grouped by reason so users understand why each item is here. *@
 
-<MudText Typo="Typo.h5" Class="mb-2">Needs Review</MudText>
+<MudText Typo="Typo.h5" Class="mb-1">Needs Review</MudText>
 <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
-    Items that need your attention — search for the correct match and select it.
+    Items that need your attention, grouped by reason.
 </MudText>
-
-@* ── Filter chips ──────────────────────────────────────────────────────── *@
-<MudStack Row="true" Spacing="2" Class="mb-4">
-    <MudChip T="string" Size="Size.Small" Variant="@(_filterMode == FilterMode.All ? Variant.Filled : Variant.Outlined)"
-             Color="Color.Default" OnClick="@(() => SetFilter(FilterMode.All))">
-        All (@_items.Count)
-    </MudChip>
-    <MudChip T="string" Size="Size.Small" Variant="@(_filterMode == FilterMode.ContentMatch ? Variant.Filled : Variant.Outlined)"
-             Color="Color.Warning" OnClick="@(() => SetFilter(FilterMode.ContentMatch))">
-        Content Match (@ContentMatchCount)
-    </MudChip>
-    <MudChip T="string" Size="Size.Small" Variant="@(_filterMode == FilterMode.UniverseMatch ? Variant.Filled : Variant.Outlined)"
-             Color="Color.Info" OnClick="@(() => SetFilter(FilterMode.UniverseMatch))">
-        Universe Match (@UniverseMatchCount)
-    </MudChip>
-    <MudChip T="string" Size="Size.Small" Variant="@(_filterMode == FilterMode.MediaType ? Variant.Filled : Variant.Outlined)"
-             Color="Color.Tertiary" OnClick="@(() => SetFilter(FilterMode.MediaType))">
-        Media Type (@MediaTypeCount)
-    </MudChip>
-</MudStack>
 
 @if (_loading)
 {
     <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4" />
 }
-else if (FilteredItems.Count == 0)
+else if (_items.Count == 0)
 {
-    <MudAlert Severity="Severity.Success" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.CheckCircle">
-        @if (_filterMode == FilterMode.All)
-        {
-            <text>No items pending review.</text>
-        }
-        else
-        {
-            <text>No @(_filterMode switch {
-                FilterMode.ContentMatch  => "content match",
-                FilterMode.UniverseMatch => "universe match",
-                FilterMode.MediaType     => "media type",
-                _                        => ""
-            }) items pending.</text>
-        }
+    <MudAlert Severity="Severity.Success" Variant="Variant.Outlined"
+              Icon="@Icons.Material.Filled.CheckCircle">
+        No items pending review.
     </MudAlert>
 }
 else
 {
-    @foreach (var item in FilteredItems)
+    @foreach (var entry in BuildDisplayList())
     {
-        <MudPaper Class="pa-3 mb-2" Elevation="0"
-                  Style="border: 1px solid var(--mud-palette-lines-default); border-radius: 6px;">
-
-            @* ── Item row: title + actions ───────────────────────────────── *@
-            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
-                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                    <div>
-                        <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">
-                            @(item.EntityTitle ?? item.Detail ?? item.EntityId.ToString()[..8] + "...")
-                        </MudText>
-                        <MudText Typo="Typo.caption" Color="Color.Secondary">
-                            @FormatMediaType(item.MediaType) @(!string.IsNullOrWhiteSpace(item.MediaType) ? " \u2022 " : "")@FormatTrigger(item.Trigger)
-                        </MudText>
+        @if (entry.IsSectionHeader)
+        {
+            @* ── Section header ─────────────────────────────────────────── *@
+            <div class="review-section-header @(entry.SectionCssClass)">
+                <MudIcon Icon="@entry.SectionIcon" Class="review-section-icon" />
+                <div>
+                    <div class="review-section-title-row">
+                        <span class="review-section-title">@entry.SectionTitle</span>
+                        <span class="review-section-count">@entry.SectionCount</span>
                     </div>
-                </MudStack>
+                    <span class="review-section-desc">@entry.SectionDesc</span>
+                </div>
+            </div>
+        }
+        else if (entry.Item is { } item)
+        {
+            @* ── Review item card ────────────────────────────────────────── *@
+            <MudPaper Class="pa-3 mb-2 review-item-card" Elevation="0">
 
-                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
-                    <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary"
-                               OnClick="@(() => ToggleReviewPanel(item))">
-                        @(_expandedItemId == item.Id ? "Close" : "Review")
-                    </MudButton>
-                    <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Default"
-                               OnClick="@(() => DismissItemAsync(item.Id))">
-                        Dismiss
-                    </MudButton>
-                </MudStack>
-            </MudStack>
-
-            @* ── Expanded search panel ────────────────────────────────── *@
-            @if (_expandedItemId == item.Id)
-            {
-                <MudDivider Class="my-3" />
-
-                @if (item.Trigger == "AmbiguousMediaType")
-                {
-                    @* ── Media type candidate selection ─────────────── *@
-                    <MudText Typo="Typo.body2" Class="mb-2">
-                        Select the correct media type for this file:
-                    </MudText>
-                    <MudStack Row="true" Spacing="2" Class="mb-2" Wrap="Wrap.Wrap">
-                        @foreach (var candidate in ParseMediaTypeCandidates(item.CandidatesJson))
-                        {
-                            <MudPaper Class="pa-3" Elevation="0"
-                                      Style="border: 1px solid var(--mud-palette-lines-default); border-radius: 6px;
-                                             min-width: 180px; cursor: pointer;"
-                                      @onclick="@(() => ReclassifyAsync(item, candidate.Type))">
-                                <MudStack AlignItems="AlignItems.Center" Spacing="1">
-                                    <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">
-                                        @candidate.Type
-                                    </MudText>
-                                    <MudProgressLinear Value="@(candidate.Confidence * 100)" Color="@ConfidenceColor(candidate.Confidence)"
-                                                       Size="Size.Small" Rounded="true" Style="width: 120px;" />
-                                    <MudText Typo="Typo.caption" Color="Color.Secondary" Align="Align.Center">
-                                        @($"{candidate.Confidence:P0}")
-                                    </MudText>
-                                    <MudText Typo="Typo.caption" Color="Color.Secondary" Align="Align.Center"
-                                             Style="font-size: 0.7rem; max-width: 200px; word-break: break-word;">
-                                        @candidate.Reason
-                                    </MudText>
-                                </MudStack>
-                            </MudPaper>
-                        }
+                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        <div>
+                            <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">
+                                @(item.EntityTitle ?? item.Detail ?? item.EntityId.ToString()[..8] + "...")
+                            </MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                @FormatMediaType(item.MediaType)@(!string.IsNullOrWhiteSpace(item.MediaType) ? " \u2022 " : "")@FormatTriggerDetail(item.Trigger)
+                            </MudText>
+                        </div>
                     </MudStack>
-                }
-                else
-                {
-                    @* ── Provider + search bar ───────────────────────────── *@
-                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-3">
-                        <MudSelect T="string" @bind-Value="_selectedProvider" Dense="true"
-                                   Variant="Variant.Outlined" Label="Provider"
-                                   Style="max-width: 200px;" Margin="Margin.Dense">
-                            @foreach (var p in GetSlottedProviders(item.MediaType))
-                            {
-                                <MudSelectItem Value="@p.Name">@p.DisplayName</MudSelectItem>
-                            }
-                        </MudSelect>
-                        <MudTextField T="string" @bind-Value="_searchQuery" Variant="Variant.Outlined"
-                                      Label="Search Term" Margin="Margin.Dense"
-                                      Style="flex: 1;"
-                                      OnKeyUp="@OnSearchKeyUp" />
-                        <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                                   Disabled="@(string.IsNullOrWhiteSpace(_selectedProvider) || string.IsNullOrWhiteSpace(_searchQuery))"
-                                   OnClick="@ExecuteSearchAsync">
-                            Search
+
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                        <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary"
+                                   OnClick="@(() => ToggleReviewPanel(item))">
+                            @(_expandedItemId == item.Id ? "Close" : "Review")
+                        </MudButton>
+                        <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Default"
+                                   OnClick="@(() => DismissItemAsync(item.Id))">
+                            Dismiss
                         </MudButton>
                     </MudStack>
+                </MudStack>
 
-                    @* ── Search results ──────────────────────────────────── *@
-                    @if (_searching)
-                    {
-                        <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-2" />
-                    }
+                @* ── Expanded panel ──────────────────────────────────────── *@
+                @if (_expandedItemId == item.Id)
+                {
+                    <MudDivider Class="my-3" />
 
-                    @if (_searchResults.Count > 0)
+                    @if (item.Trigger == "AmbiguousMediaType")
                     {
-                        <div style="max-height: 520px; overflow-y: auto; border: 1px solid var(--mud-palette-lines-default);
-                                    border-radius: 4px; background: var(--mud-palette-surface);">
-                            @foreach (var result in _searchResults)
+                        <MudText Typo="Typo.body2" Class="mb-2">
+                            Select the correct media type for this file:
+                        </MudText>
+                        <MudStack Row="true" Spacing="2" Class="mb-2" Wrap="Wrap.Wrap">
+                            @foreach (var candidate in ParseMediaTypeCandidates(item.CandidatesJson))
                             {
-                                <SearchResultCard Result="@result"
-                                                 IsSelected="@(result == _selectedSearchResult)"
-                                                 OnSelected="@(r => { _selectedSearchResult = r == _selectedSearchResult ? null : r; StateHasChanged(); })" />
+                                <MudPaper Class="pa-3" Elevation="0"
+                                          Style="border: 1px solid var(--mud-palette-lines-default); border-radius: 6px;
+                                                 min-width: 180px; cursor: pointer;"
+                                          @onclick="@(() => ReclassifyAsync(item, candidate.Type))">
+                                    <MudStack AlignItems="AlignItems.Center" Spacing="1">
+                                        <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">
+                                            @candidate.Type
+                                        </MudText>
+                                        <MudProgressLinear Value="@(candidate.Confidence * 100)"
+                                                           Color="@ConfidenceColor(candidate.Confidence)"
+                                                           Size="Size.Small" Rounded="true"
+                                                           Style="width: 120px;" />
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary" Align="Align.Center">
+                                            @($"{candidate.Confidence:P0}")
+                                        </MudText>
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary" Align="Align.Center"
+                                                 Style="font-size: 0.7rem; max-width: 200px; word-break: break-word;">
+                                            @candidate.Reason
+                                        </MudText>
+                                    </MudStack>
+                                </MudPaper>
                             }
-                        </div>
-
-                        @if (_selectedSearchResult is not null)
-                        {
-                            <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                                       FullWidth="true" Class="mt-3"
-                                       StartIcon="@Icons.Material.Filled.CheckCircle"
-                                       OnClick="@(() => SelectMatchAsync(item, _selectedSearchResult))">
-                                Confirm: "@(_selectedSearchResult.Title)"
-                            </MudButton>
-                        }
+                        </MudStack>
                     }
-                    else if (_searchExecuted && !_searching)
+                    else
                     {
-                        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true">
-                            No results found. Try a different search term or provider.
-                        </MudAlert>
-                    }
+                        @* ── Provider + search bar ─────────────────────────── *@
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-3">
+                            <MudSelect T="string" @bind-Value="_selectedProvider" Dense="true"
+                                       Variant="Variant.Outlined" Label="Provider"
+                                       Style="max-width: 200px;" Margin="Margin.Dense">
+                                @foreach (var p in GetSlottedProviders(item.MediaType))
+                                {
+                                    <MudSelectItem Value="@p.Name">@p.DisplayName</MudSelectItem>
+                                }
+                            </MudSelect>
+                            <MudTextField T="string" @bind-Value="_searchQuery" Variant="Variant.Outlined"
+                                          Label="Search Term" Margin="Margin.Dense"
+                                          Style="flex: 1;"
+                                          OnKeyUp="@OnSearchKeyUp" />
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                       Disabled="@(string.IsNullOrWhiteSpace(_selectedProvider) || string.IsNullOrWhiteSpace(_searchQuery))"
+                                       OnClick="@ExecuteSearchAsync">
+                                Search
+                            </MudButton>
+                        </MudStack>
 
-                    @* ── Manual edit ─────────────────────────────────────── *@
-                    <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Secondary"
-                               StartIcon="@Icons.Material.Filled.Edit"
-                               OnClick="@(() => OpenEditDialog(item))"
-                               Class="mt-2">
-                        Edit Manually
-                    </MudButton>
+                        @if (_searching)
+                        {
+                            <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-2" />
+                        }
+
+                        @if (_searchResults.Count > 0)
+                        {
+                            <div style="max-height: 520px; overflow-y: auto;
+                                        border: 1px solid var(--mud-palette-lines-default);
+                                        border-radius: 4px; background: var(--mud-palette-surface);">
+                                @foreach (var result in _searchResults)
+                                {
+                                    <SearchResultCard Result="@result"
+                                                     IsSelected="@(result == _selectedSearchResult)"
+                                                     OnSelected="@(r => { _selectedSearchResult = r == _selectedSearchResult ? null : r; StateHasChanged(); })" />
+                                }
+                            </div>
+
+                            @if (_selectedSearchResult is not null)
+                            {
+                                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                           FullWidth="true" Class="mt-3"
+                                           StartIcon="@Icons.Material.Filled.CheckCircle"
+                                           OnClick="@(() => SelectMatchAsync(item, _selectedSearchResult))">
+                                    Confirm: "@(_selectedSearchResult.Title)"
+                                </MudButton>
+                            }
+                        }
+                        else if (_searchExecuted && !_searching)
+                        {
+                            <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true">
+                                No results found. Try a different search term or provider.
+                            </MudAlert>
+                        }
+
+                        <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Secondary"
+                                   StartIcon="@Icons.Material.Filled.Edit"
+                                   OnClick="@(() => OpenEditDialog(item))"
+                                   Class="mt-2">
+                            Edit Manually
+                        </MudButton>
+                    }
                 }
-            }
-        </MudPaper>
+            </MudPaper>
+        }
     }
 }
 
@@ -200,14 +185,87 @@ else
                     CurrentValues="@_editCurrentValues"
                     OnSaved="@OnEditSaved" />
 
+<style>
+    .review-section-header {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 12px 16px;
+        margin: 20px 0 8px;
+        border-radius: 8px;
+    }
+
+    .review-section-header:first-child {
+        margin-top: 0;
+    }
+
+    .review-section-header.universe {
+        background: rgba(33, 150, 243, 0.08);
+        border-left: 3px solid var(--mud-palette-info);
+    }
+
+    .review-section-header.content {
+        background: rgba(255, 152, 0, 0.08);
+        border-left: 3px solid var(--mud-palette-warning);
+    }
+
+    .review-section-header.mediatype {
+        background: rgba(156, 39, 176, 0.08);
+        border-left: 3px solid var(--mud-palette-tertiary);
+    }
+
+    .review-section-icon {
+        flex-shrink: 0;
+        margin-top: 2px;
+    }
+
+    .review-section-title-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .review-section-title {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.9rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .review-section-count {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.75rem;
+        font-weight: 600;
+        padding: 1px 7px;
+        border-radius: 10px;
+        background: rgba(255,255,255,0.12);
+        color: rgba(255,255,255,0.7);
+    }
+
+    .review-section-desc {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.78rem;
+        color: rgba(255,255,255,0.5);
+    }
+
+    .review-item-card {
+        border: 1px solid var(--mud-palette-lines-default);
+        border-radius: 6px;
+    }
+</style>
+
 @code {
     private List<ReviewItemViewModel> _items = [];
     private bool _loading = true;
 
-    // ── Filter state ──────────────────────────────────────────────────────
-    private FilterMode _filterMode = FilterMode.All;
+    // ── Section grouping ──────────────────────────────────────────────────
 
-    private enum FilterMode { All, ContentMatch, UniverseMatch, MediaType }
+    private static readonly HashSet<string> UniverseMatchTriggers =
+    [
+        "UniverseMatchFailed",
+        "MultipleQidMatches",
+    ];
 
     private static readonly HashSet<string> ContentMatchTriggers =
     [
@@ -217,33 +275,79 @@ else
         "MetadataConflict",
     ];
 
-    private static readonly HashSet<string> UniverseMatchTriggers =
-    [
-        "UniverseMatchFailed",
-        "MultipleQidMatches",
-    ];
-
     private static readonly HashSet<string> MediaTypeTriggers =
     [
         "AmbiguousMediaType",
     ];
 
-    private List<ReviewItemViewModel> FilteredItems => _filterMode switch
-    {
-        FilterMode.ContentMatch  => _items.Where(i => ContentMatchTriggers.Contains(i.Trigger)).ToList(),
-        FilterMode.UniverseMatch => _items.Where(i => UniverseMatchTriggers.Contains(i.Trigger)).ToList(),
-        FilterMode.MediaType     => _items.Where(i => MediaTypeTriggers.Contains(i.Trigger)).ToList(),
-        _                        => _items,
-    };
+    private List<ReviewItemViewModel> UniverseMatchItems =>
+        _items.Where(i => UniverseMatchTriggers.Contains(i.Trigger)).ToList();
 
-    private int ContentMatchCount  => _items.Count(i => ContentMatchTriggers.Contains(i.Trigger));
-    private int UniverseMatchCount => _items.Count(i => UniverseMatchTriggers.Contains(i.Trigger));
-    private int MediaTypeCount     => _items.Count(i => MediaTypeTriggers.Contains(i.Trigger));
+    private List<ReviewItemViewModel> ContentMatchItems =>
+        _items.Where(i => ContentMatchTriggers.Contains(i.Trigger)).ToList();
 
-    private void SetFilter(FilterMode mode)
+    private List<ReviewItemViewModel> MediaTypeItems =>
+        _items.Where(i => MediaTypeTriggers.Contains(i.Trigger)).ToList();
+
+    private sealed record DisplayItem(
+        bool IsSectionHeader,
+        string SectionTitle = "",
+        string SectionDesc = "",
+        string SectionIcon = "",
+        string SectionCssClass = "",
+        int SectionCount = 0,
+        ReviewItemViewModel? Item = null);
+
+    private IReadOnlyList<DisplayItem> BuildDisplayList()
     {
-        _filterMode = mode;
-        CollapseReviewPanel();
+        var list = new List<DisplayItem>();
+
+        var universe = UniverseMatchItems;
+        if (universe.Count > 0)
+        {
+            list.Add(new DisplayItem(
+                IsSectionHeader: true,
+                SectionTitle: "Universe Match",
+                SectionDesc: "Wikidata couldn't find a match for " +
+                             (universe.Count == 1 ? "this item" : "these items") +
+                             ". Search for the correct Wikidata entry to link it.",
+                SectionIcon: Icons.Material.Outlined.PublicOff,
+                SectionCssClass: "universe",
+                SectionCount: universe.Count));
+            list.AddRange(universe.Select(i => new DisplayItem(false, Item: i)));
+        }
+
+        var content = ContentMatchItems;
+        if (content.Count > 0)
+        {
+            list.Add(new DisplayItem(
+                IsSectionHeader: true,
+                SectionTitle: "Content Match",
+                SectionDesc: "No metadata provider returned results for " +
+                             (content.Count == 1 ? "this item" : "these items") +
+                             ". Search and select the correct match to resolve.",
+                SectionIcon: Icons.Material.Outlined.SearchOff,
+                SectionCssClass: "content",
+                SectionCount: content.Count));
+            list.AddRange(content.Select(i => new DisplayItem(false, Item: i)));
+        }
+
+        var mediaType = MediaTypeItems;
+        if (mediaType.Count > 0)
+        {
+            list.Add(new DisplayItem(
+                IsSectionHeader: true,
+                SectionTitle: "Media Type",
+                SectionDesc: "The media type couldn't be determined automatically for " +
+                             (mediaType.Count == 1 ? "this item" : "these items") +
+                             ". Select the correct type to proceed.",
+                SectionIcon: Icons.Material.Outlined.HelpOutline,
+                SectionCssClass: "mediatype",
+                SectionCount: mediaType.Count));
+            list.AddRange(mediaType.Select(i => new DisplayItem(false, Item: i)));
+        }
+
+        return list;
     }
 
     // ── Expanded review panel state ───────────────────────────────────────
@@ -265,7 +369,6 @@ else
         _loading = true;
         _items = await Orchestrator.GetPendingReviewsAsync();
 
-        // Load provider info for the search dropdown.
         _slots = await Orchestrator.GetProviderSlotsAsync() ?? new();
         _providers = await Orchestrator.GetProviderStatusAsync();
 
@@ -290,10 +393,8 @@ else
         _searchExecuted = false;
         _searching = false;
 
-        // Pre-fill search query with entity title.
         _searchQuery = item.EntityTitle ?? string.Empty;
 
-        // Pre-select provider: Wikidata for universe triggers, primary for others.
         var slottedProviders = GetSlottedProviders(item.MediaType);
         if (item.Trigger is "UniverseMatchFailed" or "MultipleQidMatches")
         {
@@ -305,7 +406,6 @@ else
             _selectedProvider = slottedProviders.FirstOrDefault()?.Name ?? string.Empty;
         }
 
-        // Auto-search if we have both a title and a provider.
         if (!string.IsNullOrWhiteSpace(_searchQuery) && !string.IsNullOrWhiteSpace(_selectedProvider))
         {
             await ExecuteSearchAsync();
@@ -323,17 +423,11 @@ else
 
     // ── Provider dropdown helpers ─────────────────────────────────────────
 
-    /// <summary>
-    /// Returns providers suitable for searching the given media type.
-    /// Only shows providers from the slot assignments for this media type,
-    /// plus Wikidata as "Universe" provider.
-    /// </summary>
     private List<SlottedProviderInfo> GetSlottedProviders(string? mediaType)
     {
         var result = new List<SlottedProviderInfo>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        // 1. Add slotted providers (in slot order).
         var mediaTypeName = MapMediaTypeToSlotKey(mediaType);
         if (!string.IsNullOrWhiteSpace(mediaTypeName) && _slots.TryGetValue(mediaTypeName, out var slot))
         {
@@ -342,14 +436,12 @@ else
             TryAddSlotted(slot.Tertiary);
         }
 
-        // 2. Add remaining enabled providers that can handle this media type.
         foreach (var p in _providers.Where(p => p.Enabled))
         {
             if (IsExcludedProvider(p.Name)) continue;
             if (IsWikidataProvider(p.Name)) continue;
             if (!seen.Add(p.Name)) continue;
 
-            // Only show providers that explicitly support this media type.
             if (!string.IsNullOrEmpty(mediaType) && p.MediaTypes is { Count: > 0 })
             {
                 if (!p.MediaTypes.Any(mt =>
@@ -360,7 +452,6 @@ else
             result.Add(new(p.Name, p.DisplayName ?? ProviderAccentMap.GetDisplayName(p.Name)));
         }
 
-        // 3. Add Wikidata at the end.
         var wikidata = _providers.FirstOrDefault(p => IsWikidataProvider(p.Name));
         if (wikidata is { Enabled: true })
             result.Add(new(wikidata.Name, "Wikidata (Universe)"));
@@ -394,7 +485,7 @@ else
         "comic"      => "Comics",
         "movies"     => "Movies",
         "tv"         => "TV Shows",
-        _           => null,
+        _            => null,
     };
 
     // ── Search ───────────────────────────────────────────────────────────
@@ -468,8 +559,8 @@ else
 
     private async Task OpenEditDialog(ReviewItemViewModel item)
     {
-        _editEntityId    = item.EntityId;
-        _editMediaType   = item.MediaType;
+        _editEntityId     = item.EntityId;
+        _editMediaType    = item.MediaType;
         _editReviewItemId = item.Id;
 
         var claims = await Orchestrator.GetClaimHistoryAsync(item.EntityId);
@@ -527,19 +618,20 @@ else
         "Comic"      => "Comic",
         "Movies"     => "Movies",
         "TV"         => "TV",
-        _           => mediaType ?? "",
+        _            => mediaType ?? "",
     };
 
-    private static string FormatTrigger(string trigger) => trigger switch
+    /// <summary>Returns a concise per-item detail string within its section context.</summary>
+    private static string FormatTriggerDetail(string trigger) => trigger switch
     {
-        "LowConfidence"       => "Low Confidence",
-        "MultipleQidMatches"  => "Multiple QIDs",
-        "UserFixMatch"        => "User Fix",
-        "ArbiterNeedsReview"  => "Arbiter Flag",
-        "ContentMatchFailed"  => "Content Match Failed",
-        "UniverseMatchFailed" => "Universe Match Failed",
-        "AmbiguousMediaType"  => "Ambiguous Type",
-        "MetadataConflict"    => "Metadata Conflict",
+        "LowConfidence"       => "Low confidence",
+        "MultipleQidMatches"  => "Multiple Wikidata candidates",
+        "UserFixMatch"        => "User re-review",
+        "ArbiterNeedsReview"  => "Arbiter flagged",
+        "ContentMatchFailed"  => "No provider match",
+        "UniverseMatchFailed" => "No Wikidata match",
+        "AmbiguousMediaType"  => "Ambiguous media type",
+        "MetadataConflict"    => "Metadata conflict",
         _                     => trigger,
     };
 

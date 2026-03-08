@@ -1032,8 +1032,12 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         IReadOnlyList<CanonicalValue> canonicals)
     {
         var hints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        string[] bridgeKeys = ["isbn", "asin", "apple_books_id", "audible_id",
-                               "tmdb_id", "imdb_id", "goodreads_id"];
+        // Only keys with meaningful Wikidata coverage count as real bridge IDs.
+        // apple_books_id and audible_id are excluded — Wikidata has near-zero coverage
+        // for both, so treating them as bridges creates UniverseMatchFailed review noise
+        // for every book Apple Books matches. ISBN, ASIN, TMDB, IMDb, and Goodreads
+        // are indexed in Wikidata and serve as genuine cross-reference keys.
+        string[] bridgeKeys = ["isbn", "asin", "tmdb_id", "imdb_id", "goodreads_id"];
 
         foreach (var cv in canonicals)
         {
