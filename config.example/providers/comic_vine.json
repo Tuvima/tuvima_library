@@ -1,12 +1,12 @@
 {
   "name": "comic_vine",
-  "version": "1.0",
+  "version": "1.1",
   "enabled": false,
   "weight": 0.75,
   "domain": "Comic",
   "icon": "images/providers/comic_vine.svg",
-  "capability_tags": ["title", "author", "cover", "year", "description", "publisher", "genre", "series", "series_position"],
-  "available_fields": ["title", "author", "cover", "year", "description", "publisher", "genre", "series", "series_position", "issue_number"],
+  "capability_tags": ["title", "author", "cover", "year", "description", "publisher", "genre", "series", "series_position", "comicvine_id"],
+  "available_fields": ["title", "author", "cover", "year", "description", "publisher", "genre", "series", "series_position", "issue_number", "comicvine_id"],
   "field_weights": {
     "title": 0.85,
     "author": 0.8,
@@ -17,7 +17,8 @@
     "genre": 0.7,
     "series": 0.9,
     "series_position": 0.9,
-    "issue_number": 0.95
+    "issue_number": 0.95,
+    "comicvine_id": 1.0
   },
   "endpoints": {
     "api": "https://comicvine.gamespot.com/api"
@@ -25,6 +26,7 @@
   "throttle_ms": 1000,
   "max_concurrency": 1,
   "hydration_stages": [1],
+  "cache_ttl_hours": 720,
 
   "adapter_type": "config_driven",
   "provider_id": "b8000008-0000-4000-8000-000000000009",
@@ -68,7 +70,8 @@
   "field_mappings": [
     { "claim_key": "title",           "json_path": "name",                      "confidence": 0.85 },
     { "claim_key": "description",     "json_path": "description",               "confidence": 0.8,  "transform": "strip_html" },
-    { "claim_key": "cover",           "json_path": "image.medium_url",          "confidence": 0.85 },
+    { "claim_key": "cover",           "json_path": "image.super_url",           "confidence": 0.85 },
+    { "claim_key": "comicvine_id",   "json_path": "id",                        "confidence": 1.0,  "transform": "to_string" },
     { "claim_key": "year",            "json_path": "cover_date",                "confidence": 0.85, "transform": "first_n_chars", "transform_args": "4" },
     { "claim_key": "series",          "json_path": "volume.name",               "confidence": 0.9 },
     { "claim_key": "issue_number",    "json_path": "issue_number",              "confidence": 0.95 },

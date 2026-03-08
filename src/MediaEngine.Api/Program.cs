@@ -296,7 +296,8 @@ foreach (ProviderConfiguration providerConfig in configLoader.LoadAllProviders()
         new ConfigDrivenAdapter(
             cfg,
             sp.GetRequiredService<IHttpClientFactory>(),
-            sp.GetRequiredService<ILogger<ConfigDrivenAdapter>>()));
+            sp.GetRequiredService<ILogger<ConfigDrivenAdapter>>(),
+            sp.GetRequiredService<IProviderResponseCacheRepository>()));
 }
 
 // Storage repositories (Phase 9 — claim + canonical + person persistence).
@@ -315,7 +316,8 @@ builder.Services.AddSingleton<IRecursiveIdentityService,  RecursiveIdentityServi
 builder.Services.AddSingleton<IAutoOrganizeService,       AutoOrganizeService>();
 builder.Services.AddSingleton<IHydrationPipelineService,  HydrationPipelineService>();
 builder.Services.AddSingleton<IReviewQueueRepository,     ReviewQueueRepository>();
-builder.Services.AddSingleton<IImageCacheRepository,      ImageCacheRepository>();
+builder.Services.AddSingleton<IImageCacheRepository,              ImageCacheRepository>();
+builder.Services.AddSingleton<IProviderResponseCacheRepository,  ProviderResponseCacheRepository>();
 
 // ── Phase 7: Sidecar writer + Great Inhale scanner ───────────────────────────
 builder.Services.AddSingleton<ISidecarWriter,  SidecarWriter>();

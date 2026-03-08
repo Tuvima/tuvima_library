@@ -1,0 +1,79 @@
+{
+  "name": "podcast_index",
+  "version": "1.0",
+  "enabled": false,
+  "weight": 0.65,
+  "domain": "Podcasts",
+  "icon": "images/providers/podcast_index.svg",
+  "capability_tags": ["title", "author", "description", "cover", "feed_url"],
+  "available_fields": ["title", "author", "description", "cover", "feed_url", "podcast_guid", "episode_number", "season_number", "explicit", "language"],
+  "field_weights": {
+    "title": 0.8,
+    "author": 0.75,
+    "description": 0.8,
+    "cover": 0.75,
+    "feed_url": 1.0,
+    "podcast_guid": 1.0,
+    "episode_number": 0.85,
+    "season_number": 0.85,
+    "explicit": 0.9,
+    "language": 0.8
+  },
+  "endpoints": {
+    "api": "https://api.podcastindex.org/api/1.0"
+  },
+  "throttle_ms": 300,
+  "max_concurrency": 2,
+  "hydration_stages": [1],
+  "cache_ttl_hours": 168,
+
+  "adapter_type": "config_driven",
+  "provider_id": "ba00000a-0000-4000-8000-000000000011",
+  "display_name": "Podcast Index",
+  "requires_api_key": true,
+
+  "http_client": {
+    "timeout_seconds": 10,
+    "user_agent": "Tuvima Library/1.0",
+    "api_key": "",
+    "api_key_delivery": "header",
+    "api_key_header_name": "X-Auth-Key"
+  },
+
+  "can_handle": {
+    "media_types": ["Podcasts"],
+    "entity_types": ["Work", "MediaAsset"]
+  },
+
+  "search_strategies": [
+    {
+      "name": "podcast_search",
+      "priority": 1,
+      "required_fields": ["title"],
+      "url_template": "{base_url}/search/byterm?q={title}&max=5",
+      "results_path": "feeds",
+      "result_index": 0,
+      "tolerate_404": false
+    },
+    {
+      "name": "episode_search",
+      "priority": 2,
+      "required_fields": ["title"],
+      "url_template": "{base_url}/search/byterm?q={title}&type=episode&max=5",
+      "results_path": "items",
+      "result_index": 0,
+      "tolerate_404": false
+    }
+  ],
+
+  "field_mappings": [
+    { "claim_key": "title",           "json_path": "title",              "confidence": 0.8 },
+    { "claim_key": "author",          "json_path": "author",             "confidence": 0.75 },
+    { "claim_key": "description",     "json_path": "description",        "confidence": 0.8, "transform": "strip_html" },
+    { "claim_key": "cover",           "json_path": "artwork",            "confidence": 0.75 },
+    { "claim_key": "feed_url",        "json_path": "url",                "confidence": 1.0 },
+    { "claim_key": "podcast_guid",    "json_path": "podcastGuid",        "confidence": 1.0 },
+    { "claim_key": "language",        "json_path": "language",           "confidence": 0.8 },
+    { "claim_key": "explicit",        "json_path": "explicit",           "confidence": 0.9, "transform": "to_string" }
+  ]
+}

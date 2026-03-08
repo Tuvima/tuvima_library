@@ -102,6 +102,16 @@ public sealed class ProviderConfiguration
     [JsonPropertyName("hydration_stages")]
     public List<int> HydrationStages { get; set; } = [1];
 
+    /// <summary>
+    /// Time-to-live in hours for cached HTTP responses from this provider.
+    /// When set, the <c>ConfigDrivenAdapter</c> caches raw JSON responses and
+    /// skips HTTP calls for repeated queries within the TTL window.
+    /// Default: <c>168</c> (7 days). Set <c>null</c> or <c>0</c> to disable caching.
+    /// Comic Vine recommends a long TTL (720 hours / 30 days) due to strict rate limits.
+    /// </summary>
+    [JsonPropertyName("cache_ttl_hours")]
+    public int? CacheTtlHours { get; set; }
+
     // ── Config-driven adapter fields ─────────────────────────────────────────
 
     /// <summary>

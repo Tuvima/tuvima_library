@@ -10,18 +10,28 @@
     "tertiary": null
   },
   "Comics": {
-    "primary": null,
+    "primary": "comic_vine",
     "secondary": null,
     "tertiary": null
   },
   "Movies": {
-    "primary": null,
+    "primary": "tmdb",
     "secondary": null,
     "tertiary": null
   },
   "TV Shows": {
-    "primary": null,
+    "primary": "tmdb",
     "secondary": null,
+    "tertiary": null
+  },
+  "Music": {
+    "primary": "musicbrainz",
+    "secondary": null,
+    "tertiary": null
+  },
+  "Podcasts": {
+    "primary": "apple_podcasts",
+    "secondary": "podcast_index",
     "tertiary": null
   }
 }
