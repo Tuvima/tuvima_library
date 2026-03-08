@@ -8,7 +8,7 @@
 
 @if (Visible && Hub is not null)
 {
-    <div class="hero-cinema @SizeClass" @onclick="OnClick">
+    <div class="hero-cinema @SizeClass @(BackgroundOnly ? "hero-bg-only" : "")" @onclick="OnClick">
 
         @* ── Blurred cover art background ── *@
         @if (!string.IsNullOrEmpty(Hub.CoverUrl))
@@ -27,55 +27,58 @@
             <div class="hero-cinema-gradient" style="--hero-accent: @(Hub.DominantHexColor ?? "#C9922E");" />
         }
 
-        @* ── Content at bottom-left ── *@
-        <div class="hero-cinema-content">
-            <h2 class="hero-cinema-title">@Hub.DisplayName</h2>
+        @* ── Content at bottom-left (skipped when used as background-only layer) ── *@
+        @if (!BackgroundOnly)
+        {
+            <div class="hero-cinema-content">
+                <h2 class="hero-cinema-title">@Hub.DisplayName</h2>
 
-            @* Metadata badges *@
-            <div class="hero-cinema-badges">
-                @if (!string.IsNullOrEmpty(Hub.Year))
-                {
-                    <span class="hero-badge">@Hub.Year</span>
-                }
-                @if (!string.IsNullOrEmpty(Hub.PrimaryMediaType))
-                {
-                    <span class="hero-badge">@FormatMediaType(Hub.PrimaryMediaType)</span>
-                }
-                @if (!string.IsNullOrEmpty(Hub.Genre))
-                {
-                    @foreach (var genre in Hub.Genre.Split(',', ';').Take(2).Select(g => g.Trim()).Where(g => g.Length > 0))
+                @* Metadata badges *@
+                <div class="hero-cinema-badges">
+                    @if (!string.IsNullOrEmpty(Hub.Year))
                     {
-                        <span class="hero-badge">@genre</span>
+                        <span class="hero-badge">@Hub.Year</span>
                     }
-                }
-                @if (!string.IsNullOrEmpty(Hub.Rating))
+                    @if (!string.IsNullOrEmpty(Hub.PrimaryMediaType))
+                    {
+                        <span class="hero-badge">@FormatMediaType(Hub.PrimaryMediaType)</span>
+                    }
+                    @if (!string.IsNullOrEmpty(Hub.Genre))
+                    {
+                        @foreach (var genre in Hub.Genre.Split(',', ';').Take(2).Select(g => g.Trim()).Where(g => g.Length > 0))
+                        {
+                            <span class="hero-badge">@genre</span>
+                        }
+                    }
+                    @if (!string.IsNullOrEmpty(Hub.Rating))
+                    {
+                        <span class="hero-badge">@Hub.Rating</span>
+                    }
+                    @if (Hub.WorkCount > 1)
+                    {
+                        <span class="hero-badge">@Hub.WorkCount works</span>
+                    }
+                </div>
+
+                @* Series info *@
+                @if (!string.IsNullOrEmpty(Hub.Series))
                 {
-                    <span class="hero-badge">@Hub.Rating</span>
+                    <p class="hero-cinema-series">@Hub.Series</p>
                 }
-                @if (Hub.WorkCount > 1)
+
+                @* Author/creator *@
+                @if (!string.IsNullOrEmpty(Hub.Author))
                 {
-                    <span class="hero-badge">@Hub.WorkCount works</span>
+                    <p class="hero-cinema-subtitle">@Hub.Author</p>
+                }
+
+                @* Description *@
+                @if (!string.IsNullOrEmpty(Hub.Description))
+                {
+                    <p class="hero-cinema-description">@Truncate(Hub.Description, 200)</p>
                 }
             </div>
-
-            @* Series info *@
-            @if (!string.IsNullOrEmpty(Hub.Series))
-            {
-                <p class="hero-cinema-series">@Hub.Series</p>
-            }
-
-            @* Author/creator *@
-            @if (!string.IsNullOrEmpty(Hub.Author))
-            {
-                <p class="hero-cinema-subtitle">@Hub.Author</p>
-            }
-
-            @* Description *@
-            @if (!string.IsNullOrEmpty(Hub.Description))
-            {
-                <p class="hero-cinema-description">@Truncate(Hub.Description, 200)</p>
-            }
-        </div>
+        }
     </div>
 }
 
@@ -88,11 +91,17 @@
     /// <summary>Callback when the hero banner is clicked.</summary>
     [Parameter] public EventCallback<HubViewModel> OnHubClicked { get; set; }
 
+    /// <summary>
+    /// When true, renders only the visual background layers (image, vignette, gradient).
+    /// Text content is omitted so the caller can place it in normal document flow for alignment.
+    /// </summary>
+    [Parameter] public bool BackgroundOnly { get; set; } = false;
+
     private string SizeClass => "hero-cinema-desktop";
 
     private async Task OnClick()
     {
-        if (Hub is not null)
+        if (!BackgroundOnly && Hub is not null)
             await OnHubClicked.InvokeAsync(Hub);
     }
 
@@ -124,6 +133,12 @@
         background: #060A16;
         transition: box-shadow 0.25s ease;
         width: 100%; /* Fill the 100vw bleed wrapper */
+    }
+
+    /* Background-only mode: no click affordance (click handled by outer wrapper) */
+    .hero-bg-only {
+        cursor: inherit;
+        pointer-events: none;
     }
 
     .hero-cinema-desktop {
@@ -174,21 +189,16 @@
     }
 
     /* ── Content overlay (bottom-left) ─────────────────────────────────── */
-    /* Left padding aligns with swimlane titles:
-       viewport → MudContainer px-md-8 (32px) + swimlane padding (88px) = 120px */
+    /* Padding is intentionally minimal here — when used in the grid overlay layout
+       (BackgroundOnly=false, standalone use), the text renders over the background.
+       In the primary Home layout, text lives in .hero-stack-text (Home.razor) and
+       this div is not rendered (BackgroundOnly=true). */
     .hero-cinema-content {
         position: relative;
         z-index: 2;
-        padding: 2rem 2.5rem 2.5rem 138px;
+        padding: 2rem 2.5rem 2.5rem 2rem;
         width: 100%;
         max-width: 900px;
-    }
-
-    /* MudBlazor sm breakpoint (600–959px): container uses px-4 (16px) */
-    @@media (max-width: 959px) and (min-width: 769px) {
-        .hero-cinema-content {
-            padding: 2rem 2.5rem 2.5rem 122px;
-        }
     }
 
     .hero-cinema-title {
