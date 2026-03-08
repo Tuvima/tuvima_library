@@ -826,11 +826,12 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             cover_url    = fileIsInLibrary ? $"/stream/{assetId}/cover" : (string?)null,
         });
 
+        // "Sent to review" is determined by the hydration pipeline, not at this stage.
+        // Use "awaiting enrichment" for all staged files; the MediaAdded activity entry
+        // written at the end of HydrationPipelineService carries the real outcome.
         string outcome = fileIsInLibrary
             ? $"Ingested — \"{resolvedTitle}\" → Library"
-            : passesGate
-                ? $"Ingested — \"{resolvedTitle}\" (awaiting enrichment)"
-                : $"Ingested — \"{resolvedTitle}\" (sent to review)";
+            : $"Ingested — \"{resolvedTitle}\" (awaiting enrichment)";
 
         await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
         {

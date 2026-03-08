@@ -453,16 +453,26 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                     "Stage 2 for entity {Id} with pre-resolved QID '{Qid}' returned no claims",
                     request.EntityId, request.PreResolvedQid);
             }
-            else
+            else if (hasBridgeIds)
             {
-                // Stage 2 failed — create a review item regardless of whether bridge IDs were
-                // available, so failures are always visible to the user.
-                var reason = hasBridgeIds
-                    ? "Bridge ID lookup and title search failed to resolve a Wikidata QID"
-                    : "Title search failed to resolve a Wikidata QID — manual match required";
+                // Bridge IDs were present (ASIN, ISBN, Apple Books ID, etc.) but every
+                // lookup and the fallback title search all failed.  This is a genuine
+                // unexpected failure that warrants user attention.
                 await CreateReviewItemAsync(
                     request, ReviewTrigger.UniverseMatchFailed, 0.0,
-                    reason, result, ct).ConfigureAwait(false);
+                    "Bridge ID lookup and title search failed to resolve a Wikidata QID",
+                    result, ct).ConfigureAwait(false);
+            }
+            else
+            {
+                // No bridge IDs available — title-only Wikidata search is inherently
+                // unreliable (non-English titles, regional editions, obscure works).
+                // Silently log the miss; the user can trigger manual hydration later
+                // from the Hub detail page.  No review item is created.
+                _logger.LogDebug(
+                    "Stage 2: no Wikidata QID found for entity {Id} " +
+                    "(title-only search, no bridge IDs — skipping review item)",
+                    request.EntityId);
             }
         }
 

@@ -1106,7 +1106,7 @@
             "PathUpdated", "MetadataHydrated", "PersonHydrated", "PersonEnriched",
             "SidecarUpdated", "BridgeSyncUpdated", "MetadataRefreshed", "HashVerified",
             "HydrationStage1Completed", "HydrationStage2Completed", "HydrationStage3Completed",
-            "ReviewItemResolved", "DuplicateSkipped", "MediaFailed",
+            "ReviewItemCreated", "ReviewItemResolved", "DuplicateSkipped", "MediaFailed",
         };
         var allSubTypes = new HashSet<string>(ingSubTypes.Concat(postIngestionTypes));
 
@@ -1157,6 +1157,63 @@
                 _ingestionSubSteps[parent.Id] = subList = [];
             subList.Add(sub);
             _absorbedEntryIds.Add(sub.Id);
+        }
+
+        // ── FileIngested → MediaAdded (promoted parent) ──────────────────────────
+        // MediaAdded is the consolidated end-of-pipeline card.  FileIngested fires during
+        // IngestionEngine and carries the initial local score — it should be a sub-step
+        // inside MediaAdded, not a second standalone "Media Added" card.
+        var mediaAddedIndex = _entries
+            .Where(e => e.ActionType == "MediaAdded")
+            .Select(e => (Entry: e, Ts: ParseTs(e.OccurredAt)))
+            .Where(x => x.Ts is not null)
+            .ToList();
+
+        foreach (var ingested in ingestedIndex)
+        {
+            if (_absorbedEntryIds.Contains(ingested.Entry.Id)) continue;
+
+            ActivityEntryViewModel? mediaParent = null;
+
+            // Strategy 1: match by IngestionRunId (fast, precise).
+            if (!string.IsNullOrEmpty(ingested.Entry.IngestionRunId))
+            {
+                mediaParent = mediaAddedIndex
+                    .FirstOrDefault(x => string.Equals(
+                        x.Entry.IngestionRunId, ingested.Entry.IngestionRunId,
+                        StringComparison.OrdinalIgnoreCase))
+                    .Entry;
+            }
+
+            // Strategy 2: match by EntityId — MediaAdded fires after FileIngested (up to 60 min).
+            if (mediaParent is null && ingested.Ts is not null && !string.IsNullOrEmpty(ingested.Entry.EntityId))
+            {
+                mediaParent = mediaAddedIndex
+                    .Where(x =>
+                        string.Equals(x.Entry.EntityId, ingested.Entry.EntityId,
+                            StringComparison.OrdinalIgnoreCase)
+                        && x.Ts!.Value >= ingested.Ts.Value
+                        && (x.Ts.Value - ingested.Ts.Value).TotalMinutes <= 60)
+                    .OrderBy(x => (x.Ts!.Value - ingested.Ts.Value).TotalMinutes)
+                    .Select(x => x.Entry)
+                    .FirstOrDefault();
+            }
+
+            if (mediaParent is null) continue;
+
+            // Absorb FileIngested into MediaAdded's sub-step list as the first step.
+            if (!_ingestionSubSteps.TryGetValue(mediaParent.Id, out var mediaSubList))
+                _ingestionSubSteps[mediaParent.Id] = mediaSubList = [];
+
+            // Migrate any sub-steps already collected under the FileIngested parent.
+            if (_ingestionSubSteps.TryGetValue(ingested.Entry.Id, out var existingSubList))
+            {
+                mediaSubList.AddRange(existingSubList);
+                _ingestionSubSteps.Remove(ingested.Entry.Id);
+            }
+
+            mediaSubList.Insert(0, ingested.Entry);
+            _absorbedEntryIds.Add(ingested.Entry.Id);
         }
 
         // ── Hydration stages → standalone MetadataHydrated (within 5 min) ──────
