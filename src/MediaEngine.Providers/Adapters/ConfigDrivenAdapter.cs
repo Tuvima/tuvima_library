@@ -593,6 +593,8 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         url = ReplacePlaceholder(url, "{tmdb_id}", request.TmdbId, encode: true);
         url = ReplacePlaceholder(url, "{imdb_id}", request.ImdbId, encode: true);
         url = ReplacePlaceholder(url, "{api_key}", _config.HttpClient?.ApiKey, encode: true);
+        url = ReplacePlaceholder(url, "{lang}",    request.Language.ToLowerInvariant(), encode: true);
+        url = ReplacePlaceholder(url, "{country}", request.Country.ToLowerInvariant(),  encode: true);
 
         return url;
     }

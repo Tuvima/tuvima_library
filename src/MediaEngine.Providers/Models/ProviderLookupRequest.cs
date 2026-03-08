@@ -97,4 +97,18 @@ public sealed class ProviderLookupRequest
     /// Null for non-Wikidata providers.
     /// </summary>
     public string? SparqlBaseUrl { get; init; }
+
+    /// <summary>
+    /// BCP-47 two-letter language code from server regional settings (e.g. "en", "fr").
+    /// Used by <c>ConfigDrivenAdapter</c> as the <c>{lang}</c> URL template variable
+    /// and by <c>WikidataAdapter</c> for search and label language preference.
+    /// </summary>
+    public string Language { get; init; } = "en";
+
+    /// <summary>
+    /// ISO 3166-1 alpha-2 country code, lowercased, from server regional settings (e.g. "us", "gb").
+    /// Used by <c>ConfigDrivenAdapter</c> as the <c>{country}</c> URL template variable
+    /// (e.g. Apple Books storefront selection).
+    /// </summary>
+    public string Country { get; init; } = "us";
 }

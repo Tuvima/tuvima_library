@@ -951,6 +951,49 @@ public static class SettingsEndpoints
         .Produces(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status404NotFound);
 
+        // ── GET /settings/server-general ──────────────────────────────────────
+
+        grp.MapGet("/server-general", (IConfigurationLoader configLoader) =>
+        {
+            var core = configLoader.LoadCore();
+            return Results.Ok(new ServerGeneralResponse
+            {
+                ServerName  = core.ServerName,
+                Language    = core.Language,
+                Country     = core.Country,
+                DateFormat  = core.DateFormat,
+                TimeFormat  = core.TimeFormat,
+            });
+        })
+        .WithName("GetServerGeneral")
+        .WithSummary("Returns server identity and regional settings.")
+        .Produces<ServerGeneralResponse>(StatusCodes.Status200OK)
+        .RequireAdminOrCurator();
+
+        // ── PUT /settings/server-general ──────────────────────────────────────
+
+        grp.MapPut("/server-general", (
+            ServerGeneralRequest request,
+            IConfigurationLoader configLoader) =>
+        {
+            if (string.IsNullOrWhiteSpace(request.ServerName))
+                return Results.BadRequest(new { error = "server_name cannot be empty" });
+
+            var core = configLoader.LoadCore();
+            core.ServerName = request.ServerName.Trim();
+            core.Language   = request.Language;
+            core.Country    = request.Country;
+            core.DateFormat = request.DateFormat;
+            core.TimeFormat = request.TimeFormat;
+            configLoader.SaveCore(core);
+            return Results.Ok();
+        })
+        .WithName("UpdateServerGeneral")
+        .WithSummary("Saves server identity and regional settings.")
+        .Produces(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
+        .RequireAdmin();
+
         return app;
     }
 

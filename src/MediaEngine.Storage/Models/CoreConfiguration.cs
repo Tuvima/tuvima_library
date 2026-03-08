@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json.Serialization;
 
 namespace MediaEngine.Storage.Models;
@@ -65,4 +66,49 @@ public sealed class CoreConfiguration
     /// </summary>
     [JsonPropertyName("provider_priority")]
     public List<string> ProviderPriority { get; set; } = [];
+
+    // ── Server identity & regional settings ───────────────────────────────────
+
+    /// <summary>
+    /// Human-readable name for this server instance, used for network discovery
+    /// (mDNS/Bonjour broadcasting). Defaults to the machine name.
+    /// </summary>
+    [JsonPropertyName("server_name")]
+    public string ServerName { get; set; } = Environment.MachineName;
+
+    /// <summary>
+    /// BCP-47 two-letter language code (e.g. "en", "fr") for metadata downloads
+    /// and UI localisation. Drives provider search language and Wikidata label language.
+    /// Defaults to the host OS UI culture.
+    /// </summary>
+    [JsonPropertyName("language")]
+    public string Language { get; set; } =
+        CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
+
+    /// <summary>
+    /// ISO 3166-1 alpha-2 country code (e.g. "US", "GB") for regional metadata
+    /// storefronts (e.g. Apple Books country parameter). Defaults to the host OS region.
+    /// </summary>
+    [JsonPropertyName("country")]
+    public string Country { get; set; } = GetDefaultCountry();
+
+    /// <summary>
+    /// Date display format for the Dashboard.
+    /// Values: "system" (locale default), "short", "medium", "long", "iso8601".
+    /// </summary>
+    [JsonPropertyName("date_format")]
+    public string DateFormat { get; set; } = "system";
+
+    /// <summary>
+    /// Time display format for the Dashboard clock and timestamps.
+    /// Values: "system" (locale default), "12h", "24h".
+    /// </summary>
+    [JsonPropertyName("time_format")]
+    public string TimeFormat { get; set; } = "system";
+
+    private static string GetDefaultCountry()
+    {
+        try { return RegionInfo.CurrentRegion.TwoLetterISORegionName; }
+        catch { return "US"; }
+    }
 }

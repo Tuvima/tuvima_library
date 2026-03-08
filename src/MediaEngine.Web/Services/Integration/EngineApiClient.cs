@@ -342,6 +342,41 @@ public sealed class EngineApiClient : IEngineApiClient
 
     // ── /settings ─────────────────────────────────────────────────────────────
 
+    public async Task<ServerGeneralSettingsDto?> GetServerGeneralAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<ServerGeneralSettingsDto>("/settings/server-general", ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /settings/server-general failed");
+            LastError = ex.Message;
+            return null;
+        }
+    }
+
+    public async Task<bool> UpdateServerGeneralAsync(ServerGeneralSettingsDto settings, CancellationToken ct = default)
+    {
+        try
+        {
+            var resp = await _http.PutAsJsonAsync("/settings/server-general", settings, ct);
+            if (!resp.IsSuccessStatusCode)
+            {
+                var detail = await resp.Content.ReadAsStringAsync(ct);
+                _logger.LogWarning("PUT /settings/server-general returned {Status}: {Detail}", (int)resp.StatusCode, detail);
+                LastError = $"HTTP {(int)resp.StatusCode}: {detail}";
+            }
+            return resp.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "PUT /settings/server-general failed");
+            LastError = ex.Message;
+            return false;
+        }
+    }
+
     public async Task<FolderSettingsDto?> GetFolderSettingsAsync(CancellationToken ct = default)
     {
         try

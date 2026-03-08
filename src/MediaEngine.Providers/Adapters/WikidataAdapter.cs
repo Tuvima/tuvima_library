@@ -205,7 +205,7 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
 
                     if (qid is not null && seenQids.Add(qid))
                     {
-                        var label = await FetchEntityLabelAsync(apiClient, request.BaseUrl, qid, throttleGapMs, ct)
+                        var label = await FetchEntityLabelAsync(apiClient, request.BaseUrl, qid, throttleGapMs, ct, request.Language)
                             .ConfigureAwait(false);
 
                         candidates.Add(new QidCandidate
@@ -224,7 +224,7 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
             {
                 var searchUrl = $"{request.BaseUrl.TrimEnd('/')}" +
                     $"?action=wbsearchentities&search={Uri.EscapeDataString(request.Title)}" +
-                    $"&type=item&language=en&format=json&limit={maxCandidates}";
+                    $"&type=item&language={Uri.EscapeDataString(request.Language)}&format=json&limit={maxCandidates}";
 
                 var searchJson = await ThrottledGetAsync<JsonObject>(apiClient, searchUrl, throttleGapMs, ct)
                     .ConfigureAwait(false);
@@ -280,7 +280,8 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
     }
 
     /// <summary>
-    /// Fetches the English label and description for a single Wikidata entity.
+    /// Fetches the label and description for a single Wikidata entity in the
+    /// preferred language (with English fallback).
     /// Used to populate <see cref="QidCandidate"/> during disambiguation.
     /// </summary>
     private static async Task<(string Label, string? Description)?> FetchEntityLabelAsync(
@@ -288,14 +289,17 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
         string baseUrl,
         string qid,
         int throttleGapMs,
-        CancellationToken ct)
+        CancellationToken ct,
+        string language = "en")
     {
         if (string.IsNullOrWhiteSpace(baseUrl))
             return null;
 
+        // Request labels in the preferred language with English as fallback.
+        var langs = language == "en" ? "en" : $"{language}|en";
         var url = $"{baseUrl.TrimEnd('/')}" +
             $"?action=wbgetentities&ids={Uri.EscapeDataString(qid)}" +
-            "&format=json&languages=en&props=labels|descriptions";
+            $"&format=json&languages={Uri.EscapeDataString(langs)}&props=labels|descriptions";
 
         var json = await ThrottledGetAsync<JsonObject>(apiClient, url, throttleGapMs, ct)
             .ConfigureAwait(false);
@@ -305,8 +309,12 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
         var entity = json["entities"]?[qid]?.AsObject();
         if (entity is null) return null;
 
-        var label = entity["labels"]?["en"]?["value"]?.GetValue<string>() ?? qid;
-        var desc  = entity["descriptions"]?["en"]?["value"]?.GetValue<string>();
+        // Prefer the preferred language; fall back to English.
+        var label = entity["labels"]?[language]?["value"]?.GetValue<string>()
+                 ?? entity["labels"]?["en"]?["value"]?.GetValue<string>()
+                 ?? qid;
+        var desc  = entity["descriptions"]?[language]?["value"]?.GetValue<string>()
+                 ?? entity["descriptions"]?["en"]?["value"]?.GetValue<string>();
 
         return (label, desc);
     }
@@ -338,7 +346,7 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
             // Step 1: search for the entity by name.
             var searchUrl = $"{request.BaseUrl.TrimEnd('/')}" +
                 $"?action=wbsearchentities&search={Uri.EscapeDataString(name)}" +
-                "&type=item&language=en&format=json&limit=3";
+                $"&type=item&language={Uri.EscapeDataString(request.Language)}&format=json&limit=3";
 
             var searchJson = await ThrottledGetAsync<JsonObject>(client, searchUrl, throttleGapMs, ct)
                 .ConfigureAwait(false);
@@ -353,9 +361,11 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
             }
 
             // Step 2: fetch the full entity to extract description and image.
+            // Request preferred language with English fallback.
+            var personLangs = request.Language == "en" ? "en" : $"{request.Language}|en";
             var entityUrl = $"{request.BaseUrl.TrimEnd('/')}" +
                 $"?action=wbgetentities&ids={Uri.EscapeDataString(qid)}" +
-                "&format=json&languages=en&props=labels|descriptions|claims";
+                $"&format=json&languages={Uri.EscapeDataString(personLangs)}&props=labels|descriptions|claims";
 
             var entityJson = await ThrottledGetAsync<JsonObject>(client, entityUrl, throttleGapMs, ct)
                 .ConfigureAwait(false);
@@ -517,7 +527,7 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
                         request.Title, request.EntityId);
 
                     qid = await ResolveQidViaSearchAsync(
-                        apiClient, request.BaseUrl, request.Title, throttleGapMs, ct)
+                        apiClient, request.BaseUrl, request.Title, throttleGapMs, ct, request.Language)
                         .ConfigureAwait(false);
 
                     if (qid is not null)
@@ -697,7 +707,8 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
         string baseUrl,
         string title,
         int throttleGapMs,
-        CancellationToken ct)
+        CancellationToken ct,
+        string language = "en")
     {
         if (string.IsNullOrWhiteSpace(baseUrl))
         {
@@ -709,7 +720,7 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
 
         var searchUrl = $"{baseUrl.TrimEnd('/')}" +
             $"?action=wbsearchentities&search={Uri.EscapeDataString(title)}" +
-            "&type=item&language=en&format=json&limit=5";
+            $"&type=item&language={Uri.EscapeDataString(language)}&format=json&limit=5";
 
         _logger.LogDebug("Wikidata title search URL: {Url}", searchUrl);
 

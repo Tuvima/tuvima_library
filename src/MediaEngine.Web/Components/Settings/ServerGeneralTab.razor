@@ -1,0 +1,327 @@
+@namespace MediaEngine.Web.Components.Settings
+@inject UIOrchestratorService Orchestrator
+@inject ISnackbar Snackbar
+@inject NavigationManager Nav
+
+@* Server General — friendly name + regional settings (language, country, date/time format). *@
+
+<MudStack Spacing="4">
+
+    @* ── Server Identity ─────────────────────────────────────────────── *@
+    <MudPaper Elevation="0" Style="@GlassStyle" Class="pa-5">
+        <MudStack Spacing="3">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudIcon Icon="@Icons.Material.Outlined.Dns" Color="Color.Primary" />
+                <MudText Typo="Typo.h6">Server Identity</MudText>
+            </MudStack>
+            <MudText Typo="Typo.body2" Style="color: var(--app-text-muted);">
+                The server name appears in network discovery (mDNS/Bonjour) so other apps on your
+                home network can find your library by name.
+            </MudText>
+
+            <MudTextField @bind-Value="_serverName"
+                          Label="Server Name"
+                          Variant="Variant.Outlined"
+                          HelperText="Visible to media apps on your local network"
+                          MaxLength="64"
+                          Immediate="true"
+                          Disabled="@_saving" />
+        </MudStack>
+    </MudPaper>
+
+    @* ── Regional Settings ───────────────────────────────────────────── *@
+    <MudPaper Elevation="0" Style="@GlassStyle" Class="pa-5">
+        <MudStack Spacing="3">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudIcon Icon="@Icons.Material.Outlined.Language" Color="Color.Primary" />
+                <MudText Typo="Typo.h6">Regional Settings</MudText>
+            </MudStack>
+            <MudText Typo="Typo.body2" Style="color: var(--app-text-muted);">
+                These settings affect metadata downloads (book descriptions, genres, Wikidata labels)
+                and how dates and times are displayed throughout the Dashboard.
+            </MudText>
+
+            <MudGrid Spacing="3">
+                <MudItem xs="12" sm="6">
+                    <MudSelect T="string" @bind-Value="_language"
+                               Label="Language"
+                               Variant="Variant.Outlined"
+                               HelperText="Used for metadata provider queries"
+                               Disabled="@_saving">
+                        @foreach (var lang in Languages)
+                        {
+                            <MudSelectItem Value="@lang.Code">@lang.Label</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+
+                <MudItem xs="12" sm="6">
+                    <MudSelect T="string" @bind-Value="_country"
+                               Label="Country"
+                               Variant="Variant.Outlined"
+                               HelperText="Used for regional store lookups (e.g. Apple Books)"
+                               Disabled="@_saving">
+                        @foreach (var c in Countries)
+                        {
+                            <MudSelectItem Value="@c.Code">@c.Label</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+
+                <MudItem xs="12" sm="6">
+                    <MudSelect T="string" @bind-Value="_dateFormat"
+                               Label="Date Format"
+                               Variant="Variant.Outlined"
+                               Disabled="@_saving">
+                        <MudSelectItem Value="@("system")">System default (@SystemDateExample)</MudSelectItem>
+                        <MudSelectItem Value="@("short")">Short (e.g. @ShortDateExample)</MudSelectItem>
+                        <MudSelectItem Value="@("long")">Long (e.g. @LongDateExample)</MudSelectItem>
+                        <MudSelectItem Value="@("iso")">ISO 8601 (@IsoDateExample)</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+
+                <MudItem xs="12" sm="6">
+                    <MudSelect T="string" @bind-Value="_timeFormat"
+                               Label="Time Format"
+                               Variant="Variant.Outlined"
+                               Disabled="@_saving">
+                        <MudSelectItem Value="@("system")">System default (@SystemTimeExample)</MudSelectItem>
+                        <MudSelectItem Value="@("12h")">12-hour (e.g. @TwelveHourExample)</MudSelectItem>
+                        <MudSelectItem Value="@("24h")">24-hour (e.g. @TwentyFourHourExample)</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+            </MudGrid>
+
+            @if (_languageChanged)
+            {
+                <MudAlert Severity="Severity.Info" Dense="true">
+                    Changing the language will reload the page to apply the new UI locale.
+                </MudAlert>
+            }
+        </MudStack>
+    </MudPaper>
+
+    @* ── Save button ─────────────────────────────────────────────────── *@
+    <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2">
+        <MudButton Variant="Variant.Outlined"
+                   Color="Color.Default"
+                   OnClick="@ResetAsync"
+                   Disabled="@(_saving || _loading || !_isDirty)">
+            Reset
+        </MudButton>
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   StartIcon="@Icons.Material.Outlined.Save"
+                   OnClick="@SaveAsync"
+                   Disabled="@(_saving || _loading || !_isDirty)">
+            @(_saving ? "Saving…" : "Save Changes")
+        </MudButton>
+    </MudStack>
+
+</MudStack>
+
+@code {
+    // ── State ────────────────────────────────────────────────────────────────
+
+    private bool _loading = true;
+    private bool _saving  = false;
+
+    private string _serverName  = string.Empty;
+    private string _language    = "en";
+    private string _country     = "US";
+    private string _dateFormat  = "system";
+    private string _timeFormat  = "system";
+
+    private string _originalLanguage = "en";
+
+    private bool _languageChanged => _language != _originalLanguage;
+
+    private bool _isDirty =>
+        _serverName != _originalServerName ||
+        _language   != _originalLanguage   ||
+        _country    != _originalCountry    ||
+        _dateFormat != _originalDateFormat ||
+        _timeFormat != _originalTimeFormat;
+
+    private string _originalServerName = string.Empty;
+    private string _originalCountry    = "US";
+    private string _originalDateFormat = "system";
+    private string _originalTimeFormat = "system";
+
+    // ── Lifecycle ────────────────────────────────────────────────────────────
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        var dto = await Orchestrator.GetServerGeneralAsync();
+        if (dto is not null)
+        {
+            _serverName  = _originalServerName  = dto.ServerName;
+            _language    = _originalLanguage    = dto.Language;
+            _country     = _originalCountry     = dto.Country;
+            _dateFormat  = _originalDateFormat  = dto.DateFormat;
+            _timeFormat  = _originalTimeFormat  = dto.TimeFormat;
+        }
+        _loading = false;
+    }
+
+    // ── Actions ──────────────────────────────────────────────────────────────
+
+    private async Task SaveAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_serverName))
+        {
+            Snackbar.Add("Server name cannot be empty.", Severity.Warning);
+            return;
+        }
+
+        _saving = true;
+        var dto = new ServerGeneralSettingsDto(
+            ServerName: _serverName.Trim(),
+            Language:   _language,
+            Country:    _country,
+            DateFormat: _dateFormat,
+            TimeFormat: _timeFormat);
+
+        var ok = await Orchestrator.UpdateServerGeneralAsync(dto);
+
+        if (ok)
+        {
+            Snackbar.Add("Settings saved.", Severity.Success);
+            _originalServerName  = _serverName;
+            _originalLanguage    = _language;
+            _originalCountry     = _country;
+            _originalDateFormat  = _dateFormat;
+            _originalTimeFormat  = _timeFormat;
+
+            if (_languageChanged)
+            {
+                // Navigate to the culture-setter endpoint which writes the culture cookie,
+                // then redirects back here — triggering a full reload with the new locale.
+                var redirectBack = Uri.EscapeDataString(Nav.Uri);
+                Nav.NavigateTo($"/culture/set?culture={Uri.EscapeDataString(_language)}&redirectUri={redirectBack}", forceLoad: true);
+            }
+        }
+        else
+        {
+            Snackbar.Add("Failed to save settings. Check the Engine connection.", Severity.Error);
+        }
+
+        _saving = false;
+    }
+
+    private async Task ResetAsync()
+    {
+        await LoadAsync();
+    }
+
+    // ── Date / time preview examples ─────────────────────────────────────────
+
+    private static readonly DateTime _now = DateTime.Now;
+
+    private string SystemDateExample  => _now.ToString("d");
+    private string ShortDateExample   => _now.ToString("MM/dd/yyyy");
+    private string LongDateExample    => _now.ToString("MMMM d, yyyy");
+    private string IsoDateExample     => _now.ToString("yyyy-MM-dd");
+    private string SystemTimeExample  => _now.ToString("t");
+    private string TwelveHourExample  => _now.ToString("h:mm tt");
+    private string TwentyFourHourExample => _now.ToString("HH:mm");
+
+    // ── Glass style ──────────────────────────────────────────────────────────
+
+    private static string GlassStyle =>
+        "background: var(--app-glass-bg); border: 1px solid var(--app-glass-border); " +
+        "backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-radius: 12px;";
+
+    // ── Static data — curated language and country lists ─────────────────────
+
+    private static readonly (string Code, string Label)[] Languages =
+    [
+        ("ar", "Arabic"),
+        ("zh", "Chinese (Simplified)"),
+        ("zh-tw", "Chinese (Traditional)"),
+        ("cs", "Czech"),
+        ("da", "Danish"),
+        ("nl", "Dutch"),
+        ("en", "English"),
+        ("fi", "Finnish"),
+        ("fr", "French"),
+        ("de", "German"),
+        ("el", "Greek"),
+        ("he", "Hebrew"),
+        ("hi", "Hindi"),
+        ("hu", "Hungarian"),
+        ("id", "Indonesian"),
+        ("it", "Italian"),
+        ("ja", "Japanese"),
+        ("ko", "Korean"),
+        ("ms", "Malay"),
+        ("no", "Norwegian"),
+        ("pl", "Polish"),
+        ("pt", "Portuguese"),
+        ("pt-br", "Portuguese (Brazil)"),
+        ("ro", "Romanian"),
+        ("ru", "Russian"),
+        ("es", "Spanish"),
+        ("sv", "Swedish"),
+        ("th", "Thai"),
+        ("tr", "Turkish"),
+        ("uk", "Ukrainian"),
+        ("vi", "Vietnamese"),
+    ];
+
+    private static readonly (string Code, string Label)[] Countries =
+    [
+        ("AU", "Australia"),
+        ("AT", "Austria"),
+        ("BE", "Belgium"),
+        ("BR", "Brazil"),
+        ("CA", "Canada"),
+        ("CL", "Chile"),
+        ("CN", "China"),
+        ("CZ", "Czech Republic"),
+        ("DK", "Denmark"),
+        ("EG", "Egypt"),
+        ("FI", "Finland"),
+        ("FR", "France"),
+        ("DE", "Germany"),
+        ("GR", "Greece"),
+        ("HK", "Hong Kong"),
+        ("HU", "Hungary"),
+        ("IN", "India"),
+        ("ID", "Indonesia"),
+        ("IE", "Ireland"),
+        ("IL", "Israel"),
+        ("IT", "Italy"),
+        ("JP", "Japan"),
+        ("KR", "Korea"),
+        ("MY", "Malaysia"),
+        ("MX", "Mexico"),
+        ("NL", "Netherlands"),
+        ("NZ", "New Zealand"),
+        ("NG", "Nigeria"),
+        ("NO", "Norway"),
+        ("PL", "Poland"),
+        ("PT", "Portugal"),
+        ("RO", "Romania"),
+        ("RU", "Russia"),
+        ("SA", "Saudi Arabia"),
+        ("SG", "Singapore"),
+        ("ZA", "South Africa"),
+        ("ES", "Spain"),
+        ("SE", "Sweden"),
+        ("CH", "Switzerland"),
+        ("TW", "Taiwan"),
+        ("TH", "Thailand"),
+        ("TR", "Turkey"),
+        ("UA", "Ukraine"),
+        ("GB", "United Kingdom"),
+        ("US", "United States"),
+        ("VN", "Vietnam"),
+    ];
+}

@@ -4,5 +4,10 @@
   "data_root": "",
   "watch_directory": "",
   "library_root": "",
-  "organization_template": "{Category}/{HubName} ({Year})/{Format} - {Edition}"
+  "organization_template": "{Category}/{HubName} ({Year})/{Format} - {Edition}",
+  "server_name": "Tuvima Library",
+  "language": "en",
+  "country": "US",
+  "date_format": "system",
+  "time_format": "system"
 }

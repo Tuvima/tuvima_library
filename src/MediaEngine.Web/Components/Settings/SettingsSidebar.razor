@@ -181,6 +181,7 @@
 
         new("Server", "Server", true,
         [
+            new(SettingsSection.ServerGeneral, Icons.Material.Outlined.Dns,        "General",      true, null),
             new(SettingsSection.Library,      Icons.Material.Outlined.FolderOpen, "Library",      true, null),
             new(SettingsSection.Activity,     Icons.Material.Outlined.Timeline,   "Activity",     true, null),
             new(SettingsSection.Connectivity, Icons.Material.Outlined.Wifi,       "Connectivity", true, null),
@@ -270,7 +271,7 @@
         // Metadata
         ConnectionVault, PropertyMapper, Universe, MatchingPipeline, NeedsReview, Activity,
         // Server
-        Library, Connectivity, ApiKeys, Conflicts, Users, Maintenance,
+        ServerGeneral, Library, Connectivity, ApiKeys, Conflicts, Users, Maintenance,
         // Legacy alias — kept so existing deep links to /settings/providers redirect correctly.
         Providers
     }

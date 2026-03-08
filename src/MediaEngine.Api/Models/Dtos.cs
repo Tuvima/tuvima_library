@@ -344,6 +344,44 @@ public sealed class UpdateFoldersRequest
     public string? StagingDirectory { get; init; }
 }
 
+// ── GET /settings/server-general ──────────────────────────────────────────────
+
+public sealed class ServerGeneralResponse
+{
+    [JsonPropertyName("server_name")]
+    public string ServerName { get; init; } = string.Empty;
+
+    [JsonPropertyName("language")]
+    public string Language { get; init; } = "en";
+
+    [JsonPropertyName("country")]
+    public string Country { get; init; } = "US";
+
+    [JsonPropertyName("date_format")]
+    public string DateFormat { get; init; } = "system";
+
+    [JsonPropertyName("time_format")]
+    public string TimeFormat { get; init; } = "system";
+}
+
+public sealed class ServerGeneralRequest
+{
+    [JsonPropertyName("server_name")]
+    public string ServerName { get; init; } = string.Empty;
+
+    [JsonPropertyName("language")]
+    public string Language { get; init; } = "en";
+
+    [JsonPropertyName("country")]
+    public string Country { get; init; } = "US";
+
+    [JsonPropertyName("date_format")]
+    public string DateFormat { get; init; } = "system";
+
+    [JsonPropertyName("time_format")]
+    public string TimeFormat { get; init; } = "system";
+}
+
 // ── POST /settings/test-path ───────────────────────────────────────────────────
 
 public sealed class TestPathRequest

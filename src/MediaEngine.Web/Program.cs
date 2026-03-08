@@ -2,12 +2,33 @@ using MudBlazor.Services;
 using MediaEngine.Web.Components;
 using MediaEngine.Web.Services.Integration;
 using MediaEngine.Web.Services.Theming;
+using Microsoft.AspNetCore.Localization;
+using System.Globalization;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // ── Blazor ────────────────────────────────────────────────────────────────────
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+
+// ── Localization ──────────────────────────────────────────────────────────────
+// Supported cultures match the curated list in ServerGeneralTab.
+var supportedCultures = new[]
+{
+    "ar", "zh", "zh-TW", "cs", "da", "nl", "en", "fi", "fr", "de",
+    "el", "he", "hi", "hu", "id", "it", "ja", "ko", "ms", "no",
+    "pl", "pt", "pt-BR", "ro", "ru", "es", "sv", "th", "tr", "uk", "vi",
+}.Select(c => new CultureInfo(c)).ToList();
+
+builder.Services.AddLocalization();
+builder.Services.Configure<RequestLocalizationOptions>(opts =>
+{
+    opts.DefaultRequestCulture = new RequestCulture("en");
+    opts.SupportedCultures     = supportedCultures;
+    opts.SupportedUICultures   = supportedCultures;
+    // Cookie provider first so the Dashboard language selection takes effect.
+    opts.RequestCultureProviders.Insert(0, new CookieRequestCultureProvider());
+});
 
 // ── MudBlazor ─────────────────────────────────────────────────────────────────
 builder.Services.AddMudServices();
@@ -50,7 +71,23 @@ if (!app.Environment.IsDevelopment())
 
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 app.UseHttpsRedirection();
+app.UseRequestLocalization();
 app.UseAntiforgery();
+
+// ── Culture cookie setter ─────────────────────────────────────────────────────
+// Sets the ASP.NET Core culture cookie and redirects back to the requested page.
+// Called by ServerGeneralTab via forceLoad navigation after saving a new language.
+app.MapGet("/culture/set", (string culture, string redirectUri, HttpContext ctx) =>
+{
+    if (supportedCultures.Any(c => string.Equals(c.Name, culture, StringComparison.OrdinalIgnoreCase)))
+    {
+        ctx.Response.Cookies.Append(
+            CookieRequestCultureProvider.DefaultCookieName,
+            CookieRequestCultureProvider.MakeCookieValue(new RequestCulture(culture)),
+            new CookieOptions { Expires = DateTimeOffset.UtcNow.AddYears(1), IsEssential = true });
+    }
+    return Results.Redirect(redirectUri);
+}).AllowAnonymous();
 
 app.MapStaticAssets();
 app.MapRazorComponents<App>()

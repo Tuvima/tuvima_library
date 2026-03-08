@@ -201,6 +201,14 @@ public sealed class UIOrchestratorService : IAsyncDisposable
 
     // ── Settings ──────────────────────────────────────────────────────────────
 
+    /// <summary>Returns the server name and regional settings.</summary>
+    public Task<ServerGeneralSettingsDto?> GetServerGeneralAsync(CancellationToken ct = default)
+        => _api.GetServerGeneralAsync(ct);
+
+    /// <summary>Saves server name and regional settings.</summary>
+    public Task<bool> UpdateServerGeneralAsync(ServerGeneralSettingsDto settings, CancellationToken ct = default)
+        => _api.UpdateServerGeneralAsync(settings, ct);
+
     /// <summary>Returns the current Watch Folder and Library Folder configuration.</summary>
     public Task<FolderSettingsDto?> GetFolderSettingsAsync(CancellationToken ct = default)
         => _api.GetFolderSettingsAsync(ct);

@@ -103,6 +103,12 @@ public interface IEngineApiClient
 
     // ── Settings (/settings) ──────────────────────────────────────────────────
 
+    /// <summary>GET /settings/server-general — server name and regional settings.</summary>
+    Task<ServerGeneralSettingsDto?> GetServerGeneralAsync(CancellationToken ct = default);
+
+    /// <summary>PUT /settings/server-general — save server name and regional settings.</summary>
+    Task<bool> UpdateServerGeneralAsync(ServerGeneralSettingsDto settings, CancellationToken ct = default);
+
     /// <summary>GET /settings/folders — current Watch Folder + Library Folder paths.</summary>
     Task<FolderSettingsDto?> GetFolderSettingsAsync(CancellationToken ct = default);
 

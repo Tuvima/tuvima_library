@@ -201,6 +201,9 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         var hydration    = _configLoader.LoadHydration();
         var provConfigs  = _configLoader.LoadAllProviders();
         var slots        = _configLoader.LoadSlots();
+        var core         = _configLoader.LoadCore();
+        var lang         = string.IsNullOrWhiteSpace(core.Language) ? "en" : core.Language.ToLowerInvariant();
+        var country      = string.IsNullOrWhiteSpace(core.Country)  ? "us" : core.Country.ToLowerInvariant();
 
         // Build composite endpoint map.
         var endpointMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -232,7 +235,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         if (primaryProvider is not null)
         {
             var claims = await FetchFromProviderAsync(
-                primaryProvider, request, endpointMap, sparqlBaseUrl, ct).ConfigureAwait(false);
+                primaryProvider, request, endpointMap, sparqlBaseUrl, lang, country, ct).ConfigureAwait(false);
 
             if (claims.Count > 0)
             {
@@ -388,7 +391,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             foreach (var provider in stage2Providers)
             {
                 var claims = await FetchFromProviderAsync(
-                    provider, stage2Request, endpointMap, sparqlBaseUrl, ct)
+                    provider, stage2Request, endpointMap, sparqlBaseUrl, lang, country, ct)
                     .ConfigureAwait(false);
 
                 if (claims.Count == 0) continue;
@@ -976,10 +979,12 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         HarvestRequest request,
         Dictionary<string, string> endpointMap,
         string? sparqlBaseUrl,
+        string language,
+        string country,
         CancellationToken ct)
     {
         var baseUrl = ResolveBaseUrl(provider, endpointMap);
-        var lookupRequest = BuildLookupRequest(request, provider, baseUrl, sparqlBaseUrl);
+        var lookupRequest = BuildLookupRequest(request, provider, baseUrl, language, country, sparqlBaseUrl);
 
         try
         {
@@ -1099,6 +1104,8 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         HarvestRequest request,
         IExternalMetadataProvider provider,
         string baseUrl,
+        string language = "en",
+        string country = "us",
         string? sparqlBaseUrl = null)
     {
         var h = request.Hints;
@@ -1121,6 +1128,8 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             PreResolvedQid = request.PreResolvedQid,
             BaseUrl        = baseUrl,
             SparqlBaseUrl  = sparqlBaseUrl,
+            Language       = language,
+            Country        = country,
         };
     }
 
