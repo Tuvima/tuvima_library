@@ -1,0 +1,110 @@
+@page "/switch-profile"
+@namespace MediaEngine.Web.Components.Pages
+@inject NavigationManager Nav
+
+<PageTitle>Switch Profile — Tuvima Library</PageTitle>
+
+<div class="profile-switch-page">
+    <h2 class="profile-switch-title">Switch Profile</h2>
+    <p class="profile-switch-subtitle">Multi-profile support is coming. For now you have one profile.</p>
+
+    <div class="profile-switch-cards">
+        <div class="profile-switch-card profile-switch-card-active" @onclick="@(() => Nav.NavigateTo("/"))">
+            <MudAvatar Style="background: #C9922E; width: 56px; height: 56px; font-size: 1.4rem; flex-shrink: 0;">
+                S
+            </MudAvatar>
+            <div class="profile-info">
+                <p class="profile-name">Shaya</p>
+                <p class="profile-role">Administrator</p>
+            </div>
+            <MudIcon Icon="@Icons.Material.Filled.CheckCircle"
+                     Style="color: #EAB308; margin-left: auto;" />
+        </div>
+    </div>
+
+    <MudButton Variant="Variant.Text"
+               StartIcon="@Icons.Material.Filled.ArrowBack"
+               OnClick="@(() => Nav.NavigateTo("/"))"
+               Style="font-family: 'Montserrat', sans-serif; color: rgba(248,248,248,0.45); text-transform: none; margin-top: 8px;">
+        Back to library
+    </MudButton>
+</div>
+
+<style>
+    .profile-switch-page {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 55vh;
+        gap: 20px;
+        text-align: center;
+        padding: 2rem;
+    }
+
+    .profile-switch-title {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 1.6rem;
+        font-weight: 700;
+        color: rgba(248, 248, 248, 0.85);
+        margin: 0;
+    }
+
+    .profile-switch-subtitle {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.9rem;
+        color: rgba(248, 248, 248, 0.40);
+        margin: 0;
+        max-width: 360px;
+        line-height: 1.5;
+    }
+
+    .profile-switch-cards {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        width: 100%;
+        max-width: 360px;
+    }
+
+    .profile-switch-card {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 18px 24px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 14px;
+        cursor: pointer;
+        transition: background 0.2s ease, border-color 0.2s ease;
+        text-align: left;
+    }
+
+    .profile-switch-card:hover {
+        background: rgba(255, 255, 255, 0.08);
+    }
+
+    .profile-switch-card-active {
+        border-color: rgba(234, 179, 8, 0.30);
+        background: rgba(234, 179, 8, 0.05);
+    }
+
+    .profile-info {
+        flex: 1;
+    }
+
+    .profile-name {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 1rem;
+        font-weight: 600;
+        color: rgba(248, 248, 248, 0.90);
+        margin: 0;
+    }
+
+    .profile-role {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.78rem;
+        color: rgba(248, 248, 248, 0.40);
+        margin: 3px 0 0;
+    }
+</style>

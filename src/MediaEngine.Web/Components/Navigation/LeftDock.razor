@@ -21,6 +21,28 @@
     @* ── Navigation items ── *@
     <nav class="dock-nav">
 
+        @* Home *@
+        <div class="dock-item @(IsActive("/") ? "dock-item-active dock-item-home-active" : "dock-item-home")"
+             @onclick="@(() => Nav.NavigateTo("/"))"
+             title="Home">
+            <MudIcon Icon="@Icons.Material.Outlined.Home" Size="Size.Medium" />
+            @if (_expanded)
+            {
+                <span class="dock-label">Home</span>
+            }
+        </div>
+
+        @* Search *@
+        <div class="dock-item @(IsActive("/search") ? "dock-item-active" : "")"
+             @onclick="@(() => Nav.NavigateTo("/search"))"
+             title="Search">
+            <MudIcon Icon="@Icons.Material.Outlined.Search" Size="Size.Medium" />
+            @if (_expanded)
+            {
+                <span class="dock-label">Search</span>
+            }
+        </div>
+
         @* Virtual Libraries *@
         @foreach (var lib in Config.Libraries.Where(l => l.Enabled))
         {
@@ -56,7 +78,7 @@
 
         @* Profile avatar *@
         <div class="dock-item dock-item-avatar"
-             @onclick="@(() => Nav.NavigateTo("/settings/general"))"
+             @onclick="@(() => Nav.NavigateTo("/switch-profile"))"
              title="@DisplayName">
             <MudAvatar Style="@($"background: {AvatarColor}; width: 36px; height: 36px; font-size: 0.9rem; flex-shrink: 0;")"
                        Size="Size.Small">
@@ -70,7 +92,7 @@
 
         @* Clock *@
         <div class="dock-clock" title="@_clockDate">
-            <span class="dock-clock-time">@_clockTime</span>
+            <span class="dock-clock-time">@(_expanded ? _clockTime : _clockTimeNarrow)</span>
             @if (_expanded)
             {
                 <span class="dock-clock-date">@_clockDate</span>
@@ -99,6 +121,7 @@
 
     // Clock state
     private string _clockTime = string.Empty;
+    private string _clockTimeNarrow = string.Empty;
     private string _clockDate = string.Empty;
     private string _clockDateNarrow = string.Empty;
     private Timer? _clockTimer;
@@ -117,8 +140,10 @@
     private void UpdateClock()
     {
         var now = DateTime.Now;
-        // Respect system's short-time culture format (12h vs 24h)
+        // Respect system's short-time culture format (12h vs 24h) for expanded view
         _clockTime = now.ToString("t");
+        // Compact 24h format (5 chars max) for narrow dock — fits inside 64px width
+        _clockTimeNarrow = now.ToString("H:mm");
         _clockDate = now.ToString("ddd, MMM d");
         _clockDateNarrow = now.ToString("ddd");
     }
@@ -245,6 +270,20 @@
 
     .dock-item-active:hover {
         background: transparent;
+    }
+
+    /* Home button: soft amber highlight when active */
+    .dock-item-home-active {
+        background: rgba(234, 179, 8, 0.10) !important;
+        color: #EAB308 !important;
+    }
+
+    .dock-item-home-active:hover {
+        background: rgba(234, 179, 8, 0.15) !important;
+    }
+
+    .dock-item-home-active::before {
+        background: #EAB308 !important;
     }
 
     /* ── Label (only visible when expanded) ──────────────────────────── */

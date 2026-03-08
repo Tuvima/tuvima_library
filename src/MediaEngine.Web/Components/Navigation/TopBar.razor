@@ -28,7 +28,7 @@
             </MudBadge>
             <MudAvatar Size="Size.Small"
                        Style="@($"background: {AvatarColor}; width: 32px; height: 32px; font-size: 0.85rem; cursor: pointer;")"
-                       @onclick="@(() => Nav.NavigateTo("/settings/general"))">
+                       @onclick="@(() => Nav.NavigateTo("/switch-profile"))">
                 @AvatarInitial
             </MudAvatar>
         </div>
@@ -50,22 +50,45 @@
     }
     else
     {
-        @* Desktop (full): logo left, spacer, search + bell + avatar right *@
+        @* Desktop (full): logo left, inline search center, bell + avatar right *@
         <div class="top-bar-logo">
             <a href="/"><AppLogo Style="height: 36px; display: block;" /></a>
         </div>
 
-        <div class="top-bar-spacer"></div>
+        @* Inline search — grows to fill center space *@
+        <div class="top-bar-search-wrapper">
+            <div class="top-bar-search @(_searchActive ? "top-bar-search-focused" : "")">
+                <MudIcon Icon="@Icons.Material.Outlined.Search" Size="Size.Small" Class="top-bar-search-icon" />
+                <input value="@_searchText"
+                       @oninput="OnSearchInput"
+                       @onfocus="OnSearchFocus"
+                       @onblur="OnSearchBlur"
+                       placeholder="Search your library…"
+                       class="top-bar-search-input"
+                       type="search"
+                       autocomplete="off" />
+                @if (_searchActive && _searchResults.Count > 0)
+                {
+                    <div class="top-bar-search-dropdown">
+                        @foreach (var hub in _searchResults)
+                        {
+                            <div class="top-bar-search-result" @onmousedown="@(() => NavigateToHub(hub))">
+                                <MudIcon Icon="@Icons.Material.Filled.MenuBook" Size="Size.Small" Class="top-bar-result-icon" />
+                                <div class="top-bar-result-text">
+                                    <span class="top-bar-result-title">@hub.DisplayName</span>
+                                    @if (!string.IsNullOrEmpty(hub.Author))
+                                    {
+                                        <span class="top-bar-result-author">@hub.Author</span>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
 
         <div class="top-bar-actions">
-            <MudTooltip Text="Search (Ctrl+K)">
-                <MudIconButton Icon="@Icons.Material.Outlined.Search"
-                               Color="Color.Inherit"
-                               Size="Size.Medium"
-                               OnClick="@OnSearchRequested"
-                               aria-label="Search" />
-            </MudTooltip>
-
             <MudBadge Content="@ReviewCount" Visible="@(ReviewCount > 0)"
                       Color="Color.Error" Overlap="true" Class="top-bar-badge">
                 <MudIconButton Icon="@Icons.Material.Outlined.Notifications"
@@ -77,7 +100,7 @@
             <MudTooltip Text="@DisplayName">
                 <MudAvatar Size="Size.Small"
                            Style="@($"background: {AvatarColor}; width: 36px; height: 36px; font-size: 0.9rem; cursor: pointer;")"
-                           @onclick="@(() => Nav.NavigateTo("/settings/general"))">
+                           @onclick="@(() => Nav.NavigateTo("/switch-profile"))">
                     @AvatarInitial
                 </MudAvatar>
             </MudTooltip>
@@ -106,7 +129,54 @@
         _ => "top-bar-full",
     };
 
+    // ── Inline search state ────────────────────────────────────────────────
+
+    private string _searchText = string.Empty;
+    private bool _searchActive;
+    private List<HubViewModel> _searchResults = [];
+
+    private void OnSearchInput(ChangeEventArgs e)
+    {
+        _searchText = e.Value?.ToString() ?? string.Empty;
+        if (_searchText.Trim().Length < 1)
+        {
+            _searchResults = [];
+            return;
+        }
+
+        var term = _searchText.Trim();
+        _searchResults = State.FilteredHubs
+            .Where(h => h.DisplayName.Contains(term, StringComparison.OrdinalIgnoreCase)
+                     || (!string.IsNullOrEmpty(h.Author) && h.Author.Contains(term, StringComparison.OrdinalIgnoreCase)))
+            .Take(8)
+            .ToList();
+    }
+
+    private void OnSearchFocus()
+    {
+        _searchActive = true;
+    }
+
+    private void OnSearchBlur()
+    {
+        // Small delay so @onmousedown on a result fires before blur hides the dropdown.
+        _ = Task.Delay(200).ContinueWith(_ => InvokeAsync(() =>
+        {
+            _searchActive = false;
+            StateHasChanged();
+        }));
+    }
+
+    private void NavigateToHub(HubViewModel hub)
+    {
+        _searchText = string.Empty;
+        _searchResults = [];
+        _searchActive = false;
+        Nav.NavigateTo($"/hub/{hub.Id}");
+    }
+
     [Inject] private NavigationManager Nav { get; set; } = default!;
+    [Inject] private UniverseStateContainer State { get; set; } = default!;
 }
 
 <style>
@@ -174,5 +244,119 @@
 
     .top-bar-badge .mud-badge {
         font-size: 0.65rem;
+    }
+
+    /* ── Inline search ──────────────────────────────────────────────── */
+    .top-bar-search-wrapper {
+        flex: 1;
+        display: flex;
+        justify-content: center;
+        padding: 0 12px;
+    }
+
+    .top-bar-search {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: rgba(255, 255, 255, 0.07);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 10px;
+        padding: 7px 14px;
+        width: 100%;
+        max-width: 480px;
+        transition: background 0.2s ease, border-color 0.2s ease;
+    }
+
+    .top-bar-search-focused {
+        background: rgba(255, 255, 255, 0.10);
+        border-color: rgba(255, 255, 255, 0.18);
+    }
+
+    .top-bar-search-icon {
+        color: rgba(248, 248, 248, 0.38);
+        flex-shrink: 0;
+    }
+
+    .top-bar-search-input {
+        background: transparent;
+        border: none;
+        outline: none;
+        color: rgba(248, 248, 248, 0.90);
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.875rem;
+        width: 100%;
+        min-width: 0;
+    }
+
+    .top-bar-search-input::placeholder {
+        color: rgba(248, 248, 248, 0.28);
+    }
+
+    .top-bar-search-input::-webkit-search-cancel-button {
+        display: none;
+    }
+
+    .top-bar-search-dropdown {
+        position: absolute;
+        top: calc(100% + 8px);
+        left: 0;
+        right: 0;
+        background: rgba(8, 13, 30, 0.97);
+        border: 1px solid rgba(255, 255, 255, 0.10);
+        border-radius: 12px;
+        backdrop-filter: blur(24px);
+        -webkit-backdrop-filter: blur(24px);
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.70);
+        z-index: 2000;
+        overflow: hidden;
+    }
+
+    .top-bar-search-result {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 14px;
+        cursor: pointer;
+        transition: background 0.1s ease;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .top-bar-search-result:last-child {
+        border-bottom: none;
+    }
+
+    .top-bar-search-result:hover {
+        background: rgba(255, 255, 255, 0.06);
+    }
+
+    .top-bar-result-icon {
+        color: rgba(248, 248, 248, 0.35);
+        flex-shrink: 0;
+    }
+
+    .top-bar-result-text {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+    }
+
+    .top-bar-result-title {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: rgba(248, 248, 248, 0.88);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .top-bar-result-author {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.75rem;
+        color: rgba(248, 248, 248, 0.38);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 </style>
