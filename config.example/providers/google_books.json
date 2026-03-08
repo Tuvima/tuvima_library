@@ -58,10 +58,11 @@
       "name": "title_search",
       "priority": 2,
       "required_fields": ["title"],
-      "url_template": "{base_url}/volumes?q={query}&maxResults=25&key={api_key}",
+      "url_template": "{base_url}/volumes?q={query}&maxResults={limit}&key={api_key}",
       "query_template": "{title} {author}",
       "results_path": "items",
       "result_index": 0,
+      "fetch_limit": 5,
       "max_results": 25
     }
   ],

@@ -88,7 +88,7 @@ else
 
                                 @if (!string.IsNullOrEmpty(work.Description))
                                 {
-                                    <p class="hub-detail-work-desc">@Truncate(work.Description, 300)</p>
+                                    <p class="hub-detail-work-desc">@work.Description</p>
                                 }
                             </div>
                         </div>
@@ -346,6 +346,7 @@ else
         line-height: 1.5;
         color: rgba(248, 248, 248, 0.45);
         margin: 0;
+        white-space: pre-wrap;
     }
 
     /* ── Metadata panel ── */

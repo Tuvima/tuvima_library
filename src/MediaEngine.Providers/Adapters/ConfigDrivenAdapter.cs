@@ -239,7 +239,8 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         int limit,
         CancellationToken ct)
     {
-        var url = BuildUrl(strategy, request);
+        // Manual multi-result search — use the full requested limit.
+        var url = BuildUrl(strategy, request, limit);
         _logger.LogInformation("{Provider}/{Strategy}: SEARCH {Url}", Name, strategy.Name, url);
 
         await _throttle.WaitAsync(ct).ConfigureAwait(false);
@@ -507,7 +508,9 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         ProviderLookupRequest request,
         CancellationToken ct)
     {
-        var url = BuildUrl(strategy, request);
+        // Automatic single-result match — request only as many results as we need.
+        var fetchLimit = strategy.FetchLimit > 0 ? strategy.FetchLimit : 5;
+        var url = BuildUrl(strategy, request, fetchLimit);
         _logger.LogDebug("{Provider}/{Strategy}: GET {Url}", Name, strategy.Name, url);
 
         await _throttle.WaitAsync(ct).ConfigureAwait(false);
@@ -561,7 +564,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
 
     // ── URL building ────────────────────────────────────────────────────────
 
-    private string BuildUrl(SearchStrategyConfig strategy, ProviderLookupRequest request)
+    private string BuildUrl(SearchStrategyConfig strategy, ProviderLookupRequest request, int? limitOverride = null)
     {
         var baseUrl = ResolveBaseUrl(request);
         var template = strategy.UrlTemplate;
@@ -595,6 +598,12 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         url = ReplacePlaceholder(url, "{api_key}", _config.HttpClient?.ApiKey, encode: true);
         url = ReplacePlaceholder(url, "{lang}",    request.Language.ToLowerInvariant(), encode: true);
         url = ReplacePlaceholder(url, "{country}", request.Country.ToLowerInvariant(),  encode: true);
+
+        // {limit} — replaced with the caller-supplied override (fetch path uses fetch_limit,
+        // search path uses the manual search limit). Falls back to max_results or 25.
+        var resolvedLimit = limitOverride
+            ?? (strategy.MaxResults > 0 ? strategy.MaxResults : 25);
+        url = ReplacePlaceholder(url, "{limit}", resolvedLimit.ToString(), encode: false);
 
         return url;
     }

@@ -267,6 +267,16 @@ public sealed class SearchStrategyConfig
     public int MaxResults { get; set; }
 
     /// <summary>
+    /// Number of results to request from the API during automatic single-result matching
+    /// (<c>FetchAsync</c>). Because only <c>result_index</c> + 1 results are used,
+    /// there is no need to request the full <c>max_results</c> count.
+    /// Replaces the <c>{limit}</c> placeholder in the URL template when called via
+    /// <c>FetchAsync</c>. Default: 5.
+    /// </summary>
+    [JsonPropertyName("fetch_limit")]
+    public int FetchLimit { get; set; } = 5;
+
+    /// <summary>
     /// Optional media type filter. When non-empty, this strategy is only used
     /// when the request's media type matches one of these values.
     /// When empty/null, the strategy is used for all media types.

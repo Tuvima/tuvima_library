@@ -42,10 +42,11 @@
       "name": "ebook_search",
       "priority": 1,
       "required_fields": ["title"],
-      "url_template": "{base_url}/search?term={query}&entity=ebook&limit=25&country={country}&lang={lang}_{country}",
+      "url_template": "{base_url}/search?term={query}&entity=ebook&limit={limit}&country={country}&lang={lang}_{country}",
       "query_template": "{title} {author}",
       "results_path": "results",
       "result_index": 0,
+      "fetch_limit": 5,
       "max_results": 25,
       "media_types": ["Books"]
     },
@@ -53,10 +54,11 @@
       "name": "audiobook_search",
       "priority": 1,
       "required_fields": ["title"],
-      "url_template": "{base_url}/search?term={query}&entity=audiobook&limit=25&country={country}&lang={lang}_{country}",
+      "url_template": "{base_url}/search?term={query}&entity=audiobook&limit={limit}&country={country}&lang={lang}_{country}",
       "query_template": "{title} {author}",
       "results_path": "results",
       "result_index": 0,
+      "fetch_limit": 5,
       "max_results": 25,
       "media_types": ["Audiobooks"]
     }

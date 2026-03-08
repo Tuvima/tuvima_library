@@ -53,8 +53,12 @@ public static partial class ValueTransformRegistry
             ["to_string"] = raw => raw,
 
             // Remove all HTML tags and decode HTML entities (e.g. &amp; → &, &#39; → ')
+            // Block-level tags (br, p, div) are converted to newlines before stripping
+            // so paragraph structure survives in plain-text descriptions.
             ["strip_html"] = raw => System.Net.WebUtility.HtmlDecode(
-                HtmlTagRegex().Replace(raw, string.Empty).Trim()),
+                HtmlTagRegex().Replace(
+                    BlockTagRegex().Replace(raw, "\n"),
+                    string.Empty).Trim()),
 
             // Join array elements with ", " (default). For JsonArray values, see Apply(name, raw, args).
             ["array_join"] = raw => raw,
@@ -176,4 +180,8 @@ public static partial class ValueTransformRegistry
 
     [GeneratedRegex("<[^>]+>", RegexOptions.Compiled)]
     private static partial Regex HtmlTagRegex();
+
+    /// <summary>Matches block-level HTML tags that should become newlines in plain text.</summary>
+    [GeneratedRegex(@"<br\s*/?>\s*|</p>\s*|</div>\s*|<p[^>]*>\s*|<div[^>]*>\s*", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
+    private static partial Regex BlockTagRegex();
 }
