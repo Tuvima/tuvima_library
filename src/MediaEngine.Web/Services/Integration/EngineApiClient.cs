@@ -1133,7 +1133,7 @@ public sealed class EngineApiClient : IEngineApiClient
                 HubId          = j.HubId,
                 Title          = j.Title ?? string.Empty,
                 Author         = j.Author,
-                CoverUrl       = j.CoverUrl,
+                CoverUrl       = j.CoverUrl is not null ? AbsoluteUrl(j.CoverUrl) : null,
                 Narrator       = j.Narrator,
                 Series         = j.Series,
                 SeriesPosition = j.SeriesPosition,
@@ -1233,7 +1233,18 @@ public sealed class EngineApiClient : IEngineApiClient
 
     // ── Private mapping ───────────────────────────────────────────────────────
 
-    private static HubViewModel MapHub(HubRaw h) => HubViewModel.FromApiDto(
+    /// <summary>
+    /// Converts relative /stream/… paths stored in canonical values to absolute
+    /// Engine URLs so Dashboard components can use them directly as &lt;img src&gt;.
+    /// </summary>
+    private string AbsoluteUrl(string value)
+    {
+        if (value.StartsWith('/') && _http.BaseAddress is { } baseAddr)
+            return new Uri(baseAddr, value).ToString();
+        return value;
+    }
+
+    private HubViewModel MapHub(HubRaw h) => HubViewModel.FromApiDto(
         h.Id,
         h.UniverseId,
         h.CreatedAt,
@@ -1246,7 +1257,7 @@ public sealed class EngineApiClient : IEngineApiClient
             CanonicalValues = w.CanonicalValues.Select(cv => new CanonicalValueViewModel
             {
                 Key          = cv.Key,
-                Value        = cv.Value,
+                Value        = AbsoluteUrl(cv.Value),
                 LastScoredAt = cv.LastScoredAt,
             }).ToList(),
         }));

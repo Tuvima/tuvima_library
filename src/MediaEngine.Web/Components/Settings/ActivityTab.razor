@@ -3,6 +3,7 @@
 @using MediaEngine.Web.Models.ViewDTOs
 @inject UIOrchestratorService Orchestrator
 @inject ISnackbar Snackbar
+@inject IConfiguration Configuration
 
 @* Activity — Date-grouped timeline of all Engine actions: ingestion, metadata,
    organization, review resolution. Configurable retention at the top. *@
@@ -271,7 +272,7 @@
                                         @if (!string.IsNullOrWhiteSpace(rich.HeroUrl))
                                         {
                                             <div class="activity-hero-strip">
-                                                <img src="@rich.HeroUrl" alt="" loading="lazy"
+                                                <img src="@AbsoluteStreamUrl(rich.HeroUrl)" alt="" loading="lazy"
                                                      onerror="this.parentElement.style.display='none';" />
                                             </div>
                                         }
@@ -280,7 +281,7 @@
                                             <div class="activity-rich-thumb">
                                                 @if (!string.IsNullOrWhiteSpace(rich.CoverUrl ?? (rich.EntityId is not null ? CoverUrl(rich.EntityId) : null)))
                                                 {
-                                                    <img src="@(rich.CoverUrl ?? CoverUrl(rich.EntityId!))"
+                                                    <img src="@(rich.CoverUrl is not null ? AbsoluteStreamUrl(rich.CoverUrl) : CoverUrl(rich.EntityId!))"
                                                          alt="@rich.Title"
                                                          style="width: 100%; height: 100%; object-fit: cover;"
                                                          loading="lazy"
@@ -1556,8 +1557,18 @@
 
     // ── Rich card helpers ─────────────────────────────────────────────────────
 
-    private static string CoverUrl(string entityId)
-        => $"/stream/{entityId}/cover";
+    private string EngineBase =>
+        (Configuration["Engine:BaseUrl"] ?? "http://localhost:61495").TrimEnd('/');
+
+    private string CoverUrl(string entityId) => $"{EngineBase}/stream/{entityId}/cover";
+
+    /// <summary>Converts a relative /stream/… path from changes_json to an absolute URL.</summary>
+    private string AbsoluteStreamUrl(string relativeOrAbsolute)
+    {
+        if (relativeOrAbsolute.StartsWith('/'))
+            return $"{EngineBase}{relativeOrAbsolute}";
+        return relativeOrAbsolute;
+    }
 
     private static string MediaTypeIcon(string? mediaType) => mediaType?.ToLowerInvariant() switch
     {
