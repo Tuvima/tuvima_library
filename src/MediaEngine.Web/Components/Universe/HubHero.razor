@@ -123,6 +123,7 @@
         align-items: flex-end;
         background: #060A16;
         transition: box-shadow 0.25s ease;
+        width: 100%; /* Fill the 100vw bleed wrapper */
     }
 
     .hero-cinema-desktop {
@@ -173,13 +174,21 @@
     }
 
     /* ── Content overlay (bottom-left) ─────────────────────────────────── */
-    /* Left padding aligns with swimlane columns (88px matches PosterSwimlane) */
+    /* Left padding aligns with swimlane titles:
+       viewport → MudContainer px-md-8 (32px) + swimlane padding (88px) = 120px */
     .hero-cinema-content {
         position: relative;
         z-index: 2;
-        padding: 2rem 2.5rem 2.5rem 88px;
+        padding: 2rem 2.5rem 2.5rem 138px;
         width: 100%;
-        max-width: 800px;
+        max-width: 900px;
+    }
+
+    /* MudBlazor sm breakpoint (600–959px): container uses px-4 (16px) */
+    @@media (max-width: 959px) and (min-width: 769px) {
+        .hero-cinema-content {
+            padding: 2rem 2.5rem 2.5rem 122px;
+        }
     }
 
     .hero-cinema-title {

@@ -43,12 +43,17 @@
 
 /* ── Cinematic background ─────────────────────────────────────────────── */
 
+html {
+    scrollbar-gutter: stable; /* Reserve scrollbar space permanently so 100vw is consistent */
+}
+
 body {
     margin: 0;
     background: #060A16;
     font-family: 'Montserrat', sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden; /* Prevent horizontal scrollbar from 100vw full-bleed hero */
 }
 
 /* ── Logo colour ──────────────────────────────────────────────────────── */

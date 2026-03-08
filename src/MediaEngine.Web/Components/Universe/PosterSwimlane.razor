@@ -48,6 +48,13 @@
         padding-left: 88px;
     }
 
+    /* Mobile: dock is hidden — reduce swimlane indent to match container padding */
+    @@media (max-width: 768px) {
+        .swimlane-section {
+            padding-left: 0;
+        }
+    }
+
     .swimlane-header {
         display: flex;
         align-items: center;

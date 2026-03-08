@@ -269,12 +269,11 @@ else
 
 <style>
     /* ── Full-bleed hero wrapper — extends the hero behind the TopBar ─── */
-    /* Uses viewport-width trick to escape MudContainer constraints.      */
+    /* Uses margin-based bleed: immune to scrollbar-width artifacts.      */
     .hero-bleed-wrapper {
         width: 100vw;
         position: relative;
-        left: 50%;
-        transform: translateX(-50%);
+        margin-left: calc(50% - 50vw);
         /* Negate MudContainer's top padding (py-6 = 24px) + TopBar (64px) */
         margin-top: -88px;
         margin-bottom: 2.5rem;
