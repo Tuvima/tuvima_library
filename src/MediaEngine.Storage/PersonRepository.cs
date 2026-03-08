@@ -39,7 +39,7 @@ public sealed class PersonRepository : IPersonRepository
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentException.ThrowIfNullOrWhiteSpace(role);
 
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         // COLLATE NOCASE: SQLite case-insensitive comparison for ASCII names.
         // For non-ASCII author names (e.g. Björn) this gives best-effort matching.
@@ -66,7 +66,7 @@ public sealed class PersonRepository : IPersonRepository
         ct.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(person);
 
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             INSERT INTO persons
@@ -102,7 +102,7 @@ public sealed class PersonRepository : IPersonRepository
     {
         ct.ThrowIfCancellationRequested();
 
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             UPDATE persons
@@ -132,7 +132,7 @@ public sealed class PersonRepository : IPersonRepository
         ct.ThrowIfCancellationRequested();
         ArgumentException.ThrowIfNullOrWhiteSpace(role);
 
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         // INSERT OR IGNORE: composite PK (media_asset_id, person_id, role) prevents
         // duplicate links; repeated calls for the same triplet are safe no-ops.
@@ -157,7 +157,7 @@ public sealed class PersonRepository : IPersonRepository
     {
         ct.ThrowIfCancellationRequested();
 
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             SELECT p.id, p.name, p.role, p.wikidata_qid, p.headshot_url, p.biography,
@@ -190,7 +190,7 @@ public sealed class PersonRepository : IPersonRepository
         ct.ThrowIfCancellationRequested();
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
 
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             UPDATE persons
@@ -209,7 +209,7 @@ public sealed class PersonRepository : IPersonRepository
     {
         ct.ThrowIfCancellationRequested();
 
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             SELECT id, name, role, wikidata_qid, headshot_url, biography,
@@ -231,7 +231,7 @@ public sealed class PersonRepository : IPersonRepository
     {
         ct.ThrowIfCancellationRequested();
 
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             SELECT id, name, role, wikidata_qid, headshot_url, biography,
@@ -257,7 +257,7 @@ public sealed class PersonRepository : IPersonRepository
     {
         ct.ThrowIfCancellationRequested();
 
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             SELECT COUNT(*) FROM person_media_links WHERE person_id = @id;
@@ -274,7 +274,7 @@ public sealed class PersonRepository : IPersonRepository
         ct.ThrowIfCancellationRequested();
         ArgumentException.ThrowIfNullOrWhiteSpace(qid);
 
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             SELECT id, name, role, wikidata_qid, headshot_url, biography,
@@ -296,7 +296,7 @@ public sealed class PersonRepository : IPersonRepository
     {
         ct.ThrowIfCancellationRequested();
 
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
 
         // Delete links first (FK-safe even without ON DELETE CASCADE).
         using var linksCmd = conn.CreateCommand();

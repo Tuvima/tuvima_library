@@ -658,6 +658,18 @@ public sealed class EngineApiClient : IEngineApiClient
         catch { return false; }
     }
 
+    public async Task<List<ActivityEntryViewModel>> GetActivityByRunIdAsync(
+        Guid runId, CancellationToken ct = default)
+    {
+        try
+        {
+            var raw = await _http.GetFromJsonAsync<List<ActivityEntryViewModel>>(
+                $"/activity/run/{runId}", ct);
+            return raw ?? [];
+        }
+        catch { return []; }
+    }
+
     // ── Organization template ────────────────────────────────────────────────
 
     public async Task<OrganizationTemplateDto?> GetOrganizationTemplateAsync(

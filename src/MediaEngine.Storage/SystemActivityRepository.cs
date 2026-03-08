@@ -26,13 +26,13 @@ public sealed class SystemActivityRepository : ISystemActivityRepository
     {
         ArgumentNullException.ThrowIfNull(entry);
 
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             INSERT INTO system_activity
-                (occurred_at, action_type, hub_name, entity_id, entity_type, profile_id, changes_json, detail)
+                (occurred_at, action_type, hub_name, entity_id, entity_type, profile_id, changes_json, detail, ingestion_run_id)
             VALUES
-                (@occurred, @action, @hub, @entity, @entityType, @profile, @changes, @detail);
+                (@occurred, @action, @hub, @entity, @entityType, @profile, @changes, @detail, @runId);
             """;
 
         cmd.Parameters.AddWithValue("@occurred",   entry.OccurredAt.ToString("O"));
@@ -47,6 +47,9 @@ public sealed class SystemActivityRepository : ISystemActivityRepository
                                                         : DBNull.Value);
         cmd.Parameters.AddWithValue("@changes",    (object?)entry.ChangesJson  ?? DBNull.Value);
         cmd.Parameters.AddWithValue("@detail",     (object?)entry.Detail       ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@runId",      entry.IngestionRunId.HasValue
+                                                        ? entry.IngestionRunId.Value.ToString()
+                                                        : DBNull.Value);
 
         cmd.ExecuteNonQuery();
         return Task.CompletedTask;
@@ -57,11 +60,11 @@ public sealed class SystemActivityRepository : ISystemActivityRepository
         int limit = 50,
         CancellationToken ct = default)
     {
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             SELECT id, occurred_at, action_type, hub_name, entity_id, entity_type,
-                   profile_id, changes_json, detail
+                   profile_id, changes_json, detail, ingestion_run_id
             FROM   system_activity
             ORDER BY id DESC
             LIMIT  @limit;
@@ -83,7 +86,7 @@ public sealed class SystemActivityRepository : ISystemActivityRepository
     {
         var cutoff = DateTimeOffset.UtcNow.AddDays(-retentionDays).ToString("O");
 
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             DELETE FROM system_activity
@@ -98,11 +101,37 @@ public sealed class SystemActivityRepository : ISystemActivityRepository
     /// <inheritdoc/>
     public Task<long> CountAsync(CancellationToken ct = default)
     {
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT COUNT(*) FROM system_activity;";
         var count = (long)(cmd.ExecuteScalar() ?? 0L);
         return Task.FromResult(count);
+    }
+
+    /// <inheritdoc/>
+    public Task<IReadOnlyList<SystemActivityEntry>> GetByRunIdAsync(
+        Guid runId,
+        CancellationToken ct = default)
+    {
+        using var conn = _db.CreateConnection();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            SELECT id, occurred_at, action_type, hub_name, entity_id, entity_type,
+                   profile_id, changes_json, detail, ingestion_run_id
+            FROM   system_activity
+            WHERE  ingestion_run_id = @runId
+            ORDER BY id ASC;
+            """;
+        cmd.Parameters.AddWithValue("@runId", runId.ToString());
+
+        var results = new List<SystemActivityEntry>();
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+        {
+            results.Add(MapRow(reader));
+        }
+
+        return Task.FromResult<IReadOnlyList<SystemActivityEntry>>(results);
     }
 
     // ── Row mapping ─────────────────────────────────────────────────────────────
@@ -111,21 +140,24 @@ public sealed class SystemActivityRepository : ISystemActivityRepository
     {
         var entityIdText  = reader.IsDBNull(4) ? null : reader.GetString(4);
         var profileIdText = reader.IsDBNull(6) ? null : reader.GetString(6);
+        var runIdText     = reader.IsDBNull(9) ? null : reader.GetString(9);
 
         return new SystemActivityEntry
         {
-            Id          = reader.GetInt64(0),
-            OccurredAt  = DateTimeOffset.TryParse(reader.GetString(1), out var ts)
-                              ? ts : DateTimeOffset.UtcNow,
-            ActionType  = reader.GetString(2),
-            HubName     = reader.IsDBNull(3) ? null : reader.GetString(3),
-            EntityId    = entityIdText is not null && Guid.TryParse(entityIdText, out var eid)
-                              ? eid : null,
-            EntityType  = reader.IsDBNull(5) ? null : reader.GetString(5),
-            ProfileId   = profileIdText is not null && Guid.TryParse(profileIdText, out var pid)
-                              ? pid : null,
-            ChangesJson = reader.IsDBNull(7) ? null : reader.GetString(7),
-            Detail      = reader.IsDBNull(8) ? null : reader.GetString(8),
+            Id              = reader.GetInt64(0),
+            OccurredAt      = DateTimeOffset.TryParse(reader.GetString(1), out var ts)
+                                  ? ts : DateTimeOffset.UtcNow,
+            ActionType      = reader.GetString(2),
+            HubName         = reader.IsDBNull(3) ? null : reader.GetString(3),
+            EntityId        = entityIdText is not null && Guid.TryParse(entityIdText, out var eid)
+                                  ? eid : null,
+            EntityType      = reader.IsDBNull(5) ? null : reader.GetString(5),
+            ProfileId       = profileIdText is not null && Guid.TryParse(profileIdText, out var pid)
+                                  ? pid : null,
+            ChangesJson     = reader.IsDBNull(7) ? null : reader.GetString(7),
+            Detail          = reader.IsDBNull(8) ? null : reader.GetString(8),
+            IngestionRunId  = runIdText is not null && Guid.TryParse(runIdText, out var rid)
+                                  ? rid : null,
         };
     }
 }

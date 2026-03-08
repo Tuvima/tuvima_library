@@ -62,6 +62,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     private readonly IWriteBackService _writeBack;
     private readonly IAutoOrganizeService _autoOrganize;
     private readonly ISystemActivityRepository _activityRepo;
+    private readonly IHeroBannerGenerator _heroGenerator;
     private readonly ILogger<HydrationPipelineService> _logger;
 
     // ── Constructor ───────────────────────────────────────────────────────────
@@ -83,6 +84,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         IWriteBackService writeBack,
         IAutoOrganizeService autoOrganize,
         ISystemActivityRepository activityRepo,
+        IHeroBannerGenerator heroGenerator,
         ILogger<HydrationPipelineService> logger)
     {
         ArgumentNullException.ThrowIfNull(providers);
@@ -101,6 +103,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         ArgumentNullException.ThrowIfNull(writeBack);
         ArgumentNullException.ThrowIfNull(autoOrganize);
         ArgumentNullException.ThrowIfNull(activityRepo);
+        ArgumentNullException.ThrowIfNull(heroGenerator);
         ArgumentNullException.ThrowIfNull(logger);
 
         _providers      = providers.ToList();
@@ -119,6 +122,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         _writeBack      = writeBack;
         _autoOrganize   = autoOrganize;
         _activityRepo   = activityRepo;
+        _heroGenerator  = heroGenerator;
         _logger         = logger;
 
         _channel = Channel.CreateBounded<HarvestRequest>(new BoundedChannelOptions(500)
@@ -1407,11 +1411,58 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             _logger.LogInformation(
                 "Cover art downloaded for asset {Id} from {Url}",
                 assetId, coverUrl);
+
+            // Generate cinematic hero banner from the newly downloaded cover art.
+            await GenerateHeroBannerAsync(assetId, coverPath, fileDir, ct)
+                .ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogWarning(ex,
                 "Cover art download failed for asset {Id}; continuing",
+                assetId);
+        }
+    }
+
+    /// <summary>
+    /// Generates a cinematic hero banner from cover art and persists
+    /// <c>dominant_color</c> and <c>hero</c> canonical values.
+    /// </summary>
+    private async Task GenerateHeroBannerAsync(
+        Guid assetId, string coverPath, string outputDir, CancellationToken ct)
+    {
+        try
+        {
+            var heroResult = await _heroGenerator.GenerateAsync(coverPath, outputDir, ct)
+                .ConfigureAwait(false);
+
+            var heroCanonicals = new List<CanonicalValue>();
+            if (!string.IsNullOrEmpty(heroResult.DominantHexColor))
+            {
+                heroCanonicals.Add(new CanonicalValue
+                {
+                    EntityId = assetId, Key = "dominant_color",
+                    Value = heroResult.DominantHexColor,
+                    LastScoredAt = DateTimeOffset.UtcNow,
+                });
+            }
+            heroCanonicals.Add(new CanonicalValue
+            {
+                EntityId = assetId, Key = "hero",
+                Value = $"/stream/{assetId}/hero",
+                LastScoredAt = DateTimeOffset.UtcNow,
+            });
+            await _canonicalRepo.UpsertBatchAsync(heroCanonicals, ct)
+                .ConfigureAwait(false);
+
+            _logger.LogInformation(
+                "Hero banner generated for asset {Id} (dominant color: {Color})",
+                assetId, heroResult.DominantHexColor);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex,
+                "Hero banner generation failed for asset {Id}; continuing",
                 assetId);
         }
     }

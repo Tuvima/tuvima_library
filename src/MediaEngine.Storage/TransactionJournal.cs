@@ -28,7 +28,7 @@ public sealed class TransactionJournal : ITransactionJournal
         ArgumentException.ThrowIfNullOrWhiteSpace(entityType);
         ArgumentException.ThrowIfNullOrWhiteSpace(entityId);
 
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
 
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
@@ -58,7 +58,7 @@ public sealed class TransactionJournal : ITransactionJournal
         if (maxEntries <= 0)
             throw new ArgumentOutOfRangeException(nameof(maxEntries), "Must be > 0.");
 
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
 
         // Read current row count first to avoid an unnecessary DELETE.
         using var countCmd = conn.CreateCommand();

@@ -7,6 +7,7 @@
 @using System.Threading
 
 @* Left Navigation Dock — Floating glassmorphic panel below the TopBar.
+   Fixed content-type lanes: Home, Search, Books, Video, Music, Podcasts, Comics.
    Narrow state (64px): icon-only.
    Expanded state (hover, 220px): overlay with labels.
    Bottom: Settings → Profile avatar → Clock *@
@@ -18,46 +19,24 @@
     @* ── Top spacer to push icons down from the very top ── *@
     <div class="dock-top-spacer"></div>
 
-    @* ── Navigation items ── *@
+    @* ── Navigation items — fixed content-type lanes ── *@
     <nav class="dock-nav">
-
-        @* Home *@
-        <div class="dock-item @(IsActive("/") ? "dock-item-active dock-item-home-active" : "dock-item-home")"
-             @onclick="@(() => Nav.NavigateTo("/"))"
-             title="Home">
-            <MudIcon Icon="@Icons.Material.Outlined.Home" Size="Size.Medium" />
-            @if (_expanded)
-            {
-                <span class="dock-label">Home</span>
-            }
-        </div>
-
-        @* Search *@
-        <div class="dock-item @(IsActive("/search") ? "dock-item-active" : "")"
-             @onclick="@(() => Nav.NavigateTo("/search"))"
-             title="Search">
-            <MudIcon Icon="@Icons.Material.Outlined.Search" Size="Size.Medium" />
-            @if (_expanded)
-            {
-                <span class="dock-label">Search</span>
-            }
-        </div>
-
-        @* Virtual Libraries *@
-        @foreach (var lib in Config.Libraries.Where(l => l.Enabled))
+        @foreach (var lane in ContentLanes.All)
         {
-            var isShowAll = lib.MediaTypes.Count == 0;
-            if (!isShowAll && !HasMatchingContent(lib)) continue;
+            var route = lane.Key == "home" ? "/" : $"/{lane.Key}";
+            var isHome = lane.Key == "home";
+            var isActive = IsActive(route, lane.Key);
+            var activeClass = isActive
+                ? (isHome ? "dock-item-active dock-item-home-active" : "dock-item-active")
+                : (isHome ? "dock-item-home" : "");
 
-            var isActive = string.Equals(ActiveLibraryKey, lib.Key, StringComparison.OrdinalIgnoreCase);
-
-            <div class="dock-item @(isActive ? "dock-item-active" : "")"
-                 @onclick="@(() => SelectLibrary(lib))"
-                 title="@lib.Label">
-                <MudIcon Icon="@NavigationDefaults.GetMudIcon(lib.Icon)" Size="Size.Medium" />
+            <div class="dock-item @activeClass"
+                 @onclick="@(() => Nav.NavigateTo(route))"
+                 title="@lane.Label">
+                <MudIcon Icon="@lane.Icon" Size="Size.Medium" />
                 @if (_expanded)
                 {
-                    <span class="dock-label">@lib.Label</span>
+                    <span class="dock-label">@lane.Label</span>
                 }
             </div>
         }
@@ -66,7 +45,7 @@
     @* ── Bottom: Settings, Avatar, Clock ── *@
     <div class="dock-bottom">
         @* Settings *@
-        <div class="dock-item @(IsActive("/settings") ? "dock-item-active" : "")"
+        <div class="dock-item @(IsActive("/settings", "settings") ? "dock-item-active" : "")"
              @onclick="@(() => Nav.NavigateTo("/settings"))"
              title="Settings">
             <MudIcon Icon="@Icons.Material.Outlined.Settings" Size="Size.Medium" />
@@ -106,12 +85,6 @@
 </div>
 
 @code {
-    [Parameter] public TrayConfig Config { get; set; } = new();
-    [Parameter] public string? ActiveLibraryKey { get; set; }
-    [Parameter] public EventCallback<VirtualLibrary?> OnLibrarySelected { get; set; }
-    [Parameter] public HashSet<string> AvailableMediaTypes { get; set; } = [];
-
-    [Parameter] public EventCallback OnSearchRequested { get; set; }
     [Parameter] public string AvatarColor { get; set; } = "#C9922E";
     [Parameter] public string AvatarInitial { get; set; } = "?";
     [Parameter] public string DisplayName { get; set; } = "User";
@@ -140,9 +113,7 @@
     private void UpdateClock()
     {
         var now = DateTime.Now;
-        // Respect system's short-time culture format (12h vs 24h) for expanded view
         _clockTime = now.ToString("t");
-        // Compact 24h format (5 chars max) for narrow dock — fits inside 64px width
         _clockTimeNarrow = now.ToString("H:mm");
         _clockDate = now.ToString("ddd, MMM d");
         _clockDateNarrow = now.ToString("ddd");
@@ -150,24 +121,12 @@
 
     private void OnDeviceChanged() => InvokeAsync(StateHasChanged);
 
-    private bool IsActive(string path) =>
-        Nav.Uri.EndsWith(path, StringComparison.OrdinalIgnoreCase)
-        || (path == "/" && Nav.Uri.EndsWith(Nav.BaseUri.TrimEnd('/'), StringComparison.OrdinalIgnoreCase));
-
-    private bool HasMatchingContent(VirtualLibrary lib) =>
-        lib.MediaTypes.Any(mt => AvailableMediaTypes.Contains(mt, StringComparer.OrdinalIgnoreCase));
-
-    private async Task SelectLibrary(VirtualLibrary lib)
+    private bool IsActive(string path, string key)
     {
-        if (lib.MediaTypes.Count == 0 ||
-            string.Equals(ActiveLibraryKey, lib.Key, StringComparison.OrdinalIgnoreCase))
-        {
-            await OnLibrarySelected.InvokeAsync(null);
-        }
-        else
-        {
-            await OnLibrarySelected.InvokeAsync(lib);
-        }
+        var uri = Nav.ToBaseRelativePath(Nav.Uri);
+        if (key == "home")
+            return string.IsNullOrEmpty(uri) || uri == "/";
+        return uri.StartsWith(key, StringComparison.OrdinalIgnoreCase);
     }
 
     public void Dispose()

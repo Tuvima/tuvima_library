@@ -223,38 +223,27 @@ else
 
     private void ApplyFilter()
     {
-        var all = State.FilteredHubs;
+        // Home is cross-cutting — show ALL media types.
+        var all = _hubs;
 
-        // Book-centric: poster swimlanes show books only; videos get a separate component later.
-        var filtered = all.Where(IsBookHub).ToList();
-
-        // Hero: prefer books with cover art; fall back to any book.
-        var withCovers = filtered.Where(h => !string.IsNullOrEmpty(h.CoverUrl)).ToList();
-        var heroPool   = withCovers.Count > 0 ? withCovers : filtered;
+        // Hero: prefer hubs with cover art or hero banners.
+        var withCovers = all.Where(h => !string.IsNullOrEmpty(h.CoverUrl) || !string.IsNullOrEmpty(h.HeroUrl)).ToList();
+        var heroPool   = withCovers.Count > 0 ? withCovers : all;
         _heroHub       = heroPool.Count > 0 ? heroPool[Random.Shared.Next(heroPool.Count)] : null;
 
-        // Non-hero hubs: books except the hero.
-        _nonHeroHubs = filtered.Where(h => h != _heroHub).ToList();
+        // Non-hero hubs.
+        _nonHeroHubs = all.Where(h => h != _heroHub).ToList();
 
         // Recently added: newest first.
-        _recentHubs = filtered.OrderByDescending(h => h.CreatedAt).ToList();
+        _recentHubs = all.OrderByDescending(h => h.CreatedAt).ToList();
 
-        // Group books by media type label (Books, Audiobooks, Comics).
-        _mediaTypeGroups = filtered
+        // Group by media type label for swimlane sections.
+        _mediaTypeGroups = all
             .Where(h => !string.IsNullOrEmpty(h.PrimaryMediaType))
             .GroupBy(h => FormatMediaType(h.PrimaryMediaType!))
             .Where(g => g.Count() >= 2)
             .Select(g => new MediaTypeGroup(g.Key, g.ToList()))
             .ToList();
-    }
-
-    private static bool IsBookHub(HubViewModel h)
-    {
-        var t = (h.PrimaryMediaType ?? string.Empty).ToLowerInvariant();
-        return t.Contains("epub") || t.Contains("book")
-            || t.Contains("audio") || t.Contains("m4b")
-            || t.Contains("comic") || t.Contains("cbz") || t.Contains("cbr")
-            || string.IsNullOrEmpty(t); // unknown type — include for now
     }
 
     private static string FormatMediaType(string mediaType)
@@ -338,60 +327,7 @@ else
 }
 
 <style>
-    /* ── Hero grid overlay ─────────────────────────────────────────────── */
-    /* Two children share the same grid area:                              */
-    /*  • hero-stack-bg  — full-bleed visual background                   */
-    /*  • hero-stack-text — text in normal container flow                 */
-    /* This guarantees the hero title aligns with swimlane titles below,  */
-    /* regardless of viewport width or MudContainer offset.               */
-    .hero-stack {
-        display: grid;
-        grid-template-areas: "hero";
-        /* Negate MudContainer's top padding (py-6 = 24px) + TopBar (64px) */
-        margin-top: -88px;
-        margin-bottom: 2.5rem;
-        cursor: pointer;
-    }
-
-    .hero-stack-bg   { grid-area: hero; }
-
-    .hero-stack-text {
-        grid-area: hero;
-        align-self: end;           /* stick to the bottom of the grid area */
-        /* 88px = .swimlane-section padding-left — guarantees column alignment */
-        padding: 0 2.5rem 2.5rem 88px;
-        position: relative;
-        z-index: 3;                /* above the background layers */
-        max-width: 900px;
-    }
-
-    /* ── Full-bleed wrapper — escapes MudContainer to reach viewport edges ── */
-    /* Used inside .hero-stack-bg; also used by JourneyHero.                  */
-    .hero-bleed-wrapper {
-        width: 100vw;
-        position: relative;
-        margin-left: calc(50% - 50vw);
-    }
-
-    /* JourneyHero still uses the old standalone wrapper with its own margins */
-    .hero-bleed-wrapper-standalone {
-        width: 100vw;
-        position: relative;
-        margin-left: calc(50% - 50vw);
-        margin-top: -88px;
-        margin-bottom: 2.5rem;
-    }
-
-    /* Mobile: no dock offset — text aligns with swimlane (which also uses 0) */
-    @@media (max-width: 768px) {
-        .hero-stack {
-            min-height: 240px;
-        }
-
-        .hero-stack-text {
-            padding: 0 1.5rem 1.25rem 0;
-        }
-    }
+    /* Hero grid overlay styles (hero-stack, hero-bleed-wrapper) are in app.css */
 
     .home-empty-state {
         display: flex;

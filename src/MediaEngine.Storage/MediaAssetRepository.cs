@@ -40,7 +40,7 @@ public sealed class MediaAssetRepository : IMediaAssetRepository
         ct.ThrowIfCancellationRequested();
         ArgumentException.ThrowIfNullOrWhiteSpace(contentHash);
 
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             SELECT id, edition_id, content_hash, file_path_root, status
@@ -61,7 +61,7 @@ public sealed class MediaAssetRepository : IMediaAssetRepository
         ct.ThrowIfCancellationRequested();
         ArgumentException.ThrowIfNullOrWhiteSpace(pathRoot);
 
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             SELECT id, edition_id, content_hash, file_path_root, status
@@ -81,7 +81,7 @@ public sealed class MediaAssetRepository : IMediaAssetRepository
     {
         ct.ThrowIfCancellationRequested();
 
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             SELECT id, edition_id, content_hash, file_path_root, status
@@ -112,7 +112,7 @@ public sealed class MediaAssetRepository : IMediaAssetRepository
         ct.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(asset);
 
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
 
         // Step 1: attempt the insert.
         using var insertCmd = conn.CreateCommand();
@@ -143,7 +143,7 @@ public sealed class MediaAssetRepository : IMediaAssetRepository
     {
         ct.ThrowIfCancellationRequested();
 
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             UPDATE media_assets
@@ -163,7 +163,7 @@ public sealed class MediaAssetRepository : IMediaAssetRepository
         ct.ThrowIfCancellationRequested();
         ArgumentException.ThrowIfNullOrWhiteSpace(newPath);
 
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             UPDATE media_assets
@@ -182,7 +182,7 @@ public sealed class MediaAssetRepository : IMediaAssetRepository
     {
         ct.ThrowIfCancellationRequested();
 
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "DELETE FROM media_assets WHERE id = @id;";
         cmd.Parameters.AddWithValue("@id", id.ToString());
@@ -196,7 +196,7 @@ public sealed class MediaAssetRepository : IMediaAssetRepository
     {
         ct.ThrowIfCancellationRequested();
 
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             SELECT id, edition_id, content_hash, file_path_root, status

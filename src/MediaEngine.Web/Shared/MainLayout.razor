@@ -33,21 +33,13 @@
     @* ── Mobile Navigation Drawer (slide-out, mobile only) ── *@
     @if (DeviceContext.IsMobile)
     {
-        <MobileNavDrawer @bind-Open="@_mobileDrawerOpen"
-                         Config="@_navigationConfig.Tray"
-                         ActiveLibraryKey="@State.ActiveLibraryFilter?.Key"
-                         AvailableMediaTypes="@State.AvailableMediaTypes"
-                         OnLibrarySelected="@OnLibrarySelected" />
+        <MobileNavDrawer @bind-Open="@_mobileDrawerOpen" />
     }
 
     @* ── Left Navigation Dock (when config says visible) ── *@
     @if (ShowDock)
     {
-        <LeftDock Config="@_navigationConfig.Tray"
-                  ActiveLibraryKey="@State.ActiveLibraryFilter?.Key"
-                  AvailableMediaTypes="@State.AvailableMediaTypes"
-                  OnLibrarySelected="@OnLibrarySelected"
-                  AvatarColor="@_avatarColor"
+        <LeftDock AvatarColor="@_avatarColor"
                   AvatarInitial="@_avatarInitial"
                   DisplayName="@_displayName" />
     }
@@ -68,9 +60,6 @@
     private string _avatarColor = "#C9922E";
     private string _avatarInitial = "?";
     private string _displayName = "User";
-
-    // Navigation configuration — loaded from profile, falls back to defaults.
-    private NavigationConfigViewModel _navigationConfig = NavigationDefaults.CreateDefault();
 
     // Review queue badge count for notification bell.
     private int _reviewCount;
@@ -159,7 +148,6 @@
                     ? profile.DisplayName[0].ToString().ToUpper()
                     : "?";
                 _displayName = profile.DisplayName;
-                _navigationConfig = NavigationDefaults.Deserialize(profile.NavigationConfig);
                 StateHasChanged();
             }
         }
@@ -167,11 +155,6 @@
         {
             // Engine may be offline — keep defaults.
         }
-    }
-
-    private void OnLibrarySelected(VirtualLibrary? library)
-    {
-        State.SetActiveLibrary(library);
     }
 
     private async Task LoadReviewCountAsync()

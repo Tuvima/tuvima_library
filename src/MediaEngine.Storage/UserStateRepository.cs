@@ -30,7 +30,7 @@ public sealed class UserStateRepository : IUserStateStore
     {
         ct.ThrowIfCancellationRequested();
 
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             SELECT user_id, asset_id, content_hash, progress_pct,
@@ -53,7 +53,7 @@ public sealed class UserStateRepository : IUserStateStore
         ct.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(state);
 
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             INSERT OR REPLACE INTO user_states
@@ -84,7 +84,7 @@ public sealed class UserStateRepository : IUserStateStore
         ct.ThrowIfCancellationRequested();
         ArgumentException.ThrowIfNullOrWhiteSpace(contentHash);
 
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             SELECT user_id, asset_id, content_hash, progress_pct,
@@ -108,7 +108,7 @@ public sealed class UserStateRepository : IUserStateStore
     {
         ct.ThrowIfCancellationRequested();
 
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             SELECT user_id, asset_id, content_hash, progress_pct,

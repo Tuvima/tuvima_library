@@ -321,6 +321,9 @@ builder.Services.AddSingleton<IImageCacheRepository,      ImageCacheRepository>(
 builder.Services.AddSingleton<ISidecarWriter,  SidecarWriter>();
 builder.Services.AddSingleton<ILibraryScanner, LibraryScanner>();
 
+// ── Hero banner generation (cover art → cinematic hero.jpg) ──────────────────
+builder.Services.AddSingleton<IHeroBannerGenerator, HeroBannerGenerator>();
+
 // ── Phase 1 (Activity Log): System activity ledger + daily pruning ───────────
 builder.Services.AddSingleton<ISystemActivityRepository, SystemActivityRepository>();
 builder.Services.AddHostedService<ActivityPruningService>();

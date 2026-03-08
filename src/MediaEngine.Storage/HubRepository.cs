@@ -26,7 +26,7 @@ public sealed class HubRepository : IHubRepository
     {
         ct.ThrowIfCancellationRequested();
 
-        var conn  = _db.Open();
+        using var conn  = _db.CreateConnection();
         var hubs  = new Dictionary<Guid, Hub>();
         var works = new Dictionary<Guid, Work>();
 
@@ -170,7 +170,7 @@ public sealed class HubRepository : IHubRepository
     {
         ct.ThrowIfCancellationRequested();
 
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
 
         // Find the hub that owns a relationship matching (rel_type, rel_qid).
         Guid? hubId = null;
@@ -252,7 +252,7 @@ public sealed class HubRepository : IHubRepository
         await _db.AcquireWriteLockAsync(ct);
         try
         {
-            var conn = _db.Open();
+            using var conn = _db.CreateConnection();
             using var tx = conn.BeginTransaction();
 
             foreach (var rel in relationships)
@@ -286,7 +286,7 @@ public sealed class HubRepository : IHubRepository
     {
         ct.ThrowIfCancellationRequested();
 
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             SELECT e.work_id
@@ -313,7 +313,7 @@ public sealed class HubRepository : IHubRepository
         await _db.AcquireWriteLockAsync(ct);
         try
         {
-            var conn = _db.Open();
+            using var conn = _db.CreateConnection();
             using var cmd = conn.CreateCommand();
             cmd.CommandText = """
                 UPDATE works SET hub_id = @hubId WHERE id = @workId;
@@ -336,7 +336,7 @@ public sealed class HubRepository : IHubRepository
         await _db.AcquireWriteLockAsync(ct);
         try
         {
-            var conn = _db.Open();
+            using var conn = _db.CreateConnection();
             using var tx = conn.BeginTransaction();
 
             // Re-assign all Works from mergeHub to keepHub.
@@ -390,7 +390,7 @@ public sealed class HubRepository : IHubRepository
     {
         ct.ThrowIfCancellationRequested();
 
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             SELECT id, universe_id, display_name, created_at, universe_status
@@ -421,7 +421,7 @@ public sealed class HubRepository : IHubRepository
     {
         ct.ThrowIfCancellationRequested();
 
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
 
         // INSERT OR IGNORE ensures idempotency for new hubs.
         // UPDATE sets display_name on every call so the latest ingested name wins.
@@ -448,7 +448,7 @@ public sealed class HubRepository : IHubRepository
     {
         ct.ThrowIfCancellationRequested();
 
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             UPDATE works
@@ -468,7 +468,7 @@ public sealed class HubRepository : IHubRepository
     {
         ct.ThrowIfCancellationRequested();
 
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             UPDATE works

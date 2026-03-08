@@ -10,19 +10,28 @@
 {
     <div class="hero-cinema @SizeClass @(BackgroundOnly ? "hero-bg-only" : "")" @onclick="OnClick">
 
-        @* ── Blurred cover art background ── *@
-        @if (!string.IsNullOrEmpty(Hub.CoverUrl))
+        @* ── Pre-rendered hero banner (server-generated) or CSS-blurred cover fallback ── *@
+        @if (!string.IsNullOrEmpty(Hub.HeroUrl))
+        {
+            <img src="@Hub.HeroUrl"
+                 alt=""
+                 class="hero-cinema-bg-prerendered" />
+        }
+        else if (!string.IsNullOrEmpty(Hub.CoverUrl))
         {
             <img src="@Hub.CoverUrl"
                  alt=""
                  class="hero-cinema-bg" />
         }
 
-        @* ── Dark vignette overlay ── *@
-        <div class="hero-cinema-vignette" />
+        @* ── Dark vignette overlay (only needed for CSS-blurred fallback) ── *@
+        @if (string.IsNullOrEmpty(Hub.HeroUrl))
+        {
+            <div class="hero-cinema-vignette" />
+        }
 
-        @* ── Accent colour fallback gradient (when no cover art) ── *@
-        @if (string.IsNullOrEmpty(Hub.CoverUrl))
+        @* ── Accent colour fallback gradient (when no cover art at all) ── *@
+        @if (string.IsNullOrEmpty(Hub.HeroUrl) && string.IsNullOrEmpty(Hub.CoverUrl))
         {
             <div class="hero-cinema-gradient" style="--hero-accent: @(Hub.DominantHexColor ?? "#C9922E");" />
         }
@@ -145,7 +154,18 @@
         min-height: 520px;
     }
 
-    /* ── Blurred cover art background image ────────────────────────────── */
+    /* ── Pre-rendered hero banner (server-generated, no CSS blur needed) ── */
+    .hero-cinema-bg-prerendered {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        pointer-events: none;
+        z-index: 0;
+    }
+
+    /* ── Blurred cover art background image (CSS fallback) ────────────── */
     .hero-cinema-bg {
         position: absolute;
         inset: -30px;

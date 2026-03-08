@@ -27,6 +27,9 @@ public sealed class HubViewModel
     /// <summary>Cover art URL from the first Work's canonical "cover" value (external provider URL).</summary>
     public string? CoverUrl => Works.Select(w => w.CoverUrl).FirstOrDefault(u => !string.IsNullOrEmpty(u));
 
+    /// <summary>Pre-rendered hero banner URL from the first Work's canonical "hero" value.</summary>
+    public string? HeroUrl => Works.Select(w => w.HeroUrl).FirstOrDefault(u => !string.IsNullOrEmpty(u));
+
     /// <summary>Release year from the first Work with a year value.</summary>
     public string? Year => Works.Select(w => w.Year).FirstOrDefault(y => !string.IsNullOrEmpty(y));
 

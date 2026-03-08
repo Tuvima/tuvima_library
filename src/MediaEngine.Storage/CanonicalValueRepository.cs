@@ -44,7 +44,7 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository
         await _db.AcquireWriteLockAsync(ct).ConfigureAwait(false);
         try
         {
-            var conn = _db.Open();
+            using var conn = _db.CreateConnection();
 
             // Single transaction: atomicity + significant write-performance gain.
             using var tx = conn.BeginTransaction();
@@ -102,7 +102,7 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository
     {
         ct.ThrowIfCancellationRequested();
 
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             SELECT entity_id, key, value, last_scored_at, is_conflicted
@@ -129,7 +129,7 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository
     {
         ct.ThrowIfCancellationRequested();
 
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             SELECT entity_id, key, value, last_scored_at, is_conflicted
@@ -157,7 +157,7 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository
         await _db.AcquireWriteLockAsync(ct).ConfigureAwait(false);
         try
         {
-            var conn = _db.Open();
+            using var conn = _db.CreateConnection();
             using var cmd = conn.CreateCommand();
             cmd.CommandText = "DELETE FROM canonical_values WHERE entity_id = @entity_id;";
             cmd.Parameters.AddWithValue("@entity_id", entityId.ToString());
@@ -179,7 +179,7 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository
         ArgumentException.ThrowIfNullOrWhiteSpace(key);
         ArgumentException.ThrowIfNullOrWhiteSpace(value);
 
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             SELECT entity_id

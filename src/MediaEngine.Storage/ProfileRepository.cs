@@ -29,7 +29,7 @@ public sealed class ProfileRepository : IProfileRepository
     {
         ct.ThrowIfCancellationRequested();
 
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             SELECT id, display_name, avatar_color, role, pin_hash, created_at, navigation_config
@@ -52,7 +52,7 @@ public sealed class ProfileRepository : IProfileRepository
     {
         ct.ThrowIfCancellationRequested();
 
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             SELECT id, display_name, avatar_color, role, pin_hash, created_at, navigation_config
@@ -73,7 +73,7 @@ public sealed class ProfileRepository : IProfileRepository
         ct.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(profile);
 
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             INSERT INTO profiles (id, display_name, avatar_color, role, pin_hash, created_at, navigation_config)
@@ -97,7 +97,7 @@ public sealed class ProfileRepository : IProfileRepository
         ct.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(profile);
 
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             UPDATE profiles
@@ -132,7 +132,7 @@ public sealed class ProfileRepository : IProfileRepository
         if (id == Profile.SeedProfileId)
             return Task.FromResult(false);
 
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "DELETE FROM profiles WHERE id = @id;";
         cmd.Parameters.AddWithValue("@id", id.ToString());

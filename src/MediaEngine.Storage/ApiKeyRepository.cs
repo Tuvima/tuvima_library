@@ -29,7 +29,7 @@ public sealed class ApiKeyRepository : IApiKeyRepository
         ct.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(key);
 
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             INSERT INTO api_keys (id, label, hashed_key, role, created_at)
@@ -51,7 +51,7 @@ public sealed class ApiKeyRepository : IApiKeyRepository
         ct.ThrowIfCancellationRequested();
         ArgumentException.ThrowIfNullOrWhiteSpace(hashedKey);
 
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             SELECT id, label, hashed_key, role, created_at
@@ -71,7 +71,7 @@ public sealed class ApiKeyRepository : IApiKeyRepository
     {
         ct.ThrowIfCancellationRequested();
 
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             SELECT id, label, role, created_at
@@ -102,7 +102,7 @@ public sealed class ApiKeyRepository : IApiKeyRepository
     {
         ct.ThrowIfCancellationRequested();
 
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var deleteCmd = conn.CreateCommand();
         deleteCmd.CommandText = "DELETE FROM api_keys WHERE id = @id;";
         deleteCmd.Parameters.AddWithValue("@id", id.ToString());
@@ -120,7 +120,7 @@ public sealed class ApiKeyRepository : IApiKeyRepository
     {
         ct.ThrowIfCancellationRequested();
 
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "DELETE FROM api_keys;";
         var deleted = cmd.ExecuteNonQuery();

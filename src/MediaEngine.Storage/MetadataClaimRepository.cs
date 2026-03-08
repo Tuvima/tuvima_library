@@ -42,7 +42,7 @@ public sealed class MetadataClaimRepository : IMetadataClaimRepository
         await _db.AcquireWriteLockAsync(ct).ConfigureAwait(false);
         try
         {
-            var conn = _db.Open();
+            using var conn = _db.CreateConnection();
 
             // Wrap the batch in a single transaction for atomicity + performance.
             using var tx = conn.BeginTransaction();
@@ -106,7 +106,7 @@ public sealed class MetadataClaimRepository : IMetadataClaimRepository
     {
         ct.ThrowIfCancellationRequested();
 
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             SELECT id, entity_id, provider_id, claim_key, claim_value,
@@ -141,7 +141,7 @@ public sealed class MetadataClaimRepository : IMetadataClaimRepository
         await _db.AcquireWriteLockAsync(ct).ConfigureAwait(false);
         try
         {
-            var conn = _db.Open();
+            using var conn = _db.CreateConnection();
             using var cmd = conn.CreateCommand();
             cmd.CommandText = "DELETE FROM metadata_claims WHERE entity_id = @entity_id;";
             cmd.Parameters.AddWithValue("@entity_id", entityId.ToString());

@@ -82,6 +82,9 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     // Reconciliation — cleans orphaned DB records before the initial scan.
     private readonly IReconciliationService _reconciliation;
 
+    // Hero banner generation — creates cinematic hero.jpg from cover art.
+    private readonly IHeroBannerGenerator _heroGenerator;
+
     public IngestionEngine(
         IFileWatcher              watcher,
         DebounceQueue             debounce,
@@ -103,7 +106,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         IMediaEntityChainFactory   chainFactory,
         IReviewQueueRepository     reviewRepo,
         ISystemActivityRepository  activityRepo,
-        IReconciliationService     reconciliation)
+        IReconciliationService     reconciliation,
+        IHeroBannerGenerator       heroGenerator)
     {
         _watcher        = watcher;
         _debounce       = debounce;
@@ -126,6 +130,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         _reviewRepo     = reviewRepo;
         _activityRepo   = activityRepo;
         _reconciliation = reconciliation;
+        _heroGenerator  = heroGenerator;
     }
 
     // =========================================================================
@@ -295,6 +300,10 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
     private async Task ProcessCandidateAsync(IngestionCandidate candidate, CancellationToken ct)
     {
+        // Generate a correlation ID for this ingestion run so all activity entries
+        // can be grouped into a single consolidated card in the Dashboard.
+        var ingestionRunId = Guid.NewGuid();
+
         // Step 2: skip failed probe candidates.
         if (candidate.IsFailed)
         {
@@ -351,10 +360,11 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 // Original file still exists — normal duplicate handling.
                 await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
                 {
-                    ActionType = Domain.Enums.SystemActionType.DuplicateSkipped,
-                    EntityId   = existing.Id,
-                    EntityType = "MediaAsset",
-                    Detail     = $"Duplicate skipped: {Path.GetFileName(candidate.Path)}",
+                    ActionType     = Domain.Enums.SystemActionType.DuplicateSkipped,
+                    EntityId       = existing.Id,
+                    EntityType     = "MediaAsset",
+                    Detail         = $"Duplicate skipped: {Path.GetFileName(candidate.Path)}",
+                    IngestionRunId = ingestionRunId,
                 }, ct).ConfigureAwait(false);
 
                 await TryReorganizeExistingAsync(existing, candidate.Path, ct)
@@ -381,10 +391,11 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             });
             await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
             {
-                ActionType  = Domain.Enums.SystemActionType.MediaFailed,
-                EntityType  = "MediaAsset",
-                ChangesJson = failedJson,
-                Detail      = $"Failed — {Path.GetFileName(candidate.Path)}: {result.CorruptReason}",
+                ActionType     = Domain.Enums.SystemActionType.MediaFailed,
+                EntityType     = "MediaAsset",
+                ChangesJson    = failedJson,
+                Detail         = $"Failed — {Path.GetFileName(candidate.Path)}: {result.CorruptReason}",
+                IngestionRunId = ingestionRunId,
             }, ct).ConfigureAwait(false);
 
             await SafePublishAsync("IngestionFailed", new IngestionFailedEvent(
@@ -714,6 +725,41 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                     Path.Combine(fileFolder, "cover.jpg"),
                     result.CoverImage, ct).ConfigureAwait(false);
             }
+
+            // Step 11c: generate cinematic hero banner from cover art.
+            // Produces hero.jpg alongside cover.jpg, extracting dominant palette color.
+            var coverPath = Path.Combine(fileFolder, "cover.jpg");
+            if (File.Exists(coverPath))
+            {
+                try
+                {
+                    var heroResult = await _heroGenerator.GenerateAsync(coverPath, fileFolder, ct)
+                                                         .ConfigureAwait(false);
+
+                    var heroCanonicals = new List<CanonicalValue>();
+                    if (!string.IsNullOrEmpty(heroResult.DominantHexColor))
+                    {
+                        heroCanonicals.Add(new CanonicalValue
+                        {
+                            EntityId = assetId, Key = "dominant_color",
+                            Value = heroResult.DominantHexColor,
+                            LastScoredAt = DateTimeOffset.UtcNow,
+                        });
+                    }
+                    heroCanonicals.Add(new CanonicalValue
+                    {
+                        EntityId = assetId, Key = "hero",
+                        Value = $"/stream/{assetId}/hero",
+                        LastScoredAt = DateTimeOffset.UtcNow,
+                    });
+                    await _canonicalRepo.UpsertBatchAsync(heroCanonicals, ct)
+                        .ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Hero banner generation failed for {Path}", coverPath);
+                }
+            }
         }
 
         // Step 12: write-back.
@@ -748,6 +794,12 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             : !string.Equals(currentPath, candidate.Path, StringComparison.Ordinal) ? "staging"
             : null;
 
+        // Build hero URL if hero was generated for this asset.
+        string? heroUrl = fileIsInLibrary
+            && File.Exists(Path.Combine(Path.GetDirectoryName(currentPath) ?? "", "hero.jpg"))
+            ? $"/stream/{assetId}/hero"
+            : null;
+
         var finalRichJson = JsonSerializer.Serialize(new
         {
             title        = resolvedTitle,
@@ -759,6 +811,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             description  = candidate.Metadata?.GetValueOrDefault("description", string.Empty) ?? string.Empty,
             entity_id    = assetId.ToString(),
             organized_to = organizedTo,
+            hero_url     = heroUrl,
+            cover_url    = fileIsInLibrary ? $"/stream/{assetId}/cover" : (string?)null,
         });
 
         string outcome = fileIsInLibrary
@@ -767,9 +821,16 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 ? $"Ingested — \"{resolvedTitle}\" (awaiting enrichment)"
                 : $"Ingested — \"{resolvedTitle}\" (sent to review)";
 
-        // Demoted from activity ledger to debug log (Phase 5 — activity consolidation).
-        // The consolidated MediaAdded event is created at the end of the hydration pipeline.
-        _logger.LogDebug("FileIngested — {Outcome}", outcome);
+        await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
+        {
+            ActionType     = Domain.Enums.SystemActionType.FileIngested,
+            EntityId       = assetId,
+            EntityType     = "MediaAsset",
+            HubName        = resolvedTitle,
+            ChangesJson    = finalRichJson,
+            Detail         = outcome,
+            IngestionRunId = ingestionRunId,
+        }, ct).ConfigureAwait(false);
     }
 
     private async Task HandleDeletedAsync(IngestionCandidate candidate, CancellationToken ct)
@@ -1269,6 +1330,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         if (!string.IsNullOrEmpty(editionFolder) && Directory.Exists(editionFolder))
         {
             SafeDeleteFile(Path.Combine(editionFolder, "cover.jpg"));
+            SafeDeleteFile(Path.Combine(editionFolder, "hero.jpg"));
             SafeDeleteFile(Path.Combine(editionFolder, "library.xml"));
             TryDeleteEmptyDirectory(editionFolder);
         }

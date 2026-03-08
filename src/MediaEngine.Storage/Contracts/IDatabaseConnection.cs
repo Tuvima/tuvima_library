@@ -9,10 +9,20 @@ namespace MediaEngine.Storage.Contracts;
 public interface IDatabaseConnection : IDisposable
 {
     /// <summary>
-    /// Opens (or returns the already-open) connection.
-    /// Sets PRAGMA journal_mode=WAL, foreign_keys=ON, and temp_store=MEMORY.
+    /// Opens (or returns the already-open) shared connection used only for
+    /// schema initialization and startup checks.  Do NOT use for normal
+    /// repository operations — use <see cref="CreateConnection"/> instead.
     /// </summary>
     SqliteConnection Open();
+
+    /// <summary>
+    /// Returns a new pooled connection configured with WAL mode, foreign keys,
+    /// and a busy timeout.  Callers MUST dispose the returned connection
+    /// (use <c>using var conn = _db.CreateConnection();</c>).
+    /// Each thread gets its own connection, eliminating internal command-list
+    /// corruption when multiple threads operate concurrently.
+    /// </summary>
+    SqliteConnection CreateConnection();
 
     /// <summary>
     /// Applies the embedded schema DDL idempotently.

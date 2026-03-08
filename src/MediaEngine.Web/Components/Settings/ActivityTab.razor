@@ -267,12 +267,20 @@
 
                                     @if (entry.RichData is { } rich)
                                     {
+                                        @* Hero banner strip — shown above the card when available *@
+                                        @if (!string.IsNullOrWhiteSpace(rich.HeroUrl))
+                                        {
+                                            <div class="activity-hero-strip">
+                                                <img src="@rich.HeroUrl" alt="" loading="lazy"
+                                                     onerror="this.parentElement.style.display='none';" />
+                                            </div>
+                                        }
                                         <div class="activity-rich-card">
                                             @* Thumbnail — 120x180px *@
                                             <div class="activity-rich-thumb">
-                                                @if (!string.IsNullOrWhiteSpace(rich.EntityId))
+                                                @if (!string.IsNullOrWhiteSpace(rich.CoverUrl ?? (rich.EntityId is not null ? CoverUrl(rich.EntityId) : null)))
                                                 {
-                                                    <img src="@CoverUrl(rich.EntityId)"
+                                                    <img src="@(rich.CoverUrl ?? CoverUrl(rich.EntityId!))"
                                                          alt="@rich.Title"
                                                          style="width: 100%; height: 100%; object-fit: cover;"
                                                          loading="lazy"
@@ -1083,64 +1091,71 @@
                 _absorbedEntryIds.Add(missing.Id);
         }
 
-        // ── Ingestion sub-steps → FileIngested (within 5 min, same EntityId) ────
+        // ── Ingestion sub-steps and post-ingestion events → FileIngested ────────
+        // Strategy 1: group by IngestionRunId (precise, new entries).
+        // Strategy 2: fallback to timestamp + EntityId correlation (legacy entries).
         var ingSubTypes = new HashSet<string>
         {
             "FileDetected", "FileHashed", "FileProcessed", "FileScored",
             "EntityChainCreated", "CoverArtSaved", "MetadataTagsWritten",
             "HydrationEnqueued", "MovedToStaging",
         };
-        var ingestedIndex = _entries
-            .Where(e => e.ActionType == "FileIngested")
-            .Select(e => (Entry: e, Ts: ParseTs(e.OccurredAt)))
-            .Where(x => x.Ts is not null)
-            .ToList();
-        foreach (var sub in _entries.Where(e => ingSubTypes.Contains(e.ActionType)))
-        {
-            var subTs = ParseTs(sub.OccurredAt);
-            if (subTs is null) continue;
-            var parent = ingestedIndex
-                .Where(x =>
-                    (sub.EntityId is null ||
-                     string.Equals(x.Entry.EntityId, sub.EntityId, StringComparison.OrdinalIgnoreCase))
-                    && x.Ts!.Value >= subTs.Value
-                    && (x.Ts.Value - subTs.Value).TotalMinutes <= 5)
-                .OrderBy(x => x.Ts)
-                .Select(x => x.Entry)
-                .FirstOrDefault();
-            if (parent is null) continue;
-            if (!_ingestionSubSteps.TryGetValue(parent.Id, out var subList))
-                _ingestionSubSteps[parent.Id] = subList = [];
-            subList.Add(sub);
-            _absorbedEntryIds.Add(sub.Id);
-        }
-
-        // ── Post-ingestion events → FileIngested (within 30 min, same EntityId) ──
         var postIngestionTypes = new HashSet<string>
         {
             "PathUpdated", "MetadataHydrated", "PersonHydrated", "PersonEnriched",
             "SidecarUpdated", "BridgeSyncUpdated", "MetadataRefreshed", "HashVerified",
             "HydrationStage1Completed", "HydrationStage2Completed", "HydrationStage3Completed",
-            "ReviewItemResolved",
+            "ReviewItemResolved", "DuplicateSkipped", "MediaFailed",
         };
-        foreach (var post in _entries.Where(e => postIngestionTypes.Contains(e.ActionType)))
+        var allSubTypes = new HashSet<string>(ingSubTypes.Concat(postIngestionTypes));
+
+        var ingestedIndex = _entries
+            .Where(e => e.ActionType == "FileIngested")
+            .Select(e => (Entry: e, Ts: ParseTs(e.OccurredAt)))
+            .Where(x => x.Ts is not null)
+            .ToList();
+
+        // Build RunId → FileIngested parent lookup for precise grouping.
+        var runIdToParent = ingestedIndex
+            .Where(x => !string.IsNullOrEmpty(x.Entry.IngestionRunId))
+            .GroupBy(x => x.Entry.IngestionRunId!)
+            .ToDictionary(g => g.Key, g => g.First().Entry);
+
+        foreach (var sub in _entries.Where(e => allSubTypes.Contains(e.ActionType)))
         {
-            var postTs = ParseTs(post.OccurredAt);
-            if (postTs is null) continue;
-            var parent = ingestedIndex
-                .Where(x =>
-                    (post.EntityId is null ||
-                     string.Equals(x.Entry.EntityId, post.EntityId, StringComparison.OrdinalIgnoreCase))
-                    && postTs.Value >= x.Ts!.Value
-                    && (postTs.Value - x.Ts.Value).TotalMinutes <= 30)
-                .OrderByDescending(x => x.Ts)
-                .Select(x => x.Entry)
-                .FirstOrDefault();
+            ActivityEntryViewModel? parent = null;
+
+            // Strategy 1: match by IngestionRunId.
+            if (!string.IsNullOrEmpty(sub.IngestionRunId)
+                && runIdToParent.TryGetValue(sub.IngestionRunId, out var runParent))
+            {
+                parent = runParent;
+            }
+            else
+            {
+                // Strategy 2: fallback — timestamp + EntityId correlation.
+                var subTs = ParseTs(sub.OccurredAt);
+                if (subTs is not null)
+                {
+                    var maxWindow = ingSubTypes.Contains(sub.ActionType) ? 5 : 30;
+                    parent = ingestedIndex
+                        .Where(x =>
+                            (sub.EntityId is null ||
+                             string.Equals(x.Entry.EntityId, sub.EntityId, StringComparison.OrdinalIgnoreCase))
+                            && (ingSubTypes.Contains(sub.ActionType)
+                                ? (x.Ts!.Value >= subTs.Value && (x.Ts.Value - subTs.Value).TotalMinutes <= maxWindow)
+                                : (subTs.Value >= x.Ts!.Value && (subTs.Value - x.Ts.Value).TotalMinutes <= maxWindow)))
+                        .OrderBy(x => Math.Abs((x.Ts!.Value - subTs.Value).TotalSeconds))
+                        .Select(x => x.Entry)
+                        .FirstOrDefault();
+                }
+            }
+
             if (parent is null) continue;
             if (!_ingestionSubSteps.TryGetValue(parent.Id, out var subList))
                 _ingestionSubSteps[parent.Id] = subList = [];
-            subList.Add(post);
-            _absorbedEntryIds.Add(post.Id);
+            subList.Add(sub);
+            _absorbedEntryIds.Add(sub.Id);
         }
 
         // ── Hydration stages → standalone MetadataHydrated (within 5 min) ──────
@@ -1841,6 +1856,26 @@
         background: var(--app-glass-inner-bg);
         border: 1px solid var(--app-glass-inner-border);
         border-radius: 6px;
+    }
+
+    /* ── Hero banner strip above rich card ─────────────────────── */
+    .activity-hero-strip {
+        margin-top: 10px;
+        border-radius: 6px 6px 0 0;
+        overflow: hidden;
+        height: 120px;
+    }
+
+    .activity-hero-strip img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .activity-hero-strip + .activity-rich-card {
+        margin-top: 0;
+        border-top-left-radius: 0;
+        border-top-right-radius: 0;
     }
 
     /* ── Rich match card ─────────────────────────────────────────── */

@@ -15,6 +15,7 @@ public sealed class WorkViewModel
     public string? Author         => Canonical("author") ?? Canonical("creator");
     public string? Year           => Canonical("release_year") ?? Canonical("year");
     public string? CoverUrl       => Canonical("cover");
+    public string? HeroUrl        => Canonical("hero");
     public string? Description    => Canonical("description");
     public string? Genre          => Canonical("genre");
     public string? Narrator       => Canonical("narrator");

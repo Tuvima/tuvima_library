@@ -36,6 +36,9 @@ public sealed class ActivityEntryViewModel
     [JsonPropertyName("detail")]
     public string? Detail { get; set; }
 
+    [JsonPropertyName("ingestion_run_id")]
+    public string? IngestionRunId { get; set; }
+
     // ── UI helpers ─────────────────────────────────────────────────────────────
 
     private ActivityRichData? _richData;
@@ -208,6 +211,12 @@ public sealed class ActivityRichData
 
     [JsonPropertyName("organized_to")]
     public string? OrganizedTo { get; set; }
+
+    [JsonPropertyName("hero_url")]
+    public string? HeroUrl { get; set; }
+
+    [JsonPropertyName("cover_url")]
+    public string? CoverUrl { get; set; }
 }
 
 /// <summary>

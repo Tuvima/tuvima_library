@@ -20,18 +20,7 @@ public static class ActivityEndpoints
         {
             var entries = await repo.GetRecentAsync(limit ?? 50);
 
-            var response = entries.Select(e => new ActivityEntryResponse
-            {
-                Id          = e.Id,
-                OccurredAt  = e.OccurredAt.ToString("O"),
-                ActionType  = e.ActionType,
-                HubName     = e.HubName,
-                EntityId    = e.EntityId?.ToString(),
-                EntityType  = e.EntityType,
-                ProfileId   = e.ProfileId?.ToString(),
-                ChangesJson = e.ChangesJson,
-                Detail      = e.Detail,
-            }).ToList();
+            var response = entries.Select(MapEntry).ToList();
 
             return Results.Ok(response);
         })
@@ -103,8 +92,36 @@ public static class ActivityEndpoints
         .Produces(StatusCodes.Status400BadRequest)
         .RequireAdmin();
 
+        // GET /activity/run/{runId} — returns all entries for a specific ingestion run.
+        group.MapGet("/run/{runId:guid}", async (
+            ISystemActivityRepository repo,
+            Guid runId) =>
+        {
+            var entries = await repo.GetByRunIdAsync(runId);
+            var response = entries.Select(MapEntry).ToList();
+            return Results.Ok(response);
+        })
+        .WithName("GetActivityByRunId")
+        .WithSummary("Returns all activity entries for a given ingestion run, ordered by timestamp.")
+        .Produces<List<ActivityEntryResponse>>(StatusCodes.Status200OK)
+        .RequireAdminOrCurator();
+
         return app;
     }
+
+    private static ActivityEntryResponse MapEntry(SystemActivityEntry e) => new()
+    {
+        Id              = e.Id,
+        OccurredAt      = e.OccurredAt.ToString("O"),
+        ActionType      = e.ActionType,
+        HubName         = e.HubName,
+        EntityId        = e.EntityId?.ToString(),
+        EntityType      = e.EntityType,
+        ProfileId       = e.ProfileId?.ToString(),
+        ChangesJson     = e.ChangesJson,
+        Detail          = e.Detail,
+        IngestionRunId  = e.IngestionRunId?.ToString(),
+    };
 }
 
 // ── Response DTOs ────────────────────────────────────────────────────────────
@@ -137,6 +154,9 @@ public sealed class ActivityEntryResponse
 
     [JsonPropertyName("detail")]
     public string? Detail { get; init; }
+
+    [JsonPropertyName("ingestion_run_id")]
+    public string? IngestionRunId { get; init; }
 }
 
 public sealed class PruneResponse

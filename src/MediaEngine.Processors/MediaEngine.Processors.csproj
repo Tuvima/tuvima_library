@@ -14,4 +14,15 @@
     <PackageReference Include="TagLibSharp" />
   </ItemGroup>
 
+  <!-- SkiaSharp: Cross-platform image processing for hero banner generation; MIT. -->
+  <ItemGroup>
+    <PackageReference Include="SkiaSharp" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux" />
+  </ItemGroup>
+
+  <!-- Logging abstractions for HeroBannerGenerator; MIT. -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
+
 </Project>

@@ -27,7 +27,7 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
     {
         ArgumentNullException.ThrowIfNull(entry);
 
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             INSERT INTO review_queue
@@ -66,7 +66,7 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
         int limit = 50,
         CancellationToken ct = default)
     {
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             SELECT id, entity_id, entity_type, trigger, status,
@@ -93,7 +93,7 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
     /// <inheritdoc/>
     public Task<ReviewQueueEntry?> GetByIdAsync(Guid id, CancellationToken ct = default)
     {
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             SELECT id, entity_id, entity_type, trigger, status,
@@ -118,7 +118,7 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
         Guid entityId,
         CancellationToken ct = default)
     {
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             SELECT id, entity_id, entity_type, trigger, status,
@@ -147,7 +147,7 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
         string? resolvedBy = null,
         CancellationToken ct = default)
     {
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             UPDATE review_queue
@@ -169,7 +169,7 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
     /// <inheritdoc/>
     public Task<int> GetPendingCountAsync(CancellationToken ct = default)
     {
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             SELECT COUNT(*) FROM review_queue

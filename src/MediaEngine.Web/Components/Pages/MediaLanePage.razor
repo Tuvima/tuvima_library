@@ -1,0 +1,321 @@
+@page "/books"
+@page "/video"
+@page "/music"
+@page "/podcasts"
+@page "/comics"
+@inject UIOrchestratorService  Orchestrator
+@inject UniverseStateContainer  State
+@inject DeviceContextService    DeviceContext
+@inject NavigationManager       Nav
+@implements IDisposable
+
+@using MediaEngine.Web.Models.ViewDTOs
+
+<PageTitle>@(_lane?.Label ?? "Library") — Tuvima</PageTitle>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4"
+                       Style="border-radius: 4px;" />
+}
+else if (_lane is null)
+{
+    <MudAlert Severity="Severity.Warning" Class="mb-4">Unknown content lane.</MudAlert>
+}
+else if (_filteredHubs.Count == 0)
+{
+    @* ── Empty state — no content for this lane ── *@
+    <div class="lane-empty-state">
+        <MudIcon Icon="@_lane.Icon" Size="Size.Large"
+                 Style="opacity: 0.3; font-size: 4rem; margin-bottom: 16px;" />
+        <h2 class="lane-empty-title">No @_lane.Label yet</h2>
+        <p class="lane-empty-subtitle">
+            @EmptyStateMessage(_lane.Key)
+        </p>
+    </div>
+}
+else
+{
+    @* ── Hero banner for this lane ── *@
+    @if (_heroHub is not null)
+    {
+        <div class="hero-stack" @onclick="@(() => Nav.NavigateTo($"/hub/{_heroHub.Id}"))">
+            <div class="hero-stack-bg">
+                <div class="hero-bleed-wrapper">
+                    <HubHero Hub="@_heroHub"
+                             BackgroundOnly="true"
+                             Visible="true" />
+                </div>
+            </div>
+            <div class="hero-stack-text">
+                <h2 class="hero-cinema-title">@_heroHub.DisplayName</h2>
+                <div class="hero-cinema-badges">
+                    @if (!string.IsNullOrEmpty(_heroHub.Year))
+                    {
+                        <span class="hero-badge">@_heroHub.Year</span>
+                    }
+                    @if (!string.IsNullOrEmpty(_heroHub.PrimaryMediaType))
+                    {
+                        <span class="hero-badge">@FormatMediaType(_heroHub.PrimaryMediaType)</span>
+                    }
+                </div>
+                @if (!string.IsNullOrEmpty(_heroHub.Author))
+                {
+                    <p class="hero-cinema-subtitle">@_heroHub.Author</p>
+                }
+                @if (!string.IsNullOrEmpty(_heroHub.Description))
+                {
+                    <p class="hero-cinema-description">@Truncate(_heroHub.Description, 200)</p>
+                }
+            </div>
+        </div>
+    }
+
+    @* ── Format toggle (Books lane only: All / eBooks / Audiobooks) ── *@
+    @if (_lane.Key == "books")
+    {
+        <div class="lane-format-toggle">
+            <MudChipSet T="string" SelectedValue="@_booksFormatFilter"
+                        SelectedValueChanged="OnFormatFilterChanged"
+                        Class="lane-chip-set">
+                <MudChip T="string" Value="@("All")" Variant="Variant.Text"
+                         Style="@ChipStyle("All")">All</MudChip>
+                <MudChip T="string" Value="@("eBooks")" Variant="Variant.Text"
+                         Style="@ChipStyle("eBooks")">eBooks</MudChip>
+                <MudChip T="string" Value="@("Audiobooks")" Variant="Variant.Text"
+                         Style="@ChipStyle("Audiobooks")">Audiobooks</MudChip>
+            </MudChipSet>
+        </div>
+    }
+
+    @* ── Swimlane rows ── *@
+    <PosterSwimlane Title="@(_lane.Label)"
+                    TotalCount="@_displayHubs.Count"
+                    Hubs="@_displayHubs.Take(12).ToList()"
+                    OnHubSelected="HandleHubSelected"
+                    CardWidth="@_cardWidth" />
+
+    @if (_recentHubs.Count > 0)
+    {
+        <PosterSwimlane Title="Recently Added"
+                        TotalCount="@_recentHubs.Count"
+                        Hubs="@_recentHubs.Take(12).ToList()"
+                        OnHubSelected="HandleHubSelected"
+                        CardWidth="@_cardWidth" />
+    }
+
+    @* ── Media-type sub-groups (e.g. Books lane → "eBooks", "Audiobooks") ── *@
+    @foreach (var group in _mediaTypeGroups)
+    {
+        <PosterSwimlane Title="@group.Title"
+                        TotalCount="@group.Hubs.Count"
+                        Hubs="@group.Hubs"
+                        OnHubSelected="HandleHubSelected"
+                        CardWidth="@_cardWidth" />
+    }
+}
+
+@code {
+    private bool               _loading = true;
+    private LaneDefinition?    _lane;
+    private HubViewModel?      _heroHub;
+    private List<HubViewModel> _filteredHubs = [];
+    private List<HubViewModel> _displayHubs = [];
+    private List<HubViewModel> _recentHubs = [];
+    private List<MediaTypeGroup> _mediaTypeGroups = [];
+    private string             _booksFormatFilter = "All";
+
+    private int _cardWidth => DeviceContext.Settings.Pages.Home.SwimlaneCardWidth;
+
+    private sealed record MediaTypeGroup(string Title, IReadOnlyList<HubViewModel> Hubs);
+
+    protected override async Task OnInitializedAsync()
+    {
+        State.OnStateChanged += OnStateChanged;
+        await Orchestrator.StartSignalRAsync();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        ResolveLane();
+        await LoadAsync();
+    }
+
+    private void ResolveLane()
+    {
+        var path = Nav.ToBaseRelativePath(Nav.Uri).Split('?')[0].Split('#')[0].Trim('/');
+        _lane = ContentLanes.ByKey(path);
+
+        // Set the lane filter on the state container.
+        State.SetLaneFilter(_lane?.MediaTypes);
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        try
+        {
+            var hubs = await Orchestrator.GetHubsAsync();
+            ApplyFilter(hubs);
+        }
+        catch
+        {
+            _filteredHubs = [];
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void ApplyFilter(IReadOnlyList<HubViewModel> allHubs)
+    {
+        if (_lane is null) { _filteredHubs = []; return; }
+
+        // Filter to this lane's media types.
+        _filteredHubs = allHubs
+            .Where(h => _lane.MediaTypes.Any(mt =>
+                (h.PrimaryMediaType ?? "").Contains(mt, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+
+        // Apply format sub-filter for Books lane.
+        _displayHubs = ApplyFormatFilter(_filteredHubs);
+
+        // Hero: prefer with cover art.
+        var withCovers = _displayHubs.Where(h =>
+            !string.IsNullOrEmpty(h.CoverUrl) || !string.IsNullOrEmpty(h.HeroUrl)).ToList();
+        var heroPool = withCovers.Count > 0 ? withCovers : _displayHubs;
+        _heroHub = heroPool.Count > 0 ? heroPool[Random.Shared.Next(heroPool.Count)] : null;
+
+        // Recently added.
+        _recentHubs = _displayHubs.OrderByDescending(h => h.CreatedAt).Take(12).ToList();
+
+        // Sub-groups by media type.
+        _mediaTypeGroups = _filteredHubs
+            .Where(h => !string.IsNullOrEmpty(h.PrimaryMediaType))
+            .GroupBy(h => FormatMediaType(h.PrimaryMediaType!))
+            .Where(g => g.Count() >= 2)
+            .Select(g => new MediaTypeGroup(g.Key, g.ToList()))
+            .ToList();
+    }
+
+    private List<HubViewModel> ApplyFormatFilter(List<HubViewModel> hubs)
+    {
+        if (_lane?.Key != "books" || _booksFormatFilter == "All")
+            return hubs;
+
+        return _booksFormatFilter switch
+        {
+            "eBooks" => hubs.Where(h => IsEbook(h.PrimaryMediaType)).ToList(),
+            "Audiobooks" => hubs.Where(h => IsAudiobook(h.PrimaryMediaType)).ToList(),
+            _ => hubs,
+        };
+    }
+
+    private static bool IsEbook(string? mt) =>
+        mt is not null && (mt.Contains("Epub", StringComparison.OrdinalIgnoreCase)
+                        || mt.Contains("Book", StringComparison.OrdinalIgnoreCase));
+
+    private static bool IsAudiobook(string? mt) =>
+        mt is not null && (mt.Contains("Audio", StringComparison.OrdinalIgnoreCase)
+                        || mt.Contains("M4B", StringComparison.OrdinalIgnoreCase));
+
+    private void OnFormatFilterChanged(string value)
+    {
+        _booksFormatFilter = value ?? "All";
+        _displayHubs = ApplyFormatFilter(_filteredHubs);
+        StateHasChanged();
+    }
+
+    private void HandleHubSelected(HubViewModel hub) => Nav.NavigateTo($"/hub/{hub.Id}");
+
+    private void OnStateChanged()
+    {
+        InvokeAsync(async () =>
+        {
+            await LoadAsync();
+            StateHasChanged();
+        });
+    }
+
+    private static string FormatMediaType(string mediaType)
+    {
+        var t = mediaType.ToLowerInvariant();
+        if (t.Contains("epub") || t.Contains("book"))  return "eBooks";
+        if (t.Contains("video") || t.Contains("movie")) return "Movies";
+        if (t.Contains("audio") || t.Contains("m4b"))   return "Audiobooks";
+        if (t.Contains("comic") || t.Contains("cbz"))   return "Comics";
+        if (t.Contains("tv"))                            return "TV Shows";
+        return mediaType;
+    }
+
+    private static string Truncate(string text, int maxLength) =>
+        text.Length <= maxLength ? text : text[..maxLength].TrimEnd() + "\u2026";
+
+    private static string EmptyStateMessage(string laneKey) => laneKey switch
+    {
+        "books"    => "Your book and audiobook collection will appear here. Drop EPUB or M4B files into your Watch Folder to get started.",
+        "video"    => "Your movies and TV shows will appear here. Drop MP4, MKV, or AVI files into your Watch Folder.",
+        "music"    => "Your music collection will appear here once music support is available.",
+        "podcasts" => "Your podcast subscriptions will appear here once podcast support is available.",
+        "comics"   => "Your comics and manga will appear here. Drop CBZ or CBR files into your Watch Folder.",
+        _          => "Content will appear here once it's been added to your library.",
+    };
+
+    private string ChipStyle(string value) =>
+        _booksFormatFilter == value
+            ? "color: #C9922E; font-weight: 600; font-family: 'Montserrat', sans-serif;"
+            : "color: rgba(248,248,248,0.60); font-family: 'Montserrat', sans-serif;";
+
+    public void Dispose()
+    {
+        State.OnStateChanged -= OnStateChanged;
+    }
+}
+
+<style>
+    /* Reuse hero-stack styles from Home.razor — they're defined in app.css scope */
+
+    .lane-format-toggle {
+        padding: 0.5rem 0 0 88px;
+    }
+
+    .lane-chip-set {
+        gap: 4px;
+    }
+
+    .lane-empty-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 50vh;
+        gap: 8px;
+        text-align: center;
+        padding: 2rem;
+    }
+
+    .lane-empty-title {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 1.4rem;
+        font-weight: 700;
+        color: rgba(248, 248, 248, 0.85);
+        margin: 0;
+    }
+
+    .lane-empty-subtitle {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.9rem;
+        font-weight: 400;
+        color: rgba(248, 248, 248, 0.45);
+        max-width: 420px;
+        line-height: 1.5;
+        margin: 0;
+    }
+
+    @@media (max-width: 768px) {
+        .lane-format-toggle {
+            padding-left: 1rem;
+        }
+    }
+</style>

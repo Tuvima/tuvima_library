@@ -36,7 +36,7 @@ public sealed class ProviderConfigurationRepository : IProviderConfigurationRepo
         ct.ThrowIfCancellationRequested();
         ArgumentException.ThrowIfNullOrWhiteSpace(providerId);
 
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             SELECT key, is_secret
@@ -72,7 +72,7 @@ public sealed class ProviderConfigurationRepository : IProviderConfigurationRepo
         ArgumentException.ThrowIfNullOrWhiteSpace(providerId);
         ArgumentException.ThrowIfNullOrWhiteSpace(key);
 
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             SELECT value, is_secret
@@ -118,7 +118,7 @@ public sealed class ProviderConfigurationRepository : IProviderConfigurationRepo
             ? _secrets.Encrypt(plaintextValue)
             : plaintextValue;
 
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             INSERT INTO provider_config (provider_id, key, value, is_secret)
@@ -141,7 +141,7 @@ public sealed class ProviderConfigurationRepository : IProviderConfigurationRepo
     {
         ct.ThrowIfCancellationRequested();
 
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             DELETE FROM provider_config

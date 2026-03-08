@@ -52,6 +52,23 @@ public sealed class DatabaseConnection : IDatabaseConnection
     }
 
     /// <inheritdoc/>
+    public SqliteConnection CreateConnection()
+    {
+        var conn = new SqliteConnection($"Data Source={_databasePath}");
+        conn.Open();
+
+        using var pragmaCmd = conn.CreateCommand();
+        pragmaCmd.CommandText =
+            "PRAGMA journal_mode = WAL; " +
+            "PRAGMA foreign_keys = ON; " +
+            "PRAGMA temp_store = MEMORY; " +
+            "PRAGMA busy_timeout = 5000;";
+        pragmaCmd.ExecuteNonQuery();
+
+        return conn;
+    }
+
+    /// <inheritdoc/>
     public void InitializeSchema()
     {
         var conn = Open();
@@ -381,6 +398,13 @@ public sealed class DatabaseConnection : IDatabaseConnection
             table:  "user_states",
             column: "extended_properties",
             ddl:    "ALTER TABLE user_states ADD COLUMN extended_properties TEXT;");
+
+        // Migration M-020: Add ingestion_run_id to system_activity for event grouping.
+        MigrateAddColumnIfMissing(
+            conn,
+            table:  "system_activity",
+            column: "ingestion_run_id",
+            ddl:    "ALTER TABLE system_activity ADD COLUMN ingestion_run_id TEXT;");
 
         // Seed S-001: provider_registry entries for all known providers.
         // metadata_claims.provider_id has a FK to provider_registry(id), so these

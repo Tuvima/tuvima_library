@@ -2,7 +2,7 @@
 
 namespace MediaEngine.Web.Services.Integration;
 
-// Navigation filter model is defined in NavigationConfigViewModel.cs
+// Navigation lanes defined in ContentLanes.cs — fixed content-type lanes replace Virtual Libraries.
 
 /// <summary>
 /// Scoped state container (one per Blazor Server circuit) that caches the
@@ -24,7 +24,7 @@ public sealed class UniverseStateContainer
     private bool                       _loaded;
     private IngestionProgressEvent?    _ingestionProgress;
     private WatchFolderActiveEvent?    _latestWatchFolderActivation;
-    private VirtualLibrary?            _activeLibraryFilter;
+    private string[]?                  _activeLaneMediaTypes;
     private readonly List<PersonEnrichedEvent> _personUpdates = [];
     private readonly List<ActivityEntry>       _activityLog   = [];
     private const int MaxActivityEntries = 100;
@@ -62,29 +62,22 @@ public sealed class UniverseStateContainer
     /// </summary>
     public IReadOnlyList<ActivityEntry>    ActivityLog                 => _activityLog;
 
-    // ── Navigation filter ───────────────────────────────────────────────────
+    // ── Lane filter ──────────────────────────────────────────────────────────
 
     /// <summary>
-    /// The currently active Virtual Library filter, or <see langword="null"/> for "show all".
-    /// Set by the NavigationTray when the user clicks a library button.
-    /// </summary>
-    public VirtualLibrary? ActiveLibraryFilter => _activeLibraryFilter;
-
-    /// <summary>
-    /// Hubs filtered by the active Virtual Library. Uses OR logic across
-    /// the library's <see cref="VirtualLibrary.MediaTypes"/>.
-    /// Returns all hubs when no filter is active.
+    /// Hubs filtered by the currently active content lane's media types.
+    /// Returns all hubs when no lane filter is active (Home page).
     /// </summary>
     public IReadOnlyList<HubViewModel> FilteredHubs =>
-        _activeLibraryFilter is null || _activeLibraryFilter.MediaTypes.Count == 0
+        _activeLaneMediaTypes is null or { Length: 0 }
             ? Hubs
             : _hubs.Where(h => SplitMediaTypes(h.MediaTypes).Any(mt =>
-                _activeLibraryFilter.MediaTypes.Exists(f => string.Equals(f, mt, StringComparison.OrdinalIgnoreCase))))
+                _activeLaneMediaTypes.Any(f => string.Equals(f, mt, StringComparison.OrdinalIgnoreCase))))
               .ToList();
 
     /// <summary>
     /// Distinct set of media type strings across all hubs in the library.
-    /// Used by NavigationTray for content-aware visibility.
+    /// Used by lane pages for content-aware display.
     /// </summary>
     public HashSet<string> AvailableMediaTypes =>
         new HashSet<string>(
@@ -98,12 +91,12 @@ public sealed class UniverseStateContainer
             : mediaTypes.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
     /// <summary>
-    /// Sets the active Virtual Library filter and notifies subscribers.
-    /// Pass <see langword="null"/> to clear the filter (show all).
+    /// Sets the active lane media-type filter. Pass null or empty to show all (Home).
+    /// Called by lane pages when they mount/navigate.
     /// </summary>
-    public void SetActiveLibrary(VirtualLibrary? library)
+    public void SetLaneFilter(string[]? mediaTypes)
     {
-        _activeLibraryFilter = library;
+        _activeLaneMediaTypes = mediaTypes;
         OnStateChanged?.Invoke();
     }
 
@@ -147,8 +140,8 @@ public sealed class UniverseStateContainer
         _universe            = null;
         _loaded              = false;
         _ingestionProgress   = null;
-        // Note: _activeLibraryFilter is NOT cleared on invalidate
-        // so the user's tray selection persists across data refreshes.
+        // Note: _activeLaneMediaTypes is NOT cleared on invalidate
+        // so the user's lane selection persists across data refreshes.
         OnStateChanged?.Invoke();
     }
 

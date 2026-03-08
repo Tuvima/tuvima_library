@@ -161,6 +161,9 @@ public interface IEngineApiClient
     /// <summary>PUT /activity/retention?days= — update retention period.</summary>
     Task<bool> UpdateRetentionAsync(int days, CancellationToken ct = default);
 
+    /// <summary>GET /activity/run/{runId} — all entries for a specific ingestion run.</summary>
+    Task<List<ActivityEntryViewModel>> GetActivityByRunIdAsync(Guid runId, CancellationToken ct = default);
+
     // ── UI Settings (/settings/ui) ───────────────────────────────────────────────
 
     /// <summary>

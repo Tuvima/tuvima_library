@@ -28,7 +28,7 @@ public sealed class ImageCacheRepository : IImageCacheRepository
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(contentHash);
 
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             SELECT file_path
@@ -51,7 +51,7 @@ public sealed class ImageCacheRepository : IImageCacheRepository
         ArgumentException.ThrowIfNullOrWhiteSpace(contentHash);
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
 
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             INSERT OR IGNORE INTO image_cache

@@ -33,7 +33,7 @@ public sealed class MediaEntityChainFactory : IMediaEntityChainFactory
     {
         ct.ThrowIfCancellationRequested();
 
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
 
         // ── 1. Create Work (standalone — no Hub) ─────────────────────────
         var workId = Guid.NewGuid();

@@ -34,4 +34,12 @@ public interface ISystemActivityRepository
     /// Returns the total number of entries in the ledger.
     /// </summary>
     Task<long> CountAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns all activity entries for a given ingestion run, ordered by timestamp.
+    /// Used by the Dashboard to expand a consolidated "Media Added" card.
+    /// </summary>
+    Task<IReadOnlyList<SystemActivityEntry>> GetByRunIdAsync(
+        Guid runId,
+        CancellationToken ct = default);
 }

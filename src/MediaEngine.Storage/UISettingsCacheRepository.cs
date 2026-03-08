@@ -33,7 +33,7 @@ public sealed class UISettingsCacheRepository
     /// </param>
     public string? Get(string scope)
     {
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT settings FROM ui_settings_cache WHERE scope = @scope;";
         cmd.Parameters.AddWithValue("@scope", scope);
@@ -46,7 +46,7 @@ public sealed class UISettingsCacheRepository
     /// </summary>
     public void Upsert(string scope, string settingsJson)
     {
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             INSERT INTO ui_settings_cache (scope, settings, cached_at)
@@ -65,7 +65,7 @@ public sealed class UISettingsCacheRepository
     /// </summary>
     public void Delete(string scope)
     {
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "DELETE FROM ui_settings_cache WHERE scope = @scope;";
         cmd.Parameters.AddWithValue("@scope", scope);
@@ -77,7 +77,7 @@ public sealed class UISettingsCacheRepository
     /// </summary>
     public void Clear()
     {
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "DELETE FROM ui_settings_cache;";
         cmd.ExecuteNonQuery();
@@ -91,7 +91,7 @@ public sealed class UISettingsCacheRepository
     {
         ArgumentNullException.ThrowIfNull(configLoader);
 
-        var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         using var transaction = conn.BeginTransaction();
 
         try
