@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json.Serialization;
 
 namespace MediaEngine.Storage.Models;
@@ -75,4 +76,16 @@ public sealed class HydrationSettings
     /// </summary>
     [JsonPropertyName("universe_title_search_auto_accept")]
     public double UniverseTitleSearchAutoAccept { get; set; } = 0.80;
+
+    /// <summary>
+    /// BCP-47 language tag used when ranking Wikidata search results.
+    /// Results whose primary label is in this language are preferred over
+    /// results that only match via an alias (e.g. a translated edition).
+    ///
+    /// Defaults to the host OS UI culture (e.g. "en", "fr", "de").
+    /// Override via <c>config/hydration.json → preferred_language</c>.
+    /// </summary>
+    [JsonPropertyName("preferred_language")]
+    public string PreferredLanguage { get; set; } =
+        CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
 }

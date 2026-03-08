@@ -232,7 +232,19 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
                 var results = searchJson?["search"]?.AsArray();
                 if (results is not null)
                 {
-                    foreach (var item in results)
+                    // Sort label matches before alias matches so that the primary-
+                    // language item appears first in the disambiguation list shown
+                    // to the user.
+                    var sorted = results
+                        .Select((item, i) => (item, i))
+                        .OrderBy(t => string.Equals(
+                            t.item?["match"]?["type"]?.GetValue<string>(),
+                            "label",
+                            StringComparison.OrdinalIgnoreCase) ? 0 : 1)
+                        .ThenBy(t => t.i)
+                        .Select(t => t.item);
+
+                    foreach (var item in sorted)
                     {
                         if (candidates.Count >= maxCandidates) break;
 
@@ -723,8 +735,26 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
             "Wikidata title search returned {Count} results for \"{Title}\"",
             results.Count, title);
 
-        // Take the first result — Wikidata ranks by relevance.
-        var firstId = results.FirstOrDefault()?["id"]?.GetValue<string>();
+        // Prefer results where the PRIMARY label (not just an alias) matches
+        // the search language.  This filters out translated editions that have
+        // the original title as an English alias but whose primary content is
+        // in another language (e.g. a Spanish edition of an English novel).
+        var labelMatch = results.FirstOrDefault(r =>
+            string.Equals(
+                r?["match"]?["type"]?.GetValue<string>(),
+                "label",
+                StringComparison.OrdinalIgnoreCase));
+
+        var bestResult = labelMatch ?? results.FirstOrDefault();
+        var firstId = bestResult?["id"]?.GetValue<string>();
+
+        if (labelMatch is not null && results.Count > 1)
+        {
+            _logger.LogDebug(
+                "Wikidata title search: preferred label-match result {Id} over {Count} total result(s) for \"{Title}\"",
+                firstId, results.Count, title);
+        }
+
         return string.IsNullOrWhiteSpace(firstId) ? null : firstId;
     }
 

@@ -6,5 +6,6 @@
   "disambiguation_threshold": 0.7,
   "auto_review_confidence_threshold": 0.60,
   "max_qid_candidates": 5,
-  "skip_stage2_without_bridge_ids": false
+  "skip_stage2_without_bridge_ids": false,
+  "preferred_language": "en"
 }
