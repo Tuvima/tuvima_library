@@ -271,55 +271,56 @@ else
             </div>
         </div>
 
-        @* ── Description ── *@
-        @if (!string.IsNullOrEmpty(_hub.Description))
+        @* Description + Author column *@
+        @if (!string.IsNullOrEmpty(_hub.Description) || _authorPerson is not null)
         {
-            <div class="hub-detail-description-section">
-                <p class="hub-detail-description">
-                    @(_showFullDescription ? _hub.Description : Truncate(_hub.Description, 400))
-                </p>
-                @if (_hub.Description.Length > 400)
-                {
-                    <button class="hub-detail-expand-btn"
-                            @onclick="@(() => _showFullDescription = !_showFullDescription)">
-                        @(_showFullDescription ? "Show less" : "Show more")
-                    </button>
-                }
-            </div>
-        }
+            <div class="hub-detail-desc-author-row">
 
-        @* ── Author strip ── *@
-        @if (_authorPerson is not null)
-        {
-            <div class="hub-detail-author-section">
-                <h3 class="hub-detail-section-title">About the Author</h3>
-                <div class="hub-detail-author-card"
-                     @onclick="@(() => Nav.NavigateTo($"/person/{_authorPerson.Id}"))">
-                    <div class="hub-detail-author-avatar-wrap">
-                        @if (!string.IsNullOrEmpty(_authorPerson.LocalHeadshotUrl))
+                @* Left: description *@
+                @if (!string.IsNullOrEmpty(_hub.Description))
+                {
+                    <div class="hub-detail-description-col">
+                        <p class="hub-detail-description">
+                            @(_showFullDescription ? _hub.Description : Truncate(_hub.Description, 400))
+                        </p>
+                        @if (_hub.Description.Length > 400)
                         {
-                            <img src="@_authorPerson.LocalHeadshotUrl" alt="@_authorPerson.Name"
-                                 class="hub-detail-author-avatar" />
-                        }
-                        else if (!string.IsNullOrEmpty(_authorPerson.HeadshotUrl))
-                        {
-                            <img src="@_authorPerson.HeadshotUrl" alt="@_authorPerson.Name"
-                                 class="hub-detail-author-avatar" />
-                        }
-                        else
-                        {
-                            <div class="hub-detail-author-avatar hub-detail-author-avatar-initials">
-                                @_authorPerson.Initials
-                            </div>
+                            <button class="hub-detail-expand-btn"
+                                    @onclick="@(() => _showFullDescription = !_showFullDescription)">
+                                @(_showFullDescription ? "Show less" : "Show more")
+                            </button>
                         }
                     </div>
-                    <div class="hub-detail-author-info">
-                        <span class="hub-detail-author-name">@_authorPerson.Name</span>
-                        <span class="hub-detail-author-role">@_authorPerson.RoleLabel</span>
+                }
+
+                @* Right: Author bubble *@
+                @if (_authorPerson is not null)
+                {
+                    <div class="hub-detail-author-bubble-col"
+                         @onclick="@(() => Nav.NavigateTo($"/person/{_authorPerson.Id}"))">
+                        <span class="hub-detail-author-bubble-label">Author</span>
+                        <div class="hub-detail-author-bubble-img">
+                            @if (!string.IsNullOrEmpty(_authorPerson.LocalHeadshotUrl))
+                            {
+                                <img src="@_authorPerson.LocalHeadshotUrl" alt="@_authorPerson.Name"
+                                     class="hub-detail-author-bubble-photo" />
+                            }
+                            else if (!string.IsNullOrEmpty(_authorPerson.HeadshotUrl))
+                            {
+                                <img src="@_authorPerson.HeadshotUrl" alt="@_authorPerson.Name"
+                                     class="hub-detail-author-bubble-photo" />
+                            }
+                            else
+                            {
+                                <div class="hub-detail-author-bubble-photo hub-detail-author-bubble-initials">
+                                    @_authorPerson.Initials
+                                </div>
+                            }
+                        </div>
+                        <span class="hub-detail-author-bubble-name">@_authorPerson.Name</span>
                     </div>
-                    <MudIcon Icon="@Icons.Material.Filled.ChevronRight"
-                             Style="color: rgba(255,255,255,0.30); margin-left: auto;" />
-                </div>
+                }
+
             </div>
         }
 
@@ -620,6 +621,7 @@ else
 
     /* 2 — Author */
     .hub-detail-author-btn {
+        align-self: flex-start;
         font-family: 'Montserrat', sans-serif;
         font-size: 1.15rem;
         font-weight: 600;
@@ -636,6 +638,7 @@ else
     .hub-detail-author-btn:hover { color: #e0aa50; }
 
     .hub-detail-author-text {
+        align-self: flex-start;
         font-family: 'Montserrat', sans-serif;
         font-size: 1.15rem;
         font-weight: 600;
@@ -815,11 +818,18 @@ else
         color: #C9922E;
     }
 
-    /* ── Description ── */
-    .hub-detail-description-section {
+    /* Description + Author row */
+    .hub-detail-desc-author-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 40px;
         padding: 0 48px 0 88px;
-        margin-bottom: 40px;
-        max-width: 780px;
+        margin-bottom: 48px;
+    }
+
+    .hub-detail-description-col {
+        flex: 1;
+        min-width: 0;
     }
 
     .hub-detail-description {
@@ -846,78 +856,58 @@ else
 
     .hub-detail-expand-btn:hover { color: #e0aa50; }
 
-    /* ── Author section ── */
-    .hub-detail-author-section {
-        padding: 0 48px 0 88px;
-        margin-bottom: 40px;
-    }
-
-    .hub-detail-section-title {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 0.72rem;
-        font-weight: 700;
-        color: rgba(248, 248, 248, 0.40);
-        text-transform: uppercase;
-        letter-spacing: 0.10em;
-        margin: 0 0 14px 0;
-    }
-
-    .hub-detail-author-card {
+    /* Author bubble column */
+    .hub-detail-author-bubble-col {
+        flex-shrink: 0;
+        width: 160px;
         display: flex;
+        flex-direction: column;
         align-items: center;
-        gap: 16px;
-        padding: 16px 20px;
-        border-radius: 14px;
-        background: rgba(255, 255, 255, 0.04);
-        border: 1px solid rgba(255, 255, 255, 0.07);
+        gap: 10px;
         cursor: pointer;
-        max-width: 420px;
-        transition: background 0.2s;
+        transition: opacity 0.2s;
     }
 
-    .hub-detail-author-card:hover { background: rgba(255, 255, 255, 0.07); }
+    .hub-detail-author-bubble-col:hover { opacity: 0.80; }
 
-    .hub-detail-author-avatar-wrap { flex-shrink: 0; }
+    .hub-detail-author-bubble-label {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.65rem;
+        font-weight: 700;
+        color: rgba(248, 248, 248, 0.35);
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+    }
 
-    .hub-detail-author-avatar {
-        width: 56px;
-        height: 56px;
+    .hub-detail-author-bubble-img { flex-shrink: 0; }
+
+    .hub-detail-author-bubble-photo {
+        width: 110px;
+        height: 110px;
         border-radius: 50%;
         object-fit: cover;
+        border: 2px solid rgba(201, 146, 46, 0.20);
+        display: block;
     }
 
-    .hub-detail-author-avatar-initials {
+    .hub-detail-author-bubble-initials {
         display: flex;
         align-items: center;
         justify-content: center;
-        background: rgba(201, 146, 46, 0.14);
+        background: rgba(201, 146, 46, 0.12);
         color: #C9922E;
         font-family: 'Montserrat', sans-serif;
-        font-size: 1.1rem;
+        font-size: 2rem;
         font-weight: 700;
     }
 
-    .hub-detail-author-info {
-        display: flex;
-        flex-direction: column;
-        min-width: 0;
-    }
-
-    .hub-detail-author-name {
+    .hub-detail-author-bubble-name {
         font-family: 'Montserrat', sans-serif;
-        font-size: 0.95rem;
+        font-size: 0.85rem;
         font-weight: 600;
-        color: rgba(248, 248, 248, 0.88);
-    }
-
-    .hub-detail-author-role {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 0.70rem;
-        font-weight: 500;
-        color: rgba(248, 248, 248, 0.38);
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-        margin-top: 2px;
+        color: rgba(248, 248, 248, 0.78);
+        text-align: center;
+        line-height: 1.3;
     }
 
     /* ── Related section ── */
@@ -995,9 +985,26 @@ else
             justify-content: center;
         }
 
-        .hub-detail-description-section,
-        .hub-detail-author-section {
+        .hub-detail-desc-author-row {
+            flex-direction: column;
             padding: 0 20px;
+            gap: 28px;
         }
+
+        .hub-detail-author-bubble-col {
+            flex-direction: row;
+            width: 100%;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .hub-detail-author-bubble-photo {
+            width: 64px;
+            height: 64px;
+        }
+
+        .hub-detail-author-bubble-label { display: none; }
+
+        .hub-detail-author-bubble-name { text-align: left; }
     }
 </style>
