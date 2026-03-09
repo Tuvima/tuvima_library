@@ -205,36 +205,6 @@ else
                         </div>
                     }
 
-                    @* Description *@
-                    @if (!string.IsNullOrEmpty(_hub.Description))
-                    {
-                        <div class="hub-detail-description-wrap">
-                            <p class="hub-detail-description">
-                                @(_showFullDescription ? _hub.Description : Truncate(_hub.Description, 400))
-                            </p>
-                            @if (_hub.Description.Length > 400)
-                            {
-                                <button class="hub-detail-expand-btn"
-                                        @onclick="@(() => _showFullDescription = !_showFullDescription)">
-                                    @(_showFullDescription ? "Show less" : "Show more")
-                                </button>
-                            }
-                        </div>
-                    }
-
-                    @* Progress bar *@
-                    @if (_activeJourney is not null && _activeJourney.ProgressPct is > 0 and < 99.5)
-                    {
-                        <div class="hub-detail-progress-wrap">
-                            <div class="hub-detail-progress-bar-track">
-                                <div class="hub-detail-progress-bar-fill"
-                                     style="width: @(_activeJourney.ProgressPct.ToString("F0"))%">
-                                </div>
-                            </div>
-                            <span class="hub-detail-progress-label">@_activeJourney.ProgressDisplay</span>
-                        </div>
-                    }
-
                     @* Action bar — circular icon buttons *@
                     <div class="hub-detail-actions">
 
@@ -310,6 +280,37 @@ else
 
                     </div>
 
+                    @* Description *@
+                    @if (!string.IsNullOrEmpty(_hub.Description))
+                    {
+                        <div class="hub-detail-description-wrap">
+                            <p class="hub-detail-description">
+                                @(_showFullDescription ? _hub.Description : Truncate(_hub.Description, 400))
+                            </p>
+                            @if (_hub.Description.Length > 400)
+                            {
+                                <button class="hub-detail-expand-btn"
+                                        @onclick="@(() => _showFullDescription = !_showFullDescription)">
+                                    @(_showFullDescription ? "Show less" : "Show more")
+                                </button>
+                            }
+                        </div>
+                    }
+
+                    @* Progress bar *@
+                    @if (_activeJourney is not null && _activeJourney.ProgressPct is > 0 and < 99.5)
+                    {
+                        <div class="hub-detail-progress-wrap">
+                            <div class="hub-detail-progress-bar-track">
+                                <div class="hub-detail-progress-bar-fill"
+                                     style="width: @(_activeJourney.ProgressPct.ToString("F0"))%">
+                                </div>
+                            </div>
+                            <span class="hub-detail-progress-label">@_activeJourney.ProgressDisplay</span>
+                        </div>
+                    }
+
+
                 </div>
 
                 @* Right: Cover art *@
@@ -367,8 +368,6 @@ else
                     <button class="hub-detail-author-link"
                             @onclick="@(() => Nav.NavigateTo($"/person/{_authorPerson.Id}"))">
                         @_authorPerson.Name
-                        <MudIcon Icon="@Icons.Material.Filled.ChevronRight"
-                                 Style="font-size: 1rem; vertical-align: middle; opacity: 0.55;" />
                     </button>
                 </div>
             </div>
@@ -698,7 +697,7 @@ else
         letter-spacing: 0.02em;
         padding: 3px 8px;
         border-radius: 20px;
-        background: rgba(255, 255, 255, 0.07);
+        background: rgba(255, 255, 255, 0.13);
         border: 1px solid rgba(255, 255, 255, 0.11);
         color: rgba(248, 248, 248, 0.65);
         white-space: nowrap;
@@ -737,6 +736,7 @@ else
         line-height: 1.12;
         margin: 0;
         letter-spacing: -0.02em;
+        user-select: none;
     }
 
     /* Metadata row */
@@ -859,8 +859,8 @@ else
         width: 54px;
         height: 54px;
         border-radius: 50%;
-        background: rgba(255, 255, 255, 0.07);
-        border: 1px solid rgba(255, 255, 255, 0.13);
+        background: rgba(255, 255, 255, 0.13);
+        border: 1.5px solid rgba(255, 255, 255, 0.22);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -868,18 +868,18 @@ else
     }
 
     .hub-detail-action-btn:hover .hub-detail-action-circle {
-        background: rgba(255, 255, 255, 0.12);
-        border-color: rgba(255, 255, 255, 0.22);
+        background: rgba(255, 255, 255, 0.20);
+        border-color: rgba(255, 255, 255, 0.35);
     }
 
     .hub-detail-action-circle-primary {
-        background: rgba(201, 146, 46, 0.14);
-        border-color: rgba(201, 146, 46, 0.35);
+        background: rgba(201, 146, 46, 0.28);
+        border-color: rgba(201, 146, 46, 0.65);
     }
 
     .hub-detail-action-btn:hover .hub-detail-action-circle-primary {
-        background: rgba(201, 146, 46, 0.24);
-        border-color: rgba(201, 146, 46, 0.55);
+        background: rgba(201, 146, 46, 0.42);
+        border-color: rgba(201, 146, 46, 0.80);
     }
 
     .hub-detail-action-label {
@@ -894,8 +894,8 @@ else
     .hub-detail-cover-wrap { flex-shrink: 0; }
 
     .hub-detail-cover {
-        width: 280px;
-        height: 420px;
+        width: 320px;
+        height: 480px;
         object-fit: cover;
         border-radius: 14px;
         box-shadow: 0 24px 72px rgba(0, 0, 0, 0.75);
@@ -912,6 +912,14 @@ else
 
     /* ── Related section ── */
     .hub-detail-related-section { margin-bottom: 0; }
+
+    .hub-detail-related-section .swimlane-section {
+        max-width: 1180px;
+        margin-left: auto;
+        margin-right: auto;
+        padding-left: 40px;
+        padding-right: 40px;
+    }
 
     /* ── Author section (full-width, bottom) ── */
     .hub-detail-author-section {
@@ -982,7 +990,6 @@ else
         transition: color 0.2s;
         display: flex;
         align-items: center;
-        gap: 2px;
     }
 
     .hub-detail-author-link:hover { color: #C9922E; }
@@ -1026,8 +1033,8 @@ else
         .hub-detail-genre-row    { justify-content: flex-start; }
 
         .hub-detail-cover {
-            width: 200px;
-            height: 300px;
+            width: 220px;
+            height: 330px;
         }
 
         .hub-detail-title { font-size: 1.9rem; }
