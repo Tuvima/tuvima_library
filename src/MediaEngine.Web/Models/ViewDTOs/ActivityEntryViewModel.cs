@@ -45,7 +45,7 @@ public sealed class ActivityEntryViewModel
     private bool _richDataParsed;
 
     /// <summary>
-    /// Structured match data for FileIngested entries.
+    /// Structured match data for FileIngested and MediaAdded entries.
     /// Lazily deserialized from <see cref="ChangesJson"/>.
     /// </summary>
     [JsonIgnore]
@@ -55,7 +55,8 @@ public sealed class ActivityEntryViewModel
         {
             if (_richDataParsed) return _richData;
             _richDataParsed = true;
-            if (ActionType == "FileIngested" && !string.IsNullOrWhiteSpace(ChangesJson))
+            if (ActionType is "FileIngested" or "MediaAdded"
+                && !string.IsNullOrWhiteSpace(ChangesJson))
             {
                 try
                 {
@@ -180,8 +181,10 @@ public sealed class ReviewRichData
 }
 
 /// <summary>
-/// Structured rich data for FileIngested activity entries.
+/// Structured rich data for FileIngested and MediaAdded activity entries.
 /// Deserialized from <see cref="ActivityEntryViewModel.ChangesJson"/>.
+/// Handles both JSON shapes: FileIngested uses <c>cover_url</c>/<c>organized_to</c>,
+/// MediaAdded uses <c>cover</c>/<c>organized_path</c>/<c>hub_name</c>.
 /// </summary>
 public sealed class ActivityRichData
 {
@@ -209,20 +212,55 @@ public sealed class ActivityRichData
     [JsonPropertyName("entity_id")]
     public string? EntityId { get; set; }
 
+    // FileIngested uses "organized_to"; MediaAdded uses "organized_path".
     [JsonPropertyName("organized_to")]
     public string? OrganizedTo { get; set; }
+
+    [JsonPropertyName("organized_path")]
+    public string? OrganizedPath { get; set; }
 
     [JsonPropertyName("hero_url")]
     public string? HeroUrl { get; set; }
 
+    // FileIngested uses "cover_url"; MediaAdded uses "cover".
     [JsonPropertyName("cover_url")]
     public string? CoverUrl { get; set; }
+
+    [JsonPropertyName("cover")]
+    public string? Cover { get; set; }
 
     [JsonPropertyName("match_method")]
     public string? MatchMethod { get; set; }
 
     [JsonPropertyName("field_sources")]
     public List<FieldSourceEntry>? FieldSources { get; set; }
+
+    // ── MediaAdded-specific fields ────────────────────────────────────────
+
+    [JsonPropertyName("hub_name")]
+    public string? HubName { get; set; }
+
+    [JsonPropertyName("wikidata_qid")]
+    public string? WikidataQid { get; set; }
+
+    [JsonPropertyName("stage1_claims")]
+    public int Stage1Claims { get; set; }
+
+    [JsonPropertyName("stage2_claims")]
+    public int Stage2Claims { get; set; }
+
+    [JsonPropertyName("needs_review")]
+    public bool NeedsReview { get; set; }
+
+    // ── Unified accessors ─────────────────────────────────────────────────
+
+    /// <summary>Resolved cover URL — prefers <c>cover_url</c>, falls back to <c>cover</c>.</summary>
+    [JsonIgnore]
+    public string? ResolvedCoverUrl => CoverUrl ?? Cover;
+
+    /// <summary>Resolved organized path — prefers <c>organized_to</c>, falls back to <c>organized_path</c>.</summary>
+    [JsonIgnore]
+    public string? ResolvedOrganizedTo => OrganizedTo ?? OrganizedPath;
 
     /// <summary>Human-friendly match method label.</summary>
     [JsonIgnore]

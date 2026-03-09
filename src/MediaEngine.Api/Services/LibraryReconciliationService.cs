@@ -244,6 +244,31 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
 
         sw.Stop();
 
+        // Log a single consolidated FolderCleaned entry when any folder maintenance pass
+        // cleaned up at least one item. Sub-items in ChangesJson let the Dashboard
+        // show detail without flooding the timeline with separate entries per pass.
+        int totalFolderOps = foldersCleanedCount + orphanPeopleCount + staleGuidFoldersCount + staleSidecarsCount;
+        if (totalFolderOps > 0)
+        {
+            var subItems = new List<object>();
+            if (foldersCleanedCount > 0)
+                subItems.Add(new { label = "Empty folders pruned", count = foldersCleanedCount });
+            if (orphanPeopleCount > 0)
+                subItems.Add(new { label = "Orphaned people folders removed", count = orphanPeopleCount });
+            if (staleGuidFoldersCount > 0)
+                subItems.Add(new { label = "Stale GUID folders removed", count = staleGuidFoldersCount });
+            if (staleSidecarsCount > 0)
+                subItems.Add(new { label = "Stale root sidecars cleaned", count = staleSidecarsCount });
+
+            await _activityRepo.LogAsync(new SystemActivityEntry
+            {
+                ActionType  = SystemActionType.FolderCleaned,
+                EntityType  = "System",
+                Detail      = $"Cleaned {totalFolderOps} folder(s)",
+                ChangesJson = JsonSerializer.Serialize(new { items = subItems }),
+            }, ct);
+        }
+
         // Log completion with full details so the Dashboard can show a single grouped entry.
         await _activityRepo.LogAsync(new SystemActivityEntry
         {
@@ -337,15 +362,8 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
             }
         }
 
-        if (cleaned > 0)
-        {
-            await _activityRepo.LogAsync(new SystemActivityEntry
-            {
-                ActionType = SystemActionType.FolderCleaned,
-                EntityType = "System",
-                Detail     = $"Pruned {cleaned} empty folder(s)",
-            }, ct);
-        }
+        // Individual pass logging removed — the orchestrator logs a single
+        // consolidated FolderCleaned entry after all passes complete.
 
         return cleaned;
     }
@@ -426,15 +444,8 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
             }
         }
 
-        if (cleaned > 0)
-        {
-            await _activityRepo.LogAsync(new SystemActivityEntry
-            {
-                ActionType = SystemActionType.OrphanCleaned,
-                EntityType = "Person",
-                Detail     = $"Cleaned {cleaned} orphaned people folder(s)",
-            }, ct);
-        }
+        // Individual pass logging removed — the orchestrator logs a single
+        // consolidated FolderCleaned entry after all passes complete.
 
         return cleaned;
     }
@@ -517,15 +528,8 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
             }
         }
 
-        if (cleaned > 0)
-        {
-            await _activityRepo.LogAsync(new SystemActivityEntry
-            {
-                ActionType = SystemActionType.FolderCleaned,
-                EntityType = "Person",
-                Detail     = $"Cleaned {cleaned} stale GUID-named people folder(s)",
-            }, ct);
-        }
+        // Individual pass logging removed — the orchestrator logs a single
+        // consolidated FolderCleaned entry after all passes complete.
 
         return cleaned;
     }
