@@ -1429,6 +1429,85 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    // -- GET /hubs/{id}/related -------------------------------------------------
+
+    public async Task<RelatedHubsViewModel?> GetRelatedHubsAsync(
+        Guid hubId, int limit = 20, CancellationToken ct = default)
+    {
+        try
+        {
+            var raw = await _http.GetFromJsonAsync<RelatedHubsRaw>(
+                $"/hubs/{hubId}/related?limit={limit}", ct);
+            if (raw is null) return null;
+            return new RelatedHubsViewModel
+            {
+                SectionTitle = raw.SectionTitle,
+                Reason       = raw.Reason,
+                Hubs         = raw.Hubs.Select(MapHub).ToList(),
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /hubs/{HubId}/related failed", hubId);
+            LastError = ex.Message;
+            return null;
+        }
+    }
+
+    // -- GET /persons/{id} (detail) ------------------------------------------
+
+    public async Task<PersonDetailViewModel?> GetPersonDetailAsync(
+        Guid personId, CancellationToken ct = default)
+    {
+        try
+        {
+            var raw = await _http.GetFromJsonAsync<PersonDetailRaw>(
+                $"/persons/{personId}", ct);
+            if (raw is null) return null;
+            return new PersonDetailViewModel
+            {
+                Id               = raw.Id,
+                Name             = raw.Name ?? string.Empty,
+                Role             = raw.Role ?? string.Empty,
+                HeadshotUrl      = raw.HeadshotUrl,
+                HasLocalHeadshot = raw.HasLocalHeadshot,
+                LocalHeadshotUrl = raw.HasLocalHeadshot ? AbsoluteUrl($"/persons/{raw.Id}/headshot") : null,
+                Biography        = raw.Biography,
+                Occupation       = raw.Occupation,
+                Instagram        = raw.Instagram,
+                Twitter          = raw.Twitter,
+                TikTok           = raw.TikTok,
+                Mastodon         = raw.Mastodon,
+                Website          = raw.Website,
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /persons/{PersonId} failed", personId);
+            LastError = ex.Message;
+            return null;
+        }
+    }
+
+    // -- GET /persons/{id}/works -----------------------------------------------
+
+    public async Task<List<HubViewModel>> GetWorksByPersonAsync(
+        Guid personId, CancellationToken ct = default)
+    {
+        try
+        {
+            var raw = await _http.GetFromJsonAsync<List<HubRaw>>(
+                $"/persons/{personId}/works", ct);
+            return raw?.Select(MapHub).ToList() ?? [];
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /persons/{PersonId}/works failed", personId);
+            LastError = ex.Message;
+            return [];
+        }
+    }
+
     /// <summary>
     /// Most recent error message from the last failed API call.
     /// Useful for surfacing diagnostic details in the UI.
@@ -1561,4 +1640,25 @@ public sealed class EngineApiClient : IEngineApiClient
         [property: JsonPropertyName("has_local_headshot")] bool    HasLocalHeadshot,
         [property: JsonPropertyName("biography")]          string? Biography,
         [property: JsonPropertyName("occupation")]         string? Occupation);
+
+    private sealed record RelatedHubsRaw(
+        [property: JsonPropertyName("section_title")] string       SectionTitle,
+        [property: JsonPropertyName("reason")]        string       Reason,
+        [property: JsonPropertyName("hubs")]          List<HubRaw> Hubs);
+
+    private sealed record PersonDetailRaw(
+        [property: JsonPropertyName("id")]                 Guid            Id,
+        [property: JsonPropertyName("name")]               string?         Name,
+        [property: JsonPropertyName("role")]               string?         Role,
+        [property: JsonPropertyName("headshot_url")]       string?         HeadshotUrl,
+        [property: JsonPropertyName("has_local_headshot")] bool            HasLocalHeadshot,
+        [property: JsonPropertyName("biography")]          string?         Biography,
+        [property: JsonPropertyName("occupation")]         string?         Occupation,
+        [property: JsonPropertyName("instagram")]          string?         Instagram,
+        [property: JsonPropertyName("twitter")]            string?         Twitter,
+        [property: JsonPropertyName("tiktok")]             string?         TikTok,
+        [property: JsonPropertyName("mastodon")]           string?         Mastodon,
+        [property: JsonPropertyName("website")]            string?         Website,
+        [property: JsonPropertyName("created_at")]         DateTimeOffset  CreatedAt,
+        [property: JsonPropertyName("enriched_at")]        DateTimeOffset? EnrichedAt);
 }

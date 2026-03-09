@@ -1,4 +1,4 @@
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Ingestion.Contracts;
@@ -138,7 +138,26 @@ public sealed class SearchResultDto
     public string HubDisplayName { get; init; } = string.Empty;
 }
 
-// ── GET /hubs ──────────────────────────────────────────────────────────────────
+
+// \u2500\u2500 GET /hubs/{id}/related \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+
+/// <summary>
+/// Response for GET /hubs/{id}/related.
+/// Includes the matched hubs and the cascade reason that determined the section title.
+/// </summary>
+public sealed class RelatedHubsResponse
+{
+    [JsonPropertyName("section_title")]
+    public string SectionTitle { get; init; } = string.Empty;
+
+    /// <summary>"series" | "author" | "genre" | "explore"</summary>
+    [JsonPropertyName("reason")]
+    public string Reason { get; init; } = string.Empty;
+
+    [JsonPropertyName("hubs")]
+    public List<HubDto> Hubs { get; init; } = [];
+}
+// \u2500\u2500 GET /hubs \u2500\u2500────────────────────────────────────────────────────────────────
 
 public sealed class HubDto
 {

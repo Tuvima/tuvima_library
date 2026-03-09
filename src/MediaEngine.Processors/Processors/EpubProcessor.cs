@@ -34,7 +34,8 @@ namespace MediaEngine.Processors.Processors;
 ///   • language     (confidence 1.0)
 ///   • description  (confidence 1.0)
 ///   • date         (confidence 1.0)
-///   • isbn         (confidence 1.0 — dc:identifier with ISBN scheme)
+///   \u2022 isbn         (confidence 1.0 \u2014 dc:identifier with ISBN scheme)
+///   \u2022 word_count   (confidence 1.0 \u2014 counted from reading-order content)
 ///
 ///  Cover image: MIME type is sniffed from the first 4 bytes of the image
 ///  (JPEG, PNG, GIF, WebP); falls back to "image/jpeg" for unknown formats.
@@ -105,6 +106,7 @@ public sealed class EpubProcessor : IMediaProcessor
         ct.ThrowIfCancellationRequested();
 
         var claims = BuildClaims(book);
+        AddWordCount(book, claims);
         var (coverBytes, coverMime) = ExtractCover(book);
 
         return new ProcessorResult
@@ -246,6 +248,30 @@ public sealed class EpubProcessor : IMediaProcessor
         return claims;
     }
 
+
+    /// <summary>
+    /// Counts words across the EPUB reading order and appends a word_count claim.
+    /// Words are counted by stripping HTML tags and splitting on whitespace.
+    /// Average adult reading speed is ~250 wpm; the Dashboard converts this to
+    /// a human-readable reading-time estimate.
+    /// </summary>
+    private static void AddWordCount(EpubBook book, List<ExtractedClaim> claims)
+    {
+        if (book.ReadingOrder is not { Count: > 0 }) return;
+
+        var total = 0;
+        foreach (var chapterContent in book.ReadingOrder)
+        {
+            if (string.IsNullOrWhiteSpace(chapterContent.Content)) continue;
+
+            // Strip HTML tags, then split on whitespace.
+            var text = Regex.Replace(chapterContent.Content, "<[^>]+>", " ");
+            total += text.Split(new char[] { ' ', (char)9, (char)13, (char)10 }, StringSplitOptions.RemoveEmptyEntries).Length;
+        }
+
+        if (total > 0)
+            claims.Add(Claim("word_count", total.ToString()));
+    }
     // -------------------------------------------------------------------------
     // Cover image extraction
     // -------------------------------------------------------------------------

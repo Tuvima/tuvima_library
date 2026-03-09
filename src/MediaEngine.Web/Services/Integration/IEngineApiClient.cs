@@ -1,4 +1,4 @@
-using MediaEngine.Web.Models.ViewDTOs;
+﻿using MediaEngine.Web.Models.ViewDTOs;
 
 namespace MediaEngine.Web.Services.Integration;
 
@@ -278,6 +278,19 @@ public interface IEngineApiClient
     /// <summary>GET /persons/by-hub/{hubId} — all persons linked to works in a hub.</summary>
     Task<List<PersonViewModel>> GetPersonsByHubAsync(Guid hubId, CancellationToken ct = default);
 
+
+    // \u2500\u2500 Related hubs (/hubs/{id}/related) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+
+    /// <summary>GET /hubs/{id}/related?limit= \u2014 related hubs by series/author/genre cascade.</summary>
+    Task<RelatedHubsViewModel?> GetRelatedHubsAsync(Guid hubId, int limit = 20, CancellationToken ct = default);
+
+    // \u2500\u2500 Person detail (/persons/{id}) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+
+    /// <summary>GET /persons/{id} \u2014 full person detail with social links and enrichment data.</summary>
+    Task<PersonDetailViewModel?> GetPersonDetailAsync(Guid personId, CancellationToken ct = default);
+
+    /// <summary>GET /persons/{id}/works \u2014 all hubs containing works by this person.</summary>
+    Task<List<HubViewModel>> GetWorksByPersonAsync(Guid personId, CancellationToken ct = default);
     /// <summary>
     /// Most recent error message from the last failed API call.
     /// Useful for surfacing diagnostic details in the UI.

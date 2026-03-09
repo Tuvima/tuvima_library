@@ -23,6 +23,21 @@ public sealed class WorkViewModel
     public string? Series         => Canonical("series");
     public string? SeriesPosition => Canonical("series_position");
     public string? Rating         => Canonical("rating");
+    public int?    WordCount       => int.TryParse(Canonical("word_count"), out var wc) ? wc : null;
+
+    public string? ReadingTimeDisplay
+    {
+        get
+        {
+            if (WordCount is not { } wc || wc <= 0) return null;
+            var minutes = wc / 250;
+            if (minutes < 60) return $"{wc:N0} words \u2022 {minutes} min read";
+            var hours = minutes / 60;
+            var rem   = minutes % 60;
+            var timeStr = rem > 0 ? $"{hours}h {rem}m" : $"{hours}h";
+            return $"{wc:N0} words \u2022 {timeStr} reading time";
+        }
+    }
 
     private string? Canonical(string key) =>
         CanonicalValues.FirstOrDefault(cv => cv.Key.Equals(key, StringComparison.OrdinalIgnoreCase))?.Value;

@@ -124,6 +124,53 @@ public static class PersonEndpoints
             return Results.Ok(persons);
         });
 
+
+        // GET /persons/{id}/works — all hubs containing works by this person.
+        group.MapGet("/{id:guid}/works", async (
+            Guid id,
+            IPersonRepository personRepo,
+            IHubRepository hubRepo,
+            IDatabaseConnection db,
+            CancellationToken ct) =>
+        {
+            var person = await personRepo.FindByIdAsync(id, ct);
+            if (person is null)
+                return Results.NotFound($"Person '{id}' not found.");
+
+            // Find all hub IDs linked to this person via person_media_links.
+            using var conn = db.CreateConnection();
+            using var cmd  = conn.CreateCommand();
+            cmd.CommandText = """
+                SELECT DISTINCT w.hub_id
+                FROM person_media_links pml
+                JOIN media_assets ma ON ma.id = pml.media_asset_id
+                JOIN editions e      ON e.id  = ma.edition_id
+                JOIN works w         ON w.id  = e.work_id
+                WHERE pml.person_id = @personId
+                  AND w.hub_id IS NOT NULL;
+                """;
+            cmd.Parameters.AddWithValue("@personId", id.ToString());
+
+            var hubIds = new HashSet<Guid>();
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+                hubIds.Add(Guid.Parse(reader.GetString(0)));
+
+            if (hubIds.Count == 0)
+                return Results.Ok(Array.Empty<MediaEngine.Api.Models.HubDto>());
+
+            // Load full hub data and filter to matching IDs.
+            var allHubs = await hubRepo.GetAllAsync(ct);
+            var dtos    = allHubs
+                .Where(h => hubIds.Contains(h.Id))
+                .Select(MediaEngine.Api.Models.HubDto.FromDomain)
+                .ToList();
+
+            return Results.Ok(dtos);
+        })
+        .WithName("GetWorksByPerson")
+        .WithSummary("All hubs containing works linked to this person (author/narrator/director).")
+        .Produces<List<MediaEngine.Api.Models.HubDto>>(StatusCodes.Status200OK);
         return app;
     }
 }

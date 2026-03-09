@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.SignalR.Client;
+using Microsoft.AspNetCore.SignalR.Client;
 using MediaEngine.Web.Models.ViewDTOs;
 
 namespace MediaEngine.Web.Services.Integration;
@@ -506,6 +506,21 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     public Task<List<PersonViewModel>> GetPersonsByHubAsync(
         Guid hubId, CancellationToken ct = default)
         => _api.GetPersonsByHubAsync(hubId, ct);
+
+    /// <summary>Returns related hubs (series/author/genre/explore cascade).</summary>
+    public Task<RelatedHubsViewModel?> GetRelatedHubsAsync(
+        Guid hubId, int limit = 20, CancellationToken ct = default)
+        => _api.GetRelatedHubsAsync(hubId, limit, ct);
+
+    /// <summary>Returns full person detail with social links.</summary>
+    public Task<PersonDetailViewModel?> GetPersonDetailAsync(
+        Guid personId, CancellationToken ct = default)
+        => _api.GetPersonDetailAsync(personId, ct);
+
+    /// <summary>Returns all hubs linked to works by a person.</summary>
+    public Task<List<HubViewModel>> GetWorksByPersonAsync(
+        Guid personId, CancellationToken ct = default)
+        => _api.GetWorksByPersonAsync(personId, ct);
 
     // ── Conflicts ────────────────────────────────────────────────────────────
 

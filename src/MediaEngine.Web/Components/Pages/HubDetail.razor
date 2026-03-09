@@ -19,112 +19,190 @@ else if (_hub is null)
 }
 else
 {
-    @* ── Back link ── *@
-    <MudButton Variant="Variant.Text" Color="Color.Default"
-               StartIcon="@Icons.Material.Filled.ArrowBack"
-               OnClick="@(() => Nav.NavigateTo("/"))"
-               Class="hub-detail-back mb-2">
-        Home
-    </MudButton>
-
-    @* ── Cinematic hero banner (reuse HubHero) ── *@
-    <HubHero Hub="@_hub" Visible="true" />
-
-    @* ── Works list ── *@
-    @if (_hub.Works.Count > 0)
+    @* ── Fixed hero background (position:fixed, z-index 0) ── *@
+    @if (!string.IsNullOrEmpty(_hub.HeroUrl))
     {
-        <div class="hub-detail-works">
-            <h3 class="hub-detail-section-title">
-                @CollectionLabel(_hub)
-            </h3>
-
-            @foreach (var group in _workGroups)
-            {
-                @if (_workGroups.Count > 1)
-                {
-                    <h4 class="hub-detail-group-title">@group.Label</h4>
-                }
-
-                <div class="hub-detail-work-list">
-                    @foreach (var work in group.Works)
-                    {
-                        <div class="hub-detail-work-card">
-                            @if (!string.IsNullOrEmpty(work.CoverUrl))
-                            {
-                                <img src="@work.CoverUrl" alt="@work.Title"
-                                     class="hub-detail-work-cover" loading="lazy" />
-                            }
-                            else
-                            {
-                                <div class="hub-detail-work-cover-placeholder">
-                                    <MudIcon Icon="@GetWorkIcon(work.MediaType)"
-                                             Style="font-size: 32px; color: rgba(255,255,255,0.25);" />
-                                </div>
-                            }
-
-                            <div class="hub-detail-work-info">
-                                <span class="hub-detail-work-title">@work.Title</span>
-
-                                @if (!string.IsNullOrEmpty(work.Author))
-                                {
-                                    <span class="hub-detail-work-meta">@work.Author</span>
-                                }
-
-                                <div class="hub-detail-work-badges">
-                                    @if (!string.IsNullOrEmpty(work.Year))
-                                    {
-                                        <span class="hub-detail-badge">@work.Year</span>
-                                    }
-                                    <span class="hub-detail-badge">@FormatMediaType(work.MediaType)</span>
-                                    @if (!string.IsNullOrEmpty(work.Narrator))
-                                    {
-                                        <span class="hub-detail-badge">Narrated by @work.Narrator</span>
-                                    }
-                                    @if (!string.IsNullOrEmpty(work.SeriesPosition))
-                                    {
-                                        <span class="hub-detail-badge">Part @work.SeriesPosition</span>
-                                    }
-                                </div>
-
-                                @if (!string.IsNullOrEmpty(work.Description))
-                                {
-                                    <p class="hub-detail-work-desc">@work.Description</p>
-                                }
-                            </div>
-                        </div>
-                    }
-                </div>
-            }
+        <div class="detail-hero-fixed">
+            <img src="@_hub.HeroUrl" alt="" />
         </div>
+        <div class="detail-hero-fade"></div>
+    }
+    else if (!string.IsNullOrEmpty(_hub.CoverUrl))
+    {
+        <div class="detail-hero-fixed detail-hero-cover-blur">
+            <img src="@_hub.CoverUrl" alt="" />
+        </div>
+        <div class="detail-hero-fade"></div>
     }
 
-    @* ── People section ── *@
-    @if (_persons.Count > 0)
-    {
-        <div class="hub-detail-persons">
-            <h3 class="hub-detail-section-title">People</h3>
-            <div class="hub-detail-person-list">
-                @foreach (var person in _persons)
+    @* ── Scrollable content layer ── *@
+    <div class="detail-content-layer hub-detail-page">
+
+        @* ── Back button ── *@
+        <MudButton Variant="Variant.Text" Color="Color.Default"
+                   StartIcon="@Icons.Material.Filled.ArrowBack"
+                   OnClick="@(() => Nav.NavigateTo("/"))"
+                   Class="hub-detail-back">
+            Home
+        </MudButton>
+
+        @* ── Cover + Metadata panel ── *@
+        <div class="hub-detail-hero-panel">
+            @* Cover art *@
+            <div class="hub-detail-cover-wrap">
+                @if (!string.IsNullOrEmpty(_hub.CoverUrl))
                 {
-                    <PersonCard Person="@person" />
+                    <img src="@_hub.CoverUrl" alt="@_hub.DisplayName"
+                         class="hub-detail-cover" />
+                }
+                else
+                {
+                    <div class="hub-detail-cover hub-detail-cover-placeholder">
+                        <MudIcon Icon="@GetHubIcon()" Style="font-size: 56px; color: rgba(255,255,255,0.20);" />
+                    </div>
                 }
             </div>
-        </div>
-    }
 
-    @* ── Metadata panel ── *@
-    <div class="hub-detail-metadata">
-        <h3 class="hub-detail-section-title">Details</h3>
-        <div class="hub-detail-meta-grid">
-            @foreach (var entry in GetMetadataEntries())
-            {
-                <div class="hub-detail-meta-row">
-                    <span class="hub-detail-meta-label">@entry.Label</span>
-                    <span class="hub-detail-meta-value">@entry.Value</span>
+            @* Metadata column *@
+            <div class="hub-detail-meta-col">
+                @* Badges row *@
+                <div class="hub-detail-badge-row">
+                    @if (!string.IsNullOrEmpty(_hub.Rating))
+                    {
+                        <span class="hub-detail-badge hub-detail-badge-rating">@_hub.Rating</span>
+                    }
+                    @if (!string.IsNullOrEmpty(_hub.Year))
+                    {
+                        <span class="hub-detail-badge">@_hub.Year</span>
+                    }
+                    @if (!string.IsNullOrEmpty(_hub.Genre))
+                    {
+                        <span class="hub-detail-badge">@_hub.Genre</span>
+                    }
+                    <span class="hub-detail-badge hub-detail-badge-format">@PrimaryFormatLabel()</span>
                 </div>
-            }
+
+                @* Title *@
+                <h1 class="hub-detail-title">@_hub.DisplayName</h1>
+
+                @* Author (clickable) *@
+                @if (!string.IsNullOrEmpty(_hub.Author))
+                {
+                    @if (_authorPerson is not null)
+                    {
+                        <button class="hub-detail-author-btn" @onclick="@(() => Nav.NavigateTo($"/person/{_authorPerson.Id}"))">
+                            @_hub.Author
+                        </button>
+                    }
+                    else
+                    {
+                        <span class="hub-detail-author">@_hub.Author</span>
+                    }
+                }
+
+                @* Reading time for books *@
+                @if (_readingTimeDisplay is not null)
+                {
+                    <span class="hub-detail-reading-time">@_readingTimeDisplay</span>
+                }
+
+                @* Progress bar *@
+                @if (_activeJourney is not null && _activeJourney.ProgressPct is > 0 and < 99.5)
+                {
+                    <div class="hub-detail-progress-wrap">
+                        <div class="hub-detail-progress-bar-track">
+                            <div class="hub-detail-progress-bar-fill"
+                                 style="width: @(_activeJourney.ProgressPct.ToString("F0"))%"></div>
+                        </div>
+                        <span class="hub-detail-progress-label">@_activeJourney.ProgressDisplay</span>
+                    </div>
+                }
+
+                @* Action buttons *@
+                <div class="hub-detail-actions">
+                    <button class="hub-detail-btn-primary" @onclick="OnPrimaryAction">
+                        @PrimaryActionLabel()
+                    </button>
+
+                    @if (HasAudiobook() && HasBook())
+                    {
+                        <button class="hub-detail-btn-chip" @onclick="OnListenAction">
+                            🎧 LISTEN
+                        </button>
+                    }
+
+                    <button class="hub-detail-btn-outline" @onclick="OnMarkFinished">
+                        ✓ Mark Finished
+                    </button>
+                </div>
+            </div>
         </div>
+
+        @* ── Description ── *@
+        @if (!string.IsNullOrEmpty(_hub.Description))
+        {
+            <div class="hub-detail-description-section">
+                <p class="hub-detail-description">@(_showFullDescription ? _hub.Description : Truncate(_hub.Description, 400))</p>
+                @if (_hub.Description.Length > 400)
+                {
+                    <button class="hub-detail-expand-btn" @onclick="@(() => _showFullDescription = !_showFullDescription)">
+                        @(_showFullDescription ? "Show less" : "Show more")
+                    </button>
+                }
+            </div>
+        }
+
+        @* ── Author strip ── *@
+        @if (_authorPerson is not null)
+        {
+            <div class="hub-detail-author-section">
+                <h3 class="hub-detail-section-title">About the Author</h3>
+                <div class="hub-detail-author-card" @onclick="@(() => Nav.NavigateTo($"/person/{_authorPerson.Id}"))">
+                    <div class="hub-detail-author-avatar-wrap">
+                        @if (!string.IsNullOrEmpty(_authorPerson.LocalHeadshotUrl))
+                        {
+                            <img src="@_authorPerson.LocalHeadshotUrl" alt="@_authorPerson.Name"
+                                 class="hub-detail-author-avatar" />
+                        }
+                        else if (!string.IsNullOrEmpty(_authorPerson.HeadshotUrl))
+                        {
+                            <img src="@_authorPerson.HeadshotUrl" alt="@_authorPerson.Name"
+                                 class="hub-detail-author-avatar" />
+                        }
+                        else
+                        {
+                            <div class="hub-detail-author-avatar hub-detail-author-avatar-initials">
+                                @_authorPerson.Initials
+                            </div>
+                        }
+                    </div>
+                    <div class="hub-detail-author-info">
+                        <span class="hub-detail-author-name">@_authorPerson.Name</span>
+                        <span class="hub-detail-author-role">@_authorPerson.RoleLabel</span>
+                    </div>
+                    <MudIcon Icon="@Icons.Material.Filled.ChevronRight"
+                             Style="color: rgba(255,255,255,0.35); margin-left: auto;" />
+                </div>
+            </div>
+        }
+
+        @* ── Related content swimlane ── *@
+        @if (_related is not null && _related.Hubs.Count > 0)
+        {
+            <div class="hub-detail-related-section">
+                <PosterSwimlane Title="@_related.SectionTitle"
+                                Hubs="@_related.Hubs.ToList()"
+                                OnHubSelected="@(hub => Nav.NavigateTo($"/hub/{hub.Id}"))" />
+            </div>
+        }
+
     </div>
+}
+
+@* Toast snackbar (stub for actions) *@
+@if (_toastMessage is not null)
+{
+    <div class="hub-detail-toast">@_toastMessage</div>
 }
 
 @code {
@@ -132,16 +210,19 @@ else
 
     private bool _loading = true;
     private HubViewModel? _hub;
-    private List<WorkGroup> _workGroups = [];
-    private List<PersonViewModel> _persons = [];
-
-    private sealed record WorkGroup(string Label, List<WorkViewModel> Works);
+    private PersonViewModel? _authorPerson;
+    private JourneyItemViewModel? _activeJourney;
+    private RelatedHubsViewModel? _related;
+    private string? _readingTimeDisplay;
+    private string? _toastMessage;
+    private bool _showFullDescription;
+    private System.Threading.Timer? _toastTimer;
 
     protected override async Task OnParametersSetAsync()
     {
         _loading = true;
+        _showFullDescription = false;
 
-        // Try cached hubs first; load from Engine if needed.
         if (!State.IsLoaded)
             await Orchestrator.GetHubsAsync();
 
@@ -149,87 +230,130 @@ else
 
         if (_hub is not null)
         {
-            _workGroups = _hub.Works
-                .GroupBy(w => FormatMediaType(w.MediaType))
-                .Select(g => new WorkGroup(g.Key, g.OrderBy(w => w.SequenceIndex ?? int.MaxValue).ToList()))
-                .ToList();
+            // Load persons, journey, and related content in parallel
+            var personsTask  = Orchestrator.GetPersonsByHubAsync(Id);
+            var journeyTask  = Orchestrator.GetJourneyAsync(limit: 50);
+            var relatedTask  = Orchestrator.GetRelatedHubsAsync(Id);
 
-            _persons = await Orchestrator.GetPersonsByHubAsync(Id);
+            await Task.WhenAll(personsTask, journeyTask, relatedTask);
+
+            var persons = personsTask.Result;
+            var journey = journeyTask.Result;
+            _related    = relatedTask.Result;
+
+            // Match author person from persons list
+            _authorPerson = persons.FirstOrDefault(p =>
+                string.Equals(p.Role, "Author", StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(p.Name, _hub.Author, StringComparison.OrdinalIgnoreCase))
+                ?? persons.FirstOrDefault(p =>
+                string.Equals(p.Role, "Author", StringComparison.OrdinalIgnoreCase));
+
+            // Match active journey item
+            var hubWorkIds = _hub.Works.Select(w => w.Id).ToHashSet();
+            _activeJourney = journey
+                .Where(j => j.HubId == Id || hubWorkIds.Contains(j.WorkId))
+                .OrderByDescending(j => j.LastAccessed)
+                .FirstOrDefault();
+
+            // Reading time from word count
+            _readingTimeDisplay = _hub.Works
+                .Select(w => w.ReadingTimeDisplay)
+                .FirstOrDefault(s => !string.IsNullOrEmpty(s));
         }
 
         _loading = false;
     }
 
-    private List<(string Label, string Value)> GetMetadataEntries()
+    // ── Action handlers ──────────────────────────────────────────────────────
+
+    private void OnPrimaryAction()
     {
-        if (_hub is null) return [];
-
-        var entries = new List<(string, string)>();
-
-        if (!string.IsNullOrEmpty(_hub.Author))   entries.Add(("Author", _hub.Author));
-        if (!string.IsNullOrEmpty(_hub.Year))      entries.Add(("Year", _hub.Year));
-        if (!string.IsNullOrEmpty(_hub.Genre))     entries.Add(("Genre", _hub.Genre));
-        if (!string.IsNullOrEmpty(_hub.Series))    entries.Add(("Series", _hub.Series));
-        if (!string.IsNullOrEmpty(_hub.Rating))    entries.Add(("Rating", _hub.Rating));
-        entries.Add(("Media Types", _hub.MediaTypes));
-        entries.Add(("Items", _hub.WorkCount.ToString()));
-        entries.Add(("Added", _hub.CreatedAt.LocalDateTime.ToString("d MMM yyyy")));
-
-        return entries;
+        ShowToast("Playback coming soon");
     }
 
-    /// <summary>
-    /// Returns a user-friendly section heading based on the media types in this hub.
-    /// "Editions" for books, "Versions" for video, "In This Collection" for mixed.
-    /// </summary>
-    private static string CollectionLabel(HubViewModel hub)
+    private void OnListenAction()
     {
-        var types = hub.Works.Select(w => w.MediaType.ToLowerInvariant()).Distinct().ToList();
-        int count = hub.Works.Count;
+        ShowToast("Audiobook playback coming soon");
+    }
 
-        string item;
-        if (types.All(t => t.Contains("epub") || t.Contains("book")))
-            item = "Book";
-        else if (types.All(t => t.Contains("video") || t.Contains("movie") || t.Contains("mkv") || t.Contains("mp4")))
-            item = "Movie";
-        else if (types.All(t => t.Contains("audio") || t.Contains("m4b")))
-            item = "Audiobook";
-        else if (types.All(t => t.Contains("comic") || t.Contains("cbz") || t.Contains("cbr")))
-            item = "Comic";
-        else if (types.Count == 1)
-            item = "Item";
-        else
-            return $"In This Collection ({count})";
+    private async Task OnMarkFinished()
+    {
+        if (_hub is null) return;
+        var asset = _hub.Works.FirstOrDefault();
+        if (asset is null) { ShowToast("No media asset found"); return; }
+        await Orchestrator.SaveProgressAsync(asset.Id, null, 100.0);
+        ShowToast("Marked as finished");
+    }
 
-        return count == 1 ? $"1 {item}" : $"{count} {item}s";
+    private void ShowToast(string message)
+    {
+        _toastMessage = message;
+        _toastTimer?.Dispose();
+        _toastTimer = new System.Threading.Timer(_ =>
+        {
+            _toastMessage = null;
+            InvokeAsync(StateHasChanged);
+        }, null, 3000, System.Threading.Timeout.Infinite);
+        StateHasChanged();
+    }
+
+    // ── Display helpers ──────────────────────────────────────────────────────
+
+    private string PrimaryActionLabel()
+    {
+        var mt = _hub?.PrimaryMediaType?.ToLowerInvariant() ?? "";
+        if (mt.Contains("video") || mt.Contains("movie") || mt.Contains("mkv")) return "▶ WATCH NOW";
+        if (mt.Contains("audio") || mt.Contains("m4b"))                         return "▶ LISTEN NOW";
+        if (mt.Contains("comic") || mt.Contains("cbz"))                         return "▶ READ NOW";
+        return "▶ READ NOW";
+    }
+
+    private bool HasBook() => _hub?.Works.Any(w =>
+    {
+        var t = w.MediaType.ToLowerInvariant();
+        return t.Contains("epub") || t.Contains("book");
+    }) ?? false;
+
+    private bool HasAudiobook() => _hub?.Works.Any(w =>
+    {
+        var t = w.MediaType.ToLowerInvariant();
+        return t.Contains("audio") || t.Contains("m4b");
+    }) ?? false;
+
+    private string PrimaryFormatLabel()
+    {
+        var mt = _hub?.PrimaryMediaType?.ToLowerInvariant() ?? "";
+        if (mt.Contains("epub") || mt.Contains("book"))  return "Book";
+        if (mt.Contains("video") || mt.Contains("movie")) return "Movie";
+        if (mt.Contains("audio") || mt.Contains("m4b"))   return "Audiobook";
+        if (mt.Contains("comic") || mt.Contains("cbz"))   return "Comic";
+        if (mt.Contains("mkv")   || mt.Contains("mp4"))   return "Video";
+        return _hub?.MediaTypes ?? "Media";
+    }
+
+    private string GetHubIcon()
+    {
+        var mt = _hub?.PrimaryMediaType?.ToLowerInvariant() ?? "";
+        if (mt.Contains("video") || mt.Contains("movie")) return Icons.Material.Filled.PlayCircle;
+        if (mt.Contains("epub") || mt.Contains("book"))   return Icons.Material.Filled.MenuBook;
+        if (mt.Contains("audio"))                          return Icons.Material.Filled.Headphones;
+        if (mt.Contains("comic") || mt.Contains("cbz"))   return Icons.Material.Filled.AutoStories;
+        return Icons.Material.Filled.Folder;
     }
 
     private static string Truncate(string text, int maxLength) =>
         text.Length <= maxLength ? text : text[..maxLength].TrimEnd() + "\u2026";
 
-    private static string FormatMediaType(string mediaType)
-    {
-        var t = mediaType.ToLowerInvariant();
-        if (t.Contains("epub") || t.Contains("book"))  return "Book";
-        if (t.Contains("video") || t.Contains("movie")) return "Movie";
-        if (t.Contains("audio") || t.Contains("m4b"))   return "Audiobook";
-        if (t.Contains("comic") || t.Contains("cbz"))   return "Comic";
-        if (t.Contains("mkv") || t.Contains("mp4"))     return "Video";
-        return mediaType;
-    }
-
-    private static string GetWorkIcon(string mediaType)
-    {
-        var t = mediaType.ToLowerInvariant();
-        if (t.Contains("video") || t.Contains("movie")) return Icons.Material.Filled.PlayCircle;
-        if (t.Contains("epub") || t.Contains("book"))   return Icons.Material.Filled.MenuBook;
-        if (t.Contains("audio"))                         return Icons.Material.Filled.Headphones;
-        if (t.Contains("comic") || t.Contains("cbz") || t.Contains("cbr")) return Icons.Material.Filled.AutoStories;
-        return Icons.Material.Filled.Folder;
-    }
+    public void Dispose() => _toastTimer?.Dispose();
 }
 
 <style>
+    /* ── Fixed hero layers ── */
+    .hub-detail-page {
+        min-height: 100vh;
+        padding-bottom: 4rem;
+    }
+
     /* ── Back button ── */
     .hub-detail-back {
         color: rgba(248, 248, 248, 0.60) !important;
@@ -237,182 +361,372 @@ else
         font-size: 0.85rem;
         text-transform: none;
         letter-spacing: 0;
+        margin-bottom: 0.5rem;
     }
 
-    /* ── Section titles ── */
-    .hub-detail-section-title {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 1.25rem;
-        font-weight: 600;
-        color: rgba(248, 248, 248, 0.90);
-        margin: 0 0 16px 0;
-    }
-
-    /* ── Works section ── */
-    .hub-detail-works {
-        margin-bottom: 2rem;
-    }
-
-    .hub-detail-group-title {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 0.9rem;
-        font-weight: 600;
-        color: rgba(248, 248, 248, 0.55);
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-        margin: 0 0 12px 0;
-    }
-
-    .hub-detail-work-list {
+    /* ── Cover + metadata panel ── */
+    .hub-detail-hero-panel {
         display: flex;
-        flex-direction: column;
-        gap: 12px;
-        margin-bottom: 1.5rem;
+        gap: 40px;
+        align-items: flex-end;
+        margin-top: 140px;
+        margin-bottom: 40px;
+        padding-left: 88px;
+        padding-right: 48px;
     }
 
-    .hub-detail-work-card {
-        display: flex;
-        gap: 16px;
-        padding: 16px;
-        border-radius: 12px;
-        background: rgba(255, 255, 255, 0.05);
-        border: 1px solid rgba(255, 255, 255, 0.06);
-        transition: background 0.2s ease;
+    .hub-detail-cover-wrap {
+        flex-shrink: 0;
     }
 
-    .hub-detail-work-card:hover {
-        background: rgba(255, 255, 255, 0.08);
-    }
-
-    .hub-detail-work-cover {
-        width: 80px;
-        height: 120px;
+    .hub-detail-cover {
+        width: 260px;
+        height: 390px;
         object-fit: cover;
-        border-radius: 6px;
-        flex-shrink: 0;
+        border-radius: 12px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.70);
+        display: block;
     }
 
-    .hub-detail-work-cover-placeholder {
-        width: 80px;
-        height: 120px;
-        border-radius: 6px;
-        flex-shrink: 0;
+    .hub-detail-cover-placeholder {
         background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
         display: flex;
         align-items: center;
         justify-content: center;
     }
 
-    .hub-detail-work-info {
+    /* ── Metadata column ── */
+    .hub-detail-meta-col {
         display: flex;
         flex-direction: column;
+        gap: 12px;
         min-width: 0;
+        flex: 1;
+        padding-bottom: 4px;
     }
 
-    .hub-detail-work-title {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 1rem;
-        font-weight: 600;
-        color: rgba(248, 248, 248, 0.90);
-        margin-bottom: 4px;
-    }
-
-    .hub-detail-work-meta {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 0.85rem;
-        color: rgba(248, 248, 248, 0.50);
-        margin-bottom: 8px;
-    }
-
-    .hub-detail-work-badges {
+    .hub-detail-badge-row {
         display: flex;
-        gap: 6px;
+        gap: 8px;
         flex-wrap: wrap;
-        margin-bottom: 8px;
     }
 
     .hub-detail-badge {
         font-family: 'Montserrat', sans-serif;
         font-size: 0.65rem;
         font-weight: 600;
-        letter-spacing: 0.04em;
-        padding: 3px 8px;
+        letter-spacing: 0.05em;
+        padding: 4px 10px;
         border-radius: 4px;
         background: rgba(255, 255, 255, 0.10);
         color: rgba(255, 255, 255, 0.75);
         text-transform: uppercase;
     }
 
-    .hub-detail-work-desc {
+    .hub-detail-badge-rating {
+        background: rgba(201, 146, 46, 0.20);
+        color: #C9922E;
+        border: 1px solid rgba(201, 146, 46, 0.35);
+    }
+
+    .hub-detail-badge-format {
+        background: rgba(99, 141, 255, 0.15);
+        color: rgba(148, 175, 255, 0.90);
+    }
+
+    .hub-detail-title {
         font-family: 'Montserrat', sans-serif;
-        font-size: 0.82rem;
-        font-weight: 300;
-        line-height: 1.5;
-        color: rgba(248, 248, 248, 0.45);
+        font-size: 2.4rem;
+        font-weight: 700;
+        color: rgba(248, 248, 248, 0.95);
+        line-height: 1.15;
         margin: 0;
+        letter-spacing: -0.01em;
+    }
+
+    .hub-detail-author-btn {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 1rem;
+        font-weight: 600;
+        color: #C9922E;
+        background: none;
+        border: none;
+        padding: 0;
+        cursor: pointer;
+        text-align: left;
+        transition: color 0.2s;
+    }
+
+    .hub-detail-author-btn:hover {
+        color: #e0aa50;
+    }
+
+    .hub-detail-author {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 1rem;
+        font-weight: 600;
+        color: rgba(248, 248, 248, 0.65);
+    }
+
+    .hub-detail-reading-time {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.80rem;
+        color: rgba(248, 248, 248, 0.40);
+    }
+
+    /* ── Progress bar ── */
+    .hub-detail-progress-wrap {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .hub-detail-progress-bar-track {
+        flex: 1;
+        max-width: 220px;
+        height: 4px;
+        border-radius: 2px;
+        background: rgba(255, 255, 255, 0.12);
+        overflow: hidden;
+    }
+
+    .hub-detail-progress-bar-fill {
+        height: 100%;
+        border-radius: 2px;
+        background: #C9922E;
+        transition: width 0.4s ease;
+    }
+
+    .hub-detail-progress-label {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: #C9922E;
+    }
+
+    /* ── Action buttons ── */
+    .hub-detail-actions {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-top: 4px;
+    }
+
+    .hub-detail-btn-primary {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.85rem;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        padding: 12px 28px;
+        border-radius: 8px;
+        border: none;
+        background: #C9922E;
+        color: #060A16;
+        cursor: pointer;
+        transition: background 0.2s, transform 0.1s;
+    }
+
+    .hub-detail-btn-primary:hover {
+        background: #d9a340;
+        transform: translateY(-1px);
+    }
+
+    .hub-detail-btn-chip {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.80rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        padding: 11px 20px;
+        border-radius: 8px;
+        border: 1px solid rgba(201, 146, 46, 0.50);
+        background: rgba(201, 146, 46, 0.10);
+        color: #C9922E;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+
+    .hub-detail-btn-chip:hover {
+        background: rgba(201, 146, 46, 0.20);
+    }
+
+    .hub-detail-btn-outline {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.80rem;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        padding: 11px 20px;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        background: transparent;
+        color: rgba(255, 255, 255, 0.65);
+        cursor: pointer;
+        transition: background 0.2s, color 0.2s;
+    }
+
+    .hub-detail-btn-outline:hover {
+        background: rgba(255, 255, 255, 0.06);
+        color: rgba(255, 255, 255, 0.85);
+    }
+
+    /* ── Description ── */
+    .hub-detail-description-section {
+        padding: 0 48px 0 88px;
+        margin-bottom: 40px;
+        max-width: 760px;
+    }
+
+    .hub-detail-description {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.92rem;
+        font-weight: 300;
+        line-height: 1.65;
+        color: rgba(248, 248, 248, 0.60);
+        margin: 0 0 8px 0;
         white-space: pre-wrap;
     }
 
-    /* ── Metadata panel ── */
-    .hub-detail-metadata {
-        margin-bottom: 2rem;
-    }
-
-    .hub-detail-meta-grid {
-        display: grid;
-        grid-template-columns: auto 1fr;
-        gap: 8px 24px;
-        padding: 16px;
-        border-radius: 12px;
-        background: rgba(255, 255, 255, 0.04);
-        border: 1px solid rgba(255, 255, 255, 0.06);
-    }
-
-    .hub-detail-meta-label {
+    .hub-detail-expand-btn {
         font-family: 'Montserrat', sans-serif;
-        font-size: 0.78rem;
+        font-size: 0.80rem;
         font-weight: 600;
-        color: rgba(248, 248, 248, 0.45);
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
+        color: #C9922E;
+        background: none;
+        border: none;
+        padding: 0;
+        cursor: pointer;
     }
 
-    .hub-detail-meta-value {
+    /* ── Author section ── */
+    .hub-detail-author-section {
+        padding: 0 48px 0 88px;
+        margin-bottom: 40px;
+    }
+
+    .hub-detail-section-title {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 1rem;
+        font-weight: 700;
+        color: rgba(248, 248, 248, 0.55);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        margin: 0 0 16px 0;
+    }
+
+    .hub-detail-author-card {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 16px 20px;
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.07);
+        cursor: pointer;
+        max-width: 400px;
+        transition: background 0.2s;
+    }
+
+    .hub-detail-author-card:hover {
+        background: rgba(255, 255, 255, 0.08);
+    }
+
+    .hub-detail-author-avatar-wrap {
+        flex-shrink: 0;
+    }
+
+    .hub-detail-author-avatar {
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        object-fit: cover;
+    }
+
+    .hub-detail-author-avatar-initials {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(201, 146, 46, 0.15);
+        color: #C9922E;
+        font-family: 'Montserrat', sans-serif;
+        font-size: 1.1rem;
+        font-weight: 700;
+    }
+
+    .hub-detail-author-info {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+    }
+
+    .hub-detail-author-name {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: rgba(248, 248, 248, 0.90);
+    }
+
+    .hub-detail-author-role {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.72rem;
+        font-weight: 500;
+        color: rgba(248, 248, 248, 0.40);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-top: 2px;
+    }
+
+    /* ── Related section ── */
+    .hub-detail-related-section {
+        margin-bottom: 40px;
+    }
+
+    /* ── Toast ── */
+    .hub-detail-toast {
+        position: fixed;
+        bottom: 32px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(30, 30, 50, 0.95);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        color: rgba(248, 248, 248, 0.90);
         font-family: 'Montserrat', sans-serif;
         font-size: 0.85rem;
-        color: rgba(248, 248, 248, 0.80);
-    }
-
-    /* ── Persons section ── */
-    .hub-detail-persons {
-        margin-bottom: 2rem;
-    }
-
-    .hub-detail-person-list {
-        display: flex;
-        gap: 12px;
-        flex-wrap: wrap;
+        font-weight: 500;
+        padding: 12px 24px;
+        border-radius: 10px;
+        z-index: 1000;
+        white-space: nowrap;
     }
 
     /* ── Responsive ── */
     @@media (max-width: 768px) {
-        .hub-detail-work-card {
-            padding: 12px;
+        .hub-detail-hero-panel {
+            flex-direction: column;
+            align-items: center;
+            padding-left: 20px;
+            padding-right: 20px;
+            margin-top: 80px;
+            gap: 24px;
         }
 
-        .hub-detail-work-cover,
-        .hub-detail-work-cover-placeholder {
-            width: 60px;
-            height: 90px;
+        .hub-detail-cover {
+            width: 200px;
+            height: 300px;
         }
 
-        .hub-detail-meta-grid {
-            grid-template-columns: 1fr;
-            gap: 4px 0;
+        .hub-detail-meta-col {
+            width: 100%;
         }
 
-        .hub-detail-meta-label {
-            margin-top: 8px;
+        .hub-detail-title {
+            font-size: 1.8rem;
+        }
+
+        .hub-detail-description-section,
+        .hub-detail-author-section {
+            padding: 0 20px;
         }
     }
 </style>
