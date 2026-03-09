@@ -608,20 +608,6 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             resolvedMediaType.ToString(),
             DateTimeOffset.UtcNow), ct).ConfigureAwait(false);
 
-        // Phase 9→Pipeline: enqueue non-blocking three-stage hydration pipeline.
-        await _pipeline.EnqueueAsync(new HarvestRequest
-        {
-            EntityId   = assetId,
-            EntityType = EntityType.MediaAsset,
-            MediaType  = resolvedMediaType,
-            Hints      = BuildHints(candidate.Metadata),
-        }, ct).ConfigureAwait(false);
-
-        // Phase 9: trigger recursive person enrichment for authors/narrators.
-        var persons = ExtractPersonReferences(candidate.Metadata);
-        if (persons.Count > 0)
-            await _identity.EnrichAsync(assetId, persons, ct).ConfigureAwait(false);
-
         // Step 11: auto-organize.
         // Gate: only organize when we have high-confidence metadata or an explicit
         // user-locked claim. This prevents poorly-tagged files from being committed
@@ -696,6 +682,25 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 "File moved to staging for review.",
                 ct).ConfigureAwait(false);
         }
+
+        // Phase 9→Pipeline: enqueue non-blocking three-stage hydration pipeline.
+        // IMPORTANT: placed AFTER the organization gate so that any LowConfidence review
+        // item created above already exists in the database before the hydration pipeline's
+        // TryAutoResolveAndOrganizeAsync runs. This prevents a race condition where the
+        // hydration pipeline resolves before the review item is even written, leaving a
+        // stale review item in the queue for a file that was successfully organized.
+        await _pipeline.EnqueueAsync(new HarvestRequest
+        {
+            EntityId   = assetId,
+            EntityType = EntityType.MediaAsset,
+            MediaType  = resolvedMediaType,
+            Hints      = BuildHints(candidate.Metadata),
+        }, ct).ConfigureAwait(false);
+
+        // Phase 9: trigger recursive person enrichment for authors/narrators.
+        var persons = ExtractPersonReferences(candidate.Metadata);
+        if (persons.Count > 0)
+            await _identity.EnrichAsync(assetId, persons, ct).ConfigureAwait(false);
 
         // Update stored path when the file was moved (organized or staged).
         if (!string.Equals(currentPath, candidate.Path, StringComparison.Ordinal))
