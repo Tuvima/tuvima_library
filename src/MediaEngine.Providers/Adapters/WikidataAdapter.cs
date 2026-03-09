@@ -527,7 +527,8 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
                         request.Title, request.EntityId);
 
                     qid = await ResolveQidViaSearchAsync(
-                        apiClient, request.BaseUrl, request.Title, throttleGapMs, ct, request.Language)
+                        apiClient, request.BaseUrl, request.Title, throttleGapMs, ct,
+                        request.Language, request.MediaType)
                         .ConfigureAwait(false);
 
                     if (qid is not null)
@@ -665,9 +666,16 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
             "tmdb_id"        => request.TmdbId,
             "imdb_id"        => request.ImdbId,
             "asin"           => request.Asin,
-            "isbn"           => request.Isbn,
+            // Strip "urn:isbn:" prefix — EPUB embeds ISBNs as URIs but Wikidata stores bare numbers.
+            "isbn"           => StripIsbnPrefix(request.Isbn),
             _                => null,
         };
+
+    /// <summary>Strips the "urn:isbn:" URI prefix from an ISBN if present.</summary>
+    private static string? StripIsbnPrefix(string? isbn)
+        => isbn?.StartsWith("urn:isbn:", StringComparison.OrdinalIgnoreCase) == true
+            ? isbn[9..]
+            : isbn;
 
     /// <summary>
     /// Executes a bridge lookup SPARQL query and returns the QID if found.
@@ -708,7 +716,8 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
         string title,
         int throttleGapMs,
         CancellationToken ct,
-        string language = "en")
+        string language = "en",
+        MediaType mediaType = MediaType.Unknown)
     {
         if (string.IsNullOrWhiteSpace(baseUrl))
         {
@@ -746,28 +755,76 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
             "Wikidata title search returned {Count} results for \"{Title}\"",
             results.Count, title);
 
-        // Prefer results where the PRIMARY label (not just an alias) matches
-        // the search language.  This filters out translated editions that have
-        // the original title as an English alias but whose primary content is
-        // in another language (e.g. a Spanish edition of an English novel).
-        var labelMatch = results.FirstOrDefault(r =>
-            string.Equals(
-                r?["match"]?["type"]?.GetValue<string>(),
-                "label",
-                StringComparison.OrdinalIgnoreCase));
+        // Score each candidate using description-based heuristics:
+        // - +2 if description contains affinity keywords for the media type
+        //    (e.g. "novel", "book" for Books; "film" for Movies)
+        // - -2 if description contains rejection keywords for the media type
+        //    (e.g. "film", "calendar year" when looking for a Book)
+        // - +1 if match type is "label" (primary label, not just an alias)
+        // The highest-scoring candidate wins.
+        var affinityKeywords   = GetDescriptionAffinityKeywords(mediaType);
+        var rejectionKeywords  = GetDescriptionRejectionKeywords(mediaType);
 
-        var bestResult = labelMatch ?? results.FirstOrDefault();
-        var firstId = bestResult?["id"]?.GetValue<string>();
+        string? bestId = null;
+        int bestScore  = int.MinValue;
 
-        if (labelMatch is not null && results.Count > 1)
+        foreach (var r in results)
         {
+            if (r is null) continue;
+            var id          = r["id"]?.GetValue<string>();
+            var description = (r["description"]?.GetValue<string>() ?? string.Empty).ToLowerInvariant();
+            var matchType   = r["match"]?["type"]?.GetValue<string>() ?? string.Empty;
+
+            int score = 0;
+            if (affinityKeywords.Any(k => description.Contains(k, StringComparison.Ordinal)))
+                score += 2;
+            if (rejectionKeywords.Any(k => description.Contains(k, StringComparison.Ordinal)))
+                score -= 2;
+            if (string.Equals(matchType, "label", StringComparison.OrdinalIgnoreCase))
+                score += 1;
+
             _logger.LogDebug(
-                "Wikidata title search: preferred label-match result {Id} over {Count} total result(s) for \"{Title}\"",
-                firstId, results.Count, title);
+                "Wikidata title search candidate: {Id} description=\"{Desc}\" score={Score}",
+                id, description.Length > 60 ? description[..60] + "…" : description, score);
+
+            if (score > bestScore)
+            {
+                bestScore = score;
+                bestId    = id;
+            }
         }
 
-        return string.IsNullOrWhiteSpace(firstId) ? null : firstId;
+        if (!string.IsNullOrWhiteSpace(bestId))
+        {
+            _logger.LogDebug(
+                "Wikidata title search: selected {Id} (score={Score}) for \"{Title}\"",
+                bestId, bestScore, title);
+        }
+
+        return string.IsNullOrWhiteSpace(bestId) ? null : bestId;
     }
+
+    /// <summary>Description substrings that indicate a good match for the given media type.</summary>
+    private static string[] GetDescriptionAffinityKeywords(MediaType mediaType) => mediaType switch
+    {
+        MediaType.Books      => ["novel", "book", "written work", "literary work", "fiction", "nonfiction",
+                                 "novella", "short story", "anthology", "comic book", "graphic novel"],
+        MediaType.Audiobooks => ["audiobook", "audio book", "novel", "written work"],
+        MediaType.Movies     => ["film", "movie", "motion picture", "feature film"],
+        MediaType.TV         => ["television", "tv series", "tv show", "animated series"],
+        _                    => []
+    };
+
+    /// <summary>Description substrings that indicate a poor match for the given media type.</summary>
+    private static string[] GetDescriptionRejectionKeywords(MediaType mediaType) => mediaType switch
+    {
+        MediaType.Books or MediaType.Audiobooks
+            => ["calendar year", "leap year", "film", "television series", "tv series",
+                "animated series", "video game", "video game series"],
+        MediaType.Movies
+            => ["novel", "book", "calendar year", "television series", "tv series"],
+        _   => []
+    };
 
     // ── SPARQL Execution & Parsing ──────────────────────────────────────────
 
