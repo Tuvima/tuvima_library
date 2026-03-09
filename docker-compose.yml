@@ -1,0 +1,60 @@
+# ── Tuvima Library — Docker Compose ──────────────────────────────────────────
+#
+# Usage:
+#   docker compose up -d          Start both Engine and Dashboard
+#   docker compose logs -f        Follow logs
+#   docker compose down           Stop and remove containers
+#
+# The Engine listens on port 8080, the Dashboard on port 8081.
+# Media files go in ./library/, new files go in ./watch/.
+# ──────────────────────────────────────────────────────────────────────────────
+
+services:
+  engine:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tuvima-engine
+    ports:
+      - "8080:8080"
+    volumes:
+      - tuvima-data:/data
+      - ./config:/app/config
+      - ./library:/library
+      - ./watch:/watch
+    environment:
+      - MediaEngine__DatabasePath=/data/library.db
+      - MediaEngine__ConfigDirectory=/app/config
+      - MediaEngine__Security__LocalhostBypass=true
+      - MediaEngine__Cors__AllowedOrigins__0=http://localhost:8081
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/system/status"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile.dashboard
+    container_name: tuvima-dashboard
+    ports:
+      - "8081:8081"
+    environment:
+      - Engine__BaseUrl=http://engine:8080
+    depends_on:
+      engine:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+volumes:
+  tuvima-data:
+    driver: local

@@ -1,0 +1,37 @@
+**/.git
+**/.vs
+**/.vscode
+**/.idea
+**/.claude
+**/.agent
+**/bin
+**/obj
+**/out
+**/publish
+**/artifacts
+**/TestResults
+**/coverage
+
+# Runtime data
+**/*.db
+**/*.db-shm
+**/*.db-wal
+**/*.sqlite
+**/*.sqlite3
+
+# Live config (not example config)
+config/
+
+# Documentation not needed in image
+*.md
+!README.md
+LICENSE
+
+# OS artifacts
+**/.DS_Store
+**/Thumbs.db
+**/desktop.ini
+
+# Docker files
+**/Dockerfile*
+docker-compose*.yml

@@ -1,0 +1,52 @@
+# ── Tuvima Library Dashboard ──────────────────────────────────────────────────
+# Multi-stage build for MediaEngine.Web (the Dashboard)
+#
+# Build:   docker build -f Dockerfile.dashboard -t tuvima/dashboard .
+# Run:     docker run -p 8081:8081 -e Engine__BaseUrl=http://engine:8080 tuvima/dashboard
+# ──────────────────────────────────────────────────────────────────────────────
+
+# ── Stage 1: Restore ─────────────────────────────────────────────────────────
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS restore
+
+WORKDIR /src
+
+COPY MediaEngine.slnx .
+COPY global.json .
+COPY Directory.Build.props .
+COPY Directory.Packages.props .
+
+# Only the Web project (no engine dependencies)
+COPY src/MediaEngine.Web/MediaEngine.Web.csproj src/MediaEngine.Web/
+
+# Restore just the Web project
+RUN dotnet restore src/MediaEngine.Web/MediaEngine.Web.csproj
+
+# ── Stage 2: Build & Publish ─────────────────────────────────────────────────
+FROM restore AS build
+
+COPY src/MediaEngine.Web/ src/MediaEngine.Web/
+
+RUN dotnet publish src/MediaEngine.Web/MediaEngine.Web.csproj \
+    -c Release \
+    --no-restore \
+    -o /app/publish
+
+# ── Stage 3: Runtime ─────────────────────────────────────────────────────────
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+
+WORKDIR /app
+
+COPY --from=build /app/publish .
+
+ENV ASPNETCORE_URLS=http://+:8081
+ENV ASPNETCORE_ENVIRONMENT=Production
+
+# Point the Dashboard at the Engine (override via env or docker-compose)
+ENV Engine__BaseUrl=http://localhost:8080
+
+EXPOSE 8081
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:8081/ || exit 1
+
+ENTRYPOINT ["dotnet", "MediaEngine.Web.dll"]

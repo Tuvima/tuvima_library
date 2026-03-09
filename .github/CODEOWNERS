@@ -1,0 +1,11 @@
+# ── Tuvima Library — Code Owners ─────────────────────────────────────────────
+#
+# This file defines who must review pull requests before they can be merged.
+# Branch protection rules must be enabled for CODEOWNERS to be enforced.
+#
+# Shaya is the sole owner and required reviewer for all changes.
+# Additional reviewers can be added per-PR at Shaya's discretion.
+# ──────────────────────────────────────────────────────────────────────────────
+
+# Global owner — required on every PR
+*       @shyfaruqi

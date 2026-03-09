@@ -1,0 +1,70 @@
+name: Bug Report
+description: Report something that isn't working correctly.
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug! Please fill in the details below so we can reproduce and fix it.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: A clear description of the bug.
+      placeholder: "When I drop a file into the Watch Folder, the Engine crashes with..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+      placeholder: "The file should have been ingested and appeared in the Dashboard."
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Numbered steps to reproduce the issue.
+      placeholder: |
+        1. Place an EPUB file in the Watch Folder
+        2. Wait 30 seconds
+        3. Check the Dashboard — file doesn't appear
+    validations:
+      required: true
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Which part of Tuvima Library is affected?
+      options:
+        - Engine (API / backend)
+        - Dashboard (web UI)
+        - Ingestion (file processing)
+        - Metadata (providers / scoring)
+        - Docker / deployment
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: How are you running Tuvima Library?
+      placeholder: |
+        - OS: Windows 11 / Ubuntu 24.04 / macOS 15
+        - Deployment: Docker / bare-metal
+        - .NET version: 10.0
+        - Browser (if Dashboard): Chrome 130
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or error output
+      description: Paste any relevant log output or error messages.
+      render: shell
