@@ -566,9 +566,19 @@ else
         padding-bottom: 5rem;
     }
 
+    /* Suppress focus rings for mouse clicks; keep for keyboard nav */
+    .hub-detail-page *:focus:not(:focus-visible) {
+        outline: none !important;
+        box-shadow: none !important;
+    }
+
+    .hub-detail-content:focus {
+        outline: none;
+    }
+
     /* ── Breadcrumb ── */
     .hub-detail-breadcrumb-outer {
-        max-width: 1100px;
+        max-width: 1400px;
         margin: 0 auto;
         padding: 0 40px;
     }
@@ -616,7 +626,7 @@ else
 
     /* ── Main panel outer (centers content) ── */
     .hub-detail-main-outer {
-        max-width: 1100px;
+        max-width: 1400px;
         margin: 0 auto;
         padding: 0 40px;
     }
@@ -624,7 +634,7 @@ else
     /* ── 3-column panel ── */
     .hub-detail-main-panel {
         display: flex;
-        gap: 36px;
+        gap: 28px;
         align-items: flex-start;
         margin-top: 12px;
         margin-bottom: 48px;
@@ -632,7 +642,7 @@ else
 
     /* ── Left sidebar ── */
     .hub-detail-sidebar {
-        width: 150px;
+        width: 130px;
         flex-shrink: 0;
         display: flex;
         flex-direction: column;
@@ -736,7 +746,6 @@ else
         line-height: 1.12;
         margin: 0;
         letter-spacing: -0.02em;
-        user-select: none;
     }
 
     /* Metadata row */
@@ -894,8 +903,8 @@ else
     .hub-detail-cover-wrap { flex-shrink: 0; }
 
     .hub-detail-cover {
-        width: 320px;
-        height: 480px;
+        width: 400px;
+        height: 600px;
         object-fit: cover;
         border-radius: 14px;
         box-shadow: 0 24px 72px rgba(0, 0, 0, 0.75);
@@ -914,7 +923,7 @@ else
     .hub-detail-related-section { margin-bottom: 0; }
 
     .hub-detail-related-section .swimlane-section {
-        max-width: 1180px;
+        max-width: 1480px;
         margin-left: auto;
         margin-right: auto;
         padding-left: 40px;
@@ -930,7 +939,7 @@ else
     }
 
     .hub-detail-author-inner {
-        max-width: 1100px;
+        max-width: 1400px;
         margin: 0 auto;
         padding: 0 40px;
         display: flex;
