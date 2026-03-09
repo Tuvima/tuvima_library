@@ -105,28 +105,39 @@ public sealed class ByteStreamer : IByteStreamer
         long contentLength = rangeEnd - rangeStart + 1;
 
         // Open the file and seek to the start of the requested range.
-        var fs = new FileStream(
-            assetPath,
-            FileMode.Open,
-            FileAccess.Read,
-            FileShare.Read,
-            bufferSize: FileStreamBufferSize,
-            FileOptions.Asynchronous | FileOptions.SequentialScan);
-
-        fs.Seek(rangeStart, SeekOrigin.Begin);
-
-        // Wrap the stream so callers cannot read beyond rangeEnd.
-        var limitedStream = new LengthLimitedStream(fs, contentLength);
-
-        var result = new ByteRangeResult
+        // Guard: if Seek or LengthLimitedStream construction throws, dispose the
+        // FileStream immediately so we don't leak a file handle.
+        FileStream? fs = null;
+        try
         {
-            Content     = limitedStream,
-            RangeStart  = rangeStart,
-            RangeEnd    = rangeEnd,
-            TotalLength = totalLength,
-        };
+            fs = new FileStream(
+                assetPath,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.Read,
+                bufferSize: FileStreamBufferSize,
+                FileOptions.Asynchronous | FileOptions.SequentialScan);
 
-        return Task.FromResult(result);
+            fs.Seek(rangeStart, SeekOrigin.Begin);
+
+            // Wrap the stream so callers cannot read beyond rangeEnd.
+            // Ownership of fs transfers to LengthLimitedStream — it disposes fs.
+            var limitedStream = new LengthLimitedStream(fs, contentLength);
+            fs = null; // prevent disposal in catch block
+
+            return Task.FromResult(new ByteRangeResult
+            {
+                Content     = limitedStream,
+                RangeStart  = rangeStart,
+                RangeEnd    = rangeEnd,
+                TotalLength = totalLength,
+            });
+        }
+        catch
+        {
+            fs?.Dispose();
+            throw;
+        }
     }
 
     // =========================================================================

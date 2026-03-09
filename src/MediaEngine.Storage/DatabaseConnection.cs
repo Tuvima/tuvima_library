@@ -427,6 +427,29 @@ public sealed class DatabaseConnection : IDatabaseConnection
                 CREATE INDEX IF NOT EXISTS idx_prc_provider ON provider_response_cache (provider_id);
                 """);
 
+        // Migration M-022: Performance indices for high-frequency query paths.
+        // These indices were missing from the initial schema definition and are
+        // created here as a safe, idempotent migration (CREATE INDEX IF NOT EXISTS).
+        //
+        // • metadata_claims(provider_id)   — scoring engine filters claims by provider
+        // • metadata_claims(claimed_at)    — stale-claim decay filters by timestamp
+        // • media_assets(edition_id)       — FK lookup joining editions → assets
+        // • works(media_type)              — lane-page and swimlane queries filter by type
+        using (var idxCmd = conn.CreateCommand())
+        {
+            idxCmd.CommandText = """
+                CREATE INDEX IF NOT EXISTS idx_metadata_claims_provider_id
+                    ON metadata_claims (provider_id);
+                CREATE INDEX IF NOT EXISTS idx_metadata_claims_claimed_at
+                    ON metadata_claims (claimed_at);
+                CREATE INDEX IF NOT EXISTS idx_media_assets_edition_id
+                    ON media_assets (edition_id);
+                CREATE INDEX IF NOT EXISTS idx_works_media_type
+                    ON works (media_type);
+                """;
+            idxCmd.ExecuteNonQuery();
+        }
+
         // Seed S-001: provider_registry entries for all known providers.
         // metadata_claims.provider_id has a FK to provider_registry(id), so these
         // rows MUST exist before any claim is written.  INSERT OR IGNORE makes this

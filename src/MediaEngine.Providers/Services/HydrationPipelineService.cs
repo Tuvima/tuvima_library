@@ -775,16 +775,14 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 }
             }
 
-            // Resolve hub name from the work → hub chain.
+            // Resolve hub name from the work → hub chain via a single targeted query.
             string? hubName = null;
             var workId = await _hubRepo.GetWorkIdByMediaAssetAsync(entityId, ct)
                 .ConfigureAwait(false);
             if (workId is not null)
             {
-                var allHubs = await _hubRepo.GetAllAsync(ct).ConfigureAwait(false);
-                var parentHub = allHubs.FirstOrDefault(h =>
-                    h.Works.Any(w => w.Id == workId.Value));
-                hubName = parentHub?.DisplayName;
+                hubName = await _hubRepo.FindHubNameByWorkIdAsync(workId.Value, ct)
+                    .ConfigureAwait(false);
             }
 
             // Compute overall confidence from current canonical state.

@@ -35,7 +35,13 @@ public sealed class EngineApiClient : IEngineApiClient
                 Version = raw.Version,
             };
         }
-        catch { return null; }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            // Debug level: this endpoint is polled; Engine may not be up yet.
+            _logger.LogDebug(ex, "GET /system/status failed");
+            return null;
+        }
     }
 
     // ── GET /hubs ─────────────────────────────────────────────────────────────
@@ -47,7 +53,12 @@ public sealed class EngineApiClient : IEngineApiClient
             var raw = await _http.GetFromJsonAsync<List<HubRaw>>("/hubs", ct);
             return raw?.Select(MapHub).ToList() ?? [];
         }
-        catch { return []; }
+        catch (OperationCanceledException) { return []; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /hubs failed");
+            return [];
+        }
     }
 
     // ── POST /ingestion/scan ──────────────────────────────────────────────────
@@ -73,7 +84,12 @@ public sealed class EngineApiClient : IEngineApiClient
                 }).ToList(),
             };
         }
-        catch { return null; }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /ingestion/scan failed");
+            return null;
+        }
     }
 
     // ── POST /ingestion/library-scan ─────────────────────────────────────────
@@ -87,7 +103,12 @@ public sealed class EngineApiClient : IEngineApiClient
             if (!resp.IsSuccessStatusCode) return null;
             return await resp.Content.ReadFromJsonAsync<LibraryScanResultViewModel>(ct);
         }
-        catch { return null; }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /ingestion/library-scan failed");
+            return null;
+        }
     }
 
     // ── POST /ingestion/reconcile ─────────────────────────────────────────────
@@ -101,7 +122,12 @@ public sealed class EngineApiClient : IEngineApiClient
             if (!resp.IsSuccessStatusCode) return null;
             return await resp.Content.ReadFromJsonAsync<ReconciliationResultDto>(ct);
         }
-        catch { return null; }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /ingestion/reconcile failed");
+            return null;
+        }
     }
 
     // ── GET /ingestion/watch-folder ────────────────────────────────────────────
@@ -113,7 +139,12 @@ public sealed class EngineApiClient : IEngineApiClient
             var raw = await _http.GetFromJsonAsync<WatchFolderResponse>("/ingestion/watch-folder", ct);
             return raw?.Files ?? [];
         }
-        catch { return []; }
+        catch (OperationCanceledException) { return []; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /ingestion/watch-folder failed");
+            return [];
+        }
     }
 
     // ── POST /ingestion/rescan ──────────────────────────────────────────────
@@ -125,7 +156,12 @@ public sealed class EngineApiClient : IEngineApiClient
             var resp = await _http.PostAsJsonAsync("/ingestion/rescan", new { }, ct);
             return resp.IsSuccessStatusCode;
         }
-        catch { return false; }
+        catch (OperationCanceledException) { return false; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /ingestion/rescan failed");
+            return false;
+        }
     }
 
     // ── PATCH /metadata/resolve ───────────────────────────────────────────────
@@ -143,7 +179,12 @@ public sealed class EngineApiClient : IEngineApiClient
             var resp = await _http.SendAsync(req, ct);
             return resp.IsSuccessStatusCode;
         }
-        catch { return false; }
+        catch (OperationCanceledException) { return false; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "PATCH /metadata/resolve failed");
+            return false;
+        }
     }
 
     // ── GET /hubs/search ─────────────────────────────────────────────────────
@@ -167,7 +208,12 @@ public sealed class EngineApiClient : IEngineApiClient
                 HubDisplayName = r.HubDisplayName,
             }).ToList() ?? [];
         }
-        catch { return []; }
+        catch (OperationCanceledException) { return []; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /hubs/search failed");
+            return [];
+        }
     }
 
     // ── /admin/api-keys ───────────────────────────────────────────────────────
@@ -184,7 +230,12 @@ public sealed class EngineApiClient : IEngineApiClient
                 CreatedAt = r.CreatedAt,
             }).ToList() ?? [];
         }
-        catch { return []; }
+        catch (OperationCanceledException) { return []; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /admin/api-keys failed");
+            return [];
+        }
     }
 
     public async Task<NewApiKeyViewModel?> CreateApiKeyAsync(
@@ -205,7 +256,12 @@ public sealed class EngineApiClient : IEngineApiClient
                 CreatedAt = raw.CreatedAt,
             };
         }
-        catch { return null; }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /admin/api-keys failed");
+            return null;
+        }
     }
 
     public async Task<bool> RevokeApiKeyAsync(Guid id, CancellationToken ct = default)
@@ -215,7 +271,12 @@ public sealed class EngineApiClient : IEngineApiClient
             var resp = await _http.DeleteAsync($"/admin/api-keys/{id}", ct);
             return resp.IsSuccessStatusCode;
         }
-        catch { return false; }
+        catch (OperationCanceledException) { return false; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "DELETE /admin/api-keys/{Id} failed", id);
+            return false;
+        }
     }
 
     // ── DELETE /admin/api-keys (batch revoke-all) ─────────────────────────────
@@ -229,7 +290,12 @@ public sealed class EngineApiClient : IEngineApiClient
             var raw = await resp.Content.ReadFromJsonAsync<RevokeAllRaw>(ct);
             return raw?.RevokedCount ?? 0;
         }
-        catch { return 0; }
+        catch (OperationCanceledException) { return 0; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "DELETE /admin/api-keys failed");
+            return 0;
+        }
     }
 
     // ── /profiles ───────────────────────────────────────────────────────────────
@@ -241,7 +307,12 @@ public sealed class EngineApiClient : IEngineApiClient
             var raw = await _http.GetFromJsonAsync<List<ProfileViewModel>>("/profiles", ct);
             return raw ?? [];
         }
-        catch { return []; }
+        catch (OperationCanceledException) { return []; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /profiles failed");
+            return [];
+        }
     }
 
     public async Task<ProfileViewModel?> CreateProfileAsync(
@@ -256,7 +327,12 @@ public sealed class EngineApiClient : IEngineApiClient
             if (!resp.IsSuccessStatusCode) return null;
             return await resp.Content.ReadFromJsonAsync<ProfileViewModel>(ct);
         }
-        catch { return null; }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /profiles failed");
+            return null;
+        }
     }
 
     public async Task<bool> UpdateProfileAsync(
@@ -270,7 +346,12 @@ public sealed class EngineApiClient : IEngineApiClient
             var resp = await _http.PutAsJsonAsync($"/profiles/{id}", body, ct);
             return resp.IsSuccessStatusCode;
         }
-        catch { return false; }
+        catch (OperationCanceledException) { return false; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "PUT /profiles/{Id} failed", id);
+            return false;
+        }
     }
 
     public async Task<bool> DeleteProfileAsync(Guid id, CancellationToken ct = default)
@@ -280,7 +361,12 @@ public sealed class EngineApiClient : IEngineApiClient
             var resp = await _http.DeleteAsync($"/profiles/{id}", ct);
             return resp.IsSuccessStatusCode;
         }
-        catch { return false; }
+        catch (OperationCanceledException) { return false; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "DELETE /profiles/{Id} failed", id);
+            return false;
+        }
     }
 
     // ── /metadata/claims + lock-claim ───────────────────────────────────────────
@@ -294,7 +380,12 @@ public sealed class EngineApiClient : IEngineApiClient
                 $"/metadata/claims/{entityId}", ct);
             return raw ?? [];
         }
-        catch { return []; }
+        catch (OperationCanceledException) { return []; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /metadata/claims/{EntityId} failed", entityId);
+            return [];
+        }
     }
 
     public async Task<bool> LockClaimAsync(
@@ -310,7 +401,12 @@ public sealed class EngineApiClient : IEngineApiClient
             var resp = await _http.SendAsync(req, ct);
             return resp.IsSuccessStatusCode;
         }
-        catch { return false; }
+        catch (OperationCanceledException) { return false; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "PATCH /metadata/lock-claim failed");
+            return false;
+        }
     }
 
     // ── /metadata/hydrate ──────────────────────────────────────────────────────
@@ -324,7 +420,12 @@ public sealed class EngineApiClient : IEngineApiClient
             if (!resp.IsSuccessStatusCode) return null;
             return await resp.Content.ReadFromJsonAsync<HydrateResultViewModel>(ct);
         }
-        catch { return null; }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /metadata/hydrate/{EntityId} failed", entityId);
+            return null;
+        }
     }
 
     // ── /metadata/conflicts ────────────────────────────────────────────────────
@@ -337,7 +438,12 @@ public sealed class EngineApiClient : IEngineApiClient
                 "/metadata/conflicts", ct);
             return raw ?? [];
         }
-        catch { return []; }
+        catch (OperationCanceledException) { return []; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /metadata/conflicts failed");
+            return [];
+        }
     }
 
     // ── /settings ─────────────────────────────────────────────────────────────
@@ -660,7 +766,12 @@ public sealed class EngineApiClient : IEngineApiClient
                 $"/activity/recent?limit={limit}", ct);
             return raw ?? [];
         }
-        catch { return []; }
+        catch (OperationCanceledException) { return []; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /activity/recent failed");
+            return [];
+        }
     }
 
     public async Task<ActivityStatsViewModel?> GetActivityStatsAsync(CancellationToken ct = default)
@@ -669,7 +780,12 @@ public sealed class EngineApiClient : IEngineApiClient
         {
             return await _http.GetFromJsonAsync<ActivityStatsViewModel>("/activity/stats", ct);
         }
-        catch { return null; }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /activity/stats failed");
+            return null;
+        }
     }
 
     public async Task<PruneResultViewModel?> TriggerPruneAsync(CancellationToken ct = default)
@@ -680,7 +796,12 @@ public sealed class EngineApiClient : IEngineApiClient
             if (!resp.IsSuccessStatusCode) return null;
             return await resp.Content.ReadFromJsonAsync<PruneResultViewModel>(ct);
         }
-        catch { return null; }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /activity/prune failed");
+            return null;
+        }
     }
 
     public async Task<bool> UpdateRetentionAsync(int days, CancellationToken ct = default)
@@ -690,7 +811,12 @@ public sealed class EngineApiClient : IEngineApiClient
             var resp = await _http.PutAsync($"/activity/retention?days={days}", null, ct);
             return resp.IsSuccessStatusCode;
         }
-        catch { return false; }
+        catch (OperationCanceledException) { return false; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "PUT /activity/retention failed");
+            return false;
+        }
     }
 
     public async Task<List<ActivityEntryViewModel>> GetActivityByRunIdAsync(
@@ -702,7 +828,12 @@ public sealed class EngineApiClient : IEngineApiClient
                 $"/activity/run/{runId}", ct);
             return raw ?? [];
         }
-        catch { return []; }
+        catch (OperationCanceledException) { return []; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /activity/run/{RunId} failed", runId);
+            return [];
+        }
     }
 
     // ── Organization template ────────────────────────────────────────────────
@@ -762,7 +893,12 @@ public sealed class EngineApiClient : IEngineApiClient
                 $"/review/pending?limit={limit}", ct);
             return raw ?? [];
         }
-        catch { return []; }
+        catch (OperationCanceledException) { return []; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /review/pending failed");
+            return [];
+        }
     }
 
     public async Task<ReviewItemViewModel?> GetReviewItemAsync(
@@ -773,7 +909,12 @@ public sealed class EngineApiClient : IEngineApiClient
             return await _http.GetFromJsonAsync<ReviewItemViewModel>(
                 $"/review/{id}", ct);
         }
-        catch { return null; }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /review/{Id} failed", id);
+            return null;
+        }
     }
 
     public async Task<int> GetReviewCountAsync(CancellationToken ct = default)
@@ -783,7 +924,13 @@ public sealed class EngineApiClient : IEngineApiClient
             var raw = await _http.GetFromJsonAsync<ReviewCountDto>("/review/count", ct);
             return raw?.PendingCount ?? 0;
         }
-        catch { return 0; }
+        catch (OperationCanceledException) { return 0; }
+        catch (Exception ex)
+        {
+            // Debug level: this is polled for the badge count.
+            _logger.LogDebug(ex, "GET /review/count failed");
+            return 0;
+        }
     }
 
     public async Task<bool> ResolveReviewItemAsync(
@@ -794,7 +941,12 @@ public sealed class EngineApiClient : IEngineApiClient
             var resp = await _http.PostAsJsonAsync($"/review/{id}/resolve", request, ct);
             return resp.IsSuccessStatusCode;
         }
-        catch { return false; }
+        catch (OperationCanceledException) { return false; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /review/{Id}/resolve failed", id);
+            return false;
+        }
     }
 
     public async Task<bool> DismissReviewItemAsync(Guid id, CancellationToken ct = default)
@@ -804,7 +956,12 @@ public sealed class EngineApiClient : IEngineApiClient
             var resp = await _http.PostAsJsonAsync($"/review/{id}/dismiss", new { }, ct);
             return resp.IsSuccessStatusCode;
         }
-        catch { return false; }
+        catch (OperationCanceledException) { return false; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /review/{Id}/dismiss failed", id);
+            return false;
+        }
     }
 
     public async Task<bool> SkipUniverseAsync(Guid id, CancellationToken ct = default)
@@ -814,7 +971,12 @@ public sealed class EngineApiClient : IEngineApiClient
             var resp = await _http.PostAsJsonAsync($"/review/{id}/skip-universe", new { }, ct);
             return resp.IsSuccessStatusCode;
         }
-        catch { return false; }
+        catch (OperationCanceledException) { return false; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /review/{Id}/skip-universe failed", id);
+            return false;
+        }
     }
 
     public async Task<bool> ReclassifyMediaTypeAsync(
@@ -827,7 +989,12 @@ public sealed class EngineApiClient : IEngineApiClient
                 new { media_type = mediaType }, ct);
             return resp.IsSuccessStatusCode;
         }
-        catch { return false; }
+        catch (OperationCanceledException) { return false; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /metadata/{EntityId}/reclassify failed", entityId);
+            return false;
+        }
     }
 
     // ── Provider slots (/settings/provider-slots) ───────────────────────

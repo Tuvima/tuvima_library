@@ -306,6 +306,30 @@ public sealed class HubRepository : IHubRepository
     }
 
     /// <inheritdoc/>
+    public Task<string?> FindHubNameByWorkIdAsync(Guid workId, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        using var conn = _db.CreateConnection();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            SELECT h.display_name
+            FROM   works w
+            JOIN   hubs h ON h.id = w.hub_id
+            WHERE  w.id = @workId
+            LIMIT  1;
+            """;
+        cmd.Parameters.AddWithValue("@workId", workId.ToString());
+
+        using var reader = cmd.ExecuteReader();
+        string? result = null;
+        if (reader.Read() && !reader.IsDBNull(0))
+            result = reader.GetString(0);
+
+        return Task.FromResult(result);
+    }
+
+    /// <inheritdoc/>
     public async Task AssignWorkToHubAsync(Guid workId, Guid hubId, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
