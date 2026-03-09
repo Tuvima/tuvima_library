@@ -783,6 +783,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         // Writing back to a file still in the Watch Folder would change its
         // content hash, causing the watcher to re-detect it as a new file
         // and creating an infinite re-ingestion loop.
+        List<string> tagsWritten  = [];
+        bool         coverWritten = false;
         if (_options.WriteBack && fileIsInLibrary && candidate.Metadata is not null)
         {
             var tagger = _taggers.FirstOrDefault(t => t.CanHandle(currentPath));
@@ -790,16 +792,20 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             {
                 await tagger.WriteTagsAsync(currentPath, candidate.Metadata, ct)
                              .ConfigureAwait(false);
+                tagsWritten = [.. candidate.Metadata.Keys];
 
                 if (result.CoverImage is { Length: > 0 })
+                {
                     await tagger.WriteCoverArtAsync(currentPath, result.CoverImage, ct)
                                  .ConfigureAwait(false);
+                    coverWritten = true;
+                }
 
                 // Demoted from activity ledger to debug log (Phase 5 — activity consolidation).
                 _logger.LogDebug(
                     "MetadataTagsWritten — {File}: {Count} tag(s){Cover}",
                     Path.GetFileName(currentPath), candidate.Metadata.Count,
-                    result.CoverImage is { Length: > 0 } ? " + cover art" : "");
+                    coverWritten ? " + cover art" : "");
             }
         }
 
@@ -850,6 +856,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             media_type    = resolvedMediaType.ToString(),
             confidence    = scored.OverallConfidence,
             source_file   = Path.GetFileName(candidate.Path),
+            source_path   = candidate.Path,
             description   = candidate.Metadata?.GetValueOrDefault("description", string.Empty) ?? string.Empty,
             entity_id     = assetId.ToString(),
             organized_to  = organizedTo,
@@ -857,6 +864,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             cover_url     = fileIsInLibrary ? $"/stream/{assetId}/cover" : (string?)null,
             match_method  = matchMethod,
             field_sources = fieldProvenance,
+            tags_written  = tagsWritten,
+            cover_written = coverWritten,
         });
 
         // "Sent to review" is determined by the hydration pipeline, not at this stage.

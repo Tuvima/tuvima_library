@@ -1,6 +1,7 @@
 @namespace MediaEngine.Web.Components.Settings
 @using MediaEngine.Web.Models
 @using MediaEngine.Web.Models.ViewDTOs
+@using System.IO
 @inject UIOrchestratorService Orchestrator
 @inject ISnackbar Snackbar
 @inject IConfiguration Configuration
@@ -449,8 +450,16 @@
                                                     </MudChip>
                                                 }
 
-                                                @* Expandable field provenance detail *@
-                                                @if (rich.FieldSources is { Count: > 0 })
+                                                @* Expandable details — file journey, tags written, match sources *@
+                                                @{
+                                                    var ingestRich      = GetIngestionSubStepRich(entry.Id);
+                                                    var effectiveSources = rich.FieldSources ?? ingestRich?.FieldSources;
+                                                    var hasDetails      = (effectiveSources is { Count: > 0 })
+                                                                       || (ingestRich?.SourcePath is not null)
+                                                                       || (ingestRich?.TagsWritten is { Count: > 0 })
+                                                                       || (ingestRich?.CoverWritten == true);
+                                                }
+                                                @if (hasDetails)
                                                 {
                                                     <div class="activity-field-toggle"
                                                          @onclick="@(() => ToggleFieldDetail(entry.Id))"
@@ -462,41 +471,137 @@
                                                                  Style="font-size: 0.75rem; opacity: 0.45;" />
                                                         <MudText Typo="Typo.caption" Color="Color.Secondary"
                                                                  Style="font-size: 0.72rem;">
-                                                            Match details (@rich.FieldSources.Count fields)
+                                                            Details@(effectiveSources is { Count: > 0 } ? $" ({effectiveSources.Count} fields)" : "")
                                                         </MudText>
                                                     </div>
                                                     @if (_fieldDetailExpandedIds.Contains(entry.Id))
                                                     {
                                                         <div class="activity-field-detail">
-                                                            @foreach (var fs in rich.FieldSources)
+
+                                                            @* ── File journey ── *@
+                                                            @if (ingestRich?.SourcePath is { } srcPath)
                                                             {
-                                                                <div class="activity-field-row">
+                                                                var destPath = rich.ResolvedOrganizedTo ?? ingestRich.OrganizedTo ?? string.Empty;
+                                                                var srcFile  = Path.GetFileName(srcPath);
+                                                                var destFile = Path.GetFileName(destPath);
+                                                                var renamed  = !string.IsNullOrEmpty(srcFile)
+                                                                            && !string.IsNullOrEmpty(destFile)
+                                                                            && !string.Equals(srcFile, destFile,
+                                                                                    StringComparison.OrdinalIgnoreCase);
+                                                                <div class="activity-detail-section">
                                                                     <MudText Typo="Typo.caption"
-                                                                             Style="font-weight: 600; width: 80px; flex-shrink: 0; font-size: 0.72rem;">
-                                                                        @FormatFieldName(fs.Field)
+                                                                             Style="font-weight: 700; font-size: 0.68rem; opacity: 0.55;
+                                                                                    text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px;">
+                                                                        File journey
                                                                     </MudText>
-                                                                    <MudText Typo="Typo.caption"
-                                                                             Style="flex: 1; min-width: 0; overflow: hidden;
-                                                                                    text-overflow: ellipsis; white-space: nowrap;
-                                                                                    font-size: 0.72rem;">
-                                                                        @(fs.Value ?? "—")
-                                                                    </MudText>
-                                                                    <MudChip T="string" Size="Size.Small"
-                                                                             Color="@(fs.Source == "embedded" ? Color.Info : Color.Default)"
-                                                                             Variant="Variant.Outlined"
-                                                                             Style="font-size: 0.65rem; height: 18px; padding: 0 6px;">
-                                                                        @(fs.Source ?? "unknown")
-                                                                    </MudChip>
-                                                                    @if (fs.Conflicted)
-                                                                    {
-                                                                        <MudIcon Icon="@Icons.Material.Filled.Warning"
+                                                                    <div class="activity-detail-path-row">
+                                                                        <MudText Typo="Typo.caption"
+                                                                                 Style="font-size: 0.7rem; color: var(--app-text-soft); word-break: break-all;">
+                                                                            @srcPath
+                                                                        </MudText>
+                                                                        <MudIcon Icon="@Icons.Material.Filled.ArrowDownward"
                                                                                  Size="Size.Small"
-                                                                                 Color="Color.Warning"
-                                                                                 Style="font-size: 0.8rem;"
-                                                                                 title="Conflicted — competing values" />
+                                                                                 Style="font-size: 0.8rem; opacity: 0.45; flex-shrink: 0; margin: 2px 0;" />
+                                                                        <div style="display: flex; align-items: center; gap: 4px; flex-wrap: wrap;">
+                                                                            <MudText Typo="Typo.caption"
+                                                                                     Style="font-size: 0.7rem; word-break: break-all;">
+                                                                                @(string.IsNullOrEmpty(destPath) ? "staging" : destPath)
+                                                                            </MudText>
+                                                                            @if (renamed)
+                                                                            {
+                                                                                <MudChip T="string" Size="Size.Small"
+                                                                                         Style="background: #C9922E20; color: #C9922E; font-size: 0.65rem; height: 18px; padding: 0 6px; font-weight: 600;">
+                                                                                    renamed
+                                                                                </MudChip>
+                                                                            }
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            }
+
+                                                            @* ── Tags written to file ── *@
+                                                            @{
+                                                                var tagsW = ingestRich?.TagsWritten;
+                                                                var covW  = ingestRich?.CoverWritten ?? false;
+                                                            }
+                                                            @if (tagsW is { Count: > 0 } || covW)
+                                                            {
+                                                                <div class="activity-detail-section">
+                                                                    <MudText Typo="Typo.caption"
+                                                                             Style="font-weight: 700; font-size: 0.68rem; opacity: 0.55;
+                                                                                    text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px;">
+                                                                        Written to file
+                                                                    </MudText>
+                                                                    <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                                                                        @if (tagsW is not null)
+                                                                        {
+                                                                            @foreach (var tag in tagsW)
+                                                                            {
+                                                                                <MudChip T="string" Size="Size.Small"
+                                                                                         Variant="Variant.Outlined"
+                                                                                         Color="Color.Default"
+                                                                                         Style="font-size: 0.65rem; height: 18px; padding: 0 6px;">
+                                                                                    @FormatFieldName(tag)
+                                                                                </MudChip>
+                                                                            }
+                                                                        }
+                                                                        @if (covW)
+                                                                        {
+                                                                            <MudChip T="string" Size="Size.Small"
+                                                                                     Variant="Variant.Outlined"
+                                                                                     Color="Color.Info"
+                                                                                     Style="font-size: 0.65rem; height: 18px; padding: 0 6px;">
+                                                                                <MudIcon Icon="@Icons.Material.Filled.Image"
+                                                                                         Size="Size.Small"
+                                                                                         Style="font-size: 0.7rem; margin-right: 2px;" />
+                                                                                cover art
+                                                                            </MudChip>
+                                                                        }
+                                                                    </div>
+                                                                </div>
+                                                            }
+
+                                                            @* ── Match sources ── *@
+                                                            @if (effectiveSources is { Count: > 0 })
+                                                            {
+                                                                <div class="activity-detail-section">
+                                                                    <MudText Typo="Typo.caption"
+                                                                             Style="font-weight: 700; font-size: 0.68rem; opacity: 0.55;
+                                                                                    text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px;">
+                                                                        Match sources
+                                                                    </MudText>
+                                                                    @foreach (var fs in effectiveSources)
+                                                                    {
+                                                                        <div class="activity-field-row">
+                                                                            <MudText Typo="Typo.caption"
+                                                                                     Style="font-weight: 600; width: 80px; flex-shrink: 0; font-size: 0.72rem;">
+                                                                                @FormatFieldName(fs.Field)
+                                                                            </MudText>
+                                                                            <MudText Typo="Typo.caption"
+                                                                                     Style="flex: 1; min-width: 0; overflow: hidden;
+                                                                                            text-overflow: ellipsis; white-space: nowrap;
+                                                                                            font-size: 0.72rem;">
+                                                                                @(fs.Value ?? "—")
+                                                                            </MudText>
+                                                                            <MudChip T="string" Size="Size.Small"
+                                                                                     Color="@(fs.Source == "embedded" ? Color.Info : Color.Default)"
+                                                                                     Variant="Variant.Outlined"
+                                                                                     Style="font-size: 0.65rem; height: 18px; padding: 0 6px;">
+                                                                                @(fs.Source ?? "unknown")
+                                                                            </MudChip>
+                                                                            @if (fs.Conflicted)
+                                                                            {
+                                                                                <MudIcon Icon="@Icons.Material.Filled.Warning"
+                                                                                         Size="Size.Small"
+                                                                                         Color="Color.Warning"
+                                                                                         Style="font-size: 0.8rem;"
+                                                                                         title="Conflicted — competing values" />
+                                                                            }
+                                                                        </div>
                                                                     }
                                                                 </div>
                                                             }
+
                                                         </div>
                                                     }
                                                 }
@@ -1524,6 +1629,18 @@
         StateHasChanged();
     }
 
+    /// <summary>
+    /// Returns the RichData for the FileIngested sub-step absorbed under a
+    /// MediaAdded entry. Used by the expandable details panel to show the
+    /// original source path, tags written, and other ingestion-time data.
+    /// </summary>
+    private ActivityRichData? GetIngestionSubStepRich(long entryId)
+    {
+        if (!_ingestionSubSteps.TryGetValue(entryId, out var steps))
+            return null;
+        return steps.FirstOrDefault(s => s.ActionType == "FileIngested")?.RichData;
+    }
+
     // ── Display tier ────────────────────────────────────────────────────────────
 
     private static DisplayTier GetDisplayTier(string actionType) => actionType switch
@@ -2273,5 +2390,22 @@
 
     .activity-field-row:last-child {
         border-bottom: none;
+    }
+
+    /* ── Rich detail subsections ────────────────────────────────── */
+    .activity-detail-section {
+        padding: 6px 0;
+        border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+
+    .activity-detail-section:last-child {
+        border-bottom: none;
+        padding-bottom: 0;
+    }
+
+    .activity-detail-path-row {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
     }
 </style>

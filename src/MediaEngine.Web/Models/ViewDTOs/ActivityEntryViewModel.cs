@@ -235,6 +235,15 @@ public sealed class ActivityRichData
     [JsonPropertyName("field_sources")]
     public List<FieldSourceEntry>? FieldSources { get; set; }
 
+    [JsonPropertyName("source_path")]
+    public string? SourcePath { get; set; }
+
+    [JsonPropertyName("tags_written")]
+    public List<string>? TagsWritten { get; set; }
+
+    [JsonPropertyName("cover_written")]
+    public bool CoverWritten { get; set; }
+
     // ── MediaAdded-specific fields ────────────────────────────────────────
 
     [JsonPropertyName("hub_name")]

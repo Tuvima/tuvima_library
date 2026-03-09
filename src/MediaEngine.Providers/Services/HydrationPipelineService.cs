@@ -826,6 +826,65 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 // If scoring fails, use 0 — the MediaAdded entry is still useful.
             }
 
+            // Build per-field provenance from the final scored state so the
+            // Dashboard can show which provider won each field after all three
+            // hydration stages have run (not just the local-processor snapshot).
+            var localProcessorId = new Guid("a1b2c3d4-e5f6-4700-8900-0a1b2c3d4e5f");
+            List<object> fieldSources = [];
+            string matchMethod = "embedded_metadata";
+            try
+            {
+                var allClaims2     = await _claimRepo.GetByEntityAsync(entityId, ct).ConfigureAwait(false);
+                var providerCfgs2  = _configLoader.LoadAllProviders();
+                var scoring2       = _configLoader.LoadScoring();
+                var (wts2, fwts2)  = ScoringHelper.BuildWeightMaps(providerCfgs2, _providers);
+                var ctx2 = new Intelligence.Models.ScoringContext
+                {
+                    EntityId             = entityId,
+                    Claims               = allClaims2,
+                    ProviderWeights      = wts2,
+                    ProviderFieldWeights = fwts2,
+                    Configuration        = new Intelligence.Models.ScoringConfiguration
+                    {
+                        AutoLinkThreshold     = scoring2.AutoLinkThreshold,
+                        ConflictThreshold     = scoring2.ConflictThreshold,
+                        ConflictEpsilon       = scoring2.ConflictEpsilon,
+                        StaleClaimDecayDays   = scoring2.StaleClaimDecayDays,
+                        StaleClaimDecayFactor = scoring2.StaleClaimDecayFactor,
+                    },
+                };
+                var finalScored = await _scoringEngine.ScoreEntityAsync(ctx2, ct).ConfigureAwait(false);
+                fieldSources = [.. finalScored.FieldScores
+                    .Where(f => !string.IsNullOrEmpty(f.WinningValue))
+                    .Select(f => (object)new
+                    {
+                        field       = f.Key,
+                        value       = f.WinningValue,
+                        confidence  = f.Confidence,
+                        source      = f.WinningProviderId == localProcessorId ? "embedded"
+                                    : f.WinningProviderId.HasValue ? "provider" : "unknown",
+                        provider_id = f.WinningProviderId?.ToString(),
+                        conflicted  = f.IsConflicted,
+                    })];
+
+                var titleScore = finalScored.FieldScores.FirstOrDefault(f => f.Key == "title");
+                if (!string.IsNullOrEmpty(qid))
+                    matchMethod = "provider_match";
+                else if (titleScore?.WinningProviderId is not null
+                         && titleScore.WinningProviderId != localProcessorId)
+                    matchMethod = "provider_match";
+                else if (result.Stage1ClaimsAdded > 0)
+                    matchMethod = "provider_match";
+                else if (titleScore?.WinningProviderId == localProcessorId)
+                    matchMethod = "embedded_metadata";
+                else
+                    matchMethod = "filename_fallback";
+            }
+            catch (Exception ex2)
+            {
+                _logger.LogDebug(ex2, "Could not build field_sources for MediaAdded entry {Id}", entityId);
+            }
+
             var authorPart = string.IsNullOrWhiteSpace(author) ? string.Empty : $" by {author}";
             var richJson = System.Text.Json.JsonSerializer.Serialize(new
             {
@@ -842,6 +901,8 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 stage2_claims   = result.Stage2ClaimsAdded,
                 needs_review    = result.NeedsReview,
                 entity_id       = entityId.ToString(),
+                match_method    = matchMethod,
+                field_sources   = fieldSources,
             });
 
             await _activityRepo.LogAsync(new SystemActivityEntry
