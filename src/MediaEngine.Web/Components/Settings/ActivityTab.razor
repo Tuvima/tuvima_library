@@ -246,6 +246,77 @@
                                 }
                                 else if (tier == DisplayTier.RichMedia)
                                 {
+                                    var batchSiblings = _mediaAddedBatches.TryGetValue(entry.Id, out var bs2) ? bs2 : null;
+                                    var isBatch = entry.ActionType == "MediaAdded" && batchSiblings is { Count: > 0 };
+                                    @if (isBatch)
+                                    {
+                                        var allBatch = new List<ActivityEntryViewModel> { entry };
+                                        allBatch.AddRange(batchSiblings!);
+                                        @* ── BATCH: Multiple items added within 2-minute window ── *@
+                                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                            <MudText Typo="Typo.body2" Style="font-weight: 600;">
+                                                @allBatch.Count Items Added
+                                            </MudText>
+                                            <MudSpacer />
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary"
+                                                     Style="white-space: nowrap;">
+                                                @FormatTime(entry.OccurredAt)
+                                            </MudText>
+                                        </MudStack>
+                                        <div class="activity-pipeline-toggle"
+                                             @onclick="@(() => TogglePipeline(entry.Id))">
+                                            <MudIcon Icon="@(_pipelineExpandedIds.Contains(entry.Id)
+                                                              ? Icons.Material.Filled.ExpandLess
+                                                              : Icons.Material.Filled.ExpandMore)"
+                                                     Size="Size.Small"
+                                                     Style="font-size: 0.8rem; opacity: 0.45;" />
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary"
+                                                     Style="font-size: 0.72rem;">
+                                                @allBatch.Count items
+                                            </MudText>
+                                        </div>
+                                        @if (_pipelineExpandedIds.Contains(entry.Id))
+                                        {
+                                            <div style="margin-top: 8px;">
+                                                @foreach (var bEntry in allBatch)
+                                                {
+                                                    var bRich = bEntry.RichData;
+                                                    <div class="activity-rich-card" style="margin-bottom: 10px;">
+                                                        <div class="activity-rich-thumb">
+                                                            @if (!string.IsNullOrWhiteSpace(bRich?.ResolvedCoverUrl ?? (bRich?.EntityId is not null ? CoverUrl(bRich.EntityId) : null)))
+                                                            {
+                                                                <img src="@(bRich!.ResolvedCoverUrl is not null ? AbsoluteStreamUrl(bRich.ResolvedCoverUrl) : CoverUrl(bRich!.EntityId!))"
+                                                                     alt="@bRich!.Title"
+                                                                     style="width: 100%; height: 100%; object-fit: cover;"
+                                                                     loading="lazy"
+                                                                     onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" />
+                                                                <div style="display: none; width: 100%; height: 100%; align-items: center; justify-content: center;">
+                                                                    <MudIcon Icon="@MediaTypeIcon(bRich?.MediaType)" Size="Size.Medium" Color="Color.Secondary" />
+                                                                </div>
+                                                            }
+                                                            else
+                                                            {
+                                                                <MudIcon Icon="@MediaTypeIcon(bRich?.MediaType)" Size="Size.Medium" Color="Color.Secondary" />
+                                                            }
+                                                        </div>
+                                                        <div class="activity-rich-details">
+                                                            <MudText Typo="Typo.body1" Style="font-weight: 600;">
+                                                                @(bRich?.Title ?? bEntry.Detail ?? "—")
+                                                            </MudText>
+                                                            @if (!string.IsNullOrWhiteSpace(bRich?.Author))
+                                                            {
+                                                                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                                                    by @bRich!.Author
+                                                                </MudText>
+                                                            }
+                                                        </div>
+                                                    </div>
+                                                }
+                                            </div>
+                                        }
+                                    }
+                                    @if (!isBatch)
+                                    {
                                     @* ── TIER 2: Rich media card — always visible ── *@
                                     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                                         <MudText Typo="Typo.body2" Style="font-weight: 600;">
@@ -488,6 +559,7 @@
                                             @entry.Detail
                                         </MudText>
                                     }
+                                    } @* end @if (!isBatch) *@
                                 }
                                 else if (tier == DisplayTier.ReviewResolved)
                                 {
@@ -943,6 +1015,9 @@
     // FileIngested cards whose field provenance detail is currently expanded.
     private readonly HashSet<long> _fieldDetailExpandedIds = [];
 
+    // MediaAdded batch grouping: maps the batch-leader entry ID → sibling entries within 2-minute window.
+    private readonly Dictionary<long, List<ActivityEntryViewModel>> _mediaAddedBatches = new();
+
     // ── Reprocess dialog state ────────────────────────────────────────────────
     private bool                          _reprocessOpen;
     private ActivityEntryViewModel?       _reprocessEntry;
@@ -1129,6 +1204,7 @@
         _crawlStartPair.Clear();
         _startupAbsorbed.Clear();
         _startupRecon.Clear();
+        _mediaAddedBatches.Clear();
 
         // ── Missing entity IDs (for reprocess button guard) ─────────────────────
         foreach (var e in _entries.Where(e => e.ActionType == "ReconciliationMissing"))
@@ -1164,6 +1240,7 @@
             "SidecarUpdated", "BridgeSyncUpdated", "MetadataRefreshed", "HashVerified",
             "HydrationStage1Completed", "HydrationStage2Completed", "HydrationStage3Completed",
             "ReviewItemCreated", "ReviewItemResolved", "DuplicateSkipped", "MediaFailed",
+            "MetadataWrittenToFile",
         };
         var allSubTypes = new HashSet<string>(ingSubTypes.Concat(postIngestionTypes));
 
@@ -1370,6 +1447,37 @@
                 reconList.Add(recon);
             }
             _absorbedEntryIds.Add(recon.Id);
+        }
+
+        // ── MediaAdded batch grouping (multi-item add within 2-minute window) ─────
+        // Group non-absorbed MediaAdded entries that occur within 2 minutes of each other.
+        // The first in each cluster becomes the batch leader; the rest are absorbed as siblings.
+        var nonAbsorbedMediaAdded = _entries
+            .Where(e => e.ActionType == "MediaAdded" && !_absorbedEntryIds.Contains(e.Id))
+            .Select(e => (Entry: e, Ts: ParseTs(e.OccurredAt)))
+            .Where(x => x.Ts is not null)
+            .OrderBy(x => x.Ts)
+            .ToList();
+
+        if (nonAbsorbedMediaAdded.Count > 1)
+        {
+            ActivityEntryViewModel? batchLeader = null;
+            DateTimeOffset? batchStart = null;
+            foreach (var (bEntry, bTs) in nonAbsorbedMediaAdded)
+            {
+                if (batchLeader is null || (bTs!.Value - batchStart!.Value).TotalMinutes > 2)
+                {
+                    batchLeader = bEntry;
+                    batchStart  = bTs;
+                }
+                else
+                {
+                    if (!_mediaAddedBatches.TryGetValue(batchLeader.Id, out var sibList))
+                        _mediaAddedBatches[batchLeader.Id] = sibList = [];
+                    sibList.Add(bEntry);
+                    _absorbedEntryIds.Add(bEntry.Id);
+                }
+            }
         }
 
         _groupedEntries = _entries
