@@ -1,8 +1,10 @@
-# ── Tuvima Library Engine ─────────────────────────────────────────────────────
-# Multi-stage build for MediaEngine.Api (the Engine)
+# ── Tuvima Library ────────────────────────────────────────────────────────────
+# Single container running both the Engine (port 8080) and Dashboard (port 8081)
 #
-# Build:   docker build -t tuvima/engine .
-# Run:     docker run -p 8080:8080 -v tuvima-data:/data -v tuvima-library:/library -v tuvima-watch:/watch tuvima/engine
+# Build:   docker build -t tuvima/library .
+# Run:     docker run -p 8080:8080 -p 8081:8081 \
+#            -v tuvima-data:/data -v /path/to/media:/library -v /path/to/watch:/watch \
+#            tuvima/library
 # ──────────────────────────────────────────────────────────────────────────────
 
 # ── Stage 1: Restore ─────────────────────────────────────────────────────────
@@ -16,7 +18,6 @@ COPY global.json .
 COPY Directory.Build.props .
 COPY Directory.Packages.props .
 
-# Copy all project files for restore
 COPY src/MediaEngine.Domain/MediaEngine.Domain.csproj src/MediaEngine.Domain/
 COPY src/MediaEngine.Storage/MediaEngine.Storage.csproj src/MediaEngine.Storage/
 COPY src/MediaEngine.Intelligence/MediaEngine.Intelligence.csproj src/MediaEngine.Intelligence/
@@ -27,7 +28,6 @@ COPY src/MediaEngine.Identity/MediaEngine.Identity.csproj src/MediaEngine.Identi
 COPY src/MediaEngine.Api/MediaEngine.Api.csproj src/MediaEngine.Api/
 COPY src/MediaEngine.Web/MediaEngine.Web.csproj src/MediaEngine.Web/
 
-# Copy test project files (needed for solution restore)
 COPY tests/MediaEngine.Domain.Tests/MediaEngine.Domain.Tests.csproj tests/MediaEngine.Domain.Tests/
 COPY tests/MediaEngine.Ingestion.Tests/MediaEngine.Ingestion.Tests.csproj tests/MediaEngine.Ingestion.Tests/
 COPY tests/MediaEngine.Intelligence.Tests/MediaEngine.Intelligence.Tests.csproj tests/MediaEngine.Intelligence.Tests/
@@ -45,45 +45,55 @@ COPY src/ src/
 COPY tests/ tests/
 COPY config.example/ config.example/
 
+# Publish Engine and Dashboard side by side
 RUN dotnet publish src/MediaEngine.Api/MediaEngine.Api.csproj \
-    -c Release \
-    --no-restore \
-    -o /app/publish
+    -c Release --no-restore -o /app/engine
+
+RUN dotnet publish src/MediaEngine.Web/MediaEngine.Web.csproj \
+    -c Release --no-restore -o /app/dashboard
 
 # ── Stage 3: Runtime ─────────────────────────────────────────────────────────
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 
-# SkiaSharp native dependencies for hero banner generation
+# SkiaSharp native dependencies for hero banner generation + curl for healthcheck
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         libfontconfig1 \
-        libfreetype6 && \
+        libfreetype6 \
+        curl && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Copy published output
-COPY --from=build /app/publish .
+# Copy both published apps
+COPY --from=build /app/engine ./engine/
+COPY --from=build /app/dashboard ./dashboard/
 
 # Copy example config as default (user can override via volume mount)
 COPY --from=build /src/config.example/ /app/config/
 
+# Copy entrypoint script
+COPY docker/entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
 # Create directories for volumes
 RUN mkdir -p /data /library /watch
 
-# Configure ASP.NET to listen on 8080 (container convention)
-ENV ASPNETCORE_URLS=http://+:8080
-ENV ASPNETCORE_ENVIRONMENT=Production
-
-# Point Engine paths to volume mount points
+# ── Engine configuration ──
 ENV MediaEngine__DatabasePath=/data/library.db
 ENV MediaEngine__ConfigDirectory=/app/config
 ENV MediaEngine__Security__LocalhostBypass=true
+ENV MediaEngine__Cors__AllowedOrigins__0=http://localhost:8081
 
-EXPOSE 8080
+# ── Dashboard configuration ──
+# Dashboard talks to Engine over localhost inside the container
+ENV Engine__BaseUrl=http://localhost:8080
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD curl -f http://localhost:8080/system/status || exit 1
+ENV ASPNETCORE_ENVIRONMENT=Production
 
-ENTRYPOINT ["dotnet", "MediaEngine.Api.dll"]
+EXPOSE 8080 8081
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+    CMD curl -f http://localhost:8080/system/status && curl -f http://localhost:8081/ || exit 1
+
+ENTRYPOINT ["/app/entrypoint.sh"]

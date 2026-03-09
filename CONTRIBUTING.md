@@ -131,11 +131,13 @@ The Engine listens on `http://localhost:61495` and the Dashboard on `http://loca
 
 ### Docker
 
+A single container runs both the Engine and Dashboard:
+
 ```bash
-# Build and run both services
+# Build and run
 docker compose up -d
 
-# Engine: http://localhost:8080
+# Engine:    http://localhost:8080
 # Dashboard: http://localhost:8081
 
 # View logs
@@ -143,6 +145,17 @@ docker compose logs -f
 
 # Tear down
 docker compose down
+```
+
+Or without Compose:
+
+```bash
+docker build -t tuvima/library .
+docker run -p 8080:8080 -p 8081:8081 \
+  -v tuvima-data:/data \
+  -v /path/to/media:/library \
+  -v /path/to/inbox:/watch \
+  tuvima/library
 ```
 
 ---
