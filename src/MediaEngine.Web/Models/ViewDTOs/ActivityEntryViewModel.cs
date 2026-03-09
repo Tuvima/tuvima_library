@@ -217,6 +217,47 @@ public sealed class ActivityRichData
 
     [JsonPropertyName("cover_url")]
     public string? CoverUrl { get; set; }
+
+    [JsonPropertyName("match_method")]
+    public string? MatchMethod { get; set; }
+
+    [JsonPropertyName("field_sources")]
+    public List<FieldSourceEntry>? FieldSources { get; set; }
+
+    /// <summary>Human-friendly match method label.</summary>
+    [JsonIgnore]
+    public string MatchMethodLabel => MatchMethod switch
+    {
+        "embedded_metadata" => "Matched from embedded tags",
+        "provider_match"    => "Matched via provider",
+        "filename_fallback" => "Matched from filename",
+        _                   => "Unknown match method",
+    };
+}
+
+/// <summary>
+/// Per-field provenance entry showing which source won each metadata field.
+/// Deserialized from <c>field_sources</c> in the activity JSON.
+/// </summary>
+public sealed class FieldSourceEntry
+{
+    [JsonPropertyName("field")]
+    public string? Field { get; set; }
+
+    [JsonPropertyName("value")]
+    public string? Value { get; set; }
+
+    [JsonPropertyName("confidence")]
+    public double Confidence { get; set; }
+
+    [JsonPropertyName("source")]
+    public string? Source { get; set; }
+
+    [JsonPropertyName("provider_id")]
+    public string? ProviderId { get; set; }
+
+    [JsonPropertyName("conflicted")]
+    public bool Conflicted { get; set; }
 }
 
 /// <summary>

@@ -811,27 +811,61 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             ? $"/stream/{assetId}/hero"
             : null;
 
+        // Build per-field provenance so the Dashboard can show exactly
+        // how each metadata field was matched and which source won.
+        var fieldProvenance = scored.FieldScores
+            .Where(f => !string.IsNullOrEmpty(f.WinningValue))
+            .Select(f => new
+            {
+                field       = f.Key,
+                value       = f.WinningValue,
+                confidence  = f.Confidence,
+                source      = f.WinningProviderId == LocalProcessorProviderId ? "embedded"
+                            : f.WinningProviderId.HasValue ? "provider" : "unknown",
+                provider_id = f.WinningProviderId?.ToString(),
+                conflicted  = f.IsConflicted,
+            })
+            .ToList();
+
+        // Determine the primary match method for the summary.
+        string matchMethod;
+        var titleField = scored.FieldScores.FirstOrDefault(f => f.Key == "title");
+        if (titleField is not null && titleField.WinningProviderId == LocalProcessorProviderId)
+            matchMethod = "embedded_metadata";
+        else if (titleField is not null && titleField.WinningProviderId.HasValue)
+            matchMethod = "provider_match";
+        else
+            matchMethod = "filename_fallback";
+
         var finalRichJson = JsonSerializer.Serialize(new
         {
-            title        = resolvedTitle,
-            author       = resolvedAuthor,
-            year         = candidate.Metadata?.GetValueOrDefault("year", string.Empty) ?? string.Empty,
-            media_type   = resolvedMediaType.ToString(),
-            confidence   = scored.OverallConfidence,
-            source_file  = Path.GetFileName(candidate.Path),
-            description  = candidate.Metadata?.GetValueOrDefault("description", string.Empty) ?? string.Empty,
-            entity_id    = assetId.ToString(),
-            organized_to = organizedTo,
-            hero_url     = heroUrl,
-            cover_url    = fileIsInLibrary ? $"/stream/{assetId}/cover" : (string?)null,
+            title         = resolvedTitle,
+            author        = resolvedAuthor,
+            year          = candidate.Metadata?.GetValueOrDefault("year", string.Empty) ?? string.Empty,
+            media_type    = resolvedMediaType.ToString(),
+            confidence    = scored.OverallConfidence,
+            source_file   = Path.GetFileName(candidate.Path),
+            description   = candidate.Metadata?.GetValueOrDefault("description", string.Empty) ?? string.Empty,
+            entity_id     = assetId.ToString(),
+            organized_to  = organizedTo,
+            hero_url      = heroUrl,
+            cover_url     = fileIsInLibrary ? $"/stream/{assetId}/cover" : (string?)null,
+            match_method  = matchMethod,
+            field_sources = fieldProvenance,
         });
 
         // "Sent to review" is determined by the hydration pipeline, not at this stage.
         // Use "awaiting enrichment" for all staged files; the MediaAdded activity entry
         // written at the end of HydrationPipelineService carries the real outcome.
+        string matchLabel = matchMethod switch
+        {
+            "embedded_metadata" => "matched from embedded tags",
+            "provider_match"    => "matched via provider",
+            _                   => "matched from filename",
+        };
         string outcome = fileIsInLibrary
-            ? $"Ingested — \"{resolvedTitle}\" → Library"
-            : $"Ingested — \"{resolvedTitle}\" (awaiting enrichment)";
+            ? $"Ingested — \"{resolvedTitle}\" ({matchLabel}, {scored.OverallConfidence:P0}) → Library"
+            : $"Ingested — \"{resolvedTitle}\" ({matchLabel}, {scored.OverallConfidence:P0}) — awaiting enrichment";
 
         await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
         {

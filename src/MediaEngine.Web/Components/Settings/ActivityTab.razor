@@ -367,13 +367,67 @@
                                                     </MudText>
                                                 }
 
-                                                @* Inline action note *@
-                                                @if (!string.IsNullOrWhiteSpace(entry.Detail))
+                                                @* Match method chip *@
+                                                @if (!string.IsNullOrWhiteSpace(rich.MatchMethod))
                                                 {
-                                                    <MudText Typo="Typo.caption" Color="Color.Secondary"
-                                                             Style="margin-top: 4px; font-size: 0.75rem; opacity: 0.8;">
-                                                        @entry.Detail
-                                                    </MudText>
+                                                    <MudChip T="string" Size="Size.Small"
+                                                             Variant="Variant.Outlined"
+                                                             Color="Color.Default"
+                                                             Style="font-size: 0.7rem; height: 20px; margin-top: 4px;">
+                                                        @rich.MatchMethodLabel
+                                                    </MudChip>
+                                                }
+
+                                                @* Expandable field provenance detail *@
+                                                @if (rich.FieldSources is { Count: > 0 })
+                                                {
+                                                    <div class="activity-field-toggle"
+                                                         @onclick="@(() => ToggleFieldDetail(entry.Id))"
+                                                         @onclick:stopPropagation="true">
+                                                        <MudIcon Icon="@(_fieldDetailExpandedIds.Contains(entry.Id)
+                                                                          ? Icons.Material.Filled.ExpandLess
+                                                                          : Icons.Material.Filled.ExpandMore)"
+                                                                 Size="Size.Small"
+                                                                 Style="font-size: 0.75rem; opacity: 0.45;" />
+                                                        <MudText Typo="Typo.caption" Color="Color.Secondary"
+                                                                 Style="font-size: 0.72rem;">
+                                                            Match details (@rich.FieldSources.Count fields)
+                                                        </MudText>
+                                                    </div>
+                                                    @if (_fieldDetailExpandedIds.Contains(entry.Id))
+                                                    {
+                                                        <div class="activity-field-detail">
+                                                            @foreach (var fs in rich.FieldSources)
+                                                            {
+                                                                <div class="activity-field-row">
+                                                                    <MudText Typo="Typo.caption"
+                                                                             Style="font-weight: 600; width: 80px; flex-shrink: 0; font-size: 0.72rem;">
+                                                                        @FormatFieldName(fs.Field)
+                                                                    </MudText>
+                                                                    <MudText Typo="Typo.caption"
+                                                                             Style="flex: 1; min-width: 0; overflow: hidden;
+                                                                                    text-overflow: ellipsis; white-space: nowrap;
+                                                                                    font-size: 0.72rem;">
+                                                                        @(fs.Value ?? "—")
+                                                                    </MudText>
+                                                                    <MudChip T="string" Size="Size.Small"
+                                                                             Color="@(fs.Source == "embedded" ? Color.Info : Color.Default)"
+                                                                             Variant="Variant.Outlined"
+                                                                             Style="font-size: 0.65rem; height: 18px; padding: 0 6px;">
+                                                                        @(fs.Source ?? "unknown")
+                                                                    </MudChip>
+                                                                    @if (fs.Conflicted)
+                                                                    {
+                                                                        <MudIcon Icon="@Icons.Material.Filled.Warning"
+                                                                                 Size="Size.Small"
+                                                                                 Color="Color.Warning"
+                                                                                 Style="font-size: 0.8rem;"
+                                                                                 title="Conflicted — competing values" />
+                                                                    }
+                                                                </div>
+                                                            }
+                                                        </div>
+                                                    }
                                                 }
                                             </div>
 
@@ -885,6 +939,9 @@
 
     // FileIngested cards whose pipeline step section is currently expanded.
     private readonly HashSet<long> _pipelineExpandedIds = [];
+
+    // FileIngested cards whose field provenance detail is currently expanded.
+    private readonly HashSet<long> _fieldDetailExpandedIds = [];
 
     // ── Reprocess dialog state ────────────────────────────────────────────────
     private bool                          _reprocessOpen;
@@ -1820,6 +1877,29 @@
         StateHasChanged();
     }
 
+    private void ToggleFieldDetail(long entryId)
+    {
+        if (!_fieldDetailExpandedIds.Remove(entryId))
+            _fieldDetailExpandedIds.Add(entryId);
+        StateHasChanged();
+    }
+
+    private static string FormatFieldName(string? field) => field switch
+    {
+        "title"       => "Title",
+        "author"      => "Author",
+        "narrator"    => "Narrator",
+        "year"        => "Year",
+        "isbn"        => "ISBN",
+        "asin"        => "ASIN",
+        "description" => "Desc.",
+        "cover"       => "Cover",
+        "media_type"  => "Type",
+        "series"      => "Series",
+        "series_position" => "Series #",
+        _ => field ?? "—",
+    };
+
     // ── Records ──────────────────────────────────────────────────────────────────
 
     private sealed class DateGroup
@@ -2050,6 +2130,40 @@
     }
 
     .activity-pipeline-row:last-child {
+        border-bottom: none;
+    }
+
+    /* ── Field provenance detail ──────────────────────────────────── */
+    .activity-field-toggle {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        cursor: pointer;
+        margin-top: 6px;
+        padding: 2px 0;
+    }
+
+    .activity-field-toggle:hover {
+        opacity: 0.8;
+    }
+
+    .activity-field-detail {
+        margin-top: 4px;
+        padding: 8px 12px;
+        background: rgba(255,255,255,0.03);
+        border-radius: 6px;
+        border: 1px solid var(--app-glass-inner-border);
+    }
+
+    .activity-field-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 3px 0;
+        border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+
+    .activity-field-row:last-child {
         border-bottom: none;
     }
 </style>
