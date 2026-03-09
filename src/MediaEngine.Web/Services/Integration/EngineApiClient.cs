@@ -1409,13 +1409,16 @@ public sealed class EngineApiClient : IEngineApiClient
                 $"/persons/by-hub/{hubId}", ct);
             return raw?.Select(p => new PersonViewModel
             {
-                Id              = p.Id,
-                Name            = p.Name ?? string.Empty,
-                Role            = p.Role ?? string.Empty,
-                HeadshotUrl     = p.HeadshotUrl,
+                Id               = p.Id,
+                Name             = p.Name ?? string.Empty,
+                Role             = p.Role ?? string.Empty,
+                HeadshotUrl      = p.HeadshotUrl,
                 HasLocalHeadshot = p.HasLocalHeadshot,
-                Biography       = p.Biography,
-                Occupation      = p.Occupation,
+                LocalHeadshotUrl = p.HasLocalHeadshot
+                                   ? AbsoluteUrl($"/persons/{p.Id}/headshot")
+                                   : null,
+                Biography        = p.Biography,
+                Occupation       = p.Occupation,
             }).ToList() ?? [];
         }
         catch (Exception ex)

@@ -8,9 +8,9 @@
 
 <div class="person-card" @onclick="OnClick">
     <div class="person-card-avatar">
-        @if (Person.HasLocalHeadshot)
+        @if (!string.IsNullOrEmpty(Person.LocalHeadshotUrl))
         {
-            <img src="@($"/persons/{Person.Id}/headshot")"
+            <img src="@Person.LocalHeadshotUrl"
                  alt="@Person.Name"
                  class="person-card-headshot"
                  loading="lazy" />

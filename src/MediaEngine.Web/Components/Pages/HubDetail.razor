@@ -187,17 +187,21 @@ else
         var types = hub.Works.Select(w => w.MediaType.ToLowerInvariant()).Distinct().ToList();
         int count = hub.Works.Count;
 
-        string label;
+        string item;
         if (types.All(t => t.Contains("epub") || t.Contains("book")))
-            label = count == 1 ? "1 Edition" : $"{count} Editions";
+            item = "Book";
         else if (types.All(t => t.Contains("video") || t.Contains("movie") || t.Contains("mkv") || t.Contains("mp4")))
-            label = count == 1 ? "1 Version" : $"{count} Versions";
+            item = "Movie";
+        else if (types.All(t => t.Contains("audio") || t.Contains("m4b")))
+            item = "Audiobook";
+        else if (types.All(t => t.Contains("comic") || t.Contains("cbz") || t.Contains("cbr")))
+            item = "Comic";
         else if (types.Count == 1)
-            label = count == 1 ? "1 Item" : $"{count} Items";
+            item = "Item";
         else
-            label = $"In This Collection ({count})";
+            return $"In This Collection ({count})";
 
-        return label;
+        return count == 1 ? $"1 {item}" : $"{count} {item}s";
     }
 
     private static string Truncate(string text, int maxLength) =>

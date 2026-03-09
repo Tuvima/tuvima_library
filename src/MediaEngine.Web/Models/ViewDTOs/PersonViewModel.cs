@@ -9,9 +9,16 @@ public sealed class PersonViewModel
     public Guid    Id              { get; init; }
     public string  Name            { get; init; } = string.Empty;
     public string  Role            { get; init; } = string.Empty;
-    public string? HeadshotUrl     { get; init; }
+    public string? HeadshotUrl      { get; init; }
     public bool    HasLocalHeadshot { get; init; }
-    public string? Biography       { get; init; }
+    /// <summary>
+    /// Absolute Engine URL for the locally-cached headshot file, e.g.
+    /// "http://localhost:61495/persons/{id}/headshot". Null when no local
+    /// headshot exists. Always prefer this over a manually-constructed
+    /// relative path, which would resolve against the Dashboard origin.
+    /// </summary>
+    public string? LocalHeadshotUrl { get; init; }
+    public string? Biography        { get; init; }
     public string? Occupation      { get; init; }
 
     // ── Display helpers ─────────────────────────────────────────────────
