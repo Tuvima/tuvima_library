@@ -558,6 +558,14 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                     request.EntityId, scored.OverallConfidence, conflictedFields, ct)
                     .ConfigureAwait(false);
             }
+            else
+            {
+                // No conflicts remain — auto-resolve any pending MetadataConflict review items
+                // that were created during initial ingestion or a prior hydration run.
+                await TryAutoResolveMetadataConflictsAsync(
+                    request.EntityId, scored.OverallConfidence, ct)
+                    .ConfigureAwait(false);
+            }
         }
 
         // Create a single consolidated MediaAdded activity entry at the very end.
@@ -775,16 +783,14 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 }
             }
 
-            // Resolve hub name from the work → hub chain.
+            // Resolve hub name from the work → hub chain via a single targeted query.
             string? hubName = null;
             var workId = await _hubRepo.GetWorkIdByMediaAssetAsync(entityId, ct)
                 .ConfigureAwait(false);
             if (workId is not null)
             {
-                var allHubs = await _hubRepo.GetAllAsync(ct).ConfigureAwait(false);
-                var parentHub = allHubs.FirstOrDefault(h =>
-                    h.Works.Any(w => w.Id == workId.Value));
-                hubName = parentHub?.DisplayName;
+                hubName = await _hubRepo.FindHubNameByWorkIdAsync(workId.Value, ct)
+                    .ConfigureAwait(false);
             }
 
             // Compute overall confidence from current canonical state.
@@ -978,6 +984,54 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         {
             _logger.LogWarning(ex,
                 "Failed to create MetadataConflict review item for entity {Id}", entityId);
+        }
+    }
+
+    /// <summary>
+    /// Auto-resolves pending <see cref="ReviewTrigger.MetadataConflict"/> review items
+    /// when post-hydration re-scoring shows that no fields remain conflicted.
+    /// </summary>
+    private async Task TryAutoResolveMetadataConflictsAsync(
+        Guid entityId, double confidence, CancellationToken ct)
+    {
+        try
+        {
+            var reviews = await _reviewRepo.GetByEntityAsync(entityId, ct)
+                .ConfigureAwait(false);
+
+            var conflicts = reviews.Where(r =>
+                r.Status == ReviewStatus.Pending &&
+                r.Trigger == ReviewTrigger.MetadataConflict).ToList();
+
+            foreach (var review in conflicts)
+            {
+                await _reviewRepo.UpdateStatusAsync(
+                    review.Id, ReviewStatus.Resolved, "auto_conflict_cleared", ct)
+                    .ConfigureAwait(false);
+
+                await _activityRepo.LogAsync(new SystemActivityEntry
+                {
+                    ActionType = SystemActionType.ReviewItemResolved,
+                    EntityId   = entityId,
+                    Detail     = $"Auto-resolved (MetadataConflict): conflicts cleared after hydration, confidence {confidence:P0}.",
+                }, ct).ConfigureAwait(false);
+
+                await _eventPublisher.PublishAsync("ReviewItemResolved", new
+                {
+                    review_item_id = review.Id,
+                    entity_id      = entityId,
+                    status         = "Resolved",
+                }, ct).ConfigureAwait(false);
+
+                _logger.LogInformation(
+                    "MetadataConflict review item {ReviewId} auto-resolved for entity {EntityId} — conflicts cleared",
+                    review.Id, entityId);
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex,
+                "Failed to auto-resolve MetadataConflict review items for entity {Id}", entityId);
         }
     }
 

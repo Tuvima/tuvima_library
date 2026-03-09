@@ -22,6 +22,7 @@
   "throttle_ms": 1100,
   "max_concurrency": 1,
   "hydration_stages": [1],
+  "cache_ttl_hours": 336,
 
   "adapter_type": "config_driven",
   "provider_id": "b6000006-0000-4000-8000-000000000007",
@@ -68,6 +69,6 @@
     { "claim_key": "genre",          "json_path": "tags[*].name",                   "confidence": 0.7, "transform": "array_join", "transform_args": ", " },
     { "claim_key": "isrc",           "json_path": "isrcs[0]",                       "confidence": 0.95 },
     { "claim_key": "year",           "json_path": "date",                           "confidence": 0.9, "transform": "first_n_chars", "transform_args": "4" },
-    { "claim_key": "cover",          "json_path": "id",                             "confidence": 0.6, "transform": "url_template", "transform_args": "https://coverartarchive.org/release/{value}/front-250" }
+    { "claim_key": "cover",          "json_path": "id",                             "confidence": 0.6, "transform": "url_template", "transform_args": "https://coverartarchive.org/release/{value}/front-500" }
   ]
 }

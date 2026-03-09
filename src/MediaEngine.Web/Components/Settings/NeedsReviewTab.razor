@@ -165,12 +165,19 @@ else
                             </MudAlert>
                         }
 
-                        <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Secondary"
-                                   StartIcon="@Icons.Material.Filled.Edit"
-                                   OnClick="@(() => OpenEditDialog(item))"
-                                   Class="mt-2">
-                            Edit Manually
-                        </MudButton>
+                        <MudStack Row="true" Spacing="2" Class="mt-2">
+                            <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Secondary"
+                                       StartIcon="@Icons.Material.Filled.Edit"
+                                       OnClick="@(() => OpenEditDialog(item))">
+                                Edit Manually
+                            </MudButton>
+                            <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Info"
+                                       StartIcon="@Icons.Material.Filled.ManageSearch"
+                                       Disabled="@(_rehydrating)"
+                                       OnClick="@(() => SearchAgainAsync(item))">
+                                @(_rehydrating ? "Searching..." : "Search Again")
+                            </MudButton>
+                        </MudStack>
                     }
                 }
             </MudPaper>
@@ -359,6 +366,7 @@ else
     private MetadataSearchResultDto? _selectedSearchResult;
     private bool _searching;
     private bool _searchExecuted;
+    private bool _rehydrating;
 
     // ── Provider slots (loaded once) ──────────────────────────────────────
     private Dictionary<string, ProviderSlotDto> _slots = new();
@@ -545,6 +553,39 @@ else
             _items.RemoveAll(i => i.Id == id);
             if (_expandedItemId == id)
                 CollapseReviewPanel();
+            StateHasChanged();
+        }
+    }
+
+    // ── Search Again (re-hydration) ──────────────────────────────────────
+
+    private async Task SearchAgainAsync(ReviewItemViewModel item)
+    {
+        _rehydrating = true;
+        StateHasChanged();
+        try
+        {
+            var result = await Orchestrator.TriggerHydrationAsync(item.EntityId);
+            if (result is not null)
+            {
+                Snackbar.Add(
+                    $"Re-searched \"{item.EntityTitle ?? "item"}\" — {result.ClaimsAdded} new claims found.",
+                    Severity.Success);
+                // Refresh the review list — item may have been auto-resolved.
+                _items = await Orchestrator.GetPendingReviewsAsync();
+            }
+            else
+            {
+                Snackbar.Add("Search returned no new results. Try editing manually.", Severity.Warning);
+            }
+        }
+        catch
+        {
+            Snackbar.Add("Search failed — the Engine may be unavailable.", Severity.Error);
+        }
+        finally
+        {
+            _rehydrating = false;
             StateHasChanged();
         }
     }

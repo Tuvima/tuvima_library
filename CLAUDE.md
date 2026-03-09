@@ -1052,6 +1052,98 @@ Thresholds and all heuristic parameters (duration bands, bitrate thresholds, pat
 - **Extensibility** — The page routing pattern (`/hub/{id}`, `/work/{id}`, `/person/{id}`) is consistent and predictable.
 - **Performance** — Smart Collections are pre-computed from existing canonical values. No expensive queries at render time.
 
+### 3.21 — Cross-Media Metadata Strategy & Provider Response Caching
+
+**Plain English:** The three-stage hydration pipeline (§3.13) works identically for all seven media types — Books, Audiobooks, Movies, TV Shows, Comics, Music, and Podcasts. Only the provider in Stage 1 changes; the pipeline architecture itself is media-type-agnostic. A new response cache eliminates redundant API calls when bulk-importing large collections.
+
+**Provider slot assignments per media type:**
+
+| Media Type | Primary (Stage 1) | Secondary | Tertiary | Bridge to Wikidata |
+|-----------|-------------------|-----------|----------|-------------------|
+| **Books** | Apple Books (zero-key) | Google Books (key) | Open Library (zero-key) | ISBN (P212), Apple Books ID (P3861) |
+| **Audiobooks** | Apple Books (zero-key) | Google Books (key) | — | ASIN, Apple Books ID (P3861) |
+| **Movies** | TMDB (free key) | — | — | TMDB ID (P4947), IMDb ID (P345) |
+| **TV Shows** | TMDB (free key) | — | — | TMDB TV ID (P4983), IMDb ID (P345) |
+| **Comics** | Comic Vine (free key) | — | — | Comic Vine ID (P5905) |
+| **Music** | MusicBrainz (zero-key) | — | — | MusicBrainz ID (P434/P436) |
+| **Podcasts** | Apple Podcasts (zero-key) | Podcast Index (free key) | — | Apple Podcasts ID (P5842) |
+
+Slot assignments are configured in `config/slots.json`. TMDB and Comic Vine require free API keys — a first-run setup wizard guides key registration.
+
+**New providers added:**
+
+- **Apple Podcasts** (`config/providers/apple_podcasts.json`) — uses the same iTunes Search API as Apple Books (`https://itunes.apple.com`) with `entity=podcast` and `entity=podcastEpisode`. Zero-key. Same 9999 artwork trick for up to 3000×3000 cover art. Provider ID: `b9000009-0000-4000-8000-000000000010`.
+- **Podcast Index** (`config/providers/podcast_index.json`) — secondary podcast provider from podcastindex.org. Requires a free API key. Returns show metadata, episode lists, and podcast GUIDs. Provider ID: `ba00000a-0000-4000-8000-000000000011`.
+
+**Artwork quality strategy:**
+
+| Media Type | Primary Art Source | Resolution | Notes |
+|-----------|-------------------|-----------|-------|
+| Books & Audiobooks | Apple Books | Up to 3000×3000 | 9999 trick already in config |
+| Movies & TV | TMDB | Up to 2000×3000 (w500 default) | Backdrop also available at w1280 |
+| Comics | Comic Vine | ~900px (super_url) | Upgraded from medium_url |
+| Music | Cover Art Archive | 500px (front-500) | Upgraded from front-250 |
+| Podcasts | Apple Podcasts | Up to 3000×3000 | Same 9999 trick as Apple Books |
+
+**Provider response caching:**
+
+A new `provider_response_cache` table (migration M-021) stores raw JSON responses from metadata provider API calls, eliminating redundant requests when multiple files share the same entity (TV episodes from one show, album tracks, comic issues from one volume).
+
+Schema:
+```sql
+CREATE TABLE provider_response_cache (
+    cache_key     TEXT NOT NULL PRIMARY KEY,
+    provider_id   TEXT NOT NULL,
+    query_hash    TEXT NOT NULL,
+    response_json TEXT NOT NULL,
+    etag          TEXT,
+    fetched_at    TEXT NOT NULL,
+    expires_at    TEXT NOT NULL
+);
+```
+
+How it works:
+1. Before making an HTTP call, `ConfigDrivenAdapter` hashes the full request URL
+2. Checks `provider_response_cache` for a non-expired entry → cache HIT skips HTTP entirely
+3. If expired but has ETag → sends `If-None-Match` header; 304 Not Modified → reuses cached response
+4. If miss → makes HTTP call, caches response with per-provider TTL from `cache_ttl_hours` config
+
+Per-provider TTL defaults: Apple Books 168h (7d), TMDB 168h, Open Library 336h (14d), Google Books 168h, MusicBrainz 336h, Comic Vine 720h (30d — strict rate limits), Audnexus 168h.
+
+**Filesystem-first invariant:** The response cache is a **performance optimization only**. On a fresh install or database rebuild, the cache starts empty. Canonical values are rebuilt from `library.xml` sidecars via Great Inhale. The cache repopulates naturally during re-hydration.
+
+**Rate limit awareness:**
+
+| Provider | Rate Limit | Time for 10,000 files (uncached) | With Cache |
+|----------|-----------|----------------------------------|-----------|
+| Apple Books/Podcasts | ~20 req/sec | ~33 min | ~5 min (series/episodes share) |
+| TMDB | 50 req/sec | ~42 min | ~5 min (TV series episodes share) |
+| MusicBrainz | 1 req/sec | ~3 hours | ~15 min (album tracks share) |
+| Comic Vine | 200 req/hour | ~14 hours | ~2 hours (volume issues share) |
+| Wikidata SPARQL | ~5 req/sec | ~83 min | ~20 min |
+
+**Key types:**
+- `IProviderResponseCacheRepository` (`MediaEngine.Domain.Contracts`) — cache contract: `FindAsync`, `UpsertAsync`, `FindExpiredEtagAsync`, `RefreshExpiryAsync`, `PurgeExpiredAsync`, `ClearAllAsync`, `GetStatsAsync`
+- `ProviderResponseCacheRepository` (`MediaEngine.Storage`) — SQLite implementation
+- `CachedResponse` (`MediaEngine.Domain.Contracts`) — record: `ResponseJson`, `Etag`
+- `CacheStats` (`MediaEngine.Domain.Contracts`) — record: `TotalEntries`, `ActiveEntries`, `OldestEntryAt`
+- `ProviderConfiguration.CacheTtlHours` (`MediaEngine.Storage.Models`) — per-provider TTL config field
+
+**Config changes:**
+- All provider configs gained `cache_ttl_hours` field
+- `config/providers/tmdb.json` v1.1 — strategies scoped by `media_types` (Movies/TV), backdrop field mapping added
+- `config/providers/comic_vine.json` v1.1 — cover URL upgraded to `image.super_url`, `comicvine_id` bridge mapping added
+- `config/providers/musicbrainz.json` — Cover Art Archive URL upgraded to `front-500`
+- `config/universe/wikidata.json` — added P4983 (TMDB TV), P5842 (Apple Podcasts), expanded P434 scope to Both, bridge lookup priority expanded
+- `config/slots.json` — all 7 media types with default primary/secondary/tertiary providers
+
+**Why this matters to the business:**
+- **Performance** — Response caching cuts API calls by 3–5x for bulk imports of related content. A 5,000-episode TV library takes ~5 minutes instead of ~42 minutes.
+- **Reliability** — Each provider's rate limits are respected. Cache prevents quota exhaustion during large imports.
+- **Extensibility** — Adding a new media type requires only a provider config file and a slot assignment — zero code changes. Podcasts were added this way.
+- **Maintenance** — All provider configs, slot assignments, and cache TTLs are JSON-editable. No recompilation needed.
+- **Privacy** — Only titles, ISBNs, and bridge IDs leave the machine. The response cache lives locally in SQLite.
+
 ---
 
 ## 4. Product Owner Communication Rules
@@ -1267,6 +1359,7 @@ git push
 | §3.12 (Device Profiles) | `features/SETTINGS-OVERVIEW.md` | UI config cascade, device detection |
 | §3.13 (Hydration Pipeline) | `features/INGESTION-PIPELINE.md` | Three-stage pipeline, review queue |
 | §3.14 (Media Type Disambiguation) | `features/INGESTION-PIPELINE.md` | Heuristic disambiguation, confidence thresholds, review queue |
+| §3.21 (Cross-Media Strategy) | `features/METADATA-MANAGEMENT.md` | Provider slots, response caching, artwork strategy, rate limits |
 | §6 (Dashboard Layout) | `skills/DASHBOARD-UI.md` | Feature-sliced file locations |
 | FIX-PLAN tiers | `FIX-PLAN.md` | Systematic fix plan, tier-based issue tracking |
 

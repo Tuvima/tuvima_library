@@ -1,6 +1,9 @@
 using System.Net.Http.Json;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.Logging;
+using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Models;
@@ -29,6 +32,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
     private readonly ProviderConfiguration _config;
     private readonly IHttpClientFactory _httpFactory;
     private readonly ILogger<ConfigDrivenAdapter> _logger;
+    private readonly IProviderResponseCacheRepository? _responseCache;
 
     // Throttle: per-instance semaphore + timestamp gap.
     private readonly SemaphoreSlim _throttle;
@@ -42,7 +46,8 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
     public ConfigDrivenAdapter(
         ProviderConfiguration config,
         IHttpClientFactory httpFactory,
-        ILogger<ConfigDrivenAdapter> logger)
+        ILogger<ConfigDrivenAdapter> logger,
+        IProviderResponseCacheRepository? responseCache = null)
     {
         ArgumentNullException.ThrowIfNull(config);
         ArgumentNullException.ThrowIfNull(httpFactory);
@@ -50,6 +55,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
 
         _config = config;
         _httpFactory = httpFactory;
+        _responseCache = responseCache;
         _logger = logger;
 
         _throttle = new SemaphoreSlim(
@@ -513,6 +519,29 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         var url = BuildUrl(strategy, request, fetchLimit);
         _logger.LogDebug("{Provider}/{Strategy}: GET {Url}", Name, strategy.Name, url);
 
+        // ── Response cache check ─────────────────────────────────────────────
+        var cacheKey = BuildCacheKey(url);
+        var cacheTtlHours = _config.CacheTtlHours ?? 168; // Default: 7 days
+
+        if (_responseCache is not null)
+        {
+            var cached = await _responseCache.FindAsync(cacheKey, ct).ConfigureAwait(false);
+            if (cached is not null)
+            {
+                _logger.LogDebug(
+                    "{Provider}/{Strategy}: cache HIT for {Url}", Name, strategy.Name, url);
+
+                var cachedJson = JsonNode.Parse(cached.ResponseJson);
+                if (cachedJson is not null)
+                {
+                    var resultNode = NavigateToResult(cachedJson, strategy);
+                    if (resultNode is not null)
+                        return ExtractClaims(resultNode, request.MediaType);
+                }
+            }
+        }
+
+        // ── HTTP call with throttle ──────────────────────────────────────────
         await _throttle.WaitAsync(ct).ConfigureAwait(false);
         try
         {
@@ -527,8 +556,57 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             }
 
             using var client = _httpFactory.CreateClient(_config.Name);
-            using var response = await client.GetAsync(url, ct).ConfigureAwait(false);
+
+            // ETag conditional revalidation for expired entries.
+            string? existingEtag = null;
+            if (_responseCache is not null)
+            {
+                existingEtag = await _responseCache.FindExpiredEtagAsync(cacheKey, ct)
+                    .ConfigureAwait(false);
+            }
+
+            using var httpRequest = new HttpRequestMessage(HttpMethod.Get, url);
+            if (!string.IsNullOrEmpty(existingEtag))
+                httpRequest.Headers.IfNoneMatch.Add(
+                    new System.Net.Http.Headers.EntityTagHeaderValue($"\"{existingEtag}\""));
+
+            // Apply bearer API key header if configured.
+            if (_config.HttpClient is { ApiKeyDelivery: "bearer" }
+                && !string.IsNullOrWhiteSpace(_config.HttpClient.ApiKey))
+            {
+                httpRequest.Headers.Authorization =
+                    new System.Net.Http.Headers.AuthenticationHeaderValue(
+                        "Bearer", _config.HttpClient.ApiKey);
+            }
+
+            using var response = await client.SendAsync(httpRequest, ct).ConfigureAwait(false);
             _lastCallUtc = DateTime.UtcNow;
+
+            // ETag 304: cache is still valid — refresh expiry and use it.
+            if (response.StatusCode == System.Net.HttpStatusCode.NotModified
+                && _responseCache is not null)
+            {
+                _logger.LogDebug(
+                    "{Provider}/{Strategy}: 304 Not Modified — refreshing cache",
+                    Name, strategy.Name);
+                await _responseCache.RefreshExpiryAsync(cacheKey, cacheTtlHours, ct)
+                    .ConfigureAwait(false);
+
+                // Re-read the now-refreshed cached response.
+                var refreshed = await _responseCache.FindAsync(cacheKey, ct)
+                    .ConfigureAwait(false);
+                if (refreshed is not null)
+                {
+                    var cachedJson = JsonNode.Parse(refreshed.ResponseJson);
+                    if (cachedJson is not null)
+                    {
+                        var resultNode = NavigateToResult(cachedJson, strategy);
+                        if (resultNode is not null)
+                            return ExtractClaims(resultNode, request.MediaType);
+                    }
+                }
+                return [];
+            }
 
             // Tolerate 404 for direct-lookup APIs (e.g. Audnexus).
             if (response.StatusCode == System.Net.HttpStatusCode.NotFound
@@ -541,25 +619,51 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
 
             response.EnsureSuccessStatusCode();
 
-            var json = await response.Content
-                .ReadFromJsonAsync<JsonNode>(cancellationToken: ct)
+            var responseBody = await response.Content.ReadAsStringAsync(ct)
                 .ConfigureAwait(false);
 
+            // Cache the response.
+            if (_responseCache is not null && !string.IsNullOrEmpty(responseBody))
+            {
+                var etag = response.Headers.ETag?.Tag?.Trim('"');
+                var queryHash = ComputeSha256(url);
+                await _responseCache.UpsertAsync(
+                    cacheKey, _providerId.ToString(), queryHash,
+                    responseBody, etag, cacheTtlHours, ct)
+                    .ConfigureAwait(false);
+            }
+
+            var json = JsonNode.Parse(responseBody);
             if (json is null)
                 return [];
 
             // Navigate to result object.
-            var resultNode = NavigateToResult(json, strategy);
-            if (resultNode is null)
+            var resultObj = NavigateToResult(json, strategy);
+            if (resultObj is null)
                 return [];
 
             // Extract claims from field mappings (filtered by media type).
-            return ExtractClaims(resultNode, request.MediaType);
+            return ExtractClaims(resultObj, request.MediaType);
         }
         finally
         {
             _throttle.Release();
         }
+    }
+
+    /// <summary>
+    /// Builds a cache key from the provider ID and the request URL hash.
+    /// </summary>
+    private string BuildCacheKey(string url) =>
+        $"{_providerId}:{ComputeSha256(url)}";
+
+    /// <summary>
+    /// Computes a SHA-256 hash of the input string (for URL dedup).
+    /// </summary>
+    private static string ComputeSha256(string input)
+    {
+        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(input));
+        return Convert.ToHexString(bytes).ToLowerInvariant();
     }
 
     // ── URL building ────────────────────────────────────────────────────────

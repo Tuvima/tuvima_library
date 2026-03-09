@@ -48,6 +48,13 @@ public interface IHubRepository
     Task<Guid?> GetWorkIdByMediaAssetAsync(Guid mediaAssetId, CancellationToken ct = default);
 
     /// <summary>
+    /// Returns the <see cref="Hub.DisplayName"/> of the Hub that owns the given
+    /// Work, using a single SQL JOIN across works → hubs. Returns null when the
+    /// Work has no Hub assignment or when the Hub has no display name.
+    /// </summary>
+    Task<string?> FindHubNameByWorkIdAsync(Guid workId, CancellationToken ct = default);
+
+    /// <summary>
     /// Updates a Work's <c>hub_id</c> to assign it to a Hub.
     /// </summary>
     Task AssignWorkToHubAsync(Guid workId, Guid hubId, CancellationToken ct = default);

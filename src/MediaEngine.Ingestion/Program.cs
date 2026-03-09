@@ -194,7 +194,8 @@ var host = Host.CreateDefaultBuilder(args)
                 new ConfigDrivenAdapter(
                     cfg,
                     sp.GetRequiredService<IHttpClientFactory>(),
-                    sp.GetRequiredService<ILogger<ConfigDrivenAdapter>>()));
+                    sp.GetRequiredService<ILogger<ConfigDrivenAdapter>>(),
+                    sp.GetService<IProviderResponseCacheRepository>()));
         }
 
         // Wikidata stays as a coded adapter (SPARQL cannot be config-driven).

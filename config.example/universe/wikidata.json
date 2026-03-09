@@ -36,7 +36,8 @@
     "P2969":  { "claim_key": "goodreads_id",       "category": "Bridges: Books",        "entity_scope": "Work",   "confidence": 1.0,  "is_bridge": true,  "enabled": true, "is_entity_valued": false, "value_transform": null },
     "P244":   { "claim_key": "loc_id",             "category": "Bridges: Books",        "entity_scope": "Work",   "confidence": 1.0,  "is_bridge": true,  "enabled": true, "is_entity_valued": false, "value_transform": null },
 
-    "P4947":  { "claim_key": "tmdb_id",            "category": "Bridges: Movies/TV",    "entity_scope": "Work",   "confidence": 1.0,  "is_bridge": true,  "enabled": true, "is_entity_valued": false, "value_transform": null },
+    "P4947":  { "claim_key": "tmdb_movie_id",      "category": "Bridges: Movies/TV",    "entity_scope": "Work",   "confidence": 1.0,  "is_bridge": true,  "enabled": true, "is_entity_valued": false, "value_transform": null },
+    "P4983":  { "claim_key": "tmdb_tv_id",         "category": "Bridges: Movies/TV",    "entity_scope": "Work",   "confidence": 1.0,  "is_bridge": true,  "enabled": true, "is_entity_valued": false, "value_transform": null },
     "P345":   { "claim_key": "imdb_id",            "category": "Bridges: Movies/TV",    "entity_scope": "Work",   "confidence": 1.0,  "is_bridge": true,  "enabled": true, "is_entity_valued": false, "value_transform": null },
     "P9385":  { "claim_key": "justwatch_id",       "category": "Bridges: Movies/TV",    "entity_scope": "Work",   "confidence": 1.0,  "is_bridge": true,  "enabled": true, "is_entity_valued": false, "value_transform": null },
     "P1712":  { "claim_key": "metacritic_id",      "category": "Bridges: Movies/TV",    "entity_scope": "Work",   "confidence": 1.0,  "is_bridge": true,  "enabled": true, "is_entity_valued": false, "value_transform": null },
@@ -49,7 +50,9 @@
     "P4084":  { "claim_key": "mal_anime_id",       "category": "Bridges: Comics/Anime", "entity_scope": "Work",   "confidence": 1.0,  "is_bridge": true,  "enabled": true, "is_entity_valued": false, "value_transform": null },
     "P4087":  { "claim_key": "mal_manga_id",       "category": "Bridges: Comics/Anime", "entity_scope": "Work",   "confidence": 1.0,  "is_bridge": true,  "enabled": true, "is_entity_valued": false, "value_transform": null },
 
-    "P434":   { "claim_key": "musicbrainz_id",     "category": "Bridges: Music/Audio",  "entity_scope": "Work",   "confidence": 1.0,  "is_bridge": true,  "enabled": true, "is_entity_valued": false, "value_transform": null },
+    "P434":   { "claim_key": "musicbrainz_artist_id", "category": "Bridges: Music/Audio",  "entity_scope": "Both",   "confidence": 1.0,  "is_bridge": true,  "enabled": true, "is_entity_valued": false, "value_transform": null },
+    "P436":   { "claim_key": "musicbrainz_release_id", "category": "Bridges: Music/Audio",  "entity_scope": "Work",   "confidence": 1.0,  "is_bridge": true,  "enabled": true, "is_entity_valued": false, "value_transform": null },
+    "P5842":  { "claim_key": "apple_podcasts_id",  "category": "Bridges: Music/Audio",  "entity_scope": "Work",   "confidence": 1.0,  "is_bridge": true,  "enabled": true, "is_entity_valued": false, "value_transform": null },
     "P1902":  { "claim_key": "spotify_id",         "category": "Bridges: Music/Audio",  "entity_scope": "Work",   "confidence": 1.0,  "is_bridge": true,  "enabled": true, "is_entity_valued": false, "value_transform": null },
     "P1953":  { "claim_key": "discogs_id",         "category": "Bridges: Music/Audio",  "entity_scope": "Work",   "confidence": 1.0,  "is_bridge": true,  "enabled": true, "is_entity_valued": false, "value_transform": null },
     "P3398":  { "claim_key": "audible_id",         "category": "Bridges: Music/Audio",  "entity_scope": "Work",   "confidence": 1.0,  "is_bridge": true,  "enabled": true, "is_entity_valued": false, "value_transform": null },
@@ -63,8 +66,13 @@
   "bridge_lookup_priority": [
     { "p_code": "P3861", "request_field": "apple_books_id" },
     { "p_code": "P3398", "request_field": "audible_id" },
-    { "p_code": "P4947", "request_field": "tmdb_id" },
+    { "p_code": "P4947", "request_field": "tmdb_movie_id" },
+    { "p_code": "P4983", "request_field": "tmdb_tv_id" },
     { "p_code": "P345",  "request_field": "imdb_id" },
+    { "p_code": "P5905", "request_field": "comicvine_id" },
+    { "p_code": "P434",  "request_field": "musicbrainz_artist_id" },
+    { "p_code": "P436",  "request_field": "musicbrainz_release_id" },
+    { "p_code": "P5842", "request_field": "apple_podcasts_id" },
     { "p_code": "P1566", "request_field": "asin" },
     { "p_code": "P212",  "request_field": "isbn" }
   ],

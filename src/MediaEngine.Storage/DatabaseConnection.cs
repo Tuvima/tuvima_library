@@ -406,6 +406,50 @@ public sealed class DatabaseConnection : IDatabaseConnection
             column: "ingestion_run_id",
             ddl:    "ALTER TABLE system_activity ADD COLUMN ingestion_run_id TEXT;");
 
+        // Migration M-021: Provider response cache — stores raw JSON responses
+        // from metadata provider API calls to avoid redundant HTTP requests.
+        // Entries have a per-provider TTL and support ETag conditional revalidation.
+        MigrateCreateTableIfMissing(
+            conn,
+            probeTable:  "provider_response_cache",
+            probeColumn: "cache_key",
+            ddl: """
+                CREATE TABLE IF NOT EXISTS provider_response_cache (
+                    cache_key     TEXT NOT NULL PRIMARY KEY,
+                    provider_id   TEXT NOT NULL,
+                    query_hash    TEXT NOT NULL,
+                    response_json TEXT NOT NULL,
+                    etag          TEXT,
+                    fetched_at    TEXT NOT NULL,
+                    expires_at    TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_prc_expires ON provider_response_cache (expires_at);
+                CREATE INDEX IF NOT EXISTS idx_prc_provider ON provider_response_cache (provider_id);
+                """);
+
+        // Migration M-022: Performance indices for high-frequency query paths.
+        // These indices were missing from the initial schema definition and are
+        // created here as a safe, idempotent migration (CREATE INDEX IF NOT EXISTS).
+        //
+        // • metadata_claims(provider_id)   — scoring engine filters claims by provider
+        // • metadata_claims(claimed_at)    — stale-claim decay filters by timestamp
+        // • media_assets(edition_id)       — FK lookup joining editions → assets
+        // • works(media_type)              — lane-page and swimlane queries filter by type
+        using (var idxCmd = conn.CreateCommand())
+        {
+            idxCmd.CommandText = """
+                CREATE INDEX IF NOT EXISTS idx_metadata_claims_provider_id
+                    ON metadata_claims (provider_id);
+                CREATE INDEX IF NOT EXISTS idx_metadata_claims_claimed_at
+                    ON metadata_claims (claimed_at);
+                CREATE INDEX IF NOT EXISTS idx_media_assets_edition_id
+                    ON media_assets (edition_id);
+                CREATE INDEX IF NOT EXISTS idx_works_media_type
+                    ON works (media_type);
+                """;
+            idxCmd.ExecuteNonQuery();
+        }
+
         // Seed S-001: provider_registry entries for all known providers.
         // metadata_claims.provider_id has a FK to provider_registry(id), so these
         // rows MUST exist before any claim is written.  INSERT OR IGNORE makes this
@@ -432,6 +476,11 @@ public sealed class DatabaseConnection : IDatabaseConnection
             ("b3000003-d000-4000-8000-000000000004",   "wikidata",            "1.0"),
             ("b4000004-0000-4000-8000-000000000005",   "open_library",        "1.0"),
             ("b5000005-0000-4000-8000-000000000006",   "google_books",        "1.0"),
+            ("b6000006-0000-4000-8000-000000000007",   "musicbrainz",         "1.0"),
+            ("b7000007-0000-4000-8000-000000000008",   "tmdb",                "1.0"),
+            ("b8000008-0000-4000-8000-000000000009",   "comic_vine",          "1.0"),
+            ("b9000009-0000-4000-8000-000000000010",   "apple_podcasts",      "1.0"),
+            ("ba00000a-0000-4000-8000-000000000011",   "podcast_index",       "1.0"),
             ("d0000000-0000-4000-8000-000000000001",   "user_manual",         "1.0"),
         ];
 

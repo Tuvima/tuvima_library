@@ -17,7 +17,8 @@
         <MudText Typo="Typo.h6">Metadata</MudText>
     </MudStack>
     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
-        Select providers for each media type. Drag a provider into a slot to set priority.
+        Assign providers for each media type. All assigned providers run concurrently —
+        the Weighted Voter resolves any disagreements between their results.
     </MudText>
 
     @* ── Loading / error ──────────────────────────────────────────────────── *@
@@ -155,7 +156,8 @@
                                          AllowReorder="false"
                                          CanDrop="@(_ => true)">
                                 <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2">
-                                    Drag providers to the slots on the right.
+                                    Drag providers into slots. All slotted providers
+                                    run at the same time — the Voter picks the best answer.
                                 </MudText>
                             </MudDropZone>
 
@@ -166,10 +168,7 @@
                                              AllowReorder="false"
                                              CanDrop="@(_ => true)">
                                     <MudText Typo="Typo.subtitle2" Style="color: var(--mud-palette-primary); font-weight: 600;">
-                                        Primary — Automatic Match
-                                    </MudText>
-                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
-                                        This provider runs automatically when files are added.
+                                        Provider 1
                                     </MudText>
                                 </MudDropZone>
 
@@ -179,7 +178,7 @@
                                              AllowReorder="false"
                                              CanDrop="@(_ => true)">
                                     <MudText Typo="Typo.subtitle2" Style="color: var(--app-text-muted);">
-                                        Secondary — Manual Fallback 1
+                                        Provider 2
                                     </MudText>
                                 </MudDropZone>
 
@@ -189,7 +188,7 @@
                                              AllowReorder="false"
                                              CanDrop="@(_ => true)">
                                     <MudText Typo="Typo.subtitle2" Style="color: var(--app-text-muted);">
-                                        Tertiary — Manual Fallback 2
+                                        Provider 3
                                     </MudText>
                                 </MudDropZone>
                             </div>
