@@ -151,9 +151,16 @@ file sealed class InMemoryApiKeyRepo : IApiKeyRepository
     public Task<IReadOnlyList<ApiKey>> GetAllAsync(CancellationToken ct = default)
         => Task.FromResult<IReadOnlyList<ApiKey>>(_keys);
 
-    public Task RevokeAsync(Guid id, CancellationToken ct = default)
+    public Task<bool> DeleteAsync(Guid id, CancellationToken ct = default)
     {
-        _keys.RemoveAll(k => k.Id == id);
-        return Task.CompletedTask;
+        var removed = _keys.RemoveAll(k => k.Id == id);
+        return Task.FromResult(removed > 0);
+    }
+
+    public Task<int> DeleteAllAsync(CancellationToken ct = default)
+    {
+        var count = _keys.Count;
+        _keys.Clear();
+        return Task.FromResult(count);
     }
 }

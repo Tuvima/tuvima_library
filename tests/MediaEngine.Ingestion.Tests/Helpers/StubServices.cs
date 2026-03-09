@@ -110,6 +110,12 @@ internal sealed class StubSidecarWriter : ISidecarWriter
     public Task<HubSidecarData?> ReadHubSidecarAsync(string xmlPath, CancellationToken ct = default)
         => Task.FromResult<HubSidecarData?>(null);
 
+    public Task WritePersonSidecarAsync(string personFolderPath, PersonSidecarData data, CancellationToken ct = default)
+        => Task.CompletedTask;
+
+    public Task<PersonSidecarData?> ReadPersonSidecarAsync(string xmlPath, CancellationToken ct = default)
+        => Task.FromResult<PersonSidecarData?>(null);
+
     public Task<EditionSidecarData?> ReadEditionSidecarAsync(string xmlPath, CancellationToken ct = default)
         => Task.FromResult<EditionSidecarData?>(null);
 }
@@ -139,9 +145,9 @@ internal sealed class StubFileOrganizer : IFileOrganizer
         var metadata = candidate.Metadata;
         var category = candidate.DetectedMediaType switch
         {
-            MediaType.Epub => "Books",
-            MediaType.Audiobook => "Audio",
-            MediaType.Movie => "Videos",
+            MediaType.Books => "Books",
+            MediaType.Audiobooks => "Audio",
+            MediaType.Movies => "Videos",
             MediaType.Comic => "Comics",
             _ => "Other",
         };
@@ -209,7 +215,7 @@ internal sealed class TestProcessorRegistry : IProcessorRegistry
         return Task.FromResult(new ProcessorResult
         {
             FilePath = filePath,
-            DetectedType = MediaType.Epub,
+            DetectedType = MediaType.Books,
             Claims =
             [
                 new ExtractedClaim { Key = "title", Value = Path.GetFileNameWithoutExtension(filePath), Confidence = 0.5 },

@@ -178,7 +178,7 @@ public sealed class EndToEndIngestionTests : IDisposable
         _processors.SetNextResult(new ProcessorResult
         {
             FilePath = filePath,
-            DetectedType = MediaType.Epub,
+            DetectedType = MediaType.Books,
             Claims =
             [
                 new ExtractedClaim { Key = "title", Value = "Dune", Confidence = 0.95 },
@@ -239,7 +239,7 @@ public sealed class EndToEndIngestionTests : IDisposable
         _processors.SetNextResult(new ProcessorResult
         {
             FilePath = filePath,
-            DetectedType = MediaType.Epub,
+            DetectedType = MediaType.Books,
             Claims =
             [
                 // Only a title from filename with low confidence → overall confidence < 0.85
@@ -280,7 +280,7 @@ public sealed class EndToEndIngestionTests : IDisposable
         _processors.SetNextResult(new ProcessorResult
         {
             FilePath = firstPath,
-            DetectedType = MediaType.Epub,
+            DetectedType = MediaType.Books,
             Claims =
             [
                 new ExtractedClaim { Key = "title", Value = "Original", Confidence = 0.95 },
@@ -347,7 +347,7 @@ public sealed class EndToEndIngestionTests : IDisposable
         _processors.SetNextResult(new ProcessorResult
         {
             FilePath = filePath,
-            DetectedType = MediaType.Epub,
+            DetectedType = MediaType.Books,
             Claims =
             [
                 new ExtractedClaim { Key = "title", Value = "Provenance Test", Confidence = 0.95 },
@@ -399,7 +399,7 @@ public sealed class EndToEndIngestionTests : IDisposable
         _processors.SetNextResult(new ProcessorResult
         {
             FilePath = filePath,
-            DetectedType = MediaType.Epub,
+            DetectedType = MediaType.Books,
             Claims =
             [
                 new ExtractedClaim { Key = "title", Value = "Enrichment Test", Confidence = 0.95 },

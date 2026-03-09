@@ -98,7 +98,7 @@ public sealed class RepositoryTests : IDisposable
         var entityId = Guid.NewGuid();
         var claim = MakeClaim(entityId, "title", "Dune", 0.95);
 
-        await repo.InsertAsync(claim);
+        await repo.InsertBatchAsync([claim]);
         var claims = await repo.GetByEntityAsync(entityId);
 
         Assert.Single(claims);
@@ -112,9 +112,9 @@ public sealed class RepositoryTests : IDisposable
         var repo = new MetadataClaimRepository(_db);
         var entityId = Guid.NewGuid();
 
-        await repo.InsertAsync(MakeClaim(entityId, "title", "Dune"));
-        await repo.InsertAsync(MakeClaim(entityId, "author", "Frank Herbert"));
-        await repo.InsertAsync(MakeClaim(entityId, "year", "1965"));
+        await repo.InsertBatchAsync([MakeClaim(entityId, "title", "Dune")]);
+        await repo.InsertBatchAsync([MakeClaim(entityId, "author", "Frank Herbert")]);
+        await repo.InsertBatchAsync([MakeClaim(entityId, "year", "1965")]);
 
         var claims = await repo.GetByEntityAsync(entityId);
         Assert.Equal(3, claims.Count);
@@ -128,7 +128,7 @@ public sealed class RepositoryTests : IDisposable
         var claim = MakeClaim(entityId, "title", "My Title");
         claim.IsUserLocked = true;
 
-        await repo.InsertAsync(claim);
+        await repo.InsertBatchAsync([claim]);
         var claims = await repo.GetByEntityAsync(entityId);
 
         Assert.Single(claims);
@@ -145,11 +145,11 @@ public sealed class RepositoryTests : IDisposable
         var repo = new CanonicalValueRepository(_db);
         var entityId = Guid.NewGuid();
 
-        await repo.UpsertAsync(new CanonicalValue
+        await repo.UpsertBatchAsync([new CanonicalValue
         {
             EntityId = entityId, Key = "title", Value = "Dune",
             LastScoredAt = DateTimeOffset.UtcNow,
-        });
+        }]);
 
         var values = await repo.GetByEntityAsync(entityId);
         Assert.Single(values);
@@ -162,16 +162,16 @@ public sealed class RepositoryTests : IDisposable
         var repo = new CanonicalValueRepository(_db);
         var entityId = Guid.NewGuid();
 
-        await repo.UpsertAsync(new CanonicalValue
+        await repo.UpsertBatchAsync([new CanonicalValue
         {
             EntityId = entityId, Key = "title", Value = "Old",
             LastScoredAt = DateTimeOffset.UtcNow,
-        });
-        await repo.UpsertAsync(new CanonicalValue
+        }]);
+        await repo.UpsertBatchAsync([new CanonicalValue
         {
             EntityId = entityId, Key = "title", Value = "New",
             LastScoredAt = DateTimeOffset.UtcNow,
-        });
+        }]);
 
         var values = await repo.GetByEntityAsync(entityId);
         Assert.Single(values);
@@ -189,7 +189,7 @@ public sealed class RepositoryTests : IDisposable
         var entry = new ReviewQueueEntry
         {
             Id = Guid.NewGuid(), EntityId = Guid.NewGuid(),
-            EntityType = EntityType.MediaAsset, Trigger = ReviewTrigger.LowConfidence,
+            EntityType = nameof(EntityType.MediaAsset), Trigger = ReviewTrigger.LowConfidence,
             Status = ReviewStatus.Pending, ConfidenceScore = 0.45,
             Detail = "Low confidence file", CreatedAt = DateTimeOffset.UtcNow,
         };
@@ -208,13 +208,13 @@ public sealed class RepositoryTests : IDisposable
         var entry = new ReviewQueueEntry
         {
             Id = Guid.NewGuid(), EntityId = Guid.NewGuid(),
-            EntityType = EntityType.MediaAsset, Trigger = ReviewTrigger.LowConfidence,
+            EntityType = nameof(EntityType.MediaAsset), Trigger = ReviewTrigger.LowConfidence,
             Status = ReviewStatus.Pending, ConfidenceScore = 0.45,
             Detail = "Test", CreatedAt = DateTimeOffset.UtcNow,
         };
 
         await repo.InsertAsync(entry);
-        await repo.ResolveAsync(entry.Id);
+        await repo.UpdateStatusAsync(entry.Id, ReviewStatus.Resolved);
 
         var pending = await repo.GetPendingAsync();
         Assert.Empty(pending);
@@ -255,7 +255,7 @@ public sealed class RepositoryTests : IDisposable
         };
 
         await repo.InsertAsync(key);
-        await repo.RevokeAsync(key.Id);
+        await repo.DeleteAsync(key.Id);
 
         var found = await repo.FindByHashedKeyAsync(key.HashedKey);
         Assert.Null(found);
@@ -272,7 +272,7 @@ public sealed class RepositoryTests : IDisposable
 
         await repo.LogAsync(new SystemActivityEntry
         {
-            Id = Guid.NewGuid(), ActionType = SystemActionType.FileIngested,
+            ActionType = SystemActionType.FileIngested,
             Detail = "Ingested test.epub", OccurredAt = DateTimeOffset.UtcNow,
         });
 
