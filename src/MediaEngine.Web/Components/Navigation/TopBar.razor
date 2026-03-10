@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.Navigation
+﻿@namespace MediaEngine.Web.Components.Navigation
 
 @* TopBar — Horizontal navigation bar at the top of the content area.
    Contains: app logo (wordmark), search icon, notification bell with review badge, profile avatar.
@@ -51,6 +51,13 @@
     else
     {
         @* Desktop (full): logo left, inline search center, bell + avatar right *@
+        @* Hamburger: hidden on desktop, visible on mobile via CSS *@
+        <MudIconButton Icon="@Icons.Material.Filled.Menu"
+                       Color="Color.Inherit"
+                       Size="Size.Medium"
+                       Class="top-bar-hamburger-responsive"
+                       OnClick="@OnHamburgerClick"
+                       aria-label="Open navigation" />
         <div class="top-bar-logo">
             <a href="/"><AppLogo Style="height: 36px; display: block;" /></a>
         </div>
@@ -358,5 +365,25 @@
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+    }
+
+    /* Responsive hamburger: hidden on desktop, shown on mobile */
+    .top-bar-hamburger-responsive {
+        display: none;
+        flex-shrink: 0;
+    }
+
+    @@media (max-width: 768px) {
+        .top-bar-hamburger-responsive { display: flex; }
+        .top-bar-full .top-bar-search-wrapper { display: none !important; }
+        .top-bar-full .top-bar-logo {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            pointer-events: none;
+        }
+        .top-bar-full .top-bar-actions {
+            margin-left: auto;
+        }
     }
 </style>

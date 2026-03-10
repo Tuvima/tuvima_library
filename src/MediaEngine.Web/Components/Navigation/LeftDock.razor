@@ -320,4 +320,11 @@
         white-space: nowrap;
         text-align: center;
     }
+
+    /* Hide the floating dock on mobile -- the TopBar hamburger provides navigation instead. */
+    @@media (max-width: 768px) {
+        .left-dock {
+            display: none;
+        }
+    }
 </style>
