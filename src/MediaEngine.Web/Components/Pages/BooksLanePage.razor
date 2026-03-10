@@ -29,6 +29,14 @@ else if (_allBookHubs.Count == 0)
 }
 else
 {
+    @* -- Page ambient background -- *@
+    @if (_heroHub is not null)
+    {
+        <div class="page-ambient-bg"
+             style="--ambient-color: @_heroHub.DominantHexColor"
+             aria-hidden="true"></div>
+    }
+
     @* -- Hero banner -- *@
     @if (_heroHub is not null)
     {
@@ -39,17 +47,27 @@ else
                 </div>
             </div>
             <div class="hero-stack-text">
-                <h2 class="hero-cinema-title">@_heroHub.DisplayName</h2>
-                <div class="hero-cinema-badges">
-                    @if (!string.IsNullOrEmpty(_heroHub.Year))
-                    { <span class="hero-badge">@_heroHub.Year</span> }
-                    @if (!string.IsNullOrEmpty(_heroHub.PrimaryMediaType))
-                    { <span class="hero-badge">@FormatMediaType(_heroHub.PrimaryMediaType)</span> }
+                <div class="hero-content-layout">
+                    @if (!string.IsNullOrEmpty(_heroHub.CoverUrl))
+                    {
+                        <img src="@_heroHub.CoverUrl"
+                             alt="@_heroHub.DisplayName"
+                             class="hero-cover-art" />
+                    }
+                    <div class="hero-text-block">
+                        <h2 class="hero-cinema-title">@_heroHub.DisplayName</h2>
+                        <div class="hero-cinema-badges">
+                            @if (!string.IsNullOrEmpty(_heroHub.Year))
+                            { <span class="hero-badge">@_heroHub.Year</span> }
+                            @if (!string.IsNullOrEmpty(_heroHub.PrimaryMediaType))
+                            { <span class="hero-badge">@FormatMediaType(_heroHub.PrimaryMediaType)</span> }
+                        </div>
+                        @if (!string.IsNullOrEmpty(_heroHub.Author))
+                        { <p class="hero-cinema-subtitle">@_heroHub.Author</p> }
+                        @if (!string.IsNullOrEmpty(_heroHub.Description))
+                        { <p class="hero-cinema-description">@Truncate(_heroHub.Description, 200)</p> }
+                    </div>
                 </div>
-                @if (!string.IsNullOrEmpty(_heroHub.Author))
-                { <p class="hero-cinema-subtitle">@_heroHub.Author</p> }
-                @if (!string.IsNullOrEmpty(_heroHub.Description))
-                { <p class="hero-cinema-description">@Truncate(_heroHub.Description, 200)</p> }
             </div>
         </div>
     }

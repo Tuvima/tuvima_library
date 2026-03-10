@@ -64,6 +64,14 @@ else
         <PendingFilesAlert Class="mb-4" DisplayMode="@_pendingDisplay" />
     }
 
+    @* ── Page ambient background — hero dominant colour radiates across full viewport ── *@
+    @if (_heroHub is not null)
+    {
+        <div class="page-ambient-bg"
+             style="--ambient-color: @_heroHub.DominantHexColor"
+             aria-hidden="true"></div>
+    }
+
     @* ── Journey Hero — full-bleed: extends behind TopBar ── *@
     @if (_journeyItem is not null && _showHero)
     {
@@ -90,46 +98,56 @@ else
 
             @* Layer 2: Text — normal container flow, padding matches swimlane-section *@
             <div class="hero-stack-text">
-                <h2 class="hero-cinema-title">@_heroHub.DisplayName</h2>
-
-                <div class="hero-cinema-badges">
-                    @if (!string.IsNullOrEmpty(_heroHub.Year))
+                <div class="hero-content-layout">
+                    @if (!string.IsNullOrEmpty(_heroHub.CoverUrl))
                     {
-                        <span class="hero-badge">@_heroHub.Year</span>
+                        <img src="@_heroHub.CoverUrl"
+                             alt="@_heroHub.DisplayName"
+                             class="hero-cover-art" />
                     }
-                    @if (!string.IsNullOrEmpty(_heroHub.PrimaryMediaType))
-                    {
-                        <span class="hero-badge">@HeroFormatMediaType(_heroHub.PrimaryMediaType)</span>
-                    }
-                    @if (!string.IsNullOrEmpty(_heroHub.Genre))
-                    {
-                        @foreach (var genre in _heroHub.Genre.Split(',', ';').Take(2).Select(g => g.Trim()).Where(g => g.Length > 0))
+                    <div class="hero-text-block">
+                        <h2 class="hero-cinema-title">@_heroHub.DisplayName</h2>
+        
+                        <div class="hero-cinema-badges">
+                            @if (!string.IsNullOrEmpty(_heroHub.Year))
+                            {
+                                <span class="hero-badge">@_heroHub.Year</span>
+                            }
+                            @if (!string.IsNullOrEmpty(_heroHub.PrimaryMediaType))
+                            {
+                                <span class="hero-badge">@HeroFormatMediaType(_heroHub.PrimaryMediaType)</span>
+                            }
+                            @if (!string.IsNullOrEmpty(_heroHub.Genre))
+                            {
+                                @foreach (var genre in _heroHub.Genre.Split(',', ';').Take(2).Select(g => g.Trim()).Where(g => g.Length > 0))
+                                {
+                                    <span class="hero-badge">@genre</span>
+                                }
+                            }
+                            @if (!string.IsNullOrEmpty(_heroHub.Rating))
+                            {
+                                <span class="hero-badge">@_heroHub.Rating</span>
+                            }
+                            @if (_heroHub.WorkCount > 1)
+                            {
+                                <span class="hero-badge">@_heroHub.WorkCount works</span>
+                            }
+                        </div>
+        
+                        @if (!string.IsNullOrEmpty(_heroHub.Series))
                         {
-                            <span class="hero-badge">@genre</span>
+                            <p class="hero-cinema-series">@_heroHub.Series</p>
                         }
-                    }
-                    @if (!string.IsNullOrEmpty(_heroHub.Rating))
-                    {
-                        <span class="hero-badge">@_heroHub.Rating</span>
-                    }
-                    @if (_heroHub.WorkCount > 1)
-                    {
-                        <span class="hero-badge">@_heroHub.WorkCount works</span>
-                    }
+                        @if (!string.IsNullOrEmpty(_heroHub.Author))
+                        {
+                            <p class="hero-cinema-subtitle">@_heroHub.Author</p>
+                        }
+                        @if (!string.IsNullOrEmpty(_heroHub.Description))
+                        {
+                            <p class="hero-cinema-description">@HeroTruncate(_heroHub.Description, 200)</p>
+                        }
+                    </div>
                 </div>
-
-                @if (!string.IsNullOrEmpty(_heroHub.Series))
-                {
-                    <p class="hero-cinema-series">@_heroHub.Series</p>
-                }
-                @if (!string.IsNullOrEmpty(_heroHub.Author))
-                {
-                    <p class="hero-cinema-subtitle">@_heroHub.Author</p>
-                }
-                @if (!string.IsNullOrEmpty(_heroHub.Description))
-                {
-                    <p class="hero-cinema-description">@HeroTruncate(_heroHub.Description, 200)</p>
-                }
             </div>
 
         </div>
