@@ -122,20 +122,6 @@ else
                             }
                         </div>
                     }
-                    <div class="hub-detail-sidebar-item">
-                        <span class="hub-detail-sidebar-label">Format</span>
-                        <div class="hub-detail-format-pills">
-                            @foreach (var fmt in AvailableFormats())
-                            {
-                                var isActive = ActiveFormatKey == fmt.Key;
-                                <button class="hub-detail-format-pill @(isActive ? "active" : "")"
-                                        @onclick="@(() => _selectedFormatKey = fmt.Key)">
-                                    <MudIcon Icon="@fmt.Icon" Style="font-size: 0.8rem; flex-shrink:0;" />
-                                    @fmt.Label
-                                </button>
-                            }
-                        </div>
-                    </div>
 
                     @{
                         var genres      = GenreTags;
@@ -176,6 +162,25 @@ else
 
                     @* Title *@
                     <h1 class="hub-detail-title">@_hub.DisplayName</h1>
+
+                    @* Format slider — shown only when multiple formats are available *@
+                    @{
+                        var _fmts = AvailableFormats();
+                    }
+                    @if (_fmts.Count > 1)
+                    {
+                        <div class="hub-format-slider">
+                            @foreach (var fmt in _fmts)
+                            {
+                                var isSliderActive = ActiveFormatKey == fmt.Key;
+                                <button class="hub-format-slider-btn @(isSliderActive ? "active" : "")"
+                                        @onclick="@(() => _selectedFormatKey = fmt.Key)">
+                                    <MudIcon Icon="@fmt.Icon" Style="font-size: 1rem; flex-shrink:0;" />
+                                    @fmt.Label
+                                </button>
+                            }
+                        </div>
+                    }
 
                     @* Metadata row: rating | reading time | year *@
                     @{
@@ -338,7 +343,7 @@ else
                     var activeCoverUrl = ActiveWork?.CoverUrl ?? _hub.CoverUrl;
                     var coverIsAudio   = ActiveFormatKey == "audiobook";
                 }
-                <div class="hub-detail-cover-wrap">
+                <div class="hub-detail-cover-wrap" @onclick="@(() => _lightboxOpen = !string.IsNullOrEmpty(activeCoverUrl))">
                     @if (!string.IsNullOrEmpty(activeCoverUrl))
                     {
                         <img src="@activeCoverUrl" alt="@_hub.DisplayName"
@@ -401,6 +406,25 @@ else
     </div>
 }
 
+@* ── Cover art lightbox ── *@
+@{
+    var _lbCoverUrl = _hub is not null ? (ActiveWork?.CoverUrl ?? _hub.CoverUrl) : null;
+}
+@if (_lightboxOpen && _hub is not null)
+{
+    <div class=hub-cover-lightbox @onclick=@(() => _lightboxOpen = false)>
+        @if (!string.IsNullOrEmpty(_lbCoverUrl))
+        {
+            <img src=@_lbCoverUrl alt=@_hub.DisplayName
+                 class=hub-cover-lightbox-img
+                 @onclick:stopPropagation=true />
+        }
+        <button class=hub-cover-lightbox-close @onclick=@(() => _lightboxOpen = false)>
+            <MudIcon Icon=@Icons.Material.Filled.Close />
+        </button>
+    </div>
+}
+
 @* ── Toast ── *@
 @if (_toastMessage is not null)
 {
@@ -420,6 +444,7 @@ else
     private bool                    _showFullDescription;
     private bool                    _showAllGenres;
     private bool                    _editDrawerOpen;
+    private bool                    _lightboxOpen;
     private System.Threading.Timer? _toastTimer;
     /// <summary>Currently selected format key ("epub", "audiobook", "video", "comic").
     /// Null means default (primary media type).</summary>
@@ -433,6 +458,7 @@ else
         _showFullDescription = false;
         _showAllGenres       = false;
         _editDrawerOpen      = false;
+        _lightboxOpen        = false;
         _selectedFormatKey   = null;
 
         if (!State.IsLoaded)
@@ -488,7 +514,7 @@ else
         var work = _hub.Works.FirstOrDefault();
         if (work is null) { ShowToast("No media asset found"); return; }
         await Orchestrator.SaveProgressAsync(work.Id, null, 100.0);
-        ShowToast("Marked as finished ✓");
+        ShowToast("Marked as finished \u2713");
     }
 
     private async Task OnUpdateMetadata()
@@ -499,7 +525,7 @@ else
         var result = await Orchestrator.TriggerHydrationAsync(workId.Value);
         ShowToast(result is not null
             ? "Metadata updated successfully"
-            : "Metadata update failed — check Engine logs");
+            : "Metadata update failed \u2014 check Engine logs");
     }
 
     private void ShowToast(string message)
@@ -811,41 +837,42 @@ else
 
     .hub-detail-genre-more:hover { color: #e0aa50; }
 
-    /* Format pills */
-    .hub-detail-format-pills {
-        display: flex;
-        flex-direction: column;
-        gap: 5px;
-        align-items: flex-end;
+    /* ── Format slider toggle (under title) ── */
+    .hub-format-slider {
+        display: inline-flex;
+        background: rgba(255, 255, 255, 0.07);
+        border: 1px solid rgba(255, 255, 255, 0.10);
+        border-radius: 100px;
+        padding: 3px;
+        gap: 2px;
+        align-self: flex-start;
     }
 
-    .hub-detail-format-pill {
+    .hub-format-slider-btn {
         display: inline-flex;
         align-items: center;
-        gap: 5px;
+        gap: 7px;
         font-family: 'Montserrat', sans-serif;
-        font-size: 0.75rem;
+        font-size: 0.82rem;
         font-weight: 600;
-        padding: 5px 10px;
-        border-radius: 20px;
-        background: rgba(255, 255, 255, 0.08);
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        color: rgba(248, 248, 248, 0.55);
+        padding: 8px 18px;
+        border-radius: 100px;
+        border: none;
+        background: transparent;
+        color: rgba(248, 248, 248, 0.50);
         cursor: pointer;
-        transition: all 0.18s ease;
+        transition: all 0.20s ease;
         white-space: nowrap;
     }
 
-    .hub-detail-format-pill:hover {
-        background: rgba(201, 146, 46, 0.15);
-        border-color: rgba(201, 146, 46, 0.35);
+    .hub-format-slider-btn:hover:not(.active) {
         color: rgba(248, 248, 248, 0.80);
+        background: rgba(255, 255, 255, 0.06);
     }
 
-    .hub-detail-format-pill.active {
-        background: rgba(201, 146, 46, 0.22);
-        border-color: rgba(201, 146, 46, 0.60);
-        color: #C9922E;
+    .hub-format-slider-btn.active {
+        background: #C9922E;
+        color: #111111;
     }
 
     /* Narrator row */
@@ -1043,7 +1070,10 @@ else
     }
 
     /* ── Cover art (right column) ── */
-    .hub-detail-cover-wrap { flex-shrink: 0; }
+    .hub-detail-cover-wrap {
+        flex-shrink: 0;
+        cursor: zoom-in;
+    }
 
     .hub-detail-cover {
         width: 400px;
@@ -1052,6 +1082,12 @@ else
         border-radius: 14px;
         box-shadow: 0 24px 72px rgba(0, 0, 0, 0.75);
         display: block;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .hub-detail-cover-wrap:hover .hub-detail-cover {
+        transform: scale(1.015);
+        box-shadow: 0 28px 80px rgba(0, 0, 0, 0.85);
     }
 
     .hub-detail-cover-placeholder {
@@ -1062,11 +1098,55 @@ else
         justify-content: center;
     }
 
-    /* Square cover for audiobooks (1:1 aspect ratio) */
+    /* Square cover for audiobooks — same width as book cover to prevent layout shift */
     .hub-detail-cover-audio {
-        width: 360px;
-        height: 360px;
+        width: 400px;
+        height: 400px;
         object-fit: contain;
+    }
+
+    /* ── Cover art lightbox ── */
+    .hub-cover-lightbox {
+        position: fixed;
+        inset: 0;
+        z-index: 2000;
+        background: rgba(0, 0, 0, 0.92);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: zoom-out;
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+    }
+
+    .hub-cover-lightbox-img {
+        max-width: 90vw;
+        max-height: 90vh;
+        object-fit: contain;
+        border-radius: 10px;
+        box-shadow: 0 32px 96px rgba(0, 0, 0, 0.90);
+        cursor: default;
+    }
+
+    .hub-cover-lightbox-close {
+        position: absolute;
+        top: 24px;
+        right: 28px;
+        background: rgba(255, 255, 255, 0.10);
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        border-radius: 50%;
+        width: 44px;
+        height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        color: rgba(248, 248, 248, 0.80);
+        transition: background 0.15s;
+    }
+
+    .hub-cover-lightbox-close:hover {
+        background: rgba(255, 255, 255, 0.22);
     }
 
     /* ── Related section ── */
@@ -1184,7 +1264,7 @@ else
         }
 
         /* On mobile: cover goes first (top), then content, sidebar last */
-        .hub-detail-cover-wrap { order: -1; align-self: center; }
+        .hub-detail-cover-wrap { order: -1; align-self: center; cursor: zoom-in; }
         .hub-detail-sidebar    { order: 1; width: 100%; text-align: left; flex-direction: row; flex-wrap: wrap; gap: 16px; padding-top: 0; }
         .hub-detail-content    { order: 0; }
 
