@@ -1,4 +1,4 @@
-@page "/hub/{Id:guid}"
+﻿@page "/hub/{Id:guid}"
 @inject UIOrchestratorService  Orchestrator
 @inject UniverseStateContainer  State
 @inject NavigationManager       Nav
@@ -186,8 +186,10 @@ else
                                 var isSliderActive = ActiveFormatKey == fmt.Key;
                                 <button class="hub-format-slider-btn @(isSliderActive ? "active" : "")"
                                         @onclick="@(() => _selectedFormatKey = fmt.Key)">
-                                    <MudIcon Icon="@fmt.Icon" Style="font-size: 1rem; flex-shrink:0;" />
-                                    @fmt.Label
+                                    <span class="hub-format-slider-content">
+                                        <MudIcon Icon="@fmt.Icon" Style="font-size: 1rem; flex-shrink:0;" />
+                                        @fmt.Label
+                                    </span>
                                 </button>
                             }
                         </div>
@@ -230,7 +232,7 @@ else
                     <button class="hub-primary-cta hub-desktop-only" @onclick="@OnPrimaryAction">
                         <div class="hub-primary-cta-inner">
                             <MudIcon Icon="@GetPrimaryActionIcon()"
-                                     Style="font-size: 1.2rem; color: rgba(248,248,248,0.90); flex-shrink:0;" />
+                                     Style="font-size: 1.2rem; color: #1a1208; flex-shrink:0;" />
                             <span class="hub-primary-cta-label">@PrimaryActionLabel()</span>
                         </div>
                         @if (hasProgress)
@@ -365,8 +367,10 @@ else
                                 var isSliderActive = ActiveFormatKey == fmt.Key;
                                 <button class="hub-format-slider-btn @(isSliderActive ? "active" : "")"
                                         @onclick="@(() => _selectedFormatKey = fmt.Key)">
-                                    <MudIcon Icon="@fmt.Icon" Style="font-size: 1rem; flex-shrink:0;" />
-                                    @fmt.Label
+                                    <span class="hub-format-slider-content">
+                                        <MudIcon Icon="@fmt.Icon" Style="font-size: 1rem; flex-shrink:0;" />
+                                        @fmt.Label
+                                    </span>
                                 </button>
                             }
                         </div>
@@ -391,7 +395,7 @@ else
                     <button class="hub-primary-cta hub-mobile-only" @onclick="@OnPrimaryAction">
                         <div class="hub-primary-cta-inner">
                             <MudIcon Icon="@GetPrimaryActionIcon()"
-                                     Style="font-size: 1.2rem; color: rgba(248,248,248,0.90); flex-shrink:0;" />
+                                     Style="font-size: 1.2rem; color: #1a1208; flex-shrink:0;" />
                             <span class="hub-primary-cta-label">@PrimaryActionLabel()</span>
                         </div>
                         @if (hasProgress)
@@ -1156,7 +1160,8 @@ else
         background: transparent;
         color: rgba(248, 248, 248, 0.50);
         cursor: pointer;
-        transition: all 0.20s ease;
+        position: relative;
+        transition: color 0.20s ease, background 0.20s ease;
         white-space: nowrap;
     }
 
@@ -1165,9 +1170,65 @@ else
         background: rgba(255, 255, 255, 0.06);
     }
 
+    /* Active segment: golden fill + breathing glow + comet border trace */
     .hub-format-slider-btn.active {
-        background: #C9922E;
+        background: transparent;
         color: #111111;
+        overflow: hidden;
+        isolation: isolate;
+        animation: slider-breathe 2.6s ease-in-out infinite;
+    }
+
+    /* Spinning comet: 200x200% conic disc, overflow:hidden clips it to the pill */
+    .hub-format-slider-btn.active::before {
+        content: '';
+        position: absolute;
+        width: 200%;
+        height: 200%;
+        top: -50%;
+        left: -50%;
+        background: conic-gradient(
+            transparent 0deg,
+            transparent 330deg,
+            rgba(255, 248, 180, 0.0)  330deg,
+            rgba(255, 248, 180, 0.40) 345deg,
+            rgba(255, 248, 180, 0.95) 355deg,
+            rgba(255, 248, 180, 1.0)  358deg,
+            transparent               360deg
+        );
+        animation: trace-spin 3.0s linear infinite;
+        z-index: 1;
+        pointer-events: none;
+    }
+
+    /* Amber fill masks the disc centre â€” only the edge glow stays visible */
+    .hub-format-slider-btn.active::after {
+        content: '';
+        position: absolute;
+        inset: 2px;
+        border-radius: inherit;
+        background: #C9922E;
+        z-index: 2;
+        pointer-events: none;
+    }
+
+    /* Content sits above the fill layer */
+    .hub-format-slider-content {
+        position: relative;
+        z-index: 3;
+        display: flex;
+        align-items: center;
+        gap: 7px;
+    }
+
+    @@keyframes trace-spin {
+        from { transform: rotate(0deg); }
+        to   { transform: rotate(360deg); }
+    }
+
+    @@keyframes slider-breathe {
+        0%, 100% { box-shadow: 0 0  6px 1px rgba(201, 146, 46, 0.15); }
+        50%       { box-shadow: 0 0 18px 7px rgba(201, 146, 46, 0.55); }
     }
 
     /* ── Cover art ── */
@@ -1210,14 +1271,15 @@ else
         position: relative;
         display: flex;
         flex-direction: column;
-        background: rgba(14, 16, 28, 0.90);
-        border: 1.5px solid rgba(201, 146, 46, 0.45);
+        background: linear-gradient(135deg, #d4a03c 0%, #b87820 100%);
+        border: 1.5px solid rgba(0, 0, 0, 0.15);
         border-radius: 8px;
         cursor: pointer;
         overflow: hidden;
-        transition: background 0.2s ease, border-color 0.2s ease;
+        transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
         padding: 0;
         width: fit-content;
+        box-shadow: 0 4px 18px rgba(185, 120, 32, 0.30);
     }
 
     /* Desktop CTA: constrained width, left-aligned */
@@ -1235,8 +1297,9 @@ else
     }
 
     .hub-primary-cta:hover {
-        background: rgba(201, 146, 46, 0.10);
-        border-color: rgba(201, 146, 46, 0.70);
+        background: linear-gradient(135deg, #dda840 0%, #c08428 100%);
+        border-color: rgba(0, 0, 0, 0.22);
+        box-shadow: 0 6px 24px rgba(185, 120, 32, 0.50);
     }
 
     .hub-primary-cta-inner {
@@ -1250,7 +1313,7 @@ else
         font-family: 'Montserrat', sans-serif;
         font-size: 0.90rem;
         font-weight: 700;
-        color: rgba(248, 248, 248, 0.92);
+        color: #1a1208;
         letter-spacing: 0.01em;
         white-space: nowrap;
     }
@@ -1260,7 +1323,7 @@ else
         bottom: 0;
         left: 0;
         height: 3px;
-        background: #C9922E;
+        background: rgba(0, 0, 0, 0.28);
         border-radius: 0 0 0 6px;
         transition: width 0.4s ease;
     }

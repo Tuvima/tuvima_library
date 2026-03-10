@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.Navigation
+﻿@namespace MediaEngine.Web.Components.Navigation
 
 @using MediaEngine.Web.Models.ViewDTOs
 
@@ -58,6 +58,17 @@
         backdrop-filter: blur(20px);
         -webkit-backdrop-filter: blur(20px);
         min-width: 260px;
+        top: 0 !important; /* start at top of viewport, above TopBar */
+    }
+
+    /* Ensure nav items are top-aligned inside the drawer panel */
+    .mobile-nav-drawer .mud-drawer-content {
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        align-items: stretch;
+        height: 100%;
+        overflow-y: auto;
     }
 
     .mobile-nav-logo {
