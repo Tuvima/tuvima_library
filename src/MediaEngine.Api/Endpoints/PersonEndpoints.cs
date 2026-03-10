@@ -1,4 +1,4 @@
-using MediaEngine.Domain.Contracts;
+﻿using MediaEngine.Domain.Contracts;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Endpoints;
@@ -171,6 +171,39 @@ public static class PersonEndpoints
         .WithName("GetWorksByPerson")
         .WithSummary("All hubs containing works linked to this person (author/narrator/director).")
         .Produces<List<MediaEngine.Api.Models.HubDto>>(StatusCodes.Status200OK);
+        // GET /persons?role=Author&limit=50 -- list persons filtered by role.
+        group.MapGet("/", async (
+            string? role,
+            int? limit,
+            IPersonRepository personRepo,
+            CancellationToken ct) =>
+        {
+            var all = await personRepo.ListAllAsync(ct);
+            IEnumerable<MediaEngine.Domain.Entities.Person> filtered = all;
+
+            if (!string.IsNullOrEmpty(role))
+                filtered = filtered.Where(p => p.Role.Equals(role, StringComparison.OrdinalIgnoreCase));
+
+            var results = filtered
+                .Take(limit ?? 50)
+                .Select(p => new
+                {
+                    id                 = p.Id,
+                    name               = p.Name,
+                    role               = p.Role,
+                    headshot_url       = p.HeadshotUrl,
+                    has_local_headshot = !string.IsNullOrEmpty(p.LocalHeadshotPath)
+                                         && File.Exists(p.LocalHeadshotPath),
+                    biography          = p.Biography,
+                    occupation         = p.Occupation,
+                })
+                .ToList();
+
+            return Results.Ok(results);
+        })
+        .WithName("ListPersons")
+        .WithSummary("List persons, optionally filtered by role.");
+
         return app;
     }
 }

@@ -1,0 +1,137 @@
+@namespace MediaEngine.Web.Components.Universe
+
+@inject IJSRuntime JS
+
+@* AlphabeticalGrid -- Groups hubs by first letter with sticky headers and
+   a right-edge alphabet strip for quick-jump navigation. *@
+
+<div class="az-container">
+    <div class="az-content">
+        @foreach (var group in _letterGroups)
+        {
+            <div class="az-letter-section" id="az-@group.Letter">
+                <div class="az-letter-header">
+                    <span class="az-letter">@group.Letter</span>
+                    <span class="az-letter-count">@group.Hubs.Count</span>
+                </div>
+                <div class="az-grid">
+                    @foreach (var hub in group.Hubs)
+                    {
+                        <PosterCard Hub="@hub"
+                                    OnHubSelected="OnHubSelected"
+                                    Width="@CardWidth" />
+                    }
+                </div>
+            </div>
+        }
+    </div>
+
+    <div class="az-strip">
+        @foreach (var letter in _allLetters)
+        {
+            var hasItems = _activeLetters.Contains(letter);
+            <button class="az-strip-letter @(hasItems ? "" : "az-strip-inactive")"
+                    disabled="@(!hasItems)"
+                    @onclick="@(() => ScrollToLetter(letter))">
+                @letter
+            </button>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<HubViewModel> Hubs { get; set; } = [];
+    [Parameter] public EventCallback<HubViewModel> OnHubSelected { get; set; }
+    [Parameter] public int CardWidth { get; set; } = 180;
+
+    private static readonly string[] _allLetters =
+        Enumerable.Range('A', 26).Select(c => ((char)c).ToString()).Append("#").ToArray();
+
+    private List<LetterGroup> _letterGroups = [];
+    private HashSet<string> _activeLetters = [];
+
+    private sealed record LetterGroup(string Letter, IReadOnlyList<HubViewModel> Hubs);
+
+    protected override void OnParametersSet()
+    {
+        BuildGroups();
+    }
+
+    private void BuildGroups()
+    {
+        _letterGroups = Hubs
+            .GroupBy(h => GetLetterKey(h.DisplayName))
+            .OrderBy(g => g.Key == "#" ? "ZZZ" : g.Key)
+            .Select(g => new LetterGroup(g.Key, g.OrderBy(h => h.DisplayName).ToList()))
+            .ToList();
+
+        _activeLetters = _letterGroups.Select(g => g.Letter).ToHashSet();
+    }
+
+    private static string GetLetterKey(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return "#";
+        var first = char.ToUpperInvariant(name[0]);
+        return char.IsLetter(first) ? first.ToString() : "#";
+    }
+
+    private async Task ScrollToLetter(string letter)
+    {
+        await JS.InvokeVoidAsync("scrollToLetter", $"az-{letter}");
+    }
+}
+
+<style>
+    .az-container { display: flex; gap: 8px; padding-left: 88px; padding-right: 8px; }
+    .az-content { flex: 1; min-width: 0; }
+
+    .az-letter-section { margin-bottom: 2rem; }
+
+    .az-letter-header {
+        display: flex; align-items: baseline; gap: 8px;
+        padding: 8px 0; margin-bottom: 12px;
+        border-bottom: 1px solid rgba(248,248,248,0.08);
+        position: sticky; top: 56px; z-index: 1;
+        background: #060A16;
+    }
+
+    .az-letter {
+        font-family: Montserrat, sans-serif; font-size: 1.8rem;
+        font-weight: 700; color: #C9922E;
+    }
+
+    .az-letter-count {
+        font-family: Montserrat, sans-serif; font-size: 0.8rem;
+        font-weight: 500; color: rgba(248,248,248,0.35);
+    }
+
+    .az-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        gap: 16px;
+    }
+
+    .az-strip {
+        position: sticky; top: 56px; align-self: flex-start;
+        display: flex; flex-direction: column; align-items: center;
+        gap: 1px; padding: 8px 4px;
+    }
+
+    .az-strip-letter {
+        background: none; border: none; cursor: pointer;
+        font-family: Montserrat, sans-serif; font-size: 0.65rem;
+        font-weight: 600; color: rgba(248,248,248,0.60);
+        padding: 2px 4px; line-height: 1.2;
+        transition: color 0.15s ease;
+    }
+
+    .az-strip-letter:hover { color: #C9922E; }
+    .az-strip-inactive { color: rgba(248,248,248,0.15); cursor: default; }
+    .az-strip-inactive:hover { color: rgba(248,248,248,0.15); }
+
+    @@media (max-width: 768px) {
+        .az-container { padding-left: 1rem; padding-right: 1rem; }
+        .az-strip { display: none; }
+        .az-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+    }
+</style>

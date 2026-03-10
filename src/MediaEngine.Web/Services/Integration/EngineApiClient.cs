@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
@@ -1399,6 +1399,35 @@ public sealed class EngineApiClient : IEngineApiClient
     }
 
     // ── GET /persons/by-hub/{hubId} ─────────────────────────────────────
+
+    public async Task<List<PersonViewModel>> GetPersonsByRoleAsync(
+        string role, int limit = 50, CancellationToken ct = default)
+    {
+        try
+        {
+            var raw = await _http.GetFromJsonAsync<List<PersonRaw>>(
+                $"/persons?role={Uri.EscapeDataString(role)}&limit={limit}", ct);
+            return raw?.Select(p => new PersonViewModel
+            {
+                Id               = p.Id,
+                Name             = p.Name ?? string.Empty,
+                Role             = p.Role ?? string.Empty,
+                HeadshotUrl      = p.HeadshotUrl,
+                HasLocalHeadshot = p.HasLocalHeadshot,
+                LocalHeadshotUrl = p.HasLocalHeadshot
+                                   ? AbsoluteUrl($"/persons/{p.Id}/headshot")
+                                   : null,
+                Biography        = p.Biography,
+                Occupation       = p.Occupation,
+            }).ToList() ?? [];
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /persons?role={Role} failed", role);
+            LastError = ex.Message;
+            return [];
+        }
+    }
 
     public async Task<List<PersonViewModel>> GetPersonsByHubAsync(
         Guid hubId, CancellationToken ct = default)

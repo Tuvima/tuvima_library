@@ -275,6 +275,10 @@ public interface IEngineApiClient
 
     // ── Persons by Hub (/persons/by-hub) ────────────────────────────────
 
+    /// <summary>GET /persons?role={role}&amp;limit={limit} â€” list persons filtered by role.</summary>
+    Task<List<PersonViewModel>> GetPersonsByRoleAsync(
+        string role, int limit = 50, CancellationToken ct = default);
+
     /// <summary>GET /persons/by-hub/{hubId} — all persons linked to works in a hub.</summary>
     Task<List<PersonViewModel>> GetPersonsByHubAsync(Guid hubId, CancellationToken ct = default);
 

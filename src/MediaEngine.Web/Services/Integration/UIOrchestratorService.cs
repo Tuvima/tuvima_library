@@ -507,6 +507,11 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         Guid hubId, CancellationToken ct = default)
         => _api.GetPersonsByHubAsync(hubId, ct);
 
+    /// <summary>Returns persons filtered by role (e.g. "Author") for batch headshot loading.</summary>
+    public Task<List<PersonViewModel>> GetPersonsByRoleAsync(
+        string role, int limit = 50, CancellationToken ct = default)
+        => _api.GetPersonsByRoleAsync(role, limit, ct);
+
     /// <summary>Returns related hubs (series/author/genre/explore cascade).</summary>
     public Task<RelatedHubsViewModel?> GetRelatedHubsAsync(
         Guid hubId, int limit = 20, CancellationToken ct = default)

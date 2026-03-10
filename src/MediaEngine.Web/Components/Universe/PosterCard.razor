@@ -1,8 +1,8 @@
-@namespace MediaEngine.Web.Components.Universe
+﻿@namespace MediaEngine.Web.Components.Universe
 
 @using MediaEngine.Web.Services.Integration
 
-@* PosterCard — Individual poster art tile with cover image, title, and metadata badges.
+@* PosterCard â€” Individual poster art tile with cover image, title, and metadata badges.
    Used inside PosterSwimlane for horizontal scrolling rows. *@
 
 <div class="poster-card" style="width: @(Width)px; --card-width: @(Width)px;" @onclick="OnClick">
@@ -16,7 +16,7 @@
         }
         else
         {
-            @* Book fallback — spine-style gradient with title *@
+            @* Book fallback â€” spine-style gradient with title *@
             <div class="poster-card-book-spine">
                 <MudIcon Icon="@MudBlazor.Icons.Material.Filled.MenuBook"
                          Style="font-size: 36px; color: rgba(255,255,255,0.18); margin-bottom: 8px;" />
@@ -29,21 +29,28 @@
             <span class="poster-new-badge">NEW</span>
         }
 
-        @* Format badge — book formats only *@
+        @* Format badge â€” book formats only *@
         @if (!string.IsNullOrEmpty(Hub.PrimaryMediaType))
         {
             <span class="poster-format-badge"
                   style="background: @FormatBadgeColour;">@FormatBadgeText</span>
         }
+
+        @if (ProgressPct.HasValue && ProgressPct.Value > 0)
+        {
+            <div class="poster-progress-bar">
+                <div class="poster-progress-fill" style="width: @(ProgressPct.Value)%;"></div>
+            </div>
+        }
     </div>
     <div class="poster-card-info">
         <span class="poster-card-title">@Hub.DisplayName</span>
-        @* Author — primary subtitle for books *@
+        @* Author â€” primary subtitle for books *@
         @if (!string.IsNullOrEmpty(Hub.Author))
         {
             <span class="poster-card-author">@Hub.Author</span>
         }
-        @* Series — shown if author is available, or as fallback *@
+        @* Series â€” shown if author is available, or as fallback *@
         @if (!string.IsNullOrEmpty(Hub.Series) && string.IsNullOrEmpty(Hub.Author))
         {
             <span class="poster-card-subtitle">@Hub.Series</span>
@@ -61,6 +68,7 @@
     [Parameter, EditorRequired] public HubViewModel Hub { get; set; } = default!;
     [Parameter] public EventCallback<HubViewModel> OnHubSelected { get; set; }
     [Parameter] public int Width { get; set; } = 180;
+    [Parameter] public double? ProgressPct { get; set; }
 
     private bool IsNew => DateTimeOffset.UtcNow - Hub.CreatedAt < TimeSpan.FromDays(7);
 
@@ -128,7 +136,7 @@
         transition: box-shadow 0.2s ease;
     }
 
-    /* ── Book spine fallback — shown when no cover art ── */
+    /* â”€â”€ Book spine fallback â€” shown when no cover art â”€â”€ */
     .poster-card-book-spine {
         display: flex;
         flex-direction: column;
@@ -207,7 +215,7 @@
         margin-bottom: 2px;
     }
 
-    /* Author — bold subtitle below title */
+    /* Author â€” bold subtitle below title */
     .poster-card-author {
         font-family: 'Montserrat', sans-serif;
         font-size: 0.75rem;
@@ -245,5 +253,22 @@
         letter-spacing: 0.03em;
         color: var(--app-text-muted);
         text-transform: uppercase;
+    }
+
+    .poster-progress-bar {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: rgba(0, 0, 0, 0.40);
+        z-index: 2;
+    }
+
+    .poster-progress-fill {
+        height: 100%;
+        background: #C9922E;
+        border-radius: 0 2px 2px 0;
+        transition: width 0.3s ease;
     }
 </style>

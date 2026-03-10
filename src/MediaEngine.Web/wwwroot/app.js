@@ -1,4 +1,4 @@
-// app.js — Global JavaScript helpers for the Dashboard
+﻿// app.js — Global JavaScript helpers for the Dashboard
 
 /**
  * Ensures the dark theme class is applied to <body>.
@@ -93,4 +93,18 @@ window.scrollSwimlane = function (el, direction) {
         left: direction === 'left' ? -scrollAmount : scrollAmount,
         behavior: 'smooth'
     });
+};
+// -- Alphabetical Grid scroll-to-letter ---------------------------------
+
+/**
+ * Smoothly scrolls the page to an element by its ID.
+ * Used by AlphabeticalGrid.razor for the alphabet strip quick-jump.
+ *
+ * @param {string} elementId - The DOM ID of the target element (e.g. "az-A").
+ */
+window.scrollToLetter = function (elementId) {
+    var el = document.getElementById(elementId);
+    if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
 };
