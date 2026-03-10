@@ -574,7 +574,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         // pipeline run already logged the MediaAdded entry).
         if (!request.SuppressActivityEntry)
         {
-            await CreateMediaAddedEntryAsync(request.EntityId, result, ct).ConfigureAwait(false);
+            await CreateMediaAddedEntryAsync(request.EntityId, result, request.IngestionRunId, ct).ConfigureAwait(false);
         }
 
         _logger.LogInformation(
@@ -751,7 +751,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     /// Wrapped in try/catch — never aborts the pipeline.
     /// </summary>
     private async Task CreateMediaAddedEntryAsync(
-        Guid entityId, HydrationResult result, CancellationToken ct)
+        Guid entityId, HydrationResult result, Guid? ingestionRunId, CancellationToken ct)
     {
         try
         {
@@ -907,12 +907,13 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
 
             await _activityRepo.LogAsync(new SystemActivityEntry
             {
-                ActionType  = SystemActionType.MediaAdded,
-                EntityId    = entityId,
-                EntityType  = "MediaAsset",
-                HubName     = hubName ?? title,
-                ChangesJson = richJson,
-                Detail      = $"Added — \"{title}\"{authorPart}",
+                ActionType     = SystemActionType.MediaAdded,
+                EntityId       = entityId,
+                EntityType     = "MediaAsset",
+                HubName        = hubName ?? title,
+                ChangesJson    = richJson,
+                Detail         = $"Added — \"{title}\"{authorPart}",
+                IngestionRunId = ingestionRunId,
             }, ct).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)

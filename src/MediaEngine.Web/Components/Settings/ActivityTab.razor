@@ -288,7 +288,7 @@
                                                             {
                                                                 <img src="@(bRich!.ResolvedCoverUrl is not null ? AbsoluteStreamUrl(bRich.ResolvedCoverUrl) : CoverUrl(bRich!.EntityId!))"
                                                                      alt="@bRich!.Title"
-                                                                     style="width: 100%; height: 100%; object-fit: cover;"
+                                                                     style="width: 100%; height: 100%; object-fit: @(IsAudioMedia(bRich?.MediaType) ? "contain" : "cover");"
                                                                      loading="lazy"
                                                                      onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" />
                                                                 <div style="display: none; width: 100%; height: 100%; align-items: center; justify-content: center;">
@@ -349,13 +349,13 @@
                                             </div>
                                         }
                                         <div class="activity-rich-card">
-                                            @* Thumbnail — 120x180px *@
+                                            @* Thumbnail — 120x180px (contain for square audiobook covers) *@
                                             <div class="activity-rich-thumb">
                                                 @if (!string.IsNullOrWhiteSpace(rich.ResolvedCoverUrl ?? (rich.EntityId is not null ? CoverUrl(rich.EntityId) : null)))
                                                 {
                                                     <img src="@(rich.ResolvedCoverUrl is not null ? AbsoluteStreamUrl(rich.ResolvedCoverUrl) : CoverUrl(rich.EntityId!))"
                                                          alt="@rich.Title"
-                                                         style="width: 100%; height: 100%; object-fit: cover;"
+                                                         style="width: 100%; height: 100%; object-fit: @(IsAudioMedia(rich.MediaType) ? "contain" : "cover");"
                                                          loading="lazy"
                                                          onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" />
                                                     <div style="display: none; width: 100%; height: 100%; align-items: center; justify-content: center;">
@@ -1357,7 +1357,7 @@
         var ingSubTypes = new HashSet<string>
         {
             "FileDetected", "FileHashed", "FileProcessed", "FileScored",
-            "EntityChainCreated", "CoverArtSaved", "MetadataTagsWritten",
+            "EntityChainCreated", "CoverArtSaved", "HeroBannerGenerated", "MetadataTagsWritten",
             "HydrationEnqueued", "MovedToStaging",
         };
         var postIngestionTypes = new HashSet<string>
@@ -1929,6 +1929,10 @@
             return $"{EngineBase}{relativeOrAbsolute}";
         return relativeOrAbsolute;
     }
+
+    private static bool IsAudioMedia(string? mediaType) =>
+        mediaType?.ToLowerInvariant() is { } mt
+        && (mt.Contains("audio") || mt.Contains("m4b") || mt == "audiobook");
 
     private static string MediaTypeIcon(string? mediaType) => mediaType?.ToLowerInvariant() switch
     {

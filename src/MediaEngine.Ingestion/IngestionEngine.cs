@@ -778,10 +778,11 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         // stale review item in the queue for a file that was successfully organized.
         await _pipeline.EnqueueAsync(new HarvestRequest
         {
-            EntityId   = assetId,
-            EntityType = EntityType.MediaAsset,
-            MediaType  = resolvedMediaType,
-            Hints      = BuildHints(candidate.Metadata),
+            EntityId       = assetId,
+            EntityType     = EntityType.MediaAsset,
+            MediaType      = resolvedMediaType,
+            Hints          = BuildHints(candidate.Metadata),
+            IngestionRunId = ingestionRunId,
         }, ct).ConfigureAwait(false);
 
         await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry

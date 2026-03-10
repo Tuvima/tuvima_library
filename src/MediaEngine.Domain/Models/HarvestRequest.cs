@@ -58,4 +58,11 @@ public sealed class HarvestRequest
     /// to avoid duplicating the original entry.
     /// </summary>
     public bool SuppressActivityEntry { get; init; }
+
+    /// <summary>
+    /// The ingestion run ID that originated this request.
+    /// When set, the <c>MediaAdded</c> activity entry will carry this ID so the
+    /// Dashboard can link all ingestion sub-steps to a single <c>MediaAdded</c> card.
+    /// </summary>
+    public Guid? IngestionRunId { get; init; }
 }

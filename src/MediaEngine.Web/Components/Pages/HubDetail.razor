@@ -317,11 +317,12 @@ else
                 <div class="hub-detail-cover-wrap">
                     @if (!string.IsNullOrEmpty(_hub.CoverUrl))
                     {
-                        <img src="@_hub.CoverUrl" alt="@_hub.DisplayName" class="hub-detail-cover" />
+                        <img src="@_hub.CoverUrl" alt="@_hub.DisplayName"
+                             class="hub-detail-cover @(IsAudiobookHub() ? "hub-detail-cover-audio" : "")" />
                     }
                     else
                     {
-                        <div class="hub-detail-cover hub-detail-cover-placeholder">
+                        <div class="hub-detail-cover @(IsAudiobookHub() ? "hub-detail-cover-audio" : "") hub-detail-cover-placeholder">
                             <MudIcon Icon="@GetHubIcon()" Style="font-size: 64px; color: rgba(255,255,255,0.18);" />
                         </div>
                     }
@@ -537,6 +538,12 @@ else
         var full  = (int)Math.Floor(r);
         var empty = 5 - full;
         return new string('\u2605', full) + new string('\u2606', empty);
+    }
+
+    private bool IsAudiobookHub()
+    {
+        var mt = _hub?.PrimaryMediaType?.ToLowerInvariant() ?? "";
+        return mt.Contains("audio") || mt.Contains("m4b") || mt == "audiobook";
     }
 
     private bool HasAudiobook() =>
@@ -921,6 +928,13 @@ else
         justify-content: center;
     }
 
+    /* Square cover for audiobooks (1:1 aspect ratio) */
+    .hub-detail-cover-audio {
+        width: 360px;
+        height: 360px;
+        object-fit: contain;
+    }
+
     /* ── Related section ── */
     .hub-detail-related-section { margin-bottom: 0; }
 
@@ -1046,6 +1060,11 @@ else
         .hub-detail-cover {
             width: 220px;
             height: 330px;
+        }
+
+        .hub-detail-cover-audio {
+            width: 220px;
+            height: 220px;
         }
 
         .hub-detail-title { font-size: 1.9rem; }
