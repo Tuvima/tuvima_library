@@ -1,4 +1,4 @@
-{
+﻿{
   "device_class": "mobile",
   "display_name": "Mobile",
   "constraints": {
@@ -25,7 +25,7 @@
       "progress_cards_layout": "stacked",
       "bento_columns": 1,
       "bento_tile_style": "normal",
-      "swimlane_card_width": 140,
+      "swimlane_card_width": 90,
       "pending_files_display": "badge"
     },
     "preferences": {
@@ -42,3 +42,4 @@
     }
   }
 }
+

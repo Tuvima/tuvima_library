@@ -268,9 +268,9 @@ else
         var filtered = _allBookHubs.AsEnumerable();
 
         // Format filter
-        if (_filterState.Format == "eBooks")
+        if (_filterState.Format == "Book")
             filtered = filtered.Where(h => IsEbook(h.PrimaryMediaType));
-        else if (_filterState.Format == "Audiobooks")
+        else if (_filterState.Format == "Audiobook")
             filtered = filtered.Where(h => IsAudiobook(h.PrimaryMediaType));
 
         // Genre filter

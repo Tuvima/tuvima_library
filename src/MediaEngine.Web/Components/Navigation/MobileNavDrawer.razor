@@ -5,10 +5,19 @@
 @inject NavigationManager Nav
 
 @* MobileNavDrawer -- Slide-out navigation drawer for mobile devices.
-   Triggered by hamburger icon in the TopBar. Fixed content-type lanes matching the LeftDock. *@
+   Triggered by hamburger icon in the TopBar. Fixed content-type lanes matching the LeftDock.
+   Drawer renders its own hamburger at the top so the toggle stays visible while open. *@
 
 <MudDrawer @bind-Open="@Open" Anchor="Anchor.Left" Variant="@DrawerVariant.Temporary"
            Elevation="0" Class="mobile-nav-drawer">
+
+    @* -- Hamburger header: mirrors TopBar toggle, stays visible while drawer is open -- *@
+    <div class="mobile-nav-header">
+        <button class="mobile-nav-hamburger" @onclick="CloseDrawer" aria-label="Close navigation menu">
+            <MudIcon Icon="@Icons.Material.Filled.Menu"
+                     Style="font-size: 24px; color: rgba(248,248,248,0.80);" />
+        </button>
+    </div>
 
     @* -- Fixed content-type lanes -- *@
     <MudNavMenu Color="Color.Inherit" Class="mobile-nav-menu">
@@ -72,7 +81,6 @@
         top: 0 !important;
     }
 
-    /* Drawer now overlays TopBar -- small top padding for breathing room. */
     .mobile-nav-drawer .mud-drawer-content {
         display: flex !important;
         flex-direction: column !important;
@@ -80,7 +88,34 @@
         align-items: stretch !important;
         height: 100% !important;
         overflow-y: auto;
-        padding-top: 16px !important;
+        padding-top: 0 !important;  /* header provides top spacing */
+    }
+
+    /* -- Drawer header: matches TopBar hamburger height / padding exactly -- */
+    .mobile-nav-header {
+        display: flex;
+        align-items: center;
+        height: 56px;
+        padding: 0 12px;
+        flex-shrink: 0;
+    }
+
+    /* Unstyled button that looks like the TopBar hamburger */
+    .mobile-nav-hamburger {
+        background: none;
+        border: none;
+        padding: 8px;
+        margin: 0;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        transition: background 0.15s ease;
+    }
+
+    .mobile-nav-hamburger:hover {
+        background: rgba(255, 255, 255, 0.08);
     }
 
     .mobile-nav-menu {

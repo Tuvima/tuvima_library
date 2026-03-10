@@ -1,4 +1,4 @@
-/* ═══════════════════════════════════════════════════════════════════════════
+﻿/* ═══════════════════════════════════════════════════════════════════════════
    Tuvima Library — Global Stylesheet (Cinematic Minimalist Design)
    Component-level styles live in their respective .razor files.
    This file owns global / body-level rules and CSS custom properties.
@@ -145,12 +145,13 @@ body {
 
 .hero-stack-text {
     grid-area: hero;
-    align-self: end;
+    align-self: stretch;        /* fills full hero height so cover art can too */
+    display: flex;
+    align-items: flex-end;
     /* 88px = .swimlane-section padding-left — guarantees column alignment */
-    padding: 0 2.5rem 2.5rem 88px;
+    padding: 0 2.5rem 0 88px;  /* bottom padding moved to hero-content-layout */
     position: relative;
     z-index: 3;
-    max-width: 900px;
 }
 
 /* Full-bleed wrapper — escapes MudContainer to reach viewport edges */
@@ -175,7 +176,7 @@ body {
     }
 
     .hero-stack-text {
-        padding: 0 1.5rem 1.25rem 0;
+        padding: 0 1.5rem 0 0;
     }
 }
 
@@ -200,6 +201,9 @@ body {
     display: flex;
     align-items: flex-end;
     gap: 28px;
+    padding-bottom: 2.5rem;
+    max-width: 900px;
+    width: 100%;
 }
 
 .hero-text-block {
@@ -208,9 +212,11 @@ body {
 }
 
 .hero-cover-art {
-    width: 130px;
-    height: 195px;
-    object-fit: cover;
+    align-self: stretch;
+    width: auto;
+    max-width: 220px;
+    object-fit: contain;
+    object-position: bottom center;
     border-radius: 10px;
     box-shadow: 0 16px 48px rgba(0, 0, 0, 0.75),
                 0 4px 12px rgba(0, 0, 0, 0.50);
@@ -219,8 +225,8 @@ body {
 }
 
 @media (max-width: 768px) {
-    .hero-content-layout { gap: 16px; }
-    .hero-cover-art { width: 76px; height: 114px; border-radius: 7px; }
+    .hero-content-layout { gap: 16px; padding-bottom: 1.25rem; }
+    .hero-cover-art { max-width: 100px; border-radius: 7px; }
 }
 
 
@@ -327,3 +333,5 @@ body {
     overflow-y: auto !important;
     padding-top: 16px !important;
 }
+
+
