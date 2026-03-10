@@ -47,7 +47,7 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
     }
 
     /// <inheritdoc/>
-    public async Task TryAutoOrganizeAsync(Guid assetId, CancellationToken ct = default)
+    public async Task TryAutoOrganizeAsync(Guid assetId, CancellationToken ct = default, Guid? ingestionRunId = null)
     {
         if (string.IsNullOrWhiteSpace(_options.LibraryRoot))
         {
@@ -191,6 +191,7 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
                 EntityType = "MediaAsset",
                 HubName    = metadata.GetValueOrDefault("title", "Unknown"),
                 Detail     = $"Auto-organized after hydration: {Path.GetFileName(asset.FilePathRoot)} → {Path.GetRelativePath(_options.LibraryRoot, destPath)}",
+                IngestionRunId = ingestionRunId,
             }, ct).ConfigureAwait(false);
         }
         catch (Exception ex)

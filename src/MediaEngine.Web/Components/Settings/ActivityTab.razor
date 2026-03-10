@@ -282,6 +282,7 @@
                                                 @foreach (var bEntry in allBatch)
                                                 {
                                                     var bRich = bEntry.RichData;
+                                                    var bIsMissing = _missingEntityIds.Contains(bRich?.EntityId ?? "");
                                                     <div class="activity-rich-card" style="margin-bottom: 10px;">
                                                         <div class="activity-rich-thumb">
                                                             @if (!string.IsNullOrWhiteSpace(bRich?.ResolvedCoverUrl ?? (bRich?.EntityId is not null ? CoverUrl(bRich.EntityId) : null)))
@@ -310,8 +311,116 @@
                                                                     by @bRich!.Author
                                                                 </MudText>
                                                             }
+
+                                                            @* Confidence bar + year + media type *@
+                                                            @if (bRich is not null)
+                                                            {
+                                                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2"
+                                                                           Style="margin-top: 6px;">
+                                                                    <MudProgressLinear Value="@(bRich.Confidence * 100)"
+                                                                                       Color="@ConfidenceColor(bRich.Confidence)"
+                                                                                       Size="Size.Small" Rounded="true"
+                                                                                       Style="width: 100px;" />
+                                                                    <MudText Typo="Typo.caption" Style="font-size: 0.75rem;">
+                                                                        @($"{bRich.Confidence:P0}")
+                                                                    </MudText>
+                                                                    @if (!string.IsNullOrWhiteSpace(bRich.Year))
+                                                                    {
+                                                                        <MudText Typo="Typo.caption" Color="Color.Secondary"
+                                                                                 Style="font-size: 0.75rem;">
+                                                                            @FormatFriendlyDate(bRich.Year)
+                                                                        </MudText>
+                                                                    }
+                                                                    @if (!string.IsNullOrWhiteSpace(bRich.MediaType))
+                                                                    {
+                                                                        <MudIcon Icon="@MediaTypeIcon(bRich.MediaType)"
+                                                                                 Size="Size.Small"
+                                                                                 Style="font-size: 0.9rem; opacity: 0.7;" />
+                                                                    }
+                                                                </MudStack>
+
+                                                                @* Organization status *@
+                                                                @if (!string.IsNullOrWhiteSpace(bRich.ResolvedOrganizedTo) && bRich.ResolvedOrganizedTo != "staging")
+                                                                {
+                                                                    <MudText Typo="Typo.caption" Color="Color.Success"
+                                                                             Style="margin-top: 4px; font-size: 0.75rem;">
+                                                                        <MudIcon Icon="@Icons.Material.Filled.DriveFileMove"
+                                                                                 Size="Size.Small"
+                                                                                 Style="font-size: 0.85rem; vertical-align: middle; margin-right: 2px;" />
+                                                                        Organized into library
+                                                                    </MudText>
+                                                                }
+                                                                else if (bRich.ResolvedOrganizedTo == "staging")
+                                                                {
+                                                                    <MudText Typo="Typo.caption" Color="Color.Warning"
+                                                                             Style="margin-top: 4px; font-size: 0.75rem;">
+                                                                        <MudIcon Icon="@Icons.Material.Filled.MoveToInbox"
+                                                                                 Size="Size.Small"
+                                                                                 Style="font-size: 0.85rem; vertical-align: middle; margin-right: 2px;" />
+                                                                        Moved to staging
+                                                                    </MudText>
+                                                                }
+                                                            }
                                                         </div>
                                                     </div>
+
+                                                    @* Batch item — Related events ─────────── *@
+                                                    @if (_ingestionSubSteps.TryGetValue(bEntry.Id, out var bPipelineSteps) && bPipelineSteps.Count > 0)
+                                                    {
+                                                        <div class="activity-pipeline-toggle" style="margin-left: 16px;"
+                                                             @onclick="@(() => TogglePipeline(bEntry.Id))"
+                                                             @onclick:stopPropagation="true">
+                                                            <MudIcon Icon="@(_pipelineExpandedIds.Contains(bEntry.Id)
+                                                                              ? Icons.Material.Filled.ExpandLess
+                                                                              : Icons.Material.Filled.ExpandMore)"
+                                                                     Size="Size.Small"
+                                                                     Style="font-size: 0.8rem; opacity: 0.45;" />
+                                                            <MudText Typo="Typo.caption" Color="Color.Secondary"
+                                                                     Style="font-size: 0.72rem;">
+                                                                @bPipelineSteps.Count related events
+                                                            </MudText>
+                                                        </div>
+                                                        @if (_pipelineExpandedIds.Contains(bEntry.Id))
+                                                        {
+                                                            <div class="activity-pipeline-steps" style="margin-left: 16px;">
+                                                                @foreach (var bStep in bPipelineSteps.OrderBy(s => s.OccurredAt))
+                                                                {
+                                                                    var bStepDetail = PipelineStepDetail(bStep);
+                                                                    <div class="activity-pipeline-row">
+                                                                        <MudIcon Icon="@Icons.Material.Filled.CheckCircleOutline"
+                                                                                 Style="font-size: 0.75rem; color: #4caf50; flex-shrink: 0; margin-top: 2px;" />
+                                                                        <div style="flex: 1; min-width: 0;">
+                                                                            <MudText Typo="Typo.caption"
+                                                                                     Style="color: var(--app-text-soft);">
+                                                                                @PipelineStepLabel(bStep.ActionType)
+                                                                            </MudText>
+                                                                            @if (bStep.ActionType == "HeroBannerGenerated" && bStepDetail is not null)
+                                                                            {
+                                                                                <div style="display: flex; align-items: center; gap: 5px; margin-top: 1px;">
+                                                                                    <div style="width: 10px; height: 10px; border-radius: 2px; background: @bStepDetail; flex-shrink: 0;" />
+                                                                                    <MudText Typo="Typo.caption"
+                                                                                             Style="font-size: 0.68rem; color: var(--app-text-muted); font-family: monospace;">
+                                                                                        @bStepDetail
+                                                                                    </MudText>
+                                                                                </div>
+                                                                            }
+                                                                            else if (bStepDetail is not null)
+                                                                            {
+                                                                                <MudText Typo="Typo.caption"
+                                                                                         Style="font-size: 0.68rem; color: var(--app-text-muted); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;">
+                                                                                    @bStepDetail
+                                                                                </MudText>
+                                                                            }
+                                                                        </div>
+                                                                        <MudText Typo="Typo.caption" Color="Color.Secondary"
+                                                                                 Style="white-space: nowrap; font-size: 0.7rem; flex-shrink: 0; align-self: flex-start;">
+                                                                            @FormatTime(bStep.OccurredAt)
+                                                                        </MudText>
+                                                                    </div>
+                                                                }
+                                                            </div>
+                                                        }
+                                                    }
                                                 }
                                             </div>
                                         }

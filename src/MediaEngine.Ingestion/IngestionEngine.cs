@@ -572,7 +572,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 assetId,
                 scored.OverallConfidence,
                 conflictedFields,
-                ct).ConfigureAwait(false);
+                ct, ingestionRunId).ConfigureAwait(false);
         }
 
         // Create AmbiguousMediaType review item when media type confidence is below threshold.
@@ -592,7 +592,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 result.MediaTypeCandidates[0].Confidence,
                 candidatesJson,
                 result.MediaTypeCandidates[0].Reason,
-                ct).ConfigureAwait(false);
+                ct, ingestionRunId).ConfigureAwait(false);
         }
 
         // Enrich the candidate with resolved metadata.
@@ -713,7 +713,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                     assetId, ReviewTrigger.LowConfidence, scored.OverallConfidence,
                     $"File would be organized into 'Other' category (media type: {resolvedMediaType}). " +
                     "Manual review required.",
-                    ct).ConfigureAwait(false);
+                    ct, ingestionRunId).ConfigureAwait(false);
             }
             else
             {
@@ -767,7 +767,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 assetId, ReviewTrigger.LowConfidence, scored.OverallConfidence,
                 $"Overall confidence {scored.OverallConfidence:P0} below organization threshold (85%). " +
                 "File moved to staging for review.",
-                ct).ConfigureAwait(false);
+                ct, ingestionRunId).ConfigureAwait(false);
         }
 
         // Phase 9→Pipeline: enqueue non-blocking three-stage hydration pipeline.
@@ -1666,7 +1666,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         string trigger,
         double confidence,
         string detail,
-        CancellationToken ct)
+        CancellationToken ct,
+        Guid? ingestionRunId = null)
     {
         try
         {
@@ -1704,6 +1705,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 EntityId   = entityId,
                 EntityType = "MediaAsset",
                 Detail     = $"Sent to review: {trigger} — {detail}",
+                IngestionRunId = ingestionRunId,
             }, ct).ConfigureAwait(false);
 
             await SafePublishAsync("ReviewItemCreated", new
@@ -1735,7 +1737,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         double confidence,
         string candidatesJson,
         string detail,
-        CancellationToken ct)
+        CancellationToken ct,
+        Guid? ingestionRunId = null)
     {
         try
         {
@@ -1771,6 +1774,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 EntityId   = entityId,
                 EntityType = "MediaAsset",
                 Detail     = $"Ambiguous media type: {detail}",
+                IngestionRunId = ingestionRunId,
             }, ct).ConfigureAwait(false);
 
             await SafePublishAsync("ReviewItemCreated", new
@@ -1801,7 +1805,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         Guid entityId,
         double confidence,
         List<string> conflictedFields,
-        CancellationToken ct)
+        CancellationToken ct,
+        Guid? ingestionRunId = null)
     {
         try
         {
@@ -1837,6 +1842,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 EntityId   = entityId,
                 EntityType = "MediaAsset",
                 Detail     = detail,
+                IngestionRunId = ingestionRunId,
             }, ct).ConfigureAwait(false);
 
             await SafePublishAsync("ReviewItemCreated", new

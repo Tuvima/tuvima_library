@@ -42,7 +42,7 @@ public sealed class WriteBackService : IWriteBackService
     }
 
     /// <inheritdoc/>
-    public async Task WriteMetadataAsync(Guid assetId, string trigger, CancellationToken ct = default)
+    public async Task WriteMetadataAsync(Guid assetId, string trigger, CancellationToken ct = default, Guid? ingestionRunId = null)
     {
         // Load write-back configuration.
         var config = _configLoader.LoadConfig<WriteBackConfiguration>("", "writeback")
@@ -157,6 +157,7 @@ public sealed class WriteBackService : IWriteBackService
                 ActionType = Domain.Enums.SystemActionType.MetadataWrittenToFile,
                 EntityId   = assetId,
                 Detail     = $"Write-back ({trigger}): {tags.Count} field(s) written to {Path.GetFileName(asset.FilePathRoot)}.",
+                IngestionRunId = ingestionRunId,
             }, ct);
         }
         catch (Exception ex)

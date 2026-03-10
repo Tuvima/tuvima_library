@@ -312,7 +312,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             {
                 try
                 {
-                    await _writeBack.WriteMetadataAsync(request.EntityId, "auto_match", ct)
+                    await _writeBack.WriteMetadataAsync(request.EntityId, "auto_match", ct, request.IngestionRunId)
                         .ConfigureAwait(false);
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
@@ -435,7 +435,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 {
                     try
                     {
-                        await _writeBack.WriteMetadataAsync(request.EntityId, "universe_enrichment", ct)
+                        await _writeBack.WriteMetadataAsync(request.EntityId, "universe_enrichment", ct, request.IngestionRunId)
                             .ConfigureAwait(false);
                     }
                     catch (Exception ex) when (ex is not OperationCanceledException)
@@ -555,7 +555,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             if (conflictedFields.Count > 0)
             {
                 await CreateMetadataConflictReviewItemAsync(
-                    request.EntityId, scored.OverallConfidence, conflictedFields, ct)
+                    request.EntityId, scored.OverallConfidence, conflictedFields, ct, request.IngestionRunId)
                     .ConfigureAwait(false);
             }
             else
@@ -640,7 +640,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             // pending review items to resolve.
             if (request.EntityType == EntityType.MediaAsset)
             {
-                await _autoOrganize.TryAutoOrganizeAsync(request.EntityId, ct)
+                await _autoOrganize.TryAutoOrganizeAsync(request.EntityId, ct, request.IngestionRunId)
                     .ConfigureAwait(false);
 
                 // Now the file is in the Library Root — try downloading cover art.
@@ -976,6 +976,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             ActionType = SystemActionType.ReviewItemCreated,
             EntityId   = request.EntityId,
             Detail     = $"Review item created: {trigger}",
+            IngestionRunId = request.IngestionRunId,
         }, ct).ConfigureAwait(false);
 
         await _eventPublisher.PublishAsync(
@@ -995,7 +996,8 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         Guid entityId,
         double confidence,
         List<string> conflictedFields,
-        CancellationToken ct)
+        CancellationToken ct,
+        Guid? ingestionRunId = null)
     {
         try
         {
@@ -1031,6 +1033,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 ActionType = SystemActionType.ReviewItemCreated,
                 EntityId   = entityId,
                 Detail     = detail,
+                IngestionRunId = ingestionRunId,
             }, ct).ConfigureAwait(false);
 
             await _eventPublisher.PublishAsync(
