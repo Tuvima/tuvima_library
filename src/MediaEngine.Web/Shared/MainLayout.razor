@@ -1,4 +1,4 @@
-﻿@namespace MediaEngine.Web.Shared
+@namespace MediaEngine.Web.Shared
 @inherits LayoutComponentBase
 @inject ThemeService ThemeService
 @inject DeviceContextService DeviceContext
@@ -31,7 +31,10 @@
             DisplayName="@_displayName" />
 
     @* ── Mobile Navigation Drawer (always rendered; hamburger shows it on mobile) ── *@
-    <MobileNavDrawer @bind-Open="@_mobileDrawerOpen" />
+    <MobileNavDrawer @bind-Open="@_mobileDrawerOpen"
+                     AvatarColor="@_avatarColor"
+                     AvatarInitial="@_avatarInitial"
+                     DisplayName="@_displayName" />
 
     @* ── Left Navigation Dock (when config says visible) ── *@
     @if (ShowDock)

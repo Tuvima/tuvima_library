@@ -274,4 +274,5 @@ body {
     align-items: stretch !important;
     height: 100% !important;
     overflow-y: auto !important;
+    padding-top: 72px !important;
 }

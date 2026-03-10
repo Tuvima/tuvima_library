@@ -1,14 +1,16 @@
-﻿@namespace MediaEngine.Web.Components.Navigation
+@namespace MediaEngine.Web.Components.Navigation
 
 @using MediaEngine.Web.Models.ViewDTOs
 
-@* MobileNavDrawer — Slide-out navigation drawer for mobile devices.
+@inject NavigationManager Nav
+
+@* MobileNavDrawer -- Slide-out navigation drawer for mobile devices.
    Triggered by hamburger icon in the TopBar. Fixed content-type lanes matching the LeftDock. *@
 
 <MudDrawer @bind-Open="@Open" Anchor="Anchor.Left" Variant="@DrawerVariant.Temporary"
            Elevation="0" Class="mobile-nav-drawer">
 
-    @* ── Logo at top ── *@
+    @* -- Logo at top -- *@
     <div class="mobile-nav-logo">
         <MudLink Href="/" Underline="Underline.None" Style="text-decoration: none;">
             <AppLogo Style="height: 28px; display: block;" />
@@ -17,7 +19,7 @@
 
     <MudDivider Class="mb-2" Style="border-color: rgba(255,255,255,0.06);" />
 
-    @* ── Fixed content-type lanes ── *@
+    @* -- Fixed content-type lanes -- *@
     <MudNavMenu Color="Color.Inherit" Class="mobile-nav-menu">
 
         @foreach (var lane in ContentLanes.All)
@@ -39,16 +41,34 @@
             Settings
         </MudNavLink>
     </MudNavMenu>
+
+    @* -- Profile entry at the end -- *@
+    <div class="mobile-nav-profile" @onclick="@NavigateToProfile">
+        <MudAvatar Size="Size.Small"
+                   Style="@($"background: {AvatarColor}; width: 32px; height: 32px; font-size: 0.8rem;")">
+            @AvatarInitial
+        </MudAvatar>
+        <span class="mobile-nav-profile-name">@DisplayName</span>
+    </div>
 </MudDrawer>
 
 @code {
     [Parameter] public bool Open { get; set; }
     [Parameter] public EventCallback<bool> OpenChanged { get; set; }
+    [Parameter] public string AvatarColor { get; set; } = "#C9922E";
+    [Parameter] public string AvatarInitial { get; set; } = "?";
+    [Parameter] public string DisplayName { get; set; } = "User";
 
     private async Task CloseDrawer()
     {
         Open = false;
         await OpenChanged.InvokeAsync(false);
+    }
+
+    private async Task NavigateToProfile()
+    {
+        await CloseDrawer();
+        Nav.NavigateTo("/switch-profile");
     }
 }
 
@@ -58,10 +78,11 @@
         backdrop-filter: blur(20px);
         -webkit-backdrop-filter: blur(20px);
         min-width: 260px;
-        top: 0 !important; /* start at top of viewport, above TopBar */
+        top: 0 !important;
     }
 
-    /* Ensure nav items are top-aligned inside the drawer panel */
+    /* TopBar (z-index 1250) covers the first 64px of the drawer (z-index 1102).
+       Add padding so content starts below the TopBar. */
     .mobile-nav-drawer .mud-drawer-content {
         display: flex !important;
         flex-direction: column !important;
@@ -69,10 +90,11 @@
         align-items: stretch !important;
         height: 100% !important;
         overflow-y: auto;
+        padding-top: 72px !important;
     }
 
     .mobile-nav-logo {
-        padding: 20px 16px 12px;
+        padding: 8px 16px 12px;
     }
 
     .mobile-nav-menu {
@@ -88,5 +110,28 @@
     .mobile-nav-menu .mud-nav-link:hover {
         background: rgba(255, 255, 255, 0.06);
         color: rgba(248, 248, 248, 0.95);
+    }
+
+    .mobile-nav-profile {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 16px;
+        border-radius: 8px;
+        cursor: pointer;
+        color: rgba(248, 248, 248, 0.70);
+        margin: 4px 8px 0;
+        transition: background 0.15s ease, color 0.15s ease;
+    }
+
+    .mobile-nav-profile:hover {
+        background: rgba(255, 255, 255, 0.06);
+        color: rgba(248, 248, 248, 0.95);
+    }
+
+    .mobile-nav-profile-name {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.875rem;
+        font-weight: 500;
     }
 </style>
