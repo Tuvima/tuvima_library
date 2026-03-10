@@ -1,4 +1,4 @@
-﻿/* ═══════════════════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════════════════════
    Tuvima Library — Global Stylesheet (Cinematic Minimalist Design)
    Component-level styles live in their respective .razor files.
    This file owns global / body-level rules and CSS custom properties.
@@ -245,24 +245,23 @@ body {
 
 /* TopBar: always above MudBlazor temporary drawer (appbar+2) and overlay (appbar+1) */
 .top-bar {
-    z-index: calc(var(--mud-zindex-appbar, 1100) + 3) !important;
+    z-index: calc(var(--mud-zindex-appbar, 1100) + 150) !important;
 }
 
-/* Hide bell/avatar at <=960px (phones + tablets) in ALL TopBar variants */
-@media (max-width: 960px) {
+/* Hide bell/avatar on phones (<=768px) in ALL TopBar variants */
+@media (max-width: 768px) {
     .top-bar .top-bar-actions {
         display: none !important;
     }
 }
 
-/* Force drawer to viewport-fixed positioning.
- * MudBlazor 9 uses position:absolute on non-fixed drawers (relative to
- * .mud-layout { position:relative }). Force position:fixed so it always
- * covers the full viewport, unaffected by scroll or MudLayout context. */
+/* Force MobileNavDrawer to viewport-fixed positioning.
+ * MudBlazor 9 uses position:absolute on temporary drawers.
+ * IMPORTANT: Do NOT override left/right -- MudBlazor animates open/close
+ * via the left property (left:0 when open, left:-width when closed). */
 .mobile-nav-drawer {
     position: fixed !important;
     top: 0 !important;
-    left: 0 !important;
     bottom: 0 !important;
     height: 100dvh !important;
 }
