@@ -6,7 +6,7 @@
    Used inside PosterSwimlane for horizontal scrolling rows. *@
 
 <div class="poster-card" style="width: @(Width)px;" @onclick="OnClick">
-    <div class="poster-card-artwork" style="@ArtworkStyle">
+    <div class="poster-card-artwork" style="aspect-ratio: @ArtworkAspectRatio; @ArtworkStyle">
         @if (!string.IsNullOrEmpty(Hub.CoverUrl))
         {
             <img src="@Hub.CoverUrl"
@@ -69,6 +69,17 @@
             ? $"background: linear-gradient(160deg, {Hub.DominantHexColor ?? "#1A2040"}44 0%, #0D1230 100%);"
             : string.Empty;
 
+    private string ArtworkAspectRatio
+    {
+        get
+        {
+            var t = (Hub.PrimaryMediaType ?? "").ToLowerInvariant();
+            if (t.Contains("m4b") || t.Contains("audiobook") || t.Contains("audio"))
+                return "1 / 1";
+            return "2 / 3";
+        }
+    }
+
     private async Task OnClick() => await OnHubSelected.InvokeAsync(Hub);
 
     private string FormatBadgeText =>
@@ -88,10 +99,10 @@
     private static string FormatBadgeLabel(string mediaType)
     {
         var t = mediaType.ToLowerInvariant();
-        if (t.Contains("epub"))                                         return "EPUB";
-        if (t.Contains("book"))                                         return "BOOK";
-        if (t.Contains("m4b") || t.Contains("audiobook"))              return "AUDIOBOOK";
-        if (t.Contains("audio"))                                        return "AUDIO";
+        if (t.Contains("epub"))                                          return "EPUB";
+        if (t.Contains("m4b") || t.Contains("audiobook"))               return "AUDIOBOOK";
+        if (t.Contains("audio"))                                         return "AUDIO";
+        if (t.Contains("book"))                                          return "BOOK";
         if (t.Contains("cbz") || t.Contains("cbr") || t.Contains("comic")) return "COMIC";
         return "BOOK";
     }
@@ -116,7 +127,6 @@
     .poster-card-artwork {
         position: relative;
         width: 100%;
-        aspect-ratio: 2 / 3;
         border-radius: 8px;
         overflow: hidden;
         display: flex;

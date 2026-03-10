@@ -249,9 +249,10 @@ else
     private static string FormatMediaType(string mediaType)
     {
         var t = mediaType.ToLowerInvariant();
-        if (t.Contains("epub") || t.Contains("book"))  return "Books";
+        if (t.Contains("epub"))                          return "Books";
+        if (t.Contains("m4b") || t.Contains("audio"))   return "Audiobooks";
+        if (t.Contains("book"))                          return "Books";
         if (t.Contains("video") || t.Contains("movie")) return "Movies";
-        if (t.Contains("audio") || t.Contains("m4b"))   return "Audiobooks";
         if (t.Contains("comic") || t.Contains("cbz"))   return "Comics";
         if (t.Contains("mkv") || t.Contains("mp4"))     return "Videos";
         return mediaType;
@@ -262,9 +263,10 @@ else
     private static string HeroFormatMediaType(string mediaType)
     {
         var t = mediaType.ToLowerInvariant();
-        if (t.Contains("epub") || t.Contains("book"))  return "Book";
+        if (t.Contains("epub"))                          return "Book";
+        if (t.Contains("m4b") || t.Contains("audio"))   return "Audiobook";
+        if (t.Contains("book"))                          return "Book";
         if (t.Contains("video") || t.Contains("movie")) return "Movie";
-        if (t.Contains("audio") || t.Contains("m4b"))   return "Audiobook";
         if (t.Contains("comic") || t.Contains("cbz"))   return "Comic";
         if (t.Contains("mkv") || t.Contains("mp4"))     return "Video";
         return mediaType;

@@ -16,7 +16,7 @@ public static class HubEndpoints
             CancellationToken ct) =>
         {
             var hubs = await hubRepo.GetAllAsync(ct);
-            var dtos = hubs.Select(HubDto.FromDomain).ToList();
+            var dtos = hubs.Where(h => h.Works.Count > 0).Select(HubDto.FromDomain).ToList();
             return Results.Ok(dtos);
         })
         .WithName("GetAllHubs")
@@ -34,7 +34,7 @@ public static class HubEndpoints
 
             var query = q.Trim();
             var hubs  = await hubRepo.GetAllAsync(ct);
-            var dtos  = hubs.Select(HubDto.FromDomain).ToList();
+            var dtos  = hubs.Where(h => h.Works.Count > 0).Select(HubDto.FromDomain).ToList();
 
             var results = dtos
                 .SelectMany(hub => hub.Works

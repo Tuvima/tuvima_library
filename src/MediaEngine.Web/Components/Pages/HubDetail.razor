@@ -495,12 +495,14 @@ else
     private (string Label, string Route) GetLane()
     {
         var mt = _hub?.PrimaryMediaType?.ToLowerInvariant() ?? "";
-        if (mt.Contains("epub") || mt.Contains("book") || mt.Contains("audio")) return ("Books",    "/books");
+        if (mt.Contains("m4b") || mt.Contains("audiobook") || mt.Contains("audio"))
+                                                                                   return ("Audiobooks", "/books");
+        if (mt.Contains("epub") || mt.Contains("book"))                            return ("Books",      "/books");
         if (mt.Contains("video") || mt.Contains("movie") || mt.Contains("mkv") ||
-            mt.Contains("mp4")   || mt.Contains("tv"))                            return ("Video",    "/video");
-        if (mt.Contains("comic") || mt.Contains("cbz"))                           return ("Comics",   "/comics");
-        if (mt.Contains("music"))                                                  return ("Music",    "/music");
-        if (mt.Contains("podcast"))                                                return ("Podcasts", "/podcasts");
+            mt.Contains("mp4")   || mt.Contains("tv"))                             return ("Video",      "/video");
+        if (mt.Contains("comic") || mt.Contains("cbz"))                            return ("Comics",     "/comics");
+        if (mt.Contains("music"))                                                   return ("Music",      "/music");
+        if (mt.Contains("podcast"))                                                 return ("Podcasts",   "/podcasts");
         return ("Books", "/books");
     }
 
