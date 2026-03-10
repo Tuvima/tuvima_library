@@ -157,17 +157,43 @@ else
 
                 </aside>
 
-                @* ── Center content (metadata + description) ── *@
+                @* ── Shared variables (used in both center column and cover panel) ── *@
+                @{
+                    var activeCoverUrl = ActiveWork?.CoverUrl ?? _hub.CoverUrl;
+                    var coverIsAudio   = ActiveFormatKey == "audiobook";
+                    var progressPct    = _activeJourney?.ProgressPct ?? 0;
+                    var hasProgress    = progressPct is > 0 and < 99.5;
+                    var _fmts          = AvailableFormats();
+                    var ratingStars    = GetRatingStars();
+                    var hasRating      = !string.IsNullOrEmpty(ratingStars);
+                    var hasTime        = _readingTimeDisplay is not null;
+                    var hasYear        = !string.IsNullOrEmpty(_hub.Year);
+                    var metaCount      = (hasRating ? 1 : 0) + (hasTime ? 1 : 0) + (hasYear ? 1 : 0);
+                }
+
+                @* ── Center content (title + format slider + metadata + CTA + description) ── *@
                 <div class="hub-detail-content">
 
-                    @* Metadata row: rating | reading time | year *@
-                    @{
-                        var ratingStars = GetRatingStars();
-                        var hasRating   = !string.IsNullOrEmpty(ratingStars);
-                        var hasTime     = _readingTimeDisplay is not null;
-                        var hasYear     = !string.IsNullOrEmpty(_hub.Year);
-                        var metaCount   = (hasRating ? 1 : 0) + (hasTime ? 1 : 0) + (hasYear ? 1 : 0);
+                    @* Title — desktop: center column; mobile: cover panel *@
+                    <h1 class="hub-detail-title hub-desktop-only">@_hub.DisplayName</h1>
+
+                    @* Format slider — desktop only *@
+                    @if (_fmts.Count > 1)
+                    {
+                        <div class="hub-format-slider hub-desktop-only">
+                            @foreach (var fmt in _fmts)
+                            {
+                                var isSliderActive = ActiveFormatKey == fmt.Key;
+                                <button class="hub-format-slider-btn @(isSliderActive ? "active" : "")"
+                                        @onclick="@(() => _selectedFormatKey = fmt.Key)">
+                                    <MudIcon Icon="@fmt.Icon" Style="font-size: 1rem; flex-shrink:0;" />
+                                    @fmt.Label
+                                </button>
+                            }
+                        </div>
                     }
+
+                    @* Metadata row: rating | reading time | year *@
                     @if (metaCount > 0)
                     {
                         <div class="hub-detail-meta-row">
@@ -196,6 +222,87 @@ else
                             }
                         </div>
                     }
+
+                    @* Primary CTA — desktop only (above action circles) *@
+                    <button class="hub-primary-cta hub-desktop-only" @onclick="@OnPrimaryAction">
+                        <div class="hub-primary-cta-inner">
+                            <MudIcon Icon="@GetPrimaryActionIcon()"
+                                     Style="font-size: 1.35rem; color: rgba(248,248,248,0.90); flex-shrink:0;" />
+                            <span class="hub-primary-cta-label">@PrimaryActionLabel()</span>
+                        </div>
+                        @if (hasProgress)
+                        {
+                            <div class="hub-primary-cta-progress"
+                                 style="width: @(progressPct.ToString("F0"))%">
+                            </div>
+                        }
+                    </button>
+
+                    @* Secondary action circles — desktop only (evenly spaced) *@
+                    <div class="hub-detail-actions hub-desktop-only">
+
+                        @* Add To *@
+                        <button class="hub-detail-action-btn" @onclick="@OnAddTo">
+                            <div class="hub-detail-action-circle">
+                                <MudIcon Icon="@Icons.Material.Filled.PlaylistAdd"
+                                         Style="color: rgba(248,248,248,0.65); font-size: 1.4rem;" />
+                            </div>
+                            <span class="hub-detail-action-label">Add To</span>
+                        </button>
+
+                        @* Share *@
+                        <button class="hub-detail-action-btn" @onclick="@OnShare">
+                            <div class="hub-detail-action-circle">
+                                <MudIcon Icon="@Icons.Material.Filled.IosShare"
+                                         Style="color: rgba(248,248,248,0.65); font-size: 1.3rem;" />
+                            </div>
+                            <span class="hub-detail-action-label">Share</span>
+                        </button>
+
+                        @* Edit *@
+                        <button class="hub-detail-action-btn" @onclick="@(() => _editDrawerOpen = true)">
+                            <div class="hub-detail-action-circle">
+                                <MudIcon Icon="@Icons.Material.Filled.Edit"
+                                         Style="color: rgba(248,248,248,0.65); font-size: 1.3rem;" />
+                            </div>
+                            <span class="hub-detail-action-label">Edit</span>
+                        </button>
+
+                        @* ⋯ More *@
+                        <MudMenu Dense="true"
+                                 AnchorOrigin="Origin.BottomLeft"
+                                 TransformOrigin="Origin.TopLeft">
+                            <ActivatorContent>
+                                <button class="hub-detail-action-btn">
+                                    <div class="hub-detail-action-circle">
+                                        <MudIcon Icon="@Icons.Material.Filled.MoreHoriz"
+                                                 Style="color: rgba(248,248,248,0.65); font-size: 1.4rem;" />
+                                    </div>
+                                    <span class="hub-detail-action-label">More</span>
+                                </button>
+                            </ActivatorContent>
+                            <ChildContent>
+                                <MudMenuItem OnClick="@OnUpdateMetadata"
+                                             Icon="@Icons.Material.Filled.Sync">
+                                    Update Metadata
+                                </MudMenuItem>
+                                <MudMenuItem OnClick="@(async () => await OnMarkFinished())"
+                                             Icon="@Icons.Material.Filled.CheckCircle">
+                                    Mark as Finished
+                                </MudMenuItem>
+                                <MudMenuItem OnClick="@OnReportIssue"
+                                             Icon="@Icons.Material.Filled.Flag">
+                                    Report Issue
+                                </MudMenuItem>
+                                <MudDivider />
+                                <MudMenuItem Disabled="true"
+                                             Icon="@Icons.Material.Filled.DeleteForever">
+                                    Delete
+                                </MudMenuItem>
+                            </ChildContent>
+                        </MudMenu>
+
+                    </div>
 
                     @* Narrator line — shown when audiobook format is active *@
                     @if (ActiveFormatKey == "audiobook" && !string.IsNullOrEmpty(ActiveWork?.Narrator))
@@ -240,23 +347,16 @@ else
 
                 </div>
 
-                @* ── Right panel: title, format slider, cover, CTA, secondary actions ── *@
-                @{
-                    var activeCoverUrl = ActiveWork?.CoverUrl ?? _hub.CoverUrl;
-                    var coverIsAudio   = ActiveFormatKey == "audiobook";
-                    var progressPct    = _activeJourney?.ProgressPct ?? 0;
-                    var hasProgress    = progressPct is > 0 and < 99.5;
-                    var _fmts          = AvailableFormats();
-                }
+                @* ── Right panel: cover art (desktop); full stack (mobile) ── *@
                 <div class="hub-detail-cover-panel">
 
-                    @* Title *@
-                    <h1 class="hub-detail-title">@_hub.DisplayName</h1>
+                    @* Title — mobile only: above cover art *@
+                    <h1 class="hub-detail-title hub-mobile-only">@_hub.DisplayName</h1>
 
-                    @* Format slider — only when multiple formats available *@
+                    @* Format slider — mobile only *@
                     @if (_fmts.Count > 1)
                     {
-                        <div class="hub-format-slider">
+                        <div class="hub-format-slider hub-mobile-only">
                             @foreach (var fmt in _fmts)
                             {
                                 var isSliderActive = ActiveFormatKey == fmt.Key;
@@ -269,7 +369,7 @@ else
                         </div>
                     }
 
-                    @* Cover art *@
+                    @* Cover art (always visible) *@
                     <div class="hub-detail-cover-wrap" @onclick="@(() => _lightboxOpen = !string.IsNullOrEmpty(activeCoverUrl))">
                         @if (!string.IsNullOrEmpty(activeCoverUrl))
                         {
@@ -284,8 +384,8 @@ else
                         }
                     </div>
 
-                    @* Primary CTA button *@
-                    <button class="hub-primary-cta" @onclick="@OnPrimaryAction">
+                    @* Primary CTA — mobile only *@
+                    <button class="hub-primary-cta hub-mobile-only" @onclick="@OnPrimaryAction">
                         <div class="hub-primary-cta-inner">
                             <MudIcon Icon="@GetPrimaryActionIcon()"
                                      Style="font-size: 1.35rem; color: rgba(248,248,248,0.90); flex-shrink:0;" />
@@ -299,8 +399,8 @@ else
                         }
                     </button>
 
-                    @* Secondary action circles *@
-                    <div class="hub-detail-actions">
+                    @* Secondary action circles — mobile only *@
+                    <div class="hub-detail-actions hub-mobile-only">
 
                         @* Add To *@
                         <button class="hub-detail-action-btn" @onclick="@OnAddTo">
@@ -1000,7 +1100,7 @@ else
         color: #C9922E;
     }
 
-    /* ── Right panel: title + format slider + cover + CTA + secondary actions ── */
+    /* ── Right panel: cover art only on desktop; full stack on mobile ── */
     .hub-detail-cover-panel {
         flex-shrink: 0;
         width: 400px;
@@ -1009,7 +1109,7 @@ else
         gap: 12px;
     }
 
-    /* Title (lives inside right panel) */
+    /* Title */
     .hub-detail-title {
         font-family: 'Montserrat', sans-serif;
         font-size: 2.2rem;
@@ -1145,7 +1245,7 @@ else
         gap: 0;
         align-items: flex-start;
         flex-wrap: nowrap;
-        justify-content: space-between;
+        justify-content: space-evenly;
         width: 100%;
     }
 
@@ -1335,8 +1435,15 @@ else
         pointer-events: none;
     }
 
-    /* ── Responsive ── */
+    /* ── Responsive show/hide ── */
+    @@media (min-width: 901px) {
+        .hub-mobile-only { display: none !important; }
+    }
+
+    /* ── Responsive layout ── */
     @@media (max-width: 900px) {
+        .hub-desktop-only { display: none !important; }
+
         .hub-detail-main-outer      { padding: 0 20px; }
         .hub-detail-breadcrumb-outer { padding: 0 20px; }
 
@@ -1393,8 +1500,6 @@ else
         .hub-detail-action-label {
             font-size: 0.62rem;
         }
-
-        .hub-detail-title { font-size: 1.75rem; }
 
         .hub-detail-author-inner { padding: 0 20px; }
     }
