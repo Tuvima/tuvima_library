@@ -131,7 +131,7 @@ The profile avatar badge shows the pending count at all times. Resolving a confl
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/shyfaruqi/tuvima-library.git
+git clone https://github.com/Tuvima/tuvima_library.git
 cd tuvima-library
 
 # 2. Create your local configuration
@@ -417,6 +417,6 @@ All dependencies are MIT, Apache 2.0, or LGPL licensed and are compatible with A
 
 *Built with care for people who take their media library seriously.*
 
-[Report a Bug](https://github.com/shyfaruqi/tuvima-library/issues) · [Request a Feature](https://github.com/shyfaruqi/tuvima-library/issues) · [View the Engine API](http://localhost:61495/swagger)
+[Report a Bug](https://github.com/Tuvima/tuvima_library/issues) · [Request a Feature](https://github.com/Tuvima/tuvima_library/issues) · [View the Engine API](http://localhost:61495/swagger)
 
 </div>
