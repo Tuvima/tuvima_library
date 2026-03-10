@@ -235,3 +235,44 @@ body {
     position: relative;
     z-index: 2;
 }
+
+
+/* === mobile-nav-global-overrides ===
+ * Placed in app.css (static <head> stylesheet) because <style> tags
+ * inside interactive Blazor components are unreliably applied after
+ * Blazor hydration in .NET 9 Interactive Server mode.
+ */
+
+/* TopBar: always above MudBlazor temporary drawer (appbar+2) and overlay (appbar+1) */
+.top-bar {
+    z-index: calc(var(--mud-zindex-appbar, 1100) + 3) !important;
+}
+
+/* Hide bell/avatar at <=960px (phones + tablets) in ALL TopBar variants */
+@media (max-width: 960px) {
+    .top-bar .top-bar-actions {
+        display: none !important;
+    }
+}
+
+/* Force drawer to viewport-fixed positioning.
+ * MudBlazor 9 uses position:absolute on non-fixed drawers (relative to
+ * .mud-layout { position:relative }). Force position:fixed so it always
+ * covers the full viewport, unaffected by scroll or MudLayout context. */
+.mobile-nav-drawer {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    bottom: 0 !important;
+    height: 100dvh !important;
+}
+
+/* Force drawer content top-alignment */
+.mobile-nav-drawer .mud-drawer-content {
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important;
+    align-items: stretch !important;
+    height: 100% !important;
+    overflow-y: auto !important;
+}
