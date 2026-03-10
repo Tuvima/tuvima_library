@@ -7,6 +7,11 @@ using System.Globalization;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// ── Windows Service hosting ────────────────────────────────────────────────────
+// Integrates with the Windows Service Control Manager when the Dashboard is
+// installed as a Windows service via the .exe installer.  No-op on Linux / Docker.
+builder.Host.UseWindowsService(options => options.ServiceName = "Tuvima Library Dashboard");
+
 // ── Blazor ────────────────────────────────────────────────────────────────────
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
