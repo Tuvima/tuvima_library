@@ -1,0 +1,108 @@
+<?xml version="1.0"?>
+<!--
+  Tuvima Library — Unraid Community Applications template
+  Users install this via the CA (Community Applications) plugin:
+    Apps → Search "Tuvima" → Install
+  Template source URL must be added to CA's template repositories list:
+    https://raw.githubusercontent.com/Tuvima/tuvima_library/main/unraid-template.xml
+-->
+<Container version="2">
+  <Name>tuvima-library</Name>
+  <Repository>ghcr.io/tuvima/tuvima_library:latest</Repository>
+  <Registry>https://github.com/Tuvima/tuvima_library/pkgs/container/tuvima_library</Registry>
+  <Network>bridge</Network>
+  <Shell>bash</Shell>
+  <Privileged>false</Privileged>
+
+  <Support>https://github.com/Tuvima/tuvima_library/issues</Support>
+  <Project>https://github.com/Tuvima/tuvima_library</Project>
+  <Overview>
+    Tuvima Library is a self-hosted, zero-cloud media intelligence platform.
+    Drop your books, audiobooks, comics, movies, and TV episodes into the Watch
+    Folder — Tuvima automatically fingerprints, identifies, enriches with
+    metadata, and organises everything into a beautiful browser dashboard.
+    No subscriptions, no accounts, nothing leaves your home network.
+  </Overview>
+
+  <Category>MediaApp:</Category>
+  <WebUI>http://[IP]:[PORT:5016]/</WebUI>
+  <Icon>https://raw.githubusercontent.com/Tuvima/tuvima_library/main/assets/images/tuvima-icon.svg</Icon>
+  <TemplateURL>https://raw.githubusercontent.com/Tuvima/tuvima_library/main/unraid-template.xml</TemplateURL>
+
+  <!-- ── Ports ──────────────────────────────────────────────────────────── -->
+
+  <Config Name="Dashboard Port"
+          Target="5016"
+          Default="5016"
+          Mode="tcp"
+          Description="Dashboard web interface. Open http://[Unraid-IP]:5016 in your browser."
+          Type="Port"
+          Display="always"
+          Required="true"
+          Mask="false">5016</Config>
+
+  <Config Name="Engine API Port"
+          Target="61495"
+          Default="61495"
+          Mode="tcp"
+          Description="Engine API. Used internally by the Dashboard; also available for external tools (e.g. custom mobile apps)."
+          Type="Port"
+          Display="advanced"
+          Required="true"
+          Mask="false">61495</Config>
+
+  <!-- ── Volume mappings ────────────────────────────────────────────────── -->
+
+  <Config Name="Watch Folder"
+          Target="/watch"
+          Default="/mnt/user/media/tuvima-watch"
+          Mode="rw"
+          Description="Drop new media files here. Tuvima picks them up automatically and moves them to the Library Root once identified."
+          Type="Path"
+          Display="always"
+          Required="true"
+          Mask="false">/mnt/user/media/tuvima-watch</Config>
+
+  <Config Name="Library Root"
+          Target="/library"
+          Default="/mnt/user/media/tuvima-library"
+          Mode="rw"
+          Description="Where Tuvima stores your organised media collection. Uses the folder template: {Category}/{Author}/{Title}/"
+          Type="Path"
+          Display="always"
+          Required="true"
+          Mask="false">/mnt/user/media/tuvima-library</Config>
+
+  <Config Name="Config Folder"
+          Target="/config"
+          Default="/mnt/user/appdata/tuvima/config"
+          Mode="rw"
+          Description="Persistent configuration — settings, provider weights, and organisation rules. Survives container image updates."
+          Type="Path"
+          Display="always"
+          Required="true"
+          Mask="false">/mnt/user/appdata/tuvima/config</Config>
+
+  <Config Name="Database Folder"
+          Target="/db"
+          Default="/mnt/user/appdata/tuvima/db"
+          Mode="rw"
+          Description="SQLite database — your entire library catalogue. Survives container image updates."
+          Type="Path"
+          Display="always"
+          Required="true"
+          Mask="false">/mnt/user/appdata/tuvima/db</Config>
+
+  <!-- ── Environment variables ──────────────────────────────────────────── -->
+
+  <Config Name="Extra CORS Origins"
+          Target="TUVIMA_CORS_ORIGINS"
+          Default=""
+          Mode=""
+          Description="(Optional) Comma-separated extra addresses the Dashboard is allowed to connect from. Useful if you access Tuvima from a different machine on your network. Example: http://192.168.1.50:5016"
+          Type="Variable"
+          Display="advanced"
+          Required="false"
+          Mask="false"></Config>
+
+</Container>
