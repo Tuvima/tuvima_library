@@ -38,7 +38,13 @@ builder.Services.AddMudServices();
 builder.Services.AddSingleton<ThemeService>();
 
 // ── Engine API HTTP Client ────────────────────────────────────────────────────
-var apiBase = builder.Configuration["Engine:BaseUrl"] ?? "http://localhost:61495";
+// TUVIMA_ENGINE_URL: override the Engine address — essential for Docker where
+// the Dashboard and Engine run as separate processes or in separate containers.
+// Example: "http://engine:61495" (service name in docker-compose) or
+//          "http://192.168.1.50:61495" (fixed LAN IP for Unraid).
+var apiBase = Environment.GetEnvironmentVariable("TUVIMA_ENGINE_URL")
+           ?? builder.Configuration["Engine:BaseUrl"]
+           ?? "http://localhost:61495";
 var apiKey  = builder.Configuration["Engine:ApiKey"]  ?? string.Empty;
 
 // AddHttpClient<IClient, TClient> wires the interface directly to the typed-client

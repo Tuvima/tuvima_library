@@ -8,6 +8,8 @@
   <ItemGroup>
     <!-- Swashbuckle 7.x: intentionally pinned — see Directory.Packages.props for rationale. -->
     <PackageReference Include="Swashbuckle.AspNetCore" />
+    <!-- Windows Service: integrates with SCM when running as installed service. No-op elsewhere. -->
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" />
   </ItemGroup>
 
   <ItemGroup>

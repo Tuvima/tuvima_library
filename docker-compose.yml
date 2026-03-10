@@ -1,34 +1,66 @@
-# ── Tuvima Library — Docker Compose ──────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
+# Tuvima Library — Docker Compose
 #
-# Usage:
-#   docker compose up -d          Start Tuvima Library
-#   docker compose logs -f        Follow logs
-#   docker compose down           Stop and remove containers
+# Quick start:
+#   1. Edit the volume paths under "volumes:" to match your NAS folder layout.
+#   2. docker compose up -d
+#   3. Open http://<your-server-ip>:5016 in your browser.
 #
-# Engine on port 8080, Dashboard on port 8081 — both in a single container.
-# Media files go in ./library/, new files go in ./watch/.
-# ──────────────────────────────────────────────────────────────────────────────
+# Unraid users: import docker-compose.yml into the Compose manager, or use the
+# Community Applications template (see unraid-template.xml in this repo).
+# ─────────────────────────────────────────────────────────────────────────────
 
 services:
   tuvima:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ghcr.io/shyfaruqi/tuvima-library:latest
+    # Uncomment to build locally instead of pulling the published image:
+    # build: .
     container_name: tuvima-library
-    ports:
-      - "8080:8080"   # Engine API
-      - "8081:8081"   # Dashboard UI
-    volumes:
-      - tuvima-data:/data
-      - ./config:/app/config
-      - ./library:/library
-      - ./watch:/watch
-    environment:
-      - MediaEngine__DatabasePath=/data/library.db
-      - MediaEngine__ConfigDirectory=/app/config
-      - MediaEngine__Security__LocalhostBypass=true
     restart: unless-stopped
 
-volumes:
-  tuvima-data:
-    driver: local
+    ports:
+      - "5016:5016"    # Dashboard — open this in your browser
+      - "61495:61495"  # Engine API — used internally; also for external tool access
+
+    volumes:
+      # ── EDIT THESE PATHS to match your NAS/server layout ─────────────────
+      # Watch folder: drop new media files here and the Engine picks them up.
+      - /mnt/user/media/tuvima-watch:/watch
+      # Library root: the Engine organises your files into this folder.
+      - /mnt/user/media/tuvima-library:/library
+      # Config: stores your settings (survives container image updates).
+      - /mnt/user/appdata/tuvima/config:/config
+      # Database: the SQLite catalogue (survives container image updates).
+      - /mnt/user/appdata/tuvima/db:/db
+
+    environment:
+      # These are pre-wired to the volume mount points above.
+      # Only change them if you use non-standard internal container paths.
+      TUVIMA_WATCH_FOLDER: /watch
+      TUVIMA_LIBRARY_ROOT: /library
+      TUVIMA_CONFIG_DIR: /config
+      TUVIMA_DB_PATH: /db/library.db
+
+      # Replace with your server's actual LAN IP so external devices can
+      # reach the Dashboard.  localhost works only from the same machine.
+      # Example: TUVIMA_CORS_ORIGINS: "http://192.168.1.50:5016"
+      # TUVIMA_CORS_ORIGINS: ""
+
+      # Advanced: split Engine and Dashboard into separate containers and set
+      # the Engine's address here.  Leave blank for single-container mode.
+      # TUVIMA_ENGINE_URL: "http://engine:61495"
+
+    # Resource limits (optional — recommended for Unraid/NAS boxes).
+    # Adjust to suit your hardware.
+    # deploy:
+    #   resources:
+    #     limits:
+    #       memory: 2G
+    #       cpus: "2.0"
+
+# ── (Optional) Watchtower: keeps the Tuvima image automatically up-to-date ──
+# watchtower:
+#   image: containrrr/watchtower
+#   volumes:
+#     - /var/run/docker.sock:/var/run/docker.sock
+#   command: --interval 86400 --cleanup tuvima-library

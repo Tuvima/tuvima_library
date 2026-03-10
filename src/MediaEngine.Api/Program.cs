@@ -30,10 +30,25 @@ using MediaEngine.Api.DevSupport;
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 ConfigurationManager config  = builder.Configuration;
 
+// ── Windows Service hosting ────────────────────────────────────────────────────
+// Integrates with the Windows Service Control Manager when the Engine is installed
+// as a Windows service via the .exe installer.  Completely ignored on Linux / Docker.
+builder.Host.UseWindowsService(options => options.ServiceName = "Tuvima Library");
+
 // ── CORS ──────────────────────────────────────────────────────────────────────
 string[] allowedOrigins = config
     .GetSection("MediaEngine:Cors:AllowedOrigins")
     .Get<string[]>() ?? [];
+// TUVIMA_CORS_ORIGINS: comma-separated extra origins appended at runtime.
+// Useful for Docker deployments where the Dashboard URL differs from localhost.
+// Example: "http://192.168.1.50:5016,https://tuvima.local"
+string? envCorsOrigins = Environment.GetEnvironmentVariable("TUVIMA_CORS_ORIGINS");
+if (!string.IsNullOrWhiteSpace(envCorsOrigins))
+{
+    string[] extra = envCorsOrigins.Split(",", StringSplitOptions.RemoveEmptyEntries
+                                               | StringSplitOptions.TrimEntries);
+    allowedOrigins  = [.. allowedOrigins, .. extra];
+}
 
 builder.Services.AddCors(options =>
 {
@@ -99,7 +114,11 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 // ── Storage / Database ────────────────────────────────────────────────────────
-string dbPath = config["MediaEngine:DatabasePath"] ?? "library.db";
+// TUVIMA_DB_PATH overrides the config value — used by Docker and the installer
+// to pin the database to a persistent volume outside the container image.
+string dbPath = Environment.GetEnvironmentVariable("TUVIMA_DB_PATH")
+             ?? config["MediaEngine:DatabasePath"]
+             ?? "library.db";
 builder.Services.AddSingleton<IDatabaseConnection>(sp =>
 {
     var db = new DatabaseConnection(dbPath);
@@ -113,7 +132,11 @@ builder.Services.AddSingleton<IDatabaseConnection>(sp =>
 // Reads individual config files from config/ directory. Auto-migrates from
 // legacy manifest on first run. Registered as both IStorageManifest
 // (backward compat) and IConfigurationLoader (granular access).
-string configDir     = config["MediaEngine:ConfigDirectory"] ?? "config";
+// TUVIMA_CONFIG_DIR overrides the config directory — used by Docker to point
+// to a mounted volume so configuration survives container image updates.
+string configDir     = Environment.GetEnvironmentVariable("TUVIMA_CONFIG_DIR")
+                    ?? config["MediaEngine:ConfigDirectory"]
+                    ?? "config";
 string manifestPath  = config["MediaEngine:ManifestPath"] ?? "legacy_manifest.json";
 var    configLoader  = new ConfigurationDirectoryLoader(configDir, manifestPath);
 builder.Services.AddSingleton<IStorageManifest>(configLoader);
@@ -185,6 +208,21 @@ builder.Services.Configure<IngestionOptions>(config.GetSection(IngestionOptions.
 // touching appsettings.json — the config directory is the persistent source of truth.
 builder.Services.PostConfigure<IngestionOptions>(opts =>
 {
+    // ── Environment variable overrides (highest priority) ─────────────────────
+    // These allow Docker / Unraid users to set paths via container environment
+    // variables without ever editing a config file.
+    //   TUVIMA_WATCH_FOLDER   → where to pick up new files
+    //   TUVIMA_LIBRARY_ROOT   → where organised files are stored
+    //   TUVIMA_STAGING_DIR    → holding area for ambiguous/low-confidence files
+    {
+        string? envWatch   = Environment.GetEnvironmentVariable("TUVIMA_WATCH_FOLDER");
+        string? envLibrary = Environment.GetEnvironmentVariable("TUVIMA_LIBRARY_ROOT");
+        string? envStaging = Environment.GetEnvironmentVariable("TUVIMA_STAGING_DIR");
+        if (!string.IsNullOrWhiteSpace(envWatch))   { opts.WatchDirectory  = envWatch; }
+        if (!string.IsNullOrWhiteSpace(envLibrary)) { opts.LibraryRoot     = envLibrary; }
+        if (!string.IsNullOrWhiteSpace(envStaging)) { opts.StagingDirectory = envStaging; }
+    }
+
     try
     {
         CoreConfiguration core = configLoader.LoadCore();

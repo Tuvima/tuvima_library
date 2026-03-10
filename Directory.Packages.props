@@ -23,6 +23,9 @@
     <!-- Xabe.FFmpeg: fluent FFmpeg wrapper for media probing and transcoding; MIT license.
          Approved for AGPLv3 compatibility (see CLAUDE.md §5.1). -->
     <PackageVersion Include="Xabe.FFmpeg" Version="5.2.6" />
+    <!-- Windows Service hosting: integrates with Service Control Manager for .exe installer.
+         MIT license — no-op on Linux/macOS/Docker; safe to include unconditionally. -->
+    <PackageVersion Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.3" />
     <!-- UI -->
     <PackageVersion Include="MudBlazor" Version="9.0.0" />
   </ItemGroup>
