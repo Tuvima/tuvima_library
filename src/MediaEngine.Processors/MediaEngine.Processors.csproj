@@ -25,4 +25,9 @@
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
   </ItemGroup>
 
+  <!-- Storage reference: FFmpegService reads TranscodingSettings via IConfigurationLoader. -->
+  <ItemGroup>
+    <ProjectReference Include="..\MediaEngine.Storage\MediaEngine.Storage.csproj" />
+  </ItemGroup>
+
 </Project>

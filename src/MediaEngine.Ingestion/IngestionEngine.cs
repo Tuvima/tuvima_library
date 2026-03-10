@@ -339,6 +339,22 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         await SafePublishAsync("IngestionHashed", new IngestionHashedEvent(
             candidate.Path, hash.Hex, hash.FileSize, hash.Elapsed), ct).ConfigureAwait(false);
 
+        await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
+        {
+            ActionType     = Domain.Enums.SystemActionType.FileHashed,
+            EntityType     = "MediaAsset",
+            Detail         = $"Fingerprinted: {hash.Hex[..12]}… ({hash.FileSize / 1024.0:F1} KB)",
+            ChangesJson    = JsonSerializer.Serialize(new
+            {
+                hash_prefix  = hash.Hex[..12],
+                full_hash    = hash.Hex,
+                file_size_kb = Math.Round(hash.FileSize / 1024.0, 1),
+                elapsed_ms   = (long)hash.Elapsed.TotalMilliseconds,
+                filename     = Path.GetFileName(candidate.Path),
+            }),
+            IngestionRunId = ingestionRunId,
+        }, ct).ConfigureAwait(false);
+
         // Step 5: duplicate check.
         // If the file is already ingested but still sitting in the Watch Folder
         // (e.g. it scored below the confidence gate on first pass, or LibraryRoot
@@ -387,6 +403,24 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         // Step 6: process.
         var result = await _processors.ProcessAsync(candidate.Path, ct).ConfigureAwait(false);
 
+        await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
+        {
+            ActionType     = Domain.Enums.SystemActionType.FileProcessed,
+            EntityType     = "MediaAsset",
+            Detail         = $"Scanned: {result.DetectedType} — {result.Claims.Count} fields, cover {(result.CoverImage?.Length > 0 ? "found" : "absent")}",
+            ChangesJson    = JsonSerializer.Serialize(new
+            {
+                detected_type  = result.DetectedType.ToString(),
+                claims_count   = result.Claims.Count,
+                has_cover      = result.CoverImage?.Length > 0,
+                cover_bytes    = result.CoverImage?.Length ?? 0,
+                is_corrupt     = result.IsCorrupt,
+                corrupt_reason = result.CorruptReason,
+                filename       = Path.GetFileName(candidate.Path),
+            }),
+            IngestionRunId = ingestionRunId,
+        }, ct).ConfigureAwait(false);
+
         // Step 7: quarantine corrupt files.
         if (result.IsCorrupt)
         {
@@ -434,6 +468,25 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
         // Phase 9: persist claims (append-only; enables re-scoring on weight changes).
         await _claimRepo.InsertBatchAsync(claims, ct).ConfigureAwait(false);
+
+        await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
+        {
+            ActionType     = Domain.Enums.SystemActionType.FileScored,
+            EntityId       = assetId,
+            EntityType     = "MediaAsset",
+            Detail         = $"Score: {scored.OverallConfidence:P0} across {scored.FieldScores.Count} fields",
+            ChangesJson    = JsonSerializer.Serialize(new
+            {
+                confidence    = scored.OverallConfidence,
+                field_count   = scored.FieldScores.Count,
+                conflicted    = scored.FieldScores.Count(f => f.IsConflicted),
+                fields        = scored.FieldScores
+                    .Where(f => !string.IsNullOrEmpty(f.WinningValue))
+                    .Select(f => new { field = f.Key, value = f.WinningValue, confidence = f.Confidence, conflicted = f.IsConflicted })
+                    .ToList(),
+            }),
+            IngestionRunId = ingestionRunId,
+        }, ct).ConfigureAwait(false);
 
         // Phase 9: persist canonical values (current winning metadata for this asset).
         // Phase B: also persist the IsConflicted flag from the scoring engine so
@@ -554,6 +607,22 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             candidate.Metadata,
             ct).ConfigureAwait(false);
 
+        await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
+        {
+            ActionType     = Domain.Enums.SystemActionType.EntityChainCreated,
+            EntityId       = assetId,
+            EntityType     = "MediaAsset",
+            Detail         = $"Catalogue entry created for \"{candidate.Metadata?.GetValueOrDefault("title", "Unknown") ?? "Unknown"}\"",
+            ChangesJson    = JsonSerializer.Serialize(new
+            {
+                title      = candidate.Metadata?.GetValueOrDefault("title"),
+                author     = candidate.Metadata?.GetValueOrDefault("author"),
+                media_type = resolvedMediaType.ToString(),
+                edition_id = editionId.ToString(),
+            }),
+            IngestionRunId = ingestionRunId,
+        }, ct).ConfigureAwait(false);
+
         // Step 10: insert asset.
         var asset = new MediaAsset
         {
@@ -657,6 +726,24 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 if (moved)
                 {
                     currentPath = destPath;
+                    await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
+                    {
+                        ActionType     = Domain.Enums.SystemActionType.PathUpdated,
+                        EntityId       = assetId,
+                        EntityType     = "MediaAsset",
+                        Detail         = $"Organized → {Path.GetFileName(currentPath)}",
+                        ChangesJson    = JsonSerializer.Serialize(new
+                        {
+                            source_path = candidate.Path,
+                            dest_path   = destPath,
+                            filename    = Path.GetFileName(destPath),
+                            renamed     = !string.Equals(
+                                Path.GetFileName(candidate.Path),
+                                Path.GetFileName(destPath),
+                                StringComparison.OrdinalIgnoreCase),
+                        }),
+                        IngestionRunId = ingestionRunId,
+                    }, ct).ConfigureAwait(false);
                 }
             }
         }
@@ -695,6 +782,17 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             EntityType = EntityType.MediaAsset,
             MediaType  = resolvedMediaType,
             Hints      = BuildHints(candidate.Metadata),
+        }, ct).ConfigureAwait(false);
+
+        await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
+        {
+            ActionType     = Domain.Enums.SystemActionType.HydrationEnqueued,
+            EntityId       = assetId,
+            EntityType     = "MediaAsset",
+            HubName        = resolvedTitle,
+            ChangesJson    = JsonSerializer.Serialize(new { entity_id = assetId.ToString(), media_type = resolvedMediaType.ToString() }),
+            Detail         = $"Queued for metadata enrichment ({resolvedMediaType})",
+            IngestionRunId = ingestionRunId,
         }, ct).ConfigureAwait(false);
 
         // Phase 9: trigger recursive person enrichment for authors/narrators.
@@ -740,6 +838,22 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 await File.WriteAllBytesAsync(
                     Path.Combine(fileFolder, "cover.jpg"),
                     result.CoverImage, ct).ConfigureAwait(false);
+
+                await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
+                {
+                    ActionType     = Domain.Enums.SystemActionType.CoverArtSaved,
+                    EntityId       = assetId,
+                    EntityType     = "MediaAsset",
+                    HubName        = resolvedTitle,
+                    ChangesJson    = JsonSerializer.Serialize(new
+                    {
+                        cover_size_bytes = result.CoverImage.Length,
+                        filename         = "cover.jpg",
+                        folder           = fileFolder,
+                    }),
+                    Detail         = $"Cover art saved ({result.CoverImage.Length / 1024} KB)",
+                    IngestionRunId = ingestionRunId,
+                }, ct).ConfigureAwait(false);
             }
 
             // Step 11c: generate cinematic hero banner from cover art.
@@ -770,6 +884,21 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                     });
                     await _canonicalRepo.UpsertBatchAsync(heroCanonicals, ct)
                         .ConfigureAwait(false);
+
+                    await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
+                    {
+                        ActionType     = Domain.Enums.SystemActionType.HeroBannerGenerated,
+                        EntityId       = assetId,
+                        EntityType     = "MediaAsset",
+                        HubName        = resolvedTitle,
+                        ChangesJson    = JsonSerializer.Serialize(new
+                        {
+                            dominant_color = heroResult.DominantHexColor,
+                            hero_url       = $"/stream/{assetId}/hero",
+                        }),
+                        Detail         = $"Hero banner generated (dominant color: {heroResult.DominantHexColor ?? "n/a"})",
+                        IngestionRunId = ingestionRunId,
+                    }, ct).ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {
@@ -801,11 +930,21 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                     coverWritten = true;
                 }
 
-                // Demoted from activity ledger to debug log (Phase 5 — activity consolidation).
-                _logger.LogDebug(
-                    "MetadataTagsWritten — {File}: {Count} tag(s){Cover}",
-                    Path.GetFileName(currentPath), candidate.Metadata.Count,
-                    coverWritten ? " + cover art" : "");
+                await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
+                {
+                    ActionType     = Domain.Enums.SystemActionType.MetadataTagsWritten,
+                    EntityId       = assetId,
+                    EntityType     = "MediaAsset",
+                    HubName        = resolvedTitle,
+                    ChangesJson    = JsonSerializer.Serialize(new
+                    {
+                        tags_written  = tagsWritten,
+                        cover_written = coverWritten,
+                        file          = Path.GetFileName(currentPath),
+                    }),
+                    Detail         = $"Tags written back to file ({tagsWritten.Count} field(s){(coverWritten ? " + cover art" : "")})",
+                    IngestionRunId = ingestionRunId,
+                }, ct).ConfigureAwait(false);
             }
         }
 

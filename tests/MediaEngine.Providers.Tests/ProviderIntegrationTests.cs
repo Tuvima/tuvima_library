@@ -557,6 +557,8 @@ file sealed class IntegrationConfigLoader : IConfigurationLoader
     public void SaveDisambiguation(DisambiguationSettings settings) { }
     public MediaTypeConfiguration LoadMediaTypes() => new();
     public void SaveMediaTypes(MediaTypeConfiguration config) { }
+    public TranscodingSettings LoadTranscoding() => new();
+    public void SaveTranscoding(TranscodingSettings settings) { }
     public ProviderConfiguration? LoadProvider(string name) => null;
     public void SaveProvider(ProviderConfiguration config) { }
     public IReadOnlyList<ProviderConfiguration> LoadAllProviders() => [];

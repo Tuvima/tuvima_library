@@ -68,6 +68,14 @@ public interface IConfigurationLoader
     /// <summary>Persist disambiguation settings to <c>config/disambiguation.json</c>.</summary>
     void SaveDisambiguation(DisambiguationSettings settings);
 
+    // ── Transcoding ──────────────────────────────────────────────────────────
+
+    /// <summary>Load FFmpeg and transcoding settings from <c>config/transcoding.json</c>.</summary>
+    TranscodingSettings LoadTranscoding();
+
+    /// <summary>Persist transcoding settings to <c>config/transcoding.json</c>.</summary>
+    void SaveTranscoding(TranscodingSettings settings);
+
     // ── Media Types ──────────────────────────────────────────────────────────
 
     /// <summary>Load media type definitions from <c>config/media_types.json</c>.</summary>

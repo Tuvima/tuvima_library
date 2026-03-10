@@ -56,3 +56,8 @@ desktop.ini
 
 # Live configuration directory — copy config.example/ to config/ and edit locally
 config/
+
+# FFmpeg binaries — large platform-specific executables, downloaded by setup script.
+# See tools/Download-FFmpeg.ps1 or place ffmpeg.exe + ffprobe.exe in tools/ffmpeg/ manually.
+tools/ffmpeg/*.exe
+tools/ffmpeg/*.dll

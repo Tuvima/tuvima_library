@@ -137,6 +137,11 @@ builder.Services.AddSingleton<ApiKeyService>();
 builder.Services.AddSingleton<IProfileRepository, ProfileRepository>();
 builder.Services.AddSingleton<IProfileService, ProfileService>();
 
+// ── FFmpeg Service ────────────────────────────────────────────────────────────
+// Auto-detects ffmpeg/ffprobe from tools/ffmpeg/ → PATH → config override.
+// Logs a warning (not error) when binaries are absent — transcoding is optional.
+builder.Services.AddSingleton<IFFmpegService, FFmpegService>();
+
 // ── Processors ────────────────────────────────────────────────────────────────
 builder.Services.AddSingleton<IVideoMetadataExtractor, StubVideoMetadataExtractor>();
 

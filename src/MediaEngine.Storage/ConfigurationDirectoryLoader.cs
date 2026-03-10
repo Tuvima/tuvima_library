@@ -71,6 +71,7 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
     private const string SlotsFileName       = "slots.json";
     private const string MediaTypesFileName       = "media_types.json";
     private const string DisambiguationFileName   = "disambiguation.json";
+    private const string TranscodingFileName      = "transcoding.json";
 
     // ── Endpoint distribution map for legacy migration ────────────────────────
 
@@ -240,6 +241,14 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
     /// <inheritdoc/>
     public void SaveDisambiguation(DisambiguationSettings settings) =>
         SaveFile(DisambiguationFileName, settings);
+
+    /// <inheritdoc/>
+    public TranscodingSettings LoadTranscoding() =>
+        LoadFile<TranscodingSettings>(TranscodingFileName) ?? new();
+
+    /// <inheritdoc/>
+    public void SaveTranscoding(TranscodingSettings settings) =>
+        SaveFile(TranscodingFileName, settings);
 
     /// <inheritdoc/>
     public ProviderSlotConfiguration LoadSlots()

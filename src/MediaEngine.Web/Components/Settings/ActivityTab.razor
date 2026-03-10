@@ -640,15 +640,36 @@
                                                 <div class="activity-pipeline-steps">
                                                     @foreach (var step in pipelineSteps.OrderBy(s => s.OccurredAt))
                                                     {
+                                                        var stepDetail = PipelineStepDetail(step);
                                                         <div class="activity-pipeline-row">
                                                             <MudIcon Icon="@Icons.Material.Filled.CheckCircleOutline"
-                                                                     Style="font-size: 0.75rem; color: #4caf50; flex-shrink: 0;" />
-                                                            <MudText Typo="Typo.caption"
-                                                                     Style="flex: 1; color: var(--app-text-soft);">
-                                                                @PipelineStepLabel(step.ActionType)
-                                                            </MudText>
+                                                                     Style="font-size: 0.75rem; color: #4caf50; flex-shrink: 0; margin-top: 2px;" />
+                                                            <div style="flex: 1; min-width: 0;">
+                                                                <MudText Typo="Typo.caption"
+                                                                         Style="color: var(--app-text-soft);">
+                                                                    @PipelineStepLabel(step.ActionType)
+                                                                </MudText>
+                                                                @if (step.ActionType == "HeroBannerGenerated" && stepDetail is not null)
+                                                                {
+                                                                    @* Render dominant color as a swatch + hex *@
+                                                                    <div style="display: flex; align-items: center; gap: 5px; margin-top: 1px;">
+                                                                        <div style="width: 10px; height: 10px; border-radius: 2px; background: @stepDetail; flex-shrink: 0;" />
+                                                                        <MudText Typo="Typo.caption"
+                                                                                 Style="font-size: 0.68rem; color: var(--app-text-muted); font-family: monospace;">
+                                                                            @stepDetail
+                                                                        </MudText>
+                                                                    </div>
+                                                                }
+                                                                else if (stepDetail is not null)
+                                                                {
+                                                                    <MudText Typo="Typo.caption"
+                                                                             Style="font-size: 0.68rem; color: var(--app-text-muted); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;">
+                                                                        @stepDetail
+                                                                    </MudText>
+                                                                }
+                                                            </div>
                                                             <MudText Typo="Typo.caption" Color="Color.Secondary"
-                                                                     Style="white-space: nowrap; font-size: 0.7rem;">
+                                                                     Style="white-space: nowrap; font-size: 0.7rem; flex-shrink: 0; align-self: flex-start;">
                                                                 @FormatTime(step.OccurredAt)
                                                             </MudText>
                                                         </div>
@@ -2035,6 +2056,7 @@
         "FileScored"                => "Confidence score calculated",
         "EntityChainCreated"        => "Added to library catalogue",
         "CoverArtSaved"             => "Cover art saved",
+        "HeroBannerGenerated"       => "Hero banner generated",
         "MetadataTagsWritten"       => "Metadata saved back to file",
         "HydrationEnqueued"         => "Queued for online enrichment",
         "MovedToStaging"            => "Moved to staging folder",
@@ -2052,6 +2074,70 @@
         "ReviewItemResolved"        => "Review resolved",
         _                           => ActionLabel(actionType),
     };
+
+    private static string? PipelineStepDetail(ActivityEntryViewModel step)
+    {
+        if (string.IsNullOrWhiteSpace(step.ChangesJson)) return null;
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(step.ChangesJson);
+            var r = doc.RootElement;
+            return step.ActionType switch
+            {
+                "FileHashed" =>
+                    r.TryGetProperty("hash_prefix", out var hp) && r.TryGetProperty("file_size_kb", out var sz)
+                        ? $"sha: {hp.GetString()} · {sz.GetDouble():F1} KB"
+                        : null,
+                "FileProcessed" =>
+                    r.TryGetProperty("detected_type", out var dt)
+                        ? string.Join(" · ", new[]
+                          {
+                              dt.GetString(),
+                              r.TryGetProperty("claims_count", out var cc) ? $"{cc.GetInt32()} claims" : null,
+                              r.TryGetProperty("has_cover", out var hc) && hc.GetBoolean() ? "embedded cover" : null,
+                              r.TryGetProperty("is_corrupt", out var ic) && ic.GetBoolean()
+                                  ? (r.TryGetProperty("corrupt_reason", out var cr) ? $"corrupt: {cr.GetString()}" : "corrupt") : null,
+                          }.Where(s => s is not null)!)
+                        : null,
+                "FileScored" =>
+                    r.TryGetProperty("confidence", out var conf) && r.TryGetProperty("field_count", out var fc)
+                        ? $"{conf.GetDouble():P0} confidence · {fc.GetInt32()} fields" +
+                          (r.TryGetProperty("conflicted", out var cfl) && cfl.GetBoolean() ? " · ⚠ conflicts" : "")
+                        : null,
+                "EntityChainCreated" =>
+                    r.TryGetProperty("title", out var t)
+                        ? string.Join(" · ", new[]
+                          {
+                              t.GetString(),
+                              r.TryGetProperty("media_type", out var mt) ? mt.GetString() : null,
+                          }.Where(s => s is not null)!)
+                        : null,
+                "CoverArtSaved" =>
+                    r.TryGetProperty("cover_size_bytes", out var csb)
+                        ? $"{csb.GetInt32() / 1024} KB"
+                        : null,
+                "HeroBannerGenerated" =>
+                    r.TryGetProperty("dominant_color", out var dc)
+                        ? dc.GetString()
+                        : null,
+                "MetadataTagsWritten" =>
+                    r.TryGetProperty("tags_written", out var tw) && tw.ValueKind == System.Text.Json.JsonValueKind.Array
+                        ? $"{tw.GetArrayLength()} field(s)" +
+                          (r.TryGetProperty("cover_written", out var cw) && cw.GetBoolean() ? " + cover" : "")
+                        : null,
+                "PathUpdated" =>
+                    r.TryGetProperty("filename", out var fn)
+                        ? (r.TryGetProperty("renamed", out var ren) && ren.GetBoolean()
+                            ? $"renamed → {fn.GetString()}"
+                            : fn.GetString())
+                        : null,
+                "HydrationEnqueued" =>
+                    r.TryGetProperty("media_type", out var hmt) ? hmt.GetString() : null,
+                _ => null,
+            };
+        }
+        catch { return null; }
+    }
 
     private static string HydrationStageLabel(string actionType) => actionType switch
     {

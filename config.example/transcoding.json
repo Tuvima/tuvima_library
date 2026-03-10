@@ -1,0 +1,17 @@
+{
+  "_comment": "FFmpeg and transcoding configuration. Copy to config/transcoding.json to override defaults.",
+
+  "ffmpeg_binary_path":  "",
+  "ffprobe_binary_path": "",
+
+  "_comment_hardware": "auto | nvenc | quicksync | vaapi | none. 'auto' probes encoders and picks the best available.",
+  "hardware_acceleration": "auto",
+
+  "max_concurrent_transcodes": 1,
+  "shadow_storage_limit_gb": 500,
+
+  "quality_profiles": [
+    { "name": "mobile",  "resolution": "720p",  "codec": "h264", "bitrate": "2M" },
+    { "name": "tablet",  "resolution": "1080p", "codec": "h264", "bitrate": "5M" }
+  ]
+}

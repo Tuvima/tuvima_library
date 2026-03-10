@@ -102,6 +102,9 @@ public static class SystemActionType
     /// <summary>Cover art was saved to disk alongside the organized file.</summary>
     public const string CoverArtSaved = "CoverArtSaved";
 
+    /// <summary>A cinematic hero banner was generated from a cover image.</summary>
+    public const string HeroBannerGenerated = "HeroBannerGenerated";
+
     /// <summary>Metadata tags were written back into the media file's embedded tags.</summary>
     public const string MetadataTagsWritten = "MetadataTagsWritten";
 
