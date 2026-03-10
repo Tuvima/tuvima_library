@@ -193,32 +193,35 @@ else
                         </div>
                     }
 
-                    @* Metadata row: rating | reading time | year *@
+                    @* Metadata: line 1 = rating + year; line 2 = reading time *@
                     @if (metaCount > 0)
                     {
-                        <div class="hub-detail-meta-row">
-                            @if (hasRating)
+                        <div class="hub-detail-meta-rows">
+                            @if (hasRating || hasYear)
                             {
-                                <span class="hub-detail-meta-segment">
-                                    <span class="hub-detail-meta-stars">@ratingStars</span>
-                                    <span class="hub-detail-meta-rating-val">@_hub.Rating</span>
-                                </span>
-                            }
-                            @if (hasRating && (hasTime || hasYear))
-                            {
-                                <span class="hub-detail-meta-divider">|</span>
+                                <div class="hub-detail-meta-row">
+                                    @if (hasRating)
+                                    {
+                                        <span class="hub-detail-meta-segment">
+                                            <span class="hub-detail-meta-stars">@ratingStars</span>
+                                            <span class="hub-detail-meta-rating-val">@_hub.Rating</span>
+                                        </span>
+                                    }
+                                    @if (hasRating && hasYear)
+                                    {
+                                        <span class="hub-detail-meta-divider">|</span>
+                                    }
+                                    @if (hasYear)
+                                    {
+                                        <span class="hub-detail-meta-segment">@_hub.Year</span>
+                                    }
+                                </div>
                             }
                             @if (hasTime)
                             {
-                                <span class="hub-detail-meta-segment">@_readingTimeDisplay</span>
-                            }
-                            @if (hasTime && hasYear)
-                            {
-                                <span class="hub-detail-meta-divider">|</span>
-                            }
-                            @if (hasYear)
-                            {
-                                <span class="hub-detail-meta-segment">@_hub.Year</span>
+                                <div class="hub-detail-meta-row">
+                                    <span class="hub-detail-meta-segment">@_readingTimeDisplay</span>
+                                </div>
                             }
                         </div>
                     }
@@ -227,7 +230,7 @@ else
                     <button class="hub-primary-cta hub-desktop-only" @onclick="@OnPrimaryAction">
                         <div class="hub-primary-cta-inner">
                             <MudIcon Icon="@GetPrimaryActionIcon()"
-                                     Style="font-size: 1.35rem; color: rgba(248,248,248,0.90); flex-shrink:0;" />
+                                     Style="font-size: 1.2rem; color: rgba(248,248,248,0.90); flex-shrink:0;" />
                             <span class="hub-primary-cta-label">@PrimaryActionLabel()</span>
                         </div>
                         @if (hasProgress)
@@ -238,7 +241,7 @@ else
                         }
                     </button>
 
-                    @* Secondary action circles — desktop only (evenly spaced) *@
+                    @* Secondary action circles — desktop only *@
                     <div class="hub-detail-actions hub-desktop-only">
 
                         @* Add To *@
@@ -388,7 +391,7 @@ else
                     <button class="hub-primary-cta hub-mobile-only" @onclick="@OnPrimaryAction">
                         <div class="hub-primary-cta-inner">
                             <MudIcon Icon="@GetPrimaryActionIcon()"
-                                     Style="font-size: 1.35rem; color: rgba(248,248,248,0.90); flex-shrink:0;" />
+                                     Style="font-size: 1.2rem; color: rgba(248,248,248,0.90); flex-shrink:0;" />
                             <span class="hub-primary-cta-label">@PrimaryActionLabel()</span>
                         </div>
                         @if (hasProgress)
@@ -691,7 +694,7 @@ else
 
     private static string GetFormatLabel(string key) => key switch
     {
-        "epub"      => "eBook",
+        "epub"      => "Book",
         "audiobook" => "Audiobook",
         "video"     => "Movie",
         "comic"     => "Comic",
@@ -983,12 +986,19 @@ else
         padding-top: 14px;
     }
 
-    /* Metadata row */
+    /* Metadata rows wrapper (two lines: rating+year / reading time) */
+    .hub-detail-meta-rows {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    /* Metadata row (single line) */
     .hub-detail-meta-row {
         display: flex;
         align-items: center;
         gap: 10px;
-        flex-wrap: wrap;
+        flex-wrap: nowrap;
     }
 
     .hub-detail-meta-segment {
@@ -999,6 +1009,7 @@ else
         font-size: 0.85rem;
         font-weight: 400;
         color: rgba(248, 248, 248, 0.55);
+        white-space: nowrap;
     }
 
     .hub-detail-meta-stars {
@@ -1194,9 +1205,8 @@ else
         object-fit: contain;
     }
 
-    /* ── Primary CTA button (full-width rectangle) ── */
+    /* ── Primary CTA button (~44px tall rectangle) ── */
     .hub-primary-cta {
-        width: 100%;
         position: relative;
         display: flex;
         flex-direction: column;
@@ -1207,6 +1217,21 @@ else
         overflow: hidden;
         transition: background 0.2s ease, border-color 0.2s ease;
         padding: 0;
+        width: fit-content;
+    }
+
+    /* Desktop CTA: constrained width, left-aligned */
+    .hub-primary-cta.hub-desktop-only {
+        min-width: 180px;
+        max-width: 280px;
+        width: auto;
+    }
+
+    /* Mobile CTA: wider, centered */
+    .hub-primary-cta.hub-mobile-only {
+        width: 100%;
+        max-width: 320px;
+        margin: 0 auto;
     }
 
     .hub-primary-cta:hover {
@@ -1217,16 +1242,17 @@ else
     .hub-primary-cta-inner {
         display: flex;
         align-items: center;
-        gap: 14px;
-        padding: 15px 22px;
+        gap: 12px;
+        padding: 13px 20px;
     }
 
     .hub-primary-cta-label {
         font-family: 'Montserrat', sans-serif;
-        font-size: 0.95rem;
+        font-size: 0.90rem;
         font-weight: 700;
         color: rgba(248, 248, 248, 0.92);
         letter-spacing: 0.01em;
+        white-space: nowrap;
     }
 
     .hub-primary-cta-progress {
@@ -1242,10 +1268,22 @@ else
     /* ── Secondary action circles ── */
     .hub-detail-actions {
         display: flex;
-        gap: 0;
         align-items: flex-start;
         flex-wrap: nowrap;
-        justify-content: space-evenly;
+    }
+
+    /* Desktop: left-aligned, 20px gap */
+    .hub-detail-actions.hub-desktop-only {
+        justify-content: flex-start;
+        gap: 20px;
+    }
+
+    /* Mobile: centered, 20px gap, constrained width */
+    .hub-detail-actions.hub-mobile-only {
+        justify-content: center;
+        gap: 20px;
+        max-width: 320px;
+        margin: 0 auto;
         width: 100%;
     }
 
@@ -1258,8 +1296,7 @@ else
         border: none;
         padding: 4px 0;
         cursor: pointer;
-        flex: 1;
-        min-width: 0;
+        flex: 0 0 auto;
     }
 
     .hub-detail-action-circle {
@@ -1483,14 +1520,6 @@ else
         .hub-detail-title { font-size: 1.75rem; text-align: center; }
 
         .hub-format-slider { align-self: center; }
-
-        .hub-primary-cta { max-width: 320px; margin: 0 auto; width: 100%; }
-
-        /* Secondary actions: no-wrap, shrink to fit on one row */
-        .hub-detail-actions {
-            max-width: 320px;
-            margin: 0 auto;
-        }
 
         .hub-detail-action-circle {
             width: 46px;
