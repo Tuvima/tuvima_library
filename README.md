@@ -14,6 +14,7 @@
 
 [![License: AGPLv3](https://img.shields.io/badge/License-AGPLv3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![.NET](https://img.shields.io/badge/.NET-10.0-purple.svg)](https://dotnet.microsoft.com/)
+[![Docker Pulls](https://img.shields.io/docker/pulls/tuvima/tuvima-library)](https://hub.docker.com/r/tuvima/tuvima-library)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey.svg)]()
 [![Arr Compatible](https://img.shields.io/badge/Arr--Compatible-Radarr%20%7C%20Sonarr-orange.svg)]()
 
@@ -179,10 +180,39 @@ Settings live in `config/` as individual JSON files:
 ### Docker
 
 ```bash
-docker build -t tuvima-library .
-docker run -p 5016:5016 -p 61495:61495 \
-  -v /your/library:/data/library \
-  tuvima-library
+# Pull from Docker Hub
+docker pull tuvima/tuvima-library:latest
+
+# Run with persistent volumes
+docker run -d --name tuvima-library \
+  -p 8080:8080 -p 8081:8081 \
+  -v tuvima-data:/data \
+  -v /path/to/your/media:/library \
+  -v /path/to/watch-folder:/watch \
+  tuvima/tuvima-library:latest
+
+# Or use docker compose
+docker compose up -d
+```
+
+| Port | Service |
+|------|---------|
+| 8080 | Engine API (Swagger at `/swagger`) |
+| 8081 | Dashboard UI |
+
+| Volume | Purpose |
+|--------|---------|
+| `/data` | Database and persistent state |
+| `/library` | Organised media library |
+| `/watch` | Watch folder — drop files here for auto-ingestion |
+| `/app/config` | Configuration files (bind-mount to customise) |
+
+The image is also available on GHCR: `ghcr.io/tuvima/tuvima_library:latest`
+
+To build locally instead:
+
+```bash
+docker build -t tuvima/tuvima-library .
 ```
 
 ---

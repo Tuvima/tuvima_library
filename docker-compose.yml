@@ -11,9 +11,11 @@
 
 services:
   tuvima:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: tuvima/tuvima-library:latest
+    # To build locally instead, uncomment the lines below and comment out the image line:
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
     container_name: tuvima-library
     ports:
       - "8080:8080"   # Engine API

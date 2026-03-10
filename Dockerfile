@@ -1,10 +1,10 @@
 # ── Tuvima Library ────────────────────────────────────────────────────────────
 # Single container running both the Engine (port 8080) and Dashboard (port 8081)
 #
-# Build:   docker build -t tuvima/library .
+# Build:   docker build -t tuvima/tuvima-library .
 # Run:     docker run -p 8080:8080 -p 8081:8081 \
 #            -v tuvima-data:/data -v /path/to/media:/library -v /path/to/watch:/watch \
-#            tuvima/library
+#            tuvima/tuvima-library
 # ──────────────────────────────────────────────────────────────────────────────
 
 # ── Stage 1: Restore ─────────────────────────────────────────────────────────
@@ -54,6 +54,15 @@ RUN dotnet publish src/MediaEngine.Web/MediaEngine.Web.csproj \
 
 # ── Stage 3: Runtime ─────────────────────────────────────────────────────────
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+
+# OCI image metadata — used by Docker Hub, GHCR, and container tools
+LABEL org.opencontainers.image.title="Tuvima Library" \
+      org.opencontainers.image.description="The Private Universe Discovery & Media Engine — unified media intelligence platform for ebooks, audiobooks, comics, music, TV shows, and movies" \
+      org.opencontainers.image.url="https://github.com/Tuvima/tuvima_library" \
+      org.opencontainers.image.source="https://github.com/Tuvima/tuvima_library" \
+      org.opencontainers.image.documentation="https://github.com/Tuvima/tuvima_library#readme" \
+      org.opencontainers.image.licenses="AGPL-3.0-only" \
+      org.opencontainers.image.vendor="Tuvima"
 
 # SkiaSharp native dependencies for hero banner generation + curl for healthcheck
 RUN apt-get update && \
