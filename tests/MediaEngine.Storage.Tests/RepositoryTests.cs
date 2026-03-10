@@ -1,3 +1,4 @@
+using Microsoft.Data.Sqlite;
 using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
@@ -36,10 +37,12 @@ public sealed class RepositoryTests : IDisposable
     {
         var repo = new MediaAssetRepository(_db);
         var hash = $"hash_{Guid.NewGuid():N}";
+        var editionId = await CreateTestEditionAsync();
 
         var asset = new MediaAsset
         {
             Id           = Guid.NewGuid(),
+            EditionId    = editionId,
             ContentHash  = hash,
             FilePathRoot = "/library/Books/test.epub",
             Status       = AssetStatus.Normal,
@@ -68,15 +71,16 @@ public sealed class RepositoryTests : IDisposable
     {
         var repo = new MediaAssetRepository(_db);
         var hash = $"dup_{Guid.NewGuid():N}";
+        var editionId = await CreateTestEditionAsync();
 
         var asset1 = new MediaAsset
         {
-            Id = Guid.NewGuid(), ContentHash = hash,
+            Id = Guid.NewGuid(), EditionId = editionId, ContentHash = hash,
             FilePathRoot = "/first.epub", Status = AssetStatus.Normal,
         };
         var asset2 = new MediaAsset
         {
-            Id = Guid.NewGuid(), ContentHash = hash,
+            Id = Guid.NewGuid(), EditionId = editionId, ContentHash = hash,
             FilePathRoot = "/second.epub", Status = AssetStatus.Normal,
         };
 
@@ -96,7 +100,8 @@ public sealed class RepositoryTests : IDisposable
     {
         var repo = new MetadataClaimRepository(_db);
         var entityId = Guid.NewGuid();
-        var claim = MakeClaim(entityId, "title", "Dune", 0.95);
+        var providerId = await CreateTestProviderAsync();
+        var claim = MakeClaim(entityId, "title", "Dune", 0.95, providerId);
 
         await repo.InsertBatchAsync([claim]);
         var claims = await repo.GetByEntityAsync(entityId);
@@ -111,10 +116,11 @@ public sealed class RepositoryTests : IDisposable
     {
         var repo = new MetadataClaimRepository(_db);
         var entityId = Guid.NewGuid();
+        var providerId = await CreateTestProviderAsync();
 
-        await repo.InsertBatchAsync([MakeClaim(entityId, "title", "Dune")]);
-        await repo.InsertBatchAsync([MakeClaim(entityId, "author", "Frank Herbert")]);
-        await repo.InsertBatchAsync([MakeClaim(entityId, "year", "1965")]);
+        await repo.InsertBatchAsync([MakeClaim(entityId, "title", "Dune", 0.9, providerId)]);
+        await repo.InsertBatchAsync([MakeClaim(entityId, "author", "Frank Herbert", 0.9, providerId)]);
+        await repo.InsertBatchAsync([MakeClaim(entityId, "year", "1965", 0.9, providerId)]);
 
         var claims = await repo.GetByEntityAsync(entityId);
         Assert.Equal(3, claims.Count);
@@ -125,7 +131,8 @@ public sealed class RepositoryTests : IDisposable
     {
         var repo = new MetadataClaimRepository(_db);
         var entityId = Guid.NewGuid();
-        var claim = MakeClaim(entityId, "title", "My Title");
+        var providerId = await CreateTestProviderAsync();
+        var claim = MakeClaim(entityId, "title", "My Title", 0.9, providerId);
         claim.IsUserLocked = true;
 
         await repo.InsertBatchAsync([claim]);
@@ -317,10 +324,45 @@ public sealed class RepositoryTests : IDisposable
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     private static MetadataClaim MakeClaim(
-        Guid entityId, string key, string value, double confidence = 0.9) => new()
+        Guid entityId, string key, string value, double confidence = 0.9, Guid? providerId = null) => new()
     {
-        Id = Guid.NewGuid(), EntityId = entityId, ProviderId = Guid.NewGuid(),
+        Id = Guid.NewGuid(), EntityId = entityId, ProviderId = providerId ?? Guid.NewGuid(),
         ClaimKey = key, ClaimValue = value, Confidence = confidence,
         ClaimedAt = DateTimeOffset.UtcNow,
     };
+
+    /// <summary>
+    /// Creates a Hub → Work → Edition chain in the database and returns the Edition ID.
+    /// Required to satisfy the FK constraint on media_assets.edition_id.
+    /// </summary>
+    private async Task<Guid> CreateTestEditionAsync()
+    {
+        using var conn = _db.CreateConnection();
+        var hubId     = Guid.NewGuid();
+        var workId    = Guid.NewGuid();
+        var editionId = Guid.NewGuid();
+
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = $"""
+            INSERT INTO hubs (id, created_at) VALUES ('{hubId}', datetime('now'));
+            INSERT INTO works (id, hub_id, media_type) VALUES ('{workId}', '{hubId}', 'Epub');
+            INSERT INTO editions (id, work_id) VALUES ('{editionId}', '{workId}');
+            """;
+        await cmd.ExecuteNonQueryAsync();
+        return editionId;
+    }
+
+    /// <summary>
+    /// Inserts a test provider into provider_registry and returns its ID.
+    /// Required to satisfy the FK constraint on metadata_claims.provider_id.
+    /// </summary>
+    private async Task<Guid> CreateTestProviderAsync()
+    {
+        using var conn = _db.CreateConnection();
+        var providerId = Guid.NewGuid();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = $"INSERT INTO provider_registry (id, name, version) VALUES ('{providerId}', 'test-provider-{providerId:N}', '1.0')";
+        await cmd.ExecuteNonQueryAsync();
+        return providerId;
+    }
 }

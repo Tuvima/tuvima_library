@@ -100,7 +100,7 @@ public class AssetHasherTests : IDisposable
     [Fact]
     public async Task ComputeAsync_NullPath_Throws()
     {
-        await Assert.ThrowsAsync<ArgumentException>(() => _hasher.ComputeAsync(null!));
+        await Assert.ThrowsAsync<ArgumentNullException>(() => _hasher.ComputeAsync(null!));
     }
 
     [Fact]
@@ -118,7 +118,7 @@ public class AssetHasherTests : IDisposable
         using var cts = new CancellationTokenSource();
         cts.Cancel();
 
-        await Assert.ThrowsAsync<OperationCanceledException>(
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
             () => _hasher.ComputeAsync(file, cts.Token));
     }
 

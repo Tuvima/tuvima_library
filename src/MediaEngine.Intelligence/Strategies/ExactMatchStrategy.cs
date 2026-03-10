@@ -66,22 +66,29 @@ public sealed class ExactMatchStrategy : IScoringStrategy
         // Strip all whitespace and hyphens (ISBN formatting artifacts).
         var s = raw.Replace(" ", "").Replace("-", "").Trim();
 
-        // Remove well-known URI/scheme prefixes.
-        foreach (var prefix in _prefixes)
+        // Remove well-known URI/scheme prefixes iteratively so that
+        // compound prefixes like "imdb:tt" are fully stripped.
+        bool changed;
+        do
         {
-            if (s.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            changed = false;
+            foreach (var prefix in _prefixes)
             {
-                s = s[prefix.Length..];
-                break;
+                if (s.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    s = s[prefix.Length..];
+                    changed = true;
+                    break;
+                }
             }
-        }
+        } while (changed);
 
         return s.ToLowerInvariant();
     }
 
     private static readonly string[] _prefixes =
     [
-        "urn:isbn:", "isbn:", "imdb:", "tt",
+        "urn:isbn:", "isbn:", "isbn", "imdb:", "tt",
         "urn:ean:", "ean:",
         "asin:",
     ];

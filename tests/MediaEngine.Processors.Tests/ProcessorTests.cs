@@ -60,7 +60,7 @@ public class GenericFileProcessorTests
     [Fact]
     public async Task ProcessAsync_ThrowsOnNullPath()
     {
-        await Assert.ThrowsAsync<ArgumentException>(() => _processor.ProcessAsync(null!));
+        await Assert.ThrowsAsync<ArgumentNullException>(() => _processor.ProcessAsync(null!));
     }
 
     [Fact]
@@ -89,7 +89,7 @@ public class MediaProcessorRegistryTests : IDisposable
     [Fact]
     public void Resolve_NullPath_Throws()
     {
-        Assert.Throws<ArgumentException>(() => _registry.Resolve(null!));
+        Assert.Throws<ArgumentNullException>(() => _registry.Resolve(null!));
     }
 
     [Fact]

@@ -372,9 +372,10 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
 
             return ParsePersonEntity(entityJson, qid, commonsTemplate);
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
         {
-            throw;
+            // HTTP timeout from the HTTP client — return empty result, do not propagate
+            return [];
         }
         catch (Exception ex)
         {

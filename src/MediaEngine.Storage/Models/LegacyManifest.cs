@@ -21,6 +21,10 @@ public enum ProviderDomain
     Comic,
     /// <summary>Film and TV oriented provider (e.g. TMDB, IMDb).</summary>
     Video,
+    /// <summary>Podcast oriented provider (e.g. Apple Podcasts, Podcast Index).</summary>
+    Podcasts,
+    /// <summary>Music oriented provider (e.g. MusicBrainz, Spotify).</summary>
+    Music,
 }
 
 /// <summary>

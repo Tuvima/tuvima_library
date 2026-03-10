@@ -33,8 +33,9 @@ public static class JsonPathEvaluator
         var current = root;
         var segments = path.Split('.');
 
-        foreach (var segment in segments)
+        for (int i = 0; i < segments.Length; i++)
         {
+            var segment = segments[i];
             if (current is null)
                 return null;
 
@@ -61,12 +62,22 @@ public static class JsonPathEvaluator
                 if (indexStr == "*")
                 {
                     // Wildcard: extract a child property from each array element.
-                    // Remaining path after "]." is the child key.
-                    var remaining = bracketEnd + 1 < segment.Length && segment[bracketEnd + 1] == '.'
+                    // Inline child key: e.g. "arr[*].child" in a single segment (unusual).
+                    var inlineChild = bracketEnd + 1 < segment.Length && segment[bracketEnd + 1] == '.'
                         ? segment[(bracketEnd + 2)..]
                         : null;
 
-                    return ExtractWildcard(current, remaining, segments, segment);
+                    // Cross-segment child key: path was split by '.', so the child
+                    // key is in segments[i+1..]. E.g. "narrators[*]" + "name".
+                    string? childKey;
+                    if (!string.IsNullOrEmpty(inlineChild))
+                        childKey = inlineChild;
+                    else if (i + 1 < segments.Length)
+                        childKey = string.Join(".", segments[(i + 1)..]);
+                    else
+                        childKey = null;
+
+                    return ExtractWildcard(current, childKey);
                 }
 
                 // Numeric index.
@@ -86,6 +97,7 @@ public static class JsonPathEvaluator
 
         return current;
     }
+
 
     /// <summary>
     /// Extract a string value from a JSON node. Handles primitives, numbers, and booleans.
@@ -156,8 +168,7 @@ public static class JsonPathEvaluator
     /// Builds a synthetic JSON array of the extracted child values.
     /// </summary>
     private static JsonNode? ExtractWildcard(
-        JsonNode current, string? childKey,
-        string[] allSegments, string currentSegment)
+        JsonNode current, string? childKey)
     {
         if (current is not JsonArray arr)
             return null;
