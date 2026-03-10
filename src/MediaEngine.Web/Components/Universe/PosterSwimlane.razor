@@ -1,7 +1,10 @@
 @namespace MediaEngine.Web.Components.Universe
 
-@* PosterSwimlane — Horizontal scrolling row of PosterCards.
-   Features: section title with item count, "See All" link, hidden scrollbar, scroll-snap, touch-friendly. *@
+@inject IJSRuntime JS
+
+@* PosterSwimlane -- Horizontal scrolling row of PosterCards.
+   Features: section title with item count, "See All" link, hidden scrollbar,
+   scroll-snap, touch-friendly, left/right scroll arrow buttons. *@
 
 @if (Hubs is { Count: > 0 })
 {
@@ -20,13 +23,25 @@
             }
         </div>
 
-        <div class="swimlane-scroll">
-            @foreach (var hub in Hubs)
-            {
-                <PosterCard Hub="@hub"
-                            OnHubSelected="OnHubSelected"
-                            Width="@CardWidth" />
-            }
+        <div class="swimlane-scroll-wrapper">
+            <button class="swimlane-arrow swimlane-arrow-left" @onclick="ScrollLeft"
+                    aria-label="Scroll left">
+                <MudIcon Icon="@MudBlazor.Icons.Material.Filled.ChevronLeft" Size="Size.Medium" />
+            </button>
+
+            <div class="swimlane-scroll" @ref="_scrollRef">
+                @foreach (var hub in Hubs)
+                {
+                    <PosterCard Hub="@hub"
+                                OnHubSelected="OnHubSelected"
+                                Width="@CardWidth" />
+                }
+            </div>
+
+            <button class="swimlane-arrow swimlane-arrow-right" @onclick="ScrollRight"
+                    aria-label="Scroll right">
+                <MudIcon Icon="@MudBlazor.Icons.Material.Filled.ChevronRight" Size="Size.Medium" />
+            </button>
         </div>
     </div>
 }
@@ -39,6 +54,18 @@
     [Parameter] public string? Class { get; set; }
     [Parameter] public int? TotalCount { get; set; }
     [Parameter] public string? SeeAllRoute { get; set; }
+
+    private ElementReference _scrollRef;
+
+    private async Task ScrollLeft()
+    {
+        await JS.InvokeVoidAsync("scrollSwimlane", _scrollRef, "left");
+    }
+
+    private async Task ScrollRight()
+    {
+        await JS.InvokeVoidAsync("scrollSwimlane", _scrollRef, "right");
+    }
 }
 
 <style>
@@ -48,7 +75,7 @@
         padding-left: 88px;
     }
 
-    /* Mobile: dock is hidden — reduce swimlane indent to match container padding */
+    /* Mobile: dock is hidden -- reduce swimlane indent to match container padding */
     @@media (max-width: 768px) {
         .swimlane-section {
             padding-left: 0;
@@ -97,6 +124,55 @@
 
     .swimlane-see-all:hover {
         color: rgba(248, 248, 248, 0.75);
+    }
+
+    /* -- Scroll wrapper with arrow buttons -- */
+    .swimlane-scroll-wrapper {
+        position: relative;
+    }
+
+    .swimlane-arrow {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 40px;
+        z-index: 2;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: none;
+        cursor: pointer;
+        color: rgba(248, 248, 248, 0.80);
+        opacity: 0;
+        transition: opacity 0.2s ease;
+        padding: 0;
+    }
+
+    .swimlane-arrow-left {
+        left: 0;
+        background: linear-gradient(to right, rgba(6, 10, 22, 0.95) 40%, transparent);
+        border-radius: 6px 0 0 6px;
+    }
+
+    .swimlane-arrow-right {
+        right: 0;
+        background: linear-gradient(to left, rgba(6, 10, 22, 0.95) 40%, transparent);
+        border-radius: 0 6px 6px 0;
+    }
+
+    .swimlane-scroll-wrapper:hover .swimlane-arrow {
+        opacity: 1;
+    }
+
+    .swimlane-arrow:hover {
+        color: rgba(248, 248, 248, 1);
+    }
+
+    /* Hide arrows on touch devices -- they scroll natively */
+    @@media (hover: none) {
+        .swimlane-arrow {
+            display: none;
+        }
     }
 
     .swimlane-scroll {

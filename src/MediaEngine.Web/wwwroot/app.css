@@ -264,6 +264,12 @@ body {
     top: 0 !important;
     bottom: 0 !important;
     height: 100dvh !important;
+    z-index: calc(var(--mud-zindex-appbar, 1100) + 200) !important;
+}
+
+/* MudBlazor drawer overlay must also sit above the TopBar so tap-to-close works */
+.mud-overlay.mud-overlay-drawer {
+    z-index: calc(var(--mud-zindex-appbar, 1100) + 190) !important;
 }
 
 /* Force drawer content top-alignment */
@@ -274,5 +280,5 @@ body {
     align-items: stretch !important;
     height: 100% !important;
     overflow-y: auto !important;
-    padding-top: 72px !important;
+    padding-top: 16px !important;
 }

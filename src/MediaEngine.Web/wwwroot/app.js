@@ -76,3 +76,21 @@ window.setDeviceClass = function (deviceClass) {
         localStorage.setItem('device_class', deviceClass.toLowerCase());
     }
 };
+
+// -- Swimlane Scroll Arrows -----------------------------------------------
+
+/**
+ * Smoothly scrolls a swimlane element left or right by 75% of its visible width.
+ * Called from PosterSwimlane.razor via JS interop.
+ *
+ * @param {HTMLElement} el  - The .swimlane-scroll container element.
+ * @param {string} direction - "left" or "right".
+ */
+window.scrollSwimlane = function (el, direction) {
+    if (!el) return;
+    var scrollAmount = el.clientWidth * 0.75;
+    el.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth'
+    });
+};

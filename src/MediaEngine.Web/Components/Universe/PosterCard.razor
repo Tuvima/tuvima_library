@@ -5,8 +5,8 @@
 @* PosterCard — Individual poster art tile with cover image, title, and metadata badges.
    Used inside PosterSwimlane for horizontal scrolling rows. *@
 
-<div class="poster-card" style="width: @(Width)px;" @onclick="OnClick">
-    <div class="poster-card-artwork" style="aspect-ratio: @ArtworkAspectRatio; @ArtworkStyle">
+<div class="poster-card" style="width: @(Width)px; --card-width: @(Width)px;" @onclick="OnClick">
+    <div class="poster-card-artwork" style="@ArtworkStyle">
         @if (!string.IsNullOrEmpty(Hub.CoverUrl))
         {
             <img src="@Hub.CoverUrl"
@@ -69,16 +69,6 @@
             ? $"background: linear-gradient(160deg, {Hub.DominantHexColor ?? "#1A2040"}44 0%, #0D1230 100%);"
             : string.Empty;
 
-    private string ArtworkAspectRatio
-    {
-        get
-        {
-            var t = (Hub.PrimaryMediaType ?? "").ToLowerInvariant();
-            if (t.Contains("m4b") || t.Contains("audiobook") || t.Contains("audio"))
-                return "1 / 1";
-            return "2 / 3";
-        }
-    }
 
     private async Task OnClick() => await OnHubSelected.InvokeAsync(Hub);
 
@@ -127,6 +117,7 @@
     .poster-card-artwork {
         position: relative;
         width: 100%;
+        height: calc(var(--card-width) * 1.5);
         border-radius: 8px;
         overflow: hidden;
         display: flex;
@@ -192,9 +183,9 @@
     }
 
     .poster-card-img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
     }
 
     .poster-card-info {

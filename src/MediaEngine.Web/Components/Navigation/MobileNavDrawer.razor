@@ -10,15 +10,6 @@
 <MudDrawer @bind-Open="@Open" Anchor="Anchor.Left" Variant="@DrawerVariant.Temporary"
            Elevation="0" Class="mobile-nav-drawer">
 
-    @* -- Logo at top -- *@
-    <div class="mobile-nav-logo">
-        <MudLink Href="/" Underline="Underline.None" Style="text-decoration: none;">
-            <AppLogo Style="height: 28px; display: block;" />
-        </MudLink>
-    </div>
-
-    <MudDivider Class="mb-2" Style="border-color: rgba(255,255,255,0.06);" />
-
     @* -- Fixed content-type lanes -- *@
     <MudNavMenu Color="Color.Inherit" Class="mobile-nav-menu">
 
@@ -81,8 +72,7 @@
         top: 0 !important;
     }
 
-    /* TopBar (z-index 1250) covers the first 64px of the drawer (z-index 1102).
-       Add padding so content starts below the TopBar. */
+    /* Drawer now overlays TopBar -- small top padding for breathing room. */
     .mobile-nav-drawer .mud-drawer-content {
         display: flex !important;
         flex-direction: column !important;
@@ -90,11 +80,7 @@
         align-items: stretch !important;
         height: 100% !important;
         overflow-y: auto;
-        padding-top: 72px !important;
-    }
-
-    .mobile-nav-logo {
-        padding: 8px 16px 12px;
+        padding-top: 16px !important;
     }
 
     .mobile-nav-menu {
