@@ -1,4 +1,4 @@
-﻿@page "/hub/{Id:guid}"
+@page "/hub/{Id:guid}"
 @inject UIOrchestratorService  Orchestrator
 @inject UniverseStateContainer  State
 @inject NavigationManager       Nav
@@ -74,7 +74,7 @@ else
     @* ── Scrollable content layer ── *@
     <div class="detail-content-layer hub-detail-page">
 
-        @* ── Breadcrumb (centered) ── *@
+        @* ── Breadcrumb ── *@
         <div class="hub-detail-breadcrumb-outer">
             <nav class="hub-detail-breadcrumb">
                 <button class="hub-detail-bc-link" @onclick="@(() => Nav.NavigateTo("/"))">Home</button>
@@ -102,7 +102,7 @@ else
         <div class="hub-detail-main-outer">
             <div class="hub-detail-main-panel">
 
-                @* Left sidebar *@
+                @* ── Left sidebar ── *@
                 <aside class="hub-detail-sidebar">
 
                     @if (!string.IsNullOrEmpty(_hub.Author))
@@ -124,7 +124,7 @@ else
                     }
 
                     @{
-                        var genres      = GenreTags;
+                        var genres        = GenreTags;
                         var visibleGenres = _showAllGenres ? genres : genres.Take(3).ToList();
                         var hiddenCount   = genres.Count - 3;
                     }
@@ -157,30 +157,8 @@ else
 
                 </aside>
 
-                @* Center content *@
+                @* ── Center content (metadata + description) ── *@
                 <div class="hub-detail-content">
-
-                    @* Title *@
-                    <h1 class="hub-detail-title">@_hub.DisplayName</h1>
-
-                    @* Format slider — shown only when multiple formats are available *@
-                    @{
-                        var _fmts = AvailableFormats();
-                    }
-                    @if (_fmts.Count > 1)
-                    {
-                        <div class="hub-format-slider">
-                            @foreach (var fmt in _fmts)
-                            {
-                                var isSliderActive = ActiveFormatKey == fmt.Key;
-                                <button class="hub-format-slider-btn @(isSliderActive ? "active" : "")"
-                                        @onclick="@(() => _selectedFormatKey = fmt.Key)">
-                                    <MudIcon Icon="@fmt.Icon" Style="font-size: 1rem; flex-shrink:0;" />
-                                    @fmt.Label
-                                </button>
-                            }
-                        </div>
-                    }
 
                     @* Metadata row: rating | reading time | year *@
                     @{
@@ -230,18 +208,99 @@ else
                         </div>
                     }
 
+                    @* Description *@
+                    @if (!string.IsNullOrEmpty(_hub.Description))
+                    {
+                        <div class="hub-detail-description-wrap">
+                            <p class="hub-detail-description">
+                                @(_showFullDescription ? _hub.Description : Truncate(_hub.Description, 400))
+                            </p>
+                            @if (_hub.Description.Length > 400)
+                            {
+                                <button class="hub-detail-expand-btn"
+                                        @onclick="@(() => _showFullDescription = !_showFullDescription)">
+                                    @(_showFullDescription ? "Show less" : "Show more")
+                                </button>
+                            }
+                        </div>
+                    }
 
-                    @* Action bar — circular icon buttons *@
-                    <div class="hub-detail-actions">
-
-                        @* Read / Watch / Listen *@
-                        <button class="hub-detail-action-btn" @onclick="@OnPrimaryAction">
-                            <div class="hub-detail-action-circle hub-detail-action-circle-primary">
-                                <MudIcon Icon="@Icons.Material.Filled.PlayArrow"
-                                         Style="color: #C9922E; font-size: 1.6rem;" />
+                    @* Progress label *@
+                    @if (_activeJourney is not null && _activeJourney.ProgressPct is > 0 and < 99.5)
+                    {
+                        <div class="hub-detail-progress-wrap">
+                            <div class="hub-detail-progress-bar-track">
+                                <div class="hub-detail-progress-bar-fill"
+                                     style="width: @(_activeJourney.ProgressPct.ToString("F0"))%">
+                                </div>
                             </div>
-                            <span class="hub-detail-action-label">@PrimaryActionShort()</span>
-                        </button>
+                            <span class="hub-detail-progress-label">@_activeJourney.ProgressDisplay</span>
+                        </div>
+                    }
+
+                </div>
+
+                @* ── Right panel: title, format slider, cover, CTA, secondary actions ── *@
+                @{
+                    var activeCoverUrl = ActiveWork?.CoverUrl ?? _hub.CoverUrl;
+                    var coverIsAudio   = ActiveFormatKey == "audiobook";
+                    var progressPct    = _activeJourney?.ProgressPct ?? 0;
+                    var hasProgress    = progressPct is > 0 and < 99.5;
+                    var _fmts          = AvailableFormats();
+                }
+                <div class="hub-detail-cover-panel">
+
+                    @* Title *@
+                    <h1 class="hub-detail-title">@_hub.DisplayName</h1>
+
+                    @* Format slider — only when multiple formats available *@
+                    @if (_fmts.Count > 1)
+                    {
+                        <div class="hub-format-slider">
+                            @foreach (var fmt in _fmts)
+                            {
+                                var isSliderActive = ActiveFormatKey == fmt.Key;
+                                <button class="hub-format-slider-btn @(isSliderActive ? "active" : "")"
+                                        @onclick="@(() => _selectedFormatKey = fmt.Key)">
+                                    <MudIcon Icon="@fmt.Icon" Style="font-size: 1rem; flex-shrink:0;" />
+                                    @fmt.Label
+                                </button>
+                            }
+                        </div>
+                    }
+
+                    @* Cover art *@
+                    <div class="hub-detail-cover-wrap" @onclick="@(() => _lightboxOpen = !string.IsNullOrEmpty(activeCoverUrl))">
+                        @if (!string.IsNullOrEmpty(activeCoverUrl))
+                        {
+                            <img src="@activeCoverUrl" alt="@_hub.DisplayName"
+                                 class="hub-detail-cover @(coverIsAudio ? "hub-detail-cover-audio" : "")" />
+                        }
+                        else
+                        {
+                            <div class="hub-detail-cover @(coverIsAudio ? "hub-detail-cover-audio" : "") hub-detail-cover-placeholder">
+                                <MudIcon Icon="@GetHubIcon()" Style="font-size: 64px; color: rgba(255,255,255,0.18);" />
+                            </div>
+                        }
+                    </div>
+
+                    @* Primary CTA button *@
+                    <button class="hub-primary-cta" @onclick="@OnPrimaryAction">
+                        <div class="hub-primary-cta-inner">
+                            <MudIcon Icon="@GetPrimaryActionIcon()"
+                                     Style="font-size: 1.35rem; color: rgba(248,248,248,0.90); flex-shrink:0;" />
+                            <span class="hub-primary-cta-label">@PrimaryActionLabel()</span>
+                        </div>
+                        @if (hasProgress)
+                        {
+                            <div class="hub-primary-cta-progress"
+                                 style="width: @(progressPct.ToString("F0"))%">
+                            </div>
+                        }
+                    </button>
+
+                    @* Secondary action circles *@
+                    <div class="hub-detail-actions">
 
                         @* Add To *@
                         <button class="hub-detail-action-btn" @onclick="@OnAddTo">
@@ -306,55 +365,6 @@ else
 
                     </div>
 
-                    @* Description *@
-                    @if (!string.IsNullOrEmpty(_hub.Description))
-                    {
-                        <div class="hub-detail-description-wrap">
-                            <p class="hub-detail-description">
-                                @(_showFullDescription ? _hub.Description : Truncate(_hub.Description, 400))
-                            </p>
-                            @if (_hub.Description.Length > 400)
-                            {
-                                <button class="hub-detail-expand-btn"
-                                        @onclick="@(() => _showFullDescription = !_showFullDescription)">
-                                    @(_showFullDescription ? "Show less" : "Show more")
-                                </button>
-                            }
-                        </div>
-                    }
-
-                    @* Progress bar *@
-                    @if (_activeJourney is not null && _activeJourney.ProgressPct is > 0 and < 99.5)
-                    {
-                        <div class="hub-detail-progress-wrap">
-                            <div class="hub-detail-progress-bar-track">
-                                <div class="hub-detail-progress-bar-fill"
-                                     style="width: @(_activeJourney.ProgressPct.ToString("F0"))%">
-                                </div>
-                            </div>
-                            <span class="hub-detail-progress-label">@_activeJourney.ProgressDisplay</span>
-                        </div>
-                    }
-
-
-                </div>
-                @* Right: Cover art *@
-                @{
-                    var activeCoverUrl = ActiveWork?.CoverUrl ?? _hub.CoverUrl;
-                    var coverIsAudio   = ActiveFormatKey == "audiobook";
-                }
-                <div class="hub-detail-cover-wrap" @onclick="@(() => _lightboxOpen = !string.IsNullOrEmpty(activeCoverUrl))">
-                    @if (!string.IsNullOrEmpty(activeCoverUrl))
-                    {
-                        <img src="@activeCoverUrl" alt="@_hub.DisplayName"
-                             class="hub-detail-cover @(coverIsAudio ? "hub-detail-cover-audio" : "")" />
-                    }
-                    else
-                    {
-                        <div class="hub-detail-cover @(coverIsAudio ? "hub-detail-cover-audio" : "") hub-detail-cover-placeholder">
-                            <MudIcon Icon="@GetHubIcon()" Style="font-size: 64px; color: rgba(255,255,255,0.18);" />
-                        </div>
-                    }
                 </div>
 
             </div>
@@ -412,15 +422,15 @@ else
 }
 @if (_lightboxOpen && _hub is not null)
 {
-    <div class=hub-cover-lightbox @onclick=@(() => _lightboxOpen = false)>
+    <div class="hub-cover-lightbox" @onclick="@(() => _lightboxOpen = false)">
         @if (!string.IsNullOrEmpty(_lbCoverUrl))
         {
-            <img src=@_lbCoverUrl alt=@_hub.DisplayName
-                 class=hub-cover-lightbox-img
-                 @onclick:stopPropagation=true />
+            <img src="@_lbCoverUrl" alt="@_hub.DisplayName"
+                 class="hub-cover-lightbox-img"
+                 @onclick:stopPropagation="true" />
         }
-        <button class=hub-cover-lightbox-close @onclick=@(() => _lightboxOpen = false)>
-            <MudIcon Icon=@Icons.Material.Filled.Close />
+        <button class="hub-cover-lightbox-close" @onclick="@(() => _lightboxOpen = false)">
+            <MudIcon Icon="@Icons.Material.Filled.Close" />
         </button>
     </div>
 }
@@ -547,7 +557,6 @@ else
             .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
             .ToList() ?? [];
 
-
     // ── Format selector helpers ──────────────────────────────────────────────
 
     private record FormatOption(string Key, string Label, string Icon, WorkViewModel Work);
@@ -612,11 +621,38 @@ else
         return ("Books", "/books");
     }
 
+    /// <summary>Short label for the primary action — used only internally.</summary>
     private string PrimaryActionShort() => ActiveFormatKey switch
     {
         "video"     => "Watch",
         "audiobook" => "Listen",
         _           => "Read"
+    };
+
+    /// <summary>Context-aware label: changes based on reading progress.</summary>
+    private string PrimaryActionLabel()
+    {
+        var pct = _activeJourney?.ProgressPct;
+        return (ActiveFormatKey, pct) switch
+        {
+            ("video",     >= 99.5) => "Watch Again",
+            ("video",     > 0)     => "Continue Watching",
+            ("video",     _)       => "Watch",
+            ("audiobook", >= 99.5) => "Listen Again",
+            ("audiobook", > 0)     => "Continue Listening",
+            ("audiobook", _)       => "Listen",
+            (_,           >= 99.5) => "Read Again",
+            (_,           > 0)     => "Continue Reading",
+            _                      => "Read"
+        };
+    }
+
+    /// <summary>Proper icon for the primary action button.</summary>
+    private string GetPrimaryActionIcon() => ActiveFormatKey switch
+    {
+        "video"     => Icons.Material.Filled.PlayArrow,
+        "audiobook" => Icons.Material.Filled.Headphones,
+        _           => Icons.Material.Filled.MenuBook
     };
 
     private string PrimaryFormatLabel()
@@ -733,7 +769,7 @@ else
         line-height: 1;
     }
 
-    /* ── Main panel outer (centers content) ── */
+    /* ── Main panel outer ── */
     .hub-detail-main-outer {
         max-width: 1400px;
         margin: 0 auto;
@@ -757,7 +793,7 @@ else
         flex-direction: column;
         gap: 24px;
         text-align: right;
-        padding-top: 14px; /* align with title baseline */
+        padding-top: 14px;
     }
 
     .hub-detail-sidebar-item {
@@ -801,7 +837,7 @@ else
 
     .hub-detail-sidebar-author:hover { color: #e0aa50; }
 
-    /* Genre chips in sidebar (right-aligned) */
+    /* Genre chips */
     .hub-detail-genre-row {
         display: flex;
         flex-wrap: wrap;
@@ -837,67 +873,6 @@ else
 
     .hub-detail-genre-more:hover { color: #e0aa50; }
 
-    /* ── Format slider toggle (under title) ── */
-    .hub-format-slider {
-        display: inline-flex;
-        background: rgba(255, 255, 255, 0.07);
-        border: 1px solid rgba(255, 255, 255, 0.10);
-        border-radius: 100px;
-        padding: 3px;
-        gap: 2px;
-        align-self: flex-start;
-    }
-
-    .hub-format-slider-btn {
-        display: inline-flex;
-        align-items: center;
-        gap: 7px;
-        font-family: 'Montserrat', sans-serif;
-        font-size: 0.82rem;
-        font-weight: 600;
-        padding: 8px 18px;
-        border-radius: 100px;
-        border: none;
-        background: transparent;
-        color: rgba(248, 248, 248, 0.50);
-        cursor: pointer;
-        transition: all 0.20s ease;
-        white-space: nowrap;
-    }
-
-    .hub-format-slider-btn:hover:not(.active) {
-        color: rgba(248, 248, 248, 0.80);
-        background: rgba(255, 255, 255, 0.06);
-    }
-
-    .hub-format-slider-btn.active {
-        background: #C9922E;
-        color: #111111;
-    }
-
-    /* Narrator row */
-    .hub-detail-narrator-row {
-        display: flex;
-        align-items: center;
-        gap: 2px;
-    }
-
-    .hub-detail-narrator-label {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 0.80rem;
-        font-weight: 500;
-        color: rgba(248, 248, 248, 0.45);
-        margin-right: 4px;
-    }
-
-    .hub-detail-narrator-name {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 0.80rem;
-        font-weight: 600;
-        color: rgba(248, 248, 248, 0.72);
-    }
-
-
     /* ── Center content column ── */
     .hub-detail-content {
         flex: 1;
@@ -905,17 +880,7 @@ else
         display: flex;
         flex-direction: column;
         gap: 16px;
-    }
-
-    /* Title */
-    .hub-detail-title {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 2.8rem;
-        font-weight: 700;
-        color: rgba(248, 248, 248, 0.97);
-        line-height: 1.12;
-        margin: 0;
-        letter-spacing: -0.02em;
+        padding-top: 14px;
     }
 
     /* Metadata row */
@@ -955,6 +920,28 @@ else
         user-select: none;
     }
 
+    /* Narrator row */
+    .hub-detail-narrator-row {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+    }
+
+    .hub-detail-narrator-label {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.80rem;
+        font-weight: 500;
+        color: rgba(248, 248, 248, 0.45);
+        margin-right: 4px;
+    }
+
+    .hub-detail-narrator-name {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.80rem;
+        font-weight: 600;
+        color: rgba(248, 248, 248, 0.72);
+    }
+
     /* Description */
     .hub-detail-description-wrap { display: flex; flex-direction: column; gap: 8px; }
 
@@ -983,7 +970,7 @@ else
 
     .hub-detail-expand-btn:hover { color: #e0aa50; }
 
-    /* Progress */
+    /* Progress label row */
     .hub-detail-progress-wrap {
         display: flex;
         align-items: center;
@@ -992,7 +979,7 @@ else
 
     .hub-detail-progress-bar-track {
         flex: 1;
-        max-width: 220px;
+        max-width: 200px;
         height: 3px;
         border-radius: 2px;
         background: rgba(255, 255, 255, 0.10);
@@ -1013,65 +1000,67 @@ else
         color: #C9922E;
     }
 
-    /* ── Action bar — circular buttons ── */
-    .hub-detail-actions {
-        display: flex;
-        gap: 16px;
-        align-items: flex-start;
-        flex-wrap: wrap;
-        margin-top: 4px;
-    }
-
-    .hub-detail-action-btn {
+    /* ── Right panel: title + format slider + cover + CTA + secondary actions ── */
+    .hub-detail-cover-panel {
+        flex-shrink: 0;
+        width: 400px;
         display: flex;
         flex-direction: column;
+        gap: 12px;
+    }
+
+    /* Title (lives inside right panel) */
+    .hub-detail-title {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 2.2rem;
+        font-weight: 700;
+        color: rgba(248, 248, 248, 0.97);
+        line-height: 1.15;
+        margin: 0;
+        letter-spacing: -0.02em;
+        word-break: break-word;
+    }
+
+    /* ── Format slider toggle ── */
+    .hub-format-slider {
+        display: inline-flex;
+        background: rgba(255, 255, 255, 0.07);
+        border: 1px solid rgba(255, 255, 255, 0.10);
+        border-radius: 100px;
+        padding: 3px;
+        gap: 2px;
+        align-self: flex-start;
+    }
+
+    .hub-format-slider-btn {
+        display: inline-flex;
         align-items: center;
         gap: 7px;
-        background: none;
-        border: none;
-        padding: 0;
-        cursor: pointer;
-        min-width: 56px;
-    }
-
-    .hub-detail-action-circle {
-        width: 54px;
-        height: 54px;
-        border-radius: 50%;
-        background: rgba(255, 255, 255, 0.13);
-        border: 1.5px solid rgba(255, 255, 255, 0.22);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: background 0.2s, border-color 0.2s;
-    }
-
-    .hub-detail-action-btn:hover .hub-detail-action-circle {
-        background: rgba(255, 255, 255, 0.20);
-        border-color: rgba(255, 255, 255, 0.35);
-    }
-
-    .hub-detail-action-circle-primary {
-        background: rgba(201, 146, 46, 0.28);
-        border-color: rgba(201, 146, 46, 0.65);
-    }
-
-    .hub-detail-action-btn:hover .hub-detail-action-circle-primary {
-        background: rgba(201, 146, 46, 0.42);
-        border-color: rgba(201, 146, 46, 0.80);
-    }
-
-    .hub-detail-action-label {
         font-family: 'Montserrat', sans-serif;
-        font-size: 0.70rem;
-        font-weight: 500;
+        font-size: 0.82rem;
+        font-weight: 600;
+        padding: 8px 18px;
+        border-radius: 100px;
+        border: none;
+        background: transparent;
         color: rgba(248, 248, 248, 0.50);
+        cursor: pointer;
+        transition: all 0.20s ease;
         white-space: nowrap;
     }
 
-    /* ── Cover art (right column) ── */
+    .hub-format-slider-btn:hover:not(.active) {
+        color: rgba(248, 248, 248, 0.80);
+        background: rgba(255, 255, 255, 0.06);
+    }
+
+    .hub-format-slider-btn.active {
+        background: #C9922E;
+        color: #111111;
+    }
+
+    /* ── Cover art ── */
     .hub-detail-cover-wrap {
-        flex-shrink: 0;
         cursor: zoom-in;
     }
 
@@ -1098,11 +1087,104 @@ else
         justify-content: center;
     }
 
-    /* Square cover for audiobooks — same width as book cover to prevent layout shift */
+    /* Square cover for audiobooks — same width to prevent layout shift */
     .hub-detail-cover-audio {
         width: 400px;
         height: 400px;
         object-fit: contain;
+    }
+
+    /* ── Primary CTA button (full-width rectangle) ── */
+    .hub-primary-cta {
+        width: 100%;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        background: rgba(14, 16, 28, 0.90);
+        border: 1.5px solid rgba(201, 146, 46, 0.45);
+        border-radius: 8px;
+        cursor: pointer;
+        overflow: hidden;
+        transition: background 0.2s ease, border-color 0.2s ease;
+        padding: 0;
+    }
+
+    .hub-primary-cta:hover {
+        background: rgba(201, 146, 46, 0.10);
+        border-color: rgba(201, 146, 46, 0.70);
+    }
+
+    .hub-primary-cta-inner {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 15px 22px;
+    }
+
+    .hub-primary-cta-label {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: rgba(248, 248, 248, 0.92);
+        letter-spacing: 0.01em;
+    }
+
+    .hub-primary-cta-progress {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        height: 3px;
+        background: #C9922E;
+        border-radius: 0 0 0 6px;
+        transition: width 0.4s ease;
+    }
+
+    /* ── Secondary action circles ── */
+    .hub-detail-actions {
+        display: flex;
+        gap: 0;
+        align-items: flex-start;
+        flex-wrap: nowrap;
+        justify-content: space-between;
+        width: 100%;
+    }
+
+    .hub-detail-action-btn {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 7px;
+        background: none;
+        border: none;
+        padding: 4px 0;
+        cursor: pointer;
+        flex: 1;
+        min-width: 0;
+    }
+
+    .hub-detail-action-circle {
+        width: 54px;
+        height: 54px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.13);
+        border: 1.5px solid rgba(255, 255, 255, 0.22);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.2s, border-color 0.2s;
+    }
+
+    .hub-detail-action-btn:hover .hub-detail-action-circle {
+        background: rgba(255, 255, 255, 0.20);
+        border-color: rgba(255, 255, 255, 0.35);
+    }
+
+    .hub-detail-action-label {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.70rem;
+        font-weight: 500;
+        color: rgba(248, 248, 248, 0.50);
+        white-space: nowrap;
     }
 
     /* ── Cover art lightbox ── */
@@ -1160,7 +1242,7 @@ else
         padding-right: 40px;
     }
 
-    /* ── Author section (full-width, bottom) ── */
+    /* ── Author section ── */
     .hub-detail-author-section {
         background: rgba(0, 0, 0, 0.28);
         border-top: 1px solid rgba(255, 255, 255, 0.05);
@@ -1255,7 +1337,7 @@ else
 
     /* ── Responsive ── */
     @@media (max-width: 900px) {
-        .hub-detail-main-outer { padding: 0 20px; }
+        .hub-detail-main-outer      { padding: 0 20px; }
         .hub-detail-breadcrumb-outer { padding: 0 20px; }
 
         .hub-detail-main-panel {
@@ -1263,28 +1345,57 @@ else
             gap: 24px;
         }
 
-        /* On mobile: cover goes first (top), then content, sidebar last */
-        .hub-detail-cover-wrap { order: -1; align-self: center; cursor: zoom-in; }
-        .hub-detail-sidebar    { order: 1; width: 100%; text-align: left; flex-direction: row; flex-wrap: wrap; gap: 16px; padding-top: 0; }
-        .hub-detail-content    { order: 0; }
+        /* Right panel goes first on mobile */
+        .hub-detail-cover-panel { order: -1; width: 100%; align-self: center; }
+        .hub-detail-sidebar     { order: 1; width: 100%; text-align: left; flex-direction: row; flex-wrap: wrap; gap: 16px; padding-top: 0; }
+        .hub-detail-content     { order: 0; padding-top: 0; }
 
         .hub-detail-sidebar-item { flex: 1; min-width: 100px; }
         .hub-detail-genre-row    { justify-content: flex-start; }
 
         .hub-detail-cover {
-            width: 220px;
-            height: 330px;
+            width: 100%;
+            max-width: 280px;
+            height: auto;
+            aspect-ratio: 2/3;
+            margin: 0 auto;
+            display: block;
         }
 
         .hub-detail-cover-audio {
-            width: 220px;
-            height: 220px;
+            max-width: 280px;
+            width: 100%;
+            height: auto;
+            aspect-ratio: 1/1;
+            margin: 0 auto;
+            display: block;
         }
 
-        .hub-detail-title { font-size: 1.9rem; }
+        .hub-detail-cover-wrap { display: flex; justify-content: center; }
+
+        .hub-detail-title { font-size: 1.75rem; text-align: center; }
+
+        .hub-format-slider { align-self: center; }
+
+        .hub-primary-cta { max-width: 320px; margin: 0 auto; width: 100%; }
+
+        /* Secondary actions: no-wrap, shrink to fit on one row */
+        .hub-detail-actions {
+            max-width: 320px;
+            margin: 0 auto;
+        }
+
+        .hub-detail-action-circle {
+            width: 46px;
+            height: 46px;
+        }
+
+        .hub-detail-action-label {
+            font-size: 0.62rem;
+        }
+
+        .hub-detail-title { font-size: 1.75rem; }
 
         .hub-detail-author-inner { padding: 0 20px; }
-
-        .hub-detail-actions { gap: 14px; }
     }
 </style>
