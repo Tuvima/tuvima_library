@@ -367,8 +367,9 @@
             transform: translateX(-50%);
             pointer-events: none;
         }
+        /* Hide bell + avatar on narrow screens regardless of Blazor variant */
         .top-bar-full .top-bar-actions {
-            margin-left: auto;
+            display: none !important;
         }
     }
 </style>
