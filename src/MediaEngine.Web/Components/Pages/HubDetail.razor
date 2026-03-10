@@ -1,4 +1,4 @@
-@page "/hub/{Id:guid}"
+﻿@page "/hub/{Id:guid}"
 @inject UIOrchestratorService  Orchestrator
 @inject UniverseStateContainer  State
 @inject NavigationManager       Nav
@@ -122,10 +122,19 @@ else
                             }
                         </div>
                     }
-
                     <div class="hub-detail-sidebar-item">
                         <span class="hub-detail-sidebar-label">Format</span>
-                        <span class="hub-detail-sidebar-value">@PrimaryFormatLabel()</span>
+                        <div class="hub-detail-format-pills">
+                            @foreach (var fmt in AvailableFormats())
+                            {
+                                var isActive = ActiveFormatKey == fmt.Key;
+                                <button class="hub-detail-format-pill @(isActive ? "active" : "")"
+                                        @onclick="@(() => _selectedFormatKey = fmt.Key)">
+                                    <MudIcon Icon="@fmt.Icon" Style="font-size: 0.8rem; flex-shrink:0;" />
+                                    @fmt.Label
+                                </button>
+                            }
+                        </div>
                     </div>
 
                     @{
@@ -204,6 +213,18 @@ else
                             }
                         </div>
                     }
+
+                    @* Narrator line — shown when audiobook format is active *@
+                    @if (ActiveFormatKey == "audiobook" && !string.IsNullOrEmpty(ActiveWork?.Narrator))
+                    {
+                        <div class="hub-detail-narrator-row">
+                            <MudIcon Icon="@Icons.Material.Filled.Headphones"
+                                     Style="font-size: 0.9rem; color: rgba(201,146,46,0.7); margin-right: 5px;" />
+                            <span class="hub-detail-narrator-label">Narrated by</span>
+                            <span class="hub-detail-narrator-name">@ActiveWork!.Narrator</span>
+                        </div>
+                    }
+
 
                     @* Action bar — circular icon buttons *@
                     <div class="hub-detail-actions">
@@ -312,17 +333,20 @@ else
 
 
                 </div>
-
                 @* Right: Cover art *@
+                @{
+                    var activeCoverUrl = ActiveWork?.CoverUrl ?? _hub.CoverUrl;
+                    var coverIsAudio   = ActiveFormatKey == "audiobook";
+                }
                 <div class="hub-detail-cover-wrap">
-                    @if (!string.IsNullOrEmpty(_hub.CoverUrl))
+                    @if (!string.IsNullOrEmpty(activeCoverUrl))
                     {
-                        <img src="@_hub.CoverUrl" alt="@_hub.DisplayName"
-                             class="hub-detail-cover @(IsAudiobookHub() ? "hub-detail-cover-audio" : "")" />
+                        <img src="@activeCoverUrl" alt="@_hub.DisplayName"
+                             class="hub-detail-cover @(coverIsAudio ? "hub-detail-cover-audio" : "")" />
                     }
                     else
                     {
-                        <div class="hub-detail-cover @(IsAudiobookHub() ? "hub-detail-cover-audio" : "") hub-detail-cover-placeholder">
+                        <div class="hub-detail-cover @(coverIsAudio ? "hub-detail-cover-audio" : "") hub-detail-cover-placeholder">
                             <MudIcon Icon="@GetHubIcon()" Style="font-size: 64px; color: rgba(255,255,255,0.18);" />
                         </div>
                     }
@@ -397,6 +421,9 @@ else
     private bool                    _showAllGenres;
     private bool                    _editDrawerOpen;
     private System.Threading.Timer? _toastTimer;
+    /// <summary>Currently selected format key ("epub", "audiobook", "video", "comic").
+    /// Null means default (primary media type).</summary>
+    private string?                 _selectedFormatKey;
 
     // ── Lifecycle ───────────────────────────────────────────────────────────
 
@@ -406,6 +433,7 @@ else
         _showFullDescription = false;
         _showAllGenres       = false;
         _editDrawerOpen      = false;
+        _selectedFormatKey   = null;
 
         if (!State.IsLoaded)
             await Orchestrator.GetHubsAsync();
@@ -493,6 +521,57 @@ else
             .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
             .ToList() ?? [];
 
+
+    // ── Format selector helpers ──────────────────────────────────────────────
+
+    private record FormatOption(string Key, string Label, string Icon, WorkViewModel Work);
+
+    private List<FormatOption> AvailableFormats() =>
+        _hub?.Works
+            .GroupBy(w => GetFormatKey(w.MediaType))
+            .Select(g => new FormatOption(
+                g.Key,
+                GetFormatLabel(g.Key),
+                GetFormatMudIcon(g.Key),
+                g.First()))
+            .ToList() ?? [];
+
+    private string ActiveFormatKey =>
+        _selectedFormatKey
+        ?? (_hub is not null ? GetFormatKey(_hub.PrimaryMediaType ?? "") : "epub");
+
+    private WorkViewModel? ActiveWork =>
+        _hub?.Works.FirstOrDefault(w => GetFormatKey(w.MediaType) == ActiveFormatKey)
+        ?? _hub?.Works.FirstOrDefault();
+
+    private static string GetFormatKey(string mediaType)
+    {
+        var mt = mediaType.ToLowerInvariant();
+        if (mt.Contains("epub") || mt == "book")                          return "epub";
+        if (mt.Contains("audio") || mt.Contains("m4b"))                   return "audiobook";
+        if (mt.Contains("video") || mt.Contains("movie") || mt == "mp4") return "video";
+        if (mt.Contains("comic") || mt.Contains("cbz"))                   return "comic";
+        return mt;
+    }
+
+    private static string GetFormatLabel(string key) => key switch
+    {
+        "epub"      => "eBook",
+        "audiobook" => "Audiobook",
+        "video"     => "Movie",
+        "comic"     => "Comic",
+        _           => key
+    };
+
+    private static string GetFormatMudIcon(string key) => key switch
+    {
+        "epub"      => Icons.Material.Filled.MenuBook,
+        "audiobook" => Icons.Material.Filled.Headphones,
+        "video"     => Icons.Material.Filled.PlayCircle,
+        "comic"     => Icons.Material.Filled.AutoStories,
+        _           => Icons.Material.Filled.Folder
+    };
+
     private (string Label, string Route) GetLane()
     {
         var mt = _hub?.PrimaryMediaType?.ToLowerInvariant() ?? "";
@@ -507,13 +586,12 @@ else
         return ("Books", "/books");
     }
 
-    private string PrimaryActionShort()
+    private string PrimaryActionShort() => ActiveFormatKey switch
     {
-        var mt = _hub?.PrimaryMediaType?.ToLowerInvariant() ?? "";
-        if (mt.Contains("video") || mt.Contains("movie") || mt.Contains("mkv")) return "Watch";
-        if (mt.Contains("audio") || mt.Contains("m4b"))                          return "Listen";
-        return "Read";
-    }
+        "video"     => "Watch",
+        "audiobook" => "Listen",
+        _           => "Read"
+    };
 
     private string PrimaryFormatLabel()
     {
@@ -540,11 +618,7 @@ else
         return new string('\u2605', full) + new string('\u2606', empty);
     }
 
-    private bool IsAudiobookHub()
-    {
-        var mt = _hub?.PrimaryMediaType?.ToLowerInvariant() ?? "";
-        return mt.Contains("audio") || mt.Contains("m4b") || mt == "audiobook";
-    }
+    private bool IsAudiobookHub() => ActiveFormatKey == "audiobook";
 
     private bool HasAudiobook() =>
         _hub?.Works.Any(w => { var t = w.MediaType.ToLowerInvariant(); return t.Contains("audio") || t.Contains("m4b"); }) ?? false;
@@ -736,6 +810,66 @@ else
     }
 
     .hub-detail-genre-more:hover { color: #e0aa50; }
+
+    /* Format pills */
+    .hub-detail-format-pills {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        align-items: flex-end;
+    }
+
+    .hub-detail-format-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.75rem;
+        font-weight: 600;
+        padding: 5px 10px;
+        border-radius: 20px;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        color: rgba(248, 248, 248, 0.55);
+        cursor: pointer;
+        transition: all 0.18s ease;
+        white-space: nowrap;
+    }
+
+    .hub-detail-format-pill:hover {
+        background: rgba(201, 146, 46, 0.15);
+        border-color: rgba(201, 146, 46, 0.35);
+        color: rgba(248, 248, 248, 0.80);
+    }
+
+    .hub-detail-format-pill.active {
+        background: rgba(201, 146, 46, 0.22);
+        border-color: rgba(201, 146, 46, 0.60);
+        color: #C9922E;
+    }
+
+    /* Narrator row */
+    .hub-detail-narrator-row {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+    }
+
+    .hub-detail-narrator-label {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.80rem;
+        font-weight: 500;
+        color: rgba(248, 248, 248, 0.45);
+        margin-right: 4px;
+    }
+
+    .hub-detail-narrator-name {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.80rem;
+        font-weight: 600;
+        color: rgba(248, 248, 248, 0.72);
+    }
+
 
     /* ── Center content column ── */
     .hub-detail-content {
