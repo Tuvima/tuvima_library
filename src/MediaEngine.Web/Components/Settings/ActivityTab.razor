@@ -333,9 +333,9 @@
                                                                     }
                                                                     @if (!string.IsNullOrWhiteSpace(bRich.MediaType))
                                                                     {
-                                                                        <MudIcon Icon="@MediaTypeIcon(bRich.MediaType)"
-                                                                                 Size="Size.Small"
-                                                                                 Style="font-size: 0.9rem; opacity: 0.7;" />
+                                                                        <span style="font-size: 0.68rem; font-weight: 600; padding: 2px 8px; border-radius: 4px; background: @(MediaTypeBadgeColor(bRich.MediaType))20; color: @MediaTypeBadgeColor(bRich.MediaType);">
+                                                                            @FriendlyMediaType(bRich.MediaType)
+                                                                        </span>
                                                                     }
                                                                 </MudStack>
 
@@ -407,7 +407,7 @@
                                                                             else if (bStepDetail is not null)
                                                                             {
                                                                                 <MudText Typo="Typo.caption"
-                                                                                         Style="font-size: 0.68rem; color: var(--app-text-muted); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;">
+                                                                                         Style="font-size: 0.68rem; color: var(--app-text-muted); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;">
                                                                                     @bStepDetail
                                                                                 </MudText>
                                                                             }
@@ -520,9 +520,9 @@
                                                     }
                                                     @if (!string.IsNullOrWhiteSpace(rich.MediaType))
                                                     {
-                                                        <MudIcon Icon="@MediaTypeIcon(rich.MediaType)"
-                                                                 Size="Size.Small"
-                                                                 Style="font-size: 0.9rem; opacity: 0.7;" />
+                                                        <span style="font-size: 0.68rem; font-weight: 600; padding: 2px 8px; border-radius: 4px; background: @(MediaTypeBadgeColor(rich.MediaType))20; color: @MediaTypeBadgeColor(rich.MediaType);">
+                                                            @FriendlyMediaType(rich.MediaType)
+                                                        </span>
                                                     }
                                                 </MudStack>
 
@@ -772,7 +772,7 @@
                                                                 else if (stepDetail is not null)
                                                                 {
                                                                     <MudText Typo="Typo.caption"
-                                                                             Style="font-size: 0.68rem; color: var(--app-text-muted); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;">
+                                                                             Style="font-size: 0.68rem; color: var(--app-text-muted); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;">
                                                                         @stepDetail
                                                                     </MudText>
                                                                 }
@@ -872,9 +872,9 @@
                                                            Style="margin-top: 6px; flex-wrap: wrap;">
                                                     @if (!string.IsNullOrWhiteSpace(reviewRich.MediaType))
                                                     {
-                                                        <MudIcon Icon="@MediaTypeIcon(reviewRich.MediaType)"
-                                                                 Size="Size.Small"
-                                                                 Style="font-size: 0.9rem; opacity: 0.7;" />
+                                                        <span style="font-size: 0.68rem; font-weight: 600; padding: 2px 8px; border-radius: 4px; background: @(MediaTypeBadgeColor(reviewRich.MediaType))20; color: @MediaTypeBadgeColor(reviewRich.MediaType);">
+                                                            @FriendlyMediaType(reviewRich.MediaType)
+                                                        </span>
                                                     }
                                                     @if (!string.IsNullOrWhiteSpace(reviewRich.Qid))
                                                     {
@@ -1505,13 +1505,12 @@
             {
                 // Strategy 2: fallback — timestamp + EntityId correlation.
                 var subTs = ParseTs(sub.OccurredAt);
-                if (subTs is not null)
+                if (subTs is not null && !string.IsNullOrEmpty(sub.EntityId))
                 {
                     var maxWindow = ingSubTypes.Contains(sub.ActionType) ? 5 : 30;
                     parent = ingestedIndex
                         .Where(x =>
-                            (sub.EntityId is null ||
-                             string.Equals(x.Entry.EntityId, sub.EntityId, StringComparison.OrdinalIgnoreCase))
+                            string.Equals(x.Entry.EntityId, sub.EntityId, StringComparison.OrdinalIgnoreCase)
                             && (ingSubTypes.Contains(sub.ActionType)
                                 ? (x.Ts!.Value >= subTs.Value && (x.Ts.Value - subTs.Value).TotalMinutes <= maxWindow)
                                 : (subTs.Value >= x.Ts!.Value && (subTs.Value - x.Ts.Value).TotalMinutes <= maxWindow)))
@@ -1584,6 +1583,59 @@
             mediaSubList.Insert(0, ingested.Entry);
             _absorbedEntryIds.Add(ingested.Entry.Id);
         }
+
+        // ── Pass 4.5: Orphan Rescue — unabsorbed sub-steps → MediaAdded by EntityId ─
+        // Entries that fell through Pass 3 (no IngestionRunId + timestamp out of window)
+        // get a second chance: match by EntityId alone to their MediaAdded parent.
+        // FileHashed entries with no EntityId are suppressed (re-detection noise).
+        var mediaAddedByEntity = _entries
+            .Where(e => e.ActionType == "MediaAdded" && !_absorbedEntryIds.Contains(e.Id)
+                        && !string.IsNullOrEmpty(e.EntityId))
+            .GroupBy(e => e.EntityId!, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+        var ingestedByEntity = ingestedIndex
+            .Where(x => !_absorbedEntryIds.Contains(x.Entry.Id) && !string.IsNullOrEmpty(x.Entry.EntityId))
+            .GroupBy(x => x.Entry.EntityId!, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First().Entry, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var orphan in _entries.Where(e =>
+            allSubTypes.Contains(e.ActionType) && !_absorbedEntryIds.Contains(e.Id)))
+        {
+            // Skip entries already serving as parents (FileIngested, MediaAdded).
+            if (orphan.ActionType is "FileIngested" or "MediaAdded") continue;
+
+            // If the orphan has no EntityId, suppress it (noise from re-detection).
+            if (string.IsNullOrEmpty(orphan.EntityId))
+            {
+                _absorbedEntryIds.Add(orphan.Id);
+                continue;
+            }
+
+            // Try to find a MediaAdded parent with the same EntityId (no time constraint).
+            if (mediaAddedByEntity.TryGetValue(orphan.EntityId, out var maParent))
+            {
+                if (!_ingestionSubSteps.TryGetValue(maParent.Id, out var maSubList))
+                    _ingestionSubSteps[maParent.Id] = maSubList = [];
+                maSubList.Add(orphan);
+                _absorbedEntryIds.Add(orphan.Id);
+                continue;
+            }
+
+            // Fallback: try a FileIngested parent with the same EntityId.
+            if (ingestedByEntity.TryGetValue(orphan.EntityId, out var fiParent))
+            {
+                if (!_ingestionSubSteps.TryGetValue(fiParent.Id, out var fiSubList))
+                    _ingestionSubSteps[fiParent.Id] = fiSubList = [];
+                fiSubList.Add(orphan);
+                _absorbedEntryIds.Add(orphan.Id);
+                continue;
+            }
+
+            // No parent found — suppress standalone orphan entries that would be confusing
+            // (they'll still be visible in filtered views via the filter bar).
+            _absorbedEntryIds.Add(orphan.Id);
+        }
+
 
         // ── Hydration stages → standalone MetadataHydrated (within 5 min) ──────
         // Only for MetadataHydrated entries that were NOT absorbed into a FileIngested parent.
@@ -2054,6 +2106,30 @@
         _           => Icons.Material.Filled.InsertDriveFile,
     };
 
+    private static string FriendlyMediaType(string? mediaType) => mediaType?.ToLowerInvariant() switch
+    {
+        "epub"      => "eBook",
+        "audiobook" => "Audiobook",
+        "comic"     => "Comic",
+        "movie"     => "Movie",
+        "tv"        => "TV Show",
+        "music"     => "Music",
+        "podcast"   => "Podcast",
+        _           => mediaType ?? "Unknown",
+    };
+
+    private static string MediaTypeBadgeColor(string? mediaType) => mediaType?.ToLowerInvariant() switch
+    {
+        "epub"      => "#2196f3",
+        "audiobook" => "#9c27b0",
+        "comic"     => "#009688",
+        "movie"     => "#f44336",
+        "tv"        => "#ff9800",
+        "music"     => "#4caf50",
+        "podcast"   => "#e91e63",
+        _           => "#78909c",
+    };
+
     private static Color ConfidenceColor(double confidence) => confidence switch
     {
         >= 0.70 => Color.Success,
@@ -2170,7 +2246,7 @@
         "EntityChainCreated"        => "Added to library catalogue",
         "CoverArtSaved"             => "Cover art saved",
         "HeroBannerGenerated"       => "Hero banner generated",
-        "MetadataTagsWritten"       => "Metadata saved back to file",
+        "MetadataTagsWritten"       => "Initial tags written",
         "HydrationEnqueued"         => "Queued for online enrichment",
         "MovedToStaging"            => "Moved to staging folder",
         "PathUpdated"               => "Organized",
@@ -2185,6 +2261,8 @@
         "HydrationStage2Completed"  => "Stage 2 complete",
         "HydrationStage3Completed"  => "Stage 3 complete",
         "ReviewItemResolved"        => "Review resolved",
+        "MetadataWrittenToFile"     => "Enriched tags updated",
+        "ReviewItemCreated"         => "Sent to review",
         _                           => ActionLabel(actionType),
     };
 
@@ -2246,6 +2324,12 @@
                         : null,
                 "HydrationEnqueued" =>
                     r.TryGetProperty("media_type", out var hmt) ? hmt.GetString() : null,
+                "MetadataWrittenToFile" =>
+                    r.TryGetProperty("trigger", out var wbTrigger)
+                        ? wbTrigger.GetString() switch { "auto_match" => "after content match", "universe_enrichment" => "after universe enrichment", _ => wbTrigger.GetString() }
+                        : null,
+                "ReviewItemCreated" =>
+                    r.TryGetProperty("trigger", out var rvTrigger) ? rvTrigger.GetString() : step.Detail,
                 _ => null,
             };
         }
