@@ -1,4 +1,4 @@
-/* ═══════════════════════════════════════════════════════════════════════════
+﻿/* ═══════════════════════════════════════════════════════════════════════════
    Tuvima Library — Global Stylesheet (Cinematic Minimalist Design)
    Component-level styles live in their respective .razor files.
    This file owns global / body-level rules and CSS custom properties.
@@ -54,6 +54,15 @@ body {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     overflow-x: hidden; /* Prevent horizontal scrollbar from 100vw full-bleed hero */
+}
+
+/* Blazor FocusOnNavigate sets tabindex=-1 on h1 and calls .focus() after
+   every navigation. Suppress the visible outline since headings are
+   non-interactive; screen-reader focus still works. */
+[tabindex="-1"]:focus,
+[tabindex="-1"]:focus-visible {
+    outline: none !important;
+    box-shadow: none !important;
 }
 
 /* ── Logo colour ──────────────────────────────────────────────────────── */
