@@ -3,11 +3,11 @@
 @using MediaEngine.Web.Models.ViewDTOs
 @inject UIOrchestratorService Orchestrator
 @inject ISnackbar Snackbar
-@inject IDialogService DialogService
+@inject DeviceContextService DeviceContext
 
-@* Metadata tab — simplified provider slot assignment.
-   Users pick a Primary + up to 2 secondary providers per media type
-   via drag-drop. Media type tabs are loaded from config. *@
+@* Metadata tab — library-centric provider assignment.
+   Providers are dragged from a vertical palette into library cards (one per media type).
+   Each library has 3 priority slots. Mobile shows a read-only summary. *@
 
 <MudPaper Elevation="0" Style="@GlassStyle">
 
@@ -17,7 +17,7 @@
         <MudText Typo="Typo.h6">Metadata</MudText>
     </MudStack>
     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
-        Assign providers for each media type. All assigned providers run concurrently —
+        Assign providers to each library. All assigned providers run concurrently —
         the Weighted Voter resolves any disagreements between their results.
     </MudText>
 
@@ -70,290 +70,383 @@
             </MudPaper>
         }
 
-        @* ── Media type selector cards ─────────────────────────────────────── *@
-        <div class="media-type-cards-row">
-            @for (int i = 0; i < _mediaTypeDefinitions.Count; i++)
-            {
-                var idx = i;
-                var def = _mediaTypeDefinitions[idx];
-                var isActive = string.Equals(def.DisplayName, _activeMediaType, StringComparison.Ordinal);
-                <div class="media-type-card @(isActive ? "media-type-card-active" : "")"
-                     @onclick="@(() => _activeMediaType = def.DisplayName)">
-                    @* Reorder arrows *@
-                    <span class="media-type-card-reorder" @onclick:stopPropagation="true">
-                        @if (idx > 0)
-                        {
-                            <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft"
-                                           Size="Size.Small"
-                                           Style="padding: 2px; min-width: 0;"
-                                           title="Move left"
-                                           OnClick="@(() => MoveMediaType(idx, -1))" />
-                        }
-                        @if (idx < _mediaTypeDefinitions.Count - 1)
-                        {
-                            <MudIconButton Icon="@Icons.Material.Filled.ChevronRight"
-                                           Size="Size.Small"
-                                           Style="padding: 2px; min-width: 0;"
-                                           title="Move right"
-                                           OnClick="@(() => MoveMediaType(idx, 1))" />
-                        }
-                    </span>
-                    <MudIcon Icon="@ResolveIcon(def.Icon)" Size="Size.Large"
-                             Style="@($"color: {(isActive ? "var(--mud-palette-primary)" : "var(--app-text-muted)")};")"/>
-                    <MudText Typo="Typo.caption" Style="@($"font-weight: {(isActive ? "600" : "400")}; color: {(isActive ? "var(--mud-palette-primary-text)" : "var(--app-text-muted)")};")">
-                        @def.DisplayName
-                    </MudText>
-                    <span class="media-type-card-menu" @onclick:stopPropagation="true">
-                        <MudIconButton Icon="@Icons.Material.Filled.MoreVert"
-                                       Size="Size.Small"
-                                       Color="@(isActive ? Color.Primary : Color.Default)"
-                                       title="Configure media type"
-                                       OnClick="@(() => OpenMediaTypeConfigDialog(def))" />
-                    </span>
-                </div>
-            }
-            @* Add media type *@
-            <MudTooltip Text="Add custom media type" Arrow="true" Placement="Placement.Top">
-                <div class="media-type-card media-type-card-add" @onclick="@OpenAddMediaTypeDialog">
-                    <MudIcon Icon="@Icons.Material.Filled.Add" Size="Size.Large"
-                             Style="color: var(--app-text-muted);"/>
-                    <MudText Typo="Typo.caption" Style="color: var(--app-text-muted);">Add</MudText>
-                </div>
-            </MudTooltip>
-        </div>
-
-        @* ── Active media type content ──────────────────────────────────────── *@
-        @if ((_mediaTypeDefinitions.FirstOrDefault(d => d.DisplayName == _activeMediaType)
-              ?? _mediaTypeDefinitions.FirstOrDefault()) is { } activeDef)
+        @* ── Main content: desktop = providers + libraries side-by-side; mobile = read-only summary *@
+        @if (_isMobile)
         {
-            @* Extension chips *@
-            @if (activeDef.Extensions.Count > 0)
-            {
-                <MudStack Row="true" Spacing="1" Class="mb-3" Style="flex-wrap: wrap;">
-                    @foreach (var ext in activeDef.Extensions)
-                    {
-                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
-                                 Color="Color.Default" Style="font-size: 0.7rem;">@ext</MudChip>
-                    }
-                </MudStack>
-            }
+            @* ── Mobile: read-only summary ────────────────────────────────── *@
+            <MudStack Spacing="3">
+                @foreach (var def in _mediaTypeDefinitions)
+                {
+                    var slot = GetSlot(def.DisplayName);
+                    var assignedNames = new[] { slot.Primary, slot.Secondary, slot.Tertiary }
+                        .Where(n => !string.IsNullOrWhiteSpace(n))
+                        .ToList();
 
-            @* Slot layout *@
-            <div class="slot-layout">
-                <div class="slot-available-providers">
-                    <MudText Typo="Typo.subtitle2" Class="mb-2" Style="color: var(--app-text-muted);">
-                        Available Providers
-                    </MudText>
-                    <MudDropContainer T="ProviderDragItem"
-                                      Items="@GetDragItems(activeDef.DisplayName)"
-                                      ItemsSelector="@((item, zone) => item.Zone == zone)"
-                                      ItemDropped="@(args => OnItemDropped(args, activeDef.DisplayName))"
-                                      Class="slot-drop-container">
-                        <ChildContent>
-                            <MudDropZone T="ProviderDragItem"
-                                         Identifier="available"
-                                         Class="slot-available-zone"
-                                         AllowReorder="false"
-                                         CanDrop="@(_ => true)">
-                                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2">
-                                    Drag providers into slots. All slotted providers
-                                    run at the same time — the Voter picks the best answer.
-                                </MudText>
-                            </MudDropZone>
-
-                            <div class="slot-zones-column">
-                                <MudDropZone T="ProviderDragItem"
-                                             Identifier="primary"
-                                             Class="slot-zone slot-zone-primary"
-                                             AllowReorder="false"
-                                             CanDrop="@(_ => true)">
-                                    <MudText Typo="Typo.subtitle2" Style="color: var(--mud-palette-primary); font-weight: 600;">
-                                        Provider 1
-                                    </MudText>
-                                </MudDropZone>
-
-                                <MudDropZone T="ProviderDragItem"
-                                             Identifier="secondary"
-                                             Class="slot-zone"
-                                             AllowReorder="false"
-                                             CanDrop="@(_ => true)">
-                                    <MudText Typo="Typo.subtitle2" Style="color: var(--app-text-muted);">
-                                        Provider 2
-                                    </MudText>
-                                </MudDropZone>
-
-                                <MudDropZone T="ProviderDragItem"
-                                             Identifier="tertiary"
-                                             Class="slot-zone"
-                                             AllowReorder="false"
-                                             CanDrop="@(_ => true)">
-                                    <MudText Typo="Typo.subtitle2" Style="color: var(--app-text-muted);">
-                                        Provider 3
-                                    </MudText>
-                                </MudDropZone>
-                            </div>
-                        </ChildContent>
-
-                        <ItemRenderer>
-                            @{
-                                var provider = _providers.FirstOrDefault(p => p.Name == context.ProviderName);
-                                if (provider is not null)
-                                {
-                                    <ProviderCard Provider="@provider"
-                                                  IsSlotted="@(context.Zone != "available")"
-                                                  OnRemove="@(() => RemoveFromSlot(context, activeDef.DisplayName))"
-                                                  OnConfigSaved="@RefreshProvidersAsync" />
-                                }
-                            }
-                        </ItemRenderer>
-                    </MudDropContainer>
-
-                    @* ── Unavailable providers (disabled or offline) ─────────────── *@
-                    @if (GetUnavailableProviders() is { Count: > 0 } unavailableProviders)
-                    {
-                        <MudDivider Class="my-4" />
-                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-2">
-                            <MudIcon Icon="@Icons.Material.Filled.PowerOff" Size="Size.Small"
-                                     Style="color: var(--app-text-muted);" />
-                            <MudText Typo="Typo.subtitle2" Style="color: var(--app-text-muted);">
-                                Unavailable Providers
-                            </MudText>
-                            <MudText Typo="Typo.caption" Color="Color.Secondary">
-                                — disabled or offline, cannot be assigned to slots
+                    <MudPaper Elevation="0" Class="pa-3"
+                              Style="background: var(--app-glass-inner-bg);
+                                     border: 1px solid var(--app-glass-inner-border);
+                                     border-radius: 8px;">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-2">
+                            <MudIcon Icon="@ResolveIcon(def.Icon)" Size="Size.Small"
+                                     Style="color: var(--mud-palette-primary);" />
+                            <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">
+                                @def.DisplayName
                             </MudText>
                         </MudStack>
-                        <MudStack Spacing="1">
-                            @foreach (var p in unavailableProviders)
+
+                        @if (assignedNames.Count == 0)
+                        {
+                            <MudText Typo="Typo.body2" Color="Color.Secondary" Style="font-style: italic;">
+                                No providers assigned
+                            </MudText>
+                        }
+                        else
+                        {
+                            @for (int i = 0; i < assignedNames.Count; i++)
                             {
-                                <div class="provider-unavailable-wrapper">
+                                var providerName = assignedNames[i];
+                                var provider = _providers.FirstOrDefault(p =>
+                                    string.Equals(p.Name, providerName, StringComparison.OrdinalIgnoreCase));
+                                var accent = ProviderAccentMap.GetAccent(providerName!);
+
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2"
+                                          Class="@(i > 0 ? "mt-1" : "")">
+                                    <MudText Typo="Typo.caption" Style="color: var(--app-text-muted); width: 16px;">
+                                        @(i + 1).
+                                    </MudText>
+                                    <MudIcon Icon="@accent.Icon" Size="Size.Small"
+                                             Style="@($"color: {accent.Color};")" />
+                                    <MudText Typo="Typo.body2" Style="flex: 1;">
+                                        @ProviderAccentMap.GetDisplayName(providerName!)
+                                    </MudText>
+                                    <div class="provider-health-dot @(provider?.IsReachable == true ? "health-online" : "health-offline")"></div>
+                                    @if (provider?.RequiresApiKey == true && provider.HasApiKey == false)
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Warning"
+                                                 Variant="Variant.Outlined" Style="font-size: 0.65rem;">
+                                            needs key
+                                        </MudChip>
+                                    }
+                                </MudStack>
+                            }
+                        }
+                    </MudPaper>
+                }
+            </MudStack>
+
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Align="Align.Center" Class="mt-4">
+                <MudIcon Icon="@Icons.Material.Filled.DesktopWindows" Size="Size.Small"
+                         Style="vertical-align: middle; margin-right: 4px;" />
+                Edit provider assignments on a desktop device.
+            </MudText>
+        }
+        else
+        {
+            @* ── Desktop: single MudDropContainer wrapping palette + library grid ──
+               Palette is a MudDropZone (drag sources). Each slot is a MudDropZone.
+               This is required for cross-boundary drag-drop to work in MudBlazor. ── *@
+            <MudDropContainer T="ProviderDragItem"
+                              Items="@_dragItems"
+                              ItemsSelector="@((item, zone) => item.Zone == zone)"
+                              ItemDropped="@OnGlobalItemDropped"
+                              Class="vault-layout">
+                <ChildContent>
+                    @* ── Left: provider palette zone ──────────────────────────── *@
+                    <div class="vault-provider-list">
+                        <MudText Typo="Typo.subtitle2" Class="mb-2" Style="color: var(--app-text-muted);">
+                            Providers
+                        </MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3">
+                            Drag into library slots.
+                        </MudText>
+
+                        @* Palette drop zone — all available providers live here as drag sources *@
+                        <MudDropZone T="ProviderDragItem"
+                                     Identifier="palette"
+                                     Class="vault-palette-zone"
+                                     AllowReorder="false" />
+
+                        @if (GetUnavailableProviders() is { Count: > 0 } unavailable)
+                        {
+                            <MudDivider Class="my-3" />
+                            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2">
+                                Unavailable
+                            </MudText>
+                            <MudStack Spacing="1">
+                                @foreach (var p in unavailable)
+                                {
+                                    @* Unavailable providers are outside the drop container —
+                                       not draggable, but config button stays interactive. *@
                                     <ProviderCard Provider="@p"
                                                   IsSlotted="false"
+                                                  IsUnavailable="true"
                                                   OnConfigSaved="@RefreshProvidersAsync" />
-                                </div>
-                            }
-                        </MudStack>
+                                }
+                            </MudStack>
+                        }
+                    </div>
+
+                    @* ── Right: library cards grid (visually grouped) ────────── *@
+                    @{
+                        var booksGroupDefs  = _mediaTypeDefinitions.Where(d => d.Key is "books" or "audiobooks").ToList();
+                        var videoGroupDefs  = _mediaTypeDefinitions.Where(d => d.Key is "movies" or "tv_shows").ToList();
+                        var standaloneDefs  = _mediaTypeDefinitions
+                            .Where(d => d.Key is not ("books" or "audiobooks" or "movies" or "tv_shows"))
+                            .ToList();
                     }
-                </div>
-            </div>
+                    <div class="vault-libraries-grid">
+
+                        @* ── Books & Audiobooks (share Apple Books as primary provider) ── *@
+                        @if (booksGroupDefs.Count > 0)
+                        {
+                            <div class="vault-library-group">
+                                <div class="vault-group-label">
+                                    <MudIcon Icon="@Icons.Material.Outlined.LibraryBooks" Size="Size.Small"
+                                             Style="vertical-align: middle; margin-right: 5px;" />
+                                    Books &amp; Audiobooks
+                                </div>
+                                <div class="vault-group-cards">
+                                    @foreach (var def in booksGroupDefs)
+                                    {
+                                        var slot = GetSlot(def.DisplayName);
+                                        <MudPaper Elevation="0" Class="vault-library-card"
+                                                  Style="background: var(--app-glass-bg);
+                                                         border: 1px solid var(--app-glass-inner-border);
+                                                         border-radius: 8px;">
+                                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="pa-3 pb-2">
+                                                <MudIcon Icon="@ResolveIcon(def.Icon)" Size="Size.Small"
+                                                         Style="color: var(--mud-palette-primary);" />
+                                                <MudText Typo="Typo.subtitle2" Style="font-weight: 600; flex: 1;">@def.DisplayName</MudText>
+                                                <MudIconButton Icon="@Icons.Material.Filled.Settings" Size="Size.Small"
+                                                               Color="Color.Default" title="Configure library"
+                                                               OnClick="@(() => OpenLibraryConfig(def))" Style="flex-shrink: 0;" />
+                                            </MudStack>
+                                            <div class="vault-drop-container">
+                                                @foreach (var (slotName, label, currentName) in new[]
+                                                {
+                                                    ("primary",   "1", slot.Primary),
+                                                    ("secondary", "2", slot.Secondary),
+                                                    ("tertiary",  "3", slot.Tertiary),
+                                                })
+                                                {
+                                                    var zoneId    = $"{def.Key}:{slotName}";
+                                                    var isFilled  = !string.IsNullOrWhiteSpace(currentName);
+                                                    var isPrimary = slotName == "primary";
+                                                    <MudDropZone T="ProviderDragItem" Identifier="@zoneId" AllowReorder="false"
+                                                                 Class="@($"vault-slot {(isPrimary ? "vault-slot-primary" : "")} {(isFilled ? "vault-slot-filled" : "")}")">
+                                                        <MudText Typo="Typo.caption"
+                                                                 Style="@($"color: {(isPrimary ? "var(--mud-palette-primary)" : "var(--app-text-muted)")}; font-weight: 600; min-width: 14px;")">
+                                                            @label
+                                                        </MudText>
+                                                    </MudDropZone>
+                                                }
+                                            </div>
+                                        </MudPaper>
+                                    }
+                                </div>
+                            </div>
+                        }
+
+                        @* ── Movies & TV Shows (share TMDB as primary provider) ────── *@
+                        @if (videoGroupDefs.Count > 0)
+                        {
+                            <div class="vault-library-group">
+                                <div class="vault-group-label">
+                                    <MudIcon Icon="@Icons.Material.Outlined.VideoLibrary" Size="Size.Small"
+                                             Style="vertical-align: middle; margin-right: 5px;" />
+                                    Movies &amp; TV Shows
+                                </div>
+                                <div class="vault-group-cards">
+                                    @foreach (var def in videoGroupDefs)
+                                    {
+                                        var slot = GetSlot(def.DisplayName);
+                                        <MudPaper Elevation="0" Class="vault-library-card"
+                                                  Style="background: var(--app-glass-bg);
+                                                         border: 1px solid var(--app-glass-inner-border);
+                                                         border-radius: 8px;">
+                                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="pa-3 pb-2">
+                                                <MudIcon Icon="@ResolveIcon(def.Icon)" Size="Size.Small"
+                                                         Style="color: var(--mud-palette-primary);" />
+                                                <MudText Typo="Typo.subtitle2" Style="font-weight: 600; flex: 1;">@def.DisplayName</MudText>
+                                                <MudIconButton Icon="@Icons.Material.Filled.Settings" Size="Size.Small"
+                                                               Color="Color.Default" title="Configure library"
+                                                               OnClick="@(() => OpenLibraryConfig(def))" Style="flex-shrink: 0;" />
+                                            </MudStack>
+                                            <div class="vault-drop-container">
+                                                @foreach (var (slotName, label, currentName) in new[]
+                                                {
+                                                    ("primary",   "1", slot.Primary),
+                                                    ("secondary", "2", slot.Secondary),
+                                                    ("tertiary",  "3", slot.Tertiary),
+                                                })
+                                                {
+                                                    var zoneId    = $"{def.Key}:{slotName}";
+                                                    var isFilled  = !string.IsNullOrWhiteSpace(currentName);
+                                                    var isPrimary = slotName == "primary";
+                                                    <MudDropZone T="ProviderDragItem" Identifier="@zoneId" AllowReorder="false"
+                                                                 Class="@($"vault-slot {(isPrimary ? "vault-slot-primary" : "")} {(isFilled ? "vault-slot-filled" : "")}")">
+                                                        <MudText Typo="Typo.caption"
+                                                                 Style="@($"color: {(isPrimary ? "var(--mud-palette-primary)" : "var(--app-text-muted)")}; font-weight: 600; min-width: 14px;")">
+                                                            @label
+                                                        </MudText>
+                                                    </MudDropZone>
+                                                }
+                                            </div>
+                                        </MudPaper>
+                                    }
+                                </div>
+                            </div>
+                        }
+
+                        @* ── Standalone libraries (Comics, Music, Podcasts, etc.) ──── *@
+                        @if (standaloneDefs.Count > 0)
+                        {
+                            <div class="vault-standalone-row">
+                                @foreach (var def in standaloneDefs)
+                                {
+                                    var slot = GetSlot(def.DisplayName);
+                                    <MudPaper Elevation="0" Class="vault-library-card"
+                                              Style="background: var(--app-glass-inner-bg);
+                                                     border: 1px solid var(--app-glass-inner-border);
+                                                     border-radius: 8px;">
+                                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="pa-3 pb-2">
+                                            <MudIcon Icon="@ResolveIcon(def.Icon)" Size="Size.Small"
+                                                     Style="color: var(--mud-palette-primary);" />
+                                            <MudText Typo="Typo.subtitle2" Style="font-weight: 600; flex: 1;">@def.DisplayName</MudText>
+                                            <MudIconButton Icon="@Icons.Material.Filled.Settings" Size="Size.Small"
+                                                           Color="Color.Default" title="Configure library"
+                                                           OnClick="@(() => OpenLibraryConfig(def))" Style="flex-shrink: 0;" />
+                                        </MudStack>
+                                        <div class="vault-drop-container">
+                                            @foreach (var (slotName, label, currentName) in new[]
+                                            {
+                                                ("primary",   "1", slot.Primary),
+                                                ("secondary", "2", slot.Secondary),
+                                                ("tertiary",  "3", slot.Tertiary),
+                                            })
+                                            {
+                                                var zoneId    = $"{def.Key}:{slotName}";
+                                                var isFilled  = !string.IsNullOrWhiteSpace(currentName);
+                                                var isPrimary = slotName == "primary";
+                                                <MudDropZone T="ProviderDragItem" Identifier="@zoneId" AllowReorder="false"
+                                                             Class="@($"vault-slot {(isPrimary ? "vault-slot-primary" : "")} {(isFilled ? "vault-slot-filled" : "")}")">
+                                                    <MudText Typo="Typo.caption"
+                                                             Style="@($"color: {(isPrimary ? "var(--mud-palette-primary)" : "var(--app-text-muted)")}; font-weight: 600; min-width: 14px;")">
+                                                        @label
+                                                    </MudText>
+                                                </MudDropZone>
+                                            }
+                                        </div>
+                                    </MudPaper>
+                                }
+                            </div>
+                        }
+
+                    </div>
+                </ChildContent>
+
+                <ItemRenderer>
+                    @{
+                        var renderProvider = _providers.FirstOrDefault(p => p.Name == context.ProviderName);
+                        if (renderProvider is not null)
+                        {
+                            var isPaletteItem = context.Zone == "palette";
+                            var ctxCapture = context;
+                            <ProviderCard Provider="@renderProvider"
+                                          IsSlotted="@(!isPaletteItem)"
+                                          ShowConfig="@isPaletteItem"
+                                          OnRemove="@(isPaletteItem
+                                              ? default(EventCallback)
+                                              : EventCallback.Factory.Create(this, () => RemoveSlottedItemAsync(ctxCapture)))"
+                                          OnConfigSaved="@RefreshProvidersAsync" />
+                        }
+                    }
+                </ItemRenderer>
+            </MudDropContainer>
         }
     }
 
 </MudPaper>
 
-@* ── Media type config dialog ─────────────────────────────────────────── *@
-<MudDialog @bind-Visible="_configOpen" Options="_configDialogOptions">
+@* ── Library config dialog ───────────────────────────────────────────────── *@
+<MudDialog @bind-Visible="_libConfigOpen" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true })">
     <TitleContent>
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-            @if (_editingType is not null)
-            {
-                <MudIcon Icon="@ResolveIcon(_editingType.Icon)" Color="Color.Primary" />
-            }
-            <MudText Typo="Typo.h6">
-                @(_editingType is null ? "Configure" : (_editingType.BuiltIn ? _editingType.DisplayName : "Edit Media Type"))
+            <MudIcon Icon="@ResolveIcon(_libEditIcon)" Size="Size.Small"
+                     Style="color: var(--mud-palette-primary);" />
+            <MudText Typo="Typo.h6" Style="font-weight: 600;">
+                @_libEditDisplayName Configuration
             </MudText>
-            @if (_editingType?.BuiltIn == true)
+            @if (_libEditBuiltIn)
             {
-                <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">Built-in</MudChip>
+                <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Outlined">
+                    Built-in
+                </MudChip>
             }
         </MudStack>
     </TitleContent>
     <DialogContent>
-        @if (_editingType is not null)
-        {
-            <MudStack Spacing="3">
-                @* Display name *@
-                <MudTextField T="string"
-                              @bind-Value="_editDisplayName"
-                              Label="Display Name"
-                              Variant="Variant.Outlined"
-                              Margin="Margin.Dense"
-                              ReadOnly="@_editingType.BuiltIn"
-                              Adornment="Adornment.Start"
-                              AdornmentIcon="@Icons.Material.Filled.Label" />
+        <MudStack Spacing="3">
+            @* Icon picker *@
+            <MudSelect T="string" @bind-Value="_libEditIcon"
+                       Label="Icon" Variant="Variant.Outlined" Margin="Margin.Dense"
+                       Adornment="Adornment.Start"
+                       AdornmentIcon="@ResolveIcon(_libEditIcon)">
+                @foreach (var (name, icon) in IconMap)
+                {
+                    <MudSelectItem T="string" Value="@name">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudIcon Icon="@icon" Size="Size.Small" />
+                            <MudText>@name</MudText>
+                        </MudStack>
+                    </MudSelectItem>
+                }
+            </MudSelect>
 
-                @* Icon *@
-                <MudSelect T="string" @bind-Value="_editIcon"
-                           Label="Icon"
-                           Variant="Variant.Outlined"
-                           Margin="Margin.Dense"
-                           AnchorOrigin="Origin.BottomCenter"
-                           TransformOrigin="Origin.TopCenter"
-                           AdornmentIcon="@ResolveIcon(_editIcon)">
-                    @foreach (var (name, icon) in IconMap)
-                    {
-                        <MudSelectItem Value="@name">
-                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                                <MudIcon Icon="@icon" Size="Size.Small" />
-                                <MudText>@name</MudText>
-                            </MudStack>
-                        </MudSelectItem>
-                    }
-                </MudSelect>
-
-                @* Category folder *@
-                <MudTextField T="string"
-                              @bind-Value="_editCategoryFolder"
-                              Label="Category Folder"
-                              Variant="Variant.Outlined"
-                              Margin="Margin.Dense"
-                              Adornment="Adornment.Start"
-                              AdornmentIcon="@Icons.Material.Filled.Folder" />
-
-                @* Extensions *@
-                <div>
-                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-1">File Extensions</MudText>
-                    <MudStack Row="true" Spacing="1" Style="flex-wrap: wrap;" Class="mb-2">
-                        @foreach (var ext in _editExtensions)
-                        {
-                            <MudChip T="string" Size="Size.Small" Color="Color.Primary"
-                                     Variant="Variant.Outlined"
-                                     OnClose="@(() => _editExtensions.Remove(ext))">@ext</MudChip>
-                        }
-                    </MudStack>
-                    <MudStack Row="true" Spacing="1">
-                        <MudTextField T="string"
-                                      @bind-Value="_newExtension"
-                                      Label="Add extension"
-                                      Variant="Variant.Outlined"
-                                      Margin="Margin.Dense"
-                                      Placeholder=".pdf"
-                                      Style="flex: 1;" />
-                        <MudIconButton Icon="@Icons.Material.Filled.Add"
-                                       Size="Size.Medium"
-                                       Color="Color.Primary"
-                                       OnClick="@AddExtension" />
-                    </MudStack>
-                </div>
+            @* File extensions *@
+            <MudText Typo="Typo.body2" Style="font-weight: 500;">File Extensions</MudText>
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Style="flex-wrap: wrap;">
+                @foreach (var ext in _libEditExtensions)
+                {
+                    var localExt = ext;
+                    <MudChip T="string" Size="Size.Small" Color="Color.Default"
+                             Variant="Variant.Outlined"
+                             OnClose="@(() => _libEditExtensions.Remove(localExt))">
+                        @localExt
+                    </MudChip>
+                }
             </MudStack>
-        }
-    </DialogContent>
-    <DialogActions>
-        @if (_editingType?.BuiltIn == false)
-        {
-            <MudButton Color="Color.Error" StartIcon="@Icons.Material.Filled.Delete"
-                       OnClick="@RequestDeleteMediaType">Delete</MudButton>
-        }
-        <MudSpacer />
-        <MudButton OnClick="@CloseMediaTypeConfig">Cancel</MudButton>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                   OnClick="@SaveMediaTypeConfigAsync"
-                   Disabled="@_savingType">Save</MudButton>
-    </DialogActions>
-</MudDialog>
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                <MudTextField T="string" @bind-Value="_libNewExtension"
+                              Placeholder="e.g. .epub"
+                              Variant="Variant.Outlined" Margin="Margin.Dense"
+                              Style="max-width: 160px;"
+                              OnKeyDown="@OnExtensionKeyDown" />
+                <MudIconButton Icon="@Icons.Material.Filled.Add" Size="Size.Small"
+                               Color="Color.Primary"
+                               OnClick="@AddExtension" />
+            </MudStack>
 
-@* ── Delete confirmation dialog ────────────────────────────────── *@
-<MudDialog @bind-Visible="_confirmDeleteOpen">
-    <TitleContent>
-        <MudText Typo="Typo.h6">Delete Media Type</MudText>
-    </TitleContent>
-    <DialogContent>
-        <MudText>
-            Are you sure you want to delete "@(_editingType?.DisplayName)"? This cannot be undone.
-        </MudText>
+            @* Category folder *@
+            <MudTextField T="string" @bind-Value="_libEditCategoryFolder"
+                          Label="Category Folder"
+                          Variant="Variant.Outlined" Margin="Margin.Dense"
+                          HelperText="Folder name under the library root"
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Folder" />
+        </MudStack>
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="CancelDelete">Cancel</MudButton>
-        <MudButton Color="Color.Error" Variant="Variant.Filled" OnClick="ConfirmDeleteMediaTypeAsync">Delete</MudButton>
+        <MudButton Variant="Variant.Text" Color="Color.Default" Size="Size.Small"
+                   OnClick="@CloseLibraryConfig">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                   OnClick="@SaveLibraryConfigAsync" Disabled="@_libSaving">
+            @if (_libSaving)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+            }
+            Save
+        </MudButton>
     </DialogActions>
 </MudDialog>
 
@@ -367,15 +460,9 @@
     private IReadOnlyList<ProviderStatusDto> _providers = [];
     private Dictionary<string, ProviderSlotDto> _slots = new();
     private List<MediaTypeDefinitionDto> _mediaTypeDefinitions = [];
-    private string _activeMediaType = string.Empty;
 
-    private readonly DialogOptions _configDialogOptions = new()
-    {
-        MaxWidth = MaxWidth.Small,
-        FullWidth = true,
-        CloseOnEscapeKey = true,
-        CloseButton = true,
-    };
+    // ── Mobile state ──────────────────────────────────────────────────────
+    private bool _isMobile => DeviceContext.IsMobile;
 
     // ── Wikidata panel state ──────────────────────────────────────────────
     private bool _wdExpanded;
@@ -390,16 +477,6 @@
     private bool HasAdminAccess =>
         string.Equals(CurrentRole, "Administrator", StringComparison.OrdinalIgnoreCase)
         || string.Equals(CurrentRole, "Curator", StringComparison.OrdinalIgnoreCase);
-
-    // ── Media type config editing state ──────────────────────────────────
-    private bool _configOpen;
-    private bool _savingType;
-    private MediaTypeDefinitionDto? _editingType;
-    private string _editDisplayName = string.Empty;
-    private string _editIcon = string.Empty;
-    private string _editCategoryFolder = string.Empty;
-    private List<string> _editExtensions = [];
-    private string _newExtension = string.Empty;
 
     // ── Material icon lookup ─────────────────────────────────────────────
     private static readonly Dictionary<string, string> IconMap = new(StringComparer.OrdinalIgnoreCase)
@@ -460,12 +537,14 @@
 
             var mediaTypesConfig = await Orchestrator.GetMediaTypesAsync();
             _mediaTypeDefinitions = mediaTypesConfig?.Types ?? MediaTypeConfigurationDto.Defaults();
-            _activeMediaType = _mediaTypeDefinitions.FirstOrDefault()?.DisplayName ?? string.Empty;
 
             // Check Wikidata reachability.
             var wikidata = _providers.FirstOrDefault(p =>
                 string.Equals(p.Name, "wikidata", StringComparison.OrdinalIgnoreCase));
             _wikidataReachable = wikidata?.IsReachable ?? false;
+
+            // Build the global drag items list from current slots.
+            RebuildDragItems();
         }
         catch
         {
@@ -479,47 +558,162 @@
 
     // ── Provider helpers ─────────────────────────────────────────────────
 
-    /// <summary>Returns available providers (enabled + reachable) for drag-drop slots.</summary>
-    private List<ProviderStatusDto> GetAllVisibleProviders()
+    /// <summary>Returns Stage 3 providers (enabled + reachable) for the provider palette.</summary>
+    private List<ProviderStatusDto> GetAllStage3Providers()
     {
         return _providers
             .Where(p => ProviderAccentMap.IsVisibleProvider(p.Name))
             .Where(p => !string.Equals(p.Name, "wikidata", StringComparison.OrdinalIgnoreCase))
+            .Where(p => !string.Equals(p.Name, "wikipedia", StringComparison.OrdinalIgnoreCase))
             .Where(p => p.Enabled && p.IsReachable)
             .ToList();
     }
 
-    /// <summary>Returns providers that are disabled or offline — shown in the non-interactive section.</summary>
+    /// <summary>Returns providers that are disabled or offline.</summary>
     private List<ProviderStatusDto> GetUnavailableProviders()
     {
         return _providers
             .Where(p => ProviderAccentMap.IsVisibleProvider(p.Name))
             .Where(p => !string.Equals(p.Name, "wikidata", StringComparison.OrdinalIgnoreCase))
+            .Where(p => !string.Equals(p.Name, "wikipedia", StringComparison.OrdinalIgnoreCase))
             .Where(p => !p.Enabled || !p.IsReachable)
             .ToList();
     }
 
-    // ── Drag-drop model ──────────────────────────────────────────────────
+    // ── Library config state ────────────────────────────────────────────
+    private bool _libConfigOpen;
+    private bool _libSaving;
+    private string _libEditKey = string.Empty;
+    private string _libEditDisplayName = string.Empty;
+    private string _libEditIcon = string.Empty;
+    private List<string> _libEditExtensions = [];
+    private string _libEditCategoryFolder = string.Empty;
+    private bool _libEditBuiltIn;
+    private string _libNewExtension = string.Empty;
 
-    private List<ProviderDragItem> GetDragItems(string mediaType)
+    private void OpenLibraryConfig(MediaTypeDefinitionDto def)
     {
-        var allProviders = GetAllVisibleProviders();
-        var slot = GetSlot(mediaType);
-        var items = new List<ProviderDragItem>();
+        _libEditKey = def.Key;
+        _libEditDisplayName = def.DisplayName;
+        _libEditIcon = def.Icon;
+        _libEditExtensions = def.Extensions?.ToList() ?? [];
+        _libEditCategoryFolder = def.CategoryFolder ?? string.Empty;
+        _libEditBuiltIn = def.BuiltIn;
+        _libNewExtension = string.Empty;
+        _libConfigOpen = true;
+    }
 
-        foreach (var provider in allProviders)
+    private void CloseLibraryConfig() => _libConfigOpen = false;
+
+    private void AddExtension()
+    {
+        var ext = _libNewExtension?.Trim();
+        if (string.IsNullOrWhiteSpace(ext)) return;
+        if (!ext.StartsWith('.')) ext = "." + ext;
+        if (!_libEditExtensions.Contains(ext, StringComparer.OrdinalIgnoreCase))
+            _libEditExtensions.Add(ext.ToLowerInvariant());
+        _libNewExtension = string.Empty;
+    }
+
+    private void OnExtensionKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") AddExtension();
+    }
+
+    private async Task SaveLibraryConfigAsync()
+    {
+        _libSaving = true;
+        try
         {
-            items.Add(new ProviderDragItem { ProviderName = provider.Name, Zone = "available" });
+            var target = _mediaTypeDefinitions.FirstOrDefault(d => d.Key == _libEditKey);
+            if (target is null) return;
+
+            target.Icon = _libEditIcon;
+            target.Extensions = _libEditExtensions;
+            target.CategoryFolder = _libEditCategoryFolder;
+
+            var config = new MediaTypeConfigurationDto { Types = _mediaTypeDefinitions };
+            var ok = await Orchestrator.SaveMediaTypesAsync(config);
+
+            if (ok)
+            {
+                Snackbar.Add($"{_libEditDisplayName} configuration saved.", Severity.Success);
+                _libConfigOpen = false;
+            }
+            else
+            {
+                Snackbar.Add("Failed to save library configuration.", Severity.Error);
+            }
+        }
+        finally
+        {
+            _libSaving = false;
+        }
+    }
+
+    // ── Shared provider detection ────────────────────────────────────────
+
+    /// <summary>Returns display names of other libraries that share at least one
+    /// slotted provider with the given media type.</summary>
+    private List<string> GetSharedProviderLibraries(string mediaType)
+    {
+        var mySlot = GetSlot(mediaType);
+        var myProviders = new[] { mySlot.Primary, mySlot.Secondary, mySlot.Tertiary }
+            .Where(n => !string.IsNullOrWhiteSpace(n))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        if (myProviders.Count == 0) return [];
+
+        var shared = new List<string>();
+        foreach (var def in _mediaTypeDefinitions)
+        {
+            if (string.Equals(def.DisplayName, mediaType, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var otherSlot = GetSlot(def.DisplayName);
+            var otherProviders = new[] { otherSlot.Primary, otherSlot.Secondary, otherSlot.Tertiary }
+                .Where(n => !string.IsNullOrWhiteSpace(n));
+
+            if (otherProviders.Any(p => myProviders.Contains(p!)))
+                shared.Add(def.DisplayName);
         }
 
-        if (!string.IsNullOrWhiteSpace(slot.Primary))
-            items.Add(new ProviderDragItem { ProviderName = slot.Primary, Zone = "primary" });
-        if (!string.IsNullOrWhiteSpace(slot.Secondary))
-            items.Add(new ProviderDragItem { ProviderName = slot.Secondary, Zone = "secondary" });
-        if (!string.IsNullOrWhiteSpace(slot.Tertiary))
-            items.Add(new ProviderDragItem { ProviderName = slot.Tertiary, Zone = "tertiary" });
+        return shared;
+    }
 
-        return items;
+    // ── Drag-drop model (single global container) ─────────────────────────
+    //
+    // Zone naming:
+    //   "palette"             — provider palette (drag sources, copy semantics)
+    //   "{def.Key}:{slot}"    — library slot, e.g. "books:primary", "tv_shows:tertiary"
+    //
+    // RebuildDragItems() is the single source of truth for what is in each zone.
+    // It is called after every state change so the container always reflects _slots.
+    // ──────────────────────────────────────────────────────────────────────
+
+    private List<ProviderDragItem> _dragItems = [];
+
+    private void RebuildDragItems()
+    {
+        var items = new List<ProviderDragItem>();
+
+        // Available providers populate the palette zone (drag sources).
+        foreach (var p in GetAllStage3Providers())
+            items.Add(new ProviderDragItem { ProviderName = p.Name, Zone = "palette" });
+
+        // Slotted providers — one item per assigned slot per library.
+        foreach (var def in _mediaTypeDefinitions)
+        {
+            var slot = GetSlot(def.DisplayName);
+            if (!string.IsNullOrWhiteSpace(slot.Primary))
+                items.Add(new ProviderDragItem { ProviderName = slot.Primary,   Zone = $"{def.Key}:primary" });
+            if (!string.IsNullOrWhiteSpace(slot.Secondary))
+                items.Add(new ProviderDragItem { ProviderName = slot.Secondary, Zone = $"{def.Key}:secondary" });
+            if (!string.IsNullOrWhiteSpace(slot.Tertiary))
+                items.Add(new ProviderDragItem { ProviderName = slot.Tertiary,  Zone = $"{def.Key}:tertiary" });
+        }
+
+        _dragItems = items;
     }
 
     private ProviderSlotDto GetSlot(string mediaType)
@@ -527,63 +721,96 @@
         return _slots.TryGetValue(mediaType, out var slot) ? slot : new ProviderSlotDto();
     }
 
-    private async Task OnItemDropped(MudItemDropInfo<ProviderDragItem> dropInfo, string mediaType)
+    /// <summary>Parses a slot zone id like "tv_shows:primary" into (DisplayName, slotName).</summary>
+    private (string? DisplayName, string SlotName) ParseZone(string zone)
     {
-        if (dropInfo.Item is null) return;
+        var colonIdx = zone.IndexOf(':');
+        if (colonIdx < 0) return (null, zone);
+        var defKey   = zone[..colonIdx];
+        var slotName = zone[(colonIdx + 1)..];
+        var def = _mediaTypeDefinitions.FirstOrDefault(d => d.Key == defKey);
+        return (def?.DisplayName, slotName);
+    }
 
-        var providerName = dropInfo.Item.ProviderName;
-        var targetZone = dropInfo.DropzoneIdentifier;
-        var slot = GetSlot(mediaType);
+    private async Task OnGlobalItemDropped(MudItemDropInfo<ProviderDragItem> drop)
+    {
+        if (drop.Item is null) return;
 
-        // Move semantics: clear the provider from any existing slot before assigning.
-        if (targetZone is "primary" or "secondary" or "tertiary")
+        var providerName = drop.Item.ProviderName;
+        var sourceZone   = drop.Item.Zone;
+        var targetZone   = drop.DropzoneIdentifier;
+
+        // No-op: same zone drop
+        if (sourceZone == targetZone) { RebuildDragItems(); return; }
+
+        // Remove from source slot (if source was a slot, not palette)
+        if (sourceZone != "palette")
         {
-            if (string.Equals(slot.Primary, providerName, StringComparison.OrdinalIgnoreCase))
-                slot = slot with { Primary = null };
-            if (string.Equals(slot.Secondary, providerName, StringComparison.OrdinalIgnoreCase))
-                slot = slot with { Secondary = null };
-            if (string.Equals(slot.Tertiary, providerName, StringComparison.OrdinalIgnoreCase))
-                slot = slot with { Tertiary = null };
+            var (srcDisplay, srcSlot) = ParseZone(sourceZone);
+            if (srcDisplay is not null)
+            {
+                var slot = GetSlot(srcDisplay);
+                slot = srcSlot switch
+                {
+                    "primary"   => slot with { Primary   = null },
+                    "secondary" => slot with { Secondary = null },
+                    "tertiary"  => slot with { Tertiary  = null },
+                    _           => slot,
+                };
+                _slots[srcDisplay] = slot;
+            }
         }
 
-        switch (targetZone)
+        // Assign to target slot (if target is a slot)
+        if (targetZone != "palette")
         {
-            case "primary":
-                slot = slot with { Primary = providerName };
-                break;
-            case "secondary":
-                slot = slot with { Secondary = providerName };
-                break;
-            case "tertiary":
-                slot = slot with { Tertiary = providerName };
-                break;
-            case "available":
-                if (string.Equals(slot.Primary, providerName, StringComparison.OrdinalIgnoreCase))
-                    slot = slot with { Primary = null };
+            var (tgtDisplay, tgtSlot) = ParseZone(targetZone);
+            if (tgtDisplay is not null)
+            {
+                var slot = GetSlot(tgtDisplay);
+
+                // Clear this provider from other slots in the same library first.
+                if (string.Equals(slot.Primary,   providerName, StringComparison.OrdinalIgnoreCase))
+                    slot = slot with { Primary   = null };
                 if (string.Equals(slot.Secondary, providerName, StringComparison.OrdinalIgnoreCase))
                     slot = slot with { Secondary = null };
-                if (string.Equals(slot.Tertiary, providerName, StringComparison.OrdinalIgnoreCase))
-                    slot = slot with { Tertiary = null };
-                break;
+                if (string.Equals(slot.Tertiary,  providerName, StringComparison.OrdinalIgnoreCase))
+                    slot = slot with { Tertiary  = null };
+
+                slot = tgtSlot switch
+                {
+                    "primary"   => slot with { Primary   = providerName },
+                    "secondary" => slot with { Secondary = providerName },
+                    "tertiary"  => slot with { Tertiary  = providerName },
+                    _           => slot,
+                };
+                _slots[tgtDisplay] = slot;
+            }
         }
 
-        _slots[mediaType] = slot;
+        RebuildDragItems();
         await SaveSlotsAsync();
     }
 
-    private async Task RemoveFromSlot(ProviderDragItem item, string mediaType)
+    /// <summary>Removes a slotted provider card via the × button.</summary>
+    private async Task RemoveSlottedItemAsync(ProviderDragItem item)
     {
-        var slot = GetSlot(mediaType);
-        var name = item.ProviderName;
+        if (item.Zone == "palette") return;
 
-        if (string.Equals(slot.Primary, name, StringComparison.OrdinalIgnoreCase))
-            slot = slot with { Primary = null };
-        if (string.Equals(slot.Secondary, name, StringComparison.OrdinalIgnoreCase))
-            slot = slot with { Secondary = null };
-        if (string.Equals(slot.Tertiary, name, StringComparison.OrdinalIgnoreCase))
-            slot = slot with { Tertiary = null };
+        var (displayName, slotName) = ParseZone(item.Zone);
+        if (displayName is null) return;
 
-        _slots[mediaType] = slot;
+        var slot = GetSlot(displayName);
+        slot = slotName switch
+        {
+            "primary"   => slot with { Primary   = null },
+            "secondary" => slot with { Secondary = null },
+            "tertiary"  => slot with { Tertiary  = null },
+            _           => slot,
+        };
+        _slots[displayName] = slot;
+
+        RebuildDragItems();
         await SaveSlotsAsync();
     }
 
@@ -598,8 +825,6 @@
         StateHasChanged();
     }
 
-    private void OnTabChanged(int _) { /* Re-render with new tab's data */ }
-
     private async Task RefreshProvidersAsync()
     {
         try
@@ -608,144 +833,12 @@
             var wikidata = _providers.FirstOrDefault(p =>
                 string.Equals(p.Name, "wikidata", StringComparison.OrdinalIgnoreCase));
             _wikidataReachable = wikidata?.IsReachable ?? false;
+            RebuildDragItems();
             StateHasChanged();
         }
         catch
         {
             // Non-fatal: provider list will be stale but usable.
-        }
-    }
-
-    // ── Media type config ────────────────────────────────────────────────
-
-    private void OpenMediaTypeConfigDialog(MediaTypeDefinitionDto def) => OpenMediaTypeConfig(def);
-
-    private void OpenMediaTypeConfig(MediaTypeDefinitionDto def)
-    {
-        _editingType = def;
-        _editDisplayName = def.DisplayName;
-        _editIcon = def.Icon;
-        _editCategoryFolder = def.CategoryFolder;
-        _editExtensions = new List<string>(def.Extensions);
-        _newExtension = string.Empty;
-        _configOpen = true;
-    }
-
-    private void CloseMediaTypeConfig()
-    {
-        _configOpen = false;
-        _editingType = null;
-    }
-
-    private void AddExtension()
-    {
-        var ext = _newExtension.Trim();
-        if (string.IsNullOrWhiteSpace(ext)) return;
-        if (!ext.StartsWith('.')) ext = "." + ext;
-        ext = ext.ToLowerInvariant();
-        if (!_editExtensions.Contains(ext))
-            _editExtensions.Add(ext);
-        _newExtension = string.Empty;
-    }
-
-    private async Task SaveMediaTypeConfigAsync()
-    {
-        if (_editingType is null) return;
-        _savingType = true;
-        try
-        {
-            var oldDisplayName = _editingType.DisplayName;
-
-            _editingType.DisplayName = _editDisplayName;
-            _editingType.Icon = _editIcon;
-            _editingType.CategoryFolder = _editCategoryFolder;
-            _editingType.Extensions = new List<string>(_editExtensions);
-
-            var config = new MediaTypeConfigurationDto
-            {
-                Version = "1.0",
-                Types = _mediaTypeDefinitions,
-            };
-            var ok = await Orchestrator.SaveMediaTypesAsync(config);
-            if (ok)
-            {
-                // If display name changed, migrate the slot key.
-                if (!string.Equals(oldDisplayName, _editDisplayName, StringComparison.Ordinal)
-                    && _slots.Remove(oldDisplayName, out var slotValue))
-                {
-                    _slots[_editDisplayName] = slotValue;
-                    await Orchestrator.UpdateProviderSlotsAsync(_slots);
-                }
-
-                Snackbar.Add($"{_editDisplayName} saved.", Severity.Success);
-                CloseMediaTypeConfig();
-            }
-            else
-            {
-                Snackbar.Add("Failed to save media type.", Severity.Error);
-            }
-        }
-        finally
-        {
-            _savingType = false;
-            StateHasChanged();
-        }
-    }
-
-    private bool _confirmDeleteOpen;
-
-    private void RequestDeleteMediaType()
-    {
-        if (_editingType is null || _editingType.BuiltIn) return;
-        _confirmDeleteOpen = true;
-    }
-
-    private void CancelDelete() => _confirmDeleteOpen = false;
-
-    private async Task ConfirmDeleteMediaTypeAsync()
-    {
-        _confirmDeleteOpen = false;
-        if (_editingType is null) return;
-
-        var ok = await Orchestrator.DeleteMediaTypeAsync(_editingType.Key);
-        if (ok)
-        {
-            _mediaTypeDefinitions.Remove(_editingType);
-            _slots.Remove(_editingType.DisplayName);
-            Snackbar.Add($"{_editingType.DisplayName} deleted.", Severity.Success);
-            CloseMediaTypeConfig();
-        }
-        else
-        {
-            Snackbar.Add("Failed to delete media type.", Severity.Error);
-        }
-    }
-
-    private async Task OpenAddMediaTypeDialog()
-    {
-        var parameters = new DialogParameters<AddMediaTypeDialog>();
-        var options = new DialogOptions
-        {
-            CloseButton = true,
-            MaxWidth = MaxWidth.Small,
-            FullWidth = true,
-        };
-        var dialog = await DialogService.ShowAsync<AddMediaTypeDialog>("Add Media Type", parameters, options);
-        var result = await dialog.Result;
-
-        if (result is not null && !result.Canceled && result.Data is MediaTypeDefinitionDto newType)
-        {
-            var config = await Orchestrator.AddMediaTypeAsync(newType);
-            if (config is not null)
-            {
-                _mediaTypeDefinitions = config.Types;
-                Snackbar.Add($"{newType.DisplayName} added.", Severity.Success);
-                StateHasChanged();
-            }
-            else
-            {
-                Snackbar.Add("Failed to add media type.", Severity.Error);
-            }
         }
     }
 
@@ -797,36 +890,12 @@
         }
     }
 
-    // ── Media type reordering ────────────────────────────────────────────
-
-    private async Task MoveMediaType(int index, int direction)
-    {
-        int newIndex = index + direction;
-        if (newIndex < 0 || newIndex >= _mediaTypeDefinitions.Count) return;
-
-        (_mediaTypeDefinitions[index], _mediaTypeDefinitions[newIndex]) =
-            (_mediaTypeDefinitions[newIndex], _mediaTypeDefinitions[index]);
-
-        var config = new MediaTypeConfigurationDto
-        {
-            Version = "1.0",
-            Types = _mediaTypeDefinitions,
-        };
-        var ok = await Orchestrator.SaveMediaTypesAsync(config);
-        if (ok)
-            Snackbar.Add("Media type order saved.", Severity.Success);
-        else
-            Snackbar.Add("Failed to save order.", Severity.Error);
-
-        StateHasChanged();
-    }
-
     // ── Drag item model ──────────────────────────────────────────────────
 
     private sealed class ProviderDragItem
     {
         public string ProviderName { get; set; } = string.Empty;
-        public string Zone { get; set; } = "available";
+        public string Zone         { get; set; } = "palette";
     }
 
     // ── Glass style ──────────────────────────────────────────────────────
@@ -841,62 +910,116 @@
 }
 
 <style>
-    /* ── Slot layout ──────────────────────────────────────────────── */
-    .slot-layout {
+    /* ── Vault layout: providers list + library grid side by side ── */
+    .vault-layout {
         display: flex;
         gap: 24px;
-        min-height: 300px;
+        align-items: flex-start;
     }
 
-    .slot-available-providers {
+    /* ── Provider palette (left column) ────────────────────────── */
+    .vault-provider-list {
+        width: 220px;
+        flex-shrink: 0;
+        position: sticky;
+        top: 80px;
+        max-height: calc(100vh - 120px);
+        overflow-y: auto;
+    }
+
+    /* ── Palette drop zone — stacks cards vertically ────────────── */
+    .vault-palette-zone {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        min-height: 40px; /* accept drop even when empty */
+    }
+
+    /* ── Library cards area (right column) — flex column of groups ── */
+    .vault-libraries-grid {
         flex: 1;
         min-width: 0;
-    }
-
-    .slot-drop-container {
-        display: flex;
-        gap: 24px;
-        min-height: 280px;
-    }
-
-    .slot-available-zone {
-        flex: 2;
         display: flex;
         flex-direction: column;
-        gap: 8px;
+        gap: 16px;
+    }
+
+    /* ── Grouped pair (Books+Audiobooks, Movies+TV) ─────────────── */
+    .vault-library-group {
+        background: var(--app-glass-inner-bg);
+        border: 1px solid var(--app-glass-inner-border);
+        border-radius: 10px;
         padding: 12px;
-        border: 2px dashed var(--app-glass-border);
-        border-radius: 8px;
-        min-height: 200px;
     }
 
-    .slot-zones-column {
-        flex: 3;
+    .vault-group-label {
         display: flex;
-        flex-direction: column;
-        gap: 12px;
+        align-items: center;
+        font-size: 0.65rem;
+        font-weight: 700;
+        color: var(--app-text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        margin-bottom: 10px;
+        padding: 0 4px;
     }
 
-    /* ── Drop zone slots ──────────────────────────────────────────── */
-    .slot-zone {
-        display: flex;
-        flex-direction: column;
+    .vault-group-cards {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
         gap: 8px;
-        padding: 16px;
-        border: 2px dashed var(--app-glass-border);
-        border-radius: 8px;
-        min-height: 80px;
+    }
+
+    /* ── Standalone row (Comics, Music, Podcasts) ───────────────── */
+    .vault-standalone-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 16px;
+    }
+
+    /* ── Individual library card ─────────────────────────────────── */
+    .vault-library-card {
+        min-height: 0;
+    }
+
+    /* ── Drop container within a library card ──────────────────── */
+    .vault-drop-container {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding: 0 12px 12px;
+    }
+
+    /* ── Slot drop zone ───────────────────────────────────────── */
+    .vault-slot {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border: 1px dashed var(--app-glass-border);
+        border-radius: 6px;
+        min-height: 48px;
         transition: border-color 0.15s ease, background 0.15s ease;
     }
 
-    .slot-zone:hover {
+    .vault-slot:hover {
         border-color: var(--mud-palette-primary);
         background: var(--app-hover-overlay);
     }
 
-    .slot-zone-primary {
+    .vault-slot-primary {
         border-color: var(--mud-palette-primary);
+        border-style: dashed;
+    }
+
+    .vault-slot-filled {
         border-style: solid;
+        border-color: var(--app-glass-border);
+        background: var(--app-glass-bg);
+    }
+
+    .vault-slot-primary.vault-slot-filled {
+        border-color: var(--mud-palette-primary);
     }
 
     /* ── Health dot (shared with ProviderCard) ─────────────────── */
@@ -917,107 +1040,23 @@
         box-shadow: 0 0 4px rgba(244, 67, 54, 0.5);
     }
 
-    /* ── Unavailable provider wrapper ─────────────────────────── */
-    .provider-unavailable-wrapper {
-        opacity: 0.55;
+    /* ── Responsive ──────────────────────────────────────────────── */
+    @@media (max-width: 900px) {
+        /* Stack grouped cards to single column on narrower desktops */
+        .vault-group-cards {
+            grid-template-columns: 1fr;
+        }
     }
 
-    .provider-unavailable-wrapper .provider-card {
-        cursor: default !important;
-    }
-
-    .provider-unavailable-wrapper .provider-card:active {
-        cursor: default !important;
-    }
-
-    /* ── Media type cards row ─────────────────────────────────── */
-    .media-type-cards-row {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 12px;
-        margin-bottom: 20px;
-    }
-
-    .media-type-card {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 6px;
-        padding: 14px 12px 10px;
-        width: 90px;
-        border-radius: 8px;
-        background: var(--app-glass-bg);
-        border: 1px solid var(--app-glass-border);
-        cursor: pointer;
-        position: relative;
-        transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
-        user-select: none;
-    }
-
-    .media-type-card:hover {
-        border-color: var(--mud-palette-primary);
-        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-    }
-
-    .media-type-card-active {
-        border-color: var(--mud-palette-primary) !important;
-        background: var(--app-active-overlay, rgba(var(--mud-palette-primary-rgb), 0.08)) !important;
-        box-shadow: 0 0 0 2px rgba(var(--mud-palette-primary-rgb), 0.2);
-    }
-
-    .media-type-card-add {
-        border-style: dashed;
-        opacity: 0.7;
-    }
-
-    .media-type-card-add:hover {
-        opacity: 1;
-    }
-
-    /* Reorder arrows — shown on hover */
-    .media-type-card-reorder {
-        position: absolute;
-        top: 2px;
-        left: 2px;
-        display: flex;
-        opacity: 0;
-        transition: opacity 0.15s ease;
-    }
-
-    .media-type-card:hover .media-type-card-reorder {
-        opacity: 1;
-    }
-
-    .media-type-card-active .media-type-card-reorder {
-        opacity: 1;
-    }
-
-    /* The "..." menu button — shown on hover */
-    .media-type-card-menu {
-        position: absolute;
-        top: 2px;
-        right: 2px;
-        opacity: 0;
-        transition: opacity 0.15s ease;
-    }
-
-    .media-type-card:hover .media-type-card-menu {
-        opacity: 1;
-    }
-
-    .media-type-card-active .media-type-card-menu {
-        opacity: 1;
-    }
-
-    /* ── Responsive ────────────────────────────────────────────── */
     @@media (max-width: 768px) {
-        .slot-drop-container {
+        .vault-layout {
             flex-direction: column;
         }
 
-        .slot-available-zone {
-            min-height: 100px;
+        .vault-provider-list {
+            width: 100%;
+            position: static;
+            max-height: none;
         }
     }
 </style>

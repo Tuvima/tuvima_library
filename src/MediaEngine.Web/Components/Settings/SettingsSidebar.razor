@@ -305,7 +305,12 @@
         backdrop-filter: blur(10px);
         -webkit-backdrop-filter: blur(10px);
         padding: 16px;
-        height: 100%;
+        /* max-height instead of height: 100% avoids flex-collapse to 0 when
+           the MudDrawer parent has no explicit height set.
+           overflow-y: auto provides scrolling when many items exceed the viewport. */
+        max-height: calc(100vh - 32px);
+        overflow-y: auto;
+        box-sizing: border-box;
     }
 
     .settings-sidebar-focus {
