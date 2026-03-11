@@ -66,20 +66,23 @@ public static class ProgressEndpoints
             return Results.Ok(items.Select(MapStateResponse));
         });
 
-        // GET /progress/journey?userId={userId}&limit=5 — incomplete items with
+        // GET /progress/journey?userId={userId}&hubId={hubId}&limit=5 — incomplete items with
         // Work+Hub context for "Continue your Journey" hero.
+        // Optional hubId: when supplied, results are filtered to assets that belong to that
+        // hub via works.hub_id, eliminating any client-side matching ambiguity.
         group.MapGet("/journey", async (
             string? userId,
+            string? hubId,
             int? limit,
             IDatabaseConnection db,
             CancellationToken ct) =>
         {
             ct.ThrowIfCancellationRequested();
-            var uid = ResolveUserId(userId);
-            var conn = db.Open();
+            var uid       = ResolveUserId(userId);
+            var filterHub = Guid.TryParse(hubId, out var parsedHubId);
+            var conn      = db.Open();
 
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = """
+            const string baseSelect = """
                 SELECT
                     us.asset_id,
                     w.id            AS work_id,
@@ -118,11 +121,17 @@ public static class ProgressEndpoints
                 WHERE us.user_id = @userId
                   AND us.progress_pct > 0.0
                   AND us.progress_pct < 100.0
-                ORDER BY us.last_accessed DESC
-                LIMIT @limit;
                 """;
+
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = filterHub
+                ? baseSelect + "\n  AND w.hub_id = @hubId\nORDER BY us.last_accessed DESC\nLIMIT @limit;"
+                : baseSelect + "\nORDER BY us.last_accessed DESC\nLIMIT @limit;";
+
             cmd.Parameters.AddWithValue("@userId", uid.ToString());
             cmd.Parameters.AddWithValue("@limit", limit ?? 5);
+            if (filterHub)
+                cmd.Parameters.AddWithValue("@hubId", parsedHubId.ToString());
 
             using var reader = cmd.ExecuteReader();
             var results = new List<JourneyItemResponse>();

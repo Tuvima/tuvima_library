@@ -488,10 +488,11 @@ public sealed class UIOrchestratorService : IAsyncDisposable
 
     // ── Progress & Journey ────────────────────────────────────────────────
 
-    /// <summary>Returns incomplete journey items for the "Continue your Journey" hero.</summary>
+    /// <summary>Returns incomplete journey items for the "Continue your Journey" hero.
+    /// Pass hubId to get server-filtered results for a specific hub (no client-side matching needed).</summary>
     public Task<List<JourneyItemViewModel>> GetJourneyAsync(
-        Guid? userId = null, int limit = 5, CancellationToken ct = default)
-        => _api.GetJourneyAsync(userId, limit, ct);
+        Guid? userId = null, int limit = 5, Guid? hubId = null, CancellationToken ct = default)
+        => _api.GetJourneyAsync(userId, limit, hubId, ct);
 
     /// <summary>Saves progress for a media asset.</summary>
     public Task<bool> SaveProgressAsync(

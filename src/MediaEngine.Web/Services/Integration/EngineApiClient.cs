@@ -1319,13 +1319,15 @@ public sealed class EngineApiClient : IEngineApiClient
     // ── Progress & Journey (/progress) ──────────────────────────────────
 
     public async Task<List<JourneyItemViewModel>> GetJourneyAsync(
-        Guid? userId = null, int limit = 5, CancellationToken ct = default)
+        Guid? userId = null, int limit = 5, Guid? hubId = null, CancellationToken ct = default)
     {
         try
         {
             var url = $"/progress/journey?limit={limit}";
             if (userId.HasValue)
                 url += $"&userId={userId.Value}";
+            if (hubId.HasValue)
+                url += $"&hubId={hubId.Value}";
 
             var raw = await _http.GetFromJsonAsync<List<JourneyItemRaw>>(url, ct);
             return raw?.Select(j => new JourneyItemViewModel

@@ -564,7 +564,9 @@ else
         if (_hub is not null)
         {
             var personsTask  = Orchestrator.GetPersonsByHubAsync(Id);
-            var journeyTask  = Orchestrator.GetJourneyAsync(limit: 50);
+            // Pass hubId so the Engine filters server-side via works.hub_id — no client-side
+            // matching needed and no risk of Guid comparison mismatch.
+            var journeyTask  = Orchestrator.GetJourneyAsync(limit: 50, hubId: Id);
             var relatedTask  = Orchestrator.GetRelatedHubsAsync(Id);
 
             await Task.WhenAll(personsTask, journeyTask, relatedTask);
@@ -579,9 +581,8 @@ else
                 ?? persons.FirstOrDefault(p =>
                 string.Equals(p.Role, "Author", StringComparison.OrdinalIgnoreCase));
 
-            var hubWorkIds = _hub.Works.Select(w => w.Id).ToHashSet();
+            // Server already filtered by hubId — take the most-recent in-progress item.
             _activeJourney = journey
-                .Where(j => j.HubId == Id || hubWorkIds.Contains(j.WorkId))
                 .OrderByDescending(j => j.LastAccessed)
                 .FirstOrDefault();
 

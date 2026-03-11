@@ -266,8 +266,9 @@ public interface IEngineApiClient
 
     // ── Progress & Journey (/progress) ─────────────────────────────────
 
-    /// <summary>GET /progress/journey?userId={id}&amp;limit= — incomplete items with Work+Hub context.</summary>
-    Task<List<JourneyItemViewModel>> GetJourneyAsync(Guid? userId = null, int limit = 5, CancellationToken ct = default);
+    /// <summary>GET /progress/journey?userId={id}&amp;limit= — incomplete items with Work+Hub context.
+    /// Pass hubId to filter server-side to assets belonging to a specific hub.</summary>
+    Task<List<JourneyItemViewModel>> GetJourneyAsync(Guid? userId = null, int limit = 5, Guid? hubId = null, CancellationToken ct = default);
 
     /// <summary>GET /progress/{assetId} - current progress for an asset.</summary>
     Task<ProgressStateDto?> GetProgressAsync(Guid assetId, CancellationToken ct = default);
