@@ -51,13 +51,16 @@
                     <MudText Typo="Typo.caption" Color="Color.Secondary" Style="flex: 1;">
                         Cross-media identification, series data, and creator profiles.
                     </MudText>
-                    <MudIconButton Icon="@(_wdExpanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
-                                   Size="Size.Small"
-                                   title="@(_wdExpanded ? "Collapse" : "Expand")"
-                                   OnClick="@(() => _wdExpanded = !_wdExpanded)" />
+                    @if (!_isMobile)
+                    {
+                        <MudIconButton Icon="@(_wdExpanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
+                                       Size="Size.Small"
+                                       title="@(_wdExpanded ? "Collapse" : "Expand")"
+                                       OnClick="@(() => _wdExpanded = !_wdExpanded)" />
+                    }
                 </MudStack>
 
-                @if (_wdExpanded)
+                @if (_wdExpanded && !_isMobile)
                 {
                     <WikidataVaultPanel Provider="@wdProvider"
                                         IsAdmin="@HasAdminAccess"
@@ -73,68 +76,8 @@
         @* ── Main content: desktop = providers + libraries side-by-side; mobile = read-only summary *@
         @if (_isMobile)
         {
-            @* ── Mobile: read-only summary ────────────────────────────────── *@
-            <MudStack Spacing="3">
-                @foreach (var def in _mediaTypeDefinitions)
-                {
-                    var slot = GetSlot(def.DisplayName);
-                    var assignedNames = new[] { slot.Primary, slot.Secondary, slot.Tertiary }
-                        .Where(n => !string.IsNullOrWhiteSpace(n))
-                        .ToList();
-
-                    <MudPaper Elevation="0" Class="pa-3"
-                              Style="background: var(--app-glass-inner-bg);
-                                     border: 1px solid var(--app-glass-inner-border);
-                                     border-radius: 8px;">
-                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-2">
-                            <MudIcon Icon="@ResolveIcon(def.Icon)" Size="Size.Small"
-                                     Style="color: var(--mud-palette-primary);" />
-                            <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">
-                                @def.DisplayName
-                            </MudText>
-                        </MudStack>
-
-                        @if (assignedNames.Count == 0)
-                        {
-                            <MudText Typo="Typo.body2" Color="Color.Secondary" Style="font-style: italic;">
-                                No providers assigned
-                            </MudText>
-                        }
-                        else
-                        {
-                            @for (int i = 0; i < assignedNames.Count; i++)
-                            {
-                                var providerName = assignedNames[i];
-                                var provider = _providers.FirstOrDefault(p =>
-                                    string.Equals(p.Name, providerName, StringComparison.OrdinalIgnoreCase));
-                                var accent = ProviderAccentMap.GetAccent(providerName!);
-
-                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2"
-                                          Class="@(i > 0 ? "mt-1" : "")">
-                                    <MudText Typo="Typo.caption" Style="color: var(--app-text-muted); width: 16px;">
-                                        @(i + 1).
-                                    </MudText>
-                                    <MudIcon Icon="@accent.Icon" Size="Size.Small"
-                                             Style="@($"color: {accent.Color};")" />
-                                    <MudText Typo="Typo.body2" Style="flex: 1;">
-                                        @ProviderAccentMap.GetDisplayName(providerName!)
-                                    </MudText>
-                                    <div class="provider-health-dot @(provider?.IsReachable == true ? "health-online" : "health-offline")"></div>
-                                    @if (provider?.RequiresApiKey == true && provider.HasApiKey == false)
-                                    {
-                                        <MudChip T="string" Size="Size.Small" Color="Color.Warning"
-                                                 Variant="Variant.Outlined" Style="font-size: 0.65rem;">
-                                            needs key
-                                        </MudChip>
-                                    }
-                                </MudStack>
-                            }
-                        }
-                    </MudPaper>
-                }
-            </MudStack>
-
-            <MudText Typo="Typo.caption" Color="Color.Secondary" Align="Align.Center" Class="mt-4">
+            @* ── Mobile: Wikidata status only — full assignment editing on desktop ── *@
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Align="Align.Center" Class="mt-2">
                 <MudIcon Icon="@Icons.Material.Filled.DesktopWindows" Size="Size.Small"
                          Style="vertical-align: middle; margin-right: 4px;" />
                 Edit provider assignments on a desktop device.

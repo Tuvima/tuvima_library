@@ -8,9 +8,10 @@
 
 @* Left Navigation Dock — Floating glassmorphic panel below the TopBar.
    Fixed content-type lanes: Home, Search, Books, Video, Music, Podcasts, Comics.
+   Settings expands inline as a tree node with grouped sub-items.
    Narrow state (64px): icon-only.
    Expanded state (hover, 220px): overlay with labels.
-   Bottom: Settings → Profile avatar → Clock *@
+   Bottom: Profile avatar → Clock *@
 
 <div class="left-dock @(_expanded ? "left-dock-expanded" : "")"
      @onmouseenter="@(() => _expanded = true)"
@@ -19,8 +20,10 @@
     @* ── Top spacer to push icons down from the very top ── *@
     <div class="dock-top-spacer"></div>
 
-    @* ── Navigation items — fixed content-type lanes ── *@
+    @* ── Navigation items ── *@
     <nav class="dock-nav">
+
+        @* ── Content-type lanes ── *@
         @foreach (var lane in ContentLanes.All)
         {
             var route = lane.Key == "home" ? "/" : $"/{lane.Key}";
@@ -40,27 +43,93 @@
                 }
             </div>
         }
-    </nav>
 
-    @* ── Bottom: Settings, Avatar, Clock ── *@
-    <div class="dock-bottom">
-        @* Settings *@
-        <div class="dock-item @(IsActive("/settings", "settings") ? "dock-item-active" : "")"
-             @onclick="@(() => Nav.NavigateTo("/settings"))"
+        @* ── Settings tree ── *@
+        <div class="dock-settings-divider"></div>
+
+        <div class="dock-item dock-settings-toggle @(_isOnSettingsPage ? "dock-item-active" : "")"
+             @onclick="ToggleSettings"
              title="@(ReviewCount > 0 ? $"Settings ({ReviewCount} pending review)" : "Settings")">
-            <MudBadge Content="@(ReviewCount > 0 ? ReviewCount.ToString() : null)"
+            <MudBadge Content="@(ReviewCount > 0 && !_settingsExpanded ? ReviewCount.ToString() : null)"
                       Color="Color.Error"
                       Overlap="true"
-                      Dot="@(ReviewCount > 0)"
-                      Visible="@(ReviewCount > 0)">
+                      Dot="@(ReviewCount > 0 && !_settingsExpanded)"
+                      Visible="@(ReviewCount > 0 && !_settingsExpanded)">
                 <MudIcon Icon="@Icons.Material.Outlined.Settings" Size="Size.Medium" />
             </MudBadge>
             @if (_expanded)
             {
-                <span class="dock-label">Settings</span>
+                <span class="dock-label" style="flex: 1;">Settings</span>
+                <MudIcon Icon="@(_settingsExpanded
+                                ? Icons.Material.Filled.ExpandMore
+                                : Icons.Material.Filled.ChevronRight)"
+                         Size="Size.Small"
+                         Style="color: var(--app-dock-text-muted); flex-shrink: 0;" />
             }
         </div>
 
+        @if (_settingsExpanded)
+        {
+            @foreach (var group in SettingsNav.FilteredGroups(CurrentRole))
+            {
+                var items = SettingsNav.FilteredItems(group, CurrentRole);
+                if (items.Count == 0) continue;
+
+                @* Group divider *@
+                @if (_expanded)
+                {
+                    <div class="dock-group-label">@group.Label</div>
+                }
+                else
+                {
+                    <div class="dock-group-rule"></div>
+                }
+
+                @* Sub-items *@
+                @foreach (var item in items)
+                {
+                    var isItemActive = _activeSettingsSection == item.Value;
+                    var badgeCount = GetBadgeCount(item.BadgeKey);
+
+                    <div class="dock-item dock-settings-sub @(isItemActive ? "dock-item-active" : "")"
+                         @onclick="@(() => Nav.NavigateTo(SettingsNav.RouteFor(item.Value)))"
+                         title="@item.Label">
+                        @if (badgeCount > 0)
+                        {
+                            <MudBadge Content="@badgeCount.ToString()"
+                                      Color="Color.Error"
+                                      Overlap="true"
+                                      Dot="true"
+                                      Visible="true">
+                                <MudIcon Icon="@item.Icon" Size="Size.Small" />
+                            </MudBadge>
+                        }
+                        else
+                        {
+                            <MudIcon Icon="@item.Icon" Size="Size.Small" />
+                        }
+                        @if (_expanded)
+                        {
+                            <span class="dock-label">@item.Label</span>
+                            @if (badgeCount > 0)
+                            {
+                                <MudChip T="string"
+                                         Size="Size.Small"
+                                         Color="Color.Warning"
+                                         Variant="Variant.Filled"
+                                         Style="height: 18px; font-size: 0.65rem; min-width: 0; padding: 0 6px;">
+                                    @badgeCount
+                                </MudChip>
+                            }
+                        }
+                    </div>
+                }
+            }
+        }
+    </nav>
+
+    @* ── Bottom: Avatar, Clock ── *@
+    <div class="dock-bottom">
         @* Profile avatar *@
         <div class="dock-item dock-item-avatar"
              @onclick="@(() => Nav.NavigateTo("/switch-profile"))"
@@ -95,8 +164,10 @@
     [Parameter] public string AvatarInitial { get; set; } = "?";
     [Parameter] public string DisplayName { get; set; } = "User";
     [Parameter] public int ReviewCount { get; set; }
+    [Parameter] public string CurrentRole { get; set; } = "Administrator";
 
     private bool _expanded;
+    private bool _settingsExpanded;
 
     // Clock state
     private string _clockTime = string.Empty;
@@ -105,10 +176,16 @@
     private string _clockDateNarrow = string.Empty;
     private Timer? _clockTimer;
 
+    // Settings context — derived from URL
+    private bool _isOnSettingsPage;
+    private SettingsSection? _activeSettingsSection;
+
     protected override void OnInitialized()
     {
         DeviceContext.OnChanged += OnDeviceChanged;
+        Nav.LocationChanged += OnLocationChanged;
         UpdateClock();
+        UpdateSettingsContext();
         _clockTimer = new Timer(_ =>
         {
             UpdateClock();
@@ -127,6 +204,58 @@
 
     private void OnDeviceChanged() => InvokeAsync(StateHasChanged);
 
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        UpdateSettingsContext();
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void UpdateSettingsContext()
+    {
+        var uri = Nav.ToBaseRelativePath(Nav.Uri);
+        _isOnSettingsPage = uri.StartsWith("settings", StringComparison.OrdinalIgnoreCase);
+
+        if (_isOnSettingsPage)
+        {
+            // Auto-expand when navigating to a settings page.
+            _settingsExpanded = true;
+
+            // Parse the active section from the URL (e.g. "settings/apikeys" → "apikeys").
+            var segments = uri.Split('/', StringSplitOptions.RemoveEmptyEntries);
+            var sectionSegment = segments.Length > 1 ? segments[1] : null;
+            _activeSettingsSection = SettingsNav.ParseFromRoute(sectionSegment)
+                                     ?? SettingsSection.General;
+        }
+        else
+        {
+            _activeSettingsSection = null;
+            // Collapse settings tree when navigating away.
+            _settingsExpanded = false;
+        }
+    }
+
+    private void ToggleSettings()
+    {
+        if (_settingsExpanded)
+        {
+            _settingsExpanded = false;
+        }
+        else
+        {
+            _settingsExpanded = true;
+            // If not already on a settings page, navigate to General.
+            if (!_isOnSettingsPage)
+                Nav.NavigateTo("/settings");
+        }
+    }
+
+    private int GetBadgeCount(string? badgeKey) =>
+        badgeKey switch
+        {
+            "review" => ReviewCount,
+            _        => 0,
+        };
+
     private bool IsActive(string path, string key)
     {
         var uri = Nav.ToBaseRelativePath(Nav.Uri);
@@ -138,6 +267,7 @@
     public void Dispose()
     {
         DeviceContext.OnChanged -= OnDeviceChanged;
+        Nav.LocationChanged -= OnLocationChanged;
         _clockTimer?.Dispose();
     }
 }
@@ -261,6 +391,60 @@
 
     .dock-item-active .dock-label {
         font-weight: 700;
+    }
+
+    /* ── Settings tree ──────────────────────────────────────────────── */
+
+    /* Divider above Settings */
+    .dock-settings-divider {
+        height: 1px;
+        background: rgba(255, 255, 255, 0.06);
+        margin: 6px 4px;
+        flex-shrink: 0;
+    }
+
+    /* Settings toggle parent — inherits dock-item */
+    .dock-settings-toggle {
+        /* No extra styles needed; dock-item covers it */
+    }
+
+    /* Settings sub-items — smaller, indented */
+    .dock-settings-sub {
+        min-height: 36px;
+        padding: 6px 8px;
+        gap: 10px;
+    }
+
+    .left-dock:not(.left-dock-expanded) .dock-settings-sub {
+        padding: 6px 0;
+    }
+
+    .left-dock-expanded .dock-settings-sub {
+        padding-left: 20px;
+    }
+
+    .dock-settings-sub .dock-label {
+        font-size: 0.8rem;
+    }
+
+    /* Group dividers */
+    .dock-group-label {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.6rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--app-dock-text-muted, rgba(248,248,248,0.35));
+        padding: 8px 20px 2px;
+        white-space: nowrap;
+        overflow: hidden;
+    }
+
+    .dock-group-rule {
+        height: 1px;
+        background: rgba(255, 255, 255, 0.04);
+        margin: 4px 8px;
+        flex-shrink: 0;
     }
 
     /* ── Bottom section ──────────────────────────────────────────────── */

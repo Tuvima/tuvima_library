@@ -3,9 +3,11 @@
 @using MediaEngine.Web.Models.ViewDTOs
 
 @inject NavigationManager Nav
+@implements IDisposable
 
 @* MobileNavDrawer -- Slide-out navigation drawer for mobile devices.
    Triggered by hamburger icon in the TopBar. Fixed content-type lanes matching the LeftDock.
+   Settings expands inline as a tree node with grouped sub-items.
    Drawer renders its own hamburger at the top so the toggle stays visible while open. *@
 
 <MudDrawer @bind-Open="@Open" Anchor="Anchor.Left" Variant="@DrawerVariant.Temporary"
@@ -36,10 +38,65 @@
 
         <MudDivider Class="my-2" Style="border-color: rgba(255,255,255,0.06);" />
 
-        <MudNavLink Href="/settings" Icon="@Icons.Material.Outlined.Settings"
-                    OnClick="@CloseDrawer">
-            Settings
-        </MudNavLink>
+        @* -- Settings expandable tree -- *@
+        <div class="mobile-nav-settings-toggle" @onclick="ToggleSettings">
+            <MudIcon Icon="@Icons.Material.Outlined.Settings"
+                     Size="Size.Medium"
+                     Style="color: rgba(248,248,248,0.70); flex-shrink: 0;" />
+            <span class="mobile-nav-settings-label" style="flex: 1;">Settings</span>
+            @if (ReviewCount > 0 && !_settingsExpanded)
+            {
+                <MudChip T="string"
+                         Size="Size.Small"
+                         Color="Color.Warning"
+                         Variant="Variant.Filled"
+                         Style="height: 18px; font-size: 0.65rem; min-width: 0; padding: 0 6px;">
+                    @ReviewCount
+                </MudChip>
+            }
+            <MudIcon Icon="@(_settingsExpanded
+                            ? Icons.Material.Filled.ExpandMore
+                            : Icons.Material.Filled.ChevronRight)"
+                     Size="Size.Small"
+                     Style="color: rgba(248,248,248,0.35); flex-shrink: 0;" />
+        </div>
+
+        @if (_settingsExpanded)
+        {
+            @foreach (var group in SettingsNav.FilteredGroups(CurrentRole))
+            {
+                var items = SettingsNav.FilteredItems(group, CurrentRole);
+                if (items.Count == 0) continue;
+
+                <MudText Typo="Typo.overline"
+                         Style="padding: 10px 16px 2px 48px; color: rgba(248,248,248,0.35); letter-spacing: 0.1em;">
+                    @group.Label
+                </MudText>
+
+                @foreach (var item in items)
+                {
+                    var badgeCount = GetBadgeCount(item.BadgeKey);
+
+                    <MudNavLink Href="@(SettingsNav.RouteFor(item.Value))"
+                                Icon="@item.Icon"
+                                Match="NavLinkMatch.All"
+                                OnClick="@CloseDrawer"
+                                Style="padding-left: 48px;">
+                        @item.Label
+                        @if (badgeCount > 0)
+                        {
+                            <MudChip T="string"
+                                     Size="Size.Small"
+                                     Color="Color.Warning"
+                                     Variant="Variant.Filled"
+                                     Style="height: 18px; font-size: 0.65rem; min-width: 0; padding: 0 6px; margin-left: 8px;">
+                                @badgeCount
+                            </MudChip>
+                        }
+                    </MudNavLink>
+                }
+            }
+        }
     </MudNavMenu>
 
     @* -- Profile entry at the end -- *@
@@ -58,6 +115,42 @@
     [Parameter] public string AvatarColor { get; set; } = "#C9922E";
     [Parameter] public string AvatarInitial { get; set; } = "?";
     [Parameter] public string DisplayName { get; set; } = "User";
+    [Parameter] public string CurrentRole { get; set; } = "Administrator";
+    [Parameter] public int ReviewCount { get; set; }
+
+    private bool _settingsExpanded;
+
+    protected override void OnInitialized()
+    {
+        Nav.LocationChanged += OnLocationChanged;
+        UpdateSettingsState();
+    }
+
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        UpdateSettingsState();
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void UpdateSettingsState()
+    {
+        // Auto-expand when already on a settings page.
+        var uri = Nav.ToBaseRelativePath(Nav.Uri);
+        if (uri.StartsWith("settings", StringComparison.OrdinalIgnoreCase))
+            _settingsExpanded = true;
+    }
+
+    private void ToggleSettings()
+    {
+        _settingsExpanded = !_settingsExpanded;
+    }
+
+    private int GetBadgeCount(string? badgeKey) =>
+        badgeKey switch
+        {
+            "review" => ReviewCount,
+            _        => 0,
+        };
 
     private async Task CloseDrawer()
     {
@@ -69,6 +162,11 @@
     {
         await CloseDrawer();
         Nav.NavigateTo("/switch-profile");
+    }
+
+    public void Dispose()
+    {
+        Nav.LocationChanged -= OnLocationChanged;
     }
 }
 
@@ -131,6 +229,29 @@
     .mobile-nav-menu .mud-nav-link:hover {
         background: rgba(255, 255, 255, 0.06);
         color: rgba(248, 248, 248, 0.95);
+    }
+
+    /* -- Settings toggle row -- */
+    .mobile-nav-settings-toggle {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 16px;
+        border-radius: 8px;
+        cursor: pointer;
+        margin-bottom: 2px;
+        transition: background 0.15s ease;
+    }
+
+    .mobile-nav-settings-toggle:hover {
+        background: rgba(255, 255, 255, 0.06);
+    }
+
+    .mobile-nav-settings-label {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: rgba(248, 248, 248, 0.70);
     }
 
     .mobile-nav-profile {

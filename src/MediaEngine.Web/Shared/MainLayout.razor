@@ -34,7 +34,9 @@
     <MobileNavDrawer @bind-Open="@_mobileDrawerOpen"
                      AvatarColor="@_avatarColor"
                      AvatarInitial="@_avatarInitial"
-                     DisplayName="@_displayName" />
+                     DisplayName="@_displayName"
+                     ReviewCount="@_reviewCount"
+                     CurrentRole="Administrator" />
 
     @* ── Left Navigation Dock (when config says visible) ── *@
     @if (ShowDock)
@@ -42,7 +44,8 @@
         <LeftDock AvatarColor="@_avatarColor"
                   AvatarInitial="@_avatarInitial"
                   DisplayName="@_displayName"
-                  ReviewCount="@_reviewCount" />
+                  ReviewCount="@_reviewCount"
+                  CurrentRole="Administrator" />
     }
 
     @* Full-width main content — top padding clears top bar, left clears dock *@

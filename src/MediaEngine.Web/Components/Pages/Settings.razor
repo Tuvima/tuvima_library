@@ -7,69 +7,20 @@
 @inject UIOrchestratorService Orchestrator
 @implements IDisposable
 
+@using MediaEngine.Web.Models.ViewDTOs
+
 <PageTitle>Settings — Tuvima Library</PageTitle>
 
 @* ── Page header ─────────────────────────────────────────────────────── *@
-<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-1">
-    @if (_sidebarLayout == "drawer")
-    {
-        <MudIconButton Icon="@Icons.Material.Filled.Menu"
-                       Color="Color.Default"
-                       Size="Size.Medium"
-                       title="Toggle sidebar"
-                       OnClick="@(() => _mobileDrawerOpen = !_mobileDrawerOpen)" />
-    }
-    <MudText Typo="Typo.h4" Style="flex: 1;">Settings</MudText>
-</MudStack>
+<MudText Typo="Typo.h4" Class="mb-1">Settings</MudText>
 <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
     Manage your experience.
 </MudText>
 
-@* ── Layout: sidebar + content ───────────────────────────────────────── *@
-@if (_sidebarLayout == "drawer")
-{
-    @* Mobile: temporary left drawer for sidebar *@
-    <MudDrawer Open="@_mobileDrawerOpen"
-               OpenChanged="@OnMobileDrawerChanged"
-               Anchor="Anchor.Start"
-               Width="280px"
-               Overlay="true"
-               Variant="DrawerVariant.Temporary"
-               Style="@MobileDrawerStyle">
-        <SettingsSidebar ActiveSection="@_activeSection"
-                         OnSectionChanged="@OnSectionChanged"
-                         CurrentRole="@_currentRole"
-                         ReviewCount="@_reviewCount"
-                         Layout="drawer" />
-    </MudDrawer>
-
-    @* Content area (full width on mobile) *@
-    <div class="settings-content-area">
-        @RenderActiveTab
-    </div>
-}
-else if (_sidebarLayout == "single")
-{
-    @* Automotive: no sidebar, just the content *@
-    <div class="settings-content-area">
-        @RenderActiveTab
-    </div>
-}
-else
-{
-    @* Web / Television: two-column layout *@
-    <div class="settings-layout">
-        <SettingsSidebar ActiveSection="@_activeSection"
-                         OnSectionChanged="@OnSectionChanged"
-                         CurrentRole="@_currentRole"
-                         ReviewCount="@_reviewCount"
-                         Layout="@_sidebarLayout" />
-
-        <div class="settings-content-area">
-            @RenderActiveTab
-        </div>
-    </div>
-}
+@* ── Content area (navigation handled by LeftDock / MobileNavDrawer) ── *@
+<div class="settings-content-area">
+    @RenderActiveTab
+</div>
 
 @* ── Curator's Drawer (migrated from ServerSettings.razor) ───────────── *@
 <CuratorsDrawer Open="@_drawerOpen"
@@ -85,19 +36,10 @@ else
 
     // ── Active section state ────────────────────────────────────────────────
 
-    private SettingsSidebar.SettingsSection _activeSection =
-        SettingsSidebar.SettingsSection.General;
+    private SettingsSection _activeSection = SettingsSection.General;
 
     // Default to Administrator until profile session management is wired.
     private string _currentRole = "Administrator";
-
-    // ── Sidebar layout ──────────────────────────────────────────────────────
-
-    private string _sidebarLayout => DeviceContext.Settings.Pages.ServerSettings.SidebarLayout;
-
-    // ── Mobile drawer state ─────────────────────────────────────────────────
-
-    private bool _mobileDrawerOpen;
 
     // ── Badge data ──────────────────────────────────────────────────────────
 
@@ -125,16 +67,10 @@ else
         // Parse deep-link route parameter.
         ParseSection();
 
-        // "single" layout (automotive): auto-select the first available section.
-        if (_sidebarLayout == "single")
-        {
-            _activeSection = SettingsSidebar.SettingsSection.General;
-        }
-
-        // Fetch badge counts eagerly for sidebar badges.
+        // Fetch badge counts eagerly.
         await LoadReviewCountAsync();
 
-        // Keep sidebar badge live while the Settings page is open.
+        // Keep badge live while the Settings page is open.
         Orchestrator.OnReviewCountChanged += OnReviewCountChanged;
     }
 
@@ -158,40 +94,9 @@ else
 
     private void ParseSection()
     {
-        if (string.IsNullOrWhiteSpace(Section))
-            return;
-
-        // Handle "apikeys" → ApiKeys (kebab-case friendly).
-        var normalized = Section.Replace("-", "");
-
-        if (Enum.TryParse<SettingsSidebar.SettingsSection>(
-                normalized, ignoreCase: true, out var parsed))
-        {
-            // Redirect legacy /settings/providers to ConnectionVault.
-            if (parsed == SettingsSidebar.SettingsSection.Providers)
-                parsed = SettingsSidebar.SettingsSection.ConnectionVault;
-
-            _activeSection = parsed;
-        }
-    }
-
-    // ── Handlers ────────────────────────────────────────────────────────────
-
-    private void OnSectionChanged(SettingsSidebar.SettingsSection section)
-    {
-        _activeSection = section;
-
-        // Close mobile drawer after selection.
-        _mobileDrawerOpen = false;
-
-        // Update URL for deep-linking (replace, no navigation).
-        var sectionName = section.ToString().ToLowerInvariant();
-        Nav.NavigateTo($"/settings/{sectionName}", replace: true);
-    }
-
-    private void OnMobileDrawerChanged(bool open)
-    {
-        _mobileDrawerOpen = open;
+        var parsed = SettingsNav.ParseFromRoute(Section);
+        if (parsed.HasValue)
+            _activeSection = parsed.Value;
     }
 
     // ── Badge data loading ──────────────────────────────────────────────────
@@ -251,71 +156,70 @@ else
     {
         switch (_activeSection)
         {
-            case SettingsSidebar.SettingsSection.General:
+            case SettingsSection.General:
                 <GeneralTab />
                 break;
-            case SettingsSidebar.SettingsSection.Playback:
+            case SettingsSection.Playback:
                 <PlaybackTab />
                 break;
             // ── Metadata group ────────────────────────────────────────────
-            case SettingsSidebar.SettingsSection.Navigation:     // legacy redirect
-            case SettingsSidebar.SettingsSection.ConnectionVault:
-            case SettingsSidebar.SettingsSection.Providers:       // legacy redirect
-            case SettingsSidebar.SettingsSection.PropertyMapper:  // deprecated → absorbed
-            case SettingsSidebar.SettingsSection.Universe:        // absorbed into vault
-            case SettingsSidebar.SettingsSection.MatchingPipeline: // absorbed into vault
+            case SettingsSection.Navigation:        // legacy redirect
+            case SettingsSection.ConnectionVault:
+            case SettingsSection.Providers:          // legacy redirect
+            case SettingsSection.PropertyMapper:     // deprecated → absorbed
+            case SettingsSection.Universe:            // absorbed into vault
+            case SettingsSection.MatchingPipeline:    // absorbed into vault
                 <ConnectionVaultTab CurrentRole="@_currentRole" />
                 break;
-            case SettingsSidebar.SettingsSection.NeedsReview:
+            case SettingsSection.NeedsReview:
                 <NeedsReviewTab />
                 break;
-            case SettingsSidebar.SettingsSection.Activity:
+            case SettingsSection.Activity:
                 <ActivityTab />
                 break;
             // ── Server group ──────────────────────────────────────────────
-            case SettingsSidebar.SettingsSection.ServerGeneral:
+            case SettingsSection.ServerGeneral:
                 <ServerGeneralTab />
                 break;
-            case SettingsSidebar.SettingsSection.Library:
+            case SettingsSection.Library:
                 <LibrariesTab />
                 break;
-            case SettingsSidebar.SettingsSection.Connectivity:
+            case SettingsSection.Connectivity:
                 <ConnectivityTab />
                 break;
-            case SettingsSidebar.SettingsSection.ApiKeys:
+            case SettingsSection.ApiKeys:
                 <ApiKeysTab />
                 break;
-            case SettingsSidebar.SettingsSection.Conflicts:
+            case SettingsSection.Conflicts:
                 @* Conflicts absorbed into NeedsReview — redirect deep links. *@
                 <NeedsReviewTab />
                 break;
-            case SettingsSidebar.SettingsSection.Users:
+            case SettingsSection.Users:
                 <UsersTab />
                 break;
-            case SettingsSidebar.SettingsSection.Maintenance:
+            case SettingsSection.Maintenance:
                 <MaintenanceTab />
                 break;
         }
     };
-
-    private const string MobileDrawerStyle =
-        "background: var(--app-glass-bg); " +
-        "border-right: 1px solid var(--app-glass-border); " +
-        "backdrop-filter: blur(20px); " +
-        "-webkit-backdrop-filter: blur(20px);";
 }
 
 <style>
-    /* ── Two-column layout (web / television) ────────────────────────── */
-    .settings-layout {
-        display: flex;
-        gap: 32px;
-        align-items: flex-start;
-    }
-
     /* ── Content area ────────────────────────────────────────────────── */
     .settings-content-area {
-        flex: 1;
         min-width: 0;
+    }
+
+    /* ── Mobile / narrow viewport overrides ──────────────────────────── */
+    @@media (max-width: 768px) {
+        /* Reduce outer glass card padding: 32px → 16px */
+        .settings-content-area > .mud-paper {
+            padding: 16px !important;
+        }
+
+        /* Reduce inner card padding: 24px → 14px */
+        .settings-content-area .mud-paper .mud-paper {
+            padding: 14px !important;
+        }
     }
 </style>
