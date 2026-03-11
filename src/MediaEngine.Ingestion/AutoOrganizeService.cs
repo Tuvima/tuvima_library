@@ -150,14 +150,16 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
             LastOrganized = DateTimeOffset.UtcNow,
         }, ct).ConfigureAwait(false);
 
-        // Guard: only write the hub-level sidecar when the hub folder is at least one level
-        // below a category folder (i.e., the relative path contains a separator).
-        // With flat templates like "{Category}/{Author}/{Title}{Ext}", two calls to
-        // GetDirectoryName land on the category root (e.g., "Books/") rather than a real
-        // hub subfolder — writing library.xml there would create a stray file.
+        // Guard: only write the hub-level sidecar when the hub folder is a title-specific
+        // folder, not a grouping folder like an author or category root.
+        // With a template like "{Category}/{Author}/{Title}/{file}", the hub folder lands
+        // on the author folder (depth 2 from LibraryRoot — one separator in relHubPath).
+        // That's wrong: the author folder groups many different Hubs and must not get a
+        // Hub sidecar. The Title folder (depth 3, two separators) is Hub-specific.
+        // Require at least two separators so only a title-level or deeper folder qualifies.
         var relHubPath = Path.GetRelativePath(_options.LibraryRoot, hubFolder);
-        bool hubHasDepth = relHubPath.Contains(Path.DirectorySeparatorChar)
-                        || relHubPath.Contains('/');
+        int hubDepth = relHubPath.Count(c => c == Path.DirectorySeparatorChar || c == '/');
+        bool hubHasDepth = hubDepth >= 2;
 
         if (hubHasDepth)
         {
