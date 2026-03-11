@@ -269,6 +269,8 @@ public interface IEngineApiClient
     /// <summary>GET /progress/journey?userId={id}&amp;limit= — incomplete items with Work+Hub context.</summary>
     Task<List<JourneyItemViewModel>> GetJourneyAsync(Guid? userId = null, int limit = 5, CancellationToken ct = default);
 
+    /// <summary>GET /progress/{assetId} - current progress for an asset.</summary>
+    Task<ProgressStateDto?> GetProgressAsync(Guid assetId, CancellationToken ct = default);
     /// <summary>PUT /progress/{assetId} — upsert progress for a media asset.</summary>
     Task<bool> SaveProgressAsync(Guid assetId, Guid? userId = null, double progressPct = 0,
         Dictionary<string, string>? extendedProperties = null, CancellationToken ct = default);
@@ -295,9 +297,56 @@ public interface IEngineApiClient
 
     /// <summary>GET /persons/{id}/works \u2014 all hubs containing works by this person.</summary>
     Task<List<HubViewModel>> GetWorksByPersonAsync(Guid personId, CancellationToken ct = default);
+    // â”€â”€ EPUB Reader (/read, /reader) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    /// <summary>GET /read/{assetId}/metadata â€” book metadata.</summary>
+    Task<EpubBookMetadataDto?> GetBookMetadataAsync(Guid assetId, CancellationToken ct = default);
+
+    /// <summary>GET /read/{assetId}/toc â€” table of contents.</summary>
+    Task<List<EpubTocEntryDto>> GetTableOfContentsAsync(Guid assetId, CancellationToken ct = default);
+
+    /// <summary>GET /read/{assetId}/chapter/{index} â€” chapter HTML.</summary>
+    Task<EpubChapterContentDto?> GetChapterContentAsync(Guid assetId, int chapterIndex, CancellationToken ct = default);
+
+    /// <summary>GET /read/{assetId}/search?q={query} â€” full-text search.</summary>
+    Task<List<EpubSearchHitDto>> SearchEpubAsync(Guid assetId, string query, CancellationToken ct = default);
+
+    /// <summary>GET /read/resolve/{workId} â€” resolve Work ID to Asset ID.</summary>
+    Task<Guid?> ResolveWorkToAssetAsync(Guid workId, CancellationToken ct = default);
+
+    /// <summary>GET /reader/{assetId}/bookmarks â€” list bookmarks.</summary>
+    Task<List<ReaderBookmarkDto>> GetBookmarksAsync(Guid assetId, CancellationToken ct = default);
+
+    /// <summary>POST /reader/{assetId}/bookmarks â€” create bookmark.</summary>
+    Task<ReaderBookmarkDto?> CreateBookmarkAsync(Guid assetId, int chapterIndex, string? cfiPosition, string? label, CancellationToken ct = default);
+
+    /// <summary>DELETE /reader/bookmarks/{id} â€” delete bookmark.</summary>
+    Task<bool> DeleteBookmarkAsync(Guid bookmarkId, CancellationToken ct = default);
+
+    /// <summary>GET /reader/{assetId}/highlights â€” list highlights.</summary>
+    Task<List<ReaderHighlightDto>> GetHighlightsAsync(Guid assetId, CancellationToken ct = default);
+
+    /// <summary>POST /reader/{assetId}/highlights â€” create highlight.</summary>
+    Task<ReaderHighlightDto?> CreateHighlightAsync(Guid assetId, int chapterIndex, int startOffset, int endOffset, string selectedText, string? color, string? noteText, CancellationToken ct = default);
+
+    /// <summary>PUT /reader/highlights/{id} â€” update highlight colour/note.</summary>
+    Task<bool> UpdateHighlightAsync(Guid highlightId, string? color, string? noteText, CancellationToken ct = default);
+
+    /// <summary>DELETE /reader/highlights/{id} â€” delete highlight.</summary>
+    Task<bool> DeleteHighlightAsync(Guid highlightId, CancellationToken ct = default);
+
+    /// <summary>GET /reader/{assetId}/statistics â€” reading statistics.</summary>
+    Task<ReaderStatisticsDto?> GetReadingStatisticsAsync(Guid assetId, CancellationToken ct = default);
+
+    /// <summary>PUT /reader/{assetId}/statistics â€” update reading statistics.</summary>
+    Task<bool> UpdateReadingStatisticsAsync(Guid assetId, ReaderStatisticsUpdateDto stats, CancellationToken ct = default);
+
     /// <summary>
     /// Most recent error message from the last failed API call.
     /// Useful for surfacing diagnostic details in the UI.
     /// </summary>
     string? LastError { get; }
 }
+
+
+

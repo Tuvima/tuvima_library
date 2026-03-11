@@ -213,6 +213,28 @@ public sealed class MediaAssetRepository : IMediaAssetRepository
         return Task.FromResult<IReadOnlyList<MediaAsset>>(results);
     }
 
+    /// <inheritdoc/>
+    public Task<MediaAsset?> FindFirstByWorkIdAsync(Guid workId, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        using var conn = _db.CreateConnection();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            SELECT ma.id, ma.edition_id, ma.content_hash, ma.file_path_root, ma.status
+            FROM   media_assets ma
+            JOIN   editions e ON e.id = ma.edition_id
+            WHERE  e.work_id = @work_id
+              AND  ma.status = 'Normal'
+            LIMIT  1;
+            """;
+        cmd.Parameters.AddWithValue("@work_id", workId.ToString());
+
+        using var reader = cmd.ExecuteReader();
+        var result = reader.Read() ? MapRow(reader) : null;
+        return Task.FromResult(result);
+    }
+
     // -------------------------------------------------------------------------
     // Private row mapper
     // -------------------------------------------------------------------------

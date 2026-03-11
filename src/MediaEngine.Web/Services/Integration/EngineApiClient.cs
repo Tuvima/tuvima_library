@@ -1575,6 +1575,139 @@ public sealed class EngineApiClient : IEngineApiClient
             }).ToList(),
         }));
 
+    // ── EPUB Reader (/read, /reader) ──────────────────────────────────
+
+    public async Task<ProgressStateDto?> GetProgressAsync(Guid assetId, CancellationToken ct = default)
+    {
+        try { return await _http.GetFromJsonAsync<ProgressStateDto>($"progress/{assetId}", ct); }
+        catch (Exception ex) { LastError = ex.Message; return null; }
+    }
+
+    public async Task<EpubBookMetadataDto?> GetBookMetadataAsync(Guid assetId, CancellationToken ct = default)
+    {
+        try { return await _http.GetFromJsonAsync<EpubBookMetadataDto>($"read/{assetId}/metadata", ct); }
+        catch (Exception ex) { LastError = ex.Message; return null; }
+    }
+
+    public async Task<List<EpubTocEntryDto>> GetTableOfContentsAsync(Guid assetId, CancellationToken ct = default)
+    {
+        try { return await _http.GetFromJsonAsync<List<EpubTocEntryDto>>($"read/{assetId}/toc", ct) ?? []; }
+        catch (Exception ex) { LastError = ex.Message; return []; }
+    }
+
+    public async Task<EpubChapterContentDto?> GetChapterContentAsync(Guid assetId, int chapterIndex, CancellationToken ct = default)
+    {
+        try { return await _http.GetFromJsonAsync<EpubChapterContentDto>($"read/{assetId}/chapter/{chapterIndex}", ct); }
+        catch (Exception ex) { LastError = ex.Message; return null; }
+    }
+
+    public async Task<List<EpubSearchHitDto>> SearchEpubAsync(Guid assetId, string query, CancellationToken ct = default)
+    {
+        try
+        {
+            var encoded = Uri.EscapeDataString(query);
+            return await _http.GetFromJsonAsync<List<EpubSearchHitDto>>($"read/{assetId}/search?q={encoded}", ct) ?? [];
+        }
+        catch (Exception ex) { LastError = ex.Message; return []; }
+    }
+
+    public async Task<Guid?> ResolveWorkToAssetAsync(Guid workId, CancellationToken ct = default)
+    {
+        try
+        {
+            var result = await _http.GetFromJsonAsync<System.Text.Json.JsonElement>($"read/resolve/{workId}", ct);
+            if (result.TryGetProperty("assetId", out var prop) && Guid.TryParse(prop.GetString(), out var id))
+                return id;
+            return null;
+        }
+        catch (Exception ex) { LastError = ex.Message; return null; }
+    }
+
+    public async Task<List<ReaderBookmarkDto>> GetBookmarksAsync(Guid assetId, CancellationToken ct = default)
+    {
+        try { return await _http.GetFromJsonAsync<List<ReaderBookmarkDto>>($"reader/{assetId}/bookmarks", ct) ?? []; }
+        catch (Exception ex) { LastError = ex.Message; return []; }
+    }
+
+    public async Task<ReaderBookmarkDto?> CreateBookmarkAsync(Guid assetId, int chapterIndex, string? cfiPosition, string? label, CancellationToken ct = default)
+    {
+        try
+        {
+            var body = new { chapterIndex, cfiPosition, label };
+            var resp = await _http.PostAsJsonAsync($"reader/{assetId}/bookmarks", body, ct);
+            return resp.IsSuccessStatusCode
+                ? await resp.Content.ReadFromJsonAsync<ReaderBookmarkDto>(cancellationToken: ct)
+                : null;
+        }
+        catch (Exception ex) { LastError = ex.Message; return null; }
+    }
+
+    public async Task<bool> DeleteBookmarkAsync(Guid bookmarkId, CancellationToken ct = default)
+    {
+        try
+        {
+            var resp = await _http.DeleteAsync($"reader/bookmarks/{bookmarkId}", ct);
+            return resp.IsSuccessStatusCode;
+        }
+        catch (Exception ex) { LastError = ex.Message; return false; }
+    }
+
+    public async Task<List<ReaderHighlightDto>> GetHighlightsAsync(Guid assetId, CancellationToken ct = default)
+    {
+        try { return await _http.GetFromJsonAsync<List<ReaderHighlightDto>>($"reader/{assetId}/highlights", ct) ?? []; }
+        catch (Exception ex) { LastError = ex.Message; return []; }
+    }
+
+    public async Task<ReaderHighlightDto?> CreateHighlightAsync(Guid assetId, int chapterIndex, int startOffset, int endOffset, string selectedText, string? color, string? noteText, CancellationToken ct = default)
+    {
+        try
+        {
+            var body = new { chapterIndex, startOffset, endOffset, selectedText, color, noteText };
+            var resp = await _http.PostAsJsonAsync($"reader/{assetId}/highlights", body, ct);
+            return resp.IsSuccessStatusCode
+                ? await resp.Content.ReadFromJsonAsync<ReaderHighlightDto>(cancellationToken: ct)
+                : null;
+        }
+        catch (Exception ex) { LastError = ex.Message; return null; }
+    }
+
+    public async Task<bool> UpdateHighlightAsync(Guid highlightId, string? color, string? noteText, CancellationToken ct = default)
+    {
+        try
+        {
+            var body = new { color, noteText };
+            var resp = await _http.PutAsJsonAsync($"reader/highlights/{highlightId}", body, ct);
+            return resp.IsSuccessStatusCode;
+        }
+        catch (Exception ex) { LastError = ex.Message; return false; }
+    }
+
+    public async Task<bool> DeleteHighlightAsync(Guid highlightId, CancellationToken ct = default)
+    {
+        try
+        {
+            var resp = await _http.DeleteAsync($"reader/highlights/{highlightId}", ct);
+            return resp.IsSuccessStatusCode;
+        }
+        catch (Exception ex) { LastError = ex.Message; return false; }
+    }
+
+    public async Task<ReaderStatisticsDto?> GetReadingStatisticsAsync(Guid assetId, CancellationToken ct = default)
+    {
+        try { return await _http.GetFromJsonAsync<ReaderStatisticsDto>($"reader/{assetId}/statistics", ct); }
+        catch (Exception ex) { LastError = ex.Message; return null; }
+    }
+
+    public async Task<bool> UpdateReadingStatisticsAsync(Guid assetId, ReaderStatisticsUpdateDto stats, CancellationToken ct = default)
+    {
+        try
+        {
+            var resp = await _http.PutAsJsonAsync($"reader/{assetId}/statistics", stats, ct);
+            return resp.IsSuccessStatusCode;
+        }
+        catch (Exception ex) { LastError = ex.Message; return false; }
+    }
+
     // ── Raw response shapes (mirror API Dtos.cs) ──────────────────────────────
 
     private sealed record StatusRaw(
@@ -1691,3 +1824,6 @@ public sealed class EngineApiClient : IEngineApiClient
         [property: JsonPropertyName("created_at")]         DateTimeOffset  CreatedAt,
         [property: JsonPropertyName("enriched_at")]        DateTimeOffset? EnrichedAt);
 }
+
+
+

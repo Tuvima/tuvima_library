@@ -1,0 +1,832 @@
+﻿@page "/read/{AssetId:guid}"
+@layout MediaEngine.Web.Shared.ReaderLayout
+
+@namespace MediaEngine.Web.Components.Pages
+
+@using MediaEngine.Web.Models.ViewDTOs
+@using MediaEngine.Web.Services.Integration
+
+@inject IEngineApiClient Api
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+@implements IAsyncDisposable
+
+<link href="css/epub-reader.css" rel="stylesheet" />
+
+<div class="reader-shell reader-theme-@_settings.Theme">
+
+    @if (_loading)
+    {
+        <div class="reader-loading">
+            <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="Size.Large" />
+            <span class="reader-loading-title">Opening book...</span>
+        </div>
+    }
+    else if (_metadata is not null)
+    {
+        @* ── Tap zones ─────────────────────────────────────────────────── *@
+        <div class="reader-tap-zone left" @onclick="@(() => HandleTapZone("left"))"></div>
+        <div class="reader-tap-zone center" @onclick="@(() => HandleTapZone("center"))"></div>
+        <div class="reader-tap-zone right" @onclick="@(() => HandleTapZone("right"))"></div>
+
+        @* ── Content viewport ──────────────────────────────────────────── *@
+        <div class="reader-content-viewport">
+            <div id="reader-columns" class="reader-content-columns" @ref="_contentRef">
+                @((MarkupString)(_currentChapter?.HtmlContent ?? ""))
+            </div>
+        </div>
+
+        @* ── Top bar chrome ────────────────────────────────────────────── *@
+        <div class="reader-chrome @(_chromeVisible ? "" : "hidden")">
+            <div class="reader-top-bar reader-chrome">
+                <button class="reader-back-btn" @onclick="ExitReader" title="Back to library">
+                    <MudIcon Icon="@Icons.Material.Filled.ArrowBack" Size="Size.Small" />
+                </button>
+                <div class="reader-title-section">
+                    <div class="reader-book-title">@_metadata.Title</div>
+                    <div class="reader-chapter-title">@(_currentChapter?.Title ?? "")</div>
+                </div>
+                <div class="reader-actions">
+                    <button class="reader-action-btn" @onclick="ToggleToc" title="Table of Contents (T)">
+                        <MudIcon Icon="@Icons.Material.Filled.Toc" Size="Size.Small" />
+                    </button>
+                    <button class="reader-action-btn" @onclick="ToggleSearch" title="Search (S)">
+                        <MudIcon Icon="@Icons.Material.Filled.Search" Size="Size.Small" />
+                    </button>
+                    <button class="reader-action-btn" @onclick="ToggleBookmarks" title="Bookmarks (B)">
+                        <MudIcon Icon="@Icons.Material.Filled.Bookmark" Size="Size.Small" />
+                    </button>
+                    <button class="reader-action-btn" @onclick="ToggleSettings" title="Settings">
+                        <MudIcon Icon="@Icons.Material.Filled.Settings" Size="Size.Small" />
+                    </button>
+                </div>
+            </div>
+
+            @* ── Bottom bar chrome ─────────────────────────────────────── *@
+            <div class="reader-bottom-bar reader-chrome">
+                <div class="reader-progress-row">
+                    <span class="reader-page-info">@(_currentPageInChapter + 1) / @_totalPagesInChapter</span>
+                    <div class="reader-slider">
+                        <input type="range" min="0" max="@Math.Max(1, _totalPagesInChapter - 1)"
+                               value="@_currentPageInChapter"
+                               @onchange="OnSliderChanged" />
+                    </div>
+                    <span class="reader-percent">@(ComputeOverallPercent())%</span>
+                </div>
+            </div>
+        </div>
+
+        @* ── TOC drawer (left) ─────────────────────────────────────────── *@
+        <div class="reader-drawer-overlay @(_tocOpen ? "open" : "")" @onclick="CloseToc"></div>
+        <div class="reader-drawer left @(_tocOpen ? "open" : "")">
+            <div class="reader-drawer-header">
+                <h3>Contents</h3>
+                <button class="reader-drawer-close" @onclick="CloseToc">
+                    <MudIcon Icon="@Icons.Material.Filled.Close" Size="Size.Small" />
+                </button>
+            </div>
+            <div class="reader-drawer-body">
+                @if (_toc is not null)
+                {
+                    @foreach (var entry in FlattenToc(_toc))
+                    {
+                        <div class="reader-toc-item @(entry.ChapterIndex == _currentChapterIndex ? "active" : "") @($"indent-{entry.Depth}")"
+                             @onclick="@(() => NavigateToChapter(entry.ChapterIndex))">
+                            @entry.Title
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+
+        @* ── Search drawer (right) ─────────────────────────────────────── *@
+        <div class="reader-drawer-overlay @(_searchOpen ? "open" : "")" @onclick="CloseSearch"></div>
+        <div class="reader-drawer right @(_searchOpen ? "open" : "")">
+            <div class="reader-drawer-header">
+                <h3>Search</h3>
+                <button class="reader-drawer-close" @onclick="CloseSearch">
+                    <MudIcon Icon="@Icons.Material.Filled.Close" Size="Size.Small" />
+                </button>
+            </div>
+            <div class="reader-search-input-wrap">
+                <input class="reader-search-input" type="text"
+                       placeholder="Search in book..."
+                       @bind="_searchQuery"
+                       @bind:event="oninput"
+                       @onkeydown="OnSearchKeyDown" />
+            </div>
+            <div class="reader-drawer-body">
+                @if (_searchResults.Count > 0)
+                {
+                    @foreach (var hit in _searchResults)
+                    {
+                        <div class="reader-search-result" @onclick="@(() => NavigateToChapter(hit.ChapterIndex))">
+                            <div class="reader-search-chapter">Chapter @(hit.ChapterIndex + 1) — @hit.ChapterTitle</div>
+                            <div class="reader-search-snippet">@((MarkupString)HighlightSnippet(hit.ContextSnippet, _searchQuery))</div>
+                        </div>
+                    }
+                }
+                else if (!string.IsNullOrEmpty(_searchQuery) && _searchQuery.Length >= 2)
+                {
+                    <div class="reader-empty-state">
+                        <MudIcon Icon="@Icons.Material.Filled.SearchOff" class="reader-empty-icon" />
+                        <span class="reader-empty-text">No results found</span>
+                    </div>
+                }
+            </div>
+        </div>
+
+        @* ── Bookmarks drawer (right) ──────────────────────────────────── *@
+        <div class="reader-drawer-overlay @(_bookmarksOpen ? "open" : "")" @onclick="CloseBookmarks"></div>
+        <div class="reader-drawer right @(_bookmarksOpen ? "open" : "")">
+            <div class="reader-drawer-header">
+                <h3>Bookmarks</h3>
+                <button class="reader-drawer-close" @onclick="CloseBookmarks">
+                    <MudIcon Icon="@Icons.Material.Filled.Close" Size="Size.Small" />
+                </button>
+            </div>
+            <div class="reader-drawer-body">
+                @if (_bookmarks.Count > 0)
+                {
+                    @foreach (var bm in _bookmarks)
+                    {
+                        <div class="reader-list-item" @onclick="@(() => NavigateToChapter(bm.ChapterIndex))">
+                            <MudIcon Icon="@Icons.Material.Filled.BookmarkBorder"
+                                     Size="Size.Small" class="reader-list-icon"
+                                     Style="color: var(--reader-accent);" />
+                            <div class="reader-list-content">
+                                <div class="reader-list-title">@(bm.Label ?? $"Chapter {bm.ChapterIndex + 1}")</div>
+                                <div class="reader-list-detail">@bm.CreatedAt.ToString("MMM d, yyyy")</div>
+                            </div>
+                            <button class="reader-list-delete" @onclick:stopPropagation="true"
+                                    @onclick="@(() => DeleteBookmark(bm.Id))">
+                                <MudIcon Icon="@Icons.Material.Filled.Delete" Size="Size.Small" />
+                            </button>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div class="reader-empty-state">
+                        <MudIcon Icon="@Icons.Material.Filled.BookmarkBorder" class="reader-empty-icon" />
+                        <span class="reader-empty-text">No bookmarks yet</span>
+                    </div>
+                }
+
+                <div style="padding: 12px 20px;">
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" FullWidth="true"
+                               StartIcon="@Icons.Material.Filled.BookmarkAdd"
+                               OnClick="AddBookmark">
+                        Bookmark This Page
+                    </MudButton>
+                </div>
+            </div>
+        </div>
+
+        @* ── Settings drawer (right) ───────────────────────────────────── *@
+        <div class="reader-drawer-overlay @(_settingsOpen ? "open" : "")" @onclick="CloseSettings"></div>
+        <div class="reader-drawer right @(_settingsOpen ? "open" : "")">
+            <div class="reader-drawer-header">
+                <h3>Reading Settings</h3>
+                <button class="reader-drawer-close" @onclick="CloseSettings">
+                    <MudIcon Icon="@Icons.Material.Filled.Close" Size="Size.Small" />
+                </button>
+            </div>
+            <div class="reader-drawer-body">
+                @* Theme *@
+                <div class="reader-settings-section">
+                    <div class="reader-settings-label">Theme</div>
+                    <div class="reader-theme-picker">
+                        <button class="reader-theme-btn dark @(_settings.Theme == "dark" ? "active" : "")"
+                                @onclick="@(() => SetTheme("dark"))">Aa</button>
+                        <button class="reader-theme-btn sepia @(_settings.Theme == "sepia" ? "active" : "")"
+                                @onclick="@(() => SetTheme("sepia"))">Aa</button>
+                        <button class="reader-theme-btn light @(_settings.Theme == "light" ? "active" : "")"
+                                @onclick="@(() => SetTheme("light"))">Aa</button>
+                    </div>
+                </div>
+
+                @* Font *@
+                <div class="reader-settings-section">
+                    <div class="reader-settings-label">Font</div>
+                    <div class="reader-font-picker">
+                        @foreach (var f in _fontOptions)
+                        {
+                            <button class="reader-font-chip @(_settings.FontFamily == f.Key ? "active" : "")"
+                                    style="font-family: @f.Value;"
+                                    @onclick="@(() => SetFont(f.Key))">
+                                @f.Key
+                            </button>
+                        }
+                    </div>
+                </div>
+
+                @* Size *@
+                <div class="reader-settings-section">
+                    <div class="reader-settings-label">Size</div>
+                    <div class="reader-size-control">
+                        <span class="reader-size-label" style="font-size: 0.7rem;">A</span>
+                        <input type="range" min="12" max="32" value="@_settings.FontSize"
+                               @onchange="OnFontSizeChanged" />
+                        <span class="reader-size-label" style="font-size: 1.1rem;">A</span>
+                    </div>
+                </div>
+
+                @* Line height *@
+                <div class="reader-settings-section">
+                    <div class="reader-settings-label">Line Spacing</div>
+                    <div class="reader-size-control">
+                        <span class="reader-size-label">1.2</span>
+                        <input type="range" min="12" max="24" value="@((int)(_settings.LineHeight * 10))"
+                               @onchange="OnLineHeightChanged" />
+                        <span class="reader-size-label">2.4</span>
+                    </div>
+                </div>
+
+                @* Margins *@
+                <div class="reader-settings-section">
+                    <div class="reader-settings-label">Margins</div>
+                    <div class="reader-size-control">
+                        <MudIcon Icon="@Icons.Material.Filled.FormatIndentDecrease" Size="Size.Small"
+                                 Style="color: var(--reader-chrome-text-dim);" />
+                        <input type="range" min="16" max="80" value="@_settings.Margins"
+                               @onchange="OnMarginChanged" />
+                        <MudIcon Icon="@Icons.Material.Filled.FormatIndentIncrease" Size="Size.Small"
+                                 Style="color: var(--reader-chrome-text-dim);" />
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @* ── Stats overlay ─────────────────────────────────────────────── *@
+        <div class="reader-stats-overlay @(!_chromeVisible ? "hidden" : "")">
+            <div class="reader-stat-row">
+                <span class="reader-stat-label">WPM</span>
+                <span class="reader-stat-value">@_sessionWpm.ToString("F0")</span>
+            </div>
+            <div class="reader-stat-row">
+                <span class="reader-stat-label">Session</span>
+                <span class="reader-stat-value">@FormatDuration(_sessionSeconds)</span>
+            </div>
+            <div class="reader-stat-row">
+                <span class="reader-stat-label">Total</span>
+                <span class="reader-stat-value">@FormatDuration(_totalReadingTimeSecs)</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="reader-loading">
+            <MudIcon Icon="@Icons.Material.Filled.ErrorOutline" Size="Size.Large"
+                     Style="color: var(--reader-chrome-text-dim); font-size: 3rem;" />
+            <span class="reader-loading-title">Book not found</span>
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="ExitReader">
+                Return to Library
+            </MudButton>
+        </div>
+    }
+</div>
+
+<script src="js/epub-reader.js"></script>
+
+@code {
+    [Parameter] public Guid AssetId { get; set; }
+
+    // ── State ──────────────────────────────────────────────────────────
+
+    private bool _loading = true;
+    private EpubBookMetadataDto? _metadata;
+    private List<EpubTocEntryDto>? _toc;
+    private EpubChapterContentDto? _currentChapter;
+    private int _currentChapterIndex;
+    private int _currentPageInChapter;
+    private int _totalPagesInChapter = 1;
+
+    // Chrome
+    private bool _chromeVisible = true;
+
+    // Drawers
+    private bool _tocOpen;
+    private bool _searchOpen;
+    private bool _bookmarksOpen;
+    private bool _settingsOpen;
+
+    // Search
+    private string _searchQuery = string.Empty;
+    private List<EpubSearchHitDto> _searchResults = [];
+
+    // Bookmarks & highlights
+    private List<ReaderBookmarkDto> _bookmarks = [];
+    private List<ReaderHighlightDto> _highlights = [];
+
+    // Stats
+    private double _sessionWpm;
+    private long _sessionSeconds;
+    private long _totalReadingTimeSecs;
+    private long _sessionWordsRead;
+    private int _sessionsCount;
+    private int _chaptersRead;
+
+    // Settings
+    private ReaderSettingsDto _settings = new();
+
+    // Timer
+    private System.Threading.Timer? _sessionTimer;
+    private System.Threading.Timer? _autoSaveTimer;
+
+    // JS interop ref
+    private DotNetObjectReference<EpubReader>? _dotNetRef;
+    private ElementReference _contentRef;
+
+    // Font options
+    private readonly Dictionary<string, string> _fontOptions = new()
+    {
+        ["Merriweather"] = "'Merriweather', Georgia, serif",
+        ["Georgia"] = "Georgia, 'Times New Roman', serif",
+        ["Montserrat"] = "'Montserrat', sans-serif",
+        ["JetBrains Mono"] = "'JetBrains Mono', monospace"
+    };
+
+    // ── Lifecycle ──────────────────────────────────────────────────────
+
+    protected override async Task OnInitializedAsync()
+    {
+        _dotNetRef = DotNetObjectReference.Create(this);
+        await LoadSettings();
+        await LoadBook();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender) return;
+        if (_currentChapter is not null && !_loading)
+        {
+            await InitPagination();
+        }
+    }
+
+    private async Task LoadBook()
+    {
+        _loading = true;
+        StateHasChanged();
+
+        _metadata = await Api.GetBookMetadataAsync(AssetId);
+        if (_metadata is null)
+        {
+            _loading = false;
+            StateHasChanged();
+            return;
+        }
+
+        _toc = await Api.GetTableOfContentsAsync(AssetId);
+        _bookmarks = await Api.GetBookmarksAsync(AssetId);
+        _highlights = await Api.GetHighlightsAsync(AssetId);
+
+        // Load stats
+        var stats = await Api.GetReadingStatisticsAsync(AssetId);
+        if (stats is not null)
+        {
+            _totalReadingTimeSecs = stats.TotalReadingTimeSecs;
+            _sessionsCount = stats.SessionsCount;
+            _chaptersRead = stats.ChaptersRead;
+            _sessionWordsRead = stats.WordsRead;
+        }
+
+        // Restore progress
+        var progress = await Api.GetProgressAsync(AssetId);
+        if (progress is not null && progress.ExtendedProperties.TryGetValue("chapter_index", out var chIdx))
+        {
+            if (int.TryParse(chIdx, out var restoredChapter))
+                _currentChapterIndex = restoredChapter;
+        }
+
+        await LoadChapter(_currentChapterIndex);
+
+        // Start session timer (1 second interval)
+        _sessionTimer = new System.Threading.Timer(OnSessionTick, null, 1000, 1000);
+
+        // Auto-save progress every 30 seconds
+        _autoSaveTimer = new System.Threading.Timer(async _ => await AutoSaveProgress(), null, 30_000, 30_000);
+
+        _sessionsCount++;
+        _loading = false;
+        StateHasChanged();
+    }
+
+    private async Task LoadChapter(int index)
+    {
+        if (_metadata is null) return;
+        if (index < 0 || index >= _metadata.ChapterCount)
+            return;
+
+        _currentChapterIndex = index;
+        _currentPageInChapter = 0;
+        _currentChapter = await Api.GetChapterContentAsync(AssetId, index);
+        StateHasChanged();
+
+        // Re-init pagination after render
+        await Task.Delay(100); // Allow DOM to render
+        await InitPagination();
+    }
+
+    private async Task InitPagination()
+    {
+        try
+        {
+            _totalPagesInChapter = await JS.InvokeAsync<int>("epubReader.initPagination", "reader-columns");
+            if (_totalPagesInChapter < 1) _totalPagesInChapter = 1;
+
+            await JS.InvokeVoidAsync("epubReader.registerTouchGestures", "reader-columns", _dotNetRef);
+            await JS.InvokeVoidAsync("epubReader.registerKeyboard", _dotNetRef);
+
+            StateHasChanged();
+        }
+        catch
+        {
+            // JS not ready yet — safe to ignore
+        }
+    }
+
+    // ── Navigation ─────────────────────────────────────────────────────
+
+    private async Task NavigateToChapter(int index)
+    {
+        CloseToc();
+        CloseSearch();
+        CloseBookmarks();
+        await LoadChapter(index);
+    }
+
+    [JSInvokable]
+    public async Task OnNextChapter()
+    {
+        if (_metadata is not null && _currentChapterIndex < _metadata.ChapterCount - 1)
+        {
+            _chaptersRead = Math.Max(_chaptersRead, _currentChapterIndex + 1);
+            await LoadChapter(_currentChapterIndex + 1);
+        }
+    }
+
+    [JSInvokable]
+    public async Task OnPreviousChapter()
+    {
+        if (_currentChapterIndex > 0)
+        {
+            await LoadChapter(_currentChapterIndex - 1);
+        }
+    }
+
+    [JSInvokable]
+    public void OnPageChanged(int pageIndex, int totalPages)
+    {
+        _currentPageInChapter = pageIndex;
+        _totalPagesInChapter = totalPages;
+        InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public void OnToggleChrome()
+    {
+        _chromeVisible = !_chromeVisible;
+        InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public void OnHideChrome()
+    {
+        _chromeVisible = false;
+        InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public void OnEscape()
+    {
+        if (_tocOpen || _searchOpen || _bookmarksOpen || _settingsOpen)
+        {
+            CloseToc();
+            CloseSearch();
+            CloseBookmarks();
+            CloseSettings();
+        }
+        else
+        {
+            InvokeAsync(ExitReader);
+        }
+    }
+
+    [JSInvokable]
+    public void OnToggleToc() { _tocOpen = !_tocOpen; InvokeAsync(StateHasChanged); }
+
+    [JSInvokable]
+    public void OnOpenSearch() { _searchOpen = true; InvokeAsync(StateHasChanged); }
+
+    [JSInvokable]
+    public void OnToggleBookmarks() { _bookmarksOpen = !_bookmarksOpen; InvokeAsync(StateHasChanged); }
+
+    [JSInvokable]
+    public void OnFontSizeUp()
+    {
+        _settings.FontSize = Math.Min(32, _settings.FontSize + 2);
+        _ = ApplySettings();
+    }
+
+    [JSInvokable]
+    public void OnFontSizeDown()
+    {
+        _settings.FontSize = Math.Max(12, _settings.FontSize - 2);
+        _ = ApplySettings();
+    }
+
+    // ── Tap zone handler ───────────────────────────────────────────────
+
+    private async Task HandleTapZone(string zone)
+    {
+        switch (zone)
+        {
+            case "left":
+                var prevResult = await JS.InvokeAsync<bool>("epubReader.previousPage");
+                if (!prevResult) await OnPreviousChapter();
+                break;
+            case "right":
+                var nextResult = await JS.InvokeAsync<bool>("epubReader.nextPage");
+                if (!nextResult) await OnNextChapter();
+                break;
+            case "center":
+                OnToggleChrome();
+                break;
+        }
+    }
+
+    // ── Slider ─────────────────────────────────────────────────────────
+
+    private async Task OnSliderChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var page))
+        {
+            _currentPageInChapter = page;
+            await JS.InvokeVoidAsync("epubReader.goToPage", page);
+        }
+    }
+
+    // ── Drawer toggles ─────────────────────────────────────────────────
+
+    private void ToggleToc() { _tocOpen = !_tocOpen; CloseSearch(); CloseBookmarks(); CloseSettings(); }
+    private void CloseToc() { _tocOpen = false; }
+    private void ToggleSearch() { _searchOpen = !_searchOpen; CloseToc(); CloseBookmarks(); CloseSettings(); }
+    private void CloseSearch() { _searchOpen = false; }
+    private void ToggleBookmarks() { _bookmarksOpen = !_bookmarksOpen; CloseToc(); CloseSearch(); CloseSettings(); }
+    private void CloseBookmarks() { _bookmarksOpen = false; }
+    private void ToggleSettings() { _settingsOpen = !_settingsOpen; CloseToc(); CloseSearch(); CloseBookmarks(); }
+    private void CloseSettings() { _settingsOpen = false; }
+
+    // ── Search ─────────────────────────────────────────────────────────
+
+    private async Task OnSearchKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && _searchQuery.Length >= 2)
+        {
+            _searchResults = await Api.SearchEpubAsync(AssetId, _searchQuery);
+            StateHasChanged();
+        }
+    }
+
+    private string HighlightSnippet(string snippet, string query)
+    {
+        if (string.IsNullOrEmpty(query) || string.IsNullOrEmpty(snippet))
+            return System.Net.WebUtility.HtmlEncode(snippet);
+
+        var escaped = System.Net.WebUtility.HtmlEncode(snippet);
+        var escapedQuery = System.Net.WebUtility.HtmlEncode(query);
+
+        return System.Text.RegularExpressions.Regex.Replace(
+            escaped,
+            System.Text.RegularExpressions.Regex.Escape(escapedQuery),
+            m => $"<mark>{m.Value}</mark>",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+    }
+
+    // ── Bookmarks ──────────────────────────────────────────────────────
+
+    private async Task AddBookmark()
+    {
+        var chapterTitle = _currentChapter?.Title ?? $"Chapter {_currentChapterIndex + 1}";
+        var label = $"{chapterTitle} — Page {_currentPageInChapter + 1}";
+
+        var bm = await Api.CreateBookmarkAsync(AssetId, _currentChapterIndex, null, label);
+        if (bm is not null)
+        {
+            _bookmarks.Insert(0, bm);
+            StateHasChanged();
+        }
+    }
+
+    private async Task DeleteBookmark(Guid id)
+    {
+        var success = await Api.DeleteBookmarkAsync(id);
+        if (success)
+        {
+            _bookmarks.RemoveAll(b => b.Id == id);
+            StateHasChanged();
+        }
+    }
+
+    // ── Settings ───────────────────────────────────────────────────────
+
+    private async Task SetTheme(string theme)
+    {
+        _settings.Theme = theme;
+        await ApplySettings();
+    }
+
+    private async Task SetFont(string family)
+    {
+        _settings.FontFamily = family;
+        await ApplySettings();
+    }
+
+    private async Task OnFontSizeChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var size))
+        {
+            _settings.FontSize = size;
+            await ApplySettings();
+        }
+    }
+
+    private async Task OnLineHeightChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var val))
+        {
+            _settings.LineHeight = val / 10.0;
+            await ApplySettings();
+        }
+    }
+
+    private async Task OnMarginChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var margin))
+        {
+            _settings.Margins = margin;
+            await ApplySettings();
+        }
+    }
+
+    private async Task ApplySettings()
+    {
+        try
+        {
+            var fontCss = _fontOptions.GetValueOrDefault(_settings.FontFamily, "'Merriweather', Georgia, serif");
+            await JS.InvokeVoidAsync("epubReader.setReaderStyle", "--reader-font-family", fontCss);
+            await JS.InvokeVoidAsync("epubReader.setReaderStyle", "--reader-font-size", $"{_settings.FontSize}px");
+            await JS.InvokeVoidAsync("epubReader.setReaderStyle", "--reader-line-height", _settings.LineHeight.ToString("F1"));
+            await JS.InvokeVoidAsync("epubReader.setReaderStyle", "--reader-margin", $"{_settings.Margins}px");
+
+            // Re-paginate after style change
+            await Task.Delay(100);
+            _totalPagesInChapter = await JS.InvokeAsync<int>("epubReader.getTotalPages");
+            _currentPageInChapter = Math.Min(_currentPageInChapter, Math.Max(0, _totalPagesInChapter - 1));
+            await JS.InvokeVoidAsync("epubReader.goToPage", _currentPageInChapter);
+
+            await SaveSettings();
+        }
+        catch { }
+        StateHasChanged();
+    }
+
+    private async Task LoadSettings()
+    {
+        try
+        {
+            var json = await JS.InvokeAsync<string?>("localStorage.getItem", "tuvima-reader-settings");
+            if (!string.IsNullOrEmpty(json))
+            {
+                var loaded = System.Text.Json.JsonSerializer.Deserialize<ReaderSettingsDto>(json);
+                if (loaded is not null) _settings = loaded;
+            }
+        }
+        catch { }
+    }
+
+    private async Task SaveSettings()
+    {
+        try
+        {
+            var json = System.Text.Json.JsonSerializer.Serialize(_settings);
+            await JS.InvokeVoidAsync("localStorage.setItem", "tuvima-reader-settings", json);
+        }
+        catch { }
+    }
+
+    // ── Session timer ──────────────────────────────────────────────────
+
+    private void OnSessionTick(object? state)
+    {
+        _sessionSeconds++;
+        _totalReadingTimeSecs++;
+
+        // Estimate WPM from chapter word count and pages read
+        if (_sessionSeconds > 0 && _sessionWordsRead > 0)
+        {
+            _sessionWpm = (_sessionWordsRead / (double)_sessionSeconds) * 60.0;
+        }
+
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task AutoSaveProgress()
+    {
+        try
+        {
+            // Save reading position
+            var overallPercent = ComputeOverallPercentDouble();
+            var extProps = new Dictionary<string, string>
+            {
+                ["chapter_index"] = _currentChapterIndex.ToString(),
+                ["page_in_chapter"] = _currentPageInChapter.ToString(),
+                ["total_pages_in_chapter"] = _totalPagesInChapter.ToString()
+            };
+
+            await Api.SaveProgressAsync(AssetId, progressPct: overallPercent, extendedProperties: extProps);
+
+            // Save stats
+            await Api.UpdateReadingStatisticsAsync(AssetId, new ReaderStatisticsUpdateDto(
+                ChaptersRead: _chaptersRead,
+                TotalReadingTimeSecs: _totalReadingTimeSecs,
+                WordsRead: _sessionWordsRead,
+                SessionsCount: _sessionsCount,
+                AvgWordsPerMinute: _sessionWpm));
+        }
+        catch { }
+    }
+
+    // ── Progress calculation ───────────────────────────────────────────
+
+    private int ComputeOverallPercent()
+    {
+        return (int)Math.Round(ComputeOverallPercentDouble());
+    }
+
+    private double ComputeOverallPercentDouble()
+    {
+        if (_metadata is null || _metadata.ChapterCount <= 0) return 0;
+
+        var chapterProgress = _totalPagesInChapter > 0
+            ? (double)_currentPageInChapter / _totalPagesInChapter
+            : 0;
+
+        return ((_currentChapterIndex + chapterProgress) / _metadata.ChapterCount) * 100.0;
+    }
+
+    // ── TOC flattening ─────────────────────────────────────────────────
+
+    private record FlatTocEntry(string Title, int ChapterIndex, int Depth);
+
+    private static List<FlatTocEntry> FlattenToc(List<EpubTocEntryDto> entries, int depth = 0)
+    {
+        var result = new List<FlatTocEntry>();
+        foreach (var entry in entries)
+        {
+            result.Add(new FlatTocEntry(entry.Title, entry.ChapterIndex, depth));
+            if (entry.Children.Count > 0)
+                result.AddRange(FlattenToc(entry.Children, depth + 1));
+        }
+        return result;
+    }
+
+    // ── Helpers ─────────────────────────────────────────────────────────
+
+    private void ExitReader()
+    {
+        _ = AutoSaveProgress();
+        Nav.NavigateTo("/");
+    }
+
+    private static string FormatDuration(long totalSeconds)
+    {
+        var hours = totalSeconds / 3600;
+        var minutes = (totalSeconds % 3600) / 60;
+
+        if (hours > 0) return $"{hours}h {minutes}m";
+        return $"{minutes}m";
+    }
+
+    // ── Cleanup ────────────────────────────────────────────────────────
+
+    public async ValueTask DisposeAsync()
+    {
+        _sessionTimer?.Dispose();
+        _autoSaveTimer?.Dispose();
+
+        try
+        {
+            await AutoSaveProgress();
+            await JS.InvokeVoidAsync("epubReader.dispose");
+        }
+        catch { }
+
+        _dotNetRef?.Dispose();
+    }
+}
+
+

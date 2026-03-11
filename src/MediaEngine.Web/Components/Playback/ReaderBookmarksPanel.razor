@@ -1,0 +1,87 @@
+﻿@namespace MediaEngine.Web.Components.Playback
+@using MediaEngine.Web.Models.ViewDTOs
+
+<div class="reader-drawer reader-drawer-right @(Open ? "open" : "")">
+    <div class="reader-drawer-header">
+        <MudText Typo="Typo.h6">Bookmarks</MudText>
+        <MudIconButton Icon="@Icons.Material.Filled.Close"
+                       Color="Color.Inherit"
+                       OnClick="OnClose" />
+    </div>
+    <div class="reader-drawer-content">
+        @if (Bookmarks is not { Count: > 0 })
+        {
+            <div class="reader-empty-state">
+                <MudIcon Icon="@Icons.Material.Filled.BookmarkBorder"
+                         Size="Size.Large" Color="Color.Default" />
+                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                    No bookmarks yet. Tap the bookmark icon while reading to save your place.
+                </MudText>
+            </div>
+        }
+        else
+        {
+            <MudList T="ReaderBookmarkDto" Dense="true" Class="reader-bookmark-list">
+                @foreach (var bookmark in Bookmarks.OrderByDescending(b => b.CreatedAt))
+                {
+                    <MudListItem T="ReaderBookmarkDto"
+                                 OnClick="@(() => OnNavigate.InvokeAsync(bookmark.ChapterIndex))"
+                                 Class="reader-bookmark-item">
+                        <div class="bookmark-content">
+                            <div class="bookmark-info">
+                                <MudIcon Icon="@Icons.Material.Filled.Bookmark"
+                                         Size="Size.Small"
+                                         Color="Color.Warning" />
+                                <span class="bookmark-label">
+                                    @(string.IsNullOrEmpty(bookmark.Label)
+                                        ? $"Chapter {bookmark.ChapterIndex + 1}"
+                                        : bookmark.Label)
+                                </span>
+                            </div>
+                            <div class="bookmark-meta">
+                                <span class="bookmark-date">@FormatDate(bookmark.CreatedAt)</span>
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                               Size="Size.Small"
+                                               Color="Color.Error"
+                                               OnClick="@(() => OnDelete.InvokeAsync(bookmark.Id))"
+                                               title="Delete bookmark" />
+                            </div>
+                        </div>
+                    </MudListItem>
+                }
+            </MudList>
+        }
+    </div>
+
+    @* Add Bookmark FAB *@
+    <div class="reader-drawer-footer">
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Warning"
+                   StartIcon="@Icons.Material.Filled.BookmarkAdd"
+                   OnClick="OnAddBookmark"
+                   FullWidth="true">
+            Bookmark This Page
+        </MudButton>
+    </div>
+</div>
+
+@code {
+    [Parameter] public bool Open { get; set; }
+    [Parameter] public List<ReaderBookmarkDto>? Bookmarks { get; set; }
+    [Parameter] public EventCallback<int> OnNavigate { get; set; }
+    [Parameter] public EventCallback<Guid> OnDelete { get; set; }
+    [Parameter] public EventCallback OnAddBookmark { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private static string FormatDate(DateTime? dt)
+    {
+        if (dt is null) return "";
+        var diff = DateTime.UtcNow - dt.Value;
+        return diff.TotalMinutes < 1 ? "just now"
+            : diff.TotalHours < 1 ? $"{(int)diff.TotalMinutes}m ago"
+            : diff.TotalDays < 1 ? $"{(int)diff.TotalHours}h ago"
+            : diff.TotalDays < 30 ? $"{(int)diff.TotalDays}d ago"
+            : dt.Value.ToString("MMM d, yyyy");
+    }
+}
+

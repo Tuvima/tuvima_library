@@ -617,7 +617,31 @@ else
 
     // ── Action handlers ──────────────────────────────────────────────────────
 
-    private void OnPrimaryAction() => ShowToast("Playback coming soon");
+    private async Task OnPrimaryAction()
+    {
+        if (_hub is null) return;
+        var work = ActiveWork ?? _hub.Works.FirstOrDefault();
+        if (work is null) { ShowToast("No media asset found"); return; }
+
+        var formatKey = GetFormatKey(work.MediaType);
+        if (formatKey is "epub" or "audiobook")
+        {
+            // Resolve work ID to asset ID, then navigate to EPUB reader
+            var assetId = await Orchestrator.ResolveWorkToAssetAsync(work.Id);
+            if (assetId.HasValue)
+            {
+                Nav.NavigateTo($"/read/{assetId.Value}");
+            }
+            else
+            {
+                ShowToast("Could not find a readable file for this title");
+            }
+        }
+        else
+        {
+            ShowToast("Playback for this format is coming soon");
+        }
+    }
 
     private void OnAddTo()       => ShowToast("Reading list coming soon");
 
@@ -1596,3 +1620,4 @@ else
         .hub-detail-author-inner { padding: 0 20px; }
     }
 </style>
+

@@ -1,0 +1,152 @@
+@namespace MediaEngine.Web.Components.Playback
+@using MediaEngine.Web.Models.ViewDTOs
+
+<div class="reader-drawer reader-drawer-right @(Open ? "open" : "")">
+    <div class="reader-drawer-header">
+        <MudText Typo="Typo.h6">Reading Settings</MudText>
+        <MudIconButton Icon="@Icons.Material.Filled.Close"
+                       Color="Color.Inherit"
+                       OnClick="OnClose" />
+    </div>
+    <div class="reader-drawer-content reader-settings-content">
+
+        @* ── Theme ── *@
+        <div class="settings-section">
+            <MudText Typo="Typo.subtitle2" Class="settings-label">Theme</MudText>
+            <div class="theme-picker">
+                <button class="theme-chip theme-dark @(Settings.Theme == "dark" ? "active" : "")"
+                        @onclick='() => ChangeTheme("dark")'>
+                    Dark
+                </button>
+                <button class="theme-chip theme-sepia @(Settings.Theme == "sepia" ? "active" : "")"
+                        @onclick='() => ChangeTheme("sepia")'>
+                    Sepia
+                </button>
+                <button class="theme-chip theme-light @(Settings.Theme == "light" ? "active" : "")"
+                        @onclick='() => ChangeTheme("light")'>
+                    Light
+                </button>
+            </div>
+        </div>
+
+        @* ── Font Family ── *@
+        <div class="settings-section">
+            <MudText Typo="Typo.subtitle2" Class="settings-label">Font</MudText>
+            <div class="font-picker">
+                @foreach (var font in _fonts)
+                {
+                    <button class="font-chip @(Settings.FontFamily == font.Value ? "active" : "")"
+                            style="font-family: @font.Value"
+                            @onclick="() => ChangeFont(font.Value)">
+                        @font.Label
+                    </button>
+                }
+            </div>
+        </div>
+
+        @* ── Font Size ── *@
+        <div class="settings-section">
+            <MudText Typo="Typo.subtitle2" Class="settings-label">
+                Size: @(Settings.FontSize)px
+            </MudText>
+            <div class="settings-slider-row">
+                <MudIconButton Icon="@Icons.Material.Filled.TextDecrease"
+                               Size="Size.Small" Color="Color.Inherit"
+                               OnClick="DecreaseFontSize" />
+                <MudSlider T="int"
+                           Value="@Settings.FontSize"
+                           ValueChanged="OnFontSizeChanged"
+                           Min="12" Max="32" Step="1"
+                           Color="Color.Warning"
+                           Class="flex-grow-1" />
+                <MudIconButton Icon="@Icons.Material.Filled.TextIncrease"
+                               Size="Size.Small" Color="Color.Inherit"
+                               OnClick="IncreaseFontSize" />
+            </div>
+        </div>
+
+        @* ── Line Height ── *@
+        <div class="settings-section">
+            <MudText Typo="Typo.subtitle2" Class="settings-label">
+                Line Spacing: @Settings.LineHeight.ToString("F1")
+            </MudText>
+            <MudSlider T="double"
+                       Value="@Settings.LineHeight"
+                       ValueChanged="OnLineHeightChanged"
+                       Min="1.2" Max="2.4" Step="0.1"
+                       Color="Color.Warning" />
+        </div>
+
+        @* ── Margins ── *@
+        <div class="settings-section">
+            <MudText Typo="Typo.subtitle2" Class="settings-label">
+                Margins: @(Settings.Margins)px
+            </MudText>
+            <MudSlider T="int"
+                       Value="@Settings.Margins"
+                       ValueChanged="OnMarginsChanged"
+                       Min="16" Max="80" Step="4"
+                       Color="Color.Warning" />
+        </div>
+
+    </div>
+</div>
+
+@code {
+    [Parameter] public bool Open { get; set; }
+    [Parameter] public ReaderSettingsDto Settings { get; set; } = new();
+    [Parameter] public EventCallback<ReaderSettingsDto> SettingsChanged { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private readonly record struct FontOption(string Label, string Value);
+
+    private static readonly FontOption[] _fonts =
+    [
+        new("Merriweather", "Merriweather, Georgia, serif"),
+        new("Georgia", "Georgia, serif"),
+        new("Montserrat", "'Montserrat', sans-serif"),
+        new("JetBrains Mono", "'JetBrains Mono', monospace")
+    ];
+
+    private async Task ChangeTheme(string theme)
+    {
+        Settings = Settings with { Theme = theme };
+        await SettingsChanged.InvokeAsync(Settings);
+    }
+
+    private async Task ChangeFont(string fontFamily)
+    {
+        Settings = Settings with { FontFamily = fontFamily };
+        await SettingsChanged.InvokeAsync(Settings);
+    }
+
+    private async Task OnFontSizeChanged(int size)
+    {
+        Settings = Settings with { FontSize = size };
+        await SettingsChanged.InvokeAsync(Settings);
+    }
+
+    private async Task DecreaseFontSize()
+    {
+        if (Settings.FontSize > 12)
+            await OnFontSizeChanged(Settings.FontSize - 1);
+    }
+
+    private async Task IncreaseFontSize()
+    {
+        if (Settings.FontSize < 32)
+            await OnFontSizeChanged(Settings.FontSize + 1);
+    }
+
+    private async Task OnLineHeightChanged(double value)
+    {
+        Settings = Settings with { LineHeight = value };
+        await SettingsChanged.InvokeAsync(Settings);
+    }
+
+    private async Task OnMarginsChanged(int value)
+    {
+        Settings = Settings with { Margins = value };
+        await SettingsChanged.InvokeAsync(Settings);
+    }
+}

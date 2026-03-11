@@ -1,0 +1,59 @@
+﻿@namespace MediaEngine.Web.Components.Playback
+
+<div class="reader-bottom-bar @(Visible ? "visible" : "")">
+    <div class="reader-progress-row">
+        <MudIconButton Icon="@Icons.Material.Filled.SkipPrevious"
+                       Color="Color.Inherit" Size="Size.Small"
+                       OnClick="OnPreviousChapter"
+                       Disabled="@(CurrentChapter <= 0)"
+                       title="Previous Chapter" />
+
+        <MudSlider T="int"
+                   Value="@CurrentPage"
+                   ValueChanged="OnPageSliderChanged"
+                   Min="0"
+                   Max="@Math.Max(TotalPages - 1, 0)"
+                   Color="Color.Warning"
+                   Class="reader-page-slider" />
+
+        <MudIconButton Icon="@Icons.Material.Filled.SkipNext"
+                       Color="Color.Inherit" Size="Size.Small"
+                       OnClick="OnNextChapter"
+                       Disabled="@(CurrentChapter >= TotalChapters - 1)"
+                       title="Next Chapter" />
+    </div>
+
+    <div class="reader-page-info">
+        <span class="reader-page-count">Page @(CurrentPage + 1) of @TotalPages</span>
+        <span class="reader-percentage">@OverallPercentage.ToString("F0")%</span>
+        <MudIconButton Icon="@Icons.Material.Filled.BarChart"
+                       Color="Color.Inherit" Size="Size.Small"
+                       OnClick="OnToggleStats"
+                       title="Reading Statistics" />
+        <MudIconButton Icon="@(IsFullscreen ? Icons.Material.Filled.FullscreenExit : Icons.Material.Filled.Fullscreen)"
+                       Color="Color.Inherit" Size="Size.Small"
+                       OnClick="OnToggleFullscreen"
+                       title="Fullscreen (F)" />
+    </div>
+</div>
+
+@code {
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public int CurrentPage { get; set; }
+    [Parameter] public int TotalPages { get; set; }
+    [Parameter] public int CurrentChapter { get; set; }
+    [Parameter] public int TotalChapters { get; set; }
+    [Parameter] public double OverallPercentage { get; set; }
+    [Parameter] public bool IsFullscreen { get; set; }
+    [Parameter] public EventCallback<int> OnPageChanged { get; set; }
+    [Parameter] public EventCallback OnPreviousChapter { get; set; }
+    [Parameter] public EventCallback OnNextChapter { get; set; }
+    [Parameter] public EventCallback OnToggleStats { get; set; }
+    [Parameter] public EventCallback OnToggleFullscreen { get; set; }
+
+    private async Task OnPageSliderChanged(int value)
+    {
+        await OnPageChanged.InvokeAsync(value);
+    }
+}
+

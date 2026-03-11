@@ -1,4 +1,4 @@
-using System.Reflection;
+﻿using System.Reflection;
 using Microsoft.Data.Sqlite;
 using MediaEngine.Storage.Contracts;
 
@@ -450,7 +450,85 @@ public sealed class DatabaseConnection : IDatabaseConnection
             idxCmd.ExecuteNonQuery();
         }
 
-        // Seed S-001: provider_registry entries for all known providers.
+        // Migration M-023: EPUB reader tables â€” bookmarks, highlights, statistics,
+        // and WhisperSync alignment jobs.
+        MigrateCreateTableIfMissing(
+            conn,
+            probeTable:  "reader_bookmarks",
+            probeColumn: "id",
+            ddl: """
+                CREATE TABLE IF NOT EXISTS reader_bookmarks (
+                    id             TEXT NOT NULL PRIMARY KEY,
+                    user_id        TEXT NOT NULL,
+                    asset_id       TEXT NOT NULL REFERENCES media_assets(id) ON DELETE CASCADE,
+                    chapter_index  INTEGER NOT NULL,
+                    cfi_position   TEXT,
+                    label          TEXT,
+                    created_at     TEXT NOT NULL DEFAULT (datetime('now'))
+                );
+                CREATE INDEX IF NOT EXISTS idx_reader_bookmarks_user_asset
+                    ON reader_bookmarks (user_id, asset_id);
+                """);
+
+        MigrateCreateTableIfMissing(
+            conn,
+            probeTable:  "reader_highlights",
+            probeColumn: "id",
+            ddl: """
+                CREATE TABLE IF NOT EXISTS reader_highlights (
+                    id             TEXT NOT NULL PRIMARY KEY,
+                    user_id        TEXT NOT NULL,
+                    asset_id       TEXT NOT NULL REFERENCES media_assets(id) ON DELETE CASCADE,
+                    chapter_index  INTEGER NOT NULL,
+                    start_offset   INTEGER NOT NULL,
+                    end_offset     INTEGER NOT NULL,
+                    selected_text  TEXT NOT NULL,
+                    color          TEXT NOT NULL DEFAULT '#EAB308',
+                    note_text      TEXT,
+                    created_at     TEXT NOT NULL DEFAULT (datetime('now'))
+                );
+                CREATE INDEX IF NOT EXISTS idx_reader_highlights_user_asset
+                    ON reader_highlights (user_id, asset_id);
+                """);
+
+        MigrateCreateTableIfMissing(
+            conn,
+            probeTable:  "reader_statistics",
+            probeColumn: "id",
+            ddl: """
+                CREATE TABLE IF NOT EXISTS reader_statistics (
+                    id                      TEXT NOT NULL PRIMARY KEY,
+                    user_id                 TEXT NOT NULL,
+                    asset_id                TEXT NOT NULL REFERENCES media_assets(id) ON DELETE CASCADE,
+                    chapters_read           INTEGER NOT NULL DEFAULT 0,
+                    total_reading_time_secs INTEGER NOT NULL DEFAULT 0,
+                    words_read              INTEGER NOT NULL DEFAULT 0,
+                    sessions_count          INTEGER NOT NULL DEFAULT 0,
+                    avg_words_per_minute    REAL NOT NULL DEFAULT 0.0,
+                    last_session_at         TEXT,
+                    UNIQUE (user_id, asset_id)
+                );
+                """);
+
+        MigrateCreateTableIfMissing(
+            conn,
+            probeTable:  "alignment_jobs",
+            probeColumn: "id",
+            ddl: """
+                CREATE TABLE IF NOT EXISTS alignment_jobs (
+                    id                  TEXT NOT NULL PRIMARY KEY,
+                    ebook_asset_id      TEXT NOT NULL REFERENCES media_assets(id) ON DELETE CASCADE,
+                    audiobook_asset_id  TEXT NOT NULL REFERENCES media_assets(id) ON DELETE CASCADE,
+                    status              TEXT NOT NULL DEFAULT 'Pending'
+                                            CHECK (status IN ('Pending', 'Processing', 'Completed', 'Failed')),
+                    alignment_data      TEXT,
+                    error_message       TEXT,
+                    created_at          TEXT NOT NULL DEFAULT (datetime('now')),
+                    completed_at        TEXT
+                );
+                """);
+
+                // Seed S-001: provider_registry entries for all known providers.
         // metadata_claims.provider_id has a FK to provider_registry(id), so these
         // rows MUST exist before any claim is written.  INSERT OR IGNORE makes this
         // idempotent — safe to run on every startup.
@@ -816,3 +894,4 @@ public sealed class DatabaseConnection : IDatabaseConnection
         return reader.ReadToEnd();
     }
 }
+

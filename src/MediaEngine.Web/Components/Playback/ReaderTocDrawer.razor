@@ -1,0 +1,58 @@
+@namespace MediaEngine.Web.Components.Playback
+@using MediaEngine.Web.Models.ViewDTOs
+
+<div class="reader-drawer reader-drawer-left @(Open ? "open" : "")">
+    <div class="reader-drawer-header">
+        <MudText Typo="Typo.h6">Table of Contents</MudText>
+        <MudIconButton Icon="@Icons.Material.Filled.Close"
+                       Color="Color.Inherit"
+                       OnClick="OnClose" />
+    </div>
+    <div class="reader-drawer-content">
+        @if (TableOfContents is not null)
+        {
+            @foreach (var entry in TableOfContents)
+            {
+                @RenderTocEntry(entry, 0)
+            }
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public bool Open { get; set; }
+    [Parameter] public List<EpubTocEntryDto>? TableOfContents { get; set; }
+    [Parameter] public int CurrentChapterIndex { get; set; }
+    [Parameter] public EventCallback<int> OnNavigateToChapter { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private RenderFragment RenderTocEntry(EpubTocEntryDto entry, int depth) => builder =>
+    {
+        var isCurrent = entry.ChapterIndex == CurrentChapterIndex;
+        var seq = 0;
+
+        builder.OpenElement(seq++, "div");
+        builder.AddAttribute(seq++, "class",
+            $"reader-toc-item depth-{depth} {(isCurrent ? "active" : "")}");
+        builder.AddAttribute(seq++, "style", $"padding-left: {16 + depth * 20}px");
+
+        var index = entry.ChapterIndex;
+        builder.AddAttribute(seq++, "onclick",
+            EventCallback.Factory.Create(this, () => OnNavigateToChapter.InvokeAsync(index)));
+
+        builder.OpenElement(seq++, "span");
+        builder.AddAttribute(seq++, "class", "toc-item-title");
+        builder.AddContent(seq++, entry.Title);
+        builder.CloseElement();
+
+        builder.CloseElement(); // toc-item
+
+        if (entry.Children is { Count: > 0 })
+        {
+            foreach (var child in entry.Children)
+            {
+                builder.AddContent(seq++, RenderTocEntry(child, depth + 1));
+            }
+        }
+    };
+}

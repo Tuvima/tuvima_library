@@ -1,0 +1,43 @@
+﻿@namespace MediaEngine.Web.Components.Playback
+
+<div class="reader-top-bar @(Visible ? "visible" : "")">
+    <div class="reader-top-left">
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowBack"
+                       Color="Color.Inherit"
+                       OnClick="OnBack" />
+        <div class="reader-title-group">
+            <span class="reader-book-title">@BookTitle</span>
+            <span class="reader-chapter-indicator">@ChapterTitle</span>
+        </div>
+    </div>
+    <div class="reader-top-right">
+        <MudIconButton Icon="@Icons.Material.Filled.Bookmark"
+                       Color="Color.Inherit"
+                       OnClick="OnToggleBookmarks"
+                       title="Bookmarks (B)" />
+        <MudIconButton Icon="@Icons.Material.Filled.Search"
+                       Color="Color.Inherit"
+                       OnClick="OnToggleSearch"
+                       title="Search (Ctrl+F)" />
+        <MudIconButton Icon="@Icons.Material.Filled.FormatListBulleted"
+                       Color="Color.Inherit"
+                       OnClick="OnToggleToc"
+                       title="Table of Contents (T)" />
+        <MudIconButton Icon="@Icons.Material.Filled.Settings"
+                       Color="Color.Inherit"
+                       OnClick="OnToggleSettings"
+                       title="Settings" />
+    </div>
+</div>
+
+@code {
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public string? BookTitle { get; set; }
+    [Parameter] public string? ChapterTitle { get; set; }
+    [Parameter] public EventCallback OnBack { get; set; }
+    [Parameter] public EventCallback OnToggleBookmarks { get; set; }
+    [Parameter] public EventCallback OnToggleSearch { get; set; }
+    [Parameter] public EventCallback OnToggleToc { get; set; }
+    [Parameter] public EventCallback OnToggleSettings { get; set; }
+}
+

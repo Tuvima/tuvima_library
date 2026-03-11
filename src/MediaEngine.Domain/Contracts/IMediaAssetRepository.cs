@@ -77,4 +77,11 @@ public interface IMediaAssetRepository
     /// and verify their files still exist on disk.
     /// </summary>
     Task<IReadOnlyList<MediaAsset>> ListByStatusAsync(AssetStatus status, CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns the first asset linked to a Work via its Edition chain.
+    /// Joins editions → media_assets and returns the first match with status 'Normal'.
+    /// Used by the EPUB reader to resolve a Work ID into a playable asset.
+    /// </summary>
+    Task<MediaAsset?> FindFirstByWorkIdAsync(Guid workId, CancellationToken ct = default);
 }

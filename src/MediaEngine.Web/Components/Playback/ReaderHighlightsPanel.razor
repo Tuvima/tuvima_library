@@ -1,0 +1,97 @@
+﻿@namespace MediaEngine.Web.Components.Playback
+@using MediaEngine.Web.Models.ViewDTOs
+
+<div class="reader-drawer reader-drawer-right @(Open ? "open" : "")">
+    <div class="reader-drawer-header">
+        <MudText Typo="Typo.h6">Highlights & Notes</MudText>
+        <MudIconButton Icon="@Icons.Material.Filled.Close"
+                       Color="Color.Inherit"
+                       OnClick="OnClose" />
+    </div>
+    <div class="reader-drawer-content">
+        @if (Highlights is not { Count: > 0 })
+        {
+            <div class="reader-empty-state">
+                <MudIcon Icon="@Icons.Material.Filled.Highlight"
+                         Size="Size.Large" Color="Color.Default" />
+                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                    No highlights yet. Select text while reading to create highlights and notes.
+                </MudText>
+            </div>
+        }
+        else
+        {
+            @foreach (var highlight in Highlights.OrderByDescending(h => h.CreatedAt))
+            {
+                <div class="highlight-card" @onclick="() => OnNavigate.InvokeAsync(highlight.ChapterIndex)">
+                    <div class="highlight-color-bar" style="background-color: @GetColor(highlight.Color)"></div>
+                    <div class="highlight-body">
+                        <div class="highlight-text">"@TruncateText(highlight.SelectedText, 120)"</div>
+                        @if (!string.IsNullOrEmpty(highlight.NoteText))
+                        {
+                            <div class="highlight-note">
+                                <MudIcon Icon="@Icons.Material.Filled.StickyNote2"
+                                         Size="Size.Small" />
+                                <span>@highlight.NoteText</span>
+                            </div>
+                        }
+                        <div class="highlight-meta">
+                            <span>Chapter @(highlight.ChapterIndex + 1)</span>
+                            <span>@FormatDate(highlight.CreatedAt)</span>
+                            <div class="highlight-actions" @onclick:stopPropagation="true">
+                                <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                               Size="Size.Small"
+                                               Color="Color.Default"
+                                               OnClick="@(() => OnEdit.InvokeAsync(highlight.Id))"
+                                               title="Edit note" />
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                               Size="Size.Small"
+                                               Color="Color.Error"
+                                               OnClick="@(() => OnDelete.InvokeAsync(highlight.Id))"
+                                               title="Delete highlight" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public bool Open { get; set; }
+    [Parameter] public List<ReaderHighlightDto>? Highlights { get; set; }
+    [Parameter] public EventCallback<int> OnNavigate { get; set; }
+    [Parameter] public EventCallback<Guid> OnEdit { get; set; }
+    [Parameter] public EventCallback<Guid> OnDelete { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private static string GetColor(string? color) => color switch
+    {
+        "Yellow" or "yellow" or "#EAB308" => "#EAB308",
+        "Blue" or "blue" or "#60A5FA" => "#60A5FA",
+        "Green" or "green" or "#34D399" => "#34D399",
+        "Pink" or "pink" or "#F472B6" => "#F472B6",
+        "Purple" or "purple" or "#A78BFA" => "#A78BFA",
+        _ => "#EAB308"
+    };
+
+    private static string TruncateText(string? text, int maxLen)
+    {
+        if (string.IsNullOrEmpty(text)) return "";
+        return text.Length <= maxLen ? text : text[..maxLen] + "…";
+    }
+
+    private static string FormatDate(DateTime? dt)
+    {
+        if (dt is null) return "";
+        var diff = DateTime.UtcNow - dt.Value;
+        return diff.TotalMinutes < 1 ? "just now"
+            : diff.TotalHours < 1 ? $"{(int)diff.TotalMinutes}m ago"
+            : diff.TotalDays < 1 ? $"{(int)diff.TotalHours}h ago"
+            : diff.TotalDays < 30 ? $"{(int)diff.TotalDays}d ago"
+            : dt.Value.ToString("MMM d, yyyy");
+    }
+}
+
+

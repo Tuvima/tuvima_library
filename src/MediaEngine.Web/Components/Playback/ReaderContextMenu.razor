@@ -1,0 +1,77 @@
+﻿@namespace MediaEngine.Web.Components.Playback
+@inject NavigationManager Nav
+
+<div class="reader-context-menu @(Visible ? "visible" : "")"
+     style="top: @(PositionY)px; left: @(PositionX)px;">
+    <div class="context-menu-actions">
+        @* Highlight with colour picker *@
+        <div class="context-action-group">
+            <button class="context-btn" title="Highlight"
+                    @onclick="() => OnHighlight.InvokeAsync(_selectedColor)">
+                <MudIcon Icon="@Icons.Material.Filled.Highlight" Size="Size.Small" />
+            </button>
+            <div class="color-dots">
+                @foreach (var color in _highlightColors)
+                {
+                    <button class="color-dot @(color.Key == _selectedColor ? "active" : "")"
+                            style="background-color: @color.Value"
+                            @onclick="() => _selectedColor = color.Key"
+                            title="@color.Key">
+                    </button>
+                }
+            </div>
+        </div>
+
+        @* Note *@
+        <button class="context-btn" title="Add Note"
+                @onclick="() => OnAddNote.InvokeAsync(SelectedText)">
+            <MudIcon Icon="@Icons.Material.Filled.NoteAdd" Size="Size.Small" />
+            <span>Note</span>
+        </button>
+
+        @* Dictionary (Wiktionary) *@
+        <button class="context-btn" title="Define"
+                @onclick="LookupWord">
+            <MudIcon Icon="@Icons.Material.Filled.MenuBook" Size="Size.Small" />
+            <span>Define</span>
+        </button>
+
+        @* Copy *@
+        <button class="context-btn" title="Copy"
+                @onclick="() => OnCopy.InvokeAsync(SelectedText)">
+            <MudIcon Icon="@Icons.Material.Filled.ContentCopy" Size="Size.Small" />
+            <span>Copy</span>
+        </button>
+    </div>
+</div>
+
+@code {
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public double PositionX { get; set; }
+    [Parameter] public double PositionY { get; set; }
+    [Parameter] public string? SelectedText { get; set; }
+    [Parameter] public EventCallback<string> OnHighlight { get; set; }
+    [Parameter] public EventCallback<string> OnAddNote { get; set; }
+    [Parameter] public EventCallback<string> OnCopy { get; set; }
+    [Parameter] public EventCallback OnDismiss { get; set; }
+
+    private string _selectedColor = "Yellow";
+
+    private static readonly Dictionary<string, string> _highlightColors = new()
+    {
+        ["Yellow"] = "#EAB308",
+        ["Blue"] = "#60A5FA",
+        ["Green"] = "#34D399",
+        ["Pink"] = "#F472B6",
+        ["Purple"] = "#A78BFA"
+    };
+
+    private void LookupWord()
+    {
+        if (string.IsNullOrWhiteSpace(SelectedText)) return;
+        var word = SelectedText.Trim().Split(' ')[0]; // First word only for definition
+        var url = $"https://en.wiktionary.org/wiki/{Uri.EscapeDataString(word)}";
+        Nav.NavigateTo(url, forceLoad: true);
+    }
+}
+

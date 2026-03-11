@@ -1,0 +1,61 @@
+@namespace MediaEngine.Web.Components.Playback
+@using MediaEngine.Web.Models.ViewDTOs
+
+<div class="reader-stats-overlay @(Visible ? "visible" : "")">
+    <div class="stats-card">
+        <MudText Typo="Typo.subtitle1" Class="stats-title">Reading Statistics</MudText>
+
+        <div class="stats-grid">
+            <div class="stat-item">
+                <MudIcon Icon="@Icons.Material.Filled.Speed" Size="Size.Small" />
+                <div class="stat-value">@WordsPerMinute</div>
+                <div class="stat-label">words/min</div>
+            </div>
+
+            <div class="stat-item">
+                <MudIcon Icon="@Icons.Material.Filled.Timer" Size="Size.Small" />
+                <div class="stat-value">@FormatDuration(SessionSeconds)</div>
+                <div class="stat-label">this session</div>
+            </div>
+
+            <div class="stat-item">
+                <MudIcon Icon="@Icons.Material.Filled.AccessTime" Size="Size.Small" />
+                <div class="stat-value">@FormatDuration(TotalReadingSeconds)</div>
+                <div class="stat-label">total reading</div>
+            </div>
+
+            <div class="stat-item">
+                <MudIcon Icon="@Icons.Material.Filled.AutoStories" Size="Size.Small" />
+                <div class="stat-value">@ChaptersRead / @TotalChapters</div>
+                <div class="stat-label">chapters</div>
+            </div>
+
+            @if (EstimatedRemainingMinutes > 0)
+            {
+                <div class="stat-item stat-wide">
+                    <MudIcon Icon="@Icons.Material.Filled.HourglassBottom" Size="Size.Small" />
+                    <div class="stat-value">~@EstimatedRemainingMinutes min</div>
+                    <div class="stat-label">estimated remaining</div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public int WordsPerMinute { get; set; }
+    [Parameter] public long SessionSeconds { get; set; }
+    [Parameter] public long TotalReadingSeconds { get; set; }
+    [Parameter] public int ChaptersRead { get; set; }
+    [Parameter] public int TotalChapters { get; set; }
+    [Parameter] public int EstimatedRemainingMinutes { get; set; }
+
+    private static string FormatDuration(long totalSeconds)
+    {
+        if (totalSeconds < 60) return $"{totalSeconds}s";
+        var hours = totalSeconds / 3600;
+        var minutes = (totalSeconds % 3600) / 60;
+        return hours > 0 ? $"{hours}h {minutes}m" : $"{minutes}m";
+    }
+}

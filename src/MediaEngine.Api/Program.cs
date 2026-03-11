@@ -1,4 +1,4 @@
-using System.Threading.RateLimiting;
+﻿using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.SignalR;
 using MediaEngine.Api.Endpoints;
 using MediaEngine.Api.Hubs;
@@ -369,6 +369,17 @@ builder.Services.AddSingleton<ILibraryScanner, LibraryScanner>();
 // ── Hero banner generation (cover art → cinematic hero.jpg) ──────────────────
 builder.Services.AddSingleton<IHeroBannerGenerator, HeroBannerGenerator>();
 
+// -- EPUB reader content service (chapter serving, TOC, search) ---------------
+builder.Services.AddSingleton<IEpubContentService, EpubContentService>();
+
+// -- EPUB reader data repositories (bookmarks, highlights, statistics, alignment) --
+builder.Services.AddSingleton<IReaderBookmarkRepository, ReaderBookmarkRepository>();
+builder.Services.AddSingleton<IReaderHighlightRepository, ReaderHighlightRepository>();
+builder.Services.AddSingleton<IReaderStatisticsRepository, ReaderStatisticsRepository>();
+builder.Services.AddSingleton<IAlignmentJobRepository, AlignmentJobRepository>();
+builder.Services.AddSingleton<IWhisperSyncService, WhisperSyncService>();
+builder.Services.AddHostedService<WhisperSyncBackgroundService>();
+
 // ── Phase 1 (Activity Log): System activity ledger + daily pruning ───────────
 builder.Services.AddSingleton<ISystemActivityRepository, SystemActivityRepository>();
 builder.Services.AddHostedService<ActivityPruningService>();
@@ -421,6 +432,8 @@ app.MapSystemEndpoints();
 app.MapAdminEndpoints();
 app.MapHubEndpoints();
 app.MapStreamEndpoints();
+app.MapReadEndpoints();
+app.MapReaderEndpoints();
 app.MapIngestionEndpoints();
 app.MapMetadataEndpoints();
 app.MapReviewEndpoints();
@@ -438,3 +451,6 @@ if (app.Environment.IsDevelopment())
 }
 
 app.Run();
+
+
+

@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.SignalR.Client;
+﻿using Microsoft.AspNetCore.SignalR.Client;
 using MediaEngine.Web.Models.ViewDTOs;
 
 namespace MediaEngine.Web.Services.Integration;
@@ -500,6 +500,11 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         CancellationToken ct = default)
         => _api.SaveProgressAsync(assetId, userId, progressPct, extendedProperties, ct);
 
+    /// <summary>Resolves a work ID to its primary media asset ID for playback.</summary>
+    public Task<Guid?> ResolveWorkToAssetAsync(
+        Guid workId, CancellationToken ct = default)
+        => _api.ResolveWorkToAssetAsync(workId, ct);
+
     // ── Persons ──────────────────────────────────────────────────────────
 
     /// <summary>Returns all persons linked to works in a hub.</summary>
@@ -753,3 +758,4 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         }
     }
 }
+

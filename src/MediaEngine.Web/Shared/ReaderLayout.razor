@@ -1,0 +1,14 @@
+@inherits LayoutComponentBase
+
+@namespace MediaEngine.Web.Shared
+
+@* Minimal layout for the immersive EPUB reader — no TopBar, no LeftDock.
+   Only MudBlazor providers + the reader body.
+   MudThemeProvider required for MudBlazor components used in reader panels. *@
+
+<MudThemeProvider />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+@Body

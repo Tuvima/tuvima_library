@@ -1,4 +1,4 @@
-namespace MediaEngine.Domain.Enums;
+﻿namespace MediaEngine.Domain.Enums;
 
 /// <summary>
 /// String constants for the <c>action_type</c> column in <c>system_activity</c>.
@@ -158,3 +158,5 @@ public static class SystemActionType
     /// <summary>A person folder was renamed following a metadata update (e.g. name change).</summary>
     public const string PersonFolderRenamed = "PersonFolderRenamed";
 }
+
+

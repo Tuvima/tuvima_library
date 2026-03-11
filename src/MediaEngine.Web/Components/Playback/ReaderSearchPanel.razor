@@ -1,0 +1,125 @@
+@namespace MediaEngine.Web.Components.Playback
+@using MediaEngine.Web.Models.ViewDTOs
+
+<div class="reader-drawer reader-drawer-right @(Open ? "open" : "")">
+    <div class="reader-drawer-header">
+        <MudText Typo="Typo.h6">Search</MudText>
+        <MudIconButton Icon="@Icons.Material.Filled.Close"
+                       Color="Color.Inherit"
+                       OnClick="OnClose" />
+    </div>
+    <div class="reader-drawer-content">
+        <div class="reader-search-input">
+            <MudTextField T="string"
+                          @bind-Value="_searchQuery"
+                          Placeholder="Search in book..."
+                          Variant="Variant.Outlined"
+                          Adornment="Adornment.End"
+                          AdornmentIcon="@Icons.Material.Filled.Search"
+                          OnAdornmentClick="DoSearch"
+                          OnKeyDown="OnSearchKeyDown"
+                          Immediate="true"
+                          Class="reader-search-field" />
+        </div>
+
+        @if (_searching)
+        {
+            <div class="reader-search-loading">
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" />
+                <MudText Typo="Typo.body2">Searching...</MudText>
+            </div>
+        }
+        else if (_searchResults is { Count: > 0 })
+        {
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2">
+                @_searchResults.Count result@(_searchResults.Count != 1 ? "s" : "") found
+            </MudText>
+
+            @foreach (var result in _searchResults)
+            {
+                <div class="search-result-item"
+                     @onclick="() => OnNavigateToResult.InvokeAsync(result)">
+                    <div class="search-result-chapter">Chapter @(result.ChapterIndex + 1)</div>
+                    <div class="search-result-context">
+                        @HighlightMatch(result.ContextSnippet, _searchQuery)
+                    </div>
+                </div>
+            }
+        }
+        else if (_hasSearched)
+        {
+            <div class="reader-empty-state">
+                <MudIcon Icon="@Icons.Material.Filled.SearchOff"
+                         Size="Size.Large" Color="Color.Default" />
+                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                    No results found for "@_searchQuery"
+                </MudText>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public bool Open { get; set; }
+    [Parameter] public Guid AssetId { get; set; }
+    [Parameter] public EventCallback<EpubSearchHitDto> OnNavigateToResult { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public Func<Guid, string, CancellationToken, Task<List<EpubSearchHitDto>>>? SearchFunc { get; set; }
+
+    private string _searchQuery = "";
+    private bool _searching;
+    private bool _hasSearched;
+    private List<EpubSearchHitDto>? _searchResults;
+
+    private async Task OnSearchKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await DoSearch();
+    }
+
+    private async Task DoSearch()
+    {
+        if (string.IsNullOrWhiteSpace(_searchQuery) || _searchQuery.Length < 2 || SearchFunc is null)
+            return;
+
+        _searching = true;
+        _hasSearched = true;
+        StateHasChanged();
+
+        try
+        {
+            _searchResults = await SearchFunc(AssetId, _searchQuery, CancellationToken.None);
+        }
+        catch
+        {
+            _searchResults = [];
+        }
+        finally
+        {
+            _searching = false;
+            StateHasChanged();
+        }
+    }
+
+    private static RenderFragment HighlightMatch(string? context, string query) => builder =>
+    {
+        if (string.IsNullOrEmpty(context) || string.IsNullOrEmpty(query))
+        {
+            builder.AddContent(0, context ?? "");
+            return;
+        }
+
+        var idx = context.IndexOf(query, StringComparison.OrdinalIgnoreCase);
+        if (idx < 0)
+        {
+            builder.AddContent(0, context);
+            return;
+        }
+
+        var seq = 0;
+        builder.AddContent(seq++, context[..idx]);
+        builder.OpenElement(seq++, "mark");
+        builder.AddContent(seq++, context.Substring(idx, query.Length));
+        builder.CloseElement();
+        builder.AddContent(seq, context[(idx + query.Length)..]);
+    };
+}
