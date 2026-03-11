@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Storage.Contracts;
@@ -182,9 +183,9 @@ public static class ProgressEndpoints
 // ── Request / response DTOs ─────────────────────────────────────────────────
 
 public sealed record ProgressUpdateRequest(
-    string?                       UserId,
-    double                        ProgressPct,
-    Dictionary<string, string>?   ExtendedProperties);
+    [property: JsonPropertyName("user_id")]             string?                       UserId,
+    [property: JsonPropertyName("progress_pct")]        double                        ProgressPct,
+    [property: JsonPropertyName("extended_properties")] Dictionary<string, string>?   ExtendedProperties);
 
 public sealed record JourneyItemResponse(
     Guid                         AssetId,
