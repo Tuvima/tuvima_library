@@ -27,7 +27,8 @@
 
     @* ── Retention config ────────────────────────────────────────────────── *@
     <MudPaper Elevation="0" Style="@InnerCardStyle" Class="mb-6">
-        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3"
+                  Class="activity-retention-bar">
             <MudIcon Icon="@Icons.Material.Outlined.DateRange"
                      Size="Size.Small" Color="Color.Default" />
             <MudText Typo="Typo.body2" Style="white-space: nowrap;">
@@ -158,91 +159,211 @@
                                 }
                                 else if (tier == DisplayTier.Startup)
                                 {
-                                    @* ── Startup cluster — ServerStarted + absorbed noise/recon ── *@
-                                    <div class="activity-expandable-row"
-                                         @onclick="@(() => { if (sc.HasDetails) ToggleExpanded(entry.Id); })">
-                                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2"
-                                                   Style="@(sc.HasDetails ? "cursor: pointer;" : "")">
-                                            <MudText Typo="Typo.body2" Style="font-weight: 600;">
-                                                Server Started
-                                            </MudText>
-                                            @if (sc.ReconWarning)
-                                            {
-                                                <MudChip T="string" Size="Size.Small" Color="Color.Warning"
-                                                         Style="font-size: 0.7rem; height: 20px;">
-                                                    Library issues found
+                                    // ── Startup cluster — ServerStarted + absorbed noise/recon ──
+                                    var clusterSiblings = _startupCluster.TryGetValue(entry.Id, out var csList) ? csList : null;
+                                    var isMultiStart    = clusterSiblings is { Count: > 0 };
+                                    var allStarts       = isMultiStart
+                                                          ? new List<ActivityEntryViewModel> { entry }
+                                                              .Concat(clusterSiblings!)
+                                                              .OrderBy(e => ParseTs(e.OccurredAt))
+                                                              .ToList()
+                                                          : (List<ActivityEntryViewModel>)[];
+                                    var anyIssues = isMultiStart && allStarts.Any(e => _startupRecon.ContainsKey(e.Id));
+                                    var firstTime = isMultiStart ? FormatTime(allStarts.First().OccurredAt) : string.Empty;
+                                    var lastTime  = isMultiStart ? FormatTime(allStarts.Last().OccurredAt)  : string.Empty;
+
+                                    @if (isMultiStart)
+                                    {
+                                        @* ── MULTI-START: same-day restarts collapsed into one row ── *@
+                                        <div class="activity-expandable-row"
+                                             @onclick="@(() => ToggleExpanded(entry.Id))">
+                                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2"
+                                                       Style="cursor: pointer;">
+                                                <MudText Typo="Typo.body2" Style="font-weight: 600;">
+                                                    Server Started
+                                                </MudText>
+                                                <MudChip T="string" Size="Size.Small" Color="Color.Default"
+                                                         Variant="Variant.Outlined"
+                                                         Style="height: 18px; font-size: 0.68rem; padding: 0 6px;">
+                                                    @allStarts.Count×
                                                 </MudChip>
-                                            }
-                                            <MudSpacer />
-                                            <MudText Typo="Typo.caption" Color="Color.Secondary"
-                                                     Style="white-space: nowrap;">
-                                                @FormatTime(entry.OccurredAt)
-                                            </MudText>
-                                            @if (sc.HasDetails)
-                                            {
+                                                @if (anyIssues)
+                                                {
+                                                    <MudChip T="string" Size="Size.Small" Color="Color.Warning"
+                                                             Style="font-size: 0.7rem; height: 20px;">
+                                                        Library issues found
+                                                    </MudChip>
+                                                }
+                                                <MudSpacer />
+                                                <MudText Typo="Typo.caption" Color="Color.Secondary"
+                                                         Style="white-space: nowrap;">
+                                                    @firstTime – @lastTime
+                                                </MudText>
                                                 <MudIcon Icon="@(_expandedEntryIds.Contains(entry.Id)
                                                                   ? Icons.Material.Filled.ExpandLess
                                                                   : Icons.Material.Filled.ExpandMore)"
                                                          Size="Size.Small" Style="opacity: 0.5;" />
-                                            }
-                                        </MudStack>
-                                    </div>
-
-                                    @if (_expandedEntryIds.Contains(entry.Id) && sc.HasDetails)
-                                    {
-                                        <div class="activity-startup-details">
-                                            @foreach (var absorbed in sc.AbsorbedList)
-                                            {
-                                                <div class="activity-startup-row">
-                                                    <MudIcon Icon="@Icons.Material.Filled.CheckCircleOutline"
-                                                             Size="Size.Small"
-                                                             Style="font-size: 0.8rem; color: #4caf50; flex-shrink: 0;" />
-                                                    <MudText Typo="Typo.caption" Style="color: var(--app-text-soft);">
-                                                        @StartupAbsorbedLabel(absorbed)
-                                                    </MudText>
-                                                </div>
-                                            }
-                                            @if (sc.HasRecon && sc.ReconEntry is not null && ParseReconciliationData(sc.ReconEntry.ChangesJson ?? "") is { } sRecon)
-                                            {
-                                                <div class="activity-recon-summary" style="margin-top: 8px;">
-                                                    <MudStack Row="true" Spacing="4" AlignItems="AlignItems.Center">
-                                                        <div>
-                                                            <MudText Typo="Typo.h5" Style="font-weight: 700;">@sRecon.Total.ToString("N0")</MudText>
-                                                            <MudText Typo="Typo.caption" Color="Color.Secondary">scanned</MudText>
-                                                        </div>
-                                                        <div>
-                                                            <MudText Typo="Typo.h5"
-                                                                     Style="@($"font-weight: 700; color: {(sRecon.Missing > 0 ? "var(--mud-palette-warning)" : "var(--mud-palette-success)")};")">
-                                                                @sRecon.Missing.ToString("N0")
-                                                            </MudText>
-                                                            <MudText Typo="Typo.caption" Color="Color.Secondary">missing</MudText>
-                                                        </div>
-                                                        <div>
-                                                            <MudText Typo="Typo.h5" Style="font-weight: 700;">@FormatElapsed(sRecon.Elapsed)</MudText>
-                                                            <MudText Typo="Typo.caption" Color="Color.Secondary">elapsed</MudText>
-                                                        </div>
-                                                    </MudStack>
-                                                    @if (sRecon.MissingFiles.Count > 0)
-                                                    {
-                                                        <div style="margin-top: 10px; border-top: 1px solid var(--app-glass-inner-border); padding-top: 8px;">
-                                                            @foreach (var mf in sRecon.MissingFiles)
-                                                            {
-                                                                <div class="activity-recon-missing-row">
-                                                                    <MudIcon Icon="@Icons.Material.Filled.InsertDriveFile"
-                                                                             Size="Size.Small"
-                                                                             Style="font-size: 0.85rem; opacity: 0.5;" />
-                                                                    <MudText Typo="Typo.caption" Style="flex: 1; min-width: 0;">@mf.Filename</MudText>
-                                                                    <MudText Typo="Typo.caption" Color="Color.Secondary"
-                                                                             Style="font-size: 0.7rem; white-space: nowrap;">
-                                                                        @mf.Action
-                                                                    </MudText>
-                                                                </div>
-                                                            }
-                                                        </div>
-                                                    }
-                                                </div>
-                                            }
+                                            </MudStack>
                                         </div>
+
+                                        @if (_expandedEntryIds.Contains(entry.Id))
+                                        {
+                                            <div class="activity-startup-details">
+                                                @foreach (var clusterEntry in allStarts)
+                                                {
+                                                    var csc = GetStartupClusterData(clusterEntry.Id);
+                                                    @* ── Sub-row: one startup per cluster member ── *@
+                                                    <div class="activity-startup-cluster-item">
+                                                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2"
+                                                                   Style="margin-bottom: 4px;">
+                                                            <MudIcon Icon="@Icons.Material.Filled.PowerSettingsNew"
+                                                                     Size="Size.Small"
+                                                                     Style="font-size: 0.8rem; opacity: 0.5; flex-shrink: 0;" />
+                                                            <MudText Typo="Typo.caption"
+                                                                     Style="color: var(--app-text-soft); flex: 1;">
+                                                                Server Started
+                                                            </MudText>
+                                                            @if (csc.ReconWarning)
+                                                            {
+                                                                <MudChip T="string" Size="Size.Small" Color="Color.Warning"
+                                                                         Style="font-size: 0.65rem; height: 18px;">
+                                                                    issues
+                                                                </MudChip>
+                                                            }
+                                                            <MudText Typo="Typo.caption" Color="Color.Secondary"
+                                                                     Style="white-space: nowrap; font-size: 0.72rem;">
+                                                                @FormatTime(clusterEntry.OccurredAt)
+                                                            </MudText>
+                                                        </MudStack>
+                                                        @* Absorbed noise items *@
+                                                        @foreach (var absorbed in csc.AbsorbedList)
+                                                        {
+                                                            <div class="activity-startup-row" style="padding-left: 22px;">
+                                                                <MudIcon Icon="@Icons.Material.Filled.CheckCircleOutline"
+                                                                         Size="Size.Small"
+                                                                         Style="font-size: 0.8rem; color: #4caf50; flex-shrink: 0;" />
+                                                                <MudText Typo="Typo.caption" Style="color: var(--app-text-soft);">
+                                                                    @StartupAbsorbedLabel(absorbed)
+                                                                </MudText>
+                                                            </div>
+                                                        }
+                                                        @* Reconciliation data if present *@
+                                                        @if (csc.HasRecon && csc.ReconEntry is not null
+                                                             && ParseReconciliationData(csc.ReconEntry.ChangesJson ?? "") is { } csRecon)
+                                                        {
+                                                            <div class="activity-recon-summary" style="margin-top: 6px; margin-left: 22px;">
+                                                                <MudStack Row="true" Spacing="4" AlignItems="AlignItems.Center">
+                                                                    <div>
+                                                                        <MudText Typo="Typo.h5" Style="font-weight: 700;">@csRecon.Total.ToString("N0")</MudText>
+                                                                        <MudText Typo="Typo.caption" Color="Color.Secondary">scanned</MudText>
+                                                                    </div>
+                                                                    <div>
+                                                                        <MudText Typo="Typo.h5"
+                                                                                 Style="@($"font-weight: 700; color: {(csRecon.Missing > 0 ? "var(--mud-palette-warning)" : "var(--mud-palette-success)")};")">
+                                                                            @csRecon.Missing.ToString("N0")
+                                                                        </MudText>
+                                                                        <MudText Typo="Typo.caption" Color="Color.Secondary">missing</MudText>
+                                                                    </div>
+                                                                    <div>
+                                                                        <MudText Typo="Typo.h5" Style="font-weight: 700;">@FormatElapsed(csRecon.Elapsed)</MudText>
+                                                                        <MudText Typo="Typo.caption" Color="Color.Secondary">elapsed</MudText>
+                                                                    </div>
+                                                                </MudStack>
+                                                            </div>
+                                                        }
+                                                    </div>
+                                                }
+                                            </div>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        @* ── SINGLE-START: existing behaviour unchanged ── *@
+                                        <div class="activity-expandable-row"
+                                             @onclick="@(() => { if (sc.HasDetails) ToggleExpanded(entry.Id); })">
+                                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2"
+                                                       Style="@(sc.HasDetails ? "cursor: pointer;" : "")">
+                                                <MudText Typo="Typo.body2" Style="font-weight: 600;">
+                                                    Server Started
+                                                </MudText>
+                                                @if (sc.ReconWarning)
+                                                {
+                                                    <MudChip T="string" Size="Size.Small" Color="Color.Warning"
+                                                             Style="font-size: 0.7rem; height: 20px;">
+                                                        Library issues found
+                                                    </MudChip>
+                                                }
+                                                <MudSpacer />
+                                                <MudText Typo="Typo.caption" Color="Color.Secondary"
+                                                         Style="white-space: nowrap;">
+                                                    @FormatTime(entry.OccurredAt)
+                                                </MudText>
+                                                @if (sc.HasDetails)
+                                                {
+                                                    <MudIcon Icon="@(_expandedEntryIds.Contains(entry.Id)
+                                                                      ? Icons.Material.Filled.ExpandLess
+                                                                      : Icons.Material.Filled.ExpandMore)"
+                                                             Size="Size.Small" Style="opacity: 0.5;" />
+                                                }
+                                            </MudStack>
+                                        </div>
+
+                                        @if (_expandedEntryIds.Contains(entry.Id) && sc.HasDetails)
+                                        {
+                                            <div class="activity-startup-details">
+                                                @foreach (var absorbed in sc.AbsorbedList)
+                                                {
+                                                    <div class="activity-startup-row">
+                                                        <MudIcon Icon="@Icons.Material.Filled.CheckCircleOutline"
+                                                                 Size="Size.Small"
+                                                                 Style="font-size: 0.8rem; color: #4caf50; flex-shrink: 0;" />
+                                                        <MudText Typo="Typo.caption" Style="color: var(--app-text-soft);">
+                                                            @StartupAbsorbedLabel(absorbed)
+                                                        </MudText>
+                                                    </div>
+                                                }
+                                                @if (sc.HasRecon && sc.ReconEntry is not null && ParseReconciliationData(sc.ReconEntry.ChangesJson ?? "") is { } sRecon)
+                                                {
+                                                    <div class="activity-recon-summary" style="margin-top: 8px;">
+                                                        <MudStack Row="true" Spacing="4" AlignItems="AlignItems.Center">
+                                                            <div>
+                                                                <MudText Typo="Typo.h5" Style="font-weight: 700;">@sRecon.Total.ToString("N0")</MudText>
+                                                                <MudText Typo="Typo.caption" Color="Color.Secondary">scanned</MudText>
+                                                            </div>
+                                                            <div>
+                                                                <MudText Typo="Typo.h5"
+                                                                         Style="@($"font-weight: 700; color: {(sRecon.Missing > 0 ? "var(--mud-palette-warning)" : "var(--mud-palette-success)")};")">
+                                                                    @sRecon.Missing.ToString("N0")
+                                                                </MudText>
+                                                                <MudText Typo="Typo.caption" Color="Color.Secondary">missing</MudText>
+                                                            </div>
+                                                            <div>
+                                                                <MudText Typo="Typo.h5" Style="font-weight: 700;">@FormatElapsed(sRecon.Elapsed)</MudText>
+                                                                <MudText Typo="Typo.caption" Color="Color.Secondary">elapsed</MudText>
+                                                            </div>
+                                                        </MudStack>
+                                                        @if (sRecon.MissingFiles.Count > 0)
+                                                        {
+                                                            <div style="margin-top: 10px; border-top: 1px solid var(--app-glass-inner-border); padding-top: 8px;">
+                                                                @foreach (var mf in sRecon.MissingFiles)
+                                                                {
+                                                                    <div class="activity-recon-missing-row">
+                                                                        <MudIcon Icon="@Icons.Material.Filled.InsertDriveFile"
+                                                                                 Size="Size.Small"
+                                                                                 Style="font-size: 0.85rem; opacity: 0.5;" />
+                                                                        <MudText Typo="Typo.caption" Style="flex: 1; min-width: 0;">@mf.Filename</MudText>
+                                                                        <MudText Typo="Typo.caption" Color="Color.Secondary"
+                                                                                 Style="font-size: 0.7rem; white-space: nowrap;">
+                                                                            @mf.Action
+                                                                        </MudText>
+                                                                    </div>
+                                                                }
+                                                            </div>
+                                                        }
+                                                    </div>
+                                                }
+                                            </div>
+                                        }
                                     }
                                 }
                                 else if (tier == DisplayTier.RichMedia)
@@ -391,7 +512,7 @@
                                                                                  Style="font-size: 0.75rem; color: #4caf50; flex-shrink: 0; margin-top: 2px;" />
                                                                         <div style="flex: 1; min-width: 0;">
                                                                             <MudText Typo="Typo.caption"
-                                                                                     Style="color: var(--app-text-soft);">
+                                                                                     Style="color: var(--app-text-soft); display: block;">
                                                                                 @PipelineStepLabel(bStep.ActionType)
                                                                             </MudText>
                                                                             @if (bStep.ActionType == "HeroBannerGenerated" && bStepDetail is not null)
@@ -683,13 +804,11 @@
                                                                     {
                                                                         <div class="activity-field-row">
                                                                             <MudText Typo="Typo.caption"
-                                                                                     Style="font-weight: 600; width: 80px; flex-shrink: 0; font-size: 0.72rem;">
+                                                                                     Style="font-weight: 600; min-width: 130px; max-width: 160px; flex-shrink: 0; font-size: 0.72rem; word-break: break-word;">
                                                                                 @FormatFieldName(fs.Field)
                                                                             </MudText>
                                                                             <MudText Typo="Typo.caption"
-                                                                                     Style="flex: 1; min-width: 0; overflow: hidden;
-                                                                                            text-overflow: ellipsis; white-space: nowrap;
-                                                                                            font-size: 0.72rem;">
+                                                                                     Style="flex: 1; min-width: 0; font-size: 0.72rem; word-break: break-all; white-space: normal;">
                                                                                 @(fs.Value ?? "—")
                                                                             </MudText>
                                                                             <MudChip T="string" Size="Size.Small"
@@ -755,7 +874,7 @@
                                                                      Style="font-size: 0.75rem; color: #4caf50; flex-shrink: 0; margin-top: 2px;" />
                                                             <div style="flex: 1; min-width: 0;">
                                                                 <MudText Typo="Typo.caption"
-                                                                         Style="color: var(--app-text-soft);">
+                                                                         Style="color: var(--app-text-soft); display: block;">
                                                                     @PipelineStepLabel(step.ActionType)
                                                                 </MudText>
                                                                 @if (step.ActionType == "HeroBannerGenerated" && stepDetail is not null)
@@ -1244,6 +1363,10 @@
     // ReconciliationCompleted (with missing files) linked to the enclosing ServerStarted entry.
     private readonly Dictionary<long, ActivityEntryViewModel> _startupRecon = new();
 
+    // Same-day ServerStarted grouping: leader ID → absorbed siblings (chronological order).
+    // When non-empty the leader renders as a "Server Started · Nx" collapsed row.
+    private readonly Dictionary<long, List<ActivityEntryViewModel>> _startupCluster = new();
+
     // FileIngested cards whose pipeline step section is currently expanded.
     private readonly HashSet<long> _pipelineExpandedIds = [];
 
@@ -1439,6 +1562,7 @@
         _crawlStartPair.Clear();
         _startupAbsorbed.Clear();
         _startupRecon.Clear();
+        _startupCluster.Clear();
         _mediaAddedBatches.Clear();
 
         // ── Missing entity IDs (for reprocess button guard) ─────────────────────
@@ -1734,6 +1858,23 @@
                 reconList.Add(recon);
             }
             _absorbedEntryIds.Add(recon.Id);
+        }
+
+        // ── Same-day ServerStarted clustering ────────────────────────────────────
+        // When 2+ ServerStarted entries fall on the same calendar date, collapse all
+        // into the chronologically first one (leader). The leader renders as a
+        // "Server Started · Nx" row; expanding it shows each restart sub-row inline.
+        // Each sibling keeps its own _startupAbsorbed and _startupRecon data intact.
+        foreach (var dayGrp in serverStartIndex
+                     .GroupBy(x => x.Ts!.Value.LocalDateTime.Date)
+                     .Where(g => g.Count() > 1))
+        {
+            var ordered = dayGrp.OrderBy(x => x.Ts).ToList();
+            var leader   = ordered[0].Entry;
+            var siblings = ordered.Skip(1).Select(x => x.Entry).ToList();
+            _startupCluster[leader.Id] = siblings;
+            foreach (var sib in siblings)
+                _absorbedEntryIds.Add(sib.Id);
         }
 
         // ── MediaAdded batch grouping (multi-item add within 2-minute window) ─────
@@ -2603,6 +2744,17 @@
         border-bottom: none;
     }
 
+    /* ── Same-day startup cluster sub-rows ─────────────────────── */
+    .activity-startup-cluster-item {
+        padding: 8px 0;
+        border-bottom: 1px solid var(--app-glass-inner-border);
+    }
+
+    .activity-startup-cluster-item:last-child {
+        border-bottom: none;
+        padding-bottom: 0;
+    }
+
     /* ── Related events ───────────────────────────────────────── */
     .activity-pipeline-toggle {
         display: flex;
@@ -2665,7 +2817,7 @@
 
     .activity-field-row {
         display: flex;
-        align-items: center;
+        align-items: flex-start;
         gap: 8px;
         padding: 3px 0;
         border-bottom: 1px solid rgba(255,255,255,0.04);
@@ -2690,5 +2842,71 @@
         display: flex;
         flex-direction: column;
         gap: 3px;
+    }
+
+    /* ── Mobile responsive ──────────────────────────────────────── */
+    @@media (max-width: 768px) {
+        /* Retention config: stack vertically */
+        .activity-retention-bar {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 8px !important;
+        }
+
+        .activity-retention-bar .mud-input {
+            max-width: 100% !important;
+        }
+
+        /* Filter chips: tighter spacing */
+        .activity-filter-bar {
+            gap: 6px;
+        }
+
+        /* Rich media card: stack thumb + details vertically on narrow screens */
+        .activity-rich-card {
+            flex-direction: column;
+            padding: 10px 12px;
+            gap: 10px;
+        }
+
+        .activity-rich-thumb {
+            width: 100%;
+            height: 140px;
+        }
+
+        /* Field provenance rows: reduce first-column width */
+        .activity-field-row > :first-child {
+            min-width: 100px !important;
+            max-width: 120px !important;
+        }
+
+        /* Pipeline steps: reduce indentation + padding */
+        .activity-pipeline-steps {
+            padding: 6px 6px;
+        }
+
+        .activity-startup-details {
+            padding: 8px 10px;
+        }
+
+        /* Timeline: tighter gap */
+        .activity-timeline-row {
+            gap: 10px;
+        }
+
+        .activity-entry-content {
+            padding-bottom: 12px;
+        }
+
+        /* Recon summary stats: wrap */
+        .activity-recon-summary .mud-stack {
+            flex-wrap: wrap;
+            gap: 12px !important;
+        }
+
+        /* Hero strip: shorter on mobile */
+        .activity-hero-strip {
+            height: 80px;
+        }
     }
 </style>
