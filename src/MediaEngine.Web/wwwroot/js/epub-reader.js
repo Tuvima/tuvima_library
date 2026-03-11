@@ -44,7 +44,39 @@ window.epubReader = (function () {
             _totalPages = 1;
             return;
         }
-        _totalPages = Math.max(1, Math.ceil(_container.scrollWidth / width));
+
+        // CSS multi-column always pads scrollWidth to the next full column boundary,
+        // creating phantom blank pages when content doesn't fill the last column.
+        // scrollWidth / clientWidth is already an integer, so Math.ceil doesn't help.
+        // Instead, walk the DOM to find the rightmost content edge in layout space.
+        //
+        // Key: getBoundingClientRect() values are shifted by translateX, but the
+        // formula (element.right - container.left) cancels out the offset, giving
+        // the true layout-space position regardless of which page is currently shown.
+        _totalPages = Math.max(1, _contentPageCount(width));
+    }
+
+    function _contentPageCount(width) {
+        const containerRect = _container.getBoundingClientRect();
+        let maxRight = 0;
+
+        // Block-level and replaced elements cover all meaningful EPUB content.
+        const els = _container.querySelectorAll(
+            'p, li, h1, h2, h3, h4, h5, h6, img, figure, blockquote, pre, table, td, th, div'
+        );
+
+        for (let i = 0; i < els.length; i++) {
+            const r = els[i].getBoundingClientRect();
+            // Skip invisible nodes (hidden, zero-area, etc.)
+            if (r.width <= 0 || r.height <= 0) continue;
+            const layoutRight = r.right - containerRect.left;
+            if (layoutRight > maxRight) maxRight = layoutRight;
+        }
+
+        // Fallback: no visible content found → one page
+        if (maxRight <= 0) return 1;
+
+        return Math.ceil(maxRight / width);
     }
 
     function getTotalPages() {
