@@ -197,7 +197,10 @@
     {
         var now = DateTime.Now;
         _clockTime = now.ToString("t");
-        _clockTimeNarrow = now.ToString("H:mm");
+        // Respect the regional 12/24-hour setting; AM/PM is omitted in narrow mode (no space).
+        var is24Hour = System.Globalization.CultureInfo.CurrentCulture
+                           .DateTimeFormat.ShortTimePattern.Contains('H');
+        _clockTimeNarrow = now.ToString(is24Hour ? "H:mm" : "h:mm");
         _clockDate = now.ToString("ddd, MMM d");
         _clockDateNarrow = now.ToString("ddd");
     }
