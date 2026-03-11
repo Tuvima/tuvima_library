@@ -713,9 +713,9 @@ else
     private static string GetFormatKey(string mediaType)
     {
         var mt = mediaType.ToLowerInvariant();
-        if (mt.Contains("epub") || mt == "book")                          return "epub";
+        if (mt.Contains("epub") || mt is "book" or "books")             return "epub";
         if (mt.Contains("audio") || mt.Contains("m4b"))                   return "audiobook";
-        if (mt.Contains("video") || mt.Contains("movie") || mt == "mp4") return "video";
+        if (mt.Contains("video") || mt.Contains("movie") || mt is "mp4" or "movies" or "tv") return "video";
         if (mt.Contains("comic") || mt.Contains("cbz"))                   return "comic";
         return mt;
     }
