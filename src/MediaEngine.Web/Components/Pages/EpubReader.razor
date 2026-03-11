@@ -302,6 +302,7 @@
     private int _currentChapterIndex;
     private int _currentPageInChapter;
     private int _totalPagesInChapter = 1;
+    private int _pendingPageRestore  = -1; // page-in-chapter to apply after first pagination
 
     // Chrome
     private bool _chromeVisible = true;
@@ -395,10 +396,16 @@
 
         // Restore progress
         var progress = await Api.GetProgressAsync(AssetId);
-        if (progress is not null && progress.ExtendedProperties.TryGetValue("chapter_index", out var chIdx))
+        if (progress is not null)
         {
-            if (int.TryParse(chIdx, out var restoredChapter))
+            if (progress.ExtendedProperties.TryGetValue("chapter_index", out var chIdx) &&
+                int.TryParse(chIdx, out var restoredChapter))
                 _currentChapterIndex = restoredChapter;
+
+            // Restore page within the chapter — applied after InitPagination runs
+            if (progress.ExtendedProperties.TryGetValue("page_in_chapter", out var pgStr) &&
+                int.TryParse(pgStr, out var restoredPage) && restoredPage > 0)
+                _pendingPageRestore = restoredPage;
         }
 
         await LoadChapter(_currentChapterIndex);
@@ -436,6 +443,18 @@
         {
             _totalPagesInChapter = await JS.InvokeAsync<int>("epubReader.initPagination", "reader-columns");
             if (_totalPagesInChapter < 1) _totalPagesInChapter = 1;
+
+            // Apply a pending page-restore from progress (only on first load of the chapter)
+            if (_pendingPageRestore > 0)
+            {
+                var safePage    = Math.Min(_pendingPageRestore, _totalPagesInChapter - 1);
+                _pendingPageRestore = -1; // clear regardless so it only fires once
+                if (safePage > 0)
+                {
+                    _currentPageInChapter = safePage;
+                    await JS.InvokeVoidAsync("epubReader.goToPage", safePage);
+                }
+            }
 
             await JS.InvokeVoidAsync("epubReader.registerTouchGestures", "reader-columns", _dotNetRef);
             await JS.InvokeVoidAsync("epubReader.registerKeyboard", _dotNetRef);
@@ -740,6 +759,14 @@
         {
             // Save reading position
             var overallPercent = ComputeOverallPercentDouble();
+
+            // Don't record 0% — the journey query filters progress_pct > 0, so saving
+            // zero would mean the HubDetail never shows any progress indicator.
+            // This happens when the reader opens at chapter 0 / page 0 before any pages
+            // are turned.  A user who hasn't read anything yet shouldn't have a "In
+            // Progress" entry on the hub detail page.
+            if (overallPercent <= 0) return;
+
             var extProps = new Dictionary<string, string>
             {
                 ["chapter_index"] = _currentChapterIndex.ToString(),
