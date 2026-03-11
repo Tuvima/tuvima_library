@@ -293,9 +293,13 @@
 @code {
     [Parameter] public Guid AssetId { get; set; }
 
+    /// <summary>Hub to return to when the reader is closed. Passed as ?returnHubId=… in the URL.</summary>
+    [SupplyParameterFromQuery] public Guid? ReturnHubId { get; set; }
+
     // ── State ──────────────────────────────────────────────────────────
 
     private bool _loading = true;
+    private bool _progressAlreadySaved; // prevents double-save when ExitReader awaits then DisposeAsync fires
     private EpubBookMetadataDto? _metadata;
     private List<EpubTocEntryDto>? _toc;
     private EpubChapterContentDto? _currentChapter;
@@ -823,10 +827,16 @@
 
     // ── Helpers ─────────────────────────────────────────────────────────
 
-    private void ExitReader()
+    private async Task ExitReader()
     {
-        _ = AutoSaveProgress();
-        Nav.NavigateTo("/");
+        // Await the save so the DB write is complete before the Hub Detail page loads.
+        // Fire-and-forget would let the hub detail fetch stale 0% progress before the
+        // INSERT finishes.
+        await AutoSaveProgress();
+        _progressAlreadySaved = true;
+
+        var returnUrl = ReturnHubId.HasValue ? $"/hub/{ReturnHubId.Value}" : "/";
+        Nav.NavigateTo(returnUrl);
     }
 
     private static string FormatDuration(long totalSeconds)
@@ -847,7 +857,11 @@
 
         try
         {
-            await AutoSaveProgress();
+            // Guard: ExitReader awaits the save before navigating, so DisposeAsync
+            // doesn't need to save again in the normal exit path.  We still save here
+            // as a safety net for browser-back-button or tab-close scenarios.
+            if (!_progressAlreadySaved)
+                await AutoSaveProgress();
             await JS.InvokeVoidAsync("epubReader.dispose");
         }
         catch { }

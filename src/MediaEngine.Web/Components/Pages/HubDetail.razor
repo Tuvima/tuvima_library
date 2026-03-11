@@ -608,7 +608,7 @@ else
             var assetId = await Orchestrator.ResolveWorkToAssetAsync(work.Id);
             if (assetId.HasValue)
             {
-                Nav.NavigateTo($"/read/{assetId.Value}");
+                Nav.NavigateTo($"/read/{assetId.Value}?returnHubId={Id}");
             }
             else
             {
