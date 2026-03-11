@@ -34,17 +34,23 @@ public static class ReviewTrigger
     public const string ArbiterNeedsReview = "ArbiterNeedsReview";
 
     /// <summary>
-    /// Stage 1 (Content Match) failed to find a match using the primary provider.
-    /// The file's unique identifiers (ISBN, ASIN, etc.) and title did not resolve
-    /// to any result. The user must manually select a match.
+    /// Stage 1 (Authority Match) failed to identify the work via Wikidata.
+    /// Bridge ID lookup (ISBN, ASIN, etc.) and title search both returned no match.
+    /// The pipeline continues to Stage 3 (Retail Match) but the user should review.
+    /// </summary>
+    public const string AuthorityMatchFailed = "AuthorityMatchFailed";
+
+    /// <summary>
+    /// Stage 3 (Retail Match) failed to find a match using any retail provider.
+    /// The file's identifiers and title did not resolve to any result.
+    /// The user must manually select a match or provide metadata.
     /// </summary>
     public const string ContentMatchFailed = "ContentMatchFailed";
 
     /// <summary>
-    /// Stage 2 (Universe Match) failed to link the entity to Wikidata.
-    /// Bridge ID lookup, secondary ID lookup, and title search all either failed
-    /// or returned confidence below the auto-accept threshold. The user must
-    /// manually select a QID or skip universe matching.
+    /// Legacy: Stage 2 (Universe Match) failed. Superseded by
+    /// <see cref="AuthorityMatchFailed"/> when the pipeline was reversed.
+    /// Kept for backward compatibility with existing review queue rows.
     /// </summary>
     public const string UniverseMatchFailed = "UniverseMatchFailed";
 

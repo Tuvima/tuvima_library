@@ -757,5 +757,24 @@ public sealed class UIOrchestratorService : IAsyncDisposable
             _hubConnection = null;
         }
     }
+
+    // â”€â”€ Fan-out search â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    public Task<FanOutSearchResponseViewModel?> SearchMetadataFanOutAsync(
+        string query, string? mediaType = null, string? providerId = null,
+        int maxResultsPerProvider = 5, CancellationToken ct = default)
+        => _api.SearchMetadataFanOutAsync(query, mediaType, providerId, maxResultsPerProvider, ct);
+
+    // â”€â”€ Canonical values â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    public Task<List<CanonicalFieldViewModel>> GetCanonicalValuesAsync(
+        Guid entityId, CancellationToken ct = default)
+        => _api.GetCanonicalValuesAsync(entityId, ct);
+
+    // â”€â”€ Cover from URL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    public Task<bool> ApplyCoverFromUrlAsync(
+        Guid entityId, string imageUrl, CancellationToken ct = default)
+        => _api.ApplyCoverFromUrlAsync(entityId, imageUrl, ct);
 }
 

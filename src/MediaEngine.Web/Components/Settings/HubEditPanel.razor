@@ -1,0 +1,545 @@
+﻿@namespace MediaEngine.Web.Components.Settings
+@using MediaEngine.Web.Models.ViewDTOs
+@inject UIOrchestratorService Orchestrator
+@inject ISnackbar Snackbar
+
+@* â”€â”€ Metadata Edit Panel â€” search providers, compare fields, cherry-pick â”€â”€â”€â”€â”€â”€â”€â”€ *@
+
+<MudDrawer @bind-Open="IsOpen" Anchor="Anchor.Right" Elevation="2"
+           Variant="DrawerVariant.Temporary" Width="520px"
+           Style="background: #0D1120; border-left: 1px solid rgba(255,255,255,0.08);">
+
+    @* â”€â”€ Header â”€â”€ *@
+    <MudDrawerHeader Style="border-bottom: 1px solid rgba(255,255,255,0.07); padding: 16px 20px;">
+        <div style="display:flex; align-items:center; gap:12px; width:100%;">
+            <MudIcon Icon="@Icons.Material.Filled.Edit" Style="color: #C9922E;" />
+            <MudText Typo="Typo.subtitle1"
+                     Style="font-family:'Montserrat',sans-serif; font-weight:600; color:rgba(248,248,248,0.90); flex:1;">
+                Edit Metadata
+            </MudText>
+            <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
+                           OnClick="@(() => { IsOpen = false; IsOpenChanged.InvokeAsync(false); })"
+                           Style="color:rgba(248,248,248,0.45);" />
+        </div>
+    </MudDrawerHeader>
+
+    <div class="hub-edit-panel-body">
+
+        @* â”€â”€ Search bar â”€â”€ *@
+        <div class="hub-edit-search-bar">
+            <MudTextField @bind-Value="_searchQuery" Placeholder="Search metadata providersâ€¦"
+                          Variant="Variant.Outlined" Margin="Margin.Dense"
+                          Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Search"
+                          OnAdornmentClick="@OnSearch" OnKeyUp="@OnSearchKeyUp"
+                          Style="font-family:'Montserrat',sans-serif;"
+                          Disabled="@_searching" />
+        </div>
+
+        @* â”€â”€ Loading indicator â”€â”€ *@
+        @if (_searching)
+        {
+            <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-2"
+                               Style="border-radius: 4px;" />
+            <MudText Typo="Typo.body2" Style="color:rgba(248,248,248,0.50); text-align:center;">
+                Searching providersâ€¦
+            </MudText>
+        }
+
+        @* â”€â”€ Current metadata section (always visible) â”€â”€ *@
+        @if (_canonicalFields.Count > 0 && !_searching)
+        {
+            <div class="hub-edit-section">
+                <div class="hub-edit-section-header">
+                    <MudIcon Icon="@Icons.Material.Filled.DataObject" Size="Size.Small"
+                             Style="color:rgba(248,248,248,0.35);" />
+                    <span class="hub-edit-section-label">Current Metadata</span>
+                </div>
+                <div class="hub-edit-current-grid">
+                    @foreach (var f in _canonicalFields.Where(f => !string.IsNullOrEmpty(f.Value)))
+                    {
+                        <div class="hub-edit-field-row">
+                            <span class="hub-edit-field-key">@f.DisplayName</span>
+                            <span class="hub-edit-field-val @(f.IsUserLocked ? "hub-edit-locked" : "")">
+                                @Truncate(f.Value ?? "â€”", 60)
+                                @if (f.IsUserLocked)
+                                {
+                                    <MudIcon Icon="@Icons.Material.Filled.Lock" Size="Size.Small"
+                                             Style="color:#C9922E; font-size:0.7rem; margin-left:4px;" />
+                                }
+                            </span>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+
+        @* â”€â”€ Search results â”€â”€ *@
+        @if (_searchResults is not null && !_searching)
+        {
+            <div class="hub-edit-section">
+                <div class="hub-edit-section-header">
+                    <MudIcon Icon="@Icons.Material.Filled.TravelExplore" Size="Size.Small"
+                             Style="color:rgba(248,248,248,0.35);" />
+                    <span class="hub-edit-section-label">
+                        Results â€” @_searchResults.RespondedProviders / @_searchResults.TotalProviders providers
+                        (@(_searchResults.ElapsedMs.ToString("F0"))ms)
+                    </span>
+                </div>
+
+                @if (_searchResults.Results.Count == 0)
+                {
+                    <MudAlert Severity="Severity.Info" Dense="true"
+                              Style="background:rgba(99,141,255,0.08); border:1px solid rgba(99,141,255,0.15); border-radius:8px;">
+                        No results found. Try a different search query.
+                    </MudAlert>
+                }
+                else
+                {
+                    @foreach (var provider in _searchResults.Results)
+                    {
+                        <div class="hub-edit-provider-group">
+                            <button class="hub-edit-provider-header"
+                                    @onclick="@(() => ToggleProvider(provider.ProviderId))">
+                                <MudIcon Icon="@(_expandedProviders.Contains(provider.ProviderId)
+                                                    ? Icons.Material.Filled.ExpandMore
+                                                    : Icons.Material.Filled.ChevronRight)"
+                                         Size="Size.Small" Style="color:rgba(248,248,248,0.40);" />
+                                <span class="hub-edit-provider-name">@provider.ProviderName</span>
+                                <span class="hub-edit-provider-count">@provider.Items.Count results</span>
+                                @if (!string.IsNullOrEmpty(provider.Error))
+                                {
+                                    <MudIcon Icon="@Icons.Material.Filled.Warning" Size="Size.Small"
+                                             Style="color:#e67e22;" />
+                                }
+                            </button>
+
+                            @if (_expandedProviders.Contains(provider.ProviderId))
+                            {
+                                @foreach (var item in provider.Items)
+                                {
+                                    var itemKey = $"{provider.ProviderId}:{item.ProviderItemId ?? item.Title}";
+                                    <div class="hub-edit-result-card">
+                                        <div class="hub-edit-result-top">
+                                            @if (!string.IsNullOrEmpty(item.ThumbnailUrl))
+                                            {
+                                                <img src="@item.ThumbnailUrl" alt=""
+                                                     class="hub-edit-result-thumb" />
+                                            }
+                                            <div class="hub-edit-result-meta">
+                                                <span class="hub-edit-result-title">
+                                                    @(item.Title ?? "Untitled")
+                                                </span>
+                                                @if (!string.IsNullOrEmpty(item.Author))
+                                                {
+                                                    <span class="hub-edit-result-author">@item.Author</span>
+                                                }
+                                                @if (!string.IsNullOrEmpty(item.Year))
+                                                {
+                                                    <span class="hub-edit-result-year">@item.Year</span>
+                                                }
+                                            </div>
+                                        </div>
+
+                                        @if (_expandedResult == itemKey)
+                                        {
+                                            @* â”€â”€ Diff grid â”€â”€ *@
+                                            <HubEditDiffGrid CanonicalFields="_canonicalFields"
+                                                             ProviderItem="item"
+                                                             CurrentCoverUrl="@CurrentCoverUrl"
+                                                             @bind-SelectedFields="_selectedFields"
+                                                             @bind-SelectedCoverUrl="_selectedCoverUrl" />
+
+                                            <div class="hub-edit-result-actions">
+                                                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                                           Size="Size.Small" OnClick="@OnApplySelected"
+                                                           Disabled="@(!HasSelections)"
+                                                           Style="text-transform:none; font-family:'Montserrat',sans-serif; font-weight:600;">
+                                                    Apply Selected (@SelectionCount)
+                                                </MudButton>
+                                                <MudButton Variant="Variant.Text" Size="Size.Small"
+                                                           OnClick="@(() => _expandedResult = null)"
+                                                           Style="text-transform:none; color:rgba(248,248,248,0.50);">
+                                                    Collapse
+                                                </MudButton>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <MudButton Variant="Variant.Text" Size="Size.Small" FullWidth="true"
+                                                       OnClick="@(() => ExpandResult(itemKey, item))"
+                                                       StartIcon="@Icons.Material.Filled.CompareArrows"
+                                                       Style="text-transform:none; color:#C9922E; font-family:'Montserrat',sans-serif; font-weight:600;">
+                                                Compare Fields
+                                            </MudButton>
+                                        }
+                                    </div>
+                                }
+                            }
+                        </div>
+                    }
+                }
+            </div>
+        }
+
+        @* â”€â”€ Applying overlay â”€â”€ *@
+        @if (_applying)
+        {
+            <div class="hub-edit-applying-overlay">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Medium" />
+                <MudText Typo="Typo.body2" Style="color:rgba(248,248,248,0.70); margin-top:12px;">
+                    Applying selected fieldsâ€¦
+                </MudText>
+            </div>
+        }
+    </div>
+</MudDrawer>
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
+    [Parameter] public Guid HubId { get; set; }
+    [Parameter] public Guid EntityId { get; set; }
+    [Parameter] public string? MediaType { get; set; }
+    [Parameter] public string? CurrentCoverUrl { get; set; }
+    [Parameter] public EventCallback OnApplied { get; set; }
+
+    private string _searchQuery = "";
+    private bool _searching;
+    private bool _applying;
+    private FanOutSearchResponseViewModel? _searchResults;
+    private List<CanonicalFieldViewModel> _canonicalFields = [];
+    private HashSet<string> _expandedProviders = [];
+    private string? _expandedResult;
+    private Dictionary<string, string> _selectedFields = new();
+    private string? _selectedCoverUrl;
+
+    private bool HasSelections => _selectedFields.Count > 0 || _selectedCoverUrl is not null;
+    private int SelectionCount => _selectedFields.Count + (_selectedCoverUrl is not null ? 1 : 0);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (IsOpen && EntityId != Guid.Empty && _canonicalFields.Count == 0)
+        {
+            await LoadCanonicalValues();
+        }
+    }
+
+    private async Task LoadCanonicalValues()
+    {
+        _canonicalFields = await Orchestrator.GetCanonicalValuesAsync(EntityId);
+    }
+
+    private async Task OnSearch()
+    {
+        if (string.IsNullOrWhiteSpace(_searchQuery)) return;
+
+        _searching = true;
+        _searchResults = null;
+        _expandedResult = null;
+        _selectedFields.Clear();
+        _selectedCoverUrl = null;
+        StateHasChanged();
+
+        try
+        {
+            _searchResults = await Orchestrator.SearchMetadataFanOutAsync(
+                _searchQuery, MediaType);
+
+            // Auto-expand first provider that has results
+            if (_searchResults?.Results is { Count: > 0 })
+            {
+                var firstWithResults = _searchResults.Results
+                    .FirstOrDefault(p => p.Items.Count > 0);
+                if (firstWithResults is not null)
+                    _expandedProviders.Add(firstWithResults.ProviderId);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Search failed: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _searching = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task OnSearchKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await OnSearch();
+    }
+
+    private void ToggleProvider(string providerId)
+    {
+        if (!_expandedProviders.Add(providerId))
+            _expandedProviders.Remove(providerId);
+    }
+
+    private void ExpandResult(string itemKey, SearchResultItemViewModel item)
+    {
+        _expandedResult = itemKey;
+        _selectedFields.Clear();
+        _selectedCoverUrl = null;
+
+        // Pre-select fields where provider has data and current is empty
+        if (item.RawFields is not null)
+        {
+            foreach (var (key, value) in item.RawFields)
+            {
+                if (string.IsNullOrEmpty(value)) continue;
+                var current = _canonicalFields.FirstOrDefault(f =>
+                    string.Equals(f.Key, key, StringComparison.OrdinalIgnoreCase));
+                if (current is null || string.IsNullOrEmpty(current.Value))
+                    _selectedFields[key] = value;
+            }
+        }
+    }
+
+    private async Task OnApplySelected()
+    {
+        if (!HasSelections) return;
+
+        _applying = true;
+        StateHasChanged();
+
+        try
+        {
+            int applied = 0;
+
+            // Apply text field overrides
+            if (_selectedFields.Count > 0)
+            {
+                var ok = await Orchestrator.OverrideMetadataAsync(EntityId, _selectedFields);
+                if (ok) applied += _selectedFields.Count;
+            }
+
+            // Apply cover from URL
+            if (_selectedCoverUrl is not null)
+            {
+                var ok = await Orchestrator.ApplyCoverFromUrlAsync(EntityId, _selectedCoverUrl);
+                if (ok) applied++;
+            }
+
+            if (applied > 0)
+            {
+                Snackbar.Add($"Updated {applied} field(s) successfully", Severity.Success);
+
+                // Reload canonical values to reflect changes
+                await LoadCanonicalValues();
+                _searchResults = null;
+                _expandedResult = null;
+                _selectedFields.Clear();
+                _selectedCoverUrl = null;
+
+                // Notify parent to refresh
+                await OnApplied.InvokeAsync();
+            }
+            else
+            {
+                Snackbar.Add("No fields were updated â€” check Engine logs", Severity.Warning);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Apply failed: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _applying = false;
+            StateHasChanged();
+        }
+    }
+
+    private static string Truncate(string text, int maxLength) =>
+        text.Length <= maxLength ? text : text[..maxLength].TrimEnd() + "\u2026";
+}
+
+<style>
+    .hub-edit-panel-body {
+        padding: 16px 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        overflow-y: auto;
+        max-height: calc(100vh - 68px);
+    }
+
+    .hub-edit-search-bar {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        background: #0D1120;
+        padding-bottom: 4px;
+    }
+
+    .hub-edit-section {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .hub-edit-section-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 4px 0;
+    }
+
+    .hub-edit-section-label {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: rgba(248, 248, 248, 0.40);
+        text-transform: uppercase;
+        letter-spacing: 0.10em;
+    }
+
+    .hub-edit-current-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 8px;
+        padding: 10px 14px;
+    }
+
+    .hub-edit-field-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 12px;
+        padding: 3px 0;
+    }
+
+    .hub-edit-field-key {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: rgba(248, 248, 248, 0.45);
+        flex-shrink: 0;
+        min-width: 80px;
+    }
+
+    .hub-edit-field-val {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.78rem;
+        font-weight: 400;
+        color: rgba(248, 248, 248, 0.70);
+        text-align: right;
+        word-break: break-word;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+    }
+
+    .hub-edit-locked { color: #C9922E; }
+
+    /* â”€â”€ Provider groups â”€â”€ */
+    .hub-edit-provider-group {
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    .hub-edit-provider-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        padding: 10px 12px;
+        background: rgba(255, 255, 255, 0.04);
+        border: none;
+        cursor: pointer;
+        transition: background 0.15s;
+    }
+
+    .hub-edit-provider-header:hover {
+        background: rgba(255, 255, 255, 0.07);
+    }
+
+    .hub-edit-provider-name {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: rgba(248, 248, 248, 0.85);
+        flex: 1;
+        text-align: left;
+    }
+
+    .hub-edit-provider-count {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.70rem;
+        font-weight: 500;
+        color: rgba(248, 248, 248, 0.40);
+    }
+
+    /* â”€â”€ Result cards â”€â”€ */
+    .hub-edit-result-card {
+        border-top: 1px solid rgba(255, 255, 255, 0.05);
+        padding: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .hub-edit-result-top {
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+    }
+
+    .hub-edit-result-thumb {
+        width: 48px;
+        height: 72px;
+        object-fit: cover;
+        border-radius: 4px;
+        flex-shrink: 0;
+        background: rgba(255, 255, 255, 0.04);
+    }
+
+    .hub-edit-result-meta {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+    }
+
+    .hub-edit-result-title {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: rgba(248, 248, 248, 0.88);
+        line-height: 1.3;
+    }
+
+    .hub-edit-result-author {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.75rem;
+        font-weight: 500;
+        color: rgba(248, 248, 248, 0.55);
+    }
+
+    .hub-edit-result-year {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.72rem;
+        font-weight: 500;
+        color: rgba(248, 248, 248, 0.38);
+    }
+
+    .hub-edit-result-actions {
+        display: flex;
+        gap: 8px;
+        justify-content: flex-end;
+        padding-top: 4px;
+    }
+
+    .hub-edit-applying-overlay {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 40px 0;
+    }
+</style>

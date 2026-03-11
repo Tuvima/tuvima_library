@@ -1,4 +1,4 @@
-using System.Net.Http.Json;
+﻿using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Nodes;
@@ -85,7 +85,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
     public Guid ProviderId => _providerId;
 
     public bool CanHandle(MediaType mediaType) =>
-        _mediaTypes.Count == 0 || _mediaTypes.Contains(mediaType);
+        _mediaTypes.Count == 0 || mediaType == MediaType.Unknown || _mediaTypes.Contains(mediaType);
 
     public bool CanHandle(EntityType entityType) =>
         _entityTypes.Count == 0 || _entityTypes.Contains(entityType);

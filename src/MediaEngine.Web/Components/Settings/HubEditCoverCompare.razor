@@ -1,0 +1,135 @@
+﻿@namespace MediaEngine.Web.Components.Settings
+@using MediaEngine.Web.Models.ViewDTOs
+
+@* â”€â”€ Side-by-side cover art comparison â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ *@
+
+<div class="cover-compare-wrap">
+    <div class="cover-compare-section">
+        <span class="cover-compare-label">Current</span>
+        @if (!string.IsNullOrEmpty(CurrentCoverUrl))
+        {
+            <img src="@CurrentCoverUrl" alt="Current cover" class="cover-compare-img" />
+        }
+        else
+        {
+            <div class="cover-compare-placeholder">
+                <MudIcon Icon="@Icons.Material.Filled.HideImage" Size="Size.Large"
+                         Style="color:rgba(248,248,248,0.20);" />
+            </div>
+        }
+        <MudRadioGroup T="string" Value="@_selection" ValueChanged="@OnSelectionChanged">
+            <MudRadio T="string" Value="@("current")" Color="Color.Primary" Dense="true"
+                      Style="font-family:'Montserrat',sans-serif; font-size:0.75rem;">
+                Keep Current
+            </MudRadio>
+        </MudRadioGroup>
+    </div>
+
+    <div class="cover-compare-divider">
+        <MudIcon Icon="@Icons.Material.Filled.CompareArrows"
+                 Style="color:rgba(248,248,248,0.20);" />
+    </div>
+
+    <div class="cover-compare-section">
+        <span class="cover-compare-label">Provider</span>
+        @if (!string.IsNullOrEmpty(ProviderCoverUrl))
+        {
+            <img src="@ProviderCoverUrl" alt="Provider cover" class="cover-compare-img" />
+        }
+        else
+        {
+            <div class="cover-compare-placeholder">
+                <MudIcon Icon="@Icons.Material.Filled.HideImage" Size="Size.Large"
+                         Style="color:rgba(248,248,248,0.20);" />
+            </div>
+        }
+        <MudRadioGroup T="string" Value="@_selection" ValueChanged="@OnSelectionChanged">
+            <MudRadio T="string" Value="@("provider")" Color="Color.Primary" Dense="true"
+                      Style="font-family:'Montserrat',sans-serif; font-size:0.75rem;">
+                Use Provider
+            </MudRadio>
+        </MudRadioGroup>
+    </div>
+</div>
+
+@code {
+    [Parameter] public string? CurrentCoverUrl { get; set; }
+    [Parameter] public string? ProviderCoverUrl { get; set; }
+    [Parameter] public string? SelectedCoverUrl { get; set; }
+    [Parameter] public EventCallback<string?> SelectedCoverUrlChanged { get; set; }
+
+    private string _selection = "current";
+
+    protected override void OnParametersSet()
+    {
+        _selection = SelectedCoverUrl is not null ? "provider" : "current";
+    }
+
+    private async Task OnSelectionChanged(string value)
+    {
+        _selection = value;
+        SelectedCoverUrl = value == "provider" ? ProviderCoverUrl : null;
+        await SelectedCoverUrlChanged.InvokeAsync(SelectedCoverUrl);
+    }
+}
+
+<style>
+    .cover-compare-wrap {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 12px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 8px;
+    }
+
+    .cover-compare-section {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .cover-compare-label {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.68rem;
+        font-weight: 700;
+        color: rgba(248, 248, 248, 0.40);
+        text-transform: uppercase;
+        letter-spacing: 0.10em;
+    }
+
+    .cover-compare-img {
+        width: 100px;
+        height: 150px;
+        object-fit: cover;
+        border-radius: 6px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.40);
+        transition: transform 0.2s;
+        cursor: zoom-in;
+    }
+
+    .cover-compare-img:hover {
+        transform: scale(1.05);
+    }
+
+    .cover-compare-placeholder {
+        width: 100px;
+        height: 150px;
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .cover-compare-divider {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding-top: 60px;
+    }
+</style>

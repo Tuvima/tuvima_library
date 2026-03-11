@@ -342,6 +342,25 @@ public interface IEngineApiClient
     Task<bool> UpdateReadingStatisticsAsync(Guid assetId, ReaderStatisticsUpdateDto stats, CancellationToken ct = default);
 
     /// <summary>
+
+    // â”€â”€ Fan-out metadata search (/metadata/search-all) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    /// <summary>POST /metadata/search-all â€” fan-out search across all eligible providers.</summary>
+    Task<FanOutSearchResponseViewModel?> SearchMetadataFanOutAsync(
+        string query, string? mediaType = null, string? providerId = null,
+        int maxResultsPerProvider = 5, CancellationToken ct = default);
+
+    // â”€â”€ Canonical values (/metadata/canonical/{entityId}) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    /// <summary>GET /metadata/canonical/{entityId} â€” get all canonical values with provenance.</summary>
+    Task<List<CanonicalFieldViewModel>> GetCanonicalValuesAsync(
+        Guid entityId, CancellationToken ct = default);
+
+    // â”€â”€ Cover from URL (/metadata/{entityId}/cover-from-url) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    /// <summary>POST /metadata/{entityId}/cover-from-url â€” download cover from provider URL.</summary>
+    Task<bool> ApplyCoverFromUrlAsync(
+        Guid entityId, string imageUrl, CancellationToken ct = default);
     /// Most recent error message from the last failed API call.
     /// Useful for surfacing diagnostic details in the UI.
     /// </summary>

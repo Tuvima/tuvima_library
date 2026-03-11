@@ -1542,6 +1542,84 @@ public sealed class EngineApiClient : IEngineApiClient
     /// Useful for surfacing diagnostic details in the UI.
     /// Cleared on next successful call.
     /// </summary>
+
+    // â”€â”€ Fan-out metadata search â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    public async Task<FanOutSearchResponseViewModel?> SearchMetadataFanOutAsync(
+        string query, string? mediaType = null, string? providerId = null,
+        int maxResultsPerProvider = 5, CancellationToken ct = default)
+    {
+        try
+        {
+            var payload = new
+            {
+                query,
+                media_type = mediaType,
+                provider_id = providerId,
+                max_results_per_provider = maxResultsPerProvider,
+            };
+            var response = await _http.PostAsJsonAsync("/metadata/search-all", payload, ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                LastError = $"search-all failed: {response.StatusCode}";
+                return null;
+            }
+            return await response.Content.ReadFromJsonAsync<FanOutSearchResponseViewModel>(cancellationToken: ct);
+        }
+        catch (Exception ex)
+        {
+            LastError = ex.Message;
+            _logger.LogWarning(ex, "SearchMetadataFanOutAsync failed");
+            return null;
+        }
+    }
+
+    // â”€â”€ Canonical values â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    public async Task<List<CanonicalFieldViewModel>> GetCanonicalValuesAsync(
+        Guid entityId, CancellationToken ct = default)
+    {
+        try
+        {
+            var response = await _http.GetAsync($"/metadata/canonical/{entityId}", ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                LastError = $"canonical values failed: {response.StatusCode}";
+                return [];
+            }
+            return await response.Content.ReadFromJsonAsync<List<CanonicalFieldViewModel>>(cancellationToken: ct) ?? [];
+        }
+        catch (Exception ex)
+        {
+            LastError = ex.Message;
+            _logger.LogWarning(ex, "GetCanonicalValuesAsync failed for {EntityId}", entityId);
+            return [];
+        }
+    }
+
+    // â”€â”€ Cover from URL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    public async Task<bool> ApplyCoverFromUrlAsync(
+        Guid entityId, string imageUrl, CancellationToken ct = default)
+    {
+        try
+        {
+            var payload = new { image_url = imageUrl };
+            var response = await _http.PostAsJsonAsync($"/metadata/{entityId}/cover-from-url", payload, ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                LastError = $"cover-from-url failed: {response.StatusCode}";
+                return false;
+            }
+            return true;
+        }
+        catch (Exception ex)
+        {
+            LastError = ex.Message;
+            _logger.LogWarning(ex, "ApplyCoverFromUrlAsync failed for {EntityId}", entityId);
+            return false;
+        }
+    }
     public string? LastError { get; private set; }
 
     // ── Private mapping ───────────────────────────────────────────────────────

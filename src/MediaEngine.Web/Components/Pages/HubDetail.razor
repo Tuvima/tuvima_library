@@ -5,41 +5,13 @@
 
 <PageTitle>@(_hub?.DisplayName ?? "Hub") — Tuvima Library</PageTitle>
 
-@* ── Edit-metadata drawer (stub) ───────────────────────────────────────────── *@
-<MudDrawer @bind-Open="_editDrawerOpen" Anchor="Anchor.Right" Elevation="2"
-           Variant="DrawerVariant.Temporary" Width="420px"
-           Style="background: #0D1120; border-left: 1px solid rgba(255,255,255,0.08);">
-    <MudDrawerHeader Style="border-bottom: 1px solid rgba(255,255,255,0.07); padding: 16px 20px;">
-        <div style="display:flex; align-items:center; gap:12px; width:100%;">
-            <MudIcon Icon="@Icons.Material.Filled.Edit" Style="color: #C9922E;" />
-            <MudText Typo="Typo.subtitle1"
-                     Style="font-family:'Montserrat',sans-serif; font-weight:600; color:rgba(248,248,248,0.90); flex:1;">
-                Edit Metadata
-            </MudText>
-            <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
-                           OnClick="@(() => _editDrawerOpen = false)"
-                           Style="color:rgba(248,248,248,0.45);" />
-        </div>
-    </MudDrawerHeader>
-    <div style="padding:28px 24px; display:flex; flex-direction:column; gap:20px;">
-        <MudAlert Severity="Severity.Info" Dense="true"
-                  Style="background:rgba(99,141,255,0.10); border:1px solid rgba(99,141,255,0.20); border-radius:10px;">
-            Full metadata editing is coming in the next update.
-            For now you can update metadata automatically, or go to Settings → Metadata.
-        </MudAlert>
-        <MudButton Variant="Variant.Outlined" Color="Color.Primary" FullWidth="true"
-                   StartIcon="@Icons.Material.Filled.Sync"
-                   OnClick="@OnUpdateMetadata"
-                   Style="text-transform:none; font-family:'Montserrat',sans-serif; font-weight:600; border-radius:8px;">
-            Update Metadata Now
-        </MudButton>
-        <MudButton Variant="Variant.Text" FullWidth="true"
-                   OnClick="@(() => { _editDrawerOpen = false; Nav.NavigateTo("/settings"); })"
-                   Style="text-transform:none; font-family:'Montserrat',sans-serif; color:rgba(248,248,248,0.50);">
-            Open Settings → Metadata
-        </MudButton>
-    </div>
-</MudDrawer>
+@* â”€â”€ Edit-metadata panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ *@
+<HubEditPanel @bind-IsOpen="_editDrawerOpen"
+              HubId="Id"
+              EntityId="@(_hub?.Works.FirstOrDefault()?.Id ?? Guid.Empty)"
+              MediaType="@_hub?.PrimaryMediaType"
+              CurrentCoverUrl="@_hub?.CoverUrl"
+              OnApplied="@OnEditApplied" />
 
 @if (_loading)
 {
@@ -335,6 +307,12 @@ else
                                 </button>
                             }
                         </div>
+                        @if (!string.IsNullOrEmpty(_hub.DescriptionSource))
+                        {
+                            <p class="hub-detail-attribution">
+                                @_hub.DescriptionSource
+                            </p>
+                        }
                     }
 
                     @* Progress label *@
@@ -667,6 +645,15 @@ else
         ShowToast(result is not null
             ? "Metadata updated successfully"
             : "Metadata update failed \u2014 check Engine logs");
+    }
+
+    private async Task OnEditApplied()
+    {
+        // Reload hub data after edit panel applies changes
+        _loading = true;
+        StateHasChanged();
+        State.Invalidate();
+        await OnParametersSetAsync();
     }
 
     private void ShowToast(string message)
@@ -1092,6 +1079,14 @@ else
         color: rgba(248, 248, 248, 0.58);
         margin: 0;
         white-space: pre-wrap;
+    }
+    .hub-detail-attribution {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.72rem;
+        font-weight: 400;
+        color: rgba(248, 248, 248, 0.35);
+        margin: 4px 0 0 0;
+        font-style: italic;
     }
 
     .hub-detail-expand-btn {

@@ -39,6 +39,9 @@ public sealed class HubViewModel
     /// <summary>Best description across all works.</summary>
     public string? Description => Works.Select(w => w.Description).FirstOrDefault(d => !string.IsNullOrEmpty(d));
 
+    /// <summary>Attribution string for the description (e.g. "Wikipedia (CC BY-SA 4.0)").</summary>
+    public string? DescriptionSource => Works.Select(w => w.DescriptionSource).FirstOrDefault(s => !string.IsNullOrEmpty(s));
+
     /// <summary>Best author/creator across all works.</summary>
     public string? Author => Works.Select(w => w.Author).FirstOrDefault(a => !string.IsNullOrEmpty(a));
 

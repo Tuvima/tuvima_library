@@ -272,6 +272,7 @@ else
     [
         "UniverseMatchFailed",
         "MultipleQidMatches",
+        "AuthorityMatchFailed",
     ];
 
     private static readonly HashSet<string> ContentMatchTriggers =
@@ -404,7 +405,7 @@ else
         _searchQuery = item.EntityTitle ?? string.Empty;
 
         var slottedProviders = GetSlottedProviders(item.MediaType);
-        if (item.Trigger is "UniverseMatchFailed" or "MultipleQidMatches")
+        if (item.Trigger is "UniverseMatchFailed" or "MultipleQidMatches" or "AuthorityMatchFailed")
         {
             var wd = slottedProviders.FirstOrDefault(p => IsWikidataProvider(p.Name));
             _selectedProvider = wd?.Name ?? slottedProviders.FirstOrDefault()?.Name ?? string.Empty;
@@ -671,6 +672,7 @@ else
         "ArbiterNeedsReview"  => "Arbiter flagged",
         "ContentMatchFailed"  => "No provider match",
         "UniverseMatchFailed" => "No Wikidata match",
+        "AuthorityMatchFailed" => "No Wikidata match",
         "AmbiguousMediaType"  => "Ambiguous media type",
         "MetadataConflict"    => "Metadata conflict",
         _                     => trigger,

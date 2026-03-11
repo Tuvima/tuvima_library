@@ -41,7 +41,7 @@
   },
   "throttle_ms": 1100,
   "max_concurrency": 1,
-  "hydration_stages": [2, 3],
+  "hydration_stages": [1],
 
   "adapter_type": "coded"
 }

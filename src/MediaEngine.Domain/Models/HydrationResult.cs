@@ -8,21 +8,21 @@ namespace MediaEngine.Domain.Models;
 /// </summary>
 public sealed class HydrationResult
 {
-    /// <summary>Number of claims added during Stage 1 (Retail Match).</summary>
+    /// <summary>Number of claims added during Stage 1 (Authority Match — Wikidata).</summary>
     public int Stage1ClaimsAdded { get; set; }
 
-    /// <summary>Number of claims added during Stage 2 (Universal Bridge).</summary>
+    /// <summary>Number of claims added during Stage 2 (Context Match — Wikipedia).</summary>
     public int Stage2ClaimsAdded { get; set; }
 
-    /// <summary>Number of claims added during Stage 3 (Human Hub).</summary>
+    /// <summary>Number of claims added during Stage 3 (Retail Match — waterfall).</summary>
     public int Stage3ClaimsAdded { get; set; }
 
     /// <summary>Total claims added across all three stages.</summary>
     public int TotalClaimsAdded => Stage1ClaimsAdded + Stage2ClaimsAdded + Stage3ClaimsAdded;
 
     /// <summary>
-    /// The Wikidata QID resolved during Stage 2 (nullable).
-    /// Null if Stage 2 did not find a match or was skipped.
+    /// The Wikidata QID resolved during Stage 1 (nullable).
+    /// Null if Stage 1 did not find a match or was skipped.
     /// </summary>
     public string? WikidataQid { get; set; }
 

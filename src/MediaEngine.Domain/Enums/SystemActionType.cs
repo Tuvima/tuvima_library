@@ -52,13 +52,13 @@ public static class SystemActionType
 
     // ── Hydration Pipeline (Three-Stage) ─────────────────────────────────────
 
-    /// <summary>Hydration Stage 1 (Retail Match) completed for an entity.</summary>
+    /// <summary>Hydration Stage 1 (Authority Match — Wikidata) completed for an entity.</summary>
     public const string HydrationStage1Completed = "HydrationStage1Completed";
 
-    /// <summary>Hydration Stage 2 (Universal Bridge) completed for an entity.</summary>
+    /// <summary>Hydration Stage 2 (Context Match — Wikipedia) completed for an entity.</summary>
     public const string HydrationStage2Completed = "HydrationStage2Completed";
 
-    /// <summary>Hydration Stage 3 (Human Hub) completed for an entity.</summary>
+    /// <summary>Hydration Stage 3 (Retail Match — waterfall) completed for an entity.</summary>
     public const string HydrationStage3Completed = "HydrationStage3Completed";
 
     /// <summary>A review queue item was created (disambiguation, low confidence, etc.).</summary>

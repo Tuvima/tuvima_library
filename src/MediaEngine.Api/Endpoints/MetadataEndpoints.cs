@@ -1,4 +1,4 @@
-using System.Text.Json.Nodes;
+﻿using System.Text.Json.Nodes;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
 using MediaEngine.Domain.Contracts;
@@ -77,7 +77,6 @@ public static class MetadataEndpoints
                 ProviderId   = UserManualProviderId,
                 ClaimKey     = request.ClaimKey,
                 ClaimValue   = request.ChosenValue,
-                Confidence   = 1.0,
                 ClaimedAt    = lockedAt,
                 IsUserLocked = true,
             };
@@ -342,7 +341,6 @@ public static class MetadataEndpoints
                     ProviderId   = UserManualProviderId,
                     ClaimKey     = key,
                     ClaimValue   = value,
-                    Confidence   = 1.0,
                     ClaimedAt    = now,
                     IsUserLocked = true,
                 });
@@ -439,7 +437,6 @@ public static class MetadataEndpoints
                 ProviderId   = UserManualProviderId,
                 ClaimKey     = "media_type",
                 ClaimValue   = newMediaType.ToString(),
-                Confidence   = 1.0,
                 ClaimedAt    = now,
                 IsUserLocked = true,
             };
@@ -700,6 +697,324 @@ public static class MetadataEndpoints
         .Produces(StatusCodes.Status200OK)
         .RequireAdmin();
 
+
+        // â”€â”€ POST /metadata/search-all â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        //
+        // Fan-out search: queries ALL eligible providers concurrently and returns
+        // merged results grouped by provider. Powers the HubDetail edit panel.
+
+        group.MapPost("/search-all", async (
+            FanOutSearchRequest request,
+            IEnumerable<IExternalMetadataProvider> providers,
+            IConfigurationLoader configLoader,
+            ILoggerFactory loggerFactory,
+            CancellationToken ct) =>
+        {
+            var searchLogger = loggerFactory.CreateLogger("MetadataFanOutSearch");
+
+            if (string.IsNullOrWhiteSpace(request.Query))
+                return Results.BadRequest("query is required.");
+
+            var mediaType = Domain.Enums.MediaType.Unknown;
+            if (!string.IsNullOrEmpty(request.MediaType))
+                Enum.TryParse(request.MediaType, ignoreCase: true, out mediaType);
+
+            var limit = Math.Clamp(request.MaxResultsPerProvider, 1, 25);
+            var providerList = providers.ToList();
+
+            // Filter providers
+            var eligibleProviders = providerList
+                .Where(p => p.CanHandle(mediaType))
+                .Where(p => string.IsNullOrEmpty(request.ProviderId)
+                    || string.Equals(p.ProviderId.ToString(), request.ProviderId, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(p.Name, request.ProviderId, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            searchLogger.LogInformation(
+                "Fan-out search: query={Query}, mediaType={MediaType}, providers=[{Providers}]",
+                request.Query, mediaType,
+                string.Join(", ", eligibleProviders.Select(p => p.Name)));
+
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+
+            // Run all provider searches concurrently with per-provider timeout.
+            var tasks = eligibleProviders.Select(async provider =>
+            {
+                var provConfig = configLoader.LoadProvider(provider.Name);
+                var baseUrl = provConfig?.Endpoints.Values.FirstOrDefault() ?? string.Empty;
+
+                var lookupRequest = new ProviderLookupRequest
+                {
+                    EntityId   = Guid.Empty,
+                    EntityType = EntityType.MediaAsset,
+                    MediaType  = mediaType,
+                    Title      = request.Query,
+                    BaseUrl    = baseUrl,
+                };
+
+                try
+                {
+                    using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                    cts.CancelAfter(TimeSpan.FromSeconds(10));
+
+                    var results = await provider.SearchAsync(lookupRequest, limit, cts.Token);
+
+                    return new ProviderSearchResult
+                    {
+                        ProviderId   = provider.ProviderId.ToString(),
+                        ProviderName = provider.Name,
+                        Items = results.Select(r => new FanOutSearchResultItem
+                        {
+                            Title          = r.Title,
+                            Author         = r.Author,
+                            Description    = r.Description,
+                            Year           = r.Year,
+                            ThumbnailUrl   = r.ThumbnailUrl,
+                            ProviderItemId = r.ProviderItemId,
+                            Confidence     = r.Confidence,
+                            RawFields      = BuildRawFields(r),
+                        }).ToList(),
+                    };
+                }
+                catch (OperationCanceledException)
+                {
+                    return new ProviderSearchResult
+                    {
+                        ProviderId   = provider.ProviderId.ToString(),
+                        ProviderName = provider.Name,
+                        Error        = "Timeout (10s)",
+                    };
+                }
+                catch (Exception ex)
+                {
+                    searchLogger.LogWarning(ex,
+                        "Fan-out search: provider {Provider} failed", provider.Name);
+                    return new ProviderSearchResult
+                    {
+                        ProviderId   = provider.ProviderId.ToString(),
+                        ProviderName = provider.Name,
+                        Error        = ex.Message,
+                    };
+                }
+            }).ToList();
+
+            var providerResults = await Task.WhenAll(tasks);
+            stopwatch.Stop();
+
+            var response = new FanOutSearchResponse
+            {
+                Results            = providerResults.ToList(),
+                TotalProviders     = eligibleProviders.Count,
+                RespondedProviders = providerResults.Count(r => r.Error is null),
+                ElapsedMs          = stopwatch.Elapsed.TotalMilliseconds,
+            };
+
+            return Results.Ok(response);
+        })
+        .WithName("SearchMetadataFanOut")
+        .WithSummary("Fan-out search across all eligible providers. Admin or Curator.")
+        .Produces<FanOutSearchResponse>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
+        .RequireAdminOrCurator();
+
+        // â”€â”€ GET /metadata/canonical/{entityId} â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        //
+        // Returns all current canonical values for an entity with confidence,
+        // provider attribution, and user-lock status.
+
+        group.MapGet("/canonical/{entityId:guid}", async (
+            Guid entityId,
+            ICanonicalValueRepository canonicalRepo,
+            IMetadataClaimRepository claimRepo,
+            IEnumerable<IExternalMetadataProvider> providers,
+            CancellationToken ct) =>
+        {
+            var canonicals = await canonicalRepo.GetByEntityAsync(entityId, ct);
+
+            if (canonicals.Count == 0)
+                return Results.NotFound($"No canonical values found for entity {entityId}.");
+
+            // Load claims to determine user-lock and conflict status per field.
+            var allClaims = await claimRepo.GetByEntityAsync(entityId, ct);
+            var providerList = providers.ToList();
+
+            var fields = canonicals.Select(cv =>
+            {
+                // Find the winning claim for this field.
+                var fieldClaims = allClaims
+                    .Where(c => string.Equals(c.ClaimKey, cv.Key, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+
+                var isUserLocked = fieldClaims.Any(c => c.IsUserLocked);
+
+                // Check for conflict: multiple claims with substantially different values.
+                var distinctValues = fieldClaims
+                    .Select(c => c.ClaimValue)
+                    .Where(v => !string.IsNullOrEmpty(v))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+                var isConflicted = distinctValues.Count > 1;
+
+                // Find provider name from the winning claim's provider ID.
+                string? providerName = null;
+                var winningClaim = fieldClaims
+                    .OrderByDescending(c => c.IsUserLocked)
+                    .ThenByDescending(c => c.Confidence)
+                    .FirstOrDefault();
+                if (winningClaim is not null)
+                {
+                    var matchedProvider = providerList.FirstOrDefault(
+                        p => p.ProviderId == winningClaim.ProviderId);
+                    providerName = matchedProvider?.Name ?? winningClaim.ProviderId.ToString();
+                }
+
+                return new CanonicalFieldDto
+                {
+                    Key          = cv.Key,
+                    Value        = cv.Value,
+                    Confidence   = (winningClaim?.Confidence ?? 0.0),
+                    ProviderName = providerName,
+                    IsUserLocked = isUserLocked,
+                    IsConflicted = isConflicted,
+                };
+            }).ToList();
+
+            return Results.Ok(fields);
+        })
+        .WithName("GetCanonicalValues")
+        .WithSummary("Get all canonical values for an entity with provenance. Curator+.")
+        .Produces<List<CanonicalFieldDto>>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAdminOrCurator();
+
+        // â”€â”€ POST /metadata/{entityId}/cover-from-url â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        //
+        // Downloads a cover image from a provider URL, saves as cover.jpg,
+        // regenerates the hero banner, and updates canonical values.
+
+        group.MapPost("/{entityId:guid}/cover-from-url", async (
+            Guid entityId,
+            CoverFromUrlRequest request,
+            IMediaAssetRepository assetRepo,
+            ICanonicalValueRepository canonicalRepo,
+            IHeroBannerGenerator heroGenerator,
+            IHttpClientFactory httpFactory,
+            ILoggerFactory loggerFactory,
+            CancellationToken ct) =>
+        {
+            var logger = loggerFactory.CreateLogger("CoverFromUrl");
+
+            if (string.IsNullOrWhiteSpace(request.ImageUrl))
+                return Results.BadRequest("image_url is required.");
+
+            var asset = await assetRepo.FindByIdAsync(entityId, ct);
+            if (asset is null)
+                return Results.NotFound($"Media asset {entityId} not found.");
+
+            var fileDir = Path.GetDirectoryName(asset.FilePathRoot);
+            if (string.IsNullOrEmpty(fileDir) || !Directory.Exists(fileDir))
+                return Results.BadRequest("Asset directory not found.");
+
+            var coverPath = Path.Combine(fileDir, "cover.jpg");
+
+            try
+            {
+                // Download the image.
+                using var client = httpFactory.CreateClient("cover_download");
+                var imageBytes = await client.GetByteArrayAsync(request.ImageUrl, ct);
+
+                if (imageBytes.Length == 0)
+                    return Results.BadRequest("Downloaded image is empty.");
+
+                // Save as cover.jpg (overwrite existing).
+                await File.WriteAllBytesAsync(coverPath, imageBytes, ct);
+
+                logger.LogInformation(
+                    "Cover downloaded from URL for entity {Id}: {Size} bytes â†’ {Path}",
+                    entityId, imageBytes.Length, coverPath);
+
+                // Regenerate hero banner.
+                var heroResult = await heroGenerator.GenerateAsync(coverPath, fileDir, ct);
+
+                // Update canonical values.
+                var canonicals = new List<Domain.Entities.CanonicalValue>
+                {
+                    new()
+                    {
+                        EntityId     = entityId,
+                        Key          = "cover",
+                        Value        = $"/stream/{entityId}/cover",
+                        LastScoredAt = DateTimeOffset.UtcNow,
+                    },
+                };
+
+                if (!string.IsNullOrEmpty(heroResult.DominantHexColor))
+                {
+                    canonicals.Add(new Domain.Entities.CanonicalValue
+                    {
+                        EntityId     = entityId,
+                        Key          = "dominant_color",
+                        Value        = heroResult.DominantHexColor,
+                        LastScoredAt = DateTimeOffset.UtcNow,
+                    });
+                }
+
+                canonicals.Add(new Domain.Entities.CanonicalValue
+                {
+                    EntityId     = entityId,
+                    Key          = "hero",
+                    Value        = $"/stream/{entityId}/hero",
+                    LastScoredAt = DateTimeOffset.UtcNow,
+                });
+
+                await canonicalRepo.UpsertBatchAsync(canonicals, ct);
+
+                return Results.Ok(new
+                {
+                    entity_id      = entityId,
+                    cover_path     = coverPath,
+                    dominant_color = heroResult.DominantHexColor,
+                    hero_generated = heroResult.WasRegenerated,
+                });
+            }
+            catch (HttpRequestException ex)
+            {
+                logger.LogWarning(ex, "Failed to download cover from URL for entity {Id}", entityId);
+                return Results.BadRequest($"Failed to download image: {ex.Message}");
+            }
+        })
+        .WithName("CoverFromUrl")
+        .WithSummary("Download cover art from a URL and regenerate hero banner. Curator+.")
+        .Produces(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAdminOrCurator();
+
         return app;
+    }
+
+    /// <summary>
+    /// Builds a flat dictionary of all extracted fields from a search result item.
+    /// Used by the fan-out search response to populate the diff grid.
+    /// </summary>
+    private static Dictionary<string, string> BuildRawFields(
+        MediaEngine.Providers.Models.SearchResultItem item)
+    {
+        var fields = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        if (!string.IsNullOrEmpty(item.Title))
+            fields["title"] = item.Title;
+        if (!string.IsNullOrEmpty(item.Author))
+            fields["author"] = item.Author;
+        if (!string.IsNullOrEmpty(item.Description))
+            fields["description"] = item.Description;
+        if (!string.IsNullOrEmpty(item.Year))
+            fields["year"] = item.Year;
+        if (!string.IsNullOrEmpty(item.ThumbnailUrl))
+            fields["cover"] = item.ThumbnailUrl;
+        if (!string.IsNullOrEmpty(item.ProviderItemId))
+            fields["provider_item_id"] = item.ProviderItemId;
+
+        return fields;
     }
 }

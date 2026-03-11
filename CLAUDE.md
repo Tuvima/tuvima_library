@@ -267,7 +267,7 @@ Three official SVG logo files exist. **Never replace logo placements with hand-w
 
 **Plain English:** After a file lands in the library, the Engine quietly reaches out to five free online sources — Apple Books, Audnexus, Open Library, Google Books, and Wikidata — to fetch better cover art, descriptions, narrator credits, and author portraits. This happens entirely in the background; the file appears on the Dashboard immediately, and the richer information pops in moments later without any page refresh.
 
-**The five zero-key providers (no accounts, no API keys required):**
+**The six zero-key providers (no accounts, no API keys required):**
 
 | Provider | What it contributes | Trust weights |
 |---|---|---|
@@ -276,6 +276,7 @@ Three official SVG logo files exist. **Never replace logo placements with hand-w
 | **Open Library** | Title, author, year, cover art, ISBN, series | title 0.75, author 0.8, year 0.85, cover 0.7, isbn 0.9 |
 | **Google Books** | Title, author, year, cover art, ISBN, description, page count, publisher | title 0.75, author 0.8, year 0.85, cover 0.7, isbn 0.9 |
 | **Wikidata** | Person headshot (Wikimedia Commons), biography, Q-identifier | qid/headshot/biography 1.0 |
+| **Wikipedia** | Encyclopedic description (CC BY-SA 4.0 attribution) | description 0.85 |
 
 **How it works (the harvest pipeline):**
 
@@ -634,15 +635,15 @@ Example files in `config.example/ui/`. Live files in `config/ui/` gitignored.
 
 ### 3.13 — Three-Stage Hydration Pipeline & Review Queue
 
-**Plain English:** When a file arrives in the library, the Engine now runs a three-stage enrichment pipeline instead of the old "first provider wins" approach. Each stage builds on the previous one's results, and ambiguous matches are surfaced to the user via a dedicated review queue rather than being silently dropped.
+**Plain English:** When a file arrives in the library, the Engine runs a three-stage authority-first enrichment pipeline. Stage 1 (Wikidata) establishes the work's identity and deposits bridge IDs. Stage 2 (Wikipedia) fetches an encyclopedic description. Stage 3 (Retail providers) uses bridge IDs for precise cover art and rating lookups. Ambiguous matches are surfaced via a dedicated review queue.
 
 **The three stages:**
 
 | Stage | Name | What it does | Who runs |
 |---|---|---|---|
-| **Stage 1** | Retail Match | **ALL** matching providers run (not first-wins). Each provider's claims are persisted independently, and the scoring engine resolves field conflicts. Bridge IDs (ISBN, ASIN, Apple Books ID, etc.) deposited here are read by Stage 2. | Apple Books, Audnexus, Open Library, Google Books — any provider declaring `hydration_stages: [1]` |
-| **Stage 2** | Universal Bridge | Wikidata QID resolution via bridge IDs from Stage 1. If multiple QID candidates → review queue entry created, pipeline stops. If single QID → SPARQL deep hydration. | WikidataAdapter (locked, not configurable) + any provider declaring stage 2 |
-| **Stage 3** | Human Hub | Person enrichment: extracts author/narrator/director references from canonical values, calls `RecursiveIdentityService` for Wikidata person enrichment. Also runs any providers declaring stage 3 (e.g. Audnexus for narrator details). | Wikidata + Audnexus (stage 3) |
+| **Stage 1** | Authority Match | Wikidata QID resolution via bridge IDs from embedded metadata or title search. Single QID → SPARQL deep hydration (50+ properties). Hub Intelligence + Person Enrichment run here. On failure: `AuthorityMatchFailed` review item created, pipeline continues if `continue_pipeline_on_authority_failure` is true. | WikidataAdapter — any provider declaring `hydration_stages: [1]` |
+| **Stage 2** | Context Match | Wikipedia article summary via QID sitelink lookup. Deposits `description` (confidence 0.85) and `description_source` ("Wikipedia (CC BY-SA 4.0)"). Skipped if no QID and `skip_wikipedia_without_qid` is true. Silent on failure. | WikipediaAdapter — any provider declaring `hydration_stages: [2]` |
+| **Stage 3** | Retail Match | Retail providers run in waterfall order from `config/slots.json`. Uses bridge IDs from Stage 1 (ISBN, ASIN, TMDB ID) for precise lookups; falls back to title search if no bridge IDs. Deposits cover art, ratings, narrator credits. | Apple Books, Audnexus, Open Library, Google Books — any provider declaring `hydration_stages: [3]` |
 
 **Post-pipeline confidence check:** After all three stages complete, the pipeline reloads canonical values and computes overall confidence. If below `auto_review_confidence_threshold` (default: 0.60), a review queue entry is created.
 
@@ -652,18 +653,19 @@ Each provider config carries a `hydration_stages` array declaring which stages i
 ```json
 {
   "name": "audnexus",
-  "hydration_stages": [1, 3],
+  "hydration_stages": [3],
   ...
 }
 ```
 
-Audnexus declares `[1, 3]` because it serves both retail metadata (narrator, series) and person enrichment (narrator details). Wikidata declares `[2, 3]`. All other REST providers declare `[1]`.
+Wikidata declares `[1]` (Authority Match). Wikipedia declares `[2]` (Context Match). Audnexus declares `[3]` (Retail Match). All other REST providers declare `[3]`.
 
 **Review Queue:**
 
 The `review_queue` table stores items that need human attention:
+- **AuthorityMatchFailed** — Stage 1 (Wikidata) failed to resolve a QID for the work
 - **LowConfidence** — pipeline completed but overall confidence is below threshold
-- **MultipleQidMatches** — Stage 2 found multiple Wikidata QID candidates; user must pick one
+- **MultipleQidMatches** — Stage 1 found multiple Wikidata QID candidates; user must pick one
 - **UserFixMatch** — user-triggered re-review
 - **ArbiterNeedsReview** — the Hub Arbiter flagged an uncertain assignment
 
@@ -675,7 +677,7 @@ Each review item carries: entity reference, trigger reason, confidence score, op
 3. For disambiguation: picks a QID candidate from a card grid
 4. Clicks Resolve → `POST /review/{id}/resolve` fires
 5. Engine creates user-locked claims for any field overrides
-6. If a QID was selected → `RunSynchronousAsync` with `PreResolvedQid` triggers Stage 2+3
+6. If a QID was selected → `RunSynchronousAsync` with `PreResolvedQid` triggers Stage 2 (Wikipedia) + Stage 3 (Retail)
 7. Activity ledger records `ReviewItemResolved`
 8. SignalR broadcasts `ReviewItemResolved` → badge count decrements
 
@@ -687,13 +689,17 @@ Cover art and provider thumbnails are tracked by content hash (SHA-256) in the `
 ```json
 {
   "stage_concurrency": 3,
-  "stage1_timeout_seconds": 30,
-  "stage2_timeout_seconds": 45,
+  "stage1_timeout_seconds": 45,
+  "stage2_timeout_seconds": 15,
   "stage3_timeout_seconds": 30,
   "disambiguation_threshold": 0.7,
   "auto_review_confidence_threshold": 0.60,
   "max_qid_candidates": 5,
-  "skip_stage2_without_bridge_ids": false
+  "skip_wikipedia_without_qid": true,
+  "continue_pipeline_on_authority_failure": true,
+  "wikipedia_description_max_chars": 1000,
+  "universe_title_search_auto_accept": 0.80,
+  "stage3_waterfall_confidence_threshold": 0.65
 }
 ```
 
@@ -742,7 +748,7 @@ Absorbed/removed tabs:
 **Mobile constraints:** `property_mapper`, `matching_pipeline`, and `universe_schema_editing` are added to `features_disabled` on mobile devices. Only Needs Review and Connection Vault (status view) are visible in the Metadata group on mobile.
 
 **Key types:**
-- `HydrationStage` (`MediaEngine.Domain.Enums`) — `RetailMatch = 1, UniversalBridge = 2, HumanHub = 3`
+- `HydrationStage` (`MediaEngine.Domain.Enums`) — `AuthorityMatch = 1, ContextMatch = 2, RetailMatch = 3`
 - `ReviewTrigger`, `ReviewStatus` (`MediaEngine.Domain.Enums`) — trigger/status enums
 - `ReviewQueueEntry` (`MediaEngine.Domain.Entities`) — domain entity
 - `HydrationResult` (`MediaEngine.Domain.Models`) — pipeline result with per-stage claim counts

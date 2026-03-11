@@ -296,6 +296,14 @@ builder.Services.AddHttpClient("wikidata_sparql", c =>
         "Tuvima Library/1.0 (https://github.com/Tuvima/tuvima_library)");
 });
 
+// Wikipedia REST API - Stage 2 (Context Match) coded adapter.
+builder.Services.AddHttpClient("wikipedia_api", c =>
+{
+    c.Timeout = TimeSpan.FromSeconds(10);
+    c.DefaultRequestHeaders.UserAgent.ParseAdd(
+        "Tuvima Library/1.0 (https://github.com/Tuvima/tuvima_library)");
+});
+
 // Image download clients used by HydrationPipelineService (cover art) and
 // MetadataHarvestingService (person headshots).  Wikimedia Commons requires a
 // descriptive User-Agent header and honours HTTP redirects automatically.
@@ -351,6 +359,9 @@ builder.Services.AddSingleton<IMediaEntityChainFactory,  MediaEntityChainFactory
 
 // Wikidata stays as a coded adapter — SPARQL cannot be expressed as URL templates.
 builder.Services.AddSingleton<IExternalMetadataProvider, WikidataAdapter>();
+
+// Wikipedia - Stage 2 (Context Match) coded adapter for descriptions.
+builder.Services.AddSingleton<IExternalMetadataProvider, WikipediaAdapter>();
 
 builder.Services.AddSingleton<IMetadataHarvestingService, MetadataHarvestingService>();
 builder.Services.AddSingleton<IRecursiveIdentityService,  RecursiveIdentityService>();
