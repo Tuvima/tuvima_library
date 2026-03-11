@@ -494,6 +494,11 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         Guid? userId = null, int limit = 5, Guid? hubId = null, CancellationToken ct = default)
         => _api.GetJourneyAsync(userId, limit, hubId, ct);
 
+    /// <summary>Retrieves the current progress state for a media asset.</summary>
+    public Task<ProgressStateDto?> GetProgressAsync(
+        Guid assetId, CancellationToken ct = default)
+        => _api.GetProgressAsync(assetId, ct);
+
     /// <summary>Saves progress for a media asset.</summary>
     public Task<bool> SaveProgressAsync(
         Guid assetId, Guid? userId = null, double progressPct = 0,

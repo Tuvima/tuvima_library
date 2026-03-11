@@ -1659,8 +1659,23 @@ public sealed class EngineApiClient : IEngineApiClient
 
     public async Task<ProgressStateDto?> GetProgressAsync(Guid assetId, CancellationToken ct = default)
     {
-        try { return await _http.GetFromJsonAsync<ProgressStateDto>($"progress/{assetId}", ct); }
-        catch (Exception ex) { LastError = ex.Message; return null; }
+        try
+        {
+            // Use GetAsync + manual deserialization so that 404 (no progress recorded)
+            // returns null cleanly without throwing HttpRequestException.
+            var resp = await _http.GetAsync($"progress/{assetId}", ct);
+            if (resp.StatusCode == System.Net.HttpStatusCode.NotFound)
+                return null;
+
+            resp.EnsureSuccessStatusCode();
+            return await resp.Content.ReadFromJsonAsync<ProgressStateDto>(ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /progress/{AssetId} failed", assetId);
+            LastError = ex.Message;
+            return null;
+        }
     }
 
     public async Task<EpubBookMetadataDto?> GetBookMetadataAsync(Guid assetId, CancellationToken ct = default)

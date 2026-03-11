@@ -334,4 +334,11 @@ body {
     padding-top: 16px !important;
 }
 
+/* ── Mobile overflow safety net ─────────────────────────────────────────── */
+@media (max-width: 768px) {
+    .mud-main-content {
+        overflow-x: hidden;
+    }
+}
+
 

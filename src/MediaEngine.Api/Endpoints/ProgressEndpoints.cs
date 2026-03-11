@@ -152,7 +152,9 @@ public static class ProgressEndpoints
                     LastAccessed:      DateTimeOffset.Parse(reader.GetString(5)),
                     ExtendedProperties: extProps,
                     HubDisplayName:    reader.IsDBNull(7) ? null : reader.GetString(7),
-                    Title:             reader.IsDBNull(8) ? "Untitled" : reader.GetString(8),
+                    Title:             reader.IsDBNull(8)
+                                           ? (reader.IsDBNull(7) ? "Untitled" : reader.GetString(7))
+                                           : reader.GetString(8),
                     Author:            reader.IsDBNull(9)  ? null : reader.GetString(9),
                     CoverUrl:          reader.IsDBNull(10) ? null : reader.GetString(10),
                     Narrator:          reader.IsDBNull(11) ? null : reader.GetString(11),

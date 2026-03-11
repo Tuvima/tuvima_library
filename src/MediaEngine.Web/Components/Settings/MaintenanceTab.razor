@@ -32,7 +32,8 @@
             Missing files are cleaned up automatically — orphaned cover art,
             sidecar XML, and empty folders are removed.
         </MudText>
-        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2"
+                  Class="maintenance-action-row">
             <MudButton Variant="Variant.Filled"
                        Color="Color.Primary"
                        StartIcon="@Icons.Material.Filled.PlayArrow"
@@ -130,3 +131,11 @@
         }
     }
 }
+
+<style>
+    @@media (max-width: 768px) {
+        .maintenance-action-row {
+            flex-wrap: wrap !important;
+        }
+    }
+</style>

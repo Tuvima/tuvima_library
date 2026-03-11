@@ -248,6 +248,19 @@ public sealed class FileWatcher : IFileWatcher
         // Guard: don't raise after Stop() or Dispose().
         if (!_running || _disposed) return;
 
+        // Ignore internal probe files written by FolderHealthService to verify
+        // write access.  These are zero-byte temp files that are created and
+        // deleted in the same synchronous call, so they should never be ingested.
+        var fileName = Path.GetFileName(evt.Path.AsSpan());
+        if (MemoryExtensions.StartsWith(fileName, ProbeFilePrefix, StringComparison.OrdinalIgnoreCase))
+            return;
+
         FileDetected?.Invoke(this, evt);
     }
+
+    /// <summary>
+    /// Prefix shared with <see cref="MediaEngine.Api.Services.FolderHealthService"/>.
+    /// Must stay in sync with the probe file naming used there.
+    /// </summary>
+    private const string ProbeFilePrefix = ".tuvima_probe_";
 }

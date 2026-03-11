@@ -942,5 +942,32 @@
 .epub-highlight.color-pink   { background: rgba(244, 114, 182, 0.30); }
 .epub-highlight.color-purple { background: rgba(167, 139, 250, 0.30); }
 
+/* ── Persistent close button (always visible) ────────────────────────────── */
+
+.reader-persistent-close {
+    position: fixed;
+    top: 12px;
+    right: 12px;
+    z-index: 1250;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    color: rgba(255, 255, 255, 0.85);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+    padding: 0;
+}
+
+.reader-persistent-close:hover {
+    background: rgba(0, 0, 0, 0.65);
+}
+
 /* ── iframe content styling (injected into srcdoc) ─────────────────────────── */
 /* This is referenced by the JS engine but actually lives inside the iframe */

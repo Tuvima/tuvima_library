@@ -46,17 +46,15 @@ else
             @* ── Review item card ────────────────────────────────────────── *@
             <MudPaper Class="pa-3 mb-2 review-item-card" Elevation="0">
 
-                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
-                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                        <div>
-                            <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">
-                                @(item.EntityTitle ?? item.Detail ?? item.EntityId.ToString()[..8] + "...")
-                            </MudText>
-                            <MudText Typo="Typo.caption" Color="Color.Secondary">
-                                @FormatMediaType(item.MediaType)@(!string.IsNullOrWhiteSpace(item.MediaType) ? " \u2022 " : "")@FormatTriggerDetail(item.Trigger)
-                            </MudText>
-                        </div>
-                    </MudStack>
+                <div class="review-item-header">
+                    <div style="flex: 1; min-width: 0;">
+                        <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">
+                            @(item.EntityTitle ?? item.Detail ?? item.EntityId.ToString()[..8] + "...")
+                        </MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                            @FormatMediaType(item.MediaType)@(!string.IsNullOrWhiteSpace(item.MediaType) ? " \u2022 " : "")@FormatTriggerDetail(item.Trigger)
+                        </MudText>
+                    </div>
 
                     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
                         <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary"
@@ -68,7 +66,7 @@ else
                             Dismiss
                         </MudButton>
                     </MudStack>
-                </MudStack>
+                </div>
 
                 @* ── Expanded panel ──────────────────────────────────────── *@
                 @if (_expandedItemId == item.Id)
@@ -110,10 +108,10 @@ else
                     else
                     {
                         @* ── Provider + search bar ─────────────────────────── *@
-                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-3">
+                        <div class="review-search-bar">
                             <MudSelect T="string" @bind-Value="_selectedProvider" Dense="true"
                                        Variant="Variant.Outlined" Label="Provider"
-                                       Style="max-width: 200px;" Margin="Margin.Dense">
+                                       Margin="Margin.Dense" Class="review-search-provider">
                                 @foreach (var p in GetSlottedProviders(item.MediaType))
                                 {
                                     <MudSelectItem Value="@p.Name">@p.DisplayName</MudSelectItem>
@@ -121,14 +119,15 @@ else
                             </MudSelect>
                             <MudTextField T="string" @bind-Value="_searchQuery" Variant="Variant.Outlined"
                                           Label="Search Term" Margin="Margin.Dense"
-                                          Style="flex: 1;"
+                                          Class="review-search-field"
                                           OnKeyUp="@OnSearchKeyUp" />
                             <MudButton Variant="Variant.Filled" Color="Color.Primary"
                                        Disabled="@(string.IsNullOrWhiteSpace(_selectedProvider) || string.IsNullOrWhiteSpace(_searchQuery))"
-                                       OnClick="@ExecuteSearchAsync">
+                                       OnClick="@ExecuteSearchAsync"
+                                       Class="review-search-btn">
                                 Search
                             </MudButton>
-                        </MudStack>
+                        </div>
 
                         @if (_searching)
                         {
@@ -137,9 +136,7 @@ else
 
                         @if (_searchResults.Count > 0)
                         {
-                            <div style="max-height: 520px; overflow-y: auto;
-                                        border: 1px solid var(--mud-palette-lines-default);
-                                        border-radius: 4px; background: var(--mud-palette-surface);">
+                            <div class="review-results-container">
                                 @foreach (var result in _searchResults)
                                 {
                                     <SearchResultCard Result="@result"
@@ -259,6 +256,74 @@ else
     .review-item-card {
         border: 1px solid var(--mud-palette-lines-default);
         border-radius: 6px;
+    }
+
+    .review-item-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+    }
+
+    /* ── Search bar layout ─────────────────────────────────────── */
+    .review-search-bar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 12px;
+    }
+
+    .review-search-provider {
+        max-width: 200px;
+        flex-shrink: 0;
+    }
+
+    .review-search-field {
+        flex: 1;
+        min-width: 0;
+    }
+
+    /* ── Results container ─────────────────────────────────────── */
+    .review-results-container {
+        max-height: 520px;
+        overflow-y: auto;
+        border: 1px solid var(--mud-palette-lines-default);
+        border-radius: 4px;
+        background: var(--mud-palette-surface);
+    }
+
+    /* ── Responsive ────────────────────────────────────────────── */
+    @@media (max-width: 768px) {
+        .review-search-bar {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .review-search-provider {
+            max-width: none;
+        }
+
+        .review-search-btn {
+            align-self: flex-end;
+        }
+
+        .review-results-container {
+            max-height: 60vh;
+        }
+
+        .review-item-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 8px;
+        }
+
+        .review-section-header {
+            padding: 10px 12px;
+        }
+
+        .review-item-card {
+            padding: 12px !important;
+        }
     }
 </style>
 

@@ -213,6 +213,12 @@ else
         0%, 100% { opacity: 1; }
         50%      { opacity: 0.3; }
     }
+
+    @@media (max-width: 768px) {
+        .folder-path-row .mud-stack {
+            flex-wrap: wrap;
+        }
+    }
 </style>
 
 @code {

@@ -16,6 +16,11 @@
 
 <div class="reader-shell reader-theme-@_settings.Theme">
 
+    @* ── Persistent close — always visible regardless of chrome state ── *@
+    <button class="reader-persistent-close" @onclick="ExitReader" title="Close reader">
+        <MudIcon Icon="@Icons.Material.Filled.Close" Size="Size.Small" />
+    </button>
+
     @if (_loading)
     {
         <div class="reader-loading">
@@ -835,7 +840,9 @@
         await AutoSaveProgress();
         _progressAlreadySaved = true;
 
-        var returnUrl = ReturnHubId.HasValue ? $"/hub/{ReturnHubId.Value}" : "/";
+        var returnUrl = ReturnHubId.HasValue
+            ? $"/hub/{ReturnHubId.Value}?lastAssetId={AssetId}"
+            : "/";
         Nav.NavigateTo(returnUrl);
     }
 

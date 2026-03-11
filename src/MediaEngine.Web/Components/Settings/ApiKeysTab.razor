@@ -56,7 +56,8 @@
                 <MudTd>
                     <code style="font-family: monospace; font-size: 0.85rem;
                                   background: rgba(0,0,0,0.2); padding: 4px 8px;
-                                  border-radius: 4px;">
+                                  border-radius: 4px; word-break: break-all;
+                                  overflow-wrap: anywhere;">
                         @GetKeyDisplay(context.Id)
                     </code>
                 </MudTd>
@@ -70,12 +71,12 @@
                                              ? Icons.Material.Filled.VisibilityOff
                                              : Icons.Material.Filled.Visibility)"
                                    Color="Color.Default"
-                                   Size="Size.Small"
+                                   Size="Size.Medium"
                                    title="Toggle key prefix visibility"
                                    OnClick="@(() => ToggleReveal(context.Id))" />
                     <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline"
                                    Color="Color.Error"
-                                   Size="Size.Small"
+                                   Size="Size.Medium"
                                    title="Revoke this key"
                                    OnClick="@(() => RevokeKeyAsync(context))" />
                 </MudTd>
@@ -128,7 +129,7 @@
                                              ? Icons.Material.Filled.Check
                                              : Icons.Material.Filled.ContentCopy)"
                                    Color="@(_copyAnimating ? Color.Success : Color.Default)"
-                                   Size="Size.Small"
+                                   Size="Size.Medium"
                                    title="Copy key to clipboard"
                                    OnClick="@CopyKeyAsync" />
                 </MudStack>

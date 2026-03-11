@@ -528,6 +528,7 @@ else
 
 @code {
     [Parameter] public Guid Id { get; set; }
+    [SupplyParameterFromQuery] public Guid? LastAssetId { get; set; }
 
     private bool                    _loading            = true;
     private HubViewModel?           _hub;
@@ -564,8 +565,6 @@ else
         if (_hub is not null)
         {
             var personsTask  = Orchestrator.GetPersonsByHubAsync(Id);
-            // Pass hubId so the Engine filters server-side via works.hub_id — no client-side
-            // matching needed and no risk of Guid comparison mismatch.
             var journeyTask  = Orchestrator.GetJourneyAsync(limit: 50, hubId: Id);
             var relatedTask  = Orchestrator.GetRelatedHubsAsync(Id);
 
@@ -581,10 +580,94 @@ else
                 ?? persons.FirstOrDefault(p =>
                 string.Equals(p.Role, "Author", StringComparison.OrdinalIgnoreCase));
 
-            // Server already filtered by hubId — take the most-recent in-progress item.
-            _activeJourney = journey
-                .OrderByDescending(j => j.LastAccessed)
-                .FirstOrDefault();
+            // ── Three-tier progress resolution ──────────────────────────────
+            //
+            // Tier 1: Direct asset ID from the reader (passed via ?lastAssetId=).
+            //         Bypasses all JOINs — guaranteed to match what the reader saved.
+            //
+            // Tier 2: Journey SQL endpoint (INNER JOINs across 4 tables).
+            //         Comprehensive but fragile if any link is missing.
+            //
+            // Tier 3: Resolve-chain fallback (work → asset → progress).
+            //         Last resort with diagnostic logging.
+
+            // Tier 1 — direct asset ID from the reader
+            if (LastAssetId.HasValue)
+            {
+                var directProgress = await Orchestrator.GetProgressAsync(LastAssetId.Value);
+                if (directProgress is not null && directProgress.ProgressPct > 0)
+                {
+                    var matchingWork = _hub.Works.FirstOrDefault();
+                    _activeJourney = new JourneyItemViewModel
+                    {
+                        AssetId            = LastAssetId.Value,
+                        WorkId             = matchingWork?.Id ?? Guid.Empty,
+                        HubId              = Id,
+                        Title              = matchingWork?.Title ?? _hub.DisplayName,
+                        Author             = _hub.Author,
+                        CoverUrl           = matchingWork?.CoverUrl ?? _hub.CoverUrl,
+                        MediaType          = matchingWork?.MediaType ?? string.Empty,
+                        ProgressPct        = directProgress.ProgressPct,
+                        LastAccessed       = directProgress.LastAccessed.HasValue
+                            ? new DateTimeOffset(directProgress.LastAccessed.Value)
+                            : DateTimeOffset.UtcNow,
+                        HubDisplayName     = _hub.DisplayName,
+                        ExtendedProperties = directProgress.ExtendedProperties,
+                    };
+                }
+            }
+
+            // Tier 2 — journey SQL endpoint (hub-filtered)
+            if (_activeJourney is null)
+            {
+                _activeJourney = journey
+                    .OrderByDescending(j => j.LastAccessed)
+                    .FirstOrDefault();
+            }
+
+            // Tier 3 — resolve-chain fallback with diagnostic logging
+            if (_activeJourney is null && _hub.Works.Count > 0)
+            {
+                foreach (var work in _hub.Works)
+                {
+                    var assetId = await Orchestrator.ResolveWorkToAssetAsync(work.Id);
+                    if (!assetId.HasValue)
+                    {
+                        Console.WriteLine($"[HubDetail] Resolve failed: work {work.Id} ({work.Title}) → no asset");
+                        continue;
+                    }
+
+                    var progress = await Orchestrator.GetProgressAsync(assetId.Value);
+                    if (progress is null)
+                    {
+                        Console.WriteLine($"[HubDetail] No progress record for asset {assetId.Value} (work: {work.Title})");
+                        continue;
+                    }
+                    if (progress.ProgressPct <= 0)
+                    {
+                        Console.WriteLine($"[HubDetail] Progress is {progress.ProgressPct}% for asset {assetId.Value} (work: {work.Title})");
+                        continue;
+                    }
+
+                    _activeJourney = new JourneyItemViewModel
+                    {
+                        AssetId            = assetId.Value,
+                        WorkId             = work.Id,
+                        HubId              = Id,
+                        Title              = work.Title,
+                        Author             = _hub.Author,
+                        CoverUrl           = work.CoverUrl ?? _hub.CoverUrl,
+                        MediaType          = work.MediaType ?? string.Empty,
+                        ProgressPct        = progress.ProgressPct,
+                        LastAccessed       = progress.LastAccessed.HasValue
+                            ? new DateTimeOffset(progress.LastAccessed.Value)
+                            : DateTimeOffset.UtcNow,
+                        HubDisplayName     = _hub.DisplayName,
+                        ExtendedProperties = progress.ExtendedProperties,
+                    };
+                    break;
+                }
+            }
 
             _readingTimeDisplay = _hub.Works
                 .Select(w => w.ReadingTimeDisplay)
@@ -752,7 +835,7 @@ else
     private string PrimaryActionLabel()
     {
         var pct = _activeJourney?.ProgressPct;
-        return (ActiveFormatKey, pct) switch
+        var baseLabel = (ActiveFormatKey, pct) switch
         {
             ("video",     >= 99.5) => "Watch Again",
             ("video",     > 0)     => "Continue Watching",
@@ -764,6 +847,12 @@ else
             (_,           > 0)     => "Continue Reading",
             _                      => "Read"
         };
+
+        // Append subtle percentage suffix when in progress
+        if (pct is > 0 and < 99.5)
+            return $"{baseLabel} · {Math.Max(1, pct.Value):F0}%";
+
+        return baseLabel;
     }
 
     /// <summary>Proper icon for the primary action button.</summary>

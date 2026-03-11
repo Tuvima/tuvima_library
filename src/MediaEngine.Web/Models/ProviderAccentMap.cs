@@ -131,6 +131,11 @@ public static class ProviderAccentMap
     public static string GetIconPath(string providerKey) =>
         $"images/providers/{providerKey}.svg";
 
+    /// <summary>Returns the PNG icon path for a provider (user-supplied branding).
+    /// Falls back to the Material icon via <see cref="GetAccent"/> when the PNG does not exist.</summary>
+    public static string GetIconImagePath(string providerKey) =>
+        $"images/providers/{providerKey}.png";
+
     private static string FormatProviderName(string key) =>
         string.Join(' ', key.Split('_')
             .Select(w => w.Length > 0 ? char.ToUpperInvariant(w[0]) + w[1..] : w));

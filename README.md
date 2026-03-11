@@ -52,9 +52,21 @@ The Dashboard is dark-mode only — background `#060A16`, designed to let cover 
 
 ### Hub Detail & Person Detail Pages
 
-**Hub Detail** (`/hub/{id}`) — a full cinematic page for each story. Breadcrumb navigation (Home / Lane / Author), a full-bleed hero backdrop, 400×600px cover, genre chips, and an action bar (Read Now, Add To, Share, Edit, ⋯ menu). Related works swim below in a horizontal row.
+**Hub Detail** (`/hub/{id}`) — a full cinematic page for each story. Breadcrumb navigation (Home / Lane / Author), a full-bleed hero backdrop, 400×600px cover, genre chips, and an action bar (Read Now, Add To, Share, Edit, ⋯ menu). A live progress bar appears when you've started reading, and the action button updates contextually — `Continue Reading · 12%` — so you always know exactly where you left off. Related works swim below in a horizontal row.
 
 **Person Detail** (`/person/{id}`) — the "Human Hub" for every creator. Shows Wikidata-enriched headshot, biography, occupation, social links (Instagram, TikTok, Mastodon, website), and works grouped by role (Author, Narrator, Director).
+
+### In-Browser EPUB Reader
+
+A full paginated EPUB reader built directly into the Dashboard — no external app needed. Open any ebook from its Hub Detail page and start reading immediately.
+
+- **CSS multi-column pagination** with smooth page transitions and swipe/keyboard navigation
+- **Chapter sidebar** (table of contents extracted from the EPUB) with direct chapter-jump
+- **Font controls** — adjustable size and family, persisted to localStorage
+- **Reading themes** — Light, Sepia, and Dark reading modes
+- **Search** — full-text search across chapters with hit highlighting
+- **Progress tracking** — position saved automatically every 30 seconds and on page/chapter change, restored on re-open. Progress syncs back to the Hub Detail page and home screen hero in real time
+- **Persistent close button** — always-visible X that saves progress and returns to the Hub Detail page
 
 ### The Intelligence Engine (Field-Specific Weighted Voter)
 
@@ -113,15 +125,25 @@ The profile avatar badge shows the pending count at all times. Resolving a confl
 
 ## Screenshots
 
-> *Screenshots will be added once the final UI polish is complete.*
->
-> **Current dashboard state:**
-> - Cinematic hero banner (pre-rendered SkiaSharp, blur + vignette + grain)
-> - TopBar + floating LeftDock navigation with 7 content lanes
-> - Horizontal-scrolling poster swimlanes (Continue Journey, Recently Added, per-type rows)
-> - Hub Detail page with 400×600 cover, genre chips, action bar, related content row
-> - Person Detail page with Wikidata headshot, bio, and social links
-> - Needs Review tab with confidence gauges and disambiguation cards
+> *These screenshots are from the current development build and are subject to change as the UI is polished toward v1.0.*
+
+### Hub Detail Page
+
+Full cinematic page for a story — breadcrumb navigation, hero backdrop, cover art, star rating, metadata badges, Wikipedia description, action bar, and author section with Wikidata headshot.
+
+![Hub Detail — Abaddon's Gate by James S.A. Corey](assets/screenshots/hub-detail.png)
+
+### In-Browser EPUB Reader
+
+Paginated reading view with chapter navigation, search, bookmark, and persistent close button. Progress bar and reading stats at the bottom. Dark reading theme shown.
+
+![EPUB Reader — Chapter Thirty-Five: Anna](assets/screenshots/epub-reader.png)
+
+### Books Lane
+
+Content-type lane page with cinematic hero banner, format toggle (Book / Audiobook), sort and filter controls, and poster swimlanes.
+
+![Books Lane — Smart Sections view](assets/screenshots/books-lane.png)
 
 ---
 
@@ -334,7 +356,7 @@ The Engine uses the same `X-Api-Key` authentication pattern as the \*Arr ecosyst
 | **Security** | API keys (generate/revoke), role-based auth (Admin/Curator/Consumer), rate limiting, path traversal protection, SignalR auth |
 | **Config** | Directory-based config (`config/`), per-provider JSON files, universe knowledge model, auto-migration from legacy |
 | **Activity Ledger** | System activity table, configurable retention, daily pruning, `ActivityTab` in Dashboard |
-| **Profiles** | User profiles with roles, avatar colours, 4-device adaptive layouts (Web/Mobile/TV/Automotive) |
+| **Profiles** | User profiles with roles, avatar colours, adaptive device layouts (Web/Mobile/TV) |
 | **Disambiguation** | `AudioProcessor` + `VideoProcessor` heuristic media type voting; confidence-gated auto-assign |
 | **3-Stage Pipeline** | Concurrent Stage 1 providers, Wikidata bridge Stage 2, Person enrichment Stage 3 |
 | **Review Queue** | LowConfidence, MultipleQidMatches, AmbiguousMediaType, MetadataConflict — NeedsReview tab + avatar badge |
@@ -349,35 +371,49 @@ The Engine uses the same `X-Api-Key` authentication pattern as the \*Arr ecosyst
 | **Cinematic Shell** | Dark-mode only (`#060A16`), TopBar + floating LeftDock (7 content lanes), amber accent (#C9922E) |
 | **Poster Swimlanes** | Horizontal scroll rows (2:3 aspect ratio, scroll-snap, hidden scrollbar), per-media-type grouping |
 | **Hero Banners** | Pre-rendered `hero.jpg` served from disk; CSS blur fallback; full-bleed 1920×600 display |
-| **Hub Detail** | Cinematic page — breadcrumb, cover, genre chips, action bar, description, related content row |
+| **Hub Detail** | Cinematic page — breadcrumb, cover, genre chips, action bar with contextual progress (`Continue Reading · 12%`), description, related content row |
 | **Person Detail** | Human Hub — Wikidata headshot, bio, social links (Instagram/TikTok/Mastodon/website), works by role |
+| **EPUB Reader** | Paginated in-browser reader — chapter sidebar, font/theme controls, search, auto-saving progress, persistent close button |
+| **Progress Tracking** | `PUT /progress/{assetId}` — automatic save every 30s, restore on re-open, live sync to Hub Detail and home hero |
 | **Real-time** | SignalR Intercom (12 events), live progress bars, review badge, PersonEnriched card updates |
 | **Content Lanes** | 7 fixed lanes (Home/Search/Books/Video/Music/Podcasts/Comics), `MediaLanePage`, Books format toggle |
 | **Command Palette** | `Ctrl+K` global search and navigation |
 | **Settings** | 16 tabs in 3 groups — Preferences, Metadata (Connection Vault, Needs Review, Activity), Server |
-| **Device Profiles** | Web, Mobile, TV, Automotive — 3-tier cascade (Global → Device → Profile) |
+| **Device Profiles** | Web, Mobile, TV — 3-tier cascade (Global → Device → Profile) |
 | **Mobile Nav** | `MobileNavDrawer` slide-out, hamburger in TopBar, responsive cover sizing |
 
 ### Planned — The Road to v1.0
 
 | Sprint | Theme | Key Deliverables |
 |---|---|---|
-| **1–2** | In-Browser Playback | EPUB reader (paginated, chapter nav, font controls), Comic viewer (page-turn, zoom, RTL manga toggle) |
-| **3–4** | Audio & Music | Persistent audiobook player (chapters, sleep timer, speed), Music media type, album → Hub mapping |
-| **5–6** | Video & FFmpeg | Video player (HLS, subtitles, chapters, PiP), FFmpeg integration, hardware-accelerated transcoding |
-| **7–8** | Shadow Transcoder & PWA | Scheduled background transcoding (NVENC/QuickSync/VAAPI), offline-capable PWA |
-| **9–10** | Authentication & Multi-User | Local PIN/password login, profile-scoped progress, Shared Journey Inference, parental controls |
-| **11–12** | Interoperability | OPDS catalog (`/opds/`), Audiobookshelf-compatible API, webhooks, Plex/Calibre/Jellyfin import |
-| **13–14** | Statistics & Collections | Library/personal stats, Smart Collections, Recently Added endpoint, Continue Journey |
-| **15–16** | Polish & Accessibility | Loading skeletons, keyboard accessibility, performance audit, DLNA/Chromecast casting |
+| **1–2** | More Readers | Comic viewer (page-turn, zoom, RTL manga toggle), persistent audiobook player (chapters, sleep timer, speed) |
+| **3–4** | Video & Music | Video player (HLS, subtitles, chapters, PiP), Music media type, album → Hub mapping |
+| **5–6** | FFmpeg & Transcoding | FFmpeg integration, hardware-accelerated transcoding (NVENC/QuickSync/VAAPI), Shadow Transcoder (scheduled background jobs) |
+| **7–8** | Authentication & Multi-User | Local PIN/password login, profile-scoped progress, Shared Journey Inference, parental controls |
+| **9–10** | Interoperability | OPDS catalog (`/opds/`), Audiobookshelf-compatible API, webhooks, Plex/Calibre/Jellyfin import |
+| **11–12** | Statistics & Collections | Library/personal stats, Smart Collections, Recently Added endpoint |
+| **13–14** | Polish & PWA | Loading skeletons, keyboard accessibility, performance audit, offline-capable PWA, DLNA/Chromecast casting |
+
+### Platform Targets
+
+| Platform | Technology | Status |
+|---|---|---|
+| **Web** (Desktop & Mobile browsers) | Blazor Server | Active — primary interface |
+| **Mobile** (responsive) | Blazor Server (adaptive layout) | Active — mobile nav drawer, touch-optimised swimlanes |
+| **Native iOS** | Swift / SwiftUI | Planned |
+| **Native Android** | Kotlin / Jetpack Compose | Planned |
+| **tvOS** (Apple TV) | SwiftUI | Planned |
+| **Android TV** | Jetpack Compose for TV | Planned |
+| **CarPlay** | CarPlay framework (audio-focused) | Planned |
+| **Android Auto** | Android Auto SDK (audio-focused) | Planned |
+
+All native clients connect to the same headless Intelligence Engine via HTTP + SignalR. The Engine runs on your home server; each client is a thin visual layer.
 
 ### Future Horizon
 
-- Native iOS/Android apps (MAUI or React Native)
 - OIDC authentication (Google, Facebook)
 - Plugin / extension system
 - Multi-language / i18n
-- TV apps (Android TV, Apple TV)
 
 ---
 

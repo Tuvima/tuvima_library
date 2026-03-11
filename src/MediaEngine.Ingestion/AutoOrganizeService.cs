@@ -63,17 +63,6 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
             return;
         }
 
-        // Only organize files that are currently in staging or the watch folder —
-        // not files already in the library.
-        if (asset.FilePathRoot.StartsWith(
-                _options.LibraryRoot, StringComparison.OrdinalIgnoreCase))
-        {
-            _logger.LogDebug(
-                "Auto-organize skipped for {Id}: already in library at {Path}",
-                assetId, asset.FilePathRoot);
-            return;
-        }
-
         if (!File.Exists(asset.FilePathRoot))
         {
             _logger.LogWarning(
@@ -98,6 +87,25 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
             && Enum.TryParse<MediaType>(mtStr, ignoreCase: true, out var mt)
                 ? mt
                 : (MediaType?)null;
+
+        // If the file is already in the library, skip the move but still refresh
+        // the sidecar with the latest canonical values (enrichment may have added
+        // new fields — characters, genre, series, narrator, etc. — since the file
+        // was first organized).
+        bool alreadyOrganized = asset.FilePathRoot.StartsWith(
+            _options.LibraryRoot, StringComparison.OrdinalIgnoreCase);
+
+        if (alreadyOrganized)
+        {
+            string existingEditionFolder = Path.GetDirectoryName(asset.FilePathRoot) ?? string.Empty;
+            string existingHubFolder     = Path.GetDirectoryName(existingEditionFolder) ?? string.Empty;
+            await WriteSidecarsAsync(assetId, asset.ContentHash, metadata, mediaType,
+                existingEditionFolder, existingHubFolder, ct).ConfigureAwait(false);
+            _logger.LogDebug(
+                "Sidecar refreshed for {Id} (already organized at {Path})",
+                assetId, asset.FilePathRoot);
+            return;
+        }
 
         var synth = new IngestionCandidate
         {
@@ -137,48 +145,8 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         string editionFolder = Path.GetDirectoryName(destPath) ?? string.Empty;
         string hubFolder     = Path.GetDirectoryName(editionFolder) ?? string.Empty;
 
-        await _sidecar.WriteEditionSidecarAsync(editionFolder, new EditionSidecarData
-        {
-            Title         = metadata.GetValueOrDefault("title"),
-            Author        = metadata.GetValueOrDefault("author"),
-            MediaType     = mediaType?.ToString(),
-            Isbn          = metadata.GetValueOrDefault("isbn"),
-            Asin          = metadata.GetValueOrDefault("asin"),
-            ContentHash   = asset.ContentHash,
-            CoverPath     = "cover.jpg",
-            UserLocks     = [],
-            LastOrganized = DateTimeOffset.UtcNow,
-        }, ct).ConfigureAwait(false);
-
-        // Guard: only write the hub-level sidecar when the hub folder is a title-specific
-        // folder, not a grouping folder like an author or category root.
-        // With a template like "{Category}/{Author}/{Title}/{file}", the hub folder lands
-        // on the author folder (depth 2 from LibraryRoot — one separator in relHubPath).
-        // That's wrong: the author folder groups many different Hubs and must not get a
-        // Hub sidecar. The Title folder (depth 3, two separators) is Hub-specific.
-        // Require at least two separators so only a title-level or deeper folder qualifies.
-        var relHubPath = Path.GetRelativePath(_options.LibraryRoot, hubFolder);
-        int hubDepth = relHubPath.Count(c => c == Path.DirectorySeparatorChar || c == '/');
-        bool hubHasDepth = hubDepth >= 2;
-
-        if (hubHasDepth)
-        {
-            await _sidecar.WriteHubSidecarAsync(hubFolder, new HubSidecarData
-            {
-                DisplayName   = metadata.GetValueOrDefault("title", "Unknown"),
-                Year          = metadata.GetValueOrDefault("year"),
-                WikidataQid   = metadata.GetValueOrDefault("wikidata_qid"),
-                Franchise     = metadata.GetValueOrDefault("franchise"),
-                LastOrganized = DateTimeOffset.UtcNow,
-            }, ct).ConfigureAwait(false);
-        }
-        else
-        {
-            _logger.LogDebug(
-                "Hub sidecar skipped for {Id}: hubFolder '{HubFolder}' is a category root " +
-                "(template too shallow — hub sidecar requires a dedicated hub subfolder).",
-                assetId, hubFolder);
-        }
+        await WriteSidecarsAsync(assetId, asset.ContentHash, metadata, mediaType,
+            editionFolder, hubFolder, ct).ConfigureAwait(false);
 
         _logger.LogInformation(
             "Auto-organized asset {Id} after hydration: {Source} → {Dest}",
@@ -213,6 +181,73 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         catch (Exception ex)
         {
             _logger.LogDebug(ex, "Event publish failed for auto-organize — continuing");
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Helpers
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Writes (or refreshes) the edition and hub sidecar XML files at the given
+    /// folder paths using the full canonical metadata dictionary.
+    /// All canonical key-value pairs are written to the &lt;canonical-values&gt;
+    /// section so the sidecar is a complete, portable metadata snapshot.
+    /// </summary>
+    private async Task WriteSidecarsAsync(
+        Guid                         assetId,
+        string                       contentHash,
+        Dictionary<string, string>   metadata,
+        MediaType?                   mediaType,
+        string                       editionFolder,
+        string                       hubFolder,
+        CancellationToken            ct)
+    {
+        var canonicalValues = metadata
+            .Where(kv => !string.IsNullOrWhiteSpace(kv.Value))
+            .ToDictionary(kv => kv.Key, kv => kv.Value,
+                StringComparer.OrdinalIgnoreCase);
+
+        await _sidecar.WriteEditionSidecarAsync(editionFolder, new EditionSidecarData
+        {
+            Title           = metadata.GetValueOrDefault("title"),
+            Author          = metadata.GetValueOrDefault("author"),
+            MediaType       = mediaType?.ToString(),
+            Isbn            = metadata.GetValueOrDefault("isbn"),
+            Asin            = metadata.GetValueOrDefault("asin"),
+            ContentHash     = contentHash,
+            CoverPath       = "cover.jpg",
+            UserLocks       = [],
+            CanonicalValues = canonicalValues,
+            LastOrganized   = DateTimeOffset.UtcNow,
+        }, ct).ConfigureAwait(false);
+
+        // Guard: only write the hub-level sidecar when the hub folder is a title-specific
+        // folder, not a grouping folder like an author or category root.
+        // Require at least two path separators relative to LibraryRoot so only a
+        // title-level or deeper folder qualifies.
+        var relHubPath  = Path.GetRelativePath(_options.LibraryRoot, hubFolder);
+        int hubDepth    = relHubPath.Count(c => c == Path.DirectorySeparatorChar || c == '/');
+        bool hubHasDepth = hubDepth >= 2;
+
+        if (hubHasDepth)
+        {
+            await _sidecar.WriteHubSidecarAsync(hubFolder, new HubSidecarData
+            {
+                DisplayName     = metadata.GetValueOrDefault("title", "Unknown"),
+                Year            = metadata.GetValueOrDefault("year"),
+                WikidataQid     = metadata.GetValueOrDefault("wikidata_qid"),
+                Franchise       = metadata.GetValueOrDefault("franchise"),
+                CanonicalValues = canonicalValues,
+                LastOrganized   = DateTimeOffset.UtcNow,
+            }, ct).ConfigureAwait(false);
+        }
+        else
+        {
+            _logger.LogDebug(
+                "Hub sidecar skipped for {Id}: hubFolder '{HubFolder}' is a category root " +
+                "(template too shallow — hub sidecar requires a dedicated hub subfolder).",
+                assetId, hubFolder);
         }
     }
 }

@@ -61,6 +61,16 @@ public sealed class EditionSidecarData
     public IReadOnlyDictionary<string, string> Bridges { get; init; }
         = new Dictionary<string, string>();
 
+    /// <summary>
+    /// Complete snapshot of all canonical key-value pairs at the time the sidecar was last written.
+    /// Includes all enriched fields (genre, characters, series, narrator, description, etc.)
+    /// so that a Great Inhale can restore full metadata without re-fetching from providers.
+    /// Keys that already have dedicated elements (title, author, isbn, asin) are included here
+    /// as well for a self-contained record.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> CanonicalValues { get; init; }
+        = new Dictionary<string, string>();
+
     /// <summary>UTC timestamp of the last organization pass that wrote this file.</summary>
     public DateTimeOffset LastOrganized { get; init; }
 }

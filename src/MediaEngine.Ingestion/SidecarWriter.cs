@@ -49,6 +49,13 @@ public sealed class SidecarWriter : ISidecarWriter
                 new XAttribute("key",   kv.Key),
                 new XAttribute("value", kv.Value)));
 
+        var canonicalElements = data.CanonicalValues
+            .Where(kv => !string.IsNullOrWhiteSpace(kv.Value))
+            .OrderBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(kv => new XElement("value",
+                new XAttribute("key",   kv.Key),
+                new XAttribute("value", kv.Value)));
+
         var doc = new XDocument(
             new XDeclaration("1.0", "utf-8", null),
             new XElement(HubRootName,
@@ -60,6 +67,7 @@ public sealed class SidecarWriter : ISidecarWriter
                     new XElement("franchise",    data.Franchise    ?? string.Empty)
                 ),
                 new XElement("bridges", bridgeElements),
+                new XElement("canonical-values", canonicalElements),
                 new XElement("universe-status", data.UniverseStatus ?? "Unknown"),
                 new XElement("last-organized", data.LastOrganized.ToString("O"))
             )
@@ -92,6 +100,13 @@ public sealed class SidecarWriter : ISidecarWriter
                 new XAttribute("key",   kv.Key),
                 new XAttribute("value", kv.Value)));
 
+        var canonicalElements = data.CanonicalValues
+            .Where(kv => !string.IsNullOrWhiteSpace(kv.Value))
+            .OrderBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(kv => new XElement("value",
+                new XAttribute("key",   kv.Key),
+                new XAttribute("value", kv.Value)));
+
         var doc = new XDocument(
             new XDeclaration("1.0", "utf-8", null),
             new XElement(EdRootName,
@@ -107,6 +122,7 @@ public sealed class SidecarWriter : ISidecarWriter
                 new XElement("cover-path",     data.CoverPath),
                 new XElement("user-locks",     userLockElements),
                 new XElement("bridges",        bridgeElements),
+                new XElement("canonical-values", canonicalElements),
                 new XElement("last-organized", data.LastOrganized.ToString("O"))
             )
         );
@@ -132,17 +148,19 @@ public sealed class SidecarWriter : ISidecarWriter
             if (root?.Name.LocalName != HubRootName)
                 return Task.FromResult<HubSidecarData?>(null);
 
-            var identity = root.Element("identity");
-            var bridges  = ParseBridges(root.Element("bridges"));
-            var result   = new HubSidecarData
+            var identity        = root.Element("identity");
+            var bridges         = ParseBridges(root.Element("bridges"));
+            var canonicalValues = ParseCanonicalValues(root.Element("canonical-values"));
+            var result          = new HubSidecarData
             {
-                DisplayName   = identity?.Element("display-name")?.Value ?? string.Empty,
-                Year          = NullIfEmpty(identity?.Element("year")?.Value),
-                WikidataQid   = NullIfEmpty(identity?.Element("wikidata-qid")?.Value),
-                Franchise      = NullIfEmpty(identity?.Element("franchise")?.Value),
-                UniverseStatus = root.Element("universe-status")?.Value ?? "Unknown",
-                Bridges        = bridges,
-                LastOrganized  = ParseDateOffset(root.Element("last-organized")?.Value),
+                DisplayName     = identity?.Element("display-name")?.Value ?? string.Empty,
+                Year            = NullIfEmpty(identity?.Element("year")?.Value),
+                WikidataQid     = NullIfEmpty(identity?.Element("wikidata-qid")?.Value),
+                Franchise       = NullIfEmpty(identity?.Element("franchise")?.Value),
+                UniverseStatus  = root.Element("universe-status")?.Value ?? "Unknown",
+                Bridges         = bridges,
+                CanonicalValues = canonicalValues,
+                LastOrganized   = ParseDateOffset(root.Element("last-organized")?.Value),
             };
 
             return Task.FromResult<HubSidecarData?>(result);
@@ -178,19 +196,21 @@ public sealed class SidecarWriter : ISidecarWriter
                 .ToList()
                 ?? [];
 
-            var bridges = ParseBridges(root.Element("bridges"));
-            var result  = new EditionSidecarData
+            var bridges         = ParseBridges(root.Element("bridges"));
+            var canonicalValues = ParseCanonicalValues(root.Element("canonical-values"));
+            var result          = new EditionSidecarData
             {
-                Title         = NullIfEmpty(identity?.Element("title")?.Value),
-                Author        = NullIfEmpty(identity?.Element("author")?.Value),
-                MediaType     = NullIfEmpty(identity?.Element("media-type")?.Value),
-                Isbn          = NullIfEmpty(identity?.Element("isbn")?.Value),
-                Asin          = NullIfEmpty(identity?.Element("asin")?.Value),
-                ContentHash   = root.Element("content-hash")?.Value   ?? string.Empty,
-                CoverPath     = root.Element("cover-path")?.Value      ?? "cover.jpg",
-                UserLocks     = userLocks,
-                Bridges       = bridges,
-                LastOrganized = ParseDateOffset(root.Element("last-organized")?.Value),
+                Title           = NullIfEmpty(identity?.Element("title")?.Value),
+                Author          = NullIfEmpty(identity?.Element("author")?.Value),
+                MediaType       = NullIfEmpty(identity?.Element("media-type")?.Value),
+                Isbn            = NullIfEmpty(identity?.Element("isbn")?.Value),
+                Asin            = NullIfEmpty(identity?.Element("asin")?.Value),
+                ContentHash     = root.Element("content-hash")?.Value   ?? string.Empty,
+                CoverPath       = root.Element("cover-path")?.Value      ?? "cover.jpg",
+                UserLocks       = userLocks,
+                Bridges         = bridges,
+                CanonicalValues = canonicalValues,
+                LastOrganized   = ParseDateOffset(root.Element("last-organized")?.Value),
             };
 
             return Task.FromResult<EditionSidecarData?>(result);
@@ -292,6 +312,28 @@ public sealed class SidecarWriter : ISidecarWriter
             var key   = bridge.Attribute("key")?.Value;
             var value = bridge.Attribute("value")?.Value;
             if (!string.IsNullOrWhiteSpace(key) && !string.IsNullOrWhiteSpace(value))
+                dict[key] = value;
+        }
+
+        return dict;
+    }
+
+    /// <summary>
+    /// Parses the <c>&lt;canonical-values&gt;</c> section of a library.xml sidecar.
+    /// Returns an empty dictionary if the section is missing (backward-compatible
+    /// with older sidecars that lack this section).
+    /// </summary>
+    private static IReadOnlyDictionary<string, string> ParseCanonicalValues(XElement? element)
+    {
+        if (element is null)
+            return new Dictionary<string, string>();
+
+        var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var v in element.Elements("value"))
+        {
+            var key   = v.Attribute("key")?.Value;
+            var value = v.Attribute("value")?.Value;
+            if (!string.IsNullOrWhiteSpace(key) && value is not null)
                 dict[key] = value;
         }
 

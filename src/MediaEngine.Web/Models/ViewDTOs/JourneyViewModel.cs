@@ -27,7 +27,7 @@ public sealed class JourneyItemViewModel
     public string ProgressDisplay => ProgressPct switch
     {
         >= 99.5 => "Complete",
-        >= 1    => $"{ProgressPct:F0}%",
+        > 0     => $"{Math.Max(1, ProgressPct):F0}%",
         _       => "Not started",
     };
 
