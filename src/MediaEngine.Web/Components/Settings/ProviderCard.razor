@@ -7,7 +7,7 @@
 @* ProviderCard — card with accent bar, display name, health dot, and config flyout.
    Used in the Metadata tab for drag-drop provider slot assignment. *@
 
-<div class="provider-card @(IsSlotted ? "provider-card-slotted" : "")"
+<div class="provider-card @(IsSlotted ? "provider-card-slotted" : "") @(IsUnavailable ? "provider-card-unavailable" : "")"
      style="--provider-accent: @_accent.Color;">
 
     @* Accent bar *@
@@ -22,30 +22,34 @@
         @ProviderAccentMap.GetDisplayName(Provider.Name)
     </MudText>
 
-    @* API key badge — shows when a key is required *@
-    @if (Provider.RequiresApiKey)
+    @if (ShowConfig)
     {
-        <MudTooltip Text="@(Provider.HasApiKey ? "API key configured" : "API key required")"
+        @* API key badge — shows when a key is required *@
+        @if (Provider.RequiresApiKey)
+        {
+            <MudTooltip Text="@(Provider.HasApiKey ? "API key configured" : "API key required")"
+                        Arrow="true" Placement="Placement.Top">
+                <MudIcon Icon="@Icons.Material.Filled.Key"
+                         Size="Size.Small"
+                         Style="@($"color: {(Provider.HasApiKey ? "#4CAF50" : "#FF9800")}; flex-shrink: 0;")" />
+            </MudTooltip>
+        }
+
+        @* Health dot *@
+        <MudTooltip Text="@(Provider.IsReachable ? "Online" : "Unreachable")"
                     Arrow="true" Placement="Placement.Top">
-            <MudIcon Icon="@Icons.Material.Filled.Key"
-                     Size="Size.Small"
-                     Style="@($"color: {(Provider.HasApiKey ? "#4CAF50" : "#FF9800")}; flex-shrink: 0;")" />
+            <div class="provider-health-dot @(Provider.IsReachable ? "health-online" : "health-offline")"></div>
         </MudTooltip>
+
+        @* Config button (gear) — always interactive, even on unavailable providers *@
+        <MudIconButton Icon="@Icons.Material.Filled.Settings"
+                       Size="Size.Small"
+                       Color="Color.Default"
+                       title="Configure provider"
+                       OnClick="@ToggleFlyout"
+                       Class="provider-config-btn"
+                       Style="margin-left: 2px; flex-shrink: 0;" />
     }
-
-    @* Health dot *@
-    <MudTooltip Text="@(Provider.IsReachable ? "Online" : "Unreachable")"
-                Arrow="true" Placement="Placement.Top">
-        <div class="provider-health-dot @(Provider.IsReachable ? "health-online" : "health-offline")"></div>
-    </MudTooltip>
-
-    @* Config button (three dots) *@
-    <MudIconButton Icon="@Icons.Material.Filled.MoreVert"
-                   Size="Size.Small"
-                   Color="Color.Default"
-                   title="Configure provider"
-                   OnClick="@ToggleFlyout"
-                   Style="margin-left: 2px; flex-shrink: 0;" />
 
     @* Remove button (only shown when slotted) *@
     @if (IsSlotted && OnRemove.HasDelegate)
@@ -128,53 +132,6 @@
         <MudSwitch T="bool" @bind-Value="_editEnabled"
                    Label="Enabled" Color="Color.Primary" />
 
-        @* Icon — Material icon picker + optional file upload *@
-        <MudText Typo="Typo.subtitle2" Class="mt-1">Icon</MudText>
-
-        @* Material icon picker *@
-        <MudSelect T="string" @bind-Value="_editIconName"
-                   Label="Icon (Material)"
-                   Variant="Variant.Outlined"
-                   Margin="Margin.Dense"
-                   AnchorOrigin="Origin.BottomCenter"
-                   TransformOrigin="Origin.TopCenter"
-                   Clearable="true"
-                   AdornmentIcon="@(string.IsNullOrEmpty(_editIconName) ? Icons.Material.Filled.EmojiSymbols : ProviderAccentMap.GetAccent(Provider.Name, _editIconName).Icon)"
-                   HelperText="Overrides the default icon for this provider">
-            @foreach (var (name, icon) in ProviderAccentMap.IconOptions)
-            {
-                <MudSelectItem Value="@name">
-                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                        <MudIcon Icon="@icon" Size="Size.Small" />
-                        <MudText>@name</MudText>
-                    </MudStack>
-                </MudSelectItem>
-            }
-        </MudSelect>
-
-        @* Custom image upload *@
-        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-            @if (!string.IsNullOrWhiteSpace(_iconPreviewUrl))
-            {
-                <MudAvatar Size="Size.Medium" Style="border: 1px solid var(--app-glass-border);">
-                    <MudImage Src="@_iconPreviewUrl" Alt="Provider icon"
-                              Width="40" Height="40" ObjectFit="ObjectFit.Contain" />
-                </MudAvatar>
-            }
-            <MudButton Variant="Variant.Outlined" Color="Color.Default" Size="Size.Small"
-                       StartIcon="@Icons.Material.Filled.Upload"
-                       HtmlTag="label" for="@_iconInputId">
-                Upload Image
-            </MudButton>
-            <InputFile id="@_iconInputId" OnChange="@OnIconFileSelected"
-                       accept=".svg,.png,.jpg,.jpeg" style="display:none;" />
-        </MudStack>
-        @if (_iconUploading)
-        {
-            <MudProgressLinear Indeterminate="true" Color="Color.Primary" Size="Size.Small" />
-        }
-        <MudText Typo="Typo.caption" Color="Color.Secondary">SVG, PNG, or JPG — max 256 KB</MudText>
-
         @* Action buttons *@
         <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2">
             <MudButton Variant="Variant.Text"
@@ -203,6 +160,14 @@
     /// <summary>Whether this card is currently placed in a slot.</summary>
     [Parameter] public bool IsSlotted { get; set; }
 
+    /// <summary>Whether to show config controls (gear, health dot, API key badge). Default true.
+    /// Set to false for slotted cards where config lives on the palette card.</summary>
+    [Parameter] public bool ShowConfig { get; set; } = true;
+
+    /// <summary>Whether this provider is unavailable (disabled or unreachable).
+    /// Dims the card but keeps the config button interactive.</summary>
+    [Parameter] public bool IsUnavailable { get; set; }
+
     /// <summary>Fires when the user clicks the remove (X) button.</summary>
     [Parameter] public EventCallback OnRemove { get; set; }
 
@@ -213,9 +178,6 @@
     private bool _flyoutOpen;
     private bool _saving;
     private bool _showApiKey;
-    private bool _iconUploading;
-    private string? _iconPreviewUrl;
-    private readonly string _iconInputId = $"icon-upload-{Guid.NewGuid():N}";
 
     // Editable fields
     private string _editEndpoint = string.Empty;
@@ -223,7 +185,6 @@
     private int _editThrottle;
     private string _editApiKey = string.Empty;
     private bool _editEnabled = true;
-    private string _editIconName = string.Empty;
 
     protected override void OnParametersSet()
     {
@@ -246,9 +207,7 @@
         _editThrottle = Provider.ThrottleMs;
         _editApiKey = string.Empty; // Never pre-fill API keys for security.
         _editEnabled = Provider.Enabled;
-        _editIconName = Provider.CustomIconName ?? string.Empty;
         _showApiKey = false;
-        _iconPreviewUrl = Orchestrator.GetProviderIconUrl(Provider.Name);
 
         _flyoutOpen = true;
     }
@@ -277,7 +236,6 @@
                 ApiKey          = Provider.RequiresApiKey && !string.IsNullOrEmpty(_editApiKey)
                     ? _editApiKey
                     : null,
-                CustomIconName  = _editIconName, // empty string = clear override
             };
 
             // Merge existing endpoints so we don't lose secondary keys (e.g. sparql).
@@ -308,48 +266,6 @@
         finally
         {
             _saving = false;
-        }
-    }
-
-    private async Task OnIconFileSelected(InputFileChangeEventArgs e)
-    {
-        var file = e.File;
-        if (file.Size > 256 * 1024)
-        {
-            Snackbar.Add("Icon must be 256 KB or smaller.", Severity.Warning);
-            return;
-        }
-
-        _iconUploading = true;
-        StateHasChanged();
-
-        try
-        {
-            using var stream = file.OpenReadStream(maxAllowedSize: 256 * 1024);
-            using var ms = new MemoryStream();
-            await stream.CopyToAsync(ms);
-            ms.Position = 0;
-
-            var ok = await Orchestrator.UploadProviderIconAsync(Provider.Name, ms, file.Name);
-            if (ok)
-            {
-                // Cache-bust by appending timestamp.
-                _iconPreviewUrl = $"{Orchestrator.GetProviderIconUrl(Provider.Name)}?t={DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
-                Snackbar.Add("Icon uploaded.", Severity.Success);
-            }
-            else
-            {
-                Snackbar.Add("Failed to upload icon.", Severity.Error);
-            }
-        }
-        catch (Exception ex)
-        {
-            Snackbar.Add($"Upload error: {ex.Message}", Severity.Error);
-        }
-        finally
-        {
-            _iconUploading = false;
-            StateHasChanged();
         }
     }
 
@@ -389,8 +305,25 @@
         cursor: grabbing;
     }
 
+    /* Compact form when placed inside a library slot */
     .provider-card-slotted {
         background: var(--app-active-overlay);
+        padding: 5px 8px;
+        gap: 7px;
+    }
+
+    /* Unavailable provider — dimmed but config button stays interactive */
+    .provider-card-unavailable {
+        opacity: 0.65;
+        cursor: default;
+    }
+
+    .provider-card-unavailable:active {
+        cursor: default;
+    }
+
+    .provider-card-unavailable .provider-config-btn {
+        opacity: 1;
     }
 
     /* Left accent bar */

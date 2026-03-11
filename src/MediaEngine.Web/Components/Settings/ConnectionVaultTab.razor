@@ -1012,10 +1012,13 @@
         border-style: dashed;
     }
 
+    /* Filled slot: tighter padding so the card doesn't overflow the border */
     .vault-slot-filled {
         border-style: solid;
         border-color: var(--app-glass-border);
         background: var(--app-glass-bg);
+        padding: 4px 6px;
+        min-height: 0;
     }
 
     .vault-slot-primary.vault-slot-filled {
