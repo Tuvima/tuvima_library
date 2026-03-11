@@ -131,7 +131,10 @@
     column-width: 100vw;
     column-gap: var(--reader-column-gap);
     column-fill: auto;
-    overflow: hidden;
+    /* overflow must be visible so CSS multi-column columns extend horizontally.
+       The parent .reader-content-viewport (overflow:hidden) provides the viewport clip.
+       Setting overflow:hidden here clips all columns beyond the first — blank pages. */
+    overflow: visible;
     transition: transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     word-wrap: break-word;
     overflow-wrap: break-word;

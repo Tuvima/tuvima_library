@@ -11,6 +11,7 @@ window.epubReader = (function () {
     let _dotNetRef = null;
     let _currentPage = 0;
     let _totalPages = 1;
+    let _pageUnit = 0;   // clientWidth + columnGap — the correct translateX step per page
     let _touchStartX = 0;
     let _touchStartY = 0;
     let _chromeTimeout = null;
@@ -39,44 +40,28 @@ window.epubReader = (function () {
 
     function recalculate() {
         if (!_container) return;
-        const width = _container.clientWidth;
-        if (width <= 0) {
+        const colWidth = _container.clientWidth;
+        if (colWidth <= 0) {
             _totalPages = 1;
+            _pageUnit = colWidth;
             return;
         }
 
-        // CSS multi-column always pads scrollWidth to the next full column boundary,
-        // creating phantom blank pages when content doesn't fill the last column.
-        // scrollWidth / clientWidth is already an integer, so Math.ceil doesn't help.
-        // Instead, walk the DOM to find the rightmost content edge in layout space.
+        // CSS multi-column lays out columns separated by column-gap.
+        // The correct step per page is (colWidth + gap), not colWidth alone.
+        // Without accounting for the gap, every goToPage() lands 'gap' pixels
+        // off-column, and the phantom page count includes ghost empty columns.
         //
-        // Key: getBoundingClientRect() values are shifted by translateX, but the
-        // formula (element.right - container.left) cancels out the offset, giving
-        // the true layout-space position regardless of which page is currently shown.
-        _totalPages = Math.max(1, _contentPageCount(width));
-    }
+        // Layout formula (CSS multi-column with N columns):
+        //   scrollWidth = N * (colWidth + gap) - gap
+        //   => N = (scrollWidth + gap) / (colWidth + gap)   [always an exact integer]
+        const gapStr = getComputedStyle(_container).columnGap;
+        const gap = parseFloat(gapStr);               // NaN for 'normal' (no explicit gap)
+        const effectiveGap = isNaN(gap) ? 0 : gap;
+        _pageUnit = colWidth + effectiveGap;
 
-    function _contentPageCount(width) {
-        const containerRect = _container.getBoundingClientRect();
-        let maxRight = 0;
-
-        // Block-level and replaced elements cover all meaningful EPUB content.
-        const els = _container.querySelectorAll(
-            'p, li, h1, h2, h3, h4, h5, h6, img, figure, blockquote, pre, table, td, th, div'
-        );
-
-        for (let i = 0; i < els.length; i++) {
-            const r = els[i].getBoundingClientRect();
-            // Skip invisible nodes (hidden, zero-area, etc.)
-            if (r.width <= 0 || r.height <= 0) continue;
-            const layoutRight = r.right - containerRect.left;
-            if (layoutRight > maxRight) maxRight = layoutRight;
-        }
-
-        // Fallback: no visible content found → one page
-        if (maxRight <= 0) return 1;
-
-        return Math.ceil(maxRight / width);
+        const pages = Math.round((_container.scrollWidth + effectiveGap) / _pageUnit);
+        _totalPages = Math.max(1, pages);
     }
 
     function getTotalPages() {
@@ -90,8 +75,8 @@ window.epubReader = (function () {
         recalculate();
         pageIndex = Math.max(0, Math.min(pageIndex, _totalPages - 1));
         _currentPage = pageIndex;
-        const width = _container.clientWidth;
-        _container.style.transform = 'translateX(-' + (pageIndex * width) + 'px)';
+        // Use _pageUnit (colWidth + columnGap) so each step lands on a column boundary.
+        _container.style.transform = 'translateX(-' + (pageIndex * _pageUnit) + 'px)';
     }
 
     function getCurrentPage() {
@@ -335,7 +320,7 @@ window.epubReader = (function () {
         _container = document.getElementById(containerId);
         if (!_container) return;
         recalculate();
-        goToPage(pageIndex);
+        goToPage(pageIndex);  // goToPage uses _pageUnit after recalculate()
     }
 
     // ── Notify Blazor of page changes ───────────────────────────────────
@@ -369,6 +354,7 @@ window.epubReader = (function () {
         _dotNetRef = null;
         _currentPage = 0;
         _totalPages = 1;
+        _pageUnit = 0;
     }
 
     // ── Public API ──────────────────────────────────────────────────────
