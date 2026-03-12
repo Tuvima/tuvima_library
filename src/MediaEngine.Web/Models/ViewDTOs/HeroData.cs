@@ -95,9 +95,7 @@ public sealed record HeroData
     {
         EntityId       = hub.Id,
         Title          = hub.DisplayName,
-        Subtitle       = !string.IsNullOrEmpty(hub.Series)
-            ? $"Continue your journey in {hub.Series}"
-            : null,
+        // Subtitle is set by the caller via PhraseTemplateService
         Author         = hub.Author,
         Description    = Truncate(hub.Description, 200),
         CoverUrl       = hub.CoverUrl,
@@ -132,10 +130,28 @@ public sealed record HeroData
     {
         if (string.IsNullOrEmpty(mediaType)) return Icons.Material.Filled.MenuBook;
         var t = mediaType.ToLowerInvariant();
-        if (t.Contains("audio"))                         return Icons.Material.Filled.Headphones;
+        if (t.Contains("audio") || t.Contains("m4b"))   return Icons.Material.Filled.Headphones;
         if (t.Contains("video") || t.Contains("movie")) return Icons.Material.Filled.PlayArrow;
-        if (t.Contains("comic") || t.Contains("cbz"))   return Icons.Material.Filled.MenuBook;
+        if (t.Contains("comic") || t.Contains("cbz"))   return Icons.Material.Filled.AutoStories;
+        if (t.Contains("music"))                         return Icons.Material.Filled.MusicNote;
+        if (t.Contains("podcast"))                       return Icons.Material.Filled.Podcasts;
+        if (t.Contains("tv"))                            return Icons.Material.Filled.Tv;
         return Icons.Material.Filled.MenuBook;
+    }
+
+    /// <summary>Colour for media type badges/indicators. Reusable by PosterCard and hero.</summary>
+    internal static string FormatBadgeColor(string? mediaType)
+    {
+        var label = FormatLabel(mediaType);
+        return label switch
+        {
+            "Book"      => "rgba(37, 99, 235, 0.85)",   // blue
+            "Audiobook" => "rgba(139, 92, 246, 0.85)",  // purple
+            "Movie"     => "rgba(0, 191, 165, 0.85)",   // teal
+            "Video"     => "rgba(0, 191, 165, 0.85)",   // teal
+            "Comic"     => "rgba(124, 77, 255, 0.85)",  // violet
+            _           => "rgba(37, 99, 235, 0.85)",   // blue default
+        };
     }
 
     internal static string? Truncate(string? text, int maxLength)

@@ -4,6 +4,7 @@
 @inject DeviceContextService    DeviceContext
 @inject NavigationManager       Nav
 @inject IWebHostEnvironment     Env
+@inject IPhraseTemplateService  Phrases
 @implements IDisposable
 
 <PageTitle>Tuvima Library</PageTitle>
@@ -188,11 +189,50 @@ else
         get
         {
             if (_useJourneyCarousel && _carouselIndex < _journeyItems.Count)
-                return HeroData.FromJourney(_journeyItems[_carouselIndex]);
+            {
+                var item = _journeyItems[_carouselIndex];
+                var data = HeroData.FromJourney(item);
+                var phrase = ResolveHeroPhrase(data);
+                return data with { Subtitle = phrase };
+            }
             if (_carouselHubs.Count > 0 && _carouselIndex < _carouselHubs.Count)
-                return HeroData.FromHub(_carouselHubs[_carouselIndex]);
+            {
+                var data = HeroData.FromHub(_carouselHubs[_carouselIndex]);
+                var phrase = ResolveHeroPhrase(data);
+                return data with { Subtitle = phrase };
+            }
             return null;
         }
+    }
+
+    private string? ResolveHeroPhrase(HeroData data)
+    {
+        var hasProgress = data.ProgressPct is > 0;
+        var isCompleted = data.ProgressPct is >= 99.5;
+
+        var slot = isCompleted
+            ? PhraseSlot.HeroCompleted
+            : hasProgress
+                ? (!string.IsNullOrEmpty(data.Series) ? PhraseSlot.HeroJourneySeries : PhraseSlot.HeroJourneyStandalone)
+                : !string.IsNullOrEmpty(data.Series)
+                    ? PhraseSlot.HeroDiscoverSeries
+                    : !string.IsNullOrEmpty(data.Author)
+                        ? PhraseSlot.HeroDiscoverAuthor
+                        : PhraseSlot.HeroDiscoverStandalone;
+
+        var ctx = new PhraseContext
+        {
+            EntityId = data.EntityId,
+            Title = data.Title,
+            Author = data.Author,
+            Series = data.Series,
+            Genre = data.Genre,
+            MediaType = data.MediaTypeLabel,
+            ProgressPct = data.ProgressPct,
+        };
+
+        var phrase = Phrases.Resolve(slot, ctx);
+        return string.IsNullOrEmpty(phrase.Text) ? null : phrase.Text;
     }
 
     protected override async Task OnInitializedAsync()

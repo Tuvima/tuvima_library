@@ -2,6 +2,7 @@ using MudBlazor.Services;
 using MediaEngine.Web.Components;
 using MediaEngine.Web.Services.Integration;
 using MediaEngine.Web.Services.Theming;
+using MediaEngine.Web.Services.Narration;
 using Microsoft.AspNetCore.Localization;
 using System.Globalization;
 
@@ -41,6 +42,10 @@ builder.Services.AddMudServices();
 // ── Theming ───────────────────────────────────────────────────────────────────
 // Singleton: dark-mode-only theme shared across all connections.
 builder.Services.AddSingleton<ThemeService>();
+
+// ── Narration ─────────────────────────────────────────────────────────────────
+// Singleton: config-driven phrase templates for hero subtitles and section headings.
+builder.Services.AddSingleton<IPhraseTemplateService, PhraseTemplateService>();
 
 // ── Engine API HTTP Client ────────────────────────────────────────────────────
 // TUVIMA_ENGINE_URL: override the Engine address — essential for Docker where

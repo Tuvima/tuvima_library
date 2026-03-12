@@ -45,6 +45,16 @@
                 <img src="@Data.CoverUrl"
                      alt="@Data.Title"
                      class="hero-mobile-cover" />
+
+                @* Subtle media type icon — visible on mobile only *@
+                @if (!string.IsNullOrEmpty(Data.MediaTypeLabel))
+                {
+                    <div class="hero-mobile-type-icon"
+                         style="background: @(HeroData.FormatBadgeColor(Data.MediaTypeLabel))">
+                        <MudIcon Icon="@(HeroData.IconForMediaType(Data.MediaTypeLabel))"
+                                 Style="font-size: 0.85rem; color: white;" />
+                    </div>
+                }
             </div>
         }
 
@@ -119,7 +129,10 @@
     .hero-content     { grid-area: hero; }
 
     /* Mobile cover occupies the same grid cell */
-    .hero-mobile-cover-wrapper { grid-area: hero; display: none; }
+    .hero-mobile-cover-wrapper { grid-area: hero; display: none; position: relative; }
+
+    /* Media type icon — hidden on desktop, shown on mobile */
+    .hero-mobile-type-icon { display: none; }
 
     /* ── Content layer ──────────────────────────────────────────────────── */
     .hero-content {
@@ -273,6 +286,23 @@
             padding: 72px 0 16px 0;
             z-index: 2;
             grid-area: hero-visual;
+            position: relative;
+        }
+
+        .hero-portrait .hero-mobile-type-icon {
+            display: flex;
+            position: absolute;
+            bottom: 24px;
+            right: calc(50% - 170px + 12px); /* align to cover right edge */
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+            z-index: 3;
         }
 
         .hero-portrait .hero-content {
@@ -323,23 +353,26 @@
             flex-direction: column;
         }
 
-        /* Reorder: CTA → Title → Badges (subtitle, author, description hidden) */
+        /* Reorder: CTA → Phrase → Title (badges, author, description hidden) */
         .hero-portrait .hub-primary-cta {
             order: 1;
             margin-top: 0 !important;
             margin-bottom: 12px;
         }
 
-        .hero-portrait .hero-title {
+        .hero-portrait .hero-subtitle-label {
             order: 2;
+            font-size: 0.72rem;
+            color: rgba(255, 255, 255, 0.60);
+            margin-bottom: 4px;
         }
 
-        .hero-portrait .hero-badges {
+        .hero-portrait .hero-title {
             order: 3;
         }
 
         /* Hide these on mobile portrait to keep it compact */
-        .hero-portrait .hero-subtitle-label,
+        .hero-portrait .hero-badges,
         .hero-portrait .hero-author,
         .hero-portrait .hero-narrator,
         .hero-portrait .hero-description {

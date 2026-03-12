@@ -7,6 +7,7 @@
 @inject UniverseStateContainer  State
 @inject DeviceContextService    DeviceContext
 @inject NavigationManager       Nav
+@inject IPhraseTemplateService  Phrases
 @implements IDisposable
 
 @using MediaEngine.Web.Models.ViewDTOs
@@ -42,6 +43,7 @@ else
         var heroData = _heroJourney is not null
             ? HeroData.FromHubWithJourney(_heroHub, _heroJourney)
             : HeroData.FromHub(_heroHub);
+        heroData = heroData with { Subtitle = ResolveHeroPhrase(heroData) };
         <HubHero Data="@heroData"
                  Visible="true"
                  OnClicked="@(() => Nav.NavigateTo($"/hub/{_heroHub.Id}"))"
@@ -498,6 +500,36 @@ else
         "comics"   => "Your comics and manga will appear here. Drop CBZ or CBR files into your Watch Folder.",
         _          => "Content will appear here once it's been added to your library.",
     };
+
+    private string? ResolveHeroPhrase(HeroData data)
+    {
+        var hasProgress = data.ProgressPct is > 0;
+        var isCompleted = data.ProgressPct is >= 99.5;
+
+        var slot = isCompleted
+            ? PhraseSlot.HeroCompleted
+            : hasProgress
+                ? (!string.IsNullOrEmpty(data.Series) ? PhraseSlot.HeroJourneySeries : PhraseSlot.HeroJourneyStandalone)
+                : !string.IsNullOrEmpty(data.Series)
+                    ? PhraseSlot.HeroDiscoverSeries
+                    : !string.IsNullOrEmpty(data.Author)
+                        ? PhraseSlot.HeroDiscoverAuthor
+                        : PhraseSlot.HeroDiscoverStandalone;
+
+        var ctx = new PhraseContext
+        {
+            EntityId = data.EntityId,
+            Title = data.Title,
+            Author = data.Author,
+            Series = data.Series,
+            Genre = data.Genre,
+            MediaType = data.MediaTypeLabel,
+            ProgressPct = data.ProgressPct,
+        };
+
+        var phrase = Phrases.Resolve(slot, ctx);
+        return string.IsNullOrEmpty(phrase.Text) ? null : phrase.Text;
+    }
 
     public void Dispose()
     {

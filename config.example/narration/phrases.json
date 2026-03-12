@@ -1,0 +1,83 @@
+{
+  "schema_version": "1.0",
+  "slots": {
+    "HeroJourneySeries": [
+      "Your journey through {Series} continues",
+      "Welcome back to {Series}",
+      "The {Series} saga awaits",
+      "{Series} has more in store",
+      "Return to the world of {Series}"
+    ],
+    "HeroJourneyStandalone": [
+      "Pick up where you left off",
+      "Your story continues",
+      "Welcome back",
+      "Ready when you are",
+      "Let's continue"
+    ],
+    "HeroDiscoverSeries": [
+      "Begin your {Series} journey",
+      "Step into the world of {Series}",
+      "Discover {Series}",
+      "{Series} awaits",
+      "A new chapter in {Series}"
+    ],
+    "HeroDiscoverStandalone": [
+      "Ready to discover something new?",
+      "Your next favorite starts here",
+      "Waiting to be discovered",
+      "A fresh story awaits",
+      "Something new for your collection"
+    ],
+    "HeroDiscoverAuthor": [
+      "A tale from {Author}",
+      "From the mind of {Author}",
+      "Discover {Author}",
+      "New from {Author}",
+      "{Author} invites you in"
+    ],
+    "HeroCompleted": [
+      "A journey well traveled",
+      "One for the collection",
+      "Another chapter closed",
+      "Mission accomplished",
+      "A story complete"
+    ],
+    "SwimlaneRecentlyAdded": [
+      "Fresh off the shelf",
+      "Just arrived",
+      "New in your library",
+      "{Count} new arrivals"
+    ],
+    "SwimlaneContinue": [
+      "Pick up where you left off",
+      "Your stories await",
+      "Continue your journey"
+    ],
+    "SwimlaneByPerson": [
+      "More from {Author}",
+      "The world of {Author}",
+      "Also by {Author}"
+    ],
+    "SwimlaneByGenre": [
+      "Dive into {Genre}",
+      "Explore {Genre}",
+      "Your {Genre} collection"
+    ],
+    "SwimlaneBySeries": [
+      "Next in {Series}",
+      "The {Series} saga",
+      "More from {Series}"
+    ],
+    "WelcomeGreeting": [
+      "Welcome back",
+      "Good to see you",
+      "Your library awaits"
+    ],
+    "EmptyState": [
+      "Your library is waiting to be filled",
+      "Drop some files in to get started",
+      "An empty shelf is full of possibilities"
+    ]
+  }
+}
