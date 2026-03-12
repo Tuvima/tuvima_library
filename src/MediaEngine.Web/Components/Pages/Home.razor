@@ -84,9 +84,10 @@ else
                 @if (_useJourneyCarousel)
                 {
                     var item = _journeyItems[_carouselIndex];
-                    <div class="hero-bleed-wrapper-standalone"
-                         @onclick="() => HandleResumeClicked(item)">
-                        <JourneyHero Item="@item" OnResumeClicked="HandleResumeClicked" />
+                    <div class="hero-bleed-wrapper-standalone">
+                        <JourneyHero Item="@item"
+                                     OnHubNavigate="HandleJourneyHubNavigate"
+                                     OnPlay="HandleJourneyPlay" />
                     </div>
                 }
                 else
@@ -408,10 +409,30 @@ else
         Nav.NavigateTo($"/hub/{hub.Id}");
     }
 
-    private void HandleResumeClicked(JourneyItemViewModel item)
+    /// <summary>Cover or title clicked — open Hub Detail with progress context.</summary>
+    private void HandleJourneyHubNavigate(JourneyItemViewModel item)
     {
         if (item.HubId.HasValue)
-            Nav.NavigateTo($"/hub/{item.HubId.Value}");
+            Nav.NavigateTo($"/hub/{item.HubId.Value}?lastAssetId={item.AssetId}");
+    }
+
+    /// <summary>CTA button clicked — go directly to the reader/player for this asset.</summary>
+    private void HandleJourneyPlay(JourneyItemViewModel item)
+    {
+        var t = item.MediaType.ToLowerInvariant();
+
+        if (t.Contains("epub") || t.Contains("book"))
+        {
+            // Navigate directly into the EPUB reader
+            var url = $"/read/{item.AssetId}";
+            if (item.HubId.HasValue) url += $"?returnHubId={item.HubId.Value}";
+            Nav.NavigateTo(url);
+        }
+        else if (item.HubId.HasValue)
+        {
+            // Audio, video, comics — no dedicated player yet; open hub detail with asset context
+            Nav.NavigateTo($"/hub/{item.HubId.Value}?lastAssetId={item.AssetId}");
+        }
     }
 
     // ── Seed library (dev only) ───────────────────────────────────────────────

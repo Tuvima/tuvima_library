@@ -8,7 +8,7 @@
 
 @if (Item is not null)
 {
-    <div class="journey-hero" @onclick="OnClick">
+    <div class="journey-hero">
 
         @* ── Full-bleed backdrop: bleeds to 100vw via absolute positioning.
                Kept separate from content so content aligns with the page container. ── *@
@@ -29,8 +29,10 @@
         @* ── Two-panel content — aligned with swimlanes via standard 88px dock clearance ── *@
         <div class="journey-hero-content">
 
-            @* Left: crisp cover poster *@
-            <div class="journey-hero-poster">
+            @* Left: cover poster — clicking navigates to Hub Detail *@
+            <div class="journey-hero-poster"
+                 @onclick="OnHubClick"
+                 title="View @Item.Title">
                 @if (!string.IsNullOrEmpty(Item.CoverUrl))
                 {
                     <img src="@Item.CoverUrl"
@@ -46,7 +48,7 @@
                 }
             </div>
 
-            @* Right: metadata + progress *@
+            @* Right: metadata + action *@
             <div class="journey-hero-info">
 
                 @* Hub name subtitle *@
@@ -55,7 +57,9 @@
                     <span class="journey-hero-hub">@Item.HubDisplayName</span>
                 }
 
-                <h2 class="journey-hero-title">@Item.Title</h2>
+                @* Title — clicking navigates to Hub Detail *@
+                <h2 class="journey-hero-title journey-hub-link"
+                    @onclick="OnHubClick">@Item.Title</h2>
 
                 @* Author / narrator *@
                 @if (!string.IsNullOrEmpty(Item.Author))
@@ -78,10 +82,9 @@
                     }
                 </div>
 
-                @* Action button with built-in progress stripe — matches HubDetail CTA *@
+                @* Action button — invokes the player/reader directly, NOT hub detail *@
                 <button class="hub-primary-cta" style="align-self: flex-start; margin-bottom: 12px;"
-                        @onclick:stopPropagation="true"
-                        @onclick="OnClick">
+                        @onclick="OnPlayClick">
                     <div class="hub-primary-cta-inner">
                         <MudIcon Icon="@GetActionIcon()"
                                  Style="font-size: 1.2rem; color: #1a1208; flex-shrink:0;" />
@@ -106,12 +109,23 @@
 
 @code {
     [Parameter] public JourneyItemViewModel? Item { get; set; }
-    [Parameter] public EventCallback<JourneyItemViewModel> OnResumeClicked { get; set; }
 
-    private async Task OnClick()
+    /// <summary>Fired when the user clicks the cover art or title — navigates to Hub Detail.</summary>
+    [Parameter] public EventCallback<JourneyItemViewModel> OnHubNavigate { get; set; }
+
+    /// <summary>Fired when the user clicks the CTA button — opens the reader/player directly.</summary>
+    [Parameter] public EventCallback<JourneyItemViewModel> OnPlay { get; set; }
+
+    private async Task OnHubClick()
     {
         if (Item is not null)
-            await OnResumeClicked.InvokeAsync(Item);
+            await OnHubNavigate.InvokeAsync(Item);
+    }
+
+    private async Task OnPlayClick()
+    {
+        if (Item is not null)
+            await OnPlay.InvokeAsync(Item);
     }
 
     private string GetMediaIcon()
@@ -141,7 +155,6 @@
     .journey-hero {
         position: relative;
         /* overflow: visible — backdrop bleeds to 100vw via absolute positioning */
-        cursor: pointer;
         min-height: 440px;
         background: #0A0A0A;
     }
@@ -202,9 +215,10 @@
         box-sizing: border-box;
     }
 
-    /* ── Left: cover poster ──────────────────────────────────────────── */
+    /* ── Left: cover poster (clickable → Hub Detail) ────────────────── */
     .journey-hero-poster {
         flex-shrink: 0;
+        cursor: pointer;
     }
 
     .journey-hero-cover {
@@ -213,6 +227,12 @@
         object-fit: cover;
         border-radius: 8px;
         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.60);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .journey-hero-poster:hover .journey-hero-cover {
+        transform: translateY(-3px);
+        box-shadow: 0 14px 40px rgba(0, 0, 0, 0.70);
     }
 
     .journey-hero-cover-placeholder {
@@ -223,6 +243,17 @@
         display: flex;
         align-items: center;
         justify-content: center;
+    }
+
+    /* ── Title link (clickable → Hub Detail) ─────────────────────────── */
+    .journey-hub-link {
+        cursor: pointer;
+    }
+
+    .journey-hub-link:hover {
+        text-decoration: underline;
+        text-underline-offset: 3px;
+        text-decoration-color: rgba(255,255,255,0.35);
     }
 
     /* ── Right: metadata + progress ──────────────────────────────────── */
