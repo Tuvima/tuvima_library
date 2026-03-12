@@ -40,7 +40,7 @@
         @* ── Mobile cover — large prominent cover for portrait media on mobile ── *@
         @if (Data.IsPortraitMedia && !string.IsNullOrEmpty(Data.CoverUrl))
         {
-            <div class="hero-mobile-cover-wrapper">
+            <div class="hero-mobile-cover-wrapper" @onclick="HandleClick">
                 <img src="@Data.CoverUrl"
                      alt="@Data.Title"
                      class="hero-mobile-cover" />
@@ -124,8 +124,9 @@
         position: relative;
     }
 
-    /* Only the poster and title are clickable */
-    .hero-poster {
+    /* Only the poster, mobile cover, and title are clickable */
+    .hero-poster,
+    .hero-mobile-cover-wrapper {
         cursor: pointer;
     }
 
@@ -150,11 +151,11 @@
         z-index: 3;
     }
 
-    /* ── Full-bleed wrapper — escapes MudContainer, stops at dock edge ── */
+    /* ── Full-bleed wrapper — escapes MudContainer, extends behind sidebar ── */
     .hero-bleed {
-        width: calc(100vw - 68px);
+        width: 100vw;
         position: relative;
-        margin-left: calc(50% - 50vw + 68px);
+        margin-left: calc(50% - 50vw);
     }
 
     /* ── Backdrop container ─────────────────────────────────────────────── */
@@ -263,12 +264,6 @@
 
         .hero-banner {
             min-height: unset;
-        }
-
-        /* Restore full-bleed on mobile (no dock) */
-        .hero-bleed {
-            width: 100vw;
-            margin-left: calc(50% - 50vw);
         }
 
         .hero-content {
