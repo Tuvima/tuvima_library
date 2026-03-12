@@ -9,7 +9,6 @@
 @if (Visible && Data is not null)
 {
     <div class="hero-banner @(Data.IsPortraitMedia ? "hero-portrait" : "hero-landscape")"
-         @onclick="HandleClick"
          style="@AmbientStyle">
 
         @* ── Background layer — full-bleed cinematic backdrop ── *@
@@ -68,10 +67,11 @@
                     {
                         <img src="@Data.CoverUrl"
                              alt="@Data.Title"
-                             class="hero-poster" />
+                             class="hero-poster"
+                             @onclick="HandleClick" />
                     }
                     <div class="hero-text">
-                        <HubHeroText Data="@Data" OnCtaClicked="@OnCtaClicked" />
+                        <HubHeroText Data="@Data" OnCtaClicked="@OnCtaClicked" OnClicked="@OnClicked" />
                     </div>
                 </div>
             }
@@ -79,7 +79,7 @@
             {
                 @* Landscape layout: text only *@
                 <div class="hero-text">
-                    <HubHeroText Data="@Data" OnCtaClicked="@OnCtaClicked" />
+                    <HubHeroText Data="@Data" OnCtaClicked="@OnCtaClicked" OnClicked="@OnClicked" />
                 </div>
             }
         </div>
@@ -121,8 +121,12 @@
         grid-template-areas: "hero";
         margin-top: -88px;           /* Negate TopBar (64px) + container padding (24px) */
         margin-bottom: 1.25rem;
-        cursor: pointer;
         position: relative;
+    }
+
+    /* Only the poster and title are clickable */
+    .hero-poster {
+        cursor: pointer;
     }
 
     .hero-banner-bg   { grid-area: hero; }
@@ -163,8 +167,8 @@
         background: #060A16;
         /* Aspect-ratio driven sizing — scales with viewport, prevents clipping */
         aspect-ratio: 21 / 9;
-        max-height: clamp(580px, 42vw, 820px);
-        min-height: clamp(360px, 28vw, 500px);
+        max-height: clamp(520px, 34vw, 680px);
+        min-height: clamp(320px, 24vw, 460px);
     }
 
     /* ── Pre-rendered hero.jpg ──────────────────────────────────────────── */

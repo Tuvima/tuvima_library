@@ -843,7 +843,7 @@
         var returnUrl = ReturnHubId.HasValue
             ? $"/hub/{ReturnHubId.Value}?lastAssetId={AssetId}"
             : "/";
-        Nav.NavigateTo(returnUrl);
+        Nav.NavigateTo(returnUrl, replace: true);
     }
 
     private static string FormatDuration(long totalSeconds)

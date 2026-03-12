@@ -10,7 +10,7 @@
     <p class="hero-subtitle-label">@Data.Subtitle</p>
 }
 
-<h2 class="hero-title">@Data?.Title</h2>
+<h2 class="hero-title" @onclick="HandleClick" style="cursor: pointer;">@Data?.Title</h2>
 
 <div class="hero-badges">
     @if (!string.IsNullOrEmpty(Data?.Year))
@@ -77,6 +77,13 @@
 @code {
     [Parameter] public HeroData? Data { get; set; }
     [Parameter] public EventCallback OnCtaClicked { get; set; }
+    [Parameter] public EventCallback OnClicked { get; set; }
+
+    private async Task HandleClick()
+    {
+        if (OnClicked.HasDelegate)
+            await OnClicked.InvokeAsync();
+    }
 
     private async Task HandleCtaClick()
     {
