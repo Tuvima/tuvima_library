@@ -127,52 +127,7 @@ body {
     background: rgba(255, 255, 255, 0.03) !important;
 }
 
-/* ── Hero grid overlay (shared by Home + lane pages) ────────────────── */
-/* Two children share the same grid area:                                */
-/*  • hero-stack-bg  — full-bleed visual background                     */
-/*  • hero-stack-text — text in normal container flow                   */
-
-.hero-stack {
-    display: grid;
-    grid-template-areas: "hero";
-    /* Negate MudContainer's top padding (py-6 = 24px) + TopBar (64px) */
-    margin-top: -88px;
-    margin-bottom: 2.5rem;
-    cursor: pointer;
-}
-
-.hero-stack-bg { grid-area: hero; }
-
-.hero-stack-text {
-    grid-area: hero;
-    align-self: stretch;        /* fills full hero height */
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-end;
-    align-items: flex-start;
-    /* 88px left = .swimlane-section padding-left — guarantees column alignment */
-    padding: 0 2.5rem 2.5rem 88px;
-    position: relative;
-    z-index: 3;
-}
-
-/* Full-bleed wrapper — escapes MudContainer to reach viewport edges */
-.hero-bleed-wrapper {
-    width: 100vw;
-    position: relative;
-    margin-left: calc(50% - 50vw);
-}
-
-/* JourneyHero standalone wrapper — bleeds under navbar only.
-   Width is intentionally NOT 100vw. The full-bleed background lives inside
-   JourneyHero as .journey-hero-backdrop so content aligns with the page container. */
-.hero-bleed-wrapper-standalone {
-    position: relative;
-    margin-top: -88px;
-    margin-bottom: 2.5rem;
-}
-
-/* ── Shared primary CTA button — used by HubDetail + JourneyHero ──── */
+/* ── Shared primary CTA button — used by HubHero + HubDetail ──────── */
 .hub-primary-cta {
     position: relative;
     display: flex;
@@ -220,16 +175,6 @@ body {
     transition: width 0.4s ease;
 }
 
-@media (max-width: 768px) {
-    .hero-stack {
-        min-height: 240px;
-    }
-
-    .hero-stack-text {
-        padding: 0 1.5rem 1.5rem 0;
-    }
-}
-
 /* ── Page ambient background — dominant colour radiates from hero across full viewport ── */
 /* Fixed behind all content, uses the hero hub's dominant hex colour as a soft top glow.  */
 .page-ambient-bg {
@@ -245,40 +190,6 @@ body {
     opacity: 0.14;
     transition: opacity 0.6s ease;
 }
-
-/* ── Hero cover art — book cover shown beside title text in hero banner ── */
-.hero-content-layout {
-    display: flex;
-    align-items: flex-end;
-    gap: 28px;
-    padding-bottom: 2.5rem;
-    max-width: 900px;
-    width: 100%;
-}
-
-.hero-text-block {
-    flex: 1;
-    min-width: 0;
-}
-
-.hero-cover-art {
-    align-self: stretch;
-    width: auto;
-    max-width: 220px;
-    object-fit: contain;
-    object-position: bottom center;
-    border-radius: 10px;
-    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.75),
-                0 4px 12px rgba(0, 0, 0, 0.50);
-    flex-shrink: 0;
-    pointer-events: none;
-}
-
-@media (max-width: 768px) {
-    .hero-content-layout { gap: 16px; padding-bottom: 1.25rem; }
-    .hero-cover-art { max-width: 100px; border-radius: 7px; }
-}
-
 
 /* ── Blazor error boundary ───────────────────────────────────────────── */
 .blazor-error-boundary {

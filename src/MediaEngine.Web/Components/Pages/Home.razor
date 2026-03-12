@@ -81,145 +81,10 @@ else
 
             @* ── Active slide — @key forces DOM recreation → CSS fade triggers ── *@
             <div class="hero-carousel-slide" @key="_carouselIndex">
-                @if (_useJourneyCarousel)
-                {
-                    var item = _journeyItems[_carouselIndex];
-
-                    @* Journey slide: identical hero-stack layout, backdrop rendered directly from item data *@
-                    <div class="hero-stack" @onclick="@(() => HandleJourneyHubNavigate(item))">
-
-                        @* Layer 1: Visual background — full-bleed, from item's own cover/hero art *@
-                        <div class="hero-stack-bg">
-                            <div class="hero-bleed-wrapper">
-                                <div class="hero-cinema hero-cinema-desktop hero-bg-only">
-                                    @if (!string.IsNullOrEmpty(item.HeroUrl))
-                                    {
-                                        <img src="@item.HeroUrl" alt="" class="hero-cinema-bg-prerendered" />
-                                    }
-                                    else if (!string.IsNullOrEmpty(item.CoverUrl))
-                                    {
-                                        <img src="@item.CoverUrl" alt="" class="hero-cinema-bg" />
-                                    }
-                                    @if (string.IsNullOrEmpty(item.HeroUrl))
-                                    {
-                                        <div class="hero-cinema-vignette" />
-                                    }
-                                    @if (string.IsNullOrEmpty(item.HeroUrl) && string.IsNullOrEmpty(item.CoverUrl))
-                                    {
-                                        <div class="hero-cinema-gradient" />
-                                    }
-                                </div>
-                            </div>
-                        </div>
-
-                        @* Layer 2: Text + CTA — flat children in hero-stack-text (column layout from CSS) *@
-                        <div class="hero-stack-text">
-                            <h2 class="hero-cinema-title">@item.Title</h2>
-
-                            <div class="hero-cinema-badges">
-                                @if (!string.IsNullOrEmpty(item.FormatMediaType))
-                                {
-                                    <span class="hero-badge">@item.FormatMediaType</span>
-                                }
-                                @if (!string.IsNullOrEmpty(item.Series))
-                                {
-                                    <span class="hero-badge">@item.Series@(!string.IsNullOrEmpty(item.SeriesPosition) ? $" #{item.SeriesPosition}" : "")</span>
-                                }
-                            </div>
-
-                            @if (!string.IsNullOrEmpty(item.Author))
-                            {
-                                <p class="hero-cinema-subtitle">@item.Author</p>
-                            }
-                            @if (!string.IsNullOrEmpty(item.Narrator) && item.Narrator != item.Author)
-                            {
-                                <p class="hero-cinema-series">Narrated by @item.Narrator</p>
-                            }
-                            @if (!string.IsNullOrEmpty(item.Description))
-                            {
-                                <p class="hero-cinema-description">@HeroTruncate(item.Description, 200)</p>
-                            }
-
-                            @* CTA button — stopPropagation so the outer hero-stack click doesn't also fire *@
-                            <button class="hub-primary-cta"
-                                    @onclick="@(() => HandleJourneyPlay(item))"
-                                    @onclick:stopPropagation="true"
-                                    style="margin-top: 16px;">
-                                <div class="hub-primary-cta-inner">
-                                    <MudIcon Icon="@GetJourneyIcon(item)"
-                                             Style="font-size: 1.2rem; color: #1a1208; flex-shrink:0;" />
-                                    <span class="hub-primary-cta-label">@item.ActionLabel</span>
-                                </div>
-                                @if (item.ProgressPct is > 0 and < 99.5)
-                                {
-                                    <div class="hub-primary-cta-progress"
-                                         style="width: @(item.ProgressPct.ToString("F0"))%"></div>
-                                }
-                            </button>
-                        </div>
-
-                    </div>
-                }
-                else
-                {
-                    var hub = _carouselHubs[_carouselIndex];
-                    <div class="hero-stack" @onclick="@(() => HandleHubSelected(hub))">
-
-                        @* Layer 1: Visual background — full-bleed *@
-                        <div class="hero-stack-bg">
-                            <div class="hero-bleed-wrapper">
-                                <HubHero Hub="@hub"
-                                         BackgroundOnly="true"
-                                         Visible="true" />
-                            </div>
-                        </div>
-
-                        @* Layer 2: Text — normal container flow, identical to MediaLanePage hero *@
-                        <div class="hero-stack-text">
-                            <h2 class="hero-cinema-title">@hub.DisplayName</h2>
-
-                            <div class="hero-cinema-badges">
-                                @if (!string.IsNullOrEmpty(hub.Year))
-                                {
-                                    <span class="hero-badge">@hub.Year</span>
-                                }
-                                @if (!string.IsNullOrEmpty(hub.PrimaryMediaType))
-                                {
-                                    <span class="hero-badge">@HeroFormatMediaType(hub.PrimaryMediaType)</span>
-                                }
-                                @if (!string.IsNullOrEmpty(hub.Genre))
-                                {
-                                    @foreach (var genre in hub.Genre.Split(',', ';').Take(2).Select(g => g.Trim()).Where(g => g.Length > 0))
-                                    {
-                                        <span class="hero-badge">@genre</span>
-                                    }
-                                }
-                                @if (!string.IsNullOrEmpty(hub.Rating))
-                                {
-                                    <span class="hero-badge">@hub.Rating</span>
-                                }
-                                @if (hub.WorkCount > 1)
-                                {
-                                    <span class="hero-badge">@hub.WorkCount works</span>
-                                }
-                            </div>
-
-                            @if (!string.IsNullOrEmpty(hub.Series))
-                            {
-                                <p class="hero-cinema-series">@hub.Series</p>
-                            }
-                            @if (!string.IsNullOrEmpty(hub.Author))
-                            {
-                                <p class="hero-cinema-subtitle">@hub.Author</p>
-                            }
-                            @if (!string.IsNullOrEmpty(hub.Description))
-                            {
-                                <p class="hero-cinema-description">@HeroTruncate(hub.Description, 200)</p>
-                            }
-                        </div>
-
-                    </div>
-                }
+                <HubHero Data="@CurrentSlideData"
+                         Visible="true"
+                         OnClicked="HandleSlideClick"
+                         OnCtaClicked="HandleSlideCta" />
             </div>
 
             @* ── Navigation controls (only when multiple slides) ── *@
@@ -252,6 +117,9 @@ else
             }
         </div>
     }
+
+    @* ── Mobile filter bar (library dropdown only — no filter chips on Home) ── *@
+    <MobileFilterBar CurrentLane="null" />
 
     @* ── Your Library ── *@
     <PosterSwimlane Title="Your Library"
@@ -312,6 +180,20 @@ else
     private bool _showHero =>
         DeviceContext.Settings.Pages.Home.HubHeroEnabled
         && DeviceContext.Settings.Pages.Home.HubHeroLayout != "hidden";
+
+    // ── Current slide data — bridges carousel index to unified HeroData ──────
+
+    private HeroData? CurrentSlideData
+    {
+        get
+        {
+            if (_useJourneyCarousel && _carouselIndex < _journeyItems.Count)
+                return HeroData.FromJourney(_journeyItems[_carouselIndex]);
+            if (_carouselHubs.Count > 0 && _carouselIndex < _carouselHubs.Count)
+                return HeroData.FromHub(_carouselHubs[_carouselIndex]);
+            return null;
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -433,7 +315,29 @@ else
     private void PauseCarousel()  => _carouselPaused = true;
     private void ResumeCarousel() => _carouselPaused = false;
 
-    // ── Formatting helpers ────────────────────────────────────────────────────
+    // ── Carousel click handlers ──────────────────────────────────────────────
+
+    private void HandleSlideClick()
+    {
+        if (_useJourneyCarousel && _carouselIndex < _journeyItems.Count)
+        {
+            HandleJourneyHubNavigate(_journeyItems[_carouselIndex]);
+        }
+        else if (_carouselHubs.Count > 0 && _carouselIndex < _carouselHubs.Count)
+        {
+            HandleHubSelected(_carouselHubs[_carouselIndex]);
+        }
+    }
+
+    private void HandleSlideCta()
+    {
+        if (_useJourneyCarousel && _carouselIndex < _journeyItems.Count)
+        {
+            HandleJourneyPlay(_journeyItems[_carouselIndex]);
+        }
+    }
+
+    // ── Formatting helpers (swimlane grouping only — hero formatting is in HeroData) ──
 
     private static string FormatMediaType(string mediaType)
     {
@@ -445,29 +349,6 @@ else
         if (t.Contains("comic") || t.Contains("cbz"))   return "Comics";
         if (t.Contains("mkv") || t.Contains("mp4"))     return "Videos";
         return mediaType;
-    }
-
-    private static string HeroFormatMediaType(string mediaType)
-    {
-        var t = mediaType.ToLowerInvariant();
-        if (t.Contains("epub"))                          return "Book";
-        if (t.Contains("m4b") || t.Contains("audio"))   return "Audiobook";
-        if (t.Contains("book"))                          return "Book";
-        if (t.Contains("video") || t.Contains("movie")) return "Movie";
-        if (t.Contains("comic") || t.Contains("cbz"))   return "Comic";
-        if (t.Contains("mkv") || t.Contains("mp4"))     return "Video";
-        return mediaType;
-    }
-
-    private static string HeroTruncate(string text, int maxLength) =>
-        text.Length <= maxLength ? text : text[..maxLength].TrimEnd() + "…";
-
-    private static string GetJourneyIcon(JourneyItemViewModel item)
-    {
-        var t = (item.MediaType ?? "").ToLowerInvariant();
-        if (t.Contains("audio"))                          return Icons.Material.Filled.Headphones;
-        if (t.Contains("video") || t.Contains("movie"))  return Icons.Material.Filled.PlayArrow;
-        return Icons.Material.Filled.MenuBook;
     }
 
     // ── Hub selection ─────────────────────────────────────────────────────────

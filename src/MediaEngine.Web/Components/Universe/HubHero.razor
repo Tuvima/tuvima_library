@@ -1,172 +1,173 @@
 @namespace MediaEngine.Web.Components.Universe
 
-@using MediaEngine.Web.Services.Integration
+@using MediaEngine.Web.Models.ViewDTOs
 
-@* Cinematic Hero Banner — Single full-width banner with blurred cover art backdrop.
-   Displays the primary Hub with dark vignette overlay and metadata badges.
-   Gracefully falls back to a gradient when no cover art is available. *@
+@* Unified Hero Banner — Renders a cinematic hero for any media type.
+   Portrait media (Books/Comics/Audiobooks): foreground cover + text on desktop, Netflix-style on mobile.
+   Landscape media (Movies/TV): full-bleed cinematic backdrop on both desktop and mobile. *@
 
-@if (Visible && Hub is not null)
+@if (Visible && Data is not null)
 {
-    <div class="hero-cinema @SizeClass @(BackgroundOnly ? "hero-bg-only" : "")" @onclick="OnClick">
+    <div class="hero-banner @(Data.IsPortraitMedia ? "hero-portrait" : "hero-landscape")"
+         @onclick="HandleClick"
+         style="@AmbientStyle">
 
-        @* ── Pre-rendered hero banner (server-generated) or CSS-blurred cover fallback ── *@
-        @if (!string.IsNullOrEmpty(Hub.HeroUrl))
-        {
-            <img src="@Hub.HeroUrl"
-                 alt=""
-                 class="hero-cinema-bg-prerendered" />
-        }
-        else if (!string.IsNullOrEmpty(Hub.CoverUrl))
-        {
-            <img src="@Hub.CoverUrl"
-                 alt=""
-                 class="hero-cinema-bg" />
-        }
-
-        @* ── Dark vignette overlay (only needed for CSS-blurred fallback) ── *@
-        @if (string.IsNullOrEmpty(Hub.HeroUrl))
-        {
-            <div class="hero-cinema-vignette" />
-        }
-
-        @* ── Accent colour fallback gradient (when no cover art at all) ── *@
-        @if (string.IsNullOrEmpty(Hub.HeroUrl) && string.IsNullOrEmpty(Hub.CoverUrl))
-        {
-            <div class="hero-cinema-gradient" style="--hero-accent: @(Hub.DominantHexColor ?? "#C9922E");" />
-        }
-
-        @* ── Content at bottom-left (skipped when used as background-only layer) ── *@
-        @if (!BackgroundOnly)
-        {
-            <div class="hero-cinema-content">
-                <h2 class="hero-cinema-title">@Hub.DisplayName</h2>
-
-                @* Metadata badges *@
-                <div class="hero-cinema-badges">
-                    @if (!string.IsNullOrEmpty(Hub.Year))
+        @* ── Background layer — full-bleed cinematic backdrop ── *@
+        <div class="hero-banner-bg">
+            <div class="hero-bleed">
+                <div class="hero-backdrop">
+                    @if (!string.IsNullOrEmpty(Data.HeroUrl))
                     {
-                        <span class="hero-badge">@Hub.Year</span>
+                        <img src="@Data.HeroUrl" alt="" class="hero-bg-prerendered" />
                     }
-                    @if (!string.IsNullOrEmpty(Hub.PrimaryMediaType))
+                    else if (!string.IsNullOrEmpty(Data.CoverUrl))
                     {
-                        <span class="hero-badge">@FormatMediaType(Hub.PrimaryMediaType)</span>
+                        <img src="@Data.CoverUrl" alt="" class="hero-bg-blurred" />
                     }
-                    @if (!string.IsNullOrEmpty(Hub.Genre))
+
+                    @* Vignette — always rendered for text readability *@
+                    <div class="hero-vignette" />
+
+                    @* Gradient fallback when no art at all *@
+                    @if (string.IsNullOrEmpty(Data.HeroUrl) && string.IsNullOrEmpty(Data.CoverUrl))
                     {
-                        @foreach (var genre in Hub.Genre.Split(',', ';').Take(2).Select(g => g.Trim()).Where(g => g.Length > 0))
-                        {
-                            <span class="hero-badge">@genre</span>
-                        }
-                    }
-                    @if (!string.IsNullOrEmpty(Hub.Rating))
-                    {
-                        <span class="hero-badge">@Hub.Rating</span>
-                    }
-                    @if (Hub.WorkCount > 1)
-                    {
-                        <span class="hero-badge">@Hub.WorkCount works</span>
+                        <div class="hero-gradient"
+                             style="--hero-accent: @(Data.DominantColor ?? "#C9922E");" />
                     }
                 </div>
+            </div>
+        </div>
 
-                @* Series info *@
-                @if (!string.IsNullOrEmpty(Hub.Series))
-                {
-                    <p class="hero-cinema-series">@Hub.Series</p>
-                }
-
-                @* Author/creator *@
-                @if (!string.IsNullOrEmpty(Hub.Author))
-                {
-                    <p class="hero-cinema-subtitle">@Hub.Author</p>
-                }
-
-                @* Description *@
-                @if (!string.IsNullOrEmpty(Hub.Description))
-                {
-                    <p class="hero-cinema-description">@Truncate(Hub.Description, 200)</p>
-                }
+        @* ── Mobile cover — large prominent cover for portrait media on mobile ── *@
+        @if (Data.IsPortraitMedia && !string.IsNullOrEmpty(Data.CoverUrl))
+        {
+            <div class="hero-mobile-cover-wrapper">
+                <img src="@Data.CoverUrl"
+                     alt="@Data.Title"
+                     class="hero-mobile-cover" />
             </div>
         }
+
+        @* ── Content layer — text, badges, CTA ── *@
+        <div class="hero-content">
+            @if (Data.IsPortraitMedia)
+            {
+                @* Portrait layout: cover + text side by side on desktop *@
+                <div class="hero-content-row">
+                    @if (!string.IsNullOrEmpty(Data.CoverUrl))
+                    {
+                        <img src="@Data.CoverUrl"
+                             alt="@Data.Title"
+                             class="hero-poster" />
+                    }
+                    <div class="hero-text">
+                        <HubHeroText Data="@Data" OnCtaClicked="@OnCtaClicked" />
+                    </div>
+                </div>
+            }
+            else
+            {
+                @* Landscape layout: text only *@
+                <div class="hero-text">
+                    <HubHeroText Data="@Data" OnCtaClicked="@OnCtaClicked" />
+                </div>
+            }
+        </div>
     </div>
 }
 
 @code {
-    [Parameter] public HubViewModel? Hub { get; set; }
+    /// <summary>Unified hero data (use HeroData.FromHub / FromJourney factory methods).</summary>
+    [Parameter] public HeroData? Data { get; set; }
 
     /// <summary>Controls visibility. Driven by device-context hero settings.</summary>
     [Parameter] public bool Visible { get; set; } = true;
 
-    /// <summary>Callback when the hero banner is clicked.</summary>
-    [Parameter] public EventCallback<HubViewModel> OnHubClicked { get; set; }
+    /// <summary>Callback when the hero banner area is clicked.</summary>
+    [Parameter] public EventCallback OnClicked { get; set; }
 
-    /// <summary>
-    /// When true, renders only the visual background layers (image, vignette, gradient).
-    /// Text content is omitted so the caller can place it in normal document flow for alignment.
-    /// </summary>
-    [Parameter] public bool BackgroundOnly { get; set; } = false;
+    /// <summary>Callback when the CTA button is clicked.</summary>
+    [Parameter] public EventCallback OnCtaClicked { get; set; }
 
-    private string SizeClass => "hero-cinema-desktop";
+    private string? AmbientStyle => Data?.DominantColor is not null
+        ? $"--hero-dominant: {Data.DominantColor};"
+        : null;
 
-    private async Task OnClick()
+    private async Task HandleClick()
     {
-        if (!BackgroundOnly && Hub is not null)
-            await OnHubClicked.InvokeAsync(Hub);
-    }
-
-    private static string Truncate(string text, int maxLength) =>
-        text.Length <= maxLength ? text : text[..maxLength].TrimEnd() + "…";
-
-    private static string FormatMediaType(string mediaType)
-    {
-        var t = mediaType.ToLowerInvariant();
-        if (t.Contains("epub") || t.Contains("book"))  return "Book";
-        if (t.Contains("video") || t.Contains("movie")) return "Movie";
-        if (t.Contains("audio") || t.Contains("m4b"))   return "Audiobook";
-        if (t.Contains("comic") || t.Contains("cbz"))   return "Comic";
-        if (t.Contains("mkv") || t.Contains("mp4"))     return "Video";
-        return mediaType;
+        if (OnClicked.HasDelegate)
+            await OnClicked.InvokeAsync();
     }
 }
 
 <style>
-    /* ── Cinematic hero container — full-bleed, no rounded corners ─────── */
-    .hero-cinema {
-        position: relative;
-        border-radius: 0;
-        overflow: hidden;
+    /* ══════════════════════════════════════════════════════════════════════
+       UNIFIED HERO BANNER
+       ══════════════════════════════════════════════════════════════════════ */
+
+    /* ── Outer container — grid overlay so bg + content share the same cell ── */
+    .hero-banner {
+        display: grid;
+        grid-template-areas: "hero";
+        margin-top: -88px;           /* Negate TopBar (64px) + container padding (24px) */
+        margin-bottom: 2.5rem;
         cursor: pointer;
-        margin-bottom: 0;
+        position: relative;
+    }
+
+    .hero-banner-bg   { grid-area: hero; }
+    .hero-content     { grid-area: hero; }
+
+    /* Mobile cover occupies the same grid cell */
+    .hero-mobile-cover-wrapper { grid-area: hero; display: none; }
+
+    /* ── Content layer ──────────────────────────────────────────────────── */
+    .hero-content {
+        align-self: stretch;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        align-items: flex-start;
+        padding: 0 2.5rem 2.5rem 88px;   /* 88px = left dock clearance */
+        position: relative;
+        z-index: 3;
+    }
+
+    /* ── Full-bleed wrapper — escapes MudContainer to reach viewport edges ── */
+    .hero-bleed {
+        width: 100vw;
+        position: relative;
+        margin-left: calc(50% - 50vw);
+    }
+
+    /* ── Backdrop container ─────────────────────────────────────────────── */
+    .hero-backdrop {
+        position: relative;
+        overflow: hidden;
+        width: 100%;
         display: flex;
         align-items: flex-end;
         background: #060A16;
-        transition: box-shadow 0.25s ease;
-        width: 100%; /* Fill the 100vw bleed wrapper */
+        /* Aspect-ratio driven sizing — scales with viewport, prevents clipping */
+        aspect-ratio: 21 / 9;
+        max-height: 580px;
+        min-height: 360px;
     }
 
-    /* Background-only mode: no click affordance (click handled by outer wrapper) */
-    .hero-bg-only {
-        cursor: inherit;
-        pointer-events: none;
-    }
-
-    .hero-cinema-desktop {
-        min-height: 520px;
-    }
-
-    /* ── Pre-rendered hero banner (server-generated, no CSS blur needed) ── */
-    .hero-cinema-bg-prerendered {
+    /* ── Pre-rendered hero.jpg ──────────────────────────────────────────── */
+    .hero-bg-prerendered {
         position: absolute;
         inset: 0;
         width: 100%;
         height: 100%;
         object-fit: cover;
+        object-position: center 30%;
         pointer-events: none;
         z-index: 0;
     }
 
-    /* ── Blurred cover art background image (CSS fallback) ────────────── */
-    .hero-cinema-bg {
+    /* ── CSS-blurred cover art fallback ─────────────────────────────────── */
+    .hero-bg-blurred {
         position: absolute;
         inset: -30px;
         width: calc(100% + 60px);
@@ -178,8 +179,8 @@
         z-index: 0;
     }
 
-    /* ── Dark vignette overlay for text readability ─────────────────────── */
-    .hero-cinema-vignette {
+    /* ── Vignette overlay — always rendered for text readability ────────── */
+    .hero-vignette {
         position: absolute;
         inset: 0;
         background: linear-gradient(
@@ -193,8 +194,8 @@
         z-index: 1;
     }
 
-    /* ── Gradient fallback (no cover art) ──────────────────────────────── */
-    .hero-cinema-gradient {
+    /* ── Gradient fallback (no cover art at all) ───────────────────────── */
+    .hero-gradient {
         position: absolute;
         inset: 0;
         background: linear-gradient(
@@ -208,103 +209,174 @@
         z-index: 0;
     }
 
-    /* ── Content overlay (bottom-left) ─────────────────────────────────── */
-    /* Padding is intentionally minimal here — when used in the grid overlay layout
-       (BackgroundOnly=false, standalone use), the text renders over the background.
-       In the primary Home layout, text lives in .hero-stack-text (Home.razor) and
-       this div is not rendered (BackgroundOnly=true). */
-    .hero-cinema-content {
-        position: relative;
-        z-index: 2;
-        padding: 2rem 2.5rem 2.5rem 2rem;
-        width: 100%;
-        max-width: 900px;
-    }
+    /* ══════════════════════════════════════════════════════════════════════
+       PORTRAIT MODE — Books, Comics, Audiobooks (desktop)
+       ══════════════════════════════════════════════════════════════════════ */
 
-    .hero-cinema-title {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 2.4rem;
-        font-weight: 700;
-        color: #ffffff;
-        margin: 0 0 10px 0;
-        line-height: 1.15;
-        text-shadow: 0 2px 12px rgba(0, 0, 0, 0.50);
-    }
-
-    /* ── Metadata badges ───────────────────────────────────────────────── */
-    .hero-cinema-badges {
+    .hero-content-row {
         display: flex;
-        gap: 8px;
-        flex-wrap: wrap;
-        margin-bottom: 10px;
+        align-items: flex-end;
+        gap: 28px;
+        max-width: 900px;
+        width: 100%;
     }
 
-    .hero-badge {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 0.72rem;
-        font-weight: 600;
-        letter-spacing: 0.04em;
-        padding: 4px 10px;
-        border-radius: 6px;
-        background: rgba(255, 255, 255, 0.12);
-        color: rgba(255, 255, 255, 0.85);
-        backdrop-filter: blur(8px);
-        -webkit-backdrop-filter: blur(8px);
-        border: 1px solid rgba(255, 255, 255, 0.10);
-        text-transform: uppercase;
+    .hero-poster {
+        align-self: stretch;
+        width: auto;
+        max-width: 220px;
+        object-fit: contain;
+        object-position: bottom center;
+        border-radius: 10px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        flex-shrink: 0;
+        pointer-events: none;
     }
 
-    .hero-cinema-series {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 0.85rem;
-        font-weight: 500;
-        color: rgba(255, 255, 255, 0.55);
-        margin: 0 0 4px 0;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-        text-shadow: 0 1px 6px rgba(0, 0, 0, 0.40);
+    .hero-text {
+        flex: 1;
+        min-width: 0;
     }
 
-    .hero-cinema-subtitle {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 1rem;
-        font-weight: 400;
-        color: rgba(255, 255, 255, 0.70);
-        margin: 0 0 8px 0;
-        text-shadow: 0 1px 6px rgba(0, 0, 0, 0.40);
-    }
+    /* ══════════════════════════════════════════════════════════════════════
+       MOBILE — Netflix-style hero
+       ══════════════════════════════════════════════════════════════════════ */
 
-    .hero-cinema-description {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 0.88rem;
-        font-weight: 300;
-        line-height: 1.5;
-        color: rgba(255, 255, 255, 0.50);
-        margin: 0;
-        text-shadow: 0 1px 4px rgba(0, 0, 0, 0.30);
-    }
-
-    /* ── Responsive ────────────────────────────────────────────────────── */
     @@media (max-width: 768px) {
-        .hero-cinema-desktop {
-            min-height: 240px;
+
+        .hero-banner {
+            min-height: unset;
         }
 
-        .hero-cinema-content {
-            padding: 1.25rem 1.5rem;
+        .hero-content {
+            padding: 0 1.25rem 1.5rem 1.25rem;
         }
 
-        .hero-cinema-title {
-            font-size: 1.5rem;
+        /* ── Portrait mobile: Framed card — cover + text in separate rows ── */
+
+        .hero-portrait {
+            grid-template-rows: auto auto;
+            grid-template-areas:
+                "hero-visual"
+                "hero-info";
         }
 
-        .hero-cinema-subtitle {
-            font-size: 0.85rem;
+        .hero-portrait .hero-banner-bg {
+            grid-row: 1 / -1;
+            grid-column: 1;
         }
 
-        .hero-badge {
-            font-size: 0.65rem;
-            padding: 3px 8px;
+        .hero-portrait .hero-mobile-cover-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 72px 0 16px 0;
+            z-index: 2;
+            grid-area: hero-visual;
+        }
+
+        .hero-portrait .hero-content {
+            grid-area: hero-info;
+            background: none;
+            padding-top: 0;
+            padding-bottom: 1.5rem;
+        }
+
+        .hero-mobile-cover {
+            width: 90%;
+            max-width: 340px;
+            aspect-ratio: 2 / 3;
+            object-fit: cover;
+            border-radius: 10px;
+            box-shadow: 0 16px 48px rgba(0, 0, 0, 0.7);
+        }
+
+        /* Backdrop extends behind both cover and text rows — forms the coloured "frame". */
+        .hero-portrait .hero-backdrop {
+            aspect-ratio: unset;
+            min-height: unset;
+            max-height: unset;
+            height: 100%;
+        }
+
+        .hero-portrait .hero-bg-prerendered,
+        .hero-portrait .hero-bg-blurred {
+            opacity: 0.35;
+            filter: blur(40px) brightness(0.4) saturate(1.4);
+        }
+
+        /* Vignette — softer edges for the framed card look */
+        .hero-portrait .hero-vignette {
+            background: linear-gradient(
+                to top,
+                rgba(6, 10, 22, 0.95) 0%,
+                rgba(6, 10, 22, 0.60) 35%,
+                rgba(6, 10, 22, 0.30) 60%,
+                rgba(6, 10, 22, 0.20) 100%
+            );
+        }
+
+        /* Center-align text on mobile portrait, flex column for reordering */
+        .hero-portrait .hero-text {
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Reorder: CTA → Title → Badges (subtitle, author, description hidden) */
+        .hero-portrait .hub-primary-cta {
+            order: 1;
+            margin-top: 0 !important;
+            margin-bottom: 12px;
+        }
+
+        .hero-portrait .hero-title {
+            order: 2;
+        }
+
+        .hero-portrait .hero-badges {
+            order: 3;
+        }
+
+        /* Hide these on mobile portrait to keep it compact */
+        .hero-portrait .hero-subtitle-label,
+        .hero-portrait .hero-author,
+        .hero-portrait .hero-narrator,
+        .hero-portrait .hero-description {
+            display: none;
+        }
+
+        /* Hide the desktop poster in portrait mode on mobile
+           (the mobile cover wrapper shows the large cover instead) */
+        .hero-portrait .hero-poster {
+            display: none;
+        }
+
+        .hero-portrait .hero-content-row {
+            gap: 0;
+            justify-content: center;
+        }
+
+        /* ── Landscape mobile: backdrop-based, similar to desktop but shorter ── */
+
+        .hero-landscape .hero-backdrop {
+            aspect-ratio: 16 / 9;
+            max-height: 320px;
+            min-height: 220px;
+        }
+
+        .hero-landscape .hero-content {
+            background: linear-gradient(
+                to top,
+                rgba(0, 0, 0, 0.95) 0%,
+                rgba(0, 0, 0, 0.70) 40%,
+                transparent 100%
+            );
+            padding-top: 2rem;
+        }
+
+        .hero-content-row {
+            gap: 16px;
         }
     }
 </style>

@@ -1,20 +1,25 @@
 @namespace MediaEngine.Web.Components.Universe
 
-@* BookFilterBar -- Filter controls for the Books lane page. *@
+@using MediaEngine.Web.Models.ViewDTOs
 
-<div class="book-filter-bar">
-    <div class="filter-format-toggle">
-        <MudChipSet T="string" SelectedValue="@FilterState.Format"
-                    SelectedValueChanged="OnFormatChanged"
-                    Class="filter-chip-set">
-            <MudChip T="string" Value="@("All")" Variant="Variant.Text"
-                     Style="@ChipStyle("All")">All</MudChip>
-            <MudChip T="string" Value="@("Book")" Variant="Variant.Text"
-                     Style="@ChipStyle("Book")">Book</MudChip>
-            <MudChip T="string" Value="@("Audiobook")" Variant="Variant.Text"
-                     Style="@ChipStyle("Audiobook")">Audiobook</MudChip>
-        </MudChipSet>
-    </div>
+@* LaneFilterBar -- Unified filter controls for all lane pages (desktop only).
+   Driven by LaneFilterConfig to show media-type-appropriate controls. *@
+
+<div class="lane-filter-bar">
+    @if (Config.FormatOptions.Length > 1)
+    {
+        <div class="filter-format-toggle">
+            <MudChipSet T="string" SelectedValue="@FilterState.Format"
+                        SelectedValueChanged="OnFormatChanged"
+                        Class="filter-chip-set">
+                @foreach (var fmt in Config.FormatOptions)
+                {
+                    <MudChip T="string" Value="@fmt" Variant="Variant.Text"
+                             Style="@ChipStyle(fmt)">@fmt</MudChip>
+                }
+            </MudChipSet>
+        </div>
+    }
 
     <div class="filter-controls">
         <MudSelect T="string" Label="Genre" MultiSelection="true"
@@ -37,39 +42,45 @@
             <MudSelectItem T="string" Value="@("recent")">Recently Added</MudSelectItem>
             <MudSelectItem T="string" Value="@("title-az")">Title A-Z</MudSelectItem>
             <MudSelectItem T="string" Value="@("title-za")">Title Z-A</MudSelectItem>
-            <MudSelectItem T="string" Value="@("author-az")">Author A-Z</MudSelectItem>
+            <MudSelectItem T="string" Value="@("person-az")">@Config.PersonLabel A-Z</MudSelectItem>
             <MudSelectItem T="string" Value="@("year-new")">Year (Newest)</MudSelectItem>
             <MudSelectItem T="string" Value="@("year-old")">Year (Oldest)</MudSelectItem>
         </MudSelect>
 
-        <MudAutocomplete T="string" Label="Author" Value="@FilterState.AuthorSearch"
-                         ValueChanged="OnAuthorChanged" SearchFunc="SearchAuthors"
+        <MudAutocomplete T="string" Label="@Config.PersonLabel" Value="@FilterState.PersonSearch"
+                         ValueChanged="OnPersonChanged" SearchFunc="SearchPersons"
                          Dense="true" Variant="Variant.Outlined" Clearable="true"
                          Class="filter-select" Style="min-width: 160px;"
                          ResetValueOnEmptyText="true" />
 
-        <MudSelect T="string" Label="Series" Value="@FilterState.SeriesFilter"
-                   ValueChanged="OnSeriesChanged"
-                   Dense="true" Variant="Variant.Outlined" Clearable="true"
-                   Class="filter-select" Style="min-width: 150px;">
-            <MudSelectItem T="string" Value="@("")">All Series</MudSelectItem>
-            @foreach (var series in AvailableSeries)
-            {
-                <MudSelectItem T="string" Value="@series">@series</MudSelectItem>
-            }
-        </MudSelect>
+        @if (Config.SeriesLabel is not null)
+        {
+            <MudSelect T="string" Label="@Config.SeriesLabel" Value="@FilterState.SeriesFilter"
+                       ValueChanged="OnSeriesChanged"
+                       Dense="true" Variant="Variant.Outlined" Clearable="true"
+                       Class="filter-select" Style="min-width: 150px;">
+                <MudSelectItem T="string" Value="@("")">All @Config.SeriesLabel</MudSelectItem>
+                @foreach (var series in AvailableSeries)
+                {
+                    <MudSelectItem T="string" Value="@series">@series</MudSelectItem>
+                }
+            </MudSelect>
+        }
 
-        <div class="filter-year-range">
-            <MudTextField T="string" Label="From" Value="@FilterState.YearFrom"
-                          ValueChanged="OnYearFromChanged" Margin="Margin.Dense"
-                          Variant="Variant.Outlined" InputType="InputType.Number"
-                          Style="width: 80px;" />
-            <span class="filter-year-dash">-</span>
-            <MudTextField T="string" Label="To" Value="@FilterState.YearTo"
-                          ValueChanged="OnYearToChanged" Margin="Margin.Dense"
-                          Variant="Variant.Outlined" InputType="InputType.Number"
-                          Style="width: 80px;" />
-        </div>
+        @if (Config.ShowYearRange)
+        {
+            <div class="filter-year-range">
+                <MudTextField T="string" Label="From" Value="@FilterState.YearFrom"
+                              ValueChanged="OnYearFromChanged" Margin="Margin.Dense"
+                              Variant="Variant.Outlined" InputType="InputType.Number"
+                              Style="width: 80px;" />
+                <span class="filter-year-dash">-</span>
+                <MudTextField T="string" Label="To" Value="@FilterState.YearTo"
+                              ValueChanged="OnYearToChanged" Margin="Margin.Dense"
+                              Variant="Variant.Outlined" InputType="InputType.Number"
+                              Style="width: 80px;" />
+            </div>
+        }
 
         @if (FilterState.HasActiveFilters)
         {
@@ -83,11 +94,12 @@
 </div>
 
 @code {
-    [Parameter] public BookFilterState FilterState { get; set; } = new();
-    [Parameter] public EventCallback<BookFilterState> FilterStateChanged { get; set; }
+    [Parameter] public LaneFilterState FilterState { get; set; } = new();
+    [Parameter] public EventCallback<LaneFilterState> FilterStateChanged { get; set; }
+    [Parameter] public LaneFilterConfig Config { get; set; } = LaneFilterConfig.ForLane("books");
     [Parameter] public IReadOnlyList<string> AvailableGenres { get; set; } = [];
     [Parameter] public IReadOnlyList<string> AvailableSeries { get; set; } = [];
-    [Parameter] public IReadOnlyList<string> AvailableAuthors { get; set; } = [];
+    [Parameter] public IReadOnlyList<string> AvailablePersons { get; set; } = [];
 
     private async Task NotifyChanged() => await FilterStateChanged.InvokeAsync(FilterState);
 
@@ -100,8 +112,8 @@
     private async Task OnSortChanged(string value)
     { FilterState = FilterState with { SortBy = value ?? "recent" }; await NotifyChanged(); }
 
-    private async Task OnAuthorChanged(string value)
-    { FilterState = FilterState with { AuthorSearch = value }; await NotifyChanged(); }
+    private async Task OnPersonChanged(string value)
+    { FilterState = FilterState with { PersonSearch = value }; await NotifyChanged(); }
 
     private async Task OnSeriesChanged(string value)
     { FilterState = FilterState with { SeriesFilter = value }; await NotifyChanged(); }
@@ -113,14 +125,14 @@
     { FilterState = FilterState with { YearTo = value }; await NotifyChanged(); }
 
     private async Task ClearAll()
-    { FilterState = new BookFilterState(); await NotifyChanged(); }
+    { FilterState = new LaneFilterState(); await NotifyChanged(); }
 
-    private Task<IEnumerable<string>> SearchAuthors(string value, CancellationToken ct)
+    private Task<IEnumerable<string>> SearchPersons(string value, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(value))
-            return Task.FromResult(AvailableAuthors.AsEnumerable());
-        return Task.FromResult(AvailableAuthors
-            .Where(a => a.Contains(value, StringComparison.OrdinalIgnoreCase)).Take(10));
+            return Task.FromResult(AvailablePersons.AsEnumerable());
+        return Task.FromResult(AvailablePersons
+            .Where(p => p.Contains(value, StringComparison.OrdinalIgnoreCase)).Take(10));
     }
 
     private string ChipStyle(string v) => FilterState.Format == v
@@ -129,7 +141,7 @@
 }
 
 <style>
-    .book-filter-bar { padding: 0 0 1rem 88px; }
+    .lane-filter-bar { padding: 0 0 1rem 88px; }
     .filter-format-toggle { margin-bottom: 12px; }
     .filter-chip-set { gap: 4px; }
     .filter-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
@@ -138,9 +150,6 @@
     .filter-year-dash { color: rgba(248,248,248,0.40); font-size: 0.9rem; padding-top: 12px; }
 
     @@media (max-width: 768px) {
-        .book-filter-bar { padding-left: 1rem; padding-right: 1rem; }
-        .filter-controls { flex-direction: column; align-items: stretch; }
-        .filter-select { min-width: unset !important; width: 100%; }
-        .filter-year-range { width: 100%; }
+        .lane-filter-bar { display: none; }
     }
 </style>

@@ -1,22 +1,23 @@
 @namespace MediaEngine.Web.Components.Universe
 
-@* AuthorSwimlaneHeader — Inline header for author-grouped swimlanes.
-   Shows 40px circular headshot (or initials fallback), author name, book count, and See All link. *@
+@* PersonSwimlaneHeader — Inline header for person-grouped swimlanes.
+   Shows 40px circular headshot (or initials fallback), person name, item count, and See All link.
+   Works for any role: Author, Director, Artist, Host, etc. *@
 
-<div class="author-swimlane-header">
-    <div class="author-header-left">
+<div class="person-swimlane-header">
+    <div class="person-header-left">
         @if (!string.IsNullOrEmpty(HeadshotUrl))
         {
-            <img src="@HeadshotUrl" alt="@AuthorName"
-                 class="author-header-headshot" loading="lazy" />
+            <img src="@HeadshotUrl" alt="@PersonName"
+                 class="person-header-headshot" loading="lazy" />
         }
         else
         {
-            <div class="author-header-avatar">@Initials</div>
+            <div class="person-header-avatar">@Initials</div>
         }
-        <div class="author-header-info">
-            <span class="author-header-name">@AuthorName</span>
-            <span class="author-header-count">(@BookCount @(BookCount == 1 ? "book" : "books"))</span>
+        <div class="person-header-info">
+            <span class="person-header-name">@PersonName</span>
+            <span class="person-header-count">(@ItemCount @(ItemCount == 1 ? ItemNoun : ItemNoun + "s"))</span>
         </div>
     </div>
     @if (SeeAllHref is not null)
@@ -26,16 +27,17 @@
 </div>
 
 @code {
-    [Parameter, EditorRequired] public string AuthorName { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public string PersonName { get; set; } = string.Empty;
     [Parameter] public string? HeadshotUrl { get; set; }
-    [Parameter] public int BookCount { get; set; }
+    [Parameter] public int ItemCount { get; set; }
+    [Parameter] public string ItemNoun { get; set; } = "item";
     [Parameter] public string? SeeAllHref { get; set; }
 
     private string Initials
     {
         get
         {
-            var parts = AuthorName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            var parts = PersonName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
             return parts.Length switch
             {
                 0 => "?",
@@ -47,20 +49,20 @@
 }
 
 <style>
-    .author-swimlane-header {
+    .person-swimlane-header {
         display: flex;
         align-items: center;
         justify-content: space-between;
         width: 100%;
     }
 
-    .author-header-left {
+    .person-header-left {
         display: flex;
         align-items: center;
         gap: 12px;
     }
 
-    .author-header-headshot {
+    .person-header-headshot {
         width: 40px;
         height: 40px;
         border-radius: 50%;
@@ -68,7 +70,7 @@
         flex-shrink: 0;
     }
 
-    .author-header-avatar {
+    .person-header-avatar {
         width: 40px;
         height: 40px;
         border-radius: 50%;
@@ -83,13 +85,13 @@
         flex-shrink: 0;
     }
 
-    .author-header-info {
+    .person-header-info {
         display: flex;
         align-items: baseline;
         gap: 8px;
     }
 
-    .author-header-name {
+    .person-header-name {
         font-family: 'Montserrat', sans-serif;
         font-size: 1.15rem;
         font-weight: 600;
@@ -97,7 +99,7 @@
         line-height: 1.3;
     }
 
-    .author-header-count {
+    .person-header-count {
         font-family: 'Montserrat', sans-serif;
         font-size: 0.85rem;
         font-weight: 500;
@@ -105,17 +107,17 @@
     }
 
     @@media (max-width: 768px) {
-        .author-header-headshot,
-        .author-header-avatar {
+        .person-header-headshot,
+        .person-header-avatar {
             width: 32px;
             height: 32px;
         }
 
-        .author-header-name {
+        .person-header-name {
             font-size: 1rem;
         }
 
-        .author-header-count {
+        .person-header-count {
             font-size: 0.75rem;
         }
     }

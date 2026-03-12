@@ -24,13 +24,13 @@ public static class ContentLanes
     public static readonly LaneDefinition Books = new(
         "books", "Books",
         Icons.Material.Filled.MenuBook,
-        ["Epub", "Audiobook"],
+        ["Epub", "Audiobook", "Book", "M4B"],
         ["All", "Reading Lists", "Authors", "Series"]);
 
     public static readonly LaneDefinition Video = new(
         "video", "Video",
         Icons.Material.Filled.Movie,
-        ["Movie", "TV"],
+        ["Movie", "TV", "Video"],
         ["All", "Watchlists", "Directors", "Genres"]);
 
     public static readonly LaneDefinition Music = new(

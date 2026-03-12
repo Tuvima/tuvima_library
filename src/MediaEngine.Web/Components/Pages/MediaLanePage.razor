@@ -1,4 +1,5 @@
-﻿@page "/video"
+@page "/books"
+@page "/video"
 @page "/music"
 @page "/podcasts"
 @page "/comics"
@@ -21,7 +22,7 @@ else if (_lane is null)
 {
     <MudAlert Severity="Severity.Warning" Class="mb-4">Unknown content lane.</MudAlert>
 }
-else if (_filteredHubs.Count == 0)
+else if (_allHubs.Count == 0)
 {
     @* ── Empty state — no content for this lane ── *@
     <div class="lane-empty-state">
@@ -35,129 +36,174 @@ else if (_filteredHubs.Count == 0)
 }
 else
 {
-    @* ── Hero banner for this lane ── *@
+    @* ── Hero banner ── *@
     @if (_heroHub is not null)
     {
-        <div class="hero-stack" @onclick="@(() => Nav.NavigateTo($"/hub/{_heroHub.Id}"))">
-            <div class="hero-stack-bg">
-                <div class="hero-bleed-wrapper">
-                    <HubHero Hub="@_heroHub"
-                             BackgroundOnly="true"
-                             Visible="true" />
-                </div>
-            </div>
-            <div class="hero-stack-text">
-                <h2 class="hero-cinema-title">@_heroHub.DisplayName</h2>
-                <div class="hero-cinema-badges">
-                    @if (!string.IsNullOrEmpty(_heroHub.Year))
-                    {
-                        <span class="hero-badge">@_heroHub.Year</span>
-                    }
-                    @if (!string.IsNullOrEmpty(_heroHub.PrimaryMediaType))
-                    {
-                        <span class="hero-badge">@FormatMediaType(_heroHub.PrimaryMediaType)</span>
-                    }
-                    @if (!string.IsNullOrEmpty(_heroHub.Genre))
-                    {
-                        @foreach (var genre in _heroHub.Genre.Split(',', ';').Take(2).Select(g => g.Trim()).Where(g => g.Length > 0))
-                        {
-                            <span class="hero-badge">@genre</span>
-                        }
-                    }
-                </div>
-                @if (!string.IsNullOrEmpty(_heroHub.Series))
-                {
-                    <p class="hero-cinema-series">@_heroHub.Series</p>
-                }
-                @if (!string.IsNullOrEmpty(_heroHub.Author))
-                {
-                    <p class="hero-cinema-subtitle">@_heroHub.Author</p>
-                }
-                @if (!string.IsNullOrEmpty(_heroHub.Description))
-                {
-                    <p class="hero-cinema-description">@Truncate(_heroHub.Description, 200)</p>
-                }
-                @* CTA button — shown when user has progress on this hub *@
-                @if (_heroJourney is not null)
-                {
-                    <button class="hub-primary-cta"
-                            @onclick="@(() => HandleJourneyPlay(_heroJourney))"
-                            @onclick:stopPropagation="true"
-                            style="margin-top: 16px;">
-                        <div class="hub-primary-cta-inner">
-                            <MudIcon Icon="@GetLaneJourneyIcon(_heroJourney)"
-                                     Style="font-size: 1.2rem; color: #1a1208; flex-shrink:0;" />
-                            <span class="hub-primary-cta-label">@_heroJourney.ActionLabel</span>
-                        </div>
-                        @if (_heroJourney.ProgressPct is > 0 and < 99.5)
-                        {
-                            <div class="hub-primary-cta-progress"
-                                 style="width: @(_heroJourney.ProgressPct.ToString("F0"))%"></div>
-                        }
-                    </button>
-                }
-            </div>
-        </div>
+        var heroData = _heroJourney is not null
+            ? HeroData.FromHubWithJourney(_heroHub, _heroJourney)
+            : HeroData.FromHub(_heroHub);
+        <HubHero Data="@heroData"
+                 Visible="true"
+                 OnClicked="@(() => Nav.NavigateTo($"/hub/{_heroHub.Id}"))"
+                 OnCtaClicked="@(() => { if (_heroJourney is not null) HandleJourneyPlay(_heroJourney); })" />
     }
 
-    @* ── Format toggle (Books lane only: All / eBooks / Audiobooks) ── *@
-    @if (_lane.Key == "books")
+    @* ── Mobile filter bar (visible on mobile only) ── *@
+    <MobileFilterBar CurrentLane="@_lane"
+                     FilterState="@_filterState"
+                     FilterStateChanged="OnFilterChanged"
+                     Config="@_filterConfig"
+                     AvailableGenres="@_availableGenres" />
+
+    @* ── View mode toggle ── *@
+    <div class="lane-view-toggle">
+        <MudToggleGroup T="string" Value="@_viewMode" ValueChanged="OnViewModeChanged"
+                        Color="Color.Warning" CheckMark="false"
+                        Style="font-family: Montserrat, sans-serif;">
+            <MudToggleItem T="string" Value="@("smart")" Text="Smart Sections" />
+            <MudToggleItem T="string" Value="@("az")" Text="Browse A-Z" />
+        </MudToggleGroup>
+    </div>
+
+    @* ── Desktop filter bar (hidden on mobile) ── *@
+    <LaneFilterBar FilterState="@_filterState"
+                   FilterStateChanged="OnFilterChanged"
+                   Config="@_filterConfig"
+                   AvailableGenres="@_availableGenres"
+                   AvailablePersons="@_availablePersons"
+                   AvailableSeries="@_availableSeries" />
+
+    @if (_viewMode == "az")
     {
-        <div class="lane-format-toggle">
-            <MudChipSet T="string" SelectedValue="@_booksFormatFilter"
-                        SelectedValueChanged="OnFormatFilterChanged"
-                        Class="lane-chip-set">
-                <MudChip T="string" Value="@("All")" Variant="Variant.Text"
-                         Style="@ChipStyle("All")">All</MudChip>
-                <MudChip T="string" Value="@("eBooks")" Variant="Variant.Text"
-                         Style="@ChipStyle("eBooks")">eBooks</MudChip>
-                <MudChip T="string" Value="@("Audiobooks")" Variant="Variant.Text"
-                         Style="@ChipStyle("Audiobooks")">Audiobooks</MudChip>
-            </MudChipSet>
-        </div>
+        @* ── A-Z Browse mode ── *@
+        <AlphabeticalGrid Hubs="@_displayHubs"
+                          OnHubSelected="HandleHubSelected"
+                          CardWidth="@_cardWidth" />
     }
-
-    @* ── Swimlane rows ── *@
-    <PosterSwimlane Title="@(_lane.Label)"
-                    TotalCount="@_displayHubs.Count"
-                    Hubs="@_displayHubs.Take(12).ToList()"
-                    OnHubSelected="HandleHubSelected"
-                    CardWidth="@_cardWidth" />
-
-    @if (_recentHubs.Count > 0)
+    else
     {
-        <PosterSwimlane Title="Recently Added"
-                        TotalCount="@_recentHubs.Count"
-                        Hubs="@_recentHubs.Take(12).ToList()"
-                        OnHubSelected="HandleHubSelected"
-                        CardWidth="@_cardWidth" />
-    }
+        @* ── Smart Sections mode ── *@
 
-    @* ── Media-type sub-groups (e.g. Books lane → "eBooks", "Audiobooks") ── *@
-    @foreach (var group in _mediaTypeGroups)
-    {
-        <PosterSwimlane Title="@group.Title"
-                        TotalCount="@group.Hubs.Count"
-                        Hubs="@group.Hubs"
-                        OnHubSelected="HandleHubSelected"
-                        CardWidth="@_cardWidth" />
+        @* Continue Journey *@
+        @if (_journeyHubs.Count > 0)
+        {
+            <PosterSwimlane Title="@ContinueLabel"
+                            TotalCount="@_journeyHubs.Count"
+                            Hubs="@_journeyHubs"
+                            OnHubSelected="HandleHubSelected"
+                            CardWidth="@_cardWidth" />
+        }
+
+        @* Recently Added *@
+        @if (_recentHubs.Count > 0 && !_filterState.HasActiveFilters)
+        {
+            <PosterSwimlane Title="Recently Added"
+                            TotalCount="@_recentHubs.Count"
+                            Hubs="@_recentHubs.Take(12).ToList()"
+                            OnHubSelected="HandleHubSelected"
+                            CardWidth="@_cardWidth" />
+        }
+
+        @* Filtered results (when filters are active) *@
+        @if (_filterState.HasActiveFilters)
+        {
+            <PosterSwimlane Title="@($"Results ({_displayHubs.Count})")"
+                            TotalCount="@_displayHubs.Count"
+                            Hubs="@_displayHubs.Take(24).ToList()"
+                            OnHubSelected="HandleHubSelected"
+                            CardWidth="@_cardWidth" />
+        }
+        else
+        {
+            @* Featured Persons (Author, Director, Artist, etc.) *@
+            @foreach (var personGroup in _personGroups.Take(5))
+            {
+                <PosterSwimlane Title="@personGroup.PersonName"
+                                Hubs="@personGroup.Hubs"
+                                OnHubSelected="HandleHubSelected"
+                                CardWidth="@_cardWidth">
+                    <HeaderContent>
+                        <PersonSwimlaneHeader PersonName="@personGroup.PersonName"
+                                              HeadshotUrl="@personGroup.HeadshotUrl"
+                                              ItemCount="@personGroup.Hubs.Count"
+                                              ItemNoun="@_filterConfig.ItemNoun" />
+                    </HeaderContent>
+                </PosterSwimlane>
+            }
+
+            @* By Series / Franchise *@
+            @if (_filterConfig.SeriesLabel is not null)
+            {
+                @foreach (var seriesGroup in _seriesGroups.Take(5))
+                {
+                    <PosterSwimlane Title="@seriesGroup.Name"
+                                    TotalCount="@seriesGroup.Hubs.Count"
+                                    Hubs="@seriesGroup.Hubs"
+                                    OnHubSelected="HandleHubSelected"
+                                    CardWidth="@_cardWidth" />
+                }
+            }
+
+            @* By Genre *@
+            @foreach (var genreGroup in _genreGroups.Take(5))
+            {
+                <PosterSwimlane Title="@genreGroup.Name"
+                                TotalCount="@genreGroup.Hubs.Count"
+                                Hubs="@genreGroup.Hubs"
+                                OnHubSelected="HandleHubSelected"
+                                CardWidth="@_cardWidth" />
+            }
+
+            @* Media-type sub-groups (e.g. Books lane → "eBooks", "Audiobooks") *@
+            @foreach (var group in _mediaTypeGroups)
+            {
+                <PosterSwimlane Title="@group.Name"
+                                TotalCount="@group.Hubs.Count"
+                                Hubs="@group.Hubs"
+                                OnHubSelected="HandleHubSelected"
+                                CardWidth="@_cardWidth" />
+            }
+        }
     }
 }
 
 @code {
     private bool               _loading = true;
+    private string             _viewMode = "smart";
     private LaneDefinition?    _lane;
+    private LaneFilterConfig   _filterConfig = LaneFilterConfig.ForLane("books");
+    private LaneFilterState    _filterState = new();
     private HubViewModel?      _heroHub;
     private JourneyItemViewModel? _heroJourney;
-    private List<HubViewModel> _filteredHubs = [];
+
+    private List<HubViewModel> _allHubs = [];
     private List<HubViewModel> _displayHubs = [];
     private List<HubViewModel> _recentHubs = [];
-    private List<MediaTypeGroup> _mediaTypeGroups = [];
-    private string             _booksFormatFilter = "All";
+    private List<HubViewModel> _journeyHubs = [];
+    private List<PersonGroup>  _personGroups = [];
+    private List<NamedGroup>   _seriesGroups = [];
+    private List<NamedGroup>   _genreGroups = [];
+    private List<NamedGroup>   _mediaTypeGroups = [];
+
+    private IReadOnlyList<string> _availableGenres = [];
+    private IReadOnlyList<string> _availablePersons = [];
+    private IReadOnlyList<string> _availableSeries = [];
+    private Dictionary<string, PersonViewModel> _personLookup = new();
 
     private int _cardWidth => DeviceContext.Settings.Pages.Home.SwimlaneCardWidth;
 
-    private sealed record MediaTypeGroup(string Title, IReadOnlyList<HubViewModel> Hubs);
+    private string ContinueLabel => _lane?.Key switch
+    {
+        "books"    => "Continue Reading",
+        "video"    => "Continue Watching",
+        "music"    => "Continue Listening",
+        "podcasts" => "Continue Listening",
+        "comics"   => "Continue Reading",
+        _          => "Continue",
+    };
+
+    private sealed record PersonGroup(string PersonName, string? HeadshotUrl, IReadOnlyList<HubViewModel> Hubs);
+    private sealed record NamedGroup(string Name, IReadOnlyList<HubViewModel> Hubs);
 
     protected override async Task OnInitializedAsync()
     {
@@ -175,6 +221,8 @@ else
     {
         var path = Nav.ToBaseRelativePath(Nav.Uri).Split('?')[0].Split('#')[0].Trim('/');
         _lane = ContentLanes.ByKey(path);
+        _filterConfig = LaneFilterConfig.ForLane(_lane?.Key ?? "");
+        _filterState = new LaneFilterState();
 
         // Set the lane filter on the state container.
         State.SetLaneFilter(_lane?.MediaTypes);
@@ -185,13 +233,44 @@ else
         _loading = true;
         try
         {
-            var hubs = await Orchestrator.GetHubsAsync();
+            var allHubs = await Orchestrator.GetHubsAsync();
             var journeyItems = await Orchestrator.GetJourneyAsync(limit: 5);
-            ApplyFilter(hubs, journeyItems);
+
+            // Filter to this lane's media types.
+            if (_lane is not null)
+            {
+                _allHubs = allHubs
+                    .Where(h => _lane.MediaTypes.Any(mt =>
+                        (h.PrimaryMediaType ?? "").Contains(mt, StringComparison.OrdinalIgnoreCase)))
+                    .ToList();
+            }
+            else
+            {
+                _allHubs = [];
+            }
+
+            // Journey items for this lane.
+            _journeyHubs = journeyItems
+                .Where(j => j.HubId.HasValue && _allHubs.Any(h => h.Id == j.HubId))
+                .Select(j => _allHubs.First(h => h.Id == j.HubId))
+                .ToList();
+
+            // Load person headshots for smart sections.
+            try
+            {
+                var persons = await Orchestrator.GetPersonsByRoleAsync(_filterConfig.PersonLabel, 50);
+                _personLookup = persons
+                    .GroupBy(p => p.Name.ToLowerInvariant())
+                    .ToDictionary(g => g.Key, g => g.First());
+            }
+            catch { _personLookup = new(); }
+
+            BuildFilterOptions();
+            ApplyFilters(journeyItems);
         }
         catch
         {
-            _filteredHubs = [];
+            _allHubs = [];
         }
         finally
         {
@@ -199,29 +278,85 @@ else
         }
     }
 
-    private void ApplyFilter(IReadOnlyList<HubViewModel> allHubs,
-                             IReadOnlyList<JourneyItemViewModel>? journeyItems = null)
+    private void BuildFilterOptions()
     {
-        if (_lane is null) { _filteredHubs = []; return; }
-
-        // Filter to this lane's media types.
-        _filteredHubs = allHubs
-            .Where(h => _lane.MediaTypes.Any(mt =>
-                (h.PrimaryMediaType ?? "").Contains(mt, StringComparison.OrdinalIgnoreCase)))
+        _availableGenres = _allHubs
+            .Where(h => !string.IsNullOrEmpty(h.Genre))
+            .SelectMany(h => h.Genre!.Split(',', ';').Select(g => g.Trim()))
+            .Where(g => g.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(g => g)
             .ToList();
 
-        // Apply format sub-filter for Books lane.
-        _displayHubs = ApplyFormatFilter(_filteredHubs);
+        _availablePersons = _allHubs
+            .Where(h => !string.IsNullOrEmpty(h.Author))
+            .Select(h => h.Author!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(a => a)
+            .ToList();
 
-        // Hero: prefer a hub the user is currently reading/watching (most recent journey item).
-        // Fall back to a random hub with cover art, or any hub.
+        _availableSeries = _allHubs
+            .Where(h => !string.IsNullOrEmpty(h.Series))
+            .Select(h => h.Series!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(s => s)
+            .ToList();
+    }
+
+    private void ApplyFilters(IReadOnlyList<JourneyItemViewModel>? journeyItems = null)
+    {
+        var filtered = _allHubs.AsEnumerable();
+
+        // Format filter.
+        if (_filterState.Format != "All")
+        {
+            var fmt = _filterState.Format.ToLowerInvariant();
+            filtered = filtered.Where(h =>
+                (h.PrimaryMediaType ?? "").Contains(fmt, StringComparison.OrdinalIgnoreCase));
+        }
+
+        // Genre filter.
+        if (_filterState.SelectedGenres.Count > 0)
+            filtered = filtered.Where(h => !string.IsNullOrEmpty(h.Genre)
+                && _filterState.SelectedGenres.Any(g =>
+                    h.Genre!.Contains(g, StringComparison.OrdinalIgnoreCase)));
+
+        // Person filter.
+        if (!string.IsNullOrEmpty(_filterState.PersonSearch))
+            filtered = filtered.Where(h => !string.IsNullOrEmpty(h.Author)
+                && h.Author!.Contains(_filterState.PersonSearch, StringComparison.OrdinalIgnoreCase));
+
+        // Series filter.
+        if (!string.IsNullOrEmpty(_filterState.SeriesFilter))
+            filtered = filtered.Where(h => !string.IsNullOrEmpty(h.Series)
+                && h.Series!.Equals(_filterState.SeriesFilter, StringComparison.OrdinalIgnoreCase));
+
+        // Year range.
+        if (!string.IsNullOrEmpty(_filterState.YearFrom) && int.TryParse(_filterState.YearFrom, out var from))
+            filtered = filtered.Where(h => int.TryParse(h.Year, out var y) && y >= from);
+        if (!string.IsNullOrEmpty(_filterState.YearTo) && int.TryParse(_filterState.YearTo, out var to))
+            filtered = filtered.Where(h => int.TryParse(h.Year, out var y) && y <= to);
+
+        // Sort.
+        filtered = _filterState.SortBy switch
+        {
+            "title-az"  => filtered.OrderBy(h => h.DisplayName),
+            "title-za"  => filtered.OrderByDescending(h => h.DisplayName),
+            "person-az" => filtered.OrderBy(h => h.Author ?? "zzz"),
+            "year-new"  => filtered.OrderByDescending(h => h.Year ?? "0"),
+            "year-old"  => filtered.OrderBy(h => h.Year ?? "9999"),
+            _           => filtered.OrderByDescending(h => h.CreatedAt),
+        };
+
+        _displayHubs = filtered.ToList();
+
+        // Hero selection — prefer active journey item.
         var withCovers = _displayHubs.Where(h =>
             !string.IsNullOrEmpty(h.CoverUrl) || !string.IsNullOrEmpty(h.HeroUrl)).ToList();
         var heroPool = withCovers.Count > 0 ? withCovers : _displayHubs;
 
         if (journeyItems is { Count: > 0 })
         {
-            // Pick the most recently accessed journey item whose hub is in this lane.
             var topJourney = journeyItems
                 .Where(j => j.HubId.HasValue && heroPool.Any(h => h.Id == j.HubId))
                 .OrderByDescending(j => j.LastAccessed)
@@ -247,47 +382,77 @@ else
         // Recently added.
         _recentHubs = _displayHubs.OrderByDescending(h => h.CreatedAt).Take(12).ToList();
 
-        // Sub-groups by media type.
-        _mediaTypeGroups = _filteredHubs
+        // Build smart section groups.
+        BuildGroups();
+    }
+
+    private void BuildGroups()
+    {
+        // Person groups (Author, Director, Artist, etc.).
+        _personGroups = _displayHubs
+            .Where(h => !string.IsNullOrEmpty(h.Author))
+            .GroupBy(h => h.Author!, StringComparer.OrdinalIgnoreCase)
+            .Where(g => g.Count() >= 2)
+            .OrderByDescending(g => g.Count())
+            .Take(5)
+            .Select(g =>
+            {
+                _personLookup.TryGetValue(g.Key.ToLowerInvariant(), out var person);
+                var headshot = person?.LocalHeadshotUrl ?? person?.HeadshotUrl;
+                return new PersonGroup(g.Key, headshot, g.ToList());
+            })
+            .ToList();
+
+        // Series groups.
+        _seriesGroups = _displayHubs
+            .Where(h => !string.IsNullOrEmpty(h.Series))
+            .GroupBy(h => h.Series!, StringComparer.OrdinalIgnoreCase)
+            .Where(g => g.Count() >= 2)
+            .OrderByDescending(g => g.Count())
+            .Take(5)
+            .Select(g => new NamedGroup(g.Key,
+                g.OrderBy(h => h.Year ?? "9999").ToList()))
+            .ToList();
+
+        // Genre groups.
+        _genreGroups = _displayHubs
+            .Where(h => !string.IsNullOrEmpty(h.Genre))
+            .SelectMany(h => h.Genre!.Split(',', ';')
+                .Select(g => g.Trim())
+                .Where(g => g.Length > 0)
+                .Select(g => (Genre: g, Hub: h)))
+            .GroupBy(x => x.Genre, StringComparer.OrdinalIgnoreCase)
+            .Where(g => g.Count() >= 2)
+            .OrderByDescending(g => g.Count())
+            .Take(5)
+            .Select(g => new NamedGroup(g.Key,
+                g.Select(x => x.Hub).Distinct().ToList()))
+            .ToList();
+
+        // Media-type sub-groups (e.g. Books lane → "eBooks", "Audiobooks").
+        _mediaTypeGroups = _allHubs
             .Where(h => !string.IsNullOrEmpty(h.PrimaryMediaType))
             .GroupBy(h => FormatMediaType(h.PrimaryMediaType!))
             .Where(g => g.Count() >= 2)
-            .Select(g => new MediaTypeGroup(g.Key, g.ToList()))
+            .Select(g => new NamedGroup(g.Key, g.ToList()))
             .ToList();
     }
 
-    private List<HubViewModel> ApplyFormatFilter(List<HubViewModel> hubs)
+    private Task OnFilterChanged(LaneFilterState newState)
     {
-        if (_lane?.Key != "books" || _booksFormatFilter == "All")
-            return hubs;
-
-        return _booksFormatFilter switch
-        {
-            "eBooks" => hubs.Where(h => IsEbook(h.PrimaryMediaType)).ToList(),
-            "Audiobooks" => hubs.Where(h => IsAudiobook(h.PrimaryMediaType)).ToList(),
-            _ => hubs,
-        };
-    }
-
-    private static bool IsEbook(string? mt) =>
-        mt is not null && (mt.Contains("Epub", StringComparison.OrdinalIgnoreCase)
-                        || mt.Contains("Book", StringComparison.OrdinalIgnoreCase));
-
-    private static bool IsAudiobook(string? mt) =>
-        mt is not null && (mt.Contains("Audio", StringComparison.OrdinalIgnoreCase)
-                        || mt.Contains("M4B", StringComparison.OrdinalIgnoreCase));
-
-    private void OnFormatFilterChanged(string value)
-    {
-        _booksFormatFilter = value ?? "All";
-        _displayHubs = ApplyFormatFilter(_filteredHubs);
-        // Re-derive hero journey match from new display set (hero hub may change).
-        _heroJourney = _heroHub is not null && _heroJourney is not null
-            && _displayHubs.Any(h => h.Id == _heroHub.Id) ? _heroJourney : null;
+        _filterState = newState;
+        ApplyFilters();
         StateHasChanged();
+        return Task.CompletedTask;
     }
 
-    private void HandleHubSelected(HubViewModel hub) => Nav.NavigateTo($"/hub/{hub.Id}");
+    private void OnViewModeChanged(string value)
+    {
+        _viewMode = value ?? "smart";
+    }
+
+    private void HandleHubSelected(HubViewModel hub) =>
+        Nav.NavigateTo($"/hub/{hub.Id}");
 
     private void HandleJourneyPlay(JourneyItemViewModel item)
     {
@@ -302,14 +467,6 @@ else
         {
             Nav.NavigateTo($"/hub/{item.HubId.Value}?lastAssetId={item.AssetId}");
         }
-    }
-
-    private static string GetLaneJourneyIcon(JourneyItemViewModel item)
-    {
-        var t = (item.MediaType ?? "").ToLowerInvariant();
-        if (t.Contains("audio"))                          return Icons.Material.Filled.Headphones;
-        if (t.Contains("video") || t.Contains("movie"))  return Icons.Material.Filled.PlayArrow;
-        return Icons.Material.Filled.MenuBook;
     }
 
     private void OnStateChanged()
@@ -332,9 +489,6 @@ else
         return mediaType;
     }
 
-    private static string Truncate(string text, int maxLength) =>
-        text.Length <= maxLength ? text : text[..maxLength].TrimEnd() + "\u2026";
-
     private static string EmptyStateMessage(string laneKey) => laneKey switch
     {
         "books"    => "Your book and audiobook collection will appear here. Drop EPUB or M4B files into your Watch Folder to get started.",
@@ -345,11 +499,6 @@ else
         _          => "Content will appear here once it's been added to your library.",
     };
 
-    private string ChipStyle(string value) =>
-        _booksFormatFilter == value
-            ? "color: #C9922E; font-weight: 600; font-family: 'Montserrat', sans-serif;"
-            : "color: rgba(248,248,248,0.60); font-family: 'Montserrat', sans-serif;";
-
     public void Dispose()
     {
         State.OnStateChanged -= OnStateChanged;
@@ -357,14 +506,8 @@ else
 }
 
 <style>
-    /* Reuse hero-stack styles from Home.razor — they're defined in app.css scope */
-
-    .lane-format-toggle {
-        padding: 0.5rem 0 0 88px;
-    }
-
-    .lane-chip-set {
-        gap: 4px;
+    .lane-view-toggle {
+        padding: 0.75rem 0 0.5rem 88px;
     }
 
     .lane-empty-state {
@@ -397,7 +540,7 @@ else
     }
 
     @@media (max-width: 768px) {
-        .lane-format-toggle {
+        .lane-view-toggle {
             padding-left: 1rem;
         }
     }

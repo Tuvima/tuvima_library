@@ -1,0 +1,228 @@
+@namespace MediaEngine.Web.Components.Navigation
+
+@using MediaEngine.Web.Models.ViewDTOs
+
+@inject NavigationManager Nav
+
+@* MobileFilterBar — Library dropdown + dynamic filter chips for mobile.
+   Visible only on mobile (hidden on desktop via CSS).
+   On Home page: just the library dropdown (Config is null → no filter chips). *@
+
+<div class="mobile-filter-bar">
+    <div class="mobile-filter-scroll">
+        @* ── Library dropdown (leftmost) ── *@
+        <MudSelect T="string" Value="@_currentLaneKey"
+                   ValueChanged="OnLaneChanged"
+                   Dense="true" Variant="Variant.Outlined"
+                   Class="mobile-lane-select"
+                   Style="min-width: 110px; max-width: 140px;">
+            <MudSelectItem T="string" Value="@("home")">
+                <div class="mobile-lane-option">Home</div>
+            </MudSelectItem>
+            @foreach (var lane in ContentLanes.ContentOnly)
+            {
+                <MudSelectItem T="string" Value="@lane.Key">
+                    <div class="mobile-lane-option">@lane.Label</div>
+                </MudSelectItem>
+            }
+        </MudSelect>
+
+        @* ── Dynamic filter chips (only when on a lane page with config) ── *@
+        @if (Config is not null && FilterState is not null)
+        {
+            @* Format chips (only if more than "All") *@
+            @if (Config.FormatOptions.Length > 1)
+            {
+                <MudMenu Dense="true" AnchorOrigin="Origin.BottomCenter"
+                         Class="mobile-filter-chip-menu">
+                    <ActivatorContent>
+                        <MudChip T="string" Variant="Variant.Outlined" Size="Size.Small"
+                                 Style="@FilterChipStyle(FilterState.Format != "All")">
+                            @(FilterState.Format == "All" ? "Format" : FilterState.Format)
+                            <MudIcon Icon="@Icons.Material.Filled.ArrowDropDown" Size="Size.Small" />
+                        </MudChip>
+                    </ActivatorContent>
+                    <ChildContent>
+                        @foreach (var fmt in Config.FormatOptions)
+                        {
+                            <MudMenuItem OnClick="@(() => SetFormat(fmt))">
+                                @fmt
+                            </MudMenuItem>
+                        }
+                    </ChildContent>
+                </MudMenu>
+            }
+
+            @* Genre dropdown chip *@
+            <MudMenu Dense="true" AnchorOrigin="Origin.BottomCenter"
+                     Class="mobile-filter-chip-menu">
+                <ActivatorContent>
+                    <MudChip T="string" Variant="Variant.Outlined" Size="Size.Small"
+                             Style="@FilterChipStyle(FilterState.SelectedGenres.Count > 0)">
+                        @(FilterState.SelectedGenres.Count > 0
+                            ? $"Genre ({FilterState.SelectedGenres.Count})"
+                            : "Genre")
+                        <MudIcon Icon="@Icons.Material.Filled.ArrowDropDown" Size="Size.Small" />
+                    </MudChip>
+                </ActivatorContent>
+                <ChildContent>
+                    @foreach (var genre in AvailableGenres.Take(15))
+                    {
+                        var isSelected = FilterState.SelectedGenres.Contains(genre);
+                        <MudMenuItem OnClick="@(() => ToggleGenre(genre))">
+                            <div style="display:flex;align-items:center;gap:8px;">
+                                @if (isSelected)
+                                {
+                                    <MudIcon Icon="@Icons.Material.Filled.CheckBox" Size="Size.Small"
+                                             Style="color:#C9922E;" />
+                                }
+                                else
+                                {
+                                    <MudIcon Icon="@Icons.Material.Filled.CheckBoxOutlineBlank" Size="Size.Small"
+                                             Style="color:rgba(248,248,248,0.40);" />
+                                }
+                                @genre
+                            </div>
+                        </MudMenuItem>
+                    }
+                </ChildContent>
+            </MudMenu>
+
+            @* Sort chip *@
+            <MudMenu Dense="true" AnchorOrigin="Origin.BottomCenter"
+                     Class="mobile-filter-chip-menu">
+                <ActivatorContent>
+                    <MudChip T="string" Variant="Variant.Outlined" Size="Size.Small"
+                             Style="@FilterChipStyle(FilterState.SortBy != "recent")">
+                        @SortLabel
+                        <MudIcon Icon="@Icons.Material.Filled.ArrowDropDown" Size="Size.Small" />
+                    </MudChip>
+                </ActivatorContent>
+                <ChildContent>
+                    <MudMenuItem OnClick="@(() => SetSort("recent"))">Recently Added</MudMenuItem>
+                    <MudMenuItem OnClick="@(() => SetSort("title-az"))">Title A-Z</MudMenuItem>
+                    <MudMenuItem OnClick="@(() => SetSort("title-za"))">Title Z-A</MudMenuItem>
+                    <MudMenuItem OnClick="@(() => SetSort("person-az"))">@Config.PersonLabel A-Z</MudMenuItem>
+                    <MudMenuItem OnClick="@(() => SetSort("year-new"))">Year (Newest)</MudMenuItem>
+                    <MudMenuItem OnClick="@(() => SetSort("year-old"))">Year (Oldest)</MudMenuItem>
+                </ChildContent>
+            </MudMenu>
+
+            @* Clear chip (when any filter active) *@
+            @if (FilterState.HasActiveFilters)
+            {
+                <MudChip T="string" Variant="Variant.Outlined" Size="Size.Small"
+                         OnClick="ClearAll"
+                         Style="color: rgba(248,248,248,0.50); border-color: rgba(248,248,248,0.15);">
+                    <MudIcon Icon="@Icons.Material.Filled.Clear" Size="Size.Small" />
+                    Clear
+                </MudChip>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public LaneDefinition? CurrentLane { get; set; }
+    [Parameter] public LaneFilterState? FilterState { get; set; }
+    [Parameter] public EventCallback<LaneFilterState> FilterStateChanged { get; set; }
+    [Parameter] public LaneFilterConfig? Config { get; set; }
+    [Parameter] public IReadOnlyList<string> AvailableGenres { get; set; } = [];
+
+    private string _currentLaneKey => CurrentLane?.Key ?? "home";
+
+    private string SortLabel => FilterState?.SortBy switch
+    {
+        "title-az" => "A-Z",
+        "title-za" => "Z-A",
+        "person-az" => Config?.PersonLabel ?? "Person",
+        "year-new" => "Newest",
+        "year-old" => "Oldest",
+        _ => "Sort",
+    };
+
+    private void OnLaneChanged(string key)
+    {
+        if (key == "home")
+            Nav.NavigateTo("/");
+        else
+            Nav.NavigateTo($"/{key}");
+    }
+
+    private async Task SetFormat(string format)
+    {
+        if (FilterState is null) return;
+        FilterState = FilterState with { Format = format };
+        await FilterStateChanged.InvokeAsync(FilterState);
+    }
+
+    private async Task ToggleGenre(string genre)
+    {
+        if (FilterState is null) return;
+        var genres = new HashSet<string>(FilterState.SelectedGenres);
+        if (!genres.Remove(genre))
+            genres.Add(genre);
+        FilterState = FilterState with { SelectedGenres = genres };
+        await FilterStateChanged.InvokeAsync(FilterState);
+    }
+
+    private async Task SetSort(string sort)
+    {
+        if (FilterState is null) return;
+        FilterState = FilterState with { SortBy = sort };
+        await FilterStateChanged.InvokeAsync(FilterState);
+    }
+
+    private async Task ClearAll()
+    {
+        FilterState = new LaneFilterState();
+        await FilterStateChanged.InvokeAsync(FilterState);
+    }
+
+    private static string FilterChipStyle(bool active) => active
+        ? "color: #C9922E; border-color: #C9922E; font-family: Montserrat, sans-serif; font-size: 0.75rem;"
+        : "color: rgba(248,248,248,0.70); border-color: rgba(248,248,248,0.20); font-family: Montserrat, sans-serif; font-size: 0.75rem;";
+}
+
+<style>
+    /* ── Desktop: hidden ── */
+    .mobile-filter-bar { display: none; }
+
+    @@media (max-width: 768px) {
+        .mobile-filter-bar {
+            display: block;
+            padding: 8px 1rem;
+            position: sticky;
+            top: 56px;
+            z-index: 10;
+            background: rgba(6, 10, 22, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+
+        .mobile-filter-scroll {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            overflow-x: auto;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+            padding-bottom: 4px;
+        }
+
+        .mobile-filter-scroll::-webkit-scrollbar { display: none; }
+
+        .mobile-lane-select {
+            font-family: Montserrat, sans-serif;
+            font-size: 0.8rem;
+            flex-shrink: 0;
+        }
+
+        .mobile-lane-option {
+            font-family: Montserrat, sans-serif;
+            font-size: 0.85rem;
+        }
+
+        .mobile-filter-chip-menu { flex-shrink: 0; }
+    }
+</style>
