@@ -209,6 +209,7 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        Nav.LocationChanged += OnLocationChanged;
         State.OnStateChanged += OnStateChanged;
         await Orchestrator.StartSignalRAsync();
     }
@@ -217,6 +218,20 @@ else
     {
         ResolveLane();
         await LoadAsync();
+    }
+
+    // Blazor reuses this component when navigating between /books, /video, /podcasts etc.
+    // because they all map to MediaLanePage with no [Parameter] attributes — so
+    // OnParametersSetAsync never fires again. LocationChanged is the reliable hook.
+    private async void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        var path = new Uri(e.Location).AbsolutePath.Trim('/');
+        if (ContentLanes.ByKey(path) is not null)
+        {
+            ResolveLane();
+            await LoadAsync();
+            await InvokeAsync(StateHasChanged);
+        }
     }
 
     private void ResolveLane()
@@ -533,6 +548,7 @@ else
 
     public void Dispose()
     {
+        Nav.LocationChanged -= OnLocationChanged;
         State.OnStateChanged -= OnStateChanged;
     }
 }
