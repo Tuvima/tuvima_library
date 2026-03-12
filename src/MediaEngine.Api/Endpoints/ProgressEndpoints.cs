@@ -82,6 +82,9 @@ public static class ProgressEndpoints
             var filterHub = Guid.TryParse(hubId, out var parsedHubId);
             var conn      = db.Open();
 
+            // Canonical values may be stored at the work level OR the asset level
+            // depending on which scoring pass ran. We COALESCE work-level first, then
+            // asset-level as a fallback, so either storage pattern returns the right data.
             const string baseSelect = """
                 SELECT
                     us.asset_id,
@@ -92,32 +95,46 @@ public static class ProgressEndpoints
                     us.last_accessed,
                     us.extended_properties,
                     h.display_name  AS hub_display_name,
-                    cv_title.value  AS title,
-                    cv_author.value AS author,
-                    cv_cover.value  AS cover_url,
-                    cv_narrator.value AS narrator,
-                    cv_series.value AS series,
-                    cv_series_pos.value AS series_position,
-                    cv_desc.value   AS description
+                    COALESCE(cv_title_w.value,       cv_title_a.value)       AS title,
+                    COALESCE(cv_author_w.value,      cv_author_a.value)      AS author,
+                    COALESCE(cv_cover_w.value,       cv_cover_a.value)       AS cover_url,
+                    COALESCE(cv_narrator_w.value,    cv_narrator_a.value)    AS narrator,
+                    COALESCE(cv_series_w.value,      cv_series_a.value)      AS series,
+                    COALESCE(cv_series_pos_w.value,  cv_series_pos_a.value)  AS series_position,
+                    COALESCE(cv_desc_w.value,        cv_desc_a.value)        AS description
                 FROM user_states us
                 JOIN media_assets ma ON ma.id = us.asset_id
                 JOIN editions e      ON e.id  = ma.edition_id
                 JOIN works w         ON w.id  = e.work_id
                 LEFT JOIN hubs h     ON h.id  = w.hub_id
-                LEFT JOIN canonical_values cv_title
-                    ON cv_title.entity_id = w.id AND cv_title.key = 'title'
-                LEFT JOIN canonical_values cv_author
-                    ON cv_author.entity_id = w.id AND cv_author.key = 'author'
-                LEFT JOIN canonical_values cv_cover
-                    ON cv_cover.entity_id = w.id AND cv_cover.key = 'cover'
-                LEFT JOIN canonical_values cv_narrator
-                    ON cv_narrator.entity_id = w.id AND cv_narrator.key = 'narrator'
-                LEFT JOIN canonical_values cv_series
-                    ON cv_series.entity_id = w.id AND cv_series.key = 'series'
-                LEFT JOIN canonical_values cv_series_pos
-                    ON cv_series_pos.entity_id = w.id AND cv_series_pos.key = 'series_position'
-                LEFT JOIN canonical_values cv_desc
-                    ON cv_desc.entity_id = w.id AND cv_desc.key = 'description'
+                LEFT JOIN canonical_values cv_title_w
+                    ON cv_title_w.entity_id = w.id        AND cv_title_w.key = 'title'
+                LEFT JOIN canonical_values cv_title_a
+                    ON cv_title_a.entity_id = ma.id       AND cv_title_a.key = 'title'
+                LEFT JOIN canonical_values cv_author_w
+                    ON cv_author_w.entity_id = w.id       AND cv_author_w.key = 'author'
+                LEFT JOIN canonical_values cv_author_a
+                    ON cv_author_a.entity_id = ma.id      AND cv_author_a.key = 'author'
+                LEFT JOIN canonical_values cv_cover_w
+                    ON cv_cover_w.entity_id = w.id        AND cv_cover_w.key = 'cover'
+                LEFT JOIN canonical_values cv_cover_a
+                    ON cv_cover_a.entity_id = ma.id       AND cv_cover_a.key = 'cover'
+                LEFT JOIN canonical_values cv_narrator_w
+                    ON cv_narrator_w.entity_id = w.id     AND cv_narrator_w.key = 'narrator'
+                LEFT JOIN canonical_values cv_narrator_a
+                    ON cv_narrator_a.entity_id = ma.id    AND cv_narrator_a.key = 'narrator'
+                LEFT JOIN canonical_values cv_series_w
+                    ON cv_series_w.entity_id = w.id       AND cv_series_w.key = 'series'
+                LEFT JOIN canonical_values cv_series_a
+                    ON cv_series_a.entity_id = ma.id      AND cv_series_a.key = 'series'
+                LEFT JOIN canonical_values cv_series_pos_w
+                    ON cv_series_pos_w.entity_id = w.id   AND cv_series_pos_w.key = 'series_position'
+                LEFT JOIN canonical_values cv_series_pos_a
+                    ON cv_series_pos_a.entity_id = ma.id  AND cv_series_pos_a.key = 'series_position'
+                LEFT JOIN canonical_values cv_desc_w
+                    ON cv_desc_w.entity_id = w.id         AND cv_desc_w.key = 'description'
+                LEFT JOIN canonical_values cv_desc_a
+                    ON cv_desc_a.entity_id = ma.id        AND cv_desc_a.key = 'description'
                 WHERE us.user_id = @userId
                   AND us.progress_pct > 0.0
                   AND us.progress_pct < 100.0
