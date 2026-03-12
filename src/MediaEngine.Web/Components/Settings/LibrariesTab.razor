@@ -129,49 +129,75 @@ else
 
     <MudDivider Class="my-6" />
 
-    @* ── Folder and File Naming ─────────────────────────────────────────────── *@
-    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-3">
-        <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">Folder and File Naming</MudText>
+    @* ── File Organization — token-chip path builder ──────────────────────── *@
+    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-1">
+        <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">File Organization</MudText>
     </MudStack>
-    <MudTextField @bind-Value="_organizationTemplate"
-                  Placeholder="@DefaultOrganizationTemplate"
-                  Variant="Variant.Text"
-                  FullWidth="true"
-                  Immediate="true"
-                  ReadOnly="@readOnly"
-                  Margin="Margin.Dense"
-                  Class="mb-4" />
+    <MudText Typo="Typo.caption" Style="color: var(--app-text-soft); margin-bottom: 12px; display: block;">
+        Click a field to append it to the path. Use <code style="color: rgba(201,146,46,0.9);">/</code> to separate folders. Text outside braces is literal.
+    </MudText>
 
-    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-2">
-        <MudButton Variant="Variant.Outlined"
-                   Color="Color.Primary"
-                   OnClick="@PreviewTemplateAsync"
-                   Disabled="@(string.IsNullOrWhiteSpace(_organizationTemplate) || _previewingTemplate || readOnly)"
-                   Style="white-space: nowrap; min-width: 110px;">
-            @(_previewingTemplate ? "Checking..." : "Preview")
-        </MudButton>
-        <MudButton Variant="Variant.Text"
-                   Color="Color.Default"
-                   OnClick="@ResetTemplateToDefault"
-                   Disabled="@readOnly"
-                   StartIcon="@Icons.Material.Outlined.RestartAlt"
-                   Style="white-space: nowrap;">
-            Reset to Default
-        </MudButton>
-    </MudStack>
-
-    @if (_templatePreview is not null)
+    @* Token chip strip *@
+    @if (!readOnly)
     {
-        <MudPaper Elevation="0" Style="@PreviewStyle" Class="mb-5 pa-3">
-            <MudText Typo="Typo.caption" Color="Color.Secondary">Sample output:</MudText>
-            <MudText Typo="Typo.body2" Style="font-family: monospace; word-break: break-all;">
-                @_templatePreview
-            </MudText>
-        </MudPaper>
+        <div class="org-token-strip mb-3">
+            @foreach (var token in AvailableTokens)
+            {
+                <button class="org-token-chip" @onclick="@(() => AppendToken(token))">
+                    <span class="org-token-brace">{</span>@token<span class="org-token-brace">}</span>
+                </button>
+            }
+        </div>
     }
-    else if (_templateError is not null)
+
+    @* Template text field + Reset to default *@
+    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-2">
+        <MudTextField @bind-Value="_organizationTemplate"
+                      Placeholder="@DefaultOrganizationTemplate"
+                      Variant="Variant.Text"
+                      FullWidth="true"
+                      Immediate="true"
+                      ReadOnly="@readOnly"
+                      Margin="Margin.Dense" />
+        @if (!readOnly)
+        {
+            <MudIconButton Icon="@Icons.Material.Outlined.RestartAlt"
+                           Size="Size.Small"
+                           Color="Color.Default"
+                           OnClick="@ResetTemplateToDefault"
+                           title="Reset path to default" />
+        }
+    </MudStack>
+
+    @* Live folder-structure preview *@
+    @{
+        var previewParts = LivePreviewParts();
+    }
+    @if (previewParts.Count > 0)
     {
-        <MudAlert Severity="Severity.Error" Class="mb-5">@_templateError</MudAlert>
+        <MudPaper Elevation="0" Style="@PreviewStyle" Class="mb-5 mt-2 pa-3">
+            <MudText Typo="Typo.caption" Style="color: var(--app-text-soft); margin-bottom: 6px; display: block;">
+                Preview — example output
+            </MudText>
+            <div class="org-preview-tree">
+                @for (int i = 0; i < previewParts.Count - 1; i++)
+                {
+                    var depth = i;
+                    <div class="org-preview-folder" style="padding-left: @(depth * 16)px;">
+                        <span class="org-preview-icon">📁</span>
+                        <span class="org-preview-name">@previewParts[i]</span>
+                    </div>
+                }
+                @{
+                    var fileName = previewParts[^1];
+                    var fileDepth = previewParts.Count - 1;
+                }
+                <div class="org-preview-file" style="padding-left: @(fileDepth * 16)px;">
+                    <span class="org-preview-icon">📄</span>
+                    <span class="org-preview-name">@fileName</span>
+                </div>
+            </div>
+        </MudPaper>
     }
     else
     {
@@ -180,7 +206,14 @@ else
 
     @if (!readOnly)
     {
-        <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-4">
+        <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2" Class="mt-4">
+            <MudButton Variant="Variant.Text"
+                       Color="Color.Default"
+                       OnClick="@ResetAllChanges"
+                       StartIcon="@Icons.Material.Outlined.Undo"
+                       Disabled="@(!HasUnsavedChanges)">
+                Reset
+            </MudButton>
             <MudButton Variant="Variant.Filled"
                        Color="Color.Primary"
                        OnClick="@SaveFoldersAsync"
@@ -219,11 +252,89 @@ else
             flex-wrap: wrap;
         }
     }
+
+    /* ── File Organization token chip strip ── */
+    .org-token-strip {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .org-token-chip {
+        background: var(--app-glass-inner-bg, rgba(255,255,255,0.05));
+        border: 1px solid rgba(201, 146, 46, 0.35);
+        border-radius: 6px;
+        padding: 4px 10px;
+        cursor: pointer;
+        font-family: 'Montserrat', monospace;
+        font-size: 0.78rem;
+        font-weight: 500;
+        color: rgba(248, 248, 248, 0.80);
+        transition: background 0.15s ease, border-color 0.15s ease;
+    }
+
+    .org-token-chip:hover {
+        background: rgba(201, 146, 46, 0.15);
+        border-color: rgba(201, 146, 46, 0.70);
+        color: #C9922E;
+    }
+
+    .org-token-brace {
+        color: rgba(201, 146, 46, 0.70);
+        font-weight: 700;
+    }
+
+    /* ── Folder-tree preview ── */
+    .org-preview-tree {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .org-preview-folder,
+    .org-preview-file {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-family: 'Montserrat', monospace;
+        font-size: 0.80rem;
+    }
+
+    .org-preview-folder { color: rgba(248, 248, 248, 0.65); }
+    .org-preview-file   { color: rgba(201, 146, 46, 0.80); }
+
+    .org-preview-icon {
+        font-size: 0.85rem;
+        flex-shrink: 0;
+    }
+
+    .org-preview-name {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
 </style>
 
 @code {
 
     private const string DefaultOrganizationTemplate = "{Category}/{Author}/{Title} ({Edition}){Ext}";
+
+    // Available metadata tokens — excludes "Hub" per spec
+    private static readonly string[] AvailableTokens =
+        ["Category", "Author", "Title", "Series", "Year", "MediaType", "Edition", "Ext"];
+
+    // Example values for the live folder-structure preview (no API call needed)
+    private static readonly Dictionary<string, string> PreviewValues = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["{Category}"]  = "Books",
+        ["{Author}"]    = "Frank Herbert",
+        ["{Title}"]     = "Dune",
+        ["{Series}"]    = "Dune Saga",
+        ["{Year}"]      = "1965",
+        ["{MediaType}"] = "Epub",
+        ["{Edition}"]   = "First Edition",
+        ["{Ext}"]       = ".epub",
+    };
 
     private const string GlassStyle =
         "background: var(--app-glass-bg); " +
@@ -256,14 +367,44 @@ else
 
     // Template state
     private string              _organizationTemplate  = string.Empty;
-    private string?             _templatePreview;
-    private string?             _templateError;
-    private bool                _previewingTemplate;
+
+    // Original (saved) values — used to detect unsaved changes and to reset
+    private string              _savedWatchDir         = string.Empty;
+    private string              _savedLibraryRoot      = string.Empty;
+    private string              _savedStagingDir       = string.Empty;
+    private string              _savedOrganizationTemplate = string.Empty;
 
     // Debounce timers for auto-validation
     private Timer? _watchTimer;
     private Timer? _libTimer;
     private Timer? _stagingTimer;
+
+    // ── Derived state ─────────────────────────────────────────────────────────────
+
+    private bool HasUnsavedChanges =>
+        _watchDir             != _savedWatchDir             ||
+        _libraryRoot          != _savedLibraryRoot          ||
+        _stagingDir           != _savedStagingDir           ||
+        _organizationTemplate != _savedOrganizationTemplate;
+
+    // ── Live preview — local substitution, no API call ────────────────────────────
+
+    private IReadOnlyList<string> LivePreviewParts()
+    {
+        if (string.IsNullOrWhiteSpace(_organizationTemplate))
+            return [];
+        var result = _organizationTemplate;
+        foreach (var (token, value) in PreviewValues)
+            result = result.Replace(token, value, StringComparison.OrdinalIgnoreCase);
+        return result.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+    }
+
+    // ── Token builder ─────────────────────────────────────────────────────────────
+
+    private void AppendToken(string token)
+    {
+        _organizationTemplate += $"{{{token}}}";
+    }
 
     // ── Lifecycle ────────────────────────────────────────────────────────────────
 
@@ -281,15 +422,10 @@ else
 
         // Load organization template.
         var tmpl = await Orchestrator.GetOrganizationTemplateAsync();
-        if (tmpl is not null)
-        {
-            _organizationTemplate = tmpl.Template;
-            _templatePreview      = tmpl.Preview;
-        }
-        else
-        {
-            _organizationTemplate = DefaultOrganizationTemplate;
-        }
+        _organizationTemplate = tmpl?.Template ?? DefaultOrganizationTemplate;
+
+        // Capture the loaded values so we can detect unsaved changes and reset.
+        SnapSavedValues();
 
         // Run initial health checks based on current folder settings.
         await CheckInitialHealthAsync();
@@ -307,6 +443,32 @@ else
     }
 
     private void OnDeviceChanged() => InvokeAsync(StateHasChanged);
+
+    // ── Saved-value snapshot (for Reset All and HasUnsavedChanges) ──────────────
+
+    private void SnapSavedValues()
+    {
+        _savedWatchDir              = _watchDir;
+        _savedLibraryRoot           = _libraryRoot;
+        _savedStagingDir            = _stagingDir;
+        _savedOrganizationTemplate  = _organizationTemplate;
+    }
+
+    private void ResetAllChanges()
+    {
+        _watchDir             = _savedWatchDir;
+        _libraryRoot          = _savedLibraryRoot;
+        _stagingDir           = _savedStagingDir;
+        _organizationTemplate = _savedOrganizationTemplate;
+        // Clear any in-flight validation state.
+        _watchTestResult  = null;
+        _libTestResult    = null;
+        _stagingTestResult = null;
+        _watchHealthy  = false;
+        _libraryHealthy = false;
+        _stagingHealthy = false;
+        _ = CheckInitialHealthAsync();
+    }
 
     // ── Folder health event ─────────────────────────────────────────────────────
 
@@ -466,32 +628,9 @@ else
 
     // ── Template handlers ───────────────────────────────────────────────────────
 
-    private async Task PreviewTemplateAsync()
-    {
-        if (string.IsNullOrWhiteSpace(_organizationTemplate)) return;
-        _previewingTemplate = true;
-        _templatePreview    = null;
-        _templateError      = null;
-
-        var result = await Orchestrator.UpdateOrganizationTemplateAsync(_organizationTemplate);
-
-        if (result is not null)
-        {
-            _templatePreview = result.Preview;
-        }
-        else
-        {
-            _templateError = Orchestrator.LastApiError ?? "Invalid template — please check your tokens.";
-        }
-
-        _previewingTemplate = false;
-    }
-
     private void ResetTemplateToDefault()
     {
         _organizationTemplate = DefaultOrganizationTemplate;
-        _templatePreview      = null;
-        _templateError        = null;
     }
 
     // ── Save ────────────────────────────────────────────────────────────────────
@@ -589,15 +728,13 @@ else
                     Orchestrator.LastApiError ?? "Invalid template — please check your tokens.",
                     Severity.Warning);
             }
-            else
-            {
-                _templatePreview = tmplResult.Preview;
-            }
         }
 
         if (success)
         {
             Snackbar.Add($"Settings saved — now watching {_watchDir}", Severity.Success);
+            // Snap saved values so Reset All reflects the newly saved state.
+            SnapSavedValues();
         }
         else
         {

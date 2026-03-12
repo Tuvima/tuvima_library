@@ -84,10 +84,71 @@ else
                 @if (_useJourneyCarousel)
                 {
                     var item = _journeyItems[_carouselIndex];
-                    <div class="hero-bleed-wrapper-standalone">
-                        <JourneyHero Item="@item"
-                                     OnHubNavigate="HandleJourneyHubNavigate"
-                                     OnPlay="HandleJourneyPlay" />
+                    var journeyHub = _hubs.FirstOrDefault(h => h.Id == item.HubId);
+
+                    @* Journey slide: same hero-stack layout as lane pages, plus CTA button *@
+                    <div class="hero-stack">
+
+                        @* Layer 1: Visual background — full-bleed, using the hub's backdrop *@
+                        <div class="hero-stack-bg">
+                            <div class="hero-bleed-wrapper">
+                                @if (journeyHub is not null)
+                                {
+                                    <HubHero Hub="@journeyHub"
+                                             BackgroundOnly="true"
+                                             Visible="true" />
+                                }
+                            </div>
+                        </div>
+
+                        @* Layer 2: Text + CTA — stacked column, aligned to bottom of hero *@
+                        <div class="hero-stack-text">
+                            <div class="hero-journey-col" @onclick="@(() => HandleJourneyHubNavigate(item))">
+                                <h2 class="hero-cinema-title">@item.Title</h2>
+
+                                <div class="hero-cinema-badges">
+                                    @if (!string.IsNullOrEmpty(item.FormatMediaType))
+                                    {
+                                        <span class="hero-badge">@item.FormatMediaType</span>
+                                    }
+                                    @if (!string.IsNullOrEmpty(item.Series))
+                                    {
+                                        <span class="hero-badge">@item.Series@(!string.IsNullOrEmpty(item.SeriesPosition) ? $" #{item.SeriesPosition}" : "")</span>
+                                    }
+                                </div>
+
+                                @if (!string.IsNullOrEmpty(item.Author))
+                                {
+                                    <p class="hero-cinema-subtitle">@item.Author</p>
+                                }
+                                @if (!string.IsNullOrEmpty(item.Narrator) && item.Narrator != item.Author)
+                                {
+                                    <p class="hero-cinema-series">Narrated by @item.Narrator</p>
+                                }
+                                @if (!string.IsNullOrEmpty(item.Description))
+                                {
+                                    <p class="hero-cinema-description">@HeroTruncate(item.Description, 200)</p>
+                                }
+
+                                @* CTA button — stopPropagation so hub-nav click above doesn't also fire *@
+                                <button class="hub-primary-cta mt-3"
+                                        @onclick="@(() => HandleJourneyPlay(item))"
+                                        @onclick:stopPropagation="true"
+                                        style="align-self: flex-start;">
+                                    <div class="hub-primary-cta-inner">
+                                        <MudIcon Icon="@GetJourneyIcon(item)"
+                                                 Style="font-size: 1.2rem; color: #1a1208; flex-shrink:0;" />
+                                        <span class="hub-primary-cta-label">@item.ActionLabel</span>
+                                    </div>
+                                    @if (item.ProgressPct is > 0 and < 99.5)
+                                    {
+                                        <div class="hub-primary-cta-progress"
+                                             style="width: @(item.ProgressPct.ToString("F0"))%"></div>
+                                    }
+                                </button>
+                            </div>
+                        </div>
+
                     </div>
                 }
                 else
@@ -392,6 +453,14 @@ else
     private static string HeroTruncate(string text, int maxLength) =>
         text.Length <= maxLength ? text : text[..maxLength].TrimEnd() + "…";
 
+    private static string GetJourneyIcon(JourneyItemViewModel item)
+    {
+        var t = (item.MediaType ?? "").ToLowerInvariant();
+        if (t.Contains("audio"))                          return Icons.Material.Filled.Headphones;
+        if (t.Contains("video") || t.Contains("movie"))  return Icons.Material.Filled.PlayArrow;
+        return Icons.Material.Filled.MenuBook;
+    }
+
     // ── Hub selection ─────────────────────────────────────────────────────────
 
     private void HandleHubSelected(HubViewModel hub)
@@ -548,6 +617,20 @@ else
 
     .carousel-dot:hover:not(.active) {
         background: rgba(255, 255, 255, 0.65);
+    }
+
+    /* ── Journey column — stacks metadata vertically inside hero-stack-text ── */
+    /* hero-stack-text uses display:flex, so this div becomes the flex item.   */
+    /* flex-direction:column here stacks title → badges → author → desc → CTA */
+    .hero-journey-col {
+        display: flex;
+        flex-direction: column;
+        max-width: 640px;
+        cursor: pointer;
+    }
+
+    .hero-journey-col .hub-primary-cta {
+        margin-top: 16px;
     }
 
     /* ── Empty state ─────────────────────────────────────────────────── */
