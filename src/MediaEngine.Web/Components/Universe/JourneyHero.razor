@@ -141,18 +141,10 @@
     /* ── Journey hero container ─────────────────────────────────────── */
     .journey-hero {
         position: relative;
-        border-radius: 16px;
         overflow: hidden;
         cursor: pointer;
-        margin-bottom: 2rem;
-        min-height: 320px;
+        min-height: 440px;
         background: #0A0A0A;
-        transition: transform 0.25s ease, box-shadow 0.25s ease;
-    }
-
-    .journey-hero:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 16px 48px rgba(0, 0, 0, 0.50);
     }
 
     /* ── Blurred cover background ────────────────────────────────────── */
@@ -172,12 +164,10 @@
     .journey-hero-vignette {
         position: absolute;
         inset: 0;
-        background: linear-gradient(
-            to right,
-            rgba(0, 0, 0, 0.70) 0%,
-            rgba(0, 0, 0, 0.45) 50%,
-            rgba(0, 0, 0, 0.30) 100%
-        );
+        background:
+            linear-gradient(to right,  rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.40) 55%, rgba(0,0,0,0.20) 100%),
+            linear-gradient(to top,    rgba(0,0,0,0.80) 0%, transparent 40%),
+            linear-gradient(to bottom, rgba(0,0,0,0.60) 0%, transparent 30%);
         pointer-events: none;
         z-index: 1;
     }
@@ -196,10 +186,11 @@
         position: relative;
         z-index: 2;
         display: flex;
-        gap: 2rem;
-        padding: 2rem 2.5rem;
+        gap: 2.5rem;
+        padding: 104px 3rem 3rem 88px; /* top: navbar(56px)+bleed(88px) offset; left: clears LeftDock(64px)+gap */
         width: 100%;
-        align-items: center;
+        align-items: flex-end;
+        box-sizing: border-box;
     }
 
     /* ── Left: cover poster ──────────────────────────────────────────── */
@@ -230,7 +221,8 @@
         display: flex;
         flex-direction: column;
         min-width: 0;
-        max-width: 500px;
+        flex: 1;
+        max-width: 680px;
     }
 
     .journey-hero-hub {
@@ -306,13 +298,13 @@
     /* ── Responsive ──────────────────────────────────────────────────── */
     @@media (max-width: 768px) {
         .journey-hero {
-            min-height: 240px;
+            min-height: 320px;
         }
 
         .journey-hero-content {
             flex-direction: column;
             align-items: flex-start;
-            padding: 1.5rem;
+            padding: 80px 1.5rem 2rem 1.5rem; /* no LeftDock on mobile */
             gap: 1rem;
         }
 
@@ -323,10 +315,6 @@
 
         .journey-hero-title {
             font-size: 1.4rem;
-        }
-
-        .journey-hero-bar {
-            max-width: 100%;
         }
     }
 </style>
