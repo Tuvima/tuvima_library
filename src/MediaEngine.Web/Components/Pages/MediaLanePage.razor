@@ -57,7 +57,18 @@ else
                     {
                         <span class="hero-badge">@FormatMediaType(_heroHub.PrimaryMediaType)</span>
                     }
+                    @if (!string.IsNullOrEmpty(_heroHub.Genre))
+                    {
+                        @foreach (var genre in _heroHub.Genre.Split(',', ';').Take(2).Select(g => g.Trim()).Where(g => g.Length > 0))
+                        {
+                            <span class="hero-badge">@genre</span>
+                        }
+                    }
                 </div>
+                @if (!string.IsNullOrEmpty(_heroHub.Series))
+                {
+                    <p class="hero-cinema-series">@_heroHub.Series</p>
+                }
                 @if (!string.IsNullOrEmpty(_heroHub.Author))
                 {
                     <p class="hero-cinema-subtitle">@_heroHub.Author</p>
@@ -65,6 +76,25 @@ else
                 @if (!string.IsNullOrEmpty(_heroHub.Description))
                 {
                     <p class="hero-cinema-description">@Truncate(_heroHub.Description, 200)</p>
+                }
+                @* CTA button — shown when user has progress on this hub *@
+                @if (_heroJourney is not null)
+                {
+                    <button class="hub-primary-cta"
+                            @onclick="@(() => HandleJourneyPlay(_heroJourney))"
+                            @onclick:stopPropagation="true"
+                            style="margin-top: 16px;">
+                        <div class="hub-primary-cta-inner">
+                            <MudIcon Icon="@GetLaneJourneyIcon(_heroJourney)"
+                                     Style="font-size: 1.2rem; color: #1a1208; flex-shrink:0;" />
+                            <span class="hub-primary-cta-label">@_heroJourney.ActionLabel</span>
+                        </div>
+                        @if (_heroJourney.ProgressPct is > 0 and < 99.5)
+                        {
+                            <div class="hub-primary-cta-progress"
+                                 style="width: @(_heroJourney.ProgressPct.ToString("F0"))%"></div>
+                        }
+                    </button>
                 }
             </div>
         </div>
@@ -118,6 +148,7 @@ else
     private bool               _loading = true;
     private LaneDefinition?    _lane;
     private HubViewModel?      _heroHub;
+    private JourneyItemViewModel? _heroJourney;
     private List<HubViewModel> _filteredHubs = [];
     private List<HubViewModel> _displayHubs = [];
     private List<HubViewModel> _recentHubs = [];
@@ -155,7 +186,8 @@ else
         try
         {
             var hubs = await Orchestrator.GetHubsAsync();
-            ApplyFilter(hubs);
+            var journeyItems = await Orchestrator.GetJourneyAsync(limit: 5);
+            ApplyFilter(hubs, journeyItems);
         }
         catch
         {
@@ -167,7 +199,8 @@ else
         }
     }
 
-    private void ApplyFilter(IReadOnlyList<HubViewModel> allHubs)
+    private void ApplyFilter(IReadOnlyList<HubViewModel> allHubs,
+                             IReadOnlyList<JourneyItemViewModel>? journeyItems = null)
     {
         if (_lane is null) { _filteredHubs = []; return; }
 
@@ -180,11 +213,36 @@ else
         // Apply format sub-filter for Books lane.
         _displayHubs = ApplyFormatFilter(_filteredHubs);
 
-        // Hero: prefer with cover art.
+        // Hero: prefer a hub the user is currently reading/watching (most recent journey item).
+        // Fall back to a random hub with cover art, or any hub.
         var withCovers = _displayHubs.Where(h =>
             !string.IsNullOrEmpty(h.CoverUrl) || !string.IsNullOrEmpty(h.HeroUrl)).ToList();
         var heroPool = withCovers.Count > 0 ? withCovers : _displayHubs;
-        _heroHub = heroPool.Count > 0 ? heroPool[Random.Shared.Next(heroPool.Count)] : null;
+
+        if (journeyItems is { Count: > 0 })
+        {
+            // Pick the most recently accessed journey item whose hub is in this lane.
+            var topJourney = journeyItems
+                .Where(j => j.HubId.HasValue && heroPool.Any(h => h.Id == j.HubId))
+                .OrderByDescending(j => j.LastAccessed)
+                .FirstOrDefault();
+
+            if (topJourney is not null)
+            {
+                _heroHub     = heroPool.First(h => h.Id == topJourney.HubId);
+                _heroJourney = topJourney;
+            }
+            else
+            {
+                _heroHub     = heroPool.Count > 0 ? heroPool[Random.Shared.Next(heroPool.Count)] : null;
+                _heroJourney = null;
+            }
+        }
+        else
+        {
+            _heroHub     = heroPool.Count > 0 ? heroPool[Random.Shared.Next(heroPool.Count)] : null;
+            _heroJourney = null;
+        }
 
         // Recently added.
         _recentHubs = _displayHubs.OrderByDescending(h => h.CreatedAt).Take(12).ToList();
@@ -223,10 +281,36 @@ else
     {
         _booksFormatFilter = value ?? "All";
         _displayHubs = ApplyFormatFilter(_filteredHubs);
+        // Re-derive hero journey match from new display set (hero hub may change).
+        _heroJourney = _heroHub is not null && _heroJourney is not null
+            && _displayHubs.Any(h => h.Id == _heroHub.Id) ? _heroJourney : null;
         StateHasChanged();
     }
 
     private void HandleHubSelected(HubViewModel hub) => Nav.NavigateTo($"/hub/{hub.Id}");
+
+    private void HandleJourneyPlay(JourneyItemViewModel item)
+    {
+        var t = item.MediaType.ToLowerInvariant();
+        if (t.Contains("epub") || t.Contains("book"))
+        {
+            var url = $"/read/{item.AssetId}";
+            if (item.HubId.HasValue) url += $"?returnHubId={item.HubId.Value}";
+            Nav.NavigateTo(url);
+        }
+        else if (item.HubId.HasValue)
+        {
+            Nav.NavigateTo($"/hub/{item.HubId.Value}?lastAssetId={item.AssetId}");
+        }
+    }
+
+    private static string GetLaneJourneyIcon(JourneyItemViewModel item)
+    {
+        var t = (item.MediaType ?? "").ToLowerInvariant();
+        if (t.Contains("audio"))                          return Icons.Material.Filled.Headphones;
+        if (t.Contains("video") || t.Contains("movie"))  return Icons.Material.Filled.PlayArrow;
+        return Icons.Material.Filled.MenuBook;
+    }
 
     private void OnStateChanged()
     {

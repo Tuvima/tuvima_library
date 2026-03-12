@@ -147,7 +147,9 @@ body {
     grid-area: hero;
     align-self: stretch;        /* fills full hero height */
     display: flex;
-    align-items: flex-end;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: flex-start;
     /* 88px left = .swimlane-section padding-left — guarantees column alignment */
     padding: 0 2.5rem 2.5rem 88px;
     position: relative;
