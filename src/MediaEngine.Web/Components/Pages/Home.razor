@@ -64,110 +64,149 @@ else
         <PendingFilesAlert Class="mb-4" DisplayMode="@_pendingDisplay" />
     }
 
-    @* ── Page ambient background — hero dominant colour radiates across full viewport ── *@
-    @if (_heroHub is not null)
+    @* ── Page ambient background — tracks current carousel slide ── *@
+    @if (_ambientColor is not null)
     {
         <div class="page-ambient-bg"
-             style="--ambient-color: @_heroHub.DominantHexColor"
+             style="--ambient-color: @_ambientColor"
              aria-hidden="true"></div>
     }
 
-    @* ── Journey Hero — full-bleed: extends behind TopBar ── *@
-    @if (_journeyItem is not null && _showHero)
+    @* ── Hero Carousel ── *@
+    @if (_carouselCount > 0 && _showHero)
     {
-        <div class="hero-bleed-wrapper-standalone">
-            <JourneyHero Item="@_journeyItem"
-                         OnResumeClicked="HandleResumeClicked" />
-        </div>
-    }
-    @* ── Hub Hero — background full-bleed, text in container flow ── *@
-    @* The grid overlay ensures the title aligns with swimlane titles below,  *@
-    @* regardless of viewport width or container offset.                       *@
-    else if (_heroHub is not null && _showHero)
-    {
-        <div class="hero-stack" @onclick="@(() => HandleHubSelected(_heroHub))">
+        <div class="hero-carousel"
+             @onmouseenter="PauseCarousel"
+             @onmouseleave="ResumeCarousel">
 
-            @* Layer 1: Visual background — full-bleed behind everything *@
-            <div class="hero-stack-bg">
-                <div class="hero-bleed-wrapper">
-                    <HubHero Hub="@_heroHub"
-                             BackgroundOnly="true"
-                             Visible="true" />
-                </div>
-            </div>
-
-            @* Layer 2: Text — normal container flow, padding matches swimlane-section *@
-            <div class="hero-stack-text">
-                <div class="hero-content-layout">
-                    @if (!string.IsNullOrEmpty(_heroHub.CoverUrl))
-                    {
-                        <img src="@_heroHub.CoverUrl"
-                             alt="@_heroHub.DisplayName"
-                             class="hero-cover-art" />
-                    }
-                    <div class="hero-text-block">
-                        <h2 class="hero-cinema-title">@_heroHub.DisplayName</h2>
-        
-                        <div class="hero-cinema-badges">
-                            @if (!string.IsNullOrEmpty(_heroHub.Year))
-                            {
-                                <span class="hero-badge">@_heroHub.Year</span>
-                            }
-                            @if (!string.IsNullOrEmpty(_heroHub.PrimaryMediaType))
-                            {
-                                <span class="hero-badge">@HeroFormatMediaType(_heroHub.PrimaryMediaType)</span>
-                            }
-                            @if (!string.IsNullOrEmpty(_heroHub.Genre))
-                            {
-                                @foreach (var genre in _heroHub.Genre.Split(',', ';').Take(2).Select(g => g.Trim()).Where(g => g.Length > 0))
-                                {
-                                    <span class="hero-badge">@genre</span>
-                                }
-                            }
-                            @if (!string.IsNullOrEmpty(_heroHub.Rating))
-                            {
-                                <span class="hero-badge">@_heroHub.Rating</span>
-                            }
-                            @if (_heroHub.WorkCount > 1)
-                            {
-                                <span class="hero-badge">@_heroHub.WorkCount works</span>
-                            }
-                        </div>
-        
-                        @if (!string.IsNullOrEmpty(_heroHub.Series))
-                        {
-                            <p class="hero-cinema-series">@_heroHub.Series</p>
-                        }
-                        @if (!string.IsNullOrEmpty(_heroHub.Author))
-                        {
-                            <p class="hero-cinema-subtitle">@_heroHub.Author</p>
-                        }
-                        @if (!string.IsNullOrEmpty(_heroHub.Description))
-                        {
-                            <p class="hero-cinema-description">@HeroTruncate(_heroHub.Description, 200)</p>
-                        }
+            @* ── Active slide — @key forces DOM recreation → CSS fade triggers ── *@
+            <div class="hero-carousel-slide" @key="_carouselIndex">
+                @if (_useJourneyCarousel)
+                {
+                    var item = _journeyItems[_carouselIndex];
+                    <div class="hero-bleed-wrapper-standalone"
+                         @onclick="() => HandleResumeClicked(item)">
+                        <JourneyHero Item="@item" OnResumeClicked="HandleResumeClicked" />
                     </div>
-                </div>
+                }
+                else
+                {
+                    var hub = _carouselHubs[_carouselIndex];
+                    <div class="hero-stack" @onclick="@(() => HandleHubSelected(hub))">
+
+                        @* Layer 1: Visual background — full-bleed *@
+                        <div class="hero-stack-bg">
+                            <div class="hero-bleed-wrapper">
+                                <HubHero Hub="@hub"
+                                         BackgroundOnly="true"
+                                         Visible="true" />
+                            </div>
+                        </div>
+
+                        @* Layer 2: Text — normal container flow *@
+                        <div class="hero-stack-text">
+                            <div class="hero-content-layout">
+                                @if (!string.IsNullOrEmpty(hub.CoverUrl))
+                                {
+                                    <img src="@hub.CoverUrl"
+                                         alt="@hub.DisplayName"
+                                         class="hero-cover-art" />
+                                }
+                                <div class="hero-text-block">
+                                    <h2 class="hero-cinema-title">@hub.DisplayName</h2>
+
+                                    <div class="hero-cinema-badges">
+                                        @if (!string.IsNullOrEmpty(hub.Year))
+                                        {
+                                            <span class="hero-badge">@hub.Year</span>
+                                        }
+                                        @if (!string.IsNullOrEmpty(hub.PrimaryMediaType))
+                                        {
+                                            <span class="hero-badge">@HeroFormatMediaType(hub.PrimaryMediaType)</span>
+                                        }
+                                        @if (!string.IsNullOrEmpty(hub.Genre))
+                                        {
+                                            @foreach (var genre in hub.Genre.Split(',', ';').Take(2).Select(g => g.Trim()).Where(g => g.Length > 0))
+                                            {
+                                                <span class="hero-badge">@genre</span>
+                                            }
+                                        }
+                                        @if (!string.IsNullOrEmpty(hub.Rating))
+                                        {
+                                            <span class="hero-badge">@hub.Rating</span>
+                                        }
+                                        @if (hub.WorkCount > 1)
+                                        {
+                                            <span class="hero-badge">@hub.WorkCount works</span>
+                                        }
+                                    </div>
+
+                                    @if (!string.IsNullOrEmpty(hub.Series))
+                                    {
+                                        <p class="hero-cinema-series">@hub.Series</p>
+                                    }
+                                    @if (!string.IsNullOrEmpty(hub.Author))
+                                    {
+                                        <p class="hero-cinema-subtitle">@hub.Author</p>
+                                    }
+                                    @if (!string.IsNullOrEmpty(hub.Description))
+                                    {
+                                        <p class="hero-cinema-description">@HeroTruncate(hub.Description, 200)</p>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                }
             </div>
 
+            @* ── Navigation controls (only when multiple slides) ── *@
+            @if (_carouselCount > 1)
+            {
+                <button class="carousel-arrow carousel-arrow-left"
+                        @onclick="PrevSlide"
+                        @onclick:stopPropagation="true"
+                        aria-label="Previous">
+                    <MudIcon Icon="@Icons.Material.Filled.ChevronLeft" />
+                </button>
+
+                <button class="carousel-arrow carousel-arrow-right"
+                        @onclick="NextSlide"
+                        @onclick:stopPropagation="true"
+                        aria-label="Next">
+                    <MudIcon Icon="@Icons.Material.Filled.ChevronRight" />
+                </button>
+
+                <div class="carousel-dots">
+                    @for (int i = 0; i < _carouselCount; i++)
+                    {
+                        var idx = i;
+                        <button class="carousel-dot @(idx == _carouselIndex ? "active" : "")"
+                                @onclick="() => GoToSlide(idx)"
+                                @onclick:stopPropagation="true"
+                                aria-label="Slide @(idx + 1)" />
+                    }
+                </div>
+            }
         </div>
     }
 
-    @* ── Your Library — books only ── *@
+    @* ── Your Library ── *@
     <PosterSwimlane Title="Your Library"
                     TotalCount="@_nonHeroHubs.Count"
                     Hubs="@_nonHeroHubs.Take(12).ToList()"
                     OnHubSelected="HandleHubSelected"
                     CardWidth="@_cardWidth" />
 
-    @* ── Recently Added — books only, newest first ── *@
+    @* ── Recently Added — newest first ── *@
     <PosterSwimlane Title="Recently Added"
                     TotalCount="@_recentHubs.Count"
                     Hubs="@_recentHubs.Take(12).ToList()"
                     OnHubSelected="HandleHubSelected"
                     CardWidth="@_cardWidth" />
 
-    @* ── Grouped swimlanes (Books only — videos will get their own component) ── *@
+    @* ── Grouped swimlanes by media type ── *@
     @foreach (var group in _mediaTypeGroups)
     {
         <PosterSwimlane Title="@group.Title"
@@ -183,18 +222,28 @@ else
     private bool               _seeding;
     private string?            _error;
     private string?            _seedMessage;
-    private HubViewModel?      _heroHub;
-    private JourneyItemViewModel? _journeyItem;
-    private List<HubViewModel> _hubs = [];
-    private List<HubViewModel> _nonHeroHubs = [];
-    private List<HubViewModel> _recentHubs = [];
+    private List<HubViewModel> _hubs         = [];
+    private List<HubViewModel> _nonHeroHubs  = [];
+    private List<HubViewModel> _recentHubs   = [];
+    private List<HubViewModel> _carouselHubs = [];
     private List<MediaTypeGroup> _mediaTypeGroups = [];
+
+    // ── Journey items ────────────────────────────────────────────────────────
+    private List<JourneyItemViewModel> _journeyItems = [];
+
+    // ── Carousel state ───────────────────────────────────────────────────────
+    private int                    _carouselIndex  = 0;
+    private bool                   _carouselPaused = false;
+    private CancellationTokenSource _carouselCts   = new();
+
+    private bool _useJourneyCarousel => _journeyItems.Count > 0;
+    private int  _carouselCount      => _useJourneyCarousel ? _journeyItems.Count : _carouselHubs.Count;
 
     private int _cardWidth => DeviceContext.Settings.Pages.Home.SwimlaneCardWidth;
 
     private sealed record MediaTypeGroup(string Title, IReadOnlyList<HubViewModel> Hubs);
 
-    // ── Device-context computed helpers ──────────────────────────────────────
+    // ── Device-context helpers ────────────────────────────────────────────────
 
     private string _pendingDisplay =>
         DeviceContext.Settings.Pages.Home.PendingFilesDisplay;
@@ -208,6 +257,7 @@ else
         State.OnStateChanged += OnStateChanged;
         await Orchestrator.StartSignalRAsync();
         await LoadHubsAsync(showSpinner: true);
+        _ = StartCarouselAsync(_carouselCts.Token);
     }
 
     // ── Hub loading ───────────────────────────────────────────────────────────
@@ -223,9 +273,8 @@ else
         {
             _hubs = await Orchestrator.GetHubsAsync();
 
-            // Load the most recently accessed incomplete item for the Journey hero.
-            var journey = await Orchestrator.GetJourneyAsync(limit: 1);
-            _journeyItem = journey.FirstOrDefault();
+            // Load up to 5 in-progress items for the carousel primary pool.
+            _journeyItems = await Orchestrator.GetJourneyAsync(limit: 5);
 
             ApplyFilter();
         }
@@ -241,19 +290,14 @@ else
 
     private void ApplyFilter()
     {
-        // Home is cross-cutting — show ALL media types.
         var all = _hubs;
 
-        // Hero: prefer hubs with cover art or hero banners.
-        var withCovers = all.Where(h => !string.IsNullOrEmpty(h.CoverUrl) || !string.IsNullOrEmpty(h.HeroUrl)).ToList();
-        var heroPool   = withCovers.Count > 0 ? withCovers : all;
-        _heroHub       = heroPool.Count > 0 ? heroPool[Random.Shared.Next(heroPool.Count)] : null;
+        // Non-hero hubs (all, for "Your Library" swimlane).
+        _nonHeroHubs = all.ToList();
 
-        // Non-hero hubs.
-        _nonHeroHubs = all.Where(h => h != _heroHub).ToList();
-
-        // Recently added: newest first.
-        _recentHubs = all.OrderByDescending(h => h.CreatedAt).ToList();
+        // Recently added: newest first — also the carousel fallback pool.
+        _recentHubs   = all.OrderByDescending(h => h.CreatedAt).ToList();
+        _carouselHubs = _recentHubs.Take(5).ToList();
 
         // Group by media type label for swimlane sections.
         _mediaTypeGroups = all
@@ -262,7 +306,73 @@ else
             .Where(g => g.Count() >= 2)
             .Select(g => new MediaTypeGroup(g.Key, g.ToList()))
             .ToList();
+
+        // Keep index in bounds if data changed.
+        if (_carouselIndex >= _carouselCount)
+            _carouselIndex = 0;
     }
+
+    // ── Ambient background color — tracks current carousel slide ─────────────
+
+    private string? _ambientColor
+    {
+        get
+        {
+            if (!_useJourneyCarousel && _carouselHubs.Count > 0)
+                return _carouselHubs[Math.Min(_carouselIndex, _carouselHubs.Count - 1)].DominantHexColor;
+
+            // Journey mode: look up the hub by ID.
+            if (_journeyItems.Count > 0 && _carouselIndex < _journeyItems.Count)
+            {
+                var hubId = _journeyItems[_carouselIndex].HubId;
+                return _hubs.FirstOrDefault(h => h.Id == hubId)?.DominantHexColor;
+            }
+
+            return _hubs.FirstOrDefault()?.DominantHexColor;
+        }
+    }
+
+    // ── Carousel timer ────────────────────────────────────────────────────────
+
+    private async Task StartCarouselAsync(CancellationToken ct)
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(6));
+        try
+        {
+            while (await timer.WaitForNextTickAsync(ct))
+            {
+                if (!_carouselPaused && _carouselCount > 1)
+                {
+                    _carouselIndex = (_carouselIndex + 1) % _carouselCount;
+                    await InvokeAsync(StateHasChanged);
+                }
+            }
+        }
+        catch (OperationCanceledException) { }
+    }
+
+    private async Task GoToSlide(int idx)
+    {
+        _carouselIndex = ((idx % Math.Max(1, _carouselCount)) + _carouselCount) % _carouselCount;
+
+        // Reset the timer so it doesn't immediately advance after a manual click.
+        await _carouselCts.CancelAsync();
+        _carouselCts = new CancellationTokenSource();
+        _ = StartCarouselAsync(_carouselCts.Token);
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private Task NextSlide() =>
+        GoToSlide((_carouselIndex + 1) % Math.Max(1, _carouselCount));
+
+    private Task PrevSlide() =>
+        GoToSlide((_carouselIndex - 1 + Math.Max(1, _carouselCount)) % Math.Max(1, _carouselCount));
+
+    private void PauseCarousel()  => _carouselPaused = true;
+    private void ResumeCarousel() => _carouselPaused = false;
+
+    // ── Formatting helpers ────────────────────────────────────────────────────
 
     private static string FormatMediaType(string mediaType)
     {
@@ -275,8 +385,6 @@ else
         if (t.Contains("mkv") || t.Contains("mp4"))     return "Videos";
         return mediaType;
     }
-
-    // ── Hero text helpers (singular labels for the hero banner) ─────────────
 
     private static string HeroFormatMediaType(string mediaType)
     {
@@ -306,7 +414,7 @@ else
             Nav.NavigateTo($"/hub/{item.HubId.Value}");
     }
 
-    // ── Seed library (dev only) ──────────────────────────────────────────────
+    // ── Seed library (dev only) ───────────────────────────────────────────────
 
     private async Task HandleSeedLibrary()
     {
@@ -343,12 +451,95 @@ else
     public void Dispose()
     {
         State.OnStateChanged -= OnStateChanged;
+        _carouselCts.Cancel();
+        _carouselCts.Dispose();
     }
 }
 
 <style>
-    /* Hero grid overlay styles (hero-stack, hero-bleed-wrapper) are in app.css */
+    /* ── Hero carousel container ─────────────────────────────────────── */
+    .hero-carousel {
+        position: relative;
+        margin-bottom: 2rem;
+    }
 
+    /* ── Slide fade-in — triggered by @@key recreation ──────────────── */
+    .hero-carousel-slide {
+        animation: heroSlideFadeIn 0.55s ease;
+    }
+
+    @@keyframes heroSlideFadeIn {
+        from { opacity: 0; transform: translateY(6px); }
+        to   { opacity: 1; transform: translateY(0);   }
+    }
+
+    /* ── Arrow buttons ───────────────────────────────────────────────── */
+    .carousel-arrow {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        z-index: 20;
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        border: none;
+        background: rgba(0, 0, 0, 0.55);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        color: rgba(255, 255, 255, 0.85);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.2s ease, opacity 0.2s ease;
+        opacity: 0;
+    }
+
+    .hero-carousel:hover .carousel-arrow {
+        opacity: 1;
+    }
+
+    .carousel-arrow:hover {
+        background: rgba(201, 146, 46, 0.70);
+        color: #fff;
+    }
+
+    .carousel-arrow-left  { left:  16px; }
+    .carousel-arrow-right { right: 16px; }
+
+    /* ── Dot indicators ──────────────────────────────────────────────── */
+    .carousel-dots {
+        position: absolute;
+        bottom: 16px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 20;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+
+    .carousel-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        border: none;
+        background: rgba(255, 255, 255, 0.35);
+        cursor: pointer;
+        padding: 0;
+        transition: background 0.25s ease, transform 0.25s ease;
+    }
+
+    .carousel-dot.active {
+        background: #C9922E;
+        transform: scale(1.35);
+    }
+
+    .carousel-dot:hover:not(.active) {
+        background: rgba(255, 255, 255, 0.65);
+    }
+
+    /* ── Empty state ─────────────────────────────────────────────────── */
     .home-empty-state {
         display: flex;
         flex-direction: column;

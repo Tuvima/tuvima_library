@@ -1873,21 +1873,21 @@ public sealed class EngineApiClient : IEngineApiClient
         [property: JsonPropertyName("confidence")]       double  Confidence);
 
     private sealed record JourneyItemRaw(
-        [property: JsonPropertyName("asset_id")]            Guid                          AssetId,
-        [property: JsonPropertyName("work_id")]             Guid                          WorkId,
-        [property: JsonPropertyName("hub_id")]              Guid?                         HubId,
-        [property: JsonPropertyName("title")]               string?                       Title,
-        [property: JsonPropertyName("author")]              string?                       Author,
-        [property: JsonPropertyName("cover_url")]           string?                       CoverUrl,
-        [property: JsonPropertyName("narrator")]            string?                       Narrator,
-        [property: JsonPropertyName("series")]              string?                       Series,
-        [property: JsonPropertyName("series_position")]     string?                       SeriesPosition,
-        [property: JsonPropertyName("description")]         string?                       Description,
-        [property: JsonPropertyName("media_type")]          string?                       MediaType,
-        [property: JsonPropertyName("progress_pct")]        double                        ProgressPct,
-        [property: JsonPropertyName("last_accessed")]       DateTimeOffset                LastAccessed,
-        [property: JsonPropertyName("hub_display_name")]    string?                       HubDisplayName,
-        [property: JsonPropertyName("extended_properties")] Dictionary<string, string>?   ExtendedProperties);
+        [property: JsonPropertyName("assetId")]            Guid                          AssetId,
+        [property: JsonPropertyName("workId")]             Guid                          WorkId,
+        [property: JsonPropertyName("hubId")]              Guid?                         HubId,
+        [property: JsonPropertyName("title")]              string?                       Title,
+        [property: JsonPropertyName("author")]             string?                       Author,
+        [property: JsonPropertyName("coverUrl")]           string?                       CoverUrl,
+        [property: JsonPropertyName("narrator")]           string?                       Narrator,
+        [property: JsonPropertyName("series")]             string?                       Series,
+        [property: JsonPropertyName("seriesPosition")]     string?                       SeriesPosition,
+        [property: JsonPropertyName("description")]        string?                       Description,
+        [property: JsonPropertyName("mediaType")]          string?                       MediaType,
+        [property: JsonPropertyName("progressPct")]        double                        ProgressPct,
+        [property: JsonPropertyName("lastAccessed")]       DateTimeOffset                LastAccessed,
+        [property: JsonPropertyName("hubDisplayName")]     string?                       HubDisplayName,
+        [property: JsonPropertyName("extendedProperties")] Dictionary<string, string>?   ExtendedProperties);
 
     private sealed record PersonRaw(
         [property: JsonPropertyName("id")]                 Guid    Id,
