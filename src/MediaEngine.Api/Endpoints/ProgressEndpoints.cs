@@ -101,7 +101,8 @@ public static class ProgressEndpoints
                     COALESCE(cv_narrator_w.value,    cv_narrator_a.value)    AS narrator,
                     COALESCE(cv_series_w.value,      cv_series_a.value)      AS series,
                     COALESCE(cv_series_pos_w.value,  cv_series_pos_a.value)  AS series_position,
-                    COALESCE(cv_desc_w.value,        cv_desc_a.value)        AS description
+                    COALESCE(cv_desc_w.value,        cv_desc_a.value)        AS description,
+                    cv_hero_a.value                                         AS hero_url
                 FROM user_states us
                 JOIN media_assets ma ON ma.id = us.asset_id
                 JOIN editions e      ON e.id  = ma.edition_id
@@ -135,6 +136,8 @@ public static class ProgressEndpoints
                     ON cv_desc_w.entity_id = w.id         AND cv_desc_w.key = 'description'
                 LEFT JOIN canonical_values cv_desc_a
                     ON cv_desc_a.entity_id = ma.id        AND cv_desc_a.key = 'description'
+                LEFT JOIN canonical_values cv_hero_a
+                    ON cv_hero_a.entity_id = ma.id        AND cv_hero_a.key = 'hero'
                 WHERE us.user_id = @userId
                   AND us.progress_pct > 0.0
                   AND us.progress_pct < 100.0
@@ -177,7 +180,8 @@ public static class ProgressEndpoints
                     Narrator:          reader.IsDBNull(11) ? null : reader.GetString(11),
                     Series:            reader.IsDBNull(12) ? null : reader.GetString(12),
                     SeriesPosition:    reader.IsDBNull(13) ? null : reader.GetString(13),
-                    Description:       reader.IsDBNull(14) ? null : reader.GetString(14)));
+                    Description:       reader.IsDBNull(14) ? null : reader.GetString(14),
+                    HeroUrl:           reader.IsDBNull(15) ? null : reader.GetString(15)));
             }
 
             return Results.Ok(results);
@@ -230,4 +234,5 @@ public sealed record JourneyItemResponse(
     double                       ProgressPct,
     DateTimeOffset               LastAccessed,
     string?                      HubDisplayName,
-    Dictionary<string, string>   ExtendedProperties);
+    Dictionary<string, string>   ExtendedProperties,
+    string?                      HeroUrl);

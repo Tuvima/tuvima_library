@@ -1338,6 +1338,7 @@ public sealed class EngineApiClient : IEngineApiClient
                 Title          = j.Title ?? string.Empty,
                 Author         = j.Author,
                 CoverUrl       = j.CoverUrl is not null ? AbsoluteUrl(j.CoverUrl) : null,
+                HeroUrl        = j.HeroUrl  is not null ? AbsoluteUrl(j.HeroUrl)  : null,
                 Narrator       = j.Narrator,
                 Series         = j.Series,
                 SeriesPosition = j.SeriesPosition,
@@ -1887,7 +1888,8 @@ public sealed class EngineApiClient : IEngineApiClient
         [property: JsonPropertyName("progressPct")]        double                        ProgressPct,
         [property: JsonPropertyName("lastAccessed")]       DateTimeOffset                LastAccessed,
         [property: JsonPropertyName("hubDisplayName")]     string?                       HubDisplayName,
-        [property: JsonPropertyName("extendedProperties")] Dictionary<string, string>?   ExtendedProperties);
+        [property: JsonPropertyName("extendedProperties")] Dictionary<string, string>?   ExtendedProperties,
+        [property: JsonPropertyName("heroUrl")]            string?                       HeroUrl);
 
     private sealed record PersonRaw(
         [property: JsonPropertyName("id")]                 Guid    Id,
