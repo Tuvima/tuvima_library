@@ -200,6 +200,17 @@ else
                         </div>
                     }
 
+                    @* Genre chips — shown in center column so they're always visible *@
+                    @if (GenreTags.Count > 0)
+                    {
+                        <div class="hub-detail-genre-badges">
+                            @foreach (var tag in GenreTags.Take(4))
+                            {
+                                <span class="hub-detail-center-genre-chip">@tag</span>
+                            }
+                        </div>
+                    }
+
                     @* Primary CTA — desktop only (above action circles) *@
                     <button class="hub-primary-cta hub-desktop-only" @onclick="@OnPrimaryAction">
                         <div class="hub-primary-cta-inner">
@@ -1045,7 +1056,29 @@ else
 
     .hub-detail-sidebar-author:hover { color: #e0aa50; }
 
-    /* Genre chips */
+    /* Genre chips — center column (always visible) */
+    .hub-detail-genre-badges {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-bottom: 16px;
+    }
+
+    .hub-detail-center-genre-chip {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.68rem;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        padding: 4px 10px;
+        border-radius: 20px;
+        background: rgba(255, 255, 255, 0.10);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        color: rgba(248, 248, 248, 0.70);
+        white-space: nowrap;
+        text-transform: uppercase;
+    }
+
+    /* Genre chips — sidebar (right-aligned metadata column) */
     .hub-detail-genre-row {
         display: flex;
         flex-wrap: wrap;

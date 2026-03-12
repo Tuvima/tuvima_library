@@ -208,6 +208,14 @@
     /* ── Content area ────────────────────────────────────────────────── */
     .settings-content-area {
         min-width: 0;
+        max-width: 1100px;
+    }
+
+    /* ── Desktop: clear the floating dock (64px) + breathing room ── */
+    @@media (min-width: 769px) {
+        .settings-content-area {
+            padding-left: 56px; /* + MudContainer 32px = 88px from screen edge */
+        }
     }
 
     /* ── Mobile / narrow viewport overrides ──────────────────────────── */

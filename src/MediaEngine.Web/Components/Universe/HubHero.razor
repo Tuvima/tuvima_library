@@ -130,7 +130,8 @@
         cursor: pointer;
     }
 
-    .hero-banner-bg   { grid-area: hero; }
+    /* Background layer must never capture pointer events — content layer handles all clicks */
+    .hero-banner-bg   { grid-area: hero; pointer-events: none; }
     .hero-content     { grid-area: hero; }
 
     /* Mobile cover occupies the same grid cell */
