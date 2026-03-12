@@ -94,6 +94,40 @@ window.scrollSwimlane = function (el, direction) {
         behavior: 'smooth'
     });
 };
+
+/**
+ * Returns the current scroll boundary state for a swimlane element.
+ * @param {HTMLElement} el - The .swimlane-scroll container.
+ * @returns {{ atStart: boolean, atEnd: boolean }}
+ */
+window.getSwimlaneScrollState = function (el) {
+    if (!el) return { atStart: true, atEnd: true };
+    return {
+        atStart: el.scrollLeft <= 1,
+        atEnd: el.scrollLeft + el.clientWidth >= el.scrollWidth - 1
+    };
+};
+
+/**
+ * Scrolls the swimlane and resolves with the boundary state after the
+ * animation completes (~400 ms for smooth scroll).
+ * @param {HTMLElement} el - The .swimlane-scroll container.
+ * @param {string} direction - "left" or "right".
+ * @returns {Promise<{ atStart: boolean, atEnd: boolean }>}
+ */
+window.scrollSwimlaneEx = function (el, direction) {
+    if (!el) return Promise.resolve({ atStart: true, atEnd: true });
+    var amount = el.clientWidth * 0.75;
+    el.scrollBy({ left: direction === 'left' ? -amount : amount, behavior: 'smooth' });
+    return new Promise(function (resolve) {
+        setTimeout(function () {
+            resolve({
+                atStart: el.scrollLeft <= 1,
+                atEnd: el.scrollLeft + el.clientWidth >= el.scrollWidth - 1
+            });
+        }, 420); // wait for smooth-scroll animation to settle
+    });
+};
 // -- Alphabetical Grid scroll-to-letter ---------------------------------
 
 /**

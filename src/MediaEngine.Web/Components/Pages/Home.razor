@@ -104,58 +104,48 @@ else
                             </div>
                         </div>
 
-                        @* Layer 2: Text — normal container flow *@
+                        @* Layer 2: Text — normal container flow, identical to MediaLanePage hero *@
                         <div class="hero-stack-text">
-                            <div class="hero-content-layout">
-                                @if (!string.IsNullOrEmpty(hub.CoverUrl))
+                            <h2 class="hero-cinema-title">@hub.DisplayName</h2>
+
+                            <div class="hero-cinema-badges">
+                                @if (!string.IsNullOrEmpty(hub.Year))
                                 {
-                                    <img src="@hub.CoverUrl"
-                                         alt="@hub.DisplayName"
-                                         class="hero-cover-art" />
+                                    <span class="hero-badge">@hub.Year</span>
                                 }
-                                <div class="hero-text-block">
-                                    <h2 class="hero-cinema-title">@hub.DisplayName</h2>
-
-                                    <div class="hero-cinema-badges">
-                                        @if (!string.IsNullOrEmpty(hub.Year))
-                                        {
-                                            <span class="hero-badge">@hub.Year</span>
-                                        }
-                                        @if (!string.IsNullOrEmpty(hub.PrimaryMediaType))
-                                        {
-                                            <span class="hero-badge">@HeroFormatMediaType(hub.PrimaryMediaType)</span>
-                                        }
-                                        @if (!string.IsNullOrEmpty(hub.Genre))
-                                        {
-                                            @foreach (var genre in hub.Genre.Split(',', ';').Take(2).Select(g => g.Trim()).Where(g => g.Length > 0))
-                                            {
-                                                <span class="hero-badge">@genre</span>
-                                            }
-                                        }
-                                        @if (!string.IsNullOrEmpty(hub.Rating))
-                                        {
-                                            <span class="hero-badge">@hub.Rating</span>
-                                        }
-                                        @if (hub.WorkCount > 1)
-                                        {
-                                            <span class="hero-badge">@hub.WorkCount works</span>
-                                        }
-                                    </div>
-
-                                    @if (!string.IsNullOrEmpty(hub.Series))
+                                @if (!string.IsNullOrEmpty(hub.PrimaryMediaType))
+                                {
+                                    <span class="hero-badge">@HeroFormatMediaType(hub.PrimaryMediaType)</span>
+                                }
+                                @if (!string.IsNullOrEmpty(hub.Genre))
+                                {
+                                    @foreach (var genre in hub.Genre.Split(',', ';').Take(2).Select(g => g.Trim()).Where(g => g.Length > 0))
                                     {
-                                        <p class="hero-cinema-series">@hub.Series</p>
+                                        <span class="hero-badge">@genre</span>
                                     }
-                                    @if (!string.IsNullOrEmpty(hub.Author))
-                                    {
-                                        <p class="hero-cinema-subtitle">@hub.Author</p>
-                                    }
-                                    @if (!string.IsNullOrEmpty(hub.Description))
-                                    {
-                                        <p class="hero-cinema-description">@HeroTruncate(hub.Description, 200)</p>
-                                    }
-                                </div>
+                                }
+                                @if (!string.IsNullOrEmpty(hub.Rating))
+                                {
+                                    <span class="hero-badge">@hub.Rating</span>
+                                }
+                                @if (hub.WorkCount > 1)
+                                {
+                                    <span class="hero-badge">@hub.WorkCount works</span>
+                                }
                             </div>
+
+                            @if (!string.IsNullOrEmpty(hub.Series))
+                            {
+                                <p class="hero-cinema-series">@hub.Series</p>
+                            }
+                            @if (!string.IsNullOrEmpty(hub.Author))
+                            {
+                                <p class="hero-cinema-subtitle">@hub.Author</p>
+                            }
+                            @if (!string.IsNullOrEmpty(hub.Description))
+                            {
+                                <p class="hero-cinema-description">@HeroTruncate(hub.Description, 200)</p>
+                            }
                         </div>
 
                     </div>

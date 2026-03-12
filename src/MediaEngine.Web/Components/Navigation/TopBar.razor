@@ -8,11 +8,10 @@
     @if (Variant == "mobile")
     {
         @* Mobile: hamburger on left, logo centered, actions on right *@
-        <MudIconButton Icon="@Icons.Material.Filled.Menu"
-                       Color="Color.Inherit"
-                       Size="Size.Medium"
-                       OnClick="@OnHamburgerClick"
-                       aria-label="Open navigation" />
+        <button class="top-bar-hamburger-btn" @onclick="@OnHamburgerClick" aria-label="Open navigation">
+            <MudIcon Icon="@Icons.Material.Filled.Menu"
+                     Style="font-size: 24px; color: rgba(248,248,248,0.80);" />
+        </button>
 
         <div class="top-bar-logo top-bar-logo-center">
             <a href="/"><AppLogo Style="height: 24px; display: block;" /></a>
@@ -36,13 +35,13 @@
     else
     {
         @* Desktop (full): logo left, inline search center, bell + avatar right *@
-        @* Hamburger: hidden on desktop, visible on mobile via CSS *@
-        <MudIconButton Icon="@Icons.Material.Filled.Menu"
-                       Color="Color.Inherit"
-                       Size="Size.Medium"
-                       Class="top-bar-hamburger-responsive"
-                       OnClick="@OnHamburgerClick"
-                       aria-label="Open navigation" />
+        @* Hamburger: hidden on desktop, shown on mobile via CSS *@
+        <button class="top-bar-hamburger-btn top-bar-hamburger-responsive"
+                @onclick="@OnHamburgerClick"
+                aria-label="Open navigation">
+            <MudIcon Icon="@Icons.Material.Filled.Menu"
+                     Style="font-size: 24px; color: rgba(248,248,248,0.70);" />
+        </button>
         <div class="top-bar-logo">
             <a href="/"><AppLogo Style="height: 36px; display: block;" /></a>
         </div>
@@ -352,6 +351,26 @@
         white-space: nowrap;
     }
 
+    /* Unstyled hamburger button — works on first tap on all platforms */
+    .top-bar-hamburger-btn {
+        background: none;
+        border: none;
+        padding: 8px;
+        margin: 0;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        flex-shrink: 0;
+        transition: background 0.15s ease;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    .top-bar-hamburger-btn:hover {
+        background: rgba(255, 255, 255, 0.08);
+    }
+
     /* Responsive hamburger: hidden on desktop, shown on mobile */
     .top-bar-hamburger-responsive {
         display: none;
@@ -365,7 +384,7 @@
             position: absolute;
             left: 50%;
             transform: translateX(-50%);
-            pointer-events: none;
+            /* pointer-events intentionally NOT set to none — logo must remain clickable */
         }
         /* Hide bell + avatar on narrow screens regardless of Blazor variant */
         .top-bar-full .top-bar-actions {

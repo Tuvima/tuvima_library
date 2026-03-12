@@ -34,41 +34,55 @@
     }
     else
     {
-        @* ── Universe Provider — Wikidata (pinned, editable) ──────────────── *@
+        @* ── Universe Provider — Wikidata (pinned at top) ──────────────────── *@
         @if (WikidataProvider is { } wdProvider)
         {
             <MudPaper Elevation="0" Class="pa-4 mb-4"
                       Style="background: var(--app-glass-inner-bg);
                              border: 1px solid var(--app-glass-inner-border);
                              border-radius: 8px;">
-                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-1">
-                    <div class="provider-health-dot @(_wikidataReachable ? "health-online" : "health-offline")"
-                         style="width: 12px; height: 12px;"></div>
-                    <MudText Typo="Typo.body1" Style="font-weight: 600;">Universe</MudText>
-                    <MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined">
-                        Wikidata
-                    </MudChip>
-                    <MudText Typo="Typo.caption" Color="Color.Secondary" Style="flex: 1;">
-                        Cross-media identification, series data, and creator profiles.
-                    </MudText>
-                    @if (!_isMobile)
-                    {
+                @if (_isMobile)
+                {
+                    @* Mobile: name + status only. All config on desktop. *@
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        <div class="provider-health-dot @(_wikidataReachable ? "health-online" : "health-offline")"
+                             style="width: 10px; height: 10px;"></div>
+                        <MudText Typo="Typo.body2" Style="font-weight: 600;">Wikidata</MudText>
+                        <MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined"
+                                 Style="font-size: 0.65rem; height: 20px;">
+                            Universe
+                        </MudChip>
+                    </MudStack>
+                }
+                else
+                {
+                    @* Desktop: full editable panel *@
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-1">
+                        <div class="provider-health-dot @(_wikidataReachable ? "health-online" : "health-offline")"
+                             style="width: 12px; height: 12px;"></div>
+                        <MudText Typo="Typo.body1" Style="font-weight: 600;">Universe</MudText>
+                        <MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined">
+                            Wikidata
+                        </MudChip>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary" Style="flex: 1;">
+                            Cross-media identification, series data, and creator profiles.
+                        </MudText>
                         <MudIconButton Icon="@(_wdExpanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
                                        Size="Size.Small"
                                        title="@(_wdExpanded ? "Collapse" : "Expand")"
                                        OnClick="@(() => _wdExpanded = !_wdExpanded)" />
-                    }
-                </MudStack>
+                    </MudStack>
 
-                @if (_wdExpanded && !_isMobile)
-                {
-                    <WikidataVaultPanel Provider="@wdProvider"
-                                        IsAdmin="@HasAdminAccess"
-                                        OnTestClicked="@TestWikidataAsync"
-                                        OnSaveClicked="@SaveWikidataAsync"
-                                        TestResult="@_wdTestResult"
-                                        IsTesting="@_wdTesting"
-                                        IsSaving="@_wdSaving" />
+                    @if (_wdExpanded)
+                    {
+                        <WikidataVaultPanel Provider="@wdProvider"
+                                            IsAdmin="@HasAdminAccess"
+                                            OnTestClicked="@TestWikidataAsync"
+                                            OnSaveClicked="@SaveWikidataAsync"
+                                            TestResult="@_wdTestResult"
+                                            IsTesting="@_wdTesting"
+                                            IsSaving="@_wdSaving" />
+                    }
                 }
             </MudPaper>
         }

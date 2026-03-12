@@ -129,6 +129,13 @@
     private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
     {
         UpdateSettingsState();
+        // Always close the drawer on navigation — handles all cases including
+        // MudNavLink href navigation and programmatic Nav.NavigateTo() calls.
+        if (Open)
+        {
+            Open = false;
+            _ = OpenChanged.InvokeAsync(false);
+        }
         InvokeAsync(StateHasChanged);
     }
 

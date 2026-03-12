@@ -145,11 +145,11 @@ body {
 
 .hero-stack-text {
     grid-area: hero;
-    align-self: stretch;        /* fills full hero height so cover art can too */
+    align-self: stretch;        /* fills full hero height */
     display: flex;
     align-items: flex-end;
-    /* 88px = .swimlane-section padding-left — guarantees column alignment */
-    padding: 0 2.5rem 0 88px;  /* bottom padding moved to hero-content-layout */
+    /* 88px left = .swimlane-section padding-left — guarantees column alignment */
+    padding: 0 2.5rem 2.5rem 88px;
     position: relative;
     z-index: 3;
 }
@@ -224,7 +224,7 @@ body {
     }
 
     .hero-stack-text {
-        padding: 0 1.5rem 0 0;
+        padding: 0 1.5rem 1.5rem 0;
     }
 }
 
