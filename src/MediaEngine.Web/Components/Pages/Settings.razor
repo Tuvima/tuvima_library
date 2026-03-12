@@ -11,15 +11,20 @@
 
 <PageTitle>Settings — Tuvima Library</PageTitle>
 
-@* ── Page header ─────────────────────────────────────────────────────── *@
-<MudText Typo="Typo.h4" Class="mb-1">Settings</MudText>
-<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
-    Manage your experience.
-</MudText>
+@* ── Dock-clearing wrapper (desktop: clears 64px floating dock) ── *@
+<div class="settings-page-outer">
 
-@* ── Content area (navigation handled by LeftDock / MobileNavDrawer) ── *@
-<div class="settings-content-area">
-    @RenderActiveTab
+    @* ── Page header ────────────────────────────────────────────── *@
+    <MudText Typo="Typo.h4" Class="mb-1">Settings</MudText>
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
+        Manage your experience.
+    </MudText>
+
+    @* ── Content area ───────────────────────────────────────────── *@
+    <div class="settings-content-area">
+        @RenderActiveTab
+    </div>
+
 </div>
 
 @* ── Curator's Drawer (migrated from ServerSettings.razor) ───────────── *@
@@ -205,17 +210,20 @@
 }
 
 <style>
+    /* ── Outer wrapper: dock-clearing left indent (desktop only) ─── */
+    /* Dock: left:12px + width:64px = right edge at 76px from screen.     */
+    /* MudContainer adds 32px. We add 88px here → total 120px from edge,  */
+    /* matching the swimlane content alignment.                            */
+    @@media (min-width: 769px) {
+        .settings-page-outer {
+            padding-left: 88px;
+        }
+    }
+
     /* ── Content area ────────────────────────────────────────────────── */
     .settings-content-area {
         min-width: 0;
         max-width: 1100px;
-    }
-
-    /* ── Desktop: clear the floating dock (64px) + breathing room ── */
-    @@media (min-width: 769px) {
-        .settings-content-area {
-            padding-left: 56px; /* + MudContainer 32px = 88px from screen edge */
-        }
     }
 
     /* ── Mobile / narrow viewport overrides ──────────────────────────── */
