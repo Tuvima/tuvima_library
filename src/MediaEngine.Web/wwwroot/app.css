@@ -161,13 +161,60 @@ body {
     margin-left: calc(50% - 50vw);
 }
 
-/* JourneyHero standalone wrapper with its own margins */
+/* JourneyHero standalone wrapper — full-width, no top bleed so cover art stays below navbar */
 .hero-bleed-wrapper-standalone {
     width: 100vw;
     position: relative;
     margin-left: calc(50% - 50vw);
-    margin-top: -88px;
     margin-bottom: 2.5rem;
+}
+
+/* ── Shared primary CTA button — used by HubDetail + JourneyHero ──── */
+.hub-primary-cta {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    background: linear-gradient(135deg, #d4a03c 0%, #b87820 100%);
+    border: 1.5px solid rgba(0, 0, 0, 0.15);
+    border-radius: 8px;
+    cursor: pointer;
+    overflow: hidden;
+    transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    padding: 0;
+    width: fit-content;
+    box-shadow: 0 4px 18px rgba(185, 120, 32, 0.30);
+}
+
+.hub-primary-cta:hover {
+    background: linear-gradient(135deg, #dda840 0%, #c08428 100%);
+    border-color: rgba(0, 0, 0, 0.22);
+    box-shadow: 0 6px 24px rgba(185, 120, 32, 0.50);
+}
+
+.hub-primary-cta-inner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 13px 20px;
+}
+
+.hub-primary-cta-label {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.90rem;
+    font-weight: 700;
+    color: #1a1208;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+}
+
+.hub-primary-cta-progress {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 3px;
+    background: rgba(0, 0, 0, 0.28);
+    border-radius: 0 0 0 6px;
+    transition: width 0.4s ease;
 }
 
 @media (max-width: 768px) {

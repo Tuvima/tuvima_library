@@ -1375,21 +1375,7 @@ else
         object-fit: contain;
     }
 
-    /* ── Primary CTA button (~44px tall rectangle) ── */
-    .hub-primary-cta {
-        position: relative;
-        display: flex;
-        flex-direction: column;
-        background: linear-gradient(135deg, #d4a03c 0%, #b87820 100%);
-        border: 1.5px solid rgba(0, 0, 0, 0.15);
-        border-radius: 8px;
-        cursor: pointer;
-        overflow: hidden;
-        transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
-        padding: 0;
-        width: fit-content;
-        box-shadow: 0 4px 18px rgba(185, 120, 32, 0.30);
-    }
+    /* ── Primary CTA size modifiers (base styles live in app.css) ── */
 
     /* Desktop CTA: constrained width, left-aligned */
     .hub-primary-cta.hub-desktop-only {
@@ -1403,38 +1389,6 @@ else
         width: 100%;
         max-width: 320px;
         margin: 0 auto;
-    }
-
-    .hub-primary-cta:hover {
-        background: linear-gradient(135deg, #dda840 0%, #c08428 100%);
-        border-color: rgba(0, 0, 0, 0.22);
-        box-shadow: 0 6px 24px rgba(185, 120, 32, 0.50);
-    }
-
-    .hub-primary-cta-inner {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        padding: 13px 20px;
-    }
-
-    .hub-primary-cta-label {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 0.90rem;
-        font-weight: 700;
-        color: #1a1208;
-        letter-spacing: 0.01em;
-        white-space: nowrap;
-    }
-
-    .hub-primary-cta-progress {
-        position: absolute;
-        bottom: 0;
-        left: 0;
-        height: 3px;
-        background: rgba(0, 0, 0, 0.28);
-        border-radius: 0 0 0 6px;
-        transition: width 0.4s ease;
     }
 
     /* ── Secondary action circles ── */

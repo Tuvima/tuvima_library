@@ -40,6 +40,11 @@ public sealed class JourneyItemViewModel
         _ => "Continue",
     };
 
+    /// <summary>Button label including progress percentage, matching HubDetail's PrimaryActionLabel style.</summary>
+    public string ActionLabel => ProgressPct is > 0 and < 99.5
+        ? $"{ActionVerb} · {Math.Max(1, ProgressPct):F0}%"
+        : ActionVerb;
+
     public string FormatMediaType => MediaType.ToLowerInvariant() switch
     {
         var t when t.Contains("epub") || t.Contains("book")  => "Book",
