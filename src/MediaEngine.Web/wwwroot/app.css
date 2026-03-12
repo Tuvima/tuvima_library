@@ -161,11 +161,11 @@ body {
     margin-left: calc(50% - 50vw);
 }
 
-/* JourneyHero standalone wrapper — full-width, bleeds under navbar (compensated by content padding-top) */
+/* JourneyHero standalone wrapper — bleeds under navbar only.
+   Width is intentionally NOT 100vw. The full-bleed background lives inside
+   JourneyHero as .journey-hero-backdrop so content aligns with the page container. */
 .hero-bleed-wrapper-standalone {
-    width: 100vw;
     position: relative;
-    margin-left: calc(50% - 50vw);
     margin-top: -88px;
     margin-bottom: 2.5rem;
 }

@@ -10,24 +10,23 @@
 {
     <div class="journey-hero" @onclick="OnClick">
 
-        @* ── Blurred cover art background ── *@
-        @if (!string.IsNullOrEmpty(Item.CoverUrl))
-        {
-            <img src="@Item.CoverUrl"
-                 alt=""
-                 class="journey-hero-bg" />
-        }
+        @* ── Full-bleed backdrop: bleeds to 100vw via absolute positioning.
+               Kept separate from content so content aligns with the page container. ── *@
+        <div class="journey-hero-backdrop">
+            @if (!string.IsNullOrEmpty(Item.CoverUrl))
+            {
+                <img src="@Item.CoverUrl"
+                     alt=""
+                     class="journey-hero-bg" />
+            }
+            <div class="journey-hero-vignette" />
+            @if (string.IsNullOrEmpty(Item.CoverUrl))
+            {
+                <div class="journey-hero-gradient" />
+            }
+        </div>
 
-        @* ── Vignette overlay ── *@
-        <div class="journey-hero-vignette" />
-
-        @* ── Gradient fallback (no cover) ── *@
-        @if (string.IsNullOrEmpty(Item.CoverUrl))
-        {
-            <div class="journey-hero-gradient" />
-        }
-
-        @* ── Two-panel content ── *@
+        @* ── Two-panel content — aligned with swimlanes via standard 88px dock clearance ── *@
         <div class="journey-hero-content">
 
             @* Left: crisp cover poster *@
@@ -141,10 +140,22 @@
     /* ── Journey hero container ─────────────────────────────────────── */
     .journey-hero {
         position: relative;
-        overflow: hidden;
+        /* overflow: visible — backdrop bleeds to 100vw via absolute positioning */
         cursor: pointer;
         min-height: 440px;
         background: #0A0A0A;
+    }
+
+    /* ── Full-bleed backdrop: stretches to 100vw while hero stays container-width ── */
+    .journey-hero-backdrop {
+        position: absolute;
+        top: 0;
+        left: calc(50% - 50vw);   /* pull to viewport left edge */
+        width: 100vw;
+        height: 100%;
+        overflow: hidden;          /* clips the blurred image overhang */
+        pointer-events: none;
+        z-index: 0;
     }
 
     /* ── Blurred cover background ────────────────────────────────────── */
@@ -157,7 +168,6 @@
         filter: blur(24px) brightness(0.45);
         transform: scale(1.1);
         pointer-events: none;
-        z-index: 0;
     }
 
     /* ── Vignette overlay ────────────────────────────────────────────── */
@@ -169,7 +179,6 @@
             linear-gradient(to top,    rgba(0,0,0,0.80) 0%, transparent 40%),
             linear-gradient(to bottom, rgba(0,0,0,0.60) 0%, transparent 30%);
         pointer-events: none;
-        z-index: 1;
     }
 
     /* ── Gradient fallback ───────────────────────────────────────────── */
@@ -178,7 +187,6 @@
         inset: 0;
         background: linear-gradient(135deg, #C9922E33, #0A0A0A);
         pointer-events: none;
-        z-index: 0;
     }
 
     /* ── Two-panel content ───────────────────────────────────────────── */
@@ -187,7 +195,8 @@
         z-index: 2;
         display: flex;
         gap: 2.5rem;
-        padding: 104px 3rem 3rem 88px; /* top: navbar(56px)+bleed(88px) offset; left: clears LeftDock(64px)+gap */
+        /* padding-left: 88px = page standard dock clearance — aligns with swimlane titles and cards */
+        padding: 104px 3rem 3rem 88px;
         width: 100%;
         align-items: flex-end;
         box-sizing: border-box;
