@@ -7,6 +7,7 @@
     "allow_text_input": true,
     "min_touch_target_px": 48
   },
+  "content_max_width": "Full",
   "shell": {
     "top_bar_visible": true,
     "top_bar_style": "full",

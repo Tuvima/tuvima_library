@@ -287,6 +287,14 @@
         transition: width 0.3s ease;
     }
 
+    /* ── Desktop: fluid card width that scales with viewport ── */
+    @@media (min-width: 769px) {
+        .poster-card {
+            --card-width: clamp(180px, 12vw, 260px) !important;
+            width: clamp(180px, 12vw, 260px) !important;
+        }
+    }
+
     /* ── Mobile: shrink cards so exactly 3.5 fit before swiping ── */
     /* Formula: (100vw - 2×16px page padding - 3×16px card gaps) / 3.5 ≈ (100vw - 80px) / 3.5 */
     @@media (max-width: 768px) {

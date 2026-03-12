@@ -39,7 +39,7 @@ public sealed class UIGlobalSettings
     /// <c>ExtraLarge</c>, <c>Full</c>.
     /// </summary>
     [JsonPropertyName("content_max_width")]
-    public string ContentMaxWidth { get; set; } = "ExtraLarge";
+    public string ContentMaxWidth { get; set; } = "Full";
 
     /// <summary>Global border radius in pixels (32 = glassmorphic Spatial Bento design).</summary>
     [JsonPropertyName("border_radius")]

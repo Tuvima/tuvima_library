@@ -2,7 +2,7 @@
   "schema_version": "1.0",
   "accent_color": "#7C4DFF",
   "content_padding": "pa-4",
-  "content_max_width": "ExtraLarge",
+  "content_max_width": "Full",
   "border_radius": 32,
   "features": {
     "command_palette": true,

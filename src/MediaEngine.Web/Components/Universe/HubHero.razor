@@ -120,7 +120,7 @@
         display: grid;
         grid-template-areas: "hero";
         margin-top: -88px;           /* Negate TopBar (64px) + container padding (24px) */
-        margin-bottom: 2.5rem;
+        margin-bottom: 1.25rem;
         cursor: pointer;
         position: relative;
     }
@@ -141,16 +141,16 @@
         flex-direction: column;
         justify-content: flex-end;
         align-items: flex-start;
-        padding: 0 2.5rem 2.5rem 88px;   /* 88px = left dock clearance */
+        padding: 0 clamp(2.5rem, 3vw, 4rem) clamp(2.5rem, 3vw, 4rem) 88px;
         position: relative;
         z-index: 3;
     }
 
-    /* ── Full-bleed wrapper — escapes MudContainer to reach viewport edges ── */
+    /* ── Full-bleed wrapper — escapes MudContainer, stops at dock edge ── */
     .hero-bleed {
-        width: 100vw;
+        width: calc(100vw - 68px);
         position: relative;
-        margin-left: calc(50% - 50vw);
+        margin-left: calc(50% - 50vw + 68px);
     }
 
     /* ── Backdrop container ─────────────────────────────────────────────── */
@@ -163,8 +163,8 @@
         background: #060A16;
         /* Aspect-ratio driven sizing — scales with viewport, prevents clipping */
         aspect-ratio: 21 / 9;
-        max-height: 580px;
-        min-height: 360px;
+        max-height: clamp(580px, 42vw, 820px);
+        min-height: clamp(360px, 28vw, 500px);
     }
 
     /* ── Pre-rendered hero.jpg ──────────────────────────────────────────── */
@@ -229,15 +229,15 @@
     .hero-content-row {
         display: flex;
         align-items: flex-end;
-        gap: 28px;
-        max-width: 900px;
+        gap: clamp(28px, 2.2vw, 48px);
+        max-width: clamp(900px, 56vw, 1300px);
         width: 100%;
     }
 
     .hero-poster {
         align-self: stretch;
         width: auto;
-        max-width: 220px;
+        max-width: clamp(220px, 16vw, 340px);
         object-fit: contain;
         object-position: bottom center;
         border-radius: 10px;
@@ -259,6 +259,12 @@
 
         .hero-banner {
             min-height: unset;
+        }
+
+        /* Restore full-bleed on mobile (no dock) */
+        .hero-bleed {
+            width: 100vw;
+            margin-left: calc(50% - 50vw);
         }
 
         .hero-content {

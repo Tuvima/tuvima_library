@@ -153,12 +153,12 @@ body {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 13px 20px;
+    padding: clamp(13px, 1vw, 18px) clamp(20px, 1.6vw, 28px);
 }
 
 .hub-primary-cta-label {
     font-family: 'Montserrat', sans-serif;
-    font-size: 0.90rem;
+    font-size: clamp(0.90rem, 1vw, 1.1rem);
     font-weight: 700;
     color: #1a1208;
     letter-spacing: 0.01em;

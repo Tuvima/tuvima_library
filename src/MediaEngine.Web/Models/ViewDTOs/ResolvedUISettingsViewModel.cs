@@ -32,7 +32,7 @@ public sealed class ResolvedUISettingsViewModel
     public string ContentPadding { get; set; } = "pa-4";
 
     [JsonPropertyName("content_max_width")]
-    public string ContentMaxWidth { get; set; } = "ExtraLarge";
+    public string ContentMaxWidth { get; set; } = "Full";
 
     [JsonPropertyName("border_radius")]
     public int BorderRadius { get; set; } = 32;
