@@ -29,7 +29,7 @@ namespace MediaEngine.Processors.Processors;
 ///  scores based on duration, bitrate, genre tag, chapter markers,
 ///  filename/path patterns, and file size.
 /// </summary>
-public sealed class AudioProcessor : IMediaProcessor
+public sealed partial class AudioProcessor : IMediaProcessor
 {
     /// <inheritdoc/>
     public MediaType SupportedType => MediaType.Audiobooks;
@@ -185,10 +185,17 @@ public sealed class AudioProcessor : IMediaProcessor
                 claims.Add(Claim("title", stem, 0.5));
         }
 
-        // Author / Artist
+        // Author / Artist — AlbumArtist is the author for audiobooks.
         var artist = tagFile?.Tag.FirstAlbumArtist ?? tagFile?.Tag.FirstPerformer;
         if (!string.IsNullOrWhiteSpace(artist))
             claims.Add(Claim("author", artist, 0.7));
+
+        // Narrator — for audiobooks, the narrator is often in the Composers tag,
+        // the Comment field ("Narrated by ..."), or the Performers tag (when
+        // AlbumArtist was used for the author above).
+        var narrator = ExtractNarrator(tagFile);
+        if (!string.IsNullOrWhiteSpace(narrator))
+            claims.Add(Claim("narrator", narrator, 0.7));
 
         // Album
         if (!string.IsNullOrWhiteSpace(tagFile?.Tag.Album))
@@ -420,6 +427,61 @@ public sealed class AudioProcessor : IMediaProcessor
 
         return result;
     }
+
+    // ── Narrator extraction ────────────────────────────────────────────
+
+    /// <summary>
+    /// Attempts to extract a narrator name from audio tags, checking multiple
+    /// tag fields in priority order:
+    /// 1. Composers (common for M4B — "narrator" tagged as composer)
+    /// 2. Comment field with "Narrated by ..." pattern
+    /// 3. Performers (when AlbumArtist holds the author, Performers can hold the narrator)
+    /// </summary>
+    private static string? ExtractNarrator(TagLib.File? tagFile)
+    {
+        if (tagFile is null) return null;
+
+        // 1. Composers tag — common convention in M4B audiobooks.
+        var composers = tagFile.Tag.Composers;
+        if (composers is { Length: > 0 })
+        {
+            var firstComposer = composers[0]?.Trim();
+            if (!string.IsNullOrWhiteSpace(firstComposer))
+                return firstComposer;
+        }
+
+        // 2. Comment field — look for "Narrated by <Name>" pattern.
+        var comment = tagFile.Tag.Comment;
+        if (!string.IsNullOrWhiteSpace(comment))
+        {
+            var match = NarratedByRegex().Match(comment);
+            if (match.Success)
+            {
+                var name = match.Groups[1].Value.Trim();
+                if (!string.IsNullOrWhiteSpace(name))
+                    return name;
+            }
+        }
+
+        // 3. Performers — if AlbumArtist is set (author), Performers may be the narrator.
+        //    Only use this when AlbumArtist is present (so we know Performers isn't the author).
+        if (!string.IsNullOrWhiteSpace(tagFile.Tag.FirstAlbumArtist))
+        {
+            var performer = tagFile.Tag.FirstPerformer?.Trim();
+            if (!string.IsNullOrWhiteSpace(performer) &&
+                !string.Equals(performer, tagFile.Tag.FirstAlbumArtist?.Trim(), StringComparison.OrdinalIgnoreCase))
+            {
+                return performer;
+            }
+        }
+
+        return null;
+    }
+
+    [System.Text.RegularExpressions.GeneratedRegex(
+        @"[Nn]arrat(?:ed|or)\s+(?:by\s+)?(.+)",
+        System.Text.RegularExpressions.RegexOptions.Singleline)]
+    private static partial System.Text.RegularExpressions.Regex NarratedByRegex();
 
     // ── Helpers ──────────────────────────────────────────────────────────
 

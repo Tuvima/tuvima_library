@@ -176,15 +176,15 @@ public static class WikidataSparqlPropertyMap
             ProviderName = "wikidata",
             PropertyMap  = propertyMap,
 
-            // Default bridge lookup priority — matches the compiled adapter order.
+            // Default bridge lookup priority — ISBN first (definitive match).
             BridgeLookupPriority =
             [
+                new() { PCode = "P212",  RequestField = "isbn"           },
                 new() { PCode = "P3861", RequestField = "apple_books_id" },
                 new() { PCode = "P3398", RequestField = "audible_id"     },
                 new() { PCode = "P4947", RequestField = "tmdb_id"        },
                 new() { PCode = "P345",  RequestField = "imdb_id"        },
                 new() { PCode = "P1566", RequestField = "asin"           },
-                new() { PCode = "P212",  RequestField = "isbn"           },
             ],
 
             // Copyright constraint: P18 (Image) excluded from Work, Character, Location, Organization scopes.

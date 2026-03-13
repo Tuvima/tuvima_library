@@ -88,6 +88,12 @@ public interface IEngineApiClient
     Task<HydrateResultViewModel?> TriggerHydrationAsync(
         Guid entityId, CancellationToken ct = default);
 
+    // ── QID Label Resolution (/metadata/labels) ────────────────────────────────
+
+    /// <summary>POST /metadata/labels/resolve — batch-resolve QIDs to display labels.</summary>
+    Task<Dictionary<string, LabelResolveViewModel>> ResolveLabelsAsync(
+        IEnumerable<string> qids, CancellationToken ct = default);
+
     // ── Conflicts (/metadata/conflicts) ──────────────────────────────────────
 
     /// <summary>GET /metadata/conflicts — canonical values with unresolved metadata conflicts.</summary>

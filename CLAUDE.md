@@ -1478,6 +1478,7 @@ src/MediaEngine.Web/
 ├── Components/
 │   ├── Universe/             ← Hub-related visual components
 │   │   ├── HubHero.razor               Cinematic hero: blurred cover art backdrop + vignette + metadata badges
+│   │   ├── MetadataChips.razor          Renders multi-valued fields (genres, tags) as MudChip elements with optional QID styling
 │   │   ├── PosterCard.razor            Poster art tile: cover image, title, metadata badges
 │   │   ├── PosterSwimlane.razor        Horizontal scrolling row of PosterCards with hidden scrollbar
 │   │   └── ProgressIndicator.razor     Reusable progress card (icon + bar + label)
@@ -1538,6 +1539,7 @@ src/MediaEngine.Web/
 │       ├── ScanResultViewModel.cs      Dry-run scan result (pending file operations)
 │       ├── ProviderManagementDtos.cs   Provider test/sample/config DTOs for settings UI
 │       ├── ReviewQueueDtos.cs         Review queue + hydration settings DTOs (§3.13)
+│       ├── LabelResolveViewModel.cs   QID label resolution DTO (Label, Description, EntityType)
 │       └── ResolvedUISettingsViewModel.cs  Device-resolved UI configuration (8 DTO classes)
 │
 └── Shared/                   ← Top-level layout shell (used by every page)

@@ -3,6 +3,7 @@ using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Providers.Adapters;
 using MediaEngine.Providers.Contracts;
@@ -250,7 +251,7 @@ public sealed class ProviderIntegrationTests
             builder.AddProvider(new XUnitLoggerProvider(_output)).SetMinimumLevel(LogLevel.Debug));
         var logger = loggerFactory.CreateLogger<WikidataAdapter>();
 
-        var adapter = new WikidataAdapter(factory, stubConfig, logger);
+        var adapter = new WikidataAdapter(factory, stubConfig, new NoOpQidLabelRepository(), logger);
 
         var request = new ProviderLookupRequest
         {
@@ -365,7 +366,7 @@ public sealed class ProviderIntegrationTests
             builder.AddProvider(new XUnitLoggerProvider(_output)).SetMinimumLevel(LogLevel.Debug));
         var logger = loggerFactory.CreateLogger<WikidataAdapter>();
 
-        var adapter = new WikidataAdapter(factory, stubConfig, logger);
+        var adapter = new WikidataAdapter(factory, stubConfig, new NoOpQidLabelRepository(), logger);
 
         var request = new ProviderLookupRequest
         {
@@ -564,4 +565,16 @@ file sealed class IntegrationConfigLoader : IConfigurationLoader
     public IReadOnlyList<ProviderConfiguration> LoadAllProviders() => [];
     public T? LoadConfig<T>(string subdirectory, string name) where T : class => null;
     public void SaveConfig<T>(string subdirectory, string name, T config) where T : class { }
+}
+
+/// <summary>No-op QID label repository for integration tests.</summary>
+file sealed class NoOpQidLabelRepository : IQidLabelRepository
+{
+    public Task<string?> GetLabelAsync(string qid, CancellationToken ct = default) => Task.FromResult<string?>(null);
+    public Task<IReadOnlyDictionary<string, string>> GetLabelsAsync(IEnumerable<string> qids, CancellationToken ct = default)
+        => Task.FromResult<IReadOnlyDictionary<string, string>>(new Dictionary<string, string>());
+    public Task UpsertAsync(string qid, string label, string? description, string? entityType, CancellationToken ct = default) => Task.CompletedTask;
+    public Task UpsertBatchAsync(IReadOnlyList<QidLabel> labels, CancellationToken ct = default) => Task.CompletedTask;
+    public Task<IReadOnlyList<QidLabel>> GetLabelDetailsAsync(IEnumerable<string> qids, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<QidLabel>>([]);
+    public Task<IReadOnlyList<QidLabel>> GetAllAsync(CancellationToken ct = default) => Task.FromResult<IReadOnlyList<QidLabel>>([]);
 }

@@ -428,6 +428,28 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    // ── /metadata/labels ──────────────────────────────────────────────────────
+
+    public async Task<Dictionary<string, LabelResolveViewModel>> ResolveLabelsAsync(
+        IEnumerable<string> qids, CancellationToken ct = default)
+    {
+        try
+        {
+            var request = new { qids = qids.ToList() };
+            var resp = await _http.PostAsJsonAsync("/metadata/labels/resolve", request, ct);
+            if (!resp.IsSuccessStatusCode)
+                return new Dictionary<string, LabelResolveViewModel>();
+            return await resp.Content.ReadFromJsonAsync<Dictionary<string, LabelResolveViewModel>>(ct)
+                   ?? new Dictionary<string, LabelResolveViewModel>();
+        }
+        catch (OperationCanceledException) { return new Dictionary<string, LabelResolveViewModel>(); }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /metadata/labels/resolve failed");
+            return new Dictionary<string, LabelResolveViewModel>();
+        }
+    }
+
     // ── /metadata/conflicts ────────────────────────────────────────────────────
 
     public async Task<List<ConflictViewModel>> GetConflictsAsync(CancellationToken ct = default)

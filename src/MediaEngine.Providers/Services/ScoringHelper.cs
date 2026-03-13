@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Intelligence.Contracts;
@@ -32,6 +33,17 @@ internal static class ScoringHelper
     /// <param name="allProviders">All registered providers (for weight map building).</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The scoring result after re-scoring the entity.</returns>
+    /// <summary>
+    /// Multi-valued field keys that should be decomposed into
+    /// <see cref="ICanonicalValueArrayRepository"/> rows when their winning
+    /// canonical value contains the <c>|||</c> separator.
+    /// </summary>
+    private static readonly HashSet<string> MultiValuedKeys = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "genre", "characters", "cast_member", "voice_actor",
+        "narrative_location", "main_subject", "composer", "screenwriter",
+    };
+
     public static async Task<ScoringResult> PersistClaimsAndScoreAsync(
         Guid entityId,
         IReadOnlyList<ProviderClaim> claims,
@@ -41,7 +53,9 @@ internal static class ScoringHelper
         IScoringEngine scoringEngine,
         IConfigurationLoader configLoader,
         IEnumerable<IExternalMetadataProvider> allProviders,
-        CancellationToken ct)
+        CancellationToken ct,
+        ICanonicalValueArrayRepository? arrayRepo = null,
+        ILogger? logger = null)
     {
         // Wrap provider claims as domain MetadataClaim rows.
         var domainClaims = claims
@@ -105,6 +119,52 @@ internal static class ScoringHelper
             .ToList();
 
         await canonicalRepo.UpsertBatchAsync(canonicals, ct).ConfigureAwait(false);
+
+        // Decompose multi-valued winning values (containing |||) into proper array rows.
+        if (arrayRepo is not null)
+        {
+            foreach (var canonical in canonicals)
+            {
+                if (!MultiValuedKeys.Contains(canonical.Key))
+                    continue;
+
+                if (!canonical.Value.Contains("|||", StringComparison.Ordinal))
+                    continue;
+
+                try
+                {
+                    var parts = canonical.Value.Split("|||",
+                        StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+                    // Look for a matching _qid canonical value for QID pairing.
+                    var qidCanonical = canonicals
+                        .FirstOrDefault(c => string.Equals(c.Key, canonical.Key + "_qid",
+                            StringComparison.OrdinalIgnoreCase));
+                    var qids = qidCanonical?.Value.Split("|||",
+                        StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+                    var entries = new List<CanonicalArrayEntry>(parts.Length);
+                    for (int i = 0; i < parts.Length; i++)
+                    {
+                        entries.Add(new CanonicalArrayEntry
+                        {
+                            Ordinal  = i,
+                            Value    = parts[i],
+                            ValueQid = qids is not null && i < qids.Length ? qids[i] : null,
+                        });
+                    }
+
+                    await arrayRepo.SetValuesAsync(entityId, canonical.Key, entries, ct)
+                        .ConfigureAwait(false);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    logger?.LogDebug(ex,
+                        "Failed to decompose multi-valued field '{Key}' for entity {EntityId}",
+                        canonical.Key, entityId);
+                }
+            }
+        }
 
         return scored;
     }

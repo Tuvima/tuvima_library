@@ -62,6 +62,7 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
     private readonly IHttpClientFactory _httpFactory;
     private readonly IImageCacheRepository _imageCache;
     private readonly ISystemActivityRepository _activityRepo;
+    private readonly IQidLabelRepository _qidLabelRepo;
     private readonly ILogger<MetadataHarvestingService> _logger;
 
     // ── Constructor ───────────────────────────────────────────────────────────
@@ -80,6 +81,7 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         IHttpClientFactory httpFactory,
         IImageCacheRepository imageCache,
         ISystemActivityRepository activityRepo,
+        IQidLabelRepository qidLabelRepo,
         ILogger<MetadataHarvestingService> logger)
     {
         ArgumentNullException.ThrowIfNull(providers);
@@ -95,6 +97,7 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         ArgumentNullException.ThrowIfNull(httpFactory);
         ArgumentNullException.ThrowIfNull(imageCache);
         ArgumentNullException.ThrowIfNull(activityRepo);
+        ArgumentNullException.ThrowIfNull(qidLabelRepo);
         ArgumentNullException.ThrowIfNull(logger);
 
         _providers            = providers.ToList();
@@ -110,6 +113,7 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         _httpFactory          = httpFactory;
         _imageCache           = imageCache;
         _activityRepo         = activityRepo;
+        _qidLabelRepo         = qidLabelRepo;
         _logger               = logger;
 
         _channel = Channel.CreateBounded<HarvestRequest>(new BoundedChannelOptions(500)
@@ -345,6 +349,22 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
 
             // Log activity.
             var label = request.Hints.GetValueOrDefault("label") ?? request.EntityId.ToString();
+
+            // Cache fictional entity QID → label for offline resolution.
+            var entityQid = request.Hints.GetValueOrDefault("wikidata_qid");
+            if (!string.IsNullOrWhiteSpace(entityQid) && !string.IsNullOrWhiteSpace(label))
+            {
+                try
+                {
+                    await _qidLabelRepo.UpsertAsync(entityQid, label, null, entitySubType, ct)
+                        .ConfigureAwait(false);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _logger.LogDebug(ex, "Failed to cache fictional entity QID label for {Qid}", entityQid);
+                }
+            }
+
             await _activityRepo.LogAsync(new SystemActivityEntry
             {
                 ActionType = actionType,
@@ -463,6 +483,20 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         var person = await _personRepo.FindByIdAsync(request.EntityId, ct)
             .ConfigureAwait(false);
         var personName = person?.Name ?? string.Empty;
+
+        // Cache person QID → label for offline resolution.
+        if (!string.IsNullOrWhiteSpace(qid) && !string.IsNullOrWhiteSpace(personName))
+        {
+            try
+            {
+                await _qidLabelRepo.UpsertAsync(qid, personName, biography, "Person", ct)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogDebug(ex, "Failed to cache person QID label for {Qid}", qid);
+            }
+        }
 
         // Persist headshot + person sidecar under {LibraryRoot}/.people/{Name} ({QID})/
         // Skip if this person shares a QID with a canonical record — avoids duplicate folders.

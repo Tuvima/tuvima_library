@@ -1,5 +1,5 @@
 // ──────────────────────────────────────────────────────────────────────────────
-// GenerateTestEpubs — Creates 10 EPUBs + 10 M4B audiobooks for pipeline testing.
+// GenerateTestEpubs — Creates EPUBs + M4B audiobooks for pipeline testing.
 //
 // Metadata scenarios exercised:
 //   • Fully tagged with embedded cover (high confidence, should auto-organize)
@@ -8,8 +8,12 @@
 //   • Series metadata for Hub grouping
 //   • Multi-author (collaboration)
 //   • Filename-only (no OPF/ID3 metadata — low confidence, goes to review)
-//   • Fictional titles (no Wikidata/provider match expected)
+//   • Pseudonym authors (Richard Bachman→King, Robert Galbraith→Rowling, Iain Banks↔Iain M. Banks)
 //   • Same title as both EPUB + M4B (tests Hub cross-format linking)
+//   • ISBN bridge correction (wrong author corrected via Wikidata ISBN match)
+//   • Standalone detection (single work without franchise/series)
+//   • Multi-genre metadata (genre chips rendering)
+//   • Books/Audiobooks shared folder (Dune audiobook alongside EPUB)
 //
 // Usage:
 //   dotnet run --project tools/GenerateTestEpubs [output-directory]
@@ -117,27 +121,27 @@ var epubs = new EpubSpec[]
         Language: "en",                  IncludeCover: true,
         CoverHex: "#4E342E"),
 
-    // 8 — Fully tagged, series position test, no cover
-    new("words-of-radiance.epub",
-        "Words of Radiance",
-        Author: "Brandon Sanderson",     SecondAuthor: null,
-        Isbn: "9780765326362",           Year: "2014",
-        Publisher: "Tor Books",
-        Description: "The second book in The Stormlight Archive.",
-        Series: "The Stormlight Archive",  SeriesPosition: "2",
-        Language: "en",                  IncludeCover: false,
-        CoverHex: "#0277BD"),
-
-    // 9 — FICTIONAL — minimal metadata (title + author, no ISBN, no cover)
-    new("echoes-of-the-void.epub",
-        "Echoes of the Void",
-        Author: "Solan Varro",           SecondAuthor: null,
-        Isbn: "",                         Year: "2025",
-        Publisher: "",
-        Description: "A fictional title with minimal metadata — should hit review queue.",
+    // 8 — PSEUDONYM: Richard Bachman is Stephen King's pen name (Q3324300 → Q39829)
+    new("the-running-man.epub",
+        "The Running Man",
+        Author: "Richard Bachman",       SecondAuthor: null,
+        Isbn: "9780451197962",           Year: "1982",
+        Publisher: "Signet",
+        Description: "A desperate man enters a deadly game show in a dystopian future.",
         Series: null,                    SeriesPosition: null,
-        Language: "en",                  IncludeCover: false,
-        CoverHex: "#37474F"),
+        Language: "en",                  IncludeCover: true,
+        CoverHex: "#8B0000"),
+
+    // 9 — PSEUDONYM: Robert Galbraith is J.K. Rowling's pen name (Q16308388 → Q34660)
+    new("the-cuckoos-calling.epub",
+        "The Cuckoo's Calling",
+        Author: "Robert Galbraith",      SecondAuthor: null,
+        Isbn: "9780316206846",           Year: "2013",
+        Publisher: "Mulholland Books",
+        Description: "A brilliant mystery novel featuring private detective Cormoran Strike.",
+        Series: "Cormoran Strike",       SeriesPosition: "1",
+        Language: "en",                  IncludeCover: true,
+        CoverHex: "#2F4F4F"),
 
     // 10 — FICTIONAL — filename-only (all OPF metadata blank/empty)
     new("phantom-signal-filename-only.epub",
@@ -148,6 +152,41 @@ var epubs = new EpubSpec[]
         Series: null,                    SeriesPosition: null,
         Language: "en",                  IncludeCover: false,
         CoverHex: "#212121"),
+
+    // 11 — ISBN bridge correction: correct ISBN but author misspelled
+    //       ISBN 9780441172719 maps to Dune (Q190159) by Frank Herbert — "Frank Herber" should be overridden
+    new("isbn-wrong-author.epub",
+        "Dune",
+        Author: "Frank Herber",          SecondAuthor: null,     // TYPO — should be corrected via ISBN bridge
+        Isbn: "9780441172719",           Year: "1965",
+        Publisher: "Ace Books",
+        Description: "A science fiction masterpiece set on the desert planet Arrakis.",
+        Series: null,                    SeriesPosition: null,
+        Language: "en",                  IncludeCover: false,
+        CoverHex: "#B5651D"),
+
+    // 12 — Standalone detection: The Martian has no franchise/series in Wikidata
+    //       Should get narrative_scope = "standalone", NOT create a narrative root
+    new("standalone-martian.epub",
+        "The Martian",
+        Author: "Andy Weir",             SecondAuthor: null,
+        Isbn: "9780553418026",           Year: "2014",
+        Publisher: "Broadway Books",
+        Description: "An astronaut is stranded alone on Mars and must survive.",
+        Series: null,                    SeriesPosition: null,
+        Language: "en",                  IncludeCover: true,
+        CoverHex: "#BF360C"),
+
+    // 13 — Multi-genre: tests genre chip rendering with multiple values
+    new("multi-genre.epub",
+        "The Left Hand of Darkness",
+        Author: "Ursula K. Le Guin",     SecondAuthor: null,
+        Isbn: "9780441478125",           Year: "1969",
+        Publisher: "Ace Books",
+        Description: "An envoy explores a world where people have no fixed gender.",
+        Series: null,                    SeriesPosition: null,
+        Language: "en",                  IncludeCover: true,
+        CoverHex: "#1A237E"),
 };
 
 // ── M4B definitions ─────────────────────────────────────────────────────────
@@ -250,16 +289,16 @@ var m4bs = new M4bSpec[]
         Series: "Silo",                  SeriesPos: "1",
         IncludeCover: true,              CoverHex: "#4E342E"),
 
-    // 9 — FICTIONAL — full tags, square cover
-    new("the-last-archive.m4b",
-        Title: "The Last Archive",
-        Artist: "Mira Solenne",          AlbumArtist: "Mira Solenne",
-        Album: "The Last Archive",       Narrator: "Caden Roth",
-        Year: "2025",                    Genre: "Fantasy",
-        Comment: "Narrated by Caden Roth",
+    // 9 — PSEUDONYM: Iain Banks (Q14469) has pseudonym Iain M. Banks (Q214540) via P742
+    new("the-wasp-factory.m4b",
+        Title: "The Wasp Factory",
+        Artist: "Iain Banks",           AlbumArtist: "Iain Banks",
+        Album: "The Wasp Factory",      Narrator: "Peter Kenny",
+        Year: "1984",                    Genre: "Fiction",
+        Comment: "Narrated by Peter Kenny",
         TrackNum: "1",
         Series: null,                    SeriesPos: null,
-        IncludeCover: true,              CoverHex: "#4A148C"),
+        IncludeCover: true,              CoverHex: "#4A0E0E"),
 
     // 10 — FICTIONAL — filename-only (no ID3 tags)
     new("echoes-filename-only.m4b",
@@ -270,6 +309,17 @@ var m4bs = new M4bSpec[]
         TrackNum: "",
         Series: null,                    SeriesPos: null,
         IncludeCover: false,             CoverHex: "#212121"),
+
+    // 11 — Dune audiobook for shared-folder test: should land in Books/Dune (Q190159)/ alongside dune.epub
+    new("dune-audiobook-shared.m4b",
+        Title: "Dune",
+        Artist: "Frank Herbert",         AlbumArtist: "Frank Herbert",
+        Album: "Dune",                   Narrator: "Scott Brick",
+        Year: "1965",                    Genre: "Science Fiction",
+        Comment: "Narrated by Scott Brick — shared folder test",
+        TrackNum: "1",
+        Series: "Dune Chronicles",      SeriesPos: "1",
+        IncludeCover: true,              CoverHex: "#B5651D"),
 };
 
 // ── Generate ─────────────────────────────────────────────────────────────────

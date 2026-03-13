@@ -990,6 +990,31 @@ public static class MetadataEndpoints
         .Produces(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator();
 
+        // ── POST /metadata/labels/resolve ─────────────────────────────────
+        group.MapPost("/labels/resolve", async (
+            LabelResolveRequest request,
+            IQidLabelRepository qidLabelRepo,
+            CancellationToken ct) =>
+        {
+            if (request.Qids is null || request.Qids.Count == 0)
+                return Results.Ok(new Dictionary<string, LabelResolveEntry>());
+
+            var labels = await qidLabelRepo.GetLabelDetailsAsync(request.Qids, ct);
+            var result = labels.ToDictionary(
+                l => l.Qid,
+                l => new LabelResolveEntry
+                {
+                    Label       = l.Label,
+                    Description = l.Description,
+                    EntityType  = l.EntityType,
+                });
+
+            return Results.Ok(result);
+        })
+        .WithName("ResolveLabels")
+        .WithSummary("Batch-resolve Wikidata QIDs to display labels from the local cache.")
+        .Produces<Dictionary<string, LabelResolveEntry>>(StatusCodes.Status200OK);
+
         return app;
     }
 

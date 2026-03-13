@@ -358,6 +358,11 @@ builder.Services.AddSingleton<ICanonicalValueRepository, CanonicalValueRepositor
 builder.Services.AddSingleton<IPersonRepository,         PersonRepository>();
 builder.Services.AddSingleton<IMediaEntityChainFactory,  MediaEntityChainFactory>();
 
+// QID label cache and multi-value array storage (QID-first architecture).
+builder.Services.AddSingleton<IQidLabelRepository,            QidLabelRepository>();
+builder.Services.AddSingleton<IQidLabelResolver,              QidLabelResolver>();
+builder.Services.AddSingleton<ICanonicalValueArrayRepository, CanonicalValueArrayRepository>();
+
 // Wikidata stays as a coded adapter — SPARQL cannot be expressed as URL templates.
 builder.Services.AddSingleton<IExternalMetadataProvider, WikidataAdapter>();
 

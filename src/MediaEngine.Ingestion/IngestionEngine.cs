@@ -1404,10 +1404,13 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                     await _sidecar.WriteEditionSidecarAsync(fileFolder, new EditionSidecarData
                     {
                         Title         = metadata.GetValueOrDefault("title"),
+                        TitleQid      = metadata.GetValueOrDefault("wikidata_qid"),
                         Author        = metadata.GetValueOrDefault("author"),
+                        AuthorQid     = metadata.GetValueOrDefault("author_qid"),
                         MediaType     = mediaType?.ToString(),
                         Isbn          = metadata.GetValueOrDefault("isbn"),
                         Asin          = metadata.GetValueOrDefault("asin"),
+                        WikidataQid   = metadata.GetValueOrDefault("wikidata_qid"),
                         ContentHash   = existing.ContentHash,
                         CoverPath     = "cover.jpg",
                         UserLocks     = [],

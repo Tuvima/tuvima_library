@@ -26,6 +26,8 @@ public sealed record HeroData
     public string? Year           { get; init; }
     public string? MediaTypeLabel { get; init; }
     public string? Genre          { get; init; }
+    public IReadOnlyList<string> Genres   { get; init; } = [];
+    public IReadOnlyList<string> GenreQids { get; init; } = [];
     public string? Rating         { get; init; }
     public string? Series         { get; init; }
     public string? SeriesPosition { get; init; }
@@ -63,6 +65,8 @@ public sealed record HeroData
         Year           = hub.Year,
         MediaTypeLabel = FormatLabel(hub.PrimaryMediaType),
         Genre          = hub.Genre,
+        Genres         = hub.Genres,
+        GenreQids      = hub.GenreQids,
         Rating         = hub.Rating,
         Series         = hub.Series,
         WorkCount      = hub.WorkCount > 1 ? hub.WorkCount : null,
@@ -104,6 +108,8 @@ public sealed record HeroData
         Year           = hub.Year,
         MediaTypeLabel = FormatLabel(hub.PrimaryMediaType),
         Genre          = hub.Genre,
+        Genres         = hub.Genres,
+        GenreQids      = hub.GenreQids,
         Rating         = hub.Rating,
         Series         = hub.Series,
         WorkCount      = hub.WorkCount > 1 ? hub.WorkCount : null,

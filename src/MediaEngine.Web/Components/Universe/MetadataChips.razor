@@ -1,0 +1,60 @@
+@namespace MediaEngine.Web.Components.Universe
+
+@* MetadataChips — Renders a list of labels as chip elements.
+   If QIDs are present, chips include a subtle indicator for future entity navigation. *@
+
+@if (Labels is not null && Labels.Count > 0)
+{
+    <div class="metadata-chips">
+        @for (var i = 0; i < Labels.Count; i++)
+        {
+            var label = Labels[i];
+            var qid = Qids is not null && i < Qids.Count ? Qids[i] : null;
+            var hasQid = !string.IsNullOrEmpty(qid);
+
+            <MudChip T="string"
+                     Size="Size.Small"
+                     Variant="Variant.Outlined"
+                     Color="Color.Default"
+                     Class="@($"metadata-chip {(hasQid ? "has-qid" : "")}")"
+                     Text="@label" />
+        }
+    </div>
+}
+
+@code {
+    /// <summary>Display labels to render as chips.</summary>
+    [Parameter, EditorRequired] public IReadOnlyList<string> Labels { get; set; } = [];
+
+    /// <summary>Optional QIDs matching Labels by position. Chips with QIDs are styled as clickable (future: navigate to entity page).</summary>
+    [Parameter] public IReadOnlyList<string>? Qids { get; set; }
+}
+
+<style>
+    .metadata-chips {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+
+    .metadata-chip {
+        font-family: 'Montserrat', sans-serif !important;
+        font-size: 0.72rem !important;
+        font-weight: 500 !important;
+        letter-spacing: 0.02em;
+        border-color: rgba(248, 248, 248, 0.15) !important;
+        color: rgba(248, 248, 248, 0.70) !important;
+    }
+
+    .metadata-chip.has-qid {
+        border-color: rgba(201, 146, 46, 0.35) !important;
+        color: rgba(248, 248, 248, 0.85) !important;
+        cursor: pointer;
+    }
+
+    .metadata-chip.has-qid:hover {
+        border-color: rgba(201, 146, 46, 0.60) !important;
+        background: rgba(201, 146, 46, 0.08) !important;
+    }
+</style>

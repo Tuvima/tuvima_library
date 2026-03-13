@@ -48,8 +48,6 @@ public sealed class PersonRepository : IPersonRepository
                    created_at, enriched_at, occupation, instagram, twitter,
                    tiktok, mastodon, website, local_headshot_path,
                    date_of_birth, date_of_death, place_of_birth,
-                   place_of_death, nationality, is_pseudonym,
-                   date_of_birth, date_of_death, place_of_birth,
                    place_of_death, nationality, is_pseudonym
             FROM   persons
             WHERE  name = @name COLLATE NOCASE

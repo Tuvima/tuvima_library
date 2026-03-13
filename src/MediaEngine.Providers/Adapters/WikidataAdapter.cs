@@ -2,6 +2,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.Logging;
+using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
 using MediaEngine.Providers.Contracts;
@@ -70,6 +71,7 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
 
     private readonly IHttpClientFactory _httpFactory;
     private readonly IConfigurationLoader _configLoader;
+    private readonly IQidLabelRepository _qidLabelRepo;
     private readonly ILogger<WikidataAdapter> _logger;
 
     // Throttle shared across all instances (static) — Wikidata policy: 1 req/s.
@@ -93,14 +95,17 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
     public WikidataAdapter(
         IHttpClientFactory httpFactory,
         IConfigurationLoader configLoader,
+        IQidLabelRepository qidLabelRepo,
         ILogger<WikidataAdapter> logger)
     {
         ArgumentNullException.ThrowIfNull(httpFactory);
         ArgumentNullException.ThrowIfNull(configLoader);
+        ArgumentNullException.ThrowIfNull(qidLabelRepo);
         ArgumentNullException.ThrowIfNull(logger);
-        _httpFactory  = httpFactory;
-        _configLoader = configLoader;
-        _logger       = logger;
+        _httpFactory   = httpFactory;
+        _configLoader  = configLoader;
+        _qidLabelRepo  = qidLabelRepo;
+        _logger        = logger;
     }
 
     // ── IExternalMetadataProvider ─────────────────────────────────────────────
@@ -189,14 +194,15 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
                 }
                 else
                 {
+                    // Compiled default order — ISBN first (definitive match).
                     bridges =
                     [
+                        ("P212",  request.Isbn),
                         ("P3861", request.AppleBooksId),
                         ("P3398", request.AudibleId),
                         ("P4947", request.TmdbId),
                         ("P345",  request.ImdbId),
                         ("P1566", request.Asin),
-                        ("P212",  request.Isbn),
                     ];
                 }
 
@@ -358,24 +364,48 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
             var searchJson = await ThrottledGetAsync<JsonObject>(client, searchUrl, throttleGapMs, ct)
                 .ConfigureAwait(false);
 
-            var qid = FindHumanQid(searchJson);
-            if (qid is null)
+            var candidateQids = ExtractCandidateQids(searchJson);
+            if (candidateQids.Count == 0)
             {
                 _logger.LogDebug(
-                    "Wikidata: no human entity found for '{Name}' (entity {Id})",
+                    "Wikidata: no search results for '{Name}' (entity {Id})",
                     name, request.EntityId);
                 return [];
             }
 
-            // Step 2: fetch the full entity to extract description and image.
-            // Request preferred language with English fallback.
+            // Step 2: fetch each candidate entity and verify P31=Q5 (instance of human).
             var personLangs = request.Language == "en" ? "en" : $"{request.Language}|en";
-            var entityUrl = $"{request.BaseUrl.TrimEnd('/')}" +
-                $"?action=wbgetentities&ids={Uri.EscapeDataString(qid)}" +
-                $"&format=json&languages={Uri.EscapeDataString(personLangs)}&props=labels|descriptions|claims";
+            string? qid = null;
+            JsonObject? entityJson = null;
 
-            var entityJson = await ThrottledGetAsync<JsonObject>(client, entityUrl, throttleGapMs, ct)
-                .ConfigureAwait(false);
+            foreach (var candidateQid in candidateQids)
+            {
+                var entityUrl = $"{request.BaseUrl.TrimEnd('/')}" +
+                    $"?action=wbgetentities&ids={Uri.EscapeDataString(candidateQid)}" +
+                    $"&format=json&languages={Uri.EscapeDataString(personLangs)}&props=labels|descriptions|claims";
+
+                var candidateJson = await ThrottledGetAsync<JsonObject>(client, entityUrl, throttleGapMs, ct)
+                    .ConfigureAwait(false);
+
+                if (IsHumanEntity(candidateJson, candidateQid))
+                {
+                    qid = candidateQid;
+                    entityJson = candidateJson;
+                    break;
+                }
+
+                _logger.LogDebug(
+                    "Wikidata: candidate {Qid} for '{Name}' is not P31=Q5 (human), trying next",
+                    candidateQid, name);
+            }
+
+            if (qid is null || entityJson is null)
+            {
+                _logger.LogDebug(
+                    "Wikidata: no human entity found for '{Name}' among {Count} candidates (entity {Id})",
+                    name, candidateQids.Count, request.EntityId);
+                return [];
+            }
 
             var claims = ParsePersonEntity(entityJson, qid, commonsTemplate);
 
@@ -435,24 +465,54 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
         }
     }
 
-    private static string? FindHumanQid(JsonObject? searchJson)
+    /// <summary>
+    /// Extracts all candidate QIDs from a Wikidata search response.
+    /// </summary>
+    private static List<string> ExtractCandidateQids(JsonObject? searchJson)
     {
-        if (searchJson is null) return null;
+        var results = new List<string>();
+        if (searchJson is null) return results;
 
         var searchResults = searchJson["search"]?.AsArray();
-        if (searchResults is null) return null;
+        if (searchResults is null) return results;
 
         foreach (var item in searchResults)
         {
             var id = item?["id"]?.GetValue<string>();
-            if (string.IsNullOrWhiteSpace(id)) continue;
-
-            // Accept any result that Wikidata returns in a human-name search;
-            // we later confirm with the entity's description claim.
-            return id; // Take first result — Wikidata ranks by relevance.
+            if (!string.IsNullOrWhiteSpace(id))
+                results.Add(id);
         }
 
-        return null;
+        return results;
+    }
+
+    /// <summary>
+    /// Verifies that a Wikidata entity is a human (P31 contains Q5).
+    /// Also accepts Q15632617 (fictional human) and Q5 subclasses commonly
+    /// used for pseudonyms and pen names.
+    /// </summary>
+    private static bool IsHumanEntity(JsonObject? entityJson, string qid)
+    {
+        if (entityJson is null) return false;
+
+        var entity = entityJson["entities"]?[qid]?.AsObject();
+        if (entity is null) return false;
+
+        var p31Array = entity["claims"]?["P31"]?.AsArray();
+        if (p31Array is null) return false;
+
+        foreach (var claim in p31Array)
+        {
+            var entityId = claim?["mainsnak"]?["datavalue"]?["value"]?["id"]?.GetValue<string>();
+            if (entityId is null) continue;
+
+            // Q5 = human, Q15632617 = fictional human (pen name entity),
+            // Q4167410 = Wikimedia disambiguation page (skip)
+            if (entityId is "Q5" or "Q15632617")
+                return true;
+        }
+
+        return false;
     }
 
     private static List<ProviderClaim> ParsePersonEntity(
@@ -533,6 +593,7 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
             using var sparqlClient = _httpFactory.CreateClient("wikidata_sparql");
 
             string? qid = null;
+            string? matchedBridge = null;
 
             // Skip QID resolution if a pre-resolved QID was provided (e.g. from
             // user disambiguation in the review queue).
@@ -550,14 +611,14 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
                 if (hasSparql)
                 {
                     var bridgePriority = universeConfig?.BridgeLookupPriority;
-                    qid = await ResolveQidViaBridgesAsync(
+                    (qid, matchedBridge) = await ResolveQidViaBridgesAsync(
                         sparqlClient, request, bridgePriority, throttleGapMs, ct).ConfigureAwait(false);
 
                     if (qid is not null)
                     {
                         _logger.LogInformation(
-                            "Wikidata: resolved QID {Qid} via bridge ID for entity {Id}",
-                            qid, request.EntityId);
+                            "Wikidata: resolved QID {Qid} via bridge {Bridge} for entity {Id}",
+                            qid, matchedBridge, request.EntityId);
                     }
                 }
                 else
@@ -626,6 +687,32 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
             var claims = await ExecuteSparqlQueryAsync(
                 sparqlClient, request.SparqlBaseUrl!, sparql, qid,
                 effectiveMap, scopeExclusions, throttleGapMs, ct).ConfigureAwait(false);
+
+            // ── ISBN Bridge Confidence Boost ────────────────────────────────
+            // When the QID was resolved via ISBN (P212), the match is definitive.
+            // Boost author and title claims to 0.95 (above OPF's 0.9) so the
+            // Wikidata-sourced values override potentially incorrect embedded metadata.
+            if (matchedBridge == "P212")
+            {
+                const double IsbnBridgeBoost = 0.95;
+                var boosted = new List<ProviderClaim>(claims.Count + 1);
+
+                foreach (var c in claims)
+                {
+                    if (c.Key is "author" or "title" && c.Confidence < IsbnBridgeBoost)
+                        boosted.Add(new ProviderClaim(c.Key, c.Value, IsbnBridgeBoost));
+                    else
+                        boosted.Add(c);
+                }
+
+                // Emit a marker claim so downstream services know the QID source.
+                boosted.Add(new ProviderClaim("qid_source", "isbn_bridge", 1.0));
+                claims = boosted;
+
+                _logger.LogInformation(
+                    "ISBN bridge match for entity {Id}: boosted author/title to {Confidence}",
+                    request.EntityId, IsbnBridgeBoost);
+            }
 
             _logger.LogInformation(
                 "Wikidata SPARQL deep-ingest for entity {Id}: QID={Qid}, {Count} claims",
@@ -748,7 +835,11 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
     /// The order is read from <c>config/universe/wikidata.json → bridge_lookup_priority</c>.
     /// Falls back to the compiled default order if the config is null.
     /// </summary>
-    private async Task<string?> ResolveQidViaBridgesAsync(
+    /// <summary>
+    /// Resolves a QID via bridge identifiers. Returns the QID and the P-code
+    /// of the bridge that matched (e.g. "P212" for ISBN).
+    /// </summary>
+    private async Task<(string? Qid, string? MatchedBridge)> ResolveQidViaBridgesAsync(
         HttpClient sparqlClient,
         ProviderLookupRequest request,
         IReadOnlyList<BridgeLookupEntry>? bridgePriority,
@@ -765,15 +856,15 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
         }
         else
         {
-            // Compiled default order (same as the original hard-coded array).
+            // Compiled default order — ISBN first (definitive match).
             bridges =
             [
+                ("P212",  request.Isbn),
                 ("P3861", request.AppleBooksId),
                 ("P3398", request.AudibleId),
                 ("P4947", request.TmdbId),
                 ("P345",  request.ImdbId),
                 ("P1566", request.Asin),
-                ("P212",  request.Isbn),
             ];
         }
 
@@ -793,11 +884,11 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
                 _logger.LogDebug(
                     "Wikidata: resolved QID {Qid} via bridge {PCode}={Value}",
                     qid, pCode, value);
-                return qid;
+                return (qid, pCode);
             }
         }
 
-        return null;
+        return (null, null);
     }
 
     /// <summary>
@@ -979,7 +1070,7 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
     /// Always emits the <c>wikidata_qid</c> claim first (confidence 1.0).
     /// Uses the effective property map and scope exclusions from universe configuration.
     /// </summary>
-    private static async Task<IReadOnlyList<ProviderClaim>> ExecuteSparqlQueryAsync(
+    private async Task<IReadOnlyList<ProviderClaim>> ExecuteSparqlQueryAsync(
         HttpClient sparqlClient,
         string sparqlBaseUrl,
         string sparql,
@@ -1088,15 +1179,24 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
             else
             {
                 // Single-valued: original behavior.
-                string? rawValue = null;
-                if (binding.ContainsKey(varName + "Label"))
-                {
-                    rawValue = binding[varName + "Label"]?["value"]?.GetValue<string>();
-                }
+                string? labelValue = binding.ContainsKey(varName + "Label")
+                    ? binding[varName + "Label"]?["value"]?.GetValue<string>()
+                    : null;
 
-                rawValue ??= binding.ContainsKey(varName)
+                string? rawUri = binding.ContainsKey(varName)
                     ? binding[varName]?["value"]?.GetValue<string>()
                     : null;
+
+                // Prefer the human-readable label; fall back to the raw value.
+                // For entity-valued properties, strip the URI to a QID when no label exists
+                // (avoids storing full Wikidata URIs as canonical values).
+                var rawValue = labelValue;
+                if (string.IsNullOrWhiteSpace(rawValue))
+                {
+                    rawValue = prop.IsEntityValued && !string.IsNullOrWhiteSpace(rawUri)
+                        ? StripEntityUri(rawUri)
+                        : rawUri;
+                }
 
                 if (string.IsNullOrWhiteSpace(rawValue))
                     continue;
@@ -1107,20 +1207,80 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
 
                 // For entity-valued single-valued properties, also emit bare QID
                 // from the raw URI binding (e.g. based_on_qid).
-                if (prop.IsEntityValued)
+                if (prop.IsEntityValued && !string.IsNullOrWhiteSpace(rawUri))
                 {
-                    var entityUri = binding.ContainsKey(varName)
-                        ? binding[varName]?["value"]?.GetValue<string>()
-                        : null;
+                    var bareQid = StripEntityUri(rawUri);
+                    if (!string.IsNullOrWhiteSpace(bareQid))
+                        claims.Add(new ProviderClaim(prop.ClaimKey + "_qid", bareQid, prop.Confidence));
+                }
+            }
+        }
 
-                    if (!string.IsNullOrWhiteSpace(entityUri))
+        // ── Cache QID labels for offline resolution ─────────────────────────
+        // Fire-and-forget style: errors here must not break the claim pipeline.
+        try
+        {
+            var labelsToCache = new List<QidLabel>();
+
+            foreach (var claim in claims)
+            {
+                // Skip non-QID claims and the _qid suffix claims themselves.
+                if (!claim.Key.EndsWith("_qid", StringComparison.Ordinal) &&
+                    claim.Key != "wikidata_qid")
+                    continue;
+
+                // For _qid claims, find the matching label claim.
+                var baseKey = claim.Key == "wikidata_qid"
+                    ? null // handled separately below
+                    : claim.Key[..^4]; // strip "_qid"
+
+                if (claim.Key == "wikidata_qid")
+                {
+                    // Cache the primary entity QID with its label from a title/name claim.
+                    var titleClaim = claims.FirstOrDefault(c => c.Key is "title" or "name");
+                    if (titleClaim is not null)
                     {
-                        var bareQid = StripEntityUri(entityUri);
-                        if (!string.IsNullOrWhiteSpace(bareQid))
-                            claims.Add(new ProviderClaim(prop.ClaimKey + "_qid", bareQid, prop.Confidence));
+                        labelsToCache.Add(new QidLabel
+                        {
+                            Qid         = claim.Value,
+                            Label       = titleClaim.Value,
+                            EntityType  = scope,
+                        });
+                    }
+                }
+                else if (baseKey is not null)
+                {
+                    // Match _qid claim values with their label counterpart.
+                    var labelClaim = claims.FirstOrDefault(c => c.Key == baseKey);
+                    if (labelClaim is null) continue;
+
+                    var qids   = claim.Value.Split(WikidataSparqlPropertyMap.MultiValueSeparator,
+                        StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                    var labels = labelClaim.Value.Split(WikidataSparqlPropertyMap.MultiValueSeparator,
+                        StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+                    for (int i = 0; i < Math.Min(qids.Length, labels.Length); i++)
+                    {
+                        if (!string.IsNullOrWhiteSpace(qids[i]) && !string.IsNullOrWhiteSpace(labels[i]))
+                        {
+                            labelsToCache.Add(new QidLabel
+                            {
+                                Qid        = qids[i],
+                                Label      = labels[i],
+                                EntityType = baseKey,
+                            });
+                        }
                     }
                 }
             }
+
+            if (labelsToCache.Count > 0)
+                await _qidLabelRepo.UpsertBatchAsync(labelsToCache, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // QID label caching is best-effort; never fail the pipeline.
+            _logger.LogDebug(ex, "Failed to cache QID labels from SPARQL response for {Qid}", qid);
         }
 
         return claims;

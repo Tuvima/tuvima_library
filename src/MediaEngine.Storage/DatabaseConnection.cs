@@ -645,6 +645,45 @@ public sealed class DatabaseConnection : IDatabaseConnection
                 CREATE INDEX IF NOT EXISTS idx_person_aliases_real ON person_aliases (real_person_id);
                 """);
 
+        // Migration M-031: QID label cache table.
+        // Maps Wikidata Q-identifiers to human-readable display labels for offline
+        // resolution. Every QID encountered during SPARQL responses, person enrichment,
+        // and universe graph building is cached here.
+        MigrateCreateTableIfMissing(
+            conn,
+            probeTable:  "qid_labels",
+            probeColumn: "qid",
+            ddl: """
+                CREATE TABLE IF NOT EXISTS qid_labels (
+                    qid         TEXT NOT NULL PRIMARY KEY,
+                    label       TEXT NOT NULL,
+                    description TEXT,
+                    entity_type TEXT,
+                    fetched_at  TEXT NOT NULL,
+                    updated_at  TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_qid_labels_type ON qid_labels(entity_type);
+                """);
+
+        // Migration M-032: Multi-valued canonical field storage.
+        // Replaces |||‑separated strings for fields like genre, characters,
+        // cast_member with individual rows carrying ordinals and optional QIDs.
+        MigrateCreateTableIfMissing(
+            conn,
+            probeTable:  "canonical_value_arrays",
+            probeColumn: "entity_id",
+            ddl: """
+                CREATE TABLE IF NOT EXISTS canonical_value_arrays (
+                    entity_id TEXT    NOT NULL,
+                    key       TEXT    NOT NULL,
+                    ordinal   INTEGER NOT NULL DEFAULT 0,
+                    value     TEXT    NOT NULL,
+                    value_qid TEXT,
+                    PRIMARY KEY (entity_id, key, ordinal)
+                );
+                CREATE INDEX IF NOT EXISTS idx_cva_key_qid ON canonical_value_arrays(key, value_qid);
+                """);
+
         // Seed S-001: provider_registry entries for all known providers.
         // metadata_claims.provider_id has a FK to provider_registry(id), so these
         // rows MUST exist before any claim is written.  INSERT OR IGNORE makes this

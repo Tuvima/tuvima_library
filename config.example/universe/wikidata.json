@@ -22,6 +22,8 @@
     "P800":   { "claim_key": "notable_work",      "category": "People",                "entity_scope": "Person", "confidence": 0.85, "is_bridge": false, "enabled": true, "is_entity_valued": true,  "value_transform": null },
     "P18":    { "claim_key": "headshot_url",       "category": "People",                "entity_scope": "Person", "confidence": 0.9,  "is_bridge": false, "enabled": true, "is_entity_valued": false, "value_transform": "commons_url" },
     "P106":   { "claim_key": "occupation",         "category": "People",                "entity_scope": "Person", "confidence": 0.85, "is_bridge": false, "enabled": true, "is_entity_valued": true,  "value_transform": null },
+    "P742":   { "claim_key": "pseudonym",          "category": "People",                "entity_scope": "Person", "confidence": 0.85, "is_bridge": false, "enabled": true, "is_entity_valued": true,  "value_transform": null },
+    "P1773":  { "claim_key": "attributed_to",      "category": "People",                "entity_scope": "Person", "confidence": 0.85, "is_bridge": false, "enabled": true, "is_entity_valued": true,  "value_transform": null },
 
     "P840":   { "claim_key": "narrative_location", "category": "Lore & Narrative",      "entity_scope": "Work",   "confidence": 0.8,  "is_bridge": false, "enabled": true, "is_entity_valued": true,  "value_transform": null },
     "P674":   { "claim_key": "characters",         "category": "Lore & Narrative",      "entity_scope": "Work",   "confidence": 0.8,  "is_bridge": false, "enabled": true, "is_entity_valued": true,  "value_transform": null },
@@ -101,6 +103,7 @@
     "P825":   { "claim_key": "adaptation_of",      "category": "Lore & Narrative",      "entity_scope": "Work",         "confidence": 0.85, "is_bridge": false, "enabled": true, "is_entity_valued": true,  "value_transform": null }
   },
   "bridge_lookup_priority": [
+    { "p_code": "P212",  "request_field": "isbn" },
     { "p_code": "P3861", "request_field": "apple_books_id" },
     { "p_code": "P3398", "request_field": "audible_id" },
     { "p_code": "P4947", "request_field": "tmdb_movie_id" },
@@ -110,8 +113,7 @@
     { "p_code": "P434",  "request_field": "musicbrainz_artist_id" },
     { "p_code": "P436",  "request_field": "musicbrainz_release_id" },
     { "p_code": "P5842", "request_field": "apple_podcasts_id" },
-    { "p_code": "P1566", "request_field": "asin" },
-    { "p_code": "P212",  "request_field": "isbn" }
+    { "p_code": "P1566", "request_field": "asin" }
   ],
   "scope_exclusions": {
     "Work": ["P18"],

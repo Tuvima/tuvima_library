@@ -207,18 +207,61 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
             .ToDictionary(kv => kv.Key, kv => kv.Value,
                 StringComparer.OrdinalIgnoreCase);
 
+        // Extract QIDs from canonical values for v2.0 sidecar.
+        var wikidataQid = metadata.GetValueOrDefault("wikidata_qid");
+        var authorQid   = metadata.GetValueOrDefault("author_qid");
+
+        // Build multi-valued canonical entries from |||-separated values.
+        var multiValued = BuildMultiValuedCanonicals(metadata);
+
         await _sidecar.WriteEditionSidecarAsync(editionFolder, new EditionSidecarData
         {
-            Title           = metadata.GetValueOrDefault("title"),
-            Author          = metadata.GetValueOrDefault("author"),
-            MediaType       = mediaType?.ToString(),
-            Isbn            = metadata.GetValueOrDefault("isbn"),
-            Asin            = metadata.GetValueOrDefault("asin"),
-            ContentHash     = contentHash,
-            CoverPath       = "cover.jpg",
-            UserLocks       = [],
-            CanonicalValues = canonicalValues,
-            LastOrganized   = DateTimeOffset.UtcNow,
+            Title                 = metadata.GetValueOrDefault("title"),
+            TitleQid              = wikidataQid,  // title QID = work QID
+            Author                = metadata.GetValueOrDefault("author"),
+            AuthorQid             = authorQid,
+            MediaType             = mediaType?.ToString(),
+            Isbn                  = metadata.GetValueOrDefault("isbn"),
+            Asin                  = metadata.GetValueOrDefault("asin"),
+            WikidataQid           = wikidataQid,
+            ContentHash           = contentHash,
+            CoverPath             = "cover.jpg",
+            UserLocks             = [],
+            CanonicalValues       = canonicalValues,
+            MultiValuedCanonicals = multiValued,
+            LastOrganized         = DateTimeOffset.UtcNow,
         }, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Identifies <c>|||</c>-separated canonical values and decomposes them into
+    /// <see cref="MultiValuedCanonical"/> entries for the v2.0 sidecar format.
+    /// Pairs with matching <c>_qid</c> canonical values when available.
+    /// </summary>
+    private static IReadOnlyDictionary<string, MultiValuedCanonical> BuildMultiValuedCanonicals(
+        Dictionary<string, string> metadata)
+    {
+        var result = new Dictionary<string, MultiValuedCanonical>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var kv in metadata)
+        {
+            if (!kv.Value.Contains("|||", StringComparison.Ordinal))
+                continue;
+
+            var values = kv.Value.Split("|||",
+                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+            var qids = Array.Empty<string>();
+            if (metadata.TryGetValue(kv.Key + "_qid", out var qidValue) &&
+                qidValue.Contains("|||", StringComparison.Ordinal))
+            {
+                qids = qidValue.Split("|||",
+                    StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            }
+
+            result[kv.Key] = new MultiValuedCanonical { Values = values, Qids = qids };
+        }
+
+        return result;
     }
 }

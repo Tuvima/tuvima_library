@@ -85,15 +85,26 @@ public sealed class RecursiveIdentityService : IRecursiveIdentityService
         PersonReference reference,
         CancellationToken ct)
     {
+        // Normalize "Last, First" → "First Last" for consistent storage and search.
+        var normalizedName = NormalizePersonName(reference.Name);
+
         // 1. Find or create the person record.
-        var person = await _personRepo.FindByNameAsync(reference.Name, reference.Role, ct)
+        //    Try the normalized name first; fall back to the original name for
+        //    backward compatibility with records created before normalization.
+        var person = await _personRepo.FindByNameAsync(normalizedName, reference.Role, ct)
                      .ConfigureAwait(false);
+
+        if (person is null && normalizedName != reference.Name)
+        {
+            person = await _personRepo.FindByNameAsync(reference.Name, reference.Role, ct)
+                     .ConfigureAwait(false);
+        }
 
         if (person is null)
         {
             person = await _personRepo.CreateAsync(new Person
             {
-                Name = reference.Name,
+                Name = normalizedName,
                 Role = reference.Role,
             }, ct).ConfigureAwait(false);
 
@@ -116,7 +127,7 @@ public sealed class RecursiveIdentityService : IRecursiveIdentityService
                 MediaType  = MediaType.Unknown,
                 Hints      = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                 {
-                    ["name"] = reference.Name,
+                    ["name"] = normalizedName,
                     ["role"] = reference.Role,
                 },
             }, ct).ConfigureAwait(false);
@@ -125,5 +136,32 @@ public sealed class RecursiveIdentityService : IRecursiveIdentityService
                 "Enqueued Wikidata enrichment for person '{Name}' ({Id})",
                 person.Name, person.Id);
         }
+    }
+
+    /// <summary>
+    /// Normalizes author names from "Last, First" to "First Last" format.
+    /// If the name contains exactly one comma followed by a space, it's assumed
+    /// to be in "Last, First" bibliographic format and is reversed.
+    /// Names with multiple commas, no comma, or no space after the comma are returned as-is.
+    /// </summary>
+    internal static string NormalizePersonName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return name;
+
+        var trimmed = name.Trim();
+
+        // Only normalize if there's exactly one comma.
+        var commaIndex = trimmed.IndexOf(',');
+        if (commaIndex < 0 || commaIndex != trimmed.LastIndexOf(','))
+            return trimmed;
+
+        var last  = trimmed[..commaIndex].Trim();
+        var first = trimmed[(commaIndex + 1)..].Trim();
+
+        if (string.IsNullOrWhiteSpace(first) || string.IsNullOrWhiteSpace(last))
+            return trimmed;
+
+        return $"{first} {last}";
     }
 }

@@ -1085,3 +1085,23 @@ public sealed class ReclassifyResponse
     [JsonPropertyName("review_resolved")]
     public bool ReviewResolved { get; init; }
 }
+
+// ── POST /metadata/labels/resolve ─────────────────────────────────────────────
+
+public sealed class LabelResolveRequest
+{
+    [JsonPropertyName("qids")]
+    public IReadOnlyList<string> Qids { get; init; } = [];
+}
+
+public sealed class LabelResolveEntry
+{
+    [JsonPropertyName("label")]
+    public string Label { get; init; } = string.Empty;
+
+    [JsonPropertyName("description")]
+    public string? Description { get; init; }
+
+    [JsonPropertyName("entity_type")]
+    public string? EntityType { get; init; }
+}

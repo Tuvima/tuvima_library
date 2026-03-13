@@ -29,17 +29,20 @@ public sealed class NarrativeRootResolver : INarrativeRootResolver
 {
     private readonly ICanonicalValueRepository _canonicalValues;
     private readonly INarrativeRootRepository _narrativeRoots;
+    private readonly IQidLabelRepository _qidLabelRepo;
     private readonly ISystemActivityRepository _activity;
     private readonly ILogger<NarrativeRootResolver> _logger;
 
     public NarrativeRootResolver(
         ICanonicalValueRepository canonicalValues,
         INarrativeRootRepository narrativeRoots,
+        IQidLabelRepository qidLabelRepo,
         ISystemActivityRepository activity,
         ILogger<NarrativeRootResolver> logger)
     {
         _canonicalValues = canonicalValues;
         _narrativeRoots = narrativeRoots;
+        _qidLabelRepo = qidLabelRepo;
         _activity = activity;
         _logger = logger;
     }
@@ -84,8 +87,34 @@ public sealed class NarrativeRootResolver : INarrativeRootResolver
             return root;
         }
 
-        // Priority 4: Standalone — no Wikidata universe link found
-        _logger.LogDebug("No narrative root found for entity {EntityId} — standalone work", entityId);
+        // Priority 4: Standalone — no Wikidata universe/franchise/series link found.
+        // If the work has a wikidata_qid, mark it as standalone rather than leaving
+        // it orphaned. This prevents single-work "universes" from being created.
+        if (lookup.TryGetValue("wikidata_qid", out var workQid) &&
+            !string.IsNullOrWhiteSpace(workQid))
+        {
+            await _canonicalValues.UpsertBatchAsync(new[]
+            {
+                new Domain.Entities.CanonicalValue
+                {
+                    EntityId     = entityId,
+                    Key          = "narrative_scope",
+                    Value        = "standalone",
+                    LastScoredAt = DateTimeOffset.UtcNow,
+                },
+            }, ct);
+
+            _logger.LogDebug(
+                "Entity {EntityId} marked as standalone (QID {Qid}, no universe/franchise/series)",
+                entityId, workQid);
+        }
+        else
+        {
+            _logger.LogDebug(
+                "No narrative root found for entity {EntityId} — standalone work (no QID)",
+                entityId);
+        }
+
         return null;
     }
 
@@ -171,6 +200,17 @@ public sealed class NarrativeRootResolver : INarrativeRootResolver
         };
 
         await _narrativeRoots.UpsertAsync(root, ct);
+
+        // Cache narrative root QID → label for offline resolution.
+        try
+        {
+            await _qidLabelRepo.UpsertAsync(qid, label, null, level, ct)
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogDebug(ex, "Failed to cache narrative root QID label for {Qid}", qid);
+        }
 
         _logger.LogInformation(
             "Narrative root resolved: {Label} ({Qid}) at level {Level}",

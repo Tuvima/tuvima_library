@@ -41,17 +41,19 @@ namespace MediaEngine.Ingestion;
 /// </summary>
 public sealed class LibraryScanner : ILibraryScanner
 {
-    private readonly ISidecarWriter                _sidecar;
-    private readonly IHubRepository                _hubRepo;
-    private readonly IMediaAssetRepository         _assetRepo;
-    private readonly ICanonicalValueRepository     _canonicalRepo;
-    private readonly IMetadataClaimRepository      _claimRepo;
-    private readonly IPersonRepository             _personRepo;
-    private readonly INarrativeRootRepository      _rootRepo;
-    private readonly IFictionalEntityRepository    _fictionalEntityRepo;
-    private readonly IEntityRelationshipRepository _relRepo;
-    private readonly IUniverseSidecarWriter        _universeSidecar;
-    private readonly ILogger<LibraryScanner>       _logger;
+    private readonly ISidecarWriter                  _sidecar;
+    private readonly IHubRepository                  _hubRepo;
+    private readonly IMediaAssetRepository           _assetRepo;
+    private readonly ICanonicalValueRepository       _canonicalRepo;
+    private readonly IMetadataClaimRepository        _claimRepo;
+    private readonly IPersonRepository               _personRepo;
+    private readonly INarrativeRootRepository        _rootRepo;
+    private readonly IFictionalEntityRepository      _fictionalEntityRepo;
+    private readonly IEntityRelationshipRepository   _relRepo;
+    private readonly IUniverseSidecarWriter          _universeSidecar;
+    private readonly IQidLabelRepository             _qidLabelRepo;
+    private readonly ICanonicalValueArrayRepository  _arrayRepo;
+    private readonly ILogger<LibraryScanner>         _logger;
 
     // Stable GUID representing the library-scanner as a "provider" when re-inserting
     // canonical values from the sidecar. Distinct from the local-processor GUID
@@ -60,17 +62,19 @@ public sealed class LibraryScanner : ILibraryScanner
         new("c9d8e7f6-a5b4-4321-fedc-0102030405c9");
 
     public LibraryScanner(
-        ISidecarWriter                sidecar,
-        IHubRepository                hubRepo,
-        IMediaAssetRepository         assetRepo,
-        ICanonicalValueRepository     canonicalRepo,
-        IMetadataClaimRepository      claimRepo,
-        IPersonRepository             personRepo,
-        INarrativeRootRepository      rootRepo,
-        IFictionalEntityRepository    fictionalEntityRepo,
-        IEntityRelationshipRepository relRepo,
-        IUniverseSidecarWriter        universeSidecar,
-        ILogger<LibraryScanner>       logger)
+        ISidecarWriter                  sidecar,
+        IHubRepository                  hubRepo,
+        IMediaAssetRepository           assetRepo,
+        ICanonicalValueRepository       canonicalRepo,
+        IMetadataClaimRepository        claimRepo,
+        IPersonRepository               personRepo,
+        INarrativeRootRepository        rootRepo,
+        IFictionalEntityRepository      fictionalEntityRepo,
+        IEntityRelationshipRepository   relRepo,
+        IUniverseSidecarWriter          universeSidecar,
+        IQidLabelRepository             qidLabelRepo,
+        ICanonicalValueArrayRepository  arrayRepo,
+        ILogger<LibraryScanner>         logger)
     {
         _sidecar              = sidecar;
         _hubRepo              = hubRepo;
@@ -82,6 +86,8 @@ public sealed class LibraryScanner : ILibraryScanner
         _fictionalEntityRepo  = fictionalEntityRepo;
         _relRepo              = relRepo;
         _universeSidecar      = universeSidecar;
+        _qidLabelRepo         = qidLabelRepo;
+        _arrayRepo            = arrayRepo;
         _logger               = logger;
     }
 
@@ -265,6 +271,22 @@ public sealed class LibraryScanner : ILibraryScanner
 
                     await _personRepo.CreateAsync(person, ct).ConfigureAwait(false);
                     existing = person;
+                }
+
+                // Cache person QID→label in qid_labels for offline resolution.
+                if (!string.IsNullOrWhiteSpace(existing.WikidataQid))
+                {
+                    try
+                    {
+                        await _qidLabelRepo.UpsertAsync(
+                            existing.WikidataQid, existing.Name, existing.Biography,
+                            "Person", ct).ConfigureAwait(false);
+                    }
+                    catch (Exception ex) when (ex is not OperationCanceledException)
+                    {
+                        _logger.LogDebug(ex,
+                            "Failed to cache person QID label for {Qid}", existing.WikidataQid);
+                    }
                 }
 
                 // Rebuild person_media_links by matching known-names against
@@ -518,6 +540,12 @@ public sealed class LibraryScanner : ILibraryScanner
         if (data.UserLocks.Count > 0)
             await ReinsertUserLocksAsync(asset.Id, data.UserLocks, ct).ConfigureAwait(false);
 
+        // Populate qid_labels from v2.0 QID attributes.
+        await CacheQidLabelsFromSidecarAsync(data, ct).ConfigureAwait(false);
+
+        // Decompose multi-valued canonicals into proper array rows.
+        await DecomposeMultiValuedAsync(asset.Id, data, ct).ConfigureAwait(false);
+
         _logger.LogDebug(
             "Edition hydrated — hash={Hash}, {CanonicalCount} canonicals, {LockCount} locks",
             data.ContentHash[..Math.Min(12, data.ContentHash.Length)],
@@ -618,5 +646,88 @@ public sealed class LibraryScanner : ILibraryScanner
 
         if (toInsert.Count > 0)
             await _claimRepo.InsertBatchAsync(toInsert, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Caches QID→label pairs from v2.0 sidecar QID attributes into the
+    /// <c>qid_labels</c> table so future sessions can resolve QIDs offline.
+    /// Best-effort — never breaks the pipeline.
+    /// </summary>
+    private async Task CacheQidLabelsFromSidecarAsync(
+        EditionSidecarData data,
+        CancellationToken ct)
+    {
+        try
+        {
+            var entries = new List<(string qid, string label, string? entityType)>();
+
+            if (!string.IsNullOrWhiteSpace(data.WikidataQid) &&
+                !string.IsNullOrWhiteSpace(data.Title))
+                entries.Add((data.WikidataQid, data.Title, "Work"));
+
+            if (!string.IsNullOrWhiteSpace(data.AuthorQid) &&
+                !string.IsNullOrWhiteSpace(data.Author))
+                entries.Add((data.AuthorQid, data.Author, "Person"));
+
+            // Multi-valued canonicals may carry QID→label pairs.
+            foreach (var mv in data.MultiValuedCanonicals)
+            {
+                for (int i = 0; i < mv.Value.Qids.Length && i < mv.Value.Values.Length; i++)
+                {
+                    if (!string.IsNullOrWhiteSpace(mv.Value.Qids[i]) &&
+                        !string.IsNullOrWhiteSpace(mv.Value.Values[i]))
+                        entries.Add((mv.Value.Qids[i], mv.Value.Values[i], null));
+                }
+            }
+
+            foreach (var (qid, label, entityType) in entries)
+            {
+                await _qidLabelRepo.UpsertAsync(qid, label, null, entityType, ct)
+                    .ConfigureAwait(false);
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogDebug(ex, "Failed to cache QID labels from edition sidecar");
+        }
+    }
+
+    /// <summary>
+    /// Decomposes multi-valued canonical entries from v2.0 sidecars into proper
+    /// <c>canonical_value_arrays</c> rows.
+    /// </summary>
+    private async Task DecomposeMultiValuedAsync(
+        Guid entityId,
+        EditionSidecarData data,
+        CancellationToken ct)
+    {
+        foreach (var mv in data.MultiValuedCanonicals)
+        {
+            if (mv.Value.Values.Length == 0)
+                continue;
+
+            try
+            {
+                var entries = new List<CanonicalArrayEntry>(mv.Value.Values.Length);
+                for (int i = 0; i < mv.Value.Values.Length; i++)
+                {
+                    entries.Add(new CanonicalArrayEntry
+                    {
+                        Ordinal  = i,
+                        Value    = mv.Value.Values[i],
+                        ValueQid = i < mv.Value.Qids.Length ? mv.Value.Qids[i] : null,
+                    });
+                }
+
+                await _arrayRepo.SetValuesAsync(entityId, mv.Key, entries, ct)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogDebug(ex,
+                    "Failed to decompose multi-valued field '{Key}' for entity {EntityId}",
+                    mv.Key, entityId);
+            }
+        }
     }
 }

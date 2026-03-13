@@ -45,8 +45,19 @@ public sealed class HubViewModel
     /// <summary>Best author/creator across all works.</summary>
     public string? Author => Works.Select(w => w.Author).FirstOrDefault(a => !string.IsNullOrEmpty(a));
 
+    /// <summary>Author QID from the first Work with an author QID.</summary>
+    public string? AuthorQid => Works.Select(w => w.AuthorQid).FirstOrDefault(q => !string.IsNullOrEmpty(q));
+
     /// <summary>Genre tags from the first Work with genre data.</summary>
     public string? Genre => Works.Select(w => w.Genre).FirstOrDefault(g => !string.IsNullOrEmpty(g));
+
+    /// <summary>Genre as an array of individual values from the first Work with genres.</summary>
+    public IReadOnlyList<string> Genres =>
+        Works.Select(w => w.Genres).FirstOrDefault(g => g.Count > 0) ?? [];
+
+    /// <summary>Genre QIDs matching <see cref="Genres"/> by position.</summary>
+    public IReadOnlyList<string> GenreQids =>
+        Works.Select(w => w.GenreQids).FirstOrDefault(g => g.Count > 0) ?? [];
 
     /// <summary>Series name from the first Work with series data.</summary>
     public string? Series => Works.Select(w => w.Series).FirstOrDefault(s => !string.IsNullOrEmpty(s));

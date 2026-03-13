@@ -21,7 +21,11 @@
     {
         <span class="hero-badge">@Data.MediaTypeLabel</span>
     }
-    @if (!string.IsNullOrEmpty(Data?.Genre))
+    @if (Data?.Genres.Count > 0)
+    {
+        <MetadataChips Labels="@Data.Genres" Qids="@Data.GenreQids" />
+    }
+    else if (!string.IsNullOrEmpty(Data?.Genre))
     {
         @foreach (var genre in Data.Genre.Split(',', ';').Take(2).Select(g => g.Trim()).Where(g => g.Length > 0))
         {

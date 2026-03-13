@@ -13,12 +13,43 @@ public sealed class WorkViewModel
 
     public string  Title          => Canonical("title") ?? $"Untitled ({MediaType})";
     public string? Author         => Canonical("author") ?? Canonical("creator");
+    public string? AuthorQid      => Canonical("author_qid");
+    public string? WikidataQid    => Canonical("wikidata_qid");
     public string? Year           => Canonical("release_year") ?? Canonical("year");
     public string? CoverUrl       => Canonical("cover");
     public string? HeroUrl        => Canonical("hero");
     public string? Description       => Canonical("description");
     public string? DescriptionSource => Canonical("description_source");
     public string? Genre          => Canonical("genre");
+
+    /// <summary>
+    /// Genre as an array of individual values. Splits <c>|||</c>-separated
+    /// or semicolon-separated genre strings into individual entries.
+    /// </summary>
+    public IReadOnlyList<string> Genres
+    {
+        get
+        {
+            var raw = Canonical("genre");
+            if (string.IsNullOrWhiteSpace(raw)) return [];
+            var sep = raw.Contains("|||", StringComparison.Ordinal) ? "|||" : ";";
+            return raw.Split(sep, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        }
+    }
+
+    /// <summary>
+    /// Genre QIDs matching <see cref="Genres"/> by position.
+    /// </summary>
+    public IReadOnlyList<string> GenreQids
+    {
+        get
+        {
+            var raw = Canonical("genre_qid");
+            if (string.IsNullOrWhiteSpace(raw)) return [];
+            var sep = raw.Contains("|||", StringComparison.Ordinal) ? "|||" : ";";
+            return raw.Split(sep, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        }
+    }
     public string? Narrator       => Canonical("narrator");
     public string? Director       => Canonical("director");
     public string? Series         => Canonical("series");

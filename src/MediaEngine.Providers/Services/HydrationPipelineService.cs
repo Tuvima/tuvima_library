@@ -67,6 +67,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     private readonly IWriteBackService _writeBack;
     private readonly IAutoOrganizeService _autoOrganize;
     private readonly ISystemActivityRepository _activityRepo;
+    private readonly ICanonicalValueArrayRepository _arrayRepo;
     private readonly IHeroBannerGenerator _heroGenerator;
     private readonly ILogger<HydrationPipelineService> _logger;
 
@@ -91,6 +92,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         IWriteBackService writeBack,
         IAutoOrganizeService autoOrganize,
         ISystemActivityRepository activityRepo,
+        ICanonicalValueArrayRepository arrayRepo,
         IHeroBannerGenerator heroGenerator,
         ILogger<HydrationPipelineService> logger)
     {
@@ -112,6 +114,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         ArgumentNullException.ThrowIfNull(writeBack);
         ArgumentNullException.ThrowIfNull(autoOrganize);
         ArgumentNullException.ThrowIfNull(activityRepo);
+        ArgumentNullException.ThrowIfNull(arrayRepo);
         ArgumentNullException.ThrowIfNull(heroGenerator);
         ArgumentNullException.ThrowIfNull(logger);
 
@@ -133,6 +136,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         _writeBack      = writeBack;
         _autoOrganize   = autoOrganize;
         _activityRepo   = activityRepo;
+        _arrayRepo      = arrayRepo;
         _heroGenerator  = heroGenerator;
         _logger         = logger;
 
@@ -264,7 +268,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             await ScoringHelper.PersistClaimsAndScoreAsync(
                 request.EntityId, claims, provider.ProviderId,
                 _claimRepo, _canonicalRepo, _scoringEngine, _configLoader,
-                _providers, ct).ConfigureAwait(false);
+                _providers, ct, _arrayRepo, _logger).ConfigureAwait(false);
 
             stage1Claims += claims.Count;
 
@@ -429,7 +433,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 await ScoringHelper.PersistClaimsAndScoreAsync(
                     request.EntityId, claims, provider.ProviderId,
                     _claimRepo, _canonicalRepo, _scoringEngine, _configLoader,
-                    _providers, ct).ConfigureAwait(false);
+                    _providers, ct, _arrayRepo, _logger).ConfigureAwait(false);
 
                 stage2Claims += claims.Count;
 
@@ -492,7 +496,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 await ScoringHelper.PersistClaimsAndScoreAsync(
                     request.EntityId, claims, provider.ProviderId,
                     _claimRepo, _canonicalRepo, _scoringEngine, _configLoader,
-                    _providers, ct).ConfigureAwait(false);
+                    _providers, ct, _arrayRepo, _logger).ConfigureAwait(false);
 
                 stage3Claims += claims.Count;
                 lastSuccessfulProvider = provider;

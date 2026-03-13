@@ -39,6 +39,15 @@ public sealed class EditionSidecarData
     /// <summary>Amazon Standard Identification Number. Null if absent.</summary>
     public string? Asin { get; init; }
 
+    /// <summary>Wikidata QID for the work, e.g. "Q190159". Null if not yet enriched.</summary>
+    public string? WikidataQid { get; init; }
+
+    /// <summary>Wikidata QID for the title entity (same as WikidataQid for most works).</summary>
+    public string? TitleQid { get; init; }
+
+    /// <summary>Wikidata QID for the author entity, e.g. "Q44118".</summary>
+    public string? AuthorQid { get; init; }
+
     /// <summary>SHA-256 hex content hash — the file's permanent identity.</summary>
     public string ContentHash { get; init; } = string.Empty;
 
@@ -61,6 +70,29 @@ public sealed class EditionSidecarData
     public IReadOnlyDictionary<string, string> CanonicalValues { get; init; }
         = new Dictionary<string, string>();
 
+    /// <summary>
+    /// Multi-valued canonical fields decomposed into arrays with optional QIDs.
+    /// Key = field name (e.g. "genre"), Value = (display values, QIDs).
+    /// Semicolon-separated in the sidecar XML <c>values</c> and <c>qids</c> attributes.
+    /// </summary>
+    public IReadOnlyDictionary<string, MultiValuedCanonical> MultiValuedCanonicals { get; init; }
+        = new Dictionary<string, MultiValuedCanonical>();
+
     /// <summary>UTC timestamp of the last organization pass that wrote this file.</summary>
     public DateTimeOffset LastOrganized { get; init; }
+}
+
+/// <summary>
+/// Represents a multi-valued canonical field with display values and optional QIDs.
+/// </summary>
+public sealed class MultiValuedCanonical
+{
+    /// <summary>Display label values (e.g. "Science fiction", "Space opera").</summary>
+    public string[] Values { get; init; } = [];
+
+    /// <summary>
+    /// Wikidata QIDs corresponding to each value (same order).
+    /// May be shorter than <see cref="Values"/> if some entries lack QIDs.
+    /// </summary>
+    public string[] Qids { get; init; } = [];
 }
