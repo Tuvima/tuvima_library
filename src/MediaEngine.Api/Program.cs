@@ -232,9 +232,9 @@ builder.Services.PostConfigure<IngestionOptions>(opts =>
         if (!string.IsNullOrWhiteSpace(core.OrganizationTemplate)) { opts.OrganizationTemplate = core.OrganizationTemplate; }
         if (core.OrganizationTemplates.Count > 0) { opts.OrganizationTemplates = new Dictionary<string, string>(core.OrganizationTemplates, StringComparer.OrdinalIgnoreCase); }
     }
-    catch
+    catch (Exception ex)
     {
-        // First run — config may not yet have folder keys; appsettings.json values stand.
+        Console.Error.WriteLine($"[WARN] Failed to load core configuration for ingestion options — using defaults: {ex.Message}");
     }
 
     // Overlay disambiguation thresholds from config/disambiguation.json.

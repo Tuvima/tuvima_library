@@ -179,4 +179,13 @@ public interface IPersonRepository
     Task<IReadOnlyList<(Guid FictionalEntityId, string? WorkQid)>> GetCharacterLinksAsync(
         Guid personId,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// Reassigns all media links, character links, and alias links from one person
+    /// to another. Used during QID-based deduplication. Idempotent.
+    /// </summary>
+    Task ReassignAllLinksAsync(
+        Guid fromPersonId,
+        Guid toPersonId,
+        CancellationToken ct = default);
 }

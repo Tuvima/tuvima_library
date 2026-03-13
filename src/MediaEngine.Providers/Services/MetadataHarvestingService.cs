@@ -423,12 +423,38 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
             if (canonicalPerson is not null && canonicalPerson.Id != request.EntityId)
             {
                 isQidDuplicate = true;
-                _logger.LogDebug(
-                    "Person {Id} ({Name}) shares QID {Qid} with canonical person {CanonicalId} — " +
-                    "skipping duplicate folder creation",
-                    request.EntityId, claims.FirstOrDefault(c => c.Key == "biography")?.Value is not null
-                        ? "(has bio)" : "(no bio)",
-                    qid, canonicalPerson.Id);
+                _logger.LogInformation(
+                    "Person {Id} shares QID {Qid} with canonical person {CanonicalId} — merging",
+                    request.EntityId, qid, canonicalPerson.Id);
+
+                // Merge: reassign all links from duplicate → canonical, then delete duplicate.
+                await _personRepo.ReassignAllLinksAsync(request.EntityId, canonicalPerson.Id, ct)
+                    .ConfigureAwait(false);
+
+                // Delete the duplicate person folder from disk before deleting the DB record.
+                var duplicatePerson = await _personRepo.FindByIdAsync(request.EntityId, ct)
+                    .ConfigureAwait(false);
+                if (duplicatePerson is not null)
+                {
+                    DeletePersonFolder(duplicatePerson);
+                }
+
+                await _personRepo.DeleteAsync(request.EntityId, ct).ConfigureAwait(false);
+
+                await _activityRepo.LogAsync(new SystemActivityEntry
+                {
+                    ActionType = SystemActionType.PersonMerged,
+                    EntityId   = canonicalPerson.Id,
+                    EntityType = "Person",
+                    Detail     = $"Merged duplicate person \"{duplicatePerson?.Name ?? "?"}\" into canonical \"{canonicalPerson.Name}\" ({qid})",
+                }, ct).ConfigureAwait(false);
+
+                await _eventPublisher.PublishAsync(
+                    "PersonEnriched",
+                    new PersonEnrichedEvent(canonicalPerson.Id, canonicalPerson.Name, canonicalPerson.HeadshotUrl, qid),
+                    ct).ConfigureAwait(false);
+
+                return; // Merge complete — skip remaining enrichment for the deleted duplicate.
             }
         }
 
@@ -969,6 +995,38 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         catch
         {
             return null;
+        }
+    }
+
+    /// <summary>
+    /// Deletes the person folder from disk during QID-based deduplication.
+    /// Searches .people/ for any folder owned by the given person (via person.xml ID).
+    /// </summary>
+    private void DeletePersonFolder(Person person)
+    {
+        try
+        {
+            var core = _configLoader.LoadCore();
+            if (string.IsNullOrWhiteSpace(core.LibraryRoot)) return;
+
+            var peopleRoot = Path.Combine(core.LibraryRoot, ".people");
+            if (!Directory.Exists(peopleRoot)) return;
+
+            foreach (var dir in Directory.EnumerateDirectories(peopleRoot))
+            {
+                var xmlPath = Path.Combine(dir, "person.xml");
+                var ownerId = ReadPersonIdFromXml(xmlPath);
+                if (ownerId == person.Id)
+                {
+                    Directory.Delete(dir, recursive: true);
+                    _logger.LogInformation("Deleted duplicate person folder: {Folder}", dir);
+                    return;
+                }
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "Failed to delete person folder for {PersonId}", person.Id);
         }
     }
 

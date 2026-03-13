@@ -30,7 +30,7 @@ public sealed class IngestionOptions
     /// the entire group (parentheses + leading space) is collapsed.
     /// </summary>
     public string OrganizationTemplate { get; set; } =
-        "{Category}/{Author}/{Title}/{Title}{Ext}";
+        "{Category}/{Title} ({Qid})/{Format}/{Title}{Ext}";
 
     /// <summary>
     /// Per-media-type organisation templates.  Keys are media type names

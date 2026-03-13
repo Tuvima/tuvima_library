@@ -187,6 +187,39 @@ var epubs = new EpubSpec[]
         Series: null,                    SeriesPosition: null,
         Language: "en",                  IncludeCover: true,
         CoverHex: "#1A237E"),
+
+    // 14 — PSEUDONYM (dual-author): James S.A. Corey = Daniel Abraham + Ty Franck
+    new("leviathan-wakes.epub",
+        "Leviathan Wakes",
+        Author: "James S.A. Corey",      SecondAuthor: null,
+        Isbn: "9780316129084",           Year: "2011",
+        Publisher: "Orbit",
+        Description: "Humanity has colonized the solar system.",
+        Series: "The Expanse",           SeriesPosition: "1",
+        Language: "en",                  IncludeCover: true,
+        CoverHex: "#1A237E"),
+
+    // 15 — PSEUDONYM (dual-author): second Expanse book for series test
+    new("calibans-war.epub",
+        "Caliban's War",
+        Author: "James S.A. Corey",      SecondAuthor: null,
+        Isbn: "9780316129060",           Year: "2012",
+        Publisher: "Orbit",
+        Description: "The second book in the Expanse series.",
+        Series: "The Expanse",           SeriesPosition: "2",
+        Language: "en",                  IncludeCover: true,
+        CoverHex: "#0D47A1"),
+
+    // 16 — Multi-author with explicit ordering (primary author first in OPF)
+    new("the-talisman.epub",
+        "The Talisman",
+        Author: "Stephen King",          SecondAuthor: "Peter Straub",
+        Isbn: "9781501192272",           Year: "1984",
+        Publisher: "Viking Press",
+        Description: "A boy sets out on a quest across parallel worlds.",
+        Series: null,                    SeriesPosition: null,
+        Language: "en",                  IncludeCover: true,
+        CoverHex: "#4A148C"),
 };
 
 // ── M4B definitions ─────────────────────────────────────────────────────────

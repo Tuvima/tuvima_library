@@ -158,6 +158,9 @@ public static class SystemActionType
     /// <summary>A person folder was renamed following a metadata update (e.g. name change).</summary>
     public const string PersonFolderRenamed = "PersonFolderRenamed";
 
+    /// <summary>Two person records were merged after QID deduplication.</summary>
+    public const string PersonMerged = "PersonMerged";
+
     // ── Universe Graph ──────────────────────────────────────────────────
 
     /// <summary>A fictional character was enriched from Wikidata SPARQL.</summary>

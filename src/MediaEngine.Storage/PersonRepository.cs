@@ -565,4 +565,86 @@ public sealed class PersonRepository : IPersonRepository
 
         return Task.FromResult<IReadOnlyList<(Guid FictionalEntityId, string? WorkQid)>>(results);
     }
+
+    // -------------------------------------------------------------------------
+    // QID-based deduplication merge
+    // -------------------------------------------------------------------------
+
+    /// <inheritdoc/>
+    public Task ReassignAllLinksAsync(
+        Guid fromPersonId,
+        Guid toPersonId,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        using var conn = _db.CreateConnection();
+        using var tx = conn.BeginTransaction();
+
+        var from = fromPersonId.ToString();
+        var to = toPersonId.ToString();
+
+        // 1. Reassign media links (OR IGNORE handles PK conflicts)
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = "UPDATE OR IGNORE person_media_links SET person_id = @to WHERE person_id = @from;";
+            cmd.Parameters.AddWithValue("@to", to);
+            cmd.Parameters.AddWithValue("@from", from);
+            cmd.ExecuteNonQuery();
+        }
+        // Clean up any conflicting rows left behind
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = "DELETE FROM person_media_links WHERE person_id = @from;";
+            cmd.Parameters.AddWithValue("@from", from);
+            cmd.ExecuteNonQuery();
+        }
+
+        // 2. Reassign character-performer links
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = "UPDATE OR IGNORE character_performer_links SET person_id = @to WHERE person_id = @from;";
+            cmd.Parameters.AddWithValue("@to", to);
+            cmd.Parameters.AddWithValue("@from", from);
+            cmd.ExecuteNonQuery();
+        }
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = "DELETE FROM character_performer_links WHERE person_id = @from;";
+            cmd.Parameters.AddWithValue("@from", from);
+            cmd.ExecuteNonQuery();
+        }
+
+        // 3. Reassign alias links (both directions)
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = "UPDATE OR IGNORE person_aliases SET pseudonym_person_id = @to WHERE pseudonym_person_id = @from;";
+            cmd.Parameters.AddWithValue("@to", to);
+            cmd.Parameters.AddWithValue("@from", from);
+            cmd.ExecuteNonQuery();
+        }
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = "UPDATE OR IGNORE person_aliases SET real_person_id = @to WHERE real_person_id = @from;";
+            cmd.Parameters.AddWithValue("@to", to);
+            cmd.Parameters.AddWithValue("@from", from);
+            cmd.ExecuteNonQuery();
+        }
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = "DELETE FROM person_aliases WHERE pseudonym_person_id = @from OR real_person_id = @from;";
+            cmd.Parameters.AddWithValue("@from", from);
+            cmd.ExecuteNonQuery();
+        }
+
+        tx.Commit();
+        return Task.CompletedTask;
+    }
 }

@@ -88,21 +88,78 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
                 ? mt
                 : (MediaType?)null;
 
-        // If the file is already in the library, skip the move but still refresh
-        // the sidecar with the latest canonical values (enrichment may have added
-        // new fields — characters, genre, series, narrator, etc. — since the file
-        // was first organized).
+        // If the file is already in the library, check whether the path needs
+        // updating (e.g., QID now available after hydration).  If the new path
+        // matches the current one, just refresh the sidecar.
         bool alreadyOrganized = asset.FilePathRoot.StartsWith(
             _options.LibraryRoot, StringComparison.OrdinalIgnoreCase);
 
         if (alreadyOrganized)
         {
-            string existingEditionFolder = Path.GetDirectoryName(asset.FilePathRoot) ?? string.Empty;
-            await WriteEditionSidecarAsync(asset.ContentHash, metadata, mediaType,
-                existingEditionFolder, ct).ConfigureAwait(false);
-            _logger.LogDebug(
-                "Sidecar refreshed for {Id} (already organized at {Path})",
-                assetId, asset.FilePathRoot);
+            var checkSynth = new IngestionCandidate
+            {
+                Path              = asset.FilePathRoot,
+                EventType         = FileEventType.Created,
+                DetectedAt        = DateTimeOffset.UtcNow,
+                ReadyAt           = DateTimeOffset.UtcNow,
+                Metadata          = metadata,
+                DetectedMediaType = mediaType,
+            };
+            var checkTemplate = _options.ResolveTemplate(mediaType?.ToString());
+            var checkRelative = _organizer.CalculatePath(checkSynth, checkTemplate);
+            var newDest = Path.Combine(_options.LibraryRoot, checkRelative);
+
+            if (string.Equals(asset.FilePathRoot, newDest, StringComparison.OrdinalIgnoreCase))
+            {
+                // Path unchanged — just refresh sidecar.
+                string existingEditionFolder = Path.GetDirectoryName(asset.FilePathRoot) ?? string.Empty;
+                await WriteEditionSidecarAsync(asset.ContentHash, metadata, mediaType,
+                    existingEditionFolder, ct).ConfigureAwait(false);
+                _logger.LogDebug(
+                    "Sidecar refreshed for {Id} (already organized at {Path})",
+                    assetId, asset.FilePathRoot);
+                return;
+            }
+
+            // Path changed (QID now available) — move file to new location.
+            var oldFolder = Path.GetDirectoryName(asset.FilePathRoot) ?? string.Empty;
+            bool relocated = await _organizer.ExecuteMoveAsync(asset.FilePathRoot, newDest, ct)
+                .ConfigureAwait(false);
+
+            if (relocated)
+            {
+                await _assetRepo.UpdateFilePathAsync(assetId, newDest, ct).ConfigureAwait(false);
+
+                // Move companion files (cover.jpg, hero.jpg, library.xml) to new folder.
+                var newFolder = Path.GetDirectoryName(newDest) ?? string.Empty;
+                MoveCompanionFiles(oldFolder, newFolder, "cover.jpg", "hero.jpg", "library.xml");
+
+                await WriteEditionSidecarAsync(asset.ContentHash, metadata, mediaType,
+                    newFolder, ct).ConfigureAwait(false);
+
+                // Clean up empty parent directories left behind.
+                CleanEmptyParents(oldFolder, _options.LibraryRoot);
+
+                _logger.LogInformation(
+                    "Re-organized asset {Id} after hydration (QID in path): {Old} → {New}",
+                    assetId, asset.FilePathRoot, newDest);
+
+                try
+                {
+                    await _activityRepo.LogAsync(new Domain.Entities.SystemActivityEntry
+                    {
+                        ActionType = SystemActionType.PathUpdated,
+                        EntityId   = assetId,
+                        EntityType = mediaType?.ToString() ?? "Unknown",
+                        Detail     = $"Re-organized after hydration: {Path.GetFileName(newDest)}",
+                    }, ct).ConfigureAwait(false);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _logger.LogDebug(ex, "Failed to log re-organization activity for {Id}", assetId);
+                }
+            }
+
             return;
         }
 
@@ -263,5 +320,54 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// Moves companion files (cover.jpg, hero.jpg, library.xml) from the old
+    /// edition folder to the new one after a re-organization move.
+    /// </summary>
+    private static void MoveCompanionFiles(string oldFolder, string newFolder, params string[] fileNames)
+    {
+        if (string.Equals(oldFolder, newFolder, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        Directory.CreateDirectory(newFolder);
+
+        foreach (var fileName in fileNames)
+        {
+            var src = Path.Combine(oldFolder, fileName);
+            var dst = Path.Combine(newFolder, fileName);
+            if (File.Exists(src) && !File.Exists(dst))
+            {
+                try { File.Move(src, dst); }
+                catch { /* best-effort */ }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Recursively deletes empty parent directories up to (but not including)
+    /// the library root.
+    /// </summary>
+    private static void CleanEmptyParents(string folder, string stopAt)
+    {
+        try
+        {
+            var dir = new DirectoryInfo(folder);
+            while (dir is not null &&
+                   dir.Exists &&
+                   !string.Equals(dir.FullName.TrimEnd(Path.DirectorySeparatorChar),
+                       stopAt.TrimEnd(Path.DirectorySeparatorChar),
+                       StringComparison.OrdinalIgnoreCase))
+            {
+                if (dir.EnumerateFileSystemInfos().Any())
+                    break; // Not empty — stop climbing.
+
+                var parent = dir.Parent;
+                dir.Delete();
+                dir = parent;
+            }
+        }
+        catch { /* best-effort cleanup */ }
     }
 }

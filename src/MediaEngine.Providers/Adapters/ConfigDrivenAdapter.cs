@@ -887,6 +887,12 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
 
     // ── Required field check ────────────────────────────────────────────────
 
+    private static readonly HashSet<string> GenericTerms = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "unknown", "untitled", "no title", "title", "book", "audiobook",
+        "track", "album", "episode", "movie", "video"
+    };
+
     private static bool AllRequiredFieldsPresent(
         SearchStrategyConfig strategy, ProviderLookupRequest request)
     {
@@ -894,6 +900,8 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         {
             var value = ResolveRequestField(request, field);
             if (string.IsNullOrWhiteSpace(value))
+                return false;
+            if (value.Length < 3 || GenericTerms.Contains(value.Trim()))
                 return false;
         }
 
