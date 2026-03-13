@@ -186,14 +186,26 @@ internal sealed class TestAssetHasher : IAssetHasher
 internal sealed class TestProcessorRegistry : IProcessorRegistry
 {
     private ProcessorResult? _nextResult;
+    private readonly Queue<ProcessorResult> _resultQueue = new();
 
     public void SetNextResult(ProcessorResult result) => _nextResult = result;
+
+    /// <summary>
+    /// Enqueues a result to be returned by <see cref="ProcessAsync"/> in FIFO order.
+    /// Queue is checked before <see cref="_nextResult"/> and the default fallback.
+    /// </summary>
+    public void QueueResult(ProcessorResult result) => _resultQueue.Enqueue(result);
 
     public void Register(IMediaProcessor processor) { }
     public IMediaProcessor? Resolve(string filePath) => null;
 
     public Task<ProcessorResult> ProcessAsync(string filePath, CancellationToken ct = default)
     {
+        // Priority 1: dequeue from FIFO queue.
+        if (_resultQueue.TryDequeue(out var queued))
+            return Task.FromResult(queued);
+
+        // Priority 2: single-shot next result.
         if (_nextResult is not null)
         {
             var result = _nextResult;
