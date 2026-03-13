@@ -1488,14 +1488,18 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
 
             for (var i = 0; i < qidParts.Length; i++)
             {
-                var qid = qidParts[i].Trim();
+                var qidPart = qidParts[i].Trim();
+                var segments = qidPart.Split("::", 2, StringSplitOptions.None);
+                var qid = segments[0];
+
                 if (!qid.StartsWith("Q", StringComparison.OrdinalIgnoreCase)
                     || qid.Length < 2 || !char.IsDigit(qid[1]))
                     continue;
 
-                // Pair QID with its human-readable label at the same position, if available.
-                var label = (i < labelParts.Length ? labelParts[i].Trim() : null)
-                            ?? qid; // fall back to bare QID if no label
+                // Pair QID with its directly attached label if available, otherwise fall back to the legacy positional array.
+                var label = segments.Length > 1 && !string.IsNullOrWhiteSpace(segments[1]) 
+                            ? segments[1].Trim() 
+                            : ((i < labelParts.Length ? labelParts[i].Trim() : null) ?? qid);
 
                 refs.Add(new FictionalEntityReference(qid, label, entitySubType));
             }

@@ -501,14 +501,23 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
 
             if (isPseudonym && attributedTo.Count > 0)
             {
-                foreach (var realQid in attributedTo)
+                foreach (var realQidList in attributedTo)
                 {
-                    var realPerson = await _personRepo.FindByQidAsync(realQid, ct)
-                        .ConfigureAwait(false);
-                    if (realPerson is not null)
+                    var qids = realQidList.Split("|||", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                    foreach (var rawQid in qids)
                     {
-                        await _personRepo.LinkAliasAsync(personId, realPerson.Id, ct)
+                        var realQid = rawQid.Split("::")[0];
+                        var realPerson = await _personRepo.FindByQidAsync(realQid, ct)
                             .ConfigureAwait(false);
+                        if (realPerson is not null)
+                        {
+                            await _personRepo.LinkAliasAsync(personId, realPerson.Id, ct)
+                                .ConfigureAwait(false);
+                        }
+                        else
+                        {
+                            await CreateAndLinkStubPersonAsync(personId, realQid, false, ct).ConfigureAwait(false);
+                        }
                     }
                 }
             }
@@ -520,14 +529,23 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
                 .Where(v => !string.IsNullOrWhiteSpace(v))
                 .ToList();
 
-            foreach (var penQid in pseudonymQids)
+            foreach (var penQidList in pseudonymQids)
             {
-                var penPerson = await _personRepo.FindByQidAsync(penQid, ct)
-                    .ConfigureAwait(false);
-                if (penPerson is not null)
+                var qids = penQidList.Split("|||", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                foreach (var rawQid in qids)
                 {
-                    await _personRepo.LinkAliasAsync(penPerson.Id, personId, ct)
+                    var penQid = rawQid.Split("::")[0];
+                    var penPerson = await _personRepo.FindByQidAsync(penQid, ct)
                         .ConfigureAwait(false);
+                    if (penPerson is not null)
+                    {
+                        await _personRepo.LinkAliasAsync(penPerson.Id, personId, ct)
+                            .ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        await CreateAndLinkStubPersonAsync(personId, penQid, true, ct).ConfigureAwait(false);
+                    }
                 }
             }
         }
@@ -536,6 +554,46 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
             _logger.LogWarning(ex,
                 "Pseudonym resolution failed for person {Id}; continuing", personId);
         }
+    }
+
+    private async Task CreateAndLinkStubPersonAsync(
+        Guid existingPersonId,
+        string missingQid,
+        bool isMissingPersonPseudonym,
+        CancellationToken ct)
+    {
+        var stubId = Guid.NewGuid();
+        var stub = new Person
+        {
+            Id = stubId,
+            Name = $"Unknown Person ({missingQid})",
+            Role = "Author", // Default role
+            WikidataQid = missingQid,
+            CreatedAt = DateTimeOffset.UtcNow,
+            IsPseudonym = isMissingPersonPseudonym
+        };
+        
+        await _personRepo.CreateAsync(stub, ct).ConfigureAwait(false);
+        
+        if (isMissingPersonPseudonym)
+        {
+            // The missing person is a pen name for the existing real person
+            await _personRepo.LinkAliasAsync(stubId, existingPersonId, ct).ConfigureAwait(false);
+        }
+        else
+        {
+            // The missing person is a real person behind the existing pen name
+            await _personRepo.LinkAliasAsync(existingPersonId, stubId, ct).ConfigureAwait(false);
+        }
+        
+        // Enqueue the stub for hydration
+        await EnqueueAsync(new HarvestRequest
+        {
+            EntityId = stubId,
+            EntityType = EntityType.Person,
+            MediaType = MediaType.Unknown,
+            PreResolvedQid = missingQid
+        }, ct).ConfigureAwait(false);
     }
 
     /// <summary>

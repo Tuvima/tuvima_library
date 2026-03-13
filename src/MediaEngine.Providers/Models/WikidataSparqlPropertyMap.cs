@@ -423,8 +423,8 @@ public static class WikidataSparqlPropertyMap
                     // Concatenate the labels (human-readable), not the raw QIDs.
                     sb.Append(" (GROUP_CONCAT(DISTINCT ?").Append(varName).Append("Label; separator=\"")
                       .Append(MultiValueSeparator).Append("\") AS ?").Append(varName).Append("Labels)");
-                    // Also concatenate raw entity URIs for QID extraction (Hub relationships).
-                    sb.Append(" (GROUP_CONCAT(DISTINCT STR(?").Append(varName).Append("); separator=\"")
+                    // Also concatenate raw entity URIs bounded together with their English labels for accurate QID extraction (Hub relationships).
+                    sb.Append(" (GROUP_CONCAT(DISTINCT CONCAT(STR(?").Append(varName).Append("), \"::\", COALESCE(?").Append(varName).Append("Label, \"\")); separator=\"")
                       .Append(MultiValueSeparator).Append("\") AS ?").Append(varName).Append("Uris)");
                 }
                 else

@@ -1148,15 +1148,23 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
 
     private static string? StripEntityUri(string value)
     {
+        var parts = value.Split("::", 2, StringSplitOptions.None);
+        var uri = parts[0];
+
         const string prefix = "http://www.wikidata.org/entity/";
-        if (value.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-            return value[prefix.Length..];
+        string qid = uri;
 
+        if (uri.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+        {
+            qid = uri[prefix.Length..];
+        }
         // Already a bare QID (e.g. "Q937618")?
-        if (value.Length > 1 && value[0] is 'Q' or 'q' && char.IsDigit(value[1]))
-            return value;
+        else if (!(uri.Length > 1 && uri[0] is 'Q' or 'q' && char.IsDigit(uri[1])))
+        {
+            return null;
+        }
 
-        return null;
+        return parts.Length > 1 ? $"{qid}::{parts[1]}" : qid;
     }
 
     // ── Configuration Helpers ────────────────────────────────────────────────
