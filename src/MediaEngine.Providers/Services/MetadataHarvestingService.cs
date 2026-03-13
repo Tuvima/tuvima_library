@@ -391,6 +391,27 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         if (qid is null && headshotUrl is null && biography is null)
             return;
 
+        // ── QID-based deduplication ───────────────────────────────────────────
+        // If another person record already owns this Wikidata QID, skip creating
+        // a duplicate folder.  Both DB records will end up pointing at the same
+        // filesystem folder (same "Name (QID)" path) via TryRenameExistingPersonFolder;
+        // we just need to make sure the first-arriving enrichment wins the write.
+        bool isQidDuplicate = false;
+        if (!string.IsNullOrWhiteSpace(qid))
+        {
+            var canonicalPerson = await _personRepo.FindByQidAsync(qid, ct).ConfigureAwait(false);
+            if (canonicalPerson is not null && canonicalPerson.Id != request.EntityId)
+            {
+                isQidDuplicate = true;
+                _logger.LogDebug(
+                    "Person {Id} ({Name}) shares QID {Qid} with canonical person {CanonicalId} — " +
+                    "skipping duplicate folder creation",
+                    request.EntityId, claims.FirstOrDefault(c => c.Key == "biography")?.Value is not null
+                        ? "(has bio)" : "(no bio)",
+                    qid, canonicalPerson.Id);
+            }
+        }
+
         await _personRepo.UpdateEnrichmentAsync(request.EntityId, qid, headshotUrl, biography, ct)
             .ConfigureAwait(false);
 
@@ -444,8 +465,12 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         var personName = person?.Name ?? string.Empty;
 
         // Persist headshot + person sidecar under {LibraryRoot}/.people/{Name} ({QID})/
-        await PersistPersonStorageAsync(request.EntityId, person, headshotUrl, ct)
-            .ConfigureAwait(false);
+        // Skip if this person shares a QID with a canonical record — avoids duplicate folders.
+        if (!isQidDuplicate)
+        {
+            await PersistPersonStorageAsync(request.EntityId, person, headshotUrl, ct)
+                .ConfigureAwait(false);
+        }
 
         await _eventPublisher.PublishAsync(
             "PersonEnriched",

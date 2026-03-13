@@ -219,23 +219,47 @@ public static class WikidataSparqlPropertyMap
         // Start with a copy of DefaultMap — all compiled defaults are present.
         var map = new Dictionary<string, WikidataProperty>(DefaultMap, StringComparer.OrdinalIgnoreCase);
 
-        // Overlay config entries on top — config wins for matching P-codes.
+        // Overlay config entries on top — config wins for user-configurable fields.
+        // For properties that already exist in DefaultMap, preserve the structural
+        // flags (IsMonolingualText, IsEntityValued, IsMultiValued, IsBridge) from
+        // DefaultMap. These flags describe how to build the SPARQL query and are
+        // not meant to be user-configurable. Config files generated before these
+        // flags were introduced will have them missing (defaulting to false), which
+        // would silently break language filtering and multi-value handling.
         foreach (var (pCode, config) in universe.PropertyMap)
         {
-            map[pCode] = new WikidataProperty
+            if (map.TryGetValue(pCode, out var existing))
             {
-                PCode             = pCode,
-                ClaimKey          = config.ClaimKey,
-                Category          = config.Category,
-                EntityScope       = config.EntityScope,
-                Confidence        = config.Confidence,
-                IsBridge          = config.IsBridge,
-                Enabled           = config.Enabled,
-                IsEntityValued    = config.IsEntityValued,
-                ValueTransform    = config.ValueTransform,
-                IsMultiValued     = config.IsMultiValued,
-                IsMonolingualText = config.IsMonolingualText,
-            };
+                // Known property: overlay user-configurable fields only.
+                map[pCode] = existing with
+                {
+                    ClaimKey       = string.IsNullOrWhiteSpace(config.ClaimKey)    ? existing.ClaimKey    : config.ClaimKey,
+                    Category       = string.IsNullOrWhiteSpace(config.Category)    ? existing.Category    : config.Category,
+                    EntityScope    = string.IsNullOrWhiteSpace(config.EntityScope) ? existing.EntityScope : config.EntityScope,
+                    Confidence     = config.Confidence,
+                    Enabled        = config.Enabled,
+                    ValueTransform = config.ValueTransform ?? existing.ValueTransform,
+                    // Structural flags preserved from DefaultMap (not overridable via config).
+                };
+            }
+            else
+            {
+                // Brand-new property not in DefaultMap — use all config values.
+                map[pCode] = new WikidataProperty
+                {
+                    PCode             = pCode,
+                    ClaimKey          = config.ClaimKey,
+                    Category          = config.Category,
+                    EntityScope       = config.EntityScope,
+                    Confidence        = config.Confidence,
+                    IsBridge          = config.IsBridge,
+                    Enabled           = config.Enabled,
+                    IsEntityValued    = config.IsEntityValued,
+                    ValueTransform    = config.ValueTransform,
+                    IsMultiValued     = config.IsMultiValued,
+                    IsMonolingualText = config.IsMonolingualText,
+                };
+            }
         }
 
         return map;

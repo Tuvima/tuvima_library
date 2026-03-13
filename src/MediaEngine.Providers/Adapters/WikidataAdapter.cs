@@ -377,7 +377,49 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
             var entityJson = await ThrottledGetAsync<JsonObject>(client, entityUrl, throttleGapMs, ct)
                 .ConfigureAwait(false);
 
-            return ParsePersonEntity(entityJson, qid, commonsTemplate);
+            var claims = ParsePersonEntity(entityJson, qid, commonsTemplate);
+
+            // Step 3: SPARQL deep-hydration for Person-scoped properties (occupation, social
+            // media, pseudonyms, biographical details, etc.).  Only runs when a SPARQL endpoint
+            // is configured; gracefully degrades to API-only claims when unavailable.
+            if (!string.IsNullOrWhiteSpace(request.SparqlBaseUrl))
+            {
+                try
+                {
+                    using var sparqlClient = _httpFactory.CreateClient("wikidata_sparql");
+                    var effectiveMap = universeConfig is not null
+                        ? WikidataSparqlPropertyMap.BuildMapFromUniverse(universeConfig)
+                        : WikidataSparqlPropertyMap.DefaultMap;
+                    var sparql = WikidataSparqlPropertyMap.BuildPersonSparqlQuery(
+                        qid, effectiveMap, request.Language);
+
+                    if (!string.IsNullOrWhiteSpace(sparql))
+                    {
+                        // Returns list starting with wikidata_qid — skip it (already present).
+                        var sparqlClaims = await ExecuteSparqlQueryAsync(
+                            sparqlClient, request.SparqlBaseUrl, sparql, qid,
+                            effectiveMap, scopeExclusions: null, throttleGapMs, ct,
+                            scope: "Person").ConfigureAwait(false);
+
+                        foreach (var c in sparqlClaims)
+                        {
+                            if (c.Key is not "wikidata_qid") // avoid duplicate
+                                claims.Add(c);
+                        }
+
+                        _logger.LogDebug(
+                            "Wikidata SPARQL person deep-hydration for {Qid}: {Count} extra claims",
+                            qid, sparqlClaims.Count - 1);
+                    }
+                }
+                catch (Exception sparqlEx) when (sparqlEx is not OperationCanceledException)
+                {
+                    _logger.LogWarning(sparqlEx,
+                        "Wikidata person SPARQL step failed for QID {Qid}; using API claims only", qid);
+                }
+            }
+
+            return claims;
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
         {
@@ -413,7 +455,7 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
         return null;
     }
 
-    private static IReadOnlyList<ProviderClaim> ParsePersonEntity(
+    private static List<ProviderClaim> ParsePersonEntity(
         JsonObject? entityJson,
         string qid,
         string commonsUrlTemplate)
@@ -677,7 +719,8 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
 
             var claims = await ExecuteSparqlQueryAsync(
                 sparqlClient, request.SparqlBaseUrl!, sparql, qid,
-                effectiveMap, scopeExclusions, throttleGapMs, ct).ConfigureAwait(false);
+                effectiveMap, scopeExclusions, throttleGapMs, ct,
+                scope: scopeName).ConfigureAwait(false);
 
             _logger.LogInformation(
                 "Wikidata SPARQL {Scope} enrichment for entity {Id}: QID={Qid}, {Count} claims",
@@ -944,7 +987,8 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
         IReadOnlyDictionary<string, WikidataProperty> effectiveMap,
         IReadOnlyCollection<string>? scopeExclusions,
         int throttleGapMs,
-        CancellationToken ct)
+        CancellationToken ct,
+        string scope = "Work")
     {
         var json = await ThrottledSparqlAsync(sparqlClient, sparqlBaseUrl, sparql, throttleGapMs, ct)
             .ConfigureAwait(false);
@@ -963,7 +1007,7 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
         var binding = bindings[0]!.AsObject();
         var exclusions = scopeExclusions ?? (IReadOnlyCollection<string>)["P18"];
 
-        foreach (var prop in effectiveMap.Values.Where(p => p.Enabled && p.EntityScope is "Work" or "Both"))
+        foreach (var prop in effectiveMap.Values.Where(p => p.Enabled && ScopeMatches(p.EntityScope, scope)))
         {
             // Apply scope exclusions (e.g. P18 excluded from Work for copyright reasons).
             if (exclusions.Contains(prop.PCode)) continue;
@@ -1071,6 +1115,21 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
     /// to a bare QID (e.g. <c>Q937618</c>). Returns <c>null</c> if the value is not
     /// a recognisable entity URI.
     /// </summary>
+    /// <summary>
+    /// Returns true when the property's declared scope matches the requested scope.
+    /// Supports "Both" wildcard and comma-separated scope lists.
+    /// </summary>
+    private static bool ScopeMatches(string propertyScope, string requestedScope)
+    {
+        if (propertyScope.Equals("Both", StringComparison.OrdinalIgnoreCase))
+            return true;
+        if (!propertyScope.Contains(','))
+            return propertyScope.Equals(requestedScope, StringComparison.OrdinalIgnoreCase);
+        foreach (var seg in propertyScope.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+            if (seg.Equals(requestedScope, StringComparison.OrdinalIgnoreCase)) return true;
+        return false;
+    }
+
     private static string? StripEntityUri(string value)
     {
         const string prefix = "http://www.wikidata.org/entity/";
@@ -1118,8 +1177,13 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
                 await Task.Delay(TimeSpan.FromMilliseconds(throttleGapMs - elapsed), ct)
                     .ConfigureAwait(false);
 
-            var url = $"{sparqlBaseUrl.TrimEnd('/')}?query={Uri.EscapeDataString(sparql)}";
-            using var request = new HttpRequestMessage(HttpMethod.Get, url);
+            // Use POST to avoid HTTP 414 (URI Too Long) on large SPARQL queries.
+            // Wikidata's SPARQL endpoint supports both GET and POST; POST has no URL length limit.
+            using var request = new HttpRequestMessage(HttpMethod.Post, sparqlBaseUrl.TrimEnd('/'));
+            request.Content = new FormUrlEncodedContent(
+            [
+                new KeyValuePair<string, string>("query", sparql),
+            ]);
             request.Headers.Accept.ParseAdd("application/sparql-results+json");
 
             var response = await sparqlClient.SendAsync(request, ct).ConfigureAwait(false);

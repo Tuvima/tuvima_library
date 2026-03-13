@@ -34,12 +34,13 @@ public sealed class EntityRelationshipRepository : IEntityRelationshipRepository
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             INSERT OR IGNORE INTO entity_relationships
-                (subject_qid, relationship_type, object_qid,
+                (id, subject_qid, relationship_type, object_qid,
                  confidence, context_work_qid, discovered_at)
             VALUES
-                (@subjectQid, @relType, @objectQid,
+                (@id, @subjectQid, @relType, @objectQid,
                  @confidence, @contextWorkQid, @discoveredAt);
             """;
+        cmd.Parameters.AddWithValue("@id", Guid.NewGuid().ToString());
         cmd.Parameters.AddWithValue("@subjectQid", edge.SubjectQid);
         cmd.Parameters.AddWithValue("@relType", edge.RelationshipTypeValue);
         cmd.Parameters.AddWithValue("@objectQid", edge.ObjectQid);

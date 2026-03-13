@@ -1463,33 +1463,41 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     {
         var refs = new List<FictionalEntityReference>();
 
-        // Map of canonical value keys to fictional entity types.
-        var entityKeys = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        // Map of QID key → (label companion key, entity sub-type).
+        // The label companion is the same key without the "_qid" suffix (e.g. "characters").
+        var entityKeys = new Dictionary<string, (string LabelKey, string EntitySubType)>(StringComparer.OrdinalIgnoreCase)
         {
-            ["characters_qid"]         = "Character",
-            ["cast_member_qid"]        = "Character",  // P161 → character performers, link as characters
-            ["narrative_location_qid"] = "Location",
+            ["characters_qid"]         = ("characters",        "Character"),
+            ["cast_member_qid"]        = ("cast_member",       "Character"),
+            ["narrative_location_qid"] = ("narrative_location","Location"),
         };
 
-        foreach (var (key, entitySubType) in entityKeys)
+        static string[] Split(string? v) =>
+            v is null ? [] : v.Split(["|||", "; "], StringSplitOptions.RemoveEmptyEntries);
+
+        foreach (var (qidKey, (labelKey, entitySubType)) in entityKeys)
         {
-            var value = canonicals.FirstOrDefault(c =>
-                string.Equals(c.Key, key, StringComparison.OrdinalIgnoreCase))?.Value;
+            var qidValue = canonicals.FirstOrDefault(c =>
+                string.Equals(c.Key, qidKey, StringComparison.OrdinalIgnoreCase))?.Value;
 
-            if (string.IsNullOrWhiteSpace(value)) continue;
+            if (string.IsNullOrWhiteSpace(qidValue)) continue;
 
-            // Multi-valued: joined with "; " or "|||" by SPARQL.
-            var parts = value.Split(new[] { "|||", "; " }, StringSplitOptions.RemoveEmptyEntries);
-            foreach (var part in parts)
+            var qidParts   = Split(qidValue);
+            var labelParts = Split(canonicals.FirstOrDefault(c =>
+                string.Equals(c.Key, labelKey, StringComparison.OrdinalIgnoreCase))?.Value);
+
+            for (var i = 0; i < qidParts.Length; i++)
             {
-                var trimmed = part.Trim();
-                if (trimmed.StartsWith("Q", StringComparison.OrdinalIgnoreCase)
-                    && trimmed.Length > 1
-                    && char.IsDigit(trimmed[1]))
-                {
-                    // Pure QID — label will be resolved during SPARQL enrichment.
-                    refs.Add(new FictionalEntityReference(trimmed, trimmed, entitySubType));
-                }
+                var qid = qidParts[i].Trim();
+                if (!qid.StartsWith("Q", StringComparison.OrdinalIgnoreCase)
+                    || qid.Length < 2 || !char.IsDigit(qid[1]))
+                    continue;
+
+                // Pair QID with its human-readable label at the same position, if available.
+                var label = (i < labelParts.Length ? labelParts[i].Trim() : null)
+                            ?? qid; // fall back to bare QID if no label
+
+                refs.Add(new FictionalEntityReference(qid, label, entitySubType));
             }
         }
 
