@@ -1036,37 +1036,53 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
                 if (string.IsNullOrWhiteSpace(concatenated))
                     continue;
 
-                // Split on the GROUP_CONCAT separator and emit one claim per value.
-                var values = concatenated.Split(WikidataSparqlPropertyMap.MultiValueSeparator,
-                    StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-
-                foreach (var val in values)
-                {
-                    var claimValue = ValueTransformRegistry.Apply(prop.ValueTransform, val);
-                    if (!string.IsNullOrWhiteSpace(claimValue))
-                        claims.Add(new ProviderClaim(prop.ClaimKey, claimValue, prop.Confidence));
-                }
-
-                // For entity-valued multi-valued properties, also emit bare QIDs
-                // from the Uris GROUP_CONCAT (e.g. franchise_qid, series_qid).
+                // Emit ONE claim carrying the full GROUP_CONCAT'd value (separator: |||).
+                //
+                // Previously this code split the concatenated string and emitted one
+                // ProviderClaim per individual value.  That caused every character,
+                // genre, and series entry to compete as separate claims for the SAME
+                // canonical value key — the scoring engine's winner-takes-all logic
+                // then discarded all but one (e.g. only 1 of 20 Dune characters
+                // survived, and all 5 genre claims conflicted → no genre stored at all).
+                //
+                // By emitting a SINGLE claim containing the full pipe-separated list,
+                // the canonical value stores all values together.  Consumers that need
+                // individual items (ExtractFictionalEntityReferences, RelationshipPopulationService)
+                // already split on the ||| separator.
                 if (prop.IsEntityValued)
                 {
+                    // Labels claim: full pipe-separated list of human-readable names.
+                    claims.Add(new ProviderClaim(prop.ClaimKey, concatenated, prop.Confidence));
+
+                    // QIDs claim: strip entity URI prefixes and emit as pipe-separated QIDs.
                     var urisConcatenated = binding.ContainsKey(varName + "Uris")
                         ? binding[varName + "Uris"]?["value"]?.GetValue<string>()
                         : null;
 
                     if (!string.IsNullOrWhiteSpace(urisConcatenated))
                     {
-                        var uris = urisConcatenated.Split(WikidataSparqlPropertyMap.MultiValueSeparator,
-                            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                        var strippedQids = string.Join(
+                            WikidataSparqlPropertyMap.MultiValueSeparator,
+                            urisConcatenated.Split(WikidataSparqlPropertyMap.MultiValueSeparator,
+                                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                                .Select(StripEntityUri)
+                                .Where(q => !string.IsNullOrWhiteSpace(q)));
 
-                        foreach (var uri in uris)
-                        {
-                            var bareQid = StripEntityUri(uri);
-                            if (!string.IsNullOrWhiteSpace(bareQid))
-                                claims.Add(new ProviderClaim(prop.ClaimKey + "_qid", bareQid, prop.Confidence));
-                        }
+                        if (!string.IsNullOrWhiteSpace(strippedQids))
+                            claims.Add(new ProviderClaim(prop.ClaimKey + "_qid", strippedQids, prop.Confidence));
                     }
+                }
+                else
+                {
+                    // Non-entity multi-valued: apply transform to each part, then rejoin.
+                    var parts = concatenated.Split(WikidataSparqlPropertyMap.MultiValueSeparator,
+                        StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                    var transformed = parts
+                        .Select(v => ValueTransformRegistry.Apply(prop.ValueTransform, v))
+                        .Where(v => !string.IsNullOrWhiteSpace(v));
+                    var joined = string.Join(WikidataSparqlPropertyMap.MultiValueSeparator, transformed);
+                    if (!string.IsNullOrWhiteSpace(joined))
+                        claims.Add(new ProviderClaim(prop.ClaimKey, joined, prop.Confidence));
                 }
             }
             else
