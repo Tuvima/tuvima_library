@@ -528,7 +528,124 @@ public sealed class DatabaseConnection : IDatabaseConnection
                 );
                 """);
 
-                // Seed S-001: provider_registry entries for all known providers.
+        // Migration M-024: Universe Graph — fictional_entities table.
+        MigrateCreateTableIfMissing(
+            conn,
+            probeTable:  "fictional_entities",
+            probeColumn: "id",
+            ddl: """
+                CREATE TABLE IF NOT EXISTS fictional_entities (
+                    id                       TEXT NOT NULL PRIMARY KEY,
+                    wikidata_qid             TEXT NOT NULL UNIQUE,
+                    label                    TEXT NOT NULL,
+                    description              TEXT,
+                    entity_sub_type          TEXT NOT NULL
+                                                 CHECK (entity_sub_type IN ('Character', 'Location', 'Organization')),
+                    fictional_universe_qid   TEXT,
+                    fictional_universe_label TEXT,
+                    image_url                TEXT,
+                    local_image_path         TEXT,
+                    created_at               TEXT NOT NULL,
+                    enriched_at              TEXT
+                );
+                CREATE INDEX IF NOT EXISTS idx_fictional_entities_type
+                    ON fictional_entities (entity_sub_type);
+                CREATE INDEX IF NOT EXISTS idx_fictional_entities_universe
+                    ON fictional_entities (fictional_universe_qid);
+                """);
+
+        // Migration M-025: Universe Graph — fictional_entity_work_links junction table.
+        MigrateCreateTableIfMissing(
+            conn,
+            probeTable:  "fictional_entity_work_links",
+            probeColumn: "entity_id",
+            ddl: """
+                CREATE TABLE IF NOT EXISTS fictional_entity_work_links (
+                    entity_id   TEXT NOT NULL REFERENCES fictional_entities(id) ON DELETE CASCADE,
+                    work_qid    TEXT NOT NULL,
+                    work_label  TEXT,
+                    link_type   TEXT NOT NULL DEFAULT 'appears_in',
+                    PRIMARY KEY (entity_id, work_qid, link_type)
+                );
+                CREATE INDEX IF NOT EXISTS idx_fewl_work_qid
+                    ON fictional_entity_work_links (work_qid);
+                """);
+
+        // Migration M-026: Universe Graph — entity_relationships graph edge table.
+        MigrateCreateTableIfMissing(
+            conn,
+            probeTable:  "entity_relationships",
+            probeColumn: "id",
+            ddl: """
+                CREATE TABLE IF NOT EXISTS entity_relationships (
+                    id                      TEXT NOT NULL PRIMARY KEY,
+                    subject_qid             TEXT NOT NULL,
+                    relationship_type       TEXT NOT NULL,
+                    object_qid              TEXT NOT NULL,
+                    confidence              REAL NOT NULL DEFAULT 0.9,
+                    context_work_qid        TEXT,
+                    discovered_at           TEXT NOT NULL,
+                    UNIQUE (subject_qid, relationship_type, object_qid)
+                );
+                CREATE INDEX IF NOT EXISTS idx_entity_rel_subject
+                    ON entity_relationships (subject_qid);
+                CREATE INDEX IF NOT EXISTS idx_entity_rel_object
+                    ON entity_relationships (object_qid);
+                """);
+
+        // Migration M-027: Universe Graph — narrative_roots table.
+        MigrateCreateTableIfMissing(
+            conn,
+            probeTable:  "narrative_roots",
+            probeColumn: "qid",
+            ddl: """
+                CREATE TABLE IF NOT EXISTS narrative_roots (
+                    qid         TEXT NOT NULL PRIMARY KEY,
+                    label       TEXT NOT NULL,
+                    level       TEXT NOT NULL
+                                    CHECK (level IN ('Universe', 'Franchise', 'Series', 'Standalone')),
+                    parent_qid  TEXT,
+                    created_at  TEXT NOT NULL
+                );
+                """);
+
+        // Migration M-028: Person Infrastructure — add biographical columns to persons.
+        MigrateAddColumnIfMissing(conn, "persons", "date_of_birth", "ALTER TABLE persons ADD COLUMN date_of_birth TEXT;");
+        MigrateAddColumnIfMissing(conn, "persons", "date_of_death", "ALTER TABLE persons ADD COLUMN date_of_death TEXT;");
+        MigrateAddColumnIfMissing(conn, "persons", "place_of_birth", "ALTER TABLE persons ADD COLUMN place_of_birth TEXT;");
+        MigrateAddColumnIfMissing(conn, "persons", "place_of_death", "ALTER TABLE persons ADD COLUMN place_of_death TEXT;");
+        MigrateAddColumnIfMissing(conn, "persons", "nationality", "ALTER TABLE persons ADD COLUMN nationality TEXT;");
+        MigrateAddColumnIfMissing(conn, "persons", "is_pseudonym", "ALTER TABLE persons ADD COLUMN is_pseudonym INTEGER NOT NULL DEFAULT 0;");
+
+        // Migration M-029: Character-performer links table.
+        MigrateCreateTableIfMissing(
+            conn,
+            probeTable:  "character_performer_links",
+            probeColumn: "person_id",
+            ddl: """
+                CREATE TABLE IF NOT EXISTS character_performer_links (
+                    person_id           TEXT NOT NULL REFERENCES persons(id) ON DELETE CASCADE,
+                    fictional_entity_id TEXT NOT NULL REFERENCES fictional_entities(id) ON DELETE CASCADE,
+                    work_qid            TEXT,
+                    PRIMARY KEY (person_id, fictional_entity_id, work_qid)
+                );
+                """);
+
+        // Migration M-030: Person aliases table for pseudonym resolution.
+        MigrateCreateTableIfMissing(
+            conn,
+            probeTable:  "person_aliases",
+            probeColumn: "pseudonym_person_id",
+            ddl: """
+                CREATE TABLE IF NOT EXISTS person_aliases (
+                    pseudonym_person_id TEXT NOT NULL REFERENCES persons(id) ON DELETE CASCADE,
+                    real_person_id      TEXT NOT NULL REFERENCES persons(id) ON DELETE CASCADE,
+                    PRIMARY KEY (pseudonym_person_id, real_person_id)
+                );
+                CREATE INDEX IF NOT EXISTS idx_person_aliases_real ON person_aliases (real_person_id);
+                """);
+
+        // Seed S-001: provider_registry entries for all known providers.
         // metadata_claims.provider_id has a FK to provider_registry(id), so these
         // rows MUST exist before any claim is written.  INSERT OR IGNORE makes this
         // idempotent — safe to run on every startup.

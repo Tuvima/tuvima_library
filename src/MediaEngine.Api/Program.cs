@@ -230,6 +230,7 @@ builder.Services.PostConfigure<IngestionOptions>(opts =>
         if (!string.IsNullOrWhiteSpace(core.LibraryRoot))          { opts.LibraryRoot          = core.LibraryRoot; }
         if (!string.IsNullOrWhiteSpace(core.StagingDirectory))     { opts.StagingDirectory     = core.StagingDirectory; }
         if (!string.IsNullOrWhiteSpace(core.OrganizationTemplate)) { opts.OrganizationTemplate = core.OrganizationTemplate; }
+        if (core.OrganizationTemplates.Count > 0) { opts.OrganizationTemplates = new Dictionary<string, string>(core.OrganizationTemplates, StringComparer.OrdinalIgnoreCase); }
     }
     catch
     {
@@ -366,6 +367,16 @@ builder.Services.AddSingleton<IExternalMetadataProvider, WikipediaAdapter>();
 builder.Services.AddSingleton<IMetadataHarvestingService, MetadataHarvestingService>();
 builder.Services.AddSingleton<IRecursiveIdentityService,  RecursiveIdentityService>();
 
+// ── Universe graph (fictional entities, relationships, narrative roots) ──────
+builder.Services.AddSingleton<IFictionalEntityRepository,      FictionalEntityRepository>();
+builder.Services.AddSingleton<IEntityRelationshipRepository,    EntityRelationshipRepository>();
+builder.Services.AddSingleton<INarrativeRootRepository,         NarrativeRootRepository>();
+builder.Services.AddSingleton<INarrativeRootResolver,           NarrativeRootResolver>();
+builder.Services.AddSingleton<IRecursiveFictionalEntityService, RecursiveFictionalEntityService>();
+builder.Services.AddSingleton<IRelationshipPopulationService,   RelationshipPopulationService>();
+builder.Services.AddSingleton<IUniverseSidecarWriter,           UniverseSidecarWriter>();
+builder.Services.AddSingleton<IUniverseGraphWriterService,      UniverseGraphWriterService>();
+
 // ── Hydration pipeline (three-stage orchestrator) + review queue ─────────────
 builder.Services.AddSingleton<IAutoOrganizeService,       AutoOrganizeService>();
 builder.Services.AddSingleton<IHydrationPipelineService,  HydrationPipelineService>();
@@ -454,6 +465,7 @@ app.MapProfileEndpoints();
 app.MapPersonEndpoints();
 app.MapProgressEndpoints();
 app.MapActivityEndpoints();
+app.MapUniverseGraphEndpoints();
 
 // ── Development-only seed endpoints ──────────────────────────────────────────
 if (app.Environment.IsDevelopment())

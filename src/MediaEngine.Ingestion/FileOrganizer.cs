@@ -116,18 +116,23 @@ public sealed class FileOrganizer : IFileOrganizer
         // Build sample tokens with representative values.
         var sampleTokens = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
-            ["Title"]     = "Sample Book",
-            ["Author"]    = "Jane Author",
-            ["Year"]      = "2024",
-            ["MediaType"] = "Epub",
-            ["Extension"] = "epub",
-            ["Ext"]       = ".epub",
-            ["Series"]    = "Great Series",
-            ["Publisher"]  = "Publisher Co",
-            ["Category"]  = "Books",
-            ["HubName"]   = "Sample Book",
-            ["Format"]    = "Epub",
-            ["Edition"]   = "Hardcover",
+            ["Title"]       = "Sample Book",
+            ["Author"]      = "Jane Author",
+            ["Year"]        = "2024",
+            ["MediaType"]   = "Epub",
+            ["Extension"]   = "epub",
+            ["Ext"]         = ".epub",
+            ["Series"]      = "Great Series",
+            ["Publisher"]   = "Publisher Co",
+            ["Category"]    = "Books",
+            ["HubName"]     = "Sample Book",
+            ["Format"]      = "Epub",
+            ["Edition"]     = "Hardcover",
+            ["Artist"]      = "Sample Artist",
+            ["Album"]       = "Sample Album",
+            ["TrackNumber"] = "01",
+            ["Season"]      = "01",
+            ["Episode"]     = "01",
         };
 
         string resolved = ResolveTemplate(template, sampleTokens);
@@ -295,6 +300,12 @@ public sealed class FileOrganizer : IFileOrganizer
             ["HubName"]   = meta.GetValueOrDefault("title",   "Unknown"),
             ["Format"]    = candidate.DetectedMediaType?.ToString() ?? "Unknown",
             ["Edition"]   = meta.GetValueOrDefault("edition", string.Empty),
+            // ── Per-media-type tokens ────────────────────────────────────────────
+            ["Artist"]      = meta.GetValueOrDefault("artist",       meta.GetValueOrDefault("author", "Unknown")),
+            ["Album"]       = meta.GetValueOrDefault("album",        "Unknown"),
+            ["TrackNumber"] = meta.GetValueOrDefault("track_number", string.Empty),
+            ["Season"]      = meta.GetValueOrDefault("season",       string.Empty),
+            ["Episode"]     = meta.GetValueOrDefault("episode",      string.Empty),
         };
 
         // Merge caller-supplied extras (allow overriding built-ins).

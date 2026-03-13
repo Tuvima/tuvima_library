@@ -57,6 +57,8 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     private readonly IEventPublisher _eventPublisher;
     private readonly IConfigurationLoader _configLoader;
     private readonly IRecursiveIdentityService _identity;
+    private readonly IRecursiveFictionalEntityService _fictionalEntityService;
+    private readonly INarrativeRootResolver _narrativeRootResolver;
     private readonly IReviewQueueRepository _reviewRepo;
     private readonly IHubRepository _hubRepo;
     private readonly IMediaAssetRepository _assetRepo;
@@ -79,6 +81,8 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         IEventPublisher eventPublisher,
         IConfigurationLoader configLoader,
         IRecursiveIdentityService identity,
+        IRecursiveFictionalEntityService fictionalEntityService,
+        INarrativeRootResolver narrativeRootResolver,
         IReviewQueueRepository reviewRepo,
         IHubRepository hubRepo,
         IMediaAssetRepository assetRepo,
@@ -98,6 +102,8 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         ArgumentNullException.ThrowIfNull(eventPublisher);
         ArgumentNullException.ThrowIfNull(configLoader);
         ArgumentNullException.ThrowIfNull(identity);
+        ArgumentNullException.ThrowIfNull(fictionalEntityService);
+        ArgumentNullException.ThrowIfNull(narrativeRootResolver);
         ArgumentNullException.ThrowIfNull(reviewRepo);
         ArgumentNullException.ThrowIfNull(hubRepo);
         ArgumentNullException.ThrowIfNull(assetRepo);
@@ -116,8 +122,10 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         _scoringEngine  = scoringEngine;
         _eventPublisher = eventPublisher;
         _configLoader   = configLoader;
-        _identity       = identity;
-        _reviewRepo     = reviewRepo;
+        _identity                = identity;
+        _fictionalEntityService  = fictionalEntityService;
+        _narrativeRootResolver   = narrativeRootResolver;
+        _reviewRepo              = reviewRepo;
         _hubRepo        = hubRepo;
         _assetRepo      = assetRepo;
         _imageCache     = imageCache;
@@ -312,6 +320,25 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 {
                     _logger.LogWarning(ex,
                         "Write-back after Stage 1 failed for entity {Id}; continuing",
+                        request.EntityId);
+                }
+            }
+
+            // Universe graph: if Stage 1 deposited franchise/series/universe data,
+            // resolve the narrative root and discover fictional entities (characters,
+            // locations, organizations).  Only runs for works with QIDs.
+            if (result.WikidataQid is not null)
+            {
+                try
+                {
+                    await RunFictionalEntityEnrichmentAsync(
+                        request.EntityId, result.WikidataQid, canonicalsAfterS1, ct)
+                        .ConfigureAwait(false);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _logger.LogWarning(ex,
+                        "Fictional entity enrichment failed for entity {Id}; continuing",
                         request.EntityId);
                 }
             }
@@ -1375,6 +1402,98 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             Hints          = mergedHints,
             PreResolvedQid = original.PreResolvedQid,
         };
+    }
+
+    /// <summary>
+    /// Resolves the narrative root for a work and discovers fictional entities
+    /// (characters, locations, organizations) from the work's canonical values.
+    /// Only called when Stage 1 produced a Wikidata QID for the work.
+    /// </summary>
+    private async Task RunFictionalEntityEnrichmentAsync(
+        Guid entityId,
+        string workQid,
+        IReadOnlyList<CanonicalValue> canonicals,
+        CancellationToken ct)
+    {
+        // 1. Resolve the narrative root (fictional_universe → franchise → series → standalone).
+        var narrativeRoot = await _narrativeRootResolver.ResolveAsync(entityId, ct)
+            .ConfigureAwait(false);
+
+        if (narrativeRoot is null)
+        {
+            _logger.LogDebug(
+                "No narrative root resolved for entity {Id} (QID={Qid}) — " +
+                "standalone work, skipping fictional entity enrichment",
+                entityId, workQid);
+            return;
+        }
+
+        // 2. Extract fictional entity references from canonical values.
+        var entityRefs = ExtractFictionalEntityReferences(canonicals);
+        if (entityRefs.Count == 0)
+        {
+            _logger.LogDebug(
+                "No fictional entity references found for entity {Id} (QID={Qid})",
+                entityId, workQid);
+            return;
+        }
+
+        // 3. Discover and enqueue enrichment for fictional entities.
+        var workLabel = canonicals.FirstOrDefault(c => c.Key == "title")?.Value;
+
+        _logger.LogInformation(
+            "Fictional entity enrichment: {Count} entities for work '{Title}' (QID={Qid}) " +
+            "in universe '{Universe}' (QID={UniverseQid})",
+            entityRefs.Count, workLabel ?? "(unknown)", workQid,
+            narrativeRoot.Label ?? "(unknown)", narrativeRoot.Qid);
+
+        await _fictionalEntityService.EnrichAsync(
+            workQid, workLabel,
+            narrativeRoot.Qid, narrativeRoot.Label,
+            entityRefs, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Extracts fictional entity references (characters, locations, organizations)
+    /// from canonical values deposited by Stage 1 SPARQL deep hydration.
+    /// Entity-valued claims produce <c>{claimKey}_qid</c> canonical values.
+    /// </summary>
+    private static IReadOnlyList<FictionalEntityReference> ExtractFictionalEntityReferences(
+        IReadOnlyList<CanonicalValue> canonicals)
+    {
+        var refs = new List<FictionalEntityReference>();
+
+        // Map of canonical value keys to fictional entity types.
+        var entityKeys = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["characters_qid"]         = "Character",
+            ["cast_member_qid"]        = "Character",  // P161 → character performers, link as characters
+            ["narrative_location_qid"] = "Location",
+        };
+
+        foreach (var (key, entitySubType) in entityKeys)
+        {
+            var value = canonicals.FirstOrDefault(c =>
+                string.Equals(c.Key, key, StringComparison.OrdinalIgnoreCase))?.Value;
+
+            if (string.IsNullOrWhiteSpace(value)) continue;
+
+            // Multi-valued: joined with "; " or "|||" by SPARQL.
+            var parts = value.Split(new[] { "|||", "; " }, StringSplitOptions.RemoveEmptyEntries);
+            foreach (var part in parts)
+            {
+                var trimmed = part.Trim();
+                if (trimmed.StartsWith("Q", StringComparison.OrdinalIgnoreCase)
+                    && trimmed.Length > 1
+                    && char.IsDigit(trimmed[1]))
+                {
+                    // Pure QID — label will be resolved during SPARQL enrichment.
+                    refs.Add(new FictionalEntityReference(trimmed, trimmed, entitySubType));
+                }
+            }
+        }
+
+        return refs;
     }
 
     /// <summary>

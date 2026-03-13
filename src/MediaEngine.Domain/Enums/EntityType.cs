@@ -20,4 +20,13 @@ public enum EntityType
 
     /// <summary>A <c>MediaAsset</c> aggregate (a single file on disk).</summary>
     MediaAsset,
+
+    /// <summary>A fictional character in a narrative universe.</summary>
+    Character,
+
+    /// <summary>A fictional location or world in a narrative universe.</summary>
+    Location,
+
+    /// <summary>A fictional organization or faction in a narrative universe.</summary>
+    Organization,
 }

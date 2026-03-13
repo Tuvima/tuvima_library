@@ -4,7 +4,17 @@
   "data_root": "",
   "watch_directory": "",
   "library_root": "",
-  "organization_template": "{Category}/{HubName} ({Year})/{Format} - {Edition}",
+  "organization_template": "{Category}/{Author}/{Title}/{Title}{Ext}",
+  "organization_templates": {
+    "default":    "{Category}/{Author}/{Title}/{Title}{Ext}",
+    "Books":      "{Category}/{Author}/{Title}/{Title}{Ext}",
+    "Audiobooks": "{Category}/{Author}/{Title}/{Title}{Ext}",
+    "Movies":     "{Category}/{Title} ({Year})/{Title} ({Year}){Ext}",
+    "TV":         "{Category}/{Title}/Season ({Season})/{Title} - S({Season})E({Episode}){Ext}",
+    "Comic":      "{Category}/{Series}/{Title}/{Title}{Ext}",
+    "Music":      "{Category}/{Artist}/{Album}/({TrackNumber}) - {Title}{Ext}",
+    "Podcasts":   "{Category}/{Title}/{Title}{Ext}"
+  },
   "server_name": "Tuvima Library",
   "language": "en",
   "country": "US",

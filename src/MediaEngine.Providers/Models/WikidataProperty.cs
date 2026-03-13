@@ -81,4 +81,13 @@ public sealed record WikidataProperty
     /// Multi-valued properties include genre, characters, cast_member, narrative_location, etc.
     /// </summary>
     public bool IsMultiValued { get; init; }
+
+    /// <summary>
+    /// When <c>true</c>, this property holds monolingual text (language-tagged literals)
+    /// on Wikidata. The SPARQL query builder adds a <c>FILTER(LANG(...))</c> clause
+    /// to select only the preferred language. Falls back to any language if the
+    /// preferred language is unavailable.
+    /// Examples: P1476 (title), P1813 (short name).
+    /// </summary>
+    public bool IsMonolingualText { get; init; }
 }

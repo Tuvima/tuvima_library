@@ -115,16 +115,23 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
     public bool CanHandle(EntityType entityType) =>
         entityType is EntityType.Person
                    or EntityType.Work
-                   or EntityType.MediaAsset;
+                   or EntityType.MediaAsset
+                   or EntityType.Character
+                   or EntityType.Location
+                   or EntityType.Organization;
 
     /// <inheritdoc/>
     public async Task<IReadOnlyList<ProviderClaim>> FetchAsync(
         ProviderLookupRequest request,
         CancellationToken ct = default)
     {
-        return request.EntityType == EntityType.Person
-            ? await FetchPersonAsync(request, ct).ConfigureAwait(false)
-            : await FetchWorkAsync(request, ct).ConfigureAwait(false);
+        return request.EntityType switch
+        {
+            EntityType.Person => await FetchPersonAsync(request, ct).ConfigureAwait(false),
+            EntityType.Character or EntityType.Location or EntityType.Organization
+                => await FetchFictionalEntityAsync(request, ct).ConfigureAwait(false),
+            _ => await FetchWorkAsync(request, ct).ConfigureAwait(false),
+        };
     }
 
     // ── Disambiguation: multiple QID candidates ────────────────────────────────
@@ -573,7 +580,7 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
                 scopeExclusions = workExclusions;
 
             var sparql = WikidataSparqlPropertyMap.BuildWorkSparqlQuery(
-                qid, effectiveMap, scopeExclusions);
+                qid, effectiveMap, scopeExclusions, request.Language);
             var claims = await ExecuteSparqlQueryAsync(
                 sparqlClient, request.SparqlBaseUrl!, sparql, qid,
                 effectiveMap, scopeExclusions, throttleGapMs, ct).ConfigureAwait(false);
@@ -592,6 +599,101 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
         {
             _logger.LogWarning(ex,
                 "Wikidata work enrichment failed for entity {Id}", request.EntityId);
+            return [];
+        }
+    }
+
+    // ── Fictional Entity Enrichment ─────────────────────────────────────────
+
+    /// <summary>
+    /// Fetches SPARQL data for a fictional entity (Character, Location, Organization).
+    /// The QID is already known (passed via <see cref="ProviderLookupRequest.Hints"/>
+    /// with key <c>"wikidata_qid"</c>). Builds the scope-appropriate SPARQL query
+    /// and returns claims for all applicable properties.
+    /// </summary>
+    private async Task<IReadOnlyList<ProviderClaim>> FetchFictionalEntityAsync(
+        ProviderLookupRequest request,
+        CancellationToken ct)
+    {
+        // QID must be provided via hints — fictional entities are discovered by QID
+        // during work hydration, not by title search.
+        var qid = request.Hints?.GetValueOrDefault("wikidata_qid");
+        if (string.IsNullOrWhiteSpace(qid))
+        {
+            _logger.LogDebug(
+                "Wikidata fictional entity skipped for entity {Id}: no wikidata_qid hint",
+                request.EntityId);
+            return [];
+        }
+
+        if (string.IsNullOrWhiteSpace(request.SparqlBaseUrl))
+        {
+            _logger.LogWarning(
+                "Wikidata fictional entity skipped for entity {Id}: SPARQL endpoint not configured",
+                request.EntityId);
+            return [new ProviderClaim("wikidata_qid", qid, 1.0)];
+        }
+
+        var universeConfig = _configLoader.LoadConfig<UniverseConfiguration>("universe", "wikidata");
+        var effectiveMap = universeConfig is not null
+            ? WikidataSparqlPropertyMap.BuildMapFromUniverse(universeConfig)
+            : WikidataSparqlPropertyMap.DefaultMap;
+        var throttleGapMs = GetThrottleGapMs();
+
+        // Determine the scope name for this entity type.
+        var scopeName = request.EntityType switch
+        {
+            EntityType.Character    => "Character",
+            EntityType.Location     => "Location",
+            EntityType.Organization => "Organization",
+            _ => "Character", // Fallback — should not happen.
+        };
+
+        // Read scope exclusions (P18 is excluded for all fictional entity types).
+        IReadOnlyCollection<string>? scopeExclusions = null;
+        if (universeConfig?.ScopeExclusions.TryGetValue(scopeName, out var exclusions) == true)
+            scopeExclusions = exclusions;
+
+        try
+        {
+            using var sparqlClient = _httpFactory.CreateClient("wikidata_sparql");
+
+            // Build scope-appropriate SPARQL query.
+            var sparql = scopeName switch
+            {
+                "Character"    => WikidataSparqlPropertyMap.BuildCharacterSparqlQuery(qid, effectiveMap, scopeExclusions, request.Language),
+                "Location"     => WikidataSparqlPropertyMap.BuildLocationSparqlQuery(qid, effectiveMap, scopeExclusions, request.Language),
+                "Organization" => WikidataSparqlPropertyMap.BuildOrganizationSparqlQuery(qid, effectiveMap, scopeExclusions, request.Language),
+                _              => WikidataSparqlPropertyMap.BuildCharacterSparqlQuery(qid, effectiveMap, scopeExclusions, request.Language),
+            };
+
+            if (string.IsNullOrEmpty(sparql))
+            {
+                _logger.LogDebug(
+                    "Wikidata: no {Scope}-scoped properties enabled for QID {Qid}",
+                    scopeName, qid);
+                return [new ProviderClaim("wikidata_qid", qid, 1.0)];
+            }
+
+            var claims = await ExecuteSparqlQueryAsync(
+                sparqlClient, request.SparqlBaseUrl!, sparql, qid,
+                effectiveMap, scopeExclusions, throttleGapMs, ct).ConfigureAwait(false);
+
+            _logger.LogInformation(
+                "Wikidata SPARQL {Scope} enrichment for entity {Id}: QID={Qid}, {Count} claims",
+                scopeName, request.EntityId, qid, claims.Count);
+
+            return claims;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Wikidata {Scope} enrichment failed for entity {Id} (QID={Qid})",
+                scopeName, request.EntityId, qid);
             return [];
         }
     }

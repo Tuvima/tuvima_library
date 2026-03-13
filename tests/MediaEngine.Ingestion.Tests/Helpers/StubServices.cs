@@ -93,7 +93,6 @@ internal sealed class StubRecursiveIdentity : IRecursiveIdentityService
 internal sealed class StubSidecarWriter : ISidecarWriter
 {
     public List<(string Path, EditionSidecarData Data)> EditionWrites { get; } = [];
-    public List<(string Path, HubSidecarData Data)> HubWrites { get; } = [];
 
     public Task WriteEditionSidecarAsync(string editionFolderPath, EditionSidecarData data, CancellationToken ct = default)
     {
@@ -101,23 +100,14 @@ internal sealed class StubSidecarWriter : ISidecarWriter
         return Task.CompletedTask;
     }
 
-    public Task WriteHubSidecarAsync(string hubFolderPath, HubSidecarData data, CancellationToken ct = default)
-    {
-        HubWrites.Add((hubFolderPath, data));
-        return Task.CompletedTask;
-    }
-
-    public Task<HubSidecarData?> ReadHubSidecarAsync(string xmlPath, CancellationToken ct = default)
-        => Task.FromResult<HubSidecarData?>(null);
+    public Task<EditionSidecarData?> ReadEditionSidecarAsync(string xmlPath, CancellationToken ct = default)
+        => Task.FromResult<EditionSidecarData?>(null);
 
     public Task WritePersonSidecarAsync(string personFolderPath, PersonSidecarData data, CancellationToken ct = default)
         => Task.CompletedTask;
 
     public Task<PersonSidecarData?> ReadPersonSidecarAsync(string xmlPath, CancellationToken ct = default)
         => Task.FromResult<PersonSidecarData?>(null);
-
-    public Task<EditionSidecarData?> ReadEditionSidecarAsync(string xmlPath, CancellationToken ct = default)
-        => Task.FromResult<EditionSidecarData?>(null);
 }
 
 // ── Hero Banner Generator Stub ────────────────────────────────────────────────

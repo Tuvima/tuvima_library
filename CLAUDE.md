@@ -1150,6 +1150,80 @@ Per-provider TTL defaults: Apple Books 168h (7d), TMDB 168h, Open Library 336h (
 - **Maintenance** — All provider configs, slot assignments, and cache TTLs are JSON-editable. No recompilation needed.
 - **Privacy** — Only titles, ISBNs, and bridge IDs leave the machine. The response cache lives locally in SQLite.
 
+### 3.22 — Universe Graph Data Capture
+
+**Plain English:** The Library builds a visual relationship graph connecting characters, locations, factions, and works across all media. When a work is enriched via Wikidata, the Engine discovers its fictional universe, extracts characters, locations, and organizations, enriches each entity with its own SPARQL query, and populates graph edges (father, mother, member_of, residence, etc.). The entire graph is served as Cytoscape.js-ready JSON and persisted as `universe.xml` sidecars for filesystem-first recovery.
+
+**Key components:**
+
+| Component | Purpose |
+|---|---|
+| **Narrative Root Resolver** | Determines which fictional universe a work belongs to (P1434 → P8345 → P179 → Hub DisplayName). Stores in `narrative_roots` table. |
+| **RecursiveFictionalEntityService** | Find-or-create entities by QID, link to work, enqueue enrichment if not yet enriched. Mirrors `RecursiveIdentityService`. |
+| **RelationshipPopulationService** | After entity enrichment, reads `_qid` claims and creates graph edges (father, spouse, member_of, residence, etc.). Depth limit: 1. |
+| **UniverseGraphWriterService** | Debounced writer — waits 5 seconds after last enrichment before writing `universe.xml`. ConcurrentDictionary per universe. |
+| **UniverseGraphEndpoints** | `GET /universes`, `GET /universe/{qid}`, `GET /universe/{qid}/graph` with type/work/ego-network filters. |
+
+**Database tables (M-024 to M-027):** `fictional_entities` (UNIQUE on wikidata_qid), `fictional_entity_work_links` (junction), `entity_relationships` (graph edges with UNIQUE constraint), `narrative_roots` (QID PK with hierarchy).
+
+**Entity types:** `FictionalEntityType.Character`, `Location`, `Organization` — all stored in a single `fictional_entities` table with a CHECK constraint on `entity_sub_type`.
+
+**Relationship types:** father, mother, spouse, sibling, child, opponent, student_of, member_of, residence, creator, located_in, part_of, head_of, parent_organization, has_parts, performer, same_as.
+
+**Sidecar:** `.universe/{Label} ({Qid})/universe.xml` — full graph snapshot with entities, relationships, and narrative hierarchy. Actor images are NOT stored here; they stay in `.people/` and are resolved at serve time via performer Person QID.
+
+**SignalR events:** `FictionalEntityEnrichedEvent`, `RelationshipDiscoveredEvent`, `UniverseGraphUpdatedEvent`.
+
+**Great Inhale extension:** `ScanUniversesAsync` enumerates `.universe/*/universe.xml`, rebuilds narrative roots, entities, relationships, and work links from sidecar data.
+
+**Query efficiency:** Three layers prevent redundant SPARQL calls — skip-if-enriched (entity level), provider response cache (HTTP level), universe-level deduplication (known QID).
+
+### 3.23 — Person Infrastructure v1.1
+
+**Plain English:** Person records now carry full biographical data (birth/death dates, birthplace, nationality), pseudonym links, and character-performer links. Person folders use `Name (QID)` naming for guaranteed uniqueness. Person.xml v1.1 includes biographical details, characters played, and pseudonym relationships for complete filesystem-first recovery.
+
+**Database migrations (M-028 to M-030):**
+- M-028: 6 biographical columns on `persons` (date_of_birth, date_of_death, place_of_birth, place_of_death, nationality, is_pseudonym)
+- M-029: `character_performer_links` (person_id, fictional_entity_id, work_qid PK) — links actors to fictional characters
+- M-030: `person_aliases` (pseudonym_person_id, real_person_id PK) — bidirectional pseudonym links
+
+**Pseudonym resolution:** After Wikidata enrichment, P1773 (attributed_to) links pen names to real people, P742 (pseudonym) links real people to their pen names. Both directions stored in `person_aliases` table.
+
+**Wikipedia for Persons:** `WikipediaAdapter.CanHandle` now accepts `EntityType.Person`. After Wikidata enrichment, the Engine fetches a richer Wikipedia biography (up to 1000 chars, confidence 0.85) to replace the short Wikidata description.
+
+**Person folder naming:** `.people/{Name} ({QID})/` format after enrichment provides a QID. Existing folders under old naming patterns (GUID, name-only) are automatically renamed on next enrichment cycle.
+
+**Person.xml v1.1 schema:**
+```xml
+<library-person version="1.1">
+  <identity>
+    <name>Oscar Isaac</name>
+    <role>Cast Member</role>
+    <wikidata-qid>Q15072805</wikidata-qid>
+    <occupation>Actor</occupation>
+    <is-pseudonym>false</is-pseudonym>
+  </identity>
+  <biography>...</biography>
+  <details>
+    <date-of-birth>1979-03-09</date-of-birth>
+    <place-of-birth>Guatemala City</place-of-birth>
+    <nationality>American</nationality>
+  </details>
+  <social>...</social>
+  <known-names><name>Oscar Isaac</name></known-names>
+  <characters>
+    <character qid="Q..." label="Duke Leto Atreides"
+               universe-qid="Q3041974" work-qid="Q104686073"/>
+  </characters>
+</library-person>
+```
+
+**New Wikidata properties (Person-scoped):** P19 (place_of_birth), P20 (place_of_death), P27 (country_of_citizenship), P742 (pseudonym), P1773 (attributed_to), P1813 (short_name).
+
+**IPersonRepository additions:** `UpdateBiographicalFieldsAsync`, `LinkAliasAsync`, `FindAliasesAsync`, `LinkToCharacterAsync`, `GetCharacterLinksAsync`.
+
+**Great Inhale v1.1 support:** `ScanPeopleAsync` reads v1.1 person.xml fields (biographical details, characters, pseudonym links), parses `Name (QID)` folder pattern for QID extraction, and rebuilds `person_aliases` and `character_performer_links` tables from sidecar data.
+
 ---
 
 ## 4. Product Owner Communication Rules

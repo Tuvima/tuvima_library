@@ -53,6 +53,9 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
     private readonly IMetadataClaimRepository _claimRepo;
     private readonly ICanonicalValueRepository _canonicalRepo;
     private readonly IPersonRepository _personRepo;
+    private readonly IFictionalEntityRepository _fictionalEntityRepo;
+    private readonly IRelationshipPopulationService _relPopService;
+    private readonly IUniverseGraphWriterService _universeWriter;
     private readonly IScoringEngine _scoringEngine;
     private readonly IEventPublisher _eventPublisher;
     private readonly IConfigurationLoader _configLoader;
@@ -68,6 +71,9 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         IMetadataClaimRepository claimRepo,
         ICanonicalValueRepository canonicalRepo,
         IPersonRepository personRepo,
+        IFictionalEntityRepository fictionalEntityRepo,
+        IRelationshipPopulationService relPopService,
+        IUniverseGraphWriterService universeWriter,
         IScoringEngine scoringEngine,
         IEventPublisher eventPublisher,
         IConfigurationLoader configLoader,
@@ -80,6 +86,9 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         ArgumentNullException.ThrowIfNull(claimRepo);
         ArgumentNullException.ThrowIfNull(canonicalRepo);
         ArgumentNullException.ThrowIfNull(personRepo);
+        ArgumentNullException.ThrowIfNull(fictionalEntityRepo);
+        ArgumentNullException.ThrowIfNull(relPopService);
+        ArgumentNullException.ThrowIfNull(universeWriter);
         ArgumentNullException.ThrowIfNull(scoringEngine);
         ArgumentNullException.ThrowIfNull(eventPublisher);
         ArgumentNullException.ThrowIfNull(configLoader);
@@ -88,17 +97,20 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         ArgumentNullException.ThrowIfNull(activityRepo);
         ArgumentNullException.ThrowIfNull(logger);
 
-        _providers      = providers.ToList();
-        _claimRepo      = claimRepo;
-        _canonicalRepo  = canonicalRepo;
-        _personRepo     = personRepo;
-        _scoringEngine  = scoringEngine;
-        _eventPublisher = eventPublisher;
-        _configLoader   = configLoader;
-        _httpFactory    = httpFactory;
-        _imageCache     = imageCache;
-        _activityRepo   = activityRepo;
-        _logger         = logger;
+        _providers            = providers.ToList();
+        _claimRepo            = claimRepo;
+        _canonicalRepo        = canonicalRepo;
+        _personRepo           = personRepo;
+        _fictionalEntityRepo  = fictionalEntityRepo;
+        _relPopService        = relPopService;
+        _universeWriter       = universeWriter;
+        _scoringEngine        = scoringEngine;
+        _eventPublisher       = eventPublisher;
+        _configLoader         = configLoader;
+        _httpFactory          = httpFactory;
+        _imageCache           = imageCache;
+        _activityRepo         = activityRepo;
+        _logger               = logger;
 
         _channel = Channel.CreateBounded<HarvestRequest>(new BoundedChannelOptions(500)
         {
@@ -260,6 +272,13 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
                     .ConfigureAwait(false);
             }
 
+            // Special handling: Wikidata claims for fictional entity types.
+            if (request.EntityType is EntityType.Character or EntityType.Location or EntityType.Organization)
+            {
+                await HandleFictionalEntityEnrichmentAsync(request, canonicals, provider, ct)
+                    .ConfigureAwait(false);
+            }
+
             // Publish MetadataHarvested event.
             var updatedFields = domainClaims.Select(c => c.ClaimKey).Distinct().ToList();
             await _eventPublisher.PublishAsync(
@@ -273,6 +292,85 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
 
             // First provider to succeed wins; skip remaining providers.
             break;
+        }
+    }
+
+    /// <summary>
+    /// After a fictional entity (Character/Location/Organization) is enriched from
+    /// Wikidata SPARQL, updates the entity's <c>EnrichedAt</c> timestamp, populates
+    /// relationship edges from <c>_qid</c> claims, and triggers debounced
+    /// <c>universe.xml</c> writing.
+    /// </summary>
+    private async Task HandleFictionalEntityEnrichmentAsync(
+        HarvestRequest request,
+        IReadOnlyList<CanonicalValue> canonicals,
+        IExternalMetadataProvider provider,
+        CancellationToken ct)
+    {
+        // Only Wikidata produces fictional entity enrichment claims.
+        if (!string.Equals(provider.Name, "wikidata", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        try
+        {
+            // Mark entity as enriched.
+            await _fictionalEntityRepo.UpdateEnrichmentAsync(
+                request.EntityId, description: null, imageUrl: null,
+                DateTimeOffset.UtcNow, ct).ConfigureAwait(false);
+
+            // Build canonical values dictionary for relationship population.
+            var canonicalDict = canonicals
+                .ToDictionary(c => c.Key, c => c.Value, StringComparer.OrdinalIgnoreCase);
+
+            // Resolve universe QID from hints.
+            var universeQid = request.Hints.GetValueOrDefault("universe_qid");
+
+            // Populate relationship edges from _qid claims.
+            await _relPopService.PopulateAsync(
+                request.Hints.GetValueOrDefault("wikidata_qid") ?? string.Empty,
+                canonicalDict,
+                universeQid ?? string.Empty,
+                universeLabel: null,
+                contextWorkQid: null,
+                ct).ConfigureAwait(false);
+
+            // Determine action type for activity log.
+            var entitySubType = request.Hints.GetValueOrDefault("entity_sub_type") ?? "Character";
+            var actionType = entitySubType switch
+            {
+                "Location"     => SystemActionType.LocationEnriched,
+                "Organization" => SystemActionType.OrganizationEnriched,
+                _              => SystemActionType.CharacterEnriched,
+            };
+
+            // Log activity.
+            var label = request.Hints.GetValueOrDefault("label") ?? request.EntityId.ToString();
+            await _activityRepo.LogAsync(new SystemActivityEntry
+            {
+                ActionType = actionType,
+                EntityId   = request.EntityId,
+                EntityType = entitySubType,
+                Detail     = $"Fictional entity \"{label}\" enriched from Wikidata",
+            }, ct).ConfigureAwait(false);
+
+            // Publish SignalR event.
+            await _eventPublisher.PublishAsync(
+                "FictionalEntityEnriched",
+                new FictionalEntityEnrichedEvent(request.EntityId, label, entitySubType, universeQid),
+                ct).ConfigureAwait(false);
+
+            // Trigger debounced universe.xml write.
+            if (!string.IsNullOrWhiteSpace(universeQid))
+            {
+                await _universeWriter.NotifyEntityEnrichedAsync(universeQid, ct)
+                    .ConfigureAwait(false);
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex,
+                "Fictional entity enrichment post-processing failed for entity {Id}",
+                request.EntityId);
         }
     }
 
@@ -296,12 +394,56 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         await _personRepo.UpdateEnrichmentAsync(request.EntityId, qid, headshotUrl, biography, ct)
             .ConfigureAwait(false);
 
+        // Persist biographical fields from Wikidata claims.
+        var dateOfBirth  = claims.FirstOrDefault(c => c.Key == "date_of_birth")?.Value;
+        var dateOfDeath  = claims.FirstOrDefault(c => c.Key == "date_of_death")?.Value;
+        var placeOfBirth = claims.FirstOrDefault(c => c.Key == "place_of_birth")?.Value;
+        var placeOfDeath = claims.FirstOrDefault(c => c.Key == "place_of_death")?.Value;
+        var nationality  = claims.FirstOrDefault(c => c.Key == "country_of_citizenship")?.Value;
+        var isPseudonym  = claims.Any(c =>
+            c.Key == "instance_of" &&
+            c.Value.Contains("Q15632617", StringComparison.OrdinalIgnoreCase));
+
+        if (dateOfBirth is not null || dateOfDeath is not null || placeOfBirth is not null ||
+            placeOfDeath is not null || nationality is not null || isPseudonym)
+        {
+            await _personRepo.UpdateBiographicalFieldsAsync(
+                request.EntityId, dateOfBirth, dateOfDeath,
+                placeOfBirth, placeOfDeath, nationality, isPseudonym, ct)
+                .ConfigureAwait(false);
+        }
+
+        // Social media and contact fields from Wikidata.
+        var occupation = claims.FirstOrDefault(c => c.Key == "occupation")?.Value;
+        var instagram  = claims.FirstOrDefault(c => c.Key == "instagram")?.Value;
+        var twitter    = claims.FirstOrDefault(c => c.Key == "twitter")?.Value;
+        var tiktok     = claims.FirstOrDefault(c => c.Key == "tiktok")?.Value;
+        var mastodon   = claims.FirstOrDefault(c => c.Key == "mastodon")?.Value;
+        var website    = claims.FirstOrDefault(c => c.Key == "website")?.Value;
+
+        if (occupation is not null || instagram is not null || twitter is not null ||
+            tiktok is not null || mastodon is not null || website is not null)
+        {
+            await _personRepo.UpdateSocialFieldsAsync(
+                request.EntityId, occupation, instagram, twitter,
+                tiktok, mastodon, website, ct)
+                .ConfigureAwait(false);
+        }
+
+        // Pseudonym resolution: link pen names to real people (and vice versa).
+        await ResolvePseudonymsAsync(request.EntityId, claims, isPseudonym, ct)
+            .ConfigureAwait(false);
+
+        // Fetch Wikipedia description for richer biography (Stage 2 for Persons).
+        await FetchWikipediaForPersonAsync(request.EntityId, qid, ct)
+            .ConfigureAwait(false);
+
         // Look up the person for event payload and people storage.
         var person = await _personRepo.FindByIdAsync(request.EntityId, ct)
             .ConfigureAwait(false);
         var personName = person?.Name ?? string.Empty;
 
-        // Persist headshot + person sidecar under {LibraryRoot}/.people/{personId}/
+        // Persist headshot + person sidecar under {LibraryRoot}/.people/{Name} ({QID})/
         await PersistPersonStorageAsync(request.EntityId, person, headshotUrl, ct)
             .ConfigureAwait(false);
 
@@ -312,16 +454,127 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
     }
 
     /// <summary>
+    /// Resolves pseudonym relationships after a Person is enriched from Wikidata.
+    ///
+    /// If the person is a pseudonym (P1773 = attributed_to), links to real people.
+    /// If the person has pseudonyms (P742 = pseudonym), links to pen name records.
+    /// </summary>
+    private async Task ResolvePseudonymsAsync(
+        Guid personId,
+        IReadOnlyList<ProviderClaim> claims,
+        bool isPseudonym,
+        CancellationToken ct)
+    {
+        try
+        {
+            // P1773 (attributed_to): real people behind a pen name.
+            var attributedTo = claims
+                .Where(c => c.Key == "attributed_to_qid")
+                .Select(c => c.Value)
+                .Where(v => !string.IsNullOrWhiteSpace(v))
+                .ToList();
+
+            if (isPseudonym && attributedTo.Count > 0)
+            {
+                foreach (var realQid in attributedTo)
+                {
+                    var realPerson = await _personRepo.FindByQidAsync(realQid, ct)
+                        .ConfigureAwait(false);
+                    if (realPerson is not null)
+                    {
+                        await _personRepo.LinkAliasAsync(personId, realPerson.Id, ct)
+                            .ConfigureAwait(false);
+                    }
+                }
+            }
+
+            // P742 (pseudonym): pen names used by this person.
+            var pseudonymQids = claims
+                .Where(c => c.Key == "pseudonym_qid")
+                .Select(c => c.Value)
+                .Where(v => !string.IsNullOrWhiteSpace(v))
+                .ToList();
+
+            foreach (var penQid in pseudonymQids)
+            {
+                var penPerson = await _personRepo.FindByQidAsync(penQid, ct)
+                    .ConfigureAwait(false);
+                if (penPerson is not null)
+                {
+                    await _personRepo.LinkAliasAsync(penPerson.Id, personId, ct)
+                        .ConfigureAwait(false);
+                }
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex,
+                "Pseudonym resolution failed for person {Id}; continuing", personId);
+        }
+    }
+
+    /// <summary>
+    /// Calls the Wikipedia adapter to fetch a richer biography description for a
+    /// Person entity, replacing the short Wikidata description.
+    /// </summary>
+    private async Task FetchWikipediaForPersonAsync(
+        Guid personId, string? qid, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(qid))
+            return;
+
+        try
+        {
+            var wikipediaAdapter = _providers
+                .FirstOrDefault(p => string.Equals(p.Name, "wikipedia", StringComparison.OrdinalIgnoreCase));
+
+            if (wikipediaAdapter is null || !wikipediaAdapter.CanHandle(EntityType.Person))
+                return;
+
+            var lookupRequest = new ProviderLookupRequest
+            {
+                EntityId      = personId,
+                EntityType    = EntityType.Person,
+                MediaType     = MediaType.Unknown,
+                PreResolvedQid = qid,
+            };
+
+            var wikiClaims = await wikipediaAdapter.FetchAsync(lookupRequest, ct)
+                .ConfigureAwait(false);
+
+            var description = wikiClaims
+                .FirstOrDefault(c => c.Key == "description")?.Value;
+
+            if (!string.IsNullOrWhiteSpace(description))
+            {
+                // Update the person's biography with the richer Wikipedia description.
+                var person = await _personRepo.FindByIdAsync(personId, ct).ConfigureAwait(false);
+                if (person is not null)
+                {
+                    await _personRepo.UpdateEnrichmentAsync(
+                        personId, person.WikidataQid, person.HeadshotUrl, description, ct)
+                        .ConfigureAwait(false);
+                }
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex,
+                "Wikipedia fetch for person {Id} failed; continuing", personId);
+        }
+    }
+
+    /// <summary>
     /// Downloads headshot from Wikimedia Commons and writes person.xml sidecar
-    /// under <c>{LibraryRoot}/.people/{SanitizedName}/</c>.
+    /// under <c>{LibraryRoot}/.people/{Name} ({QID})/</c>.
     ///
-    /// Uses the person's display name for the folder (human-readable). Falls back
-    /// to GUID if no name is available. Collision detection reads the existing
-    /// person.xml's <c>&lt;id&gt;</c> element — if a different person occupies
-    /// the target folder, a short hash suffix is appended.
+    /// Folder naming uses <c>Name (QID)</c> format when a Wikidata QID is available
+    /// (post-enrichment). Falls back to sanitized name or GUID before enrichment.
+    /// QID guarantees uniqueness — no collision detection logic needed.
     ///
-    /// The person.xml includes a <c>&lt;known-names&gt;</c> list tracking all
-    /// historical names, enabling reconnection after a database wipe.
+    /// The person.xml v1.1 includes biographical fields, characters played,
+    /// pseudonym links, and a <c>&lt;known-names&gt;</c> list tracking all
+    /// historical names for reconnection after a database wipe.
     /// </summary>
     private async Task PersistPersonStorageAsync(
         Guid personId,
@@ -338,15 +591,27 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
             var peopleRoot = Path.Combine(core.LibraryRoot, ".people");
             Directory.CreateDirectory(peopleRoot);
 
-            // Resolve the folder name: sanitized person name, or GUID as fallback.
-            var folderName = person is not null && !string.IsNullOrWhiteSpace(person.Name)
-                ? SanitizeForFilesystem(person.Name)
-                : personId.ToString();
+            // Resolve the folder name: "Name (QID)" when QID is available,
+            // sanitized name or GUID as fallback before enrichment.
+            string folderName;
+            if (person is not null && !string.IsNullOrWhiteSpace(person.WikidataQid) &&
+                !string.IsNullOrWhiteSpace(person.Name))
+            {
+                folderName = $"{SanitizeForFilesystem(person.Name)} ({person.WikidataQid})";
+            }
+            else if (person is not null && !string.IsNullOrWhiteSpace(person.Name))
+            {
+                folderName = SanitizeForFilesystem(person.Name);
+            }
+            else
+            {
+                folderName = personId.ToString();
+            }
 
             var personFolder = Path.Combine(peopleRoot, folderName);
 
             // ── Rename detection: if this person already has a folder under a
-            //    different name (old name or GUID), rename it to the new name. ──
+            //    different name (old name, GUID, or pre-QID format), rename it. ──
             if (!Directory.Exists(personFolder) || ReadPersonIdFromXml(Path.Combine(personFolder, "person.xml")) != personId)
             {
                 var renamed = TryRenameExistingPersonFolder(peopleRoot, personId, personFolder);
@@ -358,6 +623,7 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
             }
 
             // Collision detection: if folder exists, read person.xml → check <id>.
+            // With QID-based naming this should be rare, but kept for safety.
             if (Directory.Exists(personFolder))
             {
                 var existingId = ReadPersonIdFromXml(Path.Combine(personFolder, "person.xml"));
@@ -412,7 +678,8 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
                 }
             }
 
-            // Write person.xml sidecar with <id>, <known-names>, and all metadata.
+            // Write person.xml v1.1 sidecar with biographical fields, characters,
+            // pseudonym links, and all metadata.
             if (person is not null)
             {
                 // Build <known-names> list: merge existing names from any prior person.xml
@@ -445,28 +712,118 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
                 foreach (var name in knownNames.OrderBy(n => n, StringComparer.OrdinalIgnoreCase))
                     knownNamesElement.Add(new System.Xml.Linq.XElement("name", name));
 
+                // Build identity element with pseudonym flag.
+                var identityElement = new System.Xml.Linq.XElement("identity",
+                    new System.Xml.Linq.XElement("name",         person.Name),
+                    new System.Xml.Linq.XElement("role",         person.Role),
+                    new System.Xml.Linq.XElement("wikidata-qid", person.WikidataQid ?? string.Empty),
+                    new System.Xml.Linq.XElement("occupation",   person.Occupation  ?? string.Empty));
+
+                if (person.IsPseudonym)
+                    identityElement.Add(new System.Xml.Linq.XElement("is-pseudonym", "true"));
+
+                // Build details element with biographical fields.
+                var detailsElement = new System.Xml.Linq.XElement("details");
+                if (!string.IsNullOrEmpty(person.DateOfBirth))
+                    detailsElement.Add(new System.Xml.Linq.XElement("date-of-birth", person.DateOfBirth));
+                if (!string.IsNullOrEmpty(person.DateOfDeath))
+                    detailsElement.Add(new System.Xml.Linq.XElement("date-of-death", person.DateOfDeath));
+                if (!string.IsNullOrEmpty(person.PlaceOfBirth))
+                    detailsElement.Add(new System.Xml.Linq.XElement("place-of-birth", person.PlaceOfBirth));
+                if (!string.IsNullOrEmpty(person.PlaceOfDeath))
+                    detailsElement.Add(new System.Xml.Linq.XElement("place-of-death", person.PlaceOfDeath));
+                if (!string.IsNullOrEmpty(person.Nationality))
+                    detailsElement.Add(new System.Xml.Linq.XElement("nationality", person.Nationality));
+
+                // Build characters element: fictional characters this person portrays.
+                var charactersElement = new System.Xml.Linq.XElement("characters");
+                try
+                {
+                    var charLinks = await _personRepo.GetCharacterLinksAsync(personId, ct)
+                        .ConfigureAwait(false);
+                    foreach (var (entityId, workQid) in charLinks)
+                    {
+                        var entity = await _fictionalEntityRepo.FindByIdAsync(entityId, ct)
+                            .ConfigureAwait(false);
+                        if (entity is null) continue;
+
+                        var charElement = new System.Xml.Linq.XElement("character",
+                            new System.Xml.Linq.XAttribute("qid", entity.WikidataQid),
+                            new System.Xml.Linq.XAttribute("label", entity.Label));
+
+                        if (!string.IsNullOrEmpty(entity.FictionalUniverseQid))
+                        {
+                            charElement.Add(new System.Xml.Linq.XAttribute("universe-qid", entity.FictionalUniverseQid));
+                            if (!string.IsNullOrEmpty(entity.FictionalUniverseLabel))
+                                charElement.Add(new System.Xml.Linq.XAttribute("universe-label", entity.FictionalUniverseLabel));
+                        }
+
+                        if (!string.IsNullOrEmpty(workQid))
+                            charElement.Add(new System.Xml.Linq.XAttribute("work-qid", workQid));
+
+                        charactersElement.Add(charElement);
+                    }
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _logger.LogWarning(ex, "Failed to load character links for person.xml");
+                }
+
+                // Build pseudonym link elements.
+                System.Xml.Linq.XElement? realIdentitiesElement = null;
+                System.Xml.Linq.XElement? pseudonymsElement = null;
+                try
+                {
+                    var aliases = await _personRepo.FindAliasesAsync(personId, ct)
+                        .ConfigureAwait(false);
+                    foreach (var alias in aliases)
+                    {
+                        if (alias.IsPseudonym && !person.IsPseudonym)
+                        {
+                            // This alias is a pen name for the real person.
+                            pseudonymsElement ??= new System.Xml.Linq.XElement("pseudonyms");
+                            pseudonymsElement.Add(new System.Xml.Linq.XElement("person",
+                                new System.Xml.Linq.XAttribute("qid", alias.WikidataQid ?? string.Empty),
+                                new System.Xml.Linq.XAttribute("label", alias.Name)));
+                        }
+                        else if (!alias.IsPseudonym && person.IsPseudonym)
+                        {
+                            // This alias is a real person behind the pen name.
+                            realIdentitiesElement ??= new System.Xml.Linq.XElement("real-identities");
+                            realIdentitiesElement.Add(new System.Xml.Linq.XElement("person",
+                                new System.Xml.Linq.XAttribute("qid", alias.WikidataQid ?? string.Empty),
+                                new System.Xml.Linq.XAttribute("label", alias.Name)));
+                        }
+                    }
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _logger.LogWarning(ex, "Failed to load aliases for person.xml");
+                }
+
+                var rootElement = new System.Xml.Linq.XElement("library-person",
+                    new System.Xml.Linq.XAttribute("version", "1.1"),
+                    identityElement,
+                    new System.Xml.Linq.XElement("biography", person.Biography ?? string.Empty),
+                    detailsElement,
+                    new System.Xml.Linq.XElement("social",
+                        new System.Xml.Linq.XElement("instagram", person.Instagram ?? string.Empty),
+                        new System.Xml.Linq.XElement("twitter",   person.Twitter   ?? string.Empty),
+                        new System.Xml.Linq.XElement("tiktok",    person.TikTok    ?? string.Empty),
+                        new System.Xml.Linq.XElement("mastodon",  person.Mastodon  ?? string.Empty),
+                        new System.Xml.Linq.XElement("website",   person.Website   ?? string.Empty)
+                    ),
+                    knownNamesElement,
+                    charactersElement);
+
+                if (realIdentitiesElement is not null)
+                    rootElement.Add(realIdentitiesElement);
+                if (pseudonymsElement is not null)
+                    rootElement.Add(pseudonymsElement);
+
                 var doc = new System.Xml.Linq.XDocument(
                     new System.Xml.Linq.XDeclaration("1.0", "utf-8", null),
-                    new System.Xml.Linq.XElement("library-person",
-                        new System.Xml.Linq.XAttribute("version", "1.0"),
-                        new System.Xml.Linq.XElement("identity",
-                            new System.Xml.Linq.XElement("id",           personId.ToString()),
-                            new System.Xml.Linq.XElement("name",         person.Name),
-                            new System.Xml.Linq.XElement("role",         person.Role),
-                            new System.Xml.Linq.XElement("wikidata-qid", person.WikidataQid ?? string.Empty),
-                            new System.Xml.Linq.XElement("occupation",   person.Occupation  ?? string.Empty)
-                        ),
-                        knownNamesElement,
-                        new System.Xml.Linq.XElement("biography", person.Biography ?? string.Empty),
-                        new System.Xml.Linq.XElement("social",
-                            new System.Xml.Linq.XElement("instagram", person.Instagram ?? string.Empty),
-                            new System.Xml.Linq.XElement("twitter",   person.Twitter   ?? string.Empty),
-                            new System.Xml.Linq.XElement("tiktok",    person.TikTok    ?? string.Empty),
-                            new System.Xml.Linq.XElement("mastodon",  person.Mastodon  ?? string.Empty),
-                            new System.Xml.Linq.XElement("website",   person.Website   ?? string.Empty)
-                        )
-                    )
-                );
+                    rootElement);
                 doc.Save(existingXmlPath);
             }
         }
@@ -642,6 +999,7 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
             PersonRole   = h.GetValueOrDefault("role"),
             BaseUrl      = baseUrl,
             SparqlBaseUrl = sparqlBaseUrl,
+            Hints        = h,
         };
     }
 

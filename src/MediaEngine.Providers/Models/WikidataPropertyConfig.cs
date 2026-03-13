@@ -65,4 +65,12 @@ public sealed class WikidataPropertyConfig
     /// </summary>
     [JsonPropertyName("is_multi_valued")]
     public bool IsMultiValued { get; set; }
+
+    /// <summary>
+    /// When <c>true</c>, this property holds monolingual text (language-tagged literals)
+    /// on Wikidata. The SPARQL query adds a <c>FILTER(LANG(...))</c> clause for
+    /// the user's preferred language. Examples: P1476 (title), P1813 (short name).
+    /// </summary>
+    [JsonPropertyName("is_monolingual_text")]
+    public bool IsMonolingualText { get; set; }
 }

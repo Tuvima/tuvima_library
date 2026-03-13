@@ -694,7 +694,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             && !string.IsNullOrWhiteSpace(_options.LibraryRoot)
             && passesGate)
         {
-            var relative = _organizer.CalculatePath(candidate, _options.OrganizationTemplate);
+            var template = _options.ResolveTemplate(candidate.DetectedMediaType?.ToString());
+            var relative = _organizer.CalculatePath(candidate, template);
 
             // Guard: reject any organization that would place the file in "Other".
             // This catches unmapped media types (Unknown, null) and ensures the file
@@ -1129,7 +1130,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         // Simulate move.
         if (_options.AutoOrganize && !string.IsNullOrWhiteSpace(_options.LibraryRoot))
         {
-            var relative = _organizer.CalculatePath(candidate, _options.OrganizationTemplate);
+            var dryRunTemplate = _options.ResolveTemplate(candidate.DetectedMediaType?.ToString());
+            var relative = _organizer.CalculatePath(candidate, dryRunTemplate);
             // template already resolves the full relative path including filename
             var destPath = Path.Combine(_options.LibraryRoot, relative);
 
@@ -1138,7 +1140,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 SourcePath      = filePath,
                 DestinationPath = destPath,
                 OperationKind   = "Move",
-                Reason          = $"AutoOrganize template: {_options.OrganizationTemplate}",
+                Reason          = $"AutoOrganize template: {dryRunTemplate}",
             });
         }
 
@@ -1351,7 +1353,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             DetectedMediaType = mediaType,
         };
 
-        var relative = _organizer.CalculatePath(synth, _options.OrganizationTemplate);
+        var reorgTemplate = _options.ResolveTemplate(mediaType?.ToString());
+        var relative = _organizer.CalculatePath(synth, reorgTemplate);
 
         // Guard: never re-organize into the "Other" category. If the media type
         // couldn't be determined from canonical values, move to staging and create

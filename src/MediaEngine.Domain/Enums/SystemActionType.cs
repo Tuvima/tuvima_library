@@ -157,6 +157,26 @@ public static class SystemActionType
 
     /// <summary>A person folder was renamed following a metadata update (e.g. name change).</summary>
     public const string PersonFolderRenamed = "PersonFolderRenamed";
+
+    // ── Universe Graph ──────────────────────────────────────────────────
+
+    /// <summary>A fictional character was enriched from Wikidata SPARQL.</summary>
+    public const string CharacterEnriched = "CharacterEnriched";
+
+    /// <summary>A fictional location was enriched from Wikidata SPARQL.</summary>
+    public const string LocationEnriched = "LocationEnriched";
+
+    /// <summary>A fictional organization was enriched from Wikidata SPARQL.</summary>
+    public const string OrganizationEnriched = "OrganizationEnriched";
+
+    /// <summary>A relationship edge was discovered between two entities.</summary>
+    public const string RelationshipDiscovered = "RelationshipDiscovered";
+
+    /// <summary>A universe.xml sidecar was updated on disk.</summary>
+    public const string UniverseXmlUpdated = "UniverseXmlUpdated";
+
+    /// <summary>A narrative root was resolved for a work.</summary>
+    public const string NarrativeRootResolved = "NarrativeRootResolved";
 }
 
 

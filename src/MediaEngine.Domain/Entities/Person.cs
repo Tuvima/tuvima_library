@@ -91,6 +91,30 @@ public sealed class Person
     /// </summary>
     public string? Website { get; set; }
 
+    // ── Biographical fields (Phase 12) ─────────────────────────────────────
+
+    /// <summary>Date of birth from Wikidata P569 (e.g. "1920-01-02").</summary>
+    public string? DateOfBirth { get; set; }
+
+    /// <summary>Date of death from Wikidata P570 (e.g. "1986-02-11").</summary>
+    public string? DateOfDeath { get; set; }
+
+    /// <summary>Place of birth from Wikidata P19 (e.g. "Tacoma, Washington").</summary>
+    public string? PlaceOfBirth { get; set; }
+
+    /// <summary>Place of death from Wikidata P20.</summary>
+    public string? PlaceOfDeath { get; set; }
+
+    /// <summary>Country of citizenship from Wikidata P27 (e.g. "American").</summary>
+    public string? Nationality { get; set; }
+
+    /// <summary>
+    /// Whether this person record represents a pseudonym (pen name / stage name).
+    /// When <c>true</c>, the <c>person_aliases</c> table links this record to the
+    /// real person(s) behind the pen name.
+    /// </summary>
+    public bool IsPseudonym { get; set; }
+
     /// <summary>
     /// Path to the locally downloaded headshot image under
     /// <c>{LibraryRoot}/.people/{id}/headshot.jpg</c>.

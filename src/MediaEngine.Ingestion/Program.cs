@@ -74,6 +74,7 @@ var host = Host.CreateDefaultBuilder(args)
                 if (!string.IsNullOrWhiteSpace(core.LibraryRoot)) opts.LibraryRoot = core.LibraryRoot;
                 if (!string.IsNullOrWhiteSpace(core.StagingDirectory)) opts.StagingDirectory = core.StagingDirectory;
                 if (!string.IsNullOrWhiteSpace(core.OrganizationTemplate)) opts.OrganizationTemplate = core.OrganizationTemplate;
+                if (core.OrganizationTemplates.Count > 0) opts.OrganizationTemplates = new Dictionary<string, string>(core.OrganizationTemplates, StringComparer.OrdinalIgnoreCase);
             }
             catch
             {

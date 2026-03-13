@@ -350,12 +350,13 @@ public static class SettingsEndpoints
 
             return Results.Ok(new OrganizationTemplateResponse
             {
-                Template = template,
-                Preview  = preview,
+                Template  = template,
+                Preview   = preview,
+                Templates = core.OrganizationTemplates,
             });
         })
         .WithName("GetOrganizationTemplate")
-        .WithSummary("Returns the current file organization template and a sample preview.")
+        .WithSummary("Returns the current file organization templates (default + per-media-type) and a sample preview.")
         .Produces<OrganizationTemplateResponse>(StatusCodes.Status200OK)
         .RequireAdmin();
 
@@ -373,18 +374,33 @@ public static class SettingsEndpoints
             if (preview is null)
                 return Results.BadRequest(new { error = error ?? "Invalid template." });
 
+            // Validate per-media-type templates if provided.
+            if (request.Templates is not null)
+            {
+                foreach (var (key, tmpl) in request.Templates)
+                {
+                    if (string.IsNullOrWhiteSpace(tmpl)) continue;
+                    string? typePreview = organizer.ValidateTemplate(tmpl, out var typeError);
+                    if (typePreview is null)
+                        return Results.BadRequest(new { error = $"Invalid template for '{key}': {typeError}" });
+                }
+            }
+
             var core = configLoader.LoadCore();
             core.OrganizationTemplate = request.Template;
+            if (request.Templates is not null)
+                core.OrganizationTemplates = new Dictionary<string, string>(request.Templates, StringComparer.OrdinalIgnoreCase);
             configLoader.SaveCore(core);
 
             return Results.Ok(new OrganizationTemplateResponse
             {
-                Template = request.Template,
-                Preview  = preview,
+                Template  = request.Template,
+                Preview   = preview,
+                Templates = core.OrganizationTemplates,
             });
         })
         .WithName("UpdateOrganizationTemplate")
-        .WithSummary("Validates and saves a new file organization template.")
+        .WithSummary("Validates and saves file organization templates (default + per-media-type).")
         .Produces<OrganizationTemplateResponse>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status400BadRequest)
         .RequireAdmin();

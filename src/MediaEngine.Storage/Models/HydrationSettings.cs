@@ -96,6 +96,21 @@ public sealed class HydrationSettings
     public double UniverseTitleSearchAutoAccept { get; set; } = 0.80;
 
     /// <summary>
+    /// Debounce interval in seconds for universe.xml writes after fictional
+    /// entity enrichment. During a burst of enrichments for the same universe,
+    /// the writer waits this long after the last enrichment before writing.
+    /// </summary>
+    [JsonPropertyName("universe_xml_write_debounce_seconds")]
+    public int UniverseXmlWriteDebounceSeconds { get; set; } = 5;
+
+    /// <summary>
+    /// Maximum depth for recursive fictional entity relationship population.
+    /// Target entities are created but NOT enriched beyond this depth.
+    /// </summary>
+    [JsonPropertyName("fictional_entity_enrichment_depth")]
+    public int FictionalEntityEnrichmentDepth { get; set; } = 1;
+
+    /// <summary>
     /// Confidence threshold for Stage 3 retail waterfall. After each provider
     /// in the waterfall produces claims, overall confidence is checked. If it
     /// reaches this threshold, the waterfall stops. Set to 1.0 to always run

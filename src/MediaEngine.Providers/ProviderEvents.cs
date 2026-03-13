@@ -81,3 +81,52 @@ public sealed record HydrationStageCompletedEvent(
     int Stage,
     int ClaimsAdded,
     string ProviderName);
+
+// ── Universe Graph Events ────────────────────────────────────────────────
+
+/// <summary>
+/// Broadcast when a fictional entity (character, location, or organization) is
+/// enriched from Wikidata SPARQL with its properties and relationships.
+///
+/// SignalR method name: <c>"FictionalEntityEnriched"</c>
+/// </summary>
+/// <param name="EntityId">The fictional entity's database ID.</param>
+/// <param name="Label">Human-readable entity label (e.g. "Paul Atreides").</param>
+/// <param name="EntitySubType">The entity sub-type: Character, Location, or Organization.</param>
+/// <param name="UniverseQid">The narrative root QID this entity belongs to.</param>
+public sealed record FictionalEntityEnrichedEvent(
+    Guid EntityId,
+    string Label,
+    string EntitySubType,
+    string? UniverseQid);
+
+/// <summary>
+/// Broadcast when a relationship edge is discovered between two fictional entities.
+///
+/// SignalR method name: <c>"RelationshipDiscovered"</c>
+/// </summary>
+/// <param name="SubjectQid">The subject entity's Wikidata QID.</param>
+/// <param name="ObjectQid">The object entity's Wikidata QID.</param>
+/// <param name="RelationshipType">The relationship type (e.g. "father", "member_of").</param>
+/// <param name="UniverseQid">The narrative root QID for context.</param>
+public sealed record RelationshipDiscoveredEvent(
+    string SubjectQid,
+    string ObjectQid,
+    string RelationshipType,
+    string? UniverseQid);
+
+/// <summary>
+/// Broadcast when a universe.xml sidecar file is written or updated after
+/// a debounced enrichment cycle completes.
+///
+/// SignalR method name: <c>"UniverseGraphUpdated"</c>
+/// </summary>
+/// <param name="UniverseQid">The narrative root QID of the universe.</param>
+/// <param name="Label">Human-readable universe label (e.g. "Dune universe").</param>
+/// <param name="EntityCount">Total number of entities in the universe snapshot.</param>
+/// <param name="EdgeCount">Total number of relationship edges in the snapshot.</param>
+public sealed record UniverseGraphUpdatedEvent(
+    string UniverseQid,
+    string Label,
+    int EntityCount,
+    int EdgeCount);

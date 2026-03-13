@@ -296,6 +296,18 @@ public sealed class LibraryScanResponse
     [JsonPropertyName("people_recovered")]
     public int PeopleRecovered { get; init; }
 
+    /// <summary>Number of narrative universe records recovered from .universe/ sidecars.</summary>
+    [JsonPropertyName("universes_upserted")]
+    public int UniversesUpserted { get; init; }
+
+    /// <summary>Number of fictional entity records recovered from .universe/ sidecars.</summary>
+    [JsonPropertyName("entities_upserted")]
+    public int EntitiesUpserted { get; init; }
+
+    /// <summary>Number of relationship edges recovered from .universe/ sidecars.</summary>
+    [JsonPropertyName("relationships_upserted")]
+    public int RelationshipsUpserted { get; init; }
+
     /// <summary>Number of sidecar files that could not be parsed or hydrated.</summary>
     [JsonPropertyName("errors")]
     public int Errors { get; init; }
@@ -813,12 +825,20 @@ public sealed class OrganizationTemplateResponse
     /// <summary>Sample resolved path using representative token values.</summary>
     [JsonPropertyName("preview")]
     public string? Preview { get; init; }
+
+    /// <summary>Per-media-type templates. Keys are media type names or "default".</summary>
+    [JsonPropertyName("templates")]
+    public Dictionary<string, string> Templates { get; init; } = new();
 }
 
 public sealed class UpdateOrganizationTemplateRequest
 {
     [JsonPropertyName("template")]
     public string Template { get; init; } = string.Empty;
+
+    /// <summary>Per-media-type templates. Keys are media type names or "default".</summary>
+    [JsonPropertyName("templates")]
+    public Dictionary<string, string>? Templates { get; init; }
 }
 
 // ── GET /metadata/conflicts ─────────────────────────────────────────────────

@@ -98,9 +98,8 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         if (alreadyOrganized)
         {
             string existingEditionFolder = Path.GetDirectoryName(asset.FilePathRoot) ?? string.Empty;
-            string existingHubFolder     = Path.GetDirectoryName(existingEditionFolder) ?? string.Empty;
-            await WriteSidecarsAsync(assetId, asset.ContentHash, metadata, mediaType,
-                existingEditionFolder, existingHubFolder, ct).ConfigureAwait(false);
+            await WriteEditionSidecarAsync(asset.ContentHash, metadata, mediaType,
+                existingEditionFolder, ct).ConfigureAwait(false);
             _logger.LogDebug(
                 "Sidecar refreshed for {Id} (already organized at {Path})",
                 assetId, asset.FilePathRoot);
@@ -117,7 +116,8 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
             DetectedMediaType = mediaType,
         };
 
-        var relative = _organizer.CalculatePath(synth, _options.OrganizationTemplate);
+        var template = _options.ResolveTemplate(mediaType?.ToString());
+        var relative = _organizer.CalculatePath(synth, template);
 
         // Block organization into "Other" category.
         if (relative.StartsWith("Other", StringComparison.OrdinalIgnoreCase))
@@ -141,12 +141,11 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
 
         await _assetRepo.UpdateFilePathAsync(assetId, destPath, ct).ConfigureAwait(false);
 
-        // Write sidecar XML files.
+        // Write edition-level sidecar XML.
         string editionFolder = Path.GetDirectoryName(destPath) ?? string.Empty;
-        string hubFolder     = Path.GetDirectoryName(editionFolder) ?? string.Empty;
 
-        await WriteSidecarsAsync(assetId, asset.ContentHash, metadata, mediaType,
-            editionFolder, hubFolder, ct).ConfigureAwait(false);
+        await WriteEditionSidecarAsync(asset.ContentHash, metadata, mediaType,
+            editionFolder, ct).ConfigureAwait(false);
 
         _logger.LogInformation(
             "Auto-organized asset {Id} after hydration: {Source} → {Dest}",
@@ -189,18 +188,18 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
     // -------------------------------------------------------------------------
 
     /// <summary>
-    /// Writes (or refreshes) the edition and hub sidecar XML files at the given
-    /// folder paths using the full canonical metadata dictionary.
+    /// Writes (or refreshes) the edition-level sidecar XML file at the given
+    /// folder path using the full canonical metadata dictionary.
     /// All canonical key-value pairs are written to the &lt;canonical-values&gt;
     /// section so the sidecar is a complete, portable metadata snapshot.
+    /// Hub-level sidecars are not written — hubs are reconstructed from
+    /// edition sidecars during Great Inhale.
     /// </summary>
-    private async Task WriteSidecarsAsync(
-        Guid                         assetId,
+    private async Task WriteEditionSidecarAsync(
         string                       contentHash,
         Dictionary<string, string>   metadata,
         MediaType?                   mediaType,
         string                       editionFolder,
-        string                       hubFolder,
         CancellationToken            ct)
     {
         var canonicalValues = metadata
@@ -221,33 +220,5 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
             CanonicalValues = canonicalValues,
             LastOrganized   = DateTimeOffset.UtcNow,
         }, ct).ConfigureAwait(false);
-
-        // Guard: only write the hub-level sidecar when the hub folder is a title-specific
-        // folder, not a grouping folder like an author or category root.
-        // Require at least two path separators relative to LibraryRoot so only a
-        // title-level or deeper folder qualifies.
-        var relHubPath  = Path.GetRelativePath(_options.LibraryRoot, hubFolder);
-        int hubDepth    = relHubPath.Count(c => c == Path.DirectorySeparatorChar || c == '/');
-        bool hubHasDepth = hubDepth >= 2;
-
-        if (hubHasDepth)
-        {
-            await _sidecar.WriteHubSidecarAsync(hubFolder, new HubSidecarData
-            {
-                DisplayName     = metadata.GetValueOrDefault("title", "Unknown"),
-                Year            = metadata.GetValueOrDefault("year"),
-                WikidataQid     = metadata.GetValueOrDefault("wikidata_qid"),
-                Franchise       = metadata.GetValueOrDefault("franchise"),
-                CanonicalValues = canonicalValues,
-                LastOrganized   = DateTimeOffset.UtcNow,
-            }, ct).ConfigureAwait(false);
-        }
-        else
-        {
-            _logger.LogDebug(
-                "Hub sidecar skipped for {Id}: hubFolder '{HubFolder}' is a category root " +
-                "(template too shallow — hub sidecar requires a dedicated hub subfolder).",
-                assetId, hubFolder);
-        }
     }
 }

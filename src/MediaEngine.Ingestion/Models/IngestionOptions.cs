@@ -24,13 +24,22 @@ public sealed class IngestionOptions
     public string LibraryRoot { get; set; } = string.Empty;
 
     /// <summary>
-    /// Tokenized path template applied by <see cref="Contracts.IFileOrganizer"/>.
+    /// Default tokenized path template applied by <see cref="Contracts.IFileOrganizer"/>
+    /// when no media-type-specific template matches in <see cref="OrganizationTemplates"/>.
     /// Supports conditional groups: <c>({Token})</c> — when the token value is empty,
     /// the entire group (parentheses + leading space) is collapsed.
-    /// Example: <c>"{Category}/{HubName} ({Year})/{Format}/{HubName} ({Edition}){Ext}"</c>.
     /// </summary>
     public string OrganizationTemplate { get; set; } =
-        "{Category}/{Author}/{Title}{Ext}";
+        "{Category}/{Author}/{Title}/{Title}{Ext}";
+
+    /// <summary>
+    /// Per-media-type organisation templates.  Keys are media type names
+    /// (e.g. "Books", "Audiobooks", "Movies", "TV", "Comic", "Music", "Podcasts")
+    /// or "default".  Values are tokenised path templates.
+    /// Fallback chain: media-type-specific → "default" → <see cref="OrganizationTemplate"/>
+    /// → hardcoded <c>{Category}/{Title}/{Title}{Ext}</c>.
+    /// </summary>
+    public Dictionary<string, string> OrganizationTemplates { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// Holding area for files that cannot be auto-organized (low confidence,
@@ -84,4 +93,38 @@ public sealed class IngestionOptions
     /// Default: 0.40.
     /// </summary>
     public double MediaTypeReviewThreshold { get; set; } = 0.40;
+
+    // ── Template Resolution ────────────────────────────────────────────
+
+    private const string HardcodedFallback = "{Category}/{Title}/{Title}{Ext}";
+
+    /// <summary>
+    /// Resolves the organisation template for a given media type.
+    /// Fallback chain: media-type-specific → "default" key → <see cref="OrganizationTemplate"/>
+    /// → hardcoded <c>{Category}/{Title}/{Title}{Ext}</c>.
+    /// </summary>
+    public string ResolveTemplate(string? mediaTypeName)
+    {
+        // 1. Try media-type-specific template.
+        if (!string.IsNullOrWhiteSpace(mediaTypeName)
+            && OrganizationTemplates.TryGetValue(mediaTypeName, out var specific)
+            && !string.IsNullOrWhiteSpace(specific))
+        {
+            return specific;
+        }
+
+        // 2. Try "default" key in templates dictionary.
+        if (OrganizationTemplates.TryGetValue("default", out var def)
+            && !string.IsNullOrWhiteSpace(def))
+        {
+            return def;
+        }
+
+        // 3. Fall back to OrganizationTemplate property.
+        if (!string.IsNullOrWhiteSpace(OrganizationTemplate))
+            return OrganizationTemplate;
+
+        // 4. Hardcoded fallback.
+        return HardcodedFallback;
+    }
 }

@@ -53,11 +53,22 @@ public sealed class CoreConfiguration
 
     /// <summary>
     /// Tokenised path template for file organisation (e.g.
-    /// <c>{Category}/{HubName} ({Year})/{Format} - {Edition}/</c>).
-    /// Overrides the default template when set.
+    /// <c>{Category}/{Author}/{Title}/{Title}{Ext}</c>).
+    /// Used as the "default" template when no media-type-specific template
+    /// matches in <see cref="OrganizationTemplates"/>.
     /// </summary>
     [JsonPropertyName("organization_template")]
     public string OrganizationTemplate { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Per-media-type organisation templates.  Keys are media type names
+    /// (e.g. "Epub", "Audiobook", "Movie", "TV", "Comic", "Music", "Podcast")
+    /// or "default".  Values are tokenised path templates.
+    /// Fallback chain: media-type-specific → "default" → <see cref="OrganizationTemplate"/>
+    /// → hardcoded <c>{Category}/{Title}/{Title}{Ext}</c>.
+    /// </summary>
+    [JsonPropertyName("organization_templates")]
+    public Dictionary<string, string> OrganizationTemplates { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// Ordered list of provider names defining the priority order for metadata harvesting.

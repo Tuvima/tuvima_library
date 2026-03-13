@@ -52,16 +52,6 @@ public sealed class EditionSidecarData
     public IReadOnlyList<UserLockedClaim> UserLocks { get; init; } = [];
 
     /// <summary>
-    /// External bridge identifiers harvested from Wikidata SPARQL.
-    /// Keys are claim keys (e.g. "apple_books_id", "asin", "audible_id").
-    /// Values are the corresponding external identifiers.
-    /// Written to the <c>&lt;bridges&gt;</c> section of the Edition-level library.xml.
-    /// Empty dictionary when no bridge IDs are available.
-    /// </summary>
-    public IReadOnlyDictionary<string, string> Bridges { get; init; }
-        = new Dictionary<string, string>();
-
-    /// <summary>
     /// Complete snapshot of all canonical key-value pairs at the time the sidecar was last written.
     /// Includes all enriched fields (genre, characters, series, narrator, description, etc.)
     /// so that a Great Inhale can restore full metadata without re-fetching from providers.

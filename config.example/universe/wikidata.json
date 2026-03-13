@@ -2,7 +2,7 @@
   "provider_name": "wikidata",
   "property_map": {
     "P31":    { "claim_key": "instance_of",       "category": "Core Identity",         "entity_scope": "Work",   "confidence": 0.9,  "is_bridge": false, "enabled": true, "is_entity_valued": true,  "value_transform": null },
-    "P1476":  { "claim_key": "title",             "category": "Core Identity",         "entity_scope": "Work",   "confidence": 0.9,  "is_bridge": false, "enabled": true, "is_entity_valued": false, "value_transform": null },
+    "P1476":  { "claim_key": "title",             "category": "Core Identity",         "entity_scope": "Work",   "confidence": 0.9,  "is_bridge": false, "enabled": true, "is_entity_valued": false, "value_transform": null, "is_monolingual_text": true },
     "P179":   { "claim_key": "series",            "category": "Core Identity",         "entity_scope": "Work",   "confidence": 0.9,  "is_bridge": false, "enabled": true, "is_entity_valued": true,  "value_transform": null },
     "P1545":  { "claim_key": "series_position",   "category": "Core Identity",         "entity_scope": "Work",   "confidence": 0.9,  "is_bridge": false, "enabled": true, "is_entity_valued": false, "value_transform": "numeric_portion" },
     "P8345":  { "claim_key": "franchise",         "category": "Core Identity",         "entity_scope": "Work",   "confidence": 0.9,  "is_bridge": false, "enabled": true, "is_entity_valued": true,  "value_transform": null },
@@ -57,11 +57,48 @@
     "P1953":  { "claim_key": "discogs_id",         "category": "Bridges: Music/Audio",  "entity_scope": "Work",   "confidence": 1.0,  "is_bridge": true,  "enabled": true, "is_entity_valued": false, "value_transform": null },
     "P3398":  { "claim_key": "audible_id",         "category": "Bridges: Music/Audio",  "entity_scope": "Work",   "confidence": 1.0,  "is_bridge": true,  "enabled": true, "is_entity_valued": false, "value_transform": null },
 
+    "P19":    { "claim_key": "place_of_birth",         "category": "People (Person-scoped)", "entity_scope": "Person",    "confidence": 0.9,  "is_bridge": false, "enabled": true, "is_entity_valued": false, "value_transform": null },
+    "P20":    { "claim_key": "place_of_death",         "category": "People (Person-scoped)", "entity_scope": "Person",    "confidence": 0.9,  "is_bridge": false, "enabled": true, "is_entity_valued": false, "value_transform": null },
+    "P27":    { "claim_key": "country_of_citizenship", "category": "People (Person-scoped)", "entity_scope": "Person",    "confidence": 0.9,  "is_bridge": false, "enabled": true, "is_entity_valued": false, "value_transform": null },
+    "P742":   { "claim_key": "pseudonym",              "category": "People (Person-scoped)", "entity_scope": "Person",    "confidence": 0.85, "is_bridge": false, "enabled": true, "is_entity_valued": true,  "value_transform": null, "is_multi_valued": true },
+    "P1773":  { "claim_key": "attributed_to",          "category": "People (Person-scoped)", "entity_scope": "Person",    "confidence": 0.85, "is_bridge": false, "enabled": true, "is_entity_valued": true,  "value_transform": null, "is_multi_valued": true },
+    "P1813":  { "claim_key": "short_name",             "category": "People (Person-scoped)", "entity_scope": "Person",    "confidence": 0.8,  "is_bridge": false, "enabled": true, "is_entity_valued": false, "value_transform": null, "is_monolingual_text": true },
+
     "P2003":  { "claim_key": "instagram",          "category": "Social Pivot",          "entity_scope": "Person", "confidence": 1.0,  "is_bridge": true,  "enabled": true, "is_entity_valued": false, "value_transform": null },
     "P2002":  { "claim_key": "twitter",            "category": "Social Pivot",          "entity_scope": "Person", "confidence": 1.0,  "is_bridge": true,  "enabled": true, "is_entity_valued": false, "value_transform": null },
     "P7085":  { "claim_key": "tiktok",             "category": "Social Pivot",          "entity_scope": "Person", "confidence": 1.0,  "is_bridge": true,  "enabled": true, "is_entity_valued": false, "value_transform": null },
     "P4033":  { "claim_key": "mastodon",           "category": "Social Pivot",          "entity_scope": "Person", "confidence": 1.0,  "is_bridge": true,  "enabled": true, "is_entity_valued": false, "value_transform": null },
-    "P856":   { "claim_key": "website",            "category": "Social Pivot",          "entity_scope": "Person", "confidence": 1.0,  "is_bridge": true,  "enabled": true, "is_entity_valued": false, "value_transform": null }
+    "P856":   { "claim_key": "website",            "category": "Social Pivot",          "entity_scope": "Person", "confidence": 1.0,  "is_bridge": true,  "enabled": true, "is_entity_valued": false, "value_transform": null },
+
+    "P1441":  { "claim_key": "present_in_work",   "category": "Character",             "entity_scope": "Character",    "confidence": 0.85, "is_bridge": false, "enabled": true, "is_entity_valued": true,  "value_transform": null, "is_multi_valued": true },
+    "P170":   { "claim_key": "creator",            "category": "Character",             "entity_scope": "Character,Location,Organization", "confidence": 0.85, "is_bridge": false, "enabled": true, "is_entity_valued": true, "value_transform": null },
+    "P463":   { "claim_key": "member_of",          "category": "Character",             "entity_scope": "Character",    "confidence": 0.85, "is_bridge": false, "enabled": true, "is_entity_valued": true,  "value_transform": null, "is_multi_valued": true },
+    "P551":   { "claim_key": "residence",          "category": "Character",             "entity_scope": "Character",    "confidence": 0.8,  "is_bridge": false, "enabled": true, "is_entity_valued": true,  "value_transform": null },
+    "P171":   { "claim_key": "species",            "category": "Character",             "entity_scope": "Character",    "confidence": 0.85, "is_bridge": false, "enabled": true, "is_entity_valued": true,  "value_transform": null },
+    "P21":    { "claim_key": "gender",             "category": "Character",             "entity_scope": "Character",    "confidence": 0.9,  "is_bridge": false, "enabled": true, "is_entity_valued": true,  "value_transform": null },
+    "P569":   { "claim_key": "date_of_birth",      "category": "Character",             "entity_scope": "Character,Person", "confidence": 0.9, "is_bridge": false, "enabled": true, "is_entity_valued": false, "value_transform": "year_from_iso" },
+    "P570":   { "claim_key": "date_of_death",      "category": "Character",             "entity_scope": "Character,Person", "confidence": 0.9, "is_bridge": false, "enabled": true, "is_entity_valued": false, "value_transform": "year_from_iso" },
+    "P22":    { "claim_key": "father",             "category": "Character",             "entity_scope": "Character",    "confidence": 0.9,  "is_bridge": false, "enabled": true, "is_entity_valued": true,  "value_transform": null },
+    "P25":    { "claim_key": "mother",             "category": "Character",             "entity_scope": "Character",    "confidence": 0.9,  "is_bridge": false, "enabled": true, "is_entity_valued": true,  "value_transform": null },
+    "P26":    { "claim_key": "spouse",             "category": "Character",             "entity_scope": "Character",    "confidence": 0.9,  "is_bridge": false, "enabled": true, "is_entity_valued": true,  "value_transform": null, "is_multi_valued": true },
+    "P3373":  { "claim_key": "sibling",            "category": "Character",             "entity_scope": "Character",    "confidence": 0.9,  "is_bridge": false, "enabled": true, "is_entity_valued": true,  "value_transform": null, "is_multi_valued": true },
+    "P40":    { "claim_key": "child",              "category": "Character",             "entity_scope": "Character",    "confidence": 0.9,  "is_bridge": false, "enabled": true, "is_entity_valued": true,  "value_transform": null, "is_multi_valued": true },
+    "P1344":  { "claim_key": "opponent",           "category": "Character",             "entity_scope": "Character",    "confidence": 0.8,  "is_bridge": false, "enabled": true, "is_entity_valued": true,  "value_transform": null, "is_multi_valued": true },
+    "P1066":  { "claim_key": "student_of",         "category": "Character",             "entity_scope": "Character",    "confidence": 0.8,  "is_bridge": false, "enabled": true, "is_entity_valued": true,  "value_transform": null },
+
+    "P131":   { "claim_key": "located_in",         "category": "Location",              "entity_scope": "Location",     "confidence": 0.85, "is_bridge": false, "enabled": true, "is_entity_valued": true,  "value_transform": null },
+    "P361":   { "claim_key": "part_of",            "category": "Location",              "entity_scope": "Location,Organization", "confidence": 0.85, "is_bridge": false, "enabled": true, "is_entity_valued": true, "value_transform": null },
+    "P625":   { "claim_key": "coordinate_location","category": "Location",              "entity_scope": "Location",     "confidence": 0.8,  "is_bridge": false, "enabled": true, "is_entity_valued": false, "value_transform": null },
+
+    "P527":   { "claim_key": "has_parts",          "category": "Organization",          "entity_scope": "Organization", "confidence": 0.85, "is_bridge": false, "enabled": true, "is_entity_valued": true,  "value_transform": null, "is_multi_valued": true },
+    "P169":   { "claim_key": "head_of",            "category": "Organization",          "entity_scope": "Organization", "confidence": 0.85, "is_bridge": false, "enabled": true, "is_entity_valued": true,  "value_transform": null },
+    "P749":   { "claim_key": "parent_organization","category": "Organization",          "entity_scope": "Organization", "confidence": 0.85, "is_bridge": false, "enabled": true, "is_entity_valued": true,  "value_transform": null },
+
+    "P407":   { "claim_key": "language",           "category": "Core Identity",         "entity_scope": "Work",         "confidence": 0.9,  "is_bridge": false, "enabled": true, "is_entity_valued": true,  "value_transform": null },
+    "P495":   { "claim_key": "country_of_origin",  "category": "Core Identity",         "entity_scope": "Work",         "confidence": 0.9,  "is_bridge": false, "enabled": true, "is_entity_valued": true,  "value_transform": null },
+    "P123":   { "claim_key": "publisher",          "category": "Core Identity",         "entity_scope": "Work",         "confidence": 0.85, "is_bridge": false, "enabled": true, "is_entity_valued": true,  "value_transform": null },
+    "P175":   { "claim_key": "performer",          "category": "People",                "entity_scope": "Work",         "confidence": 0.9,  "is_bridge": false, "enabled": true, "is_entity_valued": true,  "value_transform": null, "is_multi_valued": true },
+    "P825":   { "claim_key": "adaptation_of",      "category": "Lore & Narrative",      "entity_scope": "Work",         "confidence": 0.85, "is_bridge": false, "enabled": true, "is_entity_valued": true,  "value_transform": null }
   },
   "bridge_lookup_priority": [
     { "p_code": "P3861", "request_field": "apple_books_id" },
@@ -77,7 +114,10 @@
     { "p_code": "P212",  "request_field": "isbn" }
   ],
   "scope_exclusions": {
-    "Work": ["P18"]
+    "Work": ["P18"],
+    "Character": ["P18"],
+    "Location": ["P18"],
+    "Organization": ["P18"]
   },
   "commons_url_template": "https://commons.wikimedia.org/wiki/Special:FilePath/{0}?width=300"
 }

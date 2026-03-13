@@ -80,6 +80,15 @@ public sealed class ProviderLookupRequest
     /// </summary>
     public string? PreResolvedQid { get; init; }
 
+    // ── Fictional entity hints ────────────────────────────────────────────────
+
+    /// <summary>
+    /// Generic key-value hints for adapter-specific context.
+    /// Used by fictional entity enrichment to pass <c>"wikidata_qid"</c>
+    /// when the QID is already known from the parent work's hydration.
+    /// </summary>
+    public IReadOnlyDictionary<string, string>? Hints { get; init; }
+
     // ── Infrastructure ────────────────────────────────────────────────────────
 
     /// <summary>

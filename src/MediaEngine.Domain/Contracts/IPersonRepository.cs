@@ -49,6 +49,21 @@ public interface IPersonRepository
         CancellationToken ct = default);
 
     /// <summary>
+    /// Updates the social media and contact fields for an existing person.
+    /// Called after Wikidata enrichment returns P2003/P2002/P7085/P4033/P856/P106 claims.
+    /// Only non-null values are written; null parameters leave existing values unchanged.
+    /// </summary>
+    Task UpdateSocialFieldsAsync(
+        Guid personId,
+        string? occupation,
+        string? instagram,
+        string? twitter,
+        string? tiktok,
+        string? mastodon,
+        string? website,
+        CancellationToken ct = default);
+
+    /// <summary>
     /// Creates a link between a media asset and a person in the
     /// <c>person_media_links</c> table.
     /// If the link already exists the call is a no-op (INSERT OR IGNORE).
@@ -113,4 +128,55 @@ public interface IPersonRepository
     /// Used by the reconciliation service when cleaning orphaned persons.
     /// </summary>
     Task DeleteAsync(Guid personId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Updates biographical fields for a person record.
+    /// Called after Wikidata enrichment returns birth/death/nationality data.
+    /// </summary>
+    Task UpdateBiographicalFieldsAsync(
+        Guid personId,
+        string? dateOfBirth,
+        string? dateOfDeath,
+        string? placeOfBirth,
+        string? placeOfDeath,
+        string? nationality,
+        bool isPseudonym,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// Creates a pseudonym alias link between a pen name person and a real person.
+    /// Idempotent — duplicate links are ignored.
+    /// </summary>
+    Task LinkAliasAsync(
+        Guid pseudonymPersonId,
+        Guid realPersonId,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns all alias-linked persons for the given person ID.
+    /// Works bidirectionally: returns real people behind a pseudonym
+    /// AND pseudonyms used by a real person.
+    /// </summary>
+    Task<IReadOnlyList<Person>> FindAliasesAsync(
+        Guid personId,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// Creates a character-performer link between a person (actor) and a
+    /// fictional entity (character) for a specific work.
+    /// Idempotent — duplicate links are ignored.
+    /// </summary>
+    Task LinkToCharacterAsync(
+        Guid personId,
+        Guid fictionalEntityId,
+        string? workQid,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns all character links for a given performer person.
+    /// Each entry contains the fictional entity ID and optional work QID.
+    /// </summary>
+    Task<IReadOnlyList<(Guid FictionalEntityId, string? WorkQid)>> GetCharacterLinksAsync(
+        Guid personId,
+        CancellationToken ct = default);
 }

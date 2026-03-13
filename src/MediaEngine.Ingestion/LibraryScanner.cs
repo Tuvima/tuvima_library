@@ -23,11 +23,13 @@ namespace MediaEngine.Ingestion;
 /// <para>
 /// <b>Scope:</b>
 /// <list type="bullet">
-///   <item>Hub-level XML (<c>&lt;library-hub&gt;</c>) — creates or updates Hub records.</item>
 ///   <item>Edition-level XML (<c>&lt;library-edition&gt;</c>) — upserts canonical values for
 ///     any MediaAsset already in the database (matched by content hash). Re-inserts
-///     user-locked claims that have been lost from <c>metadata_claims</c>.</item>
+///     user-locked claims that have been lost from <c>metadata_claims</c>.
+///     Hub records are reconstructed from edition sidecar data (title as display name).</item>
 /// </list>
+/// Hub-level sidecars (<c>&lt;library-hub&gt;</c>) are no longer written.  Legacy
+/// hub sidecars encountered during scanning are silently ignored.
 /// Full MediaAsset creation from scratch (after a complete DB wipe) requires a future
 /// Work/Edition repository layer and a separate ingestion pass.
 /// </para>
@@ -39,13 +41,17 @@ namespace MediaEngine.Ingestion;
 /// </summary>
 public sealed class LibraryScanner : ILibraryScanner
 {
-    private readonly ISidecarWriter             _sidecar;
-    private readonly IHubRepository             _hubRepo;
-    private readonly IMediaAssetRepository      _assetRepo;
-    private readonly ICanonicalValueRepository  _canonicalRepo;
-    private readonly IMetadataClaimRepository   _claimRepo;
-    private readonly IPersonRepository          _personRepo;
-    private readonly ILogger<LibraryScanner>    _logger;
+    private readonly ISidecarWriter                _sidecar;
+    private readonly IHubRepository                _hubRepo;
+    private readonly IMediaAssetRepository         _assetRepo;
+    private readonly ICanonicalValueRepository     _canonicalRepo;
+    private readonly IMetadataClaimRepository      _claimRepo;
+    private readonly IPersonRepository             _personRepo;
+    private readonly INarrativeRootRepository      _rootRepo;
+    private readonly IFictionalEntityRepository    _fictionalEntityRepo;
+    private readonly IEntityRelationshipRepository _relRepo;
+    private readonly IUniverseSidecarWriter        _universeSidecar;
+    private readonly ILogger<LibraryScanner>       _logger;
 
     // Stable GUID representing the library-scanner as a "provider" when re-inserting
     // canonical values from the sidecar. Distinct from the local-processor GUID
@@ -54,21 +60,29 @@ public sealed class LibraryScanner : ILibraryScanner
         new("c9d8e7f6-a5b4-4321-fedc-0102030405c9");
 
     public LibraryScanner(
-        ISidecarWriter            sidecar,
-        IHubRepository            hubRepo,
-        IMediaAssetRepository     assetRepo,
-        ICanonicalValueRepository canonicalRepo,
-        IMetadataClaimRepository  claimRepo,
-        IPersonRepository         personRepo,
-        ILogger<LibraryScanner>   logger)
+        ISidecarWriter                sidecar,
+        IHubRepository                hubRepo,
+        IMediaAssetRepository         assetRepo,
+        ICanonicalValueRepository     canonicalRepo,
+        IMetadataClaimRepository      claimRepo,
+        IPersonRepository             personRepo,
+        INarrativeRootRepository      rootRepo,
+        IFictionalEntityRepository    fictionalEntityRepo,
+        IEntityRelationshipRepository relRepo,
+        IUniverseSidecarWriter        universeSidecar,
+        ILogger<LibraryScanner>       logger)
     {
-        _sidecar       = sidecar;
-        _hubRepo       = hubRepo;
-        _assetRepo     = assetRepo;
-        _canonicalRepo = canonicalRepo;
-        _claimRepo     = claimRepo;
-        _personRepo    = personRepo;
-        _logger        = logger;
+        _sidecar              = sidecar;
+        _hubRepo              = hubRepo;
+        _assetRepo            = assetRepo;
+        _canonicalRepo        = canonicalRepo;
+        _claimRepo            = claimRepo;
+        _personRepo           = personRepo;
+        _rootRepo             = rootRepo;
+        _fictionalEntityRepo  = fictionalEntityRepo;
+        _relRepo              = relRepo;
+        _universeSidecar      = universeSidecar;
+        _logger               = logger;
     }
 
     /// <inheritdoc/>
@@ -97,8 +111,10 @@ public sealed class LibraryScanner : ILibraryScanner
 
                 if (rootName is "library-hub")
                 {
-                    if (await HydrateHubAsync(xmlPath, ct).ConfigureAwait(false))
-                        hubsUpserted++;
+                    // Hub-level sidecars are legacy — silently skip.
+                    // Hubs are reconstructed from edition sidecars.
+                    _logger.LogDebug(
+                        "Skipping legacy hub sidecar at {Path}", xmlPath);
                 }
                 else if (rootName is "library-edition")
                 {
@@ -170,11 +186,25 @@ public sealed class LibraryScanner : ILibraryScanner
                 if (identity is null)
                     continue;
 
-                var idText     = identity.Element("id")?.Value;
                 var name       = identity.Element("name")?.Value;
                 var qid        = identity.Element("wikidata-qid")?.Value;
                 var role       = identity.Element("role")?.Value ?? "Author";
                 var occupation = identity.Element("occupation")?.Value;
+                var isPseudonymStr = identity.Element("is-pseudonym")?.Value;
+                var isPseudonym = string.Equals(isPseudonymStr, "true", StringComparison.OrdinalIgnoreCase);
+
+                // v1.0 has <id> element; v1.1 relies on QID or folder name.
+                var idText = identity.Element("id")?.Value;
+
+                // Parse QID from folder name pattern: "Name (Qxxxxx)"
+                if (string.IsNullOrWhiteSpace(qid))
+                {
+                    var folderName = Path.GetFileName(subDir);
+                    var match = System.Text.RegularExpressions.Regex.Match(
+                        folderName, @"\((Q\d+)\)$");
+                    if (match.Success)
+                        qid = match.Groups[1].Value;
+                }
 
                 if (string.IsNullOrWhiteSpace(name))
                     continue;
@@ -193,12 +223,24 @@ public sealed class LibraryScanner : ILibraryScanner
                     // Create a new person record.
                     var person = new Person
                     {
-                        Id          = personId,
-                        Name        = name,
-                        Role        = role,
-                        WikidataQid = string.IsNullOrWhiteSpace(qid) ? null : qid,
-                        Occupation  = string.IsNullOrWhiteSpace(occupation) ? null : occupation,
+                        Id           = personId,
+                        Name         = name,
+                        Role         = role,
+                        WikidataQid  = NullIfEmpty(qid),
+                        Occupation   = NullIfEmpty(occupation),
+                        IsPseudonym  = isPseudonym,
                     };
+
+                    // Read v1.1 biographical details.
+                    var details = doc.Root.Element("details");
+                    if (details is not null)
+                    {
+                        person.DateOfBirth = NullIfEmpty(details.Element("date-of-birth")?.Value);
+                        person.DateOfDeath = NullIfEmpty(details.Element("date-of-death")?.Value);
+                        person.PlaceOfBirth = NullIfEmpty(details.Element("place-of-birth")?.Value);
+                        person.PlaceOfDeath = NullIfEmpty(details.Element("place-of-death")?.Value);
+                        person.Nationality = NullIfEmpty(details.Element("nationality")?.Value);
+                    }
 
                     // Read optional social/biography fields.
                     person.Biography = doc.Root.Element("biography")?.Value;
@@ -216,6 +258,10 @@ public sealed class LibraryScanner : ILibraryScanner
                     var headshotPath = Path.Combine(subDir, "headshot.jpg");
                     if (File.Exists(headshotPath))
                         person.LocalHeadshotPath = headshotPath;
+
+                    // Mark as enriched if QID is present (came from a v1.1 sidecar).
+                    if (!string.IsNullOrWhiteSpace(qid))
+                        person.EnrichedAt = DateTimeOffset.UtcNow;
 
                     await _personRepo.CreateAsync(person, ct).ConfigureAwait(false);
                     existing = person;
@@ -254,6 +300,60 @@ public sealed class LibraryScanner : ILibraryScanner
                     }
                 }
 
+                // Rebuild pseudonym alias links from v1.1 sidecar.
+                var realIdentities = doc.Root.Element("real-identities")?.Elements("person");
+                if (realIdentities is not null)
+                {
+                    foreach (var ri in realIdentities)
+                    {
+                        var realQid = ri.Attribute("qid")?.Value;
+                        if (string.IsNullOrWhiteSpace(realQid)) continue;
+                        var realPerson = await _personRepo.FindByQidAsync(realQid, ct).ConfigureAwait(false);
+                        if (realPerson is not null)
+                        {
+                            await _personRepo.LinkAliasAsync(existing.Id, realPerson.Id, ct)
+                                .ConfigureAwait(false);
+                        }
+                    }
+                }
+
+                var pseudonyms = doc.Root.Element("pseudonyms")?.Elements("person");
+                if (pseudonyms is not null)
+                {
+                    foreach (var ps in pseudonyms)
+                    {
+                        var penQid = ps.Attribute("qid")?.Value;
+                        if (string.IsNullOrWhiteSpace(penQid)) continue;
+                        var penPerson = await _personRepo.FindByQidAsync(penQid, ct).ConfigureAwait(false);
+                        if (penPerson is not null)
+                        {
+                            await _personRepo.LinkAliasAsync(penPerson.Id, existing.Id, ct)
+                                .ConfigureAwait(false);
+                        }
+                    }
+                }
+
+                // Rebuild character-performer links from v1.1 sidecar.
+                var characters = doc.Root.Element("characters")?.Elements("character");
+                if (characters is not null)
+                {
+                    foreach (var ch in characters)
+                    {
+                        var charQid = ch.Attribute("qid")?.Value;
+                        var workQidAttr = ch.Attribute("work-qid")?.Value;
+                        if (string.IsNullOrWhiteSpace(charQid)) continue;
+
+                        var entity = await _fictionalEntityRepo.FindByQidAsync(charQid, ct)
+                            .ConfigureAwait(false);
+                        if (entity is not null)
+                        {
+                            await _personRepo.LinkToCharacterAsync(
+                                existing.Id, entity.Id, workQidAttr, ct)
+                                .ConfigureAwait(false);
+                        }
+                    }
+                }
+
                 upserted++;
                 _logger.LogDebug(
                     "Person recovered: '{Name}' (QID={Qid})", name, qid ?? "none");
@@ -272,37 +372,111 @@ public sealed class LibraryScanner : ILibraryScanner
         => string.IsNullOrWhiteSpace(value) ? null : value;
 
     // -------------------------------------------------------------------------
-    // Hub hydration
+    // Universe scanning (Great Inhale universe graph recovery)
     // -------------------------------------------------------------------------
 
-    private async Task<bool> HydrateHubAsync(string xmlPath, CancellationToken ct)
+    /// <inheritdoc/>
+    public async Task<UniverseScanResult> ScanUniversesAsync(
+        string libraryRoot,
+        CancellationToken ct = default)
     {
-        var data = await _sidecar.ReadHubSidecarAsync(xmlPath, ct).ConfigureAwait(false);
-        if (data is null || string.IsNullOrWhiteSpace(data.DisplayName))
+        var universeRoot = Path.Combine(libraryRoot, ".universe");
+        if (!Directory.Exists(universeRoot))
         {
-            _logger.LogDebug("Skipping hub sidecar with no display name: {Path}", xmlPath);
-            return false;
+            _logger.LogDebug("No .universe/ directory found; skipping universe scan");
+            return new UniverseScanResult();
         }
 
-        // Find existing hub by display name to avoid duplicates.
-        var existing = await _hubRepo.FindByDisplayNameAsync(data.DisplayName, ct)
-                                      .ConfigureAwait(false);
+        int universesUpserted     = 0;
+        int entitiesUpserted      = 0;
+        int relationshipsUpserted = 0;
+        int errors                = 0;
 
-        var hub = existing ?? new Hub
+        _logger.LogInformation("Great Inhale: scanning .universe/ for graph recovery");
+
+        foreach (var subDir in Directory.GetDirectories(universeRoot))
         {
-            Id        = Guid.NewGuid(),
-            CreatedAt = DateTimeOffset.UtcNow,
+            ct.ThrowIfCancellationRequested();
+
+            var xmlPath = Path.Combine(subDir, "universe.xml");
+            if (!File.Exists(xmlPath))
+                continue;
+
+            try
+            {
+                var snapshot = await _universeSidecar.ReadUniverseXmlAsync(xmlPath, ct)
+                    .ConfigureAwait(false);
+
+                if (snapshot is null)
+                {
+                    errors++;
+                    continue;
+                }
+
+                // 1. Upsert the narrative root.
+                await _rootRepo.UpsertAsync(snapshot.Root, ct).ConfigureAwait(false);
+                universesUpserted++;
+
+                // 2. Upsert all fictional entities.
+                foreach (var entitySnapshot in snapshot.Entities)
+                {
+                    ct.ThrowIfCancellationRequested();
+
+                    var entity = entitySnapshot.Entity;
+
+                    // Find-or-create by QID.
+                    var existing = await _fictionalEntityRepo.FindByQidAsync(entity.WikidataQid, ct)
+                        .ConfigureAwait(false);
+
+                    if (existing is null)
+                    {
+                        await _fictionalEntityRepo.CreateAsync(entity, ct).ConfigureAwait(false);
+                        existing = entity;
+                    }
+
+                    // Link entity to each work.
+                    foreach (var wl in entitySnapshot.WorkLinks)
+                    {
+                        await _fictionalEntityRepo.LinkToWorkAsync(
+                            existing.Id, wl.WorkQid, wl.WorkLabel, "appears_in", ct)
+                            .ConfigureAwait(false);
+                    }
+
+                    entitiesUpserted++;
+                }
+
+                // 3. Upsert all relationship edges.
+                foreach (var rel in snapshot.Relationships)
+                {
+                    ct.ThrowIfCancellationRequested();
+
+                    await _relRepo.CreateAsync(rel, ct).ConfigureAwait(false);
+                    relationshipsUpserted++;
+                }
+
+                _logger.LogDebug(
+                    "Universe recovered: '{Label}' ({Qid}) — {EntityCount} entities, {EdgeCount} edges",
+                    snapshot.Root.Label, snapshot.Root.Qid,
+                    snapshot.Entities.Count, snapshot.Relationships.Count);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Great Inhale: error processing universe.xml at {Path}", xmlPath);
+                errors++;
+            }
+        }
+
+        _logger.LogInformation(
+            "Great Inhale: recovered {Universes} universes, {Entities} entities, {Rels} relationships",
+            universesUpserted, entitiesUpserted, relationshipsUpserted);
+
+        return new UniverseScanResult
+        {
+            UniversesUpserted     = universesUpserted,
+            EntitiesUpserted      = entitiesUpserted,
+            RelationshipsUpserted = relationshipsUpserted,
+            Errors                = errors,
         };
-
-        // XML always wins for the display name.
-        hub.DisplayName = data.DisplayName;
-
-        await _hubRepo.UpsertAsync(hub, ct).ConfigureAwait(false);
-
-        _logger.LogDebug(
-            "Hub '{Name}' upserted (id={Id})", hub.DisplayName, hub.Id);
-
-        return true;
     }
 
     // -------------------------------------------------------------------------

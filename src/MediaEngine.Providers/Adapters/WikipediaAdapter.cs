@@ -69,7 +69,7 @@ public sealed class WikipediaAdapter : IExternalMetadataProvider
     public bool CanHandle(MediaType mediaType) => true;
 
     public bool CanHandle(EntityType entityType) =>
-        entityType is EntityType.MediaAsset or EntityType.Work;
+        entityType is EntityType.MediaAsset or EntityType.Work or EntityType.Person;
 
     // Core fetch
 

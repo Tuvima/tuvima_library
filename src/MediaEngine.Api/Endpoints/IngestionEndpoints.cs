@@ -67,13 +67,19 @@ public static class IngestionEndpoints
             // Also scan .people/ to recover person records from person.xml sidecars.
             var peopleRecovered = await scanner.ScanPeopleAsync(root, ct);
 
+            // Scan .universe/ to recover fictional entities and relationships.
+            var universeResult = await scanner.ScanUniversesAsync(root, ct);
+
             return Results.Ok(new LibraryScanResponse
             {
-                HubsUpserted     = result.HubsUpserted,
-                EditionsUpserted = result.EditionsUpserted,
-                PeopleRecovered  = peopleRecovered,
-                Errors           = result.Errors,
-                ElapsedMs        = (long)result.Elapsed.TotalMilliseconds,
+                HubsUpserted          = result.HubsUpserted,
+                EditionsUpserted      = result.EditionsUpserted,
+                PeopleRecovered       = peopleRecovered,
+                UniversesUpserted     = universeResult.UniversesUpserted,
+                EntitiesUpserted      = universeResult.EntitiesUpserted,
+                RelationshipsUpserted = universeResult.RelationshipsUpserted,
+                Errors                = result.Errors + universeResult.Errors,
+                ElapsedMs             = (long)result.Elapsed.TotalMilliseconds,
             });
         })
         .WithName("TriggerLibraryScan")

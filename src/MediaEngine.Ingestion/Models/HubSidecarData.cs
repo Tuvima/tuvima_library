@@ -34,16 +34,6 @@ public sealed class HubSidecarData
     public string UniverseStatus { get; init; } = "Unknown";
 
     /// <summary>
-    /// External bridge identifiers harvested from Wikidata SPARQL.
-    /// Keys are claim keys (e.g. "tmdb_id", "imdb_id", "goodreads_id").
-    /// Values are the corresponding external identifiers.
-    /// Written to the <c>&lt;bridges&gt;</c> section of the Hub-level library.xml.
-    /// Empty dictionary when no bridge IDs are available.
-    /// </summary>
-    public IReadOnlyDictionary<string, string> Bridges { get; init; }
-        = new Dictionary<string, string>();
-
-    /// <summary>
     /// Complete snapshot of all canonical key-value pairs for the hub at the time
     /// the sidecar was last written.  Captures Wikidata-enriched fields (genre,
     /// characters, narrative_location, series, franchise, etc.) so that a Great Inhale
