@@ -78,6 +78,17 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
     private static readonly SemaphoreSlim _throttle = new(1, 1);
     private static DateTime _lastCallUtc = DateTime.MinValue;
 
+    /// <summary>
+    /// Generic / placeholder terms that should never be sent to Wikidata title search.
+    /// Mirrors <c>ConfigDrivenAdapter.GenericTerms</c> to prevent false matches
+    /// (e.g. "Unknown" matching Q24238356).
+    /// </summary>
+    private static readonly HashSet<string> GenericTerms = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "unknown", "untitled", "no title", "title", "book", "audiobook",
+        "track", "album", "episode", "movie", "video",
+    };
+
     /// <summary>Compiled default throttle gap (ms). Overridden by provider config.</summary>
     private const int DefaultThrottleGapMs = 1100;
 
@@ -232,7 +243,10 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
             }
 
             // Step 2: title search — add any new candidates.
+            // Guard: skip generic terms that pollute search results (e.g. "Unknown" → Q24238356).
             if (candidates.Count < maxCandidates && !string.IsNullOrWhiteSpace(request.Title)
+                && request.Title.Trim().Length >= 3
+                && !GenericTerms.Contains(request.Title.Trim())
                 && !string.IsNullOrWhiteSpace(request.BaseUrl))
             {
                 var searchUrl = $"{request.BaseUrl.TrimEnd('/')}" +
@@ -712,6 +726,25 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
                 _logger.LogInformation(
                     "ISBN bridge match for entity {Id}: boosted author/title to {Confidence}",
                     request.EntityId, IsbnBridgeBoost);
+            }
+
+            // ── QID-Confirmed Title Boost ──────────────────────────────────────
+            // Any confirmed QID (regardless of bridge type) means SPARQL returned
+            // authoritative data.  Boost title to 0.92 if not already boosted by
+            // the ISBN bridge (which uses 0.95).  This ensures Wikidata labels
+            // override potentially incorrect file metadata for folder naming.
+            if (matchedBridge != "P212")
+            {
+                const double QidConfirmedBoost = 0.92;
+                var boosted2 = new List<ProviderClaim>(claims.Count);
+                foreach (var c in claims)
+                {
+                    if (c.Key is "title" or "author" && c.Confidence < QidConfirmedBoost)
+                        boosted2.Add(new ProviderClaim(c.Key, c.Value, QidConfirmedBoost));
+                    else
+                        boosted2.Add(c);
+                }
+                claims = boosted2;
             }
 
             _logger.LogInformation(

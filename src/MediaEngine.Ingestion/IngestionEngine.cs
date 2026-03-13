@@ -333,6 +333,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         await SafePublishAsync("IngestionStarted", new IngestionStartedEvent(
             candidate.Path, DateTimeOffset.UtcNow), ct).ConfigureAwait(false);
 
+        var pipelineStopwatch = System.Diagnostics.Stopwatch.StartNew();
+
         // Step 4: hash.
         var hash = await _hasher.ComputeAsync(candidate.Path, ct).ConfigureAwait(false);
 
@@ -1032,6 +1034,16 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             Detail         = outcome,
             IngestionRunId = ingestionRunId,
         }, ct).ConfigureAwait(false);
+
+        // ── Performance log ──────────────────────────────────────────────────
+        pipelineStopwatch.Stop();
+        _logger.LogInformation(
+            "[PERF] {FileName}: Total={TotalMs}ms Hash={HashMs}ms (type={MediaType}, confidence={Confidence:P0})",
+            Path.GetFileName(candidate.Path),
+            pipelineStopwatch.ElapsedMilliseconds,
+            (long)hash.Elapsed.TotalMilliseconds,
+            resolvedMediaType,
+            scored.OverallConfidence);
     }
 
     private async Task HandleDeletedAsync(IngestionCandidate candidate, CancellationToken ct)

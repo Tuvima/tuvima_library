@@ -404,6 +404,8 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         if (!string.Equals(provider.Name, "wikidata", StringComparison.OrdinalIgnoreCase))
             return;
 
+        var personSw = System.Diagnostics.Stopwatch.StartNew();
+
         var qid         = claims.FirstOrDefault(c => c.Key == "wikidata_qid")?.Value;
         var headshotUrl = claims.FirstOrDefault(c => c.Key == "headshot_url")?.Value;
         var biography   = claims.FirstOrDefault(c => c.Key == "biography")?.Value;
@@ -416,45 +418,71 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         // a duplicate folder.  Both DB records will end up pointing at the same
         // filesystem folder (same "Name (QID)" path) via TryRenameExistingPersonFolder;
         // we just need to make sure the first-arriving enrichment wins the write.
+        //
+        // EXCEPTION: pseudonym pairs must NOT be merged. A pseudonym (e.g. "Richard
+        // Bachman") and its real person (e.g. "Stephen King") carry different QIDs
+        // but may share links. If either person is a pseudonym or they are linked
+        // via person_aliases, we skip the merge and let both records coexist.
         bool isQidDuplicate = false;
         if (!string.IsNullOrWhiteSpace(qid))
         {
             var canonicalPerson = await _personRepo.FindByQidAsync(qid, ct).ConfigureAwait(false);
             if (canonicalPerson is not null && canonicalPerson.Id != request.EntityId)
             {
-                isQidDuplicate = true;
-                _logger.LogInformation(
-                    "Person {Id} shares QID {Qid} with canonical person {CanonicalId} — merging",
-                    request.EntityId, qid, canonicalPerson.Id);
+                // Check pseudonym relationship — never merge pseudonym ↔ real person.
+                var currentPerson = await _personRepo.FindByIdAsync(request.EntityId, ct).ConfigureAwait(false);
+                bool isPseudonymPair = canonicalPerson.IsPseudonym || currentPerson?.IsPseudonym == true;
 
-                // Merge: reassign all links from duplicate → canonical, then delete duplicate.
-                await _personRepo.ReassignAllLinksAsync(request.EntityId, canonicalPerson.Id, ct)
-                    .ConfigureAwait(false);
-
-                // Delete the duplicate person folder from disk before deleting the DB record.
-                var duplicatePerson = await _personRepo.FindByIdAsync(request.EntityId, ct)
-                    .ConfigureAwait(false);
-                if (duplicatePerson is not null)
+                // Also check if they're linked as aliases (pseudonym ↔ real person).
+                bool isLinkedAlias = false;
+                if (!isPseudonymPair)
                 {
-                    DeletePersonFolder(duplicatePerson);
+                    var aliases = await _personRepo.FindAliasesAsync(request.EntityId, ct).ConfigureAwait(false);
+                    isLinkedAlias = aliases.Any(a => a.Id == canonicalPerson.Id);
                 }
 
-                await _personRepo.DeleteAsync(request.EntityId, ct).ConfigureAwait(false);
-
-                await _activityRepo.LogAsync(new SystemActivityEntry
+                if (isPseudonymPair || isLinkedAlias)
                 {
-                    ActionType = SystemActionType.PersonMerged,
-                    EntityId   = canonicalPerson.Id,
-                    EntityType = "Person",
-                    Detail     = $"Merged duplicate person \"{duplicatePerson?.Name ?? "?"}\" into canonical \"{canonicalPerson.Name}\" ({qid})",
-                }, ct).ConfigureAwait(false);
+                    _logger.LogInformation(
+                        "Person {Id} shares QID {Qid} with {CanonicalId} but is a pseudonym pair — skipping merge",
+                        request.EntityId, qid, canonicalPerson.Id);
+                }
+                else
+                {
+                    isQidDuplicate = true;
+                    _logger.LogInformation(
+                        "Person {Id} shares QID {Qid} with canonical person {CanonicalId} — merging",
+                        request.EntityId, qid, canonicalPerson.Id);
 
-                await _eventPublisher.PublishAsync(
-                    "PersonEnriched",
-                    new PersonEnrichedEvent(canonicalPerson.Id, canonicalPerson.Name, canonicalPerson.HeadshotUrl, qid),
-                    ct).ConfigureAwait(false);
+                    // Merge: reassign all links from duplicate → canonical, then delete duplicate.
+                    await _personRepo.ReassignAllLinksAsync(request.EntityId, canonicalPerson.Id, ct)
+                        .ConfigureAwait(false);
 
-                return; // Merge complete — skip remaining enrichment for the deleted duplicate.
+                    // Delete the duplicate person folder from disk before deleting the DB record.
+                    var duplicatePerson = await _personRepo.FindByIdAsync(request.EntityId, ct)
+                        .ConfigureAwait(false);
+                    if (duplicatePerson is not null)
+                    {
+                        DeletePersonFolder(duplicatePerson);
+                    }
+
+                    await _personRepo.DeleteAsync(request.EntityId, ct).ConfigureAwait(false);
+
+                    await _activityRepo.LogAsync(new SystemActivityEntry
+                    {
+                        ActionType = SystemActionType.PersonMerged,
+                        EntityId   = canonicalPerson.Id,
+                        EntityType = "Person",
+                        Detail     = $"Merged duplicate person \"{duplicatePerson?.Name ?? "?"}\" into canonical \"{canonicalPerson.Name}\" ({qid})",
+                    }, ct).ConfigureAwait(false);
+
+                    await _eventPublisher.PublishAsync(
+                        "PersonEnriched",
+                        new PersonEnrichedEvent(canonicalPerson.Id, canonicalPerson.Name, canonicalPerson.HeadshotUrl, qid),
+                        ct).ConfigureAwait(false);
+
+                    return; // Merge complete — skip remaining enrichment for the deleted duplicate.
+                }
             }
         }
 
@@ -481,7 +509,7 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         }
 
         // Social media and contact fields from Wikidata.
-        var occupation = claims.FirstOrDefault(c => c.Key == "occupation")?.Value;
+        var occupation = NormalizeMultiValue(claims.FirstOrDefault(c => c.Key == "occupation")?.Value);
         var instagram  = claims.FirstOrDefault(c => c.Key == "instagram")?.Value;
         var twitter    = claims.FirstOrDefault(c => c.Key == "twitter")?.Value;
         var tiktok     = claims.FirstOrDefault(c => c.Key == "tiktok")?.Value;
@@ -536,6 +564,12 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
             "PersonEnriched",
             new PersonEnrichedEvent(request.EntityId, personName, headshotUrl, qid),
             ct).ConfigureAwait(false);
+
+        personSw.Stop();
+        _logger.LogInformation(
+            "[PERF] Person enrichment {PersonId} (\"{Name}\"): {ElapsedMs}ms (QID={Qid}, pseudonym={IsPseudonym})",
+            request.EntityId, personName, personSw.ElapsedMilliseconds,
+            qid ?? "(none)", isPseudonym);
     }
 
     /// <summary>
@@ -860,7 +894,7 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
                     new System.Xml.Linq.XElement("name",         person.Name),
                     new System.Xml.Linq.XElement("role",         person.Role),
                     new System.Xml.Linq.XElement("wikidata-qid", person.WikidataQid ?? string.Empty),
-                    new System.Xml.Linq.XElement("occupation",   person.Occupation  ?? string.Empty));
+                    new System.Xml.Linq.XElement("occupation",   NormalizeMultiValue(person.Occupation) ?? string.Empty));
 
                 if (person.IsPseudonym)
                     identityElement.Add(new System.Xml.Linq.XElement("is-pseudonym", "true"));
@@ -976,6 +1010,20 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
                 "Person storage persistence failed for person {Id}; continuing",
                 personId);
         }
+    }
+
+    /// <summary>
+    /// Normalizes multi-valued strings that use <c>|||</c> separator into
+    /// human-readable comma-separated form (e.g. "Actor, Screenwriter, Producer").
+    /// Returns <c>null</c> for null/whitespace input.
+    /// </summary>
+    private static string? NormalizeMultiValue(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return value;
+        if (!value.Contains("|||", StringComparison.Ordinal)) return value;
+
+        var parts = value.Split("|||", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        return parts.Length > 0 ? string.Join(", ", parts) : value;
     }
 
     /// <summary>

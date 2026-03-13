@@ -27,16 +27,21 @@ public sealed class UniverseGraphWriterService : IUniverseGraphWriterService, IA
     private readonly INarrativeRootRepository _rootRepo;
     private readonly IFictionalEntityRepository _entityRepo;
     private readonly IEntityRelationshipRepository _relRepo;
+    private readonly ICanonicalValueRepository _canonicalRepo;
     private readonly IUniverseSidecarWriter _sidecarWriter;
     private readonly IConfigurationLoader _configLoader;
     private readonly ISystemActivityRepository _activityRepo;
     private readonly IEventPublisher _eventPublisher;
     private readonly ILogger<UniverseGraphWriterService> _logger;
 
+    /// <summary>Minimum number of distinct works required to create a universe folder.</summary>
+    private const int DefaultMinimumUniverseWorkCount = 2;
+
     public UniverseGraphWriterService(
         INarrativeRootRepository rootRepo,
         IFictionalEntityRepository entityRepo,
         IEntityRelationshipRepository relRepo,
+        ICanonicalValueRepository canonicalRepo,
         IUniverseSidecarWriter sidecarWriter,
         IConfigurationLoader configLoader,
         ISystemActivityRepository activityRepo,
@@ -46,6 +51,7 @@ public sealed class UniverseGraphWriterService : IUniverseGraphWriterService, IA
         ArgumentNullException.ThrowIfNull(rootRepo);
         ArgumentNullException.ThrowIfNull(entityRepo);
         ArgumentNullException.ThrowIfNull(relRepo);
+        ArgumentNullException.ThrowIfNull(canonicalRepo);
         ArgumentNullException.ThrowIfNull(sidecarWriter);
         ArgumentNullException.ThrowIfNull(configLoader);
         ArgumentNullException.ThrowIfNull(activityRepo);
@@ -55,6 +61,7 @@ public sealed class UniverseGraphWriterService : IUniverseGraphWriterService, IA
         _rootRepo       = rootRepo;
         _entityRepo     = entityRepo;
         _relRepo        = relRepo;
+        _canonicalRepo  = canonicalRepo;
         _sidecarWriter  = sidecarWriter;
         _configLoader   = configLoader;
         _activityRepo   = activityRepo;
@@ -147,6 +154,27 @@ public sealed class UniverseGraphWriterService : IUniverseGraphWriterService, IA
         if (string.IsNullOrWhiteSpace(libraryRoot))
         {
             _logger.LogDebug("LibraryRoot not configured; skipping universe XML write for {Qid}", universeQid);
+            return;
+        }
+
+        // Minimum work count check: skip single-work "universes" (e.g. The Martian).
+        // Count distinct works that reference this universe QID as their narrative root.
+        var linkedWorkIds = await _canonicalRepo.FindByValueAsync("narrative_root_qid", universeQid, ct)
+            .ConfigureAwait(false);
+        var minWorkCount = DefaultMinimumUniverseWorkCount;
+        try
+        {
+            var hydration = _configLoader.LoadHydration();
+            if (hydration.MinimumUniverseWorkCount > 0)
+                minWorkCount = hydration.MinimumUniverseWorkCount;
+        }
+        catch { /* use default */ }
+
+        if (linkedWorkIds.Count < minWorkCount)
+        {
+            _logger.LogDebug(
+                "Universe {Qid} has {Count} linked work(s) — below minimum threshold {Min}; skipping XML write",
+                universeQid, linkedWorkIds.Count, minWorkCount);
             return;
         }
 

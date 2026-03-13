@@ -67,4 +67,17 @@ public interface ICanonicalValueRepository
         string key,
         string value,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns all canonical values where the key matches and the value
+    /// starts with the given prefix.  Used to find NF placeholder QIDs
+    /// for incrementing the counter.
+    /// </summary>
+    /// <param name="key">The canonical value key (e.g. "wikidata_qid").</param>
+    /// <param name="prefix">The value prefix to match (e.g. "NF").</param>
+    /// <param name="ct">Cancellation token.</param>
+    Task<IReadOnlyList<CanonicalValue>> FindByKeyAndPrefixAsync(
+        string key,
+        string prefix,
+        CancellationToken ct = default);
 }

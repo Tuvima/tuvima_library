@@ -119,6 +119,14 @@ public sealed class HydrationSettings
     [JsonPropertyName("stage3_waterfall_confidence_threshold")]
     public double Stage3WaterfallConfidenceThreshold { get; set; } = 0.65;
 
+    /// <summary>
+    /// Minimum number of distinct works required for a universe folder to be
+    /// created.  Standalone works (e.g. The Martian) with fewer than this many
+    /// linked works will not generate a <c>.universe/</c> folder.
+    /// </summary>
+    [JsonPropertyName("minimum_universe_work_count")]
+    public int MinimumUniverseWorkCount { get; set; } = 2;
+
     // ── Backward compatibility ──────────────────────────────────────────
 
     /// <summary>

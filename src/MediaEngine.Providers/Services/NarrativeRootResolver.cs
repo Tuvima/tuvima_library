@@ -142,7 +142,9 @@ public sealed class NarrativeRootResolver : INarrativeRootResolver
                 !string.IsNullOrWhiteSpace(rawValue) &&
                 rawValue.StartsWith("http://www.wikidata.org/entity/Q", StringComparison.Ordinal))
             {
-                qid = rawValue.Split('/')[^1];
+                var uriQid = rawValue.Split('/')[^1];
+                // Strip "::Label" suffix if present
+                qid = uriQid.Contains("::") ? uriQid.Split("::", 2)[0] : uriQid;
                 label = rawValue; // Will be overwritten if a label exists
             }
             else
@@ -160,13 +162,27 @@ public sealed class NarrativeRootResolver : INarrativeRootResolver
         if (qid.Contains("|||"))
             qid = qid.Split("|||")[0].Trim();
 
+        // Strip "::Label" suffix produced by WikidataAdapter.StripEntityUri().
+        // Canonical _qid values may store "Q18417290::Cormoran Strike" — we need
+        // the bare QID for folder names and database keys.
+        if (qid.Contains("::"))
+        {
+            var colonParts = qid.Split("::", 2);
+            qid = colonParts[0];
+        }
+
         if (string.IsNullOrWhiteSpace(qid))
             return false;
 
         // Grab the human-readable label
         if (lookup.TryGetValue(claimKey, out var labelValue) && !string.IsNullOrWhiteSpace(labelValue))
         {
-            label = labelValue.Contains("|||") ? labelValue.Split("|||")[0].Trim() : labelValue;
+            var raw = labelValue.Contains("|||") ? labelValue.Split("|||")[0].Trim() : labelValue;
+            // Strip any "QID::Label" prefix if the label claim carried the compound format
+            label = raw.Contains("::") ? raw.Split("::", 2)[^1].Trim() : raw;
+            // If the label is a bare QID (e.g. "Q3041974"), prefer the ::suffix we stripped earlier
+            if (label.Length > 1 && label[0] is 'Q' && char.IsDigit(label[1]))
+                label = qid; // Fallback — will be resolved from qid_label cache
         }
         else
         {
@@ -181,7 +197,9 @@ public sealed class NarrativeRootResolver : INarrativeRootResolver
         if (lookup.TryGetValue($"{claimKey}_qid", out var val) && !string.IsNullOrWhiteSpace(val))
         {
             var qid = val.Contains('/') ? val.Split('/')[^1] : val;
-            return qid.Contains("|||") ? qid.Split("|||")[0].Trim() : qid;
+            if (qid.Contains("|||")) qid = qid.Split("|||")[0].Trim();
+            if (qid.Contains("::")) qid = qid.Split("::", 2)[0];
+            return qid;
         }
 
         return null;

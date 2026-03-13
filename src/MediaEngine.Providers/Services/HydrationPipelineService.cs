@@ -233,6 +233,9 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             "Pipeline endpoint map: {Endpoints}",
             string.Join(", ", endpointMap.Select(kv => $"{kv.Key}={kv.Value}")));
 
+        var pipelineSw = System.Diagnostics.Stopwatch.StartNew();
+        long s1Ms = 0, s2Ms = 0, s3Ms = 0;
+
         // ── Stage 1: Authority Match (Wikidata) ─────────────────────────────
         //
         // Resolves the work's identity via Wikidata: bridge ID lookup or title
@@ -240,6 +243,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         // This stage runs first so that bridge IDs (ISBN, ASIN, TMDB, IMDb)
         // are available for Stage 3's precise retail lookups.
 
+        var stageSw = System.Diagnostics.Stopwatch.StartNew();
         var stage1Providers = GetProvidersForStage(1, provConfigs, request);
         var stage1Claims    = 0;
 
@@ -290,9 +294,17 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             await RunHubIntelligenceAsync(request.EntityId, qidConfirmed, ct)
                 .ConfigureAwait(false);
 
-            // Person enrichment: extract author/narrator references and enrich.
+            // Pseudonym author protection: if the existing author canonical value
+            // names a person flagged as a pseudonym (e.g. "Richard Bachman"), emit
+            // a high-confidence author claim so the real person's name from Wikidata
+            // does not overwrite the pseudonym.  The sidecar should say the name the
+            // work was *published* under.
             var canonicalsAfterS1 = await _canonicalRepo.GetByEntityAsync(request.EntityId, ct)
                 .ConfigureAwait(false);
+            await ProtectPseudonymAuthorAsync(request.EntityId, canonicalsAfterS1, ct)
+                .ConfigureAwait(false);
+
+            // Person enrichment: extract author/narrator references and enrich.
             var personRefs = ExtractPersonReferences(canonicalsAfterS1);
             if (personRefs.Count > 0)
             {
@@ -374,6 +386,9 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 request.EntityId);
         }
 
+
+        s1Ms = stageSw.ElapsedMilliseconds;
+        stageSw.Restart();
 
         // ── Stage 2: Context Match (Wikipedia) ──────────────────────────────
         //
@@ -458,6 +473,9 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             }
         }
 
+
+        s2Ms = stageSw.ElapsedMilliseconds;
+        stageSw.Restart();
 
         // ── Stage 3: Retail Match (Waterfall) ───────────────────────────────
         //
@@ -629,8 +647,72 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         }
 
 
+        s3Ms = stageSw.ElapsedMilliseconds;
+
+        // ── NF Placeholder: retail-only match without Wikidata QID ──────────
+        // When Stage 1 (Wikidata) failed to find a QID but Stage 3 (retail)
+        // succeeded, the book is likely new or in early release.  Assign a
+        // placeholder QID in "NF{6-digit}" format and flag it for future review.
+        if (result.WikidataQid is null && result.Stage3ClaimsAdded > 0)
+        {
+            try
+            {
+                // Check if entity already has a wikidata_qid (could have been set earlier).
+                var existingQid = (await _canonicalRepo.GetByEntityAsync(request.EntityId, ct)
+                    .ConfigureAwait(false))
+                    .FirstOrDefault(c => string.Equals(c.Key, "wikidata_qid", StringComparison.OrdinalIgnoreCase));
+
+                if (existingQid is null || string.IsNullOrWhiteSpace(existingQid.Value))
+                {
+                    var placeholder = await GenerateNfPlaceholderAsync(ct).ConfigureAwait(false);
+
+                    await _canonicalRepo.UpsertBatchAsync(new[]
+                    {
+                        new CanonicalValue
+                        {
+                            EntityId     = request.EntityId,
+                            Key          = "wikidata_qid",
+                            Value        = placeholder,
+                            LastScoredAt = DateTimeOffset.UtcNow,
+                        },
+                        new CanonicalValue
+                        {
+                            EntityId     = request.EntityId,
+                            Key          = "qid_status",
+                            Value        = "pending",
+                            LastScoredAt = DateTimeOffset.UtcNow,
+                        },
+                    }, ct).ConfigureAwait(false);
+
+                    // Create a review item so the user can revisit when Wikidata has it.
+                    await CreateReviewItemAsync(
+                        request, ReviewTrigger.MissingQid, 0.0,
+                        $"No Wikidata QID found. Retail match exists ({result.Stage3ClaimsAdded} claims). Placeholder: {placeholder}",
+                        result, ct).ConfigureAwait(false);
+
+                    _logger.LogInformation(
+                        "Assigned NF placeholder {Placeholder} to entity {Id} — retail match but no Wikidata QID",
+                        placeholder, request.EntityId);
+                }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(ex,
+                    "NF placeholder generation failed for entity {Id}; continuing",
+                    request.EntityId);
+            }
+        }
+
+
         // ── Post-pipeline: confidence check ─────────────────────────────────
         PostPipeline:
+
+        pipelineSw.Stop();
+        _logger.LogInformation(
+            "[PERF] Hydration {EntityId}: S1={S1Ms}ms S2={S2Ms}ms S3={S3Ms}ms Total={TotalMs}ms (claims: {S1Claims}+{S2Claims}+{S3Claims}={TotalClaims})",
+            request.EntityId, s1Ms, s2Ms, s3Ms, pipelineSw.ElapsedMilliseconds,
+            result.Stage1ClaimsAdded, result.Stage2ClaimsAdded, result.Stage3ClaimsAdded,
+            result.TotalClaimsAdded);
 
         if (result.TotalClaimsAdded > 0)
         {
@@ -1510,6 +1592,95 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         }
 
         return refs;
+    }
+
+    /// <summary>
+    /// If the work's current <c>author</c> canonical value names a person who is
+    /// flagged as a pseudonym (<c>IsPseudonym = true</c>), emit a high-confidence
+    /// author claim (0.98) to prevent Wikidata's real-person author from overwriting
+    /// the pseudonym name.
+    ///
+    /// <summary>
+    /// Generates the next NF placeholder QID (e.g. "NF000001") by scanning
+    /// existing canonical values for the highest NF-prefixed value and
+    /// incrementing.  Thread-safe within a single pipeline run — concurrent
+    /// access is prevented by the single-reader processing loop.
+    /// </summary>
+    private async Task<string> GenerateNfPlaceholderAsync(CancellationToken ct)
+    {
+        // Find the highest existing NF placeholder across all entities.
+        var allNf = await _canonicalRepo.FindByKeyAndPrefixAsync("wikidata_qid", "NF", ct)
+            .ConfigureAwait(false);
+
+        int maxNumber = 0;
+        foreach (var nf in allNf)
+        {
+            if (nf.Value.StartsWith("NF", StringComparison.OrdinalIgnoreCase)
+                && int.TryParse(nf.Value.AsSpan(2), out var num)
+                && num > maxNumber)
+            {
+                maxNumber = num;
+            }
+        }
+
+        return $"NF{maxNumber + 1:D6}";
+    }
+
+    /// <para>Example: a book published under "Richard Bachman" should keep that name
+    /// in the sidecar even after Wikidata resolves it to Stephen King.</para>
+    /// </summary>
+    private async Task ProtectPseudonymAuthorAsync(
+        Guid entityId,
+        IReadOnlyList<CanonicalValue> canonicals,
+        CancellationToken ct)
+    {
+        try
+        {
+            var authorCanonical = canonicals.FirstOrDefault(
+                c => string.Equals(c.Key, "author", StringComparison.OrdinalIgnoreCase));
+            if (authorCanonical is null || string.IsNullOrWhiteSpace(authorCanonical.Value))
+                return;
+
+            var authorName = authorCanonical.Value;
+            // Handle multi-valued author (take first).
+            if (authorName.Contains("|||", StringComparison.Ordinal))
+                authorName = authorName.Split("|||")[0].Trim();
+
+            // Look up the person by name (as Author) to check the pseudonym flag.
+            var pseudonymPerson = await _personRepo.FindByNameAsync(authorName, "Author", ct).ConfigureAwait(false);
+            if (pseudonymPerson is null || !pseudonymPerson.IsPseudonym)
+            {
+                // Also check Narrator role (audiobooks credited to pseudonym narrators).
+                pseudonymPerson = await _personRepo.FindByNameAsync(authorName, "Narrator", ct).ConfigureAwait(false);
+            }
+
+            if (pseudonymPerson is null || !pseudonymPerson.IsPseudonym)
+                return;
+
+            // Emit a high-confidence author claim using a stable "pseudonym_lock" provider GUID
+            // to ensure the pseudonym name wins the scoring election.
+            var pseudonymClaims = new List<ProviderClaim>
+            {
+                new("author", pseudonymPerson.Name, 0.98),
+            };
+
+            // Use a stable provider GUID for pseudonym protection claims.
+            var pseudonymProviderId = Guid.Parse("ffa00001-0000-4000-8000-000000000099");
+            await ScoringHelper.PersistClaimsAndScoreAsync(
+                entityId, pseudonymClaims, pseudonymProviderId,
+                _claimRepo, _canonicalRepo, _scoringEngine, _configLoader,
+                _providers, ct, _arrayRepo, _logger).ConfigureAwait(false);
+
+            _logger.LogInformation(
+                "Protected pseudonym author \"{PseudonymName}\" for entity {EntityId}",
+                pseudonymPerson.Name, entityId);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogDebug(ex,
+                "Pseudonym author protection check failed for entity {Id}; continuing",
+                entityId);
+        }
     }
 
     /// <summary>

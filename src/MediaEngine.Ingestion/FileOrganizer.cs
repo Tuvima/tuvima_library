@@ -134,6 +134,7 @@ public sealed class FileOrganizer : IFileOrganizer
             ["TrackNumber"] = "01",
             ["Season"]      = "01",
             ["Episode"]     = "01",
+            ["Hash6"]       = "a1b2c3",
         };
 
         string resolved = ResolveTemplate(template, sampleTokens);
@@ -308,6 +309,10 @@ public sealed class FileOrganizer : IFileOrganizer
             ["TrackNumber"] = meta.GetValueOrDefault("track_number", string.Empty),
             ["Season"]      = meta.GetValueOrDefault("season",       string.Empty),
             ["Episode"]     = meta.GetValueOrDefault("episode",      string.Empty),
+            // ── Content hash token for collision avoidance ──────────────────────
+            ["Hash6"]       = meta.TryGetValue("content_hash", out var hash) && hash.Length >= 6
+                                  ? hash[..6]
+                                  : string.Empty,
         };
 
         // Merge caller-supplied extras (allow overriding built-ins).

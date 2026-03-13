@@ -104,7 +104,7 @@ public sealed class SidecarWriter : ISidecarWriter
                     new XElement("media-type",   data.MediaType   ?? string.Empty),
                     new XElement("isbn",         data.Isbn        ?? string.Empty),
                     new XElement("asin",         data.Asin        ?? string.Empty),
-                    new XElement("wikidata-qid", data.WikidataQid ?? string.Empty)
+                    CreateQidElement(data.WikidataQid)
                 ),
                 new XElement("content-hash",     data.ContentHash),
                 new XElement("cover-path",       data.CoverPath),
@@ -335,6 +335,21 @@ public sealed class SidecarWriter : ISidecarWriter
         }
 
         return (single, multi);
+    }
+
+    /// <summary>
+    /// Creates a <c>&lt;wikidata-qid&gt;</c> element, adding <c>status="pending"</c>
+    /// when the QID is an NF placeholder (e.g. "NF000001").
+    /// </summary>
+    private static XElement CreateQidElement(string? qid)
+    {
+        var element = new XElement("wikidata-qid", qid ?? string.Empty);
+        if (!string.IsNullOrWhiteSpace(qid) &&
+            qid.StartsWith("NF", StringComparison.OrdinalIgnoreCase))
+        {
+            element.SetAttributeValue("status", "pending");
+        }
+        return element;
     }
 
     private static string? NullIfEmpty(string? value)

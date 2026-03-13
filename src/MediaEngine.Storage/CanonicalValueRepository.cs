@@ -222,6 +222,38 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository
         return Task.FromResult<IReadOnlyList<Guid>>(results);
     }
 
+    /// <inheritdoc/>
+    public Task<IReadOnlyList<CanonicalValue>> FindByKeyAndPrefixAsync(
+        string key,
+        string prefix,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        ArgumentException.ThrowIfNullOrWhiteSpace(key);
+        ArgumentException.ThrowIfNullOrWhiteSpace(prefix);
+
+        using var conn = _db.CreateConnection();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            SELECT entity_id, key, value, last_scored_at, is_conflicted
+            FROM   canonical_values
+            WHERE  key   = @key   COLLATE NOCASE
+              AND  value LIKE @prefix || '%';
+            """;
+        cmd.Parameters.AddWithValue("@key",    key);
+        cmd.Parameters.AddWithValue("@prefix", prefix);
+
+        var results = new List<CanonicalValue>();
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+        {
+            ct.ThrowIfCancellationRequested();
+            results.Add(MapRow(reader));
+        }
+
+        return Task.FromResult<IReadOnlyList<CanonicalValue>>(results);
+    }
+
     // -------------------------------------------------------------------------
     // Private row mapper
     // -------------------------------------------------------------------------

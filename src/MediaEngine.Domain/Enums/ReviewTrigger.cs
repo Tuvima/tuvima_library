@@ -70,4 +70,12 @@ public static class ReviewTrigger
     /// manually select the correct media type.
     /// </summary>
     public const string AmbiguousMediaType = "AmbiguousMediaType";
+
+    /// <summary>
+    /// Wikidata (Stage 1) did not find a QID for the work, but a retail
+    /// provider (Stage 3) matched by ISBN/ASIN.  The book is likely new or
+    /// in early release.  A <c>NF{6-digit}</c> placeholder QID was assigned
+    /// and should be replaced with a real QID when Wikidata catches up.
+    /// </summary>
+    public const string MissingQid = "MissingQid";
 }
