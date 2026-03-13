@@ -22,7 +22,7 @@ Tuvima Library does not create a library. It **presents** one. The stories alrea
 Every feature exists in service of that word:
 - The **Intelligence Engine** works invisibly so the library is already whole when you look at it.
 - The **Hub** is the act of presentation made structural — the book, film, and audiobook of the same story brought forward as one.
-- The **Bento Dashboard** is the presentation layer made visible — the interface where the Engine's understanding reaches the screen.
+- The **Cinematic Dashboard** is the presentation layer made visible — the interface where the Engine's understanding reaches the screen.
 
 > **All future sessions must preserve this creative context.** When writing copy, naming features, or explaining the product, the Presentation philosophy should be the frame.
 
@@ -32,7 +32,7 @@ Every feature exists in service of that word:
 
 Its core job is to bring order to a large, messy media collection spread across folders. You point it at your hard drive, and it automatically:
 
-1. **Watches** your folders for new files — books, audiobooks, comics, TV episodes, and movies.
+1. **Watches** your folders for new files — books, audiobooks, comics, TV shows, movies, music, and podcasts.
 2. **Fingerprints** each file with a unique identifier (like a barcode), so it can track files even if you rename or move them.
 3. **Reads the embedded information** inside each file — title, author, year, cover art, series name — and uses a *Weighted Voter* system to determine the most trustworthy version of each piece of information.
 4. **Groups everything into Hubs** — a single, intelligent home for all versions of the same story.
@@ -43,25 +43,32 @@ Its core job is to bring order to a large, messy media collection spread across 
 
 The central idea in Tuvima Library is the **Hub**.
 
-A Hub is the single digital home for a *story* — not just one file format, but every version of that story in your collection.
+A Hub is a **virtual container** — not a folder on disk, not a single title, but an intelligent grouping that links multiple media forms through their shared contextual metadata. A Hub represents a creative universe: the books, films, audiobooks, comics, and podcasts that belong together because their metadata says so.
 
-> *Example: "The Lord of the Rings" Hub might contain:*
-> - *The eBook (EPUB)*
-> - *The movie trilogy (MP4 videos)*
-> - *The audiobook narration*
-> - *The graphic novel adaptation (CBZ comic)*
+The matching is automatic. When the Engine discovers that a novel, its film adaptation, and a podcast discussion share the same author, franchise identifiers, or Wikidata Q-identifier, it groups them into a single Hub. You browse by universe, not by file type.
 
-All four live under one Hub. Tuvima Library links them together automatically by comparing their metadata. You browse by story, not by file type.
+This can be as simple as grouping books by the same author, or as rich as following a story from an ebook into its movie adaptation, or linking a podcast that covers the same topic.
+
+> *Example: The "Dune" Hub might contain:*
+> - *Frank Herbert's novels (EPUB ebooks)*
+> - *The Denis Villeneuve film adaptations (MP4 videos)*
+> - *The audiobook narrations (M4B)*
+> - *The graphic novel adaptations (CBZ comics)*
+> - *A related podcast series discussing the Dune universe*
+>
+> *These are linked not because they share a filename, but because their metadata — author, franchise QID, series identifiers — connects them to the same creative universe.*
 
 The Hub hierarchy works like this:
 
 ```
 Universe  (your entire library — all Hubs)
-  └── Hub  (one story — e.g. "Dune")
-        └── Work  (one title in that story — e.g. "Dune Part One")
+  └── Hub  (one creative universe — e.g. "Dune" — virtual, not a folder)
+        └── Work  (one title in that universe — e.g. "Dune Part One")
               └── Edition  (one physical version — e.g. "4K HDR Blu-ray Remux")
                     └── Media Asset  (one file on disk)
 ```
+
+**Important:** The Hub is resolved at metadata-scoring time by the Intelligence Engine. It has no presence on the filesystem — files are organized by category and title, not by Hub.
 
 ### Who is it for?
 
@@ -92,7 +99,7 @@ A single power user who wants complete, private control over a large media colle
 **This is a critical architectural decision.** The Tuvima Library *Engine* (the intelligence and data layer) is completely separate from the *Dashboard* (the visual interface).
 
 **Why this matters to the business:**
-- **Extensibility:** Other applications — like Radarr, Sonarr, or a custom mobile app — can connect directly to the Engine without needing the Dashboard. The Engine speaks a universal language (HTTP/JSON) that any app can understand.
+- **Extensibility:** Other applications — media managers, automation tools, or a custom mobile app — can connect directly to the Engine without needing the Dashboard. The Engine speaks a universal language (HTTP/JSON) that any app can understand.
 - **Maintenance:** If the Dashboard needs to be redesigned, the Engine keeps running untouched. Each part can be updated independently.
 - **Privacy:** The Engine can run as a silent background service with no interface at all, while the Dashboard is opened only when needed.
 
@@ -110,7 +117,7 @@ A single power user who wants complete, private control over a large media colle
 | `src/MediaEngine.Intelligence` | The Analyst | Runs the Weighted Voter system. Scores metadata Claims. Detects duplicates. |
 | `src/MediaEngine.Processors` | The Scanner | Opens each file type (EPUB, video, comic) and extracts its embedded information. |
 | `src/MediaEngine.Providers` | The Research Team | Fetches enriched metadata from external sources (Apple Books, Audnexus, Wikidata). Runs non-blocking on a background channel. |
-| `src/MediaEngine.Ingestion` | The Mail Room | Watches the Watch Folder. Queues new files. Manages the safe move of files into the organised library. |
+| `src/MediaEngine.Ingestion` | The Mail Room | Monitors Library Folders (watch and import modes). Queues new files. Manages the safe move or copy of files into the organised library. |
 | `src/MediaEngine.Api` | The Reception Desk | The Engine's public interface. Exposes all features over HTTP. Hosts the real-time intercom. |
 | `src/MediaEngine.Web` | The Showroom | The browser Dashboard. Uses the Feature-Sliced layout (see Section 6). |
 | `tests/` | The Quality Inspector | Automated checks for every module. |
@@ -124,7 +131,7 @@ Inside `src/MediaEngine.Web`, the code is organised by *what it does*, not by *w
 | `Services/Integration/` | All communication with the Engine (HTTP calls, SignalR intercom) |
 | `Services/Theming/` | Visual appearance — dark/light mode, colour palette, corner radii |
 | `Components/Universe/` | Hub grid, hero card, media item cards |
-| `Components/Bento/` | The asymmetric card-grid layout system |
+| `Components/Bento/` | Legacy grid wrappers — primary layout is Poster Swimlanes in `Components/Universe/` |
 | `Components/Navigation/` | Command palette, navigation menu |
 | `Models/ViewDTOs/` | The data shapes used by the Dashboard (separate from the Engine's data shapes) |
 | `Shared/` | Top-level layout, navigation shell, shared imports |
@@ -133,20 +140,68 @@ Inside `src/MediaEngine.Web`, the code is organised by *what it does*, not by *w
 
 ## 3. Technical Strategy & Key Features
 
-### 3.1 — The Watch Folder (Ingestion Engine)
+### 3.1 — Library Folders & Intake (Ingestion Engine)
 
-**Plain English:** You designate a folder on your computer as the "inbox". Anything you drop into that folder is automatically processed.
+**Plain English:** You configure one or more **Library Folders** — each one tells the Engine where to look for files and what kind of media to expect. The Engine monitors these folders and automatically processes anything that appears.
 
-**What happens when a file lands in the inbox:**
+**Library Folders** — each folder entry has:
+- **Category** — the content category this folder belongs to (Books, TV, Movies, Music, Comics, Podcasts). This is the top-level grouping that determines how files are organized on disk.
+- **Media Type** — the expected media type(s) within this category. Different media types trigger different processing behaviours and metadata providers. For example, a "Books" category folder may contain both `Epub` and `Audiobook` media types — each processed by its own scanner and matched against different provider pipelines.
+- **Source Path** — the folder the Engine monitors or imports from.
+- **Intake Mode:**
+  - **Watch** (default) — monitors for new files, **always moves** them into the organised library structure. This is the active inbox.
+  - **Import** — scans an existing collection. The user chooses whether to **move** files (relocate into organised structure) or **copy** them (leave originals in place, create organised copies).
+- **Library Root** — the destination folder where organised files are placed. Can be shared across library folders or separate per folder.
+
+The category tells the Engine *where* to organise files. The media type tells it *how* to process them — which scanner to use, which metadata providers to query, and what fields to expect. Knowing the expected media type provides a strong confidence prior (0.80) for disambiguation — if a library folder is designated for Movies, an MP4 file skips heuristic guessing and goes straight to TMDB for metadata.
+
+**Configuration** (`config/libraries.json`):
+```json
+{
+  "libraries": [
+    {
+      "category": "Movies",
+      "media_types": ["Movies"],
+      "source_path": "/media/downloads/movies",
+      "library_root": "/media/library",
+      "intake_mode": "watch"
+    },
+    {
+      "category": "Books",
+      "media_types": ["Epub", "Audiobook"],
+      "source_path": "/media/existing-audiobooks",
+      "library_root": "/media/library",
+      "intake_mode": "import",
+      "import_action": "copy"
+    },
+    {
+      "category": "TV",
+      "media_types": ["TV"],
+      "source_path": "/media/tv-shows",
+      "library_root": "/media/library",
+      "intake_mode": "watch"
+    }
+  ]
+}
+```
+
+**Backward compatibility:** When `config/libraries.json` is absent, the single `WatchDirectory`/`LibraryRoot` from `core.json` creates an implicit default library folder with Watch mode and all media types enabled (disambiguation heuristics apply).
+
+**What happens when a file arrives (Watch mode):**
 
 1. **Settle** — The Engine waits briefly to make sure the file has finished copying (prevents reading half-written files).
 2. **Lock check** — It confirms no other program is currently using the file.
 3. **Fingerprint** — It computes a unique hash of the file's contents (like a barcode). This is the file's permanent identity — it survives renaming and moving.
-4. **Scan** — The appropriate Scanner (book/video/comic) opens the file and reads all embedded metadata.
+4. **Scan** — The appropriate Scanner (book/video/audio/comic) opens the file and reads all embedded metadata.
 5. **Identify** — The Analyst runs the Weighted Voter to assign the file to a Hub (or create a new one).
 6. **Move** — The file is moved from the inbox to a clean, organised folder structure in the library.
 
-**Why this matters to the business:** Once configured, the library manages itself. Drop files in; the Library does the rest.
+**Import mode** follows steps 1–5 identically, then either **moves** or **copies** the file depending on `import_action`. After import completes, the folder can optionally switch to Watch mode for ongoing monitoring.
+
+**Why this matters to the business:**
+- **Reliability** — Once configured, the library manages itself. Drop files in; the Library does the rest.
+- **Extensibility** — Each media type routes to its own provider pipeline (Books → Apple Books/Google Books, Movies → TMDB, Music → MusicBrainz, etc.).
+- **Privacy** — All processing happens locally. Import mode with "copy" preserves originals untouched.
 
 ### 3.2 — The Field-Specific Weighted Voter (Intelligence Engine)
 
@@ -188,7 +243,7 @@ Private API keys (e.g. for external metadata providers like TMDB or MusicBrainz)
 **Guest Key System**
 Any application that wants to talk to the Engine must present a valid API key. Keys are:
 - Generated inside the Engine with an assigned role (Administrator, Curator, or Consumer)
-- Labelled (e.g. "Radarr integration", "Mobile app")
+- Labelled (e.g. "Media manager integration", "Mobile app")
 - Revocable individually without affecting other keys
 
 **Mandatory Authentication (Phase A Security Foundation)**
@@ -241,7 +296,7 @@ The accent colour is fixed to golden amber (#C9922E, derived from the logo gradi
 The Home and lane page heroes use a full-width cinematic banner. When a pre-rendered `hero.jpg` exists (generated by `HeroBannerGenerator` during ingestion using SkiaSharp: blur + vignette + grain), it is served directly. Otherwise, falls back to CSS-blurred cover art (`filter: blur(24px)`) with a dark vignette overlay. Falls back to a gradient when no cover art is available. Metadata badges (year, media type), Hub title + author are shown.
 
 **Poster Swimlanes**
-The Hub overview uses horizontal-scrolling poster-art rows (`PosterSwimlane.razor` + `PosterCard.razor`) instead of a Bento grid. Rows: "Continue your Journey", "Recently Added", then media-type-grouped swimlanes. Cards show cover art (2:3 aspect ratio) with title and metadata badges below. Hidden scrollbar, scroll-snap for touch. Card width driven by device config (`swimlane_card_width`).
+The Hub overview uses horizontal-scrolling poster-art rows (`PosterSwimlane.razor` + `PosterCard.razor`). Rows: "Continue your Journey", "Recently Added", then media-type-grouped swimlanes. Cards show cover art (2:3 aspect ratio) with title and metadata badges below. Hidden scrollbar, scroll-snap for touch. Card width driven by device config (`swimlane_card_width`).
 
 **Automotive Mode** *(planned)*
 A high-contrast, large-button display mode designed for use at a distance (e.g. on a media room TV or tablet mounted in a vehicle). All text is enlarged, all touch targets are oversized, and non-essential interface elements are hidden. Activated by a single toggle.
@@ -265,7 +320,11 @@ Three official SVG logo files exist. **Never replace logo placements with hand-w
 
 ### 3.6 — External Metadata Adapters & Recursive Person Enrichment (Phase 9)
 
-**Plain English:** After a file lands in the library, the Engine quietly reaches out to five free online sources — Apple Books, Audnexus, Open Library, Google Books, and Wikidata — to fetch better cover art, descriptions, narrator credits, and author portraits. This happens entirely in the background; the file appears on the Dashboard immediately, and the richer information pops in moments later without any page refresh.
+**Primary Sources: Wikidata & Wikipedia.** Tuvima embraces Wikidata and Wikipedia as its primary knowledge sources. Their mission to organise human knowledge mirrors Tuvima's mission to organise personal media. Every metadata lookup starts with Wikidata's authority. Wikipedia provides human-readable context. Person and human data is always gathered from Wikidata/Wikipedia. Universe information — complex relationships, narratives between different media types, fictional entities — is populated from Wikidata.
+
+**Why secondary sources exist:** Wikipedia doesn't have everything — new releases take time to catalogue. Cover art and promotional imagery are copyright-restricted on Wikimedia. Secondary retail providers (Apple Books, TMDB, Audnexus, etc.) fill these gaps: commercial identifiers, cover art, ratings, and metadata for recent releases.
+
+**Plain English:** After a file lands in the library, the Engine quietly reaches out to Wikidata and Wikipedia first (as the primary authority), then to retail providers — Apple Books, Audnexus, Open Library, Google Books — to fill gaps with cover art, descriptions, narrator credits, and ratings. This happens entirely in the background; the file appears on the Dashboard immediately, and the richer information pops in moments later without any page refresh.
 
 **The six zero-key providers (no accounts, no API keys required):**
 
@@ -337,17 +396,43 @@ Adding a new REST+JSON provider is a **zero-code operation**: drop a config file
 - The **database is a cache of the filesystem, not the master copy.** XML always wins on conflict during a Great Inhale.
 - Cover art is **never stored in the database.** `cover.jpg` lives alongside the file on disk and is always read from there.
 
-**Hub-First Folder Structure:**
+**Folder Structure:**
+
+The default organisation template places files in a category folder with the title and Wikidata QID as the unique identifier. The Hub is a virtual container (§1) and has no presence on the filesystem.
+
+**Default template:** `{LibraryRoot}/{Category}/{Title} - {QID}/{Title}{Ext}`
+
+**Per-media-type overrides:**
+- **Books/Audiobooks:** `{Category}/{Title} - {QID}/{Format}/{Title}{Ext}` — format subfolder distinguishes ebook from audiobook in the same title folder
+- **TV:** `{Category}/{Title} - {QID}/S{Season}E{Episode} - {Title}{Ext}`
+- **Music:** `{Category}/{Artist}/{Album} - {QID}/{TrackNumber} - {Title}{Ext}`
+- **Movies, Comics, Podcasts:** `{Category}/{Title} - {QID}/{Title}{Ext}` (flat — single format per title)
+
+**Example (Books library with both formats):**
 ```
-{LibraryRoot}/{Category}/{HubName} ({Year})/{Format} - {Edition}/
-  {filename}.epub          ← the organised media file
-  library.xml              ← Edition-level sidecar (this folder)
-  cover.jpg                ← Cover art extracted from the file
-{LibraryRoot}/{Category}/{HubName} ({Year})/
-  library.xml              ← Hub-level sidecar (parent folder)
+{LibraryRoot}/Books/Dune - Q190159/Epub/Dune.epub
+{LibraryRoot}/Books/Dune - Q190159/Audiobook/Dune.m4b
+{LibraryRoot}/Books/Dune - Q190159/library.xml       ← title-level sidecar
+{LibraryRoot}/Books/Dune - Q190159/cover.jpg          ← cover art
 ```
 
-`{Category}` is derived from `MediaType` enum: `Books` (Epub), `Comics`, `Videos` (Movie), `Audio` (Audiobook), `Other`.
+**Example (Movies — flat):**
+```
+{LibraryRoot}/Movies/Dune Part Two - Q104686073/Dune Part Two.mkv
+{LibraryRoot}/Movies/Dune Part Two - Q104686073/library.xml
+{LibraryRoot}/Movies/Dune Part Two - Q104686073/cover.jpg
+```
+
+**`{Category}` mapping** from `MediaType` enum:
+- Books + Audiobooks → `Books`
+- TV → `TV`
+- Movies → `Movies`
+- Music → `Music`
+- Comics → `Comics`
+- Podcasts → `Podcasts`
+- Unknown → `Other`
+
+**Migration note:** Existing libraries organised under older patterns (e.g., `{Title} ({Qid})/{Format}/`) continue to work. On the next hydration pass or a manual "Re-organise Library" action, files are moved to the new structure automatically.
 
 **AutoOrganize confidence gate:**
 AutoOrganize is gated on:
@@ -538,6 +623,8 @@ The provider card's capability icon set expanded from 12 entries to 60+ entries,
 ```
 config/
   library.json                    ← Core: paths, schema version, org template
+  libraries.json                  ← Library folders: category, media types, source path,
+                                     intake mode (watch/import), library root (§3.1)
   scoring.json                    ← Scoring: thresholds, decay
   maintenance.json                ← Maintenance: retention, vacuum, sync
   hydration.json                  ← Hydration pipeline: stage timeouts, concurrency,
@@ -625,7 +712,7 @@ Example files in `config.example/ui/`. Live files in `config/ui/` gitignored.
 - `DeviceContextService` (`MediaEngine.Web.Services.Theming`) — per-circuit scoped; replaced `AutomotiveModeService`
 - `ResolvedUISettingsViewModel` + DTOs (`MediaEngine.Web.Models.ViewDTOs`) — Dashboard view model
 
-**Adapted components:** MainLayout, TopBar (4 variants), LeftDock, MobileNavDrawer, SettingsTabBar (5 layout modes), GeneralTab (conditional sections), Home, HubHero (cinematic banner), PosterSwimlane + PosterCard, BentoGrid (dynamic columns), PendingFilesAlert (expandable/badge/hidden), ServerSettings (redirect guard), Preferences (conditional links).
+**Adapted components:** MainLayout, TopBar (4 variants), LeftDock, MobileNavDrawer, SettingsTabBar (5 layout modes), GeneralTab (conditional sections), Home, HubHero (cinematic banner), PosterSwimlane + PosterCard (responsive card widths), PendingFilesAlert (expandable/badge/hidden), ServerSettings (redirect guard), Preferences (conditional links).
 
 **Why this matters to the business:**
 - **Extensibility** — Adding a new device class is one JSON file + one entry in the cascade resolver. No code changes in the Dashboard.
@@ -634,6 +721,8 @@ Example files in `config.example/ui/`. Live files in `config/ui/` gitignored.
 - **Reliability** — If the Engine is offline, the Dashboard falls back to compiled web defaults. No blank screens.
 
 ### 3.13 — Three-Stage Hydration Pipeline & Review Queue
+
+**Philosophy:** Tuvima embraces Wikidata and Wikipedia as its primary knowledge sources for all media types. A single Wikidata SPARQL query replaces what would be dozens of individual API calls. Person and human data is always sourced from Wikidata/Wikipedia. The entire "universe" of relationships, fictional entities, and cross-media narrative links is populated from Wikidata. Secondary retail providers exist to fill gaps — new releases that Wikipedia hasn't catalogued yet, and copyright-safe cover art that Wikimedia cannot host.
 
 **Plain English:** When a file arrives in the library, the Engine runs a three-stage authority-first enrichment pipeline. Stage 1 (Wikidata) establishes the work's identity and deposits bridge IDs. Stage 2 (Wikipedia) fetches an encyclopedic description. Stage 3 (Retail providers) uses bridge IDs for precise cover art and rating lookups. Ambiguous matches are surfaced via a dedicated review queue.
 
@@ -1035,7 +1124,7 @@ Thresholds and all heuristic parameters (duration bands, bitrate thresholds, pat
 1. **Continue Journey** — most recently accessed, incomplete items (queries `UserState`)
 2. **Recently Added** — horizontal scroll of newest Hubs (new endpoint: `GET /hubs/recent?limit=20`)
 3. **Smart Collections** — "In Progress", "New This Week", "Unread" (auto-generated from metadata)
-4. **Your Universes** (existing) — Bento grid of all Hubs
+4. **Your Universes** (existing) — Poster swimlane grid of all Hubs
 
 **Navigation additions:**
 - Breadcrumb trail: Home → Hub → Work
@@ -1062,9 +1151,11 @@ Thresholds and all heuristic parameters (duration bands, bitrate thresholds, pat
 
 **Plain English:** The three-stage hydration pipeline (§3.13) works identically for all seven media types — Books, Audiobooks, Movies, TV Shows, Comics, Music, and Podcasts. Only the provider in Stage 1 changes; the pipeline architecture itself is media-type-agnostic. A new response cache eliminates redundant API calls when bulk-importing large collections.
 
-**Provider slot assignments per media type:**
+**Stage 3 retail provider slot assignments per media type:**
 
-| Media Type | Primary (Stage 1) | Secondary | Tertiary | Bridge to Wikidata |
+Wikidata (Stage 1) and Wikipedia (Stage 2) are the universal authority sources for all media types. The table below shows Stage 3 retail provider assignments — these fill gaps that Wikidata/Wikipedia cannot cover (cover art, ratings, new releases).
+
+| Media Type | Retail Primary | Retail Secondary | Retail Tertiary | Bridge to Wikidata |
 |-----------|-------------------|-----------|----------|-------------------|
 | **Books** | Apple Books (zero-key) | Google Books (key) | Open Library (zero-key) | ISBN (P212), Apple Books ID (P3861) |
 | **Audiobooks** | Apple Books (zero-key) | Google Books (key) | — | ASIN, Apple Books ID (P3861) |
@@ -1223,6 +1314,85 @@ Per-provider TTL defaults: Apple Books 168h (7d), TMDB 168h, Open Library 336h (
 **IPersonRepository additions:** `UpdateBiographicalFieldsAsync`, `LinkAliasAsync`, `FindAliasesAsync`, `LinkToCharacterAsync`, `GetCharacterLinksAsync`.
 
 **Great Inhale v1.1 support:** `ScanPeopleAsync` reads v1.1 person.xml fields (biographical details, characters, pseudonym links), parses `Name (QID)` folder pattern for QID extraction, and rebuilds `person_aliases` and `character_performer_links` tables from sidecar data.
+
+### 3.24 — Two-Pass Enrichment Architecture
+
+**Plain English:** When a file arrives, the Engine runs a quick first pass to get it looking good on the Dashboard immediately — title, author, cover art, basic person photos. The deeper universe lookup — character relationships, cross-media narrative links, fictional entities, actor-character connections — runs later in the background when the system is idle, or on a nightly schedule.
+
+**Pass 1 — Quick Match (immediate, during ingestion):**
+
+Pass 1 runs as part of the normal three-stage hydration pipeline (§3.13) but fetches only core properties:
+
+- **Stage 1 (Wikidata — core subset):** Bridge ID lookup (ISBN, ASIN) or title search → resolve QID. Fetch **core properties only**: title, author/artist, year, genre, series, series_position. Skip the full 50+ property SPARQL deep hydration.
+- **Stage 2 (Wikipedia):** Fetch encyclopedic description (unchanged — already lightweight).
+- **Stage 3 (Retail providers):** Cover art, ratings, narrator credits (unchanged).
+- **Basic person creation:** Find/create Person records for author, narrator, director. Fetch name + headshot + occupation from Wikidata. Skip deep social links and biographical enrichment.
+
+Result: the file appears on the Dashboard within seconds with title, author, cover art, and author photo.
+
+**Pass 2 — Universe Lookup (deferred, background):**
+
+Pass 2 handles everything that makes the library *intelligent* — the deep connections between media, people, and fictional worlds:
+
+- **Full SPARQL deep hydration** — all 50+ properties from `WikidataSparqlPropertyMap`
+- **Hub Intelligence** — franchise resolution, narrative root assignment (P1434, P8345, P179)
+- **Fictional entity discovery** — characters, locations, organisations from Wikidata
+- **Relationship population** — father, spouse, member_of, performer links (depth limit 1)
+- **Deep person enrichment** — social links (Instagram, TikTok, Mastodon), biographical details (birth/death dates, nationality), pseudonym resolution (P1773/P742)
+- **Character-performer links** — actor who played the character from the book
+- **Universe graph writing** — `universe.xml` sidecar generation
+
+**Recursive person enrichment in Pass 2:** When Pass 2 discovers a link — an author's pen name, an actor who played a character from a book, a director's other works — it enriches those people too. This recursive chain only runs in Pass 2 to avoid heavy load during initial ingestion. Pass 1 creates the person records; Pass 2 follows the web of connections.
+
+**Scheduling: Priority Queue + Nightly Sweep (hybrid):**
+
+1. **Primary mechanism: Priority queue.** Pass 2 requests go onto a low-priority background channel. When the ingestion pipeline is idle (no Pass 1 work pending, no files being processed), the service picks up Pass 2 requests and processes them with respectful rate limiting (e.g., 1 SPARQL query every 2 seconds). If a new file arrives, Pass 2 processing pauses and Pass 1 takes priority.
+
+2. **Safety net: Nightly sweep.** A configurable cron job (default: daily at 2:00 AM) scans for any Pass 2 requests older than N hours that the priority queue has not yet processed (e.g., due to sustained heavy ingestion). Processes in batches with configurable size and inter-batch delay.
+
+3. **User-triggered override.** The existing "Hydrate" button in the Dashboard runs both passes synchronously via `RunSynchronousAsync`, bypassing the queue entirely.
+
+**Configuration** (`config/hydration.json` additions):
+```json
+{
+  "two_pass_enabled": true,
+  "pass1_core_properties_only": true,
+  "pass2_idle_delay_seconds": 10,
+  "pass2_rate_limit_ms": 2000,
+  "pass2_nightly_cron": "0 2 * * *",
+  "pass2_stale_threshold_hours": 24,
+  "pass2_batch_size": 50
+}
+```
+
+**Key types:**
+- `DeferredEnrichmentRequest` (`MediaEngine.Domain.Models`) — Pass 2 queue item with entity ID, QID, and creation timestamp
+- `IDeferredEnrichmentService` (`MediaEngine.Domain.Contracts`) — enqueue + process contract
+- `DeferredEnrichmentService` (`MediaEngine.Providers.Services`) — priority queue reader + nightly sweep BackgroundService
+- `HydrationPass` (`MediaEngine.Domain.Enums`) — `Quick = 1, Universe = 2`
+
+**Why this matters to the business:**
+- **Performance** — Files appear on the Dashboard in seconds, not minutes. The heavy universe work happens when the system is idle.
+- **Reliability** — The nightly sweep ensures nothing is permanently starved during sustained imports. The user override provides immediate results when needed.
+- **Extensibility** — The pass boundary is configurable. Properties can be moved between passes via `config/hydration.json`.
+- **Maintenance** — All scheduling parameters (idle delay, rate limit, cron, batch size) are JSON-configurable. Zero code changes to tune behaviour.
+
+### 3.25 — Supported Library Types
+
+| Library Type | Includes | Notes |
+|---|---|---|
+| **Books** | Ebooks (EPUB, PDF) + Audiobooks (M4B, MP3) | Unified library; format subfolder distinguishes reading and listening formats |
+| **TV** | Episodic television, web series | Season/episode folder structure |
+| **Movies** | Feature films, short films | Single-work structure |
+| **Music** | Albums, singles, tracks | Album = Hub, Track = Work |
+| **Comics** | CBZ, CBR, PDF comics, manga | Sequential art |
+| **Podcasts** | Podcast series and episodes | Series = Hub, Episode = Work |
+
+**Future Library Types:**
+
+**Other** — YouTube videos, lectures, personal recordings, and any media that doesn't fit the six primary library types. This category would require manual tagging since metadata inference is limited for unstructured content. The Engine would store files and allow user-provided metadata, but automated enrichment would be minimal. Planned for a future release.
+
+**Photos** — Photo collections, albums, and galleries. This domain has unique challenges that set it apart from the other media types: EXIF/XMP metadata extraction, GPS geolocation, face detection and grouping, event-based organisation, and timeline views. The scope is large enough that it could be its own product built on the same base Engine — reusing the Hub concept, Weighted Voter, and filesystem-first architecture, but with a specialised processing pipeline and Dashboard experience. Planned for a future release pending further design exploration.
 
 ---
 
@@ -1433,13 +1603,15 @@ git push
 | §3.1 (Watch Folder) | `features/INGESTION-PIPELINE.md` | Ingestion flow, settle/lock/fingerprint/scan/identify/move |
 | §3.2 (Weighted Voter) | `features/METADATA-MANAGEMENT.md`, `skills/METADATA-SCORING.md` | Claim system, trust weights, per-field voting |
 | §3.3 (Security) | `features/API-SECURITY.md`, `features/ROLE-ACCESS-MODEL.md`, `skills/API-SECURITY.md` | Auth, roles, rate limiting, path traversal |
-| §3.4 (Dashboard UI) | `features/LIBRARY-DASHBOARD.md`, `skills/DASHBOARD-UI.md` | Bento grid, theming, state management |
+| §3.4 (Dashboard UI) | `features/LIBRARY-DASHBOARD.md`, `skills/DASHBOARD-UI.md` | Poster swimlanes, cinematic hero, theming, state management |
 | §3.6 (Metadata Adapters) | `features/METADATA-MANAGEMENT.md`, `features/METADATA-PRIORITY.md` | Provider config, harvest pipeline, person enrichment |
 | §3.8 (Activity Ledger) | `features/SETTINGS-OVERVIEW.md` | Maintenance tab, activity timeline |
 | §3.12 (Device Profiles) | `features/SETTINGS-OVERVIEW.md` | UI config cascade, device detection |
 | §3.13 (Hydration Pipeline) | `features/INGESTION-PIPELINE.md` | Three-stage pipeline, review queue |
 | §3.14 (Media Type Disambiguation) | `features/INGESTION-PIPELINE.md` | Heuristic disambiguation, confidence thresholds, review queue |
 | §3.21 (Cross-Media Strategy) | `features/METADATA-MANAGEMENT.md` | Provider slots, response caching, artwork strategy, rate limits |
+| §3.24 (Two-Pass Enrichment) | `features/INGESTION-PIPELINE.md`, `features/METADATA-MANAGEMENT.md` | Quick match vs universe lookup, priority queue, nightly sweep |
+| §3.25 (Supported Library Types) | `features/INGESTION-PIPELINE.md` | Library types, future types (Other, Photos) |
 | §6 (Dashboard Layout) | `skills/DASHBOARD-UI.md` | Feature-sliced file locations |
 | FIX-PLAN tiers | `FIX-PLAN.md` | Systematic fix plan, tier-based issue tracking |
 
@@ -1483,9 +1655,9 @@ src/MediaEngine.Web/
 │   │   ├── PosterSwimlane.razor        Horizontal scrolling row of PosterCards with hidden scrollbar
 │   │   └── ProgressIndicator.razor     Reusable progress card (icon + bar + label)
 │   │
-│   ├── Bento/                ← The layout grid system (reusable)
-│   │   ├── BentoGrid.razor             CSS grid container (3-col desktop, dock clearance)
-│   │   └── BentoItem.razor             Glassmorphic tile: 32px radius, blur(20px)
+│   ├── Bento/                ← Legacy grid wrappers (primary layout is Poster Swimlanes in Universe/)
+│   │   ├── BentoGrid.razor             Legacy CSS grid container
+│   │   └── BentoItem.razor             Legacy glassmorphic tile wrapper
 │   │
 │   ├── Navigation/           ← Navigation and search components
 │   │   ├── CommandPalette.razor        Ctrl+K global search and navigation

@@ -7,12 +7,14 @@ namespace MediaEngine.Domain.Contracts;
 ///
 /// Replaces the flat "first provider wins" approach with a sequential pipeline:
 /// <list type="number">
-///   <item><b>Stage 1 — Retail Match:</b> All matching commercial providers run.
-///     The scoring engine resolves field conflicts.</item>
-///   <item><b>Stage 2 — Universal Bridge:</b> Bridge IDs from Stage 1 are used to
-///     resolve a Wikidata QID. SPARQL deep hydration fetches 50+ properties.</item>
-///   <item><b>Stage 3 — Human Hub:</b> Every creator in canonical values is enriched
-///     with headshots, bios, and social links.</item>
+///   <item><b>Stage 1 — Authority Match:</b> Wikidata QID resolution via bridge IDs
+///     (ISBN, ASIN, TMDB ID) or title search. SPARQL deep hydration fetches
+///     core properties. Hub intelligence + person enrichment run here.</item>
+///   <item><b>Stage 2 — Context Match:</b> Wikipedia article summary via QID
+///     sitelink lookup. Deposits description claim.</item>
+///   <item><b>Stage 3 — Retail Match:</b> Retail providers run in waterfall order
+///     from config/slots.json. Uses bridge IDs from Stage 1 for precise
+///     cover art and rating lookups.</item>
 /// </list>
 ///
 /// Two entry points:
