@@ -73,6 +73,13 @@ else
              aria-hidden="true"></div>
     }
 
+    @* ── TODO: Parent Hub (Franchise) swimlane ──────────────────────────────
+         When GetParentHubsAsync() returns results, add a "Franchises" swimlane
+         here using PosterSwimlane with the Parent Hubs. The data model fully
+         supports this via HubViewModel.IsParentHub / ChildHubCount.
+         Full Home page swimlane redesign for Parent Hub grouping is deferred.
+    ── *@
+
     @* ── Hero Carousel ── *@
     @if (_carouselCount > 0 && _showHero)
     {

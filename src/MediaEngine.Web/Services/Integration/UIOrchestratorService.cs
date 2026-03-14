@@ -538,6 +538,22 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         Guid personId, CancellationToken ct = default)
         => _api.GetWorksByPersonAsync(personId, ct);
 
+    // ── Parent Hub hierarchy ──────────────────────────────────────────────────
+
+    /// <summary>Returns all Parent Hubs (franchise-level groupings).</summary>
+    public Task<List<HubViewModel>> GetParentHubsAsync(CancellationToken ct = default)
+        => _api.GetParentHubsAsync(ct);
+
+    /// <summary>Returns child Hubs of the given Parent Hub.</summary>
+    public Task<List<HubViewModel>> GetChildHubsAsync(
+        Guid parentHubId, CancellationToken ct = default)
+        => _api.GetChildHubsAsync(parentHubId, ct);
+
+    /// <summary>Returns the Parent Hub of the given Hub, if any.</summary>
+    public Task<HubViewModel?> GetParentHubAsync(
+        Guid hubId, CancellationToken ct = default)
+        => _api.GetParentHubAsync(hubId, ct);
+
     // ── Conflicts ────────────────────────────────────────────────────────────
 
     /// <summary>

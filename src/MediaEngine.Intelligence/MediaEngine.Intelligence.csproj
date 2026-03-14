@@ -7,4 +7,9 @@
     <ProjectReference Include="..\MediaEngine.Storage\MediaEngine.Storage.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- ILogger<T> for ParentHubResolver and other logging consumers -->
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
+
 </Project>

@@ -65,4 +65,18 @@ public sealed class HarvestRequest
     /// Dashboard can link all ingestion sub-steps to a single <c>MediaAdded</c> card.
     /// </summary>
     public Guid? IngestionRunId { get; init; }
+
+    /// <summary>
+    /// Bridge identifiers from the Ingestion Hint cache (sibling-aware priming).
+    /// When present, Stage 1 can use these to skip the bridge lookup SPARQL query.
+    /// Keys are claim keys (e.g. "isbn", "tmdb_movie_id").
+    /// </summary>
+    public Dictionary<string, string>? FolderHintBridgeIds { get; set; }
+
+    /// <summary>
+    /// Hub ID suggested by the Ingestion Hint cache (sibling-aware priming).
+    /// When present, the Hub Arbiter evaluates this Hub first before running
+    /// the full candidate search.
+    /// </summary>
+    public Guid? HintedHubId { get; set; }
 }

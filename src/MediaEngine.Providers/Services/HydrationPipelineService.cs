@@ -243,6 +243,60 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         // This stage runs first so that bridge IDs (ISBN, ASIN, TMDB, IMDb)
         // are available for Stage 3's precise retail lookups.
 
+        // D2: inject folder hint bridge IDs into the request hints so providers
+        // can use them for direct lookups instead of title search.
+        if (request.FolderHintBridgeIds is { Count: > 0 })
+        {
+            var mergedHints = new Dictionary<string, string>(
+                request.Hints, StringComparer.OrdinalIgnoreCase);
+
+            foreach (var (key, value) in request.FolderHintBridgeIds)
+            {
+                // Only inject hints that are not already present from embedded metadata.
+                mergedHints.TryAdd(key, value);
+            }
+
+            // If hint provides a wikidata_qid, set it as PreResolvedQid so the
+            // WikidataAdapter skips bridge lookup and goes straight to deep hydration.
+            if (request.PreResolvedQid is null
+                && request.FolderHintBridgeIds.TryGetValue("wikidata_qid", out var hintQid)
+                && !string.IsNullOrWhiteSpace(hintQid))
+            {
+                request = new HarvestRequest
+                {
+                    EntityId            = request.EntityId,
+                    EntityType          = request.EntityType,
+                    MediaType           = request.MediaType,
+                    Hints               = mergedHints,
+                    PreResolvedQid      = hintQid,
+                    SuppressActivityEntry = request.SuppressActivityEntry,
+                    IngestionRunId      = request.IngestionRunId,
+                    FolderHintBridgeIds = request.FolderHintBridgeIds,
+                    HintedHubId         = request.HintedHubId,
+                };
+            }
+            else
+            {
+                request = new HarvestRequest
+                {
+                    EntityId            = request.EntityId,
+                    EntityType          = request.EntityType,
+                    MediaType           = request.MediaType,
+                    Hints               = mergedHints,
+                    PreResolvedQid      = request.PreResolvedQid,
+                    SuppressActivityEntry = request.SuppressActivityEntry,
+                    IngestionRunId      = request.IngestionRunId,
+                    FolderHintBridgeIds = request.FolderHintBridgeIds,
+                    HintedHubId         = request.HintedHubId,
+                };
+            }
+
+            _logger.LogDebug(
+                "Folder hint bridge IDs injected for entity {Id}: {Keys}",
+                request.EntityId,
+                string.Join(", ", request.FolderHintBridgeIds.Keys));
+        }
+
         var stageSw = System.Diagnostics.Stopwatch.StartNew();
         var stage1Providers = GetProvidersForStage(1, provConfigs, request);
         var stage1Claims    = 0;

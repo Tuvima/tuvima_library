@@ -35,7 +35,7 @@ public sealed class HubRepository : IHubRepository
         {
             cmd.CommandText = """
                 SELECT h.id, h.universe_id, h.display_name, h.created_at,
-                       h.universe_status,
+                       h.universe_status, h.parent_hub_id,
                        w.id, w.media_type, w.sequence_index,
                        w.universe_mismatch, w.universe_mismatch_at,
                        w.wikidata_status, w.wikidata_checked_at
@@ -57,26 +57,27 @@ public sealed class HubRepository : IHubRepository
                         DisplayName    = reader.IsDBNull(2) ? null : reader.GetString(2),
                         CreatedAt      = DateTimeOffset.Parse(reader.GetString(3)),
                         UniverseStatus = reader.IsDBNull(4) ? "Unknown" : reader.GetString(4),
+                        ParentHubId    = reader.IsDBNull(5) ? null : Guid.Parse(reader.GetString(5)),
                     };
                     hubs[hubId] = hub;
                 }
 
                 // LEFT JOIN: work columns are NULL when the hub has no works.
-                if (!reader.IsDBNull(5))
+                if (!reader.IsDBNull(6))
                 {
-                    var workId = Guid.Parse(reader.GetString(5));
+                    var workId = Guid.Parse(reader.GetString(6));
                     if (!works.ContainsKey(workId))
                     {
                         var work = new Work
                         {
                             Id                 = workId,
                             HubId              = hubId,
-                            MediaType          = Enum.Parse<MediaType>(reader.GetString(6), ignoreCase: true),
-                            SequenceIndex      = reader.IsDBNull(7) ? null : reader.GetInt32(7),
-                            UniverseMismatch   = !reader.IsDBNull(8) && reader.GetInt32(8) == 1,
-                            UniverseMismatchAt = reader.IsDBNull(9) ? null : DateTimeOffset.Parse(reader.GetString(9)),
-                            WikidataStatus     = reader.IsDBNull(10) ? "pending" : reader.GetString(10),
-                            WikidataCheckedAt  = reader.IsDBNull(11) ? null : DateTimeOffset.Parse(reader.GetString(11)),
+                            MediaType          = Enum.Parse<MediaType>(reader.GetString(7), ignoreCase: true),
+                            SequenceIndex      = reader.IsDBNull(8) ? null : reader.GetInt32(8),
+                            UniverseMismatch   = !reader.IsDBNull(9) && reader.GetInt32(9) == 1,
+                            UniverseMismatchAt = reader.IsDBNull(10) ? null : DateTimeOffset.Parse(reader.GetString(10)),
+                            WikidataStatus     = reader.IsDBNull(11) ? "pending" : reader.GetString(11),
+                            WikidataCheckedAt  = reader.IsDBNull(12) ? null : DateTimeOffset.Parse(reader.GetString(12)),
                         };
                         works[workId] = work;
                         hub.Works.Add(work);
@@ -194,7 +195,7 @@ public sealed class HubRepository : IHubRepository
         // Load the Hub with its relationships.
         using var hubCmd = conn.CreateCommand();
         hubCmd.CommandText = """
-            SELECT id, universe_id, display_name, created_at, universe_status
+            SELECT id, universe_id, display_name, created_at, universe_status, parent_hub_id
             FROM   hubs WHERE id = @id;
             """;
         hubCmd.Parameters.AddWithValue("@id", hubId.Value.ToString());
@@ -211,6 +212,7 @@ public sealed class HubRepository : IHubRepository
                     DisplayName    = reader.IsDBNull(2) ? null : reader.GetString(2),
                     CreatedAt      = DateTimeOffset.Parse(reader.GetString(3)),
                     UniverseStatus = reader.IsDBNull(4) ? "Unknown" : reader.GetString(4),
+                    ParentHubId    = reader.IsDBNull(5) ? null : Guid.Parse(reader.GetString(5)),
                 };
             }
         }
@@ -417,7 +419,7 @@ public sealed class HubRepository : IHubRepository
         using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
-            SELECT id, universe_id, display_name, created_at, universe_status
+            SELECT id, universe_id, display_name, created_at, universe_status, parent_hub_id
             FROM   hubs
             WHERE  LOWER(display_name) = LOWER(@name)
             LIMIT  1;
@@ -435,6 +437,7 @@ public sealed class HubRepository : IHubRepository
             DisplayName    = reader.IsDBNull(2) ? null : reader.GetString(2),
             CreatedAt      = DateTimeOffset.Parse(reader.GetString(3)),
             UniverseStatus = reader.IsDBNull(4) ? "Unknown" : reader.GetString(4),
+            ParentHubId    = reader.IsDBNull(5) ? null : Guid.Parse(reader.GetString(5)),
         };
 
         return Task.FromResult<Hub?>(hub);
@@ -448,20 +451,24 @@ public sealed class HubRepository : IHubRepository
         using var conn = _db.CreateConnection();
 
         // INSERT OR IGNORE ensures idempotency for new hubs.
-        // UPDATE sets display_name on every call so the latest ingested name wins.
+        // UPDATE sets display_name and parent_hub_id on every call so the latest
+        // ingested values win.
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
-            INSERT OR IGNORE INTO hubs(id, universe_id, display_name, created_at, universe_status)
-                VALUES (@id, @uid, @dn, @ca, @us);
-            UPDATE hubs SET display_name = @dn, universe_status = @us WHERE id = @id;
+            INSERT OR IGNORE INTO hubs(id, universe_id, parent_hub_id, display_name, created_at, universe_status)
+                VALUES (@id, @uid, @phid, @dn, @ca, @us);
+            UPDATE hubs SET display_name = @dn, universe_status = @us, parent_hub_id = @phid WHERE id = @id;
             """;
-        cmd.Parameters.AddWithValue("@id",  hub.Id.ToString());
-        cmd.Parameters.AddWithValue("@uid", hub.UniverseId.HasValue
+        cmd.Parameters.AddWithValue("@id",   hub.Id.ToString());
+        cmd.Parameters.AddWithValue("@uid",  hub.UniverseId.HasValue
             ? hub.UniverseId.Value.ToString()
             : (object)DBNull.Value);
-        cmd.Parameters.AddWithValue("@dn",  hub.DisplayName ?? (object)DBNull.Value);
-        cmd.Parameters.AddWithValue("@ca",  hub.CreatedAt.ToString("O"));
-        cmd.Parameters.AddWithValue("@us",  hub.UniverseStatus ?? "Unknown");
+        cmd.Parameters.AddWithValue("@phid", hub.ParentHubId.HasValue
+            ? hub.ParentHubId.Value.ToString()
+            : (object)DBNull.Value);
+        cmd.Parameters.AddWithValue("@dn",   hub.DisplayName ?? (object)DBNull.Value);
+        cmd.Parameters.AddWithValue("@ca",   hub.CreatedAt.ToString("O"));
+        cmd.Parameters.AddWithValue("@us",   hub.UniverseStatus ?? "Unknown");
         cmd.ExecuteNonQuery();
 
         return Task.FromResult(hub.Id);
@@ -565,5 +572,189 @@ public sealed class HubRepository : IHubRepository
         }
 
         return Task.FromResult(total);
+    }
+
+    /// <inheritdoc/>
+    public Task<IReadOnlyList<Hub>> GetChildHubsAsync(Guid parentHubId, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        using var conn = _db.CreateConnection();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            SELECT id, universe_id, display_name, created_at, universe_status, parent_hub_id
+            FROM   hubs
+            WHERE  parent_hub_id = @parentHubId
+            ORDER  BY display_name;
+            """;
+        cmd.Parameters.AddWithValue("@parentHubId", parentHubId.ToString());
+
+        var results = new List<Hub>();
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+        {
+            results.Add(new Hub
+            {
+                Id             = Guid.Parse(reader.GetString(0)),
+                UniverseId     = reader.IsDBNull(1) ? null : Guid.Parse(reader.GetString(1)),
+                DisplayName    = reader.IsDBNull(2) ? null : reader.GetString(2),
+                CreatedAt      = DateTimeOffset.Parse(reader.GetString(3)),
+                UniverseStatus = reader.IsDBNull(4) ? "Unknown" : reader.GetString(4),
+                ParentHubId    = reader.IsDBNull(5) ? null : Guid.Parse(reader.GetString(5)),
+            });
+        }
+
+        IReadOnlyList<Hub> result = results;
+        return Task.FromResult(result);
+    }
+
+    /// <inheritdoc/>
+    public async Task SetParentHubAsync(Guid hubId, Guid? parentHubId, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        await _db.AcquireWriteLockAsync(ct);
+        try
+        {
+            using var conn = _db.CreateConnection();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = """
+                UPDATE hubs SET parent_hub_id = @parentHubId WHERE id = @id;
+                """;
+            cmd.Parameters.AddWithValue("@parentHubId", parentHubId.HasValue
+                ? parentHubId.Value.ToString()
+                : (object)DBNull.Value);
+            cmd.Parameters.AddWithValue("@id", hubId.ToString());
+            cmd.ExecuteNonQuery();
+        }
+        finally
+        {
+            _db.ReleaseWriteLock();
+        }
+    }
+
+    /// <inheritdoc/>
+    public Task<Hub?> FindParentHubByRelationshipAsync(string qid, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        using var conn = _db.CreateConnection();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            SELECT h.id, h.universe_id, h.display_name, h.created_at, h.universe_status, h.parent_hub_id
+            FROM   hubs h
+            INNER JOIN hub_relationships hr ON hr.hub_id = h.id
+            WHERE  hr.rel_qid = @qid
+              AND  hr.rel_type IN ('franchise', 'fictional_universe')
+              AND  h.parent_hub_id IS NULL
+            LIMIT  1;
+            """;
+        cmd.Parameters.AddWithValue("@qid", qid);
+
+        using var reader = cmd.ExecuteReader();
+        if (!reader.Read())
+            return Task.FromResult<Hub?>(null);
+
+        var hub = new Hub
+        {
+            Id             = Guid.Parse(reader.GetString(0)),
+            UniverseId     = reader.IsDBNull(1) ? null : Guid.Parse(reader.GetString(1)),
+            DisplayName    = reader.IsDBNull(2) ? null : reader.GetString(2),
+            CreatedAt      = DateTimeOffset.Parse(reader.GetString(3)),
+            UniverseStatus = reader.IsDBNull(4) ? "Unknown" : reader.GetString(4),
+            ParentHubId    = reader.IsDBNull(5) ? null : Guid.Parse(reader.GetString(5)),
+        };
+
+        return Task.FromResult<Hub?>(hub);
+    }
+
+    /// <inheritdoc/>
+    public Task<IReadOnlyList<Guid>> FindHubIdsByFranchiseQidAsync(string qid, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        using var conn = _db.CreateConnection();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            SELECT DISTINCT hub_id
+            FROM   hub_relationships
+            WHERE  rel_qid  = @qid
+              AND  rel_type IN ('franchise', 'fictional_universe');
+            """;
+        cmd.Parameters.AddWithValue("@qid", qid);
+
+        var results = new List<Guid>();
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+            results.Add(Guid.Parse(reader.GetString(0)));
+
+        IReadOnlyList<Guid> result = results;
+        return Task.FromResult(result);
+    }
+
+    /// <inheritdoc/>
+    public Task<IReadOnlyList<HubRelationship>> GetRelationshipsAsync(Guid hubId, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        using var conn = _db.CreateConnection();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            SELECT id, hub_id, rel_type, rel_qid, rel_label, confidence, discovered_at
+            FROM   hub_relationships
+            WHERE  hub_id = @hubId;
+            """;
+        cmd.Parameters.AddWithValue("@hubId", hubId.ToString());
+
+        var results = new List<HubRelationship>();
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+        {
+            results.Add(new HubRelationship
+            {
+                Id           = Guid.Parse(reader.GetString(0)),
+                HubId        = Guid.Parse(reader.GetString(1)),
+                RelType      = reader.GetString(2),
+                RelQid       = reader.GetString(3),
+                RelLabel     = reader.IsDBNull(4) ? null : reader.GetString(4),
+                Confidence   = reader.GetDouble(5),
+                DiscoveredAt = DateTimeOffset.Parse(reader.GetString(6)),
+            });
+        }
+
+        IReadOnlyList<HubRelationship> result = results;
+        return Task.FromResult(result);
+    }
+
+    /// <inheritdoc/>
+    public Task<Hub?> GetByIdAsync(Guid hubId, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        using var conn = _db.CreateConnection();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            SELECT id, universe_id, display_name, created_at, universe_status, parent_hub_id
+            FROM   hubs
+            WHERE  id = @id
+            LIMIT  1;
+            """;
+        cmd.Parameters.AddWithValue("@id", hubId.ToString());
+
+        using var reader = cmd.ExecuteReader();
+        if (!reader.Read())
+            return Task.FromResult<Hub?>(null);
+
+        var hub = new Hub
+        {
+            Id             = Guid.Parse(reader.GetString(0)),
+            UniverseId     = reader.IsDBNull(1) ? null : Guid.Parse(reader.GetString(1)),
+            DisplayName    = reader.IsDBNull(2) ? null : reader.GetString(2),
+            CreatedAt      = DateTimeOffset.Parse(reader.GetString(3)),
+            UniverseStatus = reader.IsDBNull(4) ? "Unknown" : reader.GetString(4),
+            ParentHubId    = reader.IsDBNull(5) ? null : Guid.Parse(reader.GetString(5)),
+        };
+
+        return Task.FromResult<Hub?>(hub);
     }
 }

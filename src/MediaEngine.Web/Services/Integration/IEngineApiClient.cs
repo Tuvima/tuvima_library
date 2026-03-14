@@ -292,10 +292,21 @@ public interface IEngineApiClient
     Task<List<PersonViewModel>> GetPersonsByHubAsync(Guid hubId, CancellationToken ct = default);
 
 
-    // \u2500\u2500 Related hubs (/hubs/{id}/related) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+    // ── Related hubs (/hubs/{id}/related) ────────────────────────────────────
 
-    /// <summary>GET /hubs/{id}/related?limit= \u2014 related hubs by series/author/genre cascade.</summary>
+    /// <summary>GET /hubs/{id}/related?limit= — related hubs by series/author/genre cascade.</summary>
     Task<RelatedHubsViewModel?> GetRelatedHubsAsync(Guid hubId, int limit = 20, CancellationToken ct = default);
+
+    // ── Parent Hub hierarchy (/hubs/parents, /hubs/{id}/children, /hubs/{id}/parent) ──
+
+    /// <summary>GET /hubs/parents — returns all Parent Hubs (franchise-level groupings).</summary>
+    Task<List<HubViewModel>> GetParentHubsAsync(CancellationToken ct = default);
+
+    /// <summary>GET /hubs/{id}/children — returns child Hubs of the given Parent Hub.</summary>
+    Task<List<HubViewModel>> GetChildHubsAsync(Guid parentHubId, CancellationToken ct = default);
+
+    /// <summary>GET /hubs/{id}/parent — returns the Parent Hub of the given Hub, if any.</summary>
+    Task<HubViewModel?> GetParentHubAsync(Guid hubId, CancellationToken ct = default);
 
     // \u2500\u2500 Person detail (/persons/{id}) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 

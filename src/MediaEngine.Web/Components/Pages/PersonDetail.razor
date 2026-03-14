@@ -1,6 +1,7 @@
 @page "/person/{Id:guid}"
 @inject UIOrchestratorService  Orchestrator
 @inject NavigationManager       Nav
+@inject DeviceContextService   DeviceContext
 
 <PageTitle>@(_person?.Name ?? "Person") — Tuvima Library</PageTitle>
 
@@ -63,21 +64,40 @@ else
                 <div class="person-detail-social">
                     @if (!string.IsNullOrEmpty(_person.Instagram))
                     {
-                        <a href="@_person.Instagram" target="_blank" rel="noopener noreferrer"
+                        <a href="@SocialUriHelper.GetSocialUri("instagram", _person.Instagram, DeviceContext.DeviceClass)"
+                           target="_blank" rel="noopener noreferrer"
                            class="person-detail-social-link" title="Instagram">
                             <MudIcon Icon="@Icons.Custom.Brands.Instagram" />
                         </a>
                     }
                     @if (!string.IsNullOrEmpty(_person.Twitter))
                     {
-                        <a href="@_person.Twitter" target="_blank" rel="noopener noreferrer"
+                        <a href="@SocialUriHelper.GetSocialUri("twitter", _person.Twitter, DeviceContext.DeviceClass)"
+                           target="_blank" rel="noopener noreferrer"
                            class="person-detail-social-link" title="X / Twitter">
                             <MudIcon Icon="@Icons.Custom.Brands.Twitter" />
                         </a>
                     }
+                    @if (!string.IsNullOrEmpty(_person.TikTok))
+                    {
+                        <a href="@SocialUriHelper.GetSocialUri("tiktok", _person.TikTok, DeviceContext.DeviceClass)"
+                           target="_blank" rel="noopener noreferrer"
+                           class="person-detail-social-link" title="TikTok">
+                            <MudIcon Icon="@Icons.Material.Filled.MusicNote" />
+                        </a>
+                    }
+                    @if (!string.IsNullOrEmpty(_person.Mastodon))
+                    {
+                        <a href="@SocialUriHelper.GetSocialUri("mastodon", _person.Mastodon, DeviceContext.DeviceClass)"
+                           target="_blank" rel="noopener noreferrer"
+                           class="person-detail-social-link" title="Mastodon">
+                            <MudIcon Icon="@Icons.Material.Filled.Forum" />
+                        </a>
+                    }
                     @if (!string.IsNullOrEmpty(_person.Website))
                     {
-                        <a href="@_person.Website" target="_blank" rel="noopener noreferrer"
+                        <a href="@SocialUriHelper.GetSocialUri("website", _person.Website, DeviceContext.DeviceClass)"
+                           target="_blank" rel="noopener noreferrer"
                            class="person-detail-social-link" title="Website">
                             <MudIcon Icon="@Icons.Material.Filled.Language" />
                         </a>

@@ -13,6 +13,20 @@ public sealed class HubViewModel
     public DateTimeOffset      CreatedAt        { get; init; }
     public List<WorkViewModel> Works            { get; init; } = [];
 
+    // ── Parent Hub / franchise hierarchy ────────────────────────────────────
+
+    /// <summary>ID of the franchise-level Parent Hub, if any.</summary>
+    public Guid? ParentHubId { get; init; }
+
+    /// <summary>Display name of the Parent Hub (for breadcrumb rendering).</summary>
+    public string? ParentHubName { get; init; }
+
+    /// <summary>Number of child Hubs under this Hub (when acting as a Parent Hub).</summary>
+    public int ChildHubCount { get; init; }
+
+    /// <summary>True when this Hub is a Parent Hub (has children).</summary>
+    public bool IsParentHub => ChildHubCount > 0;
+
     // ── Display helpers ───────────────────────────────────────────────────────
 
     /// <summary>Best title across all works, or a short ID fallback.</summary>
@@ -75,7 +89,8 @@ public sealed class HubViewModel
     // ── Factory ───────────────────────────────────────────────────────────────
 
     public static HubViewModel FromApiDto(
-        Guid id, Guid? universeId, DateTimeOffset createdAt, IEnumerable<WorkViewModel> works)
+        Guid id, Guid? universeId, DateTimeOffset createdAt, IEnumerable<WorkViewModel> works,
+        Guid? parentHubId = null, string? parentHubName = null, int childHubCount = 0)
     {
         var workList = works.ToList();
         return new()
@@ -85,6 +100,9 @@ public sealed class HubViewModel
             CreatedAt        = createdAt,
             Works            = workList,
             DominantHexColor = UniverseMapper.ColourForHub(workList),
+            ParentHubId      = parentHubId,
+            ParentHubName    = parentHubName,
+            ChildHubCount    = childHubCount,
         };
     }
 

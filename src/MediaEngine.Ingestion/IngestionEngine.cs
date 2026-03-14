@@ -10,6 +10,7 @@ using MediaEngine.Domain.Events;
 using MediaEngine.Domain.Models;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.Models;
+using MediaEngine.Ingestion.Services;
 using MediaEngine.Intelligence.Contracts;
 using MediaEngine.Intelligence.Models;
 using MediaEngine.Processors.Contracts;
@@ -85,6 +86,9 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     // Hero banner generation — creates cinematic hero.jpg from cover art.
     private readonly IHeroBannerGenerator _heroGenerator;
 
+    // Folder hint cache — sibling-aware ingestion priming (D1/D2).
+    private readonly IIngestionHintCache _hintCache;
+
     public IngestionEngine(
         IFileWatcher              watcher,
         DebounceQueue             debounce,
@@ -107,7 +111,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         IReviewQueueRepository     reviewRepo,
         ISystemActivityRepository  activityRepo,
         IReconciliationService     reconciliation,
-        IHeroBannerGenerator       heroGenerator)
+        IHeroBannerGenerator       heroGenerator,
+        IIngestionHintCache        hintCache)
     {
         _watcher        = watcher;
         _debounce       = debounce;
@@ -131,6 +136,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         _activityRepo   = activityRepo;
         _reconciliation = reconciliation;
         _heroGenerator  = heroGenerator;
+        _hintCache      = hintCache;
     }
 
     // =========================================================================
@@ -785,13 +791,37 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         // TryAutoResolveAndOrganizeAsync runs. This prevents a race condition where the
         // hydration pipeline resolves before the review item is even written, leaving a
         // stale review item in the queue for a file that was successfully organized.
+
+        // D2: consume folder hint — if a sibling file was already hydrated, use its
+        // bridge IDs and Hub ID to accelerate Stage 1 for this file.
+        var sourceFolder = Path.GetDirectoryName(candidate.Path);
+        Dictionary<string, string>? hintBridgeIds = null;
+        Guid? hintedHubId = null;
+
+        if (!string.IsNullOrEmpty(sourceFolder)
+            && _hintCache.TryGetHint(sourceFolder, out var folderHint)
+            && folderHint is not null)
+        {
+            hintBridgeIds = folderHint.BridgeIds.Count > 0
+                ? new Dictionary<string, string>(folderHint.BridgeIds, StringComparer.OrdinalIgnoreCase)
+                : null;
+            hintedHubId = folderHint.HubId != Guid.Empty ? folderHint.HubId : null;
+
+            _logger.LogDebug(
+                "Folder hint consumed for {Path}: HubId={HubId}, BridgeIds={Count}",
+                candidate.Path, folderHint.HubId.ToString()[..8],
+                folderHint.BridgeIds.Count);
+        }
+
         await _pipeline.EnqueueAsync(new HarvestRequest
         {
-            EntityId       = assetId,
-            EntityType     = EntityType.MediaAsset,
-            MediaType      = resolvedMediaType,
-            Hints          = BuildHints(candidate.Metadata),
-            IngestionRunId = ingestionRunId,
+            EntityId            = assetId,
+            EntityType          = EntityType.MediaAsset,
+            MediaType           = resolvedMediaType,
+            Hints               = BuildHints(candidate.Metadata),
+            IngestionRunId      = ingestionRunId,
+            FolderHintBridgeIds = hintBridgeIds,
+            HintedHubId         = hintedHubId,
         }, ct).ConfigureAwait(false);
 
         await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
@@ -809,6 +839,47 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         var persons = ExtractPersonReferences(candidate.Metadata);
         if (persons.Count > 0)
             await _identity.EnrichAsync(assetId, persons, ct).ConfigureAwait(false);
+
+        // D2: populate folder hint for sibling files.
+        // Only set for the first file in the folder — subsequent siblings consume it.
+        // Hub ID is Guid.Empty at this stage because Hub assignment happens during
+        // Stage 1 of the hydration pipeline. Bridge IDs from embedded metadata
+        // (ISBN, ASIN) are the primary value for sibling acceleration.
+        if (!string.IsNullOrEmpty(sourceFolder) && !_hintCache.TryGetHint(sourceFolder, out _))
+        {
+            var hintBridges = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            var meta = candidate.Metadata
+                       ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var key in new[]
+            {
+                "isbn", "asin", "tmdb_id", "imdb_id", "wikidata_qid",
+                "apple_books_id", "audible_id", "goodreads_id",
+            })
+            {
+                if (meta.TryGetValue(key, out var val) && !string.IsNullOrWhiteSpace(val))
+                    hintBridges[key] = val;
+            }
+
+            if (hintBridges.Count > 0)
+            {
+                _hintCache.SetHint(sourceFolder, new FolderHint
+                {
+                    HubId               = Guid.Empty,  // resolved later during hydration
+                    QualifiedIdentityId = meta.GetValueOrDefault("wikidata_qid"),
+                    SeriesName          = meta.GetValueOrDefault("series"),
+                    AuthorOrArtist      = meta.GetValueOrDefault("author"),
+                    BridgeIds           = hintBridges,
+                    CreatedAtUtc        = DateTime.UtcNow,
+                    SourceFolderPath    = sourceFolder,
+                    MediaTypeCategory   = resolvedMediaType.ToString(),
+                });
+
+                _logger.LogDebug(
+                    "Folder hint populated for {Folder}: {Count} bridge IDs",
+                    sourceFolder, hintBridges.Count);
+            }
+        }
 
         // Update stored path when the file was moved (organized or staged).
         if (!string.Equals(currentPath, candidate.Path, StringComparison.Ordinal))

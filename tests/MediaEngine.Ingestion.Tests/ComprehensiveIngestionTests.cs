@@ -133,7 +133,8 @@ public sealed class ComprehensiveIngestionTests : IDisposable
             _reviewRepo,
             _activityRepo,
             _reconciliation,
-            _heroGenerator);
+            _heroGenerator,
+            new MediaEngine.Ingestion.Services.IngestionHintCache());
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
 

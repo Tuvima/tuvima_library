@@ -47,10 +47,11 @@ CREATE TABLE IF NOT EXISTS provider_config (
 -- =============================================================================
 
 CREATE TABLE IF NOT EXISTS hubs (
-    id           TEXT NOT NULL PRIMARY KEY,  -- UUID
-    universe_id  TEXT,                       -- NULLABLE: cross-hub grouping
-    display_name TEXT,                       -- Phase 7: human-readable hub name
-    created_at   TEXT NOT NULL DEFAULT (datetime('now'))
+    id            TEXT NOT NULL PRIMARY KEY,  -- UUID
+    universe_id   TEXT,                       -- NULLABLE: cross-hub grouping
+    parent_hub_id TEXT REFERENCES hubs(id) ON DELETE SET NULL,  -- franchise parent
+    display_name  TEXT,                       -- Phase 7: human-readable hub name
+    created_at    TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 -- hub_id is NULLABLE so that ON DELETE SET NULL can satisfy the spec invariant:

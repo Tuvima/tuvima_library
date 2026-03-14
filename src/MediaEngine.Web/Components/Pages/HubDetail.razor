@@ -52,6 +52,15 @@ else
                 <button class="hub-detail-bc-link" @onclick="@(() => Nav.NavigateTo("/"))">Home</button>
                 <span class="hub-detail-bc-sep">/</span>
                 <button class="hub-detail-bc-link" @onclick="@(() => Nav.NavigateTo(GetLane().Route))">@GetLane().Label</button>
+                @* ── Parent Hub crumb (franchise level) ── *@
+                @if (_parentHub is not null)
+                {
+                    <span class="hub-detail-bc-sep">/</span>
+                    <button class="hub-detail-bc-link hub-detail-bc-parent"
+                            @onclick="@(() => Nav.NavigateTo($"/hub/{_parentHub.Id}"))">
+                        @_parentHub.DisplayName
+                    </button>
+                }
                 @if (!string.IsNullOrEmpty(_hub.Author))
                 {
                     <span class="hub-detail-bc-sep">/</span>
@@ -482,6 +491,16 @@ else
             </div>
         </div>
 
+        @* ── Child Hubs swimlane (when this Hub is a franchise/Parent Hub) ── *@
+        @if (_childHubs.Count > 0)
+        {
+            <div class="hub-detail-related-section">
+                <PosterSwimlane Title="Collections"
+                                Hubs="@_childHubs"
+                                OnHubSelected="@(hub => Nav.NavigateTo($"/hub/{hub.Id}"))" />
+            </div>
+        }
+
         @* ── Related content swimlane ── *@
         @if (_related is not null && _related.Hubs.Count > 0)
         {
@@ -530,6 +549,8 @@ else
     private PersonViewModel?        _authorPerson;
     private JourneyItemViewModel?   _activeJourney;
     private RelatedHubsViewModel?   _related;
+    private HubViewModel?           _parentHub;
+    private List<HubViewModel>      _childHubs          = [];
     private string?                 _readingTimeDisplay;
     private string?                 _toastMessage;
     private bool                    _showFullDescription;
@@ -551,6 +572,8 @@ else
         _editDrawerOpen      = false;
         _lightboxOpen        = false;
         _selectedFormatKey   = null;
+        _parentHub           = null;
+        _childHubs           = [];
 
         if (!State.IsLoaded)
             await Orchestrator.GetHubsAsync();
@@ -559,15 +582,21 @@ else
 
         if (_hub is not null)
         {
-            var personsTask  = Orchestrator.GetPersonsByHubAsync(Id);
-            var journeyTask  = Orchestrator.GetJourneyAsync(limit: 50, hubId: Id);
-            var relatedTask  = Orchestrator.GetRelatedHubsAsync(Id);
+            var personsTask    = Orchestrator.GetPersonsByHubAsync(Id);
+            var journeyTask    = Orchestrator.GetJourneyAsync(limit: 50, hubId: Id);
+            var relatedTask    = Orchestrator.GetRelatedHubsAsync(Id);
+            var childHubsTask  = Orchestrator.GetChildHubsAsync(Id);
+            var parentHubTask  = _hub.ParentHubId.HasValue
+                ? Orchestrator.GetParentHubAsync(Id)
+                : Task.FromResult<HubViewModel?>(null);
 
-            await Task.WhenAll(personsTask, journeyTask, relatedTask);
+            await Task.WhenAll(personsTask, journeyTask, relatedTask, childHubsTask, parentHubTask);
 
             var persons = personsTask.Result;
             var journey = journeyTask.Result;
             _related    = relatedTask.Result;
+            _childHubs  = childHubsTask.Result;
+            _parentHub  = parentHubTask.Result;
 
             _authorPerson = ResolveAuthorPerson(persons, _hub.AuthorQid, _hub.Author);
 

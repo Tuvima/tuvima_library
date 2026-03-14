@@ -91,4 +91,32 @@ public interface IHubRepository
     /// Call this after bulk-deleting MediaAssets to keep the hierarchy clean.
     /// </summary>
     Task<int> PruneOrphanedHierarchyAsync(CancellationToken ct = default);
+
+    /// <summary>Returns all child Hubs of the given parent.</summary>
+    Task<IReadOnlyList<Hub>> GetChildHubsAsync(Guid parentHubId, CancellationToken ct = default);
+
+    /// <summary>Sets or clears the parent Hub for a given Hub.</summary>
+    Task SetParentHubAsync(Guid hubId, Guid? parentHubId, CancellationToken ct = default);
+
+    /// <summary>Finds a Parent Hub by franchise/universe QID from hub_relationships.</summary>
+    Task<Hub?> FindParentHubByRelationshipAsync(string qid, CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns the IDs of all Hubs that have a <c>hub_relationships</c> row with the given
+    /// QID and a rel_type in ("franchise", "fictional_universe").
+    /// Used by <c>ParentHubResolver</c> to find sibling Hubs that share a franchise.
+    /// </summary>
+    Task<IReadOnlyList<Guid>> FindHubIdsByFranchiseQidAsync(string qid, CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns the relationships for a single Hub without loading Works or CanonicalValues.
+    /// Used by <c>ParentHubResolver</c> to inspect franchise signals on a specific Hub.
+    /// </summary>
+    Task<IReadOnlyList<HubRelationship>> GetRelationshipsAsync(Guid hubId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns the <see cref="Hub"/> row for a single Hub by its ID (no Works or relationships loaded).
+    /// Returns null when the Hub does not exist.
+    /// </summary>
+    Task<Hub?> GetByIdAsync(Guid hubId, CancellationToken ct = default);
 }

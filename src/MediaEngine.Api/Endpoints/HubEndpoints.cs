@@ -61,6 +61,85 @@ public static class HubEndpoints
 
 
         // GET /hubs/{id}/related?limit= — cascading related hubs: series → author → genre → explore.
+        // GET /hubs/parents — list all Parent Hubs for top-level franchise navigation.
+        // IMPORTANT: registered before /{id:guid} routes to avoid route conflicts.
+        group.MapGet("/parents", async (IHubRepository hubRepo, CancellationToken ct) =>
+        {
+            var allHubs = await hubRepo.GetAllAsync(ct);
+
+            var parentIds = allHubs
+                .Where(h => h.ParentHubId.HasValue)
+                .Select(h => h.ParentHubId!.Value)
+                .Distinct()
+                .ToHashSet();
+
+            var parents = allHubs
+                .Where(h => parentIds.Contains(h.Id))
+                .Select(h => new
+                {
+                    id             = h.Id,
+                    displayName    = h.DisplayName,
+                    childCount     = allHubs.Count(c => c.ParentHubId == h.Id),
+                    createdAt      = h.CreatedAt,
+                    universeStatus = h.UniverseStatus,
+                })
+                .OrderBy(h => h.displayName)
+                .ToList();
+
+            return Results.Ok(parents);
+        })
+        .WithName("GetParentHubs")
+        .WithSummary("Returns all Parent Hubs (franchise-level groupings).")
+        .RequireAnyRole();
+
+        // GET /hubs/{id}/children — returns child Hubs of a given parent.
+        group.MapGet("/{id:guid}/children", async (Guid id, IHubRepository hubRepo, CancellationToken ct) =>
+        {
+            var children = await hubRepo.GetChildHubsAsync(id, ct);
+            var result = children.Select(h => new
+            {
+                id             = h.Id,
+                displayName    = h.DisplayName,
+                parentHubId    = h.ParentHubId,
+                createdAt      = h.CreatedAt,
+                universeStatus = h.UniverseStatus,
+            }).ToList();
+
+            return Results.Ok(result);
+        })
+        .WithName("GetHubChildren")
+        .WithSummary("Returns child Hubs of the given Parent Hub.")
+        .RequireAnyRole();
+
+        // GET /hubs/{id}/parent — returns the parent Hub of a given Hub (if any).
+        group.MapGet("/{id:guid}/parent", async (Guid id, IHubRepository hubRepo, CancellationToken ct) =>
+        {
+            var hub = await hubRepo.GetByIdAsync(id, ct);
+            if (hub is null)
+                return Results.NotFound();
+
+            if (!hub.ParentHubId.HasValue)
+                return Results.Ok(new { parentHub = (object?)null });
+
+            var parent = await hubRepo.GetByIdAsync(hub.ParentHubId.Value, ct);
+            if (parent is null)
+                return Results.Ok(new { parentHub = (object?)null });
+
+            return Results.Ok(new
+            {
+                parentHub = new
+                {
+                    id             = parent.Id,
+                    displayName    = parent.DisplayName,
+                    createdAt      = parent.CreatedAt,
+                    universeStatus = parent.UniverseStatus,
+                }
+            });
+        })
+        .WithName("GetHubParent")
+        .WithSummary("Returns the Parent Hub of the given Hub, if any.")
+        .RequireAnyRole();
+
         group.MapGet("/{id:guid}/related", async (
             Guid id,
             int? limit,

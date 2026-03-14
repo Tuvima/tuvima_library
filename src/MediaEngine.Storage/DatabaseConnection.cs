@@ -704,6 +704,15 @@ public sealed class DatabaseConnection : IDatabaseConnection
             column: "needs_review",
             ddl:    "ALTER TABLE canonical_values ADD COLUMN needs_review INTEGER NOT NULL DEFAULT 0;");
 
+        // ── M-035: Parent Hub hierarchy ─────────────────────────────────────
+        // Adds parent_hub_id to hubs so a Hub can be nested under a Parent Hub
+        // (franchise or creative universe container).  NULL = top-level hub.
+        MigrateAddColumnIfMissing(
+            conn,
+            table:  "hubs",
+            column: "parent_hub_id",
+            ddl:    "ALTER TABLE hubs ADD COLUMN parent_hub_id TEXT;");
+
         // Seed S-001: provider_registry entries for all known providers.
         // metadata_claims.provider_id has a FK to provider_registry(id), so these
         // rows MUST exist before any claim is written.  INSERT OR IGNORE makes this

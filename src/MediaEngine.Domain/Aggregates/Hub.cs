@@ -51,6 +51,13 @@ public sealed class Hub
     /// </summary>
     public string UniverseStatus { get; set; } = "Unknown";
 
+    /// <summary>
+    /// Optional reference to a parent Hub that represents a franchise or creative universe.
+    /// When set, this Hub is a "child" (e.g. "Dune Novels") of a broader Parent Hub (e.g. "Dune").
+    /// Null for top-level Hubs or Hubs that don't belong to a larger franchise.
+    /// </summary>
+    public Guid? ParentHubId { get; set; }
+
     // -------------------------------------------------------------------------
     // Children
     // -------------------------------------------------------------------------
@@ -67,4 +74,11 @@ public sealed class Hub
     /// Each relationship links to a Wikidata QID (franchise, series, universe, etc.).
     /// </summary>
     public List<HubRelationship> Relationships { get; set; } = [];
+
+    /// <summary>
+    /// Child Hubs that belong to this Hub as a franchise/universe parent.
+    /// Only populated when this Hub acts as a Parent Hub.
+    /// Not loaded by default — requires explicit query.
+    /// </summary>
+    public List<Hub> ChildHubs { get; set; } = [];
 }
