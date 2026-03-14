@@ -320,6 +320,86 @@ public static class WikidataSparqlPropertyMap
         return $"SELECT ?item WHERE {{ ?item wdt:{pCode} \"{escaped}\" . }} LIMIT 1";
     }
 
+    // ── Edition vs Work Resolution ────────────────────────────────────────
+
+    /// <summary>
+    /// Build a lightweight SPARQL query to determine whether a QID is an
+    /// edition/translation (P31=Q3331189) and, if so, follow P629 to find
+    /// the parent work item.
+    ///
+    /// <para>
+    /// Bridge lookups (ISBN) can return a Wikidata <b>edition</b> item instead
+    /// of the <b>work</b> item. Edition items carry physical details (page count)
+    /// but lack relational metadata (series, franchise, characters). This query
+    /// detects that case so the adapter can switch to the parent work QID for
+    /// deep hydration.
+    /// </para>
+    /// </summary>
+    public static string BuildEditionCheckQuery(string qid)
+    {
+        return $$"""
+            SELECT ?instanceOf ?parentWork WHERE {
+              OPTIONAL { wd:{{qid}} wdt:P31 ?instanceOf . }
+              OPTIONAL { wd:{{qid}} wdt:P629 ?parentWork . }
+            } LIMIT 10
+            """;
+    }
+
+    // ── Author Audit with Qualifiers ──────────────────────────────────────
+
+    /// <summary>
+    /// Build a SPARQL query using qualified statement syntax (<c>p:/ps:/pq:</c>)
+    /// to extract P50 (author) statements with P1545 ordinal qualifiers and P31
+    /// instance-of classification on each author entity.
+    ///
+    /// <para>
+    /// The standard <c>wdt:</c> accessor used by <see cref="BuildWorkSparqlQuery"/>
+    /// discards qualifiers. This dedicated query captures author ordering (P1545)
+    /// and entity type (human Q5, pseudonym Q61002, collective pseudonym Q127843)
+    /// for accurate author display and pseudonym detection.
+    /// </para>
+    /// </summary>
+    /// <param name="qid">The Work QID to audit authors for.</param>
+    /// <param name="language">BCP-47 language code for labels. Defaults to <c>"en"</c>.</param>
+    public static string BuildAuthorAuditQuery(string qid, string? language = null)
+    {
+        var lang = string.IsNullOrWhiteSpace(language) ? "en" : language.ToLowerInvariant();
+        return $$"""
+            SELECT ?author ?authorLabel ?ordinal ?instanceOf WHERE {
+              wd:{{qid}} p:P50 ?stmt .
+              ?stmt ps:P50 ?author .
+              OPTIONAL { ?stmt pq:P1545 ?ordinal . }
+              OPTIONAL { ?author wdt:P31 ?instanceOf . }
+              ?author rdfs:label ?authorLabel .
+              FILTER(LANG(?authorLabel) = "{{lang}}")
+            }
+            """;
+    }
+
+    /// <summary>
+    /// Build a SPARQL query to discover the constituent real-person members
+    /// of a collective pseudonym entity (e.g. "James S. A. Corey" → Daniel Abraham + Ty Franck).
+    ///
+    /// <para>
+    /// Follows P527 (has parts) and filters to P31=Q5 (human) to find the
+    /// real people behind a collective pen name (P31=Q127843).
+    /// </para>
+    /// </summary>
+    /// <param name="qid">The collective pseudonym QID.</param>
+    /// <param name="language">BCP-47 language code for labels. Defaults to <c>"en"</c>.</param>
+    public static string BuildCollectiveMembersQuery(string qid, string? language = null)
+    {
+        var lang = string.IsNullOrWhiteSpace(language) ? "en" : language.ToLowerInvariant();
+        return $$"""
+            SELECT ?member ?memberLabel WHERE {
+              wd:{{qid}} wdt:P527 ?member .
+              ?member wdt:P31 wd:Q5 .
+              ?member rdfs:label ?memberLabel .
+              FILTER(LANG(?memberLabel) = "{{lang}}")
+            }
+            """;
+    }
+
     /// <summary>
     /// Build a SPARQL SELECT query for all enabled Character-scoped properties of a given QID.
     /// Used to enrich fictional characters with gender, species, relationships, etc.
@@ -591,6 +671,9 @@ public static class WikidataSparqlPropertyMap
         Add("P527",  "has_parts",           "Organization", scope: "Organization", confidence: 0.85, entityValued: true, multiValued: true);
         Add("P169",  "head_of",             "Organization", scope: "Organization", confidence: 0.85, entityValued: true);
         Add("P749",  "parent_organization", "Organization", scope: "Organization", confidence: 0.85, entityValued: true);
+
+        // ── Edition Resolution (Work-scoped) ────────────────────────────
+        Add("P629", "edition_or_translation_of", "Core Identity", confidence: 0.9, entityValued: true);
 
         // ── Bridges: Books (Work-scoped) ─────────────────────────────────
         Add("P3861", "apple_books_id", "Bridges: Books", confidence: 1.0, bridge: true);

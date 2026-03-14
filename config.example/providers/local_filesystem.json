@@ -5,7 +5,15 @@
   "weight": 1.0,
   "domain": "Universal",
   "capability_tags": [],
-  "field_weights": {},
+  "field_weights": {
+    "title": 0.75,
+    "author": 0.75,
+    "publisher": 0.75,
+    "language": 0.75,
+    "description": 0.75,
+    "date": 0.75,
+    "year": 0.75
+  },
   "endpoints": {},
   "throttle_ms": 0,
   "max_concurrency": 1,

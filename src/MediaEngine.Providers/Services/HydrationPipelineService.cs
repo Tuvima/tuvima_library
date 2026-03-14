@@ -1803,6 +1803,34 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         AddPersonRefs(refs, "Narrator", canonicals, "narrator", "narrator_qid");
         AddPersonRefs(refs, "Director", canonicals, "director", "director_qid");
 
+        // Collective pseudonym constituent members: the author audit query
+        // deposits QID::Label pairs for the real people behind a collective
+        // pen name (e.g. "James S. A. Corey" → Daniel Abraham + Ty Franck).
+        // Create Person references for each constituent so they get enriched.
+        var collectiveValue = canonicals.FirstOrDefault(c => c.Key == "collective_members_qid")?.Value;
+        if (!string.IsNullOrEmpty(collectiveValue))
+        {
+            foreach (var segment in collectiveValue.Split("|||",
+                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                var colonIndex = segment.IndexOf("::", StringComparison.Ordinal);
+                if (colonIndex > 0)
+                {
+                    var qid   = segment[..colonIndex].Trim();
+                    var label = segment[(colonIndex + 2)..].Trim();
+                    if (!string.IsNullOrEmpty(label) && !string.IsNullOrEmpty(qid))
+                    {
+                        // Only add if not already present (the constituent may also
+                        // appear as a direct P50 author on the work).
+                        var alreadyPresent = refs.Any(r =>
+                            string.Equals(r.WikidataQid, qid, StringComparison.OrdinalIgnoreCase));
+                        if (!alreadyPresent)
+                            refs.Add(new PersonReference("Author", label, qid));
+                    }
+                }
+            }
+        }
+
         return refs;
     }
 

@@ -32,6 +32,8 @@
     "P144":   { "claim_key": "based_on",           "category": "Lore & Narrative",      "entity_scope": "Work",   "confidence": 0.8,  "is_bridge": false, "enabled": true, "is_entity_valued": true,  "value_transform": null },
     "P4584":  { "claim_key": "first_appearance",   "category": "Lore & Narrative",      "entity_scope": "Work",   "confidence": 0.8,  "is_bridge": false, "enabled": true, "is_entity_valued": true,  "value_transform": null },
 
+    "P629":   { "claim_key": "edition_or_translation_of", "category": "Core Identity",  "entity_scope": "Work",   "confidence": 0.9,  "is_bridge": false, "enabled": true, "is_entity_valued": true,  "value_transform": null },
+
     "P3861":  { "claim_key": "apple_books_id",     "category": "Bridges: Books",        "entity_scope": "Work",   "confidence": 1.0,  "is_bridge": true,  "enabled": true, "is_entity_valued": false, "value_transform": null },
     "P212":   { "claim_key": "isbn",               "category": "Bridges: Books",        "entity_scope": "Work",   "confidence": 1.0,  "is_bridge": true,  "enabled": true, "is_entity_valued": false, "value_transform": null },
     "P1566":  { "claim_key": "asin",               "category": "Bridges: Books",        "entity_scope": "Work",   "confidence": 1.0,  "is_bridge": true,  "enabled": true, "is_entity_valued": false, "value_transform": null },

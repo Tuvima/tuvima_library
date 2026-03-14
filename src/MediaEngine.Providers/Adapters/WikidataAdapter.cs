@@ -726,6 +726,33 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
 
                 return [new ProviderClaim("wikidata_qid", qid, 1.0)];
             }
+
+            // ── Step 3a: Edition vs Work Resolution ─────────────────────────
+            // Bridge lookups (ISBN) can return an edition item instead of the
+            // work item. Check P31 and follow P629 to the parent work if needed.
+            string? editionQid = null;
+            var workQid = await ResolveEditionToWorkAsync(
+                sparqlClient, request.SparqlBaseUrl!, qid, throttleGapMs, ct)
+                .ConfigureAwait(false);
+            if (workQid is not null && !string.Equals(workQid, qid, StringComparison.OrdinalIgnoreCase))
+            {
+                editionQid = qid;
+                _logger.LogInformation(
+                    "Wikidata: QID {EditionQid} is an edition — following P629 to parent work {WorkQid} for entity {Id}",
+                    editionQid, workQid, request.EntityId);
+                qid = workQid;
+            }
+
+            // ── Step 3b: Author Audit with Qualifiers ───────────────────────
+            // Use qualified statement syntax (p:/ps:/pq:) to extract P50 author
+            // statements with P1545 ordinals and P31 entity types (human,
+            // pseudonym, collective pseudonym). This produces ordered, typed
+            // author data that the standard wdt: query cannot provide.
+            var authorAuditClaims = await RunAuthorAuditAsync(
+                sparqlClient, request.SparqlBaseUrl!, qid, throttleGapMs, ct,
+                request.Language).ConfigureAwait(false);
+
+            // ── Step 3c: SPARQL Deep Hydration ──────────────────────────────
             // Read scope exclusions from universe config (default: P18 excluded from Work).
             IReadOnlyCollection<string>? scopeExclusions = null;
             if (universeConfig?.ScopeExclusions.TryGetValue("Work", out var workExclusions) == true)
@@ -736,6 +763,30 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
             var claims = await ExecuteSparqlQueryAsync(
                 sparqlClient, request.SparqlBaseUrl!, sparql, qid,
                 effectiveMap, scopeExclusions, throttleGapMs, ct).ConfigureAwait(false);
+
+            // Replace the deep hydration's P50 author results with the richer
+            // author audit results (ordered, typed, pseudonym-aware).
+            if (authorAuditClaims.Count > 0)
+            {
+                var filtered = new List<ProviderClaim>(claims.Count + authorAuditClaims.Count);
+                foreach (var c in claims)
+                {
+                    // Discard author and author_qid from the standard SPARQL query —
+                    // the audit query's results are authoritative for these keys.
+                    if (c.Key is not ("author" or "author_qid"))
+                        filtered.Add(c);
+                }
+                filtered.AddRange(authorAuditClaims);
+                claims = filtered;
+            }
+
+            // Emit edition_qid claim when the original QID was an edition.
+            if (editionQid is not null)
+            {
+                var mutable = new List<ProviderClaim>(claims);
+                mutable.Add(new ProviderClaim("edition_qid", editionQid, 1.0));
+                claims = mutable;
+            }
 
             // ── ISBN Bridge Confidence Boost ────────────────────────────────
             // When the QID was resolved via ISBN (P212), the match is definitive.
@@ -783,8 +834,9 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
             }
 
             _logger.LogInformation(
-                "Wikidata SPARQL deep-ingest for entity {Id}: QID={Qid}, {Count} claims",
-                request.EntityId, qid, claims.Count);
+                "Wikidata SPARQL deep-ingest for entity {Id}: QID={Qid}, {Count} claims{EditionNote}",
+                request.EntityId, qid, claims.Count,
+                editionQid is not null ? $" (resolved from edition {editionQid})" : "");
 
             return claims;
         }
@@ -896,13 +948,315 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
         }
     }
 
-    // ── QID Resolution: Bridge IDs ──────────────────────────────────────────
+    // ── Edition vs Work Resolution ──────────────────────────────────────────
 
     /// <summary>
-    /// Tries to find the Wikidata QID using bridge identifiers in priority order.
-    /// The order is read from <c>config/universe/wikidata.json → bridge_lookup_priority</c>.
-    /// Falls back to the compiled default order if the config is null.
+    /// Wikidata Q-identifiers for "edition" and "translation" instance types.
+    /// When a bridge lookup returns one of these, the real metadata lives on
+    /// the parent work (P629).
     /// </summary>
+    private static readonly HashSet<string> EditionInstanceTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Q3331189",  // edition, version, or translation (most common)
+        "Q1279564",  // edition of a written work
+    };
+
+    /// <summary>
+    /// Checks P31 (instance of) on the resolved QID. If it's an edition,
+    /// follows P629 (edition or translation of) to find the parent work QID.
+    /// Returns the work QID (which may be the same as <paramref name="qid"/>
+    /// if it's already a work), or <c>null</c> on SPARQL failure.
+    /// </summary>
+    private async Task<string?> ResolveEditionToWorkAsync(
+        HttpClient sparqlClient,
+        string sparqlBaseUrl,
+        string qid,
+        int throttleGapMs,
+        CancellationToken ct)
+    {
+        try
+        {
+            var sparql = WikidataSparqlPropertyMap.BuildEditionCheckQuery(qid);
+            var json = await ThrottledSparqlAsync(sparqlClient, sparqlBaseUrl, sparql, throttleGapMs, ct)
+                .ConfigureAwait(false);
+
+            if (json is null) return qid; // SPARQL failed — proceed with original QID.
+
+            var bindings = json["results"]?["bindings"]?.AsArray();
+            if (bindings is null || bindings.Count == 0)
+                return qid;
+
+            // Check whether any P31 value is an edition type.
+            bool isEdition = false;
+            string? parentWorkQid = null;
+
+            foreach (var binding in bindings)
+            {
+                var instanceOfUri = binding?["instanceOf"]?["value"]?.GetValue<string>();
+                if (!string.IsNullOrWhiteSpace(instanceOfUri))
+                {
+                    var instanceQid = ExtractQidFromUri(instanceOfUri);
+                    if (instanceQid is not null && EditionInstanceTypes.Contains(instanceQid))
+                        isEdition = true;
+                }
+
+                if (parentWorkQid is null)
+                {
+                    var parentUri = binding?["parentWork"]?["value"]?.GetValue<string>();
+                    if (!string.IsNullOrWhiteSpace(parentUri))
+                        parentWorkQid = ExtractQidFromUri(parentUri);
+                }
+            }
+
+            if (isEdition && parentWorkQid is not null)
+            {
+                _logger.LogDebug(
+                    "Wikidata edition check: {Qid} is an edition, parent work is {ParentQid}",
+                    qid, parentWorkQid);
+                return parentWorkQid;
+            }
+
+            if (isEdition)
+            {
+                _logger.LogDebug(
+                    "Wikidata edition check: {Qid} is an edition but no P629 parent found — using edition QID",
+                    qid);
+            }
+
+            return qid;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex,
+                "Wikidata edition check failed for QID {Qid}; proceeding with original QID", qid);
+            return qid;
+        }
+    }
+
+    /// <summary>
+    /// Extracts a bare QID from a Wikidata entity URI.
+    /// E.g. <c>"http://www.wikidata.org/entity/Q190192"</c> → <c>"Q190192"</c>.
+    /// </summary>
+    private static string? ExtractQidFromUri(string uri)
+    {
+        const string prefix = "http://www.wikidata.org/entity/";
+        if (uri.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            return uri[prefix.Length..];
+        if (uri.Length > 1 && uri[0] is 'Q' or 'q' && char.IsDigit(uri[1]))
+            return uri;
+        return null;
+    }
+
+    // ── Author Audit with Qualifiers ────────────────────────────────────────
+
+    /// <summary>
+    /// Well-known Wikidata Q-identifiers for author entity classification.
+    /// </summary>
+    private const string QidHuman = "Q5";
+    private const string QidPseudonym = "Q61002";
+    private const string QidCollectivePseudonym = "Q127843";
+
+    /// <summary>
+    /// Runs the author audit query (qualified statement syntax) and, when
+    /// collective pseudonyms are found, follows P527 to discover constituent
+    /// members. Returns structured author claims with correct ordering and
+    /// pseudonym classification.
+    ///
+    /// <para>
+    /// Pen name priority: when a collective pseudonym (Q127843) is found among
+    /// the P50 authors, it is ALWAYS placed first — it is the canonical display
+    /// author. Real authors behind the pen name are linked via
+    /// <c>collective_members_qid</c> for the person detail page.
+    /// </para>
+    /// </summary>
+    private async Task<IReadOnlyList<ProviderClaim>> RunAuthorAuditAsync(
+        HttpClient sparqlClient,
+        string sparqlBaseUrl,
+        string qid,
+        int throttleGapMs,
+        CancellationToken ct,
+        string? language = null)
+    {
+        try
+        {
+            var sparql = WikidataSparqlPropertyMap.BuildAuthorAuditQuery(qid, language);
+            var json = await ThrottledSparqlAsync(sparqlClient, sparqlBaseUrl, sparql, throttleGapMs, ct)
+                .ConfigureAwait(false);
+
+            if (json is null) return [];
+
+            var bindings = json["results"]?["bindings"]?.AsArray();
+            if (bindings is null || bindings.Count == 0)
+                return [];
+
+            // Parse each author row into a structured record.
+            var authors = new List<(string Qid, string Label, int? Ordinal, string? P31Type)>();
+
+            foreach (var binding in bindings)
+            {
+                var authorUri = binding?["author"]?["value"]?.GetValue<string>();
+                var authorLabel = binding?["authorLabel"]?["value"]?.GetValue<string>();
+                var ordinalStr = binding?["ordinal"]?["value"]?.GetValue<string>();
+                var instanceOfUri = binding?["instanceOf"]?["value"]?.GetValue<string>();
+
+                if (string.IsNullOrWhiteSpace(authorUri) || string.IsNullOrWhiteSpace(authorLabel))
+                    continue;
+
+                var authorQid = ExtractQidFromUri(authorUri);
+                if (authorQid is null) continue;
+
+                int? ordinal = null;
+                if (!string.IsNullOrWhiteSpace(ordinalStr) && int.TryParse(ordinalStr, out var ord))
+                    ordinal = ord;
+
+                var p31Qid = !string.IsNullOrWhiteSpace(instanceOfUri)
+                    ? ExtractQidFromUri(instanceOfUri)
+                    : null;
+
+                // Deduplicate: a single author can appear multiple times due to
+                // multiple P31 values. Keep the most informative classification.
+                var existing = authors.FindIndex(a =>
+                    string.Equals(a.Qid, authorQid, StringComparison.OrdinalIgnoreCase));
+
+                if (existing >= 0)
+                {
+                    // Prefer pseudonym/collective classification over plain human.
+                    var current = authors[existing];
+                    if (p31Qid is QidPseudonym or QidCollectivePseudonym
+                        && current.P31Type is not QidPseudonym and not QidCollectivePseudonym)
+                    {
+                        authors[existing] = (current.Qid, current.Label, current.Ordinal, p31Qid);
+                    }
+                }
+                else
+                {
+                    authors.Add((authorQid, authorLabel, ordinal, p31Qid));
+                }
+            }
+
+            if (authors.Count == 0)
+                return [];
+
+            // Sort: collective pseudonyms first (pen name priority), then by
+            // ordinal (nulls last), then by original Wikidata order.
+            var sorted = authors
+                .Select((a, idx) => (Author: a, OriginalIndex: idx))
+                .OrderByDescending(x => x.Author.P31Type is QidCollectivePseudonym ? 1 : 0)
+                .ThenByDescending(x => x.Author.P31Type is QidPseudonym ? 1 : 0)
+                .ThenBy(x => x.Author.Ordinal ?? int.MaxValue)
+                .ThenBy(x => x.OriginalIndex)
+                .Select(x => x.Author)
+                .ToList();
+
+            _logger.LogDebug(
+                "Wikidata author audit for {Qid}: {Count} authors found, order: [{Authors}]",
+                qid, sorted.Count,
+                string.Join(", ", sorted.Select(a =>
+                    $"{a.Label} ({a.Qid}, P31={a.P31Type ?? "?"}, ord={a.Ordinal?.ToString() ?? "null"})")));
+
+            // Build claims.
+            var claims = new List<ProviderClaim>();
+
+            // author: pipe-separated labels in sorted order (first = display author).
+            var authorLabels = string.Join(
+                WikidataSparqlPropertyMap.MultiValueSeparator,
+                sorted.Select(a => a.Label));
+            claims.Add(new ProviderClaim("author", authorLabels, 0.9));
+
+            // author_qid: pipe-separated QID::Label pairs in sorted order.
+            var authorQids = string.Join(
+                WikidataSparqlPropertyMap.MultiValueSeparator,
+                sorted.Select(a => $"{a.Qid}::{a.Label}"));
+            claims.Add(new ProviderClaim("author_qid", authorQids, 0.9));
+
+            // Flag pseudonym entries.
+            var pseudonymFlags = sorted
+                .Where(a => a.P31Type is QidPseudonym or QidCollectivePseudonym)
+                .Select(a => a.Qid)
+                .ToList();
+            if (pseudonymFlags.Count > 0)
+            {
+                claims.Add(new ProviderClaim("author_is_pseudonym",
+                    string.Join(WikidataSparqlPropertyMap.MultiValueSeparator, pseudonymFlags), 0.9));
+            }
+
+            // For collective pseudonyms, discover constituent members.
+            foreach (var author in sorted.Where(a => a.P31Type is QidCollectivePseudonym))
+            {
+                var members = await FetchCollectiveMembersAsync(
+                    sparqlClient, sparqlBaseUrl, author.Qid, throttleGapMs, ct, language)
+                    .ConfigureAwait(false);
+
+                if (members.Count > 0)
+                {
+                    var memberPairs = string.Join(
+                        WikidataSparqlPropertyMap.MultiValueSeparator,
+                        members.Select(m => $"{m.Qid}::{m.Label}"));
+                    claims.Add(new ProviderClaim("collective_members_qid", memberPairs, 0.9));
+
+                    _logger.LogDebug(
+                        "Wikidata: collective pseudonym {Qid} ({Label}) has {Count} members: [{Members}]",
+                        author.Qid, author.Label, members.Count,
+                        string.Join(", ", members.Select(m => m.Label)));
+                }
+            }
+
+            return claims;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex,
+                "Wikidata author audit failed for QID {Qid}; falling back to standard P50 results", qid);
+            return [];
+        }
+    }
+
+    /// <summary>
+    /// Fetches the constituent human members of a collective pseudonym via P527.
+    /// </summary>
+    private async Task<IReadOnlyList<(string Qid, string Label)>> FetchCollectiveMembersAsync(
+        HttpClient sparqlClient,
+        string sparqlBaseUrl,
+        string collectiveQid,
+        int throttleGapMs,
+        CancellationToken ct,
+        string? language = null)
+    {
+        try
+        {
+            var sparql = WikidataSparqlPropertyMap.BuildCollectiveMembersQuery(collectiveQid, language);
+            var json = await ThrottledSparqlAsync(sparqlClient, sparqlBaseUrl, sparql, throttleGapMs, ct)
+                .ConfigureAwait(false);
+
+            if (json is null) return [];
+
+            var bindings = json["results"]?["bindings"]?.AsArray();
+            if (bindings is null || bindings.Count == 0)
+                return [];
+
+            var members = new List<(string Qid, string Label)>();
+            foreach (var binding in bindings)
+            {
+                var memberUri = binding?["member"]?["value"]?.GetValue<string>();
+                var memberLabel = binding?["memberLabel"]?["value"]?.GetValue<string>();
+                if (string.IsNullOrWhiteSpace(memberUri) || string.IsNullOrWhiteSpace(memberLabel))
+                    continue;
+                var memberQid = ExtractQidFromUri(memberUri);
+                if (memberQid is not null)
+                    members.Add((memberQid, memberLabel));
+            }
+            return members;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex,
+                "Wikidata collective members query failed for QID {Qid}", collectiveQid);
+            return [];
+        }
+    }
+
+    // ── QID Resolution: Bridge IDs ──────────────────────────────────────────
+
     /// <summary>
     /// Resolves a QID via bridge identifiers. Returns the QID and the P-code
     /// of the bridge that matched (e.g. "P212" for ISBN).
