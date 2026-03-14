@@ -569,7 +569,7 @@ else
             var journey = journeyTask.Result;
             _related    = relatedTask.Result;
 
-            _authorPerson = ResolveAuthorPerson(persons, _hub.Author);
+            _authorPerson = ResolveAuthorPerson(persons, _hub.AuthorQid, _hub.Author);
 
             // ── Three-tier progress resolution ──────────────────────────────
             //
@@ -850,45 +850,87 @@ else
     }
 
     /// <summary>
-    /// Resolves the best-matching Author person for the hub's canonical author name.
-    /// Uses three tiers: exact match → normalised match (collapses whitespace around
-    /// periods/hyphens to handle "S.A." vs "S. A." variants) → first Author fallback.
+    /// Resolves the best-matching Author person using QID-based matching.
+    /// <para>
+    /// The canonical <c>author_qid</c> carries Wikidata QIDs in
+    /// <c>"Q123::Label|||Q456::Label"</c> format.  Person records carry
+    /// their own <c>WikidataQid</c>.  Matching by QID is deterministic —
+    /// string-formatting differences between providers are irrelevant.
+    /// </para>
+    /// <para>
+    /// When multiple Author QIDs exist (co-authored works, pen names), the
+    /// method identifies which QID corresponds to the canonical display author
+    /// by comparing the Wikidata label against the canonical author name.
+    /// Both are identifiers for the same person — any formatting differences
+    /// are collapsed during comparison.  The QID then resolves the Person
+    /// record deterministically.
+    /// </para>
     /// </summary>
     private static PersonViewModel? ResolveAuthorPerson(
-        IReadOnlyList<PersonViewModel> persons, string? hubAuthor)
+        IReadOnlyList<PersonViewModel> persons, string? authorQidCanonical,
+        string? canonicalAuthor)
     {
-        if (string.IsNullOrEmpty(hubAuthor) || persons.Count == 0)
-            return persons.FirstOrDefault(p =>
-                string.Equals(p.Role, "Author", StringComparison.OrdinalIgnoreCase));
+        if (persons.Count == 0) return null;
 
-        // Tier 1: exact name match (case-insensitive)
-        var exact = persons.FirstOrDefault(p =>
-            string.Equals(p.Role, "Author", StringComparison.OrdinalIgnoreCase) &&
-            string.Equals(p.Name, hubAuthor, StringComparison.OrdinalIgnoreCase));
-        if (exact is not null) return exact;
+        if (!string.IsNullOrEmpty(authorQidCanonical))
+        {
+            // Parse "Q18608460::Ty Franck|||Q6142591::James S. A. Corey|||…"
+            // into ordered (qid, label) pairs.
+            var entries = authorQidCanonical
+                .Split("|||", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(entry =>
+                {
+                    var sep = entry.IndexOf("::", StringComparison.Ordinal);
+                    return sep > 0
+                        ? (Qid: entry[..sep], Label: entry[(sep + 2)..])
+                        : (Qid: entry, Label: string.Empty);
+                })
+                .ToList();
 
-        // Tier 2: normalised match — collapse whitespace around periods/hyphens
-        var normHub = NormalizeName(hubAuthor);
-        var normalised = persons.FirstOrDefault(p =>
-            string.Equals(p.Role, "Author", StringComparison.OrdinalIgnoreCase) &&
-            string.Equals(NormalizeName(p.Name), normHub, StringComparison.OrdinalIgnoreCase));
-        if (normalised is not null) return normalised;
+            // Step 1: Identify which QID corresponds to the canonical display
+            // author.  Compare the canonical author name against each entry's
+            // Wikidata label, collapsing formatting differences (e.g. "S.A."
+            // vs "S. A." — same person, different whitespace convention).
+            if (!string.IsNullOrEmpty(canonicalAuthor))
+            {
+                var normAuthor = CollapseFormatting(canonicalAuthor);
+                foreach (var (qid, label) in entries)
+                {
+                    if (!string.Equals(CollapseFormatting(label), normAuthor, StringComparison.OrdinalIgnoreCase))
+                        continue;
 
-        // Tier 3: first Author by position
+                    // Found the QID for the canonical author — resolve by QID.
+                    var match = persons.FirstOrDefault(p =>
+                        string.Equals(p.Role, "Author", StringComparison.OrdinalIgnoreCase) &&
+                        string.Equals(p.WikidataQid, qid, StringComparison.OrdinalIgnoreCase));
+                    if (match is not null) return match;
+                }
+            }
+
+            // Step 2: No canonical author label matched — take the first QID
+            // that maps to an Author person.
+            foreach (var (qid, _) in entries)
+            {
+                var match = persons.FirstOrDefault(p =>
+                    string.Equals(p.Role, "Author", StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(p.WikidataQid, qid, StringComparison.OrdinalIgnoreCase));
+                if (match is not null) return match;
+            }
+        }
+
+        // Step 3: No QID data — first Author person.
         return persons.FirstOrDefault(p =>
             string.Equals(p.Role, "Author", StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>
-    /// Collapses whitespace around periods and hyphens so that
-    /// "James S.A. Corey" and "James S. A. Corey" compare as equal.
+    /// Collapses whitespace around periods and hyphens so that formatting
+    /// variants like "S.A." and "S. A." compare as equal.  Used only for
+    /// identifying which QID entry corresponds to the canonical author —
+    /// the final Person match is always by QID, not by this string.
     /// </summary>
-    private static string NormalizeName(string? name)
-    {
-        if (string.IsNullOrEmpty(name)) return string.Empty;
-        // Remove spaces immediately before/after periods and hyphens
-        return System.Text.RegularExpressions.Regex.Replace(name, @"\s*([.\-])\s*", "$1");
-    }
+    private static string CollapseFormatting(string value)
+        => System.Text.RegularExpressions.Regex.Replace(value, @"\s*([.\-])\s*", "$1");
 
     /// <summary>Proper icon for the primary action button.</summary>
     private string GetPrimaryActionIcon() => ActiveFormatKey switch

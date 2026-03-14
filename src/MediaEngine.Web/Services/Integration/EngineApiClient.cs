@@ -1437,6 +1437,7 @@ public sealed class EngineApiClient : IEngineApiClient
                 Id               = p.Id,
                 Name             = p.Name ?? string.Empty,
                 Role             = p.Role ?? string.Empty,
+                WikidataQid      = p.WikidataQid,
                 HeadshotUrl      = p.HeadshotUrl,
                 HasLocalHeadshot = p.HasLocalHeadshot,
                 LocalHeadshotUrl = p.HasLocalHeadshot
@@ -1466,6 +1467,7 @@ public sealed class EngineApiClient : IEngineApiClient
                 Id               = p.Id,
                 Name             = p.Name ?? string.Empty,
                 Role             = p.Role ?? string.Empty,
+                WikidataQid      = p.WikidataQid,
                 HeadshotUrl      = p.HeadshotUrl,
                 HasLocalHeadshot = p.HasLocalHeadshot,
                 LocalHeadshotUrl = p.HasLocalHeadshot
@@ -1917,6 +1919,7 @@ public sealed class EngineApiClient : IEngineApiClient
         [property: JsonPropertyName("id")]                 Guid    Id,
         [property: JsonPropertyName("name")]               string? Name,
         [property: JsonPropertyName("role")]               string? Role,
+        [property: JsonPropertyName("wikidata_qid")]       string? WikidataQid,
         [property: JsonPropertyName("headshot_url")]       string? HeadshotUrl,
         [property: JsonPropertyName("has_local_headshot")] bool    HasLocalHeadshot,
         [property: JsonPropertyName("biography")]          string? Biography,

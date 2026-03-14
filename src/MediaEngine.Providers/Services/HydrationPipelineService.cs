@@ -1718,10 +1718,13 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     };
 
     /// <summary>
-    /// Replaces multi-valued person label claims (e.g. <c>"Ty Franck|||Daniel Abraham"</c>)
-    /// with just their first value.  This ensures the scoring engine never stores a
-    /// <c>|||</c>-joined string as the canonical author name.  The <c>*_qid</c> companions
-    /// are left untouched — they carry the full QID list for person enrichment.
+    /// Replaces multi-valued person label claims (e.g. <c>"Ty Franck|||James S. A. Corey|||Daniel Abraham"</c>)
+    /// with a single claim containing the first individual name.  This ensures the scoring
+    /// engine never stores a <c>|||</c>-joined string as the canonical author name.
+    /// <para>
+    /// The <c>*_qid</c> companions are left untouched — they carry the full QID list
+    /// for person enrichment.
+    /// </para>
     /// </summary>
     private static IReadOnlyList<ProviderClaim> DeMultiValuePersonLabels(
         IReadOnlyList<ProviderClaim> claims)

@@ -9,6 +9,7 @@ public sealed class PersonViewModel
     public Guid    Id              { get; init; }
     public string  Name            { get; init; } = string.Empty;
     public string  Role            { get; init; } = string.Empty;
+    public string? WikidataQid     { get; init; }
     public string? HeadshotUrl      { get; init; }
     public bool    HasLocalHeadshot { get; init; }
     /// <summary>

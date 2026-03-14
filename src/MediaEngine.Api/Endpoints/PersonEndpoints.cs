@@ -111,6 +111,7 @@ public static class PersonEndpoints
                             id                 = p.Id,
                             name               = p.Name,
                             role               = p.Role,
+                            wikidata_qid       = p.WikidataQid,
                             headshot_url       = p.HeadshotUrl,
                             has_local_headshot = !string.IsNullOrEmpty(p.LocalHeadshotPath)
                                                  && File.Exists(p.LocalHeadshotPath),
@@ -191,6 +192,7 @@ public static class PersonEndpoints
                     id                 = p.Id,
                     name               = p.Name,
                     role               = p.Role,
+                    wikidata_qid       = p.WikidataQid,
                     headshot_url       = p.HeadshotUrl,
                     has_local_headshot = !string.IsNullOrEmpty(p.LocalHeadshotPath)
                                          && File.Exists(p.LocalHeadshotPath),
