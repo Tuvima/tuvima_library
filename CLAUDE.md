@@ -58,17 +58,22 @@ This can be as simple as grouping books by the same author, or as rich as follow
 >
 > *These are linked not because they share a filename, but because their metadata — author, franchise QID, series identifiers — connects them to the same creative universe.*
 
+**A Hub is not limited to a series.** While a Hub often represents a book series or film franchise, it is a flexible virtual container for *any* creative grouping — film adaptations of a novel, spin-off works, thematic collections, or cross-media narrative links. What defines a Hub is shared contextual metadata, not a shared format or filesystem location.
+
 The Hub hierarchy works like this:
 
 ```
 Universe  (your entire library — all Hubs)
-  └── Hub  (one creative universe — e.g. "Dune" — virtual, not a folder)
-        └── Work  (one title in that universe — e.g. "Dune Part One")
-              └── Edition  (one physical version — e.g. "4K HDR Blu-ray Remux")
-                    └── Media Asset  (one file on disk)
+  └── Parent Hub  (franchise/universe — e.g. "Dune" — groups related Series Hubs)
+        └── Hub  (series or thematic collection — e.g. "Dune Novels" or "Dune Films")
+              └── Work  (one title — e.g. "Dune Part One")
+                    └── Edition  (one physical version — e.g. "4K HDR Blu-ray Remux")
+                          └── Media Asset  (one file on disk)
 ```
 
-**Important:** The Hub is resolved at metadata-scoring time by the Intelligence Engine. It has no presence on the filesystem — files are organized by category and title, not by Hub.
+**Parent Hubs** are optional. A Hub that belongs to no larger franchise sits directly under the Universe. When the Engine discovers franchise-level relationships (Wikidata P8345 franchise, P179 series, or shared narrative roots from §3.22), it can promote a group of related Hubs under a common Parent Hub. For example, the "Dune" Parent Hub would contain the "Dune Novels" Hub, the "Dune Films" Hub, and potentially a "Dune Audiobooks" Hub — each a distinct series or thematic collection, all sharing the same creative universe.
+
+**Important:** Both Hubs and Parent Hubs are resolved at metadata-scoring time by the Intelligence Engine. They have no presence on the filesystem — files are organized by category and title, not by Hub. Parent Hubs add a layer to Dashboard navigation (breadcrumbs become Universe → Parent Hub → Hub → Work) but do not affect file organization.
 
 ### Who is it for?
 
@@ -441,6 +446,17 @@ scored.OverallConfidence >= 0.85  ||  claims.Any(c => c.IsUserLocked)
 ```
 Files that score below 0.85 with no user locks are left in the Watch Folder and not moved — they wait for more data. The threshold reuses `AutoLinkThreshold = 0.85` from `ScoringConfiguration` (single source of truth).
 
+**The Orphanage — low-confidence asset quarantine:**
+Files that score below **0.40** with no user locks are moved to `{LibraryRoot}/.orphans/` instead of remaining in the Watch Folder. This prevents the Watch Folder from accumulating files that the Engine cannot meaningfully identify — corrupted files, unsupported formats disguised with wrong extensions, or files with zero usable metadata.
+
+Orphaned files retain their fingerprint in the database and can be manually reclaimed at any time via the Dashboard (drag to a Hub, or provide a user-locked title). When a user resolves an orphan, it is moved from `.orphans/` into the organised library structure as normal. The `.orphans/` directory is excluded from Watch Folder monitoring to prevent re-ingestion loops.
+
+```
+scored.OverallConfidence < 0.40  &&  !claims.Any(c => c.IsUserLocked)
+  → move to {LibraryRoot}/.orphans/{OriginalFilename}
+  → create ReviewQueueEntry with trigger "OrphanedLowConfidence"
+```
+
 **library.xml schemas:**
 - `<library-hub version="1.0">` — `identity/display-name`, `identity/year`, `identity/wikidata-qid`, `identity/franchise`, `last-organized`.
 - `<library-edition version="1.0">` — `identity/title`, `identity/author`, `identity/media-type`, `identity/isbn`, `identity/asin`, `content-hash`, `cover-path`, `user-locks` (zero or more `<claim key=".." value=".." locked-at=".."/>`), `last-organized`.
@@ -520,6 +536,19 @@ Static helpers generate SPARQL queries:
 **Schema migrations:**
 - **M-009:** Rebuilds the `persons` table to expand the role CHECK constraint, adding `Illustrator`, `Cast Member`, `Voice Actor`, `Screenwriter`, and `Composer` to the existing `Author`, `Narrator`, `Director` list. Uses the SQLite table-recreation pattern (PRAGMA foreign_keys=OFF → CREATE new → INSERT INTO → DROP old → RENAME).
 - **M-010:** Adds six nullable TEXT columns to `persons`: `occupation` (Wikidata P106), `instagram` (P2003), `twitter` (P2002), `tiktok` (P7085), `mastodon` (P4033), `website` (P856). These power the Social Pivot — direct links to official creator feeds.
+
+**Social Pivot — Actionable URI Schemes:**
+Social link handles are stored as **Actionable URI Schemes** to enable native app launching on Mobile and Automotive device profiles (§3.12). When the Engine receives a raw handle from Wikidata (e.g. `"frankherbertofficial"` from P2003), it stores both the raw handle and the platform-specific URI:
+
+| Platform | Stored URI | Fallback (web) |
+|---|---|---|
+| Instagram | `instagram://user?username={handle}` | `https://instagram.com/{handle}` |
+| Twitter/X | `twitter://user?screen_name={handle}` | `https://x.com/{handle}` |
+| TikTok | `tiktok://user?username={handle}` | `https://tiktok.com/@{handle}` |
+| Mastodon | `https://{instance}/@{user}` (web-native) | Same |
+| Website | Direct URL as-is | Same |
+
+The Dashboard's `DeviceContextService` selects the appropriate URI format at render time: URI scheme for Mobile/Automotive (triggers native app), HTTPS fallback for Web/Television. The raw handle is always preserved in the database column for portability.
 
 **Sidecar XML expansion (v1.1):**
 Both Hub-level and Edition-level `library.xml` sidecars now carry a `<bridges>` section that records every external bridge identifier harvested from Wikidata SPARQL:
@@ -1234,12 +1263,26 @@ Per-provider TTL defaults: Apple Books 168h (7d), TMDB 168h, Open Library 336h (
 - `config/universe/wikidata.json` — added P4983 (TMDB TV), P5842 (Apple Podcasts), expanded P434 scope to Both, bridge lookup priority expanded
 - `config/slots.json` — all 7 media types with default primary/secondary/tertiary providers
 
+**Ingestion Hinting — sibling-aware metadata priming:**
+
+When multiple files arrive in the same source folder (e.g. a TV season with 22 episodes, or an album with 12 tracks), the Engine uses **Ingestion Hinting** to avoid redundant external lookups. After the first file in a folder is fully hydrated, its resolved metadata becomes a "hint prior" for sibling files in the same directory.
+
+How it works:
+1. **First file in folder** — processed normally through the full three-stage pipeline. On successful hydration, the Engine caches a `FolderHint` record keyed by the source folder path, containing: resolved Hub ID, QID, series name, author/artist, and all bridge IDs deposited by Stage 1.
+2. **Subsequent siblings** — when the next file from the same folder enters ingestion, the Engine checks for an existing `FolderHint`. If found, the hint's bridge IDs and Hub ID are injected as high-confidence priors (0.80) into the scoring pipeline *before* Stage 1 runs. This allows:
+   - **Stage 1 skip for bridge-matched siblings:** If the sibling's embedded metadata (e.g. same series name, sequential episode number) is consistent with the hint, Stage 1 can resolve the QID instantly from the cached bridge IDs instead of running a fresh SPARQL lookup.
+   - **Hub pre-assignment:** The sibling is tentatively assigned to the same Hub, skipping the Arbiter's full matching cycle. The Arbiter still validates the assignment (and rejects if metadata diverges significantly), but the common case — 22 episodes of the same show — resolves in milliseconds.
+3. **Hint expiry** — `FolderHint` records expire after 24 hours or when the source folder is no longer being actively monitored. They are stored in-memory (`ConcurrentDictionary<string, FolderHint>`) and not persisted to the database — they are a performance optimisation, not a source of truth.
+4. **Divergence detection** — if a sibling file's embedded metadata disagrees with the hint (different series name, different author), the hint is ignored for that file and it proceeds through the full pipeline. This prevents a single misplaced file from corrupting an entire folder's metadata.
+
+**Performance impact:** For a 22-episode TV season, Ingestion Hinting reduces Stage 1 SPARQL calls from 22 to 1 (95% reduction). For a 12-track album, MusicBrainz lookups drop from 12 to 1. The provider response cache (above) handles Stage 3 deduplication; Ingestion Hinting handles Stage 1 + Hub assignment deduplication.
+
 **Why this matters to the business:**
-- **Performance** — Response caching cuts API calls by 3–5x for bulk imports of related content. A 5,000-episode TV library takes ~5 minutes instead of ~42 minutes.
-- **Reliability** — Each provider's rate limits are respected. Cache prevents quota exhaustion during large imports.
+- **Performance** — Response caching cuts API calls by 3–5x for bulk imports of related content. A 5,000-episode TV library takes ~5 minutes instead of ~42 minutes. Ingestion Hinting further reduces Stage 1 lookups by up to 95% for folder-grouped content.
+- **Reliability** — Each provider's rate limits are respected. Cache prevents quota exhaustion during large imports. Hinting ensures sibling files land in the correct Hub consistently.
 - **Extensibility** — Adding a new media type requires only a provider config file and a slot assignment — zero code changes. Podcasts were added this way.
 - **Maintenance** — All provider configs, slot assignments, and cache TTLs are JSON-editable. No recompilation needed.
-- **Privacy** — Only titles, ISBNs, and bridge IDs leave the machine. The response cache lives locally in SQLite.
+- **Privacy** — Only titles, ISBNs, and bridge IDs leave the machine. The response cache lives locally in SQLite. Ingestion Hints are in-memory only.
 
 ### 3.22 — Universe Graph Data Capture
 
@@ -1475,6 +1518,28 @@ When the build fails or a quality check breaks, Claude must:
 
 Never guess silently. If Claude is unsure about an approach, it must say so:
 > *"I'm not certain which approach is best here — I see two options. Here's the trade-off: [explain]. Which matters more to you?"*
+
+### 4.6 — Model Adherence & Delegation
+
+This project uses a two-tier model strategy to balance quality with speed:
+
+**Opus** handles:
+- Planning, architectural decisions, and task decomposition
+- Code review and quality assurance
+- Resolving ambiguity or scope questions escalated by Sonnet agents
+- Writing and updating project documentation (`CLAUDE.md`, `MEMORY.md`, `.agent/` files)
+
+**Sonnet** handles:
+- Implementation and coding tasks delegated by Opus
+- File modifications with clear, scoped instructions
+- Build verification (`dotnet build`) after each unit of work
+
+**Delegation rules:**
+1. When a task involves both planning and coding, Opus must break down the work first into self-contained units, then dispatch coding subtasks to Sonnet agents with clear, scoped instructions — including all necessary context (file paths, exact changes, integration points, verification steps).
+2. Sonnet agents must not make architectural decisions autonomously. If the scope is ambiguous, requirements are unclear, or an unexpected build failure suggests a design problem, the agent must escalate back to Opus rather than improvising a fix.
+3. Independent units should be dispatched to Sonnet agents in parallel whenever possible. Dependent units must wait for their prerequisites to complete.
+4. Each Sonnet agent receives a complete handoff spec: files to modify, exact entries to add, patterns to follow, and a verification command. The agent should not need to explore the codebase to understand its task.
+5. If a Sonnet agent encounters a build failure it cannot resolve within its scoped instructions, it escalates to Opus with the full error context rather than attempting architectural changes.
 
 ---
 
