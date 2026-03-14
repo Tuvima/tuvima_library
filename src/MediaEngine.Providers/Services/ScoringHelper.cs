@@ -110,11 +110,13 @@ internal static class ScoringHelper
             .Where(f => !string.IsNullOrEmpty(f.WinningValue))
             .Select(f => new CanonicalValue
             {
-                EntityId     = entityId,
-                Key          = f.Key,
-                Value        = f.WinningValue!,
-                LastScoredAt = scored.ScoredAt,
-                IsConflicted = f.IsConflicted,
+                EntityId          = entityId,
+                Key               = f.Key,
+                Value             = f.WinningValue!,
+                LastScoredAt      = scored.ScoredAt,
+                IsConflicted      = f.IsConflicted,
+                WinningProviderId = f.WinningProviderId,
+                NeedsReview       = f.IsConflicted, // Unit 5: conflicted fields immediately flagged for review
             })
             .ToList();
 

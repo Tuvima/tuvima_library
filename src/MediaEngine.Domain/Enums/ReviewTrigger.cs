@@ -78,4 +78,10 @@ public static class ReviewTrigger
     /// and should be replaced with a real QID when Wikidata catches up.
     /// </summary>
     public const string MissingQid = "MissingQid";
+
+    /// <summary>
+    /// One or more canonical value fields were flagged for review (conflicted,
+    /// missing expected field, or unconfirmed local-only source).
+    /// </summary>
+    public const string FieldLevelReview = "FieldLevelReview";
 }

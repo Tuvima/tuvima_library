@@ -95,7 +95,7 @@ public sealed class WikipediaAdapter : IExternalMetadataProvider
                 _logger.LogDebug(
                     "WikipediaAdapter: No {Lang}wiki sitelink for {Qid}",
                     lang, qid);
-                return [];
+                return await FetchWikidataShortDescriptionAsync(qid, request, ct);
             }
 
             // Step 2: Fetch summary from Wikipedia REST API
@@ -105,7 +105,7 @@ public sealed class WikipediaAdapter : IExternalMetadataProvider
                 _logger.LogDebug(
                     "WikipediaAdapter: Empty summary for {Title} ({Qid})",
                     articleTitle, qid);
-                return [];
+                return await FetchWikidataShortDescriptionAsync(qid, request, ct);
             }
 
             // Truncate to configured max length
@@ -215,6 +215,64 @@ public sealed class WikipediaAdapter : IExternalMetadataProvider
 
         var stream = await response.Content.ReadAsStreamAsync(ct);
         return await JsonSerializer.DeserializeAsync<JsonNode>(stream, cancellationToken: ct);
+    }
+
+    // Wikidata short description fallback
+
+    /// <summary>
+    /// Called when the main Wikipedia flow produced no description. Fetches
+    /// the Wikidata short description via wbgetentities?props=descriptions.
+    /// Returns two claims at confidence 0.70 (lower than Wikipedia's 0.85)
+    /// or an empty list if the call fails or the description is absent.
+    /// </summary>
+    private async Task<IReadOnlyList<ProviderClaim>> FetchWikidataShortDescriptionAsync(
+        string qid,
+        ProviderLookupRequest request,
+        CancellationToken ct)
+    {
+        try
+        {
+            var client = _httpFactory.CreateClient("wikipedia_api");
+
+            // Use a configured Wikidata API base URL when available (same
+            // pattern as WikidataAdapter), otherwise fall back to the
+            // canonical public endpoint already used by GetSitelinkTitleAsync.
+            var apiBase = string.IsNullOrWhiteSpace(request.SparqlBaseUrl)
+                ? "https://www.wikidata.org/w/api.php"
+                : request.SparqlBaseUrl.TrimEnd('/').Replace("/sparql", "/w/api.php");
+
+            var url = apiBase
+                    + "?action=wbgetentities&ids=" + Uri.EscapeDataString(qid)
+                    + "&props=descriptions&languages=en&format=json";
+
+            var json = await ThrottledGetAsync(client, url, ct);
+            if (json is null) return [];
+
+            var description = json["entities"]?[qid]?["descriptions"]?["en"]?["value"]
+                ?.GetValue<string>();
+
+            if (string.IsNullOrWhiteSpace(description))
+            {
+                _logger.LogDebug(
+                    "WikipediaAdapter: No Wikidata short description for {Qid}", qid);
+                return [];
+            }
+
+            _logger.LogInformation(
+                "WikipediaAdapter: Using Wikidata short description for {Qid}", qid);
+
+            return
+            [
+                new ProviderClaim("description", description, 0.70),
+                new ProviderClaim("description_source", "Wikidata (short description)", 0.70),
+            ];
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogDebug(
+                ex, "WikipediaAdapter: Wikidata short description fallback failed for {Qid}", qid);
+            return [];
+        }
     }
 
     // Config

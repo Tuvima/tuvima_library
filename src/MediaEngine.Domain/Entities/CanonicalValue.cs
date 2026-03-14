@@ -39,4 +39,21 @@ public sealed class CanonicalValue
     /// Spec: Phase B – Conflict Surfacing (B-05).
     /// </summary>
     public bool IsConflicted { get; set; }
+
+    /// <summary>
+    /// The provider that supplied the winning claim for this field.
+    /// Null when no provider weight information was available (e.g. the value
+    /// came from a user lock or was scored before this column was added).
+    /// Spec: Unit 4 – Source Attribution.
+    /// </summary>
+    public Guid? WinningProviderId { get; set; }
+
+    /// <summary>
+    /// <see langword="true"/> when this field requires human review — either because
+    /// the scoring engine flagged it as conflicted, the field is missing an expected
+    /// value after hydration, or the winning claim came solely from the local
+    /// filesystem provider with low overall confidence.
+    /// Spec: Unit 5 – Per-Field NeedsReview / Self-Healing Logic.
+    /// </summary>
+    public bool NeedsReview { get; set; }
 }

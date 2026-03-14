@@ -47,6 +47,33 @@ public static partial class ValueTransformRegistry
                 return $"https://commons.wikimedia.org/wiki/Special:FilePath/{commonsName}?width=300";
             },
 
+            // Extract plain numeric value from a Wikidata quantity string (e.g. "+142" → "142")
+            ["duration_from_quantity"] = value =>
+            {
+                if (string.IsNullOrWhiteSpace(value)) return null;
+                var numeric = new string(value.TrimStart('+').TakeWhile(c => char.IsDigit(c) || c == '.').ToArray());
+                return string.IsNullOrEmpty(numeric) ? null : numeric;
+            },
+
+            // Preserve date precision from Wikidata ISO dates.
+            // Wikidata year-precision dates use -01-01T00:00:00Z as a sentinel.
+            // Returns bare year ("1965") for year-precision, full date ("1965-06-15") otherwise.
+            ["date_with_precision"] = value =>
+            {
+                if (string.IsNullOrWhiteSpace(value)) return null;
+                // Already a bare year
+                if (value.Length == 4 && value.All(char.IsDigit)) return value;
+                // Parse ISO date — Wikidata convention: year-precision dates use -01-01T00:00:00Z
+                if (value.Length >= 10)
+                {
+                    var monthDay = value.Substring(5, 5); // "MM-DD"
+                    if (monthDay == "01-01")
+                        return value.Substring(0, 4); // Year only
+                    return value.Substring(0, 10); // Full date YYYY-MM-DD
+                }
+                return value;
+            },
+
             // ── Config-driven transforms (new) ──────────────────────────────
 
             // Pass value through unchanged (useful for int→string coercion in JSON)

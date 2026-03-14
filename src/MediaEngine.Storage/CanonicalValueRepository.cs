@@ -57,26 +57,32 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository
                 // new value and timestamp.
                 cmd.CommandText = """
                     INSERT OR REPLACE INTO canonical_values
-                        (entity_id, key, value, last_scored_at, is_conflicted)
+                        (entity_id, key, value, last_scored_at, is_conflicted, winning_provider_id, needs_review)
                     VALUES
-                        (@entity_id, @key, @value, @last_scored_at, @is_conflicted);
+                        (@entity_id, @key, @value, @last_scored_at, @is_conflicted, @winning_provider_id, @needs_review);
                     """;
 
-                var pEntityId      = cmd.Parameters.Add("@entity_id",      SqliteType.Text);
-                var pKey           = cmd.Parameters.Add("@key",            SqliteType.Text);
-                var pValue         = cmd.Parameters.Add("@value",          SqliteType.Text);
-                var pLastScoredAt  = cmd.Parameters.Add("@last_scored_at", SqliteType.Text);
-                var pIsConflicted  = cmd.Parameters.Add("@is_conflicted",  SqliteType.Integer);
+                var pEntityId           = cmd.Parameters.Add("@entity_id",           SqliteType.Text);
+                var pKey                = cmd.Parameters.Add("@key",                 SqliteType.Text);
+                var pValue              = cmd.Parameters.Add("@value",               SqliteType.Text);
+                var pLastScoredAt       = cmd.Parameters.Add("@last_scored_at",      SqliteType.Text);
+                var pIsConflicted       = cmd.Parameters.Add("@is_conflicted",       SqliteType.Integer);
+                var pWinningProviderId  = cmd.Parameters.Add("@winning_provider_id", SqliteType.Text);
+                var pNeedsReview        = cmd.Parameters.Add("@needs_review",        SqliteType.Integer);
 
                 foreach (var cv in values)
                 {
                     ct.ThrowIfCancellationRequested();
 
-                    pEntityId.Value     = cv.EntityId.ToString();
-                    pKey.Value          = cv.Key;
-                    pValue.Value        = cv.Value;
-                    pLastScoredAt.Value = cv.LastScoredAt.ToString("o"); // ISO-8601 round-trip
-                    pIsConflicted.Value = cv.IsConflicted ? 1 : 0;
+                    pEntityId.Value          = cv.EntityId.ToString();
+                    pKey.Value               = cv.Key;
+                    pValue.Value             = cv.Value;
+                    pLastScoredAt.Value      = cv.LastScoredAt.ToString("o"); // ISO-8601 round-trip
+                    pIsConflicted.Value      = cv.IsConflicted ? 1 : 0;
+                    pWinningProviderId.Value = cv.WinningProviderId.HasValue
+                        ? (object)cv.WinningProviderId.Value.ToString()
+                        : DBNull.Value;
+                    pNeedsReview.Value       = cv.NeedsReview ? 1 : 0;
 
                     cmd.ExecuteNonQuery();
                 }
@@ -105,7 +111,7 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository
         using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
-            SELECT entity_id, key, value, last_scored_at, is_conflicted
+            SELECT entity_id, key, value, last_scored_at, is_conflicted, winning_provider_id, needs_review
             FROM   canonical_values
             WHERE  entity_id = @entity_id
             ORDER  BY key ASC;
@@ -132,7 +138,7 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository
         using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
-            SELECT entity_id, key, value, last_scored_at, is_conflicted
+            SELECT entity_id, key, value, last_scored_at, is_conflicted, winning_provider_id, needs_review
             FROM   canonical_values
             WHERE  is_conflicted = 1
             ORDER  BY last_scored_at DESC;
@@ -235,7 +241,7 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository
         using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
-            SELECT entity_id, key, value, last_scored_at, is_conflicted
+            SELECT entity_id, key, value, last_scored_at, is_conflicted, winning_provider_id, needs_review
             FROM   canonical_values
             WHERE  key   = @key   COLLATE NOCASE
               AND  value LIKE @prefix || '%';
@@ -261,14 +267,28 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository
     /// <summary>
     /// Maps the current reader row to a <see cref="CanonicalValue"/>.
     /// Column ordinals match the SELECT list used in every query in this class:
-    ///   0=entity_id, 1=key, 2=value, 3=last_scored_at, 4=is_conflicted
+    ///   0=entity_id, 1=key, 2=value, 3=last_scored_at, 4=is_conflicted,
+    ///   5=winning_provider_id (nullable TEXT), 6=needs_review
     /// </summary>
-    private static CanonicalValue MapRow(SqliteDataReader r) => new()
+    private static CanonicalValue MapRow(SqliteDataReader r)
     {
-        EntityId      = Guid.Parse(r.GetString(0)),
-        Key           = r.GetString(1),
-        Value         = r.GetString(2),
-        LastScoredAt  = DateTimeOffset.Parse(r.GetString(3)),
-        IsConflicted  = r.GetInt32(4) == 1,
-    };
+        Guid? winningProviderId = null;
+        if (!r.IsDBNull(5))
+        {
+            var raw = r.GetString(5);
+            if (Guid.TryParse(raw, out var parsed))
+                winningProviderId = parsed;
+        }
+
+        return new CanonicalValue
+        {
+            EntityId          = Guid.Parse(r.GetString(0)),
+            Key               = r.GetString(1),
+            Value             = r.GetString(2),
+            LastScoredAt      = DateTimeOffset.Parse(r.GetString(3)),
+            IsConflicted      = r.GetInt32(4) == 1,
+            WinningProviderId = winningProviderId,
+            NeedsReview       = !r.IsDBNull(6) && r.GetInt32(6) == 1,
+        };
+    }
 }

@@ -25,7 +25,7 @@ public sealed record WikidataProperty
     public required string ClaimKey { get; init; }
 
     /// <summary>
-    /// Human-readable category for grouping in the Dashboard, e.g. <c>"Core Identity"</c>.
+    /// Human-readable category for grouping in the Dashboard, e.g. <c>"Stage 1: Work Identity"</c>.
     /// </summary>
     public string Category { get; init; } = string.Empty;
 

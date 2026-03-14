@@ -179,12 +179,19 @@ public static class WikidataSparqlPropertyMap
             // Default bridge lookup priority — ISBN first (definitive match).
             BridgeLookupPriority =
             [
-                new() { PCode = "P212",  RequestField = "isbn"           },
-                new() { PCode = "P3861", RequestField = "apple_books_id" },
-                new() { PCode = "P3398", RequestField = "audible_id"     },
-                new() { PCode = "P4947", RequestField = "tmdb_id"        },
-                new() { PCode = "P345",  RequestField = "imdb_id"        },
-                new() { PCode = "P1566", RequestField = "asin"           },
+                new() { PCode = "P212",  RequestField = "isbn"                        },
+                new() { PCode = "P648",  RequestField = "openlibrary_id"              },
+                new() { PCode = "P3861", RequestField = "apple_books_id"              },
+                new() { PCode = "P3398", RequestField = "audible_id"                  },
+                new() { PCode = "P4947", RequestField = "tmdb_id"                     },
+                new() { PCode = "P4835", RequestField = "tvdb_id"                     },
+                new() { PCode = "P345",  RequestField = "imdb_id"                     },
+                new() { PCode = "P1566", RequestField = "asin"                        },
+                new() { PCode = "P11736", RequestField = "anilist_id"                 },
+                new() { PCode = "P982",  RequestField = "musicbrainz_release_group_id"},
+                new() { PCode = "P5792", RequestField = "igdb_id"                     },
+                new() { PCode = "P9968", RequestField = "rawg_id"                     },
+                new() { PCode = "P1735", RequestField = "steam_appid"                 },
             ],
 
             // Copyright constraint: P18 (Image) excluded from Work, Character, Location, Organization scopes.
@@ -400,6 +407,43 @@ public static class WikidataSparqlPropertyMap
             """;
     }
 
+    /// <summary>Builds a SPARQL query to fetch cast members with their character roles (P161 + P453 qualifier).</summary>
+    /// <param name="qid">The Work QID to fetch cast for.</param>
+    /// <param name="language">BCP-47 language code for labels. Defaults to <c>"en"</c>.</param>
+    public static string BuildCastRoleQuery(string qid, string? language = null)
+    {
+        var lang = string.IsNullOrWhiteSpace(language) ? "en" : language.ToLowerInvariant();
+        return $$"""
+            SELECT ?actor ?actorLabel ?character ?characterLabel WHERE {
+              wd:{{qid}} p:P161 ?stmt .
+              ?stmt ps:P161 ?actor .
+              OPTIONAL { ?stmt pq:P453 ?character .
+                         ?character rdfs:label ?characterLabel .
+                         FILTER(LANG(?characterLabel) = "{{lang}}") }
+              ?actor rdfs:label ?actorLabel .
+              FILTER(LANG(?actorLabel) = "{{lang}}")
+            }
+            LIMIT 50
+            """;
+    }
+
+    /// <summary>Builds a SPARQL query to fetch awards received (P166) with preferred rank only (winners, not nominees).</summary>
+    public static string BuildAwardsQuery(string qid, string language = "en")
+    {
+        var lang = string.IsNullOrWhiteSpace(language) ? "en" : language.ToLowerInvariant();
+        return $$"""
+            SELECT ?award ?awardLabel ?pointInTime WHERE {
+              wd:{{qid}} p:P166 ?stmt .
+              ?stmt ps:P166 ?award .
+              ?stmt wikibase:rank wikibase:PreferredRank .
+              OPTIONAL { ?stmt pq:P585 ?pointInTime . }
+              ?award rdfs:label ?awardLabel .
+              FILTER(LANG(?awardLabel) = "{{lang}}")
+            }
+            LIMIT 50
+            """;
+    }
+
     /// <summary>
     /// Build a SPARQL SELECT query for all enabled Character-scoped properties of a given QID.
     /// Used to enrich fictional characters with gender, species, relationships, etc.
@@ -578,7 +622,7 @@ public static class WikidataSparqlPropertyMap
 
     private static Dictionary<string, WikidataProperty> BuildDefaultMap()
     {
-        var map = new Dictionary<string, WikidataProperty>(96, StringComparer.OrdinalIgnoreCase);
+        var map = new Dictionary<string, WikidataProperty>(112, StringComparer.OrdinalIgnoreCase);
 
         void Add(string pCode, string claimKey, string category,
                  string scope = "Work", double confidence = 0.9, bool bridge = false,
@@ -600,123 +644,145 @@ public static class WikidataSparqlPropertyMap
             };
         }
 
-        // ── Core Identity (Work-scoped) ──────────────────────────────────
-        Add("P31",   "instance_of",     "Core Identity", scope: "Work,Character,Location,Organization", entityValued: true, multiValued: true);
-        Add("P136",  "genre",           "Core Identity", confidence: 0.8,      entityValued: true, multiValued: true);
-        Add("P1476", "title",           "Core Identity", monolingualText: true);
-        Add("P179",  "series",          "Core Identity",                       entityValued: true, multiValued: true);
-        Add("P1545", "series_position", "Core Identity",                       transform: "numeric_portion");
-        Add("P8345", "franchise",       "Core Identity",                       entityValued: true, multiValued: true);
-        Add("P155",  "preceded_by",     "Core Identity", confidence: 0.8,      entityValued: true, multiValued: true);
-        Add("P156",  "followed_by",     "Core Identity", confidence: 0.8,      entityValued: true, multiValued: true);
-        Add("P577",  "year",            "Core Identity",                       transform: "year_from_iso");
-        Add("P407",  "language",        "Core Identity", confidence: 0.85,     entityValued: true);
-        Add("P495",  "country_of_origin", "Core Identity", confidence: 0.85,   entityValued: true);
-        Add("P123",  "publisher",       "Core Identity", confidence: 0.85,     entityValued: true);
-        Add("P175",  "performer",       "People",                              entityValued: true, multiValued: true);
-        Add("P825",  "adaptation_of",   "Core Identity", confidence: 0.8,      entityValued: true, multiValued: true);
+        // ── Stage 1: Work Identity ────────────────────────────────────────
+        Add("P31",   "instance_of",     "Stage 1: Work Identity", scope: "Work,Character,Location,Organization", entityValued: true, multiValued: true);
+        Add("P1476", "title",           "Stage 1: Work Identity", monolingualText: true);
+        Add("P577",  "year",            "Stage 1: Work Identity",                       transform: "year_from_iso");
+        Add("P407",  "language",        "Stage 1: Work Identity", confidence: 0.85,     entityValued: true);
+        Add("P495",  "country_of_origin", "Stage 1: Work Identity", confidence: 0.85,   entityValued: true);
+        Add("P123",  "publisher",       "Stage 1: Work Identity", confidence: 0.85,     entityValued: true);
+        Add("P136",  "genre",           "Stage 1: Work Identity", confidence: 0.8,      entityValued: true, multiValued: true);
+        Add("P629",  "edition_or_translation_of", "Stage 1: Work Identity", confidence: 0.9, entityValued: true);
+        Add("P825",  "adaptation_of",   "Stage 1: Work Identity", confidence: 0.8,      entityValued: true, multiValued: true);
 
-        // ── People — Work-scoped (link Work → Person QID) ───────────────
-        Add("P50",  "author",       "People",                                  entityValued: true, multiValued: true);
-        Add("P110", "illustrator",  "People",                                  entityValued: true, multiValued: true);
-        Add("P57",  "director",     "People",                                  entityValued: true, multiValued: true);
-        Add("P161", "cast_member",  "People",                                  entityValued: true, multiValued: true);
-        Add("P987", "narrator",     "People",                                  entityValued: true, multiValued: true);
-        Add("P725", "voice_actor",  "People",                                  entityValued: true, multiValued: true);
-        Add("P58",  "screenwriter", "People",                                  entityValued: true, multiValued: true);
-        Add("P86",  "composer",     "People",                                  entityValued: true, multiValued: true);
+        // ── Stage 1: Series & Franchise ───────────────────────────────────
+        Add("P179",  "series",          "Stage 1: Series & Franchise",                       entityValued: true, multiValued: true);
+        Add("P1545", "series_position", "Stage 1: Series & Franchise",                       transform: "numeric_portion");
+        Add("P8345", "franchise",       "Stage 1: Series & Franchise",                       entityValued: true, multiValued: true);
+        Add("P155",  "preceded_by",     "Stage 1: Series & Franchise", confidence: 0.8,      entityValued: true, multiValued: true);
+        Add("P156",  "followed_by",     "Stage 1: Series & Franchise", confidence: 0.8,      entityValued: true, multiValued: true);
 
-        // ── People — Person-scoped (enrich the Person entity itself) ────
+        // ── Stage 1: Creative Credits (Work → Person links) ──────────────
+        Add("P50",   "author",              "Stage 1: Creative Credits",                          entityValued: true, multiValued: true);
+        Add("P110",  "illustrator",         "Stage 1: Creative Credits",                          entityValued: true, multiValued: true);
+        Add("P57",   "director",            "Stage 1: Creative Credits",                          entityValued: true, multiValued: true);
+        Add("P161",  "cast_member",         "Stage 1: Creative Credits",                          entityValued: true, multiValued: true);
+        Add("P987",  "narrator",            "Stage 1: Creative Credits",                          entityValued: true, multiValued: true);
+        Add("P725",  "voice_actor",         "Stage 1: Creative Credits",                          entityValued: true, multiValued: true);
+        Add("P58",   "screenwriter",        "Stage 1: Creative Credits",                          entityValued: true, multiValued: true);
+        Add("P86",   "composer",            "Stage 1: Creative Credits",                          entityValued: true, multiValued: true);
+        Add("P175",  "performer",           "Stage 1: Creative Credits",                          entityValued: true, multiValued: true);
+        Add("P2093", "author_name_string",  "Stage 1: Creative Credits", confidence: 0.7);
+        Add("P655",  "translator",          "Stage 1: Creative Credits", confidence: 0.85,        entityValued: true, multiValued: true);
+        Add("P1431", "executive_producer",  "Stage 1: Creative Credits", confidence: 0.85,        entityValued: true, multiValued: true);
+
+        // ── Stage 1: Story & Narrative ────────────────────────────────────
+        Add("P840",  "narrative_location", "Stage 1: Story & Narrative", confidence: 0.8, entityValued: true, multiValued: true);
+        Add("P674",  "characters",         "Stage 1: Story & Narrative", confidence: 0.8, entityValued: true, multiValued: true);
+        Add("P921",  "main_subject",       "Stage 1: Story & Narrative", confidence: 0.8, entityValued: true, multiValued: true);
+        Add("P1434", "fictional_universe", "Stage 1: Story & Narrative", scope: "Work,Character,Location,Organization", confidence: 0.8, entityValued: true, multiValued: true);
+        Add("P144",  "based_on",           "Stage 1: Story & Narrative", confidence: 0.8, entityValued: true, multiValued: true);
+        Add("P4584", "first_appearance",   "Stage 1: Story & Narrative", confidence: 0.8, entityValued: true, multiValued: true);
+
+        // ── Stage 1: Bridges — Books ─────────────────────────────────────
+        Add("P3861", "apple_books_id", "Stage 1: Bridges — Books", confidence: 1.0, bridge: true);
+        Add("P212",  "isbn",           "Stage 1: Bridges — Books", confidence: 1.0, bridge: true);
+        Add("P1566", "asin",           "Stage 1: Bridges — Books", confidence: 1.0, bridge: true);
+        Add("P2969", "goodreads_id",   "Stage 1: Bridges — Books", confidence: 1.0, bridge: true);
+        Add("P244",  "loc_id",         "Stage 1: Bridges — Books", confidence: 1.0, bridge: true);
+        Add("P648",  "openlibrary_id", "Stage 1: Bridges — Books", confidence: 1.0, bridge: true);
+
+        // ── Stage 1: Bridges — Movies/TV ─────────────────────────────────
+        Add("P4947", "tmdb_id",       "Stage 1: Bridges — Movies/TV", confidence: 1.0, bridge: true);
+        Add("P345",  "imdb_id",       "Stage 1: Bridges — Movies/TV", confidence: 1.0, bridge: true);
+        Add("P9385", "justwatch_id",  "Stage 1: Bridges — Movies/TV", confidence: 1.0, bridge: true);
+        Add("P1712", "metacritic_id", "Stage 1: Bridges — Movies/TV", confidence: 1.0, bridge: true);
+        Add("P6127", "letterboxd_id", "Stage 1: Bridges — Movies/TV", confidence: 1.0, bridge: true);
+        Add("P2638", "tvcom_id",      "Stage 1: Bridges — Movies/TV", confidence: 1.0, bridge: true);
+        Add("P4835", "tvdb_id",       "Stage 1: Bridges — Movies/TV", confidence: 1.0, bridge: true);
+
+        // ── Stage 1: Bridges — Comics/Anime ──────────────────────────────
+        Add("P3589",  "gcd_series_id", "Stage 1: Bridges — Comics/Anime", confidence: 1.0, bridge: true);
+        Add("P11308", "gcd_issue_id",  "Stage 1: Bridges — Comics/Anime", confidence: 1.0, bridge: true);
+        Add("P5905",  "comicvine_id",  "Stage 1: Bridges — Comics/Anime", confidence: 1.0, bridge: true);
+        Add("P4084",  "mal_anime_id",  "Stage 1: Bridges — Comics/Anime", confidence: 1.0, bridge: true);
+        Add("P4087",  "mal_manga_id",  "Stage 1: Bridges — Comics/Anime", confidence: 1.0, bridge: true);
+        Add("P11736", "anilist_id",    "Stage 1: Bridges — Comics/Anime", confidence: 1.0, bridge: true);
+
+        // ── Stage 1: Bridges — Music/Audio ───────────────────────────────
+        Add("P434",  "musicbrainz_id",               "Stage 1: Bridges — Music/Audio", confidence: 1.0, bridge: true);
+        Add("P1902", "spotify_id",                   "Stage 1: Bridges — Music/Audio", confidence: 1.0, bridge: true);
+        Add("P1953", "discogs_id",                   "Stage 1: Bridges — Music/Audio", confidence: 1.0, bridge: true);
+        Add("P3398", "audible_id",                   "Stage 1: Bridges — Music/Audio", confidence: 1.0, bridge: true);
+        Add("P982",  "musicbrainz_release_group_id", "Stage 1: Bridges — Music/Audio", confidence: 1.0, bridge: true);
+
+        // ── Stage 1: Physical/Technical ──────────────────────────────────
+        Add("P1680", "subtitle",       "Stage 1: Physical/Technical", confidence: 0.85);
+        Add("P2047", "duration",       "Stage 1: Physical/Technical", confidence: 0.85, transform: "duration_from_quantity");
+        Add("P1104", "page_count",     "Stage 1: Physical/Technical", confidence: 0.85, transform: "numeric_portion");
+        Add("P1657", "maturity_rating","Stage 1: Physical/Technical", confidence: 0.8,  entityValued: true);
+        Add("P433",  "issue_number",   "Stage 1: Physical/Technical", confidence: 0.85);
+        Add("P478",  "volume_number",  "Stage 1: Physical/Technical", confidence: 0.85);
+
+        // ── Stage 1: Bridges — Games ──────────────────────────────────────
+        Add("P5792", "igdb_id",      "Stage 1: Bridges — Games", confidence: 1.0, bridge: true);
+        Add("P9968", "rawg_id",      "Stage 1: Bridges — Games", confidence: 1.0, bridge: true);
+        Add("P1735", "steam_appid",  "Stage 1: Bridges — Games", confidence: 1.0, bridge: true);
+
+        // Stage 1: Social Proof (data comes from BuildAwardsQuery, not standard wdt: query)
+        Add("P166", "awards_received", "Stage 1: Social Proof", confidence: 0.85, entityValued: true, multiValued: true);
+
+        // ── Person Enrichment (Person-scoped — runs via RecursiveIdentityService) ──
         // P18 (Image): Person-only — copyright constraint.
         // Wikimedia Commons headshots of public figures are not copyrighted.
         // Media cover art comes exclusively from Apple Books, Audnexus, and TMDB.
-        Add("P800", "notable_work", "People", scope: "Person", confidence: 0.85, entityValued: true, multiValued: true);
-        Add("P18",  "headshot_url", "People", scope: "Person",                  transform: "commons_url");
-        Add("P106", "occupation",   "People", scope: "Person,Character", confidence: 0.85, entityValued: true, multiValued: true);
+        Add("P800", "notable_work", "Person Enrichment", scope: "Person", confidence: 0.85, entityValued: true, multiValued: true);
+        Add("P18",  "headshot_url", "Person Enrichment", scope: "Person",                  transform: "commons_url");
+        Add("P106", "occupation",   "Person Enrichment", scope: "Person,Character", confidence: 0.85, entityValued: true, multiValued: true);
+        Add("P19",   "place_of_birth",        "Person Enrichment", scope: "Person", confidence: 0.9);
+        Add("P20",   "place_of_death",        "Person Enrichment", scope: "Person", confidence: 0.9);
+        Add("P27",   "country_of_citizenship","Person Enrichment", scope: "Person", confidence: 0.9);
+        Add("P569",  "date_of_birth",   "Person Enrichment", scope: "Character,Person", confidence: 0.9, transform: "date_with_precision");
+        Add("P570",  "date_of_death",   "Person Enrichment", scope: "Character,Person", confidence: 0.9, transform: "date_with_precision");
+        Add("P742",  "pseudonym",             "Person Enrichment", scope: "Person", confidence: 0.85, multiValued: true, entityValued: true);
+        Add("P1773", "attributed_to",         "Person Enrichment", scope: "Person", confidence: 0.85, multiValued: true, entityValued: true);
+        Add("P1813", "short_name",            "Person Enrichment", scope: "Person", confidence: 0.8, monolingualText: true);
 
-        // ── Lore & Narrative (Work-scoped, some shared with Character/Location/Org) ─
-        Add("P840",  "narrative_location", "Lore & Narrative", confidence: 0.8, entityValued: true, multiValued: true);
-        Add("P674",  "characters",         "Lore & Narrative", confidence: 0.8, entityValued: true, multiValued: true);
-        Add("P921",  "main_subject",       "Lore & Narrative", confidence: 0.8, entityValued: true, multiValued: true);
-        Add("P1434", "fictional_universe", "Lore & Narrative", scope: "Work,Character,Location,Organization", confidence: 0.8, entityValued: true, multiValued: true);
-        Add("P144",  "based_on",           "Lore & Narrative", confidence: 0.8, entityValued: true, multiValued: true);
-        Add("P4584", "first_appearance",   "Lore & Narrative", confidence: 0.8, entityValued: true, multiValued: true);
+        // ── Person: Social Links (Person-scoped) ─────────────────────────
+        Add("P2003", "instagram", "Person: Social Links", scope: "Person", confidence: 1.0, bridge: true);
+        Add("P2002", "twitter",   "Person: Social Links", scope: "Person", confidence: 1.0, bridge: true);
+        Add("P7085", "tiktok",    "Person: Social Links", scope: "Person", confidence: 1.0, bridge: true);
+        Add("P4033", "mastodon",  "Person: Social Links", scope: "Person", confidence: 1.0, bridge: true);
+        Add("P856",  "website",   "Person: Social Links", scope: "Person", confidence: 1.0, bridge: true);
 
-        // ── Character-scoped ──────────────────────────────────────────────
+        // ── Universe: Character ───────────────────────────────────────────
         // Identity properties for fictional characters.
-        Add("P1441", "present_in_work", "Character", scope: "Character", confidence: 0.85, entityValued: true, multiValued: true);
-        Add("P170",  "creator",         "Character", scope: "Character", confidence: 0.85, entityValued: true);
-        Add("P21",   "gender",          "Character", scope: "Character", confidence: 0.9,  entityValued: true);
-        Add("P171",  "species",         "Character", scope: "Character", confidence: 0.85, entityValued: true);
-        Add("P569",  "date_of_birth",   "Character", scope: "Character,Person", confidence: 0.9, transform: "year_from_iso");
-        Add("P570",  "date_of_death",   "Character", scope: "Character,Person", confidence: 0.9, transform: "year_from_iso");
+        Add("P1441", "present_in_work", "Universe: Character", scope: "Character", confidence: 0.85, entityValued: true, multiValued: true);
+        Add("P170",  "creator",         "Universe: Character", scope: "Character", confidence: 0.85, entityValued: true);
+        Add("P21",   "gender",          "Universe: Character", scope: "Character", confidence: 0.9,  entityValued: true);
+        Add("P171",  "species",         "Universe: Character", scope: "Character", confidence: 0.85, entityValued: true);
 
-        // Relationship properties — entity-valued so they emit _qid claims for graph edges.
-        Add("P22",   "father",          "Character Relationships", scope: "Character", confidence: 0.85, entityValued: true);
-        Add("P25",   "mother",          "Character Relationships", scope: "Character", confidence: 0.85, entityValued: true);
-        Add("P26",   "spouse",          "Character Relationships", scope: "Character", confidence: 0.85, entityValued: true, multiValued: true);
-        Add("P3373", "sibling",         "Character Relationships", scope: "Character", confidence: 0.85, entityValued: true, multiValued: true);
-        Add("P40",   "child",           "Character Relationships", scope: "Character", confidence: 0.85, entityValued: true, multiValued: true);
-        Add("P1344", "opponent",        "Character Relationships", scope: "Character", confidence: 0.8,  entityValued: true, multiValued: true);
-        Add("P1066", "student_of",      "Character Relationships", scope: "Character", confidence: 0.8,  entityValued: true);
-        Add("P463",  "member_of",       "Character Relationships", scope: "Character", confidence: 0.85, entityValued: true, multiValued: true);
-        Add("P551",  "residence",       "Character Relationships", scope: "Character", confidence: 0.8,  entityValued: true, multiValued: true);
+        // ── Universe: Character Relationships ─────────────────────────────
+        // Entity-valued so they emit _qid claims for graph edges.
+        Add("P22",   "father",          "Universe: Character Relationships", scope: "Character", confidence: 0.85, entityValued: true);
+        Add("P25",   "mother",          "Universe: Character Relationships", scope: "Character", confidence: 0.85, entityValued: true);
+        Add("P26",   "spouse",          "Universe: Character Relationships", scope: "Character", confidence: 0.85, entityValued: true, multiValued: true);
+        Add("P3373", "sibling",         "Universe: Character Relationships", scope: "Character", confidence: 0.85, entityValued: true, multiValued: true);
+        Add("P40",   "child",           "Universe: Character Relationships", scope: "Character", confidence: 0.85, entityValued: true, multiValued: true);
+        Add("P1344", "opponent",        "Universe: Character Relationships", scope: "Character", confidence: 0.8,  entityValued: true, multiValued: true);
+        Add("P1066", "student_of",      "Universe: Character Relationships", scope: "Character", confidence: 0.8,  entityValued: true);
+        Add("P463",  "member_of",       "Universe: Character Relationships", scope: "Character", confidence: 0.85, entityValued: true, multiValued: true);
+        Add("P551",  "residence",       "Universe: Character Relationships", scope: "Character", confidence: 0.8,  entityValued: true, multiValued: true);
 
-        // ── Location-scoped ───────────────────────────────────────────────
-        Add("P131",  "located_in",          "Location", scope: "Location",              confidence: 0.85, entityValued: true);
-        Add("P361",  "part_of",             "Location", scope: "Location,Organization", confidence: 0.85, entityValued: true);
-        Add("P625",  "coordinate_location", "Location", scope: "Location",              confidence: 0.8);
+        // ── Universe: Location ────────────────────────────────────────────
+        Add("P131",  "located_in",          "Universe: Location", scope: "Location",              confidence: 0.85, entityValued: true);
+        Add("P361",  "part_of",             "Universe: Location", scope: "Location,Organization", confidence: 0.85, entityValued: true);
+        Add("P625",  "coordinate_location", "Universe: Location", scope: "Location",              confidence: 0.8);
 
-        // ── Organization-scoped ───────────────────────────────────────────
-        Add("P527",  "has_parts",           "Organization", scope: "Organization", confidence: 0.85, entityValued: true, multiValued: true);
-        Add("P169",  "head_of",             "Organization", scope: "Organization", confidence: 0.85, entityValued: true);
-        Add("P749",  "parent_organization", "Organization", scope: "Organization", confidence: 0.85, entityValued: true);
-
-        // ── Edition Resolution (Work-scoped) ────────────────────────────
-        Add("P629", "edition_or_translation_of", "Core Identity", confidence: 0.9, entityValued: true);
-
-        // ── Bridges: Books (Work-scoped) ─────────────────────────────────
-        Add("P3861", "apple_books_id", "Bridges: Books", confidence: 1.0, bridge: true);
-        Add("P212",  "isbn",           "Bridges: Books", confidence: 1.0, bridge: true);
-        Add("P1566", "asin",           "Bridges: Books", confidence: 1.0, bridge: true);
-        Add("P2969", "goodreads_id",   "Bridges: Books", confidence: 1.0, bridge: true);
-        Add("P244",  "loc_id",         "Bridges: Books", confidence: 1.0, bridge: true);
-
-        // ── Bridges: Movies/TV (Work-scoped) ─────────────────────────────
-        Add("P4947", "tmdb_id",       "Bridges: Movies/TV", confidence: 1.0, bridge: true);
-        Add("P345",  "imdb_id",       "Bridges: Movies/TV", confidence: 1.0, bridge: true);
-        Add("P9385", "justwatch_id",  "Bridges: Movies/TV", confidence: 1.0, bridge: true);
-        Add("P1712", "metacritic_id", "Bridges: Movies/TV", confidence: 1.0, bridge: true);
-        Add("P6127", "letterboxd_id", "Bridges: Movies/TV", confidence: 1.0, bridge: true);
-        Add("P2638", "tvcom_id",      "Bridges: Movies/TV", confidence: 1.0, bridge: true);
-
-        // ── Bridges: Comics/Anime (Work-scoped) ─────────────────────────
-        Add("P3589",  "gcd_series_id", "Bridges: Comics/Anime", confidence: 1.0, bridge: true);
-        Add("P11308", "gcd_issue_id",  "Bridges: Comics/Anime", confidence: 1.0, bridge: true);
-        Add("P5905",  "comicvine_id",  "Bridges: Comics/Anime", confidence: 1.0, bridge: true);
-        Add("P4084",  "mal_anime_id",  "Bridges: Comics/Anime", confidence: 1.0, bridge: true);
-        Add("P4087",  "mal_manga_id",  "Bridges: Comics/Anime", confidence: 1.0, bridge: true);
-
-        // ── Bridges: Music/Audio (Work-scoped) ──────────────────────────
-        Add("P434",  "musicbrainz_id", "Bridges: Music/Audio", confidence: 1.0, bridge: true);
-        Add("P1902", "spotify_id",     "Bridges: Music/Audio", confidence: 1.0, bridge: true);
-        Add("P1953", "discogs_id",     "Bridges: Music/Audio", confidence: 1.0, bridge: true);
-        Add("P3398", "audible_id",     "Bridges: Music/Audio", confidence: 1.0, bridge: true);
-
-        // ── Person Biographical (Person-scoped) ─────────────────────────
-        Add("P19",   "place_of_birth",        "People (Person-scoped)", scope: "Person", confidence: 0.9);
-        Add("P20",   "place_of_death",        "People (Person-scoped)", scope: "Person", confidence: 0.9);
-        Add("P27",   "country_of_citizenship","People (Person-scoped)", scope: "Person", confidence: 0.9);
-        Add("P742",  "pseudonym",             "People (Person-scoped)", scope: "Person", confidence: 0.85, multiValued: true, entityValued: true);
-        Add("P1773", "attributed_to",         "People (Person-scoped)", scope: "Person", confidence: 0.85, multiValued: true, entityValued: true);
-        Add("P1813", "short_name",            "People (Person-scoped)", scope: "Person", confidence: 0.8, monolingualText: true);
-
-        // ── Social Pivot (Person-scoped) ─────────────────────────────────
-        Add("P2003", "instagram", "Social Pivot", scope: "Person", confidence: 1.0, bridge: true);
-        Add("P2002", "twitter",   "Social Pivot", scope: "Person", confidence: 1.0, bridge: true);
-        Add("P7085", "tiktok",    "Social Pivot", scope: "Person", confidence: 1.0, bridge: true);
-        Add("P4033", "mastodon",  "Social Pivot", scope: "Person", confidence: 1.0, bridge: true);
-        Add("P856",  "website",   "Social Pivot", scope: "Person", confidence: 1.0, bridge: true);
+        // ── Universe: Organization ────────────────────────────────────────
+        Add("P527",  "has_parts",           "Universe: Organization", scope: "Organization", confidence: 0.85, entityValued: true, multiValued: true);
+        Add("P169",  "head_of",             "Universe: Organization", scope: "Organization", confidence: 0.85, entityValued: true);
+        Add("P749",  "parent_organization", "Universe: Organization", scope: "Organization", confidence: 0.85, entityValued: true);
 
         return map;
     }

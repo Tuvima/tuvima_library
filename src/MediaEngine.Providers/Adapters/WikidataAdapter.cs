@@ -752,6 +752,23 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
                 sparqlClient, request.SparqlBaseUrl!, qid, throttleGapMs, ct,
                 request.Language).ConfigureAwait(false);
 
+            // ── Step 3b2: Cast Role Audit with Qualifiers ────────────────────
+            // Use qualified statement syntax (p:/ps:/pq:) to extract P161 cast
+            // member statements with P453 character role qualifiers. This produces
+            // actor-to-character mappings that the standard wdt: query discards.
+            var castRoleAuditClaims = await RunCastRoleAuditAsync(
+                sparqlClient, request.SparqlBaseUrl!, qid, throttleGapMs, ct,
+                request.Language).ConfigureAwait(false);
+
+            // ── Step 3b3: Awards Query with Preferred Rank ───────────────────
+            // Use qualified statement syntax (p:/ps:/pq:) to fetch P166 awards
+            // with PreferredRank only (winners, not nominees). This produces a
+            // multi-valued awards_received claim that the standard wdt: query
+            // cannot provide with rank filtering.
+            var awardsClaims = await RunAwardsQueryAsync(
+                sparqlClient, request.SparqlBaseUrl!, qid, throttleGapMs, ct,
+                request.Language).ConfigureAwait(false);
+
             // ── Step 3c: SPARQL Deep Hydration ──────────────────────────────
             // Read scope exclusions from universe config (default: P18 excluded from Work).
             IReadOnlyCollection<string>? scopeExclusions = null;
@@ -777,6 +794,38 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
                         filtered.Add(c);
                 }
                 filtered.AddRange(authorAuditClaims);
+                claims = filtered;
+            }
+
+            // Replace the deep hydration's P161 cast_member results with the richer
+            // cast role audit results (actor-to-character qualified mappings).
+            if (castRoleAuditClaims.Count > 0)
+            {
+                var filtered = new List<ProviderClaim>(claims.Count + castRoleAuditClaims.Count);
+                foreach (var c in claims)
+                {
+                    // Discard cast_member and cast_member_qid from the standard SPARQL query —
+                    // the cast role audit query's results are authoritative for these keys.
+                    if (c.Key is not ("cast_member" or "cast_member_qid"))
+                        filtered.Add(c);
+                }
+                filtered.AddRange(castRoleAuditClaims);
+                claims = filtered;
+            }
+
+            // Merge awards claims — replace any awards_received from standard deep
+            // hydration with the rank-filtered results from RunAwardsQueryAsync.
+            if (awardsClaims.Count > 0)
+            {
+                var filtered = new List<ProviderClaim>(claims.Count + awardsClaims.Count);
+                foreach (var c in claims)
+                {
+                    // Discard awards_received from the standard SPARQL query —
+                    // the awards query's results use preferred-rank filtering and are authoritative.
+                    if (c.Key is not "awards_received")
+                        filtered.Add(c);
+                }
+                filtered.AddRange(awardsClaims);
                 claims = filtered;
             }
 
@@ -1251,6 +1300,161 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
         {
             _logger.LogWarning(ex,
                 "Wikidata collective members query failed for QID {Qid}", collectiveQid);
+            return [];
+        }
+    }
+
+    // ── Cast Role Audit with Qualifiers ─────────────────────────────────────
+
+    /// <summary>
+    /// Runs the cast role query (qualified statement syntax) to extract P161 cast member
+    /// statements with P453 character role qualifiers. Returns structured cast claims
+    /// mapping actor names/QIDs to their character names/QIDs.
+    /// </summary>
+    private async Task<IReadOnlyList<ProviderClaim>> RunCastRoleAuditAsync(
+        HttpClient sparqlClient,
+        string sparqlBaseUrl,
+        string qid,
+        int throttleGapMs,
+        CancellationToken ct,
+        string? language = null)
+    {
+        try
+        {
+            var sparql = WikidataSparqlPropertyMap.BuildCastRoleQuery(qid, language);
+            var json = await ThrottledSparqlAsync(sparqlClient, sparqlBaseUrl, sparql, throttleGapMs, ct)
+                .ConfigureAwait(false);
+
+            if (json is null) return [];
+
+            var bindings = json["results"]?["bindings"]?.AsArray();
+            if (bindings is null || bindings.Count == 0)
+                return [];
+
+            var castEntries = new List<(string ActorQid, string ActorLabel, string? CharacterQid, string? CharacterLabel)>();
+
+            foreach (var binding in bindings)
+            {
+                var actorUri = binding?["actor"]?["value"]?.GetValue<string>();
+                var actorLabel = binding?["actorLabel"]?["value"]?.GetValue<string>();
+
+                if (string.IsNullOrWhiteSpace(actorUri) || string.IsNullOrWhiteSpace(actorLabel))
+                    continue;
+
+                var actorQid = ExtractQidFromUri(actorUri);
+                if (actorQid is null) continue;
+
+                var characterUri = binding?["character"]?["value"]?.GetValue<string>();
+                var characterLabel = binding?["characterLabel"]?["value"]?.GetValue<string>();
+
+                var characterQid = !string.IsNullOrWhiteSpace(characterUri)
+                    ? ExtractQidFromUri(characterUri)
+                    : null;
+
+                // Deduplicate: keep first occurrence per actor QID.
+                if (castEntries.FindIndex(e =>
+                        string.Equals(e.ActorQid, actorQid, StringComparison.OrdinalIgnoreCase)) < 0)
+                {
+                    castEntries.Add((actorQid, actorLabel, characterQid, characterLabel));
+                }
+            }
+
+            if (castEntries.Count == 0)
+                return [];
+
+            _logger.LogDebug(
+                "Wikidata cast role audit for {Qid}: {Count} cast entries found",
+                qid, castEntries.Count);
+
+            var claims = new List<ProviderClaim>();
+
+            // cast_role: "ActorName::CharacterName|||ActorName2::CharacterName2"
+            var castRoleValue = string.Join(
+                WikidataSparqlPropertyMap.MultiValueSeparator,
+                castEntries.Select(e =>
+                    $"{e.ActorLabel}::{(string.IsNullOrWhiteSpace(e.CharacterLabel) ? "Unknown" : e.CharacterLabel)}"));
+            claims.Add(new ProviderClaim("cast_role", castRoleValue, 0.9));
+
+            // cast_role_qid: "Q123::Q456|||Q789::Q012"
+            var castRoleQidValue = string.Join(
+                WikidataSparqlPropertyMap.MultiValueSeparator,
+                castEntries.Select(e =>
+                    $"{e.ActorQid}::{e.CharacterQid ?? string.Empty}"));
+            claims.Add(new ProviderClaim("cast_role_qid", castRoleQidValue, 0.9));
+
+            return claims;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex,
+                "Wikidata cast role audit failed for QID {Qid}; falling back to standard P161 results", qid);
+            return [];
+        }
+    }
+
+    // ── Awards Query with Preferred Rank ────────────────────────────────────
+
+    /// <summary>
+    /// Runs the awards query (qualified statement syntax with PreferredRank filter)
+    /// and returns a single multi-valued <c>awards_received</c> claim joining all
+    /// award names (with year where available) using the <see cref="WikidataSparqlPropertyMap.MultiValueSeparator"/>.
+    /// Only preferred-rank statements are fetched — this filters winners from nominees.
+    /// Returns an empty list when no awards are found.
+    /// </summary>
+    private async Task<IReadOnlyList<ProviderClaim>> RunAwardsQueryAsync(
+        HttpClient sparqlClient,
+        string sparqlBaseUrl,
+        string qid,
+        int throttleGapMs,
+        CancellationToken ct,
+        string? language = null)
+    {
+        try
+        {
+            var sparql = WikidataSparqlPropertyMap.BuildAwardsQuery(qid, language ?? "en");
+            var json = await ThrottledSparqlAsync(sparqlClient, sparqlBaseUrl, sparql, throttleGapMs, ct)
+                .ConfigureAwait(false);
+
+            if (json is null) return [];
+
+            var bindings = json["results"]?["bindings"]?.AsArray();
+            if (bindings is null || bindings.Count == 0)
+                return [];
+
+            var awardEntries = new List<string>();
+
+            foreach (var binding in bindings)
+            {
+                var awardLabel = binding?["awardLabel"]?["value"]?.GetValue<string>();
+                if (string.IsNullOrWhiteSpace(awardLabel))
+                    continue;
+
+                var pointInTime = binding?["pointInTime"]?["value"]?.GetValue<string>();
+                string? year = null;
+                if (!string.IsNullOrWhiteSpace(pointInTime) && pointInTime.Length >= 4)
+                    year = pointInTime.Substring(0, 4);
+
+                var entry = year is not null
+                    ? $"{awardLabel} ({year})"
+                    : awardLabel;
+
+                awardEntries.Add(entry);
+            }
+
+            if (awardEntries.Count == 0)
+                return [];
+
+            _logger.LogDebug(
+                "Wikidata awards query for {Qid}: {Count} awards found",
+                qid, awardEntries.Count);
+
+            var awardsValue = string.Join(WikidataSparqlPropertyMap.MultiValueSeparator, awardEntries);
+            return [new ProviderClaim("awards_received", awardsValue, 0.85)];
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex,
+                "Wikidata awards query failed for QID {Qid}; skipping awards data", qid);
             return [];
         }
     }

@@ -14,7 +14,7 @@ public sealed class WikidataPropertyConfig
     [JsonPropertyName("claim_key")]
     public string ClaimKey { get; set; } = string.Empty;
 
-    /// <summary>Human-readable category for Dashboard grouping, e.g. <c>"Core Identity"</c>.</summary>
+    /// <summary>Human-readable category for Dashboard grouping, e.g. <c>"Stage 1: Work Identity"</c>.</summary>
     [JsonPropertyName("category")]
     public string Category { get; set; } = string.Empty;
 

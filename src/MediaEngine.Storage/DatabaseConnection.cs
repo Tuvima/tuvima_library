@@ -684,6 +684,26 @@ public sealed class DatabaseConnection : IDatabaseConnection
                 CREATE INDEX IF NOT EXISTS idx_cva_key_qid ON canonical_value_arrays(key, value_qid);
                 """);
 
+        // Migration M-033: Unit 4 — Source Attribution.
+        // Adds winning_provider_id to canonical_values so every scored field
+        // records which provider supplied the winning claim.  Existing rows
+        // default to NULL (no attribution available for pre-migration data).
+        MigrateAddColumnIfMissing(
+            conn,
+            table:  "canonical_values",
+            column: "winning_provider_id",
+            ddl:    "ALTER TABLE canonical_values ADD COLUMN winning_provider_id TEXT;");
+
+        // Migration M-034: Unit 5 — Per-Field NeedsReview.
+        // Adds needs_review to canonical_values so conflicted fields, missing
+        // expected fields, and local-only low-confidence fields are flagged for
+        // human review.  Existing rows default to 0 (no review needed).
+        MigrateAddColumnIfMissing(
+            conn,
+            table:  "canonical_values",
+            column: "needs_review",
+            ddl:    "ALTER TABLE canonical_values ADD COLUMN needs_review INTEGER NOT NULL DEFAULT 0;");
+
         // Seed S-001: provider_registry entries for all known providers.
         // metadata_claims.provider_id has a FK to provider_registry(id), so these
         // rows MUST exist before any claim is written.  INSERT OR IGNORE makes this
