@@ -470,7 +470,10 @@ else
 try { Directory.Delete(tempDir, recursive: true); } catch { }
 
 // ── Write MANIFEST.json ───────────────────────────────────────────────────────
-var manifestPath = Path.Combine(outputDir, "MANIFEST.json");
+// Write MANIFEST.json one level above the watch directory so it is not
+// picked up as a media file by the Engine's watch folder monitor.
+var manifestParent = Directory.GetParent(outputDir)?.FullName ?? outputDir;
+var manifestPath = Path.Combine(manifestParent, "MANIFEST.json");
 var manifestJson = JsonSerializer.Serialize(new
 {
     generated_at = DateTimeOffset.UtcNow.ToString("O"),
