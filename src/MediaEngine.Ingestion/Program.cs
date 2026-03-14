@@ -72,7 +72,6 @@ var host = Host.CreateDefaultBuilder(args)
                 var core = configLoader.LoadCore();
                 if (!string.IsNullOrWhiteSpace(core.WatchDirectory)) opts.WatchDirectory = core.WatchDirectory;
                 if (!string.IsNullOrWhiteSpace(core.LibraryRoot)) opts.LibraryRoot = core.LibraryRoot;
-                if (!string.IsNullOrWhiteSpace(core.StagingDirectory)) opts.StagingDirectory = core.StagingDirectory;
                 if (!string.IsNullOrWhiteSpace(core.OrganizationTemplate)) opts.OrganizationTemplate = core.OrganizationTemplate;
                 if (core.OrganizationTemplates.Count > 0) opts.OrganizationTemplates = new Dictionary<string, string>(core.OrganizationTemplates, StringComparer.OrdinalIgnoreCase);
             }
@@ -111,6 +110,9 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<IPersonRepository, PersonRepository>();
         services.AddSingleton<IMediaEntityChainFactory, MediaEntityChainFactory>();
         services.AddSingleton<ISystemActivityRepository, SystemActivityRepository>();
+
+        // ── Ingestion hint cache (sibling-aware priming) ───────
+        services.AddSingleton<MediaEngine.Ingestion.Services.IIngestionHintCache, MediaEngine.Ingestion.Services.IngestionHintCache>();
 
         // ── File watching / debounce ───────────────────────────
         services.AddSingleton<IFileWatcher, FileWatcher>();

@@ -199,6 +199,11 @@ builder.Services.AddSingleton<IHubArbiter>(sp =>
         sp.GetRequiredService<IIdentityMatcher>(),
         sp.GetRequiredService<ITransactionJournal>()));
 
+builder.Services.AddSingleton<IParentHubResolver>(sp =>
+    new ParentHubResolver(
+        sp.GetRequiredService<IHubRepository>(),
+        sp.GetRequiredService<ILogger<ParentHubResolver>>()));
+
 // ── Ingestion (for POST /ingestion/scan) ─────────────────────────────────────
 builder.Services.Configure<IngestionOptions>(config.GetSection(IngestionOptions.SectionName));
 
@@ -213,14 +218,12 @@ builder.Services.PostConfigure<IngestionOptions>(opts =>
     // variables without ever editing a config file.
     //   TUVIMA_WATCH_FOLDER   → where to pick up new files
     //   TUVIMA_LIBRARY_ROOT   → where organised files are stored
-    //   TUVIMA_STAGING_DIR    → holding area for ambiguous/low-confidence files
+    //   Note: orphanage is always {LibraryRoot}/.orphans/ — not independently configurable
     {
         string? envWatch   = Environment.GetEnvironmentVariable("TUVIMA_WATCH_FOLDER");
         string? envLibrary = Environment.GetEnvironmentVariable("TUVIMA_LIBRARY_ROOT");
-        string? envStaging = Environment.GetEnvironmentVariable("TUVIMA_STAGING_DIR");
         if (!string.IsNullOrWhiteSpace(envWatch))   { opts.WatchDirectory  = envWatch; }
         if (!string.IsNullOrWhiteSpace(envLibrary)) { opts.LibraryRoot     = envLibrary; }
-        if (!string.IsNullOrWhiteSpace(envStaging)) { opts.StagingDirectory = envStaging; }
     }
 
     try
@@ -228,7 +231,6 @@ builder.Services.PostConfigure<IngestionOptions>(opts =>
         CoreConfiguration core = configLoader.LoadCore();
         if (!string.IsNullOrWhiteSpace(core.WatchDirectory))       { opts.WatchDirectory       = core.WatchDirectory; }
         if (!string.IsNullOrWhiteSpace(core.LibraryRoot))          { opts.LibraryRoot          = core.LibraryRoot; }
-        if (!string.IsNullOrWhiteSpace(core.StagingDirectory))     { opts.StagingDirectory     = core.StagingDirectory; }
         if (!string.IsNullOrWhiteSpace(core.OrganizationTemplate)) { opts.OrganizationTemplate = core.OrganizationTemplate; }
         if (core.OrganizationTemplates.Count > 0) { opts.OrganizationTemplates = new Dictionary<string, string>(core.OrganizationTemplates, StringComparer.OrdinalIgnoreCase); }
     }
@@ -251,6 +253,7 @@ builder.Services.PostConfigure<IngestionOptions>(opts =>
 });
 
 builder.Services.AddSingleton<IAssetHasher, AssetHasher>();
+builder.Services.AddSingleton<MediaEngine.Ingestion.Services.IIngestionHintCache, MediaEngine.Ingestion.Services.IngestionHintCache>();
 builder.Services.AddSingleton<IFileWatcher, FileWatcher>();
 builder.Services.AddSingleton<DebounceQueue>();
 builder.Services.AddSingleton<IFileOrganizer, FileOrganizer>();

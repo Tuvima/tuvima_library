@@ -114,8 +114,8 @@ public static class SystemActionType
     /// <summary>A corrupt file was quarantined and excluded from further processing.</summary>
     public const string FileQuarantined = "FileQuarantined";
 
-    /// <summary>A file was moved to the staging directory for manual review.</summary>
-    public const string MovedToStaging = "MovedToStaging";
+    /// <summary>A file was moved to the orphanage directory (.orphans/) for manual review.</summary>
+    public const string MovedToOrphanage = "MovedToOrphanage";
 
     // ── Orphan & Reconciliation ───────────────────────────────────────────
 

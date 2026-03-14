@@ -167,6 +167,15 @@ public sealed class HubDto
     [JsonPropertyName("universe_id")]
     public Guid? UniverseId { get; init; }
 
+    [JsonPropertyName("display_name")]
+    public string? DisplayName { get; init; }
+
+    [JsonPropertyName("parent_hub_id")]
+    public Guid? ParentHubId { get; init; }
+
+    [JsonPropertyName("universe_status")]
+    public string UniverseStatus { get; init; } = "Unknown";
+
     [JsonPropertyName("created_at")]
     public DateTimeOffset CreatedAt { get; init; }
 
@@ -175,10 +184,13 @@ public sealed class HubDto
 
     public static HubDto FromDomain(Hub hub) => new()
     {
-        Id         = hub.Id,
-        UniverseId = hub.UniverseId,
-        CreatedAt  = hub.CreatedAt,
-        Works      = hub.Works.Select(WorkDto.FromDomain).ToList(),
+        Id            = hub.Id,
+        UniverseId    = hub.UniverseId,
+        DisplayName   = hub.DisplayName,
+        ParentHubId   = hub.ParentHubId,
+        UniverseStatus = hub.UniverseStatus,
+        CreatedAt     = hub.CreatedAt,
+        Works         = hub.Works.Select(WorkDto.FromDomain).ToList(),
     };
 }
 
@@ -359,8 +371,6 @@ public sealed class FolderSettingsResponse
     [JsonPropertyName("library_root")]
     public string LibraryRoot { get; init; } = string.Empty;
 
-    [JsonPropertyName("staging_directory")]
-    public string StagingDirectory { get; init; } = string.Empty;
 }
 
 public sealed class UpdateFoldersRequest
@@ -370,9 +380,6 @@ public sealed class UpdateFoldersRequest
 
     [JsonPropertyName("library_root")]
     public string? LibraryRoot { get; init; }
-
-    [JsonPropertyName("staging_directory")]
-    public string? StagingDirectory { get; init; }
 }
 
 // ── GET /settings/server-general ──────────────────────────────────────────────

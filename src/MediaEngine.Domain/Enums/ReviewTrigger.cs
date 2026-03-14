@@ -84,4 +84,10 @@ public static class ReviewTrigger
     /// missing expected field, or unconfirmed local-only source).
     /// </summary>
     public const string FieldLevelReview = "FieldLevelReview";
+
+    /// <summary>
+    /// File scored below 0.40 overall confidence with no user-locked claims.
+    /// Moved to .orphans/unidentifiable/ — deeply broken or unrecognizable.
+    /// </summary>
+    public const string OrphanedUnidentifiable = "OrphanedUnidentifiable";
 }

@@ -1348,7 +1348,7 @@
     // Entity IDs of files confirmed deleted (hides the reprocess button on FileIngested cards).
     private readonly HashSet<string> _missingEntityIds = new(StringComparer.OrdinalIgnoreCase);
 
-    // Pipeline sub-steps (FileDetected → MovedToStaging) grouped by parent FileIngested entry ID.
+    // Pipeline sub-steps (FileDetected → MovedToOrphanage) grouped by parent FileIngested entry ID.
     private readonly Dictionary<long, List<ActivityEntryViewModel>> _ingestionSubSteps = new();
 
     // Hydration stage events grouped by parent MetadataHydrated entry ID.
@@ -1448,7 +1448,7 @@
     {
         "FileIngested"              => "Media",
         "DuplicateSkipped"          => "Media",
-        "MovedToStaging"            => "Media",
+        "MovedToOrphanage"          => "Media",
         "FileQuarantined"           => "Media",
         "FileDetected"              => "Media",
         "FileHashed"                => "Media",
@@ -1591,7 +1591,7 @@
         {
             "FileDetected", "FileHashed", "FileProcessed", "FileScored",
             "EntityChainCreated", "CoverArtSaved", "HeroBannerGenerated", "MetadataTagsWritten",
-            "HydrationEnqueued", "MovedToStaging",
+            "HydrationEnqueued", "MovedToOrphanage",
         };
         var postIngestionTypes = new HashSet<string>
         {
@@ -2322,7 +2322,7 @@
         ["MetadataTagsWritten"]       = (Icons.Material.Filled.Label,            "Tags Written to File",       "#78909c"),
         ["HydrationEnqueued"]         = (Icons.Material.Filled.CloudQueue,       "Hydration Enqueued",         "#2196f3"),
         ["FileQuarantined"]           = (Icons.Material.Filled.ReportProblem,    "File Quarantined",           "#f44336"),
-        ["MovedToStaging"]            = (Icons.Material.Filled.MoveToInbox,      "Moved to Staging",           "#ff9800"),
+        ["MovedToOrphanage"]          = (Icons.Material.Filled.MoveToInbox,      "Moved to Orphanage",         "#ff9800"),
         ["OrphanCleaned"]             = (Icons.Material.Filled.DeleteSweep,     "Orphan Cleaned",             "#ff9800"),
         ["ReconciliationMissing"]     = (Icons.Material.Filled.SearchOff,       "Missing File Detected",      "#f44336"),
         ["ReconciliationCompleted"]   = (Icons.Material.Filled.FactCheck,       "Reconciliation Complete",    "#4caf50"),
@@ -2389,7 +2389,7 @@
         "HeroBannerGenerated"       => "Hero banner generated",
         "MetadataTagsWritten"       => "Initial tags written",
         "HydrationEnqueued"         => "Queued for online enrichment",
-        "MovedToStaging"            => "Moved to staging folder",
+        "MovedToOrphanage"          => "Moved to orphanage",
         "PathUpdated"               => "Organized",
         "MetadataHydrated"          => "Metadata enriched",
         "PersonHydrated"            => "Person enriched",

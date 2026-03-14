@@ -701,15 +701,15 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
             // Guard: reject any organization that would place the file in "Other".
             // This catches unmapped media types (Unknown, null) and ensures the file
-            // goes to staging/review instead of a catch-all folder.
+            // goes to orphanage/review instead of a catch-all folder.
             if (relative.StartsWith("Other", StringComparison.OrdinalIgnoreCase))
             {
                 _logger.LogWarning(
                     "Organization blocked — resolved category is 'Other' for {Path}. " +
-                    "Moving to staging and creating review item.",
+                    "Moving to orphanage and creating review item.",
                     candidate.Path);
 
-                currentPath = await MoveToStagingAsync(currentPath, "LowConfidence", ct)
+                currentPath = await MoveToOrphanageAsync(currentPath, "LowConfidence", ct)
                                   .ConfigureAwait(false) ?? currentPath;
 
                 await CreateIngestionReviewItemAsync(
@@ -754,22 +754,28 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                  && !string.IsNullOrWhiteSpace(_options.LibraryRoot)
                  && !passesGate)
         {
-            // Confidence too low for organization and no user-locked claims.
-            // Move to staging to keep the watch folder clean, and create a
-            // review item so the user knows this file needs attention.
+            // Tiered orphanage: < 0.40 = unidentifiable, 0.40-0.85 = low-confidence
+            var orphanTrigger = scored.OverallConfidence < 0.40
+                ? "OrphanedUnidentifiable"
+                : "LowConfidence";
+
+            var orphanReviewTrigger = scored.OverallConfidence < 0.40
+                ? ReviewTrigger.OrphanedUnidentifiable
+                : ReviewTrigger.LowConfidence;
+
             _logger.LogInformation(
                 "Confidence {Confidence:P0} below organization threshold (0.85) for {Path}. " +
-                "Moving to staging and creating review item.",
-                scored.OverallConfidence, candidate.Path);
+                "Moving to orphanage ({Tier}) and creating review item.",
+                scored.OverallConfidence, candidate.Path, orphanTrigger);
 
             var prevPath = currentPath;
-            currentPath = await MoveToStagingAsync(currentPath, "LowConfidence", ct)
+            currentPath = await MoveToOrphanageAsync(currentPath, orphanTrigger, ct)
                               .ConfigureAwait(false) ?? currentPath;
 
             await CreateIngestionReviewItemAsync(
-                assetId, ReviewTrigger.LowConfidence, scored.OverallConfidence,
+                assetId, orphanReviewTrigger, scored.OverallConfidence,
                 $"Overall confidence {scored.OverallConfidence:P0} below organization threshold (85%). " +
-                "File moved to staging for review.",
+                $"File moved to orphanage ({orphanTrigger}) for review.",
                 ct, ingestionRunId).ConfigureAwait(false);
         }
 
@@ -1209,6 +1215,13 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         {
             foreach (var filePath in Directory.EnumerateFiles(directory, "*.*", searchOption))
             {
+                // Skip files inside the orphanage directory — they are awaiting
+                // manual review and must not be re-ingested automatically.
+                if (filePath.Contains(Path.DirectorySeparatorChar + ".orphans" + Path.DirectorySeparatorChar,
+                        StringComparison.OrdinalIgnoreCase)
+                    || filePath.Contains('/' + ".orphans" + '/', StringComparison.OrdinalIgnoreCase))
+                    continue;
+
                 _debounce.Enqueue(new FileEvent
                 {
                     Path       = filePath,
@@ -1278,6 +1291,12 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                              _options.WatchDirectory, "*.*", searchOption))
                 {
                     if (ct.IsCancellationRequested) break;
+
+                    // Skip files inside the orphanage directory.
+                    if (filePath.Contains(Path.DirectorySeparatorChar + ".orphans" + Path.DirectorySeparatorChar,
+                            StringComparison.OrdinalIgnoreCase)
+                        || filePath.Contains('/' + ".orphans" + '/', StringComparison.OrdinalIgnoreCase))
+                        continue;
 
                     _debounce.Enqueue(new FileEvent
                     {
@@ -1378,7 +1397,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 "Moving to staging and creating review item.",
                 existing.ContentHash[..12]);
 
-            var staged = await MoveToStagingAsync(currentPath, "LowConfidence", ct).ConfigureAwait(false);
+            var staged = await MoveToOrphanageAsync(currentPath, "LowConfidence", ct).ConfigureAwait(false);
             if (staged is not null)
                 await _assetRepo.UpdateFilePathAsync(existing.Id, staged, ct).ConfigureAwait(false);
 
@@ -1471,21 +1490,21 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     }
 
     // =========================================================================
-    // Staging
+    // Orphanage
     // =========================================================================
 
     /// <summary>
-    /// Moves a file from the Watch Folder to the Staging directory.
-    /// Returns the new path on success, or <see langword="null"/> when staging
+    /// Moves a file from the Watch Folder to the orphanage directory ({LibraryRoot}/.orphans/).
+    /// Returns the new path on success, or <see langword="null"/> when LibraryRoot
     /// is not configured or the move fails.
     /// </summary>
-    private async Task<string?> MoveToStagingAsync(
+    private async Task<string?> MoveToOrphanageAsync(
         string currentPath, string triggerReason, CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(_options.StagingDirectory))
+        if (string.IsNullOrWhiteSpace(_options.OrphanagePath))
             return null;
 
-        // Only stage files that are currently in the Watch Folder.
+        // Only orphan files that are currently in the Watch Folder.
         if (!string.IsNullOrWhiteSpace(_options.WatchDirectory)
             && !currentPath.StartsWith(
                     _options.WatchDirectory, StringComparison.OrdinalIgnoreCase))
@@ -1494,37 +1513,38 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         // Categorized subfolders based on trigger reason.
         var subfolder = triggerReason switch
         {
-            "LowConfidence"     => "low-confidence",
-            "AmbiguousMediaType" => "ambiguous-type",
-            _                   => "other",
+            "LowConfidence"          => "low-confidence",
+            "AmbiguousMediaType"     => "ambiguous-type",
+            "OrphanedUnidentifiable" => "unidentifiable",
+            _                        => "other",
         };
 
-        var stagingSubDir = Path.Combine(_options.StagingDirectory, subfolder);
-        Directory.CreateDirectory(stagingSubDir);
+        var orphanSubDir = Path.Combine(_options.OrphanagePath, subfolder);
+        Directory.CreateDirectory(orphanSubDir);
 
-        var destPath = Path.Combine(stagingSubDir, Path.GetFileName(currentPath));
+        var destPath = Path.Combine(orphanSubDir, Path.GetFileName(currentPath));
 
         bool moved = await _organizer.ExecuteMoveAsync(currentPath, destPath, ct)
                                       .ConfigureAwait(false);
         if (moved)
         {
             _logger.LogInformation(
-                "Staged unresolved file: {Source} → {Dest} ({Trigger})",
+                "Orphaned unresolved file: {Source} → {Dest} ({Trigger})",
                 currentPath, destPath, triggerReason);
 
-            // Activity: moved to staging.
+            // Activity: moved to orphanage.
             await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
             {
-                ActionType = Domain.Enums.SystemActionType.MovedToStaging,
+                ActionType = Domain.Enums.SystemActionType.MovedToOrphanage,
                 EntityType = "MediaAsset",
-                Detail     = $"Staged {Path.GetFileName(currentPath)} → {subfolder}/",
+                Detail     = $"Orphaned {Path.GetFileName(currentPath)} → {subfolder}/",
             }, ct).ConfigureAwait(false);
 
             return destPath;
         }
 
         _logger.LogWarning(
-            "Staging move failed for {Source} → {Dest}", currentPath, destPath);
+            "Orphanage move failed for {Source} → {Dest}", currentPath, destPath);
         return null;
     }
 

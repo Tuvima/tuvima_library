@@ -525,7 +525,7 @@ public sealed class EngineApiClient : IEngineApiClient
     {
         try
         {
-            var body = new { watch_directory = settings.WatchDirectory, library_root = settings.LibraryRoot, staging_directory = settings.StagingDirectory };
+            var body = new { watch_directory = settings.WatchDirectory, library_root = settings.LibraryRoot };
             var resp = await _http.PutAsJsonAsync("/settings/folders", body, ct);
 
             if (!resp.IsSuccessStatusCode)
@@ -1564,6 +1564,63 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    // ── GET /hubs/parents ─────────────────────────────────────────────────────
+
+    public async Task<List<HubViewModel>> GetParentHubsAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            var raw = await _http.GetFromJsonAsync<List<HubRaw>>("/hubs/parents", ct);
+            return raw?.Select(MapHub).ToList() ?? [];
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /hubs/parents failed");
+            LastError = ex.Message;
+            return [];
+        }
+    }
+
+    // ── GET /hubs/{id}/children ───────────────────────────────────────────────
+
+    public async Task<List<HubViewModel>> GetChildHubsAsync(
+        Guid parentHubId, CancellationToken ct = default)
+    {
+        try
+        {
+            var raw = await _http.GetFromJsonAsync<List<HubRaw>>(
+                $"/hubs/{parentHubId}/children", ct);
+            return raw?.Select(MapHub).ToList() ?? [];
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /hubs/{ParentHubId}/children failed", parentHubId);
+            LastError = ex.Message;
+            return [];
+        }
+    }
+
+    // ── GET /hubs/{id}/parent ─────────────────────────────────────────────────
+
+    public async Task<HubViewModel?> GetParentHubAsync(
+        Guid hubId, CancellationToken ct = default)
+    {
+        try
+        {
+            var resp = await _http.GetAsync($"/hubs/{hubId}/parent", ct);
+            if (resp.StatusCode == HttpStatusCode.NotFound) return null;
+            resp.EnsureSuccessStatusCode();
+            var raw = await resp.Content.ReadFromJsonAsync<ParentHubResponseRaw>(cancellationToken: ct);
+            return raw?.ParentHub is { } hub ? MapHub(hub) : null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /hubs/{HubId}/parent failed", hubId);
+            LastError = ex.Message;
+            return null;
+        }
+    }
+
     /// <summary>
     /// Most recent error message from the last failed API call.
     /// Useful for surfacing diagnostic details in the UI.
@@ -1678,7 +1735,10 @@ public sealed class EngineApiClient : IEngineApiClient
                 Value        = AbsoluteUrl(cv.Value),
                 LastScoredAt = cv.LastScoredAt,
             }).ToList(),
-        }));
+        }),
+        parentHubId:   h.ParentHubId,
+        parentHubName: h.ParentHubName,
+        childHubCount: h.ChildHubCount);
 
     // ── EPUB Reader (/read, /reader) ──────────────────────────────────
 
@@ -1835,10 +1895,13 @@ public sealed class EngineApiClient : IEngineApiClient
         [property: JsonPropertyName("version")] string Version);
 
     private sealed record HubRaw(
-        [property: JsonPropertyName("id")]           Guid                 Id,
-        [property: JsonPropertyName("universe_id")]  Guid?                UniverseId,
-        [property: JsonPropertyName("created_at")]   DateTimeOffset       CreatedAt,
-        [property: JsonPropertyName("works")]        List<WorkRaw>        Works);
+        [property: JsonPropertyName("id")]              Guid           Id,
+        [property: JsonPropertyName("universe_id")]     Guid?          UniverseId,
+        [property: JsonPropertyName("created_at")]      DateTimeOffset CreatedAt,
+        [property: JsonPropertyName("works")]           List<WorkRaw>  Works,
+        [property: JsonPropertyName("parent_hub_id")]   Guid?          ParentHubId   = null,
+        [property: JsonPropertyName("parent_hub_name")] string?        ParentHubName = null,
+        [property: JsonPropertyName("child_hub_count")] int            ChildHubCount = 0);
 
     private sealed record WorkRaw(
         [property: JsonPropertyName("id")]               Guid                      Id,
@@ -1929,6 +1992,9 @@ public sealed class EngineApiClient : IEngineApiClient
         [property: JsonPropertyName("section_title")] string       SectionTitle,
         [property: JsonPropertyName("reason")]        string       Reason,
         [property: JsonPropertyName("hubs")]          List<HubRaw> Hubs);
+
+    private sealed record ParentHubResponseRaw(
+        [property: JsonPropertyName("parentHub")] HubRaw? ParentHub);
 
     private sealed record PersonDetailRaw(
         [property: JsonPropertyName("id")]                 Guid            Id,

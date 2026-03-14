@@ -27,7 +27,6 @@ public sealed class EndToEndIngestionTests : IDisposable
     private readonly string _tempRoot;
     private readonly string _watchDir;
     private readonly string _libraryDir;
-    private readonly string _stagingDir;
     private readonly TestDatabaseFactory _dbFactory;
 
     // Real services backed by the test database.
@@ -57,10 +56,8 @@ public sealed class EndToEndIngestionTests : IDisposable
         _tempRoot = Path.Combine(Path.GetTempPath(), $"tuvima_e2e_{Guid.NewGuid():N}");
         _watchDir = Path.Combine(_tempRoot, "watch");
         _libraryDir = Path.Combine(_tempRoot, "library");
-        _stagingDir = Path.Combine(_tempRoot, "staging");
         Directory.CreateDirectory(_watchDir);
         Directory.CreateDirectory(_libraryDir);
-        Directory.CreateDirectory(_stagingDir);
 
         _dbFactory = new TestDatabaseFactory();
         var db = _dbFactory.Connection;
@@ -105,7 +102,6 @@ public sealed class EndToEndIngestionTests : IDisposable
         {
             WatchDirectory = _watchDir,
             LibraryRoot = _libraryDir,
-            StagingDirectory = _stagingDir,
             AutoOrganize = true,
             IncludeSubdirectories = false,
             PollIntervalSeconds = 0,

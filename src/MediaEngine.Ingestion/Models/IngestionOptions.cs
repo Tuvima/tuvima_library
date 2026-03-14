@@ -1,3 +1,5 @@
+using System.IO;
+
 namespace MediaEngine.Ingestion.Models;
 
 /// <summary>
@@ -51,11 +53,13 @@ public sealed class IngestionOptions
     };
 
     /// <summary>
-    /// Holding area for files that cannot be auto-organized (low confidence,
-    /// unknown media type, or "Other" category).  Keeps the Watch Folder clean.
-    /// When empty, unresolved files remain in the Watch Folder.
+    /// Path to the orphanage directory: {LibraryRoot}/.orphans/.
+    /// Files that cannot be auto-organized are quarantined here.
+    /// Derived from LibraryRoot — not independently configurable.
     /// </summary>
-    public string StagingDirectory { get; set; } = string.Empty;
+    public string OrphanagePath => string.IsNullOrWhiteSpace(LibraryRoot)
+        ? string.Empty
+        : Path.Combine(LibraryRoot, ".orphans");
 
     /// <summary>
     /// When <see langword="true"/> the engine automatically moves accepted files

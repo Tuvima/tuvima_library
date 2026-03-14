@@ -29,7 +29,6 @@ public sealed class ComprehensiveIngestionTests : IDisposable
     private readonly string _tempRoot;
     private readonly string _watchDir;
     private readonly string _libraryDir;
-    private readonly string _stagingDir;
     private readonly TestDatabaseFactory _dbFactory;
 
     // Real services backed by the test database.
@@ -59,10 +58,8 @@ public sealed class ComprehensiveIngestionTests : IDisposable
         _tempRoot = Path.Combine(Path.GetTempPath(), $"tuvima_comprehensive_{Guid.NewGuid():N}");
         _watchDir = Path.Combine(_tempRoot, "watch");
         _libraryDir = Path.Combine(_tempRoot, "library");
-        _stagingDir = Path.Combine(_tempRoot, "staging");
         Directory.CreateDirectory(_watchDir);
         Directory.CreateDirectory(_libraryDir);
-        Directory.CreateDirectory(_stagingDir);
 
         _dbFactory = new TestDatabaseFactory();
         var db = _dbFactory.Connection;
@@ -99,7 +96,6 @@ public sealed class ComprehensiveIngestionTests : IDisposable
         {
             WatchDirectory = _watchDir,
             LibraryRoot = _libraryDir,
-            StagingDirectory = _stagingDir,
             AutoOrganize = true,
             IncludeSubdirectories = false,
             PollIntervalSeconds = 0,
@@ -334,12 +330,13 @@ public sealed class ComprehensiveIngestionTests : IDisposable
 
         await RunPipelineAsync();
 
-        // File may be organized (high confidence) or staged (if conflicting titles
+        // File may be organized (high confidence) or orphaned (if conflicting titles
         // drag down overall confidence). Search everywhere.
+        var orphanagePath = Path.Combine(_libraryDir, ".orphans");
         var libraryFile = FindFileInTree(_libraryDir, "Correct Title.epub")
             ?? FindFileInTree(_libraryDir, "Scoring Test.epub")
-            ?? FindFileInTree(_stagingDir, "Scoring Test.epub")
-            ?? FindFileInTree(_stagingDir, "Correct Title.epub");
+            ?? FindFileInTree(orphanagePath, "Scoring Test.epub")
+            ?? FindFileInTree(orphanagePath, "Correct Title.epub");
 
         // If file was not moved at all, use original path.
         var assetFile = libraryFile ?? (File.Exists(filePath) ? filePath : null);
@@ -416,13 +413,14 @@ public sealed class ComprehensiveIngestionTests : IDisposable
         await RunPipelineAsync();
 
         // Pipeline should not crash. With zero claims, scoring produces no canonical
-        // values and overall confidence = 0. The file will be staged (below 0.85
+        // values and overall confidence = 0. The file will be orphaned (below 0.85
         // threshold) or remain in watch dir. It should exist somewhere.
+        var orphanagePath2 = Path.Combine(_libraryDir, ".orphans");
         var fileExists = File.Exists(filePath)
             || FindFileInTree(_libraryDir, "mystery_file.epub") is not null
-            || FindFileInTree(_stagingDir, "mystery_file.epub") is not null;
+            || FindFileInTree(orphanagePath2, "mystery_file.epub") is not null;
         Assert.True(fileExists,
-            "File should still exist somewhere (watch, library, or staging)");
+            "File should still exist somewhere (watch, library, or orphanage)");
 
         // If an asset was created, verify it exists.
         // With empty claims, the pipeline may skip asset creation entirely,
@@ -462,11 +460,12 @@ public sealed class ComprehensiveIngestionTests : IDisposable
         var inLibrary = FindFileInTree(_libraryDir, "ambiguous.mp3");
         Assert.Null(inLibrary);
 
-        // File should be in staging or watch.
-        var inStaging = FindFileInTree(_stagingDir, "ambiguous.mp3");
+        // File should be in orphanage or watch.
+        var orphanagePath3 = Path.Combine(_libraryDir, ".orphans");
+        var inOrphanage = FindFileInTree(orphanagePath3, "ambiguous.mp3");
         var inWatch = File.Exists(filePath);
-        Assert.True(inStaging is not null || inWatch,
-            "File should be in staging dir or still in watch dir");
+        Assert.True(inOrphanage is not null || inWatch,
+            "File should be in orphanage dir or still in watch dir");
 
         // Review item created.
         var reviews = await _reviewRepo.GetPendingAsync();
@@ -494,10 +493,11 @@ public sealed class ComprehensiveIngestionTests : IDisposable
         var inLibraryOther = FindFileInTree(Path.Combine(_libraryDir, "Other"), "unknown_type.bin");
 
         // File should NOT be organized into library under Other.
-        // It may be in staging or watch depending on pipeline behavior.
-        var inStaging = FindFileInTree(_stagingDir, "unknown_type.bin");
-        var inWatch = File.Exists(filePath);
-        Assert.True(inStaging is not null || inWatch || inLibraryOther is not null,
+        // It may be in orphanage or watch depending on pipeline behavior.
+        var orphanagePath4 = Path.Combine(_libraryDir, ".orphans");
+        var inOrphanage2 = FindFileInTree(orphanagePath4, "unknown_type.bin");
+        var inWatch2 = File.Exists(filePath);
+        Assert.True(inOrphanage2 is not null || inWatch2 || inLibraryOther is not null,
             "File should exist somewhere after processing");
     }
 
@@ -521,7 +521,6 @@ public sealed class ComprehensiveIngestionTests : IDisposable
         {
             WatchDirectory = _watchDir,
             LibraryRoot = _libraryDir,
-            StagingDirectory = _stagingDir,
             AutoOrganize = false, // Disabled.
             IncludeSubdirectories = false,
             PollIntervalSeconds = 0,
@@ -558,7 +557,6 @@ public sealed class ComprehensiveIngestionTests : IDisposable
         {
             WatchDirectory = _watchDir,
             LibraryRoot = "", // Not set.
-            StagingDirectory = _stagingDir,
             AutoOrganize = true,
             IncludeSubdirectories = false,
             PollIntervalSeconds = 0,
@@ -964,7 +962,6 @@ public sealed class ComprehensiveIngestionTests : IDisposable
         {
             WatchDirectory = _watchDir,
             LibraryRoot = _libraryDir,
-            StagingDirectory = _stagingDir,
             AutoOrganize = false,
             IncludeSubdirectories = false,
             PollIntervalSeconds = 0,

@@ -70,9 +70,8 @@ public static class SettingsEndpoints
             var core = configLoader.LoadCore();
             return Results.Ok(new FolderSettingsResponse
             {
-                WatchDirectory    = core.WatchDirectory,
-                LibraryRoot       = core.LibraryRoot,
-                StagingDirectory  = core.StagingDirectory,
+                WatchDirectory = core.WatchDirectory,
+                LibraryRoot    = core.LibraryRoot,
             });
         })
         .WithName("GetFolderSettings")
@@ -103,13 +102,6 @@ public static class SettingsEndpoints
                 if (err is not null)
                     return Results.BadRequest(new { error = err });
             }
-            if (!string.IsNullOrWhiteSpace(request.StagingDirectory))
-            {
-                var err = PathValidator.Validate(request.StagingDirectory);
-                if (err is not null)
-                    return Results.BadRequest(new { error = err });
-            }
-
             var core = configLoader.LoadCore();
 
             if (!string.IsNullOrWhiteSpace(request.WatchDirectory))
@@ -117,9 +109,6 @@ public static class SettingsEndpoints
 
             if (!string.IsNullOrWhiteSpace(request.LibraryRoot))
                 core.LibraryRoot = request.LibraryRoot;
-
-            if (!string.IsNullOrWhiteSpace(request.StagingDirectory))
-                core.StagingDirectory = request.StagingDirectory;
 
             configLoader.SaveCore(core);
 

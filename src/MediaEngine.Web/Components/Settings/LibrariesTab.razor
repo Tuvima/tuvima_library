@@ -98,34 +98,7 @@ else
         </MudText>
     </div>
 
-    @* ── Staging Folder ─────────────────────────────────────────────────────── *@
-    <div class="folder-path-row mb-5">
-        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-1">
-            <div class="health-dot @HealthClass(_stagingHealthy, _stagingValidating, _stagingDir)" />
-            <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">Staging Folder</MudText>
-            <MudChip T="string" Size="Size.Small" Color="Color.Default"
-                     Style="font-size: 0.65rem; height: 18px;">Optional</MudChip>
-        </MudStack>
-        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
-            <MudTextField @bind-Value="_stagingDir"
-                          @bind-Value:after="@(() => OnPathChanged(nameof(_stagingDir)))"
-                          Placeholder="/path/to/staging"
-                          Variant="Variant.Text"
-                          FullWidth="true"
-                          Immediate="true"
-                          ReadOnly="@readOnly"
-                          Margin="Margin.Dense" />
-            <MudIconButton Icon="@Icons.Material.Outlined.FolderOpen"
-                           Size="Size.Medium"
-                           Color="Color.Default"
-                           Disabled="@readOnly"
-                           OnClick="@(() => BrowseAsync(nameof(_stagingDir)))"
-                           title="Browse folders" />
-        </MudStack>
-        <MudText Typo="Typo.caption" Style="@StatusStyle(_stagingHealthy, _stagingValidating, _stagingDir)" Class="mt-1">
-            @StatusLabel(_stagingTestResult, _stagingValidating, _stagingDir)
-        </MudText>
-    </div>
+    @* Orphanage path (.orphans/) is derived from LibraryRoot — not independently configurable *@
 
     <MudDivider Class="my-6" />
 
@@ -353,17 +326,13 @@ else
 
     private string              _watchDir              = string.Empty;
     private string              _libraryRoot           = string.Empty;
-    private string              _stagingDir            = string.Empty;
     private PathTestResultDto?  _watchTestResult;
     private PathTestResultDto?  _libTestResult;
-    private PathTestResultDto?  _stagingTestResult;
     private bool                _watchValidating;
     private bool                _libValidating;
-    private bool                _stagingValidating;
     private bool                _savingFolders;
     private bool                _watchHealthy;
     private bool                _libraryHealthy;
-    private bool                _stagingHealthy;
 
     // Template state
     private string              _organizationTemplate  = string.Empty;
@@ -371,20 +340,17 @@ else
     // Original (saved) values — used to detect unsaved changes and to reset
     private string              _savedWatchDir         = string.Empty;
     private string              _savedLibraryRoot      = string.Empty;
-    private string              _savedStagingDir       = string.Empty;
     private string              _savedOrganizationTemplate = string.Empty;
 
     // Debounce timers for auto-validation
     private Timer? _watchTimer;
     private Timer? _libTimer;
-    private Timer? _stagingTimer;
 
     // ── Derived state ─────────────────────────────────────────────────────────────
 
     private bool HasUnsavedChanges =>
         _watchDir             != _savedWatchDir             ||
         _libraryRoot          != _savedLibraryRoot          ||
-        _stagingDir           != _savedStagingDir           ||
         _organizationTemplate != _savedOrganizationTemplate;
 
     // ── Live preview — local substitution, no API call ────────────────────────────
@@ -417,7 +383,6 @@ else
         {
             _watchDir    = settings.WatchDirectory;
             _libraryRoot = settings.LibraryRoot;
-            _stagingDir  = settings.StagingDirectory;
         }
 
         // Load organization template.
@@ -439,7 +404,6 @@ else
         DeviceContext.OnChanged            -= OnDeviceChanged;
         _watchTimer?.Dispose();
         _libTimer?.Dispose();
-        _stagingTimer?.Dispose();
     }
 
     private void OnDeviceChanged() => InvokeAsync(StateHasChanged);
@@ -450,7 +414,6 @@ else
     {
         _savedWatchDir              = _watchDir;
         _savedLibraryRoot           = _libraryRoot;
-        _savedStagingDir            = _stagingDir;
         _savedOrganizationTemplate  = _organizationTemplate;
     }
 
@@ -458,15 +421,12 @@ else
     {
         _watchDir             = _savedWatchDir;
         _libraryRoot          = _savedLibraryRoot;
-        _stagingDir           = _savedStagingDir;
         _organizationTemplate = _savedOrganizationTemplate;
         // Clear any in-flight validation state.
         _watchTestResult  = null;
         _libTestResult    = null;
-        _stagingTestResult = null;
-        _watchHealthy  = false;
+        _watchHealthy   = false;
         _libraryHealthy = false;
-        _stagingHealthy = false;
         _ = CheckInitialHealthAsync();
     }
 
@@ -480,9 +440,6 @@ else
         else if (!string.IsNullOrWhiteSpace(_libraryRoot)
             && string.Equals(path, _libraryRoot, StringComparison.OrdinalIgnoreCase))
             _libraryHealthy = healthy;
-        else if (!string.IsNullOrWhiteSpace(_stagingDir)
-            && string.Equals(path, _stagingDir, StringComparison.OrdinalIgnoreCase))
-            _stagingHealthy = healthy;
 
         InvokeAsync(StateHasChanged);
     }
@@ -503,12 +460,6 @@ else
             _libraryHealthy = r is { Exists: true, HasRead: true, HasWrite: true };
         }
 
-        if (!string.IsNullOrWhiteSpace(_stagingDir))
-        {
-            var r = await Orchestrator.TestPathAsync(_stagingDir);
-            _stagingTestResult = r;
-            _stagingHealthy    = r is { Exists: true, HasRead: true, HasWrite: true };
-        }
     }
 
     // ── Debounced auto-validation ───────────────────────────────────────────────
@@ -537,15 +488,6 @@ else
                     _watchHealthy = false;
                 break;
 
-            case nameof(_stagingDir):
-                _stagingTestResult = null;
-                _stagingValidating = false;
-                _stagingTimer?.Dispose();
-                if (!string.IsNullOrWhiteSpace(_stagingDir))
-                    _stagingTimer = new Timer(_ => InvokeAsync(ValidateStagingAsync), null, 800, Timeout.Infinite);
-                else
-                    _stagingHealthy = false;
-                break;
         }
     }
 
@@ -569,16 +511,6 @@ else
         StateHasChanged();
     }
 
-    private async Task ValidateStagingAsync()
-    {
-        _stagingValidating = true;
-        StateHasChanged();
-        _stagingTestResult = await Orchestrator.TestPathAsync(_stagingDir);
-        _stagingHealthy    = _stagingTestResult is { Exists: true, HasRead: true, HasWrite: true };
-        _stagingValidating = false;
-        StateHasChanged();
-    }
-
     // ── Browse dialog ───────────────────────────────────────────────────────────
 
     private async Task BrowseAsync(string field)
@@ -587,7 +519,6 @@ else
         {
             nameof(_libraryRoot) => _libraryRoot,
             nameof(_watchDir)    => _watchDir,
-            nameof(_stagingDir)  => _stagingDir,
             _                    => string.Empty,
         };
 
@@ -617,10 +548,6 @@ else
                 case nameof(_watchDir):
                     _watchDir = selectedPath;
                     await ValidateWatchAsync();
-                    break;
-                case nameof(_stagingDir):
-                    _stagingDir = selectedPath;
-                    await ValidateStagingAsync();
                     break;
             }
         }
@@ -692,30 +619,8 @@ else
             _libraryHealthy = true;
         }
 
-        // Validate Staging Folder (optional — if provided, must have read + write).
-        if (!string.IsNullOrWhiteSpace(_stagingDir))
-        {
-            var r = await Orchestrator.TestPathAsync(_stagingDir);
-            _stagingTestResult = r;
-            if (r is null)
-            {
-                Snackbar.Add("Cannot reach the Engine — please make sure it is running.", Severity.Error);
-                _savingFolders = false;
-                return;
-            }
-            if (r is not { HasRead: true, HasWrite: true })
-            {
-                Snackbar.Add("Staging Folder is not accessible — please check the path and permissions.",
-                    Severity.Error);
-                _stagingHealthy = false;
-                _savingFolders  = false;
-                return;
-            }
-            _stagingHealthy = true;
-        }
-
         // Save folder settings.
-        var dto     = new FolderSettingsDto(_watchDir, _libraryRoot, _stagingDir);
+        var dto     = new FolderSettingsDto(_watchDir, _libraryRoot);
         var success = await Orchestrator.UpdateFolderSettingsAsync(dto);
 
         // Save organization template (if provided).
