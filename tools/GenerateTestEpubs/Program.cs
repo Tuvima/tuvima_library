@@ -1,61 +1,70 @@
 // ──────────────────────────────────────────────────────────────────────────────
-// GenerateTestEpubs — Creates EPUBs + M4B audiobooks for pipeline testing.
+// GenerateTestEpubs — Creates exactly 20 test files (EPUBs + M4Bs) that
+// exercise every major ingestion edge case.
 //
-// Metadata scenarios exercised:
-//   • Fully tagged with embedded cover (high confidence, should auto-organize)
-//   • Fully tagged, no cover (metadata confidence still high)
-//   • Author name conflict (different formats of the same author)
-//   • Series metadata for Hub grouping
-//   • Multi-author (collaboration)
-//   • Filename-only (no OPF/ID3 metadata — low confidence, goes to review)
-//   • Pseudonym authors (Richard Bachman→King, Robert Galbraith→Rowling, Iain Banks↔Iain M. Banks)
-//   • Same title as both EPUB + M4B (tests Hub cross-format linking)
-//   • ISBN bridge correction (wrong author corrected via Wikidata ISBN match)
-//   • Standalone detection (single work without franchise/series)
-//   • Multi-genre metadata (genre chips rendering)
-//   • Books/Audiobooks shared folder (Dune audiobook alongside EPUB)
+// Scenario groups:
+//   EPUBs  1– 8  : Confidence gates, Hub grouping, person records, pseudonyms
+//   EPUB   9     : Corrupt file → quarantine
+//   EPUB  10     : Duplicate hash → skip
+//   M4Bs 11–16   : Cross-format Hub link, narrators, orphanage, pseudonym
+//   M4Bs 17–18   : Ingestion hinting — hp-series/ folder (sibling files)
+//   M4Bs 19–20   : Ingestion hinting — expanse-audio/ folder (sibling files)
 //
 // Usage:
-//   dotnet run --project tools/GenerateTestEpubs [output-directory]
+//   dotnet run --project tools/GenerateTestEpubs [output-directory] [--clean]
 //
-// Default output: C:\temp\tuvima-watch
+// Default output : C:\temp\tuvima-watch\books
+// --clean        : Wipes the output directory before generating
 // ──────────────────────────────────────────────────────────────────────────────
 
 using System.Diagnostics;
 using System.IO.Compression;
 using System.Text;
+using System.Text.Json;
 
-var outputDir = args.Length > 0 ? args[0] : @"C:\temp\tuvima-watch";
+// ── Args ──────────────────────────────────────────────────────────────────────
+
+bool clean = args.Any(a => a.Equals("--clean", StringComparison.OrdinalIgnoreCase));
+var outputDir = args.FirstOrDefault(a => !a.StartsWith("--")) ?? @"C:\temp\tuvima-watch\books";
 var tempDir   = Path.Combine(Path.GetTempPath(), "tuvima-test-gen");
 var ffmpegPath = FindFfmpeg();
+
+// ── Clean ─────────────────────────────────────────────────────────────────────
+
+if (clean && Directory.Exists(outputDir))
+{
+    Console.WriteLine($"  --clean  Wiping {outputDir}");
+    Directory.Delete(outputDir, recursive: true);
+    Console.WriteLine();
+}
 
 Directory.CreateDirectory(outputDir);
 Directory.CreateDirectory(tempDir);
 
 Console.WriteLine($"Output directory : {outputDir}");
-Console.WriteLine($"FFmpeg           : {ffmpegPath ?? "NOT FOUND"}");
+Console.WriteLine($"FFmpeg           : {ffmpegPath ?? "NOT FOUND — M4B files will be skipped"}");
 Console.WriteLine();
 
-// ── EPUB definitions ────────────────────────────────────────────────────────
+// ── EPUB definitions ─────────────────────────────────────────────────────────
 //
-// Columns: FileName, Title, Author, SecondAuthor, Isbn, Year,
-//          Publisher, Description, Series, SeriesPosition,
-//          Language, IncludeCover, CoverHex
+// Scenarios 1–8. Output to root of outputDir.
 //
 var epubs = new EpubSpec[]
 {
-    // 1 — Fully tagged, with cover, two authors, real title
-    new("good-omens.epub",
-        "Good Omens",
-        Author: "Terry Pratchett",       SecondAuthor: "Neil Gaiman",
-        Isbn: "9780060853983",           Year: "1990",
-        Publisher: "Workman Publishing",
-        Description: "The Nice and Accurate Prophecies of Agnes Nutter, Witch.",
-        Series: null,                    SeriesPosition: null,
+    // Scenario 1 — Fully tagged: title, author, ISBN, series, embedded cover.
+    //   Expected: auto-organized into library; "Dune" Hub created; cover from file.
+    new("dune.epub",
+        "Dune",
+        Author: "Frank Herbert",         SecondAuthor: null,
+        Isbn: "9780441172719",           Year: "1965",
+        Publisher: "Ace Books",
+        Description: "A science fiction masterpiece set on the desert planet Arrakis.",
+        Series: "Dune Chronicles",       SeriesPosition: "1",
         Language: "en",                  IncludeCover: true,
-        CoverHex: "#4A90D9"),
+        CoverHex: "#B5651D"),
 
-    // 2 — Fully tagged, no cover, pioneer cyberpunk
+    // Scenario 2 — Rich metadata, no embedded cover art.
+    //   Expected: Hub created; cover fetched from provider (Apple Books / Open Library).
     new("neuromancer.epub",
         "Neuromancer",
         Author: "William Gibson",        SecondAuthor: null,
@@ -66,7 +75,21 @@ var epubs = new EpubSpec[]
         Language: "en",                  IncludeCover: false,
         CoverHex: "#2C6B3E"),
 
-    // 3 — Fully tagged, with cover, series metadata
+    // Scenario 3 — Author tagged as "Asimov, Isaac" (Last, First reversed format).
+    //   Expected: author conflict flagged; two Person records may be created
+    //   (one per format variant until Wikidata normalises to canonical name).
+    new("foundation.epub",
+        "Foundation",
+        Author: "Asimov, Isaac",          SecondAuthor: null,
+        Isbn: "9780553293357",            Year: "1951",
+        Publisher: "Gnome Press",
+        Description: "The Foundation series is set in the far future.",
+        Series: "Foundation",            SeriesPosition: "1",
+        Language: "en",                  IncludeCover: false,
+        CoverHex: "#1A237E"),
+
+    // Scenario 4 — Series + series_pos present in OPF metadata.
+    //   Expected: `series` and `series_pos` canonical values correctly set on Work.
     new("the-name-of-the-wind.epub",
         "The Name of the Wind",
         Author: "Patrick Rothfuss",      SecondAuthor: null,
@@ -77,118 +100,9 @@ var epubs = new EpubSpec[]
         Language: "en",                  IncludeCover: true,
         CoverHex: "#8B4513"),
 
-    // 4 — Author name format conflict: "Asimov, Isaac" vs "Isaac Asimov"
-    new("foundation.epub",
-        "Foundation",
-        Author: "Asimov, Isaac",          SecondAuthor: null,   // reversed format
-        Isbn: "9780553293357",            Year: "1951",
-        Publisher: "Gnome Press",
-        Description: "The Foundation series is set in the far future.",
-        Series: "Foundation",            SeriesPosition: "1",
-        Language: "en",                  IncludeCover: false,
-        CoverHex: "#1A237E"),
-
-    // 5 — Fully tagged, with cover, recent award winner
-    new("project-hail-mary.epub",
-        "Project Hail Mary",
-        Author: "Andy Weir",             SecondAuthor: null,
-        Isbn: "9780593135204",           Year: "2021",
-        Publisher: "Ballantine Books",
-        Description: "A lone astronaut must save Earth from disaster.",
-        Series: null,                    SeriesPosition: null,
-        Language: "en",                  IncludeCover: true,
-        CoverHex: "#1565C0"),
-
-    // 6 — Same title as M4B #2 (Dune) — tests Hub cross-format linking
-    new("dune.epub",
-        "Dune",
-        Author: "Frank Herbert",         SecondAuthor: null,
-        Isbn: "9780441172719",           Year: "1965",
-        Publisher: "Ace Books",
-        Description: "A science fiction masterpiece set on the desert planet Arrakis.",
-        Series: "Dune Chronicles",      SeriesPosition: "1",
-        Language: "en",                  IncludeCover: true,
-        CoverHex: "#B5651D"),
-
-    // 7 — Fully tagged with cover, popular fantasy
-    new("the-hobbit.epub",
-        "The Hobbit",
-        Author: "J.R.R. Tolkien",        SecondAuthor: null,
-        Isbn: "9780547928227",           Year: "1937",
-        Publisher: "Houghton Mifflin Harcourt",
-        Description: "Bilbo Baggins is whisked away on an unexpected adventure.",
-        Series: null,                    SeriesPosition: null,
-        Language: "en",                  IncludeCover: true,
-        CoverHex: "#4E342E"),
-
-    // 8 — PSEUDONYM: Richard Bachman is Stephen King's pen name (Q3324300 → Q39829)
-    new("the-running-man.epub",
-        "The Running Man",
-        Author: "Richard Bachman",       SecondAuthor: null,
-        Isbn: "9780451197962",           Year: "1982",
-        Publisher: "Signet",
-        Description: "A desperate man enters a deadly game show in a dystopian future.",
-        Series: null,                    SeriesPosition: null,
-        Language: "en",                  IncludeCover: true,
-        CoverHex: "#8B0000"),
-
-    // 9 — PSEUDONYM: Robert Galbraith is J.K. Rowling's pen name (Q16308388 → Q34660)
-    new("the-cuckoos-calling.epub",
-        "The Cuckoo's Calling",
-        Author: "Robert Galbraith",      SecondAuthor: null,
-        Isbn: "9780316206846",           Year: "2013",
-        Publisher: "Mulholland Books",
-        Description: "A brilliant mystery novel featuring private detective Cormoran Strike.",
-        Series: "Cormoran Strike",       SeriesPosition: "1",
-        Language: "en",                  IncludeCover: true,
-        CoverHex: "#2F4F4F"),
-
-    // 10 — FICTIONAL — filename-only (all OPF metadata blank/empty)
-    new("phantom-signal-filename-only.epub",
-        Title: "",                        Author: "",
-        SecondAuthor: null,
-        Isbn: "",                         Year: "",
-        Publisher: "",                    Description: "",
-        Series: null,                    SeriesPosition: null,
-        Language: "en",                  IncludeCover: false,
-        CoverHex: "#212121"),
-
-    // 11 — ISBN bridge correction: correct ISBN but author misspelled
-    //       ISBN 9780441172719 maps to Dune (Q190159) by Frank Herbert — "Frank Herber" should be overridden
-    new("isbn-wrong-author.epub",
-        "Dune",
-        Author: "Frank Herber",          SecondAuthor: null,     // TYPO — should be corrected via ISBN bridge
-        Isbn: "9780441172719",           Year: "1965",
-        Publisher: "Ace Books",
-        Description: "A science fiction masterpiece set on the desert planet Arrakis.",
-        Series: null,                    SeriesPosition: null,
-        Language: "en",                  IncludeCover: false,
-        CoverHex: "#B5651D"),
-
-    // 12 — Standalone detection: The Martian has no franchise/series in Wikidata
-    //       Should get narrative_scope = "standalone", NOT create a narrative root
-    new("standalone-martian.epub",
-        "The Martian",
-        Author: "Andy Weir",             SecondAuthor: null,
-        Isbn: "9780553418026",           Year: "2014",
-        Publisher: "Broadway Books",
-        Description: "An astronaut is stranded alone on Mars and must survive.",
-        Series: null,                    SeriesPosition: null,
-        Language: "en",                  IncludeCover: true,
-        CoverHex: "#BF360C"),
-
-    // 13 — Multi-genre: tests genre chip rendering with multiple values
-    new("multi-genre.epub",
-        "The Left Hand of Darkness",
-        Author: "Ursula K. Le Guin",     SecondAuthor: null,
-        Isbn: "9780441478125",           Year: "1969",
-        Publisher: "Ace Books",
-        Description: "An envoy explores a world where people have no fixed gender.",
-        Series: null,                    SeriesPosition: null,
-        Language: "en",                  IncludeCover: true,
-        CoverHex: "#1A237E"),
-
-    // 14 — PSEUDONYM (dual-author): James S.A. Corey = Daniel Abraham + Ty Franck
+    // Scenario 5 — Author is a collective pen name: "James S.A. Corey" resolves
+    //   to two real people (Daniel Abraham + Ty Franck) via Wikidata P1773.
+    //   Expected: collective pseudonym link; two real-author Person records.
     new("leviathan-wakes.epub",
         "Leviathan Wakes",
         Author: "James S.A. Corey",      SecondAuthor: null,
@@ -199,50 +113,143 @@ var epubs = new EpubSpec[]
         Language: "en",                  IncludeCover: true,
         CoverHex: "#1A237E"),
 
-    // 15 — PSEUDONYM (dual-author): second Expanse book for series test
-    new("calibans-war.epub",
-        "Caliban's War",
-        Author: "James S.A. Corey",      SecondAuthor: null,
-        Isbn: "9780316129060",           Year: "2012",
-        Publisher: "Orbit",
-        Description: "The second book in the Expanse series.",
-        Series: "The Expanse",           SeriesPosition: "2",
-        Language: "en",                  IncludeCover: true,
-        CoverHex: "#0D47A1"),
-
-    // 16 — Multi-author with explicit ordering (primary author first in OPF)
-    new("the-talisman.epub",
-        "The Talisman",
-        Author: "Stephen King",          SecondAuthor: "Peter Straub",
-        Isbn: "9781501192272",           Year: "1984",
-        Publisher: "Viking Press",
-        Description: "A boy sets out on a quest across parallel worlds.",
+    // Scenario 6 — PSEUDONYM: "Richard Bachman" is Stephen King's pen name
+    //   (Wikidata Q3324300 → P1773 → Q39829).
+    //   Expected: Person record for Bachman linked to King via pseudonym.
+    new("the-running-man.epub",
+        "The Running Man",
+        Author: "Richard Bachman",       SecondAuthor: null,
+        Isbn: "9780451197962",           Year: "1982",
+        Publisher: "Signet",
+        Description: "A desperate man enters a deadly game show in a dystopian future.",
         Series: null,                    SeriesPosition: null,
         Language: "en",                  IncludeCover: true,
-        CoverHex: "#4A148C"),
+        CoverHex: "#8B0000"),
+
+    // Scenario 7 — PSEUDONYM: "Robert Galbraith" is J.K. Rowling's pen name
+    //   (Wikidata Q16308388 → P1773 → Q34660).
+    //   Expected: Person record for Galbraith linked to Rowling via pseudonym.
+    new("the-cuckoos-calling.epub",
+        "The Cuckoo's Calling",
+        Author: "Robert Galbraith",      SecondAuthor: null,
+        Isbn: "9780316206846",           Year: "2013",
+        Publisher: "Mulholland Books",
+        Description: "A brilliant mystery novel featuring private detective Cormoran Strike.",
+        Series: "Cormoran Strike",       SeriesPosition: "1",
+        Language: "en",                  IncludeCover: true,
+        CoverHex: "#2F4F4F"),
+
+    // Scenario 8 — Filename only: OPF contains no usable metadata (all fields empty).
+    //   Expected: overall confidence < 0.40 → file moved to .orphans/; review queue entry.
+    new("phantom-signal-filename-only.epub",
+        Title: "",                        Author: "",
+        SecondAuthor: null,
+        Isbn: "",                         Year: "",
+        Publisher: "",                    Description: "",
+        Series: null,                    SeriesPosition: null,
+        Language: "en",                  IncludeCover: false,
+        CoverHex: "#212121"),
 };
 
-// ── M4B definitions ─────────────────────────────────────────────────────────
+// ── Generate EPUBs 1–8 ────────────────────────────────────────────────────────
+
+int total = 0, failed = 0;
+var manifest = new List<ManifestEntry>();
+
+Console.WriteLine($"━━━ EPUBs (scenarios 1–8) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+string? duneEpubPath = null;
+
+for (int i = 0; i < epubs.Length; i++)
+{
+    var spec    = epubs[i];
+    var outPath = Path.Combine(outputDir, spec.FileName);
+    var num     = i + 1;
+    try
+    {
+        byte[]? cover = null;
+        if (spec.IncludeCover && ffmpegPath is not null)
+            cover = GeneratePng(ffmpegPath, tempDir, spec.CoverHex, 400, 600);
+
+        CreateEpub(outPath, spec, cover);
+        if (spec.FileName == "dune.epub") duneEpubPath = outPath;
+
+        var label = $"[{num,2}] {spec.FileName,-46}";
+        Console.WriteLine($"  ✓  {label} {(cover is not null ? "[cover]" : "[no cover]")}");
+        manifest.Add(new(num, spec.FileName, "epub", $"Scenario {num}"));
+        total++;
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"  ✗  [{num,2}] {spec.FileName}: {ex.Message}");
+        failed++;
+    }
+}
+
+// ── Scenario 9 — Corrupt EPUB ────────────────────────────────────────────────
+//   File has .epub extension but contains garbage bytes (not a valid ZIP).
+//   Expected: processor returns IsCorrupt=true; no asset in DB; MediaFailed activity.
+{
+    const int num = 9;
+    var outPath = Path.Combine(outputDir, "corrupt-epub.epub");
+    try
+    {
+        // Valid ZIP magic is PK\x03\x04; we write garbage that will fail ZIP parsing.
+        var garbage = new byte[512];
+        new Random(42).NextBytes(garbage);
+        garbage[0] = 0xFF; garbage[1] = 0xFE;   // deliberate non-ZIP header
+        File.WriteAllBytes(outPath, garbage);
+
+        Console.WriteLine($"  ✓  [{num,2}] {"corrupt-epub.epub",-46} [corrupt bytes — not a valid ZIP]");
+        manifest.Add(new(num, "corrupt-epub.epub", "epub", "Scenario 9 — corrupt"));
+        total++;
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"  ✗  [{num,2}] corrupt-epub.epub: {ex.Message}");
+        failed++;
+    }
+}
+
+// ── Scenario 10 — Duplicate (byte-identical copy of dune.epub) ───────────────
+//   Expected: hash check catches duplicate before processor runs; DuplicateSkipped
+//   activity logged; no second asset created in DB.
+{
+    const int num = 10;
+    var outPath = Path.Combine(outputDir, "dune-duplicate.epub");
+    try
+    {
+        if (duneEpubPath is not null && File.Exists(duneEpubPath))
+        {
+            File.Copy(duneEpubPath, outPath, overwrite: true);
+            Console.WriteLine($"  ✓  [{num,2}] {"dune-duplicate.epub",-46} [byte-identical copy of dune.epub]");
+            manifest.Add(new(num, "dune-duplicate.epub", "epub", "Scenario 10 — duplicate"));
+            total++;
+        }
+        else
+        {
+            Console.WriteLine($"  ✗  [{num,2}] dune-duplicate.epub: dune.epub was not generated — cannot copy");
+            failed++;
+        }
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"  ✗  [{num,2}] dune-duplicate.epub: {ex.Message}");
+        failed++;
+    }
+}
+
+// ── M4B definitions ──────────────────────────────────────────────────────────
+//
+// Scenarios 11–16 output to root of outputDir.
+// Scenarios 17–18 output to hp-series/ subfolder  (ingestion hinting).
+// Scenarios 19–20 output to expanse-audio/ subfolder (ingestion hinting).
 //
 // Audiobook covers MUST be square (1:1 aspect ratio).
-// Columns: FileName, Title, Artist (author), AlbumArtist, Album, Narrator,
-//          Year, Genre, Comment, TrackNum, Series, SeriesPos,
-//          IncludeCover, CoverHex
-//
-var m4bs = new M4bSpec[]
-{
-    // 1 — Fully tagged, square cover, famous UK narrator
-    new("harry-potter-philosophers-stone.m4b",
-        Title: "Harry Potter and the Philosopher's Stone",
-        Artist: "J.K. Rowling",          AlbumArtist: "J.K. Rowling",
-        Album: "Harry Potter",           Narrator: "Jim Dale",
-        Year: "1997",                    Genre: "Fantasy",
-        Comment: "Narrated by Jim Dale",
-        TrackNum: "1",
-        Series: "Harry Potter",          SeriesPos: "1",
-        IncludeCover: true,              CoverHex: "#7B1FA2"),
 
-    // 2 — Same title as EPUB dune.epub — tests Hub cross-format linking
+var m4bsFlat = new M4bSpec[]
+{
+    // Scenario 11 — Same title, author, and series as dune.epub (#1).
+    //   Expected: joins the existing Dune Hub — no new Hub created.
     new("dune-audiobook.m4b",
         Title: "Dune",
         Artist: "Frank Herbert",         AlbumArtist: "Frank Herbert",
@@ -250,10 +257,11 @@ var m4bs = new M4bSpec[]
         Year: "1965",                    Genre: "Science Fiction",
         Comment: "Narrated by Scott Brick",
         TrackNum: "1",
-        Series: "Dune Chronicles",      SeriesPos: "1",
+        Series: "Dune Chronicles",       SeriesPos: "1",
         IncludeCover: false,             CoverHex: "#B5651D"),
 
-    // 3 — Fully tagged, square cover, comedic sci-fi
+    // Scenario 12 — Narrator credited in ID3 comment tag.
+    //   Expected: Narrator Person record created for Stephen Fry.
     new("hitchhikers-guide.m4b",
         Title: "The Hitchhiker's Guide to the Galaxy",
         Artist: "Douglas Adams",         AlbumArtist: "Douglas Adams",
@@ -266,52 +274,8 @@ var m4bs = new M4bSpec[]
         SeriesPos: "1",
         IncludeCover: true,              CoverHex: "#0097A7"),
 
-    // 4 — Series + cover, fantasy epic
-    new("mistborn-the-final-empire.m4b",
-        Title: "Mistborn: The Final Empire",
-        Artist: "Brandon Sanderson",     AlbumArtist: "Brandon Sanderson",
-        Album: "Mistborn",               Narrator: "Michael Kramer",
-        Year: "2006",                    Genre: "Fantasy",
-        Comment: "Narrated by Michael Kramer",
-        TrackNum: "1",
-        Series: "Mistborn",              SeriesPos: "1",
-        IncludeCover: true,              CoverHex: "#37474F"),
-
-    // 5 — No cover art — confidence test
-    new("enders-game.m4b",
-        Title: "Ender's Game",
-        Artist: "Orson Scott Card",      AlbumArtist: "Orson Scott Card",
-        Album: "Ender's Game",           Narrator: "Stefan Rudnicki",
-        Year: "1985",                    Genre: "Science Fiction",
-        Comment: "Narrated by Stefan Rudnicki",
-        TrackNum: "1",
-        Series: "Ender's Saga",          SeriesPos: "1",
-        IncludeCover: false,             CoverHex: "#006064"),
-
-    // 6 — Narrator in comment field, square cover
-    new("the-martian.m4b",
-        Title: "The Martian",
-        Artist: "Andy Weir",             AlbumArtist: "Andy Weir",
-        Album: "The Martian",            Narrator: "R.C. Bray",
-        Year: "2011",                    Genre: "Science Fiction",
-        Comment: "Narrated by R.C. Bray",
-        TrackNum: "1",
-        Series: null,                    SeriesPos: null,
-        IncludeCover: true,              CoverHex: "#BF360C"),
-
-    // 7 — Non-fiction, author IS narrator
-    new("a-short-history-of-nearly-everything.m4b",
-        Title: "A Short History of Nearly Everything",
-        Artist: "Bill Bryson",           AlbumArtist: "Bill Bryson",
-        Album: "A Short History of Nearly Everything",
-        Narrator: "Bill Bryson",
-        Year: "2003",                    Genre: "Non-Fiction",
-        Comment: "Read by the author, Bill Bryson",
-        TrackNum: "1",
-        Series: null,                    SeriesPos: null,
-        IncludeCover: true,              CoverHex: "#1B5E20"),
-
-    // 8 — Multiple narrator conflict simulation (tagged with two names in comment)
+    // Scenario 13 — Narrator field contains two names joined by " and ".
+    //   Expected: two separate Narrator Person records (one per name).
     new("wool-omnibus.m4b",
         Title: "Wool",
         Artist: "Hugh Howey",            AlbumArtist: "Hugh Howey",
@@ -322,18 +286,20 @@ var m4bs = new M4bSpec[]
         Series: "Silo",                  SeriesPos: "1",
         IncludeCover: true,              CoverHex: "#4E342E"),
 
-    // 9 — PSEUDONYM: Iain Banks (Q14469) has pseudonym Iain M. Banks (Q214540) via P742
-    new("the-wasp-factory.m4b",
-        Title: "The Wasp Factory",
-        Artist: "Iain Banks",           AlbumArtist: "Iain Banks",
-        Album: "The Wasp Factory",      Narrator: "Peter Kenny",
-        Year: "1984",                    Genre: "Fiction",
-        Comment: "Narrated by Peter Kenny",
+    // Scenario 14 — Audiobook with series, no embedded cover.
+    //   Expected: Hub created; cover fetched from provider (Audnexus / Apple Books).
+    new("enders-game.m4b",
+        Title: "Ender's Game",
+        Artist: "Orson Scott Card",      AlbumArtist: "Orson Scott Card",
+        Album: "Ender's Game",           Narrator: "Stefan Rudnicki",
+        Year: "1985",                    Genre: "Science Fiction",
+        Comment: "Narrated by Stefan Rudnicki",
         TrackNum: "1",
-        Series: null,                    SeriesPos: null,
-        IncludeCover: true,              CoverHex: "#4A0E0E"),
+        Series: "Ender's Saga",          SeriesPos: "1",
+        IncludeCover: false,             CoverHex: "#006064"),
 
-    // 10 — FICTIONAL — filename-only (no ID3 tags)
+    // Scenario 15 — No ID3 tags at all (filename-only audiobook).
+    //   Expected: overall confidence < 0.40 → .orphans/ quarantine; review entry.
     new("echoes-filename-only.m4b",
         Title: "",                        Artist: "",
         AlbumArtist: "",                 Album: "",
@@ -343,70 +309,158 @@ var m4bs = new M4bSpec[]
         Series: null,                    SeriesPos: null,
         IncludeCover: false,             CoverHex: "#212121"),
 
-    // 11 — Dune audiobook for shared-folder test: should land in Books/Dune (Q190159)/ alongside dune.epub
-    new("dune-audiobook-shared.m4b",
-        Title: "Dune",
-        Artist: "Frank Herbert",         AlbumArtist: "Frank Herbert",
-        Album: "Dune",                   Narrator: "Scott Brick",
-        Year: "1965",                    Genre: "Science Fiction",
-        Comment: "Narrated by Scott Brick — shared folder test",
+    // Scenario 16 — PSEUDONYM: "Iain Banks" has pen name "Iain M. Banks"
+    //   (Wikidata Q14469 → P742 → Q214540).
+    //   Expected: pseudonym link discovered; both Person records linked.
+    new("the-wasp-factory.m4b",
+        Title: "The Wasp Factory",
+        Artist: "Iain Banks",            AlbumArtist: "Iain Banks",
+        Album: "The Wasp Factory",       Narrator: "Peter Kenny",
+        Year: "1984",                    Genre: "Fiction",
+        Comment: "Narrated by Peter Kenny",
         TrackNum: "1",
-        Series: "Dune Chronicles",      SeriesPos: "1",
-        IncludeCover: true,              CoverHex: "#B5651D"),
+        Series: null,                    SeriesPos: null,
+        IncludeCover: true,              CoverHex: "#4A0E0E"),
 };
 
-// ── Generate ─────────────────────────────────────────────────────────────────
+// ── Ingestion hinting — hp-series/ subdirectory ───────────────────────────────
+//
+// Both files go into the same source subfolder.  The Engine primes a FolderHint
+// when the first file is ingested, then applies it to the second — skipping a
+// redundant Stage 1 SPARQL query and pre-assigning the second file to the same Hub.
 
-int total = 0, failed = 0;
-
-Console.WriteLine($"━━━ Generating {epubs.Length} EPUBs ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-foreach (var spec in epubs)
+var hpSubdir = Path.Combine(outputDir, "hp-series");
+var m4bsHpSeries = new M4bSpec[]
 {
-    var outPath = Path.Combine(outputDir, spec.FileName);
-    try
-    {
-        byte[]? cover = null;
-        if (spec.IncludeCover && ffmpegPath is not null)
-            cover = GeneratePng(ffmpegPath, tempDir, spec.CoverHex, 400, 600);
+    // Scenario 17 — Harry Potter #1. First file in hp-series/ folder.
+    //   Expected: full three-stage pipeline; ingestion hint primed with HP Hub ID + QID.
+    new("harry-potter-philosophers-stone.m4b",
+        Title: "Harry Potter and the Philosopher's Stone",
+        Artist: "J.K. Rowling",          AlbumArtist: "J.K. Rowling",
+        Album: "Harry Potter",           Narrator: "Jim Dale",
+        Year: "1997",                    Genre: "Fantasy",
+        Comment: "Narrated by Jim Dale",
+        TrackNum: "1",
+        Series: "Harry Potter",          SeriesPos: "1",
+        IncludeCover: true,              CoverHex: "#7B1FA2"),
 
-        CreateEpub(outPath, spec, cover);
-        Console.WriteLine($"  ✓  {spec.FileName,-44} {(cover is not null ? "[cover]" : "[no cover]")}");
-        total++;
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"  ✗  {spec.FileName}: {ex.Message}");
-        failed++;
-    }
-}
+    // Scenario 18 — Harry Potter #2. Sibling in hp-series/ folder.
+    //   Expected: FolderHint applied from #17; Hub pre-assigned; Stage 1 SPARQL skipped.
+    new("harry-potter-chamber-of-secrets.m4b",
+        Title: "Harry Potter and the Chamber of Secrets",
+        Artist: "J.K. Rowling",          AlbumArtist: "J.K. Rowling",
+        Album: "Harry Potter",           Narrator: "Jim Dale",
+        Year: "1998",                    Genre: "Fantasy",
+        Comment: "Narrated by Jim Dale",
+        TrackNum: "2",
+        Series: "Harry Potter",          SeriesPos: "2",
+        IncludeCover: true,              CoverHex: "#558B2F"),
+};
+
+// ── Ingestion hinting — expanse-audio/ subdirectory ──────────────────────────
+
+var expanseSubdir = Path.Combine(outputDir, "expanse-audio");
+var m4bsExpanse = new M4bSpec[]
+{
+    // Scenario 19 — The Expanse #1. First file in expanse-audio/ folder.
+    //   Expected: full pipeline; hint primed with Expanse Hub ID + bridge IDs.
+    new("leviathan-wakes-audio.m4b",
+        Title: "Leviathan Wakes",
+        Artist: "James S.A. Corey",      AlbumArtist: "James S.A. Corey",
+        Album: "The Expanse",            Narrator: "Jefferson Mays",
+        Year: "2011",                    Genre: "Science Fiction",
+        Comment: "Narrated by Jefferson Mays",
+        TrackNum: "1",
+        Series: "The Expanse",           SeriesPos: "1",
+        IncludeCover: true,              CoverHex: "#0D47A1"),
+
+    // Scenario 20 — The Expanse #2. Sibling in expanse-audio/ folder.
+    //   Expected: FolderHint applied from #19; same Hub; Stage 1 SPARQL skipped.
+    new("calibans-war-audio.m4b",
+        Title: "Caliban's War",
+        Artist: "James S.A. Corey",      AlbumArtist: "James S.A. Corey",
+        Album: "The Expanse",            Narrator: "Jefferson Mays",
+        Year: "2012",                    Genre: "Science Fiction",
+        Comment: "Narrated by Jefferson Mays",
+        TrackNum: "2",
+        Series: "The Expanse",           SeriesPos: "2",
+        IncludeCover: true,              CoverHex: "#1565C0"),
+};
+
+// ── Generate M4Bs ─────────────────────────────────────────────────────────────
 
 Console.WriteLine();
-Console.WriteLine($"━━━ Generating {m4bs.Length} M4Bs  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+Console.WriteLine($"━━━ M4Bs flat (scenarios 11–16) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
 if (ffmpegPath is null)
 {
     Console.WriteLine("  ✗  FFmpeg not found — cannot create M4B files.");
     Console.WriteLine("     Run: powershell -ExecutionPolicy Bypass -File tools/Download-FFmpeg.ps1");
-    failed += m4bs.Length;
+    failed += m4bsFlat.Length + m4bsHpSeries.Length + m4bsExpanse.Length;
 }
 else
 {
-    foreach (var spec in m4bs)
+    foreach (var (spec, idx) in m4bsFlat.Select((s, i) => (s, i)))
     {
+        var num     = 11 + idx;
         var outPath = Path.Combine(outputDir, spec.FileName);
         try
         {
-            byte[]? cover = spec.IncludeCover
-                ? GeneratePng(ffmpegPath, tempDir, spec.CoverHex, 400, 400)   // SQUARE for audiobooks
-                : null;
-
+            byte[]? cover = spec.IncludeCover ? GeneratePng(ffmpegPath, tempDir, spec.CoverHex, 400, 400) : null;
             CreateM4b(ffmpegPath, tempDir, outPath, spec, cover);
-            Console.WriteLine($"  ✓  {spec.FileName,-44} {(cover is not null ? "[square cover]" : "[no cover]  ")}  {(spec.IncludeCover ? "ASIN placeholder" : "filename-only")}");
+            Console.WriteLine($"  ✓  [{num,2}] {spec.FileName,-46} {(cover is not null ? "[sq cover]" : "[no cover]")}");
+            manifest.Add(new(num, spec.FileName, "m4b", $"Scenario {num}"));
             total++;
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"  ✗  {spec.FileName}: {ex.Message}");
+            Console.WriteLine($"  ✗  [{num,2}] {spec.FileName}: {ex.Message}");
+            failed++;
+        }
+    }
+
+    Console.WriteLine();
+    Console.WriteLine($"━━━ M4Bs hp-series/ (scenarios 17–18, ingestion hinting) ━━━━━━━━━━━━━━━━━━━");
+    Directory.CreateDirectory(hpSubdir);
+
+    foreach (var (spec, idx) in m4bsHpSeries.Select((s, i) => (s, i)))
+    {
+        var num     = 17 + idx;
+        var outPath = Path.Combine(hpSubdir, spec.FileName);
+        try
+        {
+            byte[]? cover = spec.IncludeCover ? GeneratePng(ffmpegPath, tempDir, spec.CoverHex, 400, 400) : null;
+            CreateM4b(ffmpegPath, tempDir, outPath, spec, cover);
+            Console.WriteLine($"  ✓  [{num,2}] hp-series/{spec.FileName,-38} {(cover is not null ? "[sq cover]" : "[no cover]")}");
+            manifest.Add(new(num, $"hp-series/{spec.FileName}", "m4b", $"Scenario {num}"));
+            total++;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"  ✗  [{num,2}] hp-series/{spec.FileName}: {ex.Message}");
+            failed++;
+        }
+    }
+
+    Console.WriteLine();
+    Console.WriteLine($"━━━ M4Bs expanse-audio/ (scenarios 19–20, ingestion hinting) ━━━━━━━━━━━━━━");
+    Directory.CreateDirectory(expanseSubdir);
+
+    foreach (var (spec, idx) in m4bsExpanse.Select((s, i) => (s, i)))
+    {
+        var num     = 19 + idx;
+        var outPath = Path.Combine(expanseSubdir, spec.FileName);
+        try
+        {
+            byte[]? cover = spec.IncludeCover ? GeneratePng(ffmpegPath, tempDir, spec.CoverHex, 400, 400) : null;
+            CreateM4b(ffmpegPath, tempDir, outPath, spec, cover);
+            Console.WriteLine($"  ✓  [{num,2}] expanse-audio/{spec.FileName,-34} {(cover is not null ? "[sq cover]" : "[no cover]")}");
+            manifest.Add(new(num, $"expanse-audio/{spec.FileName}", "m4b", $"Scenario {num}"));
+            total++;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"  ✗  [{num,2}] expanse-audio/{spec.FileName}: {ex.Message}");
             failed++;
         }
     }
@@ -415,22 +469,38 @@ else
 // ── Clean up temp ─────────────────────────────────────────────────────────────
 try { Directory.Delete(tempDir, recursive: true); } catch { }
 
+// ── Write MANIFEST.json ───────────────────────────────────────────────────────
+var manifestPath = Path.Combine(outputDir, "MANIFEST.json");
+var manifestJson = JsonSerializer.Serialize(new
+{
+    generated_at = DateTimeOffset.UtcNow.ToString("O"),
+    output_directory = outputDir,
+    total_files = total,
+    files = manifest.Select(m => new { scenario = m.Scenario, path = m.Path, type = m.Type, note = m.Note })
+}, new JsonSerializerOptions { WriteIndented = true });
+File.WriteAllText(manifestPath, manifestJson);
+
+// ── Summary ───────────────────────────────────────────────────────────────────
 Console.WriteLine();
 Console.WriteLine($"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-Console.WriteLine($"  Generated : {total}");
-if (failed > 0)
-    Console.WriteLine($"  Failed    : {failed}");
-Console.WriteLine($"  Output    : {outputDir}");
+Console.WriteLine($"  Generated : {total} / 20");
+if (failed > 0) Console.WriteLine($"  Failed    : {failed}");
+Console.WriteLine($"  Manifest  : {manifestPath}");
 Console.WriteLine();
-Console.WriteLine("Drop all files into the Engine watch folder and start (or restart) the Engine.");
+Console.WriteLine("Next steps:");
+Console.WriteLine("  1. Ensure the Engine is running  (dotnet run --project src/MediaEngine.Api)");
+Console.WriteLine("  2. The Engine watches the output directory automatically.");
+Console.WriteLine("  3. Check results at http://localhost:61495/swagger or the Dashboard.");
+Console.WriteLine();
 
 return failed > 0 ? 1 : 0;
 
-// ── FFmpeg helpers ─────────────────────────────────────────────────────────────
+// ═════════════════════════════════════════════════════════════════════════════
+// Helpers
+// ═════════════════════════════════════════════════════════════════════════════
 
 static string? FindFfmpeg()
 {
-    // Walk up from exe location looking for tools/ffmpeg/ffmpeg.exe
     var dir = AppContext.BaseDirectory;
     for (int i = 0; i < 8; i++)
     {
@@ -440,7 +510,6 @@ static string? FindFfmpeg()
         if (parent is null) break;
         dir = parent.FullName;
     }
-    // Fall back to PATH
     foreach (var p in (Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator))
     {
         var candidate = Path.Combine(p.Trim(), "ffmpeg.exe");
@@ -449,8 +518,6 @@ static string? FindFfmpeg()
     return null;
 }
 
-// Generate a solid-color PNG at the given dimensions using FFmpeg lavfi.
-// Returns raw PNG bytes, or null on failure.
 static byte[]? GeneratePng(string ffmpegPath, string tempDir, string hex, int width, int height)
 {
     var outFile = Path.Combine(tempDir, $"cover_{Guid.NewGuid():N}.png");
@@ -462,14 +529,12 @@ static byte[]? GeneratePng(string ffmpegPath, string tempDir, string hex, int wi
     return bytes;
 }
 
-// Create a silent M4B with optional cover art and ID3-style metadata.
 static void CreateM4b(string ffmpegPath, string tempDir, string outPath, M4bSpec spec, byte[]? cover)
 {
-    var uid = Guid.NewGuid().ToString("N");
-    var silentFile  = Path.Combine(tempDir, $"silent_{uid}.m4a");
-    var coverFile   = cover is not null ? Path.Combine(tempDir, $"cover_{uid}.png") : null;
+    var uid        = Guid.NewGuid().ToString("N");
+    var silentFile = Path.Combine(tempDir, $"silent_{uid}.m4a");
+    var coverFile  = cover is not null ? Path.Combine(tempDir, $"cover_{uid}.png") : null;
 
-    // Step 1: generate 30s of silent AAC audio
     RunFfmpeg(ffmpegPath,
         $"-y -f lavfi -i \"anullsrc=r=44100:cl=mono\" -t 30 " +
         $"-c:a aac -b:a 32k \"{silentFile}\"");
@@ -477,24 +542,15 @@ static void CreateM4b(string ffmpegPath, string tempDir, string outPath, M4bSpec
     if (cover is not null && coverFile is not null)
         File.WriteAllBytes(coverFile, cover);
 
-    // Step 2: mux audio + optional cover + metadata into M4B
     var metaArgs = new StringBuilder();
-    if (!string.IsNullOrWhiteSpace(spec.Title))
-        metaArgs.Append($" -metadata title={Q(spec.Title)}");
-    if (!string.IsNullOrWhiteSpace(spec.Artist))
-        metaArgs.Append($" -metadata artist={Q(spec.Artist)}");
-    if (!string.IsNullOrWhiteSpace(spec.AlbumArtist))
-        metaArgs.Append($" -metadata album_artist={Q(spec.AlbumArtist)}");
-    if (!string.IsNullOrWhiteSpace(spec.Album))
-        metaArgs.Append($" -metadata album={Q(spec.Album)}");
-    if (!string.IsNullOrWhiteSpace(spec.Narrator))
-        metaArgs.Append($" -metadata comment={Q(spec.Narrator)}");
-    if (!string.IsNullOrWhiteSpace(spec.Year))
-        metaArgs.Append($" -metadata date={Q(spec.Year)}");
-    if (!string.IsNullOrWhiteSpace(spec.Genre))
-        metaArgs.Append($" -metadata genre={Q(spec.Genre)}");
-    if (!string.IsNullOrWhiteSpace(spec.TrackNum))
-        metaArgs.Append($" -metadata track={Q(spec.TrackNum)}");
+    if (!string.IsNullOrWhiteSpace(spec.Title))       metaArgs.Append($" -metadata title={Q(spec.Title)}");
+    if (!string.IsNullOrWhiteSpace(spec.Artist))      metaArgs.Append($" -metadata artist={Q(spec.Artist)}");
+    if (!string.IsNullOrWhiteSpace(spec.AlbumArtist)) metaArgs.Append($" -metadata album_artist={Q(spec.AlbumArtist)}");
+    if (!string.IsNullOrWhiteSpace(spec.Album))       metaArgs.Append($" -metadata album={Q(spec.Album)}");
+    if (!string.IsNullOrWhiteSpace(spec.Narrator))    metaArgs.Append($" -metadata comment={Q(spec.Narrator)}");
+    if (!string.IsNullOrWhiteSpace(spec.Year))        metaArgs.Append($" -metadata date={Q(spec.Year)}");
+    if (!string.IsNullOrWhiteSpace(spec.Genre))       metaArgs.Append($" -metadata genre={Q(spec.Genre)}");
+    if (!string.IsNullOrWhiteSpace(spec.TrackNum))    metaArgs.Append($" -metadata track={Q(spec.TrackNum)}");
 
     string inputArgs, mapArgs, dispArgs;
     if (coverFile is not null)
@@ -514,7 +570,6 @@ static void CreateM4b(string ffmpegPath, string tempDir, string outPath, M4bSpec
         $"-y {inputArgs} {mapArgs} {dispArgs}{metaArgs} " +
         $"-movflags +faststart \"{outPath}\"");
 
-    // Cleanup temp files
     TryDelete(silentFile);
     if (coverFile is not null) TryDelete(coverFile);
 }
@@ -529,19 +584,11 @@ static void RunFfmpeg(string ffmpegPath, string args)
         CreateNoWindow         = true,
     };
     using var p = Process.Start(psi) ?? throw new Exception("Failed to start FFmpeg");
-
-    // Drain stdout + stderr asynchronously to prevent buffer-full deadlocks.
-    // FFmpeg writes verbose output to stderr; if we don't read it the 4 KB
-    // pipe buffer fills, FFmpeg blocks, and WaitForExit times out.
     var stdoutTask = p.StandardOutput.ReadToEndAsync();
     var stderrTask = p.StandardError.ReadToEndAsync();
-
     bool exited = p.WaitForExit(120_000);
     Task.WaitAll(stdoutTask, stderrTask);
-
-    if (!exited)
-        throw new Exception("FFmpeg timed out after 120 seconds");
-
+    if (!exited) throw new Exception("FFmpeg timed out after 120 seconds");
     if (p.ExitCode != 0)
     {
         var err = stderrTask.Result;
@@ -553,8 +600,6 @@ static void TryDelete(string path) { try { File.Delete(path); } catch { } }
 
 static string Q(string value) => $"\"{value.Replace("\"", "\\\"")}\"";
 
-// ── EPUB creation ──────────────────────────────────────────────────────────────
-
 static void CreateEpub(string outputPath, EpubSpec spec, byte[]? coverBytes)
 {
     if (File.Exists(outputPath)) File.Delete(outputPath);
@@ -562,11 +607,9 @@ static void CreateEpub(string outputPath, EpubSpec spec, byte[]? coverBytes)
     using var fs  = new FileStream(outputPath, FileMode.Create);
     using var zip = new ZipArchive(fs, ZipArchiveMode.Create, leaveOpen: false);
 
-    // 1. mimetype (must be first, uncompressed)
     var mime = zip.CreateEntry("mimetype", CompressionLevel.NoCompression);
     using (var w = new StreamWriter(mime.Open(), Encoding.ASCII)) w.Write("application/epub+zip");
 
-    // 2. META-INF/container.xml
     AddText(zip, "META-INF/container.xml", """
         <?xml version="1.0" encoding="UTF-8"?>
         <container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
@@ -576,7 +619,6 @@ static void CreateEpub(string outputPath, EpubSpec spec, byte[]? coverBytes)
         </container>
         """);
 
-    // 3. OEBPS/cover.png (optional)
     bool hasCover = coverBytes is { Length: > 0 };
     if (hasCover)
     {
@@ -585,7 +627,6 @@ static void CreateEpub(string outputPath, EpubSpec spec, byte[]? coverBytes)
         cs.Write(coverBytes!);
     }
 
-    // 4. OEBPS/content.opf
     var identifierXml = !string.IsNullOrWhiteSpace(spec.Isbn)
         ? $"""<dc:identifier id="isbn">{Esc(spec.Isbn)}</dc:identifier>"""
         : $"""<dc:identifier id="uid">urn:uuid:{Guid.NewGuid()}</dc:identifier>""";
@@ -596,16 +637,13 @@ static void CreateEpub(string outputPath, EpubSpec spec, byte[]? coverBytes)
     if (spec.SecondAuthor is not null)
         authorXml += $"\n        <dc:creator opf:role=\"aut\">{Esc(spec.SecondAuthor)}</dc:creator>";
 
-    var dateXml = !string.IsNullOrWhiteSpace(spec.Year)
-        ? $"<dc:date>{Esc(spec.Year)}</dc:date>"
-        : "";
-    var publisherXml = !string.IsNullOrWhiteSpace(spec.Publisher)
-        ? $"<dc:publisher>{Esc(spec.Publisher)}</dc:publisher>"
-        : "";
-    var descXml = !string.IsNullOrWhiteSpace(spec.Description)
-        ? $"<dc:description>{Esc(spec.Description)}</dc:description>"
-        : "";
-    var seriesXml = spec.Series is not null
+    var titleXml     = !string.IsNullOrWhiteSpace(spec.Title)
+        ? $"<dc:title>{Esc(spec.Title)}</dc:title>"
+        : "<dc:title>Unknown</dc:title>";
+    var dateXml      = !string.IsNullOrWhiteSpace(spec.Year)       ? $"<dc:date>{Esc(spec.Year)}</dc:date>"              : "";
+    var publisherXml = !string.IsNullOrWhiteSpace(spec.Publisher)   ? $"<dc:publisher>{Esc(spec.Publisher)}</dc:publisher>" : "";
+    var descXml      = !string.IsNullOrWhiteSpace(spec.Description) ? $"<dc:description>{Esc(spec.Description)}</dc:description>" : "";
+    var seriesXml    = spec.Series is not null
         ? $"""
           <meta property="belongs-to-collection" id="series">{Esc(spec.Series)}</meta>
           <meta refines="#series" property="collection-type">series</meta>
@@ -613,12 +651,10 @@ static void CreateEpub(string outputPath, EpubSpec spec, byte[]? coverBytes)
               ? $"\n        <meta refines=\"#series\" property=\"group-position\">{Esc(spec.SeriesPosition)}</meta>"
               : "")
         : "";
-    var titleXml = !string.IsNullOrWhiteSpace(spec.Title)
-        ? $"<dc:title>{Esc(spec.Title)}</dc:title>"
-        : "<dc:title>Unknown</dc:title>";
     var coverManifest = hasCover
         ? """<item id="cover-img" href="cover.png" media-type="image/png" properties="cover-image"/>"""
         : "";
+
     AddText(zip, "OEBPS/content.opf", $"""
         <?xml version="1.0" encoding="UTF-8"?>
         <package xmlns="http://www.idpf.org/2007/opf"
@@ -648,7 +684,6 @@ static void CreateEpub(string outputPath, EpubSpec spec, byte[]? coverBytes)
         </package>
         """);
 
-    // 5. OEBPS/toc.ncx
     AddText(zip, "OEBPS/toc.ncx", $"""
         <?xml version="1.0" encoding="UTF-8"?>
         <ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
@@ -663,7 +698,6 @@ static void CreateEpub(string outputPath, EpubSpec spec, byte[]? coverBytes)
         </ncx>
         """);
 
-    // 6. OEBPS/nav.xhtml
     AddText(zip, "OEBPS/nav.xhtml", $"""
         <?xml version="1.0" encoding="UTF-8"?>
         <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
@@ -677,7 +711,6 @@ static void CreateEpub(string outputPath, EpubSpec spec, byte[]? coverBytes)
         </html>
         """);
 
-    // 7. OEBPS/chapter1.xhtml
     var authorLine = spec.SecondAuthor is not null
         ? $"{Esc(spec.Author)} &amp; {Esc(spec.SecondAuthor)}"
         : Esc(spec.Author ?? "Unknown");
@@ -705,7 +738,7 @@ static string Esc(string? s) =>
     (s ?? "").Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;")
              .Replace("\"", "&quot;").Replace("'", "&apos;");
 
-// ── Record types ───────────────────────────────────────────────────────────────
+// ── Record types ──────────────────────────────────────────────────────────────
 
 record EpubSpec(
     string FileName,
@@ -737,3 +770,5 @@ record M4bSpec(
     string? SeriesPos,
     bool IncludeCover,
     string CoverHex);
+
+record ManifestEntry(int Scenario, string Path, string Type, string Note);

@@ -1,0 +1,32 @@
+{
+  "schema_version": "1.0",
+  "libraries": [
+    {
+      "category": "Books",
+      "media_types": ["Epub", "Audiobook"],
+      "source_path": "",
+      "library_root": "",
+      "intake_mode": "watch",
+      "include_subdirectories": true,
+      "notes": "Watch folder for Books and Audiobooks. Set source_path to your intake directory and library_root to your organised library destination."
+    },
+    {
+      "category": "Movies",
+      "media_types": ["Movies"],
+      "source_path": "",
+      "library_root": "",
+      "intake_mode": "watch",
+      "include_subdirectories": false,
+      "notes": "Watch folder for movie files. Disabled until TMDB provider is configured."
+    },
+    {
+      "category": "TV",
+      "media_types": ["TV"],
+      "source_path": "",
+      "library_root": "",
+      "intake_mode": "watch",
+      "include_subdirectories": true,
+      "notes": "Watch folder for TV series. include_subdirectories should be true to pick up season subfolders."
+    }
+  ]
+}
