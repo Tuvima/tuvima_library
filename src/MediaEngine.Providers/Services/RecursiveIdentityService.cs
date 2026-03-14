@@ -120,16 +120,24 @@ public sealed class RecursiveIdentityService : IRecursiveIdentityService
         // 3. If not yet enriched, enqueue a Wikidata harvest request.
         if (person.EnrichedAt is null)
         {
+            var hints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["name"] = normalizedName,
+                ["role"] = reference.Role,
+            };
+
+            // When the caller already knows the person's Wikidata QID (e.g. from a
+            // prior SPARQL result for a multi-authored book), pass it as a hint so
+            // the WikidataAdapter can skip the name-based search entirely.
+            if (!string.IsNullOrEmpty(reference.WikidataQid))
+                hints["wikidata_qid"] = reference.WikidataQid;
+
             await _harvesting.EnqueueAsync(new HarvestRequest
             {
                 EntityId   = person.Id,
                 EntityType = EntityType.Person,
                 MediaType  = MediaType.Unknown,
-                Hints      = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-                {
-                    ["name"] = normalizedName,
-                    ["role"] = reference.Role,
-                },
+                Hints      = hints,
             }, ct).ConfigureAwait(false);
 
             _logger.LogDebug(

@@ -537,11 +537,11 @@ public static class WikidataSparqlPropertyMap
         Add("P825",  "adaptation_of",   "Core Identity", confidence: 0.8,      entityValued: true, multiValued: true);
 
         // ── People — Work-scoped (link Work → Person QID) ───────────────
-        Add("P50",  "author",       "People",                                  entityValued: true);
-        Add("P110", "illustrator",  "People",                                  entityValued: true);
-        Add("P57",  "director",     "People",                                  entityValued: true);
+        Add("P50",  "author",       "People",                                  entityValued: true, multiValued: true);
+        Add("P110", "illustrator",  "People",                                  entityValued: true, multiValued: true);
+        Add("P57",  "director",     "People",                                  entityValued: true, multiValued: true);
         Add("P161", "cast_member",  "People",                                  entityValued: true, multiValued: true);
-        Add("P987", "narrator",     "People",                                  entityValued: true);
+        Add("P987", "narrator",     "People",                                  entityValued: true, multiValued: true);
         Add("P725", "voice_actor",  "People",                                  entityValued: true, multiValued: true);
         Add("P58",  "screenwriter", "People",                                  entityValued: true, multiValued: true);
         Add("P86",  "composer",     "People",                                  entityValued: true, multiValued: true);

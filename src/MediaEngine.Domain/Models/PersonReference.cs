@@ -16,4 +16,11 @@ namespace MediaEngine.Domain.Models;
 /// The person's display name as extracted from the file's metadata.
 /// Example: <c>"Ursula K. Le Guin"</c>.
 /// </param>
-public sealed record PersonReference(string Role, string Name);
+/// <param name="WikidataQid">
+/// Optional Wikidata QID for this person, when already known from a prior SPARQL result.
+/// When supplied, the enrichment step skips the name-based search and fetches the
+/// entity directly — more reliable and faster for multi-authored works where Wikidata
+/// lists all co-authors by QID.
+/// Example: <c>"Q1159871"</c> (Daniel Abraham).
+/// </param>
+public sealed record PersonReference(string Role, string Name, string? WikidataQid = null);

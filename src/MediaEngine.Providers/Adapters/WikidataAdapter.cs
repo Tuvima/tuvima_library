@@ -370,55 +370,88 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
             var universeConfig = _configLoader.LoadConfig<UniverseConfiguration>("universe", "wikidata");
             var commonsTemplate = universeConfig?.CommonsUrlTemplate ?? DefaultCommonsUrlTemplate;
 
-            // Step 1: search for the entity by name.
-            var searchUrl = $"{request.BaseUrl.TrimEnd('/')}" +
-                $"?action=wbsearchentities&search={Uri.EscapeDataString(name)}" +
-                $"&type=item&language={Uri.EscapeDataString(request.Language)}&format=json&limit=3";
-
-            var searchJson = await ThrottledGetAsync<JsonObject>(client, searchUrl, throttleGapMs, ct)
-                .ConfigureAwait(false);
-
-            var candidateQids = ExtractCandidateQids(searchJson);
-            if (candidateQids.Count == 0)
-            {
-                _logger.LogDebug(
-                    "Wikidata: no search results for '{Name}' (entity {Id})",
-                    name, request.EntityId);
-                return [];
-            }
-
-            // Step 2: fetch each candidate entity and verify P31=Q5 (instance of human).
             var personLangs = request.Language == "en" ? "en" : $"{request.Language}|en";
             string? qid = null;
             JsonObject? entityJson = null;
 
-            foreach (var candidateQid in candidateQids)
+            // Fast path: when the caller already knows the Wikidata QID (e.g. from a
+            // SPARQL result for a multi-authored work), skip the name search entirely
+            // and fetch the entity directly.
+            string? hintQid = null;
+            request.Hints?.TryGetValue("wikidata_qid", out hintQid);
+
+            if (!string.IsNullOrEmpty(hintQid))
             {
-                var entityUrl = $"{request.BaseUrl.TrimEnd('/')}" +
-                    $"?action=wbgetentities&ids={Uri.EscapeDataString(candidateQid)}" +
+                var directUrl = $"{request.BaseUrl.TrimEnd('/')}" +
+                    $"?action=wbgetentities&ids={Uri.EscapeDataString(hintQid)}" +
                     $"&format=json&languages={Uri.EscapeDataString(personLangs)}&props=labels|descriptions|claims";
 
-                var candidateJson = await ThrottledGetAsync<JsonObject>(client, entityUrl, throttleGapMs, ct)
+                var directJson = await ThrottledGetAsync<JsonObject>(client, directUrl, throttleGapMs, ct)
                     .ConfigureAwait(false);
 
-                if (IsHumanEntity(candidateJson, candidateQid))
+                if (IsHumanEntity(directJson, hintQid))
                 {
-                    qid = candidateQid;
-                    entityJson = candidateJson;
-                    break;
+                    qid = hintQid;
+                    entityJson = directJson;
+                    _logger.LogDebug(
+                        "Wikidata: used QID hint {Qid} directly for '{Name}' (entity {Id})",
+                        hintQid, name, request.EntityId);
                 }
-
-                _logger.LogDebug(
-                    "Wikidata: candidate {Qid} for '{Name}' is not P31=Q5 (human), trying next",
-                    candidateQid, name);
+                else
+                {
+                    _logger.LogDebug(
+                        "Wikidata: QID hint {Qid} for '{Name}' is not a human entity; falling back to name search",
+                        hintQid, name);
+                }
             }
 
-            if (qid is null || entityJson is null)
+            // Normal path: search for the entity by name when no valid QID hint was found.
+            if (qid is null)
             {
-                _logger.LogDebug(
-                    "Wikidata: no human entity found for '{Name}' among {Count} candidates (entity {Id})",
-                    name, candidateQids.Count, request.EntityId);
-                return [];
+                var searchUrl = $"{request.BaseUrl.TrimEnd('/')}" +
+                    $"?action=wbsearchentities&search={Uri.EscapeDataString(name)}" +
+                    $"&type=item&language={Uri.EscapeDataString(request.Language)}&format=json&limit=3";
+
+                var searchJson = await ThrottledGetAsync<JsonObject>(client, searchUrl, throttleGapMs, ct)
+                    .ConfigureAwait(false);
+
+                var candidateQids = ExtractCandidateQids(searchJson);
+                if (candidateQids.Count == 0)
+                {
+                    _logger.LogDebug(
+                        "Wikidata: no search results for '{Name}' (entity {Id})",
+                        name, request.EntityId);
+                    return [];
+                }
+
+                foreach (var candidateQid in candidateQids)
+                {
+                    var entityUrl = $"{request.BaseUrl.TrimEnd('/')}" +
+                        $"?action=wbgetentities&ids={Uri.EscapeDataString(candidateQid)}" +
+                        $"&format=json&languages={Uri.EscapeDataString(personLangs)}&props=labels|descriptions|claims";
+
+                    var candidateJson = await ThrottledGetAsync<JsonObject>(client, entityUrl, throttleGapMs, ct)
+                        .ConfigureAwait(false);
+
+                    if (IsHumanEntity(candidateJson, candidateQid))
+                    {
+                        qid = candidateQid;
+                        entityJson = candidateJson;
+                        break;
+                    }
+
+                    _logger.LogDebug(
+                        "Wikidata: candidate {Qid} for '{Name}' is not P31=Q5 (human), trying next",
+                        candidateQid, name);
+                }
+
+                if (qid is null || entityJson is null)
+                {
+                    _logger.LogDebug(
+                        "Wikidata: no human entity found for '{Name}' among {Count} candidates (entity {Id})",
+                        name, candidateQids.Count, request.EntityId);
+                    return [];
+                }
             }
 
             var claims = ParsePersonEntity(entityJson, qid, commonsTemplate);

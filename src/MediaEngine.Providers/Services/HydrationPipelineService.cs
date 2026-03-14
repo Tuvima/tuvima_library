@@ -255,6 +255,11 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 ? string.Join(", ", stage1Providers.Select(p => p.Name))
                 : "(none)");
 
+        // Accumulate raw Stage-1 claims so that person extraction uses the
+        // most current SPARQL data — not the post-scoring canonical values,
+        // which can be stale when the entity has been hydrated multiple times.
+        var stage1RawClaims = new List<ProviderClaim>();
+
         foreach (var provider in stage1Providers)
         {
             var claims = await FetchFromProviderAsync(
@@ -275,6 +280,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 _providers, ct, _arrayRepo, _logger).ConfigureAwait(false);
 
             stage1Claims += claims.Count;
+            stage1RawClaims.AddRange(claims);
 
             await PublishHarvestEvent(request.EntityId, provider.Name, claims, ct)
                 .ConfigureAwait(false);
@@ -304,8 +310,14 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             await ProtectPseudonymAuthorAsync(request.EntityId, canonicalsAfterS1, ct)
                 .ConfigureAwait(false);
 
-            // Person enrichment: extract author/narrator references and enrich.
-            var personRefs = ExtractPersonReferences(canonicalsAfterS1);
+            // Person enrichment: use Stage-1 raw claims when available so that
+            // multi-valued author_qid values from Wikidata SPARQL are captured in
+            // full.  This avoids the scoring-election side-effect where an entity
+            // that has been re-hydrated multiple times has stale single-value votes
+            // outvoting the newer multi-value SPARQL result.
+            var personRefs = stage1RawClaims.Count > 0
+                ? ExtractPersonReferencesFromRawClaims(stage1RawClaims)
+                : ExtractPersonReferences(canonicalsAfterS1);
             if (personRefs.Count > 0)
             {
                 try
@@ -1686,23 +1698,102 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     }
 
     /// <summary>
+    /// Extracts person references directly from the Stage-1 raw <see cref="ProviderClaim"/>
+    /// list returned by the Wikidata adapter.  Using raw claims rather than the
+    /// post-scoring canonical values avoids a pitfall where an entity that has been
+    /// re-hydrated multiple times accumulates stale single-value votes that outvote
+    /// the current multi-value SPARQL result in the scoring election.
+    ///
+    /// Precedence: the most recently fetched <c>author_qid</c>/<c>narrator_qid</c>
+    /// claim (last in the list) is used for QID resolution.
+    /// </summary>
+    private static IReadOnlyList<PersonReference> ExtractPersonReferencesFromRawClaims(
+        IReadOnlyList<ProviderClaim> rawClaims)
+    {
+        // Convert the raw claims to a CanonicalValue-like lookup by taking the
+        // LAST claim for each key (most recent wins).
+        var byKey = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var c in rawClaims)
+            byKey[c.Key] = c.Value;   // last write wins
+
+        // Wrap as fake CanonicalValue list so the existing helper can be reused.
+        var fakeCanonicals = byKey
+            .Select(kv => new CanonicalValue { Key = kv.Key, Value = kv.Value })
+            .ToList();
+
+        return ExtractPersonReferences(fakeCanonicals);
+    }
+
     /// Extracts person references (author, narrator) from canonical values
     /// for person enrichment (runs as part of Stage 1).
+    ///
+    /// When a <c>*_qid</c> companion canonical is present (e.g. <c>author_qid</c>),
+    /// each QID::Label pair is parsed and the Wikidata QID is forwarded to the
+    /// PersonReference so enrichment can skip the name-based search entirely.
+    /// Multi-valued entries (joined with <c>|||</c>) are split into individual refs.
     /// </summary>
     private static IReadOnlyList<PersonReference> ExtractPersonReferences(
         IReadOnlyList<CanonicalValue> canonicals)
     {
         var refs = new List<PersonReference>();
 
-        var author   = canonicals.FirstOrDefault(c => c.Key == "author")?.Value;
-        var narrator = canonicals.FirstOrDefault(c => c.Key == "narrator")?.Value;
-
-        if (!string.IsNullOrEmpty(author))
-            refs.Add(new PersonReference("Author", author));
-        if (!string.IsNullOrEmpty(narrator))
-            refs.Add(new PersonReference("Narrator", narrator));
+        AddPersonRefs(refs, "Author",   canonicals, "author",   "author_qid");
+        AddPersonRefs(refs, "Narrator", canonicals, "narrator", "narrator_qid");
+        AddPersonRefs(refs, "Director", canonicals, "director", "director_qid");
 
         return refs;
+    }
+
+    /// <summary>
+    /// Parses a potentially multi-valued canonical and its optional QID companion,
+    /// emitting one <see cref="PersonReference"/> per entry.
+    /// </summary>
+    private static void AddPersonRefs(
+        List<PersonReference> refs,
+        string role,
+        IReadOnlyList<CanonicalValue> canonicals,
+        string nameKey,
+        string qidKey)
+    {
+        var nameValue = canonicals.FirstOrDefault(c => c.Key == nameKey)?.Value;
+        if (string.IsNullOrEmpty(nameValue))
+            return;
+
+        var qidValue = canonicals.FirstOrDefault(c => c.Key == qidKey)?.Value;
+
+        // Build a label→QID lookup from the companion _qid canonical
+        // (format: "Q123::Label|||Q456::Label").
+        var qidByLabel = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (!string.IsNullOrEmpty(qidValue))
+        {
+            foreach (var segment in qidValue.Split("|||", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                var colonIndex = segment.IndexOf("::", StringComparison.Ordinal);
+                if (colonIndex > 0)
+                {
+                    var qid   = segment[..colonIndex].Trim();
+                    var label = segment[(colonIndex + 2)..].Trim();
+                    if (!string.IsNullOrEmpty(label))
+                        qidByLabel[label] = qid;
+                }
+                else
+                {
+                    // Plain QID with no label — index under itself.
+                    var bare = segment.Trim();
+                    if (!string.IsNullOrEmpty(bare))
+                        qidByLabel[bare] = bare;
+                }
+            }
+        }
+
+        foreach (var name in nameValue.Split("|||", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (string.IsNullOrEmpty(name))
+                continue;
+
+            qidByLabel.TryGetValue(name, out var qid);
+            refs.Add(new PersonReference(role, name, string.IsNullOrEmpty(qid) ? null : qid));
+        }
     }
 
     private static string ResolveBaseUrl(
