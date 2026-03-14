@@ -27,6 +27,19 @@ namespace MediaEngine.Processors.Processors;
 /// </summary>
 public sealed class GenericFileProcessor : IMediaProcessor
 {
+    /// <summary>
+    /// File extensions claimed by format-specific processors.  A file with one
+    /// of these extensions that reaches the generic fallback is corrupt or has
+    /// a misleading extension — no format-specific processor could parse it.
+    /// </summary>
+    private static readonly HashSet<string> KnownFormatExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".epub",
+        ".m4b", ".m4a", ".mp3", ".flac", ".ogg", ".wav",
+        ".mp4", ".mkv", ".avi", ".webm",
+        ".cbz", ".cbr",
+    };
+
     /// <inheritdoc/>
     public MediaType SupportedType => MediaType.Unknown;
 
@@ -47,6 +60,23 @@ public sealed class GenericFileProcessor : IMediaProcessor
     {
         ct.ThrowIfCancellationRequested();
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
+
+        // A file with a known media extension that no format-specific processor
+        // could parse is corrupt, truncated, or has a misleading extension.
+        var ext = Path.GetExtension(filePath);
+        if (KnownFormatExtensions.Contains(ext))
+        {
+            return Task.FromResult(new ProcessorResult
+            {
+                FilePath      = filePath,
+                DetectedType  = MediaType.Unknown,
+                Claims        = [],
+                IsCorrupt     = true,
+                CorruptReason = $"File has a known media extension ({ext}) but no format-specific " +
+                                "processor could parse it. The file may be corrupt, truncated, " +
+                                "or have a misleading extension.",
+            });
+        }
 
         // Derive a best-effort title from the file name stem.
         var stem = Path.GetFileNameWithoutExtension(filePath);

@@ -550,7 +550,13 @@ static void CreateM4b(string ffmpegPath, string tempDir, string outPath, M4bSpec
     if (!string.IsNullOrWhiteSpace(spec.Artist))      metaArgs.Append($" -metadata artist={Q(spec.Artist)}");
     if (!string.IsNullOrWhiteSpace(spec.AlbumArtist)) metaArgs.Append($" -metadata album_artist={Q(spec.AlbumArtist)}");
     if (!string.IsNullOrWhiteSpace(spec.Album))       metaArgs.Append($" -metadata album={Q(spec.Album)}");
-    if (!string.IsNullOrWhiteSpace(spec.Narrator))    metaArgs.Append($" -metadata comment={Q(spec.Narrator)}");
+    if (!string.IsNullOrWhiteSpace(spec.Narrator))
+    {
+        // Write narrator to the Composers tag (TagLib primary extraction path)
+        // and to Comment with "Narrated by" prefix (secondary extraction path).
+        metaArgs.Append($" -metadata composer={Q(spec.Narrator)}");
+        metaArgs.Append($" -metadata comment={Q("Narrated by " + spec.Narrator)}");
+    }
     if (!string.IsNullOrWhiteSpace(spec.Year))        metaArgs.Append($" -metadata date={Q(spec.Year)}");
     if (!string.IsNullOrWhiteSpace(spec.Genre))       metaArgs.Append($" -metadata genre={Q(spec.Genre)}");
     if (!string.IsNullOrWhiteSpace(spec.TrackNum))    metaArgs.Append($" -metadata track={Q(spec.TrackNum)}");

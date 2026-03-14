@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using System.Collections.Concurrent;
+using System.Text.Json;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -88,6 +89,11 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
     // Folder hint cache — sibling-aware ingestion priming (D1/D2).
     private readonly IIngestionHintCache _hintCache;
+
+    // Per-folder serialization: ensures sibling files in the same directory
+    // are processed sequentially. Solves duplicate detection race conditions
+    // and allows folder hints to propagate to sibling files.
+    private readonly ConcurrentDictionary<string, SemaphoreSlim> _folderLocks = new(StringComparer.OrdinalIgnoreCase);
 
     public IngestionEngine(
         IFileWatcher              watcher,
@@ -305,6 +311,26 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     // =========================================================================
 
     private async Task ProcessCandidateAsync(IngestionCandidate candidate, CancellationToken ct)
+    {
+        // Serialize processing for files in the same source folder.
+        // This ensures: (a) duplicate hash detection works when byte-identical
+        // files arrive concurrently, and (b) folder hints from the first file
+        // are available when sibling files start processing.
+        var folderKey = (Path.GetDirectoryName(candidate.Path) ?? string.Empty)
+            .Replace('\\', '/').TrimEnd('/');
+        var folderLock = _folderLocks.GetOrAdd(folderKey, _ => new SemaphoreSlim(1, 1));
+        await folderLock.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+        await ProcessCandidateCoreAsync(candidate, ct).ConfigureAwait(false);
+        }
+        finally
+        {
+            folderLock.Release();
+        }
+    }
+
+    private async Task ProcessCandidateCoreAsync(IngestionCandidate candidate, CancellationToken ct)
     {
         // Generate a correlation ID for this ingestion run so all activity entries
         // can be grouped into a single consolidated card in the Dashboard.
@@ -753,6 +779,10 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                         }),
                         IngestionRunId = ingestionRunId,
                     }, ct).ConfigureAwait(false);
+
+                    // Clean empty subdirectories left behind in the watch folder
+                    // after the file was moved to the library.
+                    CleanEmptyWatchParents(candidate.Path, _options.WatchDirectory);
                 }
             }
         }
@@ -1686,6 +1716,42 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         catch (IOException)
         {
             // Best-effort: if the directory is locked, skip silently.
+        }
+    }
+
+    /// <summary>
+    /// Recursively deletes empty parent directories of a source file up to (but
+    /// not including) the watch folder root. Prevents empty subdirectories from
+    /// accumulating in the watch folder after files are moved to the library.
+    /// </summary>
+    private static void CleanEmptyWatchParents(string sourceFilePath, string? watchRoot)
+    {
+        if (string.IsNullOrEmpty(watchRoot)) return;
+
+        try
+        {
+            var dir = new DirectoryInfo(Path.GetDirectoryName(sourceFilePath)!);
+            var stopNorm = watchRoot.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+            while (dir is not null && dir.Exists)
+            {
+                var dirNorm = dir.FullName.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+                // Stop when we reach the watch root — never delete it.
+                if (string.Equals(dirNorm, stopNorm, StringComparison.OrdinalIgnoreCase))
+                    break;
+
+                if (dir.EnumerateFileSystemInfos().Any())
+                    break; // Not empty — stop climbing.
+
+                var parent = dir.Parent;
+                dir.Delete();
+                dir = parent;
+            }
+        }
+        catch
+        {
+            // Best-effort cleanup — if the directory is locked or inaccessible, skip.
         }
     }
 

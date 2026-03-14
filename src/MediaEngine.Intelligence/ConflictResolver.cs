@@ -114,20 +114,37 @@ public sealed class ConflictResolver : IConflictResolver
         var winner    = groups[0];
         double runnerUpWeight = groups.Count > 1 ? groups[1].TotalWeight : 0.0;
 
+        // ── Step 3b: single-group confidence cap ─────────────────────────
+        // When only one value group exists (no competing claims), normalization
+        // inflates the weight to 1.0 regardless of the claim's raw confidence.
+        // Cap at the highest claim confidence in the winning group to preserve
+        // the semantic meaning of low-confidence sources (e.g. filename-only = 0.50).
+        double adjustedWinnerWeight = winner.TotalWeight;
+        if (groups.Count == 1)
+        {
+            double maxClaimConfidence = weighted
+                .Where(w => string.Equals(
+                    w.Claim.ClaimValue.Trim(),
+                    winner.NormValue,
+                    StringComparison.OrdinalIgnoreCase))
+                .Max(w => w.Claim.Confidence);
+            adjustedWinnerWeight = Math.Min(winner.TotalWeight, maxClaimConfidence);
+        }
+
         // ── Step 4: conflict detection ─────────────────────────────────────
         bool isConflicted = winner.TotalWeight > 0.0 &&
                             (runnerUpWeight / winner.TotalWeight) >= (1.0 - configuration.ConflictEpsilon);
 
         // ── Step 5: build resolution ───────────────────────────────────────
         string reason = claims.Count == 1
-            ? $"Single claim, adjusted confidence {winner.TotalWeight:F3}."
-            : $"Won with weight {winner.TotalWeight:F3}; {groups.Count - 1} rival(s). " +
+            ? $"Single claim, adjusted confidence {adjustedWinnerWeight:F3}."
+            : $"Won with weight {adjustedWinnerWeight:F3}; {groups.Count - 1} rival(s). " +
               (isConflicted ? $"CONFLICTED (runner-up {runnerUpWeight:F3})." : "No conflict.");
 
         return new ClaimResolution
         {
             WinningClaim       = winner.BestClaim,
-            AdjustedConfidence = winner.TotalWeight,
+            AdjustedConfidence = adjustedWinnerWeight,
             Reason             = reason,
             IsConflicted       = isConflicted,
         };
