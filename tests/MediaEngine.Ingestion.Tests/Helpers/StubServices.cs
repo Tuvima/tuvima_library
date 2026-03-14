@@ -137,7 +137,7 @@ internal sealed class StubFileOrganizer : IFileOrganizer
         {
             MediaType.Books => "Books",
             MediaType.Audiobooks => "Audio",
-            MediaType.Movies => "Videos",
+            MediaType.Movies => "Movies",
             MediaType.Comic => "Comics",
             _ => "Other",
         };

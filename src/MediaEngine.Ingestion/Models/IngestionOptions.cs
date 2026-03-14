@@ -30,7 +30,7 @@ public sealed class IngestionOptions
     /// the entire group (parentheses + leading space) is collapsed.
     /// </summary>
     public string OrganizationTemplate { get; set; } =
-        "{Category}/{Title} ({Qid})/{Format}/{Title}{Ext}";
+        "{Category}/{Title} - {Qid}/{Title}{Ext}";
 
     /// <summary>
     /// Per-media-type organisation templates.  Keys are media type names
@@ -39,7 +39,16 @@ public sealed class IngestionOptions
     /// Fallback chain: media-type-specific → "default" → <see cref="OrganizationTemplate"/>
     /// → hardcoded <c>{Category}/{Title}/{Title}{Ext}</c>.
     /// </summary>
-    public Dictionary<string, string> OrganizationTemplates { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    public Dictionary<string, string> OrganizationTemplates { get; set; } = new(StringComparer.OrdinalIgnoreCase)
+    {
+        // Books & Audiobooks: format subfolder distinguishes reading vs listening formats
+        ["Books"]      = "{Category}/{Title} - {Qid}/{Format}/{Title}{Ext}",
+        ["Audiobooks"] = "{Category}/{Title} - {Qid}/{Format}/{Title}{Ext}",
+        // TV: season/episode in the filename
+        ["TV"]         = "{Category}/{Title} - {Qid}/S{Season}E{Episode} - {Title}{Ext}",
+        // Music: artist → album directory structure
+        ["Music"]      = "{Category}/{Artist}/{Album} - {Qid}/{TrackNumber} - {Title}{Ext}",
+    };
 
     /// <summary>
     /// Holding area for files that cannot be auto-organized (low confidence,

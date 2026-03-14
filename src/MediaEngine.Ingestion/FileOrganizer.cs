@@ -302,7 +302,7 @@ public sealed class FileOrganizer : IFileOrganizer
             ["HubName"]   = meta.GetValueOrDefault("title",   "Unknown"),
             ["Format"]    = candidate.DetectedMediaType?.ToString() ?? "Unknown",
             ["Edition"]   = meta.GetValueOrDefault("edition", string.Empty),
-            ["Qid"]       = meta.GetValueOrDefault("wikidata_qid", string.Empty),
+            ["Qid"]       = meta.GetValueOrDefault("wikidata_qid") is { Length: > 0 } q ? q : "Q0",
             // ── Per-media-type tokens ────────────────────────────────────────────
             ["Artist"]      = meta.GetValueOrDefault("artist",       meta.GetValueOrDefault("author", "Unknown")),
             ["Album"]       = meta.GetValueOrDefault("album",        "Unknown"),
@@ -359,8 +359,8 @@ public sealed class FileOrganizer : IFileOrganizer
     {
         MediaType.Books      => "Books",
         MediaType.Comic      => "Comics",
-        MediaType.Movies     => "Videos",
-        MediaType.TV         => "TV Shows",
+        MediaType.Movies     => "Movies",
+        MediaType.TV         => "TV",
         MediaType.Audiobooks => "Books",
         MediaType.Music      => "Music",
         MediaType.Podcasts   => "Podcasts",

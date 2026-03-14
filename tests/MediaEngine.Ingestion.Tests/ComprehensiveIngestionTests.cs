@@ -198,7 +198,7 @@ public sealed class ComprehensiveIngestionTests : IDisposable
     }
 
     [Fact]
-    public async Task Movie_OrganizedToVideosCategory()
+    public async Task Movie_OrganizedToMoviesCategory()
     {
         var filePath = CreateWatchFile("Dune Part Two.mp4");
 
@@ -215,8 +215,8 @@ public sealed class ComprehensiveIngestionTests : IDisposable
 
         await RunPipelineAsync();
 
-        var libraryFile = Path.Combine(_libraryDir, "Videos", "Dune Part Two.mp4");
-        Assert.True(File.Exists(libraryFile), "File should be organized into Videos/ category");
+        var libraryFile = Path.Combine(_libraryDir, "Movies", "Dune Part Two.mp4");
+        Assert.True(File.Exists(libraryFile), "File should be organized into Movies/ category");
     }
 
     [Fact]

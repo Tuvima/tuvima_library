@@ -274,13 +274,23 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 result.WikidataQid = qidClaim.Value;
             }
 
+            // Keep raw claims intact for person enrichment (multi-valued
+            // author_qid is needed to discover all co-authors).
+            stage1RawClaims.AddRange(claims);
+
+            // For scoring, collapse multi-valued person LABEL claims to the
+            // first value only.  The display author should be a single name
+            // (pen name or primary author), never a "|||"-joined string.
+            // The *_qid companions keep their multi-values — they are not
+            // displayed and feed only the person enrichment pipeline.
+            var claimsForScoring = DeMultiValuePersonLabels(claims);
+
             await ScoringHelper.PersistClaimsAndScoreAsync(
-                request.EntityId, claims, provider.ProviderId,
+                request.EntityId, claimsForScoring, provider.ProviderId,
                 _claimRepo, _canonicalRepo, _scoringEngine, _configLoader,
                 _providers, ct, _arrayRepo, _logger).ConfigureAwait(false);
 
-            stage1Claims += claims.Count;
-            stage1RawClaims.AddRange(claims);
+            stage1Claims += claimsForScoring.Count;
 
             await PublishHarvestEvent(request.EntityId, provider.Name, claims, ct)
                 .ConfigureAwait(false);
@@ -1695,6 +1705,55 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 "Pseudonym author protection check failed for entity {Id}; continuing",
                 entityId);
         }
+    }
+
+    /// <summary>
+    /// Person-role label claim keys whose display value must be a single name.
+    /// The corresponding <c>*_qid</c> claims are intentionally NOT included —
+    /// they stay multi-valued for person enrichment.
+    /// </summary>
+    private static readonly HashSet<string> PersonLabelKeys = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "author", "narrator", "director", "illustrator", "voice_actor", "performer",
+    };
+
+    /// <summary>
+    /// Replaces multi-valued person label claims (e.g. <c>"Ty Franck|||Daniel Abraham"</c>)
+    /// with just their first value.  This ensures the scoring engine never stores a
+    /// <c>|||</c>-joined string as the canonical author name.  The <c>*_qid</c> companions
+    /// are left untouched — they carry the full QID list for person enrichment.
+    /// </summary>
+    private static IReadOnlyList<ProviderClaim> DeMultiValuePersonLabels(
+        IReadOnlyList<ProviderClaim> claims)
+    {
+        var needsRewrite = false;
+        foreach (var c in claims)
+        {
+            if (PersonLabelKeys.Contains(c.Key) && c.Value.Contains("|||", StringComparison.Ordinal))
+            {
+                needsRewrite = true;
+                break;
+            }
+        }
+
+        if (!needsRewrite)
+            return claims;  // fast path — nothing to change
+
+        var result = new List<ProviderClaim>(claims.Count);
+        foreach (var c in claims)
+        {
+            if (PersonLabelKeys.Contains(c.Key) && c.Value.Contains("|||", StringComparison.Ordinal))
+            {
+                var firstValue = c.Value.Split("|||", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)[0];
+                result.Add(new ProviderClaim(c.Key, firstValue, c.Confidence));
+            }
+            else
+            {
+                result.Add(c);
+            }
+        }
+
+        return result;
     }
 
     /// <summary>

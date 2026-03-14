@@ -73,6 +73,125 @@ public class FileOrganizerTests
         Assert.DoesNotMatch(@"(?i)\.[a-z]{2,5}$", segments[1]);
     }
 
+    // ──────────────────────────────────────────────────────────────────────────
+    // Category mapping: Movies and TV
+    // ──────────────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void CalculatePath_MoviesCategory_ReturnsMoviesNotVideos()
+    {
+        var organizer = CreateOrganizer();
+        var template  = "{Category}/{Title} - {Qid}/{Title}{Ext}";
+
+        var candidate = BuildCandidate(
+            @"C:\watch\dune-part-two.mkv",
+            MediaType.Movies,
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["title"] = "Dune Part Two",
+            });
+
+        var relative = organizer.CalculatePath(candidate, template);
+
+        Assert.StartsWith("Movies/", relative);
+        Assert.DoesNotContain("Videos", relative);
+    }
+
+    [Fact]
+    public void CalculatePath_TvCategory_ReturnsTvNotTvShows()
+    {
+        var organizer = CreateOrganizer();
+        var template  = "{Category}/{Title} - {Qid}/{Title}{Ext}";
+
+        var candidate = BuildCandidate(
+            @"C:\watch\s01e01.mkv",
+            MediaType.TV,
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["title"] = "Breaking Bad",
+            });
+
+        var relative = organizer.CalculatePath(candidate, template);
+
+        Assert.StartsWith("TV/", relative);
+        Assert.DoesNotContain("TV Shows", relative);
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Default template: hyphen-dash separator + Q0 placeholder
+    // ──────────────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void CalculatePath_DefaultTemplate_UsesDashSeparatorWithQ0Placeholder()
+    {
+        // When no QID is in metadata, {Qid} resolves to "Q0" (not empty)
+        var organizer = CreateOrganizer();
+        var template  = "{Category}/{Title} - {Qid}/{Title}{Ext}";
+
+        var candidate = BuildCandidate(
+            @"C:\watch\dune.epub",
+            MediaType.Books,
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["title"] = "Dune",
+                // no wikidata_qid in metadata
+            });
+
+        var relative = organizer.CalculatePath(candidate, template);
+
+        Assert.Equal("Books/Dune - Q0/Dune.epub", relative);
+    }
+
+    [Fact]
+    public void CalculatePath_DefaultTemplate_UsesDashSeparatorWithRealQid()
+    {
+        // When a QID is present, it appears verbatim after the hyphen-dash
+        var organizer = CreateOrganizer();
+        var template  = "{Category}/{Title} - {Qid}/{Title}{Ext}";
+
+        var candidate = BuildCandidate(
+            @"C:\watch\dune.epub",
+            MediaType.Books,
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["title"]        = "Dune",
+                ["wikidata_qid"] = "Q190159",
+            });
+
+        var relative = organizer.CalculatePath(candidate, template);
+
+        Assert.Equal("Books/Dune - Q190159/Dune.epub", relative);
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Books per-media-type template: format subfolder
+    // ──────────────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void CalculatePath_BooksTemplate_IncludesFormatSubfolder()
+    {
+        // The Books per-media-type template adds a {Format} subfolder between
+        // the title-QID folder and the filename.
+        // {Format} resolves to DetectedMediaType.ToString() → "Books"
+        var organizer = CreateOrganizer();
+        var template  = "{Category}/{Title} - {Qid}/{Format}/{Title}{Ext}";
+
+        var candidate = BuildCandidate(
+            @"C:\watch\dune.epub",
+            MediaType.Books,
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["title"] = "Dune",
+                // no QID — placeholder Q0 expected
+            });
+
+        var relative = organizer.CalculatePath(candidate, template);
+
+        Assert.Equal("Books/Dune - Q0/Books/Dune.epub", relative);
+        var segments = relative.Split('/');
+        Assert.Equal(4, segments.Length); // Category / Title-Qid / Format / Filename
+    }
+
     [Fact]
     public void CalculatePath_DefaultTemplate_DoesNotDuplicateFilename()
     {
