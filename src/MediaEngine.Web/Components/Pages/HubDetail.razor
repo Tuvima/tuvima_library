@@ -569,11 +569,7 @@ else
             var journey = journeyTask.Result;
             _related    = relatedTask.Result;
 
-            _authorPerson = persons.FirstOrDefault(p =>
-                string.Equals(p.Role, "Author", StringComparison.OrdinalIgnoreCase) &&
-                string.Equals(p.Name, _hub.Author, StringComparison.OrdinalIgnoreCase))
-                ?? persons.FirstOrDefault(p =>
-                string.Equals(p.Role, "Author", StringComparison.OrdinalIgnoreCase));
+            _authorPerson = ResolveAuthorPerson(persons, _hub.Author);
 
             // ── Three-tier progress resolution ──────────────────────────────
             //
@@ -851,6 +847,47 @@ else
             return $"{baseLabel} · {Math.Max(1, pct.Value):F0}%";
 
         return baseLabel;
+    }
+
+    /// <summary>
+    /// Resolves the best-matching Author person for the hub's canonical author name.
+    /// Uses three tiers: exact match → normalised match (collapses whitespace around
+    /// periods/hyphens to handle "S.A." vs "S. A." variants) → first Author fallback.
+    /// </summary>
+    private static PersonViewModel? ResolveAuthorPerson(
+        IReadOnlyList<PersonViewModel> persons, string? hubAuthor)
+    {
+        if (string.IsNullOrEmpty(hubAuthor) || persons.Count == 0)
+            return persons.FirstOrDefault(p =>
+                string.Equals(p.Role, "Author", StringComparison.OrdinalIgnoreCase));
+
+        // Tier 1: exact name match (case-insensitive)
+        var exact = persons.FirstOrDefault(p =>
+            string.Equals(p.Role, "Author", StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(p.Name, hubAuthor, StringComparison.OrdinalIgnoreCase));
+        if (exact is not null) return exact;
+
+        // Tier 2: normalised match — collapse whitespace around periods/hyphens
+        var normHub = NormalizeName(hubAuthor);
+        var normalised = persons.FirstOrDefault(p =>
+            string.Equals(p.Role, "Author", StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(NormalizeName(p.Name), normHub, StringComparison.OrdinalIgnoreCase));
+        if (normalised is not null) return normalised;
+
+        // Tier 3: first Author by position
+        return persons.FirstOrDefault(p =>
+            string.Equals(p.Role, "Author", StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// Collapses whitespace around periods and hyphens so that
+    /// "James S.A. Corey" and "James S. A. Corey" compare as equal.
+    /// </summary>
+    private static string NormalizeName(string? name)
+    {
+        if (string.IsNullOrEmpty(name)) return string.Empty;
+        // Remove spaces immediately before/after periods and hyphens
+        return System.Text.RegularExpressions.Regex.Replace(name, @"\s*([.\-])\s*", "$1");
     }
 
     /// <summary>Proper icon for the primary action button.</summary>
