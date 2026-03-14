@@ -852,6 +852,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             IngestionRunId      = ingestionRunId,
             FolderHintBridgeIds = hintBridgeIds,
             HintedHubId         = hintedHubId,
+            Pass                = HydrationPass.Quick,
         }, ct).ConfigureAwait(false);
 
         await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
@@ -1566,6 +1567,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 MediaType             = mediaType ?? MediaType.Unknown,
                 Hints                 = BuildHints(metadata),
                 SuppressActivityEntry = true,
+                Pass                  = HydrationPass.Quick,
             }, ct).ConfigureAwait(false);
 
             await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry

@@ -299,6 +299,65 @@ public static class WikidataSparqlPropertyMap
         return BuildSparqlQuery(qid, props, language);
     }
 
+    // ── Core Properties for Pass 1 (Quick Match) ──────────────────────────
+
+    /// <summary>
+    /// The P-codes that constitute core Work identity — fetched during Pass 1
+    /// (Quick Match) for fast Dashboard appearance. All other properties are
+    /// deferred to Pass 2 (Universe Lookup).
+    /// </summary>
+    private static readonly HashSet<string> CorePropertyPCodes =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            "P1476", // title (monolingual text)
+            "P50",   // author
+            "P577",  // year
+            "P136",  // genre
+            "P179",  // series
+            "P1545", // series_position
+            "P31",   // instance_of (edition detection)
+            "P629",  // edition_or_translation_of (edition → work resolution)
+        };
+
+    /// <summary>
+    /// Build a SPARQL SELECT for core Work properties only (Pass 1 — Quick Match).
+    ///
+    /// <para>
+    /// Fetches: title, author, year, genre, series, series_position, instance_of,
+    /// edition_or_translation_of, plus <b>all bridge identifiers</b> (ISBN, ASIN,
+    /// TMDB ID, etc.). Bridge IDs are essential for Stage 3 retail lookups.
+    /// </para>
+    ///
+    /// <para>
+    /// Skips: narrative relationships, fictional entities, cast members, awards,
+    /// physical/technical details, and all non-bridge properties. These are fetched
+    /// in Pass 2 (Universe Lookup).
+    /// </para>
+    ///
+    /// <para>
+    /// P18 (Image) is excluded — Person-only due to copyright constraints.
+    /// </para>
+    /// </summary>
+    /// <param name="qid">The Wikidata QID (e.g. <c>"Q190159"</c>).</param>
+    /// <param name="effectiveMap">Property map to use. Falls back to <see cref="DefaultMap"/>.</param>
+    /// <param name="scopeExclusions">P-codes to exclude. Defaults to <c>["P18"]</c>.</param>
+    /// <param name="language">BCP-47 language code. Defaults to <c>"en"</c>.</param>
+    public static string BuildCoreWorkSparqlQuery(
+        string qid,
+        IReadOnlyDictionary<string, WikidataProperty>? effectiveMap = null,
+        IReadOnlyCollection<string>? scopeExclusions = null,
+        string? language = null)
+    {
+        var exclusions = scopeExclusions ?? (IReadOnlyCollection<string>)["P18"];
+
+        var props = GetByScope("Work", effectiveMap)
+            .Where(p => !exclusions.Contains(p.PCode))
+            .Where(p => CorePropertyPCodes.Contains(p.PCode) || p.IsBridge)
+            .ToList();
+
+        return BuildSparqlQuery(qid, props, language);
+    }
+
     /// <summary>
     /// Build a SPARQL SELECT query for all enabled Person-scoped properties of a given QID.
     /// Includes P18 (Image) — headshots of public figures are not copyrighted.

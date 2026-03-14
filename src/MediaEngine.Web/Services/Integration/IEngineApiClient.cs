@@ -88,6 +88,12 @@ public interface IEngineApiClient
     Task<HydrateResultViewModel?> TriggerHydrationAsync(
         Guid entityId, CancellationToken ct = default);
 
+    /// <summary>GET /metadata/pass2/status — pending count and enabled state for the Pass 2 deferred enrichment queue.</summary>
+    Task<Pass2StatusDto?> GetPass2StatusAsync(CancellationToken ct = default);
+
+    /// <summary>POST /metadata/pass2/trigger — trigger immediate Pass 2 (Universe Lookup) processing.</summary>
+    Task<Pass2TriggerResultDto?> TriggerPass2NowAsync(CancellationToken ct = default);
+
     // ── QID Label Resolution (/metadata/labels) ────────────────────────────────
 
     /// <summary>POST /metadata/labels/resolve — batch-resolve QIDs to display labels.</summary>

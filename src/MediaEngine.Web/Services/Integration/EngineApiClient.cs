@@ -1704,6 +1704,38 @@ public sealed class EngineApiClient : IEngineApiClient
             return false;
         }
     }
+    // ── Pass 2 (Universe Lookup) ──────────────────────────────────────────────
+
+    public async Task<Pass2StatusDto?> GetPass2StatusAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<Pass2StatusDto>("/metadata/pass2/status", ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /metadata/pass2/status failed");
+            return null;
+        }
+    }
+
+    public async Task<Pass2TriggerResultDto?> TriggerPass2NowAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            var resp = await _http.PostAsJsonAsync("/metadata/pass2/trigger", new { }, ct);
+            if (!resp.IsSuccessStatusCode) return null;
+            return await resp.Content.ReadFromJsonAsync<Pass2TriggerResultDto>(ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /metadata/pass2/trigger failed");
+            return null;
+        }
+    }
+
     public string? LastError { get; private set; }
 
     // ── Private mapping ───────────────────────────────────────────────────────

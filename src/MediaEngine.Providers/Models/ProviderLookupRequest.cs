@@ -120,4 +120,13 @@ public sealed class ProviderLookupRequest
     /// (e.g. Apple Books storefront selection).
     /// </summary>
     public string Country { get; init; } = "us";
+
+    /// <summary>
+    /// Which enrichment pass this lookup is part of.
+    /// When <see cref="HydrationPass.Quick"/>, the Wikidata adapter uses a
+    /// reduced SPARQL query fetching only core properties and bridge IDs.
+    /// When <see cref="HydrationPass.Universe"/>, the full 50+ property
+    /// query is used.
+    /// </summary>
+    public HydrationPass HydrationPass { get; init; } = HydrationPass.Quick;
 }

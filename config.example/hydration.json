@@ -14,5 +14,12 @@
   "fictional_entity_enrichment_depth": 1,
   "fictional_entity_batch_size": 20,
   "enable_relationship_population": true,
-  "universe_xml_write_debounce_seconds": 5
+  "universe_xml_write_debounce_seconds": 5,
+  "two_pass_enabled": true,
+  "pass1_core_properties_only": true,
+  "pass2_idle_delay_seconds": 10,
+  "pass2_rate_limit_ms": 2000,
+  "pass2_nightly_cron": "0 2 * * *",
+  "pass2_stale_threshold_hours": 24,
+  "pass2_batch_size": 50
 }

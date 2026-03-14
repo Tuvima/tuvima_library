@@ -79,4 +79,17 @@ public sealed class HarvestRequest
     /// the full candidate search.
     /// </summary>
     public Guid? HintedHubId { get; set; }
+
+    /// <summary>
+    /// Which enrichment pass this request belongs to.
+    ///
+    /// <see cref="HydrationPass.Quick"/> (default) fetches core identity
+    /// only — title, author, year, genre, series, bridge IDs, cover art.
+    /// <see cref="HydrationPass.Universe"/> runs the full 50+ property
+    /// SPARQL deep hydration, fictional entity discovery, and relationship
+    /// population.
+    ///
+    /// Spec: §3.24 — Two-Pass Enrichment Architecture.
+    /// </summary>
+    public HydrationPass Pass { get; init; } = HydrationPass.Quick;
 }

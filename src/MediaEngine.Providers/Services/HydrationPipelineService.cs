@@ -69,6 +69,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     private readonly ISystemActivityRepository _activityRepo;
     private readonly ICanonicalValueArrayRepository _arrayRepo;
     private readonly IHeroBannerGenerator _heroGenerator;
+    private readonly IDeferredEnrichmentRepository _deferredRepo;
     private readonly ILogger<HydrationPipelineService> _logger;
 
     // ── Constructor ───────────────────────────────────────────────────────────
@@ -94,6 +95,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         ISystemActivityRepository activityRepo,
         ICanonicalValueArrayRepository arrayRepo,
         IHeroBannerGenerator heroGenerator,
+        IDeferredEnrichmentRepository deferredRepo,
         ILogger<HydrationPipelineService> logger)
     {
         ArgumentNullException.ThrowIfNull(providers);
@@ -116,6 +118,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         ArgumentNullException.ThrowIfNull(activityRepo);
         ArgumentNullException.ThrowIfNull(arrayRepo);
         ArgumentNullException.ThrowIfNull(heroGenerator);
+        ArgumentNullException.ThrowIfNull(deferredRepo);
         ArgumentNullException.ThrowIfNull(logger);
 
         _providers      = providers.ToList();
@@ -138,6 +141,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         _activityRepo   = activityRepo;
         _arrayRepo      = arrayRepo;
         _heroGenerator  = heroGenerator;
+        _deferredRepo   = deferredRepo;
         _logger         = logger;
 
         _channel = Channel.CreateBounded<HarvestRequest>(new BoundedChannelOptions(500)
@@ -220,6 +224,12 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         var lang         = string.IsNullOrWhiteSpace(core.Language) ? "en" : core.Language.ToLowerInvariant();
         var country      = string.IsNullOrWhiteSpace(core.Country)  ? "us" : core.Country.ToLowerInvariant();
 
+        // §3.24: Determine effective pass. When two-pass is disabled,
+        // all requests run the full Universe pipeline for backward compat.
+        var effectivePass = hydration.TwoPassEnabled
+            ? request.Pass
+            : HydrationPass.Universe;
+
         // Build composite endpoint map.
         var endpointMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var pc in provConfigs)
@@ -273,6 +283,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                     IngestionRunId      = request.IngestionRunId,
                     FolderHintBridgeIds = request.FolderHintBridgeIds,
                     HintedHubId         = request.HintedHubId,
+                    Pass                = request.Pass,
                 };
             }
             else
@@ -288,6 +299,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                     IngestionRunId      = request.IngestionRunId,
                     FolderHintBridgeIds = request.FolderHintBridgeIds,
                     HintedHubId         = request.HintedHubId,
+                    Pass                = request.Pass,
                 };
             }
 
@@ -371,8 +383,13 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             // work was *published* under.
             var canonicalsAfterS1 = await _canonicalRepo.GetByEntityAsync(request.EntityId, ct)
                 .ConfigureAwait(false);
-            await ProtectPseudonymAuthorAsync(request.EntityId, canonicalsAfterS1, ct)
-                .ConfigureAwait(false);
+
+            // Pseudonym author protection is deep enrichment (Pass 2 only).
+            if (effectivePass == HydrationPass.Universe)
+            {
+                await ProtectPseudonymAuthorAsync(request.EntityId, canonicalsAfterS1, ct)
+                    .ConfigureAwait(false);
+            }
 
             // Person enrichment: use Stage-1 raw claims when available so that
             // multi-valued author_qid values from Wikidata SPARQL are captured in
@@ -419,7 +436,8 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             // Universe graph: if Stage 1 deposited franchise/series/universe data,
             // resolve the narrative root and discover fictional entities (characters,
             // locations, organizations).  Only runs for works with QIDs.
-            if (result.WikidataQid is not null)
+            // Fictional entity enrichment is deep enrichment (Pass 2 only).
+            if (result.WikidataQid is not null && effectivePass == HydrationPass.Universe)
             {
                 try
                 {
@@ -886,6 +904,38 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         if (!request.SuppressActivityEntry)
         {
             await CreateMediaAddedEntryAsync(request.EntityId, result, request.IngestionRunId, ct).ConfigureAwait(false);
+        }
+
+        // §3.24: After Pass 1 completes, enqueue a deferred Pass 2 request.
+        if (effectivePass == HydrationPass.Quick
+            && request.EntityType == EntityType.MediaAsset)
+        {
+            try
+            {
+                var hintsDict = new Dictionary<string, string>(
+                    request.Hints, StringComparer.OrdinalIgnoreCase);
+
+                await _deferredRepo.InsertAsync(new DeferredEnrichmentRequest
+                {
+                    Id          = Guid.NewGuid(),
+                    EntityId    = request.EntityId,
+                    WikidataQid = result.WikidataQid,
+                    MediaType   = request.MediaType,
+                    HintsJson   = JsonSerializer.Serialize(hintsDict),
+                    CreatedAt   = DateTimeOffset.UtcNow,
+                    Status      = "Pending",
+                }, ct).ConfigureAwait(false);
+
+                _logger.LogDebug(
+                    "Enqueued Pass 2 (Universe) request for entity {Id} (QID: {Qid})",
+                    request.EntityId, result.WikidataQid ?? "none");
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(ex,
+                    "Failed to enqueue Pass 2 for entity {Id}; universe enrichment " +
+                    "will be picked up by the nightly sweep", request.EntityId);
+            }
         }
 
         _logger.LogInformation(
@@ -2008,6 +2058,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             SparqlBaseUrl  = sparqlBaseUrl,
             Language       = language,
             Country        = country,
+            HydrationPass  = request.Pass,
         };
     }
 

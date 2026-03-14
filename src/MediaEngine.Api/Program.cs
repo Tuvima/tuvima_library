@@ -386,9 +386,11 @@ builder.Services.AddSingleton<IUniverseSidecarWriter,           UniverseSidecarW
 builder.Services.AddSingleton<IUniverseGraphWriterService,      UniverseGraphWriterService>();
 
 // ── Hydration pipeline (three-stage orchestrator) + review queue ─────────────
-builder.Services.AddSingleton<IAutoOrganizeService,       AutoOrganizeService>();
-builder.Services.AddSingleton<IHydrationPipelineService,  HydrationPipelineService>();
-builder.Services.AddSingleton<IReviewQueueRepository,     ReviewQueueRepository>();
+builder.Services.AddSingleton<IAutoOrganizeService,          AutoOrganizeService>();
+builder.Services.AddSingleton<IDeferredEnrichmentRepository, DeferredEnrichmentRepository>();
+builder.Services.AddSingleton<IHydrationPipelineService,     HydrationPipelineService>();
+builder.Services.AddSingleton<IDeferredEnrichmentService,    DeferredEnrichmentService>();
+builder.Services.AddSingleton<IReviewQueueRepository,        ReviewQueueRepository>();
 builder.Services.AddSingleton<IImageCacheRepository,              ImageCacheRepository>();
 builder.Services.AddSingleton<IProviderResponseCacheRepository,  ProviderResponseCacheRepository>();
 
@@ -474,6 +476,7 @@ app.MapPersonEndpoints();
 app.MapProgressEndpoints();
 app.MapActivityEndpoints();
 app.MapUniverseGraphEndpoints();
+app.MapDeferredEnrichmentEndpoints();
 
 // ── Development-only seed endpoints ──────────────────────────────────────────
 if (app.Environment.IsDevelopment())

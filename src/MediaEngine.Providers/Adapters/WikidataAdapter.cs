@@ -743,31 +743,49 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
                 qid = workQid;
             }
 
-            // ── Step 3b: Author Audit with Qualifiers ───────────────────────
-            // Use qualified statement syntax (p:/ps:/pq:) to extract P50 author
-            // statements with P1545 ordinals and P31 entity types (human,
-            // pseudonym, collective pseudonym). This produces ordered, typed
-            // author data that the standard wdt: query cannot provide.
-            var authorAuditClaims = await RunAuthorAuditAsync(
-                sparqlClient, request.SparqlBaseUrl!, qid, throttleGapMs, ct,
-                request.Language).ConfigureAwait(false);
+            // ── Step 3b–3b3: Audit queries (Pass 2 only) ────────────────────
+            // Author audit, cast role audit, and awards queries are deep enrichment
+            // that runs only in Pass 2 (Universe Lookup). Pass 1 (Quick Match)
+            // skips them for faster Dashboard appearance.
+            IReadOnlyList<ProviderClaim> authorAuditClaims;
+            IReadOnlyList<ProviderClaim> castRoleAuditClaims;
+            IReadOnlyList<ProviderClaim> awardsClaims;
 
-            // ── Step 3b2: Cast Role Audit with Qualifiers ────────────────────
-            // Use qualified statement syntax (p:/ps:/pq:) to extract P161 cast
-            // member statements with P453 character role qualifiers. This produces
-            // actor-to-character mappings that the standard wdt: query discards.
-            var castRoleAuditClaims = await RunCastRoleAuditAsync(
-                sparqlClient, request.SparqlBaseUrl!, qid, throttleGapMs, ct,
-                request.Language).ConfigureAwait(false);
+            if (request.HydrationPass == HydrationPass.Universe)
+            {
+                // ── Step 3b: Author Audit with Qualifiers ────────────────────
+                // Use qualified statement syntax (p:/ps:/pq:) to extract P50 author
+                // statements with P1545 ordinals and P31 entity types (human,
+                // pseudonym, collective pseudonym). This produces ordered, typed
+                // author data that the standard wdt: query cannot provide.
+                authorAuditClaims = await RunAuthorAuditAsync(
+                    sparqlClient, request.SparqlBaseUrl!, qid, throttleGapMs, ct,
+                    request.Language).ConfigureAwait(false);
 
-            // ── Step 3b3: Awards Query with Preferred Rank ───────────────────
-            // Use qualified statement syntax (p:/ps:/pq:) to fetch P166 awards
-            // with PreferredRank only (winners, not nominees). This produces a
-            // multi-valued awards_received claim that the standard wdt: query
-            // cannot provide with rank filtering.
-            var awardsClaims = await RunAwardsQueryAsync(
-                sparqlClient, request.SparqlBaseUrl!, qid, throttleGapMs, ct,
-                request.Language).ConfigureAwait(false);
+                // ── Step 3b2: Cast Role Audit with Qualifiers ────────────────
+                // Use qualified statement syntax (p:/ps:/pq:) to extract P161 cast
+                // member statements with P453 character role qualifiers. This produces
+                // actor-to-character mappings that the standard wdt: query discards.
+                castRoleAuditClaims = await RunCastRoleAuditAsync(
+                    sparqlClient, request.SparqlBaseUrl!, qid, throttleGapMs, ct,
+                    request.Language).ConfigureAwait(false);
+
+                // ── Step 3b3: Awards Query with Preferred Rank ───────────────
+                // Use qualified statement syntax (p:/ps:/pq:) to fetch P166 awards
+                // with PreferredRank only (winners, not nominees). This produces a
+                // multi-valued awards_received claim that the standard wdt: query
+                // cannot provide with rank filtering.
+                awardsClaims = await RunAwardsQueryAsync(
+                    sparqlClient, request.SparqlBaseUrl!, qid, throttleGapMs, ct,
+                    request.Language).ConfigureAwait(false);
+            }
+            else
+            {
+                // Pass 1: skip audit queries for faster results.
+                authorAuditClaims = [];
+                castRoleAuditClaims = [];
+                awardsClaims = [];
+            }
 
             // ── Step 3c: SPARQL Deep Hydration ──────────────────────────────
             // Read scope exclusions from universe config (default: P18 excluded from Work).
@@ -775,8 +793,11 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
             if (universeConfig?.ScopeExclusions.TryGetValue("Work", out var workExclusions) == true)
                 scopeExclusions = workExclusions;
 
-            var sparql = WikidataSparqlPropertyMap.BuildWorkSparqlQuery(
-                qid, effectiveMap, scopeExclusions, request.Language);
+            var sparql = request.HydrationPass == HydrationPass.Quick
+                ? WikidataSparqlPropertyMap.BuildCoreWorkSparqlQuery(
+                    qid, effectiveMap, scopeExclusions, request.Language)
+                : WikidataSparqlPropertyMap.BuildWorkSparqlQuery(
+                    qid, effectiveMap, scopeExclusions, request.Language);
             var claims = await ExecuteSparqlQueryAsync(
                 sparqlClient, request.SparqlBaseUrl!, sparql, qid,
                 effectiveMap, scopeExclusions, throttleGapMs, ct).ConfigureAwait(false);

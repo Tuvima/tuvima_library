@@ -713,6 +713,27 @@ public sealed class DatabaseConnection : IDatabaseConnection
             column: "parent_hub_id",
             ddl:    "ALTER TABLE hubs ADD COLUMN parent_hub_id TEXT;");
 
+        // ── M-036: Deferred enrichment queue for Two-Pass architecture ────
+        // Pass 1 (Quick Match) enqueues a Pass 2 (Universe Lookup) request
+        // here.  The DeferredEnrichmentService processes the queue when the
+        // ingestion pipeline is idle, on a nightly schedule, or on demand.
+        MigrateCreateTableIfMissing(conn, "deferred_enrichment_queue", "id", """
+            CREATE TABLE IF NOT EXISTS deferred_enrichment_queue (
+                id           TEXT NOT NULL PRIMARY KEY,
+                entity_id    TEXT NOT NULL,
+                wikidata_qid TEXT,
+                media_type   TEXT NOT NULL,
+                hints_json   TEXT,
+                created_at   TEXT NOT NULL,
+                status       TEXT NOT NULL DEFAULT 'Pending',
+                processed_at TEXT
+            );
+            CREATE INDEX IF NOT EXISTS idx_deferred_queue_status
+                ON deferred_enrichment_queue(status);
+            CREATE INDEX IF NOT EXISTS idx_deferred_queue_created
+                ON deferred_enrichment_queue(created_at);
+            """);
+
         // Seed S-001: provider_registry entries for all known providers.
         // metadata_claims.provider_id has a FK to provider_registry(id), so these
         // rows MUST exist before any claim is written.  INSERT OR IGNORE makes this

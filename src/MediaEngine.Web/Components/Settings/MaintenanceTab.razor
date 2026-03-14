@@ -51,7 +51,39 @@
         </MudStack>
     </MudPaper>
 
-    @* ── Section 2: Library Crawl (stub) ────────────────────────────────── *@
+    @* ── Section 2: Universe Enrichment ─────────────────────────────────── *@
+
+    <MudPaper Elevation="0" Style="@InnerCardStyle" Class="mb-6">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+            <MudIcon Icon="@Icons.Material.Filled.AutoFixHigh"
+                     Color="Color.Default" Class="mr-2" />
+            <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">
+                Universe Enrichment
+            </MudText>
+        </MudStack>
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+            Run deep enrichment for all pending items — character relationships,
+            franchise connections, and cross-media narrative links.
+        </MudText>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2"
+                  Class="maintenance-action-row">
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.AutoFixHigh"
+                       OnClick="@TriggerPass2Async"
+                       Disabled="@(_pass2Loading || _pass2Status?.PendingCount == 0)">
+                @(_pass2Loading ? "Running..." : "Run Pass 2 Now")
+            </MudButton>
+            @if (_pass2Status?.PendingCount > 0)
+            {
+                <MudChip T="string" Size="Size.Small" Color="Color.Info">
+                    @_pass2Status.PendingCount pending
+                </MudChip>
+            }
+        </MudStack>
+    </MudPaper>
+
+    @* ── Section 4: Library Crawl (stub) ────────────────────────────────── *@
 
     <MudPaper Elevation="0" Style="@InnerCardStyle" Class="mb-6">
         <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
@@ -67,7 +99,7 @@
         </MudText>
     </MudPaper>
 
-    @* ── Section 3: Weekly Sync (stub) ──────────────────────────────────── *@
+    @* ── Section 5: Weekly Sync (stub) ──────────────────────────────────── *@
 
     <MudPaper Elevation="0" Style="@InnerCardStyle">
         <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
@@ -107,6 +139,16 @@
     private bool _reconciling;
     private ReconciliationResultDto? _lastResult;
 
+    private Pass2StatusDto? _pass2Status;
+    private bool _pass2Loading;
+
+    // ── Lifecycle ────────────────────────────────────────────────────────────────
+
+    protected override async Task OnInitializedAsync()
+    {
+        _pass2Status = await Orchestrator.GetPass2StatusAsync();
+    }
+
     // ── Actions ──────────────────────────────────────────────────────────────────
 
     private async Task RunReconciliationAsync()
@@ -128,6 +170,30 @@
         else
         {
             Snackbar.Add("Reconciliation failed — is the Engine running?", Severity.Error);
+        }
+    }
+
+    private async Task TriggerPass2Async()
+    {
+        _pass2Loading = true;
+        StateHasChanged();
+
+        try
+        {
+            var result = await Orchestrator.TriggerPass2NowAsync();
+            if (result is not null)
+            {
+                Snackbar.Add(result.Message, Severity.Success);
+                _pass2Status = await Orchestrator.GetPass2StatusAsync();
+            }
+            else
+            {
+                Snackbar.Add("Failed to trigger Pass 2 — is the Engine running?", Severity.Error);
+            }
+        }
+        finally
+        {
+            _pass2Loading = false;
         }
     }
 }

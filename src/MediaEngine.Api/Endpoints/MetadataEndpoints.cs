@@ -182,6 +182,7 @@ public static class MetadataEndpoints
             Guid entityId,
             ICanonicalValueRepository canonicalRepo,
             IHydrationPipelineService pipeline,
+            IDeferredEnrichmentRepository deferredRepo,
             CancellationToken ct) =>
         {
             // Load existing canonical values to build lookup hints.
@@ -189,7 +190,7 @@ public static class MetadataEndpoints
             var hints = canonicals.ToDictionary(
                 c => c.Key, c => c.Value, StringComparer.OrdinalIgnoreCase);
 
-            // Run the three-stage hydration pipeline synchronously.
+            // Run the three-stage hydration pipeline synchronously (full Universe pass).
             Domain.Models.HydrationResult result;
             try
             {
@@ -199,6 +200,7 @@ public static class MetadataEndpoints
                     EntityType = EntityType.MediaAsset,
                     MediaType  = Domain.Enums.MediaType.Unknown,
                     Hints      = hints,
+                    Pass       = Domain.Enums.HydrationPass.Universe,
                 }, ct);
             }
             catch (Exception ex)
@@ -209,6 +211,10 @@ public static class MetadataEndpoints
                     Message = $"Hydration pipeline failed: {ex.Message}",
                 });
             }
+
+            // Mark any pending Pass 2 deferred enrichment for this entity as processed.
+            // User-triggered hydrate runs the full Universe pipeline, so Pass 2 is satisfied.
+            await deferredRepo.MarkProcessedByEntityAsync(entityId, ct);
 
             return Results.Ok(new HydrateResponse
             {

@@ -127,6 +127,63 @@ public sealed class HydrationSettings
     [JsonPropertyName("minimum_universe_work_count")]
     public int MinimumUniverseWorkCount { get; set; } = 2;
 
+    // ── Two-Pass Enrichment Architecture ──────────────────────────────────────────
+
+    /// <summary>
+    /// When <c>true</c>, the hydration pipeline splits into two passes:
+    /// Pass 1 (Quick Match) fetches core identity + cover art immediately,
+    /// and Pass 2 (Universe Lookup) runs later for deep enrichment.
+    /// When <c>false</c>, all requests run the full pipeline (backward compat).
+    /// </summary>
+    [JsonPropertyName("two_pass_enabled")]
+    public bool TwoPassEnabled { get; set; } = true;
+
+    /// <summary>
+    /// When <c>true</c> and two-pass is enabled, Pass 1 uses a reduced SPARQL
+    /// query fetching only core properties (title, author, year, genre, series,
+    /// series_position) plus bridge IDs. When <c>false</c>, Pass 1 uses the
+    /// full 50+ property query.
+    /// </summary>
+    [JsonPropertyName("pass1_core_properties_only")]
+    public bool Pass1CorePropertiesOnly { get; set; } = true;
+
+    /// <summary>
+    /// Seconds to wait between idle checks before processing Pass 2 items.
+    /// The service checks <c>IHydrationPipelineService.PendingCount</c> on
+    /// this interval and only processes when the count is zero.
+    /// </summary>
+    [JsonPropertyName("pass2_idle_delay_seconds")]
+    public int Pass2IdleDelaySeconds { get; set; } = 10;
+
+    /// <summary>
+    /// Milliseconds to delay between each Pass 2 item to respect rate limits.
+    /// Prevents overwhelming external APIs during bulk enrichment.
+    /// </summary>
+    [JsonPropertyName("pass2_rate_limit_ms")]
+    public int Pass2RateLimitMs { get; set; } = 2000;
+
+    /// <summary>
+    /// Cron expression for the nightly sweep of stale Pass 2 items.
+    /// Only the hour and minute fields are used (simple parsing).
+    /// Default: <c>"0 2 * * *"</c> (2:00 AM daily).
+    /// </summary>
+    [JsonPropertyName("pass2_nightly_cron")]
+    public string Pass2NightlyCron { get; set; } = "0 2 * * *";
+
+    /// <summary>
+    /// Hours after which a pending Pass 2 item is considered stale.
+    /// The nightly sweep prioritises items older than this threshold.
+    /// </summary>
+    [JsonPropertyName("pass2_stale_threshold_hours")]
+    public int Pass2StaleThresholdHours { get; set; } = 24;
+
+    /// <summary>
+    /// Maximum number of Pass 2 items to process in a single batch.
+    /// Limits processing duration per cycle.
+    /// </summary>
+    [JsonPropertyName("pass2_batch_size")]
+    public int Pass2BatchSize { get; set; } = 50;
+
     // ── Backward compatibility ──────────────────────────────────────────
 
     /// <summary>

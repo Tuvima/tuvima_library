@@ -426,6 +426,16 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         HydrationSettingsDto settings, CancellationToken ct = default)
         => _api.UpdateHydrationSettingsAsync(settings, ct);
 
+    // ── Pass 2 (Universe Lookup) ──────────────────────────────────────────
+
+    /// <summary>Returns the pending count and enabled state for the Pass 2 deferred enrichment queue.</summary>
+    public Task<Pass2StatusDto?> GetPass2StatusAsync(CancellationToken ct = default)
+        => _api.GetPass2StatusAsync(ct);
+
+    /// <summary>Triggers immediate Pass 2 (Universe Lookup) processing for all pending items.</summary>
+    public Task<Pass2TriggerResultDto?> TriggerPass2NowAsync(CancellationToken ct = default)
+        => _api.TriggerPass2NowAsync(ct);
+
     // ── Provider slots ──────────────────────────────────────────────────────
 
     /// <summary>Returns provider slot assignments per media type.</summary>
