@@ -750,9 +750,12 @@ else
     // ── Display helpers ──────────────────────────────────────────────────────
 
     private List<string> GenreTags =>
-        _hub?.Genre?
-            .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
-            .ToList() ?? [];
+        _hub?.Genres.Count > 0
+            ? _hub.Genres.ToList()
+            : _hub?.Genre?
+                .Split(['|', ',', ';'], StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+                .Where(g => g != "|") // discard lone pipe chars left from ||| splits
+                .ToList() ?? [];
 
     // ── Format selector helpers ──────────────────────────────────────────────
 

@@ -501,9 +501,11 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
     }
 
     /// <summary>
-    /// Verifies that a Wikidata entity is a human (P31 contains Q5).
-    /// Also accepts Q15632617 (fictional human) and Q5 subclasses commonly
-    /// used for pseudonyms and pen names.
+    /// Verifies that a Wikidata entity is a person-like entity suitable for enrichment.
+    /// Accepts Q5 (human), Q15632617 (fictional human), and Q127843 (pen name).
+    /// Pen names are collective pseudonyms shared by two or more real authors
+    /// (e.g. "James S. A. Corey" = Daniel Abraham + Ty Franck) and need enrichment
+    /// so that P1773 (attributed_to) links can be resolved to the real persons.
     /// </summary>
     private static bool IsHumanEntity(JsonObject? entityJson, string qid)
     {
@@ -520,9 +522,9 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
             var entityId = claim?["mainsnak"]?["datavalue"]?["value"]?["id"]?.GetValue<string>();
             if (entityId is null) continue;
 
-            // Q5 = human, Q15632617 = fictional human (pen name entity),
+            // Q5 = human, Q15632617 = fictional human, Q127843 = pen name
             // Q4167410 = Wikimedia disambiguation page (skip)
-            if (entityId is "Q5" or "Q15632617")
+            if (entityId is "Q5" or "Q15632617" or "Q127843")
                 return true;
         }
 

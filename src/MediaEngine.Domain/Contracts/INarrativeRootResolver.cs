@@ -28,9 +28,14 @@ public interface INarrativeRootResolver
     /// </summary>
     /// <param name="entityId">The database ID of the work entity.</param>
     /// <param name="ct">Cancellation token.</param>
+    /// <param name="ingestionRunId">
+    /// Optional ingestion run ID. When supplied, the activity log entry for
+    /// <c>NarrativeRootResolved</c> is tagged with this ID so the Dashboard can
+    /// group it as a sub-item of the parent media-added entry.
+    /// </param>
     /// <returns>
     /// The resolved <see cref="NarrativeRoot"/>, or <c>null</c> if no universe, franchise,
     /// or series could be determined (standalone work with no Wikidata link).
     /// </returns>
-    Task<NarrativeRoot?> ResolveAsync(Guid entityId, CancellationToken ct = default);
+    Task<NarrativeRoot?> ResolveAsync(Guid entityId, CancellationToken ct = default, Guid? ingestionRunId = null);
 }

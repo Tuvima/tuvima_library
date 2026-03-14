@@ -348,7 +348,8 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 try
                 {
                     await RunFictionalEntityEnrichmentAsync(
-                        request.EntityId, result.WikidataQid, canonicalsAfterS1, ct)
+                        request.EntityId, result.WikidataQid, canonicalsAfterS1, ct,
+                        request.IngestionRunId)
                         .ConfigureAwait(false);
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
@@ -1499,10 +1500,11 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         Guid entityId,
         string workQid,
         IReadOnlyList<CanonicalValue> canonicals,
-        CancellationToken ct)
+        CancellationToken ct,
+        Guid? ingestionRunId = null)
     {
         // 1. Resolve the narrative root (fictional_universe → franchise → series → standalone).
-        var narrativeRoot = await _narrativeRootResolver.ResolveAsync(entityId, ct)
+        var narrativeRoot = await _narrativeRootResolver.ResolveAsync(entityId, ct, ingestionRunId)
             .ConfigureAwait(false);
 
         if (narrativeRoot is null)

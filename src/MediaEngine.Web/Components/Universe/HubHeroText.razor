@@ -27,7 +27,7 @@
     }
     else if (!string.IsNullOrEmpty(Data?.Genre))
     {
-        @foreach (var genre in Data.Genre.Split(',', ';').Take(2).Select(g => g.Trim()).Where(g => g.Length > 0))
+        @foreach (var genre in Data.Genre.Split(['|', ',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Where(g => g != "|").Take(2))
         {
             <span class="hero-badge">@genre</span>
         }

@@ -495,9 +495,17 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         var placeOfBirth = claims.FirstOrDefault(c => c.Key == "place_of_birth")?.Value;
         var placeOfDeath = claims.FirstOrDefault(c => c.Key == "place_of_death")?.Value;
         var nationality  = claims.FirstOrDefault(c => c.Key == "country_of_citizenship")?.Value;
-        var isPseudonym  = claims.Any(c =>
-            c.Key == "instance_of" &&
-            c.Value.Contains("Q15632617", StringComparison.OrdinalIgnoreCase));
+        // A person is a pseudonym when their P31 (instance_of) QID is Q127843 (pen name)
+        // or Q15632617 (fictional human used as shared pen name).
+        // Check the _qid claim (stable Wikidata IDs) first; fall back to the label
+        // claim for the "pen name" string in case SPARQL returned labels-only.
+        var isPseudonym = claims.Any(c =>
+                c.Key == "instance_of_qid" &&
+                (c.Value.Contains("Q127843", StringComparison.OrdinalIgnoreCase) ||
+                 c.Value.Contains("Q15632617", StringComparison.OrdinalIgnoreCase)))
+            || claims.Any(c =>
+                c.Key == "instance_of" &&
+                c.Value.Contains("pen name", StringComparison.OrdinalIgnoreCase));
 
         if (dateOfBirth is not null || dateOfDeath is not null || placeOfBirth is not null ||
             placeOfDeath is not null || nationality is not null || isPseudonym)

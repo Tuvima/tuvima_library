@@ -298,8 +298,11 @@ else
     private void BuildFilterOptions()
     {
         _availableGenres = _allHubs
-            .Where(h => !string.IsNullOrEmpty(h.Genre))
-            .SelectMany(h => h.Genre!.Split(',', ';').Select(g => g.Trim()))
+            .Where(h => h.Genres.Count > 0 || !string.IsNullOrEmpty(h.Genre))
+            .SelectMany(h => h.Genres.Count > 0
+                ? h.Genres
+                : h.Genre!.Split(['|', ',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .Where(g => g != "|"))
             .Where(g => g.Length > 0)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(g => g)
@@ -433,9 +436,11 @@ else
 
         // Genre groups.
         _genreGroups = _displayHubs
-            .Where(h => !string.IsNullOrEmpty(h.Genre))
-            .SelectMany(h => h.Genre!.Split(',', ';')
-                .Select(g => g.Trim())
+            .Where(h => h.Genres.Count > 0 || !string.IsNullOrEmpty(h.Genre))
+            .SelectMany(h => (h.Genres.Count > 0
+                    ? h.Genres
+                    : h.Genre!.Split(['|', ',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                        .Where(g => g != "|"))
                 .Where(g => g.Length > 0)
                 .Select(g => (Genre: g, Hub: h)))
             .GroupBy(x => x.Genre, StringComparer.OrdinalIgnoreCase)
