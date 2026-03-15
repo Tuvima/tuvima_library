@@ -32,6 +32,7 @@ public sealed class RegistryRepository : IRegistryRepository
                 SELECT
                     w.id AS entity_id,
                     w.media_type,
+                    w.wikidata_status,
                     MAX(CASE WHEN cv.key = 'title' THEN cv.value END) AS title,
                     MAX(CASE WHEN cv.key = 'release_year' THEN cv.value END) AS year,
                     MAX(CASE WHEN cv.key = 'cover_url' THEN cv.value END) AS cover_url,
@@ -43,7 +44,7 @@ public sealed class RegistryRepository : IRegistryRepository
                 LEFT JOIN editions e2 ON e2.work_id = w.id
                 LEFT JOIN media_assets ma2 ON ma2.edition_id = e2.id
                 LEFT JOIN canonical_values cv ON cv.entity_id = ma2.id
-                GROUP BY w.id, w.media_type
+                GROUP BY w.id, w.media_type, w.wikidata_status
             ),
             asset_data AS (
                 SELECT
@@ -93,7 +94,8 @@ public sealed class RegistryRepository : IRegistryRepository
                         ELSE 'Auto'
                     END AS status,
                     CASE WHEN ad.asset_status = 'Conflicted' THEN 1 ELSE 0 END AS has_duplicate,
-                    ad.file_path_root
+                    ad.file_path_root,
+                    wd.wikidata_status
                 FROM work_data wd
                 LEFT JOIN asset_data ad ON ad.work_id = wd.entity_id
                 LEFT JOIN review_data rd ON rd.entity_id = ad.asset_id
@@ -115,6 +117,8 @@ public sealed class RegistryRepository : IRegistryRepository
             conditions.Add("fd.match_source = @matchSource");
         if (query.DuplicatesOnly)
             conditions.Add("fd.has_duplicate = 1");
+        if (query.MissingUniverseOnly)
+            conditions.Add("fd.wikidata_status IN ('missing', 'manual')");
 
         var whereClause = conditions.Count > 0 ? "WHERE " + string.Join(" AND ", conditions) : "";
 
@@ -131,7 +135,7 @@ public sealed class RegistryRepository : IRegistryRepository
                 fd.entity_id, fd.title, fd.year, fd.media_type, fd.cover_url,
                 fd.match_source, fd.confidence, fd.status, fd.has_duplicate,
                 fd.review_id, fd.review_trigger, fd.has_user_locks,
-                fd.file_name, fd.author, fd.file_path_root
+                fd.file_name, fd.author, fd.file_path_root, fd.wikidata_status
             FROM full_data fd
             {whereClause}
             ORDER BY fd.confidence ASC, fd.title ASC
@@ -161,6 +165,7 @@ public sealed class RegistryRepository : IRegistryRepository
                 HasUserLocks = reader.GetInt32(11) == 1,
                 FileName = reader.IsDBNull(12) ? null : reader.GetString(12),
                 Author = reader.IsDBNull(13) ? null : reader.GetString(13),
+                WikidataStatus = reader.IsDBNull(15) ? null : reader.GetString(15),
             });
         }
 
@@ -288,6 +293,15 @@ public sealed class RegistryRepository : IRegistryRepository
             }
         }
 
+        // Load wikidata_status from the work
+        string? wikidataStatus = null;
+        using (var wsCmd = conn.CreateCommand())
+        {
+            wsCmd.CommandText = "SELECT wikidata_status FROM works WHERE id = @entityId";
+            wsCmd.Parameters.AddWithValue("@entityId", entityId.ToString());
+            wikidataStatus = wsCmd.ExecuteScalar()?.ToString();
+        }
+
         // Load work media type
         string mediaType = "";
         using (var wCmd = conn.CreateCommand())
@@ -328,6 +342,7 @@ public sealed class RegistryRepository : IRegistryRepository
             Narrator = cv("narrator"),
             Rating = cv("rating"),
             WikidataQid = cv("wikidata_qid"),
+            WikidataStatus = wikidataStatus,
             FileName = fileName ?? cv("file_name"),
             FilePath = filePath,
             ContentHash = contentHash,

@@ -396,6 +396,7 @@ builder.Services.AddSingleton<IHydrationPipelineService,     HydrationPipelineSe
 builder.Services.AddSingleton<IDeferredEnrichmentService,    DeferredEnrichmentService>();
 builder.Services.AddSingleton<IReviewQueueRepository,        ReviewQueueRepository>();
 builder.Services.AddSingleton<IRegistryRepository,           RegistryRepository>();
+builder.Services.AddSingleton<ISearchService,                SearchService>();
 builder.Services.AddSingleton<IImageCacheRepository,              ImageCacheRepository>();
 builder.Services.AddSingleton<IProviderResponseCacheRepository,  ProviderResponseCacheRepository>();
 
@@ -422,6 +423,7 @@ builder.Services.AddSingleton<ISystemActivityRepository, SystemActivityRepositor
 builder.Services.AddSingleton<IIngestionLogRepository, IngestionLogRepository>();
 builder.Services.AddSingleton<IResolverCacheRepository, ResolverCacheRepository>();
 builder.Services.AddHostedService<ActivityPruningService>();
+builder.Services.AddHostedService<MissingUniverseSweepService>();
 
 // ── Library Reconciliation: periodic scan for missing files ──────────────────
 builder.Services.AddSingleton<LibraryReconciliationService>();
@@ -486,6 +488,7 @@ app.MapUniverseGraphEndpoints();
 app.MapCanonEndpoints();
 app.MapDeferredEnrichmentEndpoints();
 app.MapRegistryEndpoints();
+app.MapSearchEndpoints();
 
 // ── Development-only seed endpoints ──────────────────────────────────────────
 if (app.Environment.IsDevelopment())

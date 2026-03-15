@@ -11,7 +11,8 @@ public sealed record RegistryQuery(
     string? Status = null,
     double? MinConfidence = null,
     string? MatchSource = null,
-    bool DuplicatesOnly = false);
+    bool DuplicatesOnly = false,
+    bool MissingUniverseOnly = false);
 
 /// <summary>A single item in the registry listing.</summary>
 public sealed record RegistryItem
@@ -34,6 +35,13 @@ public sealed record RegistryItem
     [JsonPropertyName("file_name")]      public string? FileName { get; init; }
     [JsonPropertyName("file_size_bytes")]public long? FileSizeBytes { get; init; }
     [JsonPropertyName("author")]         public string? Author { get; init; }
+
+    [JsonPropertyName("wikidata_status")]
+    public string? WikidataStatus { get; init; }
+
+    /// <summary>True when wikidata_status is 'missing' or 'manual' (no Wikidata QID resolved).</summary>
+    [JsonPropertyName("missing_universe")]
+    public bool MissingUniverse => WikidataStatus is "missing" or "manual";
 }
 
 /// <summary>Paginated result from registry listing.</summary>
@@ -68,6 +76,12 @@ public sealed record RegistryItemDetail
     [JsonPropertyName("narrator")]        public string? Narrator { get; init; }
     [JsonPropertyName("rating")]          public string? Rating { get; init; }
     [JsonPropertyName("wikidata_qid")]    public string? WikidataQid { get; init; }
+
+    [JsonPropertyName("wikidata_status")]
+    public string? WikidataStatus { get; init; }
+
+    [JsonPropertyName("missing_universe")]
+    public bool MissingUniverse => WikidataStatus is "missing" or "manual";
 
     // Original input
     [JsonPropertyName("file_name")]       public string? FileName { get; init; }

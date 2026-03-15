@@ -1807,7 +1807,8 @@ public sealed class EngineApiClient : IEngineApiClient
         int offset = 0, int limit = 50,
         string? search = null, string? type = null, string? status = null,
         double? minConfidence = null, string? matchSource = null,
-        bool duplicatesOnly = false, CancellationToken ct = default)
+        bool duplicatesOnly = false, bool missingUniverseOnly = false,
+        CancellationToken ct = default)
     {
         try
         {
@@ -1824,6 +1825,8 @@ public sealed class EngineApiClient : IEngineApiClient
                 url += $"&matchSource={Uri.EscapeDataString(matchSource)}";
             if (duplicatesOnly)
                 url += "&duplicatesOnly=true";
+            if (missingUniverseOnly)
+                url += "&missingUniverseOnly=true";
 
             return await _http.GetFromJsonAsync<RegistryPageResponse>(url, ct);
         }
@@ -1864,6 +1867,114 @@ public sealed class EngineApiClient : IEngineApiClient
         {
             _logger.LogWarning(ex, "GET /registry/counts failed");
             LastError = ex.Message;
+            return null;
+        }
+    }
+
+    // ── Search (/search) ─────────────────────────────────────────────────────
+
+    public async Task<SearchUniverseResponseDto?> SearchUniverseAsync(
+        string query, string mediaType, int maxCandidates = 5,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var payload = new SearchUniverseRequestDto
+            {
+                Query         = query,
+                MediaType     = mediaType,
+                MaxCandidates = maxCandidates,
+            };
+            var resp = await _http.PostAsJsonAsync("/search/universe", payload, ct);
+            if (!resp.IsSuccessStatusCode)
+            {
+                LastError = $"POST /search/universe failed: {resp.StatusCode}";
+                return null;
+            }
+            return await resp.Content.ReadFromJsonAsync<SearchUniverseResponseDto>(ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            LastError = ex.Message;
+            _logger.LogWarning(ex, "POST /search/universe failed");
+            return null;
+        }
+    }
+
+    public async Task<SearchRetailResponseDto?> SearchRetailAsync(
+        string query, string mediaType, int maxCandidates = 5,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var payload = new SearchRetailRequestDto
+            {
+                Query         = query,
+                MediaType     = mediaType,
+                MaxCandidates = maxCandidates,
+            };
+            var resp = await _http.PostAsJsonAsync("/search/retail", payload, ct);
+            if (!resp.IsSuccessStatusCode)
+            {
+                LastError = $"POST /search/retail failed: {resp.StatusCode}";
+                return null;
+            }
+            return await resp.Content.ReadFromJsonAsync<SearchRetailResponseDto>(ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            LastError = ex.Message;
+            _logger.LogWarning(ex, "POST /search/retail failed");
+            return null;
+        }
+    }
+
+    public async Task<ApplyMatchResponseDto?> ApplyRegistryMatchAsync(
+        Guid entityId, ApplyMatchRequestDto request,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var resp = await _http.PostAsJsonAsync(
+                $"/registry/items/{entityId}/apply-match", request, ct);
+            if (!resp.IsSuccessStatusCode)
+            {
+                LastError = $"POST /registry/.../apply-match failed: {resp.StatusCode}";
+                return null;
+            }
+            return await resp.Content.ReadFromJsonAsync<ApplyMatchResponseDto>(ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            LastError = ex.Message;
+            _logger.LogWarning(ex, "POST /registry/items/{EntityId}/apply-match failed", entityId);
+            return null;
+        }
+    }
+
+    public async Task<CreateManualResponseDto?> CreateManualEntryAsync(
+        Guid entityId, CreateManualRequestDto request,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var resp = await _http.PostAsJsonAsync(
+                $"/registry/items/{entityId}/create-manual", request, ct);
+            if (!resp.IsSuccessStatusCode)
+            {
+                LastError = $"POST /registry/.../create-manual failed: {resp.StatusCode}";
+                return null;
+            }
+            return await resp.Content.ReadFromJsonAsync<CreateManualResponseDto>(ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            LastError = ex.Message;
+            _logger.LogWarning(ex, "POST /registry/items/{EntityId}/create-manual failed", entityId);
             return null;
         }
     }

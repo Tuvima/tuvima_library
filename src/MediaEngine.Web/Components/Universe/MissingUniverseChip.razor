@@ -1,0 +1,27 @@
+@* Amber chip shown on registry items that have no Wikidata QID (status 'missing' or 'manual'). *@
+
+@if (Show)
+{
+    <MudTooltip Text="@TooltipText" Arrow="true" Placement="Placement.Top">
+        <MudChip T="string"
+                 Size="Size.Small"
+                 Variant="Variant.Filled"
+                 Style="background: rgba(234,179,8,0.18); color: #EAB308; font-size: 0.68rem; height: 20px; padding: 0 8px;">
+            <MudIcon Icon="@Icons.Material.Outlined.Public" Size="Size.Small"
+                     Style="font-size: 0.7rem; margin-right: 3px;" />
+            @Label
+        </MudChip>
+    </MudTooltip>
+}
+
+@code {
+    /// <summary>Whether to show the chip. Bind to item.MissingUniverse.</summary>
+    [Parameter] public bool Show { get; set; }
+
+    /// <summary>Chip label. Defaults differ for 'missing' vs 'manual' status.</summary>
+    [Parameter] public string Label { get; set; } = "Missing Universe";
+
+    /// <summary>Tooltip message.</summary>
+    [Parameter] public string TooltipText { get; set; } =
+        "This item has no Wikidata identity. Use 'Find Match' to link it to the universe.";
+}

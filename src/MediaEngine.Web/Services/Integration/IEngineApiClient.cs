@@ -415,13 +415,36 @@ public interface IEngineApiClient
         int offset = 0, int limit = 50,
         string? search = null, string? type = null, string? status = null,
         double? minConfidence = null, string? matchSource = null,
-        bool duplicatesOnly = false, CancellationToken ct = default);
+        bool duplicatesOnly = false, bool missingUniverseOnly = false,
+        CancellationToken ct = default);
 
     /// <summary>GET /registry/items/{entityId}/detail — full detail for expanded row.</summary>
     Task<RegistryItemDetailViewModel?> GetRegistryItemDetailAsync(Guid entityId, CancellationToken ct = default);
 
     /// <summary>GET /registry/counts — status counts for tab badges.</summary>
     Task<RegistryStatusCountsDto?> GetRegistryStatusCountsAsync(CancellationToken ct = default);
+
+    // ── Search (/search) ──────────────────────────────────────────────────
+
+    /// <summary>POST /search/universe — search Wikidata for identity candidates, enriched with cover art.</summary>
+    Task<SearchUniverseResponseDto?> SearchUniverseAsync(
+        string query, string mediaType, int maxCandidates = 5,
+        CancellationToken ct = default);
+
+    /// <summary>POST /search/retail — search retail providers for cover art and basic metadata.</summary>
+    Task<SearchRetailResponseDto?> SearchRetailAsync(
+        string query, string mediaType, int maxCandidates = 5,
+        CancellationToken ct = default);
+
+    /// <summary>POST /registry/items/{entityId}/apply-match — apply a Universe or Retail match.</summary>
+    Task<ApplyMatchResponseDto?> ApplyRegistryMatchAsync(
+        Guid entityId, ApplyMatchRequestDto request,
+        CancellationToken ct = default);
+
+    /// <summary>POST /registry/items/{entityId}/create-manual — create a manual metadata entry.</summary>
+    Task<CreateManualResponseDto?> CreateManualEntryAsync(
+        Guid entityId, CreateManualRequestDto request,
+        CancellationToken ct = default);
 }
 
 

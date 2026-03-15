@@ -1,0 +1,138 @@
+@inject UIOrchestratorService Orchestrator
+
+<div class="manual-form">
+    <h4 class="manual-form-title">Create Manual Entry</h4>
+    <p class="manual-form-hint">
+        Enter the metadata you know. This item will be marked for a future Universe sweep.
+    </p>
+
+    <div class="manual-form-fields">
+        <MudTextField @bind-Value="_title" Label="Title *" Required="true"
+                      Variant="Variant.Outlined" FullWidth="true" />
+
+        <div class="manual-form-row">
+            <MudTextField @bind-Value="_author" Label="Author / Creator"
+                          Variant="Variant.Outlined" Style="flex: 1;" />
+
+            <MudTextField @bind-Value="_year" Label="Year"
+                          Variant="Variant.Outlined" Style="max-width: 100px;"
+                          InputType="InputType.Number" />
+        </div>
+
+        <MudTextField @bind-Value="_description" Label="Description"
+                      Variant="Variant.Outlined" Lines="3" FullWidth="true" />
+    </div>
+
+    @if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-2">@_errorMessage</MudAlert>
+    }
+
+    <div class="manual-form-actions">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   OnClick="SubmitManualEntry"
+                   Disabled="@(_submitting || string.IsNullOrWhiteSpace(_title))"
+                   Size="Size.Small">
+            @(_submitting ? "Saving…" : "Create Entry")
+        </MudButton>
+    </div>
+</div>
+
+<style>
+    .manual-form {
+        margin-top: 12px;
+        padding: 16px;
+        background: rgba(255,255,255,0.03);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 8px;
+    }
+
+    .manual-form-title {
+        font-family: 'Montserrat', sans-serif;
+        font-weight: 600;
+        color: #fff;
+        margin: 0 0 4px 0;
+        font-size: 0.95rem;
+    }
+
+    .manual-form-hint {
+        font-size: 0.78rem;
+        color: rgba(255,255,255,0.45);
+        margin: 0 0 14px 0;
+    }
+
+    .manual-form-fields {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .manual-form-row {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+    }
+
+    .manual-form-actions {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 14px;
+    }
+</style>
+
+@code {
+    [Parameter] public Guid EntityId { get; set; }
+    [Parameter] public string? DefaultTitle { get; set; }
+    [Parameter] public string? DefaultMediaType { get; set; }
+    [Parameter] public EventCallback<CreateManualResponseDto> OnEntryCreated { get; set; }
+
+    private string _title = "";
+    private string? _author;
+    private string? _year;
+    private string? _description;
+    private bool _submitting;
+    private string? _errorMessage;
+
+    protected override void OnParametersSet()
+    {
+        if (!string.IsNullOrWhiteSpace(DefaultTitle) && string.IsNullOrWhiteSpace(_title))
+            _title = DefaultTitle;
+    }
+
+    private async Task SubmitManualEntry()
+    {
+        if (string.IsNullOrWhiteSpace(_title)) return;
+
+        _submitting = true;
+        _errorMessage = null;
+
+        try
+        {
+            var result = await Orchestrator.CreateManualEntryAsync(EntityId, new CreateManualRequestDto
+            {
+                Title       = _title,
+                MediaType   = DefaultMediaType,
+                Author      = string.IsNullOrWhiteSpace(_author) ? null : _author,
+                Year        = string.IsNullOrWhiteSpace(_year) ? null : _year,
+                Description = string.IsNullOrWhiteSpace(_description) ? null : _description,
+            });
+
+            if (result is not null)
+            {
+                await OnEntryCreated.InvokeAsync(result);
+            }
+            else
+            {
+                _errorMessage = "Failed to create manual entry.";
+            }
+        }
+        catch (Exception)
+        {
+            _errorMessage = "Error creating entry.";
+        }
+        finally
+        {
+            _submitting = false;
+        }
+    }
+}

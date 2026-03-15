@@ -58,6 +58,13 @@ public sealed class RegistryItemViewModel
 
     [JsonPropertyName("author")]
     public string? Author { get; set; }
+
+    [JsonPropertyName("wikidata_status")]
+    public string? WikidataStatus { get; set; }
+
+    /// <summary>True when wikidata_status is 'missing' or 'manual' (no Wikidata QID resolved).</summary>
+    [JsonPropertyName("missing_universe")]
+    public bool MissingUniverse => WikidataStatus is "missing" or "manual";
 }
 
 /// <summary>Paginated registry response.</summary>
@@ -157,6 +164,12 @@ public sealed class RegistryItemDetailViewModel
 
     [JsonPropertyName("wikidata_qid")]
     public string? WikidataQid { get; set; }
+
+    [JsonPropertyName("wikidata_status")]
+    public string? WikidataStatus { get; set; }
+
+    [JsonPropertyName("missing_universe")]
+    public bool MissingUniverse => WikidataStatus is "missing" or "manual";
 
     [JsonPropertyName("file_name")]
     public string? FileName { get; set; }

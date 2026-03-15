@@ -52,6 +52,9 @@ public static class SystemActionType
 
     // ── Hydration Pipeline (Three-Stage) ─────────────────────────────────────
 
+    /// <summary>A Universe QID was recovered for an item previously matched only via retail providers.</summary>
+    public const string UniverseMatchRecovered = "UniverseMatchRecovered";
+
     /// <summary>Hydration Stage 1 (Authority Match — Wikidata) completed for an entity.</summary>
     public const string HydrationStage1Completed = "HydrationStage1Completed";
 

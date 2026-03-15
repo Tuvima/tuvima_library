@@ -1,0 +1,594 @@
+@inject UIOrchestratorService Orchestrator
+
+<div class="search-panel">
+    @* ── Search Controls ── *@
+    <div class="search-panel-controls">
+        <MudTextField @bind-Value="_query"
+                      Placeholder="Search title, author, ISBN..."
+                      Variant="Variant.Outlined"
+                      Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Filled.Search"
+                      Immediate="false"
+                      Class="search-panel-input"
+                      Style="flex: 1;" />
+
+        <MudSelect T="string" @bind-Value="_mediaType"
+                   Label="Type" Variant="Variant.Outlined"
+                   Dense="true" Style="min-width: 130px;"
+                   AnchorOrigin="Origin.BottomCenter">
+            <MudSelectItem T="string" Value="@("Epub")">Book</MudSelectItem>
+            <MudSelectItem T="string" Value="@("Audiobook")">Audiobook</MudSelectItem>
+            <MudSelectItem T="string" Value="@("Movies")">Movie</MudSelectItem>
+            <MudSelectItem T="string" Value="@("TV")">TV Show</MudSelectItem>
+            <MudSelectItem T="string" Value="@("Music")">Music</MudSelectItem>
+            <MudSelectItem T="string" Value="@("Comics")">Comic</MudSelectItem>
+            <MudSelectItem T="string" Value="@("Podcasts")">Podcast</MudSelectItem>
+        </MudSelect>
+
+        <MudTooltip Text="@GetModeTooltip()" Arrow="true" Placement="Placement.Top">
+            <MudSelect T="string" @bind-Value="_searchMode"
+                       Label="Mode" Variant="Variant.Outlined"
+                       Dense="true" Style="min-width: 110px;"
+                       AnchorOrigin="Origin.BottomCenter">
+                <MudSelectItem T="string" Value="@("Universe")">Universe</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Retail")">Retail</MudSelectItem>
+            </MudSelect>
+        </MudTooltip>
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   OnClick="RunSearch"
+                   Disabled="@(_searching || string.IsNullOrWhiteSpace(_query))"
+                   StartIcon="@Icons.Material.Filled.Search"
+                   Size="Size.Medium">
+            Search
+        </MudButton>
+    </div>
+
+    @* ── Search State ── *@
+    @if (_searching)
+    {
+        <MudProgressLinear Indeterminate="true" Color="Color.Primary"
+                           Class="mt-2 mb-2" Style="border-radius: 4px;" />
+        <p class="search-panel-hint">
+            @if (_searchMode == "Universe")
+            {
+                <text>Searching Wikidata and enriching top candidates with cover art…</text>
+            }
+            else
+            {
+                <text>Searching retail providers…</text>
+            }
+        </p>
+    }
+
+    @if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-2">@_errorMessage</MudAlert>
+    }
+
+    @* ── Results ── *@
+    @if (_universeCandidates.Count > 0 && _searchMode == "Universe")
+    {
+        <div class="search-results-grid">
+            @foreach (var c in _universeCandidates)
+            {
+                var isSelected = _selectedQid == c.Qid;
+                <div class="search-result-card @(isSelected ? "search-result-card-selected" : "")"
+                     @onclick="@(() => SelectUniverseCandidate(c))">
+                    @* Cover Art *@
+                    <div class="search-result-cover">
+                        @if (!string.IsNullOrEmpty(c.CoverUrl))
+                        {
+                            <img src="@c.CoverUrl" alt="" class="search-result-img" loading="lazy" />
+                        }
+                        else
+                        {
+                            <div class="search-result-img-placeholder">
+                                <MudIcon Icon="@Icons.Material.Outlined.Public"
+                                         Size="Size.Medium" Style="opacity: 0.3;" />
+                            </div>
+                        }
+                    </div>
+                    @* Details *@
+                    <div class="search-result-details">
+                        <div class="search-result-title">@c.Label</div>
+                        @if (!string.IsNullOrEmpty(c.Year) || !string.IsNullOrEmpty(c.Author) || !string.IsNullOrEmpty(c.Director))
+                        {
+                            <div class="search-result-meta">
+                                @if (!string.IsNullOrEmpty(c.Year)) { @c.Year }
+                                @if (!string.IsNullOrEmpty(c.Author)) { <text> · @c.Author</text> }
+                                @if (!string.IsNullOrEmpty(c.Director)) { <text> · dir. @c.Director</text> }
+                            </div>
+                        }
+                        @if (!string.IsNullOrEmpty(c.WikipediaExtract ?? c.Description))
+                        {
+                            <div class="search-result-description">
+                                @TruncateText(c.WikipediaExtract ?? c.Description, 120)
+                            </div>
+                        }
+                        <div class="search-result-footer">
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                                     Style="font-size: 0.65rem; height: 18px; padding: 0 6px; color: #C9922E; border-color: rgba(201,146,46,0.4);">
+                                @c.Qid
+                            </MudChip>
+                            @if (!string.IsNullOrEmpty(c.InstanceOf))
+                            {
+                                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                                         Style="font-size: 0.65rem; height: 18px; padding: 0 6px; color: #888; border-color: rgba(255,255,255,0.12);">
+                                    @TruncateText(c.InstanceOf, 30)
+                                </MudChip>
+                            }
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Filled"
+                                     Style="@GetConfidenceStyle(c.Confidence)">
+                                @((int)(c.Confidence * 100))%
+                            </MudChip>
+                        </div>
+                    </div>
+                    @* Selected indicator *@
+                    @if (isSelected)
+                    {
+                        <div class="search-result-selected-icon">
+                            <MudIcon Icon="@Icons.Material.Filled.CheckCircle"
+                                     Style="color: #4CAF50;" Size="Size.Medium" />
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    }
+
+    @if (_retailCandidates.Count > 0 && _searchMode == "Retail")
+    {
+        <div class="search-results-grid">
+            @foreach (var c in _retailCandidates)
+            {
+                var isSelectedRetail = _selectedRetailCandidate == c;
+                <div class="search-result-card @(isSelectedRetail ? "search-result-card-selected" : "")"
+                     @onclick="@(() => SelectRetailCandidate(c))">
+                    <div class="search-result-cover">
+                        @if (!string.IsNullOrEmpty(c.CoverUrl))
+                        {
+                            <img src="@c.CoverUrl" alt="" class="search-result-img" loading="lazy" />
+                        }
+                        else
+                        {
+                            <div class="search-result-img-placeholder">
+                                <MudIcon Icon="@Icons.Material.Outlined.Storefront"
+                                         Size="Size.Medium" Style="opacity: 0.3;" />
+                            </div>
+                        }
+                    </div>
+                    <div class="search-result-details">
+                        <div class="search-result-title">@c.Title</div>
+                        @if (!string.IsNullOrEmpty(c.Year) || !string.IsNullOrEmpty(c.Author))
+                        {
+                            <div class="search-result-meta">
+                                @if (!string.IsNullOrEmpty(c.Year)) { @c.Year }
+                                @if (!string.IsNullOrEmpty(c.Author)) { <text> · @c.Author</text> }
+                            </div>
+                        }
+                        @if (!string.IsNullOrEmpty(c.Description))
+                        {
+                            <div class="search-result-description">@TruncateText(c.Description, 100)</div>
+                        }
+                        <div class="search-result-footer">
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                                     Style="font-size: 0.65rem; height: 18px; padding: 0 6px; color: #888; border-color: rgba(255,255,255,0.12);">
+                                @c.ProviderName
+                            </MudChip>
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Filled"
+                                     Style="@GetConfidenceStyle(c.Confidence)">
+                                @((int)(c.Confidence * 100))%
+                            </MudChip>
+                        </div>
+                    </div>
+                    @if (isSelectedRetail)
+                    {
+                        <div class="search-result-selected-icon">
+                            <MudIcon Icon="@Icons.Material.Filled.CheckCircle"
+                                     Style="color: #4CAF50;" Size="Size.Medium" />
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    }
+
+    @if (_hasSearched && _universeCandidates.Count == 0 && _retailCandidates.Count == 0 && !_searching)
+    {
+        <div class="search-no-results">
+            <MudIcon Icon="@Icons.Material.Outlined.SearchOff" Size="Size.Large" Style="opacity: 0.3;" />
+            <p>No matches found.</p>
+            @if (_searchMode == "Universe")
+            {
+                <p class="search-panel-hint">Try switching to Retail mode, or create a manual entry.</p>
+            }
+        </div>
+    }
+
+    @* ── Action Buttons ── *@
+    @if (_hasSearched || _showManualForm)
+    {
+        <div class="search-panel-actions">
+            @if (!_showManualForm)
+            {
+                <MudButton Variant="Variant.Filled" Color="Color.Success"
+                           StartIcon="@Icons.Material.Filled.Check"
+                           OnClick="ApplySelected"
+                           Disabled="@(_applying || (!HasSelection()))"
+                           Size="Size.Small">
+                    @(_applying ? "Applying…" : "Apply Match")
+                </MudButton>
+            }
+
+            <MudButton Variant="Variant.Outlined" Color="Color.Default"
+                       StartIcon="@Icons.Material.Outlined.Edit"
+                       OnClick="@(() => _showManualForm = !_showManualForm)"
+                       Size="Size.Small">
+                @(_showManualForm ? "Cancel Manual Entry" : "Create Manually")
+            </MudButton>
+        </div>
+    }
+
+    @* ── Manual Entry Form ── *@
+    @if (_showManualForm)
+    {
+        <ManualEntryForm EntityId="EntityId"
+                         DefaultTitle="@InitialQuery"
+                         DefaultMediaType="@InitialMediaType"
+                         OnEntryCreated="OnManualEntryCreated" />
+    }
+
+    @if (!string.IsNullOrEmpty(_successMessage))
+    {
+        <MudAlert Severity="Severity.Success" Dense="true" Class="mt-2">@_successMessage</MudAlert>
+    }
+</div>
+
+@* ── Styles ── *@
+<style>
+    .search-panel {
+        padding: 16px 0 8px 0;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .search-panel-controls {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .search-panel-input {
+        flex: 1;
+        min-width: 200px;
+    }
+
+    .search-panel-hint {
+        font-size: 0.8rem;
+        color: rgba(255,255,255,0.45);
+        margin: 0;
+        text-align: center;
+    }
+
+    .search-results-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        max-height: 420px;
+        overflow-y: auto;
+        padding-right: 4px;
+    }
+
+    .search-result-card {
+        display: flex;
+        align-items: flex-start;
+        gap: 14px;
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 8px;
+        padding: 12px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        position: relative;
+    }
+
+    .search-result-card:hover {
+        background: rgba(255,255,255,0.07);
+        border-color: rgba(201,146,46,0.3);
+    }
+
+    .search-result-card-selected {
+        background: rgba(201,146,46,0.08) !important;
+        border-color: rgba(201,146,46,0.5) !important;
+    }
+
+    .search-result-cover {
+        flex-shrink: 0;
+        width: 56px;
+        height: 80px;
+    }
+
+    .search-result-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        border-radius: 4px;
+    }
+
+    .search-result-img-placeholder {
+        width: 100%;
+        height: 100%;
+        background: rgba(255,255,255,0.05);
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .search-result-details {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .search-result-title {
+        font-family: 'Montserrat', sans-serif;
+        font-weight: 600;
+        font-size: 0.9rem;
+        color: #fff;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .search-result-meta {
+        font-size: 0.78rem;
+        color: rgba(255,255,255,0.5);
+    }
+
+    .search-result-description {
+        font-size: 0.78rem;
+        color: rgba(255,255,255,0.4);
+        line-height: 1.4;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .search-result-footer {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        align-items: center;
+        margin-top: 2px;
+    }
+
+    .search-result-selected-icon {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+    }
+
+    .search-no-results {
+        text-align: center;
+        padding: 24px;
+        color: rgba(255,255,255,0.4);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .search-panel-actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+</style>
+
+@code {
+    /// <summary>The registry entity ID this panel is searching for.</summary>
+    [Parameter] public Guid EntityId { get; set; }
+
+    /// <summary>Pre-filled search query (typically the item's title).</summary>
+    [Parameter] public string? InitialQuery { get; set; }
+
+    /// <summary>Pre-selected media type (from the item's detected type).</summary>
+    [Parameter] public string? InitialMediaType { get; set; }
+
+    /// <summary>Fires when a match has been successfully applied.</summary>
+    [Parameter] public EventCallback<ApplyMatchResponseDto> OnMatchApplied { get; set; }
+
+    // ── State ──────────────────────────────────────────────────────────────
+
+    private string _query = "";
+    private string _mediaType = "Epub";
+    private string _searchMode = "Universe";
+
+    private bool _searching;
+    private bool _applying;
+    private bool _hasSearched;
+    private bool _showManualForm;
+
+    private List<UniverseCandidateDto> _universeCandidates = [];
+    private List<RetailCandidateDto> _retailCandidates = [];
+
+    private string? _selectedQid;
+    private RetailCandidateDto? _selectedRetailCandidate;
+
+    private string? _errorMessage;
+    private string? _successMessage;
+
+    // ── Lifecycle ──────────────────────────────────────────────────────────
+
+    protected override void OnParametersSet()
+    {
+        if (!string.IsNullOrWhiteSpace(InitialQuery) && string.IsNullOrWhiteSpace(_query))
+            _query = InitialQuery;
+
+        if (!string.IsNullOrWhiteSpace(InitialMediaType) && _mediaType == "Epub")
+            _mediaType = InitialMediaType;
+    }
+
+    // ── Search ─────────────────────────────────────────────────────────────
+
+    private async Task RunSearch()
+    {
+        if (string.IsNullOrWhiteSpace(_query)) return;
+
+        _searching = true;
+        _hasSearched = false;
+        _errorMessage = null;
+        _successMessage = null;
+        _universeCandidates = [];
+        _retailCandidates = [];
+        _selectedQid = null;
+        _selectedRetailCandidate = null;
+
+        try
+        {
+            if (_searchMode == "Universe")
+            {
+                var result = await Orchestrator.SearchUniverseAsync(_query, _mediaType, maxCandidates: 5);
+                _universeCandidates = result;
+            }
+            else
+            {
+                var result = await Orchestrator.SearchRetailAsync(_query, _mediaType, maxCandidates: 5);
+                _retailCandidates = result;
+            }
+
+            _hasSearched = true;
+        }
+        catch (Exception)
+        {
+            _errorMessage = "Search failed. Please check the Engine connection.";
+        }
+        finally
+        {
+            _searching = false;
+        }
+    }
+
+    // ── Selection ──────────────────────────────────────────────────────────
+
+    private void SelectUniverseCandidate(UniverseCandidateDto candidate)
+    {
+        _selectedQid = _selectedQid == candidate.Qid ? null : candidate.Qid;
+        _selectedRetailCandidate = null;
+    }
+
+    private void SelectRetailCandidate(RetailCandidateDto candidate)
+    {
+        _selectedRetailCandidate = _selectedRetailCandidate == candidate ? null : candidate;
+        _selectedQid = null;
+    }
+
+    private bool HasSelection() => !string.IsNullOrEmpty(_selectedQid) || _selectedRetailCandidate is not null;
+
+    // ── Apply ──────────────────────────────────────────────────────────────
+
+    private async Task ApplySelected()
+    {
+        if (!HasSelection()) return;
+
+        _applying = true;
+        _errorMessage = null;
+
+        try
+        {
+            ApplyMatchResponseDto? result;
+
+            if (_searchMode == "Universe" && !string.IsNullOrEmpty(_selectedQid))
+            {
+                var candidate = _universeCandidates.FirstOrDefault(c => c.Qid == _selectedQid);
+                result = await Orchestrator.ApplyRegistryMatchAsync(EntityId, new ApplyMatchRequestDto
+                {
+                    Mode        = "Universe",
+                    Qid         = _selectedQid,
+                    Title       = candidate?.Label,
+                    Year        = candidate?.Year,
+                    Author      = candidate?.Author,
+                    Director    = candidate?.Director,
+                    Description = candidate?.WikipediaExtract ?? candidate?.Description,
+                    CoverUrl    = candidate?.CoverUrl,
+                });
+            }
+            else if (_selectedRetailCandidate is not null)
+            {
+                result = await Orchestrator.ApplyRegistryMatchAsync(EntityId, new ApplyMatchRequestDto
+                {
+                    Mode        = "Retail",
+                    Title       = _selectedRetailCandidate.Title,
+                    Year        = _selectedRetailCandidate.Year,
+                    Author      = _selectedRetailCandidate.Author,
+                    Director    = _selectedRetailCandidate.Director,
+                    Description = _selectedRetailCandidate.Description,
+                    CoverUrl    = _selectedRetailCandidate.CoverUrl,
+                });
+            }
+            else
+            {
+                return;
+            }
+
+            if (result is not null)
+            {
+                _successMessage = result.Message ?? "Match applied successfully.";
+                await OnMatchApplied.InvokeAsync(result);
+            }
+            else
+            {
+                _errorMessage = "Failed to apply match.";
+            }
+        }
+        catch (Exception)
+        {
+            _errorMessage = "Error applying match.";
+        }
+        finally
+        {
+            _applying = false;
+        }
+    }
+
+    private async Task OnManualEntryCreated(CreateManualResponseDto response)
+    {
+        _showManualForm = false;
+        _successMessage = response.Message ?? "Manual entry created.";
+        // Synthesise an ApplyMatchResponseDto from the manual response
+        await OnMatchApplied.InvokeAsync(new ApplyMatchResponseDto
+        {
+            EntityId       = response.EntityId,
+            WikidataStatus = response.WikidataStatus,
+            ClaimsWritten  = response.ClaimsWritten,
+            Message        = response.Message,
+        });
+    }
+
+    // ── Helpers ────────────────────────────────────────────────────────────
+
+    private static string GetModeTooltip() =>
+        "Universe: Search Wikidata for identity and relationships.\nRetail: Search providers like TMDB and Apple Books for cover art and basic details.";
+
+    private static string GetConfidenceStyle(double conf) => conf switch
+    {
+        >= 0.90 => "background: rgba(76,175,80,0.2); color: #4CAF50; font-size: 0.65rem; height: 18px; padding: 0 6px;",
+        >= 0.75 => "background: rgba(38,166,154,0.2); color: #26A69A; font-size: 0.65rem; height: 18px; padding: 0 6px;",
+        >= 0.60 => "background: rgba(234,179,8,0.2); color: #EAB308; font-size: 0.65rem; height: 18px; padding: 0 6px;",
+        _ => "background: rgba(239,83,80,0.2); color: #EF5350; font-size: 0.65rem; height: 18px; padding: 0 6px;",
+    };
+
+    private static string TruncateText(string? text, int maxLength)
+    {
+        if (string.IsNullOrEmpty(text)) return "";
+        return text.Length <= maxLength ? text : text[..maxLength] + "…";
+    }
+}

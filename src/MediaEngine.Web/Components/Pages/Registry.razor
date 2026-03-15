@@ -92,6 +92,10 @@
                    Color="Color.Warning" Class="ml-2"
                    ValueChanged="@OnDuplicatesToggled" />
 
+        <MudSwitch T="bool" Value="@_missingUniverseOnly" Label="Missing Universe"
+                   Color="Color.Warning" Class="ml-2"
+                   ValueChanged="@OnMissingUniverseToggled" />
+
         <MudButton Variant="Variant.Text" Color="Color.Default" Size="Size.Small"
                    OnClick="ResetFilters" Class="ml-auto">
             Reset
@@ -240,6 +244,9 @@
                         }
                         @item.Status
                     </MudChip>
+                    <MissingUniverseChip Show="@item.MissingUniverse"
+                                         Label="@(item.WikidataStatus == "manual" ? "Manual" : "Missing Universe")"
+                                         TooltipText="@(item.WikidataStatus == "manual" ? "Manually entered — no Wikidata QID. Use Find Match to link to the universe." : "Matched to retail only. No Wikidata identity yet.")" />
                 </div>
                 <div class="registry-col-expand">
                     <MudIconButton Icon="@(isExpanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
@@ -377,10 +384,10 @@
                                         </MudButton>
                                     }
                                     <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                                               StartIcon="@Icons.Material.Filled.Edit"
-                                               OnClick="@(() => EditMatch(item))"
+                                               StartIcon="@Icons.Material.Filled.ManageSearch"
+                                               OnClick="@(() => ToggleSearchPanel(item))"
                                                FullWidth="true" Size="Size.Small">
-                                        Edit Match
+                                        @(_searchPanelEntityId == item.EntityId ? "Hide Search" : "Find Match")
                                     </MudButton>
                                     <MudButton Variant="Variant.Outlined" Color="Color.Error"
                                                StartIcon="@Icons.Material.Filled.Delete"
@@ -399,6 +406,18 @@
                                 }
                             </div>
                         </div>
+
+                        @* ── Search Panel ── *@
+                        @if (_searchPanelEntityId == item.EntityId)
+                        {
+                            <div class="registry-search-panel-wrapper">
+                                <h3 class="registry-detail-section-title">Find Match</h3>
+                                <MediaSearchPanel EntityId="@item.EntityId"
+                                                  InitialQuery="@item.Title"
+                                                  InitialMediaType="@item.MediaType"
+                                                  OnMatchApplied="@((result) => OnMatchApplied(item, result))" />
+                            </div>
+                        }
 
                         @* ── Original Input Section ── *@
                         <div class="registry-original-input">
@@ -468,6 +487,8 @@
     private int _totalCount;
     private bool _hasMore;
     private bool _allSelected;
+    private Guid? _searchPanelEntityId;
+    private bool _missingUniverseOnly;
 
     // Filters
     private string? _searchText;
@@ -519,7 +540,8 @@
             status: _statusFilter,
             minConfidence: _minConfidence > 0 ? _minConfidence / 100.0 : null,
             matchSource: null,
-            duplicatesOnly: _duplicatesOnly);
+            duplicatesOnly: _duplicatesOnly,
+            missingUniverseOnly: _missingUniverseOnly);
 
         if (result is not null)
         {
@@ -598,6 +620,12 @@
         await OnFilterChanged();
     }
 
+    private async Task OnMissingUniverseToggled(bool value)
+    {
+        _missingUniverseOnly = value;
+        await OnFilterChanged();
+    }
+
     private async Task OnFilterChanged()
     {
         _loading = true;
@@ -614,6 +642,7 @@
         _statusFilter = null;
         _minConfidence = 0;
         _duplicatesOnly = false;
+        _missingUniverseOnly = false;
         await OnFilterChanged();
     }
 
@@ -676,10 +705,22 @@
         }
     }
 
-    private Task EditMatch(RegistryItemViewModel item)
+    private void ToggleSearchPanel(RegistryItemViewModel item)
     {
-        // Navigate to settings for editing (future: inline edit dialog)
-        return Task.CompletedTask;
+        _searchPanelEntityId = _searchPanelEntityId == item.EntityId ? null : item.EntityId;
+        StateHasChanged();
+    }
+
+    private async Task OnMatchApplied(RegistryItemViewModel item, ApplyMatchResponseDto result)
+    {
+        // Update the item in-place to reflect new status
+        item.WikidataStatus = result.WikidataStatus;
+        // Re-collapse the search panel
+        _searchPanelEntityId = null;
+        // Refresh the detail for the item
+        _expandedDetail = await Orchestrator.GetRegistryItemDetailAsync(item.EntityId);
+        await LoadCountsAsync();
+        StateHasChanged();
     }
 
     private async Task RemoveItem(RegistryItemViewModel item)
@@ -1282,5 +1323,11 @@
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
         }
+    }
+
+    .registry-search-panel-wrapper {
+        margin-top: 20px;
+        padding-top: 16px;
+        border-top: 1px solid rgba(255,255,255,0.06);
     }
 </style>

@@ -590,8 +590,9 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         int offset = 0, int limit = 50,
         string? search = null, string? type = null, string? status = null,
         double? minConfidence = null, string? matchSource = null,
-        bool duplicatesOnly = false, CancellationToken ct = default)
-        => _api.GetRegistryItemsAsync(offset, limit, search, type, status, minConfidence, matchSource, duplicatesOnly, ct);
+        bool duplicatesOnly = false, bool missingUniverseOnly = false,
+        CancellationToken ct = default)
+        => _api.GetRegistryItemsAsync(offset, limit, search, type, status, minConfidence, matchSource, duplicatesOnly, missingUniverseOnly, ct);
 
     /// <summary>Returns full detail for a single registry item.</summary>
     public Task<RegistryItemDetailViewModel?> GetRegistryItemDetailAsync(Guid entityId, CancellationToken ct = default)
@@ -600,6 +601,43 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     /// <summary>Returns status counts for registry tab badges.</summary>
     public Task<RegistryStatusCountsDto?> GetRegistryStatusCountsAsync(CancellationToken ct = default)
         => _api.GetRegistryStatusCountsAsync(ct);
+
+    // ── Search ────────────────────────────────────────────────────────────────
+
+    /// <summary>POST /search/universe — Wikidata candidate search enriched with retail cover art.</summary>
+    public async Task<List<UniverseCandidateDto>> SearchUniverseAsync(
+        string query, string mediaType, int maxCandidates = 5,
+        CancellationToken ct = default)
+    {
+        var result = await _api.SearchUniverseAsync(query, mediaType, maxCandidates, ct);
+        return result?.Candidates ?? [];
+    }
+
+    /// <summary>POST /search/retail — retail provider candidate search.</summary>
+    public async Task<List<RetailCandidateDto>> SearchRetailAsync(
+        string query, string mediaType, int maxCandidates = 5,
+        CancellationToken ct = default)
+    {
+        var result = await _api.SearchRetailAsync(query, mediaType, maxCandidates, ct);
+        return result?.Candidates ?? [];
+    }
+
+    /// <summary>POST /registry/items/{entityId}/apply-match — apply a selected match.</summary>
+    public async Task<ApplyMatchResponseDto?> ApplyRegistryMatchAsync(
+        Guid entityId, ApplyMatchRequestDto request,
+        CancellationToken ct = default)
+    {
+        var result = await _api.ApplyRegistryMatchAsync(entityId, request, ct);
+        if (result is not null)
+            _state.Invalidate(); // refresh hub list since metadata changed
+        return result;
+    }
+
+    /// <summary>POST /registry/items/{entityId}/create-manual — create manual metadata entry.</summary>
+    public Task<CreateManualResponseDto?> CreateManualEntryAsync(
+        Guid entityId, CreateManualRequestDto request,
+        CancellationToken ct = default)
+        => _api.CreateManualEntryAsync(entityId, request, ct);
 
     // ── SignalR Intercom ───────────────────────────────────────────────────────
 
