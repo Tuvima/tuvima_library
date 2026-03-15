@@ -1640,6 +1640,18 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             return;
         }
 
+        // Placeholder title guard: block re-organization when the title is a
+        // well-known placeholder and no bridge ID confirms identity.
+        string? reorgTitle = metadata.GetValueOrDefault("title");
+        if (MetadataGuards.IsPlaceholderTitle(reorgTitle)
+            && !MetadataGuards.HasBridgeId(metadata))
+        {
+            _logger.LogWarning(
+                "Re-organization blocked for {Hash}: placeholder title \"{Title}\" with no bridge IDs",
+                existing.ContentHash[..12], reorgTitle ?? "(blank)");
+            return;
+        }
+
         // template already resolves the full relative path including filename
         var destPath = Path.Combine(_options.LibraryRoot, relative);
 

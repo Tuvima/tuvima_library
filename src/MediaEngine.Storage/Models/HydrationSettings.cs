@@ -120,6 +120,16 @@ public sealed class HydrationSettings
     public double Stage3WaterfallConfidenceThreshold { get; set; } = 0.65;
 
     /// <summary>
+    /// When a Wikidata QID is confirmed during hydration, the auto-organize
+    /// confidence gate is lowered from <see cref="MediaEngine.Intelligence.ScoringConfiguration.AutoLinkThreshold"/>
+    /// (0.85) to this value.  This allows audiobooks and other media types
+    /// with conservative processor confidence to be organized once their
+    /// identity is positively confirmed.
+    /// </summary>
+    [JsonPropertyName("post_hydration_organize_threshold")]
+    public double PostHydrationOrganizeThreshold { get; set; } = 0.70;
+
+    /// <summary>
     /// Minimum number of distinct works required for a universe folder to be
     /// created.  Standalone works (e.g. The Martian) with fewer than this many
     /// linked works will not generate a <c>.universe/</c> folder.

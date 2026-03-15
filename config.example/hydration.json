@@ -11,6 +11,7 @@
   "wikipedia_description_max_chars": 1000,
   "universe_title_search_auto_accept": 0.80,
   "stage3_waterfall_confidence_threshold": 0.65,
+  "post_hydration_organize_threshold": 0.70,
   "fictional_entity_enrichment_depth": 1,
   "fictional_entity_batch_size": 20,
   "enable_relationship_population": true,

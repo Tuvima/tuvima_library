@@ -871,14 +871,21 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                     $"Overall confidence {scored.OverallConfidence:P0} below threshold {hydration.AutoReviewConfidenceThreshold:P0}",
                     result, ct).ConfigureAwait(false);
             }
-            else if (scored.OverallConfidence >= scoring.AutoLinkThreshold)
+            else
             {
-                // Confidence improved above the auto-organize threshold (0.85).
-                // Auto-resolve any pending LowConfidence, ContentMatchFailed, or
-                // AuthorityMatchFailed review items and organize the file from
-                // staging into the library.
-                await TryAutoResolveAndOrganizeAsync(
-                    request, scored.OverallConfidence, ct).ConfigureAwait(false);
+                // When Wikidata confirmed a QID, identity is proven — use the lower
+                // post-hydration threshold (default 0.70) instead of the standard
+                // auto-organize gate (0.85).  This allows audiobooks and other media
+                // with conservative processor confidence to organize once identified.
+                double organizeThreshold = result.WikidataQid != null
+                    ? hydration.PostHydrationOrganizeThreshold
+                    : scoring.AutoLinkThreshold;
+
+                if (scored.OverallConfidence >= organizeThreshold)
+                {
+                    await TryAutoResolveAndOrganizeAsync(
+                        request, scored.OverallConfidence, ct).ConfigureAwait(false);
+                }
             }
 
             // Check for metadata conflicts after post-hydration re-scoring.
