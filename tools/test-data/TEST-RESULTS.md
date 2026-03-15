@@ -2,6 +2,175 @@
 
 ---
 
+## Run: 2026-03-15
+
+**Test suite:** 20 files (10 EPUB + 10 M4B) — full scenario coverage per SCENARIOS.md
+**Engine version:** current `main` (post-Chronicle Engine)
+**Database:** fresh wipe before run
+**Pass 2 (Universe Lookup):** DISABLED — `config/hydration.json` → `"two_pass_enabled": false`
+**Mode:** Full single-pass pipeline (backward compat) — deep person enrichment, Wikipedia, retail all ran; fictional entities and relationship graph did NOT run
+**Reset procedure:** manual (taskkill + rm -rf DB/watch/library) then `dotnet run --project tools/GenerateTestEpubs`
+
+### Pass 2 Status
+
+Confirmed **NOT running**. Evidence:
+- No `.universe/` folders created
+- No `FictionalEntity`, `RelationshipDiscovered`, or `UniverseGraphUpdated` events in activity log
+- No `universe.xml` sidecars
+- `DeferredEnrichmentService` looped idle (blocked by `two_pass_enabled: false`)
+
+### Summary
+
+| Metric | Result | Notes |
+|--------|--------|-------|
+| Files generated | 20 (10 EPUB + 10 M4B) | All 20 from generator ✅ |
+| Files ingested (FileIngested) | 10 | 2 duplicates, 2 orphans, 6 files re-organized after hydration w/o initial event |
+| Hubs created | 15 | Includes false-positive "MANIFEST" hub |
+| Person records | 20 | Incl. narrators — Issue #4 FIXED |
+| Review queue (Pending) | 7 | |
+| Activity log entries | 263 | |
+| Build time | 19s | 0 errors, 0 warnings |
+| FileHashed events | 30 | 20 files → 10 files hashed twice (see Issue #E) |
+
+### Scenario Outcomes
+
+| # | File | Expected | Actual | Result |
+|---|------|----------|--------|--------|
+| 1 | `dune.epub` | Auto-organized; Dune Hub | ✅ `Dune (Q190192)/Books/Dune.epub` | ✅ PASS |
+| 2 | `neuromancer.epub` | Hub; cover from provider | ✅ `Neuromancer (Q662029)` with cover | ✅ PASS |
+| 3 | `foundation.epub` | Author conflict flagged | ✅ `Foundation (Q753894)`; author conflict review item created | ✅ PASS |
+| 4 | `the-name-of-the-wind.epub` | series + series_pos | ✅ `The Name of the Wind (Q1195989)` | ✅ PASS |
+| 5 | `leviathan-wakes.epub` | Hub; QID resolved | ✅ `Leviathan Wakes (Q6535598)` | ✅ PASS |
+| 6 | `the-running-man.epub` | Hub; pseudonym link | ✅ `The Running Man (Q25551)`; Richard Bachman person record created | ✅ PASS |
+| 7 | `the-cuckoos-calling.epub` | Hub; Galbraith → Rowling | ✅ `The Cuckoo's Calling (Q13882199)`; Robert Galbraith merged → J.K. Rowling | ✅ PASS |
+| 8 | `phantom-signal-filename-only.epub` | confidence < 0.40 → `.orphans/` | ❌ FALSE POSITIVE: matched Q24238356 ("Unknown"), organized as `Unknown (Q24238356)` with 100% confidence | ❌ FAIL |
+| 9 | `corrupt-epub.epub` | `IsCorrupt=true`; quarantined | ✅ Moved to `.orphans/low-confidence/corrupt-epub.epub` | ✅ PASS |
+| 10 | `dune-duplicate.epub` | `DuplicateSkipped`; no new asset | ❌ Race condition: processed first → organized to `Dune (Q0)/Books/Dune (2).epub` | ❌ FAIL |
+| 11 | `dune-audiobook.m4b` | Joins Dune Hub | ✅ `Dune (Q190192)/Audiobooks/Dune.m4b`; same Hub as EPUB | ✅ PASS |
+| 12 | `hitchhikers-guide.m4b` | Narrator: Stephen Fry | ✅ `narrator = "Stephen Fry"`; Person record created | ✅ PASS |
+| 13 | `wool-omnibus.m4b` | Two narrator Person records | ⚠️ Organized `Wool (Q0)` but empty canonical-values (sidecar race). Person: Stefan Rudnicki created but not Amanda Donahoe or Tim Reynolds | ⚠️ PARTIAL |
+| 14 | `enders-game.m4b` | Hub; cover from provider | ✅ `Ender's Game (Q816016)`; Stefan Rudnicki narrator record | ✅ PASS |
+| 15 | `echoes-filename-only.m4b` | confidence < 0.40 → `.orphans/` | ❌ Organized to `echoes-filename-only (Q0)/Audiobooks/` | ❌ FAIL |
+| 16 | `the-wasp-factory.m4b` | Hub; Iain Banks; pseudonym check | ⚠️ Organized `Wasp Factory (Q0)` — Iain Banks person record created but Q0 (no QID) | ⚠️ PARTIAL |
+| 17 | `hp-series/harry-potter-philosophers-stone.m4b` | Full pipeline; hint primed | ⚠️ Organized `HP PS (Q0)` — Stage 1 failed to resolve QID | ⚠️ PARTIAL |
+| 18 | `hp-series/harry-potter-chamber-of-secrets.m4b` | Hint applied; QID resolved | ✅ `Harry Potter and the Chamber of Secrets (Q47209)` — QID resolved | ✅ PASS |
+| 19 | `expanse-audio/leviathan-wakes-audio.m4b` | Full pipeline; QID | ❌ Organized `Leviathan Wakes (Q0)` with empty canonical-values | ❌ FAIL |
+| 20 | `expanse-audio/calibans-war-audio.m4b` | Hub; cover | ⚠️ Organized `Caliban's War (Q0)` with cover.jpg but no QID | ⚠️ PARTIAL |
+
+**Result summary:** 9 PASS · 5 FAIL · 4 PARTIAL · 2 NEW (MANIFEST.json phantom pickup)
+
+### Confirmed Fixes (vs 2026-03-14 run)
+
+| # | Previous Issue | Status |
+|---|---------------|--------|
+| #4 | Narrator Person records not created | ✅ FIXED — Stephen Fry, Jim Dale, Jefferson Mays, Scott Brick, Stefan Rudnicki, Peter Kenny all created |
+| #5 | Corrupt EPUB not quarantined | ✅ FIXED — corrupt-epub.epub moved to `.orphans/low-confidence/` |
+| #1 | MANIFEST.json in watch folder | ✅ PARTIAL — generator now writes to parent dir, but Engine still picks it up (see Issue #B) |
+
+### Issues Found
+
+#### Issue #A — Filename-only EPUB false-positive Wikidata match (High)
+**What happened:** `phantom-signal-filename-only.epub` (no OPF metadata) was organized as `Unknown (Q24238356)` with 100% confidence. The Engine used the filename stem `phantom-signal-filename-only` as the title, Wikidata title search returned Q24238356, the QID claim scored 1.0 and dominated the overall confidence.
+**Root cause:** Filename-derived title claims should not be fed to Wikidata title search without a minimum pre-search confidence threshold. A file with no author, no year, and no cover should be treated as unidentified before any external lookup is attempted.
+**Fix scope:** `HydrationPipelineService` — add a pre-search confidence gate: if the only available claim is a filename-derived title with no author and no year, skip Stage 1 (Wikidata) entirely and route to the orphanage check.
+
+#### Issue #B — MANIFEST.json still being picked up by Engine (Medium)
+**What happened:** `MANIFEST.json` written by generator to `C:\temp\tuvima-watch\MANIFEST.json` (outside the `books/` watch path) was ingested by the Engine, matched Wikidata Q53406553 (the TV show "Manifest"), and a Hub was created. The file was then correctly quarantined to `.orphans/low-confidence/MANIFEST.json`.
+**Root cause:** Unknown. Generator correctly writes to parent directory (`Directory.GetParent(outputDir)`). Watch path in `config/libraries.json` is `C:\temp\tuvima-watch\books`. Investigate whether the `IngestionWatchService` batch-scan uses a parent-directory traversal or whether the startup scan uses a different path.
+**Investigation:** Check `IngestionWatchService.StartBatchScanAsync` — verify it uses `LibraryFolder.SourcePath` exactly, not its parent. Also check if the FileSystemWatcher is initialized with the parent directory.
+**Workaround:** Add a filename filter to the ingestion scanner to reject `.json` files.
+
+#### Issue #C — Duplicate detection race condition (High — regression)
+**What happened:** `dune-duplicate.epub` (byte-identical to `dune.epub`) was processed before `dune.epub` in the batch scan. Since no duplicate was in the DB yet, it passed the hash check and was organized to `Dune (Q0)/Books/Dune (2).epub`. The `DuplicateSkipped` event fires for the wrong file — it detects `dune.epub` as a duplicate of the already-processed `dune-duplicate.epub`.
+**Chronology (all at 01:10:35):**
+1. `dune-duplicate.epub` → EntityChainCreated, FileIngested, HydrationEnqueued, PathUpdated (organized)
+2. `DuplicateSkipped: dune-duplicate.epub` → fires from concurrent thread (too late)
+3. `DuplicateSkipped: dune.epub` → fires later at 01:11:04 (correct detection, wrong file)
+**Root cause:** TOCTOU (Time-Of-Check-Time-Of-Use) race condition. The hash check and the DB insert are not atomic. Two files with identical hashes can both pass the check before either is stored.
+**Fix scope:** Add a DB-level unique constraint on `media_assets.content_hash` (or an in-memory lock per hash in `IngestionEngine.ProcessCandidateAsync`). When the second file hits the constraint, route to `DuplicateSkipped` and abort the pipeline. This must happen BEFORE `EntityChainCreated` — the abort must be early in the pipeline.
+
+#### Issue #D — Q0 QIDs + empty canonical-values in sidecar (Medium)
+**What happened:** Several well-known titles got organized with Q0 and empty `<canonical-values />` in their sidecar: Wool, The Wasp Factory, Harry Potter PS, Leviathan Wakes audio, Caliban's War.
+**Root cause (theory 1 — sidecar written too early):** The sidecar is written when the file is first organized (pre-hydration). After hydration completes, `PathUpdated: Re-organized after hydration` fires (visible in Dune's event log), but the Q0 files do not show this event. The Q0 files appear to be organized at batch scan time (01:11:04), before Wikidata/Wikipedia/retail providers responded.
+**Root cause (theory 2 — Stage 1 failure):** These titles' Stage 1 (Wikidata) failed to resolve a QID. Without a QID, the sidecar has no wikidata_qid, and canonical values from Stage 2 (Wikipedia, requires QID) and Stage 3 (retail, uses bridge IDs from Stage 1) are absent.
+**Evidence:** 7 pending review items include `AuthorityMatchFailed` entries — consistent with Stage 1 failures for these titles.
+**Fix scope:** Investigate why well-known titles (Wool, Harry Potter PS) fail Stage 1. Check if Wikidata title search is timing out or returning too many ambiguous candidates.
+
+#### Issue #E — Double-hashing (Performance)
+**What happened:** 9 out of 20 files were hashed twice (30 total `FileHashed` events for 20 files). Files double-hashed: corrupt-epub.epub, dune-audiobook.m4b, enders-game.m4b, hitchhikers-guide.m4b, leviathan-wakes.epub, neuromancer.epub, phantom-signal-filename-only.epub, the-name-of-the-wind.epub, wool-omnibus.m4b.
+**Root cause:** On Engine startup, the batch scan detects all existing files in the watch folder and hashes them. Simultaneously, the FileSystemWatcher fires `Created` events for the same files (since they're new since last startup). Both code paths converge on `ProcessCandidateAsync`, resulting in each file being hashed twice.
+**Impact:** Low for 20 files. At 10,000-file scale, this doubles hash computation time and adds unnecessary DB writes.
+**Fix scope:** `IngestionWatchService` — after the startup batch scan completes, begin accepting FileSystemWatcher events. Or: deduplicate incoming candidate paths in the ingestion queue using a ConcurrentHashSet.
+
+#### Issue #F — PersonMerged firing multiple times for same entity (Low)
+**What happened:** 6 `PersonMerged` events for James S.A. Corey variants (`"James S. A. Corey"` with spaces → canonical). Multiple concurrent ingestion threads detected the same person-name variant and each attempted a merge.
+**Root cause:** `RecursiveIdentityService.EnrichAsync` runs concurrently for multiple files. When two files both reference "James S.A. Corey" (Leviathan Wakes EPUB and the Expanse audio files), two threads may both detect the variant name and enqueue separate merge operations.
+**Impact:** Low — the merges are idempotent. The final state is correct (one canonical record).
+**Fix scope:** Add a per-person-name lock in `RecursiveIdentityService` to prevent concurrent merge attempts for the same name.
+
+### Organized Library Structure
+
+```
+C:\temp\tuvima-library\
+  .orphans/
+    low-confidence/
+      corrupt-epub.epub      ✅ scenario 9 correctly quarantined
+      MANIFEST.json          ⚠️ should not have been picked up at all
+  .people/
+    Daniel Abraham (Q1159871)/  ← Expanse pen-name component
+    Douglas Adams (Q42)/        ← HGttG author + headshot
+    Frank Herbert (Q7934)/      ← Dune author + headshot
+    Hugh Howey (Q5931173)/      ← Wool author + headshot
+    Iain Banks (Q312579)/       ← Wasp Factory author + headshot
+    Isaac Asimov (Q34981)/      ← Foundation author + headshot
+    J.K. Rowling (Q34660)/      ← Cuckoo's Calling (via pen name merge)
+    James S.A. Corey (Q6142591)/ ← Expanse pen name
+    Jefferson Mays (Q6175538)/  ← Expanse narrator
+    Jim Dale (Q121078873)/      ← HP narrator (no headshot)
+    Orson Scott Card (Q217110)/ ← Ender's Game author + headshot
+    Patrick Rothfuss (Q514546)/ ← Kingkiller Chronicle author + headshot
+    Peter Kenny (Q123706566)/   ← narrator
+    Richard Bachman (Q3495759)/ ← King pen name
+    Scott Brick (Q12053543)/    ← Dune narrator + headshot
+    Stefan Rudnicki (Q107718615)/ ← Ender's Game narrator + headshot
+    Stephen Fry (Q192912)/      ← HGttG narrator
+    Stephen King (Q39829)/      ← Running Man author + headshot
+    Ty Franck (Q18608460)/      ← Expanse pen-name component
+    William Gibson (Q188987)/   ← Neuromancer author + headshot
+  Books/
+    Caliban's War (Q0)/                      ⚠️ Audiobooks/ (no QID)
+    Dune (Q0)/                               ❌ Books/Dune (2).epub (duplicate slipped through)
+    Dune (Q190192)/                          ✅ Books/Dune.epub + Audiobooks/Dune.m4b
+    Ender's Game (Q816016)/                  ✅ Audiobooks/Ender's Game.m4b
+    Foundation (Q753894)/                    ✅ Books/Foundation.epub
+    Harry Potter and the Chamber of Secrets (Q47209)/  ✅ Audiobooks/
+    Harry Potter and the Philosopher's Stone (Q0)/     ⚠️ Audiobooks/ (no QID)
+    Leviathan Wakes (Q0)/                    ⚠️ Audiobooks/ (empty canonical-values)
+    Leviathan Wakes (Q6535598)/              ✅ Books/Leviathan Wakes.epub
+    Neuromancer (Q662029)/                   ✅ Books/Neuromancer.epub
+    The Cuckoo's Calling (Q13882199)/        ✅ Books/ (R. Galbraith → J.K. Rowling merged)
+    The Hitchhiker's Guide to the Galaxy (Q3107329)/  ✅ Audiobooks/ (narrator: Stephen Fry)
+    The Name of the Wind (Q1195989)/         ✅ Books/
+    The Running Man (Q25551)/                ✅ Books/ (Richard Bachman person record)
+    The Wasp Factory (Q0)/                   ⚠️ Audiobooks/ (no QID)
+    Unknown (Q24238356)/                     ❌ Books/Unknown.epub (phantom-signal false positive)
+    Wool (Q0)/                               ⚠️ Audiobooks/ (empty canonical-values)
+    echoes-filename-only (Q0)/               ❌ Audiobooks/ (should be in .orphans/)
+```
+
+### Prioritized Next Actions
+
+| Priority | Issue | Effort | Impact |
+|----------|-------|--------|--------|
+| 1 — High | #A Filename-only false positive Wikidata match | Medium | Files with no metadata should never Stage 1 |
+| 2 — High | #C Duplicate detection race condition | Medium | DB unique constraint on content_hash |
+| 3 — High | #D Q0 QIDs for known titles (Wool, HP PS, etc.) | Investigate | Stage 1 timeout or disambiguation failure |
+| 4 — Medium | #B MANIFEST.json pickup from parent directory | Small | Add .json extension filter to ingestion scanner |
+| 5 — Low | #E Double-hashing on startup | Small | Deduplicate ingestion queue candidates |
+| 6 — Low | #F PersonMerged concurrency (idempotent) | Small | Per-name lock in RecursiveIdentityService |
+
+---
+
 ## Run: 2026-03-14
 
 **Test suite:** 20 files (10 EPUB + 10 M4B) — full scenario coverage per SCENARIOS.md
