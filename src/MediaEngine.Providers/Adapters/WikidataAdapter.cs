@@ -75,6 +75,7 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
     private readonly IConfigurationLoader _configLoader;
     private readonly IQidLabelRepository _qidLabelRepo;
     private readonly IProviderResponseCacheRepository _cacheRepo;
+    private readonly IResolverCacheRepository _resolverCache;
     private readonly ILogger<WikidataAdapter> _logger;
 
     // Throttle shared across all instances (static) — Wikidata policy: 1 req/s.
@@ -114,18 +115,21 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
         IConfigurationLoader configLoader,
         IQidLabelRepository qidLabelRepo,
         IProviderResponseCacheRepository cacheRepo,
+        IResolverCacheRepository resolverCache,
         ILogger<WikidataAdapter> logger)
     {
         ArgumentNullException.ThrowIfNull(httpFactory);
         ArgumentNullException.ThrowIfNull(configLoader);
         ArgumentNullException.ThrowIfNull(qidLabelRepo);
         ArgumentNullException.ThrowIfNull(cacheRepo);
+        ArgumentNullException.ThrowIfNull(resolverCache);
         ArgumentNullException.ThrowIfNull(logger);
-        _httpFactory   = httpFactory;
-        _configLoader  = configLoader;
-        _qidLabelRepo  = qidLabelRepo;
-        _cacheRepo     = cacheRepo;
-        _logger        = logger;
+        _httpFactory    = httpFactory;
+        _configLoader   = configLoader;
+        _qidLabelRepo   = qidLabelRepo;
+        _cacheRepo      = cacheRepo;
+        _resolverCache  = resolverCache;
+        _logger         = logger;
     }
 
     // ── IExternalMetadataProvider ─────────────────────────────────────────────
@@ -717,6 +721,31 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
             }
             else
             {
+                // ── Resolver cache check ────────────────────────────────────
+                // Before running the expensive 4-tier resolution, check if we
+                // already resolved this (title + media_type) combination.
+                if (!string.IsNullOrWhiteSpace(request.Title))
+                {
+                    var resolverKey = ComputeResolverCacheKey(request.Title, request.MediaType);
+                    try
+                    {
+                        var cached = await _resolverCache.FindAsync(resolverKey, ct).ConfigureAwait(false);
+                        if (cached is not null && cached.Confidence >= 0.70 && cached.WikidataQid is not null)
+                        {
+                            qid = cached.WikidataQid;
+                            _logger.LogInformation(
+                                "Wikidata: resolver cache hit — QID {Qid} for \"{Title}\" ({MediaType}), confidence={Confidence:F2}",
+                                qid, request.Title, request.MediaType, cached.Confidence);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogDebug(ex, "Resolver cache lookup failed — continuing with full resolution");
+                    }
+                }
+
+                if (qid is null)
+                {
                 // ── Step 1: QID Cross-Reference via Bridge IDs ──────────────
                 // Bridge lookups require SPARQL; skip if endpoint is unavailable.
                 if (hasSparql)
@@ -771,7 +800,9 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
 
                     qid = await ResolveQidViaSearchAsync(
                         apiClient, request.BaseUrl, request.Title, throttleGapMs, ct,
-                        request.Language, request.MediaType)
+                        request.Language, request.MediaType,
+                        hasSparql ? sparqlClient : null, request.SparqlBaseUrl,
+                        request.Author)
                         .ConfigureAwait(false);
 
                     if (qid is not null)
@@ -785,6 +816,31 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
                         _logger.LogInformation(
                             "Wikidata: title search returned no results for \"{Title}\" (entity {Id})",
                             request.Title, request.EntityId);
+                    }
+                }
+                } // end: if (qid is null) — 4-tier resolution block
+
+                // ── Resolver cache write ────────────────────────────────────
+                // Cache the resolution decision so sibling files skip the 4-tier logic.
+                if (qid is not null && !string.IsNullOrWhiteSpace(request.Title))
+                {
+                    var writeKey = ComputeResolverCacheKey(request.Title, request.MediaType);
+                    try
+                    {
+                        await _resolverCache.UpsertAsync(new ResolverCacheEntry(
+                            CacheKey:        writeKey,
+                            NormalizedTitle: request.Title,
+                            MediaType:       request.MediaType.ToString(),
+                            WikidataQid:     qid,
+                            Confidence:      matchedBridge is not null ? 0.95 : 0.70,
+                            EntityLabel:     null,
+                            CreatedAt:       DateTimeOffset.UtcNow,
+                            ExpiresAt:       DateTimeOffset.UtcNow.AddDays(7)),
+                            ct).ConfigureAwait(false);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogDebug(ex, "Resolver cache write failed — continuing");
                     }
                 }
             }
@@ -1905,7 +1961,10 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
         int throttleGapMs,
         CancellationToken ct,
         string language = "en",
-        MediaType mediaType = MediaType.Unknown)
+        MediaType mediaType = MediaType.Unknown,
+        HttpClient? sparqlClient = null,
+        string? sparqlBaseUrl = null,
+        string? fileAuthor = null)
     {
         if (string.IsNullOrWhiteSpace(baseUrl))
         {
@@ -1989,8 +2048,173 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
                 bestId, bestScore, title);
         }
 
+        // ── Principle 3: SPARQL candidate enrichment ─────────────────────────
+        // If SPARQL is available and we have candidates, fetch basic properties
+        // (author, year, instance_of) for the top candidates and re-score against
+        // file metadata for better match quality.
+        if (sparqlClient is not null && !string.IsNullOrWhiteSpace(sparqlBaseUrl)
+            && results.Count > 1)
+        {
+            var candidateQids = new List<string>();
+            foreach (var r in results)
+            {
+                var id = r?["id"]?.GetValue<string>();
+                if (!string.IsNullOrWhiteSpace(id))
+                    candidateQids.Add(id!);
+            }
+
+            if (candidateQids.Count > 0)
+            {
+                var enrichedBest = await ScoreCandidatesViaSparqlAsync(
+                    sparqlClient, sparqlBaseUrl, candidateQids.Take(5).ToList(),
+                    title, fileAuthor, mediaType, throttleGapMs, ct)
+                    .ConfigureAwait(false);
+
+                if (enrichedBest is not null)
+                {
+                    _logger.LogInformation(
+                        "Wikidata Tier 3: SPARQL enrichment overrode description-based pick: {OldQid} → {NewQid}",
+                        bestId, enrichedBest);
+                    return enrichedBest;
+                }
+            }
+        }
+
         return string.IsNullOrWhiteSpace(bestId) ? null : bestId;
     }
+
+    /// <summary>
+    /// Principle 3: Fetches basic SPARQL properties (author/creator, year, instance_of)
+    /// for a list of candidate QIDs and scores each against the file's metadata.
+    /// Returns the best-scoring QID, or null if SPARQL enrichment didn't produce a clear winner.
+    /// </summary>
+    private async Task<string?> ScoreCandidatesViaSparqlAsync(
+        HttpClient sparqlClient,
+        string sparqlBaseUrl,
+        IReadOnlyList<string> candidateQids,
+        string fileTitle,
+        string? fileAuthor,
+        MediaType mediaType,
+        int throttleGapMs,
+        CancellationToken ct)
+    {
+        if (candidateQids.Count == 0)
+            return null;
+
+        // Build a single batch SPARQL query for all candidates.
+        var values = string.Join(" ", candidateQids.Select(q => $"wd:{q}"));
+        var sparql = $@"
+SELECT ?item ?authorLabel ?date ?instanceOf WHERE {{
+  VALUES ?item {{ {values} }}
+  OPTIONAL {{ ?item wdt:P50|wdt:P57|wdt:P175 ?author . }}
+  OPTIONAL {{ ?item wdt:P577 ?date . }}
+  ?item wdt:P31 ?instanceOf .
+  SERVICE wikibase:label {{ bd:serviceParam wikibase:language ""en"" }}
+}}";
+
+        _logger.LogDebug("Wikidata Tier 3: SPARQL enrichment for {Count} candidates", candidateQids.Count);
+
+        var json = await ThrottledSparqlAsync(sparqlClient, sparqlBaseUrl, sparql, throttleGapMs, ct)
+            .ConfigureAwait(false);
+        if (json is null)
+            return null;
+
+        var bindings = json["results"]?["bindings"]?.AsArray();
+        if (bindings is null || bindings.Count == 0)
+            return null;
+
+        // Group bindings by QID and score each.
+        var candidateData = new Dictionary<string, (string? Author, string? Year, HashSet<string> InstanceOf)>();
+        foreach (var binding in bindings)
+        {
+            if (binding is null) continue;
+            var itemUri = binding["item"]?["value"]?.GetValue<string>();
+            if (string.IsNullOrWhiteSpace(itemUri)) continue;
+
+            var lastSlash = itemUri.LastIndexOf('/');
+            var qid = lastSlash >= 0 ? itemUri[(lastSlash + 1)..] : itemUri;
+
+            if (!candidateData.TryGetValue(qid, out var data))
+                data = (null, null, new HashSet<string>());
+
+            var authorLabel = binding["authorLabel"]?["value"]?.GetValue<string>();
+            if (!string.IsNullOrWhiteSpace(authorLabel))
+                data.Author = authorLabel;
+
+            var dateVal = binding["date"]?["value"]?.GetValue<string>();
+            if (!string.IsNullOrWhiteSpace(dateVal) && dateVal.Length >= 4)
+                data.Year = dateVal[..4];
+
+            var instanceOfUri = binding["instanceOf"]?["value"]?.GetValue<string>();
+            if (!string.IsNullOrWhiteSpace(instanceOfUri))
+            {
+                var ioSlash = instanceOfUri.LastIndexOf('/');
+                data.InstanceOf.Add(ioSlash >= 0 ? instanceOfUri[(ioSlash + 1)..] : instanceOfUri);
+            }
+
+            candidateData[qid] = data;
+        }
+
+        if (candidateData.Count == 0)
+            return null;
+
+        // Get expected instance_of classes for this media type.
+        var expectedClasses = GetExpectedInstanceOfClasses(mediaType);
+
+        // Score each candidate: title similarity 0.50, creator match 0.25, year match 0.15, instance_of 0.10
+        string? bestQid = null;
+        double bestScore = 0;
+
+        foreach (var (qid, data) in candidateData)
+        {
+            double score = 0;
+
+            // Instance_of match (0.10 weight).
+            if (expectedClasses.Count > 0 && data.InstanceOf.Overlaps(expectedClasses))
+                score += 0.10;
+
+            // Creator match (0.25 weight).
+            if (!string.IsNullOrWhiteSpace(fileAuthor) && !string.IsNullOrWhiteSpace(data.Author)
+                && data.Author.Contains(fileAuthor, StringComparison.OrdinalIgnoreCase))
+                score += 0.25;
+
+            // Year presence gives a small boost (0.15 weight — we don't compare since we
+            // may not have a year from the file, but having one is a good signal).
+            if (!string.IsNullOrWhiteSpace(data.Year))
+                score += 0.15;
+
+            // Base title match (already matched by wbsearchentities) gets 0.50.
+            score += 0.50;
+
+            _logger.LogDebug(
+                "Wikidata Tier 3 SPARQL candidate: {Qid} score={Score:F2} (author={Author}, year={Year}, instanceOf={Types})",
+                qid, score, data.Author ?? "?", data.Year ?? "?", string.Join(",", data.InstanceOf));
+
+            if (score > bestScore)
+            {
+                bestScore = score;
+                bestQid = qid;
+            }
+        }
+
+        return bestQid;
+    }
+
+    /// <summary>
+    /// Returns the Wikidata instance_of (P31) QIDs expected for a media type.
+    /// Used by Tier 3 SPARQL candidate scoring.
+    /// </summary>
+    private static HashSet<string> GetExpectedInstanceOfClasses(MediaType mediaType) => mediaType switch
+    {
+        MediaType.Books      => ["Q7725634", "Q571", "Q8261", "Q47461344", "Q277759"],
+        MediaType.Audiobooks => ["Q106833962", "Q7725634", "Q571", "Q8261", "Q47461344"],
+        MediaType.Movies     => ["Q11424", "Q24869", "Q24862"],
+        MediaType.TV         => ["Q5398426", "Q581714", "Q21191270"],
+        MediaType.Music      => ["Q482994", "Q134556", "Q208569"],
+        MediaType.Comic      => ["Q1004", "Q838795", "Q21198342"],
+        MediaType.Podcasts   => ["Q24634210"],
+        _                    => [],
+    };
 
     /// <summary>Description substrings that indicate a good match for the given media type.</summary>
     private static string[] GetDescriptionAffinityKeywords(MediaType mediaType) => mediaType switch
@@ -2397,6 +2621,13 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
         var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(input));
         return Convert.ToHexString(bytes).ToLowerInvariant();
     }
+
+    /// <summary>
+    /// Computes the resolver cache key from a title and media type.
+    /// Uses SHA-256 of the normalized (lowercased, trimmed) title + media type string.
+    /// </summary>
+    private static string ComputeResolverCacheKey(string title, MediaType mediaType)
+        => ComputeSha256($"{title.Trim().ToLowerInvariant()}|{mediaType}");
 
     // ── Throttled HTTP helper ─────────────────────────────────────────────────
 

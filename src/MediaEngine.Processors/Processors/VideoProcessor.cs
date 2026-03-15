@@ -169,10 +169,20 @@ public sealed class VideoProcessor : IMediaProcessor
     {
         var claims = new List<ExtractedClaim>();
 
-        // Title — best-effort from filename stem.
+        // Title — best-effort from filename stem, normalized to strip quality tags.
         var stem = Path.GetFileNameWithoutExtension(filePath);
         if (!string.IsNullOrWhiteSpace(stem))
-            claims.Add(Claim("title", stem, 0.5));
+        {
+            var normalized = TitleNormalizer.Normalize(stem);
+            if (!string.IsNullOrWhiteSpace(normalized.CleanTitle))
+                claims.Add(Claim("title", normalized.CleanTitle, 0.65));
+            if (normalized.Year.HasValue)
+                claims.Add(Claim("release_year", normalized.Year.Value.ToString(), 0.60));
+            if (normalized.Season.HasValue)
+                claims.Add(Claim("season_number", normalized.Season.Value.ToString(), 0.70));
+            if (normalized.Episode.HasValue)
+                claims.Add(Claim("episode_number", normalized.Episode.Value.ToString(), 0.70));
+        }
 
         // Container format — authoritative from magic bytes.
         var containerLabel = container switch

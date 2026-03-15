@@ -27,6 +27,7 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
     private readonly ISystemActivityRepository _activityRepo;
     private readonly IEventPublisher          _publisher;
     private readonly IHeroBannerGenerator     _heroGenerator;
+    private readonly IOrganizationGate        _gate;
     private readonly IngestionOptions         _options;
     private readonly ILogger<AutoOrganizeService> _logger;
 
@@ -38,6 +39,7 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         ISystemActivityRepository  activityRepo,
         IEventPublisher            publisher,
         IHeroBannerGenerator       heroGenerator,
+        IOrganizationGate          gate,
         IOptions<IngestionOptions> options,
         ILogger<AutoOrganizeService> logger)
     {
@@ -48,6 +50,7 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         _activityRepo  = activityRepo;
         _publisher     = publisher;
         _heroGenerator = heroGenerator;
+        _gate          = gate;
         _options       = options.Value;
         _logger        = logger;
     }
@@ -125,22 +128,20 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         var template = _options.ResolveTemplate(mediaType?.ToString());
         var relative = _organizer.CalculatePath(synth, template);
 
-        // Block promotion into "Other" category.
-        if (relative.StartsWith("Other", StringComparison.OrdinalIgnoreCase))
+        // Evaluate all promotion guards through the centralized gate.
+        // AutoOrganizeService runs post-hydration so media type is always resolved;
+        // pass mediaTypeNeedsReview: false.
+        var gateResult = _gate.Evaluate(
+            overallConfidence: 1.0, // post-hydration: confidence gate already passed at ingestion time
+            canonicalValues: metadata,
+            hasUserLock: false,     // user-lock check is not needed here — gate is used for path/title guards only
+            mediaTypeNeedsReview: false,
+            resolvedRelativePath: relative);
+
+        if (!gateResult.CanOrganize)
         {
             _logger.LogDebug(
-                "Auto-organize blocked for {Id}: resolved category is 'Other'", assetId);
-            return;
-        }
-
-        // Placeholder title guard: block promotion when title is a
-        // well-known placeholder and no bridge ID confirms identity.
-        string? orgTitle = metadata.GetValueOrDefault("title");
-        if (MetadataGuards.IsPlaceholderTitle(orgTitle) && !MetadataGuards.HasBridgeId(metadata))
-        {
-            _logger.LogWarning(
-                "Auto-organize blocked for {Id}: placeholder title \"{Title}\" with no bridge IDs",
-                assetId, orgTitle ?? "(blank)");
+                "Auto-organize blocked for {Id}: {Reason}", assetId, gateResult.BlockReason);
             return;
         }
 

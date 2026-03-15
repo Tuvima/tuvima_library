@@ -1,5 +1,4 @@
-﻿using System.Collections.Concurrent;
-using System.Text.Json;
+﻿using System.Text.Json;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -102,14 +101,16 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     // Folder hint cache — sibling-aware ingestion priming (D1/D2).
     private readonly IIngestionHintCache _hintCache;
 
-    // Per-folder serialization: ensures sibling files in the same directory
-    // are processed sequentially. Solves duplicate detection race conditions
-    // and allows folder hints to propagate to sibling files.
-    private readonly ConcurrentDictionary<string, SemaphoreSlim> _folderLocks = new(StringComparer.OrdinalIgnoreCase);
+    // Centralized organization gate — single source of truth for promotion eligibility.
+    private readonly IOrganizationGate _gate;
 
-    // Per-hash serialization: prevents two concurrent tasks from processing the
-    // same content hash simultaneously (race on duplicate check + insert).
-    private readonly ConcurrentDictionary<string, SemaphoreSlim> _hashLocks = new(StringComparer.OrdinalIgnoreCase);
+    // Per-file ingestion lifecycle log — tracks each file from detection to completion.
+    private readonly IIngestionLogRepository _ingestionLog;
+
+    // Centralized concurrency guard (Principle 5: formalized lock hierarchy).
+    // Replaces inline ConcurrentDictionary<string, SemaphoreSlim> instances.
+    // Lock order: folder → hash (see ConcurrencyGuard doc for full hierarchy).
+    private readonly ConcurrencyGuard _concurrencyGuard = new();
 
 
     public IngestionEngine(
@@ -135,7 +136,9 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         ISystemActivityRepository  activityRepo,
         IReconciliationService     reconciliation,
         IHeroBannerGenerator       heroGenerator,
-        IIngestionHintCache        hintCache)
+        IIngestionHintCache        hintCache,
+        IOrganizationGate          gate,
+        IIngestionLogRepository    ingestionLog)
     {
         _watcher        = watcher;
         _debounce       = debounce;
@@ -160,6 +163,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         _reconciliation = reconciliation;
         _heroGenerator  = heroGenerator;
         _hintCache      = hintCache;
+        _gate           = gate;
+        _ingestionLog   = ingestionLog;
     }
 
     // =========================================================================
@@ -340,7 +345,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         // are available when sibling files start processing.
         var folderKey = (Path.GetDirectoryName(candidate.Path) ?? string.Empty)
             .Replace('\\', '/').TrimEnd('/');
-        var folderLock = _folderLocks.GetOrAdd(folderKey, _ => new SemaphoreSlim(1, 1));
+        var folderLock = _concurrencyGuard.GetFolderLock(folderKey);
         await folderLock.WaitAsync(ct).ConfigureAwait(false);
         try
         {
@@ -387,6 +392,20 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         await SafePublishAsync("IngestionStarted", new IngestionStartedEvent(
             candidate.Path, DateTimeOffset.UtcNow), ct).ConfigureAwait(false);
 
+        // Lifecycle log: create entry at detection.
+        var logEntryId = Guid.NewGuid();
+        try
+        {
+            await _ingestionLog.InsertAsync(new Domain.Entities.IngestionLogEntry
+            {
+                Id             = logEntryId,
+                FilePath       = candidate.Path,
+                Status         = "detected",
+                IngestionRunId = ingestionRunId,
+            }, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) { _logger.LogDebug(ex, "Ingestion log insert failed — continuing"); }
+
         var pipelineStopwatch = System.Diagnostics.Stopwatch.StartNew();
 
         // Step 4: hash.
@@ -411,12 +430,16 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             IngestionRunId = ingestionRunId,
         }, ct).ConfigureAwait(false);
 
+        // Lifecycle log: hashing complete.
+        try { await _ingestionLog.UpdateStatusAsync(logEntryId, "hashing", contentHash: hash.Hex, ct: ct).ConfigureAwait(false); }
+        catch (Exception ex) { _logger.LogDebug(ex, "Ingestion log update failed — continuing"); }
+
         // Step 5: duplicate check.
         // If the file is already ingested but still sitting in the Watch Folder
         // (e.g. it scored below the confidence gate on first pass, or LibraryRoot
         // was not configured at that time), attempt to organize it now — metadata
         // may have been enriched by external providers since the initial scan.
-        var hashLock = _hashLocks.GetOrAdd(hash.Hex, _ => new SemaphoreSlim(1, 1));
+        var hashLock = _concurrencyGuard.GetHashLock(hash.Hex);
         await hashLock.WaitAsync(ct).ConfigureAwait(false);
         try
         {
@@ -537,13 +560,18 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         var claims  = BuildClaims(assetId, result);
 
         // Step 9: score.
+        // CategoryConfidencePrior: currently 0.0 (single WatchDirectory = general catch-all).
+        // When Library Folders (config/libraries.json) are implemented, category-specific
+        // folders will set +0.10 and multi-type folders +0.05.
         var scoringContext = new ScoringContext
         {
-            EntityId        = assetId,
-            Claims          = claims,
-            ProviderWeights = new Dictionary<Guid, double>
+            EntityId                = assetId,
+            Claims                  = claims,
+            ProviderWeights         = new Dictionary<Guid, double>
                 { [LocalProcessorProviderId] = 1.0 },
-            Configuration   = new ScoringConfiguration(),
+            Configuration           = new ScoringConfiguration(),
+            CategoryConfidencePrior = candidate.CategoryConfidencePrior,
+            DetectedMediaType       = result.DetectedType,
         };
 
         var scored = await _scorer.ScoreEntityAsync(scoringContext, ct).ConfigureAwait(false);
@@ -569,6 +597,15 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             }),
             IngestionRunId = ingestionRunId,
         }, ct).ConfigureAwait(false);
+
+        // Lifecycle log: scored.
+        var detectedTitle = scored.FieldScores
+            .FirstOrDefault(f => f.Key.Equals("title", StringComparison.OrdinalIgnoreCase))?.WinningValue;
+        try { await _ingestionLog.UpdateStatusAsync(logEntryId, "scored",
+            confidenceScore: scored.OverallConfidence,
+            detectedTitle: detectedTitle,
+            ct: ct).ConfigureAwait(false); }
+        catch (Exception ex) { _logger.LogDebug(ex, "Ingestion log update failed — continuing"); }
 
         // Phase 9: persist canonical values (current winning metadata for this asset).
         // Phase B: also persist the IsConflicted flag from the scoring engine so
@@ -767,74 +804,29 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         //   low-confidence   — below threshold, needs more metadata
         //   unidentifiable   — deeply broken (< 0.40), needs manual review
         //   other            — resolved to "Other" category (unknown media type)
-        bool hasUserLock    = claims.Any(c => c.IsUserLocked);
-        bool highConfidence = scored.OverallConfidence >= 0.85;
-        bool passesGate     = (highConfidence || hasUserLock) && !mediaTypeNeedsReview;
+        bool hasUserLock = claims.Any(c => c.IsUserLocked);
 
-        // Placeholder title guard: block promotion-eligible status when the title
-        // is a well-known placeholder and no bridge ID exists to confirm identity.
-        if (passesGate && !hasUserLock)
-        {
-            var titleCanonicals = candidate.Metadata
-                ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            string? gateTitle = titleCanonicals.GetValueOrDefault("title");
-            if (MetadataGuards.IsPlaceholderTitle(gateTitle)
-                && !MetadataGuards.HasBridgeId(titleCanonicals))
-            {
-                passesGate = false;
-                _logger.LogWarning(
-                    "Staging as low-confidence — placeholder title \"{Title}\" with no bridge IDs for {Path}",
-                    gateTitle ?? "(blank)", candidate.Path);
+        // Calculate the relative path once for the gate (needed for the "Other" check).
+        string? gateRelativePath = _options.AutoOrganize
+            && !string.IsNullOrWhiteSpace(_options.LibraryRoot)
+            ? _organizer.CalculatePath(candidate, _options.ResolveTemplate(candidate.DetectedMediaType?.ToString()))
+            : null;
 
-                await CreateIngestionReviewItemAsync(
-                    assetId, ReviewTrigger.PlaceholderTitle, scored.OverallConfidence,
-                    $"Title \"{gateTitle ?? "(blank)"}\" appears to be a placeholder with no ISBN, ASIN, or QID",
-                    ct, ingestionRunId).ConfigureAwait(false);
-            }
-        }
+        var candidateCanonicals = candidate.Metadata
+            ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        var gateResult = _gate.Evaluate(
+            scored.OverallConfidence,
+            candidateCanonicals,
+            hasUserLock,
+            mediaTypeNeedsReview,
+            gateRelativePath);
 
         string currentPath = candidate.Path;
         if (_options.AutoOrganize
             && !string.IsNullOrWhiteSpace(_options.LibraryRoot))
         {
-            // Determine staging subcategory based on confidence and metadata.
-            string stagingSubcategory;
-            string? reviewTrigger = null;
-            string? reviewDetail = null;
-
-            if (passesGate)
-            {
-                var template = _options.ResolveTemplate(candidate.DetectedMediaType?.ToString());
-                var relative = _organizer.CalculatePath(candidate, template);
-
-                if (relative.StartsWith("Other", StringComparison.OrdinalIgnoreCase))
-                {
-                    // Category resolved to "Other" — needs manual classification.
-                    stagingSubcategory = "other";
-                    reviewTrigger = ReviewTrigger.LowConfidence;
-                    reviewDetail = $"File would be organized into 'Other' category (media type: {resolvedMediaType}). " +
-                                   "Manual review required.";
-                }
-                else
-                {
-                    // High-confidence — stage as pending, awaiting hydration + promotion.
-                    stagingSubcategory = "pending";
-                }
-            }
-            else if (scored.OverallConfidence < 0.40)
-            {
-                stagingSubcategory = "unidentifiable";
-                reviewTrigger = ReviewTrigger.StagedUnidentifiable;
-                reviewDetail = $"Overall confidence {scored.OverallConfidence:P0} — file is unidentifiable. " +
-                               "Staged for manual review.";
-            }
-            else
-            {
-                stagingSubcategory = "low-confidence";
-                reviewTrigger = ReviewTrigger.LowConfidence;
-                reviewDetail = $"Overall confidence {scored.OverallConfidence:P0} below organization threshold (85%). " +
-                               "Staged for review.";
-            }
+            string stagingSubcategory = gateResult.StagingSubcategory;
 
             _logger.LogInformation(
                 "Moving to staging ({Subcategory}) — confidence {Confidence:P0} for {Path}",
@@ -846,13 +838,20 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             // Clean empty subdirectories left behind in the watch folder.
             CleanEmptyWatchParents(candidate.Path, _options.WatchDirectory);
 
-            if (reviewTrigger is not null)
+            if (gateResult.ReviewTrigger is not null)
             {
                 await CreateIngestionReviewItemAsync(
-                    assetId, reviewTrigger, scored.OverallConfidence,
-                    reviewDetail!,
+                    assetId, gateResult.ReviewTrigger, scored.OverallConfidence,
+                    gateResult.ReviewDetail!,
                     ct, ingestionRunId).ConfigureAwait(false);
             }
+
+            // Lifecycle log: staged.
+            var logStatus = gateResult.ReviewTrigger is not null ? "needs_review" : "staged";
+            try { await _ingestionLog.UpdateStatusAsync(logEntryId, logStatus,
+                mediaType: resolvedMediaType.ToString(),
+                ct: ct).ConfigureAwait(false); }
+            catch (Exception ex) { _logger.LogDebug(ex, "Ingestion log update failed — continuing"); }
         }
 
         // Phase 9→Pipeline: enqueue non-blocking three-stage hydration pipeline.
@@ -1158,7 +1157,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         finally
         {
             hashLock.Release();
-            _hashLocks.TryRemove(hash.Hex, out _);
+            _concurrencyGuard.ReleaseHashLock(hash.Hex);
         }
 
         // end of ProcessCandidateCoreAsync

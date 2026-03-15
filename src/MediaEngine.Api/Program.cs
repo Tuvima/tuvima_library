@@ -389,6 +389,7 @@ builder.Services.AddSingleton<ILoreDeltaService,                LoreDeltaService
 builder.Services.AddSingleton<IEraActorResolverService,         EraActorResolverService>();
 
 // ── Hydration pipeline (three-stage orchestrator) + review queue ─────────────
+builder.Services.AddSingleton<IOrganizationGate,             OrganizationGate>();
 builder.Services.AddSingleton<IAutoOrganizeService,          AutoOrganizeService>();
 builder.Services.AddSingleton<IDeferredEnrichmentRepository, DeferredEnrichmentRepository>();
 builder.Services.AddSingleton<IHydrationPipelineService,     HydrationPipelineService>();
@@ -417,6 +418,8 @@ builder.Services.AddHostedService<WhisperSyncBackgroundService>();
 
 // ── Phase 1 (Activity Log): System activity ledger + daily pruning ───────────
 builder.Services.AddSingleton<ISystemActivityRepository, SystemActivityRepository>();
+builder.Services.AddSingleton<IIngestionLogRepository, IngestionLogRepository>();
+builder.Services.AddSingleton<IResolverCacheRepository, ResolverCacheRepository>();
 builder.Services.AddHostedService<ActivityPruningService>();
 
 // ── Library Reconciliation: periodic scan for missing files ──────────────────

@@ -182,7 +182,13 @@ public sealed partial class AudioProcessor : IMediaProcessor
         {
             var stem = Path.GetFileNameWithoutExtension(filePath);
             if (!string.IsNullOrWhiteSpace(stem))
-                claims.Add(Claim("title", stem, 0.5));
+            {
+                var normalized = TitleNormalizer.Normalize(stem);
+                if (!string.IsNullOrWhiteSpace(normalized.CleanTitle))
+                    claims.Add(Claim("title", normalized.CleanTitle, 0.65));
+                if (normalized.Year.HasValue)
+                    claims.Add(Claim("release_year", normalized.Year.Value.ToString(), 0.60));
+            }
         }
 
         // Author / Artist — AlbumArtist is the author for audiobooks.

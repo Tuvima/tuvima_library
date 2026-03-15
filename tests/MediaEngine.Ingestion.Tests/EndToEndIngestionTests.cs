@@ -35,6 +35,7 @@ public sealed class EndToEndIngestionTests : IDisposable
     private readonly ICanonicalValueRepository _canonicalRepo;
     private readonly IReviewQueueRepository _reviewRepo;
     private readonly ISystemActivityRepository _activityRepo;
+    private readonly IIngestionLogRepository _ingestionLog;
     private readonly IMediaEntityChainFactory _chainFactory;
     private readonly IScoringEngine _scorer;
 
@@ -67,6 +68,7 @@ public sealed class EndToEndIngestionTests : IDisposable
         _canonicalRepo = new CanonicalValueRepository(db);
         _reviewRepo = new ReviewQueueRepository(db);
         _activityRepo = new SystemActivityRepository(db);
+        _ingestionLog = new IngestionLogRepository(db);
         _chainFactory = new MediaEntityChainFactory(db);
 
         // Real scoring engine with both strategies.
@@ -141,7 +143,9 @@ public sealed class EndToEndIngestionTests : IDisposable
             _activityRepo,
             _reconciliation,
             _heroGenerator,
-            new MediaEngine.Ingestion.Services.IngestionHintCache());
+            new MediaEngine.Ingestion.Services.IngestionHintCache(),
+            new MediaEngine.Ingestion.OrganizationGate(),
+            _ingestionLog);
 
         // Run the engine with a timeout. The engine will:
         // 1. Run reconciliation (stub — no-op)

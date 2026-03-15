@@ -219,6 +219,9 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<ISidecarWriter, SidecarWriter>();
         services.AddSingleton<ILibraryScanner, LibraryScanner>();
 
+        // ── Organization gate ──────────────────────────────────────
+        services.AddSingleton<IOrganizationGate, OrganizationGate>();
+
         // ── Ingestion engine (BackgroundService + IIngestionEngine) ──
         services.AddSingleton<IngestionEngine>();
         services.AddSingleton<IIngestionEngine>(sp => sp.GetRequiredService<IngestionEngine>());

@@ -1,4 +1,5 @@
 using MediaEngine.Domain.Entities;
+using MediaEngine.Domain.Enums;
 using MediaEngine.Intelligence.Contracts;
 using MediaEngine.Intelligence.Models;
 
@@ -156,6 +157,18 @@ public sealed class ScoringEngine : IScoringEngine
             ? fieldScores.Average(f => f.Confidence)
             : 0.0;
 
+        // Apply Library Folder category confidence prior (Principle 0).
+        // Category-specific folders boost confidence; general catch-all adds nothing.
+        // Capped at 1.0 to prevent inflation above certainty.
+        if (context.CategoryConfidencePrior > 0.0)
+            overallConfidence = Math.Min(1.0, overallConfidence + context.CategoryConfidencePrior);
+
+        // Apply media-type-aware confidence floor boost (Principle 6).
+        // If ALL critical fields for the detected media type score at or above
+        // the minimum threshold, add the floor boost to overall confidence.
+        overallConfidence = ApplyConfidenceFloor(
+            overallConfidence, fieldScores, context.DetectedMediaType, context.Configuration);
+
         var result = new ScoringResult
         {
             EntityId          = context.EntityId,
@@ -231,5 +244,40 @@ public sealed class ScoringEngine : IScoringEngine
         }
 
         return effective;
+    }
+
+    /// <summary>
+    /// Applies a media-type-aware confidence floor boost (Principle 6).
+    /// If ALL critical fields for the detected media type score at or above
+    /// the configured minimum, the floor boost is added (capped at 1.0).
+    /// Returns the (possibly boosted) overall confidence.
+    /// </summary>
+    private static double ApplyConfidenceFloor(
+        double overallConfidence,
+        IReadOnlyList<FieldScore> fieldScores,
+        MediaType detectedMediaType,
+        ScoringConfiguration config)
+    {
+        if (detectedMediaType == MediaType.Unknown)
+            return overallConfidence;
+
+        string mediaTypeName = detectedMediaType.ToString();
+        if (!config.ConfidenceFloors.TryGetValue(mediaTypeName, out var floor))
+            return overallConfidence;
+
+        // Build a lookup of field key → confidence for fast access.
+        var fieldLookup = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        foreach (var fs in fieldScores)
+            fieldLookup[fs.Key] = fs.Confidence;
+
+        // Check that ALL critical fields exist and meet the minimum score.
+        foreach (var criticalField in floor.CriticalFields)
+        {
+            if (!fieldLookup.TryGetValue(criticalField, out double score) || score < floor.MinFieldScore)
+                return overallConfidence; // At least one critical field missing or below threshold.
+        }
+
+        // All critical fields qualify — apply the boost.
+        return Math.Min(1.0, overallConfidence + floor.FloorBoost);
     }
 }

@@ -751,6 +751,53 @@ public sealed class DatabaseConnection : IDatabaseConnection
             column: "wikidata_revision_id",
             ddl:    "ALTER TABLE fictional_entities ADD COLUMN wikidata_revision_id INTEGER;");
 
+        // ── M-038: Ingestion lifecycle log ──────────────────────────────────
+        // Per-file tracking from detection through completion.
+        // Provides "what happened to my file?" in a single table.
+        using var m038 = conn.CreateCommand();
+        m038.CommandText = """
+            CREATE TABLE IF NOT EXISTS ingestion_log (
+                id                TEXT NOT NULL PRIMARY KEY,
+                file_path         TEXT NOT NULL,
+                content_hash      TEXT,
+                status            TEXT NOT NULL DEFAULT 'detected',
+                media_type        TEXT,
+                confidence_score  REAL,
+                detected_title    TEXT,
+                normalized_title  TEXT,
+                wikidata_qid      TEXT,
+                error_detail      TEXT,
+                ingestion_run_id  TEXT,
+                created_at        TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+                updated_at        TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+            );
+            CREATE INDEX IF NOT EXISTS idx_ingestion_log_status
+                ON ingestion_log(status);
+            CREATE INDEX IF NOT EXISTS idx_ingestion_log_run
+                ON ingestion_log(ingestion_run_id);
+            """;
+        m038.ExecuteNonQuery();
+
+        // ── M-039: Identity resolution cache ─────────────────────────────────
+        // Caches normalized_title + media_type → QID + confidence decisions.
+        // Eliminates redundant 4-tier resolution for same logical entity.
+        using var m039 = conn.CreateCommand();
+        m039.CommandText = """
+            CREATE TABLE IF NOT EXISTS resolver_cache (
+                cache_key        TEXT NOT NULL PRIMARY KEY,
+                normalized_title TEXT NOT NULL,
+                media_type       TEXT NOT NULL,
+                wikidata_qid     TEXT,
+                confidence       REAL,
+                entity_label     TEXT,
+                created_at       TEXT NOT NULL,
+                expires_at       TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_resolver_cache_expires
+                ON resolver_cache(expires_at);
+            """;
+        m039.ExecuteNonQuery();
+
         // Seed S-001: provider_registry entries for all known providers.
         // metadata_claims.provider_id has a FK to provider_registry(id), so these
         // rows MUST exist before any claim is written.  INSERT OR IGNORE makes this

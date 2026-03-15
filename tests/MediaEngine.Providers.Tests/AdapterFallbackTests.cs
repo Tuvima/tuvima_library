@@ -97,6 +97,7 @@ public sealed class AdapterFallbackTests
             new StubConfigurationLoader(),
             new NoOpQidLabelRepository(),
             new NoOpProviderResponseCacheRepository(),
+            new NoOpResolverCacheRepository(),
             NullLogger<WikidataAdapter>.Instance);
 
         var request = new ProviderLookupRequest
@@ -259,6 +260,14 @@ file sealed class NoOpQidLabelRepository : IQidLabelRepository
     public Task UpsertBatchAsync(IReadOnlyList<QidLabel> labels, CancellationToken ct = default) => Task.CompletedTask;
     public Task<IReadOnlyList<QidLabel>> GetLabelDetailsAsync(IEnumerable<string> qids, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<QidLabel>>([]);
     public Task<IReadOnlyList<QidLabel>> GetAllAsync(CancellationToken ct = default) => Task.FromResult<IReadOnlyList<QidLabel>>([]);
+}
+
+/// <summary>No-op resolver cache for adapter tests.</summary>
+file sealed class NoOpResolverCacheRepository : IResolverCacheRepository
+{
+    public Task<ResolverCacheEntry?> FindAsync(string cacheKey, CancellationToken ct = default) => Task.FromResult<ResolverCacheEntry?>(null);
+    public Task UpsertAsync(ResolverCacheEntry entry, CancellationToken ct = default) => Task.CompletedTask;
+    public Task<int> PurgeExpiredAsync(CancellationToken ct = default) => Task.FromResult(0);
 }
 
 /// <summary>No-op provider response cache for adapter tests.</summary>

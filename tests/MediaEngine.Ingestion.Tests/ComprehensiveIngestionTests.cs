@@ -37,6 +37,7 @@ public sealed class ComprehensiveIngestionTests : IDisposable
     private readonly ICanonicalValueRepository _canonicalRepo;
     private readonly IReviewQueueRepository _reviewRepo;
     private readonly ISystemActivityRepository _activityRepo;
+    private readonly IIngestionLogRepository _ingestionLog;
     private readonly IMediaEntityChainFactory _chainFactory;
     private readonly IScoringEngine _scorer;
 
@@ -69,6 +70,7 @@ public sealed class ComprehensiveIngestionTests : IDisposable
         _canonicalRepo = new CanonicalValueRepository(db);
         _reviewRepo = new ReviewQueueRepository(db);
         _activityRepo = new SystemActivityRepository(db);
+        _ingestionLog = new IngestionLogRepository(db);
         _chainFactory = new MediaEntityChainFactory(db);
 
         IScoringStrategy[] strategies = [new ExactMatchStrategy(), new LevenshteinStrategy()];
@@ -134,7 +136,9 @@ public sealed class ComprehensiveIngestionTests : IDisposable
             _activityRepo,
             _reconciliation,
             _heroGenerator,
-            new MediaEngine.Ingestion.Services.IngestionHintCache());
+            new MediaEngine.Ingestion.Services.IngestionHintCache(),
+            new MediaEngine.Ingestion.OrganizationGate(),
+            _ingestionLog);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
 

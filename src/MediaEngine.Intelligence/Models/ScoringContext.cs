@@ -1,4 +1,5 @@
 using MediaEngine.Domain.Entities;
+using MediaEngine.Domain.Enums;
 
 namespace MediaEngine.Intelligence.Models;
 
@@ -60,4 +61,20 @@ public sealed class ScoringContext
     /// </summary>
     public IReadOnlyDictionary<Guid, IReadOnlyDictionary<string, double>>?
         ProviderFieldWeights { get; init; }
+
+    /// <summary>
+    /// The detected media type for this entity. Used by the scoring engine to
+    /// apply media-type-aware confidence floors (Principle 6).
+    /// Default: <see cref="MediaType.Unknown"/> (no floor applied).
+    /// </summary>
+    public MediaType DetectedMediaType { get; init; } = MediaType.Unknown;
+
+    /// <summary>
+    /// Additive confidence boost from the Library Folder's category configuration.
+    /// Category-specific folders contribute +0.10, multi-type folders +0.05,
+    /// general catch-all folders 0.00. Applied after computing average field
+    /// confidence; result capped at 1.0.
+    /// Default: 0.0 (no boost — backward compatible with single-folder setups).
+    /// </summary>
+    public double CategoryConfidencePrior { get; init; }
 }

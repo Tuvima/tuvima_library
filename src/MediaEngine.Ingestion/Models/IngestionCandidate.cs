@@ -57,6 +57,15 @@ public sealed class IngestionCandidate
     /// </summary>
     public MediaType? DetectedMediaType { get; set; }
 
+    /// <summary>
+    /// Confidence prior derived from the Library Folder's category configuration.
+    /// Category-specific folders (e.g. "Movies") contribute +0.10, multi-type
+    /// folders (e.g. Books accepting Epub + Audiobook) contribute +0.05, and
+    /// general catch-all folders contribute 0.00.
+    /// Applied as an additive boost to the scoring engine's overall confidence.
+    /// </summary>
+    public double CategoryConfidencePrior { get; set; }
+
     // -------------------------------------------------------------------------
     // Factory helpers
     // -------------------------------------------------------------------------
