@@ -29,9 +29,17 @@ public sealed class HubViewModel
 
     // ── Display helpers ───────────────────────────────────────────────────────
 
-    /// <summary>Best title across all works, or a short ID fallback.</summary>
+    /// <summary>
+    /// Hub-level display name set by the Engine at organise time (e.g. the
+    /// work title or series name stored in <c>hubs.display_name</c>).
+    /// Falls back to the first Work's title when the Engine hasn't set one yet.
+    /// </summary>
+    public string? HubDisplayName { get; init; }
+
+    /// <summary>Best title: Hub's own name first, then first Work's title, then short ID.</summary>
     public string DisplayName =>
-        Works.Select(GetTitle).FirstOrDefault(t => !string.IsNullOrEmpty(t))
+        (!string.IsNullOrWhiteSpace(HubDisplayName) ? HubDisplayName : null)
+        ?? Works.Select(GetTitle).FirstOrDefault(t => !string.IsNullOrEmpty(t))
         ?? $"Hub {Id:N}"[..12];
 
     public int    WorkCount  => Works.Count;
@@ -47,8 +55,15 @@ public sealed class HubViewModel
     /// <summary>Release year from the first Work with a year value.</summary>
     public string? Year => Works.Select(w => w.Year).FirstOrDefault(y => !string.IsNullOrEmpty(y));
 
-    /// <summary>Primary media type string from the first Work (e.g. "Epub", "Video").</summary>
-    public string? PrimaryMediaType => Works.FirstOrDefault()?.MediaType;
+    /// <summary>
+    /// All distinct media types across the Hub's Works (e.g. "Epub, Audiobooks").
+    /// Use this for display badges. For single-work Hubs this will be one value.
+    /// </summary>
+    public string? PrimaryMediaType =>
+        Works.Select(w => w.MediaType)
+             .Where(t => !string.IsNullOrWhiteSpace(t))
+             .Distinct()
+             .FirstOrDefault();
 
     /// <summary>Best description across all works.</summary>
     public string? Description => Works.Select(w => w.Description).FirstOrDefault(d => !string.IsNullOrEmpty(d));
@@ -93,7 +108,7 @@ public sealed class HubViewModel
 
     public static HubViewModel FromApiDto(
         Guid id, Guid? universeId, DateTimeOffset createdAt, IEnumerable<WorkViewModel> works,
-        Guid? parentHubId = null, string? parentHubName = null, int childHubCount = 0)
+        string? displayName = null, Guid? parentHubId = null, string? parentHubName = null, int childHubCount = 0)
     {
         var workList = works.ToList();
         return new()
@@ -102,6 +117,7 @@ public sealed class HubViewModel
             UniverseId       = universeId,
             CreatedAt        = createdAt,
             Works            = workList,
+            HubDisplayName   = displayName,
             DominantHexColor = UniverseMapper.ColourForHub(workList),
             ParentHubId      = parentHubId,
             ParentHubName    = parentHubName,

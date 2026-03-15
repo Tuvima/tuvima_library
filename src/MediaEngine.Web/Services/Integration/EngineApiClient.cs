@@ -1833,6 +1833,7 @@ public sealed class EngineApiClient : IEngineApiClient
                 LastScoredAt = cv.LastScoredAt,
             }).ToList(),
         }),
+        displayName:   h.DisplayName,
         parentHubId:   h.ParentHubId,
         parentHubName: h.ParentHubName,
         childHubCount: h.ChildHubCount);
@@ -1994,6 +1995,7 @@ public sealed class EngineApiClient : IEngineApiClient
     private sealed record HubRaw(
         [property: JsonPropertyName("id")]              Guid           Id,
         [property: JsonPropertyName("universe_id")]     Guid?          UniverseId,
+        [property: JsonPropertyName("display_name")]    string?        DisplayName,
         [property: JsonPropertyName("created_at")]      DateTimeOffset CreatedAt,
         [property: JsonPropertyName("works")]           List<WorkRaw>  Works,
         [property: JsonPropertyName("parent_hub_id")]   Guid?          ParentHubId   = null,

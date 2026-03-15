@@ -12,7 +12,27 @@ public sealed class WorkViewModel
     // ── Display helpers ───────────────────────────────────────────────────────
 
     public string  Title          => Canonical("title") ?? $"Untitled ({MediaType})";
-    public string? Author         => Canonical("author") ?? Canonical("creator");
+
+    /// <summary>
+    /// All credited authors/creators. The <c>author</c> canonical value uses
+    /// <c>|||</c> as a multi-value separator (pen names first per audit ordering).
+    /// </summary>
+    public IReadOnlyList<string> Authors
+    {
+        get
+        {
+            var raw = Canonical("author") ?? Canonical("creator");
+            if (string.IsNullOrWhiteSpace(raw)) return [];
+            return raw.Split("|||", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        }
+    }
+
+    /// <summary>
+    /// Primary display author — the first value in <see cref="Authors"/>,
+    /// which is always the pen name / canonical credited name when the
+    /// author audit has run (pen names sort first).
+    /// </summary>
+    public string? Author => Authors.FirstOrDefault();
     public string? AuthorQid      => Canonical("author_qid");
     public string? WikidataQid    => Canonical("wikidata_qid");
     public string? Year           => Canonical("release_year") ?? Canonical("year");
