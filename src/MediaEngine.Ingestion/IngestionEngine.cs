@@ -1511,6 +1511,26 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             _logger.LogInformation(
                 "Re-organize skipped for {Hash}: confidence {Confidence:P0} below threshold (0.85)",
                 existing.ContentHash[..12], reorgScored.OverallConfidence);
+
+            // Move to staging so the file doesn't loop on every poll sweep.
+            // Only fires when the file is still in the Watch Folder (MoveToStagingAsync
+            // is a no-op for files already in staging or the Library).
+            string lowSubcategory = reorgScored.OverallConfidence < 0.40
+                ? "unidentifiable"
+                : "low-confidence";
+            var lowStaged = await MoveToStagingAsync(currentPath, lowSubcategory, ct)
+                                     .ConfigureAwait(false);
+            if (lowStaged is not null)
+            {
+                await _assetRepo.UpdateFilePathAsync(existing.Id, lowStaged, ct)
+                                 .ConfigureAwait(false);
+                await CreateIngestionReviewItemAsync(
+                    existing.Id, ReviewTrigger.LowConfidence,
+                    reorgScored.OverallConfidence,
+                    $"Confidence {reorgScored.OverallConfidence:P0} below organization " +
+                    "threshold. Staged for review.",
+                    ct).ConfigureAwait(false);
+            }
             return;
         }
 
@@ -1538,7 +1558,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 "Moving to staging and creating review item.",
                 existing.ContentHash[..12]);
 
-            var otherStaged = await MoveToStagingAsync(currentPath, "LowConfidence", ct).ConfigureAwait(false);
+            var otherStaged = await MoveToStagingAsync(currentPath, "low-confidence", ct).ConfigureAwait(false);
             if (otherStaged is not null)
                 await _assetRepo.UpdateFilePathAsync(existing.Id, otherStaged, ct).ConfigureAwait(false);
 
