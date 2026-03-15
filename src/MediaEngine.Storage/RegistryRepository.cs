@@ -24,7 +24,9 @@ public sealed class RegistryRepository : IRegistryRepository
     {
         using var conn = _db.CreateConnection();
 
-        // Build the core query with pivoted canonical values
+        // Build the core query with pivoted canonical values.
+        // Canonical values are stored against media_asset.id, so we join
+        // through editions → media_assets to find the correct entity_id.
         var sql = """
             WITH work_data AS (
                 SELECT
@@ -38,28 +40,37 @@ public sealed class RegistryRepository : IRegistryRepository
                     MAX(CASE WHEN cv.key = 'title' THEN cv.winning_provider_id END) AS title_provider_id,
                     MAX(CASE WHEN cv.key = 'title' THEN cv.is_conflicted END) AS title_conflicted
                 FROM works w
-                LEFT JOIN canonical_values cv ON cv.entity_id = w.id
+                LEFT JOIN editions e2 ON e2.work_id = w.id
+                LEFT JOIN media_assets ma2 ON ma2.edition_id = e2.id
+                LEFT JOIN canonical_values cv ON cv.entity_id = ma2.id
                 GROUP BY w.id, w.media_type
-            ),
-            review_data AS (
-                SELECT entity_id, id AS review_id, trigger, confidence_score, candidates_json
-                FROM review_queue
-                WHERE status = 'Pending'
-            ),
-            user_lock_data AS (
-                SELECT entity_id, 1 AS has_locks
-                FROM metadata_claims
-                WHERE is_user_locked = 1
-                GROUP BY entity_id
             ),
             asset_data AS (
                 SELECT
                     e.work_id,
-                    ma.file_path_root,
-                    ma.status AS asset_status,
-                    LENGTH(ma.content_hash) AS file_size_proxy
+                    MIN(ma.id) AS asset_id,
+                    MIN(ma.file_path_root) AS file_path_root,
+                    MIN(ma.status) AS asset_status,
+                    MAX(LENGTH(ma.content_hash)) AS file_size_proxy
                 FROM editions e
                 INNER JOIN media_assets ma ON ma.edition_id = e.id
+                GROUP BY e.work_id
+            ),
+            review_data AS (
+                SELECT rq.entity_id,
+                       MIN(rq.id) AS review_id,
+                       MIN(rq.trigger) AS trigger,
+                       MAX(rq.confidence_score) AS confidence_score,
+                       MIN(rq.candidates_json) AS candidates_json
+                FROM review_queue rq
+                WHERE rq.status = 'Pending'
+                GROUP BY rq.entity_id
+            ),
+            user_lock_data AS (
+                SELECT mc.entity_id, 1 AS has_locks
+                FROM metadata_claims mc
+                WHERE mc.is_user_locked = 1
+                GROUP BY mc.entity_id
             ),
             full_data AS (
                 SELECT
@@ -84,9 +95,9 @@ public sealed class RegistryRepository : IRegistryRepository
                     CASE WHEN ad.asset_status = 'Conflicted' THEN 1 ELSE 0 END AS has_duplicate,
                     ad.file_path_root
                 FROM work_data wd
-                LEFT JOIN review_data rd ON rd.entity_id = wd.entity_id
-                LEFT JOIN user_lock_data ul ON ul.entity_id = wd.entity_id
                 LEFT JOIN asset_data ad ON ad.work_id = wd.entity_id
+                LEFT JOIN review_data rd ON rd.entity_id = ad.asset_id
+                LEFT JOIN user_lock_data ul ON ul.entity_id = ad.asset_id
             )
             """;
 
@@ -160,17 +171,36 @@ public sealed class RegistryRepository : IRegistryRepository
     {
         using var conn = _db.CreateConnection();
 
-        // Load all canonical values for this entity
+        // Canonical values and claims are stored against media_asset.id, not works.id.
+        // Resolve the asset ID through the editions → media_assets chain.
+        string? assetIdStr = null;
+        using (var assetCmd = conn.CreateCommand())
+        {
+            assetCmd.CommandText = """
+                SELECT ma.id
+                FROM editions e
+                INNER JOIN media_assets ma ON ma.edition_id = e.id
+                WHERE e.work_id = @entityId
+                LIMIT 1
+                """;
+            assetCmd.Parameters.AddWithValue("@entityId", entityId.ToString());
+            assetIdStr = assetCmd.ExecuteScalar()?.ToString();
+        }
+
+        if (assetIdStr is null)
+            return Task.FromResult<RegistryItemDetail?>(null);
+
+        // Load all canonical values for this entity (keyed by asset ID)
         var canonicalValues = new List<RegistryCanonicalValue>();
         using (var cvCmd = conn.CreateCommand())
         {
             cvCmd.CommandText = """
                 SELECT key, value, is_conflicted, winning_provider_id, needs_review, last_scored_at
                 FROM canonical_values
-                WHERE entity_id = @entityId
+                WHERE entity_id = @assetId
                 ORDER BY key
                 """;
-            cvCmd.Parameters.AddWithValue("@entityId", entityId.ToString());
+            cvCmd.Parameters.AddWithValue("@assetId", assetIdStr);
             using var cvReader = cvCmd.ExecuteReader();
             while (cvReader.Read())
             {
@@ -187,17 +217,17 @@ public sealed class RegistryRepository : IRegistryRepository
         if (canonicalValues.Count == 0)
             return Task.FromResult<RegistryItemDetail?>(null);
 
-        // Load claim history
+        // Load claim history (also keyed by asset ID)
         var claims = new List<RegistryClaimRecord>();
         using (var claimCmd = conn.CreateCommand())
         {
             claimCmd.CommandText = """
                 SELECT id, claim_key, claim_value, provider_id, confidence, is_user_locked, claimed_at
                 FROM metadata_claims
-                WHERE entity_id = @entityId
+                WHERE entity_id = @assetId
                 ORDER BY claimed_at DESC
                 """;
-            claimCmd.Parameters.AddWithValue("@entityId", entityId.ToString());
+            claimCmd.Parameters.AddWithValue("@assetId", assetIdStr);
             using var claimReader = claimCmd.ExecuteReader();
             while (claimReader.Read())
             {
@@ -212,7 +242,7 @@ public sealed class RegistryRepository : IRegistryRepository
             }
         }
 
-        // Load review queue entry if any
+        // Load review queue entry if any (review_queue uses asset ID as entity_id)
         Guid? reviewItemId = null;
         string? reviewTrigger = null, reviewDetail = null, candidatesJson = null;
         double reviewConfidence = 0.95;
@@ -221,10 +251,10 @@ public sealed class RegistryRepository : IRegistryRepository
             rqCmd.CommandText = """
                 SELECT id, trigger, confidence_score, detail, candidates_json
                 FROM review_queue
-                WHERE entity_id = @entityId AND status = 'Pending'
+                WHERE entity_id = @assetId AND status = 'Pending'
                 LIMIT 1
                 """;
-            rqCmd.Parameters.AddWithValue("@entityId", entityId.ToString());
+            rqCmd.Parameters.AddWithValue("@assetId", assetIdStr);
             using var rqReader = rqCmd.ExecuteReader();
             if (rqReader.Read())
             {
@@ -318,11 +348,21 @@ public sealed class RegistryRepository : IRegistryRepository
         using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
 
+        // Review queue and metadata claims use media_asset.id as entity_id,
+        // so we join through editions → media_assets to map back to works.
         cmd.CommandText = """
             SELECT
                 (SELECT COUNT(*) FROM works) AS total,
-                (SELECT COUNT(DISTINCT rq.entity_id) FROM review_queue rq WHERE rq.status = 'Pending') AS needs_review,
-                (SELECT COUNT(DISTINCT mc.entity_id) FROM metadata_claims mc WHERE mc.is_user_locked = 1) AS edited,
+                (SELECT COUNT(DISTINCT e.work_id)
+                 FROM review_queue rq
+                 INNER JOIN media_assets ma ON ma.id = rq.entity_id
+                 INNER JOIN editions e ON e.id = ma.edition_id
+                 WHERE rq.status = 'Pending') AS needs_review,
+                (SELECT COUNT(DISTINCT e.work_id)
+                 FROM metadata_claims mc
+                 INNER JOIN media_assets ma ON ma.id = mc.entity_id
+                 INNER JOIN editions e ON e.id = ma.edition_id
+                 WHERE mc.is_user_locked = 1) AS edited,
                 (SELECT COUNT(*) FROM media_assets WHERE status = 'Conflicted') AS duplicate
             """;
 
