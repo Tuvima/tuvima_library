@@ -91,8 +91,13 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         // If the file is already in the library, check whether the path needs
         // updating (e.g., QID now available after hydration).  If the new path
         // matches the current one, just refresh the sidecar.
-        bool alreadyOrganized = asset.FilePathRoot.StartsWith(
-            _options.LibraryRoot, StringComparison.OrdinalIgnoreCase);
+        bool isInOrphanage = !string.IsNullOrWhiteSpace(_options.OrphanagePath)
+            && asset.FilePathRoot.StartsWith(
+                _options.OrphanagePath, StringComparison.OrdinalIgnoreCase);
+
+        bool alreadyOrganized = !isInOrphanage
+            && asset.FilePathRoot.StartsWith(
+                _options.LibraryRoot, StringComparison.OrdinalIgnoreCase);
 
         if (alreadyOrganized)
         {
@@ -181,6 +186,17 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         {
             _logger.LogDebug(
                 "Auto-organize blocked for {Id}: resolved category is 'Other'", assetId);
+            return;
+        }
+
+        // Placeholder title guard: block organization when title is a
+        // well-known placeholder and no bridge ID confirms identity.
+        string? orgTitle = metadata.GetValueOrDefault("title");
+        if (MetadataGuards.IsPlaceholderTitle(orgTitle) && !MetadataGuards.HasBridgeId(metadata))
+        {
+            _logger.LogWarning(
+                "Auto-organize blocked for {Id}: placeholder title \"{Title}\" with no bridge IDs",
+                assetId, orgTitle ?? "(blank)");
             return;
         }
 

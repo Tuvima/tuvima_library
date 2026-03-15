@@ -90,4 +90,11 @@ public static class ReviewTrigger
     /// Moved to .orphans/unidentifiable/ — deeply broken or unrecognizable.
     /// </summary>
     public const string OrphanedUnidentifiable = "OrphanedUnidentifiable";
+
+    /// <summary>
+    /// The file's title is a placeholder ("Unknown", "Untitled", blank) and
+    /// no bridge identifier (ISBN, ASIN, QID) exists to prove its identity.
+    /// The user must provide a real title or match it manually.
+    /// </summary>
+    public const string PlaceholderTitle = "PlaceholderTitle";
 }

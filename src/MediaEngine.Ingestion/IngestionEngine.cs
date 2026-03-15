@@ -107,6 +107,10 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     // and allows folder hints to propagate to sibling files.
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _folderLocks = new(StringComparer.OrdinalIgnoreCase);
 
+    // Per-hash serialization: prevents two concurrent tasks from processing the
+    // same content hash simultaneously (race on duplicate check + insert).
+    private readonly ConcurrentDictionary<string, SemaphoreSlim> _hashLocks = new(StringComparer.OrdinalIgnoreCase);
+
 
     public IngestionEngine(
         IFileWatcher              watcher,
@@ -407,6 +411,10 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         // (e.g. it scored below the confidence gate on first pass, or LibraryRoot
         // was not configured at that time), attempt to organize it now — metadata
         // may have been enriched by external providers since the initial scan.
+        var hashLock = _hashLocks.GetOrAdd(hash.Hex, _ => new SemaphoreSlim(1, 1));
+        await hashLock.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
         var existing = await _assetRepo.FindByHashAsync(hash.Hex, ct).ConfigureAwait(false);
         if (existing is not null)
         {
@@ -757,6 +765,30 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         bool hasUserLock    = claims.Any(c => c.IsUserLocked);
         bool highConfidence = scored.OverallConfidence >= 0.85;
         bool passesGate     = (highConfidence || hasUserLock) && !mediaTypeNeedsReview;
+
+        // Placeholder title guard: block organization when the title is a
+        // well-known placeholder and no bridge ID exists to confirm identity.
+        // This prevents files like "Unknown.epub" from organizing at 100%
+        // confidence just because the processor trusts its own output.
+        if (passesGate && !hasUserLock)
+        {
+            var titleCanonicals = candidate.Metadata
+                ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            string? gateTitle = titleCanonicals.GetValueOrDefault("title");
+            if (MetadataGuards.IsPlaceholderTitle(gateTitle)
+                && !MetadataGuards.HasBridgeId(titleCanonicals))
+            {
+                passesGate = false;
+                _logger.LogWarning(
+                    "Organization blocked — placeholder title \"{Title}\" with no bridge IDs for {Path}",
+                    gateTitle ?? "(blank)", candidate.Path);
+
+                await CreateIngestionReviewItemAsync(
+                    assetId, ReviewTrigger.PlaceholderTitle, scored.OverallConfidence,
+                    $"Title \"{gateTitle ?? "(blank)"}\" appears to be a placeholder with no ISBN, ASIN, or QID",
+                    ct, ingestionRunId).ConfigureAwait(false);
+            }
+        }
 
         string currentPath = candidate.Path;
         if (_options.AutoOrganize
@@ -1211,6 +1243,13 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             resolvedMediaType,
             scored.OverallConfidence);
 
+        } // end hash lock try
+        finally
+        {
+            hashLock.Release();
+            _hashLocks.TryRemove(hash.Hex, out _);
+        }
+
         // end of ProcessCandidateCoreAsync
     }
 
@@ -1543,6 +1582,27 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             && Enum.TryParse<MediaType>(mtStr, ignoreCase: true, out var mt)
                 ? mt
                 : (MediaType?)null;
+
+        // Confidence gate: only re-organize when metadata is trustworthy.
+        var reorgClaims = await _claimRepo.GetByEntityAsync(existing.Id, ct).ConfigureAwait(false);
+        var reorgScoringContext = new ScoringContext
+        {
+            EntityId        = existing.Id,
+            Claims          = reorgClaims,
+            ProviderWeights = new Dictionary<Guid, double>
+                { [LocalProcessorProviderId] = 1.0 },
+            Configuration   = new ScoringConfiguration(),
+        };
+        var reorgScored = await _scorer.ScoreEntityAsync(reorgScoringContext, ct).ConfigureAwait(false);
+        bool reorgHasUserLock    = reorgClaims.Any(c => c.IsUserLocked);
+        bool reorgHighConfidence = reorgScored.OverallConfidence >= 0.85;
+        if (!reorgHighConfidence && !reorgHasUserLock)
+        {
+            _logger.LogInformation(
+                "Re-organize skipped for {Hash}: confidence {Confidence:P0} below threshold (0.85)",
+                existing.ContentHash[..12], reorgScored.OverallConfidence);
+            return;
+        }
 
         // Build a synthetic candidate so the FileOrganizer can calculate the path.
         var synth = new IngestionCandidate
