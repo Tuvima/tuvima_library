@@ -163,5 +163,26 @@
     "Location": ["P18"],
     "Organization": ["P18"]
   },
-  "commons_url_template": "https://commons.wikimedia.org/wiki/Special:FilePath/{0}?width=300"
+  "commons_url_template": "https://commons.wikimedia.org/wiki/Special:FilePath/{0}?width=300",
+  "instance_of_classes": {
+    "Books": ["Q7725634", "Q571", "Q8261", "Q47461344", "Q277759"],
+    "Audiobooks": ["Q106833962", "Q7725634", "Q571", "Q8261", "Q47461344"],
+    "Movies": ["Q11424", "Q24869", "Q24862"],
+    "TV": ["Q5398426", "Q581714", "Q21191270"],
+    "Music": ["Q482994", "Q134556", "Q208569"],
+    "Comics": ["Q1004", "Q838795", "Q21198342"],
+    "Podcasts": ["Q24634210"]
+  },
+  "structured_search_thresholds": {
+    "auto_accept_with_author": 0.85,
+    "auto_accept_with_year": 0.80,
+    "auto_accept_single_result": 0.70,
+    "review_threshold": 0.60,
+    "author_match_bonus": 0.20,
+    "year_match_bonus": 0.10,
+    "exact_label_bonus": 0.05,
+    "single_result_bonus": 0.05,
+    "tier2_title_boost": 0.88,
+    "enable_tier3_instance_of_filtering": true
+  }
 }

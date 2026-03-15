@@ -588,15 +588,47 @@ Four new `SystemActionType` constants log hydrator actions: `BridgeSyncUpdated` 
 
 **Plain English:** Phase B replaces the placeholder Wikidata work lookup with a full SPARQL deep-hydration engine. You can now click a button on the Dashboard — or call a single Engine action — and the Library reaches out to Wikidata, finds the matching creative work by its bridge identifiers, and pulls back every known property: series name, franchise, characters, narrative location, and dozens of external platform links (TMDB, IMDb, Goodreads, Apple Books, etc.). All of this happens in a single SPARQL query. The Wikidata provider is also now pinned at the top of the Metadata tab as the "Universe Provider" — reflecting its unique role as the one source that spans all media types.
 
-**SPARQL deep-hydration algorithm (WikidataAdapter.FetchWorkAsync):**
+**Four-Tier QID Resolution (WikidataAdapter.FetchWorkAsync):**
 
-The adapter uses a three-step strategy to find and hydrate a work:
+The adapter uses a four-tier strategy to resolve the correct Wikidata QID for a work, followed by SPARQL deep hydration:
 
-1. **QID Cross-Reference via Bridge IDs** — If the library already knows an external identifier (ASIN, ISBN, Apple Books ID, Audible ID, TMDB ID, IMDb ID), the adapter runs a lightweight SPARQL query to find the matching Wikidata Q-identifier. Bridge IDs are tried in priority order; first match wins.
+| Tier | Strategy | When Used | Confidence | Auto-Accept Rule |
+|------|----------|-----------|------------|------------------|
+| **1** | Bridge ID SPARQL lookup | ISBN, ASIN, TMDB ID, etc. available | 0.95–1.0 | Always (exact match) |
+| **2** | Structured SPARQL search | Title + known media type (instance_of filtering) | 0.50–0.80 | Title + author + instance_of → 0.85; Title + year → 0.80; Single result → 0.70 |
+| **3** | Fuzzy title search (enhanced) | No bridge, Tier 2 returned nothing | 0.40–0.65 | Only if instance_of post-check passes |
+| **4** | Filename-only | Only filename-derived title, no author/year | 0.20–0.40 | Never — review queue |
 
-2. **Fallback to Title Search** — If no bridge ID matches, the adapter falls back to the existing MediaWiki `wbsearchentities` API with the work's title. This reuses the same search flow already proven for Person enrichment.
+1. **Tier 1 — Bridge ID Cross-Reference** — If the library already knows an external identifier (ASIN, ISBN, Apple Books ID, Audible ID, TMDB ID, IMDb ID), the adapter runs a lightweight SPARQL query to find the matching Wikidata Q-identifier. Bridge IDs are tried in priority order; first match wins. Confidence boost: 0.95 for ISBN, 0.92 for other bridges.
 
-3. **SPARQL Deep Ingest** — Once a QID is found, a single SPARQL query (built by `WikidataSparqlPropertyMap.BuildWorkSparqlQuery`) fetches every Work-scoped property in one call. The response is parsed from `application/sparql-results+json` and each binding is transformed into a `ProviderClaim` with the property map's configured confidence value.
+2. **Tier 2 — Structured SPARQL Search** — If no bridge ID matches but the title and media type are known, the adapter runs a SPARQL query combining `rdfs:label` matching with `wdt:P31/wdt:P279*` instance_of filtering (e.g. only Q11424 Film for movies, only Q7725634 Literary Work for books). Optional author (P50/P57/P175) and year (P577) cross-validation adds confidence bonuses. Multiple results without author confirmation go to the review queue. Confidence boost: 0.88 (configurable via `structured_search_thresholds.tier2_title_boost`).
+
+3. **Tier 3 — Fuzzy Title Search** — Falls back to the MediaWiki `wbsearchentities` API with description keyword scoring. Enhanced with instance_of post-filtering: candidates failing an ASK query against expected classes get a score penalty. Controlled by `enable_tier3_instance_of_filtering` config flag.
+
+4. **Tier 4 — Filename-Only** — When only a filename-derived title is available with no author or year, confidence is capped at 0.40 and the item is sent to the review queue.
+
+5. **SPARQL Deep Ingest** — Once a QID is resolved via any tier, a single SPARQL query (built by `WikidataSparqlPropertyMap.BuildWorkSparqlQuery`) fetches every Work-scoped property in one call. The response is parsed from `application/sparql-results+json` and each binding is transformed into a `ProviderClaim` with the property map's configured confidence value.
+
+**Conservative matching rule:** Multiple Tier 2 results without author confirmation result in a `MultipleQidMatches` review queue entry, not auto-accept.
+
+**Instance_of class mappings** (`config/universe/wikidata.json`):
+```json
+{
+  "instance_of_classes": {
+    "Books": ["Q7725634", "Q571", "Q8261", "Q47461344", "Q277759"],
+    "Audiobooks": ["Q106833962", "Q7725634", "Q571", "Q8261", "Q47461344"],
+    "Movies": ["Q11424", "Q24869", "Q24862"],
+    "TV": ["Q5398426", "Q581714", "Q21191270"],
+    "Music": ["Q482994", "Q134556", "Q208569"],
+    "Comics": ["Q1004", "Q838795", "Q21198342"],
+    "Podcasts": ["Q24634210"]
+  }
+}
+```
+
+**ASIN extraction from audio tags:** The `AudioProcessor` extracts ASINs from M4B/MP3 files — commonly embedded by Audible — to feed files into the reliable Tier 1 bridge path. Extraction sources (priority order): M4B iTunes custom atoms (`----:com.audible.asin`, `----:com.apple.iTunes:ASIN`), MP3 ID3v2 TXXX frames (`ASIN`, `AUDIBLE_ASIN`, `AMAZON_ASIN`), Vorbis/FLAC custom fields (`ASIN`), and comment field regex (`B0[A-Z0-9]{8}`).
+
+**Review queue media type dropdown:** The NeedsReviewTab includes a media type dropdown pre-selected from the auto-detected type. When the user changes the dropdown, search results are filtered using the instance_of classes for that media type. This allows users to correct misclassifications (e.g. an MP4 detected as Movies but actually a TV episode) and get relevant Wikidata candidates.
 
 **Value transformation rules:**
 - **P577 (year):** ISO dates are reduced to 4-digit year strings

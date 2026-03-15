@@ -234,6 +234,11 @@ public sealed partial class AudioProcessor : IMediaProcessor
         if (tagFile?.Properties.AudioBitrate is > 0)
             claims.Add(Claim("audio_bitrate", tagFile.Properties.AudioBitrate.ToString(), 0.8));
 
+        // ASIN — commonly embedded in Audible audiobooks.
+        var asin = ExtractAsin(tagFile);
+        if (!string.IsNullOrWhiteSpace(asin))
+            claims.Add(Claim("asin", asin, 0.9));
+
         return claims;
     }
 
@@ -482,6 +487,99 @@ public sealed partial class AudioProcessor : IMediaProcessor
         @"[Nn]arrat(?:ed|or)\s+(?:by\s+)?(.+)",
         System.Text.RegularExpressions.RegexOptions.Singleline)]
     private static partial System.Text.RegularExpressions.Regex NarratedByRegex();
+
+    // ── ASIN extraction ──────────────────────────────────────────────
+
+    /// <summary>
+    /// Attempts to extract an ASIN (Amazon Standard Identification Number) from
+    /// audio tags. Audible audiobooks commonly embed ASINs in custom tag fields.
+    /// Sources checked in priority order:
+    /// 1. M4B/M4A iTunes custom atoms (com.audible.asin, com.apple.iTunes:ASIN)
+    /// 2. MP3 ID3v2 TXXX user text frames (ASIN, AUDIBLE_ASIN, AMAZON_ASIN)
+    /// 3. Vorbis/FLAC custom fields (ASIN)
+    /// 4. Comment field regex fallback (B0[A-Z0-9]{8} pattern)
+    /// </summary>
+    private static string? ExtractAsin(TagLib.File? tagFile)
+    {
+        if (tagFile is null) return null;
+
+        // 1. iTunes custom atoms (M4B/M4A from Audible).
+        if (tagFile.GetTag(TagLib.TagTypes.Apple) is TagLib.Mpeg4.AppleTag appleTag)
+        {
+            var asin = ReadAppleCustomAtom(appleTag, "com.audible.asin")
+                    ?? ReadAppleCustomAtom(appleTag, "com.apple.iTunes", "ASIN")
+                    ?? ReadAppleCustomAtom(appleTag, "com.apple.iTunes", "AUDIBLE_ASIN");
+            if (IsValidAsin(asin)) return asin;
+        }
+
+        // 2. ID3v2 TXXX user text frames (MP3).
+        if (tagFile.GetTag(TagLib.TagTypes.Id3v2) is TagLib.Id3v2.Tag id3Tag)
+        {
+            foreach (var frame in id3Tag.GetFrames<TagLib.Id3v2.UserTextInformationFrame>())
+            {
+                if (frame.Description is not null &&
+                    AsinFrameDescriptions.Contains(frame.Description) &&
+                    frame.Text.Length > 0)
+                {
+                    var value = frame.Text[0]?.Trim();
+                    if (IsValidAsin(value)) return value;
+                }
+            }
+        }
+
+        // 3. Vorbis/FLAC custom fields.
+        if (tagFile.GetTag(TagLib.TagTypes.Xiph) is TagLib.Ogg.XiphComment xiphTag)
+        {
+            var fields = xiphTag.GetField("ASIN");
+            if (fields.Length > 0)
+            {
+                var value = fields[0]?.Trim();
+                if (IsValidAsin(value)) return value;
+            }
+        }
+
+        // 4. Comment field regex fallback — look for ASIN pattern.
+        var comment = tagFile.Tag.Comment;
+        if (!string.IsNullOrWhiteSpace(comment))
+        {
+            var match = AsinRegex().Match(comment);
+            if (match.Success) return match.Value;
+        }
+
+        return null;
+    }
+
+    /// <summary>Reads a freeform iTunes custom atom by mean+name key.</summary>
+    private static string? ReadAppleCustomAtom(TagLib.Mpeg4.AppleTag appleTag, string mean, string? name = null)
+    {
+        // When name is null, mean contains the full key (e.g. "com.audible.asin")
+        // and we try both as mean-only and mean+name split.
+        if (name is null)
+        {
+            // Try the full string as the "mean" with "asin" as "name" for common patterns.
+            var lastDot = mean.LastIndexOf('.');
+            if (lastDot < 0) return null;
+            var derivedMean = mean[..lastDot];
+            var derivedName = mean[(lastDot + 1)..];
+            return appleTag.GetDashBox(derivedMean, derivedName);
+        }
+        else
+        {
+            return appleTag.GetDashBox(mean, name);
+        }
+    }
+
+    /// <summary>Validates that a string looks like an Amazon ASIN (B0 + 8 alphanumeric chars).</summary>
+    private static bool IsValidAsin(string? value)
+        => !string.IsNullOrWhiteSpace(value) && AsinRegex().IsMatch(value);
+
+    private static readonly HashSet<string> AsinFrameDescriptions =
+        new(StringComparer.OrdinalIgnoreCase) { "ASIN", "AUDIBLE_ASIN", "AMAZON_ASIN" };
+
+    [System.Text.RegularExpressions.GeneratedRegex(
+        @"B0[A-Z0-9]{8}",
+        System.Text.RegularExpressions.RegexOptions.None)]
+    private static partial System.Text.RegularExpressions.Regex AsinRegex();
 
     // ── Helpers ──────────────────────────────────────────────────────────
 

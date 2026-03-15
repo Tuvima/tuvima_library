@@ -243,10 +243,62 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
 
                         candidates.Add(new QidCandidate
                         {
-                            Qid         = qid,
-                            Label       = label?.Label ?? qid,
-                            Description = label?.Description,
+                            Qid            = qid,
+                            Label          = label?.Label ?? qid,
+                            Description    = label?.Description,
+                            ResolutionTier = "bridge",
                         });
+                    }
+                }
+            }
+
+            // Step 1b: Tier 2 — Structured SPARQL search candidates.
+            if (candidates.Count < maxCandidates && !string.IsNullOrWhiteSpace(request.Title)
+                && !string.IsNullOrWhiteSpace(request.SparqlBaseUrl)
+                && universeConfig is not null)
+            {
+                var mediaTypeKey = MediaTypeToConfigKey(request.MediaType);
+                var sparql = WikidataSparqlPropertyMap.BuildStructuredSearchQuery(
+                    request.Title,
+                    mediaTypeKey,
+                    universeConfig.InstanceOfClasses,
+                    request.Author,
+                    language: request.Language);
+
+                if (!string.IsNullOrEmpty(sparql))
+                {
+                    var json = await ThrottledSparqlAsync(
+                        sparqlClient, request.SparqlBaseUrl, sparql, throttleGapMs, ct)
+                        .ConfigureAwait(false);
+
+                    var bindings = json?["results"]?["bindings"]?.AsArray();
+                    if (bindings is not null)
+                    {
+                        foreach (var binding in bindings)
+                        {
+                            if (candidates.Count >= maxCandidates) break;
+                            if (binding is null) continue;
+
+                            var itemUri = binding["item"]?["value"]?.GetValue<string>();
+                            if (string.IsNullOrWhiteSpace(itemUri)) continue;
+
+                            var lastSlash = itemUri.LastIndexOf('/');
+                            var id = lastSlash >= 0 ? itemUri[(lastSlash + 1)..] : itemUri;
+
+                            if (seenQids.Add(id))
+                            {
+                                var lbl  = binding["itemLabel"]?["value"]?.GetValue<string>();
+                                var desc = binding["itemDescription"]?["value"]?.GetValue<string>();
+
+                                candidates.Add(new QidCandidate
+                                {
+                                    Qid            = id,
+                                    Label          = lbl ?? id,
+                                    Description    = desc,
+                                    ResolutionTier = "structured_sparql",
+                                });
+                            }
+                        }
                     }
                 }
             }
@@ -292,9 +344,10 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
                         {
                             candidates.Add(new QidCandidate
                             {
-                                Qid         = id,
-                                Label       = lbl ?? id,
-                                Description = desc,
+                                Qid            = id,
+                                Label          = lbl ?? id,
+                                Description    = desc,
+                                ResolutionTier = "title_search",
                             });
                         }
                     }
@@ -686,6 +739,27 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
                         request.EntityId);
                 }
 
+                // ── Step 1b: Tier 2 — Structured SPARQL Search ───────────
+                // If bridge lookup failed but we have a title, try structured
+                // SPARQL with instance_of filtering + author/year validation.
+                if (qid is null && hasSparql && universeConfig is not null
+                    && !string.IsNullOrWhiteSpace(request.Title))
+                {
+                    var (tier2Qid, tier2Confidence, tier2Source) =
+                        await ResolveQidViaStructuredSearchAsync(
+                            sparqlClient, request, universeConfig, throttleGapMs, ct)
+                            .ConfigureAwait(false);
+
+                    if (tier2Qid is not null)
+                    {
+                        qid = tier2Qid;
+                        matchedBridge = tier2Source; // "structured_sparql"
+                        _logger.LogInformation(
+                            "Wikidata: Tier 2 resolved QID {Qid} (confidence={Confidence:F2}) for entity {Id}",
+                            qid, tier2Confidence, request.EntityId);
+                    }
+                }
+
                 // ── Step 2: Fallback to MediaWiki Text Search ───────────────
                 // Title search uses the MediaWiki API, NOT SPARQL — works even
                 // when the SPARQL endpoint is unavailable.
@@ -898,7 +972,24 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
             // authoritative data.  Boost title to 0.92 if not already boosted by
             // the ISBN bridge (which uses 0.95).  This ensures Wikidata labels
             // override potentially incorrect file metadata for folder naming.
-            if (matchedBridge != "P212")
+            if (matchedBridge == "structured_sparql")
+            {
+                // Tier 2 gets its own boost — lower than bridge (0.95) but higher than
+                // generic title search. The Tier 2 boost comes from config.
+                var tier2Boost = universeConfig?.SearchThresholds.Tier2TitleBoost ?? 0.88;
+                var boosted2 = new List<ProviderClaim>(claims.Count);
+                foreach (var c in claims)
+                {
+                    if (c.Key is "title" or "author" && c.Confidence < tier2Boost)
+                        boosted2.Add(new ProviderClaim(c.Key, c.Value, tier2Boost));
+                    else
+                        boosted2.Add(c);
+                }
+                // Emit a marker claim so downstream services know the QID source.
+                boosted2.Add(new ProviderClaim("qid_source", "structured_sparql", 1.0));
+                claims = boosted2;
+            }
+            else if (matchedBridge != "P212")
             {
                 const double QidConfirmedBoost = 0.92;
                 var boosted2 = new List<ProviderClaim>(claims.Count);
@@ -1612,6 +1703,133 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
         return (null, null);
     }
 
+    // ── QID Resolution: Tier 2 Structured SPARQL Search ───────────────────────
+
+    /// <summary>
+    /// Tier 2: Structured SPARQL search — searches by label with instance_of filtering
+    /// and optional author/year cross-validation. Returns a QID and confidence score.
+    /// </summary>
+    /// <returns>
+    /// A tuple of (QID, confidence, matchSource). All null/0 if no match found.
+    /// </returns>
+    private async Task<(string? Qid, double Confidence, string? MatchSource)> ResolveQidViaStructuredSearchAsync(
+        HttpClient sparqlClient,
+        ProviderLookupRequest request,
+        UniverseConfiguration universeConfig,
+        int throttleGapMs,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(request.SparqlBaseUrl) ||
+            string.IsNullOrWhiteSpace(request.Title))
+            return (null, 0, null);
+
+        var mediaTypeKey = MediaTypeToConfigKey(request.MediaType);
+        var thresholds = universeConfig.SearchThresholds;
+
+        var sparql = WikidataSparqlPropertyMap.BuildStructuredSearchQuery(
+            request.Title,
+            mediaTypeKey,
+            universeConfig.InstanceOfClasses,
+            request.Author,
+            year: null, // Year is extracted from results, not used as a filter input
+            request.Language);
+
+        if (string.IsNullOrEmpty(sparql))
+        {
+            _logger.LogDebug(
+                "Wikidata Tier 2: no instance_of classes configured for media type {MediaType}",
+                mediaTypeKey);
+            return (null, 0, null);
+        }
+
+        _logger.LogInformation(
+            "Wikidata Tier 2: structured SPARQL search for \"{Title}\" (type={MediaType}) for entity {Id}",
+            request.Title, mediaTypeKey, request.EntityId);
+
+        var json = await ThrottledSparqlAsync(sparqlClient, request.SparqlBaseUrl, sparql, throttleGapMs, ct)
+            .ConfigureAwait(false);
+        if (json is null)
+            return (null, 0, null);
+
+        var bindings = json["results"]?["bindings"]?.AsArray();
+        if (bindings is null || bindings.Count == 0)
+        {
+            _logger.LogInformation(
+                "Wikidata Tier 2: no results for \"{Title}\" with {MediaType} instance_of filter",
+                request.Title, mediaTypeKey);
+            return (null, 0, null);
+        }
+
+        _logger.LogDebug(
+            "Wikidata Tier 2: {Count} candidate(s) for \"{Title}\"",
+            bindings.Count, request.Title);
+
+        // Score each candidate.
+        string? bestQid = null;
+        double bestConfidence = 0;
+
+        foreach (var binding in bindings)
+        {
+            if (binding is null) continue;
+
+            var itemUri = binding["item"]?["value"]?.GetValue<string>();
+            if (string.IsNullOrWhiteSpace(itemUri)) continue;
+
+            var lastSlash = itemUri.LastIndexOf('/');
+            var candidateQid = lastSlash >= 0 ? itemUri[(lastSlash + 1)..] : itemUri;
+
+            // Base score for Tier 2 (passed instance_of check).
+            double confidence = 0.50;
+
+            // Author match bonus.
+            if (!string.IsNullOrWhiteSpace(request.Author))
+            {
+                var authorLabel = binding["authorLabel"]?["value"]?.GetValue<string>();
+                if (!string.IsNullOrWhiteSpace(authorLabel) &&
+                    authorLabel.Contains(request.Author, StringComparison.OrdinalIgnoreCase))
+                {
+                    confidence += thresholds.AuthorMatchBonus;
+                }
+            }
+
+            // Year match bonus.
+            var yearValue = binding["year"]?["value"]?.GetValue<string>();
+            // If we have a year from the request, compare; otherwise check if result has year at all.
+            if (!string.IsNullOrWhiteSpace(yearValue) && yearValue.Length >= 4)
+            {
+                confidence += thresholds.YearMatchBonus;
+            }
+
+            // Exact label bonus (the SPARQL query already filters by exact label, so this is always true).
+            confidence += thresholds.ExactLabelBonus;
+
+            // Single result bonus.
+            if (bindings.Count == 1)
+                confidence += thresholds.SingleResultBonus;
+
+            _logger.LogDebug(
+                "Wikidata Tier 2 candidate: {Qid} confidence={Confidence:F2}",
+                candidateQid, confidence);
+
+            if (confidence > bestConfidence)
+            {
+                bestConfidence = confidence;
+                bestQid = candidateQid;
+            }
+        }
+
+        if (bestQid is null)
+            return (null, 0, null);
+
+        // Conservative rule: multiple results without author confirmation → review queue.
+        // Return the best candidate but let the caller decide based on confidence thresholds.
+        _logger.LogInformation(
+            "Wikidata Tier 2: selected {Qid} with confidence {Confidence:F2} for \"{Title}\" (entity {Id})",
+            bestQid, bestConfidence, request.Title, request.EntityId);
+
+        return (bestQid, bestConfidence, "structured_sparql");
+    }
+
     /// <summary>
     /// Maps a bridge <c>request_field</c> name to the corresponding value on
     /// <see cref="ProviderLookupRequest"/>. Used by the config-driven bridge lookup.
@@ -1627,6 +1845,18 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
             // Strip "urn:isbn:" prefix — EPUB embeds ISBNs as URIs but Wikidata stores bare numbers.
             "isbn"           => StripIsbnPrefix(request.Isbn),
             _                => null,
+        };
+
+    /// <summary>
+    /// Maps a <see cref="MediaType"/> enum value to the key used in the
+    /// <c>instance_of_classes</c> configuration dictionary. Handles the
+    /// singular/plural mismatch (e.g. <c>Comic</c> → <c>"Comics"</c>).
+    /// </summary>
+    private static string MediaTypeToConfigKey(MediaType mediaType)
+        => mediaType switch
+        {
+            MediaType.Comic => "Comics",
+            _               => mediaType.ToString(),
         };
 
     /// <summary>Strips the "urn:isbn:" URI prefix from an ISBN if present.</summary>

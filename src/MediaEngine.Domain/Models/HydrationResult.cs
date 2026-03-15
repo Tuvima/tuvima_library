@@ -67,4 +67,11 @@ public sealed class QidCandidate
 
     /// <summary>Optional description from Wikidata (e.g. "1965 novel by Frank Herbert").</summary>
     public string? Description { get; init; }
+
+    /// <summary>
+    /// The resolution tier that produced this candidate (e.g. "bridge", "structured_sparql",
+    /// "title_search"). Used by the disambiguation UI to show how each candidate was found.
+    /// Null for candidates from legacy code paths.
+    /// </summary>
+    public string? ResolutionTier { get; init; }
 }

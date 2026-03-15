@@ -112,10 +112,22 @@ else
                             <MudSelect T="string" @bind-Value="_selectedProvider" Dense="true"
                                        Variant="Variant.Outlined" Label="Provider"
                                        Margin="Margin.Dense" Class="review-search-provider">
-                                @foreach (var p in GetSlottedProviders(item.MediaType))
+                                @foreach (var p in GetSlottedProviders(_currentMediaType))
                                 {
                                     <MudSelectItem Value="@p.Name">@p.DisplayName</MudSelectItem>
                                 }
+                            </MudSelect>
+                            <MudSelect T="string" Value="_currentMediaType"
+                                       ValueChanged="OnMediaTypeDropdownChanged"
+                                       Dense="true" Variant="Variant.Outlined" Label="Media Type"
+                                       Margin="Margin.Dense" Class="review-search-provider">
+                                <MudSelectItem Value="@("Books")">Books</MudSelectItem>
+                                <MudSelectItem Value="@("Audiobooks")">Audiobooks</MudSelectItem>
+                                <MudSelectItem Value="@("Movies")">Movies</MudSelectItem>
+                                <MudSelectItem Value="@("TV")">TV</MudSelectItem>
+                                <MudSelectItem Value="@("Music")">Music</MudSelectItem>
+                                <MudSelectItem Value="@("Comic")">Comics</MudSelectItem>
+                                <MudSelectItem Value="@("Podcasts")">Podcasts</MudSelectItem>
                             </MudSelect>
                             <MudTextField T="string" @bind-Value="_searchQuery" Variant="Variant.Outlined"
                                           Label="Search Term" Margin="Margin.Dense"
@@ -561,6 +573,17 @@ else
         "tv"         => "TV Shows",
         _            => null,
     };
+
+    // ── Media type override ────────────────────────────────────────────
+
+    private void OnMediaTypeDropdownChanged(string value)
+    {
+        _currentMediaType = value;
+        _searchResults = [];
+        _searchExecuted = false;
+        _selectedSearchResult = null;
+        StateHasChanged();
+    }
 
     // ── Search ───────────────────────────────────────────────────────────
 

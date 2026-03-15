@@ -652,6 +652,105 @@ public static class WikidataSparqlPropertyMap
         return BuildSparqlQuery(qid, props, language);
     }
 
+    /// <summary>
+    /// Builds a SPARQL query that searches for works by label, filtering by instance_of
+    /// classes and optionally cross-validating with author/director/year.
+    /// Used by Tier 2 (Structured SPARQL Search) in the WikidataAdapter.
+    /// </summary>
+    /// <param name="title">The title to search for (matched against rdfs:label).</param>
+    /// <param name="mediaType">The media type string (e.g. "Books", "Movies") — used to look up instance_of classes.</param>
+    /// <param name="instanceOfClasses">Map of media type → list of Wikidata Q-IDs for instance_of filtering.</param>
+    /// <param name="author">Optional author/director/performer name for cross-validation.</param>
+    /// <param name="year">Optional publication year for cross-validation.</param>
+    /// <param name="language">BCP-47 language code. Defaults to "en".</param>
+    /// <param name="limit">Maximum results to return. Defaults to 10.</param>
+    /// <returns>SPARQL query string, or empty string if mediaType has no instance_of classes configured.</returns>
+    public static string BuildStructuredSearchQuery(
+        string title,
+        string mediaType,
+        IReadOnlyDictionary<string, List<string>> instanceOfClasses,
+        string? author = null,
+        string? year = null,
+        string? language = null,
+        int limit = 10)
+    {
+        var lang = string.IsNullOrWhiteSpace(language) ? "en" : language.ToLowerInvariant();
+
+        // Look up instance_of classes for this media type.
+        if (!instanceOfClasses.TryGetValue(mediaType, out var classes) || classes.Count == 0)
+            return string.Empty;
+
+        var escapedTitle = EscapeSparqlString(title);
+        var sb = new StringBuilder(1024);
+
+        sb.AppendLine("SELECT ?item ?itemLabel ?itemDescription ?authorLabel ?year WHERE {");
+
+        // instance_of filtering using VALUES + P31/P279* (subclass traversal).
+        sb.Append("  VALUES ?class { ");
+        foreach (var cls in classes)
+            sb.Append("wd:").Append(cls).Append(' ');
+        sb.AppendLine("}");
+        sb.AppendLine("  ?item wdt:P31/wdt:P279* ?class .");
+
+        // Label match — exact case-insensitive match on rdfs:label.
+        sb.Append("  ?item rdfs:label ?label . FILTER(LANG(?label) = \"").Append(lang).AppendLine("\")");
+        sb.Append("  FILTER(LCASE(STR(?label)) = LCASE(\"").Append(escapedTitle).AppendLine("\"))");
+
+        // Optional author/director/performer cross-validation.
+        if (!string.IsNullOrWhiteSpace(author))
+        {
+            sb.AppendLine("  OPTIONAL {");
+            sb.AppendLine("    { ?item wdt:P50 ?author } UNION { ?item wdt:P57 ?author } UNION { ?item wdt:P175 ?author }");
+            sb.Append("    ?author rdfs:label ?authorLabel . FILTER(LANG(?authorLabel) = \"").Append(lang).AppendLine("\")");
+            sb.AppendLine("  }");
+        }
+
+        // Optional year cross-validation.
+        sb.AppendLine("  OPTIONAL { ?item wdt:P577 ?pubDate }");
+        sb.AppendLine("  BIND(STR(YEAR(?pubDate)) AS ?year)");
+
+        // Fetch labels and descriptions via the Wikidata label service.
+        sb.Append("  SERVICE wikibase:label { bd:serviceParam wikibase:language \"").Append(lang).AppendLine(",en\" . }");
+
+        sb.AppendLine("}");
+        sb.Append("LIMIT ").Append(limit);
+
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Builds a lightweight ASK query to check whether a QID's P31 (instance_of)
+    /// matches any expected class for a given media type.
+    /// Used by Tier 3 post-filtering in the WikidataAdapter.
+    /// </summary>
+    /// <param name="qid">The Wikidata Q-identifier to check (e.g. "Q190192").</param>
+    /// <param name="mediaType">The media type string (e.g. "Books", "Movies").</param>
+    /// <param name="instanceOfClasses">Map of media type → list of Wikidata Q-IDs for instance_of filtering.</param>
+    /// <returns>SPARQL ASK query string, or empty string if mediaType has no instance_of classes configured.</returns>
+    public static string BuildInstanceOfCheckQuery(
+        string qid,
+        string mediaType,
+        IReadOnlyDictionary<string, List<string>> instanceOfClasses)
+    {
+        if (!instanceOfClasses.TryGetValue(mediaType, out var classes) || classes.Count == 0)
+            return string.Empty;
+
+        var sb = new StringBuilder(256);
+        sb.AppendLine("ASK {");
+        sb.Append("  VALUES ?class { ");
+        foreach (var cls in classes)
+            sb.Append("wd:").Append(cls).Append(' ');
+        sb.AppendLine("}");
+        sb.Append("  wd:").Append(qid).AppendLine(" wdt:P31/wdt:P279* ?class .");
+        sb.AppendLine("}");
+
+        return sb.ToString();
+    }
+
+    /// <summary>Escapes a string for use in a SPARQL literal (doubles backslashes and quotes).</summary>
+    private static string EscapeSparqlString(string value)
+        => value.Replace("\\", "\\\\").Replace("\"", "\\\"");
+
     // ── Private Helpers ──────────────────────────────────────────────────────
 
     /// <summary>
