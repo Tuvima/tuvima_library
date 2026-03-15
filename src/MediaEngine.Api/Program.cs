@@ -218,7 +218,7 @@ builder.Services.PostConfigure<IngestionOptions>(opts =>
     // variables without ever editing a config file.
     //   TUVIMA_WATCH_FOLDER   → where to pick up new files
     //   TUVIMA_LIBRARY_ROOT   → where organised files are stored
-    //   Note: orphanage is always {LibraryRoot}/.orphans/ — not independently configurable
+    //   Note: staging area is always {LibraryRoot}/.staging/ — not independently configurable
     {
         string? envWatch   = Environment.GetEnvironmentVariable("TUVIMA_WATCH_FOLDER");
         string? envLibrary = Environment.GetEnvironmentVariable("TUVIMA_LIBRARY_ROOT");

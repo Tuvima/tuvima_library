@@ -212,8 +212,9 @@ public sealed class ComprehensiveIngestionTests : IDisposable
 
         await RunPipelineAsync();
 
-        var libraryFile = Path.Combine(_libraryDir, "Movies", "Dune Part Two.mp4");
-        Assert.True(File.Exists(libraryFile), "File should be organized into Movies/ category");
+        // Staging-first: file goes to .staging/pending/, not directly to Movies/.
+        var stagedFile = FindFileInTree(Path.Combine(_libraryDir, ".staging"), "Dune Part Two.mp4");
+        Assert.NotNull(stagedFile);
     }
 
     [Fact]
@@ -234,8 +235,9 @@ public sealed class ComprehensiveIngestionTests : IDisposable
 
         await RunPipelineAsync();
 
-        var libraryFile = Path.Combine(_libraryDir, "Comics", "Batman Year One.cbz");
-        Assert.True(File.Exists(libraryFile), "File should be organized into Comics/ category");
+        // Staging-first: file goes to .staging/pending/, not directly to Comics/.
+        var stagedFile = FindFileInTree(Path.Combine(_libraryDir, ".staging"), "Batman Year One.cbz");
+        Assert.NotNull(stagedFile);
     }
 
     [Fact]
@@ -270,7 +272,7 @@ public sealed class ComprehensiveIngestionTests : IDisposable
         });
         await RunPipelineAsync();
 
-        // Verify all three ended up in the library under correct categories.
+        // Verify all three ended up somewhere under the library root (staging or organized).
         Assert.NotNull(FindFileInTree(_libraryDir, "The Hobbit.epub"));
         Assert.NotNull(FindFileInTree(_libraryDir, "Sapiens.m4b"));
         Assert.NotNull(FindFileInTree(_libraryDir, "Arrival.mp4"));
@@ -331,13 +333,13 @@ public sealed class ComprehensiveIngestionTests : IDisposable
 
         await RunPipelineAsync();
 
-        // File may be organized (high confidence) or orphaned (if conflicting titles
+        // File may be organized (high confidence) or staged (if conflicting titles
         // drag down overall confidence). Search everywhere.
-        var orphanagePath = Path.Combine(_libraryDir, ".orphans");
+        var stagingPath = Path.Combine(_libraryDir, ".staging");
         var libraryFile = FindFileInTree(_libraryDir, "Correct Title.epub")
             ?? FindFileInTree(_libraryDir, "Scoring Test.epub")
-            ?? FindFileInTree(orphanagePath, "Scoring Test.epub")
-            ?? FindFileInTree(orphanagePath, "Correct Title.epub");
+            ?? FindFileInTree(stagingPath, "Scoring Test.epub")
+            ?? FindFileInTree(stagingPath, "Correct Title.epub");
 
         // If file was not moved at all, use original path.
         var assetFile = libraryFile ?? (File.Exists(filePath) ? filePath : null);
@@ -414,14 +416,14 @@ public sealed class ComprehensiveIngestionTests : IDisposable
         await RunPipelineAsync();
 
         // Pipeline should not crash. With zero claims, scoring produces no canonical
-        // values and overall confidence = 0. The file will be orphaned (below 0.85
+        // values and overall confidence = 0. The file will be staged (below 0.85
         // threshold) or remain in watch dir. It should exist somewhere.
-        var orphanagePath2 = Path.Combine(_libraryDir, ".orphans");
+        var stagingPath2 = Path.Combine(_libraryDir, ".staging");
         var fileExists = File.Exists(filePath)
             || FindFileInTree(_libraryDir, "mystery_file.epub") is not null
-            || FindFileInTree(orphanagePath2, "mystery_file.epub") is not null;
+            || FindFileInTree(stagingPath2, "mystery_file.epub") is not null;
         Assert.True(fileExists,
-            "File should still exist somewhere (watch, library, or orphanage)");
+            "File should still exist somewhere (watch, library, or staging)");
 
         // If an asset was created, verify it exists.
         // With empty claims, the pipeline may skip asset creation entirely,
@@ -461,12 +463,12 @@ public sealed class ComprehensiveIngestionTests : IDisposable
         var inLibrary = FindFileInTree(_libraryDir, "ambiguous.mp3");
         Assert.Null(inLibrary);
 
-        // File should be in orphanage or watch.
-        var orphanagePath3 = Path.Combine(_libraryDir, ".orphans");
-        var inOrphanage = FindFileInTree(orphanagePath3, "ambiguous.mp3");
+        // File should be in staging or watch.
+        var stagingPath3 = Path.Combine(_libraryDir, ".staging");
+        var inStaging = FindFileInTree(stagingPath3, "ambiguous.mp3");
         var inWatch = File.Exists(filePath);
-        Assert.True(inOrphanage is not null || inWatch,
-            "File should be in orphanage dir or still in watch dir");
+        Assert.True(inStaging is not null || inWatch,
+            "File should be in staging dir or still in watch dir");
 
         // Review item created.
         var reviews = await _reviewRepo.GetPendingAsync();
@@ -494,11 +496,11 @@ public sealed class ComprehensiveIngestionTests : IDisposable
         var inLibraryOther = FindFileInTree(Path.Combine(_libraryDir, "Other"), "unknown_type.bin");
 
         // File should NOT be organized into library under Other.
-        // It may be in orphanage or watch depending on pipeline behavior.
-        var orphanagePath4 = Path.Combine(_libraryDir, ".orphans");
-        var inOrphanage2 = FindFileInTree(orphanagePath4, "unknown_type.bin");
+        // It may be in staging or watch depending on pipeline behavior.
+        var stagingPath4 = Path.Combine(_libraryDir, ".staging");
+        var inStaging2 = FindFileInTree(stagingPath4, "unknown_type.bin");
         var inWatch2 = File.Exists(filePath);
-        Assert.True(inOrphanage2 is not null || inWatch2 || inLibraryOther is not null,
+        Assert.True(inStaging2 is not null || inWatch2 || inLibraryOther is not null,
             "File should exist somewhere after processing");
     }
 
@@ -589,8 +591,9 @@ public sealed class ComprehensiveIngestionTests : IDisposable
 
         await RunPipelineAsync();
 
-        var libraryFile = Path.Combine(_libraryDir, "Books", "Original.epub");
-        Assert.True(File.Exists(libraryFile));
+        // With staging-first flow, file lands in .staging/pending/.
+        var stagedOriginal = FindFileInTree(Path.Combine(_libraryDir, ".staging"), "Original.epub");
+        Assert.NotNull(stagedOriginal);
 
         // Create duplicate with same content, different name.
         var dupPath = CreateWatchFile("Original_copy.epub", content);
@@ -598,7 +601,7 @@ public sealed class ComprehensiveIngestionTests : IDisposable
         await RunPipelineAsync();
 
         // Only one asset in DB.
-        var hash = await _hasher.ComputeAsync(libraryFile);
+        var hash = await _hasher.ComputeAsync(stagedOriginal!);
         var asset = await _assetRepo.FindByHashAsync(hash.Hex);
         Assert.NotNull(asset);
 
@@ -664,11 +667,12 @@ public sealed class ComprehensiveIngestionTests : IDisposable
 
         await RunPipelineAsync();
 
-        var libraryFile = Path.Combine(_libraryDir, "Books", "Orphan.epub");
-        Assert.True(File.Exists(libraryFile));
+        // With staging-first flow, high-confidence files land in .staging/pending/.
+        var stagedFile = FindFileInTree(Path.Combine(_libraryDir, ".staging"), "Orphan.epub");
+        Assert.NotNull(stagedFile);
 
-        // Simulate orphan: delete the library file.
-        File.Delete(libraryFile);
+        // Simulate stale asset: delete the staged file.
+        File.Delete(stagedFile);
 
         // Re-create the same content in watch dir.
         var newPath = CreateWatchFile("Orphan.epub", content);
@@ -686,8 +690,10 @@ public sealed class ComprehensiveIngestionTests : IDisposable
 
         await RunPipelineAsync();
 
-        // Asset should exist in DB and file should be re-organized.
-        var hash = await _hasher.ComputeAsync(Path.Combine(_libraryDir, "Books", "Orphan.epub"));
+        // Asset should exist in DB and file should be re-staged.
+        var restagedFile = FindFileInTree(Path.Combine(_libraryDir, ".staging"), "Orphan.epub");
+        Assert.NotNull(restagedFile);
+        var hash = await _hasher.ComputeAsync(restagedFile);
         var asset = await _assetRepo.FindByHashAsync(hash.Hex);
         Assert.NotNull(asset);
     }

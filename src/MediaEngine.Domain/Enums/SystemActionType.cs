@@ -114,12 +114,20 @@ public static class SystemActionType
     /// <summary>A corrupt file was quarantined and excluded from further processing.</summary>
     public const string FileQuarantined = "FileQuarantined";
 
-    /// <summary>A file was moved to the orphanage directory (.orphans/) for manual review.</summary>
+    /// <summary>A file was moved to the staging directory (.staging/) for hydration and review.</summary>
+    public const string MovedToStaging = "MovedToStaging";
+
+    /// <summary>Legacy alias for <see cref="MovedToStaging"/>.</summary>
+    [Obsolete("Use MovedToStaging instead.")]
     public const string MovedToOrphanage = "MovedToOrphanage";
 
-    // ── Orphan & Reconciliation ───────────────────────────────────────────
+    // ── Staging & Reconciliation ───────────────────────────────────────────
 
-    /// <summary>An orphaned asset was cleaned up (file missing, DB record deleted).</summary>
+    /// <summary>A staged asset was cleaned up (file missing, DB record deleted).</summary>
+    public const string StagedFileCleaned = "StagedFileCleaned";
+
+    /// <summary>Legacy alias for <see cref="StagedFileCleaned"/>.</summary>
+    [Obsolete("Use StagedFileCleaned instead.")]
     public const string OrphanCleaned = "OrphanCleaned";
 
     /// <summary>The reconciliation service found a missing file.</summary>

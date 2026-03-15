@@ -87,8 +87,15 @@ public static class ReviewTrigger
 
     /// <summary>
     /// File scored below 0.40 overall confidence with no user-locked claims.
-    /// Moved to .orphans/unidentifiable/ — deeply broken or unrecognizable.
+    /// Moved to .staging/unidentifiable/ — deeply broken or unrecognizable.
     /// </summary>
+    public const string StagedUnidentifiable = "StagedUnidentifiable";
+
+    /// <summary>
+    /// Legacy alias for <see cref="StagedUnidentifiable"/>.
+    /// Kept for backward compatibility with existing review queue rows.
+    /// </summary>
+    [Obsolete("Use StagedUnidentifiable instead.")]
     public const string OrphanedUnidentifiable = "OrphanedUnidentifiable";
 
     /// <summary>

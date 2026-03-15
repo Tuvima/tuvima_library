@@ -1,6 +1,8 @@
+using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using MediaEngine.Domain.Contracts;
+using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.Models;
@@ -8,12 +10,13 @@ using MediaEngine.Ingestion.Models;
 namespace MediaEngine.Ingestion;
 
 /// <summary>
-/// Moves a staged media asset into the organised library after hydration
-/// has improved its metadata confidence above the auto-organize threshold.
+/// Promotes a staged media asset from <c>.staging/</c> into the organised library
+/// after hydration has improved its metadata confidence above the auto-organize
+/// threshold. This is the SOLE path from staging to the Library — files never
+/// reach the Library directly from the Watch Folder.
 ///
-/// Reuses the same path-calculation and sidecar-writing logic as the primary
-/// ingestion pipeline, but operates on canonical values rather than freshly
-/// extracted metadata.
+/// After promotion: writes the edition sidecar, moves companion files (cover.jpg),
+/// generates the cinematic hero banner, and publishes the completion event.
 /// </summary>
 public sealed class AutoOrganizeService : IAutoOrganizeService
 {
@@ -23,6 +26,7 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
     private readonly ISidecarWriter           _sidecar;
     private readonly ISystemActivityRepository _activityRepo;
     private readonly IEventPublisher          _publisher;
+    private readonly IHeroBannerGenerator     _heroGenerator;
     private readonly IngestionOptions         _options;
     private readonly ILogger<AutoOrganizeService> _logger;
 
@@ -33,6 +37,7 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         ISidecarWriter             sidecar,
         ISystemActivityRepository  activityRepo,
         IEventPublisher            publisher,
+        IHeroBannerGenerator       heroGenerator,
         IOptions<IngestionOptions> options,
         ILogger<AutoOrganizeService> logger)
     {
@@ -42,6 +47,7 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         _sidecar       = sidecar;
         _activityRepo  = activityRepo;
         _publisher     = publisher;
+        _heroGenerator = heroGenerator;
         _options       = options.Value;
         _logger        = logger;
     }
@@ -88,85 +94,23 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
                 ? mt
                 : (MediaType?)null;
 
-        // If the file is already in the library, check whether the path needs
-        // updating (e.g., QID now available after hydration).  If the new path
-        // matches the current one, just refresh the sidecar.
-        bool isInOrphanage = !string.IsNullOrWhiteSpace(_options.OrphanagePath)
+        // Determine where the file currently is.
+        bool isInStaging = !string.IsNullOrWhiteSpace(_options.StagingPath)
             && asset.FilePathRoot.StartsWith(
-                _options.OrphanagePath, StringComparison.OrdinalIgnoreCase);
+                _options.StagingPath, StringComparison.OrdinalIgnoreCase);
 
-        bool alreadyOrganized = !isInOrphanage
+        bool alreadyOrganized = !isInStaging
             && asset.FilePathRoot.StartsWith(
                 _options.LibraryRoot, StringComparison.OrdinalIgnoreCase);
 
         if (alreadyOrganized)
         {
-            var checkSynth = new IngestionCandidate
-            {
-                Path              = asset.FilePathRoot,
-                EventType         = FileEventType.Created,
-                DetectedAt        = DateTimeOffset.UtcNow,
-                ReadyAt           = DateTimeOffset.UtcNow,
-                Metadata          = metadata,
-                DetectedMediaType = mediaType,
-            };
-            var checkTemplate = _options.ResolveTemplate(mediaType?.ToString());
-            var checkRelative = _organizer.CalculatePath(checkSynth, checkTemplate);
-            var newDest = Path.Combine(_options.LibraryRoot, checkRelative);
-
-            if (string.Equals(asset.FilePathRoot, newDest, StringComparison.OrdinalIgnoreCase))
-            {
-                // Path unchanged — just refresh sidecar.
-                string existingEditionFolder = Path.GetDirectoryName(asset.FilePathRoot) ?? string.Empty;
-                await WriteEditionSidecarAsync(asset.ContentHash, metadata, mediaType,
-                    existingEditionFolder, ct).ConfigureAwait(false);
-                _logger.LogDebug(
-                    "Sidecar refreshed for {Id} (already organized at {Path})",
-                    assetId, asset.FilePathRoot);
-                return;
-            }
-
-            // Path changed (QID now available) — move file to new location.
-            var oldFolder = Path.GetDirectoryName(asset.FilePathRoot) ?? string.Empty;
-            bool relocated = await _organizer.ExecuteMoveAsync(asset.FilePathRoot, newDest, ct)
+            await HandleAlreadyOrganizedAsync(asset, assetId, metadata, mediaType, ct)
                 .ConfigureAwait(false);
-
-            if (relocated)
-            {
-                await _assetRepo.UpdateFilePathAsync(assetId, newDest, ct).ConfigureAwait(false);
-
-                // Move companion files (cover.jpg, hero.jpg, library.xml) to new folder.
-                var newFolder = Path.GetDirectoryName(newDest) ?? string.Empty;
-                MoveCompanionFiles(oldFolder, newFolder, "cover.jpg", "hero.jpg", "library.xml");
-
-                await WriteEditionSidecarAsync(asset.ContentHash, metadata, mediaType,
-                    newFolder, ct).ConfigureAwait(false);
-
-                // Clean up empty parent directories left behind.
-                CleanEmptyParents(oldFolder, _options.LibraryRoot);
-
-                _logger.LogInformation(
-                    "Re-organized asset {Id} after hydration (QID in path): {Old} → {New}",
-                    assetId, asset.FilePathRoot, newDest);
-
-                try
-                {
-                    await _activityRepo.LogAsync(new Domain.Entities.SystemActivityEntry
-                    {
-                        ActionType = SystemActionType.PathUpdated,
-                        EntityId   = assetId,
-                        EntityType = mediaType?.ToString() ?? "Unknown",
-                        Detail     = $"Re-organized after hydration: {Path.GetFileName(newDest)}",
-                    }, ct).ConfigureAwait(false);
-                }
-                catch (Exception ex) when (ex is not OperationCanceledException)
-                {
-                    _logger.LogDebug(ex, "Failed to log re-organization activity for {Id}", assetId);
-                }
-            }
-
             return;
         }
+
+        // ── Promote from staging to library ──────────────────────────────
 
         var synth = new IngestionCandidate
         {
@@ -181,7 +125,7 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         var template = _options.ResolveTemplate(mediaType?.ToString());
         var relative = _organizer.CalculatePath(synth, template);
 
-        // Block organization into "Other" category.
+        // Block promotion into "Other" category.
         if (relative.StartsWith("Other", StringComparison.OrdinalIgnoreCase))
         {
             _logger.LogDebug(
@@ -189,7 +133,7 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
             return;
         }
 
-        // Placeholder title guard: block organization when title is a
+        // Placeholder title guard: block promotion when title is a
         // well-known placeholder and no bridge ID confirms identity.
         string? orgTitle = metadata.GetValueOrDefault("title");
         if (MetadataGuards.IsPlaceholderTitle(orgTitle) && !MetadataGuards.HasBridgeId(metadata))
@@ -201,6 +145,8 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         }
 
         var destPath = Path.Combine(_options.LibraryRoot, relative);
+        var stagingFolder = Path.GetDirectoryName(asset.FilePathRoot) ?? string.Empty;
+
         bool moved = await _organizer.ExecuteMoveAsync(asset.FilePathRoot, destPath, ct)
             .ConfigureAwait(false);
 
@@ -214,25 +160,35 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
 
         await _assetRepo.UpdateFilePathAsync(assetId, destPath, ct).ConfigureAwait(false);
 
-        // Write edition-level sidecar XML.
         string editionFolder = Path.GetDirectoryName(destPath) ?? string.Empty;
 
+        // Move companion files from staging (cover.jpg written during ingestion).
+        MoveCompanionFiles(stagingFolder, editionFolder, "cover.jpg");
+
+        // Write edition-level sidecar XML now that the file is in the Library.
         await WriteEditionSidecarAsync(asset.ContentHash, metadata, mediaType,
             editionFolder, ct).ConfigureAwait(false);
 
+        // Generate cinematic hero banner from cover art.
+        await GenerateHeroBannerAsync(assetId, editionFolder, ct).ConfigureAwait(false);
+
+        // Clean empty staging subdirectories left behind.
+        if (!string.IsNullOrWhiteSpace(_options.StagingPath))
+            CleanEmptyParents(stagingFolder, _options.StagingPath);
+
         _logger.LogInformation(
-            "Auto-organized asset {Id} after hydration: {Source} → {Dest}",
+            "Promoted asset {Id} from staging to library: {Source} → {Dest}",
             assetId, asset.FilePathRoot, destPath);
 
         try
         {
-            await _activityRepo.LogAsync(new Domain.Entities.SystemActivityEntry
+            await _activityRepo.LogAsync(new SystemActivityEntry
             {
                 ActionType = SystemActionType.PathUpdated,
                 EntityId   = assetId,
                 EntityType = "MediaAsset",
                 HubName    = metadata.GetValueOrDefault("title", "Unknown"),
-                Detail     = $"Auto-organized after hydration: {Path.GetFileName(asset.FilePathRoot)} → {Path.GetRelativePath(_options.LibraryRoot, destPath)}",
+                Detail     = $"Promoted from staging: {Path.GetFileName(asset.FilePathRoot)} → {Path.GetRelativePath(_options.LibraryRoot, destPath)}",
                 IngestionRunId = ingestionRunId,
             }, ct).ConfigureAwait(false);
         }
@@ -257,16 +213,84 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
     }
 
     // -------------------------------------------------------------------------
+    // Already-organized path (QID updated after hydration)
+    // -------------------------------------------------------------------------
+
+    private async Task HandleAlreadyOrganizedAsync(
+        Domain.Aggregates.MediaAsset asset, Guid assetId,
+        Dictionary<string, string> metadata, MediaType? mediaType,
+        CancellationToken ct)
+    {
+        var checkSynth = new IngestionCandidate
+        {
+            Path              = asset.FilePathRoot,
+            EventType         = FileEventType.Created,
+            DetectedAt        = DateTimeOffset.UtcNow,
+            ReadyAt           = DateTimeOffset.UtcNow,
+            Metadata          = metadata,
+            DetectedMediaType = mediaType,
+        };
+        var checkTemplate = _options.ResolveTemplate(mediaType?.ToString());
+        var checkRelative = _organizer.CalculatePath(checkSynth, checkTemplate);
+        var newDest = Path.Combine(_options.LibraryRoot, checkRelative);
+
+        if (string.Equals(asset.FilePathRoot, newDest, StringComparison.OrdinalIgnoreCase))
+        {
+            // Path unchanged — just refresh sidecar.
+            string existingEditionFolder = Path.GetDirectoryName(asset.FilePathRoot) ?? string.Empty;
+            await WriteEditionSidecarAsync(asset.ContentHash, metadata, mediaType,
+                existingEditionFolder, ct).ConfigureAwait(false);
+            _logger.LogDebug(
+                "Sidecar refreshed for {Id} (already organized at {Path})",
+                assetId, asset.FilePathRoot);
+            return;
+        }
+
+        // Path changed (QID now available) — move file to new location.
+        var oldFolder = Path.GetDirectoryName(asset.FilePathRoot) ?? string.Empty;
+        bool relocated = await _organizer.ExecuteMoveAsync(asset.FilePathRoot, newDest, ct)
+            .ConfigureAwait(false);
+
+        if (relocated)
+        {
+            await _assetRepo.UpdateFilePathAsync(assetId, newDest, ct).ConfigureAwait(false);
+
+            var newFolder = Path.GetDirectoryName(newDest) ?? string.Empty;
+            MoveCompanionFiles(oldFolder, newFolder, "cover.jpg", "hero.jpg", "library.xml");
+
+            await WriteEditionSidecarAsync(asset.ContentHash, metadata, mediaType,
+                newFolder, ct).ConfigureAwait(false);
+
+            CleanEmptyParents(oldFolder, _options.LibraryRoot);
+
+            _logger.LogInformation(
+                "Re-organized asset {Id} after hydration (QID in path): {Old} → {New}",
+                assetId, asset.FilePathRoot, newDest);
+
+            try
+            {
+                await _activityRepo.LogAsync(new SystemActivityEntry
+                {
+                    ActionType = SystemActionType.PathUpdated,
+                    EntityId   = assetId,
+                    EntityType = mediaType?.ToString() ?? "Unknown",
+                    Detail     = $"Re-organized after hydration: {Path.GetFileName(newDest)}",
+                }, ct).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogDebug(ex, "Failed to log re-organization activity for {Id}", assetId);
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
 
     /// <summary>
     /// Writes (or refreshes) the edition-level sidecar XML file at the given
     /// folder path using the full canonical metadata dictionary.
-    /// All canonical key-value pairs are written to the &lt;canonical-values&gt;
-    /// section so the sidecar is a complete, portable metadata snapshot.
-    /// Hub-level sidecars are not written — hubs are reconstructed from
-    /// edition sidecars during Great Inhale.
     /// </summary>
     private async Task WriteEditionSidecarAsync(
         string                       contentHash,
@@ -280,17 +304,14 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
             .ToDictionary(kv => kv.Key, kv => kv.Value,
                 StringComparer.OrdinalIgnoreCase);
 
-        // Extract QIDs from canonical values for v2.0 sidecar.
         var wikidataQid = metadata.GetValueOrDefault("wikidata_qid");
         var authorQid   = metadata.GetValueOrDefault("author_qid");
-
-        // Build multi-valued canonical entries from |||-separated values.
         var multiValued = BuildMultiValuedCanonicals(metadata);
 
         await _sidecar.WriteEditionSidecarAsync(editionFolder, new EditionSidecarData
         {
             Title                 = metadata.GetValueOrDefault("title"),
-            TitleQid              = wikidataQid,  // title QID = work QID
+            TitleQid              = wikidataQid,
             Author                = metadata.GetValueOrDefault("author"),
             AuthorQid             = authorQid,
             MediaType             = mediaType?.ToString(),
@@ -307,10 +328,65 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
     }
 
     /// <summary>
-    /// Identifies <c>|||</c>-separated canonical values and decomposes them into
-    /// <see cref="MultiValuedCanonical"/> entries for the v2.0 sidecar format.
-    /// Pairs with matching <c>_qid</c> canonical values when available.
+    /// Generates a cinematic hero banner from cover art after promotion to the library.
     /// </summary>
+    private async Task GenerateHeroBannerAsync(
+        Guid assetId, string editionFolder, CancellationToken ct)
+    {
+        var coverPath = Path.Combine(editionFolder, "cover.jpg");
+        if (!File.Exists(coverPath))
+            return;
+
+        try
+        {
+            var heroResult = await _heroGenerator.GenerateAsync(coverPath, editionFolder, ct)
+                                                  .ConfigureAwait(false);
+
+            var heroCanonicals = new List<CanonicalValue>();
+            if (!string.IsNullOrEmpty(heroResult.DominantHexColor))
+            {
+                heroCanonicals.Add(new CanonicalValue
+                {
+                    EntityId = assetId, Key = "dominant_color",
+                    Value = heroResult.DominantHexColor,
+                    LastScoredAt = DateTimeOffset.UtcNow,
+                });
+            }
+            heroCanonicals.Add(new CanonicalValue
+            {
+                EntityId = assetId, Key = "hero",
+                Value = $"/stream/{assetId}/hero",
+                LastScoredAt = DateTimeOffset.UtcNow,
+            });
+            await _canonicalRepo.UpsertBatchAsync(heroCanonicals, ct)
+                .ConfigureAwait(false);
+
+            try
+            {
+                await _activityRepo.LogAsync(new SystemActivityEntry
+                {
+                    ActionType = SystemActionType.HeroBannerGenerated,
+                    EntityId   = assetId,
+                    EntityType = "MediaAsset",
+                    ChangesJson = JsonSerializer.Serialize(new
+                    {
+                        dominant_color = heroResult.DominantHexColor,
+                        hero_url       = $"/stream/{assetId}/hero",
+                    }),
+                    Detail = $"Hero banner generated (dominant color: {heroResult.DominantHexColor ?? "n/a"})",
+                }, ct).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Activity log failed for hero banner — continuing");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Hero banner generation failed for {Path}", coverPath);
+        }
+    }
+
     private static IReadOnlyDictionary<string, MultiValuedCanonical> BuildMultiValuedCanonicals(
         Dictionary<string, string> metadata)
     {
@@ -338,10 +414,6 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         return result;
     }
 
-    /// <summary>
-    /// Moves companion files (cover.jpg, hero.jpg, library.xml) from the old
-    /// edition folder to the new one after a re-organization move.
-    /// </summary>
     private static void MoveCompanionFiles(string oldFolder, string newFolder, params string[] fileNames)
     {
         if (string.Equals(oldFolder, newFolder, StringComparison.OrdinalIgnoreCase))
@@ -361,10 +433,6 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         }
     }
 
-    /// <summary>
-    /// Recursively deletes empty parent directories up to (but not including)
-    /// the library root.
-    /// </summary>
     private static void CleanEmptyParents(string folder, string stopAt)
     {
         try
@@ -377,7 +445,7 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
                        StringComparison.OrdinalIgnoreCase))
             {
                 if (dir.EnumerateFileSystemInfos().Any())
-                    break; // Not empty — stop climbing.
+                    break;
 
                 var parent = dir.Parent;
                 dir.Delete();

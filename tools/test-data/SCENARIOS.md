@@ -62,9 +62,9 @@ C:\temp\tuvima-watch\books\          ← Engine watch_directory (core.json)
 
 | # | File | Scenario | Expected outcome |
 |---|------|----------|-----------------|
-| 1 | `dune.epub` | Fully tagged: title, author, ISBN, series, embedded cover | Auto-organized into library; "Dune" Hub created; cover served from file |
-| 2 | `neuromancer.epub` | Rich metadata, **no embedded cover** | Hub created; cover fetched from provider (Apple Books / Open Library) |
-| 8 | `phantom-signal-filename-only.epub` | **Filename only** — all OPF fields empty | confidence < 0.40 → moved to `.orphans/`; review queue entry created |
+| 1 | `dune.epub` | Fully tagged: title, author, ISBN, series, embedded cover | Staged to `.staging/pending/`; after hydration, promoted to library; "Dune" Hub created; cover served from file |
+| 2 | `neuromancer.epub` | Rich metadata, **no embedded cover** | Staged to `.staging/pending/`; after hydration, promoted to library; cover fetched from provider |
+| 8 | `phantom-signal-filename-only.epub` | **Filename only** — all OPF fields empty | confidence < 0.40 → moved to `.staging/`; review queue entry created |
 | 9 | `corrupt-epub.epub` | **Corrupt bytes** — not a valid ZIP | `IsCorrupt = true` → not in database; `MediaFailed` activity logged |
 | 10 | `dune-duplicate.epub` | **Byte-identical copy** of scenario 1 | Hash check fires before processor; `DuplicateSkipped` activity; no new asset |
 
@@ -101,7 +101,7 @@ C:\temp\tuvima-watch\books\          ← Engine watch_directory (core.json)
 
 | # | File | Scenario | Expected outcome |
 |---|------|----------|-----------------|
-| 15 | `echoes-filename-only.m4b` | **No ID3 tags at all** | confidence < 0.40 → `.orphans/`; review queue entry |
+| 15 | `echoes-filename-only.m4b` | **No ID3 tags at all** | confidence < 0.40 → `.staging/`; review queue entry |
 | 16 | `the-wasp-factory.m4b` | Author = **"Iain Banks"** (has pen name "Iain M. Banks") | Wikidata P742 link discovered; both Person records linked |
 
 ### Group G — Ingestion Hinting (M4B, sibling files)
@@ -143,7 +143,7 @@ Date: ___________   Engine version: ___________
 Group A — Confidence Gates
   [ ] #1  dune.epub               → auto-organized
   [ ] #2  neuromancer.epub        → cover from provider
-  [ ] #8  phantom-signal          → .orphans/ quarantine
+  [ ] #8  phantom-signal          → .staging/ quarantine
   [ ] #9  corrupt-epub.epub       → MediaFailed, not in DB
   [ ] #10 dune-duplicate.epub     → DuplicateSkipped
 
@@ -165,7 +165,7 @@ Group E — Narrator Records
   [ ] #14 enders-game.m4b         → cover from provider
 
 Group F — Audiobook Edge Cases
-  [ ] #15 echoes-filename-only    → .orphans/ quarantine
+  [ ] #15 echoes-filename-only    → .staging/ quarantine
   [ ] #16 the-wasp-factory.m4b    → Iain Banks P742 link
 
 Group G — Ingestion Hinting
@@ -175,7 +175,7 @@ Group G — Ingestion Hinting
   [ ] #20 expanse-cw-audio.m4b    → hint applied, Stage 1 skipped
 
 Summary
-  Total ingested  : __ / 18  (10, 15 are quarantine; verify via .orphans/)
+  Total ingested  : __ / 18  (10, 15 are quarantine; verify via .staging/)
   Hubs created    : __
   Review queue    : __ items
   Person records  : __

@@ -197,6 +197,11 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             _logger.LogWarning(ex, "Startup reconciliation failed — continuing with scan");
         }
 
+        // ── Step 2b: Migrate .orphans → .staging ──────────────────────────
+        // One-time migration: if the legacy .orphans directory exists and .staging
+        // does not, rename it. Also update DB records that reference the old path.
+        await MigrateOrphansToStagingAsync(stoppingToken).ConfigureAwait(false);
+
         // ── Step 3: Start watching + initial scan ────────────────────────
         if (!string.IsNullOrWhiteSpace(_options.WatchDirectory))
         {
@@ -423,7 +428,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             // this file as a brand new asset.
             if (!File.Exists(existing.FilePathRoot))
             {
-                await CleanOrphanedAssetAsync(existing, ct).ConfigureAwait(false);
+                await CleanStagedAssetAsync(existing, ct).ConfigureAwait(false);
                 // Fall through — process as new asset below.
             }
             else
@@ -754,22 +759,20 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             resolvedMediaType.ToString(),
             DateTimeOffset.UtcNow), ct).ConfigureAwait(false);
 
-        // Step 11: auto-organize.
-        // Gate: only organize when we have high-confidence metadata or an explicit
-        // user-locked claim. This prevents poorly-tagged files from being committed
-        // to the library structure before enough information is available.
-        // Additional guard: if the resolved category is "Other" (unknown/unmapped
-        // media type), always flag for review instead of organizing.
-        // Disambiguation guard: if media type is ambiguous (needs review), block
-        // organization until the user resolves the type.
+        // Step 11: staging-first flow.
+        // ALL files go to .staging/ first — the Library only receives files that
+        // have been hydrated and promoted by AutoOrganizeService.
+        // Subcategory is chosen based on confidence and metadata quality:
+        //   pending          — high-confidence, awaiting hydration before library promotion
+        //   low-confidence   — below threshold, needs more metadata
+        //   unidentifiable   — deeply broken (< 0.40), needs manual review
+        //   other            — resolved to "Other" category (unknown media type)
         bool hasUserLock    = claims.Any(c => c.IsUserLocked);
         bool highConfidence = scored.OverallConfidence >= 0.85;
         bool passesGate     = (highConfidence || hasUserLock) && !mediaTypeNeedsReview;
 
-        // Placeholder title guard: block organization when the title is a
-        // well-known placeholder and no bridge ID exists to confirm identity.
-        // This prevents files like "Unknown.epub" from organizing at 100%
-        // confidence just because the processor trusts its own output.
+        // Placeholder title guard: block promotion-eligible status when the title
+        // is a well-known placeholder and no bridge ID exists to confirm identity.
         if (passesGate && !hasUserLock)
         {
             var titleCanonicals = candidate.Metadata
@@ -780,7 +783,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             {
                 passesGate = false;
                 _logger.LogWarning(
-                    "Organization blocked — placeholder title \"{Title}\" with no bridge IDs for {Path}",
+                    "Staging as low-confidence — placeholder title \"{Title}\" with no bridge IDs for {Path}",
                     gateTitle ?? "(blank)", candidate.Path);
 
                 await CreateIngestionReviewItemAsync(
@@ -792,94 +795,64 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
         string currentPath = candidate.Path;
         if (_options.AutoOrganize
-            && !string.IsNullOrWhiteSpace(_options.LibraryRoot)
-            && passesGate)
+            && !string.IsNullOrWhiteSpace(_options.LibraryRoot))
         {
-            var template = _options.ResolveTemplate(candidate.DetectedMediaType?.ToString());
-            var relative = _organizer.CalculatePath(candidate, template);
+            // Determine staging subcategory based on confidence and metadata.
+            string stagingSubcategory;
+            string? reviewTrigger = null;
+            string? reviewDetail = null;
 
-            // Guard: reject any organization that would place the file in "Other".
-            // This catches unmapped media types (Unknown, null) and ensures the file
-            // goes to orphanage/review instead of a catch-all folder.
-            if (relative.StartsWith("Other", StringComparison.OrdinalIgnoreCase))
+            if (passesGate)
             {
-                _logger.LogWarning(
-                    "Organization blocked — resolved category is 'Other' for {Path}. " +
-                    "Moving to orphanage and creating review item.",
-                    candidate.Path);
+                var template = _options.ResolveTemplate(candidate.DetectedMediaType?.ToString());
+                var relative = _organizer.CalculatePath(candidate, template);
 
-                currentPath = await MoveToOrphanageAsync(currentPath, "LowConfidence", ct)
-                                  .ConfigureAwait(false) ?? currentPath;
-
-                await CreateIngestionReviewItemAsync(
-                    assetId, ReviewTrigger.LowConfidence, scored.OverallConfidence,
-                    $"File would be organized into 'Other' category (media type: {resolvedMediaType}). " +
-                    "Manual review required.",
-                    ct, ingestionRunId).ConfigureAwait(false);
+                if (relative.StartsWith("Other", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Category resolved to "Other" — needs manual classification.
+                    stagingSubcategory = "other";
+                    reviewTrigger = ReviewTrigger.LowConfidence;
+                    reviewDetail = $"File would be organized into 'Other' category (media type: {resolvedMediaType}). " +
+                                   "Manual review required.";
+                }
+                else
+                {
+                    // High-confidence — stage as pending, awaiting hydration + promotion.
+                    stagingSubcategory = "pending";
+                }
+            }
+            else if (scored.OverallConfidence < 0.40)
+            {
+                stagingSubcategory = "unidentifiable";
+                reviewTrigger = ReviewTrigger.StagedUnidentifiable;
+                reviewDetail = $"Overall confidence {scored.OverallConfidence:P0} — file is unidentifiable. " +
+                               "Staged for manual review.";
             }
             else
             {
-                // template already resolves the full relative path including filename
-                // (e.g. "{Category}/{Author}/{Title} ({Edition}){Ext}" → "Books/Author/Title.epub")
-                var destPath = Path.Combine(_options.LibraryRoot, relative);
-
-                bool moved = await _organizer.ExecuteMoveAsync(currentPath, destPath, ct)
-                                              .ConfigureAwait(false);
-                if (moved)
-                {
-                    currentPath = destPath;
-                    await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
-                    {
-                        ActionType     = Domain.Enums.SystemActionType.PathUpdated,
-                        EntityId       = assetId,
-                        EntityType     = "MediaAsset",
-                        Detail         = $"Organized → {Path.GetFileName(currentPath)}",
-                        ChangesJson    = JsonSerializer.Serialize(new
-                        {
-                            source_path = candidate.Path,
-                            dest_path   = destPath,
-                            filename    = Path.GetFileName(destPath),
-                            renamed     = !string.Equals(
-                                Path.GetFileName(candidate.Path),
-                                Path.GetFileName(destPath),
-                                StringComparison.OrdinalIgnoreCase),
-                        }),
-                        IngestionRunId = ingestionRunId,
-                    }, ct).ConfigureAwait(false);
-
-                    // Clean empty subdirectories left behind in the watch folder
-                    // after the file was moved to the library.
-                    CleanEmptyWatchParents(candidate.Path, _options.WatchDirectory);
-                }
+                stagingSubcategory = "low-confidence";
+                reviewTrigger = ReviewTrigger.LowConfidence;
+                reviewDetail = $"Overall confidence {scored.OverallConfidence:P0} below organization threshold (85%). " +
+                               "Staged for review.";
             }
-        }
-        else if (_options.AutoOrganize
-                 && !string.IsNullOrWhiteSpace(_options.LibraryRoot)
-                 && !passesGate)
-        {
-            // Tiered orphanage: < 0.40 = unidentifiable, 0.40-0.85 = low-confidence
-            var orphanTrigger = scored.OverallConfidence < 0.40
-                ? "OrphanedUnidentifiable"
-                : "LowConfidence";
-
-            var orphanReviewTrigger = scored.OverallConfidence < 0.40
-                ? ReviewTrigger.OrphanedUnidentifiable
-                : ReviewTrigger.LowConfidence;
 
             _logger.LogInformation(
-                "Confidence {Confidence:P0} below organization threshold (0.85) for {Path}. " +
-                "Moving to orphanage ({Tier}) and creating review item.",
-                scored.OverallConfidence, candidate.Path, orphanTrigger);
+                "Moving to staging ({Subcategory}) — confidence {Confidence:P0} for {Path}",
+                stagingSubcategory, scored.OverallConfidence, candidate.Path);
 
-            var prevPath = currentPath;
-            currentPath = await MoveToOrphanageAsync(currentPath, orphanTrigger, ct)
+            currentPath = await MoveToStagingAsync(currentPath, stagingSubcategory, ct)
                               .ConfigureAwait(false) ?? currentPath;
 
-            await CreateIngestionReviewItemAsync(
-                assetId, orphanReviewTrigger, scored.OverallConfidence,
-                $"Overall confidence {scored.OverallConfidence:P0} below organization threshold (85%). " +
-                $"File moved to orphanage ({orphanTrigger}) for review.",
-                ct, ingestionRunId).ConfigureAwait(false);
+            // Clean empty subdirectories left behind in the watch folder.
+            CleanEmptyWatchParents(candidate.Path, _options.WatchDirectory);
+
+            if (reviewTrigger is not null)
+            {
+                await CreateIngestionReviewItemAsync(
+                    assetId, reviewTrigger, scored.OverallConfidence,
+                    reviewDetail!,
+                    ct, ingestionRunId).ConfigureAwait(false);
+            }
         }
 
         // Phase 9→Pipeline: enqueue non-blocking three-stage hydration pipeline.
@@ -1006,36 +979,17 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         if (!string.Equals(currentPath, candidate.Path, StringComparison.Ordinal))
             await _assetRepo.UpdateFilePathAsync(assetId, currentPath, ct).ConfigureAwait(false);
 
-        // Step 11b: write sidecar XML and persist cover art.
-        // Runs whenever the file was actually organized into the Library Root,
-        // regardless of which gate path got it there.
-        bool fileIsInLibrary = !string.IsNullOrWhiteSpace(_options.LibraryRoot)
-            && currentPath.StartsWith(_options.LibraryRoot, StringComparison.OrdinalIgnoreCase);
-        if (fileIsInLibrary)
+        // Step 11b: persist cover art in staging.
+        // The processor's CoverImage byte array is only available during initial
+        // ingestion — write it alongside the file in staging so it survives until
+        // promotion to the Library by AutoOrganizeService.
+        // Sidecar XML and hero banner generation are deferred to promotion time.
+        bool fileIsInStaging = !string.IsNullOrWhiteSpace(_options.StagingPath)
+            && currentPath.StartsWith(_options.StagingPath, StringComparison.OrdinalIgnoreCase);
+        if (fileIsInStaging && result.CoverImage is { Length: > 0 })
         {
             string fileFolder = Path.GetDirectoryName(currentPath) ?? string.Empty;
-            var    meta       = candidate.Metadata
-                                ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-
-            // Edition-level sidecar — records file identity, user locks, cover path.
-            // Hub sidecar is no longer written; Hubs are virtual intelligence-driven
-            // collections assigned during Stage 2 of the hydration pipeline.
-            await _sidecar.WriteEditionSidecarAsync(fileFolder, new EditionSidecarData
-            {
-                Title         = meta.GetValueOrDefault("title"),
-                Author        = meta.GetValueOrDefault("author"),
-                MediaType     = candidate.DetectedMediaType?.ToString(),
-                Isbn          = meta.GetValueOrDefault("isbn"),
-                Asin          = meta.GetValueOrDefault("asin"),
-                ContentHash   = hash.Hex,
-                CoverPath     = "cover.jpg",
-                UserLocks     = [],           // empty on first ingest; re-written on resolve
-                LastOrganized = DateTimeOffset.UtcNow,
-            }, ct).ConfigureAwait(false);
-
-            // Persist cover art as cover.jpg alongside the Edition sidecar.
-            // Cover images are NEVER stored in the database — always read from disk.
-            if (result.CoverImage is { Length: > 0 })
+            try
             {
                 await File.WriteAllBytesAsync(
                     Path.Combine(fileFolder, "cover.jpg"),
@@ -1052,68 +1006,25 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                         cover_size_bytes = result.CoverImage.Length,
                         filename         = "cover.jpg",
                         folder           = fileFolder,
+                        location         = "staging",
                     }),
-                    Detail         = $"Cover art saved ({result.CoverImage.Length / 1024} KB)",
+                    Detail         = $"Cover art saved in staging ({result.CoverImage.Length / 1024} KB)",
                     IngestionRunId = ingestionRunId,
                 }, ct).ConfigureAwait(false);
             }
-
-            // Step 11c: generate cinematic hero banner from cover art.
-            // Produces hero.jpg alongside cover.jpg, extracting dominant palette color.
-            var coverPath = Path.Combine(fileFolder, "cover.jpg");
-            if (File.Exists(coverPath))
+            catch (Exception ex)
             {
-                try
-                {
-                    var heroResult = await _heroGenerator.GenerateAsync(coverPath, fileFolder, ct)
-                                                         .ConfigureAwait(false);
-
-                    var heroCanonicals = new List<CanonicalValue>();
-                    if (!string.IsNullOrEmpty(heroResult.DominantHexColor))
-                    {
-                        heroCanonicals.Add(new CanonicalValue
-                        {
-                            EntityId = assetId, Key = "dominant_color",
-                            Value = heroResult.DominantHexColor,
-                            LastScoredAt = DateTimeOffset.UtcNow,
-                        });
-                    }
-                    heroCanonicals.Add(new CanonicalValue
-                    {
-                        EntityId = assetId, Key = "hero",
-                        Value = $"/stream/{assetId}/hero",
-                        LastScoredAt = DateTimeOffset.UtcNow,
-                    });
-                    await _canonicalRepo.UpsertBatchAsync(heroCanonicals, ct)
-                        .ConfigureAwait(false);
-
-                    await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
-                    {
-                        ActionType     = Domain.Enums.SystemActionType.HeroBannerGenerated,
-                        EntityId       = assetId,
-                        EntityType     = "MediaAsset",
-                        HubName        = resolvedTitle,
-                        ChangesJson    = JsonSerializer.Serialize(new
-                        {
-                            dominant_color = heroResult.DominantHexColor,
-                            hero_url       = $"/stream/{assetId}/hero",
-                        }),
-                        Detail         = $"Hero banner generated (dominant color: {heroResult.DominantHexColor ?? "n/a"})",
-                        IngestionRunId = ingestionRunId,
-                    }, ct).ConfigureAwait(false);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Hero banner generation failed for {Path}", coverPath);
-                }
+                _logger.LogWarning(ex, "Failed to write cover.jpg in staging for {Path}", currentPath);
             }
         }
 
-        // Step 12: write-back.
-        // Only write back to files that are already in the Library Root.
-        // Writing back to a file still in the Watch Folder would change its
-        // content hash, causing the watcher to re-detect it as a new file
-        // and creating an infinite re-ingestion loop.
+        // Step 12: write-back is deferred to promotion.
+        // Writing back to a file in staging would change its content hash,
+        // causing the watcher to re-detect it as a new file.
+        // AutoOrganizeService handles write-back after promotion to the Library.
+        bool fileIsInLibrary = !string.IsNullOrWhiteSpace(_options.LibraryRoot)
+            && currentPath.StartsWith(_options.LibraryRoot, StringComparison.OrdinalIgnoreCase)
+            && !fileIsInStaging;
         List<string> tagsWritten  = [];
         bool         coverWritten = false;
         if (_options.WriteBack && fileIsInLibrary && candidate.Metadata is not null)
@@ -1416,11 +1327,11 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         {
             foreach (var filePath in Directory.EnumerateFiles(directory, "*.*", searchOption))
             {
-                // Skip files inside the orphanage directory — they are awaiting
-                // manual review and must not be re-ingested automatically.
-                if (filePath.Contains(Path.DirectorySeparatorChar + ".orphans" + Path.DirectorySeparatorChar,
+                // Skip files inside the staging directory — they are awaiting
+                // hydration/review and must not be re-ingested automatically.
+                if (filePath.Contains(Path.DirectorySeparatorChar + ".staging" + Path.DirectorySeparatorChar,
                         StringComparison.OrdinalIgnoreCase)
-                    || filePath.Contains('/' + ".orphans" + '/', StringComparison.OrdinalIgnoreCase))
+                    || filePath.Contains('/' + ".staging" + '/', StringComparison.OrdinalIgnoreCase))
                     continue;
 
                 // Skip non-media files (sidecar data, cover art, manifests, etc.)
@@ -1498,10 +1409,10 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 {
                     if (ct.IsCancellationRequested) break;
 
-                    // Skip files inside the orphanage directory.
-                    if (filePath.Contains(Path.DirectorySeparatorChar + ".orphans" + Path.DirectorySeparatorChar,
+                    // Skip files inside the staging directory.
+                    if (filePath.Contains(Path.DirectorySeparatorChar + ".staging" + Path.DirectorySeparatorChar,
                             StringComparison.OrdinalIgnoreCase)
-                        || filePath.Contains('/' + ".orphans" + '/', StringComparison.OrdinalIgnoreCase))
+                        || filePath.Contains('/' + ".staging" + '/', StringComparison.OrdinalIgnoreCase))
                         continue;
 
                     // Skip non-media files (sidecar data, cover art, manifests).
@@ -1628,9 +1539,9 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 "Moving to staging and creating review item.",
                 existing.ContentHash[..12]);
 
-            var staged = await MoveToOrphanageAsync(currentPath, "LowConfidence", ct).ConfigureAwait(false);
-            if (staged is not null)
-                await _assetRepo.UpdateFilePathAsync(existing.Id, staged, ct).ConfigureAwait(false);
+            var otherStaged = await MoveToStagingAsync(currentPath, "LowConfidence", ct).ConfigureAwait(false);
+            if (otherStaged is not null)
+                await _assetRepo.UpdateFilePathAsync(existing.Id, otherStaged, ct).ConfigureAwait(false);
 
             await CreateIngestionReviewItemAsync(
                 existing.Id, ReviewTrigger.LowConfidence, 0.0,
@@ -1640,67 +1551,30 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             return;
         }
 
-        // Placeholder title guard: block re-organization when the title is a
+        // Placeholder title guard: stage as low-confidence when the title is a
         // well-known placeholder and no bridge ID confirms identity.
         string? reorgTitle = metadata.GetValueOrDefault("title");
-        if (MetadataGuards.IsPlaceholderTitle(reorgTitle)
-            && !MetadataGuards.HasBridgeId(metadata))
+        bool isPlaceholder = MetadataGuards.IsPlaceholderTitle(reorgTitle)
+            && !MetadataGuards.HasBridgeId(metadata);
+
+        // Staging-first: move to staging rather than directly to library.
+        // AutoOrganizeService will promote to library after hydration.
+        string subcategory = isPlaceholder ? "low-confidence"
+            : relative.StartsWith("Other", StringComparison.OrdinalIgnoreCase) ? "other"
+            : "pending";
+
+        var staged = await MoveToStagingAsync(currentPath, subcategory, ct)
+                          .ConfigureAwait(false);
+        if (staged is not null)
         {
-            _logger.LogWarning(
-                "Re-organization blocked for {Hash}: placeholder title \"{Title}\" with no bridge IDs",
-                existing.ContentHash[..12], reorgTitle ?? "(blank)");
-            return;
-        }
-
-        // template already resolves the full relative path including filename
-        var destPath = Path.Combine(_options.LibraryRoot, relative);
-
-        bool moved = await _organizer.ExecuteMoveAsync(currentPath, destPath, ct)
-                                      .ConfigureAwait(false);
-
-        if (moved)
-        {
-            await _assetRepo.UpdateFilePathAsync(existing.Id, destPath, ct)
+            await _assetRepo.UpdateFilePathAsync(existing.Id, staged, ct)
                             .ConfigureAwait(false);
 
             _logger.LogInformation(
-                "Re-organized existing asset {Hash} → {Dest}",
-                existing.ContentHash[..12], destPath);
+                "Staged existing asset {Hash} → {Dest} ({Subcategory})",
+                existing.ContentHash[..12], staged, subcategory);
 
-            // Write edition sidecar now that the file is in the Library Root.
-            // This is the correct moment — first-ingestion skipped sidecar writing
-            // because AutoOrganize=false left the file in the Watch Folder.
-            string fileFolder = Path.GetDirectoryName(destPath) ?? string.Empty;
-            if (!string.IsNullOrEmpty(fileFolder))
-            {
-                try
-                {
-                    await _sidecar.WriteEditionSidecarAsync(fileFolder, new EditionSidecarData
-                    {
-                        Title         = metadata.GetValueOrDefault("title"),
-                        TitleQid      = metadata.GetValueOrDefault("wikidata_qid"),
-                        Author        = metadata.GetValueOrDefault("author"),
-                        AuthorQid     = metadata.GetValueOrDefault("author_qid"),
-                        MediaType     = mediaType?.ToString(),
-                        Isbn          = metadata.GetValueOrDefault("isbn"),
-                        Asin          = metadata.GetValueOrDefault("asin"),
-                        WikidataQid   = metadata.GetValueOrDefault("wikidata_qid"),
-                        ContentHash   = existing.ContentHash,
-                        CoverPath     = "cover.jpg",
-                        UserLocks     = [],
-                        LastOrganized = DateTimeOffset.UtcNow,
-                    }, ct).ConfigureAwait(false);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Sidecar write failed after re-organize for asset {Id}", existing.Id);
-                }
-            }
-
-            // Re-enqueue hydration so that PersistCoverFromUrlAsync runs with the
-            // updated file path (now in Library Root) and can download cover.jpg
-            // to the correct directory.  SuppressActivityEntry avoids a duplicate
-            // MediaAdded entry — the original pipeline run already logged one.
+            // Re-enqueue hydration so AutoOrganizeService can promote after enrichment.
             await _pipeline.EnqueueAsync(new HarvestRequest
             {
                 EntityId              = existing.Id,
@@ -1711,105 +1585,146 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 Pass                  = HydrationPass.Quick,
             }, ct).ConfigureAwait(false);
 
-            await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
+            if (isPlaceholder)
             {
-                ActionType = Domain.Enums.SystemActionType.PathUpdated,
-                EntityId   = existing.Id,
-                EntityType = "MediaAsset",
-                HubName    = metadata.GetValueOrDefault("title", "Unknown"),
-                Detail     = $"Re-organized {Path.GetFileName(currentPath)} to Library",
-            }, ct).ConfigureAwait(false);
-
-            await SafePublishAsync("IngestionCompleted", new IngestionCompletedEvent(
-                destPath,
-                mediaType?.ToString() ?? "Unknown",
-                DateTimeOffset.UtcNow), ct).ConfigureAwait(false);
-        }
-        else
-        {
-            _logger.LogWarning(
-                "Re-organize move failed for {Hash} ({Source} → {Dest})",
-                existing.ContentHash[..12], currentPath, destPath);
+                await CreateIngestionReviewItemAsync(
+                    existing.Id, ReviewTrigger.PlaceholderTitle, reorgScored.OverallConfidence,
+                    $"Title \"{reorgTitle ?? "(blank)"}\" is a placeholder with no bridge IDs. Staged for review.",
+                    ct).ConfigureAwait(false);
+            }
         }
     }
 
     // =========================================================================
-    // Orphanage
+    // .orphans → .staging migration
     // =========================================================================
 
     /// <summary>
-    /// Moves a file from the Watch Folder to the orphanage directory ({LibraryRoot}/.orphans/).
+    /// One-time migration: renames the legacy <c>.orphans/</c> directory to
+    /// <c>.staging/</c> and updates all <c>MediaAsset.FilePathRoot</c> records
+    /// that reference the old path.
+    /// </summary>
+    private async Task MigrateOrphansToStagingAsync(CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(_options.LibraryRoot))
+            return;
+
+        var legacyPath = Path.Combine(_options.LibraryRoot, ".orphans");
+        var stagingPath = _options.StagingPath;
+
+        if (!Directory.Exists(legacyPath) || Directory.Exists(stagingPath))
+            return;
+
+        try
+        {
+            Directory.Move(legacyPath, stagingPath);
+            _logger.LogInformation(
+                "Migrated .orphans → .staging: {Legacy} → {Staging}",
+                legacyPath, stagingPath);
+
+            // Update DB records that reference the old .orphans path.
+            // Use ListByStatusAsync for each status to find assets with stale paths.
+            int updated = 0;
+            foreach (var status in Enum.GetValues<AssetStatus>())
+            {
+                var assets = await _assetRepo.ListByStatusAsync(status, ct).ConfigureAwait(false);
+                foreach (var asset in assets)
+                {
+                    if (asset.FilePathRoot.Contains(".orphans", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var newPath = asset.FilePathRoot.Replace(
+                            ".orphans", ".staging", StringComparison.OrdinalIgnoreCase);
+                        await _assetRepo.UpdateFilePathAsync(asset.Id, newPath, ct)
+                            .ConfigureAwait(false);
+                        updated++;
+                    }
+                }
+            }
+
+            if (updated > 0)
+                _logger.LogInformation(
+                    "Updated {Count} asset path(s) from .orphans to .staging", updated);
+
+            await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
+            {
+                ActionType = Domain.Enums.SystemActionType.PathUpdated,
+                EntityType = "Migration",
+                Detail     = $"Migrated .orphans → .staging ({updated} asset path(s) updated)",
+            }, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to migrate .orphans → .staging");
+        }
+    }
+
+    // =========================================================================
+    // Staging
+    // =========================================================================
+
+    /// <summary>
+    /// Moves a file from the Watch Folder to the staging directory ({LibraryRoot}/.staging/).
     /// Returns the new path on success, or <see langword="null"/> when LibraryRoot
     /// is not configured or the move fails.
     /// </summary>
-    private async Task<string?> MoveToOrphanageAsync(
-        string currentPath, string triggerReason, CancellationToken ct)
+    private async Task<string?> MoveToStagingAsync(
+        string currentPath, string subcategory, CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(_options.OrphanagePath))
+        if (string.IsNullOrWhiteSpace(_options.StagingPath))
             return null;
 
-        // Only orphan files that are currently in the Watch Folder.
+        // Only stage files that are currently in the Watch Folder.
         if (!string.IsNullOrWhiteSpace(_options.WatchDirectory)
             && !currentPath.StartsWith(
                     _options.WatchDirectory, StringComparison.OrdinalIgnoreCase))
             return null;
 
-        // Categorized subfolders based on trigger reason.
-        var subfolder = triggerReason switch
-        {
-            "LowConfidence"          => "low-confidence",
-            "AmbiguousMediaType"     => "ambiguous-type",
-            "OrphanedUnidentifiable" => "unidentifiable",
-            _                        => "other",
-        };
+        var stagingSubDir = Path.Combine(_options.StagingPath, subcategory);
+        Directory.CreateDirectory(stagingSubDir);
 
-        var orphanSubDir = Path.Combine(_options.OrphanagePath, subfolder);
-        Directory.CreateDirectory(orphanSubDir);
-
-        var destPath = Path.Combine(orphanSubDir, Path.GetFileName(currentPath));
+        var destPath = Path.Combine(stagingSubDir, Path.GetFileName(currentPath));
 
         bool moved = await _organizer.ExecuteMoveAsync(currentPath, destPath, ct)
                                       .ConfigureAwait(false);
         if (moved)
         {
             _logger.LogInformation(
-                "Orphaned unresolved file: {Source} → {Dest} ({Trigger})",
-                currentPath, destPath, triggerReason);
+                "Staged file: {Source} → {Dest} ({Subcategory})",
+                currentPath, destPath, subcategory);
 
-            // Activity: moved to orphanage.
             await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
             {
-                ActionType = Domain.Enums.SystemActionType.MovedToOrphanage,
+                ActionType = Domain.Enums.SystemActionType.MovedToStaging,
                 EntityType = "MediaAsset",
-                Detail     = $"Orphaned {Path.GetFileName(currentPath)} → {subfolder}/",
+                Detail     = $"Staged {Path.GetFileName(currentPath)} → {subcategory}/",
             }, ct).ConfigureAwait(false);
 
             return destPath;
         }
 
         _logger.LogWarning(
-            "Orphanage move failed for {Source} → {Dest}", currentPath, destPath);
+            "Staging move failed for {Source} → {Dest}", currentPath, destPath);
         return null;
     }
 
     // =========================================================================
-    // Orphan cleanup
+    // Staged asset cleanup
     // =========================================================================
 
     /// <summary>
-    /// Cleans up an orphaned asset whose file no longer exists on disk.
+    /// Cleans up a staged asset whose file no longer exists on disk.
     /// Removes filesystem artifacts (cover.jpg, library.xml, empty folders)
     /// and deletes all associated DB records (claims, canonical values, asset).
     /// </summary>
-    private async Task CleanOrphanedAssetAsync(
-        MediaAsset orphan, CancellationToken ct)
+    private async Task CleanStagedAssetAsync(
+        MediaAsset staged, CancellationToken ct)
     {
         _logger.LogInformation(
-            "Cleaning orphaned asset {Id} — file missing at {Path}",
-            orphan.Id, orphan.FilePathRoot);
+            "Cleaning staged asset {Id} — file missing at {Path}",
+            staged.Id, staged.FilePathRoot);
 
         // 1. Clean filesystem artifacts from the edition folder.
-        var editionFolder = Path.GetDirectoryName(orphan.FilePathRoot);
+        var editionFolder = Path.GetDirectoryName(staged.FilePathRoot);
         if (!string.IsNullOrEmpty(editionFolder) && Directory.Exists(editionFolder))
         {
             SafeDeleteFile(Path.Combine(editionFolder, "cover.jpg"));
@@ -1819,17 +1734,17 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         }
 
         // 2. Delete DB records: claims → canonical values → asset.
-        await _claimRepo.DeleteByEntityAsync(orphan.Id, ct).ConfigureAwait(false);
-        await _canonicalRepo.DeleteByEntityAsync(orphan.Id, ct).ConfigureAwait(false);
-        await _assetRepo.DeleteAsync(orphan.Id, ct).ConfigureAwait(false);
+        await _claimRepo.DeleteByEntityAsync(staged.Id, ct).ConfigureAwait(false);
+        await _canonicalRepo.DeleteByEntityAsync(staged.Id, ct).ConfigureAwait(false);
+        await _assetRepo.DeleteAsync(staged.Id, ct).ConfigureAwait(false);
 
         // 3. Log activity.
         await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
         {
-            ActionType = Domain.Enums.SystemActionType.OrphanCleaned,
-            EntityId   = orphan.Id,
+            ActionType = Domain.Enums.SystemActionType.StagedFileCleaned,
+            EntityId   = staged.Id,
             EntityType = "MediaAsset",
-            Detail     = $"Orphan cleaned: {Path.GetFileName(orphan.FilePathRoot)} (file missing)",
+            Detail     = $"Staged asset cleaned: {Path.GetFileName(staged.FilePathRoot)} (file missing)",
         }, ct).ConfigureAwait(false);
     }
 

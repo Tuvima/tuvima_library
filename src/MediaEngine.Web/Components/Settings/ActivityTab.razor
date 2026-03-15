@@ -1348,7 +1348,7 @@
     // Entity IDs of files confirmed deleted (hides the reprocess button on FileIngested cards).
     private readonly HashSet<string> _missingEntityIds = new(StringComparer.OrdinalIgnoreCase);
 
-    // Pipeline sub-steps (FileDetected → MovedToOrphanage) grouped by parent FileIngested entry ID.
+    // Pipeline sub-steps (FileDetected → MovedToStaging) grouped by parent FileIngested entry ID.
     private readonly Dictionary<long, List<ActivityEntryViewModel>> _ingestionSubSteps = new();
 
     // Hydration stage events grouped by parent MetadataHydrated entry ID.
@@ -1448,7 +1448,8 @@
     {
         "FileIngested"              => "Media",
         "DuplicateSkipped"          => "Media",
-        "MovedToOrphanage"          => "Media",
+        "MovedToOrphanage"          => "Media",   // obsolete — kept for old log entries
+        "MovedToStaging"            => "Media",
         "FileQuarantined"           => "Media",
         "FileDetected"              => "Media",
         "FileHashed"                => "Media",
@@ -1480,7 +1481,8 @@
         "ServerStopped"             => "System",
         "ReconciliationCompleted"   => "System",
         "ReconciliationMissing"     => "System",
-        "OrphanCleaned"             => "System",
+        "OrphanCleaned"             => "System",  // obsolete — kept for old log entries
+        "StagedFileCleaned"         => "System",
         "ActivityPruned"            => "System",
         "CrawlStarted"             => "System",
         "CrawlFinished"            => "System",
@@ -1591,7 +1593,7 @@
         {
             "FileDetected", "FileHashed", "FileProcessed", "FileScored",
             "EntityChainCreated", "CoverArtSaved", "HeroBannerGenerated", "MetadataTagsWritten",
-            "HydrationEnqueued", "MovedToOrphanage",
+            "HydrationEnqueued", "MovedToOrphanage", "MovedToStaging",
         };
         var postIngestionTypes = new HashSet<string>
         {
@@ -1814,7 +1816,7 @@
         }
 
         // ── Startup cluster: noise + recon → ServerStarted ───────────────────────
-        var noiseTypes = new HashSet<string> { "ActivityPruned", "DuplicateSkipped", "OrphanCleaned" };
+        var noiseTypes = new HashSet<string> { "ActivityPruned", "DuplicateSkipped", "OrphanCleaned", "StagedFileCleaned" };
         var serverStartIndex = _entries
             .Where(e => e.ActionType == "ServerStarted")
             .Select(e => (Entry: e, Ts: ParseTs(e.OccurredAt)))
@@ -2322,8 +2324,10 @@
         ["MetadataTagsWritten"]       = (Icons.Material.Filled.Label,            "Tags Written to File",       "#78909c"),
         ["HydrationEnqueued"]         = (Icons.Material.Filled.CloudQueue,       "Hydration Enqueued",         "#2196f3"),
         ["FileQuarantined"]           = (Icons.Material.Filled.ReportProblem,    "File Quarantined",           "#f44336"),
-        ["MovedToOrphanage"]          = (Icons.Material.Filled.MoveToInbox,      "Moved to Orphanage",         "#ff9800"),
-        ["OrphanCleaned"]             = (Icons.Material.Filled.DeleteSweep,     "Orphan Cleaned",             "#ff9800"),
+        ["MovedToOrphanage"]          = (Icons.Material.Filled.MoveToInbox,      "Moved to Staging",           "#ff9800"),  // obsolete name
+        ["MovedToStaging"]            = (Icons.Material.Filled.MoveToInbox,      "Moved to Staging",           "#ff9800"),
+        ["OrphanCleaned"]             = (Icons.Material.Filled.DeleteSweep,      "Staged File Cleaned",        "#ff9800"),  // obsolete name
+        ["StagedFileCleaned"]         = (Icons.Material.Filled.DeleteSweep,      "Staged File Cleaned",        "#ff9800"),
         ["ReconciliationMissing"]     = (Icons.Material.Filled.SearchOff,       "Missing File Detected",      "#f44336"),
         ["ReconciliationCompleted"]   = (Icons.Material.Filled.FactCheck,       "Reconciliation Complete",    "#4caf50"),
         // ── Consolidated Pipeline Events ──────────────────────────────────
@@ -2389,7 +2393,8 @@
         "HeroBannerGenerated"       => "Hero banner generated",
         "MetadataTagsWritten"       => "Initial tags written",
         "HydrationEnqueued"         => "Queued for online enrichment",
-        "MovedToOrphanage"          => "Moved to orphanage",
+        "MovedToOrphanage"          => "Moved to staging",   // obsolete name
+        "MovedToStaging"            => "Moved to staging",
         "PathUpdated"               => "Organized",
         "MetadataHydrated"          => "Metadata enriched",
         "PersonHydrated"            => "Person enriched",
@@ -2502,7 +2507,8 @@
     {
         "ActivityPruned"          => "Old activity entries cleaned up",
         "DuplicateSkipped"        => "Duplicate file skipped",
-        "OrphanCleaned"           => "Orphaned catalogue entry removed",
+        "OrphanCleaned"           => "Staged file catalogue entry removed",  // obsolete name
+        "StagedFileCleaned"       => "Staged file catalogue entry removed",
         "ReconciliationCompleted" =>
             ParseReconciliationData(entry.ChangesJson ?? "") is { Total: var n }
                 ? $"Library check: all {n:N0} files present"

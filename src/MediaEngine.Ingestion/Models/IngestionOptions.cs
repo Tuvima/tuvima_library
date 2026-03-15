@@ -53,13 +53,21 @@ public sealed class IngestionOptions
     };
 
     /// <summary>
-    /// Path to the orphanage directory: {LibraryRoot}/.orphans/.
-    /// Files that cannot be auto-organized are quarantined here.
+    /// Path to the staging directory: {LibraryRoot}/.staging/.
+    /// All ingested files land here first, awaiting hydration and promotion
+    /// to the organised library. Files that cannot be identified remain here
+    /// for manual review.
     /// Derived from LibraryRoot — not independently configurable.
     /// </summary>
-    public string OrphanagePath => string.IsNullOrWhiteSpace(LibraryRoot)
+    public string StagingPath => string.IsNullOrWhiteSpace(LibraryRoot)
         ? string.Empty
-        : Path.Combine(LibraryRoot, ".orphans");
+        : Path.Combine(LibraryRoot, ".staging");
+
+    /// <summary>
+    /// Backward-compatible alias for <see cref="StagingPath"/>.
+    /// </summary>
+    [Obsolete("Use StagingPath instead. This property will be removed in a future release.")]
+    public string OrphanagePath => StagingPath;
 
     /// <summary>
     /// When <see langword="true"/> the engine automatically moves accepted files

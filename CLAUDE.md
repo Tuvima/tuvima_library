@@ -439,23 +439,40 @@ The default organisation template places files in a category folder with the tit
 
 **Migration note:** Existing libraries organised under older patterns (e.g., `{Title} ({Qid})/{Format}/`) continue to work. On the next hydration pass or a manual "Re-organise Library" action, files are moved to the new structure automatically.
 
+**Staging-First Flow:**
+
+All ingested files land in `{LibraryRoot}/.staging/` first, regardless of confidence. The Library only receives files that have been hydrated and promoted by `AutoOrganizeService`. This ensures the Library invariant: every file in the Library has been hydrated, has a real QID (or confirmed bridge IDs), and has full sidecars + cover art + hero banner.
+
+```
+Watch Folder  ──(detect + process)──>  .staging/  ──(hydration + promote)──>  Library
+                                           │
+                                      stays here if:
+                                      - low confidence
+                                      - unidentifiable
+                                      - needs review
+```
+
+**Staging subcategories:**
+
+| Subcategory | Condition | What happens next |
+|---|---|---|
+| `.staging/pending/` | High confidence (≥ 0.85 or user-locked) | AutoOrganizeService promotes after hydration |
+| `.staging/low-confidence/` | Confidence 0.40–0.85, no user locks | Awaits hydration improvement or manual review |
+| `.staging/unidentifiable/` | Confidence < 0.40, no user locks | Needs manual title/match from user |
+| `.staging/other/` | Resolves to "Other" category | Needs media type classification |
+
 **AutoOrganize confidence gate:**
 AutoOrganize is gated on:
 ```
 scored.OverallConfidence >= 0.85  ||  claims.Any(c => c.IsUserLocked)
 ```
-Files that score below 0.85 with no user locks are left in the Watch Folder and not moved — they wait for more data. The threshold reuses `AutoLinkThreshold = 0.85` from `ScoringConfiguration` (single source of truth).
+Files that pass this gate go to `.staging/pending/`. Files below the gate go to `.staging/low-confidence/` or `.staging/unidentifiable/` depending on their confidence. The threshold reuses `AutoLinkThreshold = 0.85` from `ScoringConfiguration` (single source of truth).
 
-**The Orphanage — low-confidence asset quarantine:**
-Files that score below **0.40** with no user locks are moved to `{LibraryRoot}/.orphans/` instead of remaining in the Watch Folder. This prevents the Watch Folder from accumulating files that the Engine cannot meaningfully identify — corrupted files, unsupported formats disguised with wrong extensions, or files with zero usable metadata.
+**Cover art timing:** `cover.jpg` is written alongside the file in `.staging/` during initial ingestion (the processor's cover image byte array is only available at that time). Hero banner generation and sidecar writing happen during promotion by `AutoOrganizeService`.
 
-Orphaned files retain their fingerprint in the database and can be manually reclaimed at any time via the Dashboard (drag to a Hub, or provide a user-locked title). When a user resolves an orphan, it is moved from `.orphans/` into the organised library structure as normal. The `.orphans/` directory is excluded from Watch Folder monitoring to prevent re-ingestion loops.
+Staged files retain their fingerprint in the database and can be manually reclaimed at any time via the Dashboard (drag to a Hub, or provide a user-locked title). When a user resolves a staged file, it is promoted from `.staging/` into the organised library structure. The `.staging/` directory is excluded from Watch Folder monitoring to prevent re-ingestion loops.
 
-```
-scored.OverallConfidence < 0.40  &&  !claims.Any(c => c.IsUserLocked)
-  → move to {LibraryRoot}/.orphans/{OriginalFilename}
-  → create ReviewQueueEntry with trigger "OrphanedLowConfidence"
-```
+**Migration:** On startup, if `{LibraryRoot}/.orphans/` exists and `{LibraryRoot}/.staging/` does not, the Engine automatically renames the directory and updates all DB file paths.
 
 **library.xml schemas:**
 - `<library-hub version="1.0">` — `identity/display-name`, `identity/year`, `identity/wikidata-qid`, `identity/franchise`, `last-organized`.
