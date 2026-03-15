@@ -1736,6 +1736,71 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    // ── Universe Graph (Chronicle Explorer) ───────────────────────────────────
+
+    public async Task<UniverseGraphResponse?> GetUniverseGraphAsync(
+        string qid,
+        int? timelineYear = null,
+        string? types = null,
+        string? center = null,
+        int? depth = null,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var url = $"universe/{Uri.EscapeDataString(qid)}/graph";
+            var queryParams = new List<string>();
+            if (timelineYear.HasValue) queryParams.Add($"timeline_year={timelineYear.Value}");
+            if (!string.IsNullOrWhiteSpace(types)) queryParams.Add($"types={Uri.EscapeDataString(types)}");
+            if (!string.IsNullOrWhiteSpace(center)) queryParams.Add($"center={Uri.EscapeDataString(center)}");
+            if (depth.HasValue) queryParams.Add($"depth={depth.Value}");
+            if (queryParams.Count > 0) url += "?" + string.Join("&", queryParams);
+
+            return await _http.GetFromJsonAsync<UniverseGraphResponse>(url, ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /universe/{Qid}/graph failed", qid);
+            LastError = ex.Message;
+            return null;
+        }
+    }
+
+    public async Task<IReadOnlyList<LoreDeltaResultDto>> CheckLoreDeltaAsync(
+        string qid, CancellationToken ct = default)
+    {
+        try
+        {
+            var raw = await _http.GetFromJsonAsync<List<LoreDeltaResultDto>>(
+                $"universe/{Uri.EscapeDataString(qid)}/lore-delta", ct);
+            return raw ?? [];
+        }
+        catch (OperationCanceledException) { return []; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /universe/{Qid}/lore-delta failed", qid);
+            LastError = ex.Message;
+            return [];
+        }
+    }
+
+    public async Task<IReadOnlyList<NarrativeRootDto>> GetUniversesAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            var raw = await _http.GetFromJsonAsync<List<NarrativeRootDto>>("universes", ct);
+            return raw ?? [];
+        }
+        catch (OperationCanceledException) { return []; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /universes failed");
+            LastError = ex.Message;
+            return [];
+        }
+    }
+
     public string? LastError { get; private set; }
 
     // ── Private mapping ───────────────────────────────────────────────────────

@@ -65,4 +65,7 @@ public interface IFictionalEntityRepository
 
     /// <summary>Return total entity count (for stats).</summary>
     Task<int> CountAsync(CancellationToken ct = default);
+
+    /// <summary>Update the Wikidata revision ID for Lore Delta tracking.</summary>
+    Task UpdateRevisionAsync(Guid entityId, long revisionId, CancellationToken ct = default);
 }

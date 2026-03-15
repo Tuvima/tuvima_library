@@ -1437,6 +1437,86 @@ Pass 2 handles everything that makes the library *intelligent* — the deep conn
 
 **Photos** — Photo collections, albums, and galleries. This domain has unique challenges that set it apart from the other media types: EXIF/XMP metadata extraction, GPS geolocation, face detection and grouping, event-based organisation, and timeline views. The scope is large enough that it could be its own product built on the same base Engine — reusing the Hub concept, Weighted Voter, and filesystem-first architecture, but with a specialised processing pipeline and Dashboard experience. Planned for a future release pending further design exploration.
 
+### 3.26 — Chronicle Engine (Temporal Knowledge Graph)
+
+**Plain English:** The Chronicle Engine extends the Universe Graph (§3.22) with time-awareness. Relationships now carry temporal qualifiers — *when* a character was married, *when* an actor played a role, *when* a faction existed. The Engine detects when Wikidata learns something new about your library's universe (Lore Delta), resolves era-correct actors for characters across different adaptations, and serves a spoiler-safe timeline that can be scrubbed to any year. A Chronicle Explorer page in the Dashboard renders the full relationship graph using Cytoscape.js.
+
+**Temporal qualifiers on relationships:**
+
+`EntityRelationship` carries `StartTime` and `EndTime` (nullable ISO 8601 strings) sourced from Wikidata P580/P582 temporal qualifiers. These are stored in the `entity_relationships` table (migration M-037) and surfaced in the graph API, universe.xml v1.1 sidecars, and the Chronicle Explorer timeline slider.
+
+**2-hop lineage depth:**
+
+`RelationshipPopulationService` now accepts `currentDepth` and `maxDepth` parameters. When a stub entity is created at depth N < maxDepth, it is enqueued for enrichment via `IMetadataHarvestingService`, discovering its own relationships (e.g., grandparents, sub-organizations). Default depth increased from 1 to 2 via `HydrationSettings.LineageDepth`.
+
+**Social web relationships:**
+
+Two new relationship types: `significant_person` (P3342 — ally, rival, mentor) and `affiliation` (P1416 — group membership). Four new Wikidata properties: P3342, P1416, P103 (native_language), P1281 (avatar_image).
+
+**Batch SPARQL:**
+
+`WikidataSparqlPropertyMap.BuildBatchEntityQuery` generates SPARQL queries with `VALUES` clause for fetching properties of up to 50 entities per request. `WikidataAdapter.FetchEntitiesBatchAsync` provides the implementation.
+
+**SPARQL response caching:**
+
+`WikidataAdapter` caches SPARQL responses using the existing `IProviderResponseCacheRepository`. SHA-256 hash of the query string serves as the cache key. Supports ETag-based revalidation (If-None-Match → 304 Not Modified). Default TTL: 168 hours (7 days).
+
+**Lore Delta change detection:**
+
+`ILoreDeltaService.CheckForUpdatesAsync` batch-fetches current Wikidata revision IDs via `wbgetentities?props=info` and compares against `FictionalEntity.WikidataRevisionId`. Changed entities are reported as `LoreDeltaResult` records. API endpoint: `GET /universe/{qid}/lore-delta`.
+
+**Canon discrepancy detection:**
+
+`ICanonDiscrepancyService.DetectAsync` compares an edition's canonical values against its master work (P629 edition_or_translation_of) for 6 core fields (title, author, year, genre, series, series_position). API endpoint: `GET /metadata/{entityId}/canon-discrepancies`.
+
+**Era-correct actor resolution:**
+
+`IEraActorResolverService.ResolveActorForEraAsync` queries performer edges for a character, filters by temporal range against a timeline year, and returns the matching actor's headshot URL. Falls back to most recent performer when no temporal match exists.
+
+**Timeline-filtered graph API:**
+
+`GET /universe/{qid}/graph?timeline_year={year}` filters edges to exclude relationships starting after the given year and populates character node images with era-correct actor headshots.
+
+**Chronicle Explorer Dashboard page:**
+
+Route: `/universe/{Qid}/explore`. Features:
+- Universe header with entity/edge count chips
+- Lore Delta amber alert banner when Wikidata changes are detected
+- Timeline slider (when edges have temporal data)
+- Type filter toggle chips (Character/Location/Organization)
+- Layout selector (force-directed/concentric/grid)
+- Cytoscape.js graph panel (60%) with node click → detail drawer
+- Searchable entity list panel (40%)
+- "Explore Universe" button on HubDetail page sidebar (when fictional universe QID is available)
+
+**Device constraints:** Chronicle Explorer is disabled on mobile. Timeline slider is disabled on television.
+
+**Cytoscape.js** (MIT license) is vendored at `wwwroot/lib/cytoscape/cytoscape.min.js`. JS interop module at `wwwroot/js/cytoscape-interop.js` exposes `initGraph`, `updateGraph`, `filterByTimelineYear`, `focusNode`, `setLayout`, `destroy`.
+
+**SignalR event:** `LoreDeltaDiscoveredEvent(UniverseQid, ChangedCount)` — broadcast when Lore Delta check discovers updated entities.
+
+**Configuration** (`config/hydration.json` additions):
+- `fetch_temporal_qualifiers` (default: true) — enable qualified statement SPARQL syntax
+- `batch_sparql_size` (default: 50) — max entities per batch SPARQL query
+- `lineage_depth` (default: 2) — maximum depth for relationship traversal
+- `lore_delta_check_on_explorer_open` (default: true) — auto-check on page load
+- `canon_discrepancy_detection` (default: true) — enable canon checking
+- `era_actor_resolution` (default: true) — enable temporal actor resolution
+
+**Key types:**
+- `LoreDeltaResult`, `CanonDiscrepancy`, `ActorResolution` (`MediaEngine.Domain.Models`) — result records
+- `ILoreDeltaService`, `ICanonDiscrepancyService`, `IEraActorResolverService` (`MediaEngine.Domain.Contracts`) — service contracts
+- `LoreDeltaService`, `CanonDiscrepancyService`, `EraActorResolverService` (`MediaEngine.Providers.Services`) — implementations
+- `CanonEndpoints` (`MediaEngine.Api.Endpoints`) — canon discrepancy API
+- `ChronicleExplorerDtos` (`MediaEngine.Web.Models.ViewDTOs`) — DTOs for graph, nodes, edges, lore delta
+- `ChronicleExplorer.razor` (`MediaEngine.Web.Components.Pages`) — Chronicle Explorer page
+
+**Why this matters to the business:**
+- **Extensibility** — Temporal data enables future features: spoiler gates, era-filtered cast panels, temporal search.
+- **Reliability** — Lore Delta detects stale data automatically. Canon discrepancy prevents edition/master work confusion.
+- **Performance** — SPARQL response caching and batch queries reduce API calls by 3-5x. 2-hop depth is configurable.
+- **Maintenance** — All thresholds and feature flags live in `config/hydration.json`. Zero code changes to tune.
+
 ---
 
 ## 4. Product Owner Communication Rules
@@ -1586,6 +1666,7 @@ This project uses a two-tier model strategy to balance quality with speed:
 | TagLibSharp | LGPL-2.1 | Sprint 6 (Ingestion) — Audio + video metadata tag writing (ID3v2, MP4 atoms, Vorbis, MKV) |
 | SkiaSharp | MIT | Hero Banner Pipeline — Cross-platform image processing for cinematic hero banner generation (blur, vignette, grain) |
 | SkiaSharp.NativeAssets.Linux | MIT | Hero Banner Pipeline — Native SkiaSharp binaries for Linux deployment |
+| Cytoscape.js | MIT | Chronicle Engine — Graph visualization for the Chronicle Explorer Dashboard (vendored, no NuGet) |
 
 ### 5.2 — Mandatory Workflow
 
@@ -1676,6 +1757,7 @@ git push
 | §3.14 (Media Type Disambiguation) | `features/INGESTION-PIPELINE.md` | Heuristic disambiguation, confidence thresholds, review queue |
 | §3.21 (Cross-Media Strategy) | `features/METADATA-MANAGEMENT.md` | Provider slots, response caching, artwork strategy, rate limits |
 | §3.24 (Two-Pass Enrichment) | `features/INGESTION-PIPELINE.md`, `features/METADATA-MANAGEMENT.md` | Quick match vs universe lookup, priority queue, nightly sweep |
+| §3.26 (Chronicle Engine) | `features/METADATA-MANAGEMENT.md` | Temporal qualifiers, Lore Delta, era actors, Chronicle Explorer |
 | §3.25 (Supported Library Types) | `features/INGESTION-PIPELINE.md` | Library types, future types (Other, Photos) |
 | §6 (Dashboard Layout) | `skills/DASHBOARD-UI.md` | Feature-sliced file locations |
 | FIX-PLAN tiers | `FIX-PLAN.md` | Systematic fix plan, tier-based issue tracking |
@@ -1763,6 +1845,7 @@ src/MediaEngine.Web/
 │       ├── Statistics.razor            (TARGET STATE) Library + personal stats, charts
 │       ├── Login.razor                 (TARGET STATE) Profile selection + PIN/password login
 │       ├── Settings.razor              Unified settings: sidebar + content, 16 tabs in 3 groups (Preferences/Metadata/Server)
+│       ├── ChronicleExplorer.razor      Chronicle Engine: universe graph explorer with Cytoscape.js, timeline slider, Lore Delta banner
 │       └── NotFound.razor              404 page
 │
 ├── Models/
@@ -1777,6 +1860,7 @@ src/MediaEngine.Web/
 │       ├── ProviderManagementDtos.cs   Provider test/sample/config DTOs for settings UI
 │       ├── ReviewQueueDtos.cs         Review queue + hydration settings DTOs (§3.13)
 │       ├── LabelResolveViewModel.cs   QID label resolution DTO (Label, Description, EntityType)
+│       ├── ChronicleExplorerDtos.cs     Chronicle Engine DTOs: UniverseGraphResponse, GraphNodeDto, GraphEdgeDto, LoreDeltaResultDto
 │       └── ResolvedUISettingsViewModel.cs  Device-resolved UI configuration (8 DTO classes)
 │
 └── Shared/                   ← Top-level layout shell (used by every page)

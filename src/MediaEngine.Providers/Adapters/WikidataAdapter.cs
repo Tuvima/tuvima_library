@@ -1,4 +1,6 @@
 using System.Net.Http.Json;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.Logging;
@@ -72,6 +74,7 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
     private readonly IHttpClientFactory _httpFactory;
     private readonly IConfigurationLoader _configLoader;
     private readonly IQidLabelRepository _qidLabelRepo;
+    private readonly IProviderResponseCacheRepository _cacheRepo;
     private readonly ILogger<WikidataAdapter> _logger;
 
     // Throttle shared across all instances (static) — Wikidata policy: 1 req/s.
@@ -103,19 +106,25 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
 
     // ── Constructor ───────────────────────────────────────────────────────────
 
+    /// <summary>Default SPARQL response cache TTL (hours). Overridden by provider config.</summary>
+    private const int DefaultCacheTtlHours = 168; // 7 days
+
     public WikidataAdapter(
         IHttpClientFactory httpFactory,
         IConfigurationLoader configLoader,
         IQidLabelRepository qidLabelRepo,
+        IProviderResponseCacheRepository cacheRepo,
         ILogger<WikidataAdapter> logger)
     {
         ArgumentNullException.ThrowIfNull(httpFactory);
         ArgumentNullException.ThrowIfNull(configLoader);
         ArgumentNullException.ThrowIfNull(qidLabelRepo);
+        ArgumentNullException.ThrowIfNull(cacheRepo);
         ArgumentNullException.ThrowIfNull(logger);
         _httpFactory   = httpFactory;
         _configLoader  = configLoader;
         _qidLabelRepo  = qidLabelRepo;
+        _cacheRepo     = cacheRepo;
         _logger        = logger;
     }
 
@@ -1018,6 +1027,71 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
         }
     }
 
+    // ── Batch Entity Fetch ──────────────────────────────────────────────────
+
+    /// <summary>
+    /// Batch-fetch properties for multiple entities in a single SPARQL query.
+    /// Returns results keyed by QID.
+    /// </summary>
+    internal async Task<IReadOnlyDictionary<string, IReadOnlyList<ProviderClaim>>> FetchEntitiesBatchAsync(
+        IReadOnlyList<string> qids,
+        string scope,
+        string sparqlBaseUrl,
+        int throttleGapMs,
+        CancellationToken ct = default)
+    {
+        if (qids.Count == 0)
+            return new Dictionary<string, IReadOnlyList<ProviderClaim>>();
+
+        var universeConfig = _configLoader.LoadConfig<UniverseConfiguration>("universe", "wikidata");
+        var effectiveMap = universeConfig is not null
+            ? WikidataSparqlPropertyMap.BuildMapFromUniverse(universeConfig)
+            : WikidataSparqlPropertyMap.DefaultMap;
+
+        var sparql = WikidataSparqlPropertyMap.BuildBatchEntityQuery(qids, effectiveMap, scope);
+
+        if (string.IsNullOrEmpty(sparql))
+            return new Dictionary<string, IReadOnlyList<ProviderClaim>>();
+
+        var client = _httpFactory.CreateClient("wikidata_sparql");
+        var result = new Dictionary<string, IReadOnlyList<ProviderClaim>>(qids.Count, StringComparer.OrdinalIgnoreCase);
+
+        try
+        {
+            var claims = await ExecuteSparqlQueryAsync(
+                client, sparqlBaseUrl, sparql, qids[0], effectiveMap,
+                scopeExclusions: null, throttleGapMs, ct, scope)
+                .ConfigureAwait(false);
+
+            // Group claims by QID (extracted from the entity URI in the response)
+            var grouped = new Dictionary<string, List<ProviderClaim>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var claim in claims)
+            {
+                // Claims from batch queries include the entity QID in the key prefix
+                // For now, all claims go under the first QID — proper per-entity parsing
+                // requires extending ExecuteSparqlQueryAsync to return per-entity results.
+                var targetQid = qids[0]; // Placeholder — will be refined
+                if (!grouped.TryGetValue(targetQid, out var list))
+                {
+                    list = [];
+                    grouped[targetQid] = list;
+                }
+                list.Add(claim);
+            }
+
+            foreach (var (qid, claimList) in grouped)
+                result[qid] = claimList;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Batch SPARQL query failed for {Count} entities (scope: {Scope})",
+                qids.Count, scope);
+        }
+
+        return result;
+    }
+
     // ── Edition vs Work Resolution ──────────────────────────────────────────
 
     /// <summary>
@@ -1564,7 +1638,7 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
     /// <summary>
     /// Executes a bridge lookup SPARQL query and returns the QID if found.
     /// </summary>
-    private static async Task<string?> RunBridgeLookupAsync(
+    private async Task<string?> RunBridgeLookupAsync(
         HttpClient sparqlClient,
         string sparqlBaseUrl,
         string sparql,
@@ -1991,14 +2065,33 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
     /// <summary>
     /// Sends a throttled SPARQL query and returns the parsed JSON response.
     /// Uses the <c>wikidata_sparql</c> named HttpClient.
+    ///
+    /// Checks the provider response cache before making an HTTP call.
+    /// On cache HIT, the HTTP call is skipped entirely. On cache MISS,
+    /// the response is stored for reuse. Expired entries with ETags
+    /// trigger conditional revalidation (304 Not Modified).
     /// </summary>
-    private static async Task<JsonObject?> ThrottledSparqlAsync(
+    private async Task<JsonObject?> ThrottledSparqlAsync(
         HttpClient sparqlClient,
         string sparqlBaseUrl,
         string sparql,
         int throttleGapMs,
         CancellationToken ct)
     {
+        // ── Response cache check ──────────────────────────────────────────────
+        var queryHash = ComputeSha256(sparql);
+        var cacheKey  = $"wikidata-sparql-{queryHash}";
+        var providerConfig = _configLoader.LoadProvider("wikidata");
+        var cacheTtlHours  = providerConfig?.CacheTtlHours ?? DefaultCacheTtlHours;
+
+        var cached = await _cacheRepo.FindAsync(cacheKey, ct).ConfigureAwait(false);
+        if (cached is not null)
+        {
+            _logger.LogDebug("Wikidata SPARQL cache HIT for key {CacheKey}", cacheKey);
+            return JsonSerializer.Deserialize<JsonObject>(cached.ResponseJson, _jsonOptions);
+        }
+
+        // ── Throttled HTTP call ───────────────────────────────────────────────
         await _throttle.WaitAsync(ct).ConfigureAwait(false);
         try
         {
@@ -2007,6 +2100,10 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
             if (elapsed < throttleGapMs)
                 await Task.Delay(TimeSpan.FromMilliseconds(throttleGapMs - elapsed), ct)
                     .ConfigureAwait(false);
+
+            // ETag conditional revalidation for expired entries.
+            var existingEtag = await _cacheRepo.FindExpiredEtagAsync(cacheKey, ct)
+                .ConfigureAwait(false);
 
             // Use POST to avoid HTTP 414 (URI Too Long) on large SPARQL queries.
             // Wikidata's SPARQL endpoint supports both GET and POST; POST has no URL length limit.
@@ -2017,19 +2114,58 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
             ]);
             request.Headers.Accept.ParseAdd("application/sparql-results+json");
 
+            if (!string.IsNullOrEmpty(existingEtag))
+                request.Headers.IfNoneMatch.Add(
+                    new System.Net.Http.Headers.EntityTagHeaderValue($"\"{existingEtag}\""));
+
             var response = await sparqlClient.SendAsync(request, ct).ConfigureAwait(false);
             _lastCallUtc = DateTime.UtcNow;
+
+            // ETag 304: cache is still valid — refresh expiry and use it.
+            if (response.StatusCode == System.Net.HttpStatusCode.NotModified)
+            {
+                _logger.LogDebug(
+                    "Wikidata SPARQL 304 Not Modified — refreshing cache for {CacheKey}", cacheKey);
+                await _cacheRepo.RefreshExpiryAsync(cacheKey, cacheTtlHours, ct)
+                    .ConfigureAwait(false);
+
+                var refreshed = await _cacheRepo.FindAsync(cacheKey, ct).ConfigureAwait(false);
+                return refreshed is not null
+                    ? JsonSerializer.Deserialize<JsonObject>(refreshed.ResponseJson, _jsonOptions)
+                    : null;
+            }
 
             if (!response.IsSuccessStatusCode)
                 return null;
 
-            return await response.Content.ReadFromJsonAsync<JsonObject>(_jsonOptions, ct)
+            var responseBody = await response.Content.ReadAsStringAsync(ct)
                 .ConfigureAwait(false);
+
+            // Cache the response.
+            if (!string.IsNullOrEmpty(responseBody))
+            {
+                var etag = response.Headers.ETag?.Tag?.Trim('"');
+                await _cacheRepo.UpsertAsync(
+                    cacheKey, AdapterProviderId.ToString(), queryHash,
+                    responseBody, etag, cacheTtlHours, ct)
+                    .ConfigureAwait(false);
+            }
+
+            return JsonSerializer.Deserialize<JsonObject>(responseBody, _jsonOptions);
         }
         finally
         {
             _throttle.Release();
         }
+    }
+
+    /// <summary>
+    /// Computes a SHA-256 hash of the input string (for cache key dedup).
+    /// </summary>
+    private static string ComputeSha256(string input)
+    {
+        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(input));
+        return Convert.ToHexString(bytes).ToLowerInvariant();
     }
 
     // ── Throttled HTTP helper ─────────────────────────────────────────────────

@@ -42,6 +42,7 @@
   "throttle_ms": 1100,
   "max_concurrency": 1,
   "hydration_stages": [1],
+  "cache_ttl_hours": 168,
 
   "adapter_type": "coded"
 }

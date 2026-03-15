@@ -180,6 +180,14 @@ public static class SystemActionType
 
     /// <summary>A narrative root was resolved for a work.</summary>
     public const string NarrativeRootResolved = "NarrativeRootResolved";
+
+    // ── Chronicle Engine ─────────────────────────────────────────────────
+
+    /// <summary>A Lore Delta check was performed against Wikidata revision IDs.</summary>
+    public const string LoreDeltaChecked = "LoreDeltaChecked";
+
+    /// <summary>A canon discrepancy was detected between edition and master work.</summary>
+    public const string CanonDiscrepancyDetected = "CanonDiscrepancyDetected";
 }
 
 

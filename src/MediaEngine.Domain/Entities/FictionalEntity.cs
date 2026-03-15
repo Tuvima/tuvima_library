@@ -74,4 +74,7 @@ public sealed class FictionalEntity
     /// but not yet deeply enriched with its own properties and relationships.
     /// </summary>
     public DateTimeOffset? EnrichedAt { get; set; }
+
+    /// <summary>Wikidata <c>lastrevid</c> for Lore Delta change detection.</summary>
+    public long? WikidataRevisionId { get; set; }
 }

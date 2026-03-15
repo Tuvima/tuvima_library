@@ -21,5 +21,11 @@
   "pass2_rate_limit_ms": 2000,
   "pass2_nightly_cron": "0 2 * * *",
   "pass2_stale_threshold_hours": 24,
-  "pass2_batch_size": 50
+  "pass2_batch_size": 50,
+  "fetch_temporal_qualifiers": true,
+  "batch_sparql_size": 50,
+  "lineage_depth": 2,
+  "lore_delta_check_on_explorer_open": true,
+  "canon_discrepancy_detection": true,
+  "era_actor_resolution": true
 }

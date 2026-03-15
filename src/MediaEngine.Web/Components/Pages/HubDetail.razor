@@ -152,6 +152,17 @@ else
                         </div>
                     }
 
+                    @if (!string.IsNullOrEmpty(_hub.FictionalUniverseQid))
+                    {
+                        <div class="hub-detail-sidebar-item">
+                            <MudButton Variant="Variant.Outlined" Color="Color.Primary" FullWidth
+                                       StartIcon="@Icons.Material.Filled.AccountTree"
+                                       OnClick="@(() => Nav.NavigateTo($"/universe/{_hub.FictionalUniverseQid}/explore"))">
+                                Explore Universe
+                            </MudButton>
+                        </div>
+                    }
+
                 </aside>
 
                 @* ── Shared variables (used in both center column and cover panel) ── *@

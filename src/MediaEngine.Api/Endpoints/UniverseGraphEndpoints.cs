@@ -61,6 +61,16 @@ public static class UniverseGraphEndpoints
             });
         });
 
+        // GET /universe/{qid}/lore-delta — check for Wikidata revision changes.
+        group.MapGet("/universe/{qid}/lore-delta", async (
+            string qid,
+            ILoreDeltaService loreDeltaService,
+            CancellationToken ct) =>
+        {
+            var results = await loreDeltaService.CheckForUpdatesAsync(qid, ct);
+            return Results.Ok(results);
+        });
+
         // GET /universe/{qid}/graph — Cytoscape.js-ready JSON: { universe, nodes[], edges[] }
         group.MapGet("/universe/{qid}/graph", async (
             string qid,
@@ -68,10 +78,12 @@ public static class UniverseGraphEndpoints
             string? work,
             string? center,
             int? depth,
+            int? timeline_year,
             INarrativeRootRepository rootRepo,
             IFictionalEntityRepository entityRepo,
             IEntityRelationshipRepository relRepo,
             IPersonRepository personRepo,
+            IEraActorResolverService eraActorResolver,
             CancellationToken ct) =>
         {
             var root = await rootRepo.FindByQidAsync(qid, ct);
@@ -135,7 +147,22 @@ public static class UniverseGraphEndpoints
             }
 
             // Load relationships between filtered entities.
-            var relationships = await relRepo.GetByUniverseAsync(entityQids, ct);
+            var relationships = (await relRepo.GetByUniverseAsync(entityQids, ct)).ToList();
+
+            // Apply timeline year filter — exclude edges that started after the given year.
+            if (timeline_year.HasValue)
+            {
+                relationships = relationships.Where(r =>
+                {
+                    if (string.IsNullOrWhiteSpace(r.StartTime)) return true;
+                    // Handle Wikidata "+YYYY..." prefix by skipping the leading '+'.
+                    var span = r.StartTime.AsSpan();
+                    if (span.Length > 0 && span[0] == '+') span = span[1..];
+                    if (int.TryParse(span[..Math.Min(4, span.Length)], out var startYear))
+                        return startYear <= timeline_year.Value;
+                    return true;
+                }).ToList();
+            }
 
             // Build nodes with work links.
             var nodes = new List<object>(allEntities.Count);
@@ -143,13 +170,25 @@ public static class UniverseGraphEndpoints
             {
                 var workLinks = await entityRepo.GetWorkLinksAsync(entity.Id, ct);
 
+                // Resolve era-specific actor image for character nodes.
+                string? image = null;
+                if (timeline_year.HasValue
+                    && string.Equals(entity.EntitySubType, "Character", StringComparison.OrdinalIgnoreCase)
+                    && !string.IsNullOrWhiteSpace(entity.WikidataQid))
+                {
+                    var resolution = await eraActorResolver.ResolveActorForEraAsync(
+                        entity.WikidataQid, timeline_year.Value, ct);
+                    if (resolution is not null)
+                        image = resolution.HeadshotUrl;
+                }
+
                 nodes.Add(new
                 {
                     id         = entity.WikidataQid,
                     label      = entity.Label,
                     type       = entity.EntitySubType,
                     description = entity.Description,
-                    image      = (string?)null, // Character images resolved via performer at serve time
+                    image,
                     works      = workLinks.Select(wl => new { qid = wl.WorkQid, label = wl.WorkLabel }),
                 });
             }
@@ -157,12 +196,14 @@ public static class UniverseGraphEndpoints
             // Build edges.
             var edges = relationships.Select(r => new
             {
-                source     = r.SubjectQid,
-                target     = r.ObjectQid,
-                type       = r.RelationshipTypeValue,
-                label      = FormatEdgeLabel(r.RelationshipTypeValue),
-                confidence = r.Confidence,
+                source       = r.SubjectQid,
+                target       = r.ObjectQid,
+                type         = r.RelationshipTypeValue,
+                label        = FormatEdgeLabel(r.RelationshipTypeValue),
+                confidence   = r.Confidence,
                 context_work = r.ContextWorkQid,
+                start_time   = r.StartTime,
+                end_time     = r.EndTime,
             });
 
             return Results.Ok(new
@@ -199,6 +240,8 @@ public static class UniverseGraphEndpoints
         "creator"             => "created by",
         "performer"           => "performed by",
         "same_as"             => "same as",
+        "significant_person"  => "significant to",
+        "affiliation"         => "affiliated with",
         _                     => relType.Replace('_', ' '),
     };
 }

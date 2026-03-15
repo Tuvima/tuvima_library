@@ -389,6 +389,24 @@ public interface IEngineApiClient
     /// Useful for surfacing diagnostic details in the UI.
     /// </summary>
     string? LastError { get; }
+
+    // ── Universe Graph (Chronicle Explorer) ─────────────────────────────────
+
+    /// <summary>GET /universe/{qid}/graph — fetch the universe relationship graph with optional filters.</summary>
+    Task<UniverseGraphResponse?> GetUniverseGraphAsync(
+        string qid,
+        int? timelineYear = null,
+        string? types = null,
+        string? center = null,
+        int? depth = null,
+        CancellationToken ct = default);
+
+    /// <summary>GET /universe/{qid}/lore-delta — check which entities have changed on Wikidata since last enrichment.</summary>
+    Task<IReadOnlyList<LoreDeltaResultDto>> CheckLoreDeltaAsync(
+        string qid, CancellationToken ct = default);
+
+    /// <summary>GET /universes — list all narrative roots (fictional universes).</summary>
+    Task<IReadOnlyList<NarrativeRootDto>> GetUniversesAsync(CancellationToken ct = default);
 }
 
 

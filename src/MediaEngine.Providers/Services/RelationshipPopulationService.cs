@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
+using MediaEngine.Domain.Models;
 
 namespace MediaEngine.Providers.Services;
 
@@ -33,6 +34,9 @@ public interface IRelationshipPopulationService
     /// <param name="universeQid">The narrative root QID for this entity's universe.</param>
     /// <param name="universeLabel">Human-readable universe label.</param>
     /// <param name="contextWorkQid">Optional work QID providing context for performer links.</param>
+    /// <param name="temporalQualifiers">Optional per-target-QID temporal qualifiers (start/end time).</param>
+    /// <param name="currentDepth">Current hop depth (0 = first-level relationships from the source entity).</param>
+    /// <param name="maxDepth">Maximum enrichment depth. Target entities at depth &lt; maxDepth are enqueued for enrichment.</param>
     /// <param name="ct">Cancellation token.</param>
     Task PopulateAsync(
         string entityQid,
@@ -40,6 +44,9 @@ public interface IRelationshipPopulationService
         string universeQid,
         string? universeLabel,
         string? contextWorkQid = null,
+        IReadOnlyDictionary<string, (string? StartTime, string? EndTime)>? temporalQualifiers = null,
+        int currentDepth = 0,
+        int maxDepth = 1,
         CancellationToken ct = default);
 }
 
@@ -83,6 +90,12 @@ internal static class RelationshipClaimMap
             // Organization → Organization
             ["parent_organization_qid"] = (RelationshipType.ParentOrganization, FictionalEntityType.Organization),
             ["has_parts_qid"]           = (RelationshipType.HasParts, FictionalEntityType.Organization),
+
+            // Character → Character (social web)
+            ["significant_person_qid"] = (RelationshipType.SignificantPerson, FictionalEntityType.Character),
+
+            // Character → Organization (affiliation)
+            ["affiliation_qid"]        = (RelationshipType.Affiliation, FictionalEntityType.Organization),
         };
 }
 
@@ -93,18 +106,30 @@ public sealed class RelationshipPopulationService : IRelationshipPopulationServi
     private readonly IFictionalEntityRepository _entityRepo;
     private readonly ILogger<RelationshipPopulationService> _logger;
 
+    // Resolved lazily to avoid a circular DI dependency:
+    // MetadataHarvestingService → IRelationshipPopulationService → IMetadataHarvestingService.
+    private IMetadataHarvestingService? _harvesting;
+    private readonly IServiceProvider _serviceProvider;
+
     public RelationshipPopulationService(
         IEntityRelationshipRepository relRepo,
         IFictionalEntityRepository entityRepo,
+        IServiceProvider serviceProvider,
         ILogger<RelationshipPopulationService> logger)
     {
         ArgumentNullException.ThrowIfNull(relRepo);
         ArgumentNullException.ThrowIfNull(entityRepo);
+        ArgumentNullException.ThrowIfNull(serviceProvider);
         ArgumentNullException.ThrowIfNull(logger);
-        _relRepo    = relRepo;
-        _entityRepo = entityRepo;
-        _logger     = logger;
+        _relRepo         = relRepo;
+        _entityRepo      = entityRepo;
+        _serviceProvider = serviceProvider;
+        _logger          = logger;
     }
+
+    private IMetadataHarvestingService Harvesting =>
+        _harvesting ??= _serviceProvider.GetService(typeof(IMetadataHarvestingService)) as IMetadataHarvestingService
+            ?? throw new InvalidOperationException("IMetadataHarvestingService is not registered.");
 
     /// <inheritdoc/>
     public async Task PopulateAsync(
@@ -113,6 +138,9 @@ public sealed class RelationshipPopulationService : IRelationshipPopulationServi
         string universeQid,
         string? universeLabel,
         string? contextWorkQid = null,
+        IReadOnlyDictionary<string, (string? StartTime, string? EndTime)>? temporalQualifiers = null,
+        int currentDepth = 0,
+        int maxDepth = 1,
         CancellationToken ct = default)
     {
         var edgesCreated = 0;
@@ -142,9 +170,18 @@ public sealed class RelationshipPopulationService : IRelationshipPopulationServi
 
                 try
                 {
-                    // Find-or-create the target entity (depth limit = 1: created but NOT enriched).
-                    await EnsureTargetEntityExists(targetQid, targetEntityType, universeQid, universeLabel, ct)
+                    // Find-or-create the target entity. Enqueues enrichment if within depth limit.
+                    await EnsureTargetEntityExists(targetQid, targetEntityType, universeQid, universeLabel, currentDepth, maxDepth, ct)
                         .ConfigureAwait(false);
+
+                    // Resolve temporal qualifiers if available.
+                    var startTime = (string?)null;
+                    var endTime = (string?)null;
+                    if (temporalQualifiers?.TryGetValue(targetQid, out var temporal) == true)
+                    {
+                        startTime = temporal.StartTime;
+                        endTime = temporal.EndTime;
+                    }
 
                     // Create graph edge (idempotent via UNIQUE constraint).
                     await _relRepo.CreateAsync(new EntityRelationship
@@ -155,6 +192,8 @@ public sealed class RelationshipPopulationService : IRelationshipPopulationServi
                         Confidence            = 0.9,
                         ContextWorkQid        = contextWorkQid,
                         DiscoveredAt          = DateTimeOffset.UtcNow,
+                        StartTime             = startTime,
+                        EndTime               = endTime,
                     }, ct).ConfigureAwait(false);
 
                     edgesCreated++;
@@ -178,20 +217,20 @@ public sealed class RelationshipPopulationService : IRelationshipPopulationServi
 
     /// <summary>
     /// Ensures a fictional entity record exists for the given QID.
-    /// If not found, creates a stub record. Does NOT enqueue enrichment
-    /// (depth limit = 1).
+    /// If not found, creates a stub record. When <paramref name="currentDepth"/> is
+    /// less than <paramref name="maxDepth"/>, the new entity is also enqueued for
+    /// Wikidata enrichment so its own relationships are discovered (2-hop lineage).
     /// </summary>
     private async Task EnsureTargetEntityExists(
         string qid, string entitySubType, string universeQid, string? universeLabel,
+        int currentDepth, int maxDepth,
         CancellationToken ct)
     {
         var existing = await _entityRepo.FindByQidAsync(qid, ct).ConfigureAwait(false);
         if (existing is not null)
             return;
 
-        // Also try to get the label from canonical values — we'll use the QID as fallback.
-        // The label claim key matches the relationship claim key minus the _qid suffix.
-        await _entityRepo.CreateAsync(new FictionalEntity
+        var entity = new FictionalEntity
         {
             Id                     = Guid.NewGuid(),
             WikidataQid            = qid,
@@ -200,10 +239,42 @@ public sealed class RelationshipPopulationService : IRelationshipPopulationServi
             FictionalUniverseQid   = universeQid,
             FictionalUniverseLabel = universeLabel,
             CreatedAt              = DateTimeOffset.UtcNow,
-        }, ct).ConfigureAwait(false);
+        };
+        await _entityRepo.CreateAsync(entity, ct).ConfigureAwait(false);
 
         _logger.LogDebug(
             "Created stub entity for relationship target {Qid} ({Type})",
             qid, entitySubType);
+
+        // Depth-aware enrichment: enqueue if within configured depth limit.
+        if (currentDepth < maxDepth)
+        {
+            var entityType = entitySubType switch
+            {
+                FictionalEntityType.Character    => EntityType.Character,
+                FictionalEntityType.Location     => EntityType.Location,
+                FictionalEntityType.Organization => EntityType.Organization,
+                _                                => EntityType.Character,
+            };
+
+            await Harvesting.EnqueueAsync(new HarvestRequest
+            {
+                EntityId   = entity.Id,
+                EntityType = entityType,
+                MediaType  = MediaType.Unknown,
+                Hints      = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["wikidata_qid"]    = qid,
+                    ["label"]           = qid,
+                    ["entity_sub_type"] = entitySubType,
+                    ["universe_qid"]    = universeQid,
+                    ["enrichment_depth"] = (currentDepth + 1).ToString(),
+                },
+            }, ct).ConfigureAwait(false);
+
+            _logger.LogDebug(
+                "Enqueued depth-{Depth} enrichment for relationship target {Qid} ({Type})",
+                currentDepth + 1, qid, entitySubType);
+        }
     }
 }

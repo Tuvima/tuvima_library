@@ -96,6 +96,7 @@ public sealed class AdapterFallbackTests
             factory,
             new StubConfigurationLoader(),
             new NoOpQidLabelRepository(),
+            new NoOpProviderResponseCacheRepository(),
             NullLogger<WikidataAdapter>.Instance);
 
         var request = new ProviderLookupRequest
@@ -258,4 +259,16 @@ file sealed class NoOpQidLabelRepository : IQidLabelRepository
     public Task UpsertBatchAsync(IReadOnlyList<QidLabel> labels, CancellationToken ct = default) => Task.CompletedTask;
     public Task<IReadOnlyList<QidLabel>> GetLabelDetailsAsync(IEnumerable<string> qids, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<QidLabel>>([]);
     public Task<IReadOnlyList<QidLabel>> GetAllAsync(CancellationToken ct = default) => Task.FromResult<IReadOnlyList<QidLabel>>([]);
+}
+
+/// <summary>No-op provider response cache for adapter tests.</summary>
+file sealed class NoOpProviderResponseCacheRepository : IProviderResponseCacheRepository
+{
+    public Task<CachedResponse?> FindAsync(string cacheKey, CancellationToken ct = default) => Task.FromResult<CachedResponse?>(null);
+    public Task UpsertAsync(string cacheKey, string providerId, string queryHash, string responseJson, string? etag, int ttlHours, CancellationToken ct = default) => Task.CompletedTask;
+    public Task<string?> FindExpiredEtagAsync(string cacheKey, CancellationToken ct = default) => Task.FromResult<string?>(null);
+    public Task RefreshExpiryAsync(string cacheKey, int ttlHours, CancellationToken ct = default) => Task.CompletedTask;
+    public Task<int> PurgeExpiredAsync(CancellationToken ct = default) => Task.FromResult(0);
+    public Task<int> ClearAllAsync(CancellationToken ct = default) => Task.FromResult(0);
+    public Task<CacheStats> GetStatsAsync(CancellationToken ct = default) => Task.FromResult(new CacheStats(0, 0, null));
 }

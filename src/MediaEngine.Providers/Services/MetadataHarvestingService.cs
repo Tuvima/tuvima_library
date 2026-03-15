@@ -329,6 +329,24 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
             // Resolve universe QID from hints.
             var universeQid = request.Hints.GetValueOrDefault("universe_qid");
 
+            // Resolve depth parameters from hint and config.
+            var currentDepth = 0;
+            if (request.Hints.TryGetValue("enrichment_depth", out var depthStr) &&
+                int.TryParse(depthStr, out var parsedDepth))
+            {
+                currentDepth = parsedDepth;
+            }
+
+            var maxDepth = 1;
+            try
+            {
+                maxDepth = _configLoader.LoadHydration().FictionalEntityEnrichmentDepth;
+            }
+            catch
+            {
+                // Fall back to default if config is unavailable.
+            }
+
             // Populate relationship edges from _qid claims.
             await _relPopService.PopulateAsync(
                 request.Hints.GetValueOrDefault("wikidata_qid") ?? string.Empty,
@@ -336,7 +354,10 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
                 universeQid ?? string.Empty,
                 universeLabel: null,
                 contextWorkQid: null,
-                ct).ConfigureAwait(false);
+                temporalQualifiers: null,
+                currentDepth: currentDepth,
+                maxDepth: maxDepth,
+                ct: ct).ConfigureAwait(false);
 
             // Determine action type for activity log.
             var entitySubType = request.Hints.GetValueOrDefault("entity_sub_type") ?? "Character";

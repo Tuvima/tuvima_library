@@ -5,7 +5,7 @@
     "features_disabled": [
       "command_palette", "search_button", "theme_toggle",
       "avatar_menu", "pending_files_alert", "view_toggle",
-      "profile_section", "color_picker"
+      "profile_section", "color_picker", "timeline_slider"
     ],
     "pages_disabled": ["server_settings"],
     "allow_text_input": false,

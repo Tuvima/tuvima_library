@@ -108,7 +108,7 @@ public sealed class HydrationSettings
     /// Target entities are created but NOT enriched beyond this depth.
     /// </summary>
     [JsonPropertyName("fictional_entity_enrichment_depth")]
-    public int FictionalEntityEnrichmentDepth { get; set; } = 1;
+    public int FictionalEntityEnrichmentDepth { get; set; } = 2;
 
     /// <summary>
     /// Confidence threshold for Stage 3 retail waterfall. After each provider
@@ -183,6 +183,36 @@ public sealed class HydrationSettings
     /// </summary>
     [JsonPropertyName("pass2_batch_size")]
     public int Pass2BatchSize { get; set; } = 50;
+
+    // ── Chronicle Engine ──────────────────────────────────────────────
+
+    /// <summary>
+    /// When <c>true</c>, the qualified statement SPARQL syntax (p:/ps:/pq:)
+    /// is used for relationship properties to capture P580 (start time) and
+    /// P582 (end time) temporal qualifiers.
+    /// </summary>
+    [JsonPropertyName("fetch_temporal_qualifiers")]
+    public bool FetchTemporalQualifiers { get; set; } = true;
+
+    /// <summary>Maximum entities per batch SPARQL query using VALUES clause.</summary>
+    [JsonPropertyName("batch_sparql_size")]
+    public int BatchSparqlSize { get; set; } = 50;
+
+    /// <summary>Maximum depth for lineage traversal (2 = grandparents/grandchildren).</summary>
+    [JsonPropertyName("lineage_depth")]
+    public int LineageDepth { get; set; } = 2;
+
+    /// <summary>When <c>true</c>, the Lore Delta check runs on Chronicle Explorer page load.</summary>
+    [JsonPropertyName("lore_delta_check_on_explorer_open")]
+    public bool LoreDeltaCheckOnExplorerOpen { get; set; } = true;
+
+    /// <summary>When <c>true</c>, Canon Discrepancy detection runs during Stage 1 hydration.</summary>
+    [JsonPropertyName("canon_discrepancy_detection")]
+    public bool CanonDiscrepancyDetection { get; set; } = true;
+
+    /// <summary>When <c>true</c>, era-correct actor resolution uses temporal qualifiers on performer edges.</summary>
+    [JsonPropertyName("era_actor_resolution")]
+    public bool EraActorResolution { get; set; } = true;
 
     // ── Backward compatibility ──────────────────────────────────────────
 

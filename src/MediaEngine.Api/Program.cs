@@ -374,6 +374,7 @@ builder.Services.AddSingleton<IExternalMetadataProvider, WikipediaAdapter>();
 
 builder.Services.AddSingleton<IMetadataHarvestingService, MetadataHarvestingService>();
 builder.Services.AddSingleton<IRecursiveIdentityService,  RecursiveIdentityService>();
+builder.Services.AddSingleton<ICanonDiscrepancyService,   CanonDiscrepancyService>();
 
 // ── Universe graph (fictional entities, relationships, narrative roots) ──────
 builder.Services.AddSingleton<IFictionalEntityRepository,      FictionalEntityRepository>();
@@ -384,6 +385,8 @@ builder.Services.AddSingleton<IRecursiveFictionalEntityService, RecursiveFiction
 builder.Services.AddSingleton<IRelationshipPopulationService,   RelationshipPopulationService>();
 builder.Services.AddSingleton<IUniverseSidecarWriter,           UniverseSidecarWriter>();
 builder.Services.AddSingleton<IUniverseGraphWriterService,      UniverseGraphWriterService>();
+builder.Services.AddSingleton<ILoreDeltaService,                LoreDeltaService>();
+builder.Services.AddSingleton<IEraActorResolverService,         EraActorResolverService>();
 
 // ── Hydration pipeline (three-stage orchestrator) + review queue ─────────────
 builder.Services.AddSingleton<IAutoOrganizeService,          AutoOrganizeService>();
@@ -476,6 +479,7 @@ app.MapPersonEndpoints();
 app.MapProgressEndpoints();
 app.MapActivityEndpoints();
 app.MapUniverseGraphEndpoints();
+app.MapCanonEndpoints();
 app.MapDeferredEnrichmentEndpoints();
 
 // ── Development-only seed endpoints ──────────────────────────────────────────

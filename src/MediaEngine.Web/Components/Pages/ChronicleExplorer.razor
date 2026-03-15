@@ -1,0 +1,367 @@
+@page "/universe/{Qid}/explore"
+@inject IEngineApiClient ApiClient
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+<PageTitle>Chronicle Explorer — @(_graph?.Universe.Label ?? Qid)</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.False" Class="pa-4">
+    @* ── Universe header ── *@
+    <MudText Typo="Typo.h4" Class="mb-2" Style="font-family: Montserrat, sans-serif;">
+        @(_graph?.Universe.Label ?? "Loading...")
+    </MudText>
+    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
+        <MudChip T="string" Color="Color.Primary" Size="Size.Small">
+            @(_graph?.Nodes.Count ?? 0) entities
+        </MudChip>
+        <MudChip T="string" Color="Color.Secondary" Size="Size.Small">
+            @(_graph?.Edges.Count ?? 0) relationships
+        </MudChip>
+        @if (_characterCount > 0)
+        {
+            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">
+                @_characterCount characters
+            </MudChip>
+        }
+        @if (_locationCount > 0)
+        {
+            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">
+                @_locationCount locations
+            </MudChip>
+        }
+        @if (_orgCount > 0)
+        {
+            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">
+                @_orgCount organizations
+            </MudChip>
+        }
+    </MudStack>
+
+    @* ── Lore Delta banner ── *@
+    @if (_loreDeltaChanges > 0)
+    {
+        <MudAlert Severity="Severity.Warning" Class="mb-4"
+                  CloseIconClicked="@(() => _loreDeltaChanges = 0)">
+            New Lore Discovered: @_loreDeltaChanges entities have been updated on Wikidata since last enrichment.
+        </MudAlert>
+    }
+
+    @* ── Controls row ── *@
+    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3" Class="mb-4"
+              Style="flex-wrap: wrap;">
+        @if (_hasTemporalData)
+        {
+            <div style="max-width: 300px; min-width: 200px; flex: 1;">
+                <MudSlider T="int" Value="@_timelineYear" ValueChanged="OnTimelineYearChanged"
+                           Min="@_minYear" Max="@_maxYear">
+                    Timeline: @_timelineYear
+                </MudSlider>
+            </div>
+        }
+
+        <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+            <MudChip T="string" Color="@(_showCharacters ? Color.Primary : Color.Default)"
+                     Variant="@(_showCharacters ? Variant.Filled : Variant.Outlined)"
+                     OnClick="@(() => ToggleTypeFilter("Character"))">
+                Characters
+            </MudChip>
+            <MudChip T="string" Color="@(_showLocations ? Color.Success : Color.Default)"
+                     Variant="@(_showLocations ? Variant.Filled : Variant.Outlined)"
+                     OnClick="@(() => ToggleTypeFilter("Location"))">
+                Locations
+            </MudChip>
+            <MudChip T="string" Color="@(_showOrganizations ? Color.Warning : Color.Default)"
+                     Variant="@(_showOrganizations ? Variant.Filled : Variant.Outlined)"
+                     OnClick="@(() => ToggleTypeFilter("Organization"))">
+                Organizations
+            </MudChip>
+        </MudStack>
+
+        <MudSelect T="string" Value="@_layout" ValueChanged="OnLayoutChanged"
+                   Label="Layout" Variant="Variant.Outlined" Dense="true"
+                   Style="max-width: 160px;">
+            <MudSelectItem T="string" Value="@("cose")">Force-directed</MudSelectItem>
+            <MudSelectItem T="string" Value="@("concentric")">Concentric</MudSelectItem>
+            <MudSelectItem T="string" Value="@("grid")">Grid</MudSelectItem>
+        </MudSelect>
+    </MudStack>
+
+    @* ── Main content: graph + entity list ── *@
+    <MudGrid>
+        <MudItem xs="12" md="7">
+            <div id="cytoscape-container"
+                 style="width: 100%; height: 600px; background: #111; border-radius: 8px; border: 1px solid #333;">
+            </div>
+        </MudItem>
+        <MudItem xs="12" md="5">
+            <MudPaper Class="pa-3" Style="height: 600px; overflow-y: auto; background: #111;">
+                <MudTextField T="string" @bind-Value="_entitySearch" Placeholder="Search entities..."
+                              Variant="Variant.Outlined"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Search"
+                              Immediate="true" Class="mb-3" />
+                <MudList T="GraphNodeDto" Dense="true">
+                    @foreach (var entity in FilteredEntities)
+                    {
+                        <MudListItem T="GraphNodeDto" OnClick="@(() => OnEntityClick(entity))">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                <MudIcon Icon="@GetEntityIcon(entity.Type)"
+                                         Color="@GetEntityColor(entity.Type)"
+                                         Size="Size.Small" />
+                                <MudText>@entity.Label</MudText>
+                                <MudSpacer />
+                                <MudText Typo="Typo.caption" Style="color: #888;">
+                                    @entity.Type
+                                </MudText>
+                            </MudStack>
+                        </MudListItem>
+                    }
+                </MudList>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+</MudContainer>
+
+@* ── Detail drawer ── *@
+<MudDrawer @bind-Open="_drawerOpen" Anchor="Anchor.End" Width="400px"
+           Elevation="2" Variant="@DrawerVariant.Temporary">
+    @if (_selectedEntity is not null)
+    {
+        <MudDrawerHeader>
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudIcon Icon="@GetEntityIcon(_selectedEntity.Type)"
+                         Color="@GetEntityColor(_selectedEntity.Type)" />
+                <MudText Typo="Typo.h6">@_selectedEntity.Label</MudText>
+            </MudStack>
+        </MudDrawerHeader>
+        <div class="pa-4">
+            <MudText Typo="Typo.body2" Class="mb-3">
+                @(_selectedEntity.Description ?? "No description available.")
+            </MudText>
+            <MudText Typo="Typo.caption" Style="color: #888;">
+                QID: @_selectedEntity.Id
+            </MudText>
+
+            @if (_selectedEntity.Works?.Count > 0)
+            {
+                <MudText Typo="Typo.subtitle2" Class="mt-4 mb-2">Appears in</MudText>
+                @foreach (var work in _selectedEntity.Works)
+                {
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">
+                        @work.Label
+                    </MudChip>
+                }
+            }
+
+            @if (_selectedEntityEdges.Count > 0)
+            {
+                <MudText Typo="Typo.subtitle2" Class="mt-4 mb-2">Relationships</MudText>
+                @foreach (var edge in _selectedEntityEdges)
+                {
+                    <MudText Typo="Typo.body2" Class="mb-1">
+                        @edge.Label
+                        @GetNodeLabel(edge.Source == _selectedEntity.Id ? edge.Target : edge.Source)
+                    </MudText>
+                }
+            }
+        </div>
+    }
+</MudDrawer>
+
+@code {
+    [Parameter] public string Qid { get; set; } = string.Empty;
+
+    private UniverseGraphResponse? _graph;
+    private int _loreDeltaChanges;
+    private bool _hasTemporalData;
+    private int _minYear = 1900;
+    private int _maxYear = 2030;
+    private int _timelineYear = 2030;
+    private string _layout = "cose";
+    private string _entitySearch = string.Empty;
+    private bool _drawerOpen;
+    private GraphNodeDto? _selectedEntity;
+    private List<GraphEdgeDto> _selectedEntityEdges = [];
+    private DotNetObjectReference<ChronicleExplorer>? _dotNetRef;
+    private int _characterCount;
+    private int _locationCount;
+    private int _orgCount;
+
+    // Type filter toggles — all on by default
+    private bool _showCharacters = true;
+    private bool _showLocations = true;
+    private bool _showOrganizations = true;
+
+    private IEnumerable<GraphNodeDto> FilteredEntities =>
+        _graph?.Nodes.Where(n =>
+            string.IsNullOrWhiteSpace(_entitySearch) ||
+            n.Label.Contains(_entitySearch, StringComparison.OrdinalIgnoreCase)) ?? [];
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && _graph is not null)
+        {
+            _dotNetRef = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("CytoscapeInterop.initGraph",
+                "cytoscape-container",
+                System.Text.Json.JsonSerializer.Serialize(_graph.Nodes),
+                System.Text.Json.JsonSerializer.Serialize(_graph.Edges),
+                _layout,
+                _dotNetRef);
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _graph = await ApiClient.GetUniverseGraphAsync(Qid);
+        if (_graph is not null)
+        {
+            _characterCount = _graph.Nodes.Count(n =>
+                string.Equals(n.Type, "Character", StringComparison.OrdinalIgnoreCase));
+            _locationCount = _graph.Nodes.Count(n =>
+                string.Equals(n.Type, "Location", StringComparison.OrdinalIgnoreCase));
+            _orgCount = _graph.Nodes.Count(n =>
+                string.Equals(n.Type, "Organization", StringComparison.OrdinalIgnoreCase));
+
+            // Check for temporal data
+            _hasTemporalData = _graph.Edges.Any(e => !string.IsNullOrWhiteSpace(e.StartTime));
+            if (_hasTemporalData)
+            {
+                var years = _graph.Edges
+                    .Where(e => !string.IsNullOrWhiteSpace(e.StartTime))
+                    .Select(e =>
+                    {
+                        var span = e.StartTime!.AsSpan(0, Math.Min(4, e.StartTime!.Length));
+                        int.TryParse(span, out var y);
+                        return y;
+                    })
+                    .Where(y => y > 0)
+                    .ToList();
+                if (years.Count > 0)
+                {
+                    _minYear = years.Min();
+                    _maxYear = Math.Max(years.Max(), DateTime.UtcNow.Year);
+                    _timelineYear = _maxYear;
+                }
+            }
+        }
+
+        // Check Lore Delta
+        try
+        {
+            var deltas = await ApiClient.CheckLoreDeltaAsync(Qid);
+            _loreDeltaChanges = deltas.Count(d => d.HasChanged);
+        }
+        catch
+        {
+            // Silent — non-critical
+        }
+    }
+
+    private async Task OnTimelineYearChanged(int year)
+    {
+        _timelineYear = year;
+        await JS.InvokeVoidAsync("CytoscapeInterop.filterByTimelineYear", year);
+    }
+
+    private async Task ToggleTypeFilter(string type)
+    {
+        switch (type)
+        {
+            case "Character":    _showCharacters = !_showCharacters; break;
+            case "Location":     _showLocations = !_showLocations; break;
+            case "Organization": _showOrganizations = !_showOrganizations; break;
+        }
+
+        var activeTypes = new List<string>();
+        if (_showCharacters) activeTypes.Add("Character");
+        if (_showLocations) activeTypes.Add("Location");
+        if (_showOrganizations) activeTypes.Add("Organization");
+
+        var types = string.Join(",", activeTypes);
+        _graph = await ApiClient.GetUniverseGraphAsync(Qid, types: types);
+        if (_graph is not null)
+        {
+            _characterCount = _graph.Nodes.Count(n =>
+                string.Equals(n.Type, "Character", StringComparison.OrdinalIgnoreCase));
+            _locationCount = _graph.Nodes.Count(n =>
+                string.Equals(n.Type, "Location", StringComparison.OrdinalIgnoreCase));
+            _orgCount = _graph.Nodes.Count(n =>
+                string.Equals(n.Type, "Organization", StringComparison.OrdinalIgnoreCase));
+
+            await JS.InvokeVoidAsync("CytoscapeInterop.updateGraph",
+                System.Text.Json.JsonSerializer.Serialize(_graph.Nodes),
+                System.Text.Json.JsonSerializer.Serialize(_graph.Edges));
+        }
+    }
+
+    private async Task OnLayoutChanged(string layout)
+    {
+        _layout = layout;
+        await JS.InvokeVoidAsync("CytoscapeInterop.setLayout", layout);
+    }
+
+    private async Task OnEntityClick(GraphNodeDto entity)
+    {
+        _selectedEntity = entity;
+        _selectedEntityEdges = _graph?.Edges
+            .Where(e => e.Source == entity.Id || e.Target == entity.Id)
+            .ToList() ?? [];
+        _drawerOpen = true;
+        await JS.InvokeVoidAsync("CytoscapeInterop.focusNode", entity.Id);
+    }
+
+    [JSInvokable]
+    public void OnNodeClick(string nodeQid)
+    {
+        var entity = _graph?.Nodes.FirstOrDefault(n => n.Id == nodeQid);
+        if (entity is not null)
+        {
+            _selectedEntity = entity;
+            _selectedEntityEdges = _graph?.Edges
+                .Where(e => e.Source == entity.Id || e.Target == entity.Id)
+                .ToList() ?? [];
+            _drawerOpen = true;
+            InvokeAsync(StateHasChanged);
+        }
+    }
+
+    [JSInvokable]
+    public void OnEdgeClick(string sourceQid, string targetQid, string type)
+    {
+        // Focus the source node
+        OnNodeClick(sourceQid);
+    }
+
+    private string GetNodeLabel(string qid) =>
+        _graph?.Nodes.FirstOrDefault(n => n.Id == qid)?.Label ?? qid;
+
+    private static string GetEntityIcon(string type) => type switch
+    {
+        "Character"    => Icons.Material.Filled.Person,
+        "Location"     => Icons.Material.Filled.Place,
+        "Organization" => Icons.Material.Filled.Business,
+        _              => Icons.Material.Filled.Category,
+    };
+
+    private static Color GetEntityColor(string type) => type switch
+    {
+        "Character"    => Color.Primary,
+        "Location"     => Color.Success,
+        "Organization" => Color.Warning,
+        _              => Color.Default,
+    };
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("CytoscapeInterop.destroy");
+        }
+        catch (JSDisconnectedException)
+        {
+            // Circuit disconnected — safe to ignore
+        }
+        _dotNetRef?.Dispose();
+    }
+}

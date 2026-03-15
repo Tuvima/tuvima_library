@@ -67,4 +67,12 @@ public static class RelationshipType
 
     /// <summary>Two entities with different QIDs that represent the same concept.</summary>
     public const string SameAs = "same_as";
+
+    // ── Social Web ─────────────────────────────────────────────────────
+
+    /// <summary>P3342 — Significant person (ally, rival, mentor, etc.).</summary>
+    public const string SignificantPerson = "significant_person";
+
+    /// <summary>P1416 — Affiliation with a group or organization.</summary>
+    public const string Affiliation = "affiliation";
 }

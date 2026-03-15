@@ -250,6 +250,24 @@ public sealed class FictionalEntityRepository : IFictionalEntityRepository
         return Task.FromResult(Convert.ToInt32(cmd.ExecuteScalar()));
     }
 
+    /// <inheritdoc/>
+    public Task UpdateRevisionAsync(Guid entityId, long revisionId, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        using var conn = _db.CreateConnection();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            UPDATE fictional_entities
+            SET    wikidata_revision_id = @revisionId
+            WHERE  id = @id;
+            """;
+        cmd.Parameters.AddWithValue("@id", entityId.ToString());
+        cmd.Parameters.AddWithValue("@revisionId", revisionId);
+        cmd.ExecuteNonQuery();
+        return Task.CompletedTask;
+    }
+
     // ── Row Mapper ──────────────────────────────────────────────────────────
 
     private static FictionalEntity MapRow(SqliteDataReader r) => new()

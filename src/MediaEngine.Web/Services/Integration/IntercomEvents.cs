@@ -182,3 +182,20 @@ public sealed record HydrationStageCompletedEvent(
     int    Stage,
     int    ClaimsAdded,
     string ProviderName);
+
+// ── Chronicle Engine Events ────────────────────────────────────────────────
+
+/// <summary>
+/// Payload broadcast when the Lore Delta check discovers Wikidata revisions
+/// that are newer than the library's cached versions.
+///
+/// SignalR method name: <c>"LoreDeltaDiscovered"</c>
+///
+/// The Dashboard shows an amber banner on the Chronicle Explorer page with
+/// the count of changed entities.
+/// </summary>
+/// <param name="UniverseQid">The narrative root QID that was checked.</param>
+/// <param name="ChangedCount">Number of entities with updated Wikidata revisions.</param>
+public sealed record LoreDeltaDiscoveredEvent(
+    string UniverseQid,
+    int    ChangedCount);

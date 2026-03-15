@@ -2,7 +2,7 @@
   "device_class": "mobile",
   "display_name": "Mobile",
   "constraints": {
-    "features_disabled": ["view_toggle", "property_mapper", "matching_pipeline", "universe_schema_editing"],
+    "features_disabled": ["view_toggle", "property_mapper", "matching_pipeline", "universe_schema_editing", "chronicle_explorer"],
     "pages_disabled": [],
     "allow_text_input": true,
     "min_touch_target_px": 48

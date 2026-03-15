@@ -734,6 +734,23 @@ public sealed class DatabaseConnection : IDatabaseConnection
                 ON deferred_enrichment_queue(created_at);
             """);
 
+        // Migration M-037: Chronicle Engine — temporal qualifiers on relationships + revision tracking.
+        MigrateAddColumnIfMissing(
+            conn,
+            table:  "entity_relationships",
+            column: "start_time",
+            ddl:    "ALTER TABLE entity_relationships ADD COLUMN start_time TEXT;");
+        MigrateAddColumnIfMissing(
+            conn,
+            table:  "entity_relationships",
+            column: "end_time",
+            ddl:    "ALTER TABLE entity_relationships ADD COLUMN end_time TEXT;");
+        MigrateAddColumnIfMissing(
+            conn,
+            table:  "fictional_entities",
+            column: "wikidata_revision_id",
+            ddl:    "ALTER TABLE fictional_entities ADD COLUMN wikidata_revision_id INTEGER;");
+
         // Seed S-001: provider_registry entries for all known providers.
         // metadata_claims.provider_id has a FK to provider_registry(id), so these
         // rows MUST exist before any claim is written.  INSERT OR IGNORE makes this

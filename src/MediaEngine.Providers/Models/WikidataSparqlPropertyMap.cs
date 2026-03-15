@@ -386,6 +386,95 @@ public static class WikidataSparqlPropertyMap
         return $"SELECT ?item WHERE {{ ?item wdt:{pCode} \"{escaped}\" . }} LIMIT 1";
     }
 
+    /// <summary>
+    /// Build a SPARQL query that fetches properties for multiple entities in a single
+    /// request using the VALUES clause. Maximum batch size controlled by caller.
+    /// </summary>
+    /// <param name="qids">The Wikidata QIDs to query (e.g. <c>["Q937618", "Q937620"]</c>).</param>
+    /// <param name="effectiveMap">Property map to use. Falls back to <see cref="DefaultMap"/>.</param>
+    /// <param name="scope">Entity scope filter (e.g. "Character", "Location"). Defaults to "Character".</param>
+    /// <param name="scopeExclusions">P-codes to exclude. Defaults to <c>["P18"]</c>.</param>
+    /// <param name="language">BCP-47 language code. Defaults to <c>"en"</c>.</param>
+    public static string BuildBatchEntityQuery(
+        IReadOnlyList<string> qids,
+        IReadOnlyDictionary<string, WikidataProperty>? effectiveMap = null,
+        string scope = "Character",
+        IReadOnlyCollection<string>? scopeExclusions = null,
+        string? language = null)
+    {
+        ArgumentNullException.ThrowIfNull(qids);
+        if (qids.Count == 0)
+            return string.Empty;
+
+        var exclusions = scopeExclusions ?? (IReadOnlyCollection<string>)["P18"];
+        var lang = string.IsNullOrWhiteSpace(language) ? "en" : language;
+
+        var props = GetByScope(scope, effectiveMap)
+            .Where(p => !exclusions.Contains(p.PCode))
+            .ToList();
+
+        if (props.Count == 0)
+            return string.Empty;
+
+        var sb = new StringBuilder(2048);
+
+        // SELECT clause
+        sb.Append("SELECT ?item ?itemLabel");
+        foreach (var prop in props)
+        {
+            var varName = prop.ClaimKey;
+            sb.Append($" ?{varName}");
+            if (prop.IsEntityValued)
+                sb.Append($" ?{varName}Label");
+        }
+        sb.AppendLine(" WHERE {");
+
+        // VALUES clause for batch
+        sb.Append("  VALUES ?item {");
+        foreach (var qid in qids)
+            sb.Append($" wd:{qid}");
+        sb.AppendLine(" }");
+
+        // OPTIONAL property clauses
+        foreach (var prop in props)
+        {
+            var varName = prop.ClaimKey;
+            if (prop.IsMultiValued)
+            {
+                sb.AppendLine($"  OPTIONAL {{ ?item wdt:{prop.PCode} ?{varName}_single . }}");
+            }
+            else if (prop.IsMonolingualText)
+            {
+                sb.AppendLine($"  OPTIONAL {{ ?item wdt:{prop.PCode} ?{varName} . FILTER(LANG(?{varName}) = \"{lang}\" || LANG(?{varName}) = \"\") }}");
+            }
+            else
+            {
+                sb.AppendLine($"  OPTIONAL {{ ?item wdt:{prop.PCode} ?{varName} . }}");
+            }
+        }
+
+        // Label service
+        sb.AppendLine($"  SERVICE wikibase:label {{ bd:serviceParam wikibase:language \"{lang},en\". }}");
+        sb.AppendLine("}");
+
+        // GROUP BY for multi-valued properties
+        var multiValuedProps = props.Where(p => p.IsMultiValued).ToList();
+        if (multiValuedProps.Count > 0)
+        {
+            sb.Append("GROUP BY ?item ?itemLabel");
+            foreach (var prop in props.Where(p => !p.IsMultiValued))
+            {
+                var varName = prop.ClaimKey;
+                sb.Append($" ?{varName}");
+                if (prop.IsEntityValued)
+                    sb.Append($" ?{varName}Label");
+            }
+            sb.AppendLine();
+        }
+
+        return sb.ToString();
+    }
+
     // ── Edition vs Work Resolution ────────────────────────────────────────
 
     /// <summary>
@@ -681,7 +770,7 @@ public static class WikidataSparqlPropertyMap
 
     private static Dictionary<string, WikidataProperty> BuildDefaultMap()
     {
-        var map = new Dictionary<string, WikidataProperty>(112, StringComparer.OrdinalIgnoreCase);
+        var map = new Dictionary<string, WikidataProperty>(116, StringComparer.OrdinalIgnoreCase);
 
         void Add(string pCode, string claimKey, string category,
                  string scope = "Work", double confidence = 0.9, bool bridge = false,
@@ -820,6 +909,8 @@ public static class WikidataSparqlPropertyMap
         Add("P170",  "creator",         "Universe: Character", scope: "Character", confidence: 0.85, entityValued: true);
         Add("P21",   "gender",          "Universe: Character", scope: "Character", confidence: 0.9,  entityValued: true);
         Add("P171",  "species",         "Universe: Character", scope: "Character", confidence: 0.85, entityValued: true);
+        Add("P103",  "native_language", "Universe: Character", scope: "Character", confidence: 0.8, entityValued: true);
+        Add("P1281", "avatar_image",    "Universe: Character", scope: "Character", confidence: 0.8, transform: "commons_url");
 
         // ── Universe: Character Relationships ─────────────────────────────
         // Entity-valued so they emit _qid claims for graph edges.
@@ -832,6 +923,8 @@ public static class WikidataSparqlPropertyMap
         Add("P1066", "student_of",      "Universe: Character Relationships", scope: "Character", confidence: 0.8,  entityValued: true);
         Add("P463",  "member_of",       "Universe: Character Relationships", scope: "Character", confidence: 0.85, entityValued: true, multiValued: true);
         Add("P551",  "residence",       "Universe: Character Relationships", scope: "Character", confidence: 0.8,  entityValued: true, multiValued: true);
+        Add("P3342", "significant_person", "Universe: Character Relationships", scope: "Character", confidence: 0.8, entityValued: true, multiValued: true);
+        Add("P1416", "affiliation",        "Universe: Character Relationships", scope: "Character", confidence: 0.8, entityValued: true, multiValued: true);
 
         // ── Universe: Location ────────────────────────────────────────────
         Add("P131",  "located_in",          "Universe: Location", scope: "Location",              confidence: 0.85, entityValued: true);

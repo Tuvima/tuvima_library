@@ -79,6 +79,9 @@ public sealed class HubViewModel
     /// <summary>Rating from the first Work with a rating.</summary>
     public string? Rating => Works.Select(w => w.Rating).FirstOrDefault(r => !string.IsNullOrEmpty(r));
 
+    /// <summary>Fictional universe QID from the first Work with a universe link (for Chronicle Explorer navigation).</summary>
+    public string? FictionalUniverseQid => Works.Select(w => w.FictionalUniverseQid).FirstOrDefault(q => !string.IsNullOrEmpty(q));
+
     /// <summary>
     /// Brand hex colour derived from the dominant media type across this Hub's Works.
     /// Driven by <see cref="UniverseMapper.ColourForHub"/> so all colour logic

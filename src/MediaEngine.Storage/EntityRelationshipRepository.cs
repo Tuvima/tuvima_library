@@ -35,10 +35,12 @@ public sealed class EntityRelationshipRepository : IEntityRelationshipRepository
         cmd.CommandText = """
             INSERT OR IGNORE INTO entity_relationships
                 (id, subject_qid, relationship_type, object_qid,
-                 confidence, context_work_qid, discovered_at)
+                 confidence, context_work_qid, discovered_at,
+                 start_time, end_time)
             VALUES
                 (@id, @subjectQid, @relType, @objectQid,
-                 @confidence, @contextWorkQid, @discoveredAt);
+                 @confidence, @contextWorkQid, @discoveredAt,
+                 @startTime, @endTime);
             """;
         cmd.Parameters.AddWithValue("@id", Guid.NewGuid().ToString());
         cmd.Parameters.AddWithValue("@subjectQid", edge.SubjectQid);
@@ -47,6 +49,8 @@ public sealed class EntityRelationshipRepository : IEntityRelationshipRepository
         cmd.Parameters.AddWithValue("@confidence", edge.Confidence);
         cmd.Parameters.AddWithValue("@contextWorkQid", (object?)edge.ContextWorkQid ?? DBNull.Value);
         cmd.Parameters.AddWithValue("@discoveredAt", edge.DiscoveredAt.ToString("o"));
+        cmd.Parameters.AddWithValue("@startTime", (object?)edge.StartTime ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@endTime", (object?)edge.EndTime ?? DBNull.Value);
 
         cmd.ExecuteNonQuery();
         return Task.CompletedTask;
@@ -102,7 +106,8 @@ public sealed class EntityRelationshipRepository : IEntityRelationshipRepository
         var inClause = string.Join(", ", paramNames);
         cmd.CommandText = $"""
             SELECT subject_qid, relationship_type, object_qid,
-                   confidence, context_work_qid, discovered_at
+                   confidence, context_work_qid, discovered_at,
+                   start_time, end_time
             FROM   entity_relationships
             WHERE  subject_qid IN ({inClause})
               AND  object_qid  IN ({inClause})
@@ -136,7 +141,8 @@ public sealed class EntityRelationshipRepository : IEntityRelationshipRepository
         using var cmd = conn.CreateCommand();
         cmd.CommandText = $"""
             SELECT subject_qid, relationship_type, object_qid,
-                   confidence, context_work_qid, discovered_at
+                   confidence, context_work_qid, discovered_at,
+                   start_time, end_time
             FROM   entity_relationships
             WHERE  {whereClause}
             ORDER BY relationship_type, object_qid;
@@ -159,5 +165,7 @@ public sealed class EntityRelationshipRepository : IEntityRelationshipRepository
         Confidence            = r.GetDouble(3),
         ContextWorkQid        = r.IsDBNull(4) ? null : r.GetString(4),
         DiscoveredAt          = DateTimeOffset.Parse(r.GetString(5)),
+        StartTime             = r.IsDBNull(6) ? null : r.GetString(6),
+        EndTime               = r.IsDBNull(7) ? null : r.GetString(7),
     };
 }

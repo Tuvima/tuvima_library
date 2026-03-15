@@ -55,6 +55,7 @@ public sealed class WorkViewModel
     public string? Series         => Canonical("series");
     public string? SeriesPosition => Canonical("series_position");
     public string? Rating         => Canonical("rating");
+    public string? FictionalUniverseQid => Canonical("fictional_universe_qid");
     public int?    WordCount       => int.TryParse(Canonical("word_count"), out var wc) ? wc : null;
 
     public string? ReadingTimeDisplay

@@ -25,7 +25,7 @@ namespace MediaEngine.Ingestion;
 /// </summary>
 public sealed class UniverseSidecarWriter : IUniverseSidecarWriter
 {
-    private const string Version = "1.0";
+    private const string Version = "1.1";
     private readonly ILogger<UniverseSidecarWriter> _logger;
 
     public UniverseSidecarWriter(ILogger<UniverseSidecarWriter> logger)
@@ -168,6 +168,10 @@ public sealed class UniverseSidecarWriter : IUniverseSidecarWriter
                     new XAttribute("confidence", rel.Confidence.ToString("F1")));
                 if (!string.IsNullOrWhiteSpace(rel.ContextWorkQid))
                     relEl.Add(new XAttribute("context-work", rel.ContextWorkQid));
+                if (!string.IsNullOrWhiteSpace(rel.StartTime))
+                    relEl.Add(new XAttribute("start-time", rel.StartTime));
+                if (!string.IsNullOrWhiteSpace(rel.EndTime))
+                    relEl.Add(new XAttribute("end-time", rel.EndTime));
                 relsEl.Add(relEl);
             }
             root.Add(relsEl);
@@ -290,6 +294,8 @@ public sealed class UniverseSidecarWriter : IUniverseSidecarWriter
                     ObjectQid = relEl.Attribute("object")?.Value ?? string.Empty,
                     Confidence = double.TryParse(relEl.Attribute("confidence")?.Value, out var c) ? c : 0.5,
                     ContextWorkQid = relEl.Attribute("context-work")?.Value,
+                    StartTime = relEl.Attribute("start-time")?.Value,
+                    EndTime = relEl.Attribute("end-time")?.Value,
                     DiscoveredAt = DateTimeOffset.UtcNow,
                 });
             }

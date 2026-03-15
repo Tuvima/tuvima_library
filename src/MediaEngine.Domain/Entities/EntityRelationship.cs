@@ -50,4 +50,10 @@ public sealed class EntityRelationship
 
     /// <summary>When this relationship edge was first discovered.</summary>
     public DateTimeOffset DiscoveredAt { get; set; } = DateTimeOffset.UtcNow;
+
+    /// <summary>ISO 8601 start time qualifier (Wikidata P580) — when this relationship began.</summary>
+    public string? StartTime { get; set; }
+
+    /// <summary>ISO 8601 end time qualifier (Wikidata P582) — when this relationship ended.</summary>
+    public string? EndTime { get; set; }
 }
