@@ -523,7 +523,16 @@
 
         if (result is not null)
         {
-            _items.AddRange(result.Items);
+            // Deduplicate by EntityId — the API can return multiple rows for the
+            // same entity when it has several pending review queue entries (one per
+            // hydration stage failure). Blazor's @key directive crashes on duplicates.
+            var existingIds = new HashSet<Guid>(_items.Select(i => i.EntityId));
+            var dedupedItems = result.Items
+                .GroupBy(i => i.EntityId)
+                .Select(g => g.OrderByDescending(i => i.Confidence).First())
+                .Where(i => !existingIds.Contains(i.EntityId))
+                .ToList();
+            _items.AddRange(dedupedItems);
             _totalCount = result.TotalCount;
             _hasMore = result.HasMore;
         }
