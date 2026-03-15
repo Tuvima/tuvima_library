@@ -50,6 +50,18 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     private static readonly Guid LocalProcessorProviderId =
         new("a1b2c3d4-e5f6-4700-8900-0a1b2c3d4e5f");
 
+    // Extensions that are never media files and must be skipped by the batch
+    // scanner and polling sweep.  These can appear in watch folders as sidecar
+    // data (e.g. MANIFEST.json written by the test generator) or alongside
+    // media files (e.g. cover art, subtitle tracks).
+    private static readonly HashSet<string> NonMediaExtensions =
+        new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".json", ".xml", ".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp",
+        ".txt", ".md", ".nfo", ".srt", ".vtt", ".ass", ".sub", ".idx",
+        ".log", ".db", ".db-wal", ".db-shm", ".lnk", ".ini", ".cfg",
+    };
+
     private readonly IFileWatcher          _watcher;
     private readonly DebounceQueue         _debounce;
     private readonly IAssetHasher          _hasher;
@@ -1324,6 +1336,11 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                     || filePath.Contains('/' + ".orphans" + '/', StringComparison.OrdinalIgnoreCase))
                     continue;
 
+                // Skip non-media files (sidecar data, cover art, manifests, etc.)
+                // that may appear in the watch folder alongside media files.
+                if (NonMediaExtensions.Contains(Path.GetExtension(filePath)))
+                    continue;
+
                 _debounce.Enqueue(new FileEvent
                 {
                     Path       = filePath,
@@ -1398,6 +1415,10 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                     if (filePath.Contains(Path.DirectorySeparatorChar + ".orphans" + Path.DirectorySeparatorChar,
                             StringComparison.OrdinalIgnoreCase)
                         || filePath.Contains('/' + ".orphans" + '/', StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    // Skip non-media files (sidecar data, cover art, manifests).
+                    if (NonMediaExtensions.Contains(Path.GetExtension(filePath)))
                         continue;
 
                     _debounce.Enqueue(new FileEvent

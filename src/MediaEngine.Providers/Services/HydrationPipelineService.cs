@@ -314,6 +314,32 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         var stage1Claims    = 0;
 
         var titleHint = request.Hints.GetValueOrDefault("title", "(unknown)");
+
+        // Pre-search confidence gate: when the entity has only a filename-derived
+        // title with no corroborating signal (author, year, or bridge identifier),
+        // a Wikidata title search produces high-confidence false positives — any
+        // matching title wins at 1.0 confidence because there is nothing to
+        // disambiguate against.  Block Stage 1 and create a review item so the
+        // user can add metadata manually.
+        if (stage1Providers.Count > 0
+            && request.PreResolvedQid is null
+            && !HasSufficientMetadataForAuthorityMatch(request))
+        {
+            _logger.LogInformation(
+                "Pipeline Stage 1 (Authority Match) blocked for entity {Id} " +
+                "(title: \"{Title}\") — no author, year, or bridge identifiers: " +
+                "title-only requests risk false-positive Wikidata matches",
+                request.EntityId, titleHint);
+
+            await CreateReviewItemAsync(
+                request, ReviewTrigger.AuthorityMatchFailed, 0.0,
+                "Cannot perform authority match: file has no author, year, or " +
+                "identifiers embedded. Add metadata manually to enable library matching.",
+                result, ct).ConfigureAwait(false);
+
+            stage1Providers = [];
+        }
+
         _logger.LogInformation(
             "Pipeline Stage 1 (Authority Match) starting for entity {Id} — title: \"{Title}\", media type: {MediaType}, providers: [{Providers}]",
             request.EntityId, titleHint, request.MediaType,
@@ -1022,6 +1048,40 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Returns <c>true</c> when the harvest request carries enough corroborating
+    /// metadata to make a Wikidata title search reliable.
+    ///
+    /// A "title-only" request — nothing but a filename-derived title with no
+    /// author, year, ISBN, ASIN, or other bridge identifier — produces false
+    /// positives because Wikidata title search auto-accepts any match at full
+    /// confidence (1.0) when there is nothing else to disambiguate against.
+    /// </summary>
+    private static bool HasSufficientMetadataForAuthorityMatch(HarvestRequest request)
+    {
+        if (request.PreResolvedQid is not null) return true;
+
+        var h = request.Hints;
+
+        if (!string.IsNullOrWhiteSpace(h.GetValueOrDefault("author"))) return true;
+
+        var year = h.GetValueOrDefault("year");
+        if (!string.IsNullOrWhiteSpace(year) && year.Length >= 4) return true;
+
+        // Any bridge identifier enables a direct lookup instead of a noisy search.
+        foreach (var key in new[]
+        {
+            "isbn", "asin", "tmdb_id", "imdb_id", "goodreads_id",
+            "musicbrainz_id", "apple_books_id", "audible_asin", "open_library_id",
+            "comic_vine_id", "apple_podcasts_id",
+        })
+        {
+            if (!string.IsNullOrWhiteSpace(h.GetValueOrDefault(key))) return true;
+        }
+
+        return false;
+    }
 
     /// <summary>
     /// Resolves the primary provider for Stage 1 (Content Match) from the slot

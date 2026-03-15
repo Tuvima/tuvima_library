@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Microsoft.Extensions.Logging;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
@@ -28,6 +29,12 @@ public sealed class RecursiveIdentityService : IRecursiveIdentityService
     private readonly IPersonRepository _personRepo;
     private readonly IMetadataHarvestingService _harvesting;
     private readonly ILogger<RecursiveIdentityService> _logger;
+
+    // Prevents concurrent threads from creating duplicate Person rows for the
+    // same name+role identity.  The window is tiny (FindByName → CreateAsync),
+    // but it fires when multiple audiobooks by the same author arrive together.
+    private readonly ConcurrentDictionary<string, SemaphoreSlim> _personLocks =
+        new(StringComparer.OrdinalIgnoreCase);
 
     public RecursiveIdentityService(
         IPersonRepository personRepo,
@@ -89,29 +96,44 @@ public sealed class RecursiveIdentityService : IRecursiveIdentityService
         var normalizedName = NormalizePersonName(reference.Name);
 
         // 1. Find or create the person record.
-        //    Try the normalized name first; fall back to the original name for
-        //    backward compatibility with records created before normalization.
-        var person = await _personRepo.FindByNameAsync(normalizedName, reference.Role, ct)
-                     .ConfigureAwait(false);
-
-        if (person is null && normalizedName != reference.Name)
+        //    Serialize on a per-identity key to prevent concurrent threads from
+        //    both missing FindByName → both calling CreateAsync → duplicate row.
+        var personKey = $"{normalizedName.ToUpperInvariant()}:{reference.Role}";
+        var personLock = _personLocks.GetOrAdd(personKey, _ => new SemaphoreSlim(1, 1));
+        await personLock.WaitAsync(ct).ConfigureAwait(false);
+        Person? person;
+        try
         {
-            person = await _personRepo.FindByNameAsync(reference.Name, reference.Role, ct)
-                     .ConfigureAwait(false);
-        }
+            //    Try the normalized name first; fall back to the original name for
+            //    backward compatibility with records created before normalization.
+            person = await _personRepo.FindByNameAsync(normalizedName, reference.Role, ct)
+                         .ConfigureAwait(false);
 
-        if (person is null)
-        {
-            person = await _personRepo.CreateAsync(new Person
+            if (person is null && normalizedName != reference.Name)
             {
-                Name = normalizedName,
-                Role = reference.Role,
-            }, ct).ConfigureAwait(false);
+                person = await _personRepo.FindByNameAsync(reference.Name, reference.Role, ct)
+                             .ConfigureAwait(false);
+            }
 
-            _logger.LogDebug(
-                "Created person record for '{Name}' ({Role}), id={Id}",
-                person.Name, person.Role, person.Id);
+            if (person is null)
+            {
+                person = await _personRepo.CreateAsync(new Person
+                {
+                    Name = normalizedName,
+                    Role = reference.Role,
+                }, ct).ConfigureAwait(false);
+
+                _logger.LogDebug(
+                    "Created person record for '{Name}' ({Role}), id={Id}",
+                    person.Name, person.Role, person.Id);
+            }
         }
+        finally
+        {
+            personLock.Release();
+        }
+
+        if (person is null) return;
 
         // 2. Link person to the media asset (INSERT OR IGNORE — idempotent).
         await _personRepo.LinkToMediaAssetAsync(mediaAssetId, person.Id, reference.Role, ct)
