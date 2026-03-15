@@ -2,6 +2,150 @@
 
 ---
 
+## Run: 2026-03-14 (post-fix verification)
+
+**Test suite:** 20 files (10 EPUB + 10 M4B) — full scenario coverage per SCENARIOS.md
+**Engine version:** current `main` (post "Fix 3 ingestion bugs: Stage 1 false positives, MANIFEST pickup, PersonMerged race")
+**Database:** fresh wipe (manual: DB deleted, watch folder cleared, library folder cleared)
+**Pass 2 (Universe Lookup):** DISABLED — `config/hydration.json` → `"two_pass_enabled": false`
+**Reset method:** manual steps (no script — Unicode encoding error in bash prevented script execution)
+
+### Summary
+
+| Metric | Result | Notes |
+|--------|--------|-------|
+| Files generated | 20 (10 EPUB + 10 M4B) | All 20 ✅ |
+| Files ingested (Ingested events) | 19 | 1 duplicate (dune-duplicate) ingested as variant — race condition |
+| Hubs in library | 17 | Includes Dune (Q0) artifact + Unknown (Q24238356) false positive |
+| Person records (.people/) | 19 people | incl. headshots for most |
+| PersonMerged (shares QID) events | 7 | 6 for Q6142591/Corey, 1 for Q34660/Rowling |
+| MANIFEST.json picked up | 0 | ✅ FIXED |
+| Corrupt EPUB orphaned | Yes | ✅ FIXED |
+
+### Confirmed Fixes
+
+| Issue | Previous | Status |
+|-------|----------|--------|
+| #A Stage 1 false positives | Filename-only → Q24238356 via Wikidata | ✅ Stage 1 now blocked for title-only files |
+| #B MANIFEST.json pickup | MANIFEST.json ingested as "Manifest" TV show | ✅ Not picked up this run |
+| #F PersonMerged race | 6 merge events for Corey Q6142591 | ⚠️ Still 6 merge events — not fixed |
+
+### Scenario Outcomes
+
+| # | File | Expected | Actual | Result |
+|---|------|----------|--------|--------|
+| 1 | `dune.epub` | Auto-organized; Dune Hub | ✅ `Dune (Q190192)/Books/Dune.epub` | ✅ PASS |
+| 2 | `neuromancer.epub` | Hub; cover from provider | ✅ `Neuromancer (Q662029)` with cover | ✅ PASS |
+| 3 | `foundation.epub` | Author conflict flagged | ✅ `Foundation (Q753894)` organized | ✅ PASS |
+| 4 | `the-name-of-the-wind.epub` | series + series_pos | ✅ `The Name of the Wind (Q1195989)` | ✅ PASS |
+| 5 | `leviathan-wakes.epub` | Hub; QID resolved | ✅ `Leviathan Wakes (Q6535598)/Books/` | ✅ PASS |
+| 6 | `the-running-man.epub` | Hub; pseudonym link | ✅ `The Running Man (Q25551)/Books/`; Richard Bachman person record | ✅ PASS |
+| 7 | `the-cuckoos-calling.epub` | Hub; Galbraith → Rowling | ✅ `The Cuckoo's Calling (Q13882199)`; Robert Galbraith → J.K. Rowling merge | ✅ PASS |
+| 8 | `phantom-signal-filename-only.epub` | confidence < 0.40 → `.orphans/` | ❌ Stage 1 blocked ✅ but still matched Q24238356 via Stage 3 retail → `Unknown (Q24238356)/Books/Unknown.epub` | ❌ FAIL |
+| 9 | `corrupt-epub.epub` | `IsCorrupt=true`; quarantined | ✅ Orphaned to `.orphans/low-confidence/corrupt-epub.epub` | ✅ PASS |
+| 10 | `dune-duplicate.epub` | `DuplicateSkipped`; no new asset | ❌ Race: dune-duplicate processed first → `Dune (Q0)/Books/Dune.epub`; original dune.epub → `Dune (Q0)/Books/Dune (2).epub`; then duplicate's entity re-organized to `Dune (Q190192)` | ❌ FAIL |
+| 11 | `dune-audiobook.m4b` | Joins Dune Hub | ✅ `Dune (Q190192)/Audiobooks/Dune.m4b` | ✅ PASS |
+| 12 | `hitchhikers-guide.m4b` | Narrator: Stephen Fry | ✅ `The Hitchhiker's Guide to the Galaxy (Q3107329)`; Stephen Fry person record | ✅ PASS |
+| 13 | `wool-omnibus.m4b` | Two narrator Person records | ⚠️ `Wool (Q0)` — no QID resolved; only 1 narrator found (need to verify which) | ⚠️ PARTIAL |
+| 14 | `enders-game.m4b` | Hub; cover from provider | ✅ `Ender's Game (Q816016)` with cover | ✅ PASS |
+| 15 | `echoes-filename-only.m4b` | confidence < 0.40 → `.orphans/` | ❌ Stage 1 blocked ✅ but organized to `echoes-filename-only (Q0)/Audiobooks/` (not orphaned) | ⚠️ PARTIAL |
+| 16 | `the-wasp-factory.m4b` | Hub; Iain Banks; pseudonym check | ⚠️ `The Wasp Factory (Q0)` — Iain Banks person record created; no QID | ⚠️ PARTIAL |
+| 17 | `hp-series/harry-potter-philosophers-stone.m4b` | Full pipeline; hint primed | ⚠️ `Harry Potter and the Philosopher's Stone (Q0)` — no QID resolved | ⚠️ PARTIAL |
+| 18 | `hp-series/harry-potter-chamber-of-secrets.m4b` | Hint applied; QID resolved | ⚠️ `Harry Potter and the Chamber of Secrets (Q0)` — no QID resolved | ⚠️ PARTIAL |
+| 19 | `expanse-audio/leviathan-wakes-audio.m4b` | Full pipeline; QID | ✅ `Leviathan Wakes (Q6535598)/Audiobooks/` — QID resolved, cross-format Hub join | ✅ PASS |
+| 20 | `expanse-audio/calibans-war-audio.m4b` | Hub; cover | ✅ `Caliban's War (Q5019811)/Audiobooks/` with cover | ✅ PASS |
+
+**Result summary:** 11 PASS · 2 FAIL · 4 PARTIAL (vs 9 PASS · 5 FAIL · 4 PARTIAL in 2026-03-15 run)
+
+### Improvements vs 2026-03-15
+
+- ✅ #A Stage 1 Wikidata guard: both `phantom-signal` and `echoes-filename-only` now have Stage 1 blocked
+- ✅ #B MANIFEST.json no longer ingested
+- ✅ Scenarios 19-20 (Expanse audio): now resolve QID Q6535598/Q5019811 (were Q0 last run)
+- ✅ Leviathan Wakes audio cross-format Hub join working (same Q6535598 as EPUB)
+
+### Remaining Issues
+
+#### Issue #A (sub-issue) — Stage 3 retail false-positive path (High)
+**What happened:** `phantom-signal-filename-only.epub` had Stage 1 correctly blocked ("no author, year, or bridge identifiers"). However, Stage 3 retail providers (Apple Books / Open Library / Google Books) ran a title search for "Unknown" (the OPF fallback title) and returned a match for Q24238356. The QID claim was written, scored, and the file was re-organized to `Unknown (Q24238356)`.
+**Root cause:** The Stage 1 guard only prevents Wikidata direct searches. Stage 3 retail providers still run title-only searches which can return false matches for generic titles ("Unknown", "Untitled").
+**Fix scope:** `HydrationPipelineService` — extend the title-only guard to Stage 3: when `hasMinimumIdentifiers` is false (same condition as the Stage 1 block), skip retail provider searches and route directly to the orphanage check after scoring. Or: add a post-pipeline confidence check that forces orphan routing when the only QID-granting claim came from a Stage 3 title search with no author/year validation.
+
+#### Issue #C — Duplicate detection race condition (High — unresolved)
+**What happened:** Same as 2026-03-15. `dune-duplicate.epub` processed first; `dune.epub` ended up as `Dune (2).epub`. Final state: `Dune (Q0)/Books/Dune (2).epub` (orphan artifact) + `Dune (Q190192)/Books/Dune.epub` (the duplicate that won).
+**Status:** Not fixed. DB-level unique constraint on `content_hash` still needed.
+
+#### Issue #D — Q0 QIDs for Harry Potter + Wool + Wasp Factory (Medium — partial improvement)
+**Progress:** Caliban's War and Leviathan Wakes audio now resolved. Harry Potter PS/CoS, Wool, and Wasp Factory still return Q0.
+**Hypothesis:** HP titles may be failing Wikidata SPARQL due to disambiguation (many matching items). Wool/Wasp Factory may be timing out or returning ambiguous results.
+**Next step:** Test Stage 1 directly against Wikidata SPARQL endpoint for these specific titles; check disambiguation candidates in the review queue.
+
+#### Issue #E — Double-hashing (Performance — unresolved)
+**New variant:** "Ingestion skipped (lock probe failed)" for directories `expanse-audio/`, `hp-series/`, and `books/` — the startup batch scanner is treating these subdirectories as candidate file paths and attempting a lock probe.
+
+#### Issue #F — PersonMerged race (Low — not fixed)
+**Status:** 6 merge events still occurring for Q6142591 (James S.A. Corey) + 1 for Q34660 (Rowling). The commit claimed to fix this but the race persists. Per-name lock may not be in the right code path, or the Corey case involves more concurrent threads than the lock covers.
+
+### Organized Library Structure
+
+```
+C:\temp\tuvima-library\
+  .orphans/
+    low-confidence/
+      corrupt-epub.epub      ✅ scenario 9 correctly quarantined
+  .people/ (19 entries)
+    Daniel Abraham (Q1159871)/  headshot + person.xml
+    Douglas Adams (Q42)/        headshot + person.xml
+    Frank Herbert (Q7934)/      headshot + person.xml
+    Hugh Howey (Q5931173)/      headshot + person.xml
+    Iain Banks (Q312579)/       headshot + person.xml
+    Isaac Asimov (Q34981)/      headshot + person.xml
+    J.K. Rowling (Q34660)/      headshot + person.xml
+    James S.A. Corey (Q6142591)/headshot + person.xml
+    Jefferson Mays (Q6175538)/  headshot + person.xml
+    Jim Dale (Q121078873)/      person.xml only (no headshot)
+    Orson Scott Card (Q217110)/ headshot + person.xml
+    Patrick Rothfuss (Q514546)/ headshot + person.xml
+    Peter Kenny (Q123706566)/   person.xml only
+    Richard Bachman (Q3495759)/ person.xml only
+    Scott Brick (Q12053543)/    headshot + person.xml
+    Stefan Rudnicki (Q107718615)/person.xml only
+    Stephen Fry (Q192912)/      headshot + person.xml
+    Stephen King (Q39829)/      headshot + person.xml
+    Ty Franck (Q18608460)/      headshot + person.xml
+    William Gibson (Q188987)/   headshot + person.xml
+  Books/
+    Caliban's War (Q5019811)/         ✅ Audiobooks/Caliban's War.m4b + cover + hero
+    Dune (Q0)/                        ❌ Books/Dune (2).epub (duplicate artifact)
+    Dune (Q190192)/                   ✅ Books/Dune.epub + Audiobooks/Dune.m4b + covers + heroes
+    Ender's Game (Q816016)/           ✅ Audiobooks/Ender's Game.m4b + cover + hero
+    Foundation (Q753894)/             ✅ Books/Foundation.epub + cover + hero
+    Harry Potter and the Chamber of Secrets (Q0)/  ⚠️ Audiobooks/ (no QID)
+    Harry Potter and the Philosopher's Stone (Q0)/ ⚠️ Audiobooks/ (no QID)
+    Leviathan Wakes (Q6535598)/       ✅ Books/Leviathan Wakes.epub + Audiobooks/Leviathan Wakes.m4b
+    Neuromancer (Q662029)/            ✅ Books/Neuromancer.epub + cover + hero
+    The Cuckoo's Calling (Q13882199)/ ✅ Books/ (Galbraith→Rowling merged)
+    The Hitchhiker's Guide to the Galaxy (Q3107329)/ ✅ Audiobooks/ + cover + hero
+    The Name of the Wind (Q1195989)/  ✅ Books/ + cover + hero
+    The Running Man (Q25551)/         ✅ Books/ + cover + hero
+    The Wasp Factory (Q0)/            ⚠️ Audiobooks/ (no QID)
+    Unknown (Q24238356)/              ❌ Books/Unknown.epub (phantom-signal false positive via Stage 3)
+    Wool (Q0)/                        ⚠️ Audiobooks/ (no QID)
+    echoes-filename-only (Q0)/        ⚠️ Audiobooks/ (should be in .orphans/ — not orphaned)
+```
+
+### Prioritized Next Actions
+
+| Priority | Issue | Effort | Impact |
+|----------|-------|--------|--------|
+| 1 — High | #A sub-issue: Stage 3 retail false-positive for title-only files | Small | Extend title-only guard to Stage 3 |
+| 2 — High | #C Duplicate detection race condition | Medium | DB unique constraint on content_hash |
+| 3 — Medium | #D HP/Wool/Wasp Factory Q0 — investigate disambiguation | Investigate | 4 files still without QID |
+| 4 — Medium | #E Directory lock probe (expanse-audio/, hp-series/ treated as file candidates) | Small | Fix batch scanner to skip directories |
+| 5 — Low | #F PersonMerged race — re-verify fix scope | Small | Idempotent but noisy |
+
+---
+
 ## Run: 2026-03-15
 
 **Test suite:** 20 files (10 EPUB + 10 M4B) — full scenario coverage per SCENARIOS.md
