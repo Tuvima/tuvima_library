@@ -167,12 +167,14 @@
             var isSelected = _selectedIds.Contains(item.EntityId);
 
             @* ── Item Row ── *@
-            <div class="registry-row @(isExpanded ? "registry-row-expanded" : "") @(isSelected ? "registry-row-selected" : "")"
+            <div @key="@item.EntityId"
+                 class="registry-row @(isExpanded ? "registry-row-expanded" : "") @(isSelected ? "registry-row-selected" : "")"
                  @onclick="@(() => ToggleExpand(item.EntityId))">
-                <div class="registry-col-check" @onclick:stopPropagation="true">
-                    <MudCheckBox T="bool" Value="@isSelected" Dense="true"
-                                 ValueChanged="@((bool v) => ToggleSelect(item.EntityId, v))"
-                                 Size="Size.Small" />
+                <div class="registry-col-check"
+                     @onclick:stopPropagation="true"
+                     @onclick="@(() => ToggleSelect(item.EntityId, !_selectedIds.Contains(item.EntityId)))">
+                    <MudCheckBox T="bool" Value="@isSelected" Dense="true" Size="Size.Small"
+                                 ReadOnly="true" />
                 </div>
                 <div class="registry-col-title">
                     <div class="registry-item-info">

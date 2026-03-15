@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace MediaEngine.Domain.Models;
 
 /// <summary>Query parameters for paginated registry listing.</summary>
@@ -14,94 +16,91 @@ public sealed record RegistryQuery(
 /// <summary>A single item in the registry listing.</summary>
 public sealed record RegistryItem
 {
-    public Guid EntityId { get; init; }
-    public string Title { get; init; } = "";
-    public string? Year { get; init; }
-    public string MediaType { get; init; } = "";
-    public string? CoverUrl { get; init; }
-    public string? MatchSource { get; init; }
-    public string? MatchMethod { get; init; }
-    public double Confidence { get; init; }
-    public string Status { get; init; } = "Auto";
-    public bool HasDuplicate { get; init; }
-    public string? DuplicateOf { get; init; }
-    public Guid? ReviewItemId { get; init; }
-    public string? ReviewTrigger { get; init; }
-    public bool HasUserLocks { get; init; }
-    public DateTimeOffset CreatedAt { get; init; }
-    public string? FileName { get; init; }
-    public long? FileSizeBytes { get; init; }
-    public string? Author { get; init; }
+    [JsonPropertyName("entity_id")]    public Guid EntityId { get; init; }
+    [JsonPropertyName("title")]        public string Title { get; init; } = "";
+    [JsonPropertyName("year")]         public string? Year { get; init; }
+    [JsonPropertyName("media_type")]   public string MediaType { get; init; } = "";
+    [JsonPropertyName("cover_url")]    public string? CoverUrl { get; init; }
+    [JsonPropertyName("match_source")] public string? MatchSource { get; init; }
+    [JsonPropertyName("match_method")] public string? MatchMethod { get; init; }
+    [JsonPropertyName("confidence")]   public double Confidence { get; init; }
+    [JsonPropertyName("status")]       public string Status { get; init; } = "Auto";
+    [JsonPropertyName("has_duplicate")]  public bool HasDuplicate { get; init; }
+    [JsonPropertyName("duplicate_of")]   public string? DuplicateOf { get; init; }
+    [JsonPropertyName("review_item_id")] public Guid? ReviewItemId { get; init; }
+    [JsonPropertyName("review_trigger")] public string? ReviewTrigger { get; init; }
+    [JsonPropertyName("has_user_locks")] public bool HasUserLocks { get; init; }
+    [JsonPropertyName("created_at")]     public DateTimeOffset CreatedAt { get; init; }
+    [JsonPropertyName("file_name")]      public string? FileName { get; init; }
+    [JsonPropertyName("file_size_bytes")]public long? FileSizeBytes { get; init; }
+    [JsonPropertyName("author")]         public string? Author { get; init; }
 }
 
 /// <summary>Paginated result from registry listing.</summary>
 public sealed record RegistryPageResult(
-    IReadOnlyList<RegistryItem> Items,
-    int TotalCount,
-    bool HasMore);
+    [property: JsonPropertyName("items")]       IReadOnlyList<RegistryItem> Items,
+    [property: JsonPropertyName("total_count")] int TotalCount,
+    [property: JsonPropertyName("has_more")]    bool HasMore);
 
 /// <summary>Detailed view of a single registry item for expanded row.</summary>
 public sealed record RegistryItemDetail
 {
-    public Guid EntityId { get; init; }
-    public string Title { get; init; } = "";
-    public string? Year { get; init; }
-    public string MediaType { get; init; } = "";
-    public string? CoverUrl { get; init; }
-    public double Confidence { get; init; }
-    public string Status { get; init; } = "Auto";
-    public string? MatchSource { get; init; }
-    public string? MatchMethod { get; init; }
+    [JsonPropertyName("entity_id")]      public Guid EntityId { get; init; }
+    [JsonPropertyName("title")]          public string Title { get; init; } = "";
+    [JsonPropertyName("year")]           public string? Year { get; init; }
+    [JsonPropertyName("media_type")]     public string MediaType { get; init; } = "";
+    [JsonPropertyName("cover_url")]      public string? CoverUrl { get; init; }
+    [JsonPropertyName("confidence")]     public double Confidence { get; init; }
+    [JsonPropertyName("status")]         public string Status { get; init; } = "Auto";
+    [JsonPropertyName("match_source")]   public string? MatchSource { get; init; }
+    [JsonPropertyName("match_method")]   public string? MatchMethod { get; init; }
 
     // Metadata
-    public string? Author { get; init; }
-    public string? Director { get; init; }
-    public string? Cast { get; init; }
-    public string? Language { get; init; }
-    public string? Genre { get; init; }
-    public string? Runtime { get; init; }
-    public string? Description { get; init; }
-    public string? Series { get; init; }
-    public string? SeriesPosition { get; init; }
-    public string? Narrator { get; init; }
-    public string? Rating { get; init; }
-    public string? WikidataQid { get; init; }
+    [JsonPropertyName("author")]          public string? Author { get; init; }
+    [JsonPropertyName("director")]        public string? Director { get; init; }
+    [JsonPropertyName("cast")]            public string? Cast { get; init; }
+    [JsonPropertyName("language")]        public string? Language { get; init; }
+    [JsonPropertyName("genre")]           public string? Genre { get; init; }
+    [JsonPropertyName("runtime")]         public string? Runtime { get; init; }
+    [JsonPropertyName("description")]     public string? Description { get; init; }
+    [JsonPropertyName("series")]          public string? Series { get; init; }
+    [JsonPropertyName("series_position")] public string? SeriesPosition { get; init; }
+    [JsonPropertyName("narrator")]        public string? Narrator { get; init; }
+    [JsonPropertyName("rating")]          public string? Rating { get; init; }
+    [JsonPropertyName("wikidata_qid")]    public string? WikidataQid { get; init; }
 
     // Original input
-    public string? FileName { get; init; }
-    public string? FilePath { get; init; }
-    public long? FileSizeBytes { get; init; }
-    public string? ContentHash { get; init; }
+    [JsonPropertyName("file_name")]       public string? FileName { get; init; }
+    [JsonPropertyName("file_path")]       public string? FilePath { get; init; }
+    [JsonPropertyName("file_size_bytes")] public long? FileSizeBytes { get; init; }
+    [JsonPropertyName("content_hash")]    public string? ContentHash { get; init; }
 
     // Review data
-    public Guid? ReviewItemId { get; init; }
-    public string? ReviewTrigger { get; init; }
-    public string? ReviewDetail { get; init; }
-    public string? CandidatesJson { get; init; }
-    public bool HasUserLocks { get; init; }
+    [JsonPropertyName("review_item_id")]  public Guid? ReviewItemId { get; init; }
+    [JsonPropertyName("review_trigger")]  public string? ReviewTrigger { get; init; }
+    [JsonPropertyName("review_detail")]   public string? ReviewDetail { get; init; }
+    [JsonPropertyName("candidates_json")] public string? CandidatesJson { get; init; }
+    [JsonPropertyName("has_user_locks")]  public bool HasUserLocks { get; init; }
 
-    // All canonical values for this entity
-    public IReadOnlyList<RegistryCanonicalValue> CanonicalValues { get; init; } = [];
-
-    // Claim history
-    public IReadOnlyList<RegistryClaimRecord> ClaimHistory { get; init; } = [];
+    [JsonPropertyName("canonical_values")] public IReadOnlyList<RegistryCanonicalValue> CanonicalValues { get; init; } = [];
+    [JsonPropertyName("claim_history")]    public IReadOnlyList<RegistryClaimRecord> ClaimHistory { get; init; } = [];
 }
 
 /// <summary>A canonical value with conflict and provider info.</summary>
 public sealed record RegistryCanonicalValue(
-    string Key,
-    string Value,
-    bool IsConflicted,
-    string? WinningProviderId,
-    bool NeedsReview,
-    DateTimeOffset LastScoredAt);
+    [property: JsonPropertyName("key")]                string Key,
+    [property: JsonPropertyName("value")]              string Value,
+    [property: JsonPropertyName("is_conflicted")]      bool IsConflicted,
+    [property: JsonPropertyName("winning_provider_id")]string? WinningProviderId,
+    [property: JsonPropertyName("needs_review")]       bool NeedsReview,
+    [property: JsonPropertyName("last_scored_at")]     DateTimeOffset LastScoredAt);
 
 /// <summary>A single claim from the voting history.</summary>
 public sealed record RegistryClaimRecord(
-    Guid Id,
-    string ClaimKey,
-    string ClaimValue,
-    Guid ProviderId,
-    double Confidence,
-    bool IsUserLocked,
-    DateTimeOffset ClaimedAt);
+    [property: JsonPropertyName("id")]             Guid Id,
+    [property: JsonPropertyName("claim_key")]      string ClaimKey,
+    [property: JsonPropertyName("claim_value")]    string ClaimValue,
+    [property: JsonPropertyName("provider_id")]    Guid ProviderId,
+    [property: JsonPropertyName("confidence")]     double Confidence,
+    [property: JsonPropertyName("is_user_locked")] bool IsUserLocked,
+    [property: JsonPropertyName("claimed_at")]     DateTimeOffset ClaimedAt);

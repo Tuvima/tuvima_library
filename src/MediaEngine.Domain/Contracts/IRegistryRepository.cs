@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using MediaEngine.Domain.Models;
 
 namespace MediaEngine.Domain.Contracts;
@@ -29,8 +30,8 @@ public interface IRegistryRepository
 
 /// <summary>Counts for status tab badges.</summary>
 public sealed record RegistryStatusCounts(
-    int Total,
-    int NeedsReview,
-    int AutoApproved,
-    int Edited,
-    int Duplicate);
+    [property: JsonPropertyName("total")]        int Total,
+    [property: JsonPropertyName("needs_review")] int NeedsReview,
+    [property: JsonPropertyName("auto_approved")]int AutoApproved,
+    [property: JsonPropertyName("edited")]       int Edited,
+    [property: JsonPropertyName("duplicate")]    int Duplicate);
