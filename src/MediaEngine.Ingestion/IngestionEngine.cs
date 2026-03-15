@@ -107,6 +107,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     // and allows folder hints to propagate to sibling files.
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _folderLocks = new(StringComparer.OrdinalIgnoreCase);
 
+
     public IngestionEngine(
         IFileWatcher              watcher,
         DebounceQueue             debounce,
@@ -430,16 +431,38 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
                 if (!isSamePath)
                 {
+                    // True duplicate: a different source file has the same content hash
+                    // and the original is still on disk. Log it, delete the duplicate
+                    // from the watch folder, and return — do NOT move it into the library.
+                    _logger.LogInformation(
+                        "True duplicate detected: {CandidatePath} has same hash as existing {ExistingPath} — deleting duplicate from watch folder",
+                        candidate.Path, existing.FilePathRoot);
+
                     await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
                     {
                         ActionType     = Domain.Enums.SystemActionType.DuplicateSkipped,
                         EntityId       = existing.Id,
                         EntityType     = "MediaAsset",
-                        Detail         = $"Duplicate skipped: {Path.GetFileName(candidate.Path)}",
+                        Detail         = $"Duplicate skipped and deleted: {Path.GetFileName(candidate.Path)} (identical to {Path.GetFileName(existing.FilePathRoot)})",
                         IngestionRunId = ingestionRunId,
                     }, ct).ConfigureAwait(false);
+
+                    try
+                    {
+                        if (File.Exists(candidate.Path))
+                            File.Delete(candidate.Path);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex,
+                            "Could not delete duplicate file {Path}", candidate.Path);
+                    }
+
+                    return;
                 }
 
+                // Same-path re-detection: attempt re-organization (file may have been
+                // enriched since first scan).
                 await TryReorganizeExistingAsync(existing, candidate.Path, ct)
                     .ConfigureAwait(false);
                 return;
@@ -844,15 +867,38 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             && _hintCache.TryGetHint(sourceFolder, out var folderHint)
             && folderHint is not null)
         {
-            hintBridgeIds = folderHint.BridgeIds.Count > 0
-                ? new Dictionary<string, string>(folderHint.BridgeIds, StringComparer.OrdinalIgnoreCase)
-                : null;
-            hintedHubId = folderHint.HubId != Guid.Empty ? folderHint.HubId : null;
+            // Divergence gate: a file with no embedded author, series, or year
+            // cannot be verified as belonging to the same collection as the hint
+            // provider.  Accepting the hint would inject bridge IDs that bypass
+            // the Stage 1 false-positive guard (HasSufficientMetadataForAuthorityMatch),
+            // allowing a title-only file (e.g. "Unknown") to inherit a sibling's
+            // ISBN/ASIN and receive a spurious Wikidata match.
+            var meta = candidate.Metadata;
+            bool hasCorroboratingMetadata =
+                meta is not null && (
+                    !string.IsNullOrWhiteSpace(meta.GetValueOrDefault("author")) ||
+                    !string.IsNullOrWhiteSpace(meta.GetValueOrDefault("series")) ||
+                    !string.IsNullOrWhiteSpace(meta.GetValueOrDefault("year")));
 
-            _logger.LogDebug(
-                "Folder hint consumed for {Path}: HubId={HubId}, BridgeIds={Count}",
-                candidate.Path, folderHint.HubId.ToString()[..8],
-                folderHint.BridgeIds.Count);
+            if (!hasCorroboratingMetadata)
+            {
+                _logger.LogInformation(
+                    "Folder hint skipped for {Path}: file has no embedded author, series, or year " +
+                    "to corroborate sibling hint (HubId={HubId}). Hint bridge IDs will not be injected.",
+                    candidate.Path, folderHint.HubId.ToString()[..8]);
+            }
+            else
+            {
+                hintBridgeIds = folderHint.BridgeIds.Count > 0
+                    ? new Dictionary<string, string>(folderHint.BridgeIds, StringComparer.OrdinalIgnoreCase)
+                    : null;
+                hintedHubId = folderHint.HubId != Guid.Empty ? folderHint.HubId : null;
+
+                _logger.LogDebug(
+                    "Folder hint consumed for {Path}: HubId={HubId}, BridgeIds={Count}",
+                    candidate.Path, folderHint.HubId.ToString()[..8],
+                    folderHint.BridgeIds.Count);
+            }
         }
 
         await _pipeline.EnqueueAsync(new HarvestRequest
@@ -1164,6 +1210,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             (long)hash.Elapsed.TotalMilliseconds,
             resolvedMediaType,
             scored.OverallConfidence);
+
+        // end of ProcessCandidateCoreAsync
     }
 
     private async Task HandleDeletedAsync(IngestionCandidate candidate, CancellationToken ct)

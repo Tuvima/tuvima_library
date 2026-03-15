@@ -174,6 +174,9 @@ public sealed class FileWatcher : IFileWatcher
 
     private void OnCreated(object _, System.IO.FileSystemEventArgs e)
     {
+        // Directories are not media files — skip immediately.
+        if (Directory.Exists(e.FullPath)) return;
+
         RecordOsEvent();
         Raise(new FileEvent
         {

@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Threading.Channels;
 using Microsoft.Extensions.Logging;
 using MediaEngine.Domain.Contracts;
@@ -46,6 +47,13 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
 
     /// <summary>Maximum parallel adapter calls in flight at once.</summary>
     private readonly SemaphoreSlim _concurrency = new(3, 3);
+
+    /// <summary>
+    /// Per-QID lock preventing concurrent merge attempts for the same Wikidata
+    /// identifier. The merge is idempotent but the lock eliminates redundant
+    /// ReassignAllLinksAsync / DeleteAsync / PersonMerged log noise.
+    /// </summary>
+    private readonly ConcurrentDictionary<string, SemaphoreSlim> _qidMergeLocks = new(StringComparer.OrdinalIgnoreCase);
 
     // ── Dependencies ──────────────────────────────────────────────────────────
 
@@ -444,66 +452,80 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         // Bachman") and its real person (e.g. "Stephen King") carry different QIDs
         // but may share links. If either person is a pseudonym or they are linked
         // via person_aliases, we skip the merge and let both records coexist.
+        //
+        // A per-QID semaphore ensures only one thread executes the FindByQidAsync +
+        // merge block at a time.  The merge is idempotent but the lock eliminates
+        // redundant ReassignAllLinksAsync / DeleteAsync / PersonMerged log noise when
+        // two enrichment tasks race to the same QID (e.g. James S.A. Corey Q6142591).
         bool isQidDuplicate = false;
         if (!string.IsNullOrWhiteSpace(qid))
         {
-            var canonicalPerson = await _personRepo.FindByQidAsync(qid, ct).ConfigureAwait(false);
-            if (canonicalPerson is not null && canonicalPerson.Id != request.EntityId)
+            var qidLock = _qidMergeLocks.GetOrAdd(qid, _ => new SemaphoreSlim(1, 1));
+            await qidLock.WaitAsync(ct).ConfigureAwait(false);
+            try
             {
-                // Check pseudonym relationship — never merge pseudonym ↔ real person.
-                var currentPerson = await _personRepo.FindByIdAsync(request.EntityId, ct).ConfigureAwait(false);
-                bool isPseudonymPair = canonicalPerson.IsPseudonym || currentPerson?.IsPseudonym == true;
-
-                // Also check if they're linked as aliases (pseudonym ↔ real person).
-                bool isLinkedAlias = false;
-                if (!isPseudonymPair)
+                var canonicalPerson = await _personRepo.FindByQidAsync(qid, ct).ConfigureAwait(false);
+                if (canonicalPerson is not null && canonicalPerson.Id != request.EntityId)
                 {
-                    var aliases = await _personRepo.FindAliasesAsync(request.EntityId, ct).ConfigureAwait(false);
-                    isLinkedAlias = aliases.Any(a => a.Id == canonicalPerson.Id);
-                }
+                    // Check pseudonym relationship — never merge pseudonym ↔ real person.
+                    var currentPerson = await _personRepo.FindByIdAsync(request.EntityId, ct).ConfigureAwait(false);
+                    bool isPseudonymPair = canonicalPerson.IsPseudonym || currentPerson?.IsPseudonym == true;
 
-                if (isPseudonymPair || isLinkedAlias)
-                {
-                    _logger.LogInformation(
-                        "Person {Id} shares QID {Qid} with {CanonicalId} but is a pseudonym pair — skipping merge",
-                        request.EntityId, qid, canonicalPerson.Id);
-                }
-                else
-                {
-                    isQidDuplicate = true;
-                    _logger.LogInformation(
-                        "Person {Id} shares QID {Qid} with canonical person {CanonicalId} — merging",
-                        request.EntityId, qid, canonicalPerson.Id);
-
-                    // Merge: reassign all links from duplicate → canonical, then delete duplicate.
-                    await _personRepo.ReassignAllLinksAsync(request.EntityId, canonicalPerson.Id, ct)
-                        .ConfigureAwait(false);
-
-                    // Delete the duplicate person folder from disk before deleting the DB record.
-                    var duplicatePerson = await _personRepo.FindByIdAsync(request.EntityId, ct)
-                        .ConfigureAwait(false);
-                    if (duplicatePerson is not null)
+                    // Also check if they're linked as aliases (pseudonym ↔ real person).
+                    bool isLinkedAlias = false;
+                    if (!isPseudonymPair)
                     {
-                        DeletePersonFolder(duplicatePerson);
+                        var aliases = await _personRepo.FindAliasesAsync(request.EntityId, ct).ConfigureAwait(false);
+                        isLinkedAlias = aliases.Any(a => a.Id == canonicalPerson.Id);
                     }
 
-                    await _personRepo.DeleteAsync(request.EntityId, ct).ConfigureAwait(false);
-
-                    await _activityRepo.LogAsync(new SystemActivityEntry
+                    if (isPseudonymPair || isLinkedAlias)
                     {
-                        ActionType = SystemActionType.PersonMerged,
-                        EntityId   = canonicalPerson.Id,
-                        EntityType = "Person",
-                        Detail     = $"Merged duplicate person \"{duplicatePerson?.Name ?? "?"}\" into canonical \"{canonicalPerson.Name}\" ({qid})",
-                    }, ct).ConfigureAwait(false);
+                        _logger.LogInformation(
+                            "Person {Id} shares QID {Qid} with {CanonicalId} but is a pseudonym pair — skipping merge",
+                            request.EntityId, qid, canonicalPerson.Id);
+                    }
+                    else
+                    {
+                        isQidDuplicate = true;
+                        _logger.LogInformation(
+                            "Person {Id} shares QID {Qid} with canonical person {CanonicalId} — merging",
+                            request.EntityId, qid, canonicalPerson.Id);
 
-                    await _eventPublisher.PublishAsync(
-                        "PersonEnriched",
-                        new PersonEnrichedEvent(canonicalPerson.Id, canonicalPerson.Name, canonicalPerson.HeadshotUrl, qid),
-                        ct).ConfigureAwait(false);
+                        // Merge: reassign all links from duplicate → canonical, then delete duplicate.
+                        await _personRepo.ReassignAllLinksAsync(request.EntityId, canonicalPerson.Id, ct)
+                            .ConfigureAwait(false);
 
-                    return; // Merge complete — skip remaining enrichment for the deleted duplicate.
+                        // Delete the duplicate person folder from disk before deleting the DB record.
+                        var duplicatePerson = await _personRepo.FindByIdAsync(request.EntityId, ct)
+                            .ConfigureAwait(false);
+                        if (duplicatePerson is not null)
+                        {
+                            DeletePersonFolder(duplicatePerson);
+                        }
+
+                        await _personRepo.DeleteAsync(request.EntityId, ct).ConfigureAwait(false);
+
+                        await _activityRepo.LogAsync(new SystemActivityEntry
+                        {
+                            ActionType = SystemActionType.PersonMerged,
+                            EntityId   = canonicalPerson.Id,
+                            EntityType = "Person",
+                            Detail     = $"Merged duplicate person \"{duplicatePerson?.Name ?? "?"}\" into canonical \"{canonicalPerson.Name}\" ({qid})",
+                        }, ct).ConfigureAwait(false);
+
+                        await _eventPublisher.PublishAsync(
+                            "PersonEnriched",
+                            new PersonEnrichedEvent(canonicalPerson.Id, canonicalPerson.Name, canonicalPerson.HeadshotUrl, qid),
+                            ct).ConfigureAwait(false);
+
+                        return; // Merge complete — skip remaining enrichment for the deleted duplicate.
+                    }
                 }
+            }
+            finally
+            {
+                qidLock.Release();
             }
         }
 
