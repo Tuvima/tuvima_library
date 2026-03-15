@@ -1801,6 +1801,73 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    // ── Registry (/registry) ─────────────────────────────────────────────────
+
+    public async Task<RegistryPageResponse?> GetRegistryItemsAsync(
+        int offset = 0, int limit = 50,
+        string? search = null, string? type = null, string? status = null,
+        double? minConfidence = null, string? matchSource = null,
+        bool duplicatesOnly = false, CancellationToken ct = default)
+    {
+        try
+        {
+            var url = $"/registry/items?offset={offset}&limit={limit}";
+            if (!string.IsNullOrWhiteSpace(search))
+                url += $"&search={Uri.EscapeDataString(search)}";
+            if (!string.IsNullOrWhiteSpace(type))
+                url += $"&type={Uri.EscapeDataString(type)}";
+            if (!string.IsNullOrWhiteSpace(status))
+                url += $"&status={Uri.EscapeDataString(status)}";
+            if (minConfidence.HasValue)
+                url += $"&minConfidence={minConfidence.Value}";
+            if (!string.IsNullOrWhiteSpace(matchSource))
+                url += $"&matchSource={Uri.EscapeDataString(matchSource)}";
+            if (duplicatesOnly)
+                url += "&duplicatesOnly=true";
+
+            return await _http.GetFromJsonAsync<RegistryPageResponse>(url, ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /registry/items failed");
+            LastError = ex.Message;
+            return null;
+        }
+    }
+
+    public async Task<RegistryItemDetailViewModel?> GetRegistryItemDetailAsync(
+        Guid entityId, CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<RegistryItemDetailViewModel>(
+                $"/registry/items/{entityId}/detail", ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /registry/items/{EntityId}/detail failed", entityId);
+            LastError = ex.Message;
+            return null;
+        }
+    }
+
+    public async Task<RegistryStatusCountsDto?> GetRegistryStatusCountsAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<RegistryStatusCountsDto>("/registry/counts", ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /registry/counts failed");
+            LastError = ex.Message;
+            return null;
+        }
+    }
+
     public string? LastError { get; private set; }
 
     // ── Private mapping ───────────────────────────────────────────────────────

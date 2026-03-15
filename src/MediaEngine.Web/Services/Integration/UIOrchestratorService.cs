@@ -583,6 +583,24 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     public Task<OrganizationTemplateDto?> UpdateOrganizationTemplateAsync(string template, CancellationToken ct = default)
         => _api.UpdateOrganizationTemplateAsync(template, ct);
 
+    // ── Registry ────────────────────────────────────────────────────────────
+
+    /// <summary>Returns paginated registry items.</summary>
+    public Task<RegistryPageResponse?> GetRegistryItemsAsync(
+        int offset = 0, int limit = 50,
+        string? search = null, string? type = null, string? status = null,
+        double? minConfidence = null, string? matchSource = null,
+        bool duplicatesOnly = false, CancellationToken ct = default)
+        => _api.GetRegistryItemsAsync(offset, limit, search, type, status, minConfidence, matchSource, duplicatesOnly, ct);
+
+    /// <summary>Returns full detail for a single registry item.</summary>
+    public Task<RegistryItemDetailViewModel?> GetRegistryItemDetailAsync(Guid entityId, CancellationToken ct = default)
+        => _api.GetRegistryItemDetailAsync(entityId, ct);
+
+    /// <summary>Returns status counts for registry tab badges.</summary>
+    public Task<RegistryStatusCountsDto?> GetRegistryStatusCountsAsync(CancellationToken ct = default)
+        => _api.GetRegistryStatusCountsAsync(ct);
+
     // ── SignalR Intercom ───────────────────────────────────────────────────────
 
     /// <summary>

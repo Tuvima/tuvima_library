@@ -407,6 +407,21 @@ public interface IEngineApiClient
 
     /// <summary>GET /universes — list all narrative roots (fictional universes).</summary>
     Task<IReadOnlyList<NarrativeRootDto>> GetUniversesAsync(CancellationToken ct = default);
+
+    // ── Registry (/registry) ────────────────────────────────────────────────
+
+    /// <summary>GET /registry/items — paginated list of all ingested items.</summary>
+    Task<RegistryPageResponse?> GetRegistryItemsAsync(
+        int offset = 0, int limit = 50,
+        string? search = null, string? type = null, string? status = null,
+        double? minConfidence = null, string? matchSource = null,
+        bool duplicatesOnly = false, CancellationToken ct = default);
+
+    /// <summary>GET /registry/items/{entityId}/detail — full detail for expanded row.</summary>
+    Task<RegistryItemDetailViewModel?> GetRegistryItemDetailAsync(Guid entityId, CancellationToken ct = default);
+
+    /// <summary>GET /registry/counts — status counts for tab badges.</summary>
+    Task<RegistryStatusCountsDto?> GetRegistryStatusCountsAsync(CancellationToken ct = default);
 }
 
 

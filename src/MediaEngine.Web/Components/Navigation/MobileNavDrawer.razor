@@ -36,6 +36,18 @@
             </MudNavLink>
         }
 
+        <MudNavLink Href="/registry" Icon="@Icons.Material.Outlined.FactCheck"
+                    Match="NavLinkMatch.Prefix" OnClick="@CloseDrawer">
+            Registry
+            @if (ReviewCount > 0)
+            {
+                <MudChip T="string" Size="Size.Small" Color="Color.Warning" Variant="Variant.Filled"
+                         Class="ml-auto" Style="height: 18px; font-size: 0.65rem; min-width: 0; padding: 0 6px;">
+                    @ReviewCount
+                </MudChip>
+            }
+        </MudNavLink>
+
         <MudDivider Class="my-2" Style="border-color: rgba(255,255,255,0.06);" />
 
         @* -- Settings expandable tree -- *@
@@ -44,16 +56,6 @@
                      Size="Size.Medium"
                      Style="color: rgba(248,248,248,0.70); flex-shrink: 0;" />
             <span class="mobile-nav-settings-label" style="flex: 1;">Settings</span>
-            @if (ReviewCount > 0 && !_settingsExpanded)
-            {
-                <MudChip T="string"
-                         Size="Size.Small"
-                         Color="Color.Warning"
-                         Variant="Variant.Filled"
-                         Style="height: 18px; font-size: 0.65rem; min-width: 0; padding: 0 6px;">
-                    @ReviewCount
-                </MudChip>
-            }
             <MudIcon Icon="@(_settingsExpanded
                             ? Icons.Material.Filled.ExpandMore
                             : Icons.Material.Filled.ChevronRight)"

@@ -44,19 +44,35 @@
             </div>
         }
 
+        @* ── Registry ── *@
+        <div class="dock-settings-divider"></div>
+
+        <div class="dock-item @(IsActive("/registry", "registry") ? "dock-item-active" : "")"
+             @onclick="@(() => Nav.NavigateTo("/registry"))"
+             title="@(ReviewCount > 0 ? $"Registry ({ReviewCount} pending)" : "Registry")">
+            @if (ReviewCount > 0)
+            {
+                <MudBadge Content="@ReviewCount" Color="Color.Warning" Overlap="true" Visible="true">
+                    <MudIcon Icon="@Icons.Material.Outlined.FactCheck" Size="Size.Medium" />
+                </MudBadge>
+            }
+            else
+            {
+                <MudIcon Icon="@Icons.Material.Outlined.FactCheck" Size="Size.Medium" />
+            }
+            @if (_expanded)
+            {
+                <span class="dock-label">Registry</span>
+            }
+        </div>
+
         @* ── Settings tree ── *@
         <div class="dock-settings-divider"></div>
 
         <div class="dock-item dock-settings-toggle @(_isOnSettingsPage ? "dock-item-active" : "")"
              @onclick="ToggleSettings"
-             title="@(ReviewCount > 0 ? $"Settings ({ReviewCount} pending review)" : "Settings")">
-            <MudBadge Content="@(ReviewCount > 0 && !_settingsExpanded ? ReviewCount.ToString() : null)"
-                      Color="Color.Error"
-                      Overlap="true"
-                      Dot="@(ReviewCount > 0 && !_settingsExpanded)"
-                      Visible="@(ReviewCount > 0 && !_settingsExpanded)">
-                <MudIcon Icon="@Icons.Material.Outlined.Settings" Size="Size.Medium" />
-            </MudBadge>
+             title="Settings">
+            <MudIcon Icon="@Icons.Material.Outlined.Settings" Size="Size.Medium" />
             @if (_expanded)
             {
                 <span class="dock-label" style="flex: 1;">Settings</span>

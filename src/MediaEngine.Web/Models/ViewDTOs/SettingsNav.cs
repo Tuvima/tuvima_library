@@ -51,15 +51,13 @@ public static class SettingsNav
 
         new("Metadata", "Metadata", true,
         [
-            new(SettingsSection.ConnectionVault, Icons.Material.Outlined.Hub,        "Metadata",      true, null),
-            new(SettingsSection.NeedsReview,     Icons.Material.Outlined.RateReview, "Needs Review",  true, "review"),
+            new(SettingsSection.ConnectionVault, Icons.Material.Outlined.Hub, "Metadata", true, null),
         ]),
 
         new("Server", "Server", true,
         [
             new(SettingsSection.ServerGeneral, Icons.Material.Outlined.Dns,        "General",      true, null),
             new(SettingsSection.Library,       Icons.Material.Outlined.FolderOpen, "Library",      true, null),
-            new(SettingsSection.Activity,      Icons.Material.Outlined.Timeline,   "Activity",     true, null),
             new(SettingsSection.Connectivity,  Icons.Material.Outlined.Wifi,       "Connectivity", true, null),
             new(SettingsSection.ApiKeys,       Icons.Material.Outlined.VpnKey,     "API Keys",     true, null),
             new(SettingsSection.Users,         Icons.Material.Outlined.Group,      "Users",        true, null),

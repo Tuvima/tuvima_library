@@ -1,0 +1,357 @@
+using Microsoft.Data.Sqlite;
+using MediaEngine.Domain.Contracts;
+using MediaEngine.Domain.Models;
+using MediaEngine.Storage.Contracts;
+
+namespace MediaEngine.Storage;
+
+/// <summary>
+/// SQLite implementation of <see cref="IRegistryRepository"/>.
+/// Joins works, canonical_values, review_queue, metadata_claims, and media_assets
+/// into a unified registry view.
+/// </summary>
+public sealed class RegistryRepository : IRegistryRepository
+{
+    private readonly IDatabaseConnection _db;
+
+    public RegistryRepository(IDatabaseConnection db)
+    {
+        ArgumentNullException.ThrowIfNull(db);
+        _db = db;
+    }
+
+    public Task<RegistryPageResult> GetPageAsync(RegistryQuery query, CancellationToken ct = default)
+    {
+        using var conn = _db.CreateConnection();
+
+        // Build the core query with pivoted canonical values
+        var sql = """
+            WITH work_data AS (
+                SELECT
+                    w.id AS entity_id,
+                    w.media_type,
+                    MAX(CASE WHEN cv.key = 'title' THEN cv.value END) AS title,
+                    MAX(CASE WHEN cv.key = 'release_year' THEN cv.value END) AS year,
+                    MAX(CASE WHEN cv.key = 'cover_url' THEN cv.value END) AS cover_url,
+                    MAX(CASE WHEN cv.key = 'author' THEN cv.value END) AS author,
+                    MAX(CASE WHEN cv.key = 'file_name' THEN cv.value END) AS file_name,
+                    MAX(CASE WHEN cv.key = 'title' THEN cv.winning_provider_id END) AS title_provider_id,
+                    MAX(CASE WHEN cv.key = 'title' THEN cv.is_conflicted END) AS title_conflicted
+                FROM works w
+                LEFT JOIN canonical_values cv ON cv.entity_id = w.id
+                GROUP BY w.id, w.media_type
+            ),
+            review_data AS (
+                SELECT entity_id, id AS review_id, trigger, confidence_score, candidates_json
+                FROM review_queue
+                WHERE status = 'Pending'
+            ),
+            user_lock_data AS (
+                SELECT entity_id, 1 AS has_locks
+                FROM metadata_claims
+                WHERE is_user_locked = 1
+                GROUP BY entity_id
+            ),
+            asset_data AS (
+                SELECT
+                    e.work_id,
+                    ma.file_path_root,
+                    ma.status AS asset_status,
+                    LENGTH(ma.content_hash) AS file_size_proxy
+                FROM editions e
+                INNER JOIN media_assets ma ON ma.edition_id = e.id
+            ),
+            full_data AS (
+                SELECT
+                    wd.entity_id,
+                    COALESCE(wd.title, 'Untitled') AS title,
+                    wd.year,
+                    wd.media_type,
+                    wd.cover_url,
+                    wd.author,
+                    wd.file_name,
+                    wd.title_provider_id AS match_source,
+                    rd.review_id,
+                    rd.trigger AS review_trigger,
+                    COALESCE(rd.confidence_score, 0.95) AS confidence,
+                    COALESCE(ul.has_locks, 0) AS has_user_locks,
+                    CASE
+                        WHEN rd.review_id IS NOT NULL THEN 'Review'
+                        WHEN ul.has_locks = 1 THEN 'Edited'
+                        WHEN ad.asset_status = 'Conflicted' THEN 'Duplicate'
+                        ELSE 'Auto'
+                    END AS status,
+                    CASE WHEN ad.asset_status = 'Conflicted' THEN 1 ELSE 0 END AS has_duplicate,
+                    ad.file_path_root
+                FROM work_data wd
+                LEFT JOIN review_data rd ON rd.entity_id = wd.entity_id
+                LEFT JOIN user_lock_data ul ON ul.entity_id = wd.entity_id
+                LEFT JOIN asset_data ad ON ad.work_id = wd.entity_id
+            )
+            """;
+
+        // Build WHERE clause
+        var conditions = new List<string>();
+        if (!string.IsNullOrWhiteSpace(query.Search))
+            conditions.Add("(fd.title LIKE @search OR fd.file_name LIKE @search OR fd.author LIKE @search)");
+        if (!string.IsNullOrWhiteSpace(query.MediaType))
+            conditions.Add("fd.media_type = @mediaType");
+        if (!string.IsNullOrWhiteSpace(query.Status))
+            conditions.Add("fd.status = @status");
+        if (query.MinConfidence.HasValue)
+            conditions.Add("fd.confidence >= @minConfidence");
+        if (!string.IsNullOrWhiteSpace(query.MatchSource))
+            conditions.Add("fd.match_source = @matchSource");
+        if (query.DuplicatesOnly)
+            conditions.Add("fd.has_duplicate = 1");
+
+        var whereClause = conditions.Count > 0 ? "WHERE " + string.Join(" AND ", conditions) : "";
+
+        // Count query
+        using var countCmd = conn.CreateCommand();
+        countCmd.CommandText = sql + $"SELECT COUNT(*) FROM full_data fd {whereClause}";
+        AddParameters(countCmd, query);
+        var totalCount = Convert.ToInt32(countCmd.ExecuteScalar() ?? 0);
+
+        // Data query
+        using var dataCmd = conn.CreateCommand();
+        dataCmd.CommandText = sql + $"""
+            SELECT
+                fd.entity_id, fd.title, fd.year, fd.media_type, fd.cover_url,
+                fd.match_source, fd.confidence, fd.status, fd.has_duplicate,
+                fd.review_id, fd.review_trigger, fd.has_user_locks,
+                fd.file_name, fd.author, fd.file_path_root
+            FROM full_data fd
+            {whereClause}
+            ORDER BY fd.confidence ASC, fd.title ASC
+            LIMIT @limit OFFSET @offset
+            """;
+        AddParameters(dataCmd, query);
+        dataCmd.Parameters.AddWithValue("@limit", query.Limit);
+        dataCmd.Parameters.AddWithValue("@offset", query.Offset);
+
+        var items = new List<RegistryItem>();
+        using var reader = dataCmd.ExecuteReader();
+        while (reader.Read())
+        {
+            items.Add(new RegistryItem
+            {
+                EntityId = Guid.Parse(reader.GetString(0)),
+                Title = reader.GetString(1),
+                Year = reader.IsDBNull(2) ? null : reader.GetString(2),
+                MediaType = reader.GetString(3),
+                CoverUrl = reader.IsDBNull(4) ? null : reader.GetString(4),
+                MatchSource = reader.IsDBNull(5) ? null : reader.GetString(5),
+                Confidence = reader.GetDouble(6),
+                Status = reader.GetString(7),
+                HasDuplicate = reader.GetInt32(8) == 1,
+                ReviewItemId = reader.IsDBNull(9) ? null : Guid.Parse(reader.GetString(9)),
+                ReviewTrigger = reader.IsDBNull(10) ? null : reader.GetString(10),
+                HasUserLocks = reader.GetInt32(11) == 1,
+                FileName = reader.IsDBNull(12) ? null : reader.GetString(12),
+                Author = reader.IsDBNull(13) ? null : reader.GetString(13),
+            });
+        }
+
+        return Task.FromResult(new RegistryPageResult(items, totalCount, query.Offset + items.Count < totalCount));
+    }
+
+    public Task<RegistryItemDetail?> GetDetailAsync(Guid entityId, CancellationToken ct = default)
+    {
+        using var conn = _db.CreateConnection();
+
+        // Load all canonical values for this entity
+        var canonicalValues = new List<RegistryCanonicalValue>();
+        using (var cvCmd = conn.CreateCommand())
+        {
+            cvCmd.CommandText = """
+                SELECT key, value, is_conflicted, winning_provider_id, needs_review, last_scored_at
+                FROM canonical_values
+                WHERE entity_id = @entityId
+                ORDER BY key
+                """;
+            cvCmd.Parameters.AddWithValue("@entityId", entityId.ToString());
+            using var cvReader = cvCmd.ExecuteReader();
+            while (cvReader.Read())
+            {
+                canonicalValues.Add(new RegistryCanonicalValue(
+                    Key: cvReader.GetString(0),
+                    Value: cvReader.GetString(1),
+                    IsConflicted: cvReader.GetInt32(2) == 1,
+                    WinningProviderId: cvReader.IsDBNull(3) ? null : cvReader.GetString(3),
+                    NeedsReview: cvReader.GetInt32(4) == 1,
+                    LastScoredAt: DateTimeOffset.TryParse(cvReader.GetString(5), out var dt) ? dt : DateTimeOffset.MinValue));
+            }
+        }
+
+        if (canonicalValues.Count == 0)
+            return Task.FromResult<RegistryItemDetail?>(null);
+
+        // Load claim history
+        var claims = new List<RegistryClaimRecord>();
+        using (var claimCmd = conn.CreateCommand())
+        {
+            claimCmd.CommandText = """
+                SELECT id, claim_key, claim_value, provider_id, confidence, is_user_locked, claimed_at
+                FROM metadata_claims
+                WHERE entity_id = @entityId
+                ORDER BY claimed_at DESC
+                """;
+            claimCmd.Parameters.AddWithValue("@entityId", entityId.ToString());
+            using var claimReader = claimCmd.ExecuteReader();
+            while (claimReader.Read())
+            {
+                claims.Add(new RegistryClaimRecord(
+                    Id: Guid.Parse(claimReader.GetString(0)),
+                    ClaimKey: claimReader.GetString(1),
+                    ClaimValue: claimReader.GetString(2),
+                    ProviderId: Guid.Parse(claimReader.GetString(3)),
+                    Confidence: claimReader.GetDouble(4),
+                    IsUserLocked: claimReader.GetInt32(5) == 1,
+                    ClaimedAt: DateTimeOffset.TryParse(claimReader.GetString(6), out var cdt) ? cdt : DateTimeOffset.MinValue));
+            }
+        }
+
+        // Load review queue entry if any
+        Guid? reviewItemId = null;
+        string? reviewTrigger = null, reviewDetail = null, candidatesJson = null;
+        double reviewConfidence = 0.95;
+        using (var rqCmd = conn.CreateCommand())
+        {
+            rqCmd.CommandText = """
+                SELECT id, trigger, confidence_score, detail, candidates_json
+                FROM review_queue
+                WHERE entity_id = @entityId AND status = 'Pending'
+                LIMIT 1
+                """;
+            rqCmd.Parameters.AddWithValue("@entityId", entityId.ToString());
+            using var rqReader = rqCmd.ExecuteReader();
+            if (rqReader.Read())
+            {
+                reviewItemId = Guid.Parse(rqReader.GetString(0));
+                reviewTrigger = rqReader.GetString(1);
+                reviewConfidence = rqReader.IsDBNull(2) ? 0.5 : rqReader.GetDouble(2);
+                reviewDetail = rqReader.IsDBNull(3) ? null : rqReader.GetString(3);
+                candidatesJson = rqReader.IsDBNull(4) ? null : rqReader.GetString(4);
+            }
+        }
+
+        // Load media asset info
+        string? filePath = null, contentHash = null, fileName = null;
+        using (var maCmd = conn.CreateCommand())
+        {
+            maCmd.CommandText = """
+                SELECT ma.file_path_root, ma.content_hash
+                FROM editions e
+                INNER JOIN media_assets ma ON ma.edition_id = e.id
+                WHERE e.work_id = @entityId
+                LIMIT 1
+                """;
+            maCmd.Parameters.AddWithValue("@entityId", entityId.ToString());
+            using var maReader = maCmd.ExecuteReader();
+            if (maReader.Read())
+            {
+                filePath = maReader.IsDBNull(0) ? null : maReader.GetString(0);
+                contentHash = maReader.IsDBNull(1) ? null : maReader.GetString(1);
+                if (filePath is not null)
+                    fileName = Path.GetFileName(filePath);
+            }
+        }
+
+        // Load work media type
+        string mediaType = "";
+        using (var wCmd = conn.CreateCommand())
+        {
+            wCmd.CommandText = "SELECT media_type FROM works WHERE id = @entityId";
+            wCmd.Parameters.AddWithValue("@entityId", entityId.ToString());
+            mediaType = wCmd.ExecuteScalar()?.ToString() ?? "";
+        }
+
+        // Helper to get canonical value by key
+        string? cv(string key) => canonicalValues.FirstOrDefault(v => v.Key == key)?.Value;
+        var hasUserLocks = claims.Any(c => c.IsUserLocked);
+        var titleProvider = canonicalValues.FirstOrDefault(v => v.Key == "title")?.WinningProviderId;
+
+        var status = reviewItemId.HasValue ? "Review"
+            : hasUserLocks ? "Edited"
+            : "Auto";
+
+        var detail = new RegistryItemDetail
+        {
+            EntityId = entityId,
+            Title = cv("title") ?? "Untitled",
+            Year = cv("release_year"),
+            MediaType = mediaType,
+            CoverUrl = cv("cover_url"),
+            Confidence = reviewConfidence,
+            Status = status,
+            MatchSource = titleProvider,
+            Author = cv("author"),
+            Director = cv("director"),
+            Cast = cv("cast"),
+            Language = cv("language"),
+            Genre = cv("genre"),
+            Runtime = cv("runtime"),
+            Description = cv("description"),
+            Series = cv("series"),
+            SeriesPosition = cv("series_position"),
+            Narrator = cv("narrator"),
+            Rating = cv("rating"),
+            WikidataQid = cv("wikidata_qid"),
+            FileName = fileName ?? cv("file_name"),
+            FilePath = filePath,
+            ContentHash = contentHash,
+            ReviewItemId = reviewItemId,
+            ReviewTrigger = reviewTrigger,
+            ReviewDetail = reviewDetail,
+            CandidatesJson = candidatesJson,
+            HasUserLocks = hasUserLocks,
+            CanonicalValues = canonicalValues,
+            ClaimHistory = claims,
+        };
+
+        return Task.FromResult<RegistryItemDetail?>(detail);
+    }
+
+    public Task<RegistryStatusCounts> GetStatusCountsAsync(CancellationToken ct = default)
+    {
+        using var conn = _db.CreateConnection();
+        using var cmd = conn.CreateCommand();
+
+        cmd.CommandText = """
+            SELECT
+                (SELECT COUNT(*) FROM works) AS total,
+                (SELECT COUNT(DISTINCT rq.entity_id) FROM review_queue rq WHERE rq.status = 'Pending') AS needs_review,
+                (SELECT COUNT(DISTINCT mc.entity_id) FROM metadata_claims mc WHERE mc.is_user_locked = 1) AS edited,
+                (SELECT COUNT(*) FROM media_assets WHERE status = 'Conflicted') AS duplicate
+            """;
+
+        using var reader = cmd.ExecuteReader();
+        if (reader.Read())
+        {
+            var total = reader.GetInt32(0);
+            var needsReview = reader.GetInt32(1);
+            var edited = reader.GetInt32(2);
+            var duplicate = reader.GetInt32(3);
+            var auto = total - needsReview - edited - duplicate;
+
+            return Task.FromResult(new RegistryStatusCounts(total, needsReview, Math.Max(auto, 0), edited, duplicate));
+        }
+
+        return Task.FromResult(new RegistryStatusCounts(0, 0, 0, 0, 0));
+    }
+
+    private static void AddParameters(SqliteCommand cmd, RegistryQuery query)
+    {
+        if (!string.IsNullOrWhiteSpace(query.Search))
+            cmd.Parameters.AddWithValue("@search", $"%{query.Search}%");
+        if (!string.IsNullOrWhiteSpace(query.MediaType))
+            cmd.Parameters.AddWithValue("@mediaType", query.MediaType);
+        if (!string.IsNullOrWhiteSpace(query.Status))
+            cmd.Parameters.AddWithValue("@status", query.Status);
+        if (query.MinConfidence.HasValue)
+            cmd.Parameters.AddWithValue("@minConfidence", query.MinConfidence.Value);
+        if (!string.IsNullOrWhiteSpace(query.MatchSource))
+            cmd.Parameters.AddWithValue("@matchSource", query.MatchSource);
+    }
+}

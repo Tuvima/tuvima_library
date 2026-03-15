@@ -177,10 +177,9 @@
                 <ConnectionVaultTab CurrentRole="@_currentRole" />
                 break;
             case SettingsSection.NeedsReview:
-                <NeedsReviewTab />
-                break;
             case SettingsSection.Activity:
-                <ActivityTab />
+            case SettingsSection.Conflicts:
+                Nav.NavigateTo("/registry", replace: true);
                 break;
             // ── Server group ──────────────────────────────────────────────
             case SettingsSection.ServerGeneral:
@@ -194,10 +193,6 @@
                 break;
             case SettingsSection.ApiKeys:
                 <ApiKeysTab />
-                break;
-            case SettingsSection.Conflicts:
-                @* Conflicts absorbed into NeedsReview — redirect deep links. *@
-                <NeedsReviewTab />
                 break;
             case SettingsSection.Users:
                 <UsersTab />

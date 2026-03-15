@@ -395,6 +395,7 @@ builder.Services.AddSingleton<IDeferredEnrichmentRepository, DeferredEnrichmentR
 builder.Services.AddSingleton<IHydrationPipelineService,     HydrationPipelineService>();
 builder.Services.AddSingleton<IDeferredEnrichmentService,    DeferredEnrichmentService>();
 builder.Services.AddSingleton<IReviewQueueRepository,        ReviewQueueRepository>();
+builder.Services.AddSingleton<IRegistryRepository,           RegistryRepository>();
 builder.Services.AddSingleton<IImageCacheRepository,              ImageCacheRepository>();
 builder.Services.AddSingleton<IProviderResponseCacheRepository,  ProviderResponseCacheRepository>();
 
@@ -484,6 +485,7 @@ app.MapActivityEndpoints();
 app.MapUniverseGraphEndpoints();
 app.MapCanonEndpoints();
 app.MapDeferredEnrichmentEndpoints();
+app.MapRegistryEndpoints();
 
 // ── Development-only seed endpoints ──────────────────────────────────────────
 if (app.Environment.IsDevelopment())
