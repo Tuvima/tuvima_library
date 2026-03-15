@@ -22,7 +22,7 @@ namespace MediaEngine.Providers.Services;
 public sealed class SearchService : ISearchService
 {
     private readonly WikidataAdapter _wikidataAdapter;
-    private readonly IEnumerable<IExternalMetadataProvider> _providers;
+    private readonly IReadOnlyList<IExternalMetadataProvider> _providers;
     private readonly IConfigurationLoader _configLoader;
     private readonly ILogger<SearchService> _logger;
 
@@ -33,19 +33,25 @@ public sealed class SearchService : ISearchService
     };
 
     public SearchService(
-        WikidataAdapter wikidataAdapter,
         IEnumerable<IExternalMetadataProvider> providers,
         IConfigurationLoader configLoader,
         ILogger<SearchService> logger)
     {
-        ArgumentNullException.ThrowIfNull(wikidataAdapter);
         ArgumentNullException.ThrowIfNull(providers);
         ArgumentNullException.ThrowIfNull(configLoader);
         ArgumentNullException.ThrowIfNull(logger);
-        _wikidataAdapter = wikidataAdapter;
-        _providers       = providers;
-        _configLoader    = configLoader;
-        _logger          = logger;
+
+        var providerList = providers.ToList();
+
+        // Resolve the WikidataAdapter from the registered provider collection
+        _wikidataAdapter = providerList.OfType<WikidataAdapter>().FirstOrDefault()
+            ?? throw new InvalidOperationException(
+                "WikidataAdapter is not registered in the provider collection. " +
+                "Ensure it is registered as IExternalMetadataProvider in Program.cs.");
+
+        _providers    = providerList;
+        _configLoader = configLoader;
+        _logger       = logger;
     }
 
     /// <inheritdoc/>
