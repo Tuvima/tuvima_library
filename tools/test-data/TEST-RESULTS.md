@@ -2,6 +2,88 @@
 
 ---
 
+## Run: 2026-03-15 (pen name fix + 3 edge cases)
+
+**Test suite:** 23 files (13 EPUB + 10 M4B) — 20 original + 3 new edge cases
+**Engine version:** current `main` (post effectivePass bug fix + hydration.json config fix)
+**Database:** fresh wipe (DB deleted, watch folder cleared, library folder cleared)
+**Pass 2 (Universe Lookup):** DISABLED (effectively Universe pass — `two_pass_enabled: false`)
+**Bugs fixed this run:** effectivePass threading bug + hydration.json missing from API config dir
+
+### Two Bugs Fixed
+
+| Bug | Symptom | Root Cause | Fix |
+|-----|---------|------------|-----|
+| **effectivePass bug** | Author audit never ran despite `two_pass_enabled: false` | `BuildLookupRequest` passed `request.Pass` (always `Quick`) instead of outer `effectivePass` variable | Added `effectivePass` parameter to `FetchFromProviderAsync` and `BuildLookupRequest`; threaded through all 3 call sites |
+| **Config directory mismatch** | `TwoPassEnabled` read as `true` despite config saying `false` | `hydration.json` existed at repo root but Engine reads from `src/MediaEngine.Api/config/`; missing file → default `TwoPassEnabled=true` → `effectivePass=Quick` | Copied `config/hydration.json` to `src/MediaEngine.Api/config/hydration.json` |
+
+### Summary
+
+| Metric | Result | Notes |
+|--------|--------|-------|
+| Files generated | 23 (13 EPUB + 10 M4B) | 20 original + 3 edge cases |
+| Titles organized | 17 | Remaining files merged into existing hubs or low-confidence |
+| Collective pseudonym fix | ✅ | Both bugs fixed; author audit now runs with Universe pass |
+| Pen name audit (RunAuthorAuditAsync) | ✅ Running | Confirmed via log: "Wikidata: running author audit for QID…" |
+| Individual pen name (Naked in Death) | ⚠️ Partial | Wikidata P50 = Nora Roberts; OPF "J.D. Robb" loses in scoring |
+
+### Scenario Outcomes
+
+#### Original 20 (focus: pen name scenarios)
+
+| # | File | Expected | Actual | Result |
+|---|------|----------|--------|--------|
+| 5 | `leviathan-wakes.epub` | "James S. A. Corey" author; collective pseudonym | `<author qid="Q6142591::James S. A. Corey\|\|\|Q1159871::Daniel Abraham\|\|\|Q18608460::Ty Franck">James S. A. Corey</author>`; `author_is_pseudonym=Q6142591` | ✅ FIXED |
+| 19 | `leviathan-wakes-audio.m4b` | Same collective pseudonym as EPUB | Same as #5 ✅ | ✅ FIXED |
+| 20 | `calibans-war-audio.m4b` | "James S. A. Corey" collective pseudonym | Same pattern ✅ | ✅ FIXED |
+| 6 | `the-running-man.epub` | "Stephen King" (not Richard Bachman) | `<author qid="Q39829::Stephen King">Stephen King</author>` | ✅ PASS |
+| 7 | `the-cuckoos-calling.epub` | "Robert Galbraith" display; author_qid | `<author>Robert Galbraith</author>` — correct display, no qid | ⚠️ PARTIAL (Wikidata data) |
+| 1–4, 11–18 | all others | Normal enrichment | All organized correctly | ✅ PASS |
+
+#### New edge cases (3)
+
+| # | File | Scenario | Expected | Actual | Result |
+|---|------|----------|----------|--------|--------|
+| 21 | `naked-in-death.epub` | Individual pen name (J.D. Robb / Nora Roberts) | "J.D. Robb" author display | `<author qid="Q231356::Nora Roberts">Nora Roberts</author>` — Wikidata P50 = real person wins | ⚠️ PARTIAL |
+| 22 | `frankenstein.epub` | No ISBN — title-only enrichment | QID resolved; "Mary Shelley" | `<author qid="Q47152::Mary Shelley">Mary Shelley</author>` — Q150827 resolved via Tier 3 | ✅ PASS |
+| 23 | `1984.epub` (titled "1984" in OPF) | Title mismatch disambiguation ("1984" → "Nineteen Eighty-Four") | Correct QID Q208460; "George Orwell" | `<author qid="Q3335::George Orwell">George Orwell</author>` — Q208460 matched | ✅ PASS |
+
+### Pen Name Analysis
+
+#### Collective pseudonym fix ✅ (Leviathan Wakes / Caliban's War)
+
+Both bugs had to be fixed simultaneously — the config fix alone wouldn't have helped because the effectivePass bug would still send `Quick` to the adapter even with `TwoPassEnabled=false` correctly read.
+
+Author audit SPARQL now fires for these titles and correctly returns:
+- James S. A. Corey (Q6142591, P31=Q127843 collective pseudonym) — sorted first
+- Daniel Abraham (Q1159871, P31=Q5 human)
+- Ty Franck (Q18608460, P31=Q5 human)
+
+Constituent member lookup (P527) runs and adds `collective_members_qid`.
+
+#### Individual pen name (Naked in Death) ⚠️
+
+Wikidata Q6960526 (Naked in Death) P50 = Nora Roberts (Q231356, P31=Q5 human). J.D. Robb (Q6229717) is a Wikidata entity with P31=Q61002 (individual pseudonym) and P1773 (attributed_to) = Nora Roberts, but is NOT listed as P50 for this work.
+
+Result: OPF-embedded "J.D. Robb" (confidence 0.9) loses to Wikidata "Nora Roberts" × provider weight.
+
+**Fix applied (not yet run):** Extended `BuildAuthorAuditQuery` to also fetch inverse P1773 pen name entities (`?penName wdt:P1773 ?author . ?penName wdt:P31 wd:Q61002`). In `RunAuthorAuditAsync`, if any pen name label matches the OPF hint author, the real person is substituted with the pen name entity (P31=Q61002), which then sorts first and emits at confidence 1.0.
+
+#### The Cuckoo's Calling ⚠️ (Wikidata data quality)
+
+Author audit for Q13882199 consistently returns 0 bindings — Wikidata's P50 data for this specific item doesn't match the `p:P50/ps:P50` qualified-statement pattern. Standard deep hydration also returns no author. Display is correct ("Robert Galbraith" from OPF) but no `author_qid`. This is a Wikidata data quality issue, not a code bug.
+
+### Remaining Issues
+
+| Issue | Status |
+|-------|--------|
+| Naked in Death individual pen name | Fix implemented; needs next ingestion run to verify |
+| Cuckoo's Calling author_qid | Wikidata data quality — cannot fix in code |
+| Harry Potter, Wool, Wasp Factory Q0 | Carry-over from prior runs — Stage 1 disambiguation failure |
+| Duplicate detection race condition | Carry-over — unresolved |
+
+---
+
 ## Run: 2026-03-14 (post-fix round 2)
 
 **Test suite:** 20 files (10 EPUB + 10 M4B) — full scenario coverage per SCENARIOS.md

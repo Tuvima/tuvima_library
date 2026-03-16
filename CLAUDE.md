@@ -1735,6 +1735,8 @@ Read `CLAUDE.md` (this file), `README.md`, and every file relevant to the task b
 
 Use the plan format in Section 4.3. Do not write a single line of code until the Product Owner approves.
 
+**Always ask detailed questions before finalising the plan.** Do not assume intent — probe for specifics: which media types are affected, what the user expects to see on-screen, edge cases, whether existing behaviour should change, and how the feature interacts with other parts of the system. Multiple rounds of clarification are expected and encouraged. A plan built on assumptions will be rejected; a plan built on answers will be approved.
+
 ---
 
 **Step 3 — Assemble and verify**
@@ -1745,6 +1747,12 @@ dotnet build
 ```
 The result must be **0 errors, 0 warnings** before moving to the next step.
 Warnings are not acceptable — they indicate future problems and must be fixed immediately.
+
+**Process cleanup:** After all parallel agents in a batch have completed, kill stale `dotnet.exe` processes to prevent accumulation:
+```bash
+taskkill //F //IM dotnet.exe
+```
+This ensures multiple agent runs do not leave orphaned build/server processes consuming resources. Do not kill between individual agents within a parallel batch — only after the entire batch finishes.
 
 ---
 

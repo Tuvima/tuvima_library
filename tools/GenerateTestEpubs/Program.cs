@@ -149,6 +149,50 @@ var epubs = new EpubSpec[]
         Series: null,                    SeriesPosition: null,
         Language: "en",                  IncludeCover: false,
         CoverHex: "#212121"),
+
+    // Scenario 21 — INDIVIDUAL PEN NAME: "J.D. Robb" is Nora Roberts's crime-fiction pen name
+    //   (Wikidata Q4808063 is the pseudonym entity, P1773 → Q231811 Nora Roberts).
+    //   Unlike the collective pseudonym (James S.A. Corey), this is one real author behind one name.
+    //   Expected: author audit finds pseudonym entity, emits "J.D. Robb" at confidence 1.0.
+    //   The "author" canonical value should stay "J.D. Robb" (the published name on the cover).
+    new("naked-in-death.epub",
+        "Naked in Death",
+        Author: "J.D. Robb",             SecondAuthor: null,
+        Isbn: "9780425148990",           Year: "1995",
+        Publisher: "Berkley Books",
+        Description: "Detective Eve Dallas investigates a futuristic murder in New York.",
+        Series: "In Death",              SeriesPosition: "1",
+        Language: "en",                  IncludeCover: true,
+        CoverHex: "#1B1B2F"),
+
+    // Scenario 22 — NO ISBN: forces Tier 2 structured SPARQL title+author search.
+    //   "Frankenstein" by Mary Shelley is a well-known work with a clear Wikidata entry
+    //   (Q192676) but an 1818 publication date means no ISBN exists in most embedded metadata.
+    //   Expected: Tier 2 search resolves Q192676; no bridge lookup used.
+    new("frankenstein.epub",
+        "Frankenstein",
+        Author: "Mary Shelley",          SecondAuthor: null,
+        Isbn: "",                        Year: "1818",
+        Publisher: "Lackington, Hughes, Harding, Mavor & Jones",
+        Description: "The modern Prometheus creates life and faces the consequences.",
+        Series: null,                    SeriesPosition: null,
+        Language: "en",                  IncludeCover: false,
+        CoverHex: "#1A1A1A"),
+
+    // Scenario 23 — TITLE MISMATCH / DISAMBIGUATION: EPUB title is "1984" but Wikidata
+    //   calls the work "Nineteen Eighty-Four" (Q208592). No ISBN — forces title search.
+    //   "1984" as a search term returns many candidates (year references, other works).
+    //   Expected: Tier 2 search with author cross-check finds Q208592; no ISBN bridge used.
+    //   Verifies that the search service matches "1984" ↔ "Nineteen Eighty-Four" correctly.
+    new("nineteen-eighty-four.epub",
+        "1984",
+        Author: "George Orwell",         SecondAuthor: null,
+        Isbn: "",                        Year: "1949",
+        Publisher: "Secker & Warburg",
+        Description: "Big Brother is watching you. A dystopian novel of totalitarian surveillance.",
+        Series: null,                    SeriesPosition: null,
+        Language: "en",                  IncludeCover: true,
+        CoverHex: "#0A0A0A"),
 };
 
 // ── Generate EPUBs 1–8 ────────────────────────────────────────────────────────
@@ -156,14 +200,18 @@ var epubs = new EpubSpec[]
 int total = 0, failed = 0;
 var manifest = new List<ManifestEntry>();
 
-Console.WriteLine($"━━━ EPUBs (scenarios 1–8) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+Console.WriteLine($"━━━ EPUBs (scenarios 1–8, 21–23) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 string? duneEpubPath = null;
+
+// Scenarios 1–8 are indices 0–7; scenarios 21–23 are indices 8–10.
+// Map index → scenario number for the manifest and console output.
+static int EpubScenarioNum(int index) => index < 8 ? index + 1 : 21 + (index - 8);
 
 for (int i = 0; i < epubs.Length; i++)
 {
     var spec    = epubs[i];
     var outPath = Path.Combine(outputDir, spec.FileName);
-    var num     = i + 1;
+    var num     = EpubScenarioNum(i);
     try
     {
         byte[]? cover = null;
@@ -486,7 +534,7 @@ File.WriteAllText(manifestPath, manifestJson);
 // ── Summary ───────────────────────────────────────────────────────────────────
 Console.WriteLine();
 Console.WriteLine($"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-Console.WriteLine($"  Generated : {total} / 20");
+Console.WriteLine($"  Generated : {total} / 23");
 if (failed > 0) Console.WriteLine($"  Failed    : {failed}");
 Console.WriteLine($"  Manifest  : {manifestPath}");
 Console.WriteLine();

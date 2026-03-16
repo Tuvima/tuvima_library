@@ -230,6 +230,10 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             ? request.Pass
             : HydrationPass.Universe;
 
+        _logger.LogDebug(
+            "Pipeline: effectivePass={EffectivePass} (TwoPassEnabled={TwoPass}) for entity {Id}",
+            effectivePass, hydration.TwoPassEnabled, request.EntityId);
+
         // Build composite endpoint map.
         var endpointMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var pc in provConfigs)

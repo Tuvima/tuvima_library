@@ -947,9 +947,10 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
                 // statements with P1545 ordinals and P31 entity types (human,
                 // pseudonym, collective pseudonym). This produces ordered, typed
                 // author data that the standard wdt: query cannot provide.
+                var hintAuthor = request.Hints.TryGetValue("author", out var ha) ? ha : null;
                 authorAuditClaims = await RunAuthorAuditAsync(
                     sparqlClient, request.SparqlBaseUrl!, qid, throttleGapMs, ct,
-                    request.Language).ConfigureAwait(false);
+                    request.Language, hintAuthor).ConfigureAwait(false);
 
                 // ── Step 3b2: Cast Role Audit with Qualifiers ────────────────
                 // Use qualified statement syntax (p:/ps:/pq:) to extract P161 cast
@@ -1416,22 +1417,34 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
         string qid,
         int throttleGapMs,
         CancellationToken ct,
-        string? language = null)
+        string? language = null,
+        string? hintAuthor = null)
     {
+        _logger.LogDebug("Wikidata: running author audit for QID {Qid}", qid);
         try
         {
             var sparql = WikidataSparqlPropertyMap.BuildAuthorAuditQuery(qid, language);
             var json = await ThrottledSparqlAsync(sparqlClient, sparqlBaseUrl, sparql, throttleGapMs, ct)
                 .ConfigureAwait(false);
 
-            if (json is null) return [];
+            if (json is null)
+            {
+                _logger.LogDebug("Wikidata author audit for QID {Qid}: SPARQL returned null", qid);
+                return [];
+            }
 
             var bindings = json["results"]?["bindings"]?.AsArray();
             if (bindings is null || bindings.Count == 0)
+            {
+                _logger.LogDebug("Wikidata author audit for QID {Qid}: 0 bindings returned", qid);
                 return [];
+            }
 
             // Parse each author row into a structured record.
-            var authors = new List<(string Qid, string Label, int? Ordinal, string? P31Type)>();
+            // PenNameQid/PenNameLabel hold an individual pseudonym entity (P31=Q61002)
+            // that claims P1773 (attributed_to) = this author — used for hint-based matching.
+            var authors = new List<(string Qid, string Label, int? Ordinal, string? P31Type,
+                string? PenNameQid, string? PenNameLabel)>();
 
             foreach (var binding in bindings)
             {
@@ -1439,6 +1452,8 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
                 var authorLabel = binding?["authorLabel"]?["value"]?.GetValue<string>();
                 var ordinalStr = binding?["ordinal"]?["value"]?.GetValue<string>();
                 var instanceOfUri = binding?["instanceOf"]?["value"]?.GetValue<string>();
+                var penNameUri = binding?["penName"]?["value"]?.GetValue<string>();
+                var penNameLabel = binding?["penNameLabel"]?["value"]?.GetValue<string>();
 
                 if (string.IsNullOrWhiteSpace(authorUri) || string.IsNullOrWhiteSpace(authorLabel))
                     continue;
@@ -1454,24 +1469,66 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
                     ? ExtractQidFromUri(instanceOfUri)
                     : null;
 
+                var penQid = !string.IsNullOrWhiteSpace(penNameUri)
+                    ? ExtractQidFromUri(penNameUri)
+                    : null;
+
                 // Deduplicate: a single author can appear multiple times due to
-                // multiple P31 values. Keep the most informative classification.
+                // multiple P31 values or multiple pen name rows. Keep the most
+                // informative classification and accumulate pen names.
                 var existing = authors.FindIndex(a =>
                     string.Equals(a.Qid, authorQid, StringComparison.OrdinalIgnoreCase));
 
                 if (existing >= 0)
                 {
-                    // Prefer pseudonym/collective classification over plain human.
                     var current = authors[existing];
+                    // Prefer pseudonym/collective classification over plain human.
+                    var newP31 = current.P31Type;
                     if (p31Qid is QidPseudonym or QidCollectivePseudonym
                         && current.P31Type is not QidPseudonym and not QidCollectivePseudonym)
                     {
-                        authors[existing] = (current.Qid, current.Label, current.Ordinal, p31Qid);
+                        newP31 = p31Qid;
                     }
+                    // Keep the first pen name encountered (if not yet set).
+                    var newPenQid = current.PenNameQid ?? penQid;
+                    var newPenLabel = current.PenNameLabel ?? penNameLabel;
+                    authors[existing] = (current.Qid, current.Label, current.Ordinal, newP31,
+                        newPenQid, newPenLabel);
                 }
                 else
                 {
-                    authors.Add((authorQid, authorLabel, ordinal, p31Qid));
+                    authors.Add((authorQid, authorLabel, ordinal, p31Qid, penQid, penNameLabel));
+                }
+            }
+
+            // Hint-based individual pen name substitution.
+            // When Wikidata attributes a work to a real person (e.g. Nora Roberts) but the
+            // embedded OPF metadata names a known pen name (e.g. "J.D. Robb"), and Wikidata
+            // records that pen name entity via P1773 (attributed_to) → real person, substitute
+            // the pen name in place of the real person so the display author matches how the
+            // work was actually published.
+            if (!string.IsNullOrWhiteSpace(hintAuthor))
+            {
+                for (int i = 0; i < authors.Count; i++)
+                {
+                    var a = authors[i];
+                    // Only substitute for plain human authors (no pseudonym flag yet).
+                    if (a.P31Type is QidPseudonym or QidCollectivePseudonym)
+                        continue;
+                    if (string.IsNullOrWhiteSpace(a.PenNameQid) || string.IsNullOrWhiteSpace(a.PenNameLabel))
+                        continue;
+
+                    if (string.Equals(a.PenNameLabel, hintAuthor, StringComparison.OrdinalIgnoreCase))
+                    {
+                        _logger.LogInformation(
+                            "Wikidata author audit for {Qid}: hint '{HintAuthor}' matches pen name {PenQid} " +
+                            "of real person {RealQid} — substituting pen name as canonical author",
+                            qid, hintAuthor, a.PenNameQid, a.Qid);
+
+                        // Replace the real-person entry with the pen name entity.
+                        authors[i] = (a.PenNameQid, a.PenNameLabel, a.Ordinal, QidPseudonym,
+                            null, null);
+                    }
                 }
             }
 
@@ -1489,7 +1546,7 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
                 .Select(x => x.Author)
                 .ToList();
 
-            _logger.LogDebug(
+            _logger.LogInformation(
                 "Wikidata author audit for {Qid}: {Count} authors found, order: [{Authors}]",
                 qid, sorted.Count,
                 string.Join(", ", sorted.Select(a =>

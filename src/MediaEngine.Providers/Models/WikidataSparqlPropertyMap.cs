@@ -520,11 +520,17 @@ public static class WikidataSparqlPropertyMap
     {
         var lang = string.IsNullOrWhiteSpace(language) ? "en" : language.ToLowerInvariant();
         return $$"""
-            SELECT ?author ?authorLabel ?ordinal ?instanceOf WHERE {
+            SELECT ?author ?authorLabel ?ordinal ?instanceOf ?penName ?penNameLabel WHERE {
               wd:{{qid}} p:P50 ?stmt .
               ?stmt ps:P50 ?author .
               OPTIONAL { ?stmt pq:P1545 ?ordinal . }
               OPTIONAL { ?author wdt:P31 ?instanceOf . }
+              OPTIONAL {
+                ?penName wdt:P1773 ?author .
+                ?penName wdt:P31 wd:Q61002 .
+                ?penName rdfs:label ?penNameLabel .
+                FILTER(LANG(?penNameLabel) = "{{lang}}")
+              }
               ?author rdfs:label ?authorLabel .
               FILTER(LANG(?authorLabel) = "{{lang}}")
             }
