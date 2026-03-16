@@ -355,7 +355,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         foreach (var provider in stage1Providers)
         {
             var claims = await FetchFromProviderAsync(
-                provider, request, endpointMap, sparqlBaseUrl, lang, country, ct).ConfigureAwait(false);
+                provider, request, endpointMap, sparqlBaseUrl, lang, country, ct, effectivePass).ConfigureAwait(false);
 
             if (claims.Count == 0) continue;
 
@@ -561,7 +561,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             foreach (var provider in stage2Providers)
             {
                 var claims = await FetchFromProviderAsync(
-                    provider, stage2Request, endpointMap, sparqlBaseUrl, lang, country, ct)
+                    provider, stage2Request, endpointMap, sparqlBaseUrl, lang, country, ct, effectivePass)
                     .ConfigureAwait(false);
 
                 if (claims.Count == 0) continue;
@@ -628,7 +628,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         foreach (var provider in waterfallProviders)
         {
             var claims = await FetchFromProviderAsync(
-                provider, stage3Request, endpointMap, sparqlBaseUrl, lang, country, ct).ConfigureAwait(false);
+                provider, stage3Request, endpointMap, sparqlBaseUrl, lang, country, ct, effectivePass).ConfigureAwait(false);
 
             if (claims.Count > 0)
             {
@@ -1618,10 +1618,11 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         string? sparqlBaseUrl,
         string language,
         string country,
-        CancellationToken ct)
+        CancellationToken ct,
+        HydrationPass effectivePass = HydrationPass.Quick)
     {
         var baseUrl = ResolveBaseUrl(provider, endpointMap);
-        var lookupRequest = BuildLookupRequest(request, provider, baseUrl, language, country, sparqlBaseUrl);
+        var lookupRequest = BuildLookupRequest(request, provider, baseUrl, language, country, sparqlBaseUrl, effectivePass);
 
         try
         {
@@ -2101,7 +2102,8 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         string baseUrl,
         string language = "en",
         string country = "us",
-        string? sparqlBaseUrl = null)
+        string? sparqlBaseUrl = null,
+        HydrationPass effectivePass = HydrationPass.Quick)
     {
         var h = request.Hints;
         return new ProviderLookupRequest
@@ -2125,7 +2127,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             SparqlBaseUrl  = sparqlBaseUrl,
             Language       = language,
             Country        = country,
-            HydrationPass  = request.Pass,
+            HydrationPass  = effectivePass,
         };
     }
 
