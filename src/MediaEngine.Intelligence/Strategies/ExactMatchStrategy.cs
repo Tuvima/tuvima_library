@@ -52,6 +52,12 @@ public sealed class ExactMatchStrategy : IScoringStrategy
         var normB = Normalize(b);
 
         if (normA.Length == 0 || normB.Length == 0) return 0.0;
+
+        // NF placeholders are not real identifiers — never match
+        if (normA.StartsWith("nf", StringComparison.OrdinalIgnoreCase) ||
+            normB.StartsWith("nf", StringComparison.OrdinalIgnoreCase))
+            return 0.0;
+
         return string.Equals(normA, normB, StringComparison.OrdinalIgnoreCase) ? 1.0 : 0.0;
     }
 

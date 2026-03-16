@@ -402,14 +402,14 @@ else
 
     private void HandleHubSelected(HubViewModel hub)
     {
-        Nav.NavigateTo($"/hub/{hub.Id}");
+        Nav.NavigateTo($"/book/{hub.Works.FirstOrDefault()?.Id ?? hub.Id}");
     }
 
     /// <summary>Cover or title clicked — open Hub Detail with progress context.</summary>
     private void HandleJourneyHubNavigate(JourneyItemViewModel item)
     {
         if (item.HubId.HasValue)
-            Nav.NavigateTo($"/hub/{item.HubId.Value}?lastAssetId={item.AssetId}");
+            Nav.NavigateTo($"/book/{item.HubId.Value}?lastAssetId={item.AssetId}");
     }
 
     /// <summary>CTA button clicked — go directly to the reader/player for this asset.</summary>
@@ -427,7 +427,7 @@ else
         else if (item.HubId.HasValue)
         {
             // Audio, video, comics — no dedicated player yet; open hub detail with asset context
-            Nav.NavigateTo($"/hub/{item.HubId.Value}?lastAssetId={item.AssetId}");
+            Nav.NavigateTo($"/book/{item.HubId.Value}?lastAssetId={item.AssetId}");
         }
     }
 

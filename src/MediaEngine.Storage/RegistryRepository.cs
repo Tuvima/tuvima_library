@@ -91,6 +91,7 @@ public sealed class RegistryRepository : IRegistryRepository
                         WHEN rd.review_id IS NOT NULL THEN 'Review'
                         WHEN ul.has_locks = 1 THEN 'Edited'
                         WHEN ad.asset_status = 'Conflicted' THEN 'Duplicate'
+                        WHEN ad.file_path_root LIKE '%/.staging/%' OR ad.file_path_root LIKE '%\.staging\%' THEN 'Staging'
                         ELSE 'Auto'
                     END AS status,
                     CASE WHEN ad.asset_status = 'Conflicted' THEN 1 ELSE 0 END AS has_duplicate,
@@ -396,7 +397,12 @@ public sealed class RegistryRepository : IRegistryRepository
                  INNER JOIN media_assets ma ON ma.id = mc.entity_id
                  INNER JOIN editions e ON e.id = ma.edition_id
                  WHERE mc.is_user_locked = 1) AS edited,
-                (SELECT COUNT(*) FROM media_assets WHERE status = 'Conflicted') AS duplicate
+                (SELECT COUNT(*) FROM media_assets WHERE status = 'Conflicted') AS duplicate,
+                (SELECT COUNT(DISTINCT e.work_id)
+                 FROM media_assets ma
+                 INNER JOIN editions e ON e.id = ma.edition_id
+                 WHERE ma.file_path_root LIKE '%/.staging/%'
+                    OR ma.file_path_root LIKE '%\.staging\%') AS staging
             """;
 
         using var reader = cmd.ExecuteReader();
@@ -406,12 +412,13 @@ public sealed class RegistryRepository : IRegistryRepository
             var needsReview = reader.GetInt32(1);
             var edited = reader.GetInt32(2);
             var duplicate = reader.GetInt32(3);
-            var auto = total - needsReview - edited - duplicate;
+            var staging = reader.GetInt32(4);
+            var auto = total - needsReview - edited - duplicate - staging;
 
-            return Task.FromResult(new RegistryStatusCounts(total, needsReview, Math.Max(auto, 0), edited, duplicate));
+            return Task.FromResult(new RegistryStatusCounts(total, needsReview, Math.Max(auto, 0), edited, duplicate, staging));
         }
 
-        return Task.FromResult(new RegistryStatusCounts(0, 0, 0, 0, 0));
+        return Task.FromResult(new RegistryStatusCounts(0, 0, 0, 0, 0, 0));
     }
 
     private static void AddParameters(SqliteCommand cmd, RegistryQuery query)

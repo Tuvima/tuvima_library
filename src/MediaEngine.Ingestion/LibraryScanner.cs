@@ -11,37 +11,20 @@ using MediaEngine.Storage.Contracts;
 namespace MediaEngine.Ingestion;
 
 /// <summary>
-/// Recursively scans a Library Root directory for <c>library.xml</c> sidecar files
-/// and uses them to hydrate (or restore) the database — the "Great Inhale".
+/// Scans a Library Root directory for media files and uses embedded metadata
+/// plus batch reconciliation to rebuild the database — the "Great Inhale v2".
 ///
 /// <para>
-/// <b>XML always wins:</b> when the sidecar and the database disagree on a canonical
-/// value, the sidecar value is applied. This makes the filesystem the authoritative
-/// source of truth.
-/// </para>
-///
-/// <para>
-/// <b>Scope:</b>
-/// <list type="bullet">
-///   <item>Edition-level XML (<c>&lt;library-edition&gt;</c>) — upserts canonical values for
-///     any MediaAsset already in the database (matched by content hash). Re-inserts
-///     user-locked claims that have been lost from <c>metadata_claims</c>.
-///     Hub records are reconstructed from edition sidecar data (title as display name).</item>
-/// </list>
-/// Hub-level sidecars (<c>&lt;library-hub&gt;</c>) are no longer written.  Legacy
-/// hub sidecars encountered during scanning are silently ignored.
-/// Full MediaAsset creation from scratch (after a complete DB wipe) requires a future
-/// Work/Edition repository layer and a separate ingestion pass.
-/// </para>
-///
-/// <para>
-/// No file hashing or metadata extraction is performed — the scan reads XML only,
-/// making it orders of magnitude faster than a full ingestion pass.
+/// Files already known to the database (matched by content hash) have their
+/// paths updated if they have moved. New files are noted for a follow-up
+/// ingestion pass. Person and universe sidecars (person.xml, universe.xml)
+/// are still read from <c>.people/</c> and <c>.universe/</c> sub-directories
+/// as those are maintained separately from the edition sidecar system.
 /// </para>
 /// </summary>
 public sealed class LibraryScanner : ILibraryScanner
 {
-    private readonly ISidecarWriter                  _sidecar;
+    private readonly IAssetHasher                    _hasher;
     private readonly IHubRepository                  _hubRepo;
     private readonly IMediaAssetRepository           _assetRepo;
     private readonly ICanonicalValueRepository       _canonicalRepo;
@@ -56,13 +39,30 @@ public sealed class LibraryScanner : ILibraryScanner
     private readonly ILogger<LibraryScanner>         _logger;
 
     // Stable GUID representing the library-scanner as a "provider" when re-inserting
-    // canonical values from the sidecar. Distinct from the local-processor GUID
-    // so the claim source is distinguishable in the claims table.
-    private static readonly Guid LibraryScannerProviderId =
+    // canonical values. Distinct from the local-processor GUID so the claim source
+    // is distinguishable in the claims table.
+    private static readonly Guid ScannerProviderGuid =
         new("c9d8e7f6-a5b4-4321-fedc-0102030405c9");
 
+    // Media file extensions that the scanner should enumerate.
+    private static readonly HashSet<string> MediaExtensions =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            ".epub", ".pdf",
+            ".m4b", ".mp3", ".m4a", ".flac", ".ogg", ".wav", ".opus", ".wma",
+            ".mp4", ".mkv", ".avi", ".webm",
+            ".cbz", ".cbr",
+        };
+
+    // Sub-directories inside LibraryRoot that should never be scanned for media files.
+    private static readonly HashSet<string> SkipDirectories =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            ".staging", ".people", ".universe", ".tuvima-shadow", ".orphans",
+        };
+
     public LibraryScanner(
-        ISidecarWriter                  sidecar,
+        IAssetHasher                    hasher,
         IHubRepository                  hubRepo,
         IMediaAssetRepository           assetRepo,
         ICanonicalValueRepository       canonicalRepo,
@@ -76,7 +76,7 @@ public sealed class LibraryScanner : ILibraryScanner
         ICanonicalValueArrayRepository  arrayRepo,
         ILogger<LibraryScanner>         logger)
     {
-        _sidecar              = sidecar;
+        _hasher               = hasher;
         _hubRepo              = hubRepo;
         _assetRepo            = assetRepo;
         _canonicalRepo        = canonicalRepo;
@@ -96,60 +96,91 @@ public sealed class LibraryScanner : ILibraryScanner
         string libraryRoot,
         CancellationToken ct = default)
     {
-        var sw               = Stopwatch.StartNew();
-        int hubsUpserted     = 0;
-        int editionsUpserted = 0;
-        int errors           = 0;
+        var sw            = Stopwatch.StartNew();
+        int filesScanned  = 0;
+        int pathsUpdated  = 0;
+        int errors        = 0;
 
         _logger.LogInformation(
-            "Great Inhale started. Library root: {LibraryRoot}", libraryRoot);
+            "Great Inhale v2 started. Library root: {LibraryRoot}", libraryRoot);
 
-        var xmlFiles = Directory.EnumerateFiles(
-                libraryRoot, "library.xml", SearchOption.AllDirectories);
-
-        foreach (var xmlPath in xmlFiles)
+        foreach (var filePath in EnumerateMediaFiles(libraryRoot))
         {
             ct.ThrowIfCancellationRequested();
             try
             {
-                // Peek at the root element name to determine sidecar type.
-                var rootName = PeekRootName(xmlPath);
-
-                if (rootName is "library-hub")
+                // Compute a SHA-256 hash to identify the file by its content.
+                HashResult hash;
+                try
                 {
-                    // Hub-level sidecars are legacy — silently skip.
-                    // Hubs are reconstructed from edition sidecars.
-                    _logger.LogDebug(
-                        "Skipping legacy hub sidecar at {Path}", xmlPath);
+                    hash = await _hasher.ComputeAsync(filePath, ct).ConfigureAwait(false);
                 }
-                else if (rootName is "library-edition")
+                catch (Exception ex)
                 {
-                    if (await HydrateEditionAsync(xmlPath, ct).ConfigureAwait(false))
-                        editionsUpserted++;
+                    _logger.LogWarning(ex,
+                        "Great Inhale: could not hash {Path} — skipping", filePath);
+                    errors++;
+                    continue;
+                }
+
+                // If the asset is already in the database, update its path if it moved.
+                var existing = await _assetRepo.FindByHashAsync(hash.Hex, ct)
+                    .ConfigureAwait(false);
+
+                if (existing is not null)
+                {
+                    if (!string.Equals(existing.FilePathRoot, filePath,
+                            StringComparison.OrdinalIgnoreCase))
+                    {
+                        await _assetRepo.UpdateFilePathAsync(existing.Id, filePath, ct)
+                            .ConfigureAwait(false);
+                        pathsUpdated++;
+                        _logger.LogDebug(
+                            "Great Inhale: path updated for asset {Id}: {Old} → {New}",
+                            existing.Id, existing.FilePathRoot, filePath);
+                    }
                 }
                 else
                 {
+                    // New file not yet in the database.
+                    // A full ingestion pass is needed to process it properly
+                    // (processor → claims → scoring → hydration).
                     _logger.LogDebug(
-                        "Skipping unknown sidecar root '{Root}' at {Path}",
-                        rootName, xmlPath);
+                        "Great Inhale: new file not yet in DB — " +
+                        "run an ingestion pass to process it: {Path}", filePath);
                 }
+
+                filesScanned++;
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Great Inhale: error processing {XmlPath}", xmlPath);
+                _logger.LogWarning(ex, "Great Inhale: error processing {Path}", filePath);
                 errors++;
             }
         }
 
+        // Recover person data from the .people/ sub-directory.
+        int personsRecovered = 0;
+        try
+        {
+            personsRecovered = await ScanPeopleAsync(libraryRoot, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "Great Inhale: people scan failed — continuing");
+        }
+
         sw.Stop();
         _logger.LogInformation(
-            "Great Inhale complete — hubs: {Hubs}, editions: {Editions}, errors: {Errors}, elapsed: {Elapsed}ms",
-            hubsUpserted, editionsUpserted, errors, (long)sw.Elapsed.TotalMilliseconds);
+            "Great Inhale v2 complete — files: {Files}, paths updated: {Paths}, " +
+            "persons: {Persons}, errors: {Errors}, elapsed: {Elapsed}ms",
+            filesScanned, pathsUpdated, personsRecovered, errors,
+            (long)sw.Elapsed.TotalMilliseconds);
 
         return new LibraryScanResult
         {
-            HubsUpserted     = hubsUpserted,
-            EditionsUpserted = editionsUpserted,
+            HubsUpserted     = 0,
+            EditionsUpserted = filesScanned,
             Errors           = errors,
             Elapsed          = sw.Elapsed,
         };
@@ -180,7 +211,30 @@ public sealed class LibraryScanner : ILibraryScanner
 
             var personXml = Path.Combine(subDir, "person.xml");
             if (!File.Exists(personXml))
+            {
+                // No person.xml — try to recover from folder name pattern alone.
+                var folderName = Path.GetFileName(subDir);
+                var folderMatch = System.Text.RegularExpressions.Regex.Match(
+                    folderName, @"^(.+?)\s*\((Q\d+)\)$");
+                if (folderMatch.Success)
+                {
+                    var nameFromFolder = folderMatch.Groups[1].Value.Trim();
+                    var qidFromFolder  = folderMatch.Groups[2].Value;
+                    if (!string.IsNullOrWhiteSpace(nameFromFolder) &&
+                        !string.IsNullOrWhiteSpace(qidFromFolder))
+                    {
+                        var personByQid = await _personRepo
+                            .FindByQidAsync(qidFromFolder, ct).ConfigureAwait(false);
+                        if (personByQid is null)
+                        {
+                            _logger.LogDebug(
+                                "Great Inhale: no person.xml in {Dir} but QID found in " +
+                                "folder name — noting for future enrichment", subDir);
+                        }
+                    }
+                }
                 continue;
+            }
 
             try
             {
@@ -502,231 +556,36 @@ public sealed class LibraryScanner : ILibraryScanner
     }
 
     // -------------------------------------------------------------------------
-    // Edition hydration
-    // -------------------------------------------------------------------------
-
-    private async Task<bool> HydrateEditionAsync(string xmlPath, CancellationToken ct)
-    {
-        var data = await _sidecar.ReadEditionSidecarAsync(xmlPath, ct).ConfigureAwait(false);
-        if (data is null || string.IsNullOrWhiteSpace(data.ContentHash))
-        {
-            _logger.LogDebug(
-                "Skipping edition sidecar with no content hash: {Path}", xmlPath);
-            return false;
-        }
-
-        // Look up the MediaAsset by its hash — the permanent identity key.
-        var asset = await _assetRepo.FindByHashAsync(data.ContentHash, ct)
-                                     .ConfigureAwait(false);
-
-        if (asset is null)
-        {
-            // Asset is not in the DB. A full ingestion pass is needed to restore it.
-            // Great Inhale cannot create the Hub → Work → Edition → MediaAsset hierarchy
-            // without Work/Edition repositories (pre-existing Phase 7 gap).
-            _logger.LogDebug(
-                "Edition sidecar references unknown hash {Hash} — asset not in DB; " +
-                "run a full ingestion pass to restore it. ({Path})",
-                data.ContentHash[..Math.Min(12, data.ContentHash.Length)], xmlPath);
-            return false;
-        }
-
-        // Upsert canonical values from the sidecar. XML wins over DB.
-        var canonicals = BuildCanonicalValues(asset.Id, data);
-        if (canonicals.Count > 0)
-            await _canonicalRepo.UpsertBatchAsync(canonicals, ct).ConfigureAwait(false);
-
-        // Re-insert user-locked claims that may have been lost from metadata_claims.
-        if (data.UserLocks.Count > 0)
-            await ReinsertUserLocksAsync(asset.Id, data.UserLocks, ct).ConfigureAwait(false);
-
-        // Populate qid_labels from v2.0 QID attributes.
-        await CacheQidLabelsFromSidecarAsync(data, ct).ConfigureAwait(false);
-
-        // Decompose multi-valued canonicals into proper array rows.
-        await DecomposeMultiValuedAsync(asset.Id, data, ct).ConfigureAwait(false);
-
-        _logger.LogDebug(
-            "Edition hydrated — hash={Hash}, {CanonicalCount} canonicals, {LockCount} locks",
-            data.ContentHash[..Math.Min(12, data.ContentHash.Length)],
-            canonicals.Count, data.UserLocks.Count);
-
-        return true;
-    }
-
-    // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
 
     /// <summary>
-    /// Reads only the root element name of an XML file without loading the full
-    /// document, making sidecar type detection extremely fast.
+    /// Enumerates all media files under <paramref name="root"/>, skipping
+    /// internal sub-directories (<c>.staging</c>, <c>.people</c>, etc.).
     /// </summary>
-    private static string? PeekRootName(string xmlPath)
+    private static IEnumerable<string> EnumerateMediaFiles(string root)
     {
-        try
+        if (!Directory.Exists(root))
+            yield break;
+
+        // Check root-level files first.
+        foreach (var file in Directory.EnumerateFiles(root))
         {
-            using var reader = System.Xml.XmlReader.Create(xmlPath,
-                new System.Xml.XmlReaderSettings { IgnoreWhitespace = true });
-
-            while (reader.Read())
-            {
-                if (reader.NodeType == System.Xml.XmlNodeType.Element)
-                    return reader.LocalName;
-            }
-        }
-        catch { /* unreadable file — caller increments errors */ }
-        return null;
-    }
-
-    /// <summary>
-    /// Builds canonical value records from the sidecar's identity fields.
-    /// Only fields with non-empty values are included.
-    /// </summary>
-    private static IReadOnlyList<CanonicalValue> BuildCanonicalValues(
-        Guid assetId, EditionSidecarData data)
-    {
-        var now    = DateTimeOffset.UtcNow;
-        var result = new List<CanonicalValue>(6);
-
-        void Add(string key, string? value)
-        {
-            if (!string.IsNullOrWhiteSpace(value))
-                result.Add(new CanonicalValue
-                {
-                    EntityId     = assetId,
-                    Key          = key,
-                    Value        = value,
-                    LastScoredAt = now,
-                });
+            if (MediaExtensions.Contains(Path.GetExtension(file)))
+                yield return file;
         }
 
-        Add("title",      data.Title);
-        Add("author",     data.Author);
-        Add("media_type", data.MediaType);
-        Add("isbn",       data.Isbn);
-        Add("asin",       data.Asin);
-
-        return result;
-    }
-
-    /// <summary>
-    /// Inserts user-locked claims into <c>metadata_claims</c> if they are not
-    /// already present with <c>is_user_locked = 1</c>.
-    /// Checks existing claims to avoid duplicating locked rows.
-    /// </summary>
-    private async Task ReinsertUserLocksAsync(
-        Guid assetId,
-        IReadOnlyList<UserLockedClaim> locks,
-        CancellationToken ct)
-    {
-        // Load existing locked claims so we don't re-insert duplicates.
-        var existing = await _claimRepo.GetByEntityAsync(assetId, ct).ConfigureAwait(false);
-        var lockedKeys = existing
-            .Where(c => c.IsUserLocked)
-            .Select(c => c.ClaimKey)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-        var toInsert = locks
-            .Where(ul => !lockedKeys.Contains(ul.Key)
-                         && !string.IsNullOrWhiteSpace(ul.Key)
-                         && !string.IsNullOrWhiteSpace(ul.Value))
-            .Select(ul => new MetadataClaim
-            {
-                Id           = Guid.NewGuid(),
-                EntityId     = assetId,
-                ProviderId   = LibraryScannerProviderId,
-                ClaimKey     = ul.Key,
-                ClaimValue   = ul.Value,
-                Confidence   = 1.0,
-                ClaimedAt    = ul.LockedAt,
-                IsUserLocked = true,
-            })
-            .ToList();
-
-        if (toInsert.Count > 0)
-            await _claimRepo.InsertBatchAsync(toInsert, ct).ConfigureAwait(false);
-    }
-
-    /// <summary>
-    /// Caches QID→label pairs from v2.0 sidecar QID attributes into the
-    /// <c>qid_labels</c> table so future sessions can resolve QIDs offline.
-    /// Best-effort — never breaks the pipeline.
-    /// </summary>
-    private async Task CacheQidLabelsFromSidecarAsync(
-        EditionSidecarData data,
-        CancellationToken ct)
-    {
-        try
+        // Then recurse into non-skip sub-directories.
+        foreach (var dir in Directory.EnumerateDirectories(root))
         {
-            var entries = new List<(string qid, string label, string? entityType)>();
-
-            if (!string.IsNullOrWhiteSpace(data.WikidataQid) &&
-                !string.IsNullOrWhiteSpace(data.Title))
-                entries.Add((data.WikidataQid, data.Title, "Work"));
-
-            if (!string.IsNullOrWhiteSpace(data.AuthorQid) &&
-                !string.IsNullOrWhiteSpace(data.Author))
-                entries.Add((data.AuthorQid, data.Author, "Person"));
-
-            // Multi-valued canonicals may carry QID→label pairs.
-            foreach (var mv in data.MultiValuedCanonicals)
-            {
-                for (int i = 0; i < mv.Value.Qids.Length && i < mv.Value.Values.Length; i++)
-                {
-                    if (!string.IsNullOrWhiteSpace(mv.Value.Qids[i]) &&
-                        !string.IsNullOrWhiteSpace(mv.Value.Values[i]))
-                        entries.Add((mv.Value.Qids[i], mv.Value.Values[i], null));
-                }
-            }
-
-            foreach (var (qid, label, entityType) in entries)
-            {
-                await _qidLabelRepo.UpsertAsync(qid, label, null, entityType, ct)
-                    .ConfigureAwait(false);
-            }
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            _logger.LogDebug(ex, "Failed to cache QID labels from edition sidecar");
-        }
-    }
-
-    /// <summary>
-    /// Decomposes multi-valued canonical entries from v2.0 sidecars into proper
-    /// <c>canonical_value_arrays</c> rows.
-    /// </summary>
-    private async Task DecomposeMultiValuedAsync(
-        Guid entityId,
-        EditionSidecarData data,
-        CancellationToken ct)
-    {
-        foreach (var mv in data.MultiValuedCanonicals)
-        {
-            if (mv.Value.Values.Length == 0)
+            var dirName = Path.GetFileName(dir);
+            if (SkipDirectories.Contains(dirName))
                 continue;
 
-            try
+            foreach (var file in Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories))
             {
-                var entries = new List<CanonicalArrayEntry>(mv.Value.Values.Length);
-                for (int i = 0; i < mv.Value.Values.Length; i++)
-                {
-                    entries.Add(new CanonicalArrayEntry
-                    {
-                        Ordinal  = i,
-                        Value    = mv.Value.Values[i],
-                        ValueQid = i < mv.Value.Qids.Length ? mv.Value.Qids[i] : null,
-                    });
-                }
-
-                await _arrayRepo.SetValuesAsync(entityId, mv.Key, entries, ct)
-                    .ConfigureAwait(false);
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                _logger.LogDebug(ex,
-                    "Failed to decompose multi-valued field '{Key}' for entity {EntityId}",
-                    mv.Key, entityId);
+                if (MediaExtensions.Contains(Path.GetExtension(file)))
+                    yield return file;
             }
         }
     }

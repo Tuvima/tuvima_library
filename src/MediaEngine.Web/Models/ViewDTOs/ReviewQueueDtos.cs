@@ -51,6 +51,10 @@ public sealed class ReviewItemViewModel
     /// <summary>The media type of the entity (e.g. "Epub", "Audiobook").</summary>
     [JsonPropertyName("media_type")]
     public string? MediaType { get; set; }
+
+    /// <summary>Cover art URL from canonical "cover" value, if available.</summary>
+    [JsonPropertyName("cover_url")]
+    public string? CoverUrl { get; set; }
 }
 
 /// <summary>Request body for resolving a review queue item.</summary>

@@ -34,8 +34,9 @@ public static class SettingsEndpoints
     private static readonly IReadOnlyDictionary<string, string> _displayNames =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
-            ["apple_books"]           = "Apple Books",
-            ["audnexus"]              = "Audnexus",
+            ["apple_books"]           = "Apple API",
+            ["apple_api"]             = "Apple API",
+            // audnexus removed - config file deleted as part of SPARQL cleanup
             ["wikidata"]              = "Wikidata",
             ["local_filesystem"]      = "Local Filesystem",
             ["open_library"]          = "Open Library",
@@ -50,7 +51,8 @@ public static class SettingsEndpoints
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             ["apple_books"]           = "apple_books",
-            ["audnexus"]              = "audnexus",
+            ["apple_api"]             = "apple_api",
+            // audnexus removed - config file deleted as part of SPARQL cleanup
             ["wikidata"]              = "wikidata_api",
             ["open_library"]          = "open_library",
             ["google_books"]          = "google_books",

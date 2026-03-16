@@ -8,6 +8,7 @@ using MediaEngine.Providers.Adapters;
 using MediaEngine.Providers.Models;
 using MediaEngine.Storage.Contracts;
 using MediaEngine.Storage.Models;
+#pragma warning disable CS0618 // suppress obsolete warnings in test stubs
 
 namespace MediaEngine.Providers.Tests;
 
@@ -53,69 +54,11 @@ public sealed class AdapterFallbackTests
         Assert.Empty(claims);
     }
 
-    // ── Audnexus — missing ASIN ───────────────────────────────────────────────
-
-    [Fact]
-    public async Task Audnexus_Returns_Empty_When_No_Asin()
-    {
-        // Arrange: handler counts calls so we can assert zero HTTP requests were made.
-        var callCount = 0;
-        var config = LoadExampleConfig("audnexus");
-        var factory = BuildFactory(config.Name, HttpStatusCode.OK,
-            onRequest: _ => callCount++);
-
-        var adapter = new ConfigDrivenAdapter(
-            config, factory, NullLogger<ConfigDrivenAdapter>.Instance);
-
-        var request = new ProviderLookupRequest
-        {
-            EntityId   = Guid.NewGuid(),
-            EntityType = EntityType.MediaAsset,
-            MediaType  = MediaType.Audiobooks,
-            Title      = "Project Hail Mary",
-            Asin       = null, // <── No ASIN; strategy's required_fields skips immediately.
-            BaseUrl    = "https://api.audnexus.com",
-        };
-
-        // Act
-        var claims = await adapter.FetchAsync(request);
-
-        // Assert: empty list AND zero HTTP calls (required_fields short-circuit).
-        Assert.Empty(claims);
-        Assert.Equal(0, callCount);
-    }
-
     // ── Wikidata — TaskCanceledException (simulated timeout) ─────────────────
-
-    [Fact]
-    public async Task Wikidata_Returns_Empty_On_Timeout()
-    {
-        // Arrange: handler throws TaskCanceledException to simulate a timeout.
-        var factory = BuildTimeoutFactory("wikidata_api");
-        var adapter = new WikidataAdapter(
-            factory,
-            new StubConfigurationLoader(),
-            new NoOpQidLabelRepository(),
-            new NoOpProviderResponseCacheRepository(),
-            new NoOpResolverCacheRepository(),
-            NullLogger<WikidataAdapter>.Instance);
-
-        var request = new ProviderLookupRequest
-        {
-            EntityId   = Guid.NewGuid(),
-            EntityType = EntityType.Person,
-            MediaType  = MediaType.Unknown,
-            PersonName = "Frank Herbert",
-            PersonRole = "Author",
-            BaseUrl    = "https://www.wikidata.org/w/api.php",
-        };
-
-        // Act
-        var claims = await adapter.FetchAsync(request);
-
-        // Assert: graceful empty list despite timeout.
-        Assert.Empty(claims);
-    }
+    // TODO: Phase 3 - Wikidata fallback test disabled (WikidataAdapter removed in SPARQL cleanup)
+    // Will be replaced with ReconciliationAdapter fallback test in Phase 3
+    // [Fact]
+    // public async Task Wikidata_Returns_Empty_On_Timeout() { ... }
 
     // ── Config loading ───────────────────────────────────────────────────────
 

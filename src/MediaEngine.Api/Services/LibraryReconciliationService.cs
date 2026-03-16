@@ -11,7 +11,7 @@ namespace MediaEngine.Api.Services;
 /// <summary>
 /// Background service that periodically scans all Normal-status assets and
 /// verifies their files still exist on disk. Missing files are logged and
-/// their directory artifacts (cover.jpg, library.xml, empty folders) are
+/// their directory artifacts (cover.jpg, empty folders) are
 /// cleaned up.
 ///
 /// Also performs three folder-maintenance passes:

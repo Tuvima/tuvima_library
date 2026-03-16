@@ -97,6 +97,14 @@ public sealed class HubViewModel
     /// <summary>Fictional universe QID from the first Work with a universe link (for Chronicle Explorer navigation).</summary>
     public string? FictionalUniverseQid => Works.Select(w => w.FictionalUniverseQid).FirstOrDefault(q => !string.IsNullOrEmpty(q));
 
+    /// <summary>Best human-facing identifier from the first Work with one.</summary>
+    public string? DisplayIdentifier =>
+        Works.Select(w => w.DisplayIdentifier).FirstOrDefault(id => !string.IsNullOrEmpty(id));
+
+    /// <summary>Label for <see cref="DisplayIdentifier"/>.</summary>
+    public string DisplayIdentifierLabel =>
+        Works.Select(w => w.DisplayIdentifierLabel).FirstOrDefault(l => l != "QID") ?? "QID";
+
     /// <summary>
     /// Brand hex colour derived from the dominant media type across this Hub's Works.
     /// Driven by <see cref="UniverseMapper.ColourForHub"/> so all colour logic
@@ -125,6 +133,11 @@ public sealed class HubViewModel
         };
     }
 
-    private static string? GetTitle(WorkViewModel w) =>
-        w.CanonicalValues.FirstOrDefault(cv => cv.Key == "title")?.Value;
+    private static string? GetTitle(WorkViewModel w)
+    {
+        var raw = w.CanonicalValues.FirstOrDefault(cv => cv.Key == "title")?.Value;
+        if (raw is not null && raw.Contains("|||", StringComparison.Ordinal))
+            return raw.Split("|||", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault();
+        return raw;
+    }
 }

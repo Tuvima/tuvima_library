@@ -48,6 +48,7 @@ public static class HubEndpoints
                         MediaType       = w.MediaType,
                         HubDisplayName  = GetCanonical(hub.Works.FirstOrDefault()!, "title")
                                           ?? hub.Id.ToString("N")[..8],
+                        CoverUrl        = GetCanonical(w, "cover"),
                     }))
                 .Take(20)
                 .ToList();
@@ -248,8 +249,19 @@ public static class HubEndpoints
         w.CanonicalValues.Any(cv =>
             cv.Value.Contains(query, StringComparison.OrdinalIgnoreCase));
 
-    private static string? GetCanonical(WorkDto? w, string key) =>
-        w?.CanonicalValues
-          .FirstOrDefault(cv => cv.Key.Equals(key, StringComparison.OrdinalIgnoreCase))
-          ?.Value;
+    private static readonly HashSet<string> MultiValuedKeys = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "genre", "characters", "cast_member", "voice_actor",
+        "narrative_location", "main_subject", "composer", "screenwriter",
+    };
+
+    private static string? GetCanonical(WorkDto? w, string key)
+    {
+        var raw = w?.CanonicalValues
+            .FirstOrDefault(cv => cv.Key.Equals(key, StringComparison.OrdinalIgnoreCase))
+            ?.Value;
+        if (raw is not null && raw.Contains("|||", StringComparison.Ordinal) && !MultiValuedKeys.Contains(key))
+            return raw.Split("|||", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault();
+        return raw;
+    }
 }

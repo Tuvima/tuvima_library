@@ -136,6 +136,9 @@ public sealed class SearchResultDto
 
     [JsonPropertyName("hub_display_name")]
     public string HubDisplayName { get; init; } = string.Empty;
+
+    [JsonPropertyName("cover_url")]
+    public string? CoverUrl { get; init; }
 }
 
 
@@ -889,9 +892,6 @@ public sealed class HydrateResponse
     [JsonPropertyName("stage2_claims")]
     public int Stage2Claims { get; init; }
 
-    [JsonPropertyName("stage3_claims")]
-    public int Stage3Claims { get; init; }
-
     [JsonPropertyName("needs_review")]
     public bool NeedsReview { get; init; }
 
@@ -980,10 +980,17 @@ public sealed class ReviewItemDto
     [JsonPropertyName("entity_title")]
     public string? EntityTitle { get; init; }
 
+    /// <summary>
+    /// Cover art URL from canonical "cover" value, if available.
+    /// </summary>
+    [JsonPropertyName("cover_url")]
+    public string? CoverUrl { get; init; }
+
     public static ReviewItemDto FromDomain(
         Domain.Entities.ReviewQueueEntry e,
         string? mediaType = null,
-        string? entityTitle = null) => new()
+        string? entityTitle = null,
+        string? coverUrl = null) => new()
     {
         Id              = e.Id,
         EntityId        = e.EntityId,
@@ -999,6 +1006,7 @@ public sealed class ReviewItemDto
         ResolvedBy      = e.ResolvedBy,
         MediaType       = mediaType,
         EntityTitle     = entityTitle,
+        CoverUrl        = coverUrl,
     };
 }
 

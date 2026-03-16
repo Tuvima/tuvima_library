@@ -28,7 +28,7 @@
   },
   "throttle_ms": 250,
   "max_concurrency": 2,
-  "hydration_stages": [3],
+  "hydration_stages": [2],
   "cache_ttl_hours": 168,
 
   "adapter_type": "config_driven",

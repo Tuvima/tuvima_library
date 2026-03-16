@@ -30,6 +30,16 @@
                 <span class="registry-tab-count">@_counts.Total</span>
             }
         </button>
+        <button class="registry-tab @(_statusFilter == "Staging" ? "registry-tab-active" : "")"
+                @onclick="@(() => SetStatusFilter("Staging"))">
+            <MudIcon Icon="@Icons.Material.Filled.HourglassEmpty" Size="Size.Small"
+                     Style="vertical-align: middle; margin-right: 4px; font-size: 14px;" />
+            In Staging
+            @if (_counts is not null && _counts.Staging > 0)
+            {
+                <span class="registry-tab-count registry-tab-count-amber">@_counts.Staging</span>
+            }
+        </button>
         <button class="registry-tab @(_statusFilter == "Review" ? "registry-tab-active" : "")"
                 @onclick="@(() => SetStatusFilter("Review"))">
             Needs Review
@@ -895,7 +905,7 @@
         "tmdb_id" => "TMDB",
         "imdb_id" => "IMDb",
         "wikidata_qid" => "Wikidata",
-        "apple_books_id" => "Apple Books",
+        "apple_books_id" => "Apple API",
         "audible_id" => "Audible",
         "goodreads_id" => "Goodreads",
         "musicbrainz_id" => "MusicBrainz",
@@ -1004,6 +1014,11 @@
     .registry-tab-count-warn {
         background: rgba(234,179,8,0.2);
         color: #EAB308;
+    }
+
+    .registry-tab-count-amber {
+        background: rgba(201,146,46,0.2);
+        color: #C9922E;
     }
 
     /* Filters */

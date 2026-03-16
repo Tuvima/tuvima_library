@@ -88,28 +88,6 @@ internal sealed class StubRecursiveIdentity : IRecursiveIdentityService
     }
 }
 
-// ── Sidecar Writer Stub ───────────────────────────────────────────────────────
-
-internal sealed class StubSidecarWriter : ISidecarWriter
-{
-    public List<(string Path, EditionSidecarData Data)> EditionWrites { get; } = [];
-
-    public Task WriteEditionSidecarAsync(string editionFolderPath, EditionSidecarData data, CancellationToken ct = default)
-    {
-        EditionWrites.Add((editionFolderPath, data));
-        return Task.CompletedTask;
-    }
-
-    public Task<EditionSidecarData?> ReadEditionSidecarAsync(string xmlPath, CancellationToken ct = default)
-        => Task.FromResult<EditionSidecarData?>(null);
-
-    public Task WritePersonSidecarAsync(string personFolderPath, PersonSidecarData data, CancellationToken ct = default)
-        => Task.CompletedTask;
-
-    public Task<PersonSidecarData?> ReadPersonSidecarAsync(string xmlPath, CancellationToken ct = default)
-        => Task.FromResult<PersonSidecarData?>(null);
-}
-
 // ── Hero Banner Generator Stub ────────────────────────────────────────────────
 
 internal sealed class StubHeroBannerGenerator : IHeroBannerGenerator

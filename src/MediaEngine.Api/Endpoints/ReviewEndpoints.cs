@@ -48,8 +48,9 @@ public static class ReviewEndpoints
                     lookup.TryGetValue("file_name", out title);
 
                 lookup.TryGetValue("media_type", out var mediaType);
+                lookup.TryGetValue("cover", out var coverUrl);
 
-                dtos.Add(ReviewItemDto.FromDomain(e, mediaType, title));
+                dtos.Add(ReviewItemDto.FromDomain(e, mediaType, title, coverUrl));
             }
 
             return Results.Ok(dtos);
@@ -92,8 +93,9 @@ public static class ReviewEndpoints
                 lookup.TryGetValue("file_name", out title);
 
             lookup.TryGetValue("media_type", out var mediaType);
+            lookup.TryGetValue("cover", out var coverUrl);
 
-            return Results.Ok(ReviewItemDto.FromDomain(item, mediaType, title));
+            return Results.Ok(ReviewItemDto.FromDomain(item, mediaType, title, coverUrl));
         })
         .WithName("GetReviewItem")
         .WithSummary("Get a single review queue item with full details.")

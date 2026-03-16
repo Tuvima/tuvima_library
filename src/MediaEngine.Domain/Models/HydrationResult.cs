@@ -1,24 +1,21 @@
 namespace MediaEngine.Domain.Models;
 
 /// <summary>
-/// Result of running the three-stage hydration pipeline for a single entity.
+/// Result of running the two-stage hydration pipeline for a single entity.
 ///
 /// Returned by <see cref="Contracts.IHydrationPipelineService.RunSynchronousAsync"/>
 /// and used by the API layer to build detailed hydration responses.
 /// </summary>
 public sealed class HydrationResult
 {
-    /// <summary>Number of claims added during Stage 1 (Authority Match — Wikidata).</summary>
+    /// <summary>Number of claims added during Stage 1 (Reconciliation — Wikidata).</summary>
     public int Stage1ClaimsAdded { get; set; }
 
-    /// <summary>Number of claims added during Stage 2 (Context Match — Wikipedia).</summary>
+    /// <summary>Number of claims added during Stage 2 (Enrichment — retail waterfall).</summary>
     public int Stage2ClaimsAdded { get; set; }
 
-    /// <summary>Number of claims added during Stage 3 (Retail Match — waterfall).</summary>
-    public int Stage3ClaimsAdded { get; set; }
-
-    /// <summary>Total claims added across all three stages.</summary>
-    public int TotalClaimsAdded => Stage1ClaimsAdded + Stage2ClaimsAdded + Stage3ClaimsAdded;
+    /// <summary>Total claims added across both stages.</summary>
+    public int TotalClaimsAdded => Stage1ClaimsAdded + Stage2ClaimsAdded;
 
     /// <summary>
     /// The Wikidata QID resolved during Stage 1 (nullable).
@@ -55,7 +52,7 @@ public sealed class HydrationResult
 /// A single Wikidata QID candidate for disambiguation.
 ///
 /// Returned by the WikidataAdapter when a bridge lookup produces multiple
-/// possible matches. The user selects one to proceed with Stage 2+3 hydration.
+/// possible matches. The user selects one to proceed with Stage 2 (Enrichment) hydration.
 /// </summary>
 public sealed class QidCandidate
 {

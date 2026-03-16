@@ -19,6 +19,9 @@ public sealed record FolderHint
     /// <summary>Primary author or artist name.</summary>
     public string? AuthorOrArtist { get; init; }
 
+    /// <summary>The title of the first file (for title-based divergence detection).</summary>
+    public string? Title { get; init; }
+
     /// <summary>
     /// Bridge identifiers deposited by Stage 1 (e.g. isbn → "978-...", tmdb_id → "438631").
     /// Keys are claim keys matching the property map (isbn, asin, tmdb_movie_id, etc.).

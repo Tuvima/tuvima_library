@@ -121,7 +121,7 @@ A single power user who wants complete, private control over a large media colle
 | `src/MediaEngine.Storage` | The Filing Clerk | Reads and writes the SQLite database. Keeps all library data safe. |
 | `src/MediaEngine.Intelligence` | The Analyst | Runs the Weighted Voter system. Scores metadata Claims. Detects duplicates. |
 | `src/MediaEngine.Processors` | The Scanner | Opens each file type (EPUB, video, comic) and extracts its embedded information. |
-| `src/MediaEngine.Providers` | The Research Team | Fetches enriched metadata from external sources (Apple Books, Audnexus, Wikidata). Runs non-blocking on a background channel. |
+| `src/MediaEngine.Providers` | The Research Team | Fetches enriched metadata from external sources (Apple API, Wikidata Reconciliation, TMDB, Open Library, Google Books). Runs non-blocking on a background channel. |
 | `src/MediaEngine.Ingestion` | The Mail Room | Monitors Library Folders (watch and import modes). Queues new files. Manages the safe move or copy of files into the organised library. |
 | `src/MediaEngine.Api` | The Reception Desk | The Engine's public interface. Exposes all features over HTTP. Hosts the real-time intercom. |
 | `src/MediaEngine.Web` | The Showroom | The browser Dashboard. Uses the Feature-Sliced layout (see Section 6). |
@@ -205,7 +205,7 @@ The category tells the Engine *where* to organise files. The media type tells it
 
 **Why this matters to the business:**
 - **Reliability** — Once configured, the library manages itself. Drop files in; the Library does the rest.
-- **Extensibility** — Each media type routes to its own provider pipeline (Books → Apple Books/Google Books, Movies → TMDB, Music → MusicBrainz, etc.).
+- **Extensibility** — Each media type routes to its own provider pipeline (Books → Apple API/Google Books, Movies → TMDB, Music → MusicBrainz, etc.).
 - **Privacy** — All processing happens locally. Import mode with "copy" preserves originals untouched.
 
 ### 3.2 — The Field-Specific Weighted Voter (Intelligence Engine)
@@ -220,7 +220,7 @@ Each piece of metadata (e.g. the title "Dune") is a **Claim**. Claims come from 
 | Filename | `dune_part1.epub` | Medium (0.5) |
 | External metadata provider | `Dune (Frank Herbert, 1965)` | Configurable per field |
 
-The key upgrade over a simple weighted vote: each provider carries a **per-field trust weight** that reflects how reliable it is *for that specific kind of data*. Audnexus is the gold standard for audiobook narrators (weight 0.9) and series data (0.9) but is only moderately trusted for cover art. Wikidata is the definitive authority for franchise identifiers (weight 1.0). Apple Books is a single provider that supports multiple media types (ebooks and audiobooks) through media-type-scoped search strategies and field mappings.
+The key upgrade over a simple weighted vote: each provider carries a **per-field trust weight** that reflects how reliable it is *for that specific kind of data*. Wikidata is the definitive authority for franchise identifiers (weight 1.0). Apple API is a single provider that supports multiple media types (ebooks and audiobooks) through media-type-scoped search strategies and field mappings.
 
 All of these weights live in `tuvima_master.json` and can be changed at any time without touching code.
 
@@ -325,24 +325,23 @@ Three official SVG logo files exist. **Never replace logo placements with hand-w
 
 ### 3.6 — External Metadata Adapters & Recursive Person Enrichment (Phase 9)
 
-> **Wikidata is the sole identity authority.** Every media item in the Library is identified by its Wikidata Q-identifier. All other providers (Apple Books, Audnexus, TMDB, Open Library, Google Books) exist solely to supply media assets — cover art, ratings, descriptions, and other supplementary data that Wikidata does not carry. If an item is not in Wikidata, it does not have a verified identity; the user must create a manual entry or wait for Wikidata to catalogue it.
+> **Wikidata is the sole identity authority.** Every media item in the Library is identified by its Wikidata Q-identifier. All other providers (Apple API, TMDB, Open Library, Google Books) exist solely to supply media assets — cover art, ratings, descriptions, and other supplementary data that Wikidata does not carry. If an item is not in Wikidata, it does not have a verified identity; the user must create a manual entry or wait for Wikidata to catalogue it.
 
 **Primary Sources: Wikidata & Wikipedia.** Tuvima embraces Wikidata and Wikipedia as its primary knowledge sources. Their mission to organise human knowledge mirrors Tuvima's mission to organise personal media. Every metadata lookup starts with Wikidata's authority. Wikipedia provides human-readable context. Person and human data is always gathered from Wikidata/Wikipedia. Universe information — complex relationships, narratives between different media types, fictional entities — is populated from Wikidata.
 
-**Why secondary sources exist:** Wikipedia doesn't have everything — new releases take time to catalogue. Cover art and promotional imagery are copyright-restricted on Wikimedia. Secondary retail providers (Apple Books, TMDB, Audnexus, etc.) fill these gaps: commercial identifiers, cover art, ratings, and metadata for recent releases.
+**Why secondary sources exist:** New releases take time to catalogue. Cover art and promotional imagery are copyright-restricted on Wikimedia. Secondary retail providers (Apple API, TMDB, etc.) fill these gaps: commercial identifiers, cover art, ratings, and metadata for recent releases.
 
-**Plain English:** After a file lands in the library, the Engine quietly reaches out to Wikidata and Wikipedia first (as the primary authority), then to retail providers — Apple Books, Audnexus, Open Library, Google Books — to fill gaps with cover art, descriptions, narrator credits, and ratings. This happens entirely in the background; the file appears on the Dashboard immediately, and the richer information pops in moments later without any page refresh.
+**Plain English:** After a file lands in the library, the Engine quietly reaches out to Wikidata first (as the primary authority via the Reconciliation API), then to retail providers — Apple API, Open Library, Google Books — to fill gaps with cover art and ratings. This happens entirely in the background; the file appears on the Dashboard immediately, and the richer information pops in moments later without any page refresh.
 
-**The six zero-key providers (no accounts, no API keys required):**
+**The zero-key providers (no accounts, no API keys required):**
 
 | Provider | What it contributes | Trust weights |
 |---|---|---|
-| **Apple Books** | Cover art (600×600), description, rating, title. Single config supporting both ebooks and audiobooks via media-type-scoped search strategies. | cover 0.85, description 0.85, rating 0.8, title 0.7 |
-| **Audnexus** | Narrator, series, series position, cover art, author | narrator/series/cover/series_pos 0.9, author 0.75 |
+| **Apple API** | Cover art (600×600), description, rating, title. Single config supporting both ebooks and audiobooks via media-type-scoped search strategies. | cover 0.85, description 0.85, rating 0.8, title 0.7 |
 | **Open Library** | Title, author, year, cover art, ISBN, series | title 0.75, author 0.8, year 0.85, cover 0.7, isbn 0.9 |
 | **Google Books** | Title, author, year, cover art, ISBN, description, page count, publisher | title 0.75, author 0.8, year 0.85, cover 0.7, isbn 0.9 |
 | **Wikidata** | Person headshot (Wikimedia Commons), biography, Q-identifier | qid/headshot/biography 1.0 |
-| **Wikipedia** | Encyclopedic description (CC BY-SA 4.0 attribution) | description 0.85 |
+| **Wikidata Reconciliation** | QID resolution, core properties, bridge IDs, person data, pen names, audiobook editions | All properties via OpenRefine Reconciliation API + Data Extension API |
 
 **How it works (the harvest pipeline):**
 
@@ -361,7 +360,9 @@ When a file's metadata contains an author or narrator name, the Engine:
 
 **Config-Driven Universal Adapter:**
 
-The four REST+JSON providers (Apple Books, Audnexus, Open Library, Google Books) are powered by a single `ConfigDrivenAdapter` class (`src/MediaEngine.Providers/Adapters/ConfigDrivenAdapter.cs`) that reads its entire behaviour from the provider's JSON config file in `config/providers/`. No individual adapter classes exist for these providers — they were retired in favour of the universal adapter.
+The REST+JSON providers (Apple API, Open Library, Google Books) are powered by a single `ConfigDrivenAdapter` class (`src/MediaEngine.Providers/Adapters/ConfigDrivenAdapter.cs`) that reads its entire behaviour from the provider's JSON config file in `config/providers/`. No individual adapter classes exist for these providers — they were retired in favour of the universal adapter.
+
+**Wikidata Reconciliation adapter** (`ReconciliationAdapter`) replaces the former `WikidataAdapter` SPARQL implementation. It uses the OpenRefine Reconciliation API for QID resolution and the Data Extension API for property fetching — both config-driven via `config/providers/wikidata_reconciliation.json`. All property codes and class mappings are read from configuration, not hardcoded.
 
 Each config file declares:
 - `adapter_type: "config_driven"` — tells the DI registration loop to use the universal adapter
@@ -374,7 +375,7 @@ Each config file declares:
 
 Adding a new REST+JSON provider is a **zero-code operation**: drop a config file in `config/providers/`, restart, done.
 
-**Wikidata stays as a coded adapter** (`WikidataAdapter`) — its SPARQL-based intelligence cannot be expressed as URL templates + JSON path extraction.
+**Wikidata Reconciliation adapter** (`ReconciliationAdapter`) uses the W3C Reconciliation API and Data Extension API, replacing the former SPARQL-based `WikidataAdapter`. Property configuration lives in `config/providers/wikidata_reconciliation.json`.
 
 **Key types:**
 - `ConfigDrivenAdapter` (`MediaEngine.Providers.Adapters`) — universal adapter implementing `IExternalMetadataProvider`
@@ -386,21 +387,21 @@ Adding a new REST+JSON provider is a **zero-code operation**: drop a config file
 - All provider configuration lives in `config/providers/{name}.json` — endpoints, trust weights, search strategies, field mappings, throttle, concurrency. Changing any of these requires only a config edit, never a recompile.
 - Provider GUIDs are stable strings in each config file's `provider_id` field (not looked up from the DB at runtime) so new `MetadataClaim` rows can be written without a DB round-trip.
 - Throttle rules and concurrency limits are per-provider in their config files. The `ConfigDrivenAdapter` enforces them via `SemaphoreSlim` + timestamp gap.
-- Required-field short-circuits: each search strategy declares `required_fields`. If a required field (e.g. ASIN for Audnexus) is missing, the strategy is skipped immediately — no HTTP call made.
+- Required-field short-circuits: each search strategy declares `required_fields`. If a required field is missing, the strategy is skipped immediately — no HTTP call made.
 
 **Why this matters to the business:**
 - **Reliability** — Providers are never in the critical path. A failed network call returns an empty list; the file remains in the library with its local metadata intact.
 - **Performance** — The harvest queue is non-blocking. File ingestion completes in milliseconds regardless of network conditions.
-- **Maintenance** — Adding a new REST+JSON provider is a zero-code operation: one JSON config file. Wikidata is the only provider requiring compiled code.
+- **Maintenance** — Adding a new REST+JSON provider is a zero-code operation: one JSON config file. The Wikidata Reconciliation adapter is config-driven via `config/providers/wikidata_reconciliation.json`.
 - **Extensibility** — The config-driven architecture supports any REST+JSON API that returns structured data. URL templates, JSON path extraction, and named transforms cover the common patterns.
 - **Privacy** — Only titles, authors, and ASINs are sent to external services — no personal data, no usage telemetry, no library structure.
 
-### 3.7 — Library Organization & Sidecar System (Filesystem-First)
+### 3.7 — Library Organization & File-First Architecture
 
-**Plain English:** After a file is ingested and scored with sufficient confidence, the Library organises it into a clean, human-readable folder structure and writes an XML companion file alongside it. This XML file is the portable source of truth: if the database is ever wiped, the library can be rebuilt from it in seconds.
+**Plain English:** After a file is ingested and scored with sufficient confidence, the Library organises it into a clean, human-readable folder structure. User metadata edits are written back into the file's embedded metadata (EPUB OPF, ID3 tags, M4B atoms) via `IMetadataTagger` implementations. Wikidata properties are re-fetchable via batch Reconciliation API. On a database rebuild (Great Inhale v2), the Engine scans media files, extracts embedded metadata via processors, and batch-reconciles with Wikidata.
 
-**Filesystem-First design invariant:**
-- The **database is a cache of the filesystem, not the master copy.** XML always wins on conflict during a Great Inhale.
+**File-First design invariant:**
+- The **database is a cache of the filesystem and embedded metadata, not the master copy.** Embedded file metadata wins on conflict during a Great Inhale.
 - Cover art is **never stored in the database.** `cover.jpg` lives alongside the file on disk and is always read from there.
 
 **Folder Structure:**
@@ -419,14 +420,12 @@ The default organisation template places files in a category folder with the tit
 ```
 {LibraryRoot}/Books/Dune - Q190159/Epub/Dune.epub
 {LibraryRoot}/Books/Dune - Q190159/Audiobook/Dune.m4b
-{LibraryRoot}/Books/Dune - Q190159/library.xml       ← title-level sidecar
 {LibraryRoot}/Books/Dune - Q190159/cover.jpg          ← cover art
 ```
 
 **Example (Movies — flat):**
 ```
 {LibraryRoot}/Movies/Dune Part Two - Q104686073/Dune Part Two.mkv
-{LibraryRoot}/Movies/Dune Part Two - Q104686073/library.xml
 {LibraryRoot}/Movies/Dune Part Two - Q104686073/cover.jpg
 ```
 
@@ -443,7 +442,7 @@ The default organisation template places files in a category folder with the tit
 
 **Staging-First Flow:**
 
-All ingested files land in `{LibraryRoot}/.staging/` first, regardless of confidence. The Library only receives files that have been hydrated and promoted by `AutoOrganizeService`. This ensures the Library invariant: every file in the Library has been hydrated, has a real QID (or confirmed bridge IDs), and has full sidecars + cover art + hero banner.
+All ingested files land in `{LibraryRoot}/.staging/` first, regardless of confidence. The Library only receives files that have been hydrated and promoted by `AutoOrganizeService`. This ensures the Library invariant: every file in the Library has been hydrated, has a real QID (or confirmed bridge IDs), and has cover art + hero banner.
 
 ```
 Watch Folder  ──(detect + process)──>  .staging/  ──(hydration + promote)──>  Library
@@ -470,40 +469,31 @@ scored.OverallConfidence >= 0.85  ||  claims.Any(c => c.IsUserLocked)
 ```
 Files that pass this gate go to `.staging/pending/`. Files below the gate go to `.staging/low-confidence/` or `.staging/unidentifiable/` depending on their confidence. The threshold reuses `AutoLinkThreshold = 0.85` from `ScoringConfiguration` (single source of truth).
 
-**Cover art timing:** `cover.jpg` is written alongside the file in `.staging/` during initial ingestion (the processor's cover image byte array is only available at that time). Hero banner generation and sidecar writing happen during promotion by `AutoOrganizeService`.
+**Cover art timing:** `cover.jpg` is written alongside the file in `.staging/` during initial ingestion (the processor's cover image byte array is only available at that time). Hero banner generation happens during promotion by `AutoOrganizeService`.
 
 Staged files retain their fingerprint in the database and can be manually reclaimed at any time via the Dashboard (drag to a Hub, or provide a user-locked title). When a user resolves a staged file, it is promoted from `.staging/` into the organised library structure. The `.staging/` directory is excluded from Watch Folder monitoring to prevent re-ingestion loops.
 
 **Migration:** On startup, if `{LibraryRoot}/.orphans/` exists and `{LibraryRoot}/.staging/` does not, the Engine automatically renames the directory and updates all DB file paths.
 
-**library.xml schemas:**
-- `<library-hub version="1.0">` — `identity/display-name`, `identity/year`, `identity/wikidata-qid`, `identity/franchise`, `last-organized`.
-- `<library-edition version="1.0">` — `identity/title`, `identity/author`, `identity/media-type`, `identity/isbn`, `identity/asin`, `content-hash`, `cover-path`, `user-locks` (zero or more `<claim key=".." value=".." locked-at=".."/>`), `last-organized`.
-
 **Key types and services:**
-- `ISidecarWriter` / `SidecarWriter` (`MediaEngine.Ingestion`) — reads and writes both XML schemas using `System.Xml.Linq` (BCL — no new NuGet dependency). `WriteHubSidecarAsync(hubFolderPath, data)`, `WriteEditionSidecarAsync(editionFolderPath, data)`, `ReadHubSidecarAsync(xmlPath)`, `ReadEditionSidecarAsync(xmlPath)`. Both read methods return `null` on any exception (resilient).
-- `ILibraryScanner` / `LibraryScanner` (`MediaEngine.Ingestion`) — Great Inhale implementation. Recursively enumerates `library.xml` files; peeks root element name via `XmlReader` (fast, no full load); dispatches to `HydrateHubAsync` or `HydrateEditionAsync`. Stable provider GUID `c9d8e7f6-a5b4-4321-fedc-0102030405c9` for re-inserted user-locked claims.
+- `ILibraryScanner` / `LibraryScanner` (`MediaEngine.Ingestion`) — Great Inhale v2 implementation. Recursively scans Library Root for media files, verifies content hashes, and reconciles with Wikidata in batch for database recovery.
 - `LibraryScanResult` (`MediaEngine.Ingestion.Models`) — scan outcome counts: `HubsUpserted`, `EditionsUpserted`, `Errors`, `Elapsed`.
-- `HubSidecarData`, `EditionSidecarData`, `UserLockedClaim` (`MediaEngine.Ingestion.Models`) — POCOs for XML data exchange between `SidecarWriter` and `LibraryScanner`.
 - `IHubRepository.FindByDisplayNameAsync` + `IHubRepository.UpsertAsync` — added to support Hub hydration in Great Inhale.
-- `Hub.DisplayName` (`MediaEngine.Domain.Aggregates`) — human-readable hub name; populated at organise time and restored from XML.
+- `Hub.DisplayName` (`MediaEngine.Domain.Aggregates`) — human-readable hub name; populated at organise time.
 - Migration **M-004** — `ALTER TABLE hubs ADD COLUMN display_name TEXT;` — applied in `DatabaseConnection.RunStartupChecks()`.
 
 **API endpoint:**
 - `POST /ingestion/library-scan` — triggers Great Inhale. Returns `LibraryScanResponse` with hub/edition counts and elapsed time. Requires `LibraryRoot` to be configured; returns 400 if unset or if the directory does not exist.
 - Dashboard client method: `TriggerLibraryScanAsync()` on `ILibraryApiClient` / `LibraryApiClient`.
 
-**wikidata_qid canonical key:**
-`wikidata_qid` is used as a Work-level canonical value key (produced by the Wikidata adapter in Phase 9). It is written into the Hub-level library.xml as `<identity/wikidata-qid>` for portability.
-
 **Great Inhale scope constraints:**
-Edition-level hydration **requires the MediaAsset to already exist in the database** (matched by content hash). It cannot create a `Hub → Work → Edition → MediaAsset` chain from scratch after a complete wipe — that requires a full re-ingestion pass (no `IWorkRepository` or `IEditionRepository` exist yet). Hub-level hydration creates Hub records unconditionally.
+Edition-level hydration **requires the MediaAsset to already exist in the database** (matched by content hash). It cannot create a `Hub → Work → Edition → MediaAsset` chain from scratch after a complete wipe — that requires a full re-ingestion pass. Hub-level hydration creates Hub records unconditionally.
 
 **Why this matters to the business:**
-- **Reliability** — A complete database wipe is recoverable. Drop the database file; run Great Inhale; the library is back.
-- **Maintenance** — The XML schema is human-readable. A user can open `library.xml` in any text editor and understand exactly what the Library knows about a file.
+- **Reliability** — A complete database wipe is recoverable. Re-ingest from files; embedded metadata and batch Wikidata reconciliation rebuild the library.
+- **Maintenance** — Embedded metadata is portable and readable by any standard tool.
 - **Privacy** — All data lives on disk under the Library Root. No external dependency, no cloud sync.
-- **Performance** — Great Inhale reads XML only (no file hashing, no metadata extraction). A library of thousands of files scans in seconds.
+- **Performance** — Great Inhale scans files by content hash; batch Reconciliation API calls minimise network round-trips.
 
 ### 3.8 — System Activity Ledger & Maintenance (Phase 1 — Audit Engine)
 
@@ -545,12 +535,11 @@ A `WikidataSparqlPropertyMap` contains the Master Authority Table — 50+ Wikida
 
 The defaults live in code (`WikidataSparqlPropertyMap.DefaultMap`) and are exported to `config/universe/wikidata.json` on first run. Users can override confidence values, remap claim keys, reorder bridge lookups, or disable properties entirely by editing the universe config file — zero code changes needed. The adapter loads the universe config at runtime and falls back to compiled defaults if the file is missing or corrupt. (See §3.11 for the full configuration architecture.)
 
-Static helpers generate SPARQL queries:
-- `BuildWorkSparqlQuery(qid)` — fetches all Work-scoped properties in a single SPARQL query
-- `BuildPersonSparqlQuery(qid)` — fetches all Person-scoped properties (including P18 headshot — **Person-only**, never for media items)
-- `BuildBridgeLookupQuery(pCode, value)` — finds a QID by bridge identifier (ASIN, ISBN, TMDB ID, etc.)
+The property map is exported to `config/universe/wikidata.json` on first run. Static helpers build Data Extension API queries:
+- `BuildWorkPropertyRequest(qid)` — fetches all Work-scoped properties via Data Extension API
+- `BuildPersonPropertyRequest(qid)` — fetches all Person-scoped properties (including P18 headshot — **Person-only**, never for media items)
 
-**Copyright constraint — P18 (Image):** Wikidata P18 (Image) is exclusively for Person entities (author/director headshots from Wikimedia Commons — public figures, not copyrighted). Media cover art is sourced exclusively from Apple Books, Audnexus, and TMDB. The `BuildWorkSparqlQuery` deliberately excludes P18. This constraint is enforced at the SPARQL query level.
+**Copyright constraint — P18 (Image):** Wikidata P18 (Image) is exclusively for Person entities (author/director headshots from Wikimedia Commons — public figures, not copyrighted). Media cover art is sourced exclusively from Apple API and TMDB. The Work property request deliberately excludes P18.
 
 **Schema migrations:**
 - **M-009:** Rebuilds the `persons` table to expand the role CHECK constraint, adding `Illustrator`, `Cast Member`, `Voice Actor`, `Screenwriter`, and `Composer` to the existing `Author`, `Narrator`, `Director` list. Uses the SQLite table-recreation pattern (PRAGMA foreign_keys=OFF → CREATE new → INSERT INTO → DROP old → RENAME).
@@ -569,19 +558,8 @@ Social link handles are stored as **Actionable URI Schemes** to enable native ap
 
 The Dashboard's `DeviceContextService` selects the appropriate URI format at render time: URI scheme for Mobile/Automotive (triggers native app), HTTPS fallback for Web/Television. The raw handle is always preserved in the database column for portability.
 
-**Sidecar XML expansion (v1.1):**
-Both Hub-level and Edition-level `library.xml` sidecars now carry a `<bridges>` section that records every external bridge identifier harvested from Wikidata SPARQL:
-```xml
-<bridges>
-  <bridge key="tmdb_id" value="438631"/>
-  <bridge key="imdb_id" value="tt1160419"/>
-  <bridge key="goodreads_id" value="234225"/>
-</bridges>
-```
-This ensures the library can be reconstructed from the filesystem alone — even external IDs survive a database wipe. Backward-compatible: older v1.0 sidecars with no `<bridges>` section are read without error (empty dictionary).
-
 **Provider lookup expansion:**
-`ProviderLookupRequest` now carries bridge hint fields (`AppleBooksId`, `AudibleId`, `TmdbId`, `ImdbId`) and `SparqlBaseUrl` — allowing the Wikidata adapter to resolve QIDs from external IDs and run SPARQL deep-hydration queries.
+`ProviderLookupRequest` now carries bridge hint fields (`AppleBooksId`, `AudibleId`, `TmdbId`, `ImdbId`) — allowing the Reconciliation adapter to resolve QIDs from external IDs and run Data Extension property fetches.
 
 **New activity ledger entries:**
 Four new `SystemActionType` constants log hydrator actions: `BridgeSyncUpdated` (external bridge ID synced), `PersonHydrated` (person enriched with social links), `WeeklySyncStarted` (weekly refresh cycle began), `AffiliateGenerated` (affiliate link built from bridge ID).
@@ -593,42 +571,27 @@ Four new `SystemActionType` constants log hydrator actions: `BridgeSyncUpdated` 
 
 **Key types introduced:**
 - `WikidataProperty` (`MediaEngine.Providers.Models`) — property descriptor record (PCode, ClaimKey, Category, EntityScope, Confidence, IsBridge, Enabled)
-- `WikidataSparqlPropertyMap` (`MediaEngine.Providers.Models`) — static property map + SPARQL query builders
+- `WikidataPropertyMap` (`MediaEngine.Providers.Models`) — static property map + Data Extension API query builders
 - `WikidataPropertyMapOverride` (`MediaEngine.Storage.Models`) — JSON-configurable override shape
 - `AffiliateSettings` (`MediaEngine.Storage.Models`) — affiliate tag configuration
 
 **Why this matters to the business:**
-- **Extensibility** — Adding a new Wikidata property is one JSON entry in `tuvima_master.json`. Zero code changes. A single SPARQL query replaces dozens of individual API calls.
-- **Reliability** — All 50+ property defaults are compiled into the code. If the config file is missing or corrupt, the defaults still work. Sidecar XML preserves all external IDs on disk.
-- **Privacy** — Only titles, ISBNs, and ASINs leave the machine during SPARQL queries. Everything hydrated lives on disk.
+- **Extensibility** — Adding a new Wikidata property is one JSON entry in provider config. Zero code changes. The Data Extension API fetches all configured properties in one call.
+- **Reliability** — All 50+ property defaults are compiled into the code. If the config file is missing or corrupt, the defaults still work.
+- **Privacy** — Only titles, ISBNs, and ASINs leave the machine during Reconciliation queries. Everything hydrated lives on disk.
 - **Maintenance** — The property map is editable via settings. Confidence values, claim keys, and enabled flags can all be changed without touching code.
 
 ### 3.10 — Universal Metadata Hydrator: Librarian Workflow (Phase B)
 
-**Plain English:** Phase B replaces the placeholder Wikidata work lookup with a full SPARQL deep-hydration engine. You can now click a button on the Dashboard — or call a single Engine action — and the Library reaches out to Wikidata, finds the matching creative work by its bridge identifiers, and pulls back every known property: series name, franchise, characters, narrative location, and dozens of external platform links (TMDB, IMDb, Goodreads, Apple Books, etc.). All of this happens in a single SPARQL query. The Wikidata provider is also now pinned at the top of the Metadata tab as the "Universe Provider" — reflecting its unique role as the one source that spans all media types.
+**Plain English:** Phase B replaces the placeholder Wikidata work lookup with a full Reconciliation API-powered enrichment engine. You can now click a button on the Dashboard — or call a single Engine action — and the Library reaches out to Wikidata, finds the matching creative work by its bridge identifiers or title search, and pulls back every known property: series name, franchise, characters, narrative location, and dozens of external platform links (TMDB, IMDb, Goodreads, Apple Books, etc.). The Wikidata provider is also now pinned at the top of the Metadata tab as the "Universe Provider" — reflecting its unique role as the one source that spans all media types.
 
-**Four-Tier QID Resolution (WikidataAdapter.FetchWorkAsync):**
+**QID Resolution via Reconciliation API (`ReconciliationAdapter.FetchWorkAsync`):**
 
-The adapter uses a four-tier strategy to resolve the correct Wikidata QID for a work, followed by SPARQL deep hydration:
+The adapter posts a query (title + optional property constraints like P50=author) to the OpenRefine Reconciliation API. Results are filtered by media type using P31 (instance_of) + P279 (subclass_of) hierarchy walking. Auto-accept when score ≥ 95 and `match: true`. Multiple candidates go to the review queue.
 
-| Tier | Strategy | When Used | Confidence | Auto-Accept Rule |
-|------|----------|-----------|------------|------------------|
-| **1** | Bridge ID SPARQL lookup | ISBN, ASIN, TMDB ID, etc. available | 0.95–1.0 | Always (exact match) |
-| **2** | Structured SPARQL search | Title + known media type (instance_of filtering) | 0.50–0.80 | Title + author + instance_of → 0.85; Title + year → 0.80; Single result → 0.70 |
-| **3** | Fuzzy title search (enhanced) | No bridge, Tier 2 returned nothing | 0.40–0.65 | Only if instance_of post-check passes |
-| **4** | Filename-only | Only filename-derived title, no author/year | 0.20–0.40 | Never — review queue |
+After QID confirmation, the Data Extension API fetches all configured properties in a single POST call. No separator issues — native JSON arrays for multi-valued properties.
 
-1. **Tier 1 — Bridge ID Cross-Reference** — If the library already knows an external identifier (ASIN, ISBN, Apple Books ID, Audible ID, TMDB ID, IMDb ID), the adapter runs a lightweight SPARQL query to find the matching Wikidata Q-identifier. Bridge IDs are tried in priority order; first match wins. Confidence boost: 0.95 for ISBN, 0.92 for other bridges.
-
-2. **Tier 2 — Structured SPARQL Search** — If no bridge ID matches but the title and media type are known, the adapter runs a SPARQL query combining `rdfs:label` matching with `wdt:P31/wdt:P279*` instance_of filtering (e.g. only Q11424 Film for movies, only Q7725634 Literary Work for books). Optional author (P50/P57/P175) and year (P577) cross-validation adds confidence bonuses. Multiple results without author confirmation go to the review queue. Confidence boost: 0.88 (configurable via `structured_search_thresholds.tier2_title_boost`).
-
-3. **Tier 3 — Fuzzy Title Search** — Falls back to the MediaWiki `wbsearchentities` API with description keyword scoring. Enhanced with instance_of post-filtering: candidates failing an ASK query against expected classes get a score penalty. Controlled by `enable_tier3_instance_of_filtering` config flag.
-
-4. **Tier 4 — Filename-Only** — When only a filename-derived title is available with no author or year, confidence is capped at 0.40 and the item is sent to the review queue.
-
-5. **SPARQL Deep Ingest** — Once a QID is resolved via any tier, a single SPARQL query (built by `WikidataSparqlPropertyMap.BuildWorkSparqlQuery`) fetches every Work-scoped property in one call. The response is parsed from `application/sparql-results+json` and each binding is transformed into a `ProviderClaim` with the property map's configured confidence value.
-
-**Conservative matching rule:** Multiple Tier 2 results without author confirmation result in a `MultipleQidMatches` review queue entry, not auto-accept.
+**Conservative matching rule:** Multiple candidates without auto-accept result in a `MultipleQidMatches` review queue entry, not auto-accept.
 
 **Instance_of class mappings** (`config/universe/wikidata.json`):
 ```json
@@ -645,7 +608,7 @@ The adapter uses a four-tier strategy to resolve the correct Wikidata QID for a 
 }
 ```
 
-**ASIN extraction from audio tags:** The `AudioProcessor` extracts ASINs from M4B/MP3 files — commonly embedded by Audible — to feed files into the reliable Tier 1 bridge path. Extraction sources (priority order): M4B iTunes custom atoms (`----:com.audible.asin`, `----:com.apple.iTunes:ASIN`), MP3 ID3v2 TXXX frames (`ASIN`, `AUDIBLE_ASIN`, `AMAZON_ASIN`), Vorbis/FLAC custom fields (`ASIN`), and comment field regex (`B0[A-Z0-9]{8}`).
+**ASIN extraction from audio tags:** The `AudioProcessor` extracts ASINs from M4B/MP3 files — commonly embedded by Audible — to feed files into the reliable bridge-ID resolution path. Extraction sources (priority order): M4B iTunes custom atoms (`----:com.audible.asin`, `----:com.apple.iTunes:ASIN`), MP3 ID3v2 TXXX frames (`ASIN`, `AUDIBLE_ASIN`, `AMAZON_ASIN`), Vorbis/FLAC custom fields (`ASIN`), and comment field regex (`B0[A-Z0-9]{8}`).
 
 **Review queue media type dropdown:** The NeedsReviewTab includes a media type dropdown pre-selected from the auto-detected type. When the user changes the dropdown, search results are filtered using the instance_of classes for that media type. This allows users to correct misclassifications (e.g. an MP4 detected as Movies but actually a TV episode) and get relevant Wikidata candidates.
 
@@ -656,14 +619,14 @@ The adapter uses a four-tier strategy to resolve the correct Wikidata QID for a 
 - **Multi-valued properties** (characters, cast members): Joined with `"; "`
 - **wikidata_qid:** Always emitted at confidence 1.0 as a claim
 
-**Copyright constraint reminder:** P18 (Image) is **never emitted for Work entities** — it is Person-only. The `BuildWorkSparqlQuery` deliberately excludes it. Media cover art comes exclusively from Apple Books, Audnexus, and TMDB.
+**Copyright constraint reminder:** P18 (Image) is **never emitted for Work entities** — it is Person-only. The Reconciliation adapter's property config excludes P18 for Work entities. Media cover art comes exclusively from Apple API and TMDB.
 
 **Hydration Engine action:**
 
 `POST /metadata/hydrate/{entityId}` — a user-triggered, synchronous action available to Administrators and Curators:
 1. Loads existing canonical values as lookup hints (title, ISBN, ASIN, bridge IDs)
-2. Resolves Wikidata API and SPARQL endpoint URLs from the manifest
-3. Calls the WikidataAdapter directly (not through the background queue — immediate response)
+2. Resolves Reconciliation API and Data Extension endpoint URLs from provider config
+3. Calls the ReconciliationAdapter directly (not through the background queue — immediate response)
 4. Persists all returned claims (append-only)
 5. Re-scores the entity through the full scoring pipeline
 6. Upserts canonical values
@@ -690,8 +653,8 @@ The provider card's capability icon set expanded from 12 entries to 60+ entries,
 - `HydrateResponse` (`MediaEngine.Api.Models`) — Engine DTO matching the Dashboard shape
 
 **Why this matters to the business:**
-- **Extensibility** — A single SPARQL query now replaces what would have been dozens of individual API calls to different platforms. Adding support for a new Wikidata property is still one JSON entry.
-- **Reliability** — The three-step QID resolution (bridge IDs → title search → SPARQL ingest) maximises match rate. If no match is found, the file keeps its existing metadata untouched.
+- **Extensibility** — The Data Extension API fetches all configured properties in one call. Adding support for a new Wikidata property is still one JSON entry in provider config.
+- **Reliability** — Bridge ID cross-reference → title search → review queue maximises match rate. If no match is found, the file keeps its existing metadata untouched.
 - **Performance** — User-triggered hydration bypasses the background queue for immediate results. The background pipeline continues to handle automatic post-ingestion enrichment.
 - **Privacy** — Only titles, ISBNs, ASINs, and bridge IDs are sent to Wikidata. Everything hydrated lives locally.
 
@@ -711,12 +674,12 @@ config/
                                      disambiguation/confidence thresholds (§3.13)
   providers/
     local_filesystem.json         ← Per-provider: weight, enabled, endpoints,
-    apple_books.json                 field_weights, throttle_ms, max_concurrency,
+    apple_api.json                   field_weights, throttle_ms, max_concurrency,
                                        hydration_stages, media-type-scoped strategies (§3.13)
-    audnexus.json
     open_library.json
     google_books.json
     wikidata.json
+    wikidata_reconciliation.json  ← Reconciliation + Data Extension config
   universe/
     wikidata.json                 ← Universe knowledge model: full property map,
                                      bridge priority, value transforms, scope exclusions
@@ -734,7 +697,7 @@ config/
 5. **Universe replaceability** — the schema is generic enough that a different universe provider could use the same model shape.
 6. **Example files committed, live files gitignored** — `config.example/` is in git; `config/` is gitignored.
 7. **Migration contract** — the `ConfigurationDirectoryLoader` auto-migrates from the legacy single-file format on first run. The legacy file is renamed to `.migrated`.
-8. **Fallback resilience** — compiled defaults in `WikidataSparqlPropertyMap.DefaultMap` serve as fallback if config files are missing or corrupt.
+8. **Fallback resilience** — compiled defaults in `WikidataPropertyMap.DefaultMap` serve as fallback if config files are missing or corrupt.
 9. **Transform registry in code, transform assignment in config** — transform functions are behaviour (live in `ValueTransformRegistry.cs`); which property uses which transform is data (lives in `config/universe/wikidata.json`).
 10. **Config directory path** — specified in `appsettings.json` as `MediaEngine:ConfigDirectory` (default: `"config"`). Legacy `MediaEngine:ManifestPath` is still checked as fallback for backward compatibility.
 
@@ -800,34 +763,33 @@ Example files in `config.example/ui/`. Live files in `config/ui/` gitignored.
 - **Privacy** — Device detection runs client-side. No telemetry or fingerprinting.
 - **Reliability** — If the Engine is offline, the Dashboard falls back to compiled web defaults. No blank screens.
 
-### 3.13 — Three-Stage Hydration Pipeline & Review Queue
+### 3.13 — Two-Stage Hydration Pipeline & Review Queue
 
-**Philosophy:** Wikidata is the sole identity authority (see §3.6). Every media item is identified by its Wikidata Q-identifier; all other providers supply media assets only. The three-stage pipeline reflects this: Stage 1 resolves identity via Wikidata, Stage 2 fetches context from Wikipedia, and Stage 3 fills asset gaps (cover art, ratings) from retail providers. Person and human data is always sourced from Wikidata/Wikipedia. The entire "universe" of relationships, fictional entities, and cross-media narrative links is populated from Wikidata. Secondary retail providers exist to fill gaps — new releases that Wikipedia hasn't catalogued yet, and copyright-safe cover art that Wikimedia cannot host.
+**Philosophy:** Wikidata is the sole identity authority (see §3.6). Every media item is identified by its Wikidata Q-identifier; all other providers supply media assets only. The two-stage pipeline reflects this: Stage 1 resolves identity via the Wikidata Reconciliation API and deposits bridge IDs; Stage 2 fills asset gaps (cover art, ratings) from retail providers. Person and human data is always sourced from Wikidata. Secondary retail providers exist to fill gaps — new releases, and copyright-safe cover art that Wikimedia cannot host.
 
-**Plain English:** When a file arrives in the library, the Engine runs a three-stage authority-first enrichment pipeline. Stage 1 (Wikidata) establishes the work's identity and deposits bridge IDs. Stage 2 (Wikipedia) fetches an encyclopedic description. Stage 3 (Retail providers) uses bridge IDs for precise cover art and rating lookups. Ambiguous matches are surfaced via a dedicated review queue.
+**Plain English:** When a file arrives in the library, the Engine runs a two-stage authority-first enrichment pipeline. Stage 1 (Reconciliation) establishes the work's identity and deposits bridge IDs. Stage 2 (Retail providers) uses bridge IDs for precise cover art and rating lookups. Ambiguous matches are surfaced via a dedicated review queue.
 
-**The three stages:**
+**The two stages:**
 
 | Stage | Name | What it does | Who runs |
 |---|---|---|---|
-| **Stage 1** | Authority Match | Wikidata QID resolution via bridge IDs from embedded metadata or title search. Single QID → SPARQL deep hydration (50+ properties). Hub Intelligence + Person Enrichment run here. On failure: `AuthorityMatchFailed` review item created, pipeline continues if `continue_pipeline_on_authority_failure` is true. | WikidataAdapter — any provider declaring `hydration_stages: [1]` |
-| **Stage 2** | Context Match | Wikipedia article summary via QID sitelink lookup. Deposits `description` (confidence 0.85) and `description_source` ("Wikipedia (CC BY-SA 4.0)"). Skipped if no QID and `skip_wikipedia_without_qid` is true. Silent on failure. | WikipediaAdapter — any provider declaring `hydration_stages: [2]` |
-| **Stage 3** | Retail Match | Retail providers run in waterfall order from `config/slots.json`. Uses bridge IDs from Stage 1 (ISBN, ASIN, TMDB ID) for precise lookups; falls back to title search if no bridge IDs. Deposits cover art, ratings, narrator credits. | Apple Books, Audnexus, Open Library, Google Books — any provider declaring `hydration_stages: [3]` |
+| **Stage 1** | Reconciliation | Wikidata QID resolution via Reconciliation API. Bridge ID cross-reference, title search with media type filtering (P31 + P279). Single QID → Data Extension for core + bridge properties. Hub Intelligence + Person Enrichment. On failure: `AuthorityMatchFailed` review item created, pipeline continues if `continue_pipeline_on_authority_failure` is true. | ReconciliationAdapter — any provider declaring `hydration_stages: [1]` |
+| **Stage 2** | Enrichment | Retail providers run in waterfall order from `config/slots.json`. Uses bridge IDs from Stage 1 (ISBN, ASIN, TMDB ID) for precise lookups; falls back to title search if no bridge IDs. Deposits cover art, ratings. | Apple API, Open Library, Google Books — any provider declaring `hydration_stages: [2]` |
 
-**Post-pipeline confidence check:** After all three stages complete, the pipeline reloads canonical values and computes overall confidence. If below `auto_review_confidence_threshold` (default: 0.60), a review queue entry is created.
+**Post-pipeline confidence check:** After both stages complete, the pipeline reloads canonical values and computes overall confidence. If below `auto_review_confidence_threshold` (default: 0.60), a review queue entry is created.
 
 **Provider stage assignment:**
 
 Each provider config carries a `hydration_stages` array declaring which stages it participates in:
 ```json
 {
-  "name": "audnexus",
-  "hydration_stages": [3],
+  "name": "open_library",
+  "hydration_stages": [2],
   ...
 }
 ```
 
-Wikidata declares `[1]` (Authority Match). Wikipedia declares `[2]` (Context Match). Audnexus declares `[3]` (Retail Match). All other REST providers declare `[3]`.
+Wikidata Reconciliation declares `[1]` (Reconciliation). All retail REST providers declare `[2]` (Enrichment).
 
 **Review Queue:**
 
@@ -846,7 +808,7 @@ Each review item carries: entity reference, trigger reason, confidence score, op
 3. For disambiguation: picks a QID candidate from a card grid
 4. Clicks Resolve → `POST /review/{id}/resolve` fires
 5. Engine creates user-locked claims for any field overrides
-6. If a QID was selected → `RunSynchronousAsync` with `PreResolvedQid` triggers Stage 2 (Wikipedia) + Stage 3 (Retail)
+6. If a QID was selected → `RunSynchronousAsync` with `PreResolvedQid` triggers Stage 2 (Enrichment)
 7. Activity ledger records `ReviewItemResolved`
 8. SignalR broadcasts `ReviewItemResolved` → badge count decrements
 
@@ -859,20 +821,17 @@ Cover art and provider thumbnails are tracked by content hash (SHA-256) in the `
 {
   "stage_concurrency": 3,
   "stage1_timeout_seconds": 45,
-  "stage2_timeout_seconds": 15,
-  "stage3_timeout_seconds": 30,
+  "stage2_timeout_seconds": 30,
   "disambiguation_threshold": 0.7,
   "auto_review_confidence_threshold": 0.60,
   "max_qid_candidates": 5,
-  "skip_wikipedia_without_qid": true,
   "continue_pipeline_on_authority_failure": true,
-  "wikipedia_description_max_chars": 1000,
   "universe_title_search_auto_accept": 0.80,
-  "stage3_waterfall_confidence_threshold": 0.65
+  "stage2_waterfall_confidence_threshold": 0.65
 }
 ```
 
-**Dual-path architecture:** The existing `MetadataHarvestingService` is preserved for `Person`-type requests from `RecursiveIdentityService`. The new `HydrationPipelineService` handles `MediaAsset`-type hydration. Both paths are safe to run concurrently — person creation is idempotent.
+**Dual-path architecture:** The existing `MetadataHarvestingService` is preserved for `Person`-type requests from `RecursiveIdentityService`. The new `HydrationPipelineService` handles `MediaAsset`-type hydration using `ReconciliationAdapter` for Stage 1 instead of the former `WikidataAdapter`. Both paths are safe to run concurrently — person creation is idempotent.
 
 **`ScoringHelper`:** The duplicated claim-persist-score-upsert pattern (previously inlined in `MetadataHarvestingService` and `MetadataEndpoints`) is extracted into a shared static helper used by both services.
 
@@ -917,14 +876,14 @@ Absorbed/removed tabs:
 **Mobile constraints:** `property_mapper`, `matching_pipeline`, and `universe_schema_editing` are added to `features_disabled` on mobile devices. Only Needs Review and Connection Vault (status view) are visible in the Metadata group on mobile.
 
 **Key types:**
-- `HydrationStage` (`MediaEngine.Domain.Enums`) — `AuthorityMatch = 1, ContextMatch = 2, RetailMatch = 3`
+- `HydrationStage` (`MediaEngine.Domain.Enums`) — `Reconciliation = 1, Enrichment = 2`
 - `ReviewTrigger`, `ReviewStatus` (`MediaEngine.Domain.Enums`) — trigger/status enums
 - `ReviewQueueEntry` (`MediaEngine.Domain.Entities`) — domain entity
 - `HydrationResult` (`MediaEngine.Domain.Models`) — pipeline result with per-stage claim counts
 - `IHydrationPipelineService` (`MediaEngine.Domain.Contracts`) — `EnqueueAsync` + `RunSynchronousAsync`
 - `IReviewQueueRepository` (`MediaEngine.Domain.Contracts`) — CRUD for review queue
 - `IImageCacheRepository` (`MediaEngine.Domain.Contracts`) — content-hash image cache
-- `HydrationPipelineService` (`MediaEngine.Providers.Services`) — three-stage orchestrator
+- `HydrationPipelineService` (`MediaEngine.Providers.Services`) — two-stage orchestrator
 - `ScoringHelper` (`MediaEngine.Providers.Services`) — shared claim-persist-score helper
 - `ReviewQueueRepository`, `ImageCacheRepository` (`MediaEngine.Storage`) — SQLite implementations
 - `HydrationSettings` (`MediaEngine.Storage.Models`) — pipeline config model
@@ -934,7 +893,7 @@ Absorbed/removed tabs:
 
 **Why this matters to the business:**
 - **Reliability** — Ambiguous matches are surfaced to the user instead of being silently dropped. The review queue ensures no metadata decision is made without confidence.
-- **Extensibility** — Adding a new provider to any stage is a one-line JSON change (`hydration_stages: [1, 3]`). The pipeline handles routing automatically.
+- **Extensibility** — Adding a new provider to any stage is a one-line JSON change (`hydration_stages: [1, 2]`). The pipeline handles routing automatically.
 - **Performance** — Stage 1 runs all providers concurrently. The bounded channel queue (500 items) prevents memory pressure. Image hash caching eliminates redundant downloads.
 - **Maintenance** — Pipeline configuration (timeouts, thresholds, concurrency) lives in `config/hydration.json` — zero code changes to tune behaviour. The dual-path architecture preserves backward compatibility with the existing person enrichment flow.
 - **Privacy** — Only titles, ISBNs, ASINs, and bridge IDs leave the machine. All review decisions and hydrated data live locally.
@@ -1229,16 +1188,16 @@ Thresholds and all heuristic parameters (duration bands, bitrate thresholds, pat
 
 ### 3.21 — Cross-Media Metadata Strategy & Provider Response Caching
 
-**Plain English:** The three-stage hydration pipeline (§3.13) works identically for all seven media types — Books, Audiobooks, Movies, TV Shows, Comics, Music, and Podcasts. Only the provider in Stage 1 changes; the pipeline architecture itself is media-type-agnostic. A new response cache eliminates redundant API calls when bulk-importing large collections.
+**Plain English:** The two-stage hydration pipeline (§3.13) works identically for all seven media types — Books, Audiobooks, Movies, TV Shows, Comics, Music, and Podcasts. Only the provider in Stage 1 changes; the pipeline architecture itself is media-type-agnostic. A new response cache eliminates redundant API calls when bulk-importing large collections.
 
-**Stage 3 retail provider slot assignments per media type:**
+**Stage 2 retail provider slot assignments per media type:**
 
-Wikidata (Stage 1) and Wikipedia (Stage 2) are the universal authority sources for all media types. The table below shows Stage 3 retail provider assignments — these fill gaps that Wikidata/Wikipedia cannot cover (cover art, ratings, new releases).
+Wikidata Reconciliation (Stage 1) is the universal authority source for all media types. The table below shows Stage 2 retail provider assignments — these fill gaps that Wikidata cannot cover (cover art, ratings, new releases).
 
 | Media Type | Retail Primary | Retail Secondary | Retail Tertiary | Bridge to Wikidata |
 |-----------|-------------------|-----------|----------|-------------------|
-| **Books** | Apple Books (zero-key) | Google Books (key) | Open Library (zero-key) | ISBN (P212), Apple Books ID (P3861) |
-| **Audiobooks** | Apple Books (zero-key) | Google Books (key) | — | ASIN, Apple Books ID (P3861) |
+| **Books** | Apple API (zero-key) | Google Books (key) | Open Library (zero-key) | ISBN (P212), Apple Books ID (P3861) |
+| **Audiobooks** | Apple API (zero-key) | Google Books (key) | — | ASIN, Apple Books ID (P3861) |
 | **Movies** | TMDB (free key) | — | — | TMDB ID (P4947), IMDb ID (P345) |
 | **TV Shows** | TMDB (free key) | — | — | TMDB TV ID (P4983), IMDb ID (P345) |
 | **Comics** | Comic Vine (free key) | — | — | Comic Vine ID (P5905) |
@@ -1249,18 +1208,18 @@ Slot assignments are configured in `config/slots.json`. TMDB and Comic Vine requ
 
 **New providers added:**
 
-- **Apple Podcasts** (`config/providers/apple_podcasts.json`) — uses the same iTunes Search API as Apple Books (`https://itunes.apple.com`) with `entity=podcast` and `entity=podcastEpisode`. Zero-key. Same 9999 artwork trick for up to 3000×3000 cover art. Provider ID: `b9000009-0000-4000-8000-000000000010`.
+- **Apple Podcasts** (`config/providers/apple_podcasts.json`) — uses the same iTunes Search API as Apple API (`https://itunes.apple.com`) with `entity=podcast` and `entity=podcastEpisode`. Zero-key. Same 9999 artwork trick for up to 3000×3000 cover art. Provider ID: `b9000009-0000-4000-8000-000000000010`.
 - **Podcast Index** (`config/providers/podcast_index.json`) — secondary podcast provider from podcastindex.org. Requires a free API key. Returns show metadata, episode lists, and podcast GUIDs. Provider ID: `ba00000a-0000-4000-8000-000000000011`.
 
 **Artwork quality strategy:**
 
 | Media Type | Primary Art Source | Resolution | Notes |
 |-----------|-------------------|-----------|-------|
-| Books & Audiobooks | Apple Books | Up to 3000×3000 | 9999 trick already in config |
+| Books & Audiobooks | Apple API | Up to 3000×3000 | 9999 trick already in config |
 | Movies & TV | TMDB | Up to 2000×3000 (w500 default) | Backdrop also available at w1280 |
 | Comics | Comic Vine | ~900px (super_url) | Upgraded from medium_url |
 | Music | Cover Art Archive | 500px (front-500) | Upgraded from front-250 |
-| Podcasts | Apple Podcasts | Up to 3000×3000 | Same 9999 trick as Apple Books |
+| Podcasts | Apple Podcasts | Up to 3000×3000 | Same 9999 trick as Apple API |
 
 **Provider response caching:**
 
@@ -1285,19 +1244,19 @@ How it works:
 3. If expired but has ETag → sends `If-None-Match` header; 304 Not Modified → reuses cached response
 4. If miss → makes HTTP call, caches response with per-provider TTL from `cache_ttl_hours` config
 
-Per-provider TTL defaults: Apple Books 168h (7d), TMDB 168h, Open Library 336h (14d), Google Books 168h, MusicBrainz 336h, Comic Vine 720h (30d — strict rate limits), Audnexus 168h.
+Per-provider TTL defaults: Apple API 168h (7d), TMDB 168h, Open Library 336h (14d), Google Books 168h, MusicBrainz 336h, Comic Vine 720h (30d — strict rate limits).
 
-**Filesystem-first invariant:** The response cache is a **performance optimization only**. On a fresh install or database rebuild, the cache starts empty. Canonical values are rebuilt from `library.xml` sidecars via Great Inhale. The cache repopulates naturally during re-hydration.
+**File-first invariant:** The response cache is a **performance optimization only**. On a fresh install or database rebuild, the cache starts empty. Canonical values are rebuilt via file re-ingestion and batch Reconciliation API. The cache repopulates naturally during re-hydration.
 
 **Rate limit awareness:**
 
 | Provider | Rate Limit | Time for 10,000 files (uncached) | With Cache |
 |----------|-----------|----------------------------------|-----------|
-| Apple Books/Podcasts | ~20 req/sec | ~33 min | ~5 min (series/episodes share) |
+| Apple API/Podcasts | ~20 req/sec | ~33 min | ~5 min (series/episodes share) |
 | TMDB | 50 req/sec | ~42 min | ~5 min (TV series episodes share) |
 | MusicBrainz | 1 req/sec | ~3 hours | ~15 min (album tracks share) |
 | Comic Vine | 200 req/hour | ~14 hours | ~2 hours (volume issues share) |
-| Wikidata SPARQL | ~5 req/sec | ~83 min | ~20 min |
+| Wikidata Reconciliation | ~5 req/sec | ~83 min | ~20 min |
 
 **Key types:**
 - `IProviderResponseCacheRepository` (`MediaEngine.Domain.Contracts`) — cache contract: `FindAsync`, `UpsertAsync`, `FindExpiredEtagAsync`, `RefreshExpiryAsync`, `PurgeExpiredAsync`, `ClearAllAsync`, `GetStatsAsync`
@@ -1319,14 +1278,14 @@ Per-provider TTL defaults: Apple Books 168h (7d), TMDB 168h, Open Library 336h (
 When multiple files arrive in the same source folder (e.g. a TV season with 22 episodes, or an album with 12 tracks), the Engine uses **Ingestion Hinting** to avoid redundant external lookups. After the first file in a folder is fully hydrated, its resolved metadata becomes a "hint prior" for sibling files in the same directory.
 
 How it works:
-1. **First file in folder** — processed normally through the full three-stage pipeline. On successful hydration, the Engine caches a `FolderHint` record keyed by the source folder path, containing: resolved Hub ID, QID, series name, author/artist, and all bridge IDs deposited by Stage 1.
+1. **First file in folder** — processed normally through the full two-stage pipeline. On successful hydration, the Engine caches a `FolderHint` record keyed by the source folder path, containing: resolved Hub ID, QID, series name, author/artist, and all bridge IDs deposited by Stage 1.
 2. **Subsequent siblings** — when the next file from the same folder enters ingestion, the Engine checks for an existing `FolderHint`. If found, the hint's bridge IDs and Hub ID are injected as high-confidence priors (0.80) into the scoring pipeline *before* Stage 1 runs. This allows:
-   - **Stage 1 skip for bridge-matched siblings:** If the sibling's embedded metadata (e.g. same series name, sequential episode number) is consistent with the hint, Stage 1 can resolve the QID instantly from the cached bridge IDs instead of running a fresh SPARQL lookup.
+   - **Stage 1 skip for bridge-matched siblings:** If the sibling's embedded metadata (e.g. same series name, sequential episode number) is consistent with the hint, Stage 1 can resolve the QID instantly from the cached bridge IDs instead of running a fresh Reconciliation lookup.
    - **Hub pre-assignment:** The sibling is tentatively assigned to the same Hub, skipping the Arbiter's full matching cycle. The Arbiter still validates the assignment (and rejects if metadata diverges significantly), but the common case — 22 episodes of the same show — resolves in milliseconds.
 3. **Hint expiry** — `FolderHint` records expire after 24 hours or when the source folder is no longer being actively monitored. They are stored in-memory (`ConcurrentDictionary<string, FolderHint>`) and not persisted to the database — they are a performance optimisation, not a source of truth.
 4. **Divergence detection** — if a sibling file's embedded metadata disagrees with the hint (different series name, different author), the hint is ignored for that file and it proceeds through the full pipeline. This prevents a single misplaced file from corrupting an entire folder's metadata.
 
-**Performance impact:** For a 22-episode TV season, Ingestion Hinting reduces Stage 1 SPARQL calls from 22 to 1 (95% reduction). For a 12-track album, MusicBrainz lookups drop from 12 to 1. The provider response cache (above) handles Stage 3 deduplication; Ingestion Hinting handles Stage 1 + Hub assignment deduplication.
+**Performance impact:** For a 22-episode TV season, Ingestion Hinting reduces Stage 1 Reconciliation calls from 22 to 1 (95% reduction). For a 12-track album, MusicBrainz lookups drop from 12 to 1. The provider response cache (above) handles Stage 2 deduplication; Ingestion Hinting handles Stage 1 + Hub assignment deduplication.
 
 **Why this matters to the business:**
 - **Performance** — Response caching cuts API calls by 3–5x for bulk imports of related content. A 5,000-episode TV library takes ~5 minutes instead of ~42 minutes. Ingestion Hinting further reduces Stage 1 lookups by up to 95% for folder-grouped content.
@@ -1361,7 +1320,7 @@ How it works:
 
 **Great Inhale extension:** `ScanUniversesAsync` enumerates `.universe/*/universe.xml`, rebuilds narrative roots, entities, relationships, and work links from sidecar data.
 
-**Query efficiency:** Three layers prevent redundant SPARQL calls — skip-if-enriched (entity level), provider response cache (HTTP level), universe-level deduplication (known QID).
+**Query efficiency:** Three layers prevent redundant Reconciliation calls — skip-if-enriched (entity level), provider response cache (HTTP level), universe-level deduplication (known QID).
 
 ### 3.23 — Person Infrastructure v1.1
 
@@ -1374,7 +1333,7 @@ How it works:
 
 **Pseudonym resolution:** After Wikidata enrichment, P1773 (attributed_to) links pen names to real people, P742 (pseudonym) links real people to their pen names. Both directions stored in `person_aliases` table.
 
-**Wikipedia for Persons:** `WikipediaAdapter.CanHandle` now accepts `EntityType.Person`. After Wikidata enrichment, the Engine fetches a richer Wikipedia biography (up to 1000 chars, confidence 0.85) to replace the short Wikidata description.
+**Wikipedia for Persons:** After Wikidata enrichment, the Engine fetches a richer Wikipedia biography (up to 1000 chars, confidence 0.85) via the Wikipedia API to supplement the short Wikidata description.
 
 **Person folder naming:** `.people/{Name} ({QID})/` format after enrichment provides a QID. Existing folders under old naming patterns (GUID, name-only) are automatically renamed on next enrichment cycle.
 
@@ -1415,11 +1374,10 @@ How it works:
 
 **Pass 1 — Quick Match (immediate, during ingestion):**
 
-Pass 1 runs as part of the normal three-stage hydration pipeline (§3.13) but fetches only core properties:
+Pass 1 runs as part of the normal two-stage hydration pipeline (§3.13) but fetches only core properties:
 
-- **Stage 1 (Wikidata — core subset):** Bridge ID lookup (ISBN, ASIN) or title search → resolve QID. Fetch **core properties only**: title, author/artist, year, genre, series, series_position. Skip the full 50+ property SPARQL deep hydration.
-- **Stage 2 (Wikipedia):** Fetch encyclopedic description (unchanged — already lightweight).
-- **Stage 3 (Retail providers):** Cover art, ratings, narrator credits (unchanged).
+- **Stage 1 (Reconciliation — core subset):** Bridge ID lookup (ISBN, ASIN) or title search → resolve QID. Fetch **core properties only**: title, author/artist, year, genre, series, series_position. Skip the full 50+ property Data Extension deep hydration.
+- **Stage 2 (Retail providers):** Cover art, ratings (unchanged).
 - **Basic person creation:** Find/create Person records for author, narrator, director. Fetch name + headshot + occupation from Wikidata. Skip deep social links and biographical enrichment.
 
 Result: the file appears on the Dashboard within seconds with title, author, cover art, and author photo.
@@ -1428,7 +1386,7 @@ Result: the file appears on the Dashboard within seconds with title, author, cov
 
 Pass 2 handles everything that makes the library *intelligent* — the deep connections between media, people, and fictional worlds:
 
-- **Full SPARQL deep hydration** — all 50+ properties from `WikidataSparqlPropertyMap`
+- **Full Data Extension deep hydration** — all 50+ properties from `WikidataPropertyMap`
 - **Hub Intelligence** — franchise resolution, narrative root assignment (P1434, P8345, P179)
 - **Fictional entity discovery** — characters, locations, organisations from Wikidata
 - **Relationship population** — father, spouse, member_of, performer links (depth limit 1)
@@ -1440,7 +1398,7 @@ Pass 2 handles everything that makes the library *intelligent* — the deep conn
 
 **Scheduling: Priority Queue + Nightly Sweep (hybrid):**
 
-1. **Primary mechanism: Priority queue.** Pass 2 requests go onto a low-priority background channel. When the ingestion pipeline is idle (no Pass 1 work pending, no files being processed), the service picks up Pass 2 requests and processes them with respectful rate limiting (e.g., 1 SPARQL query every 2 seconds). If a new file arrives, Pass 2 processing pauses and Pass 1 takes priority.
+1. **Primary mechanism: Priority queue.** Pass 2 requests go onto a low-priority background channel. When the ingestion pipeline is idle (no Pass 1 work pending, no files being processed), the service picks up Pass 2 requests and processes them with respectful rate limiting (e.g., 1 Reconciliation request every 2 seconds). If a new file arrives, Pass 2 processing pauses and Pass 1 takes priority.
 
 2. **Safety net: Nightly sweep.** A configurable cron job (default: daily at 2:00 AM) scans for any Pass 2 requests older than N hours that the priority queue has not yet processed (e.g., due to sustained heavy ingestion). Processes in batches with configurable size and inter-batch delay.
 
@@ -1504,13 +1462,13 @@ Pass 2 handles everything that makes the library *intelligent* — the deep conn
 
 Two new relationship types: `significant_person` (P3342 — ally, rival, mentor) and `affiliation` (P1416 — group membership). Four new Wikidata properties: P3342, P1416, P103 (native_language), P1281 (avatar_image).
 
-**Batch SPARQL:**
+**Batch Data Extension queries:**
 
-`WikidataSparqlPropertyMap.BuildBatchEntityQuery` generates SPARQL queries with `VALUES` clause for fetching properties of up to 50 entities per request. `WikidataAdapter.FetchEntitiesBatchAsync` provides the implementation.
+`WikidataPropertyMap.BuildBatchEntityRequest` generates Data Extension API requests for fetching properties of up to 50 entities per request. `ReconciliationAdapter.FetchEntitiesBatchAsync` provides the implementation.
 
-**SPARQL response caching:**
+**Reconciliation response caching:**
 
-`WikidataAdapter` caches SPARQL responses using the existing `IProviderResponseCacheRepository`. SHA-256 hash of the query string serves as the cache key. Supports ETag-based revalidation (If-None-Match → 304 Not Modified). Default TTL: 168 hours (7 days).
+`ReconciliationAdapter` caches API responses using the existing `IProviderResponseCacheRepository`. SHA-256 hash of the request serves as the cache key. Supports ETag-based revalidation (If-None-Match → 304 Not Modified). Default TTL: 168 hours (7 days).
 
 **Lore Delta change detection:**
 
@@ -1547,8 +1505,8 @@ Route: `/universe/{Qid}/explore`. Features:
 **SignalR event:** `LoreDeltaDiscoveredEvent(UniverseQid, ChangedCount)` — broadcast when Lore Delta check discovers updated entities.
 
 **Configuration** (`config/hydration.json` additions):
-- `fetch_temporal_qualifiers` (default: true) — enable qualified statement SPARQL syntax
-- `batch_sparql_size` (default: 50) — max entities per batch SPARQL query
+- `fetch_temporal_qualifiers` (default: true) — enable qualified statement fetching via Data Extension API
+- `batch_query_size` (default: 50) — max entities per batch Data Extension request
 - `lineage_depth` (default: 2) — maximum depth for relationship traversal
 - `lore_delta_check_on_explorer_open` (default: true) — auto-check on page load
 - `canon_discrepancy_detection` (default: true) — enable canon checking
@@ -1565,7 +1523,7 @@ Route: `/universe/{Qid}/explore`. Features:
 **Why this matters to the business:**
 - **Extensibility** — Temporal data enables future features: spoiler gates, era-filtered cast panels, temporal search.
 - **Reliability** — Lore Delta detects stale data automatically. Canon discrepancy prevents edition/master work confusion.
-- **Performance** — SPARQL response caching and batch queries reduce API calls by 3-5x. 2-hop depth is configurable.
+- **Performance** — Reconciliation response caching and batch queries reduce API calls by 3-5x. 2-hop depth is configurable.
 - **Maintenance** — All thresholds and feature flags live in `config/hydration.json`. Zero code changes to tune.
 
 ---

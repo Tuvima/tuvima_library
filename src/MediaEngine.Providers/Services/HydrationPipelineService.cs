@@ -16,19 +16,16 @@ using MediaEngine.Storage.Models;
 namespace MediaEngine.Providers.Services;
 
 /// <summary>
-/// Three-stage authority-first hydration pipeline orchestrator.
+/// Two-stage authority-first hydration pipeline orchestrator.
 ///
 /// <list type="number">
-///   <item><b>Stage 1 — Authority Match:</b> Wikidata resolves the work's
-///     identity via bridge IDs or title search, SPARQL deep hydration, Hub
-///     Intelligence, and Person Enrichment. On failure an
+///   <item><b>Stage 1 — Reconciliation:</b> Wikidata reconciliation API resolves the
+///     work's identity via bridge IDs or title search, deposits bridge IDs, performs
+///     Hub Intelligence and Person Enrichment. On failure an
 ///     <see cref="ReviewTrigger.AuthorityMatchFailed"/> review item is created.</item>
-///   <item><b>Stage 2 — Context Match:</b> Wikipedia provides a human-readable
-///     description using the QID resolved in Stage 1. Skipped when no QID
-///     was found and <c>SkipWikipediaWithoutQid</c> is <c>true</c>.</item>
-///   <item><b>Stage 3 — Retail Match:</b> Runs retail providers in waterfall
-///     order from <c>config/slots.json</c>, using bridge IDs deposited by
-///     Stage 1 for precise lookups. On all-provider failure a
+///   <item><b>Stage 2 — Enrichment:</b> Retail providers run in waterfall order from
+///     <c>config/slots.json</c>, using bridge IDs deposited by Stage 1 for precise
+///     lookups. On all-provider failure a
 ///     <see cref="ReviewTrigger.ContentMatchFailed"/> review item is created.</item>
 /// </list>
 ///
@@ -240,22 +237,20 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             foreach (var (key, url) in pc.Endpoints)
                 endpointMap.TryAdd(key, url);
 
-        var sparqlBaseUrl = endpointMap.TryGetValue("wikidata_sparql", out var sparql)
-            ? sparql : null;
-
         _logger.LogDebug(
             "Pipeline endpoint map: {Endpoints}",
             string.Join(", ", endpointMap.Select(kv => $"{kv.Key}={kv.Value}")));
 
         var pipelineSw = System.Diagnostics.Stopwatch.StartNew();
-        long s1Ms = 0, s2Ms = 0, s3Ms = 0;
+        long s1Ms = 0, s2Ms = 0;
 
-        // ── Stage 1: Authority Match (Wikidata) ─────────────────────────────
+        // ── Stage 1: Reconciliation ──────────────────────────────────────────
         //
-        // Resolves the work's identity via Wikidata: bridge ID lookup or title
-        // search → SPARQL deep hydration → Hub Intelligence → Person Enrichment.
+        // Resolves the work's identity via the Wikidata reconciliation API:
+        // bridge ID lookup or title search → deep enrichment → Hub Intelligence
+        // → Person Enrichment.
         // This stage runs first so that bridge IDs (ISBN, ASIN, TMDB, IMDb)
-        // are available for Stage 3's precise retail lookups.
+        // are available for Stage 2's precise retail lookups.
 
         // D2: inject folder hint bridge IDs into the request hints so providers
         // can use them for direct lookups instead of title search.
@@ -330,7 +325,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             && !HasSufficientMetadataForAuthorityMatch(request))
         {
             _logger.LogInformation(
-                "Pipeline Stage 1 (Authority Match) blocked for entity {Id} " +
+                "Pipeline Stage 1 (Reconciliation) blocked for entity {Id} " +
                 "(title: \"{Title}\") — no author, year, or bridge identifiers: " +
                 "title-only requests risk false-positive Wikidata matches",
                 request.EntityId, titleHint);
@@ -345,7 +340,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         }
 
         _logger.LogInformation(
-            "Pipeline Stage 1 (Authority Match) starting for entity {Id} — title: \"{Title}\", media type: {MediaType}, providers: [{Providers}]",
+            "Pipeline Stage 1 (Reconciliation) starting for entity {Id} — title: \"{Title}\", media type: {MediaType}, providers: [{Providers}]",
             request.EntityId, titleHint, request.MediaType,
             stage1Providers.Count > 0
                 ? string.Join(", ", stage1Providers.Select(p => p.Name))
@@ -359,7 +354,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         foreach (var provider in stage1Providers)
         {
             var claims = await FetchFromProviderAsync(
-                provider, request, endpointMap, sparqlBaseUrl, lang, country, ct, effectivePass).ConfigureAwait(false);
+                provider, request, endpointMap, lang, country, ct, effectivePass).ConfigureAwait(false);
 
             if (claims.Count == 0) continue;
 
@@ -398,7 +393,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         {
             await _eventPublisher.PublishAsync(
                 "HydrationStageCompleted",
-                new HydrationStageCompletedEvent(request.EntityId, 1, stage1Claims, "authority_match"),
+                new HydrationStageCompletedEvent(request.EntityId, 1, stage1Claims, "reconciliation"),
                 ct).ConfigureAwait(false);
 
             // Hub Intelligence: assign Work to a Hub based on Wikidata relationships.
@@ -483,11 +478,65 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                         request.EntityId);
                 }
             }
+
+            // Audiobook edition discovery: when the work has a QID and the media
+            // type is Audiobook, discover audiobook editions via P747 and deposit
+            // narrator/duration/ASIN as additional claims.
+            if (result.WikidataQid is not null
+                && request.MediaType == MediaType.Audiobooks)
+            {
+                try
+                {
+                    var reconAdapter = _providers
+                        .OfType<MediaEngine.Providers.Adapters.ReconciliationAdapter>()
+                        .FirstOrDefault();
+                    if (reconAdapter is not null)
+                    {
+                        var editions = await reconAdapter.DiscoverAudiobookEditionsAsync(
+                            result.WikidataQid, ct).ConfigureAwait(false);
+
+                        if (editions.Count > 0)
+                        {
+                            var editionClaims = new List<ProviderClaim>();
+                            var first = editions[0]; // Use first audiobook edition found
+
+                            if (!string.IsNullOrWhiteSpace(first.Narrator))
+                                editionClaims.Add(new ProviderClaim("narrator", first.Narrator, 0.90));
+                            if (!string.IsNullOrWhiteSpace(first.Duration))
+                                editionClaims.Add(new ProviderClaim("duration", first.Duration, 0.85));
+                            if (!string.IsNullOrWhiteSpace(first.ASIN))
+                                editionClaims.Add(new ProviderClaim("asin", first.ASIN, 0.95));
+                            if (!string.IsNullOrWhiteSpace(first.Publisher))
+                                editionClaims.Add(new ProviderClaim("publisher", first.Publisher, 0.85));
+
+                            if (editionClaims.Count > 0)
+                            {
+                                await ScoringHelper.PersistClaimsAndScoreAsync(
+                                    request.EntityId, editionClaims, reconAdapter.ProviderId,
+                                    _claimRepo, _canonicalRepo, _scoringEngine, _configLoader,
+                                    _providers, ct, _arrayRepo, _logger).ConfigureAwait(false);
+
+                                result.Stage1ClaimsAdded += editionClaims.Count;
+
+                                _logger.LogInformation(
+                                    "Audiobook edition discovery: found {Count} edition(s) for QID {Qid}, deposited {Claims} claims",
+                                    editions.Count, result.WikidataQid, editionClaims.Count);
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _logger.LogWarning(ex,
+                        "Audiobook edition discovery failed for entity {Id}; continuing",
+                        request.EntityId);
+                }
+            }
         }
         else if (stage1Providers.Count > 0)
         {
             _logger.LogWarning(
-                "Pipeline Stage 1 (Authority Match) produced no results for entity {Id}",
+                "Pipeline Stage 1 (Reconciliation) produced no results for entity {Id}",
                 request.EntityId);
 
             // Authority match failed — create review item.
@@ -507,7 +556,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         else
         {
             _logger.LogWarning(
-                "Pipeline Stage 1 skipped for entity {Id}: no authority providers configured",
+                "Pipeline Stage 1 skipped for entity {Id}: no reconciliation providers configured",
                 request.EntityId);
         }
 
@@ -515,94 +564,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         s1Ms = stageSw.ElapsedMilliseconds;
         stageSw.Restart();
 
-        // ── Stage 2: Context Match (Wikipedia) ──────────────────────────────
-        //
-        // Fetches a human-readable description from Wikipedia using the QID
-        // resolved in Stage 1.  Silent on failure — no review item is created.
-
-        // Reload canonical values to pick up QID from Stage 1.
-        var canonicalsForS2 = await _canonicalRepo.GetByEntityAsync(request.EntityId, ct)
-            .ConfigureAwait(false);
-        var resolvedQid = result.WikidataQid
-            ?? canonicalsForS2.FirstOrDefault(c => c.Key == "wikidata_qid")?.Value;
-
-        if (hydration.SkipWikipediaWithoutQid && string.IsNullOrEmpty(resolvedQid)
-            && string.IsNullOrEmpty(request.PreResolvedQid))
-        {
-            _logger.LogDebug(
-                "Skipping Stage 2 (Wikipedia) for entity {Id} — no QID available",
-                request.EntityId);
-        }
-        else
-        {
-            var stage2Providers = GetProvidersForStage(2, provConfigs, request);
-            var stage2Claims    = 0;
-
-            _logger.LogInformation(
-                "Pipeline Stage 2 (Context Match) starting for entity {Id} — QID: {Qid}, providers: [{Providers}]",
-                request.EntityId,
-                resolvedQid ?? request.PreResolvedQid ?? "(none)",
-                stage2Providers.Count > 0
-                    ? string.Join(", ", stage2Providers.Select(p => p.Name))
-                    : "(none)");
-
-            // Enrich the request with the QID so Wikipedia can look up the article.
-            var stage2Request = request;
-            if (!string.IsNullOrEmpty(resolvedQid) && string.IsNullOrEmpty(request.PreResolvedQid))
-            {
-                stage2Request = new HarvestRequest
-                {
-                    EntityId       = request.EntityId,
-                    EntityType     = request.EntityType,
-                    MediaType      = request.MediaType,
-                    Hints          = new Dictionary<string, string>(request.Hints, StringComparer.OrdinalIgnoreCase),
-                    PreResolvedQid = resolvedQid,
-                    IngestionRunId = request.IngestionRunId,
-                    SuppressActivityEntry = request.SuppressActivityEntry,
-                };
-            }
-
-            foreach (var provider in stage2Providers)
-            {
-                var claims = await FetchFromProviderAsync(
-                    provider, stage2Request, endpointMap, sparqlBaseUrl, lang, country, ct, effectivePass)
-                    .ConfigureAwait(false);
-
-                if (claims.Count == 0) continue;
-
-                await ScoringHelper.PersistClaimsAndScoreAsync(
-                    request.EntityId, claims, provider.ProviderId,
-                    _claimRepo, _canonicalRepo, _scoringEngine, _configLoader,
-                    _providers, ct, _arrayRepo, _logger).ConfigureAwait(false);
-
-                stage2Claims += claims.Count;
-
-                await PublishHarvestEvent(request.EntityId, provider.Name, claims, ct)
-                    .ConfigureAwait(false);
-            }
-
-            result.Stage2ClaimsAdded = stage2Claims;
-
-            if (stage2Claims > 0)
-            {
-                await _eventPublisher.PublishAsync(
-                    "HydrationStageCompleted",
-                    new HydrationStageCompletedEvent(request.EntityId, 2, stage2Claims, "context_match"),
-                    ct).ConfigureAwait(false);
-            }
-            else
-            {
-                _logger.LogDebug(
-                    "Stage 2 (Context Match) returned no claims for entity {Id} — continuing silently",
-                    request.EntityId);
-            }
-        }
-
-
-        s2Ms = stageSw.ElapsedMilliseconds;
-        stageSw.Restart();
-
-        // ── Stage 3: Retail Match (Waterfall) ───────────────────────────────
+        // ── Stage 2: Enrichment (Waterfall) ─────────────────────────────────
         //
         // Runs retail providers in priority order (primary -> secondary ->
         // tertiary) from slots.json. Bridge IDs deposited by Stage 1 are used
@@ -610,19 +572,19 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         // checked against the waterfall threshold.
 
         // Reload canonical values to extract bridge IDs from Stage 1.
-        var canonicalsForS3 = await _canonicalRepo.GetByEntityAsync(request.EntityId, ct)
+        var canonicalsForS2 = await _canonicalRepo.GetByEntityAsync(request.EntityId, ct)
             .ConfigureAwait(false);
-        var bridgeHints = ExtractBridgeHints(canonicalsForS3);
+        var bridgeHints = ExtractBridgeHints(canonicalsForS2);
 
         // Enrich the request with bridge IDs from Stage 1 for precise retail lookups.
-        var stage3Request = EnrichRequestWithBridgeHints(request, bridgeHints);
+        var stage2Request = EnrichRequestWithBridgeHints(request, bridgeHints);
 
-        var waterfallProviders = ResolveWaterfallProviders(slots, provConfigs, stage3Request);
-        var stage3Claims = 0;
+        var waterfallProviders = ResolveWaterfallProviders(slots, provConfigs, stage2Request);
+        var stage2Claims = 0;
         IExternalMetadataProvider? lastSuccessfulProvider = null;
 
         _logger.LogInformation(
-            "Pipeline Stage 3 (Retail Match) starting for entity {Id} — bridge IDs: [{BridgeKeys}], providers: [{Providers}]",
+            "Pipeline Stage 2 (Enrichment) starting for entity {Id} — bridge IDs: [{BridgeKeys}], providers: [{Providers}]",
             request.EntityId,
             bridgeHints.Count > 0 ? string.Join(", ", bridgeHints.Keys) : "(none)",
             waterfallProviders.Count > 0
@@ -632,7 +594,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         foreach (var provider in waterfallProviders)
         {
             var claims = await FetchFromProviderAsync(
-                provider, stage3Request, endpointMap, sparqlBaseUrl, lang, country, ct, effectivePass).ConfigureAwait(false);
+                provider, stage2Request, endpointMap, lang, country, ct, effectivePass).ConfigureAwait(false);
 
             if (claims.Count > 0)
             {
@@ -641,7 +603,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                     _claimRepo, _canonicalRepo, _scoringEngine, _configLoader,
                     _providers, ct, _arrayRepo, _logger).ConfigureAwait(false);
 
-                stage3Claims += claims.Count;
+                stage2Claims += claims.Count;
                 lastSuccessfulProvider = provider;
 
                 await PublishHarvestEvent(request.EntityId, provider.Name, claims, ct)
@@ -653,19 +615,19 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
 
                 await _eventPublisher.PublishAsync(
                     "HydrationStageCompleted",
-                    new HydrationStageCompletedEvent(request.EntityId, 3, claims.Count,
+                    new HydrationStageCompletedEvent(request.EntityId, 2, claims.Count,
                         $"waterfall_{provider.Name}"),
                     ct).ConfigureAwait(false);
 
                 _logger.LogInformation(
-                    "Pipeline Stage 3 waterfall: provider '{Provider}' returned {Claims} claims, confidence now {Confidence:P0} (threshold: {Threshold:P0})",
+                    "Pipeline Stage 2 waterfall: provider '{Provider}' returned {Claims} claims, confidence now {Confidence:P0} (threshold: {Threshold:P0})",
                     provider.Name, claims.Count, currentConfidence,
                     hydration.Stage3WaterfallConfidenceThreshold);
 
                 if (currentConfidence >= hydration.Stage3WaterfallConfidenceThreshold)
                 {
                     _logger.LogDebug(
-                        "Pipeline Stage 3 waterfall: confidence sufficient after '{Provider}', stopping",
+                        "Pipeline Stage 2 waterfall: confidence sufficient after '{Provider}', stopping",
                         provider.Name);
                     break;
                 }
@@ -673,19 +635,19 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             else
             {
                 _logger.LogInformation(
-                    "Pipeline Stage 3 waterfall: provider '{Provider}' returned no results, continuing",
+                    "Pipeline Stage 2 waterfall: provider '{Provider}' returned no results, continuing",
                     provider.Name);
             }
         }
 
-        result.Stage3ClaimsAdded = stage3Claims;
+        result.Stage2ClaimsAdded = stage2Claims;
 
-        if (stage3Claims > 0)
+        if (stage2Claims > 0)
         {
-            // Post-hydration auto-resolve: if Stage 3 returned 3+ claims and this
+            // Post-hydration auto-resolve: if Stage 2 returned 3+ claims and this
             // entity has a pending AmbiguousMediaType review item, the provider match
             // confirms the media type — auto-resolve the review item.
-            if (stage3Claims >= 3 && request.EntityType == EntityType.MediaAsset)
+            if (stage2Claims >= 3 && request.EntityType == EntityType.MediaAsset)
             {
                 try
                 {
@@ -703,7 +665,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                         {
                             ActionType = SystemActionType.ReviewItemResolved,
                             EntityId   = request.EntityId,
-                            Detail     = $"AmbiguousMediaType auto-resolved: Stage 3 returned {stage3Claims} claims, confirming media type.",
+                            Detail     = $"AmbiguousMediaType auto-resolved: Stage 2 returned {stage2Claims} claims, confirming media type.",
                         }, ct).ConfigureAwait(false);
 
                         await _eventPublisher.PublishAsync("ReviewItemResolved", new
@@ -715,7 +677,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
 
                         _logger.LogInformation(
                             "AmbiguousMediaType review auto-resolved for entity {Id} — {Claims} claims confirmed type",
-                            request.EntityId, stage3Claims);
+                            request.EntityId, stage2Claims);
                     }
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
@@ -726,7 +688,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 }
             }
 
-            // Write-back: write resolved metadata to the physical file after retail match.
+            // Write-back: write resolved metadata to the physical file after enrichment.
             // Skip on suppressed re-enqueue runs (cover-only) — the initial run
             // already wrote metadata.
             if (request.EntityType == EntityType.MediaAsset
@@ -734,13 +696,13 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             {
                 try
                 {
-                    await _writeBack.WriteMetadataAsync(request.EntityId, "retail_match", ct, request.IngestionRunId)
+                    await _writeBack.WriteMetadataAsync(request.EntityId, "enrichment", ct, request.IngestionRunId)
                         .ConfigureAwait(false);
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
                     _logger.LogWarning(ex,
-                        "Write-back after Stage 3 failed for entity {Id}; continuing",
+                        "Write-back after Stage 2 failed for entity {Id}; continuing",
                         request.EntityId);
                 }
             }
@@ -755,30 +717,30 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         else if (waterfallProviders.Count > 0)
         {
             _logger.LogWarning(
-                "Pipeline Stage 3 (Retail Match) produced no results for entity {Id} from any provider in waterfall [{Providers}]",
+                "Pipeline Stage 2 (Enrichment) produced no results for entity {Id} from any provider in waterfall [{Providers}]",
                 request.EntityId, string.Join(", ", waterfallProviders.Select(p => p.Name)));
 
             // All waterfall providers ran but returned no results -> ContentMatchFailed.
             await CreateReviewItemAsync(
                 request, ReviewTrigger.ContentMatchFailed, 0.0,
-                $"All retail waterfall providers returned no results for this {request.MediaType}",
+                $"All enrichment waterfall providers returned no results for this {request.MediaType}",
                 result, ct).ConfigureAwait(false);
         }
         else
         {
             _logger.LogWarning(
-                "Pipeline Stage 3 skipped for entity {Id}: no retail providers configured for {MediaType}",
+                "Pipeline Stage 2 skipped for entity {Id}: no enrichment providers configured for {MediaType}",
                 request.EntityId, request.MediaType);
         }
 
 
-        s3Ms = stageSw.ElapsedMilliseconds;
+        s2Ms = stageSw.ElapsedMilliseconds;
 
-        // ── NF Placeholder: retail-only match without Wikidata QID ──────────
-        // When Stage 1 (Wikidata) failed to find a QID but Stage 3 (retail)
-        // succeeded, the book is likely new or in early release.  Assign a
-        // placeholder QID in "NF{6-digit}" format and flag it for future review.
-        if (result.WikidataQid is null && result.Stage3ClaimsAdded > 0)
+        // ── NF Placeholder: enrichment-only match without Wikidata QID ──────
+        // When Stage 1 (Reconciliation) failed to find a QID but Stage 2
+        // (Enrichment) succeeded, the item is likely new or in early release.
+        // Assign a placeholder QID in "NF{6-digit}" format and flag for review.
+        if (result.WikidataQid is null && result.Stage2ClaimsAdded > 0)
         {
             try
             {
@@ -812,7 +774,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                     // Create a review item so the user can revisit when Wikidata has it.
                     await CreateReviewItemAsync(
                         request, ReviewTrigger.MissingQid, 0.0,
-                        $"No Wikidata QID found. Retail match exists ({result.Stage3ClaimsAdded} claims). Placeholder: {placeholder}",
+                        $"No Wikidata QID found. Enrichment match exists ({result.Stage2ClaimsAdded} claims). Placeholder: {placeholder}",
                         result, ct).ConfigureAwait(false);
 
                     _logger.LogInformation(
@@ -834,9 +796,9 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
 
         pipelineSw.Stop();
         _logger.LogInformation(
-            "[PERF] Hydration {EntityId}: S1={S1Ms}ms S2={S2Ms}ms S3={S3Ms}ms Total={TotalMs}ms (claims: {S1Claims}+{S2Claims}+{S3Claims}={TotalClaims})",
-            request.EntityId, s1Ms, s2Ms, s3Ms, pipelineSw.ElapsedMilliseconds,
-            result.Stage1ClaimsAdded, result.Stage2ClaimsAdded, result.Stage3ClaimsAdded,
+            "[PERF] Hydration {EntityId}: S1={S1Ms}ms S2={S2Ms}ms Total={TotalMs}ms (claims: {S1Claims}+{S2Claims}={TotalClaims})",
+            request.EntityId, s1Ms, s2Ms, pipelineSw.ElapsedMilliseconds,
+            result.Stage1ClaimsAdded, result.Stage2ClaimsAdded,
             result.TotalClaimsAdded);
 
         if (result.TotalClaimsAdded > 0)
@@ -976,9 +938,9 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         }
 
         _logger.LogInformation(
-            "Hydration pipeline complete for entity {Id}: S1={S1} S2={S2} S3={S3} total={Total} review={Review}",
+            "Hydration pipeline complete for entity {Id}: S1={S1} S2={S2} total={Total} review={Review}",
             request.EntityId, result.Stage1ClaimsAdded, result.Stage2ClaimsAdded,
-            result.Stage3ClaimsAdded, result.TotalClaimsAdded, result.NeedsReview);
+            result.TotalClaimsAdded, result.NeedsReview);
 
         return result;
     }
@@ -1007,8 +969,8 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                           or ReviewTrigger.AuthorityMatchFailed
                           or ReviewTrigger.UniverseMatchFailed).ToList();
             // AuthorityMatchFailed is auto-resolved here because high confidence from
-            // Stage 3 retail providers is sufficient to identify and organise the file
-            // — Wikidata authority matching is optional enrichment.
+            // Stage 2 enrichment providers is sufficient to identify and organise the file
+            // — Wikidata reconciliation is optional enrichment.
             // UniverseMatchFailed is kept for backward compatibility with existing rows.
 
             foreach (var review in resolvable)
@@ -1095,7 +1057,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     }
 
     /// <summary>
-    /// Resolves the primary provider for Stage 1 (Content Match) from the slot
+    /// Resolves the primary provider for Stage 1 (Reconciliation) from the slot
     /// configuration. Returns <c>null</c> if no primary provider is configured
     /// or the configured provider is disabled/not found.
     /// </summary>
@@ -1145,7 +1107,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     /// <summary>
     /// Returns an ordered list of providers for the retail waterfall execution:
     /// primary, then secondary, then tertiary — filtering out nulls/disabled.
-    /// Used for Stage 3 (Retail Match).
+    /// Used for Stage 2 (Enrichment).
     /// </summary>
     private List<IExternalMetadataProvider> ResolveWaterfallProviders(
         ProviderSlotConfiguration slots,
@@ -1180,7 +1142,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     /// <summary>
     /// Computes the overall confidence for an entity by loading all claims,
     /// running the scoring engine, and returning the overall confidence value.
-    /// Used during Stage 3 waterfall to decide whether to call the next provider.
+    /// Used during Stage 2 waterfall to decide whether to call the next provider.
     /// </summary>
     private async Task<double> ComputeOverallConfidenceAsync(
         Guid entityId, CancellationToken ct)
@@ -1219,8 +1181,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
 
     /// <summary>
     /// Returns providers configured for the given stage, filtered by media type
-    /// and entity type compatibility. Used for Stage 1 (Authority Match) and
-    /// Stage 2 (Context Match) providers.
+    /// and entity type compatibility. Used for Stage 1 (Reconciliation) providers.
     /// </summary>
     private List<IExternalMetadataProvider> GetProvidersForStage(
         int stage,
@@ -1384,7 +1345,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 else if (titleScore?.WinningProviderId is not null
                          && titleScore.WinningProviderId != localProcessorId)
                     matchMethod = "provider_match";
-                else if (result.Stage3ClaimsAdded > 0)
+                else if (result.Stage2ClaimsAdded > 0)
                     matchMethod = "provider_match";
                 else if (titleScore?.WinningProviderId == localProcessorId)
                     matchMethod = "embedded_metadata";
@@ -1410,7 +1371,6 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 wikidata_qid    = qid ?? string.Empty,
                 stage1_claims   = result.Stage1ClaimsAdded,
                 stage2_claims   = result.Stage2ClaimsAdded,
-                stage3_claims   = result.Stage3ClaimsAdded,
                 needs_review    = result.NeedsReview,
                 entity_id       = entityId.ToString(),
                 match_method    = matchMethod,
@@ -1619,14 +1579,13 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         IExternalMetadataProvider provider,
         HarvestRequest request,
         Dictionary<string, string> endpointMap,
-        string? sparqlBaseUrl,
         string language,
         string country,
         CancellationToken ct,
         HydrationPass effectivePass = HydrationPass.Quick)
     {
         var baseUrl = ResolveBaseUrl(provider, endpointMap);
-        var lookupRequest = BuildLookupRequest(request, provider, baseUrl, language, country, sparqlBaseUrl, effectivePass);
+        var lookupRequest = BuildLookupRequest(request, provider, baseUrl, language, country, effectivePass);
 
         try
         {
@@ -2085,12 +2044,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         IExternalMetadataProvider provider,
         Dictionary<string, string> endpointMap)
     {
-        var key = provider.Name switch
-        {
-            "wikidata"  => "wikidata_api",
-            "wikipedia" => "wikipedia_api",
-            _           => provider.Name,
-        };
+        var key = provider.Name;
 
         if (endpointMap.TryGetValue(key, out var url))
             return url;
@@ -2106,7 +2060,6 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         string baseUrl,
         string language = "en",
         string country = "us",
-        string? sparqlBaseUrl = null,
         HydrationPass effectivePass = HydrationPass.Quick)
     {
         var h = request.Hints;
@@ -2128,7 +2081,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             PersonRole     = h.GetValueOrDefault("role"),
             PreResolvedQid = request.PreResolvedQid,
             BaseUrl        = baseUrl,
-            SparqlBaseUrl  = sparqlBaseUrl,
+            SparqlBaseUrl  = null,
             Language       = language,
             Country        = country,
             HydrationPass  = effectivePass,

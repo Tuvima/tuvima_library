@@ -20,7 +20,7 @@
             <div class="search-recent-grid">
                 @foreach (var hub in State.FilteredHubs.Take(24))
                 {
-                    <div class="search-recent-item" @onclick="@(() => Nav.NavigateTo($"/hub/{hub.Id}"))">
+                    <div class="search-recent-item" @onclick="@(() => Nav.NavigateTo($"/book/{hub.Works.FirstOrDefault()?.Id ?? hub.Id}"))">
                         @if (!string.IsNullOrEmpty(hub.CoverUrl))
                         {
                             <img src="@hub.CoverUrl" alt="@hub.DisplayName" class="search-recent-cover" loading="lazy" />

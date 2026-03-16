@@ -35,6 +35,54 @@ public sealed class WorkViewModel
     public string? Author => Authors.FirstOrDefault();
     public string? AuthorQid      => Canonical("author_qid");
     public string? WikidataQid    => Canonical("wikidata_qid");
+
+    /// <summary>
+    /// The best human-facing identifier for this work based on its media type.
+    /// Books → ISBN, Movies/TV → IMDb, Music → MusicBrainz, fallback → QID.
+    /// </summary>
+    public string? DisplayIdentifier
+    {
+        get
+        {
+            var mt = (MediaType ?? string.Empty).ToLowerInvariant();
+            if (mt.Contains("book") || mt.Contains("epub") || mt.Contains("audio"))
+                return Canonical("isbn") ?? Canonical("asin") ?? WikidataQid;
+            if (mt.Contains("movie") || mt.Contains("tv") || mt.Contains("video"))
+                return Canonical("imdb_id") ?? Canonical("tmdb_id") ?? WikidataQid;
+            if (mt.Contains("music"))
+                return Canonical("musicbrainz_id") ?? WikidataQid;
+            if (mt.Contains("comic"))
+                return Canonical("comicvine_id") ?? WikidataQid;
+            return WikidataQid;
+        }
+    }
+
+    /// <summary>
+    /// Label for the <see cref="DisplayIdentifier"/> (e.g. "ISBN", "IMDb", "QID").
+    /// </summary>
+    public string DisplayIdentifierLabel
+    {
+        get
+        {
+            var mt = (MediaType ?? string.Empty).ToLowerInvariant();
+            if (mt.Contains("book") || mt.Contains("epub") || mt.Contains("audio"))
+            {
+                if (Canonical("isbn") is not null) return "ISBN";
+                if (Canonical("asin") is not null) return "ASIN";
+                return "QID";
+            }
+            if (mt.Contains("movie") || mt.Contains("tv") || mt.Contains("video"))
+            {
+                if (Canonical("imdb_id") is not null) return "IMDb";
+                if (Canonical("tmdb_id") is not null) return "TMDB";
+                return "QID";
+            }
+            if (mt.Contains("music")) return Canonical("musicbrainz_id") is not null ? "MusicBrainz" : "QID";
+            if (mt.Contains("comic")) return Canonical("comicvine_id") is not null ? "Comic Vine" : "QID";
+            return "QID";
+        }
+    }
+
     public string? Year           => Canonical("release_year") ?? Canonical("year");
     public string? CoverUrl       => Canonical("cover");
     public string? HeroUrl        => Canonical("hero");
@@ -92,8 +140,21 @@ public sealed class WorkViewModel
         }
     }
 
-    private string? Canonical(string key) =>
-        CanonicalValues.FirstOrDefault(cv => cv.Key.Equals(key, StringComparison.OrdinalIgnoreCase))?.Value;
+    private static readonly HashSet<string> MultiValuedKeys = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "genre", "characters", "cast_member", "voice_actor",
+        "narrative_location", "main_subject", "composer", "screenwriter",
+        "author", "creator",  // these are explicitly split by Authors property
+        "genre_qid",          // paired with genre
+    };
+
+    private string? Canonical(string key)
+    {
+        var raw = CanonicalValues.FirstOrDefault(cv => cv.Key.Equals(key, StringComparison.OrdinalIgnoreCase))?.Value;
+        if (raw is not null && raw.Contains("|||", StringComparison.Ordinal) && !MultiValuedKeys.Contains(key))
+            return raw.Split("|||", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault();
+        return raw;
+    }
 }
 
 /// <summary>A single scored metadata field on a Work or Edition.</summary>

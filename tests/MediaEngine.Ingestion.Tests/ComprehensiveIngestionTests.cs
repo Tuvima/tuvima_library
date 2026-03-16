@@ -44,7 +44,6 @@ public sealed class ComprehensiveIngestionTests : IDisposable
     // Stubs for external I/O.
     private readonly StubFileWatcher _watcher = new();
     private readonly StubEventPublisher _publisher = new();
-    private readonly StubSidecarWriter _sidecar = new();
     private readonly StubHeroBannerGenerator _heroGenerator = new();
     private readonly StubHydrationPipeline _hydrationPipeline = new();
     private readonly StubRecursiveIdentity _recursiveIdentity = new();
@@ -130,7 +129,6 @@ public sealed class ComprehensiveIngestionTests : IDisposable
             _canonicalRepo,
             _hydrationPipeline,
             _recursiveIdentity,
-            _sidecar,
             _chainFactory,
             _reviewRepo,
             _activityRepo,
@@ -307,9 +305,7 @@ public sealed class ComprehensiveIngestionTests : IDisposable
 
         await RunPipelineAsync();
 
-        // Sidecar should record cover path.
-        Assert.NotEmpty(_sidecar.EditionWrites);
-        Assert.Equal("cover.jpg", _sidecar.EditionWrites[0].Data.CoverPath);
+        // Sidecars removed.
     }
 
     // ══════════════════════════════════════════════════════════════════════════
@@ -541,8 +537,7 @@ public sealed class ComprehensiveIngestionTests : IDisposable
         var asset = await _assetRepo.FindByHashAsync(hash.Hex);
         Assert.NotNull(asset);
 
-        // No sidecar written (file not in library).
-        Assert.Empty(_sidecar.EditionWrites);
+        // Sidecars removed.
     }
 
     [Fact]
@@ -978,7 +973,7 @@ public sealed class ComprehensiveIngestionTests : IDisposable
             PollIntervalSeconds = 0,
         });
 
-        Assert.Empty(_sidecar.EditionWrites);
+        // Sidecars removed.
     }
 
     [Fact]

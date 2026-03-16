@@ -15,15 +15,14 @@ namespace MediaEngine.Ingestion;
 /// threshold. This is the SOLE path from staging to the Library — files never
 /// reach the Library directly from the Watch Folder.
 ///
-/// After promotion: writes the edition sidecar, moves companion files (cover.jpg),
-/// generates the cinematic hero banner, and publishes the completion event.
+/// After promotion: moves companion files (cover.jpg), generates the cinematic
+/// hero banner, and publishes the completion event.
 /// </summary>
 public sealed class AutoOrganizeService : IAutoOrganizeService
 {
     private readonly IMediaAssetRepository    _assetRepo;
     private readonly ICanonicalValueRepository _canonicalRepo;
     private readonly IFileOrganizer           _organizer;
-    private readonly ISidecarWriter           _sidecar;
     private readonly ISystemActivityRepository _activityRepo;
     private readonly IEventPublisher          _publisher;
     private readonly IHeroBannerGenerator     _heroGenerator;
@@ -35,7 +34,6 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         IMediaAssetRepository      assetRepo,
         ICanonicalValueRepository  canonicalRepo,
         IFileOrganizer             organizer,
-        ISidecarWriter             sidecar,
         ISystemActivityRepository  activityRepo,
         IEventPublisher            publisher,
         IHeroBannerGenerator       heroGenerator,
@@ -46,7 +44,6 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         _assetRepo     = assetRepo;
         _canonicalRepo = canonicalRepo;
         _organizer     = organizer;
-        _sidecar       = sidecar;
         _activityRepo  = activityRepo;
         _publisher     = publisher;
         _heroGenerator = heroGenerator;
@@ -168,10 +165,6 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         // was still in staging — move it now so it isn't orphaned).
         MoveCompanionFiles(stagingFolder, editionFolder, "cover.jpg", "hero.jpg");
 
-        // Write edition-level sidecar XML now that the file is in the Library.
-        await WriteEditionSidecarAsync(asset.ContentHash, metadata, mediaType,
-            editionFolder, ct).ConfigureAwait(false);
-
         // Generate cinematic hero banner from cover art.
         await GenerateHeroBannerAsync(assetId, editionFolder, ct).ConfigureAwait(false);
 
@@ -239,13 +232,10 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
 
         if (string.Equals(asset.FilePathRoot, newDest, StringComparison.OrdinalIgnoreCase))
         {
-            // Path unchanged — just refresh sidecar.
-            string existingEditionFolder = Path.GetDirectoryName(asset.FilePathRoot) ?? string.Empty;
-            await WriteEditionSidecarAsync(asset.ContentHash, metadata, mediaType,
-                existingEditionFolder, ct).ConfigureAwait(false);
+            // Path unchanged — nothing to do.
             _logger.LogDebug(
-                "Sidecar refreshed for {Id} (already organized at {Path})",
-                assetId, asset.FilePathRoot);
+                "Already organized at {Path} for {Id}",
+                asset.FilePathRoot, assetId);
             return;
         }
 
@@ -259,10 +249,7 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
             await _assetRepo.UpdateFilePathAsync(assetId, newDest, ct).ConfigureAwait(false);
 
             var newFolder = Path.GetDirectoryName(newDest) ?? string.Empty;
-            MoveCompanionFiles(oldFolder, newFolder, "cover.jpg", "hero.jpg", "library.xml");
-
-            await WriteEditionSidecarAsync(asset.ContentHash, metadata, mediaType,
-                newFolder, ct).ConfigureAwait(false);
+            MoveCompanionFiles(oldFolder, newFolder, "cover.jpg", "hero.jpg");
 
             CleanEmptyParents(oldFolder, _options.LibraryRoot);
 
@@ -290,45 +277,6 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
-
-    /// <summary>
-    /// Writes (or refreshes) the edition-level sidecar XML file at the given
-    /// folder path using the full canonical metadata dictionary.
-    /// </summary>
-    private async Task WriteEditionSidecarAsync(
-        string                       contentHash,
-        Dictionary<string, string>   metadata,
-        MediaType?                   mediaType,
-        string                       editionFolder,
-        CancellationToken            ct)
-    {
-        var canonicalValues = metadata
-            .Where(kv => !string.IsNullOrWhiteSpace(kv.Value))
-            .ToDictionary(kv => kv.Key, kv => kv.Value,
-                StringComparer.OrdinalIgnoreCase);
-
-        var wikidataQid = metadata.GetValueOrDefault("wikidata_qid");
-        var authorQid   = metadata.GetValueOrDefault("author_qid");
-        var multiValued = BuildMultiValuedCanonicals(metadata);
-
-        await _sidecar.WriteEditionSidecarAsync(editionFolder, new EditionSidecarData
-        {
-            Title                 = metadata.GetValueOrDefault("title"),
-            TitleQid              = wikidataQid,
-            Author                = metadata.GetValueOrDefault("author"),
-            AuthorQid             = authorQid,
-            MediaType             = mediaType?.ToString(),
-            Isbn                  = metadata.GetValueOrDefault("isbn"),
-            Asin                  = metadata.GetValueOrDefault("asin"),
-            WikidataQid           = wikidataQid,
-            ContentHash           = contentHash,
-            CoverPath             = "cover.jpg",
-            UserLocks             = [],
-            CanonicalValues       = canonicalValues,
-            MultiValuedCanonicals = multiValued,
-            LastOrganized         = DateTimeOffset.UtcNow,
-        }, ct).ConfigureAwait(false);
-    }
 
     /// <summary>
     /// Generates a cinematic hero banner from cover art after promotion to the library.
@@ -388,33 +336,6 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         {
             _logger.LogWarning(ex, "Hero banner generation failed for {Path}", coverPath);
         }
-    }
-
-    private static IReadOnlyDictionary<string, MultiValuedCanonical> BuildMultiValuedCanonicals(
-        Dictionary<string, string> metadata)
-    {
-        var result = new Dictionary<string, MultiValuedCanonical>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var kv in metadata)
-        {
-            if (!kv.Value.Contains("|||", StringComparison.Ordinal))
-                continue;
-
-            var values = kv.Value.Split("|||",
-                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-
-            var qids = Array.Empty<string>();
-            if (metadata.TryGetValue(kv.Key + "_qid", out var qidValue) &&
-                qidValue.Contains("|||", StringComparison.Ordinal))
-            {
-                qids = qidValue.Split("|||",
-                    StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-            }
-
-            result[kv.Key] = new MultiValuedCanonical { Values = values, Qids = qids };
-        }
-
-        return result;
     }
 
     private static void MoveCompanionFiles(string oldFolder, string newFolder, params string[] fileNames)

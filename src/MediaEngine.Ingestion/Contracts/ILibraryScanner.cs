@@ -3,25 +3,27 @@ using MediaEngine.Ingestion.Models;
 namespace MediaEngine.Ingestion.Contracts;
 
 /// <summary>
-/// Recursively scans a Library Root directory for <c>library.xml</c> sidecar files
-/// and uses them to hydrate (or restore) the database — the "Great Inhale".
+/// Scans a Library Root directory for media files and rebuilds the database
+/// from embedded file metadata and batch reconciliation — the "Great Inhale v2".
 ///
 /// <para>
-/// Design invariant: XML always wins. When the sidecar and the database disagree,
-/// the sidecar value is applied. This makes the filesystem the authoritative
-/// source of truth and allows full database reconstruction after a data wipe.
+/// Files already known to the database (matched by content hash) have their
+/// paths updated if they have moved on disk. Files not yet in the database are
+/// flagged for a follow-up ingestion pass to run processors, scoring, and
+/// metadata hydration.
 /// </para>
 ///
 /// <para>
-/// No file hashing or metadata extraction is performed — the scan reads XML only,
-/// making it orders of magnitude faster than a full ingestion pass.
+/// Person and universe data is recovered separately from <c>.people/*/person.xml</c>
+/// and <c>.universe/*/universe.xml</c> sidecar files which are maintained
+/// independently of the media file scanning pipeline.
 /// </para>
 /// </summary>
 public interface ILibraryScanner
 {
     /// <summary>
-    /// Scans <paramref name="libraryRoot"/> recursively, processes all
-    /// <c>library.xml</c> files found, and returns a summary of the hydration.
+    /// Scans <paramref name="libraryRoot"/> for media files and returns a
+    /// summary of the scan results.
     /// </summary>
     /// <param name="libraryRoot">Absolute path to the Library Root directory.</param>
     /// <param name="ct">Cancellation token; checked between files.</param>

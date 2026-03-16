@@ -46,7 +46,7 @@ else
         heroData = heroData with { Subtitle = ResolveHeroPhrase(heroData) };
         <HubHero Data="@heroData"
                  Visible="true"
-                 OnClicked="@(() => Nav.NavigateTo($"/hub/{_heroHub.Id}"))"
+                 OnClicked="@(() => Nav.NavigateTo($"/book/{_heroHub.Works.FirstOrDefault()?.Id ?? _heroHub.Id}"))"
                  OnCtaClicked="@(() => { if (_heroJourney is not null) HandleJourneyPlay(_heroJourney); })" />
     }
 
@@ -474,7 +474,7 @@ else
     }
 
     private void HandleHubSelected(HubViewModel hub) =>
-        Nav.NavigateTo($"/hub/{hub.Id}");
+        Nav.NavigateTo($"/book/{hub.Works.FirstOrDefault()?.Id ?? hub.Id}");
 
     private void HandleJourneyPlay(JourneyItemViewModel item)
     {
@@ -487,7 +487,7 @@ else
         }
         else if (item.HubId.HasValue)
         {
-            Nav.NavigateTo($"/hub/{item.HubId.Value}?lastAssetId={item.AssetId}");
+            Nav.NavigateTo($"/book/{item.HubId.Value}?lastAssetId={item.AssetId}");
         }
     }
 

@@ -64,7 +64,14 @@
                         @foreach (var hub in _searchResults)
                         {
                             <div class="top-bar-search-result" @onmousedown="@(() => NavigateToHub(hub))">
-                                <MudIcon Icon="@Icons.Material.Filled.MenuBook" Size="Size.Small" Class="top-bar-result-icon" />
+                                @if (!string.IsNullOrEmpty(hub.CoverUrl))
+                                {
+                                    <img src="@hub.CoverUrl" alt="" class="search-result-thumb" />
+                                }
+                                else
+                                {
+                                    <MudIcon Icon="@Icons.Material.Filled.MenuBook" Size="Size.Small" Class="top-bar-result-icon" />
+                                }
                                 <div class="top-bar-result-text">
                                     <span class="top-bar-result-title">@hub.DisplayName</span>
                                     @if (!string.IsNullOrEmpty(hub.Author))
@@ -163,7 +170,7 @@
         _searchText = string.Empty;
         _searchResults = [];
         _searchActive = false;
-        Nav.NavigateTo($"/hub/{hub.Id}");
+        Nav.NavigateTo($"/book/{hub.Works.FirstOrDefault()?.Id ?? hub.Id}");
     }
 
     [Inject] private NavigationManager Nav { get; set; } = default!;
@@ -319,6 +326,14 @@
 
     .top-bar-search-result:hover {
         background: rgba(255, 255, 255, 0.06);
+    }
+
+    .search-result-thumb {
+        width: 32px;
+        height: 48px;
+        object-fit: cover;
+        border-radius: 4px;
+        flex-shrink: 0;
     }
 
     .top-bar-result-icon {

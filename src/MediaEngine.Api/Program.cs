@@ -142,15 +142,8 @@ var    configLoader  = new ConfigurationDirectoryLoader(configDir, manifestPath)
 builder.Services.AddSingleton<IStorageManifest>(configLoader);
 builder.Services.AddSingleton<IConfigurationLoader>(configLoader);
 
-// Bootstrap the default universe config if it doesn't exist yet.
-// The ConfigurationDirectoryLoader (in MediaEngine.Storage) creates the universe/
-// directory but cannot write the Wikidata property map because that model lives
-// in MediaEngine.Providers. This bootstrap bridges the two projects.
-if (configLoader.LoadConfig<UniverseConfiguration>("universe", "wikidata") is null)
-{
-    UniverseConfiguration defaultUniverse = WikidataSparqlPropertyMap.ExportAsUniverseConfiguration();
-    configLoader.SaveConfig("universe", "wikidata", defaultUniverse);
-}
+// TODO: Phase 3 - Universe config bootstrap will be handled by ReconciliationAdapter
+// (WikidataSparqlPropertyMap was removed as part of SPARQL infrastructure cleanup)
 builder.Services.AddSingleton<ITransactionJournal, TransactionJournal>();
 builder.Services.AddSingleton<IMediaAssetRepository, MediaAssetRepository>();
 builder.Services.AddSingleton<IHubRepository, HubRepository>();
@@ -286,24 +279,14 @@ builder.Services.AddHttpClient("settings_probe", c =>
     c.Timeout = TimeSpan.FromSeconds(5); // outer cap; each probe uses a 3-second CTS
 });
 
-// Wikidata keeps its two named HttpClients (coded adapter, not config-driven).
-builder.Services.AddHttpClient("wikidata_api", c =>
-{
-    c.Timeout = TimeSpan.FromSeconds(15);
-    c.DefaultRequestHeaders.UserAgent.ParseAdd(
-        "Tuvima Library/1.0 (https://github.com/Tuvima/tuvima_library)");
-});
-builder.Services.AddHttpClient("wikidata_sparql", c =>
-{
-    c.Timeout = TimeSpan.FromSeconds(15);
-    c.DefaultRequestHeaders.UserAgent.ParseAdd(
-        "Tuvima Library/1.0 (https://github.com/Tuvima/tuvima_library)");
-});
+// TODO: Phase 3 - wikidata_api, wikidata_sparql, wikipedia_api HttpClients removed
+// (WikidataAdapter and WikipediaAdapter deleted as part of SPARQL infrastructure cleanup)
 
-// Wikipedia REST API - Stage 2 (Context Match) coded adapter.
-builder.Services.AddHttpClient("wikipedia_api", c =>
+// Named HttpClient for the ReconciliationAdapter (wikidata.reconci.link + Wikimedia Commons).
+// 30-second timeout to accommodate batch SPARQL-style data extension queries.
+builder.Services.AddHttpClient("wikidata_reconciliation", c =>
 {
-    c.Timeout = TimeSpan.FromSeconds(10);
+    c.Timeout = TimeSpan.FromSeconds(30);
     c.DefaultRequestHeaders.UserAgent.ParseAdd(
         "Tuvima Library/1.0 (https://github.com/Tuvima/tuvima_library)");
 });
@@ -366,11 +349,30 @@ builder.Services.AddSingleton<IQidLabelRepository,            QidLabelRepository
 builder.Services.AddSingleton<IQidLabelResolver,              QidLabelResolver>();
 builder.Services.AddSingleton<ICanonicalValueArrayRepository, CanonicalValueArrayRepository>();
 
-// Wikidata stays as a coded adapter — SPARQL cannot be expressed as URL templates.
-builder.Services.AddSingleton<IExternalMetadataProvider, WikidataAdapter>();
-
-// Wikipedia - Stage 2 (Context Match) coded adapter for descriptions.
-builder.Services.AddSingleton<IExternalMetadataProvider, WikipediaAdapter>();
+// ReconciliationAdapter — Wikidata Reconciliation API + Data Extension API.
+// Registered as both its concrete type and IExternalMetadataProvider so the
+// hydration pipeline can inject the concrete type for direct method calls.
+{
+    var reconConfig = configLoader.LoadConfig<MediaEngine.Storage.Models.ReconciliationProviderConfig>(
+        "providers", "wikidata_reconciliation");
+    if (reconConfig is not null)
+    {
+        builder.Services.AddSingleton<ReconciliationAdapter>(sp =>
+            new ReconciliationAdapter(
+                reconConfig,
+                sp.GetRequiredService<IHttpClientFactory>(),
+                sp.GetRequiredService<ILogger<ReconciliationAdapter>>(),
+                sp.GetRequiredService<IProviderResponseCacheRepository>()));
+        builder.Services.AddSingleton<IExternalMetadataProvider>(
+            sp => sp.GetRequiredService<ReconciliationAdapter>());
+    }
+    else
+    {
+        Console.Error.WriteLine(
+            "[WARN] config/providers/wikidata_reconciliation.json not found — " +
+            "ReconciliationAdapter will not be registered.");
+    }
+}
 
 builder.Services.AddSingleton<IMetadataHarvestingService, MetadataHarvestingService>();
 builder.Services.AddSingleton<IRecursiveIdentityService,  RecursiveIdentityService>();
@@ -400,8 +402,7 @@ builder.Services.AddSingleton<ISearchService,                SearchService>();
 builder.Services.AddSingleton<IImageCacheRepository,              ImageCacheRepository>();
 builder.Services.AddSingleton<IProviderResponseCacheRepository,  ProviderResponseCacheRepository>();
 
-// ── Phase 7: Sidecar writer + Great Inhale scanner ───────────────────────────
-builder.Services.AddSingleton<ISidecarWriter,  SidecarWriter>();
+// ── Great Inhale scanner ──────────────────────────────────────────────────────
 builder.Services.AddSingleton<ILibraryScanner, LibraryScanner>();
 
 // ── Hero banner generation (cover art → cinematic hero.jpg) ──────────────────

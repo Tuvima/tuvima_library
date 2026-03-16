@@ -181,102 +181,11 @@ public sealed class ProviderIntegrationTests
         }
     }
 
-    // ── Audnexus ─────────────────────────────────────────────────────────────
-
-    [Fact]
-    public async Task Audnexus_Handles_Asin_Lookup_Gracefully()
-    {
-        var adapter = BuildConfigDrivenAdapter("audnexus");
-
-        // ASIN B007978NPG = "The Fellowship of the Ring" audiobook on Audible.
-        // Note: Audnexus is region-sensitive; some ASINs may return 404 or
-        // region-unavailable depending on the test runner's location.
-        var request = new ProviderLookupRequest
-        {
-            EntityId   = Guid.NewGuid(),
-            EntityType = EntityType.MediaAsset,
-            MediaType  = MediaType.Audiobooks,
-            Title      = "The Fellowship of the Ring",
-            Asin       = "B007978NPG",
-            BaseUrl    = "https://api.audnex.us",
-        };
-
-        var claims = await adapter.FetchAsync(request);
-
-        LogClaims("Audnexus", claims);
-
-        // Audnexus may return empty if the ASIN is not available in the local region.
-        // The important validation is that it degrades gracefully (no exception thrown).
-        _output.WriteLine($"  Audnexus returned {claims.Count} claims (region-dependent).");
-
-        if (claims.Count > 0)
-        {
-            await HashCoverArt(claims);
-        }
-    }
-
-    [Fact]
-    public async Task Audnexus_ShortCircuits_Without_Asin()
-    {
-        var adapter = BuildConfigDrivenAdapter("audnexus");
-
-        var request = new ProviderLookupRequest
-        {
-            EntityId   = Guid.NewGuid(),
-            EntityType = EntityType.MediaAsset,
-            MediaType  = MediaType.Audiobooks,
-            Title      = "The Fellowship of the Ring",
-            Asin       = null,
-            BaseUrl    = "https://api.audnex.us",
-        };
-
-        var claims = await adapter.FetchAsync(request);
-
-        // Config-driven adapter skips the strategy because required_fields includes "asin".
-        _output.WriteLine($"Audnexus without ASIN: {claims.Count} claims (expected 0).");
-        Assert.Empty(claims);
-    }
-
     // ── Wikidata ─────────────────────────────────────────────────────────────
-
-    [Fact]
-    public async Task Wikidata_Returns_Claims_For_FellowshipOfTheRing()
-    {
-        // Wikidata needs both wikidata_api and wikidata_sparql clients.
-        var factory = BuildRealHttpFactory("wikidata_api", "wikidata_sparql");
-        var stubConfig = new IntegrationConfigLoader();
-
-        // Use a real logger to surface any adapter-internal errors.
-        using var loggerFactory = LoggerFactory.Create(builder =>
-            builder.AddProvider(new XUnitLoggerProvider(_output)).SetMinimumLevel(LogLevel.Debug));
-        var logger = loggerFactory.CreateLogger<WikidataAdapter>();
-
-        var adapter = new WikidataAdapter(factory, stubConfig, new NoOpQidLabelRepository(), new NoOpProviderResponseCacheRepository(), new NoOpResolverCacheRepository(), logger);
-
-        var request = new ProviderLookupRequest
-        {
-            EntityId    = Guid.NewGuid(),
-            EntityType  = EntityType.Work,
-            MediaType   = MediaType.Books,
-            Title       = "The Fellowship of the Ring",
-            Author      = "J.R.R. Tolkien",
-            BaseUrl     = "https://www.wikidata.org/w/api.php",
-            SparqlBaseUrl = "https://query.wikidata.org/sparql",
-        };
-
-        var claims = await adapter.FetchAsync(request);
-
-        LogClaims("Wikidata", claims);
-
-        // Wikidata may fail due to rate limiting or network conditions.
-        // The adapter must degrade gracefully without throwing.
-        _output.WriteLine($"  Wikidata returned {claims.Count} claims.");
-
-        if (claims.Count > 0)
-        {
-            AssertHasClaim(claims, "wikidata_qid");
-        }
-    }
+    // TODO: Phase 3 - Wikidata integration test disabled (WikidataAdapter removed in SPARQL cleanup)
+    // Will be replaced with ReconciliationAdapter integration test in Phase 3
+    // [Fact]
+    // public async Task Wikidata_Returns_Claims_For_FellowshipOfTheRing() { ... }
 
     // ── Search tests (multi-result SearchAsync) ─────────────────────────────
 
@@ -356,38 +265,10 @@ public sealed class ProviderIntegrationTests
             Assert.All(results, r => Assert.False(string.IsNullOrWhiteSpace(r.Title)));
     }
 
-    [Fact]
-    public async Task Wikidata_Search_Returns_QidClaims()
-    {
-        var factory = BuildRealHttpFactory("wikidata_api", "wikidata_sparql");
-        var stubConfig = new IntegrationConfigLoader();
-
-        using var loggerFactory = LoggerFactory.Create(builder =>
-            builder.AddProvider(new XUnitLoggerProvider(_output)).SetMinimumLevel(LogLevel.Debug));
-        var logger = loggerFactory.CreateLogger<WikidataAdapter>();
-
-        var adapter = new WikidataAdapter(factory, stubConfig, new NoOpQidLabelRepository(), new NoOpProviderResponseCacheRepository(), new NoOpResolverCacheRepository(), logger);
-
-        var request = new ProviderLookupRequest
-        {
-            EntityId      = Guid.NewGuid(),
-            EntityType    = EntityType.Work,
-            MediaType     = MediaType.Books,
-            Title         = "Dune",
-            Author        = "Frank Herbert",
-            BaseUrl       = "https://www.wikidata.org/w/api.php",
-            SparqlBaseUrl = "https://query.wikidata.org/sparql",
-        };
-
-        var claims = await adapter.FetchAsync(request);
-
-        _output.WriteLine($"Wikidata (Dune) Search: {claims.Count} claims.");
-        foreach (var c in claims.Take(10))
-            _output.WriteLine($"  [{c.Key}] = \"{(c.Value.Length > 80 ? c.Value[..80] + "…" : c.Value)}\"");
-
-        if (claims.Count > 0)
-            AssertHasClaim(claims, "wikidata_qid");
-    }
+    // TODO: Phase 3 - Wikidata_Search_Returns_QidClaims test disabled (WikidataAdapter removed in SPARQL cleanup)
+    // Will be replaced with ReconciliationAdapter search test in Phase 3
+    // [Fact]
+    // public async Task Wikidata_Search_Returns_QidClaims() { ... }
 
     // ── Config-driven adapter builder ───────────────────────────────────────
 

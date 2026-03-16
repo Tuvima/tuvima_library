@@ -38,7 +38,7 @@ internal static class ScoringHelper
     /// <see cref="ICanonicalValueArrayRepository"/> rows when their winning
     /// canonical value contains the <c>|||</c> separator.
     /// </summary>
-    private static readonly HashSet<string> MultiValuedKeys = new(StringComparer.OrdinalIgnoreCase)
+    internal static readonly HashSet<string> MultiValuedKeys = new(StringComparer.OrdinalIgnoreCase)
     {
         "genre", "characters", "cast_member", "voice_actor",
         "narrative_location", "main_subject", "composer", "screenwriter",
@@ -119,6 +119,20 @@ internal static class ScoringHelper
                 NeedsReview       = f.IsConflicted, // Unit 5: conflicted fields immediately flagged for review
             })
             .ToList();
+
+        // Sanitise single-valued fields: strip leaked ||| separators.
+        foreach (var cv in canonicals)
+        {
+            if (!MultiValuedKeys.Contains(cv.Key)
+                && cv.Value.Contains("|||", StringComparison.Ordinal))
+            {
+                var first = cv.Value.Split("|||",
+                    StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .FirstOrDefault();
+                if (!string.IsNullOrEmpty(first))
+                    cv.Value = first;
+            }
+        }
 
         await canonicalRepo.UpsertBatchAsync(canonicals, ct).ConfigureAwait(false);
 

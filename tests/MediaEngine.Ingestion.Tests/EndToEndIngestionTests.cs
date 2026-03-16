@@ -42,7 +42,6 @@ public sealed class EndToEndIngestionTests : IDisposable
     // Stubs for external I/O.
     private readonly StubFileWatcher _watcher = new();
     private readonly StubEventPublisher _publisher = new();
-    private readonly StubSidecarWriter _sidecar = new();
     private readonly StubHeroBannerGenerator _heroGenerator = new();
     private readonly StubHydrationPipeline _hydrationPipeline = new();
     private readonly StubRecursiveIdentity _recursiveIdentity = new();
@@ -137,7 +136,6 @@ public sealed class EndToEndIngestionTests : IDisposable
             _canonicalRepo,
             _hydrationPipeline,
             _recursiveIdentity,
-            _sidecar,
             _chainFactory,
             _reviewRepo,
             _activityRepo,
@@ -222,9 +220,7 @@ public sealed class EndToEndIngestionTests : IDisposable
         Assert.Single(_hydrationPipeline.EnqueuedRequests);
         Assert.Equal(asset.Id, _hydrationPipeline.EnqueuedRequests[0].EntityId);
 
-        // Assert: sidecar written (file is in library)
-        Assert.Single(_sidecar.EditionWrites);
-        Assert.Equal("Dune", _sidecar.EditionWrites[0].Data.Title);
+        // Sidecars removed — file metadata is the source of truth.
 
         // Assert: no review queue entries (high confidence)
         var pendingReviews = await _reviewRepo.GetPendingAsync();

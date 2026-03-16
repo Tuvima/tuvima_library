@@ -41,7 +41,6 @@ public sealed class RegistryIngestionTests : IDisposable
     // Stubs for external I/O.
     private readonly StubFileWatcher _watcher = new();
     private readonly StubEventPublisher _publisher = new();
-    private readonly StubSidecarWriter _sidecar = new();
     private readonly StubHeroBannerGenerator _heroGenerator = new();
     private readonly StubHydrationPipeline _hydrationPipeline = new();
     private readonly StubRecursiveIdentity _recursiveIdentity = new();
@@ -128,7 +127,6 @@ public sealed class RegistryIngestionTests : IDisposable
             _canonicalRepo,
             _hydrationPipeline,
             _recursiveIdentity,
-            _sidecar,
             _chainFactory,
             _reviewRepo,
             _activityRepo,
@@ -277,10 +275,10 @@ public sealed class RegistryIngestionTests : IDisposable
         // Act
         await RunPipelineAsync();
 
-        // Assert: all 3 are "Auto" status
+        // Assert: all 3 are "Staging" status (files land in .staging/ before promotion)
         var page = await _registryRepo.GetPageAsync(new RegistryQuery(Limit: 10));
         Assert.Equal(3, page.TotalCount);
-        Assert.All(page.Items, item => Assert.Equal("Auto", item.Status));
+        Assert.All(page.Items, item => Assert.Equal("Staging", item.Status));
     }
 
     [Fact]

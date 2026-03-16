@@ -80,9 +80,6 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     private readonly IHydrationPipelineService   _pipeline;
     private readonly IRecursiveIdentityService   _identity;
 
-    // Phase 7: sidecar XML writer.
-    private readonly ISidecarWriter _sidecar;
-
     // Hub → Work → Edition scaffold creation.
     private readonly IMediaEntityChainFactory _chainFactory;
 
@@ -130,7 +127,6 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         ICanonicalValueRepository  canonicalRepo,
         IHydrationPipelineService  pipeline,
         IRecursiveIdentityService  identity,
-        ISidecarWriter             sidecar,
         IMediaEntityChainFactory   chainFactory,
         IReviewQueueRepository     reviewRepo,
         ISystemActivityRepository  activityRepo,
@@ -156,7 +152,6 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         _canonicalRepo  = canonicalRepo;
         _pipeline       = pipeline;
         _identity       = identity;
-        _sidecar        = sidecar;
         _chainFactory   = chainFactory;
         _reviewRepo     = reviewRepo;
         _activityRepo   = activityRepo;
@@ -893,15 +888,37 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             }
             else
             {
-                hintBridgeIds = folderHint.BridgeIds.Count > 0
-                    ? new Dictionary<string, string>(folderHint.BridgeIds, StringComparer.OrdinalIgnoreCase)
-                    : null;
-                hintedHubId = folderHint.HubId != Guid.Empty ? folderHint.HubId : null;
+                // Title divergence gate: if the incoming file has a clearly different
+                // title from the hint's first file, the hint is for a different work
+                // (e.g. different books by the same author in the same folder).
+                var incomingTitle = meta?.GetValueOrDefault("title")?.Trim();
+                var hintTitle = folderHint.Title?.Trim();
 
-                _logger.LogDebug(
-                    "Folder hint consumed for {Path}: HubId={HubId}, BridgeIds={Count}",
-                    candidate.Path, folderHint.HubId.ToString()[..8],
-                    folderHint.BridgeIds.Count);
+                bool titleDiverges = !string.IsNullOrWhiteSpace(incomingTitle)
+                    && !string.IsNullOrWhiteSpace(hintTitle)
+                    && !string.Equals(incomingTitle, hintTitle, StringComparison.OrdinalIgnoreCase)
+                    && !incomingTitle.Contains(hintTitle, StringComparison.OrdinalIgnoreCase)
+                    && !hintTitle.Contains(incomingTitle, StringComparison.OrdinalIgnoreCase);
+
+                if (titleDiverges)
+                {
+                    _logger.LogInformation(
+                        "Folder hint skipped for {Path}: title \"{IncomingTitle}\" diverges from hint title \"{HintTitle}\" " +
+                        "(HubId={HubId}). Hint bridge IDs will not be injected.",
+                        candidate.Path, incomingTitle, hintTitle, folderHint.HubId.ToString()[..8]);
+                }
+                else
+                {
+                    hintBridgeIds = folderHint.BridgeIds.Count > 0
+                        ? new Dictionary<string, string>(folderHint.BridgeIds, StringComparer.OrdinalIgnoreCase)
+                        : null;
+                    hintedHubId = folderHint.HubId != Guid.Empty ? folderHint.HubId : null;
+
+                    _logger.LogDebug(
+                        "Folder hint consumed for {Path}: HubId={HubId}, BridgeIds={Count}",
+                        candidate.Path, folderHint.HubId.ToString()[..8],
+                        folderHint.BridgeIds.Count);
+                }
             }
         }
 
@@ -962,6 +979,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                     QualifiedIdentityId = meta.GetValueOrDefault("wikidata_qid"),
                     SeriesName          = meta.GetValueOrDefault("series"),
                     AuthorOrArtist      = meta.GetValueOrDefault("author"),
+                    Title               = meta.GetValueOrDefault("title"),
                     BridgeIds           = hintBridges,
                     CreatedAtUtc        = DateTime.UtcNow,
                     SourceFolderPath    = sourceFolder,
@@ -1732,7 +1750,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
     /// <summary>
     /// Cleans up a staged asset whose file no longer exists on disk.
-    /// Removes filesystem artifacts (cover.jpg, library.xml, empty folders)
+    /// Removes filesystem artifacts (cover.jpg, empty folders)
     /// and deletes all associated DB records (claims, canonical values, asset).
     /// </summary>
     private async Task CleanStagedAssetAsync(
@@ -1748,7 +1766,6 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         {
             SafeDeleteFile(Path.Combine(editionFolder, "cover.jpg"));
             SafeDeleteFile(Path.Combine(editionFolder, "hero.jpg"));
-            SafeDeleteFile(Path.Combine(editionFolder, "library.xml"));
             TryDeleteEmptyDirectory(editionFolder);
         }
 
@@ -1876,7 +1893,21 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             return new Dictionary<string, string>();
 
         var hints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var key in new[] { "title", "author", "narrator", "asin", "isbn" })
+
+        // Core metadata keys for title search and person enrichment.
+        // Bridge identifier keys that enable direct Wikidata lookup (Tier 1)
+        // and satisfy the HasSufficientMetadataForAuthorityMatch gate in the
+        // hydration pipeline.  Without these, audiobooks and other media
+        // lacking ISBN/ASIN fall through to the review queue unnecessarily.
+        foreach (var key in new[]
+        {
+            // Core
+            "title", "author", "narrator", "year", "series", "series_position",
+            // Bridge identifiers
+            "asin", "isbn", "tmdb_id", "imdb_id", "goodreads_id",
+            "musicbrainz_id", "apple_books_id", "audible_asin", "open_library_id",
+            "comic_vine_id", "apple_podcasts_id",
+        })
         {
             if (metadata.TryGetValue(key, out var value) &&
                 !string.IsNullOrWhiteSpace(value))

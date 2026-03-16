@@ -75,7 +75,7 @@ public static class RegistryEndpoints
             return Results.Ok(counts);
         })
         .WithName("GetRegistryStatusCounts")
-        .WithSummary("Status counts for tab badges (All, Review, Auto, Edited, Duplicate).")
+        .WithSummary("Status counts for tab badges (All, Staging, Review, Auto, Edited, Duplicate).")
         .Produces<RegistryStatusCounts>(StatusCodes.Status200OK)
         .RequireAdminOrCurator();
 

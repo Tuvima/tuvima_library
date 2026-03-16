@@ -84,8 +84,8 @@ public static class IngestionEndpoints
         })
         .WithName("TriggerLibraryScan")
         .WithSummary(
-            "Reads library.xml sidecars in the Library Root and hydrates the database. " +
-            "XML always wins on conflict (Great Inhale).")
+            "Scans media files in the Library Root, updates file paths for known assets, " +
+            "and notes new files for a follow-up ingestion pass (Great Inhale v2).")
         .Produces<LibraryScanResponse>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status400BadRequest)
         .RequireAdmin();

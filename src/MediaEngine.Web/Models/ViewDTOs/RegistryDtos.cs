@@ -97,6 +97,9 @@ public sealed class RegistryStatusCountsDto
 
     [JsonPropertyName("duplicate")]
     public int Duplicate { get; set; }
+
+    [JsonPropertyName("staging")]
+    public int Staging { get; set; }
 }
 
 /// <summary>Full detail for expanded row.</summary>

@@ -1,7 +1,6 @@
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
-using MediaEngine.Providers.Adapters;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Models;
 using MediaEngine.Storage.Contracts;
@@ -13,15 +12,18 @@ namespace MediaEngine.Providers.Services;
 /// Orchestrates user-triggered metadata search across Wikidata (Universe mode)
 /// and retail providers (Retail mode).
 ///
-/// Universe search: calls WikidataAdapter.ResolveCandidatesAsync to get QID candidates,
-/// then concurrently calls retail providers to fetch cover art for the top candidates.
+/// Universe search: calls retail providers to fetch cover art for QID candidates.
+///
+/// TODO: Phase 3 - WikidataAdapter.ResolveCandidatesAsync will be replaced with
+/// ReconciliationAdapter when dotNetRDF SPARQL infrastructure is in place.
 ///
 /// Retail search: calls the relevant retail providers (filtered by media type) via
 /// SearchAsync to return title/cover matches without requiring a Wikidata QID.
 /// </summary>
 public sealed class SearchService : ISearchService
 {
-    private readonly WikidataAdapter _wikidataAdapter;
+    // TODO: Phase 3 - Replace with IReconciliationAdapter when available
+    // private readonly IReconciliationAdapter _reconciliationAdapter;
     private readonly IReadOnlyList<IExternalMetadataProvider> _providers;
     private readonly IConfigurationLoader _configLoader;
     private readonly ILogger<SearchService> _logger;
@@ -30,6 +32,22 @@ public sealed class SearchService : ISearchService
     private static readonly HashSet<string> ExcludedFromRetail = new(StringComparer.OrdinalIgnoreCase)
     {
         "wikidata", "wikipedia"
+    };
+
+    /// <summary>
+    /// Media-type-to-description-keyword mapping for post-filtering Wikidata candidates.
+    /// Candidates whose Description does not contain any of these keywords are removed.
+    /// </summary>
+    private static readonly Dictionary<string, string[]> MediaTypeKeywords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["Epub"]      = ["novel", "book", "literary work", "written work", "light novel", "short story collection", "novella", "poetry collection", "anthology"],
+        ["Audiobook"]  = ["novel", "book", "literary work", "written work", "audiobook", "light novel", "novella", "poetry collection", "anthology"],
+        ["Books"]      = ["novel", "book", "literary work", "written work", "light novel", "short story collection", "novella", "poetry collection", "anthology"],
+        ["Movies"]     = ["film", "movie", "animated film", "short film", "documentary film"],
+        ["TV"]         = ["television series", "web series", "animated series", "miniseries", "television film"],
+        ["Music"]      = ["album", "single", "musical work", "song", "extended play"],
+        ["Comics"]     = ["comic book", "manga", "graphic novel", "comic book series", "manhwa"],
+        ["Podcasts"]   = ["podcast", "podcast series", "podcast episode"],
     };
 
     public SearchService(
@@ -43,11 +61,8 @@ public sealed class SearchService : ISearchService
 
         var providerList = providers.ToList();
 
-        // Resolve the WikidataAdapter from the registered provider collection
-        _wikidataAdapter = providerList.OfType<WikidataAdapter>().FirstOrDefault()
-            ?? throw new InvalidOperationException(
-                "WikidataAdapter is not registered in the provider collection. " +
-                "Ensure it is registered as IExternalMetadataProvider in Program.cs.");
+        // TODO: Phase 3 - WikidataAdapter resolved here for ResolveCandidatesAsync;
+        // will be replaced with ReconciliationAdapter injection
 
         _providers    = providerList;
         _configLoader = configLoader;
@@ -55,80 +70,17 @@ public sealed class SearchService : ISearchService
     }
 
     /// <inheritdoc/>
-    public async Task<SearchUniverseResult> SearchUniverseAsync(
+    public Task<SearchUniverseResult> SearchUniverseAsync(
         SearchUniverseRequest request,
         CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(request.Query))
-            return new SearchUniverseResult([], request.Query, request.MediaType);
-
-        // Build endpoint map from all provider configs (same pattern as HydrationPipelineService)
-        var provConfigs = _configLoader.LoadAllProviders();
-        var endpointMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var pc in provConfigs)
-            foreach (var (key, url) in pc.Endpoints)
-                endpointMap.TryAdd(key, url);
-
-        var sparqlBaseUrl = endpointMap.TryGetValue("wikidata_sparql", out var sparql) ? sparql : null;
-        var baseUrl       = endpointMap.TryGetValue("wikidata_api",    out var api)    ? api    : "https://www.wikidata.org/w/api.php";
-
-        // Resolve MediaType from string
-        var mediaType = ParseMediaType(request.MediaType);
-
-        // Build the lookup request for Wikidata
-        var lookupRequest = new ProviderLookupRequest
-        {
-            EntityId      = Guid.NewGuid(),
-            EntityType    = EntityType.Work,
-            MediaType     = mediaType,
-            Title         = request.Query,
-            BaseUrl       = baseUrl,
-            SparqlBaseUrl = sparqlBaseUrl,
-            Language      = "en",
-            Country       = "us",
-        };
-
-        // Step 1: Get QID candidates from Wikidata
-        IReadOnlyList<QidCandidate> qidCandidates;
-        try
-        {
-            qidCandidates = await _wikidataAdapter.ResolveCandidatesAsync(
-                lookupRequest, request.MaxCandidates, ct).ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Wikidata candidate search failed for query '{Query}'", request.Query);
-            qidCandidates = [];
-        }
-
-        if (qidCandidates.Count == 0)
-            return new SearchUniverseResult([], request.Query, request.MediaType);
-
-        // Step 2: Enrich top candidates with cover art from retail providers (max 5 to limit API load)
-        var topCandidates = qidCandidates.Take(Math.Min(5, request.MaxCandidates)).ToList();
-        var retailProviders = GetRetailProviders(mediaType);
-
-        var enrichmentTasks = topCandidates.Select(c =>
-            EnrichCandidateAsync(c, request.Query, mediaType, retailProviders, endpointMap, ct));
-
-        var enriched = await Task.WhenAll(enrichmentTasks).ConfigureAwait(false);
-
-        // Add remaining candidates (without enrichment) for completeness
-        var allCandidates = enriched.ToList();
-        foreach (var remaining in qidCandidates.Skip(topCandidates.Count))
-        {
-            allCandidates.Add(new UniverseCandidate
-            {
-                Qid            = remaining.Qid,
-                Label          = remaining.Label,
-                Description    = remaining.Description,
-                ResolutionTier = remaining.ResolutionTier,
-                Confidence     = EstimateConfidence(remaining.ResolutionTier),
-                BridgeIds      = new Dictionary<string, string>(),
-            });
-        }
-
-        return new SearchUniverseResult(allCandidates, request.Query, request.MediaType);
+        // TODO: Phase 3 - Replace with ReconciliationAdapter.ResolveCandidatesAsync
+        // WikidataAdapter.ResolveCandidatesAsync was removed as part of SPARQL infrastructure cleanup.
+        // Universe search returns empty until ReconciliationAdapter is implemented.
+        _logger.LogWarning(
+            "Universe search is temporarily unavailable (Phase 3 - SPARQL infrastructure rebuild pending). Query: '{Query}'",
+            request.Query);
+        return Task.FromResult(new SearchUniverseResult([], request.Query, request.MediaType));
     }
 
     /// <inheritdoc/>

@@ -222,17 +222,16 @@ public static class MetadataEndpoints
                 ClaimsAdded  = result.TotalClaimsAdded,
                 Stage1Claims = result.Stage1ClaimsAdded,
                 Stage2Claims = result.Stage2ClaimsAdded,
-                Stage3Claims = result.Stage3ClaimsAdded,
                 NeedsReview  = result.NeedsReview,
                 ReviewItemId = result.ReviewItemId,
                 Success      = true,
-                Message      = $"Hydrated {result.TotalClaimsAdded} claims across 3 stages"
+                Message      = $"Hydrated {result.TotalClaimsAdded} claims across 2 stages"
                              + (result.WikidataQid is not null ? $" (QID: {result.WikidataQid})" : "")
                              + (result.NeedsReview ? " — needs review." : "."),
             });
         })
         .WithName("HydrateEntity")
-        .WithSummary("Run the three-stage hydration pipeline for a Work or Edition entity. Admin or Curator.")
+        .WithSummary("Run the two-stage hydration pipeline for a Work or Edition entity. Admin or Curator.")
         .Produces<HydrateResponse>(StatusCodes.Status200OK)
         .RequireAdminOrCurator();
 
@@ -656,44 +655,11 @@ public static class MetadataEndpoints
                 }
             }
 
-            // ISBN bridge lookup via SPARQL.
+            // TODO: Phase 3 - ISBN bridge lookup via SPARQL is temporarily unavailable
+            // (WikidataSparqlPropertyMap.BuildBridgeLookupQuery removed as part of SPARQL cleanup)
             if (!string.IsNullOrWhiteSpace(isbn))
             {
-                if (string.IsNullOrWhiteSpace(sparqlBaseUrl))
-                {
-                    results["isbn_error"] = "wikidata_sparql endpoint not configured";
-                }
-                else
-                {
-                    var sparql = Providers.Models.WikidataSparqlPropertyMap.BuildBridgeLookupQuery("P212", isbn);
-                    var sparqlUrl = $"{sparqlBaseUrl.TrimEnd('/')}?query={Uri.EscapeDataString(sparql)}&format=json";
-
-                    results["isbn_sparql_query"] = sparql;
-
-                    try
-                    {
-                        using var sparqlClient = httpFactory.CreateClient("wikidata_sparql");
-                        var response = await sparqlClient.GetAsync(sparqlUrl, ct);
-                        var body     = await response.Content.ReadAsStringAsync(ct);
-                        var json     = JsonNode.Parse(body) as JsonObject;
-                        var bindings = json?["results"]?["bindings"]?.AsArray();
-
-                        var itemUri = bindings?.FirstOrDefault()?["item"]?["value"]?.GetValue<string>();
-                        string? qid = null;
-                        if (itemUri is not null)
-                        {
-                            var lastSlash = itemUri.LastIndexOf('/');
-                            qid = lastSlash >= 0 ? itemUri[(lastSlash + 1)..] : itemUri;
-                        }
-
-                        results["isbn_qid"]          = qid;
-                        results["isbn_result_count"]  = bindings?.Count ?? 0;
-                    }
-                    catch (Exception ex)
-                    {
-                        results["isbn_error"] = ex.Message;
-                    }
-                }
+                results["isbn_error"] = "ISBN SPARQL bridge lookup temporarily unavailable (Phase 3 rebuild pending)";
             }
 
             return Results.Ok(results);

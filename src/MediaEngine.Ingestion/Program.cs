@@ -93,12 +93,7 @@ var host = Host.CreateDefaultBuilder(args)
             }
         });
 
-        // Bootstrap the default universe config if it doesn't exist yet.
-        if (configLoader.LoadConfig<UniverseConfiguration>("universe", "wikidata") is null)
-        {
-            var defaultUniverse = WikidataSparqlPropertyMap.ExportAsUniverseConfiguration();
-            configLoader.SaveConfig("universe", "wikidata", defaultUniverse);
-        }
+        // TODO: Phase 3 - Universe config bootstrap removed (WikidataSparqlPropertyMap deleted)
 
         services.AddSingleton<ITransactionJournal, TransactionJournal>();
         services.AddSingleton<IMediaAssetRepository, MediaAssetRepository>();
@@ -201,8 +196,7 @@ var host = Host.CreateDefaultBuilder(args)
                     sp.GetService<IProviderResponseCacheRepository>()));
         }
 
-        // Wikidata stays as a coded adapter (SPARQL cannot be config-driven).
-        services.AddSingleton<IExternalMetadataProvider, WikidataAdapter>();
+        // TODO: Phase 3 - WikidataAdapter removed (SPARQL infrastructure cleanup)
 
         // ── Metadata harvesting & person enrichment (Phase 9) ──
         services.AddSingleton<IMetadataHarvestingService, MetadataHarvestingService>();
@@ -215,8 +209,7 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<IHydrationPipelineService, HydrationPipelineService>();
         services.AddSingleton<IReviewQueueRepository, ReviewQueueRepository>();
 
-        // ── Sidecar writer + library scanner (Phase 7) ─────────
-        services.AddSingleton<ISidecarWriter, SidecarWriter>();
+        // ── Library scanner ─────────────────────────────────────
         services.AddSingleton<ILibraryScanner, LibraryScanner>();
 
         // ── Organization gate ──────────────────────────────────────

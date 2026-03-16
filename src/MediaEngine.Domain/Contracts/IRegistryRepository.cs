@@ -34,4 +34,5 @@ public sealed record RegistryStatusCounts(
     [property: JsonPropertyName("needs_review")] int NeedsReview,
     [property: JsonPropertyName("auto_approved")]int AutoApproved,
     [property: JsonPropertyName("edited")]       int Edited,
-    [property: JsonPropertyName("duplicate")]    int Duplicate);
+    [property: JsonPropertyName("duplicate")]    int Duplicate,
+    [property: JsonPropertyName("staging")]      int Staging = 0);
