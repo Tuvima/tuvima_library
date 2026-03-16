@@ -104,8 +104,8 @@ public sealed class SearchService : ISearchService
         if (qidCandidates.Count == 0)
             return new SearchUniverseResult([], request.Query, request.MediaType);
 
-        // Step 2: Enrich top candidates with cover art from retail providers (max 3 to limit API load)
-        var topCandidates = qidCandidates.Take(Math.Min(3, request.MaxCandidates)).ToList();
+        // Step 2: Enrich top candidates with cover art from retail providers (max 5 to limit API load)
+        var topCandidates = qidCandidates.Take(Math.Min(5, request.MaxCandidates)).ToList();
         var retailProviders = GetRetailProviders(mediaType);
 
         var enrichmentTasks = topCandidates.Select(c =>
@@ -175,50 +175,112 @@ public sealed class SearchService : ISearchService
         Dictionary<string, string> endpointMap,
         CancellationToken ct)
     {
-        string? coverUrl = null;
+        string? coverUrl     = null;
+        string? retailAuthor = null;
 
-        // Try to get cover art from the first retail provider that returns a result
+        // Try to get cover art from retail providers — waterfall through all, then retry with original query
         if (retailProviders.Count > 0)
         {
-            try
+            // First pass: try each provider with the Wikidata label (precise)
+            foreach (var provider in retailProviders)
             {
-                var retailRequest = new ProviderLookupRequest
+                if (coverUrl is not null) break;
+                try
                 {
-                    EntityId   = Guid.NewGuid(),
-                    EntityType = EntityType.Work,
-                    MediaType  = mediaType,
-                    Title      = candidate.Label, // Use the Wikidata label for precision
-                    BaseUrl    = GetProviderBaseUrl(retailProviders[0].Name, endpointMap),
-                    Language   = "en",
-                    Country    = "us",
-                };
+                    var retailRequest = new ProviderLookupRequest
+                    {
+                        EntityId   = Guid.NewGuid(),
+                        EntityType = EntityType.Work,
+                        MediaType  = mediaType,
+                        Title      = candidate.Label,
+                        BaseUrl    = GetProviderBaseUrl(provider.Name, endpointMap),
+                        Language   = "en",
+                        Country    = "us",
+                    };
 
-                var results = await retailProviders[0].SearchAsync(retailRequest, 1, ct).ConfigureAwait(false);
-                if (results.Count > 0)
-                    coverUrl = results[0].ThumbnailUrl;
+                    var results = await provider.SearchAsync(retailRequest, 1, ct).ConfigureAwait(false);
+                    if (results.Count > 0 && !string.IsNullOrEmpty(results[0].ThumbnailUrl))
+                    {
+                        coverUrl = results[0].ThumbnailUrl;
+                        // Also capture author from retail provider (pen name friendly)
+                        retailAuthor ??= results[0].Author;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex,
+                        "Retail cover art enrichment failed for candidate {Qid} from provider {Provider}",
+                        candidate.Qid, provider.Name);
+                }
             }
-            catch (Exception ex)
+
+            // Second pass: retry with original search query if no cover found
+            if (coverUrl is null
+                && !string.Equals(candidate.Label, originalQuery, StringComparison.OrdinalIgnoreCase))
             {
-                _logger.LogDebug(ex, "Retail cover art enrichment failed for candidate {Qid}", candidate.Qid);
+                foreach (var provider in retailProviders)
+                {
+                    if (coverUrl is not null) break;
+                    try
+                    {
+                        var retailRequest = new ProviderLookupRequest
+                        {
+                            EntityId   = Guid.NewGuid(),
+                            EntityType = EntityType.Work,
+                            MediaType  = mediaType,
+                            Title      = originalQuery,
+                            BaseUrl    = GetProviderBaseUrl(provider.Name, endpointMap),
+                            Language   = "en",
+                            Country    = "us",
+                        };
+
+                        var results = await provider.SearchAsync(retailRequest, 1, ct).ConfigureAwait(false);
+                        if (results.Count > 0 && !string.IsNullOrEmpty(results[0].ThumbnailUrl))
+                        {
+                            coverUrl = results[0].ThumbnailUrl;
+                            retailAuthor ??= results[0].Author;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogDebug(ex,
+                            "Retail cover art fallback failed for candidate {Qid} from provider {Provider}",
+                            candidate.Qid, provider.Name);
+                    }
+                }
             }
         }
 
-        // Parse year and author from the Wikidata description heuristically
-        // (e.g. "1965 novel by Frank Herbert" → year="1965", author="Frank Herbert")
-        string? year   = ExtractYearFromDescription(candidate.Description);
-        string? author = ExtractAuthorFromDescription(candidate.Description);
+        // Parse year from the Wikidata description heuristically
+        // (e.g. "1965 novel by Frank Herbert" → year="1965")
+        string? year = ExtractYearFromDescription(candidate.Description);
 
         return new UniverseCandidate
         {
-            Qid            = candidate.Qid,
-            Label          = candidate.Label,
-            Description    = candidate.Description,
-            Year           = year,
-            Author         = author,
-            CoverUrl       = coverUrl,
-            ResolutionTier = candidate.ResolutionTier,
-            Confidence     = EstimateConfidence(candidate.ResolutionTier),
-            BridgeIds      = new Dictionary<string, string>(),
+            Qid               = candidate.Qid,
+            Label             = candidate.Label,
+            Description       = candidate.Description,
+            Year              = year,
+            Author            = retailAuthor ?? ExtractAuthorFromDescription(candidate.Description),
+            CoverUrl          = coverUrl,
+            ResolutionTier    = candidate.ResolutionTier,
+            Confidence        = EstimateConfidence(candidate.ResolutionTier),
+            BridgeIds         = new Dictionary<string, string>(),
+            MediaType         = mediaType.ToString(),
+            MediaTypeMetadata = BuildMediaTypeMetadata(candidate, mediaType, retailAuthor),
+        };
+    }
+
+    private static IReadOnlyDictionary<string, string>? BuildMediaTypeMetadata(
+        QidCandidate candidate, MediaType mediaType, string? retailAuthor)
+    {
+        return mediaType switch
+        {
+            MediaType.Books or MediaType.Audiobooks => new Dictionary<string, string>
+            {
+                ["author"] = retailAuthor ?? ExtractAuthorFromDescription(candidate.Description) ?? string.Empty,
+            },
+            _ => null,
         };
     }
 

@@ -182,11 +182,10 @@ public sealed class RegistryRepository : IRegistryRepository
         using (var assetCmd = conn.CreateCommand())
         {
             assetCmd.CommandText = """
-                SELECT ma.id
+                SELECT MIN(ma.id) AS id
                 FROM editions e
                 INNER JOIN media_assets ma ON ma.edition_id = e.id
                 WHERE e.work_id = @entityId
-                LIMIT 1
                 """;
             assetCmd.Parameters.AddWithValue("@entityId", entityId.ToString());
             assetIdStr = assetCmd.ExecuteScalar()?.ToString();
@@ -256,10 +255,11 @@ public sealed class RegistryRepository : IRegistryRepository
             rqCmd.CommandText = """
                 SELECT id, trigger, confidence_score, detail, candidates_json
                 FROM review_queue
-                WHERE entity_id = @assetId AND status = 'Pending'
+                WHERE (entity_id = @assetId OR entity_id = @entityId) AND status = 'Pending'
                 LIMIT 1
                 """;
             rqCmd.Parameters.AddWithValue("@assetId", assetIdStr);
+            rqCmd.Parameters.AddWithValue("@entityId", entityId.ToString());
             using var rqReader = rqCmd.ExecuteReader();
             if (rqReader.Read())
             {
@@ -320,6 +320,23 @@ public sealed class RegistryRepository : IRegistryRepository
             : hasUserLocks ? "Edited"
             : "Auto";
 
+        // Collect bridge identifiers from canonical values
+        var bridgeKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "isbn", "asin", "tmdb_id", "imdb_id", "wikidata_qid",
+            "apple_books_id", "audible_id", "goodreads_id", "musicbrainz_id",
+            "comic_vine_id"
+        };
+        var bridgeIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var cvEntry in canonicalValues)
+        {
+            if (bridgeKeys.Contains(cvEntry.Key) && !string.IsNullOrWhiteSpace(cvEntry.Value))
+                bridgeIds[cvEntry.Key] = cvEntry.Value;
+        }
+        var wikidataQid = cv("wikidata_qid");
+        if (!string.IsNullOrEmpty(wikidataQid) && !bridgeIds.ContainsKey("wikidata_qid"))
+            bridgeIds["wikidata_qid"] = wikidataQid;
+
         var detail = new RegistryItemDetail
         {
             EntityId = entityId,
@@ -341,7 +358,7 @@ public sealed class RegistryRepository : IRegistryRepository
             SeriesPosition = cv("series_position"),
             Narrator = cv("narrator"),
             Rating = cv("rating"),
-            WikidataQid = cv("wikidata_qid"),
+            WikidataQid = wikidataQid,
             WikidataStatus = wikidataStatus,
             FileName = fileName ?? cv("file_name"),
             FilePath = filePath,
@@ -353,6 +370,7 @@ public sealed class RegistryRepository : IRegistryRepository
             HasUserLocks = hasUserLocks,
             CanonicalValues = canonicalValues,
             ClaimHistory = claims,
+            BridgeIds = bridgeIds,
         };
 
         return Task.FromResult<RegistryItemDetail?>(detail);

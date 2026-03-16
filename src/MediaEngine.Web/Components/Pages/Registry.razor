@@ -2,6 +2,7 @@
 @inject UIOrchestratorService Orchestrator
 @inject DeviceContextService DeviceContext
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 @implements IDisposable
 
 <PageTitle>Registry — Tuvima Library</PageTitle>
@@ -159,7 +160,6 @@
                 <span class="registry-header-text">@_items.Count items</span>
             </div>
             <div class="registry-col-type">TYPE</div>
-            <div class="registry-col-match">MATCH</div>
             <div class="registry-col-confidence">CONFIDENCE</div>
             <div class="registry-col-status">STATUS</div>
             <div class="registry-col-expand"></div>
@@ -212,15 +212,6 @@
                     <MudIcon Icon="@GetMediaTypeIcon(item.MediaType)" Size="Size.Small"
                              Style="opacity: 0.6;" />
                     <span class="registry-type-label">@FormatMediaType(item.MediaType)</span>
-                </div>
-                <div class="registry-col-match">
-                    @if (!string.IsNullOrEmpty(item.MatchSource))
-                    {
-                        <MudChip T="string" Size="Size.Small" Variant="Variant.Filled"
-                                 Style="@GetMatchBadgeStyle(item.MatchSource)">
-                            @FormatMatchSource(item.MatchSource)
-                        </MudChip>
-                    }
                 </div>
                 <div class="registry-col-confidence">
                     <div class="registry-confidence-bar-container">
@@ -368,6 +359,32 @@
                                         </span>
                                     </div>
                                 }
+
+                                @* Bridge Identifiers *@
+                                @if (_expandedDetail?.BridgeIds is not null && _expandedDetail.BridgeIds.Count > 0)
+                                {
+                                    <h3 class="registry-detail-section-title mt-4">Bridge Identifiers</h3>
+                                    <div class="registry-detail-bridges">
+                                        @foreach (var kvp in _expandedDetail.BridgeIds)
+                                        {
+                                            <div class="registry-detail-bridge-item">
+                                                <span class="registry-detail-bridge-label">@FormatBridgeKey(kvp.Key)</span>
+                                                <span class="registry-detail-bridge-value">@kvp.Value</span>
+                                                <MudIconButton Icon="@Icons.Material.Filled.ContentCopy"
+                                                               Size="Size.Small"
+                                                               Style="color: rgba(255,255,255,0.4); padding: 2px;"
+                                                               OnClick="@(() => CopyToClipboard(kvp.Value))" />
+                                            </div>
+                                        }
+                                    </div>
+                                }
+
+                                @* Description *@
+                                @if (!string.IsNullOrEmpty(_expandedDetail?.Description))
+                                {
+                                    <h3 class="registry-detail-section-title mt-4">Description</h3>
+                                    <p class="registry-detail-description">@_expandedDetail.Description</p>
+                                }
                             </div>
 
                             @* ── Right: Actions + Possible Matches ── *@
@@ -397,7 +414,7 @@
                                     </MudButton>
                                 </div>
 
-                                @if (!string.IsNullOrEmpty(_expandedDetail.CandidatesJson))
+                                @if (!string.IsNullOrEmpty(_expandedDetail!.CandidatesJson))
                                 {
                                     <h3 class="registry-detail-section-title mt-4">Possible Matches</h3>
                                     <p class="registry-detail-hint">
@@ -505,8 +522,10 @@
     protected override async Task OnInitializedAsync()
     {
         _loading = true;
-        await LoadItemsAsync(reset: true);
         await LoadCountsAsync();
+        if (_counts is not null && _counts.NeedsReview > 0)
+            _statusFilter = "Review";
+        await LoadItemsAsync(reset: true);
         _loading = false;
     }
 
@@ -867,6 +886,35 @@
         _ => "background: rgba(255,255,255,0.05); color: #888; font-size: 0.7rem; height: 22px;",
     };
 
+    // ── Bridge / Clipboard Helpers ──────────────────────────────────────────
+
+    private static string FormatBridgeKey(string key) => key switch
+    {
+        "isbn" => "ISBN",
+        "asin" => "ASIN",
+        "tmdb_id" => "TMDB",
+        "imdb_id" => "IMDb",
+        "wikidata_qid" => "Wikidata",
+        "apple_books_id" => "Apple Books",
+        "audible_id" => "Audible",
+        "goodreads_id" => "Goodreads",
+        "musicbrainz_id" => "MusicBrainz",
+        "comic_vine_id" => "Comic Vine",
+        _ => key.Replace("_", " ").ToUpperInvariant(),
+    };
+
+    private async Task CopyToClipboard(string text)
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", text);
+        }
+        catch
+        {
+            // Clipboard API may not be available in all contexts
+        }
+    }
+
     // ── Dispose ─────────────────────────────────────────────────────────────
 
     public void Dispose()
@@ -1025,7 +1073,7 @@
     /* Row */
     .registry-row {
         display: grid;
-        grid-template-columns: 40px 1fr 100px 100px 140px 100px 40px;
+        grid-template-columns: 40px 1fr 100px 140px 100px 40px;
         align-items: center;
         padding: 8px 12px;
         border-bottom: 1px solid rgba(255,255,255,0.04);
@@ -1284,7 +1332,6 @@
         }
 
         .registry-col-type,
-        .registry-col-match,
         .registry-col-confidence,
         .registry-col-status {
             display: none;
@@ -1329,5 +1376,37 @@
         margin-top: 20px;
         padding-top: 16px;
         border-top: 1px solid rgba(255,255,255,0.06);
+    }
+
+    /* Bridge Identifiers */
+    .registry-detail-bridges {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .registry-detail-bridge-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.8rem;
+    }
+
+    .registry-detail-bridge-label {
+        color: rgba(255, 255, 255, 0.5);
+        min-width: 80px;
+        font-weight: 500;
+    }
+
+    .registry-detail-bridge-value {
+        color: rgba(255, 255, 255, 0.85);
+        font-family: monospace;
+    }
+
+    .registry-detail-description {
+        color: rgba(255, 255, 255, 0.7);
+        font-size: 0.85rem;
+        line-height: 1.5;
+        margin-top: 4px;
     }
 </style>

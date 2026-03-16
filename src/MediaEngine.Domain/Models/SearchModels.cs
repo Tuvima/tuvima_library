@@ -52,6 +52,14 @@ public sealed class UniverseCandidate
     /// <summary>Bridge IDs harvested from Wikidata SPARQL (e.g. tmdb_id, isbn, imdb_id).</summary>
     [JsonPropertyName("bridge_ids")]
     public IReadOnlyDictionary<string, string> BridgeIds { get; init; } = new Dictionary<string, string>();
+
+    /// <summary>Detected or confirmed media type for this candidate (e.g. "Epub", "Movies").</summary>
+    [JsonPropertyName("media_type")]
+    public string? MediaType { get; init; }
+
+    /// <summary>Additional media-type-specific metadata (e.g. author for books, director for films).</summary>
+    [JsonPropertyName("media_type_metadata")]
+    public IReadOnlyDictionary<string, string>? MediaTypeMetadata { get; init; }
 }
 
 /// <summary>Result of a universe search — list of enriched candidates.</summary>

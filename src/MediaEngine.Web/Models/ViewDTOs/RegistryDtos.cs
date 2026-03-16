@@ -203,6 +203,9 @@ public sealed class RegistryItemDetailViewModel
 
     [JsonPropertyName("claim_history")]
     public List<RegistryClaimRecordDto> ClaimHistory { get; set; } = [];
+
+    [JsonPropertyName("bridge_ids")]
+    public Dictionary<string, string> BridgeIds { get; set; } = [];
 }
 
 /// <summary>Canonical value with conflict info.</summary>

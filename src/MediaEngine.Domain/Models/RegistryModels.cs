@@ -98,6 +98,7 @@ public sealed record RegistryItemDetail
 
     [JsonPropertyName("canonical_values")] public IReadOnlyList<RegistryCanonicalValue> CanonicalValues { get; init; } = [];
     [JsonPropertyName("claim_history")]    public IReadOnlyList<RegistryClaimRecord> ClaimHistory { get; init; } = [];
+    [JsonPropertyName("bridge_ids")]       public Dictionary<string, string> BridgeIds { get; init; } = [];
 }
 
 /// <summary>A canonical value with conflict and provider info.</summary>

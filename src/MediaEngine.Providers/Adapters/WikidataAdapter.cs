@@ -358,6 +358,56 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
                 }
             }
 
+            // ── Tier 3 instance_of post-filtering ────────────────────────────────
+            if (universeConfig?.SearchThresholds.EnableTier3InstanceOfFiltering == true
+                && request.MediaType != MediaType.Unknown
+                && !string.IsNullOrWhiteSpace(request.SparqlBaseUrl))
+            {
+                var mediaTypeKey = MediaTypeToConfigKey(request.MediaType);
+                var tier3Qids = candidates
+                    .Where(c => c.ResolutionTier == "title_search")
+                    .Select(c => c.Qid)
+                    .ToList();
+
+                if (tier3Qids.Count > 0
+                    && universeConfig.InstanceOfClasses is not null)
+                {
+                    var batchSparql = WikidataSparqlPropertyMap
+                        .BuildBatchInstanceOfFilterQuery(tier3Qids, mediaTypeKey, universeConfig.InstanceOfClasses);
+
+                    if (!string.IsNullOrEmpty(batchSparql))
+                    {
+                        var batchResult = await ThrottledSparqlAsync(
+                            sparqlClient, request.SparqlBaseUrl, batchSparql,
+                            throttleGapMs, ct).ConfigureAwait(false);
+
+                        if (batchResult is not null)
+                        {
+                            var passingQids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                            var bindings = batchResult["results"]?["bindings"]?.AsArray();
+                            if (bindings is not null)
+                            {
+                                foreach (var b in bindings)
+                                {
+                                    var uri = b?["item"]?["value"]?.GetValue<string>();
+                                    if (uri is not null)
+                                    {
+                                        var passQid = uri.Contains('/')
+                                            ? uri[(uri.LastIndexOf('/') + 1)..]
+                                            : uri;
+                                        passingQids.Add(passQid);
+                                    }
+                                }
+                            }
+
+                            candidates.RemoveAll(c =>
+                                c.ResolutionTier == "title_search"
+                                && !passingQids.Contains(c.Qid));
+                        }
+                    }
+                }
+            }
+
             return candidates;
         }
         catch (OperationCanceledException)
@@ -1447,6 +1497,15 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
 
             // Build claims.
             var claims = new List<ProviderClaim>();
+
+            // If a collective pseudonym or pseudonym is the primary (first sorted) author,
+            // emit it as a standalone claim at 1.0 so it always wins scoring over
+            // description-derived author claims from retail providers.
+            var primaryAuthor = sorted[0];
+            if (primaryAuthor.P31Type is QidCollectivePseudonym or QidPseudonym)
+            {
+                claims.Add(new ProviderClaim("author", primaryAuthor.Label, 1.0));
+            }
 
             // author: pipe-separated labels in sorted order (first = display author).
             var authorLabels = string.Join(

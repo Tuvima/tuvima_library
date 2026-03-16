@@ -25,16 +25,6 @@
             <MudSelectItem T="string" Value="@("Podcasts")">Podcast</MudSelectItem>
         </MudSelect>
 
-        <MudTooltip Text="@GetModeTooltip()" Arrow="true" Placement="Placement.Top">
-            <MudSelect T="string" @bind-Value="_searchMode"
-                       Label="Mode" Variant="Variant.Outlined"
-                       Dense="true" Style="min-width: 110px;"
-                       AnchorOrigin="Origin.BottomCenter">
-                <MudSelectItem T="string" Value="@("Universe")">Universe</MudSelectItem>
-                <MudSelectItem T="string" Value="@("Retail")">Retail</MudSelectItem>
-            </MudSelect>
-        </MudTooltip>
-
         <MudButton Variant="Variant.Filled" Color="Color.Primary"
                    OnClick="RunSearch"
                    Disabled="@(_searching || string.IsNullOrWhiteSpace(_query))"
@@ -49,16 +39,7 @@
     {
         <MudProgressLinear Indeterminate="true" Color="Color.Primary"
                            Class="mt-2 mb-2" Style="border-radius: 4px;" />
-        <p class="search-panel-hint">
-            @if (_searchMode == "Universe")
-            {
-                <text>Searching Wikidata and enriching top candidates with cover art…</text>
-            }
-            else
-            {
-                <text>Searching retail providers…</text>
-            }
-        </p>
+        <p class="search-panel-hint">Searching Wikidata and enriching top candidates with cover art…</p>
     }
 
     @if (!string.IsNullOrEmpty(_errorMessage))
@@ -67,7 +48,7 @@
     }
 
     @* ── Results ── *@
-    @if (_universeCandidates.Count > 0 && _searchMode == "Universe")
+    @if (_universeCandidates.Count > 0)
     {
         <div class="search-results-grid">
             @foreach (var c in _universeCandidates)
@@ -107,10 +88,23 @@
                             </div>
                         }
                         <div class="search-result-footer">
-                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
-                                     Style="font-size: 0.65rem; height: 18px; padding: 0 6px; color: #C9922E; border-color: rgba(201,146,46,0.4);">
-                                @c.Qid
-                            </MudChip>
+                            @{
+                                var bridgeLabel = GetBridgeLabel(c);
+                            }
+                            @if (!string.IsNullOrEmpty(bridgeLabel))
+                            {
+                                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                                         Style="font-size: 0.65rem; height: 18px; padding: 0 6px; color: #C9922E; border-color: rgba(201,146,46,0.4);">
+                                    @bridgeLabel
+                                </MudChip>
+                            }
+                            else
+                            {
+                                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                                         Style="font-size: 0.65rem; height: 18px; padding: 0 6px; color: rgba(255,255,255,0.4); border-color: rgba(255,255,255,0.15);">
+                                    @c.Qid
+                                </MudChip>
+                            }
                             @if (!string.IsNullOrEmpty(c.InstanceOf))
                             {
                                 <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
@@ -137,72 +131,12 @@
         </div>
     }
 
-    @if (_retailCandidates.Count > 0 && _searchMode == "Retail")
-    {
-        <div class="search-results-grid">
-            @foreach (var c in _retailCandidates)
-            {
-                var isSelectedRetail = _selectedRetailCandidate == c;
-                <div class="search-result-card @(isSelectedRetail ? "search-result-card-selected" : "")"
-                     @onclick="@(() => SelectRetailCandidate(c))">
-                    <div class="search-result-cover">
-                        @if (!string.IsNullOrEmpty(c.CoverUrl))
-                        {
-                            <img src="@c.CoverUrl" alt="" class="search-result-img" loading="lazy" />
-                        }
-                        else
-                        {
-                            <div class="search-result-img-placeholder">
-                                <MudIcon Icon="@Icons.Material.Outlined.Storefront"
-                                         Size="Size.Medium" Style="opacity: 0.3;" />
-                            </div>
-                        }
-                    </div>
-                    <div class="search-result-details">
-                        <div class="search-result-title">@c.Title</div>
-                        @if (!string.IsNullOrEmpty(c.Year) || !string.IsNullOrEmpty(c.Author))
-                        {
-                            <div class="search-result-meta">
-                                @if (!string.IsNullOrEmpty(c.Year)) { @c.Year }
-                                @if (!string.IsNullOrEmpty(c.Author)) { <text> · @c.Author</text> }
-                            </div>
-                        }
-                        @if (!string.IsNullOrEmpty(c.Description))
-                        {
-                            <div class="search-result-description">@TruncateText(c.Description, 100)</div>
-                        }
-                        <div class="search-result-footer">
-                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
-                                     Style="font-size: 0.65rem; height: 18px; padding: 0 6px; color: #888; border-color: rgba(255,255,255,0.12);">
-                                @c.ProviderName
-                            </MudChip>
-                            <MudChip T="string" Size="Size.Small" Variant="Variant.Filled"
-                                     Style="@GetConfidenceStyle(c.Confidence)">
-                                @((int)(c.Confidence * 100))%
-                            </MudChip>
-                        </div>
-                    </div>
-                    @if (isSelectedRetail)
-                    {
-                        <div class="search-result-selected-icon">
-                            <MudIcon Icon="@Icons.Material.Filled.CheckCircle"
-                                     Style="color: #4CAF50;" Size="Size.Medium" />
-                        </div>
-                    }
-                </div>
-            }
-        </div>
-    }
-
-    @if (_hasSearched && _universeCandidates.Count == 0 && _retailCandidates.Count == 0 && !_searching)
+    @if (_hasSearched && _universeCandidates.Count == 0 && !_searching)
     {
         <div class="search-no-results">
             <MudIcon Icon="@Icons.Material.Outlined.SearchOff" Size="Size.Large" Style="opacity: 0.3;" />
             <p>No matches found.</p>
-            @if (_searchMode == "Universe")
-            {
-                <p class="search-panel-hint">Try switching to Retail mode, or create a manual entry.</p>
-            }
+            <p class="search-panel-hint">Try a different query, or create a manual entry.</p>
         </div>
     }
 
@@ -410,7 +344,6 @@
 
     private string _query = "";
     private string _mediaType = "Epub";
-    private string _searchMode = "Universe";
 
     private bool _searching;
     private bool _applying;
@@ -418,10 +351,8 @@
     private bool _showManualForm;
 
     private List<UniverseCandidateDto> _universeCandidates = [];
-    private List<RetailCandidateDto> _retailCandidates = [];
 
     private string? _selectedQid;
-    private RetailCandidateDto? _selectedRetailCandidate;
 
     private string? _errorMessage;
     private string? _successMessage;
@@ -448,23 +379,12 @@
         _errorMessage = null;
         _successMessage = null;
         _universeCandidates = [];
-        _retailCandidates = [];
         _selectedQid = null;
-        _selectedRetailCandidate = null;
 
         try
         {
-            if (_searchMode == "Universe")
-            {
-                var result = await Orchestrator.SearchUniverseAsync(_query, _mediaType, maxCandidates: 5);
-                _universeCandidates = result;
-            }
-            else
-            {
-                var result = await Orchestrator.SearchRetailAsync(_query, _mediaType, maxCandidates: 5);
-                _retailCandidates = result;
-            }
-
+            var result = await Orchestrator.SearchUniverseAsync(_query, _mediaType, maxCandidates: 5);
+            _universeCandidates = result;
             _hasSearched = true;
         }
         catch (Exception)
@@ -482,62 +402,33 @@
     private void SelectUniverseCandidate(UniverseCandidateDto candidate)
     {
         _selectedQid = _selectedQid == candidate.Qid ? null : candidate.Qid;
-        _selectedRetailCandidate = null;
     }
 
-    private void SelectRetailCandidate(RetailCandidateDto candidate)
-    {
-        _selectedRetailCandidate = _selectedRetailCandidate == candidate ? null : candidate;
-        _selectedQid = null;
-    }
-
-    private bool HasSelection() => !string.IsNullOrEmpty(_selectedQid) || _selectedRetailCandidate is not null;
+    private bool HasSelection() => !string.IsNullOrEmpty(_selectedQid);
 
     // ── Apply ──────────────────────────────────────────────────────────────
 
     private async Task ApplySelected()
     {
-        if (!HasSelection()) return;
+        if (!HasSelection() || string.IsNullOrEmpty(_selectedQid)) return;
 
         _applying = true;
         _errorMessage = null;
 
         try
         {
-            ApplyMatchResponseDto? result;
-
-            if (_searchMode == "Universe" && !string.IsNullOrEmpty(_selectedQid))
+            var candidate = _universeCandidates.FirstOrDefault(c => c.Qid == _selectedQid);
+            var result = await Orchestrator.ApplyRegistryMatchAsync(EntityId, new ApplyMatchRequestDto
             {
-                var candidate = _universeCandidates.FirstOrDefault(c => c.Qid == _selectedQid);
-                result = await Orchestrator.ApplyRegistryMatchAsync(EntityId, new ApplyMatchRequestDto
-                {
-                    Mode        = "Universe",
-                    Qid         = _selectedQid,
-                    Title       = candidate?.Label,
-                    Year        = candidate?.Year,
-                    Author      = candidate?.Author,
-                    Director    = candidate?.Director,
-                    Description = candidate?.WikipediaExtract ?? candidate?.Description,
-                    CoverUrl    = candidate?.CoverUrl,
-                });
-            }
-            else if (_selectedRetailCandidate is not null)
-            {
-                result = await Orchestrator.ApplyRegistryMatchAsync(EntityId, new ApplyMatchRequestDto
-                {
-                    Mode        = "Retail",
-                    Title       = _selectedRetailCandidate.Title,
-                    Year        = _selectedRetailCandidate.Year,
-                    Author      = _selectedRetailCandidate.Author,
-                    Director    = _selectedRetailCandidate.Director,
-                    Description = _selectedRetailCandidate.Description,
-                    CoverUrl    = _selectedRetailCandidate.CoverUrl,
-                });
-            }
-            else
-            {
-                return;
-            }
+                Mode        = "Universe",
+                Qid         = _selectedQid,
+                Title       = candidate?.Label,
+                Year        = candidate?.Year,
+                Author      = candidate?.Author,
+                Director    = candidate?.Director,
+                Description = candidate?.WikipediaExtract ?? candidate?.Description,
+                CoverUrl    = candidate?.CoverUrl,
+            });
 
             if (result is not null)
             {
@@ -575,8 +466,21 @@
 
     // ── Helpers ────────────────────────────────────────────────────────────
 
-    private static string GetModeTooltip() =>
-        "Universe: Search Wikidata for identity and relationships.\nRetail: Search providers like TMDB and Apple Books for cover art and basic details.";
+    private static string? GetBridgeLabel(UniverseCandidateDto c)
+    {
+        if (c.BridgeIds is null || c.BridgeIds.Count == 0) return null;
+
+        // Priority order: ISBN, ASIN, TMDB, IMDb, MusicBrainz, Comic Vine, Apple Books
+        if (c.BridgeIds.TryGetValue("isbn", out var isbn)) return $"ISBN: {isbn}";
+        if (c.BridgeIds.TryGetValue("asin", out var asin)) return $"ASIN: {asin}";
+        if (c.BridgeIds.TryGetValue("tmdb_id", out var tmdb)) return $"TMDB: {tmdb}";
+        if (c.BridgeIds.TryGetValue("imdb_id", out var imdb)) return $"IMDb: {imdb}";
+        if (c.BridgeIds.TryGetValue("musicbrainz_id", out var mb)) return $"MB: {mb}";
+        if (c.BridgeIds.TryGetValue("comic_vine_id", out var cv)) return $"CV: {cv}";
+        if (c.BridgeIds.TryGetValue("apple_books_id", out var ab)) return $"Apple: {ab}";
+
+        return null;
+    }
 
     private static string GetConfidenceStyle(double conf) => conf switch
     {

@@ -325,6 +325,8 @@ Three official SVG logo files exist. **Never replace logo placements with hand-w
 
 ### 3.6 — External Metadata Adapters & Recursive Person Enrichment (Phase 9)
 
+> **Wikidata is the sole identity authority.** Every media item in the Library is identified by its Wikidata Q-identifier. All other providers (Apple Books, Audnexus, TMDB, Open Library, Google Books) exist solely to supply media assets — cover art, ratings, descriptions, and other supplementary data that Wikidata does not carry. If an item is not in Wikidata, it does not have a verified identity; the user must create a manual entry or wait for Wikidata to catalogue it.
+
 **Primary Sources: Wikidata & Wikipedia.** Tuvima embraces Wikidata and Wikipedia as its primary knowledge sources. Their mission to organise human knowledge mirrors Tuvima's mission to organise personal media. Every metadata lookup starts with Wikidata's authority. Wikipedia provides human-readable context. Person and human data is always gathered from Wikidata/Wikipedia. Universe information — complex relationships, narratives between different media types, fictional entities — is populated from Wikidata.
 
 **Why secondary sources exist:** Wikipedia doesn't have everything — new releases take time to catalogue. Cover art and promotional imagery are copyright-restricted on Wikimedia. Secondary retail providers (Apple Books, TMDB, Audnexus, etc.) fill these gaps: commercial identifiers, cover art, ratings, and metadata for recent releases.
@@ -800,7 +802,7 @@ Example files in `config.example/ui/`. Live files in `config/ui/` gitignored.
 
 ### 3.13 — Three-Stage Hydration Pipeline & Review Queue
 
-**Philosophy:** Tuvima embraces Wikidata and Wikipedia as its primary knowledge sources for all media types. A single Wikidata SPARQL query replaces what would be dozens of individual API calls. Person and human data is always sourced from Wikidata/Wikipedia. The entire "universe" of relationships, fictional entities, and cross-media narrative links is populated from Wikidata. Secondary retail providers exist to fill gaps — new releases that Wikipedia hasn't catalogued yet, and copyright-safe cover art that Wikimedia cannot host.
+**Philosophy:** Wikidata is the sole identity authority (see §3.6). Every media item is identified by its Wikidata Q-identifier; all other providers supply media assets only. The three-stage pipeline reflects this: Stage 1 resolves identity via Wikidata, Stage 2 fetches context from Wikipedia, and Stage 3 fills asset gaps (cover art, ratings) from retail providers. Person and human data is always sourced from Wikidata/Wikipedia. The entire "universe" of relationships, fictional entities, and cross-media narrative links is populated from Wikidata. Secondary retail providers exist to fill gaps — new releases that Wikipedia hasn't catalogued yet, and copyright-safe cover art that Wikimedia cannot host.
 
 **Plain English:** When a file arrives in the library, the Engine runs a three-stage authority-first enrichment pipeline. Stage 1 (Wikidata) establishes the work's identity and deposits bridge IDs. Stage 2 (Wikipedia) fetches an encyclopedic description. Stage 3 (Retail providers) uses bridge IDs for precise cover art and rating lookups. Ambiguous matches are surfaced via a dedicated review queue.
 

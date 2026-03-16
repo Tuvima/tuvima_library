@@ -747,6 +747,34 @@ public static class WikidataSparqlPropertyMap
         return sb.ToString();
     }
 
+    /// <summary>
+    /// Batch-checks multiple QIDs against instance_of classes for a media type.
+    /// Returns the QIDs that pass the check via a SELECT (not ASK).
+    /// </summary>
+    public static string BuildBatchInstanceOfFilterQuery(
+        IEnumerable<string> qids,
+        string mediaType,
+        IReadOnlyDictionary<string, List<string>> instanceOfClasses)
+    {
+        if (!instanceOfClasses.TryGetValue(mediaType, out var classes) || classes.Count == 0)
+            return string.Empty;
+
+        var sb = new StringBuilder(512);
+        sb.AppendLine("SELECT ?item WHERE {");
+        sb.Append("  VALUES ?item { ");
+        foreach (var qid in qids)
+            sb.Append("wd:").Append(qid).Append(' ');
+        sb.AppendLine("}");
+        sb.Append("  VALUES ?class { ");
+        foreach (var cls in classes)
+            sb.Append("wd:").Append(cls).Append(' ');
+        sb.AppendLine("}");
+        sb.AppendLine("  ?item wdt:P31/wdt:P279* ?class .");
+        sb.AppendLine("}");
+
+        return sb.ToString();
+    }
+
     /// <summary>Escapes a string for use in a SPARQL literal (doubles backslashes and quotes).</summary>
     private static string EscapeSparqlString(string value)
         => value.Replace("\\", "\\\\").Replace("\"", "\\\"");
