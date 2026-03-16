@@ -7,7 +7,6 @@ using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.Models;
 using MediaEngine.Intelligence;
 using MediaEngine.Intelligence.Contracts;
-using MediaEngine.Intelligence.Models;
 using MediaEngine.Intelligence.Strategies;
 using MediaEngine.Processors;
 using MediaEngine.Processors.Contracts;
@@ -138,11 +137,7 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<IScoringStrategy, ExactMatchStrategy>();
         services.AddSingleton<IScoringStrategy, LevenshteinStrategy>();
 
-        services.AddSingleton<IConflictResolver>(sp =>
-            new ConflictResolver(sp.GetServices<IScoringStrategy>()));
-
-        services.AddSingleton<IScoringEngine>(sp =>
-            new ScoringEngine(sp.GetRequiredService<IConflictResolver>()));
+        services.AddSingleton<IScoringEngine, PriorityCascadeEngine>();
 
         services.AddSingleton<IIdentityMatcher>(sp =>
             new IdentityMatcher(sp.GetServices<IScoringStrategy>()));

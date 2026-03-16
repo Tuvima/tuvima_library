@@ -6,7 +6,7 @@ namespace MediaEngine.Intelligence.Contracts;
 /// Entry point for the Intelligence &amp; Scoring Engine.
 ///
 /// Iterates over all claim keys present in a <see cref="ScoringContext"/>,
-/// dispatches each field to <see cref="IConflictResolver"/>, and aggregates
+/// applies priority cascade logic to each field, and aggregates
 /// per-field scores into a single <see cref="ScoringResult"/>.
 ///
 /// ──────────────────────────────────────────────────────────────────

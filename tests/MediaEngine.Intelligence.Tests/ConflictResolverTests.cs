@@ -1,193 +1,160 @@
 using MediaEngine.Domain.Entities;
 using MediaEngine.Intelligence.Models;
-using MediaEngine.Intelligence.Strategies;
 
 namespace MediaEngine.Intelligence.Tests;
 
 /// <summary>
-/// Tests for <see cref="ConflictResolver"/> — selects winning value per field
-/// using provider-weighted, time-decayed claim scores.
+/// Additional edge-case tests for <see cref="PriorityCascadeEngine"/>.
+/// The ConflictResolver has been replaced by the Priority Cascade — these tests
+/// cover cascade-specific behaviour that was not included in ScoringEngineTests.
 /// </summary>
 public sealed class ConflictResolverTests
 {
+    private static readonly Guid WikidataProviderId = Guid.Parse("b3000003-d000-4000-8000-000000000004");
     private static readonly Guid ProviderA = Guid.Parse("aaaa0000-0000-0000-0000-000000000001");
     private static readonly Guid ProviderB = Guid.Parse("bbbb0000-0000-0000-0000-000000000002");
     private static readonly Guid EntityId  = Guid.Parse("eeee0000-0000-0000-0000-000000000001");
 
     private static readonly ScoringConfiguration DefaultConfig = new();
 
-    private static ConflictResolver CreateResolver() =>
-        new([new ExactMatchStrategy(), new LevenshteinStrategy()]);
+    private static PriorityCascadeEngine CreateEngine() => new();
 
-    // ── Single claim → no conflict ───────────────────────────────────────────
+    // ── Wikidata beats higher-confidence retail claim ─────────────────────────
 
     [Fact]
-    public void SingleClaim_NoConflict()
+    public async Task WikidataClaim_BeatsHigherConfidenceRetailClaim()
     {
-        var resolver = CreateResolver();
-        var claims = new List<MetadataClaim> { MakeClaim("title", "Dune", ProviderA, 0.9) };
-        var weights = new Dictionary<Guid, double> { [ProviderA] = 1.0 };
+        var engine = CreateEngine();
+        var context = new ScoringContext
+        {
+            EntityId = EntityId,
+            Claims =
+            [
+                MakeClaim("title", "Retail Title", ProviderA, 1.0),
+                MakeClaim("title", "Wikidata Title", WikidataProviderId, 0.7),
+            ],
+            ProviderWeights = new Dictionary<Guid, double>
+            {
+                [ProviderA]          = 1.0,
+                [WikidataProviderId] = 1.0,
+            },
+            Configuration = DefaultConfig,
+        };
 
-        var resolution = resolver.Resolve("title", claims, weights, DefaultConfig);
+        var result = await engine.ScoreEntityAsync(context);
 
-        Assert.Equal("Dune", resolution.WinningClaim.ClaimValue);
-        Assert.False(resolution.IsConflicted);
-        Assert.Equal(1.0, resolution.AdjustedConfidence); // single claim normalises to 1.0
+        var titleScore = result.FieldScores.First(f => f.Key == "title");
+        Assert.Equal("Wikidata Title", titleScore.WinningValue);
+        Assert.Equal(WikidataProviderId, titleScore.WinningProviderId);
+        Assert.False(titleScore.IsConflicted);
     }
 
-    // ── Two claims, same value → grouped, no conflict ────────────────────────
+    // ── Most recent Wikidata claim wins when multiple Wikidata claims exist ───
 
     [Fact]
-    public void TwoClaims_SameValue_NotConflicted()
+    public async Task MultipleWikidataClaims_MostRecentWins()
     {
-        var resolver = CreateResolver();
-        var claims = new List<MetadataClaim>
+        var engine = CreateEngine();
+
+        var older = MakeClaim("title", "Old Wikidata Title", WikidataProviderId, 0.9);
+        older.ClaimedAt = DateTimeOffset.UtcNow.AddDays(-10);
+
+        var newer = MakeClaim("title", "New Wikidata Title", WikidataProviderId, 0.8);
+        newer.ClaimedAt = DateTimeOffset.UtcNow;
+
+        var context = new ScoringContext
         {
-            MakeClaim("title", "Dune", ProviderA, 0.9),
-            MakeClaim("title", "dune", ProviderB, 0.8),  // same value, different case
-        };
-        var weights = new Dictionary<Guid, double>
-        {
-            [ProviderA] = 1.0,
-            [ProviderB] = 1.0,
+            EntityId = EntityId,
+            Claims = [older, newer],
+            ProviderWeights = new Dictionary<Guid, double> { [WikidataProviderId] = 1.0 },
+            Configuration = DefaultConfig,
         };
 
-        var resolution = resolver.Resolve("title", claims, weights, DefaultConfig);
+        var result = await engine.ScoreEntityAsync(context);
 
-        // Both claims grouped under "dune" (normalised) → single group → no conflict.
-        Assert.False(resolution.IsConflicted);
-        Assert.Equal(1.0, resolution.AdjustedConfidence);
+        var titleScore = result.FieldScores.First(f => f.Key == "title");
+        Assert.Equal("New Wikidata Title", titleScore.WinningValue);
     }
 
-    // ── Two competing values → winner determined by weight ───────────────────
+    // ── Tie-breaking on confidence uses most recent ClaimedAt ─────────────────
 
     [Fact]
-    public void CompetingValues_HigherWeightWins()
+    public async Task TieOnConfidence_MostRecentClaimWins()
     {
-        var resolver = CreateResolver();
-        var claims = new List<MetadataClaim>
+        var engine = CreateEngine();
+
+        var older = MakeClaim("title", "Older Claim", ProviderA, 0.8);
+        older.ClaimedAt = DateTimeOffset.UtcNow.AddHours(-5);
+
+        var newer = MakeClaim("title", "Newer Claim", ProviderB, 0.8);
+        newer.ClaimedAt = DateTimeOffset.UtcNow;
+
+        var context = new ScoringContext
         {
-            MakeClaim("title", "Dune", ProviderA, 0.9),
-            MakeClaim("title", "Dune: A Novel", ProviderB, 0.9),
-        };
-        var weights = new Dictionary<Guid, double>
-        {
-            [ProviderA] = 0.9,
-            [ProviderB] = 0.3,
+            EntityId = EntityId,
+            Claims = [older, newer],
+            ProviderWeights = new Dictionary<Guid, double>
+            {
+                [ProviderA] = 1.0,
+                [ProviderB] = 1.0,
+            },
+            Configuration = DefaultConfig,
         };
 
-        var resolution = resolver.Resolve("title", claims, weights, DefaultConfig);
+        var result = await engine.ScoreEntityAsync(context);
 
-        Assert.Equal("Dune", resolution.WinningClaim.ClaimValue);
+        var titleScore = result.FieldScores.First(f => f.Key == "title");
+        Assert.Equal("Newer Claim", titleScore.WinningValue);
     }
 
-    // ── Close values → conflicted ────────────────────────────────────────────
+    // ── Fields without Wikidata use best retail confidence ────────────────────
 
     [Fact]
-    public void CloseValues_FlaggedAsConflicted()
+    public async Task RetailOnlyField_UsesBestConfidence()
     {
-        var resolver = CreateResolver();
-        // Two providers with nearly equal weight × confidence.
-        var claims = new List<MetadataClaim>
+        var engine = CreateEngine();
+        var context = new ScoringContext
         {
-            MakeClaim("title", "Dune", ProviderA, 0.9),
-            MakeClaim("title", "Dune: A Novel", ProviderB, 0.88),
-        };
-        var weights = new Dictionary<Guid, double>
-        {
-            [ProviderA] = 1.0,
-            [ProviderB] = 1.0,
+            EntityId = EntityId,
+            Claims =
+            [
+                MakeClaim("year", "1965", ProviderA, 0.85),
+                MakeClaim("year", "1966", ProviderB, 0.60),
+            ],
+            ProviderWeights = new Dictionary<Guid, double>
+            {
+                [ProviderA] = 1.0,
+                [ProviderB] = 1.0,
+            },
+            Configuration = DefaultConfig,
         };
 
-        var resolution = resolver.Resolve("title", claims, weights, DefaultConfig);
+        var result = await engine.ScoreEntityAsync(context);
 
-        Assert.True(resolution.IsConflicted);
+        var yearScore = result.FieldScores.First(f => f.Key == "year");
+        Assert.Equal("1965", yearScore.WinningValue);
+        Assert.Equal(0.85, yearScore.Confidence);
     }
 
-    // ── Stale claim decay ────────────────────────────────────────────────────
+    // ── Cancellation is honoured ──────────────────────────────────────────────
 
     [Fact]
-    public void StaleClaim_GetsDecayedWeight()
+    public async Task CancelledToken_ThrowsOperationCancelledException()
     {
-        var resolver = CreateResolver();
-        var config = new ScoringConfiguration
+        var engine = CreateEngine();
+        var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        var context = new ScoringContext
         {
-            StaleClaimDecayDays = 30,
-            StaleClaimDecayFactor = 0.5,
+            EntityId = EntityId,
+            Claims = [MakeClaim("title", "Dune", ProviderA, 0.9)],
+            ProviderWeights = new Dictionary<Guid, double> { [ProviderA] = 1.0 },
+            Configuration = DefaultConfig,
         };
 
-        var freshClaim = MakeClaim("title", "Fresh Value", ProviderA, 0.8);
-        freshClaim.ClaimedAt = DateTimeOffset.UtcNow;
-
-        var staleClaim = MakeClaim("title", "Stale Value", ProviderB, 0.9);
-        staleClaim.ClaimedAt = DateTimeOffset.UtcNow.AddDays(-60); // older than 30 days
-
-        var claims = new List<MetadataClaim> { freshClaim, staleClaim };
-        var weights = new Dictionary<Guid, double>
-        {
-            [ProviderA] = 1.0,
-            [ProviderB] = 1.0,
-        };
-
-        var resolution = resolver.Resolve("title", claims, weights, config);
-
-        // Fresh claim should win because stale claim gets 0.5 decay factor.
-        Assert.Equal("Fresh Value", resolution.WinningClaim.ClaimValue);
-    }
-
-    // ── Zero decay days disables staleness ───────────────────────────────────
-
-    [Fact]
-    public void ZeroDecayDays_DisablesDecay()
-    {
-        var resolver = CreateResolver();
-        var config = new ScoringConfiguration
-        {
-            StaleClaimDecayDays = 0, // disabled
-        };
-
-        var oldClaim = MakeClaim("title", "Old Value", ProviderA, 0.9);
-        oldClaim.ClaimedAt = DateTimeOffset.UtcNow.AddDays(-365);
-
-        var claims = new List<MetadataClaim> { oldClaim };
-        var weights = new Dictionary<Guid, double> { [ProviderA] = 1.0 };
-
-        var resolution = resolver.Resolve("title", claims, weights, config);
-
-        // No decay applied; old claim still wins.
-        Assert.Equal("Old Value", resolution.WinningClaim.ClaimValue);
-        Assert.Equal(1.0, resolution.AdjustedConfidence);
-    }
-
-    // ── Unknown provider defaults to weight 1.0 ──────────────────────────────
-
-    [Fact]
-    public void UnknownProvider_DefaultsToWeight1()
-    {
-        var resolver = CreateResolver();
-        var unknownProvider = Guid.NewGuid();
-        var claims = new List<MetadataClaim>
-        {
-            MakeClaim("title", "Unknown Provider Value", unknownProvider, 0.9),
-        };
-        // Empty weights map — provider not registered.
-        var weights = new Dictionary<Guid, double>();
-
-        var resolution = resolver.Resolve("title", claims, weights, DefaultConfig);
-
-        Assert.Equal("Unknown Provider Value", resolution.WinningClaim.ClaimValue);
-        Assert.Equal(1.0, resolution.AdjustedConfidence);
-    }
-
-    // ── Empty claims → ArgumentException ─────────────────────────────────────
-
-    [Fact]
-    public void EmptyClaims_ThrowsArgumentException()
-    {
-        var resolver = CreateResolver();
-
-        Assert.Throws<ArgumentException>(() =>
-            resolver.Resolve("title", [], new Dictionary<Guid, double>(), DefaultConfig));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => engine.ScoreEntityAsync(context, cts.Token));
     }
 
     // ── Helper ───────────────────────────────────────────────────────────────

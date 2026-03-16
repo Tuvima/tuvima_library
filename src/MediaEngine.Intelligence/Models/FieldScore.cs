@@ -1,13 +1,13 @@
 namespace MediaEngine.Intelligence.Models;
 
 /// <summary>
-/// The resolved score for a single metadata field after <see cref="Contracts.IConflictResolver"/>
+/// The resolved score for a single metadata field after the priority cascade
 /// has evaluated all competing claims.
 ///
 /// Collected into <see cref="ScoringResult.FieldScores"/> by
 /// <see cref="Contracts.IScoringEngine"/>.
 ///
-/// Spec: Phase 6 – Claim Arbitration; Conflict Isolation.
+/// Spec: Phase 6 – Claim Arbitration; Priority Cascade.
 /// </summary>
 public sealed class FieldScore
 {
@@ -34,12 +34,9 @@ public sealed class FieldScore
     public Guid? WinningProviderId { get; init; }
 
     /// <summary>
-    /// <see langword="true"/> when the runner-up value's normalised weight
-    /// is within <see cref="ScoringConfiguration.ConflictEpsilon"/> of the
-    /// winner's weight, indicating that two providers are nearly equally confident
-    /// in different values.
-    /// Spec: Phase 6 – Conflict Isolation (field-level conflict does not block
-    /// scoring of other fields).
+    /// Always <see langword="false"/> in the priority cascade model.
+    /// Preserved for interface compatibility with callers that check this flag.
+    /// Spec: Phase 6 – Priority Cascade (no conflict detection; Wikidata wins unconditionally).
     /// </summary>
     public bool IsConflicted { get; init; }
 }

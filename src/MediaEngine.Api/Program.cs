@@ -178,11 +178,7 @@ builder.Services.AddSingleton<IByteStreamer, ByteStreamer>();
 builder.Services.AddSingleton<IScoringStrategy, ExactMatchStrategy>();
 builder.Services.AddSingleton<IScoringStrategy, LevenshteinStrategy>();
 
-builder.Services.AddSingleton<IConflictResolver>(sp =>
-    new ConflictResolver(sp.GetServices<IScoringStrategy>()));
-
-builder.Services.AddSingleton<IScoringEngine>(sp =>
-    new ScoringEngine(sp.GetRequiredService<IConflictResolver>()));
+builder.Services.AddSingleton<IScoringEngine, PriorityCascadeEngine>();
 
 builder.Services.AddSingleton<IIdentityMatcher>(sp =>
     new IdentityMatcher(sp.GetServices<IScoringStrategy>()));

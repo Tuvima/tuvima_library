@@ -2,14 +2,13 @@ namespace MediaEngine.Intelligence.Contracts;
 
 /// <summary>
 /// Extension point for pluggable string-comparison algorithms used by
-/// <see cref="IConflictResolver"/> when computing per-field confidence scores.
+/// <see cref="IIdentityMatcher"/> when computing Hub-matching similarity scores.
 ///
 /// ──────────────────────────────────────────────────────────────────
 /// Strategy selection (spec: Phase 6 – IScoringStrategy extension point)
 /// ──────────────────────────────────────────────────────────────────
 ///  Strategies are selected at runtime by their <see cref="AppliesTo"/> predicate.
-///  When multiple strategies match a key, <see cref="IConflictResolver"/> uses
-///  the one registered first (implementations decide order).
+///  The first matching strategy in the registered list is used.
 ///
 ///  Built-in strategies:
 ///   • <c>LevenshteinStrategy</c>  — normalised edit-distance for free-text fields

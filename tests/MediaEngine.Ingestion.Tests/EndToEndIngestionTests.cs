@@ -8,7 +8,6 @@ using MediaEngine.Ingestion.Models;
 using MediaEngine.Ingestion.Tests.Helpers;
 using MediaEngine.Intelligence;
 using MediaEngine.Intelligence.Contracts;
-using MediaEngine.Intelligence.Strategies;
 using MediaEngine.Processors.Models;
 using MediaEngine.Storage;
 
@@ -70,9 +69,8 @@ public sealed class EndToEndIngestionTests : IDisposable
         _ingestionLog = new IngestionLogRepository(db);
         _chainFactory = new MediaEntityChainFactory(db);
 
-        // Real scoring engine with both strategies.
-        IScoringStrategy[] strategies = [new ExactMatchStrategy(), new LevenshteinStrategy()];
-        _scorer = new ScoringEngine(new ConflictResolver(strategies));
+        // Priority cascade engine — Wikidata wins, then highest-confidence retail.
+        _scorer = new PriorityCascadeEngine();
     }
 
     public void Dispose()
