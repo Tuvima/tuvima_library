@@ -2293,7 +2293,10 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         {
             // Create a new Hub from the highest-confidence relationship.
             var bestRel = allRelationships.OrderByDescending(r => r.Confidence).First();
-            var displayName = bestRel.RelLabel ?? bestRel.RelQid;
+            // Guard against non-ASCII labels (e.g. Amharic returned by reconci.link quirk):
+            // fall back to the bare QID so the Hub name is at least machine-readable.
+            var rawLabel = bestRel.RelLabel ?? bestRel.RelQid;
+            var displayName = rawLabel.Any(c => c > 127) ? bestRel.RelQid : rawLabel;
 
             var newHub = new Hub
             {

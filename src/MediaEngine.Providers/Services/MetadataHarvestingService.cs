@@ -195,6 +195,19 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
 
         var sparqlBaseUrl = ResolveSparqlBaseUrl(endpointMap);
 
+        // For Person entities: skip if already enriched by a concurrent worker.
+        if (request.EntityType == EntityType.Person && request.EntityId != Guid.Empty)
+        {
+            var alreadyEnriched = await _personRepo.FindByIdAsync(request.EntityId, ct).ConfigureAwait(false);
+            if (alreadyEnriched?.EnrichedAt is not null)
+            {
+                _logger.LogDebug(
+                    "Person {Id} already enriched at {EnrichedAt} — skipping duplicate harvest",
+                    request.EntityId, alreadyEnriched.EnrichedAt);
+                return;
+            }
+        }
+
         foreach (var provider in _providers)
         {
             if (!provider.CanHandle(request.MediaType) || !provider.CanHandle(request.EntityType))
@@ -429,10 +442,6 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         IExternalMetadataProvider provider,
         CancellationToken ct)
     {
-        // Only Wikidata produces person-enrichment claims.
-        if (!string.Equals(provider.Name, "wikidata", StringComparison.OrdinalIgnoreCase))
-            return;
-
         var personSw = System.Diagnostics.Stopwatch.StartNew();
 
         var qid         = claims.FirstOrDefault(c => c.Key == "wikidata_qid")?.Value;

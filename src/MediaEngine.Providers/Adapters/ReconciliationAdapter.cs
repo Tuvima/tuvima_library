@@ -270,7 +270,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         }
 
         var responseBody = await PostFormAsync(
-            endpoint, $"extend={Uri.EscapeDataString(extendPayload)}", ct)
+            endpoint, $"extend={Uri.EscapeDataString(extendPayload)}&uselang=en", ct)
             .ConfigureAwait(false);
 
         if (string.IsNullOrWhiteSpace(responseBody))

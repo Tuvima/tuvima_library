@@ -205,9 +205,27 @@ public sealed class NarrativeRootResolver : INarrativeRootResolver
         return null;
     }
 
+    /// <summary>
+    /// Returns the label unchanged if it is pure ASCII; otherwise falls back to
+    /// the QID label cache (populated from reconciliation results) or the bare QID.
+    /// This guards against reconci.link returning non-Latin labels (e.g. Amharic)
+    /// for some entities even when <c>uselang=en</c> is set.
+    /// </summary>
+    private async Task<string> SanitizeLabelAsync(string qid, string label, CancellationToken ct)
+    {
+        if (label.Any(c => c > 127))
+        {
+            var cached = await _qidLabelRepo.GetLabelAsync(qid, ct).ConfigureAwait(false);
+            return !string.IsNullOrWhiteSpace(cached) ? cached : qid;
+        }
+        return label;
+    }
+
     private async Task<NarrativeRoot> UpsertRootAsync(
         string qid, string label, string level, string? parentQid, CancellationToken ct)
     {
+        label = await SanitizeLabelAsync(qid, label, ct).ConfigureAwait(false);
+
         var root = new NarrativeRoot
         {
             Qid = qid,

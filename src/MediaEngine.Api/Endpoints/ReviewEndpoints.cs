@@ -46,6 +46,8 @@ public static class ReviewEndpoints
                 lookup.TryGetValue("title", out var title);
                 if (string.IsNullOrWhiteSpace(title))
                     lookup.TryGetValue("file_name", out title);
+                if (string.IsNullOrWhiteSpace(title))
+                    title = "Untitled";
 
                 lookup.TryGetValue("media_type", out var mediaType);
                 lookup.TryGetValue("cover", out var coverUrl);
@@ -91,6 +93,8 @@ public static class ReviewEndpoints
             lookup.TryGetValue("title", out var title);
             if (string.IsNullOrWhiteSpace(title))
                 lookup.TryGetValue("file_name", out title);
+            if (string.IsNullOrWhiteSpace(title))
+                title = "Untitled";
 
             lookup.TryGetValue("media_type", out var mediaType);
             lookup.TryGetValue("cover", out var coverUrl);
