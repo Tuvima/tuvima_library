@@ -947,7 +947,7 @@ public sealed class WikidataAdapter : IExternalMetadataProvider
                 // statements with P1545 ordinals and P31 entity types (human,
                 // pseudonym, collective pseudonym). This produces ordered, typed
                 // author data that the standard wdt: query cannot provide.
-                var hintAuthor = request.Hints.TryGetValue("author", out var ha) ? ha : null;
+                var hintAuthor = request.Hints?.TryGetValue("author", out var ha) == true ? ha : null;
                 authorAuditClaims = await RunAuthorAuditAsync(
                     sparqlClient, request.SparqlBaseUrl!, qid, throttleGapMs, ct,
                     request.Language, hintAuthor).ConfigureAwait(false);
