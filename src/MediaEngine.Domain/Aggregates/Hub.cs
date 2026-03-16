@@ -38,6 +38,13 @@ public sealed class Hub
     /// </summary>
     public string? DisplayName { get; set; }
 
+    /// <summary>
+    /// Wikidata Q-identifier for the creative universe this Hub represents.
+    /// Populated during Stage 1 (Reconciliation) of the hydration pipeline.
+    /// Null until Wikidata identity has been confirmed.
+    /// </summary>
+    public string? WikidataQid { get; set; }
+
     /// <summary>When this Hub was first registered in the system.</summary>
     public DateTimeOffset CreatedAt { get; set; }
 

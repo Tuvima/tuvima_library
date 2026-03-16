@@ -40,4 +40,23 @@ public interface IImageCacheRepository
         string filePath,
         string? sourceUrl = null,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns <c>true</c> if the cached entry for the given content hash was
+    /// flagged as a user-supplied override (i.e. manually set cover art).
+    /// </summary>
+    Task<bool> IsUserOverrideAsync(string contentHash, CancellationToken ct = default);
+
+    /// <summary>
+    /// Looks up a cached image by its source URL.
+    /// Returns the file path of the first matching entry, or <c>null</c> if none found.
+    /// Useful for short-circuiting downloads when the same URL has already been fetched.
+    /// </summary>
+    Task<string?> FindBySourceUrlAsync(string sourceUrl, CancellationToken ct = default);
+
+    /// <summary>
+    /// Sets or clears the user-override flag on a cached image entry.
+    /// User-override images are never replaced by automated provider downloads.
+    /// </summary>
+    Task SetUserOverrideAsync(string contentHash, bool isOverride, CancellationToken ct = default);
 }

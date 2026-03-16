@@ -119,4 +119,9 @@ public interface IHubRepository
     /// Returns null when the Hub does not exist.
     /// </summary>
     Task<Hub?> GetByIdAsync(Guid hubId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Finds a Hub by its Wikidata QID. Returns null if no Hub has this QID.
+    /// </summary>
+    Task<Hub?> FindByQidAsync(string qid, CancellationToken ct = default);
 }

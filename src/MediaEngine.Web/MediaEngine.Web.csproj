@@ -13,4 +13,9 @@
     <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Domain constants (MetadataFieldConstants) shared with Engine -->
+    <ProjectReference Include="..\MediaEngine.Domain\MediaEngine.Domain.csproj" />
+  </ItemGroup>
+
 </Project>

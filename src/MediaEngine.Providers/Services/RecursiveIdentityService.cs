@@ -98,16 +98,36 @@ public sealed class RecursiveIdentityService : IRecursiveIdentityService
         // 1. Find or create the person record.
         //    Serialize on a per-identity key to prevent concurrent threads from
         //    both missing FindByName → both calling CreateAsync → duplicate row.
-        var personKey = $"{normalizedName.ToUpperInvariant()}:{reference.Role}";
+        //    Prefer a QID-based key when available so that pen names and alternate
+        //    name spellings all collapse to the same lock bucket.
+        var personKey = !string.IsNullOrEmpty(reference.WikidataQid)
+            ? $"QID:{reference.WikidataQid}"
+            : $"{normalizedName.ToUpperInvariant()}:{reference.Role}";
         var personLock = _personLocks.GetOrAdd(personKey, _ => new SemaphoreSlim(1, 1));
         await personLock.WaitAsync(ct).ConfigureAwait(false);
         Person? person;
         try
         {
-            //    Try the normalized name first; fall back to the original name for
-            //    backward compatibility with records created before normalization.
-            person = await _personRepo.FindByNameAsync(normalizedName, reference.Role, ct)
-                         .ConfigureAwait(false);
+            // QID-first: if we already know who this person is, find by QID to
+            // avoid creating duplicates when the same person appears under different
+            // name spellings (e.g. pen names, transliterations).
+            if (!string.IsNullOrEmpty(reference.WikidataQid))
+            {
+                person = await _personRepo.FindByQidAsync(reference.WikidataQid, ct)
+                             .ConfigureAwait(false);
+            }
+            else
+            {
+                person = null;
+            }
+
+            // Fallback: name-based lookup (normalized first, then original for
+            // backward compatibility with records created before normalization).
+            if (person is null)
+            {
+                person = await _personRepo.FindByNameAsync(normalizedName, reference.Role, ct)
+                             .ConfigureAwait(false);
+            }
 
             if (person is null && normalizedName != reference.Name)
             {
@@ -119,8 +139,9 @@ public sealed class RecursiveIdentityService : IRecursiveIdentityService
             {
                 person = await _personRepo.CreateAsync(new Person
                 {
-                    Name = normalizedName,
-                    Role = reference.Role,
+                    Name         = normalizedName,
+                    Role         = reference.Role,
+                    WikidataQid  = reference.WikidataQid,
                 }, ct).ConfigureAwait(false);
 
                 _logger.LogDebug(

@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Intelligence.Contracts;
@@ -20,6 +21,12 @@ namespace MediaEngine.Providers.Services;
 internal static class ScoringHelper
 {
     /// <summary>
+    /// Multi-valued field keys — delegates to
+    /// <see cref="MetadataFieldConstants.MultiValuedKeys"/>.
+    /// </summary>
+    internal static HashSet<string> MultiValuedKeys => MetadataFieldConstants.MultiValuedKeys;
+
+    /// <summary>
     /// Persists new claims for an entity, loads all claims, runs the scoring
     /// engine, and upserts the resulting canonical values.
     /// </summary>
@@ -33,17 +40,6 @@ internal static class ScoringHelper
     /// <param name="allProviders">All registered providers (for weight map building).</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The scoring result after re-scoring the entity.</returns>
-    /// <summary>
-    /// Multi-valued field keys that should be decomposed into
-    /// <see cref="ICanonicalValueArrayRepository"/> rows when their winning
-    /// canonical value contains the <c>|||</c> separator.
-    /// </summary>
-    internal static readonly HashSet<string> MultiValuedKeys = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "genre", "characters", "cast_member", "voice_actor",
-        "narrative_location", "main_subject", "composer", "screenwriter",
-    };
-
     public static async Task<ScoringResult> PersistClaimsAndScoreAsync(
         Guid entityId,
         IReadOnlyList<ProviderClaim> claims,
@@ -136,48 +132,64 @@ internal static class ScoringHelper
 
         await canonicalRepo.UpsertBatchAsync(canonicals, ct).ConfigureAwait(false);
 
-        // Decompose multi-valued winning values (containing |||) into proper array rows.
+        // Decompose multi-valued fields into proper array rows.
+        // Instead of splitting a single winning value on |||, collect ALL claims
+        // from the winning provider for each multi-valued key.
         if (arrayRepo is not null)
         {
-            foreach (var canonical in canonicals)
+            foreach (var fieldScore in scored.FieldScores)
             {
-                if (!MultiValuedKeys.Contains(canonical.Key))
+                if (!MetadataFieldConstants.IsMultiValued(fieldScore.Key))
                     continue;
 
-                if (!canonical.Value.Contains("|||", StringComparison.Ordinal))
+                // Skip companion _qid keys — they are paired with their parent key below.
+                if (fieldScore.Key.EndsWith(MetadataFieldConstants.CompanionQidSuffix,
+                        StringComparison.OrdinalIgnoreCase))
                     continue;
 
                 try
                 {
-                    var parts = canonical.Value.Split("|||",
-                        StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                    // Collect ALL claims from the winning provider for this key.
+                    var winningClaims = allClaims
+                        .Where(c => c.ProviderId == fieldScore.WinningProviderId
+                                 && c.ClaimKey.Equals(fieldScore.Key, StringComparison.OrdinalIgnoreCase))
+                        .ToList();
 
-                    // Look for a matching _qid canonical value for QID pairing.
-                    var qidCanonical = canonicals
-                        .FirstOrDefault(c => string.Equals(c.Key, canonical.Key + "_qid",
-                            StringComparison.OrdinalIgnoreCase));
-                    var qids = qidCanonical?.Value.Split("|||",
-                        StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                    if (winningClaims.Count == 0)
+                        continue;
 
-                    var entries = new List<CanonicalArrayEntry>(parts.Length);
-                    for (int i = 0; i < parts.Length; i++)
+                    // Collect companion _qid claims from the same provider.
+                    var qidKey = fieldScore.Key + MetadataFieldConstants.CompanionQidSuffix;
+                    var qidClaims = allClaims
+                        .Where(c => c.ProviderId == fieldScore.WinningProviderId
+                                 && c.ClaimKey.Equals(qidKey, StringComparison.OrdinalIgnoreCase))
+                        .ToList();
+
+                    var entries = new List<CanonicalArrayEntry>(winningClaims.Count);
+                    for (int i = 0; i < winningClaims.Count; i++)
                     {
                         entries.Add(new CanonicalArrayEntry
                         {
                             Ordinal  = i,
-                            Value    = parts[i],
-                            ValueQid = qids is not null && i < qids.Length ? qids[i] : null,
+                            Value    = winningClaims[i].ClaimValue,
+                            ValueQid = i < qidClaims.Count ? qidClaims[i].ClaimValue : null,
                         });
                     }
 
-                    await arrayRepo.SetValuesAsync(entityId, canonical.Key, entries, ct)
+                    await arrayRepo.SetValuesAsync(entityId, fieldScore.Key, entries, ct)
                         .ConfigureAwait(false);
+
+                    // Update canonical_values to store only the first value (backward compat).
+                    var canonical = canonicals.FirstOrDefault(c =>
+                        c.Key.Equals(fieldScore.Key, StringComparison.OrdinalIgnoreCase));
+                    if (canonical is not null && winningClaims.Count > 1)
+                        canonical.Value = winningClaims[0].ClaimValue;
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
                     logger?.LogDebug(ex,
                         "Failed to decompose multi-valued field '{Key}' for entity {EntityId}",
-                        canonical.Key, entityId);
+                        fieldScore.Key, entityId);
                 }
             }
         }

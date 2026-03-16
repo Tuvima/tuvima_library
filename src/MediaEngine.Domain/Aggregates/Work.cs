@@ -31,6 +31,13 @@ public sealed class Work
     public Guid? HubId { get; set; }
 
     /// <summary>
+    /// Wikidata Q-identifier for the specific work (book, film, etc.).
+    /// Populated during Stage 1 (Reconciliation) of the hydration pipeline.
+    /// Null until Wikidata identity has been confirmed for this Work.
+    /// </summary>
+    public string? WikidataQid { get; set; }
+
+    /// <summary>
     /// The kind of intellectual content this Work contains.
     /// Stored as a string discriminator (<c>media_type</c> TEXT) in the database.
     /// </summary>

@@ -35,10 +35,10 @@ public sealed class HubRepository : IHubRepository
         {
             cmd.CommandText = """
                 SELECT h.id, h.universe_id, h.display_name, h.created_at,
-                       h.universe_status, h.parent_hub_id,
+                       h.universe_status, h.parent_hub_id, h.wikidata_qid,
                        w.id, w.media_type, w.sequence_index,
                        w.universe_mismatch, w.universe_mismatch_at,
-                       w.wikidata_status, w.wikidata_checked_at
+                       w.wikidata_status, w.wikidata_checked_at, w.wikidata_qid
                 FROM   hubs h
                 LEFT JOIN works w ON w.hub_id = h.id
                 ORDER  BY h.created_at, w.id;
@@ -58,26 +58,29 @@ public sealed class HubRepository : IHubRepository
                         CreatedAt      = DateTimeOffset.Parse(reader.GetString(3)),
                         UniverseStatus = reader.IsDBNull(4) ? "Unknown" : reader.GetString(4),
                         ParentHubId    = reader.IsDBNull(5) ? null : Guid.Parse(reader.GetString(5)),
+                        WikidataQid    = reader.IsDBNull(6) ? null : reader.GetString(6),
                     };
                     hubs[hubId] = hub;
                 }
 
                 // LEFT JOIN: work columns are NULL when the hub has no works.
-                if (!reader.IsDBNull(6))
+                // h.wikidata_qid is at ordinal 6; w.id starts at ordinal 7.
+                if (!reader.IsDBNull(7))
                 {
-                    var workId = Guid.Parse(reader.GetString(6));
+                    var workId = Guid.Parse(reader.GetString(7));
                     if (!works.ContainsKey(workId))
                     {
                         var work = new Work
                         {
                             Id                 = workId,
                             HubId              = hubId,
-                            MediaType          = Enum.Parse<MediaType>(reader.GetString(7), ignoreCase: true),
-                            SequenceIndex      = reader.IsDBNull(8) ? null : reader.GetInt32(8),
-                            UniverseMismatch   = !reader.IsDBNull(9) && reader.GetInt32(9) == 1,
-                            UniverseMismatchAt = reader.IsDBNull(10) ? null : DateTimeOffset.Parse(reader.GetString(10)),
-                            WikidataStatus     = reader.IsDBNull(11) ? "pending" : reader.GetString(11),
-                            WikidataCheckedAt  = reader.IsDBNull(12) ? null : DateTimeOffset.Parse(reader.GetString(12)),
+                            MediaType          = Enum.Parse<MediaType>(reader.GetString(8), ignoreCase: true),
+                            SequenceIndex      = reader.IsDBNull(9) ? null : reader.GetInt32(9),
+                            UniverseMismatch   = !reader.IsDBNull(10) && reader.GetInt32(10) == 1,
+                            UniverseMismatchAt = reader.IsDBNull(11) ? null : DateTimeOffset.Parse(reader.GetString(11)),
+                            WikidataStatus     = reader.IsDBNull(12) ? "pending" : reader.GetString(12),
+                            WikidataCheckedAt  = reader.IsDBNull(13) ? null : DateTimeOffset.Parse(reader.GetString(13)),
+                            WikidataQid        = reader.IsDBNull(14) ? null : reader.GetString(14),
                         };
                         works[workId] = work;
                         hub.Works.Add(work);
@@ -195,7 +198,7 @@ public sealed class HubRepository : IHubRepository
         // Load the Hub with its relationships.
         using var hubCmd = conn.CreateCommand();
         hubCmd.CommandText = """
-            SELECT id, universe_id, display_name, created_at, universe_status, parent_hub_id
+            SELECT id, universe_id, display_name, created_at, universe_status, parent_hub_id, wikidata_qid
             FROM   hubs WHERE id = @id;
             """;
         hubCmd.Parameters.AddWithValue("@id", hubId.Value.ToString());
@@ -213,6 +216,7 @@ public sealed class HubRepository : IHubRepository
                     CreatedAt      = DateTimeOffset.Parse(reader.GetString(3)),
                     UniverseStatus = reader.IsDBNull(4) ? "Unknown" : reader.GetString(4),
                     ParentHubId    = reader.IsDBNull(5) ? null : Guid.Parse(reader.GetString(5)),
+                    WikidataQid    = reader.IsDBNull(6) ? null : reader.GetString(6),
                 };
             }
         }
@@ -419,7 +423,7 @@ public sealed class HubRepository : IHubRepository
         using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
-            SELECT id, universe_id, display_name, created_at, universe_status, parent_hub_id
+            SELECT id, universe_id, display_name, created_at, universe_status, parent_hub_id, wikidata_qid
             FROM   hubs
             WHERE  LOWER(display_name) = LOWER(@name)
             LIMIT  1;
@@ -438,6 +442,7 @@ public sealed class HubRepository : IHubRepository
             CreatedAt      = DateTimeOffset.Parse(reader.GetString(3)),
             UniverseStatus = reader.IsDBNull(4) ? "Unknown" : reader.GetString(4),
             ParentHubId    = reader.IsDBNull(5) ? null : Guid.Parse(reader.GetString(5)),
+            WikidataQid    = reader.IsDBNull(6) ? null : reader.GetString(6),
         };
 
         return Task.FromResult<Hub?>(hub);
@@ -455,9 +460,10 @@ public sealed class HubRepository : IHubRepository
         // ingested values win.
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
-            INSERT OR IGNORE INTO hubs(id, universe_id, parent_hub_id, display_name, created_at, universe_status)
-                VALUES (@id, @uid, @phid, @dn, @ca, @us);
-            UPDATE hubs SET display_name = @dn, universe_status = @us, parent_hub_id = @phid WHERE id = @id;
+            INSERT OR IGNORE INTO hubs(id, universe_id, parent_hub_id, display_name, created_at, universe_status, wikidata_qid)
+                VALUES (@id, @uid, @phid, @dn, @ca, @us, @wqid);
+            UPDATE hubs SET display_name = @dn, universe_status = @us, parent_hub_id = @phid,
+                            wikidata_qid = @wqid WHERE id = @id;
             """;
         cmd.Parameters.AddWithValue("@id",   hub.Id.ToString());
         cmd.Parameters.AddWithValue("@uid",  hub.UniverseId.HasValue
@@ -469,6 +475,7 @@ public sealed class HubRepository : IHubRepository
         cmd.Parameters.AddWithValue("@dn",   hub.DisplayName ?? (object)DBNull.Value);
         cmd.Parameters.AddWithValue("@ca",   hub.CreatedAt.ToString("O"));
         cmd.Parameters.AddWithValue("@us",   hub.UniverseStatus ?? "Unknown");
+        cmd.Parameters.AddWithValue("@wqid", (object?)hub.WikidataQid ?? DBNull.Value);
         cmd.ExecuteNonQuery();
 
         return Task.FromResult(hub.Id);
@@ -582,7 +589,7 @@ public sealed class HubRepository : IHubRepository
         using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
-            SELECT id, universe_id, display_name, created_at, universe_status, parent_hub_id
+            SELECT id, universe_id, display_name, created_at, universe_status, parent_hub_id, wikidata_qid
             FROM   hubs
             WHERE  parent_hub_id = @parentHubId
             ORDER  BY display_name;
@@ -601,6 +608,7 @@ public sealed class HubRepository : IHubRepository
                 CreatedAt      = DateTimeOffset.Parse(reader.GetString(3)),
                 UniverseStatus = reader.IsDBNull(4) ? "Unknown" : reader.GetString(4),
                 ParentHubId    = reader.IsDBNull(5) ? null : Guid.Parse(reader.GetString(5)),
+                WikidataQid    = reader.IsDBNull(6) ? null : reader.GetString(6),
             });
         }
 
@@ -641,7 +649,7 @@ public sealed class HubRepository : IHubRepository
         using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
-            SELECT h.id, h.universe_id, h.display_name, h.created_at, h.universe_status, h.parent_hub_id
+            SELECT h.id, h.universe_id, h.display_name, h.created_at, h.universe_status, h.parent_hub_id, h.wikidata_qid
             FROM   hubs h
             INNER JOIN hub_relationships hr ON hr.hub_id = h.id
             WHERE  hr.rel_qid = @qid
@@ -663,6 +671,7 @@ public sealed class HubRepository : IHubRepository
             CreatedAt      = DateTimeOffset.Parse(reader.GetString(3)),
             UniverseStatus = reader.IsDBNull(4) ? "Unknown" : reader.GetString(4),
             ParentHubId    = reader.IsDBNull(5) ? null : Guid.Parse(reader.GetString(5)),
+            WikidataQid    = reader.IsDBNull(6) ? null : reader.GetString(6),
         };
 
         return Task.FromResult<Hub?>(hub);
@@ -734,7 +743,7 @@ public sealed class HubRepository : IHubRepository
         using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
-            SELECT id, universe_id, display_name, created_at, universe_status, parent_hub_id
+            SELECT id, universe_id, display_name, created_at, universe_status, parent_hub_id, wikidata_qid
             FROM   hubs
             WHERE  id = @id
             LIMIT  1;
@@ -753,8 +762,41 @@ public sealed class HubRepository : IHubRepository
             CreatedAt      = DateTimeOffset.Parse(reader.GetString(3)),
             UniverseStatus = reader.IsDBNull(4) ? "Unknown" : reader.GetString(4),
             ParentHubId    = reader.IsDBNull(5) ? null : Guid.Parse(reader.GetString(5)),
+            WikidataQid    = reader.IsDBNull(6) ? null : reader.GetString(6),
         };
 
         return Task.FromResult<Hub?>(hub);
+    }
+
+    /// <inheritdoc/>
+    public Task<Hub?> FindByQidAsync(string qid, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        using var conn = _db.CreateConnection();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            SELECT id, universe_id, display_name, created_at, universe_status,
+                   parent_hub_id, wikidata_qid
+            FROM   hubs
+            WHERE  wikidata_qid = @qid
+            LIMIT  1;
+            """;
+        cmd.Parameters.AddWithValue("@qid", qid);
+
+        using var reader = cmd.ExecuteReader();
+        if (!reader.Read())
+            return Task.FromResult<Hub?>(null);
+
+        return Task.FromResult<Hub?>(new Hub
+        {
+            Id             = Guid.Parse(reader.GetString(0)),
+            UniverseId     = reader.IsDBNull(1) ? null : Guid.Parse(reader.GetString(1)),
+            DisplayName    = reader.IsDBNull(2) ? null : reader.GetString(2),
+            CreatedAt      = DateTimeOffset.Parse(reader.GetString(3)),
+            UniverseStatus = reader.IsDBNull(4) ? "Unknown" : reader.GetString(4),
+            ParentHubId    = reader.IsDBNull(5) ? null : Guid.Parse(reader.GetString(5)),
+            WikidataQid    = reader.IsDBNull(6) ? null : reader.GetString(6),
+        });
     }
 }

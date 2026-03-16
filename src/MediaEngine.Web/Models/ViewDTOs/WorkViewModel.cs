@@ -1,3 +1,5 @@
+using MediaEngine.Domain;
+
 namespace MediaEngine.Web.Models.ViewDTOs;
 
 /// <summary>UI representation of a Work (individual media item).</summary>
@@ -140,13 +142,7 @@ public sealed class WorkViewModel
         }
     }
 
-    private static readonly HashSet<string> MultiValuedKeys = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "genre", "characters", "cast_member", "voice_actor",
-        "narrative_location", "main_subject", "composer", "screenwriter",
-        "author", "creator",  // these are explicitly split by Authors property
-        "genre_qid",          // paired with genre
-    };
+    private static HashSet<string> MultiValuedKeys => MetadataFieldConstants.MultiValuedKeys;
 
     private string? Canonical(string key)
     {

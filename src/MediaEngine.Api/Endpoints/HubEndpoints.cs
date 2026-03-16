@@ -1,5 +1,6 @@
 ﻿using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
+using MediaEngine.Domain;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Endpoints;
@@ -249,11 +250,7 @@ public static class HubEndpoints
         w.CanonicalValues.Any(cv =>
             cv.Value.Contains(query, StringComparison.OrdinalIgnoreCase));
 
-    private static readonly HashSet<string> MultiValuedKeys = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "genre", "characters", "cast_member", "voice_actor",
-        "narrative_location", "main_subject", "composer", "screenwriter",
-    };
+    private static HashSet<string> MultiValuedKeys => MetadataFieldConstants.MultiValuedKeys;
 
     private static string? GetCanonical(WorkDto? w, string key)
     {

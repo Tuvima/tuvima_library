@@ -798,6 +798,67 @@ public sealed class DatabaseConnection : IDatabaseConnection
             """;
         m039.ExecuteNonQuery();
 
+        // ── M-040: Hub Wikidata QID ──────────────────────────────────────
+        MigrateAddColumnIfMissing(conn, "hubs", "wikidata_qid",
+            "ALTER TABLE hubs ADD COLUMN wikidata_qid TEXT;");
+
+        using (var cmd040Idx = conn.CreateCommand())
+        {
+            cmd040Idx.CommandText = @"
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_hubs_wikidata_qid
+                    ON hubs(wikidata_qid) WHERE wikidata_qid IS NOT NULL;";
+            cmd040Idx.ExecuteNonQuery();
+        }
+
+        // Backfill hubs.wikidata_qid from canonical_values
+        using (var cmd040Fill = conn.CreateCommand())
+        {
+            cmd040Fill.CommandText = @"
+                UPDATE hubs SET wikidata_qid = (
+                    SELECT cv.value FROM canonical_values cv
+                    JOIN media_assets ma ON ma.id = cv.entity_id
+                    JOIN editions e ON e.id = ma.edition_id
+                    JOIN works w ON w.id = e.work_id
+                    WHERE w.hub_id = hubs.id AND cv.key = 'wikidata_qid'
+                    LIMIT 1
+                ) WHERE wikidata_qid IS NULL;";
+            cmd040Fill.ExecuteNonQuery();
+        }
+
+        // ── M-041: Work Wikidata QID ─────────────────────────────────────
+        MigrateAddColumnIfMissing(conn, "works", "wikidata_qid",
+            "ALTER TABLE works ADD COLUMN wikidata_qid TEXT;");
+
+        using (var cmd041Idx = conn.CreateCommand())
+        {
+            cmd041Idx.CommandText = @"
+                CREATE INDEX IF NOT EXISTS idx_works_wikidata_qid
+                    ON works(wikidata_qid) WHERE wikidata_qid IS NOT NULL;";
+            cmd041Idx.ExecuteNonQuery();
+        }
+
+        // Backfill works.wikidata_qid from canonical_values
+        using (var cmd041Fill = conn.CreateCommand())
+        {
+            cmd041Fill.CommandText = @"
+                UPDATE works SET wikidata_qid = (
+                    SELECT cv.value FROM canonical_values cv
+                    JOIN media_assets ma ON ma.id = cv.entity_id
+                    JOIN editions e ON e.id = ma.edition_id
+                    WHERE e.work_id = works.id AND cv.key = 'wikidata_qid'
+                    LIMIT 1
+                ) WHERE wikidata_qid IS NULL;";
+            cmd041Fill.ExecuteNonQuery();
+        }
+
+        // ── M-042: Image cache user override flag ────────────────────────
+        MigrateAddColumnIfMissing(conn, "image_cache", "is_user_override",
+            "ALTER TABLE image_cache ADD COLUMN is_user_override INTEGER NOT NULL DEFAULT 0;");
+
+        // ── M-043: Character image path ──────────────────────────────────
+        MigrateAddColumnIfMissing(conn, "character_performer_links", "character_image_path",
+            "ALTER TABLE character_performer_links ADD COLUMN character_image_path TEXT;");
+
         // Seed S-001: provider_registry entries for all known providers.
         // metadata_claims.provider_id has a FK to provider_registry(id), so these
         // rows MUST exist before any claim is written.  INSERT OR IGNORE makes this
