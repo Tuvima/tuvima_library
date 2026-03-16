@@ -802,16 +802,16 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
     }
 
     /// <summary>
-    /// Downloads headshot from Wikimedia Commons and writes person.xml sidecar
-    /// under <c>{LibraryRoot}/.people/{Name} ({QID})/</c>.
+    /// Downloads headshot from Wikimedia Commons and ensures the person folder
+    /// exists under <c>{LibraryRoot}/.people/{Name} ({QID})/</c>.
     ///
     /// Folder naming uses <c>Name (QID)</c> format when a Wikidata QID is available
     /// (post-enrichment). Falls back to sanitized name or GUID before enrichment.
     /// QID guarantees uniqueness — no collision detection logic needed.
     ///
-    /// The person.xml v1.1 includes biographical fields, characters played,
-    /// pseudonym links, and a <c>&lt;known-names&gt;</c> list tracking all
-    /// historical names for reconnection after a database wipe.
+    /// Person metadata is stored exclusively in the database; the .people/ folder
+    /// holds only the headshot image. person.xml sidecars on disk are read-only
+    /// (for Great Inhale recovery) and are no longer written by the Engine.
     /// </summary>
     private async Task PersistPersonStorageAsync(
         Guid personId,
@@ -915,154 +915,6 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
                 }
             }
 
-            // Write person.xml v1.1 sidecar with biographical fields, characters,
-            // pseudonym links, and all metadata.
-            if (person is not null)
-            {
-                // Build <known-names> list: merge existing names from any prior person.xml
-                // with the current name to preserve historical aliases.
-                var knownNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                var existingXmlPath = Path.Combine(personFolder, "person.xml");
-                if (File.Exists(existingXmlPath))
-                {
-                    try
-                    {
-                        var existingDoc = System.Xml.Linq.XDocument.Load(existingXmlPath);
-                        var existingKnown = existingDoc.Root?
-                            .Element("known-names")?
-                            .Elements("name")
-                            .Select(e => e.Value.Trim())
-                            .Where(n => !string.IsNullOrWhiteSpace(n));
-
-                        if (existingKnown is not null)
-                            foreach (var n in existingKnown)
-                                knownNames.Add(n);
-                    }
-                    catch
-                    {
-                        // Corrupt XML — start fresh with just the current name.
-                    }
-                }
-                knownNames.Add(person.Name);
-
-                var knownNamesElement = new System.Xml.Linq.XElement("known-names");
-                foreach (var name in knownNames.OrderBy(n => n, StringComparer.OrdinalIgnoreCase))
-                    knownNamesElement.Add(new System.Xml.Linq.XElement("name", name));
-
-                // Build identity element with pseudonym flag.
-                var identityElement = new System.Xml.Linq.XElement("identity",
-                    new System.Xml.Linq.XElement("name",         person.Name),
-                    new System.Xml.Linq.XElement("role",         person.Role),
-                    new System.Xml.Linq.XElement("wikidata-qid", person.WikidataQid ?? string.Empty),
-                    new System.Xml.Linq.XElement("occupation",   NormalizeMultiValue(person.Occupation) ?? string.Empty));
-
-                if (person.IsPseudonym)
-                    identityElement.Add(new System.Xml.Linq.XElement("is-pseudonym", "true"));
-
-                // Build details element with biographical fields.
-                var detailsElement = new System.Xml.Linq.XElement("details");
-                if (!string.IsNullOrEmpty(person.DateOfBirth))
-                    detailsElement.Add(new System.Xml.Linq.XElement("date-of-birth", person.DateOfBirth));
-                if (!string.IsNullOrEmpty(person.DateOfDeath))
-                    detailsElement.Add(new System.Xml.Linq.XElement("date-of-death", person.DateOfDeath));
-                if (!string.IsNullOrEmpty(person.PlaceOfBirth))
-                    detailsElement.Add(new System.Xml.Linq.XElement("place-of-birth", person.PlaceOfBirth));
-                if (!string.IsNullOrEmpty(person.PlaceOfDeath))
-                    detailsElement.Add(new System.Xml.Linq.XElement("place-of-death", person.PlaceOfDeath));
-                if (!string.IsNullOrEmpty(person.Nationality))
-                    detailsElement.Add(new System.Xml.Linq.XElement("nationality", person.Nationality));
-
-                // Build characters element: fictional characters this person portrays.
-                var charactersElement = new System.Xml.Linq.XElement("characters");
-                try
-                {
-                    var charLinks = await _personRepo.GetCharacterLinksAsync(personId, ct)
-                        .ConfigureAwait(false);
-                    foreach (var (entityId, workQid) in charLinks)
-                    {
-                        var entity = await _fictionalEntityRepo.FindByIdAsync(entityId, ct)
-                            .ConfigureAwait(false);
-                        if (entity is null) continue;
-
-                        var charElement = new System.Xml.Linq.XElement("character",
-                            new System.Xml.Linq.XAttribute("qid", entity.WikidataQid),
-                            new System.Xml.Linq.XAttribute("label", entity.Label));
-
-                        if (!string.IsNullOrEmpty(entity.FictionalUniverseQid))
-                        {
-                            charElement.Add(new System.Xml.Linq.XAttribute("universe-qid", entity.FictionalUniverseQid));
-                            if (!string.IsNullOrEmpty(entity.FictionalUniverseLabel))
-                                charElement.Add(new System.Xml.Linq.XAttribute("universe-label", entity.FictionalUniverseLabel));
-                        }
-
-                        if (!string.IsNullOrEmpty(workQid))
-                            charElement.Add(new System.Xml.Linq.XAttribute("work-qid", workQid));
-
-                        charactersElement.Add(charElement);
-                    }
-                }
-                catch (Exception ex) when (ex is not OperationCanceledException)
-                {
-                    _logger.LogWarning(ex, "Failed to load character links for person.xml");
-                }
-
-                // Build pseudonym link elements.
-                System.Xml.Linq.XElement? realIdentitiesElement = null;
-                System.Xml.Linq.XElement? pseudonymsElement = null;
-                try
-                {
-                    var aliases = await _personRepo.FindAliasesAsync(personId, ct)
-                        .ConfigureAwait(false);
-                    foreach (var alias in aliases)
-                    {
-                        if (alias.IsPseudonym && !person.IsPseudonym)
-                        {
-                            // This alias is a pen name for the real person.
-                            pseudonymsElement ??= new System.Xml.Linq.XElement("pseudonyms");
-                            pseudonymsElement.Add(new System.Xml.Linq.XElement("person",
-                                new System.Xml.Linq.XAttribute("qid", alias.WikidataQid ?? string.Empty),
-                                new System.Xml.Linq.XAttribute("label", alias.Name)));
-                        }
-                        else if (!alias.IsPseudonym && person.IsPseudonym)
-                        {
-                            // This alias is a real person behind the pen name.
-                            realIdentitiesElement ??= new System.Xml.Linq.XElement("real-identities");
-                            realIdentitiesElement.Add(new System.Xml.Linq.XElement("person",
-                                new System.Xml.Linq.XAttribute("qid", alias.WikidataQid ?? string.Empty),
-                                new System.Xml.Linq.XAttribute("label", alias.Name)));
-                        }
-                    }
-                }
-                catch (Exception ex) when (ex is not OperationCanceledException)
-                {
-                    _logger.LogWarning(ex, "Failed to load aliases for person.xml");
-                }
-
-                var rootElement = new System.Xml.Linq.XElement("library-person",
-                    new System.Xml.Linq.XAttribute("version", "1.1"),
-                    identityElement,
-                    new System.Xml.Linq.XElement("biography", person.Biography ?? string.Empty),
-                    detailsElement,
-                    new System.Xml.Linq.XElement("social",
-                        new System.Xml.Linq.XElement("instagram", person.Instagram ?? string.Empty),
-                        new System.Xml.Linq.XElement("twitter",   person.Twitter   ?? string.Empty),
-                        new System.Xml.Linq.XElement("tiktok",    person.TikTok    ?? string.Empty),
-                        new System.Xml.Linq.XElement("mastodon",  person.Mastodon  ?? string.Empty),
-                        new System.Xml.Linq.XElement("website",   person.Website   ?? string.Empty)
-                    ),
-                    knownNamesElement,
-                    charactersElement);
-
-                if (realIdentitiesElement is not null)
-                    rootElement.Add(realIdentitiesElement);
-                if (pseudonymsElement is not null)
-                    rootElement.Add(pseudonymsElement);
-
-                var doc = new System.Xml.Linq.XDocument(
-                    new System.Xml.Linq.XDeclaration("1.0", "utf-8", null),
-                    rootElement);
-                doc.Save(existingXmlPath);
-            }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -1257,13 +1109,16 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
     private static string? ResolveSparqlBaseUrl(Dictionary<string, string> endpointMap)
         => endpointMap.TryGetValue("wikidata_sparql", out var url) ? url : null;
 
-    private static ProviderLookupRequest BuildLookupRequest(
+    private ProviderLookupRequest BuildLookupRequest(
         HarvestRequest request,
         IExternalMetadataProvider provider,
         string baseUrl,
         string? sparqlBaseUrl = null)
     {
-        var h = request.Hints;
+        var h       = request.Hints;
+        var core    = _configLoader.LoadCore();
+        var lang    = string.IsNullOrWhiteSpace(core.Language) ? "en" : core.Language;
+        var country = string.IsNullOrWhiteSpace(core.Country)  ? "us" : core.Country.ToUpperInvariant();
         return new ProviderLookupRequest
         {
             EntityId     = request.EntityId,
@@ -1282,6 +1137,8 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
             PersonRole   = h.GetValueOrDefault("role"),
             BaseUrl      = baseUrl,
             SparqlBaseUrl = sparqlBaseUrl,
+            Language     = lang,
+            Country      = country,
             Hints        = h,
         };
     }

@@ -362,7 +362,8 @@ builder.Services.AddSingleton<ICanonicalValueArrayRepository, CanonicalValueArra
                 reconConfig,
                 sp.GetRequiredService<IHttpClientFactory>(),
                 sp.GetRequiredService<ILogger<ReconciliationAdapter>>(),
-                sp.GetRequiredService<IProviderResponseCacheRepository>()));
+                sp.GetRequiredService<IProviderResponseCacheRepository>(),
+                sp.GetRequiredService<IConfigurationLoader>()));
         builder.Services.AddSingleton<IExternalMetadataProvider>(
             sp => sp.GetRequiredService<ReconciliationAdapter>());
     }

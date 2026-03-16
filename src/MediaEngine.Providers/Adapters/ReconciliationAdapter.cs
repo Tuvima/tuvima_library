@@ -9,6 +9,7 @@ using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Models;
+using MediaEngine.Storage.Contracts;
 using MediaEngine.Storage.Models;
 
 namespace MediaEngine.Providers.Adapters;
@@ -42,6 +43,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     private readonly IHttpClientFactory _httpFactory;
     private readonly ILogger<ReconciliationAdapter> _logger;
     private readonly IProviderResponseCacheRepository? _responseCache;
+    private readonly IConfigurationLoader? _configLoader;
 
     // Throttle: per-instance semaphore + timestamp gap.
     private readonly SemaphoreSlim _throttle;
@@ -63,16 +65,18 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         ReconciliationProviderConfig config,
         IHttpClientFactory httpFactory,
         ILogger<ReconciliationAdapter> logger,
-        IProviderResponseCacheRepository? responseCache = null)
+        IProviderResponseCacheRepository? responseCache = null,
+        IConfigurationLoader? configLoader = null)
     {
         ArgumentNullException.ThrowIfNull(config);
         ArgumentNullException.ThrowIfNull(httpFactory);
         ArgumentNullException.ThrowIfNull(logger);
 
-        _config       = config;
-        _httpFactory  = httpFactory;
-        _logger       = logger;
+        _config        = config;
+        _httpFactory   = httpFactory;
+        _logger        = logger;
         _responseCache = responseCache;
+        _configLoader  = configLoader;
 
         _throttle = new SemaphoreSlim(
             Math.Max(1, config.MaxConcurrency),
@@ -269,8 +273,9 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             }
         }
 
+        var language = _configLoader?.LoadCore().Language ?? "en";
         var responseBody = await PostFormAsync(
-            endpoint, $"extend={Uri.EscapeDataString(extendPayload)}&uselang=en", ct)
+            endpoint, $"extend={Uri.EscapeDataString(extendPayload)}&uselang={language}", ct)
             .ConfigureAwait(false);
 
         if (string.IsNullOrWhiteSpace(responseBody))
@@ -923,9 +928,6 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             if (string.Equals(pCode, "P31", StringComparison.OrdinalIgnoreCase))
                 continue;
 
-            // Collect entity QID::Label pairs for companion _qid claim.
-            var qidParts = new List<string>();
-
             foreach (var val in values)
             {
                 // Special handling for P18: convert Commons filename to URL.
@@ -946,19 +948,12 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 if (!string.IsNullOrWhiteSpace(strVal))
                     yield return new ProviderClaim(claimKey, strVal, confidence);
 
-                // Track entity QIDs for companion claim.
+                // Emit individual companion _qid claim per entity value.
                 if (!string.IsNullOrWhiteSpace(val.Id))
                 {
                     var label = !string.IsNullOrWhiteSpace(val.Label) ? val.Label : val.Id;
-                    qidParts.Add($"{val.Id}::{label}");
+                    yield return new ProviderClaim($"{claimKey}_qid", $"{val.Id}::{label}", 0.90);
                 }
-            }
-
-            // Emit companion _qid claim if any entity values were found.
-            if (qidParts.Count > 0)
-            {
-                var joined = string.Join("|||", qidParts);
-                yield return new ProviderClaim($"{claimKey}_qid", joined, 0.90);
             }
         }
     }

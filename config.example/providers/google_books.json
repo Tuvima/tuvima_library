@@ -51,7 +51,7 @@
       "name": "isbn_search",
       "priority": 1,
       "required_fields": ["isbn"],
-      "url_template": "{base_url}/volumes?q=isbn:{isbn}&maxResults=3&key={api_key}",
+      "url_template": "{base_url}/volumes?q=isbn:{isbn}&maxResults=3&langRestrict={lang}&key={api_key}",
       "results_path": "items",
       "result_index": 0
     },
@@ -59,7 +59,7 @@
       "name": "title_search",
       "priority": 2,
       "required_fields": ["title"],
-      "url_template": "{base_url}/volumes?q={query}&maxResults={limit}&key={api_key}",
+      "url_template": "{base_url}/volumes?q={query}&maxResults={limit}&langRestrict={lang}&key={api_key}",
       "query_template": "{title} {author}",
       "results_path": "items",
       "result_index": 0,
