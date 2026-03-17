@@ -120,4 +120,12 @@ public static class ReviewTrigger
     /// CoreConfiguration.Language. The item should be reviewed manually.
     /// </summary>
     public const string NonConfiguredLanguage = "NonConfiguredLanguage";
+
+    /// <summary>
+    /// The file's embedded language metadata (dc:language in EPUB OPF, id3 lang tag)
+    /// does not match the user's configured library language in
+    /// <c>CoreConfiguration.Language</c>. The book may be in the wrong language
+    /// or in a foreign edition. The user should confirm or reclassify the item.
+    /// </summary>
+    public const string LanguageMismatch = "LanguageMismatch";
 }

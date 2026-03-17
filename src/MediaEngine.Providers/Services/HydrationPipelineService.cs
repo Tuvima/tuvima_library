@@ -418,12 +418,12 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             var canonicalsAfterS1 = await _canonicalRepo.GetByEntityAsync(request.EntityId, ct)
                 .ConfigureAwait(false);
 
-            // Pseudonym author protection is deep enrichment (Pass 2 only).
-            if (effectivePass == HydrationPass.Universe)
-            {
-                await ProtectPseudonymAuthorAsync(request.EntityId, canonicalsAfterS1, ct)
-                    .ConfigureAwait(false);
-            }
+            // Pseudonym author protection runs in both passes (Quick and Universe)
+            // as a safety net. The ReconciliationAdapter's pen-name detection handles
+            // the primary case (P742 shared by co-authors), but this covers the
+            // person-record-based fallback for known pen names like Richard Bachman.
+            await ProtectPseudonymAuthorAsync(request.EntityId, canonicalsAfterS1, ct)
+                .ConfigureAwait(false);
 
             // Person enrichment: use Stage-1 raw claims when available so that
             // multi-valued author_qid values from Wikidata SPARQL are captured in
@@ -572,6 +572,51 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
 
         s1Ms = stageSw.ElapsedMilliseconds;
         stageSw.Restart();
+
+        // ── Language mismatch check (between Stage 1 and Stage 2) ────────────
+        // If the file's embedded dc:language tag declares a language different from
+        // the configured app language, flag it for user review immediately. This
+        // ensures foreign-language books are surfaced before Stage 2 enrichment
+        // proceeds with potentially incorrect metadata.
+        if (request.EntityType == EntityType.MediaAsset)
+        {
+            try
+            {
+                var canonicalsAfterS1 = await _canonicalRepo.GetByEntityAsync(request.EntityId, ct)
+                    .ConfigureAwait(false);
+                var langCanonical = canonicalsAfterS1.FirstOrDefault(c =>
+                    string.Equals(c.Key, "language", StringComparison.OrdinalIgnoreCase));
+
+                if (langCanonical is not null && !string.IsNullOrWhiteSpace(langCanonical.Value))
+                {
+                    var appLanguage = _configLoader.LoadCore().Language ?? "en";
+                    // Normalize both to primary subtag for comparison ("en-US" → "en").
+                    var fileLang = langCanonical.Value.Split('-', '_')[0].ToLowerInvariant().Trim();
+                    var configuredLang = appLanguage.Split('-', '_')[0].ToLowerInvariant().Trim();
+
+                    if (!string.IsNullOrEmpty(fileLang)
+                        && !string.IsNullOrEmpty(configuredLang)
+                        && !string.Equals(fileLang, configuredLang, StringComparison.OrdinalIgnoreCase))
+                    {
+                        _logger.LogInformation(
+                            "Language mismatch detected for entity {Id}: file declares '{FileLang}', configured language is '{ConfiguredLang}'",
+                            request.EntityId, fileLang, configuredLang);
+
+                        await CreateReviewItemAsync(
+                            request, ReviewTrigger.LanguageMismatch, 0.0,
+                            $"File language '{langCanonical.Value}' does not match the configured library language '{appLanguage}'. " +
+                            "This may be a foreign edition or incorrectly tagged file.",
+                            result, ct).ConfigureAwait(false);
+                    }
+                }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogDebug(ex,
+                    "Language mismatch check failed for entity {Id}; continuing",
+                    request.EntityId);
+            }
+        }
 
         // ── Stage 2: Enrichment (Waterfall) ─────────────────────────────────
         //

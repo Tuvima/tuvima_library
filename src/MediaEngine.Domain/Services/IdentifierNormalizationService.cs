@@ -80,6 +80,32 @@ public static class IdentifierNormalizationService
         };
     }
 
+    /// <summary>
+    /// Normalizes the app-level language code for a specific provider's expected format.
+    /// Different providers use different language code formats:
+    /// - Wikidata, Wikipedia, Google Books use ISO 639-1 two-letter codes ("en", "es", "fr").
+    /// - Apple API uses locale codes with underscore ("en_us", "es_mx").
+    /// </summary>
+    /// <param name="appLanguage">The configured app language (e.g. "en", "en-US", "es").</param>
+    /// <param name="providerName">The provider name as declared in its config file.</param>
+    /// <returns>The language code in the format expected by the target provider.</returns>
+    public static string NormalizeLanguageForProvider(string appLanguage, string providerName)
+    {
+        // Extract primary subtag (e.g. "en-US" → "en", "zh-Hant" → "zh").
+        var primary = appLanguage.Split('-', '_')[0].ToLowerInvariant();
+
+        return providerName.ToLowerInvariant() switch
+        {
+            // Apple API uses underscore locale codes: "en" → "en_us", "es" → "es_mx", "fr" → "fr_fr".
+            "apple_api" or "apple_books" or "apple podcasts" or "apple_podcasts"
+                => $"{primary}_{primary}",
+
+            // All other providers (Wikidata, Wikipedia, Google Books, Open Library, etc.)
+            // use the standard two-letter ISO 639-1 code.
+            _ => primary,
+        };
+    }
+
     // -------------------------------------------------------------------------
     #region ISBN-13 (P212)
     // -------------------------------------------------------------------------

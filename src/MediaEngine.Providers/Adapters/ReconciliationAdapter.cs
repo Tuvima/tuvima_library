@@ -261,7 +261,13 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
 
         var endpoint = _config.Endpoints.Reconciliation;
         var extendPayload = BuildExtendPayload(qids, propertyCodes);
-        var cacheKey = BuildCacheKey($"extend:{extendPayload}");
+        // Language must be part of the cache key: Wikidata returns language-specific
+        // label/description values (e.g. Len, Den) and the same QID+properties payload
+        // will yield different results for "en" vs "es". Without the language in the key,
+        // a cached response from a prior run with the wrong language is reused for all
+        // subsequent queries, causing foreign-language titles and Cyrillic names to persist.
+        var language = _configLoader?.LoadCore().Language ?? "en";
+        var cacheKey = BuildCacheKey($"extend:{language}:{extendPayload}");
 
         // Check cache.
         if (_responseCache is not null)
@@ -273,8 +279,6 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 return ParseExtensionResponse(cached.ResponseJson, _config.DataExtension.PropertyLabels);
             }
         }
-
-        var language = _configLoader?.LoadCore().Language ?? "en";
         var responseBody = await PostFormAsync(
             endpoint, $"extend={Uri.EscapeDataString(extendPayload)}&uselang={language}", ct)
             .ConfigureAwait(false);
@@ -576,6 +580,69 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
 
         if (extData is not null)
             claims.AddRange(ExtensionToClaims(extData, _config.DataExtension.PropertyLabels, isWork: true));
+
+        // ── Pen name detection via P50 + P742 ────────────────────────────────
+        // When Wikidata P50 lists 2+ authors (e.g. Daniel Abraham + Ty Franck for
+        // "The Expanse"), their individual real names become the author claims. But if
+        // all those authors share a common pen name (P742), the work was *published*
+        // under that pen name. Emit a high-confidence pen name claim (0.95) so it
+        // beats the individual real-name claims (0.90) in the scoring election.
+        if (extData is not null
+            && extData.Properties.TryGetValue("P50", out var authorRefs)
+            && authorRefs.Count >= 2)
+        {
+            try
+            {
+                var authorQids = authorRefs
+                    .Where(v => v.Id is not null)
+                    .Select(v => v.Id!)
+                    .Distinct()
+                    .ToList();
+
+                if (authorQids.Count >= 2)
+                {
+                    // Fetch P742 (pseudonym/pen name) for each co-author.
+                    var penNameExtensions = await ExtendAsync(authorQids, ["P742"], ct)
+                        .ConfigureAwait(false);
+
+                    // Collect all P742 values per author.
+                    var penNamesByAuthor = penNameExtensions
+                        .Where(e => e.Properties.TryGetValue("P742", out var vals) && vals.Count > 0)
+                        .ToDictionary(
+                            e => e.QID,
+                            e => e.Properties["P742"]
+                                .Where(v => v.Str is not null)
+                                .Select(v => v.Str!)
+                                .ToHashSet(StringComparer.OrdinalIgnoreCase),
+                            StringComparer.OrdinalIgnoreCase);
+
+                    if (penNamesByAuthor.Count >= 2)
+                    {
+                        // Find pen names shared by all co-authors.
+                        var sharedPenNames = penNamesByAuthor.Values
+                            .Skip(1)
+                            .Aggregate(
+                                new HashSet<string>(penNamesByAuthor.Values.First(), StringComparer.OrdinalIgnoreCase),
+                                (acc, next) => { acc.IntersectWith(next); return acc; });
+
+                        if (sharedPenNames.Count > 0)
+                        {
+                            var penName = sharedPenNames.First();
+                            // Higher confidence than the individual real-name claims (0.90) so the pen name wins.
+                            claims.Add(new ProviderClaim("author", penName, 0.95));
+                            _logger.LogInformation(
+                                "{Provider}: pen name detected for QID {QID} — {AuthorCount} co-authors share pen name \"{PenName}\"",
+                                Name, qid, authorQids.Count, penName);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug("{Provider}: pen name detection failed for QID {QID}: {Message}",
+                    Name, qid, ex.Message);
+            }
+        }
 
         // ── Edition bridge ID resolution ─────────────────────────────────────
         // Wikidata stores ISBNs and other bridge IDs on edition items (P747),
