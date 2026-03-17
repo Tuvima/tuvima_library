@@ -1,4 +1,5 @@
 using MediaEngine.Domain.Entities;
+using MediaEngine.Domain.Services;
 using MediaEngine.Intelligence.Contracts;
 using MediaEngine.Intelligence.Models;
 using MediaEngine.Intelligence.Strategies;
@@ -18,10 +19,10 @@ namespace MediaEngine.Intelligence;
 ///    if entityValue == candidateValue (after normalisation) → immediate 1.0
 ///  Spec: "Matching of 'Hard Identifiers' MAY bypass fuzzy-logic comparisons."
 ///
-///  Pass 2 – Field-level fuzzy matching
-///  ─────────────────────────────────────
+///  Pass 2 – Field-level fuzzy matching (FuzzySharp TokenSetRatio)
+///  ───────────────────────────────────────────────────────────────
 ///  For each key present in both entities:
-///    strategyScore = best-matching strategy.Compute(valueA, valueB)
+///    score = IFuzzyMatchingService.ComputeTokenSetRatio(valueA, valueB)
 ///  Weighted average is computed with "title" receiving 50 % of the total
 ///  weight and all other fields sharing the remaining 50 % equally.
 ///
@@ -37,18 +38,13 @@ public sealed class IdentityMatcher : IIdentityMatcher
     private const string TitleKey   = "title";
     private const double TitleWeight = 0.5;      // title gets 50 % of total influence
 
-    private readonly IReadOnlyList<IScoringStrategy> _strategies;
+    private readonly IFuzzyMatchingService _fuzzy;
 
-    public IdentityMatcher(IEnumerable<IScoringStrategy>? strategies = null)
+    public IdentityMatcher(IFuzzyMatchingService fuzzy)
     {
-        _strategies = strategies?.ToList() ?? DefaultStrategies();
+        ArgumentNullException.ThrowIfNull(fuzzy);
+        _fuzzy = fuzzy;
     }
-
-    private static List<IScoringStrategy> DefaultStrategies() =>
-    [
-        new ExactMatchStrategy(),
-        new LevenshteinStrategy(),
-    ];
 
     // -------------------------------------------------------------------------
     // IIdentityMatcher
@@ -156,16 +152,15 @@ public sealed class IdentityMatcher : IIdentityMatcher
 
     private double ComputeSimilarity(string key, string a, string b)
     {
-        // Use the first strategy that applies to this key.
-        foreach (var strategy in _strategies)
+        // Hard identifiers still use exact match.
+        if (ExactMatchStrategy.HardIdentifierKeys.Contains(key))
         {
-            if (strategy.AppliesTo(key))
-                return strategy.Compute(a, b);
+            var exact = new ExactMatchStrategy();
+            return exact.Compute(a, b);
         }
 
-        // Fallback: exact string comparison if no strategy matched.
-        return string.Equals(a.Trim(), b.Trim(), StringComparison.OrdinalIgnoreCase)
-            ? 1.0 : 0.0;
+        // All other fields use FuzzySharp token-set-ratio via IFuzzyMatchingService.
+        return _fuzzy.ComputeTokenSetRatio(a, b);
     }
 
     private static Dictionary<string, string> BuildMap(IEnumerable<CanonicalValue> values)

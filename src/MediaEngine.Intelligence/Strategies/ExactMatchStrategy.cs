@@ -29,7 +29,7 @@ public sealed class ExactMatchStrategy : IScoringStrategy
 {
     /// <summary>
     /// Claim keys treated as hard identifiers.
-    /// Shared with <see cref="LevenshteinStrategy"/> to build its exclusion set.
+    /// Used by IdentityMatcher to route hard identifiers to exact match.
     /// </summary>
     public static readonly IReadOnlyList<string> HardIdentifierKeys =
         ["isbn", "imdbid", "tmdbid", "ean", "asin", "musicbrainzid", "openlibrary_id", "wikidata_qid"];

@@ -11,6 +11,7 @@ using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.Models;
 using MediaEngine.Intelligence;
 using MediaEngine.Intelligence.Contracts;
+using MediaEngine.Intelligence.Services;
 using MediaEngine.Intelligence.Strategies;
 using MediaEngine.Processors;
 using MediaEngine.Processors.Contracts;
@@ -19,6 +20,7 @@ using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 using MediaEngine.Storage.Models;
 using MediaEngine.Domain.Enums;
+using MediaEngine.Domain.Services;
 using MediaEngine.Providers.Adapters;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Models;
@@ -176,12 +178,12 @@ builder.Services.AddSingleton<IByteStreamer, ByteStreamer>();
 
 // ── Intelligence ──────────────────────────────────────────────────────────────
 builder.Services.AddSingleton<IScoringStrategy, ExactMatchStrategy>();
-builder.Services.AddSingleton<IScoringStrategy, LevenshteinStrategy>();
+builder.Services.AddSingleton<IFuzzyMatchingService, FuzzyMatchingService>();
 
 builder.Services.AddSingleton<IScoringEngine, PriorityCascadeEngine>();
 
 builder.Services.AddSingleton<IIdentityMatcher>(sp =>
-    new IdentityMatcher(sp.GetServices<IScoringStrategy>()));
+    new IdentityMatcher(sp.GetRequiredService<IFuzzyMatchingService>()));
 
 builder.Services.AddSingleton<IHubArbiter>(sp =>
     new HubArbiter(
@@ -366,6 +368,7 @@ builder.Services.AddSingleton<ICanonicalValueArrayRepository, CanonicalValueArra
                 reconConfig,
                 sp.GetRequiredService<IHttpClientFactory>(),
                 sp.GetRequiredService<ILogger<ReconciliationAdapter>>(),
+                sp.GetRequiredService<IFuzzyMatchingService>(),
                 sp.GetRequiredService<IProviderResponseCacheRepository>(),
                 sp.GetRequiredService<IConfigurationLoader>()));
         builder.Services.AddSingleton<IExternalMetadataProvider>(

@@ -81,80 +81,52 @@ public sealed class StrategyTests
     }
 
     // ════════════════════════════════════════════════════════════════════════
-    //  LevenshteinStrategy
+    //  FuzzyMatchingService (replaced LevenshteinStrategy)
     // ════════════════════════════════════════════════════════════════════════
 
-    [Theory]
-    [InlineData("title", true)]
-    [InlineData("author", true)]
-    [InlineData("year", true)]
-    [InlineData("isbn", false)]    // excluded — handled by ExactMatch
-    [InlineData("imdbid", false)]
-    [InlineData("asin", false)]
-    public void Levenshtein_AppliesTo_FreeTextOnly(string key, bool expected)
+    [Fact]
+    public void Fuzzy_IdenticalStrings_Returns1()
     {
-        var strategy = new LevenshteinStrategy();
-        Assert.Equal(expected, strategy.AppliesTo(key));
+        var fuzzy = new MediaEngine.Intelligence.Services.FuzzyMatchingService();
+        Assert.Equal(1.0, fuzzy.ComputeTokenSetRatio("Dune", "Dune"));
     }
 
     [Fact]
-    public void Levenshtein_IdenticalStrings_Returns1()
+    public void Fuzzy_CaseInsensitive()
     {
-        var strategy = new LevenshteinStrategy();
-        Assert.Equal(1.0, strategy.Compute("Dune", "Dune"));
+        var fuzzy = new MediaEngine.Intelligence.Services.FuzzyMatchingService();
+        Assert.Equal(1.0, fuzzy.ComputeTokenSetRatio("The Hobbit", "the hobbit"));
     }
 
     [Fact]
-    public void Levenshtein_CaseInsensitive()
+    public void Fuzzy_SimilarStrings_HighScore()
     {
-        var strategy = new LevenshteinStrategy();
-        Assert.Equal(1.0, strategy.Compute("The Hobbit", "the hobbit"));
-    }
-
-    [Fact]
-    public void Levenshtein_SimilarStrings_HighScore()
-    {
-        var strategy = new LevenshteinStrategy();
-        double score = strategy.Compute("The Lord of the Rings", "Lord of the Rings");
-
-        // Very similar — should be high but not 1.0.
+        var fuzzy = new MediaEngine.Intelligence.Services.FuzzyMatchingService();
+        double score = fuzzy.ComputeTokenSetRatio("The Lord of the Rings", "Lord of the Rings");
         Assert.True(score > 0.8);
-        Assert.True(score < 1.0);
     }
 
     [Fact]
-    public void Levenshtein_CompletelyDifferent_LowScore()
+    public void Fuzzy_CompletelyDifferent_LowScore()
     {
-        var strategy = new LevenshteinStrategy();
-        double score = strategy.Compute("Dune", "War and Peace");
-
-        Assert.True(score < 0.3);
-    }
-
-    [Theory]
-    [InlineData("", "")]
-    public void Levenshtein_BothEmpty_Returns1(string a, string b)
-    {
-        var strategy = new LevenshteinStrategy();
-        Assert.Equal(1.0, strategy.Compute(a, b));
-    }
-
-    [Theory]
-    [InlineData("", "something")]
-    [InlineData("something", "")]
-    public void Levenshtein_OneEmpty_Returns0(string a, string b)
-    {
-        var strategy = new LevenshteinStrategy();
-        Assert.Equal(0.0, strategy.Compute(a, b));
+        var fuzzy = new MediaEngine.Intelligence.Services.FuzzyMatchingService();
+        double score = fuzzy.ComputeTokenSetRatio("Dune", "War and Peace");
+        Assert.True(score < 0.5);
     }
 
     [Fact]
-    public void Levenshtein_SingleCharDifference()
+    public void Fuzzy_EmptyString_Returns0()
     {
-        var strategy = new LevenshteinStrategy();
-        double score = strategy.Compute("cat", "bat");
+        var fuzzy = new MediaEngine.Intelligence.Services.FuzzyMatchingService();
+        Assert.Equal(0.0, fuzzy.ComputeTokenSetRatio("", "something"));
+        Assert.Equal(0.0, fuzzy.ComputeTokenSetRatio("something", ""));
+    }
 
-        // 1 edit out of 3 chars → similarity = 1 - 1/3 ≈ 0.667.
-        Assert.True(Math.Abs(score - (2.0 / 3.0)) < 0.01);
+    [Fact]
+    public void Fuzzy_ReorderedWords_HighScore()
+    {
+        var fuzzy = new MediaEngine.Intelligence.Services.FuzzyMatchingService();
+        double score = fuzzy.ComputeTokenSetRatio("Herbert, Frank", "Frank Herbert");
+        Assert.True(score >= 0.95);
     }
 }

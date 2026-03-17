@@ -45,6 +45,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     private readonly ILogger<ReconciliationAdapter> _logger;
     private readonly IProviderResponseCacheRepository? _responseCache;
     private readonly IConfigurationLoader? _configLoader;
+    private readonly IFuzzyMatchingService _fuzzy;
 
     // Throttle: per-instance semaphore + timestamp gap.
     private readonly SemaphoreSlim _throttle;
@@ -66,16 +67,19 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         ReconciliationProviderConfig config,
         IHttpClientFactory httpFactory,
         ILogger<ReconciliationAdapter> logger,
+        IFuzzyMatchingService fuzzy,
         IProviderResponseCacheRepository? responseCache = null,
         IConfigurationLoader? configLoader = null)
     {
         ArgumentNullException.ThrowIfNull(config);
         ArgumentNullException.ThrowIfNull(httpFactory);
         ArgumentNullException.ThrowIfNull(logger);
+        ArgumentNullException.ThrowIfNull(fuzzy);
 
         _config        = config;
         _httpFactory   = httpFactory;
         _logger        = logger;
+        _fuzzy         = fuzzy;
         _responseCache = responseCache;
         _configLoader  = configLoader;
 
@@ -425,11 +429,15 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     /// <summary>
     /// Discovers audiobook editions of a work via P747 (has_edition_or_translation)
     /// followed by P31 filtering to retain only audiobook-class items.
+    /// When <paramref name="narratorHint"/> is provided and multiple editions exist,
+    /// results are ranked by fuzzy narrator match (best match first).
     /// </summary>
     /// <param name="workQid">The Wikidata Q-identifier of the work.</param>
+    /// <param name="narratorHint">Optional narrator name for disambiguation ranking.</param>
     /// <param name="ct">Cancellation token.</param>
     public async Task<IReadOnlyList<AudiobookEditionData>> DiscoverAudiobookEditionsAsync(
         string workQid,
+        string? narratorHint = null,
         CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(workQid))
@@ -482,6 +490,15 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 var publisher = GetFirstLabel(edition.Properties, "P123");
 
                 results.Add(new AudiobookEditionData(narrator, duration, asin, publisher));
+            }
+
+            // Rank editions by narrator match if hint available.
+            if (!string.IsNullOrWhiteSpace(narratorHint) && results.Count > 1)
+            {
+                results = results
+                    .OrderByDescending(e => _fuzzy.ComputeTokenSetRatio(
+                        narratorHint, e.Narrator ?? ""))
+                    .ToList();
             }
 
             _logger.LogDebug("{Provider}: discovered {Count} audiobook edition(s) for {QID}",
@@ -543,6 +560,21 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                     "{Provider}: top candidate '{Label}' ({QID}) score {Score} below review threshold",
                     Name, top.Label, top.QID, top.Score);
                 return [];
+            }
+
+            // Fuzzy title verification — prevent blind acceptance of wrong Wikidata entities.
+            // A high Wikidata reconciliation score does not guarantee the title matches.
+            if (!string.IsNullOrWhiteSpace(request.Title))
+            {
+                var titleMatch = _fuzzy.ComputeTokenSetRatio(request.Title, top.Label);
+                if (titleMatch < 0.60)
+                {
+                    _logger.LogDebug(
+                        "{Provider}: title mismatch for top candidate '{Label}' ({QID}) — " +
+                        "fuzzy score {Score:F2} < 0.60 against local title '{LocalTitle}'",
+                        Name, top.Label, top.QID, titleMatch, request.Title);
+                    return [];
+                }
             }
 
             qid = top.QID;

@@ -1,6 +1,7 @@
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
+using MediaEngine.Domain.Services;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Models;
 using MediaEngine.Storage.Contracts;
@@ -26,6 +27,7 @@ public sealed class SearchService : ISearchService
     // private readonly IReconciliationAdapter _reconciliationAdapter;
     private readonly IReadOnlyList<IExternalMetadataProvider> _providers;
     private readonly IConfigurationLoader _configLoader;
+    private readonly IFuzzyMatchingService _fuzzy;
     private readonly ILogger<SearchService> _logger;
 
     // Providers that should not be used for retail search
@@ -53,10 +55,12 @@ public sealed class SearchService : ISearchService
     public SearchService(
         IEnumerable<IExternalMetadataProvider> providers,
         IConfigurationLoader configLoader,
+        IFuzzyMatchingService fuzzy,
         ILogger<SearchService> logger)
     {
         ArgumentNullException.ThrowIfNull(providers);
         ArgumentNullException.ThrowIfNull(configLoader);
+        ArgumentNullException.ThrowIfNull(fuzzy);
         ArgumentNullException.ThrowIfNull(logger);
 
         var providerList = providers.ToList();
@@ -66,6 +70,7 @@ public sealed class SearchService : ISearchService
 
         _providers    = providerList;
         _configLoader = configLoader;
+        _fuzzy        = fuzzy;
         _logger       = logger;
     }
 
@@ -144,6 +149,17 @@ public sealed class SearchService : ISearchService
                 candidates.Add(enriched);
             }
 
+            // If local context provided, score and re-rank candidates by fuzzy match
+            if (!string.IsNullOrWhiteSpace(request.LocalTitle))
+            {
+                var local = new LocalMetadata(request.LocalTitle, request.LocalAuthor, request.LocalYear, request.MediaType);
+                foreach (var c in candidates)
+                {
+                    c.MatchScores = _fuzzy.ScoreCandidate(local, new CandidateMetadata(c.Label, c.Author, c.Year, c.MediaType));
+                }
+                candidates = candidates.OrderByDescending(c => c.MatchScores?.CompositeScore ?? 0.0).ToList();
+            }
+
             return new SearchUniverseResult(candidates, request.Query, request.MediaType);
         }
         catch (Exception ex)
@@ -183,6 +199,17 @@ public sealed class SearchService : ISearchService
         var results = await Task.WhenAll(tasks).ConfigureAwait(false);
         foreach (var providerResults in results)
             candidates.AddRange(providerResults);
+
+        // If local context provided, score and re-rank candidates by fuzzy match
+        if (!string.IsNullOrWhiteSpace(request.LocalTitle))
+        {
+            var local = new LocalMetadata(request.LocalTitle, request.LocalAuthor, request.LocalYear, request.MediaType);
+            foreach (var c in candidates)
+            {
+                c.MatchScores = _fuzzy.ScoreCandidate(local, new CandidateMetadata(c.Title, c.Author, c.Year, null));
+            }
+            candidates = candidates.OrderByDescending(c => c.MatchScores?.CompositeScore ?? 0.0).ToList();
+        }
 
         return new SearchRetailResult(candidates, request.Query, request.MediaType);
     }

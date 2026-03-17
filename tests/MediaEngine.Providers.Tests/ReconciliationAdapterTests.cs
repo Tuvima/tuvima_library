@@ -2,6 +2,8 @@ using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using MediaEngine.Domain.Enums;
+using MediaEngine.Domain.Models;
+using MediaEngine.Domain.Services;
 using MediaEngine.Providers.Adapters;
 using MediaEngine.Providers.Models;
 using MediaEngine.Storage.Models;
@@ -307,7 +309,7 @@ public sealed class ReconciliationAdapterTests : IDisposable
         config.ThrottleMs = 100;
 
         var factory = BuildHttpFactory("wikidata_reconciliation", "headshot_download");
-        return new ReconciliationAdapter(config, factory, NullLogger<ReconciliationAdapter>.Instance);
+        return new ReconciliationAdapter(config, factory, NullLogger<ReconciliationAdapter>.Instance, new StubFuzzyMatchingService());
     }
 
     private static string FindRepoRoot()
@@ -372,5 +374,16 @@ public sealed class ReconciliationAdapterTests : IDisposable
             _output.WriteLine($"  [{c.Key}] = \"{display}\"  confidence={c.Confidence:F2}");
         }
         _output.WriteLine("");
+    }
+
+    /// <summary>
+    /// Stub fuzzy matching service for integration tests — always returns 1.0 (pass-through).
+    /// </summary>
+    private sealed class StubFuzzyMatchingService : IFuzzyMatchingService
+    {
+        public double ComputeTokenSetRatio(string a, string b) => 1.0;
+        public double ComputePartialRatio(string a, string b) => 1.0;
+        public FieldMatchResult ScoreCandidate(LocalMetadata local, CandidateMetadata candidate) =>
+            new() { TitleScore = 1.0, AuthorScore = 1.0, YearScore = 1.0, CompositeScore = 1.0 };
     }
 }

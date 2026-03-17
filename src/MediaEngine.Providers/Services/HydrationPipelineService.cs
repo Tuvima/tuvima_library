@@ -501,8 +501,9 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                         .FirstOrDefault();
                     if (reconAdapter is not null)
                     {
+                        request.Hints.TryGetValue("narrator", out var narratorHint);
                         var editions = await reconAdapter.DiscoverAudiobookEditionsAsync(
-                            result.WikidataQid, ct).ConfigureAwait(false);
+                            result.WikidataQid, narratorHint, ct).ConfigureAwait(false);
 
                         if (editions.Count > 0)
                         {

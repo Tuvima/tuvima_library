@@ -11,8 +11,9 @@ namespace MediaEngine.Intelligence.Contracts;
 ///  The first matching strategy in the registered list is used.
 ///
 ///  Built-in strategies:
-///   • <c>LevenshteinStrategy</c>  — normalised edit-distance for free-text fields
 ///   • <c>ExactMatchStrategy</c>   — strict equality for hard identifiers (ISBN, IMDb)
+///  Note: Free-text fuzzy matching is handled by IFuzzyMatchingService (FuzzySharp)
+///  rather than through the IScoringStrategy pipeline.
 ///
 /// Spec: Phase 6 – Extension Points § IScoringStrategy.
 /// </summary>

@@ -2,11 +2,13 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using MediaEngine.Domain.Contracts;
+using MediaEngine.Domain.Services;
 using MediaEngine.Ingestion;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.Models;
 using MediaEngine.Intelligence;
 using MediaEngine.Intelligence.Contracts;
+using MediaEngine.Intelligence.Services;
 using MediaEngine.Intelligence.Strategies;
 using MediaEngine.Processors;
 using MediaEngine.Processors.Contracts;
@@ -135,12 +137,12 @@ var host = Host.CreateDefaultBuilder(args)
 
         // ── Intelligence / Scoring ─────────────────────────────
         services.AddSingleton<IScoringStrategy, ExactMatchStrategy>();
-        services.AddSingleton<IScoringStrategy, LevenshteinStrategy>();
+        services.AddSingleton<IFuzzyMatchingService, FuzzyMatchingService>();
 
         services.AddSingleton<IScoringEngine, PriorityCascadeEngine>();
 
         services.AddSingleton<IIdentityMatcher>(sp =>
-            new IdentityMatcher(sp.GetServices<IScoringStrategy>()));
+            new IdentityMatcher(sp.GetRequiredService<IFuzzyMatchingService>()));
 
         services.AddSingleton<IHubArbiter>(sp =>
             new HubArbiter(

@@ -1715,6 +1715,7 @@ This project uses a two-tier model strategy to balance quality with speed:
 | SkiaSharp.NativeAssets.Linux | MIT | Hero Banner Pipeline — Native SkiaSharp binaries for Linux deployment |
 | Cytoscape.js | MIT | Chronicle Engine — Graph visualization for the Chronicle Explorer Dashboard (vendored, no NuGet) |
 | dotNetRDF | MIT | Stage 4c (Universe Graph) — Local in-memory SPARQL graph querying over SQLite data |
+| FuzzySharp | MIT | Fuzzy string matching — candidate re-ranking, title verification, narrator disambiguation, sequel-safe composite scoring |
 
 ### 5.2 — Mandatory Workflow
 

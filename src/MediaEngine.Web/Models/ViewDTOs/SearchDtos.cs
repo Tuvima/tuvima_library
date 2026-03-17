@@ -55,6 +55,9 @@ public sealed class UniverseCandidateDto
 
     [JsonPropertyName("bridge_ids")]
     public Dictionary<string, string> BridgeIds { get; set; } = [];
+
+    [JsonPropertyName("match_scores")]
+    public FieldMatchScoresDto? MatchScores { get; set; }
 }
 
 /// <summary>Response from POST /search/universe.</summary>
@@ -117,6 +120,9 @@ public sealed class RetailCandidateDto
 
     [JsonPropertyName("confidence")]
     public double Confidence { get; set; }
+
+    [JsonPropertyName("match_scores")]
+    public FieldMatchScoresDto? MatchScores { get; set; }
 }
 
 /// <summary>Response from POST /search/retail.</summary>
@@ -217,4 +223,37 @@ public sealed class CreateManualResponseDto
 
     [JsonPropertyName("message")]
     public string? Message { get; set; }
+}
+
+// ── Field Match Scores ───────────────────────────────────────────────────────
+
+/// <summary>Per-field match scores for comparing local file metadata against a search candidate.</summary>
+public sealed class FieldMatchScoresDto
+{
+    [JsonPropertyName("title_score")]
+    public double TitleScore { get; set; }
+
+    [JsonPropertyName("author_score")]
+    public double AuthorScore { get; set; }
+
+    [JsonPropertyName("year_score")]
+    public double YearScore { get; set; }
+
+    [JsonPropertyName("format_score")]
+    public double FormatScore { get; set; }
+
+    [JsonPropertyName("composite_score")]
+    public double CompositeScore { get; set; }
+
+    [JsonPropertyName("title_verdict")]
+    public string TitleVerdict { get; set; } = "";
+
+    [JsonPropertyName("author_verdict")]
+    public string AuthorVerdict { get; set; } = "";
+
+    [JsonPropertyName("year_verdict")]
+    public string YearVerdict { get; set; } = "";
+
+    [JsonPropertyName("format_verdict")]
+    public string FormatVerdict { get; set; } = "";
 }
