@@ -217,6 +217,24 @@
         </div>
     }
 
+    @* ── Selection Summary ── *@
+    @if (HasSelection())
+    {
+        <div class="search-selection-summary">
+            <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small" Style="color: #4CAF50;" />
+            @if (_searchMode == "identity" && !string.IsNullOrEmpty(_selectedQid))
+            {
+                var selected = _universeCandidates.FirstOrDefault(c => c.Qid == _selectedQid);
+                <span>Selected: <strong>@selected?.Label</strong> @(selected?.Year is not null ? $"({selected.Year})" : "") <span class="search-selection-qid">@selected?.Qid</span></span>
+            }
+            else if (_searchMode == "artwork" && _selectedRetailIdx.HasValue)
+            {
+                var selected = _retailCandidates[_selectedRetailIdx.Value];
+                <span>Selected: <strong>@selected.Title</strong> from @selected.ProviderName</span>
+            }
+        </div>
+    }
+
     @* ── Action Buttons ── *@
     @if (_hasSearched || _showManualForm)
     {
@@ -228,7 +246,7 @@
                            OnClick="ApplySelected"
                            Disabled="@(_applying || (!HasSelection()))"
                            Size="Size.Small">
-                    @(_applying ? "Applying…" : "Apply Match")
+                    @(_applying ? "Applying…" : _searchMode == "identity" ? "Apply Identity Match" : "Apply Artwork")
                 </MudButton>
             }
 
@@ -259,7 +277,7 @@
 @* ── Styles ── *@
 <style>
     .search-panel {
-        padding: 16px 0 8px 0;
+        padding: 16px 16px 8px 16px;
         display: flex;
         flex-direction: column;
         gap: 12px;
@@ -320,7 +338,7 @@
         display: flex;
         flex-direction: column;
         gap: 8px;
-        max-height: 420px;
+        flex: 1;
         overflow-y: auto;
         padding-right: 4px;
     }
@@ -350,8 +368,8 @@
 
     .search-result-cover {
         flex-shrink: 0;
-        width: 56px;
-        height: 80px;
+        width: 100px;
+        height: 150px;
     }
 
     .search-result-img {
@@ -399,7 +417,7 @@
         color: rgba(255,255,255,0.4);
         line-height: 1.4;
         display: -webkit-box;
-        -webkit-line-clamp: 2;
+        -webkit-line-clamp: 3;
         -webkit-box-orient: vertical;
         overflow: hidden;
     }
@@ -433,6 +451,29 @@
         gap: 10px;
         flex-wrap: wrap;
         align-items: center;
+    }
+
+    .search-selection-summary {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 14px;
+        background: rgba(76,175,80,0.08);
+        border: 1px solid rgba(76,175,80,0.25);
+        border-radius: 8px;
+        font-size: 0.82rem;
+        color: rgba(255,255,255,0.8);
+        flex-shrink: 0;
+    }
+
+    .search-selection-qid {
+        font-family: monospace;
+        font-size: 0.7rem;
+        color: rgba(255,255,255,0.4);
+        background: rgba(255,255,255,0.06);
+        padding: 1px 5px;
+        border-radius: 3px;
+        margin-left: 4px;
     }
 </style>
 
@@ -469,6 +510,10 @@
     private string? _errorMessage;
     private string? _successMessage;
 
+    // ── Search cache (component lifetime) ────────────────────────────────
+    private readonly Dictionary<string, List<UniverseCandidateDto>> _universeCache = new();
+    private readonly Dictionary<string, List<RetailCandidateDto>>   _retailCache   = new();
+
     // ── Lifecycle ──────────────────────────────────────────────────────────
 
     protected override void OnParametersSet()
@@ -486,6 +531,30 @@
     {
         if (string.IsNullOrWhiteSpace(_query)) return;
 
+        var cacheKey = $"{_searchMode}|{_query.Trim().ToLowerInvariant()}|{_mediaType}";
+
+        // Check cache first
+        if (_searchMode == "identity" && _universeCache.TryGetValue(cacheKey, out var cachedUniverse))
+        {
+            _universeCandidates = cachedUniverse;
+            _hasSearched = true;
+            _selectedQid = null;
+            _selectedRetailIdx = null;
+            _errorMessage = null;
+            _successMessage = null;
+            return;
+        }
+        if (_searchMode == "artwork" && _retailCache.TryGetValue(cacheKey, out var cachedRetail))
+        {
+            _retailCandidates = cachedRetail;
+            _hasSearched = true;
+            _selectedQid = null;
+            _selectedRetailIdx = null;
+            _errorMessage = null;
+            _successMessage = null;
+            return;
+        }
+
         _searching    = true;
         _hasSearched  = false;
         _errorMessage = null;
@@ -501,11 +570,13 @@
             {
                 var result = await Orchestrator.SearchUniverseAsync(_query, _mediaType, maxCandidates: 5);
                 _universeCandidates = result;
+                _universeCache[cacheKey] = result;
             }
             else
             {
                 var result = await Orchestrator.SearchRetailAsync(_query, _mediaType, maxCandidates: 10);
                 _retailCandidates = result;
+                _retailCache[cacheKey] = result;
             }
             _hasSearched = true;
         }

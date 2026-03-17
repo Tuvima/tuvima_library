@@ -1141,7 +1141,7 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
             Author       = h.GetValueOrDefault("author"),
             Narrator     = h.GetValueOrDefault("narrator"),
             Asin         = h.GetValueOrDefault("asin"),
-            Isbn         = h.GetValueOrDefault("isbn"),
+            Isbn         = NormalizeIsbnHint(h.GetValueOrDefault("isbn")),
             AppleBooksId = h.GetValueOrDefault("apple_books_id"),
             AudibleId    = h.GetValueOrDefault("audible_id"),
             TmdbId       = h.GetValueOrDefault("tmdb_id"),
@@ -1182,6 +1182,16 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         }
 
         return (weights, fieldWeights);
+    }
+
+    /// <summary>
+    /// Safety-net normalization for ISBN hints — strips URI prefixes and non-digit characters.
+    /// </summary>
+    private static string? NormalizeIsbnHint(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return null;
+        var digits = new string(raw.Where(char.IsDigit).ToArray());
+        return digits.Length is 10 or 13 ? digits : raw?.Trim();
     }
 
     // ── IAsyncDisposable ──────────────────────────────────────────────────────

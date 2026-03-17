@@ -372,8 +372,18 @@ public sealed class SearchService : ISearchService
         return string.Empty;
     }
 
-    private static MediaType ParseMediaType(string? mediaTypeStr) =>
-        Enum.TryParse<MediaType>(mediaTypeStr, ignoreCase: true, out var mt) ? mt : MediaType.Unknown;
+    private static MediaType ParseMediaType(string? mediaTypeStr)
+    {
+        if (string.IsNullOrWhiteSpace(mediaTypeStr)) return MediaType.Unknown;
+        var normalized = mediaTypeStr.Trim() switch
+        {
+            "Epub"      => "Books",
+            "Audiobook" => "Audiobooks",
+            "Comics"    => "Comic",
+            _           => mediaTypeStr.Trim(),
+        };
+        return Enum.TryParse<MediaType>(normalized, ignoreCase: true, out var mt) ? mt : MediaType.Unknown;
+    }
 
     private static double EstimateConfidence(string? tier) => tier switch
     {

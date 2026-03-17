@@ -1,0 +1,45 @@
+<div class="registry-bulk-bar">
+    <MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined">
+        @SelectedCount selected
+    </MudChip>
+    <MudButton Variant="Variant.Filled" Color="Color.Success" Size="Size.Small"
+               StartIcon="@Icons.Material.Filled.Check" OnClick="OnApprove"
+               Disabled="@Processing">
+        Approve
+    </MudButton>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+               StartIcon="@Icons.Material.Filled.Edit" OnClick="OnEditMatch"
+               Disabled="@Processing">
+        Edit matches
+    </MudButton>
+    <MudButton Variant="Variant.Filled" Color="Color.Error" Size="Size.Small"
+               StartIcon="@Icons.Material.Filled.Delete" OnClick="OnRemove"
+               Disabled="@Processing">
+        Remove
+    </MudButton>
+</div>
+
+@code {
+    [Parameter] public int SelectedCount { get; set; }
+    [Parameter] public bool Processing { get; set; }
+    [Parameter] public EventCallback OnApprove { get; set; }
+    [Parameter] public EventCallback OnEditMatch { get; set; }
+    [Parameter] public EventCallback OnRemove { get; set; }
+}
+
+<style>
+    .registry-bulk-bar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 16px;
+        background: rgba(255,255,255,0.04);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(255,255,255,0.06);
+        border-radius: 8px;
+        margin-bottom: 12px;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+</style>

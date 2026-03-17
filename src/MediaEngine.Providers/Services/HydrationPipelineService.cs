@@ -1834,9 +1834,19 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     /// </summary>
     private static string NormalizeIsbnForRetail(string isbn)
     {
-        // Strip all non-alphanumeric characters (dashes, spaces).
-        var cleaned = new string(isbn.Where(char.IsLetterOrDigit).ToArray());
+        // Strip all non-digit characters (dashes, spaces, URI prefixes like "urn:isbn:").
+        var cleaned = new string(isbn.Where(char.IsDigit).ToArray());
         return cleaned;
+    }
+
+    /// <summary>
+    /// Safety-net normalization for ISBN hints — strips URI prefixes and non-digit characters.
+    /// </summary>
+    private static string? NormalizeIsbnHint(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return null;
+        var digits = new string(raw.Where(char.IsDigit).ToArray());
+        return digits.Length is 10 or 13 ? digits : raw?.Trim();
     }
 
     /// <summary>
@@ -2402,7 +2412,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             Author        = h.GetValueOrDefault("author"),
             Narrator      = h.GetValueOrDefault("narrator"),
             Asin          = h.GetValueOrDefault("asin"),
-            Isbn          = h.GetValueOrDefault("isbn"),
+            Isbn          = NormalizeIsbnHint(h.GetValueOrDefault("isbn")),
             AppleBooksId  = h.GetValueOrDefault("apple_books_id"),
             AudibleId     = h.GetValueOrDefault("audible_id"),
             TmdbId        = h.GetValueOrDefault("tmdb_id"),

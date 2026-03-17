@@ -221,7 +221,9 @@ public sealed class EpubProcessor : IMediaProcessor
                          text.StartsWith("isbn:", StringComparison.OrdinalIgnoreCase) ||
                          text.StartsWith("urn:isbn:", StringComparison.OrdinalIgnoreCase)))
                     {
-                        claims.Add(Claim("isbn", text));
+                        var cleanIsbn = StripIsbnPrefix(text);
+                        if (!string.IsNullOrEmpty(cleanIsbn))
+                            claims.Add(Claim("isbn", cleanIsbn));
                     }
                 }
 
@@ -323,6 +325,25 @@ public sealed class EpubProcessor : IMediaProcessor
         Value      = value.Trim(),
         Confidence = 1.0,
     };
+
+    /// <summary>
+    /// Strips URI prefixes (urn:isbn:, isbn:) and formatting (dashes, spaces) from an ISBN string.
+    /// Returns a bare 10 or 13 digit ISBN, or null if the result is not a valid ISBN.
+    /// </summary>
+    private static string? StripIsbnPrefix(string raw)
+    {
+        var value = raw.Trim();
+        if (value.StartsWith("urn:isbn:", StringComparison.OrdinalIgnoreCase))
+            value = value["urn:isbn:".Length..];
+        else if (value.StartsWith("isbn:", StringComparison.OrdinalIgnoreCase))
+            value = value["isbn:".Length..];
+        value = value.Replace("-", "").Replace(" ", "").Trim();
+        if (value.Length == 13 && value.All(char.IsDigit))
+            return value;
+        if (value.Length == 10 && value[..9].All(char.IsDigit) && (char.IsDigit(value[9]) || value[9] is 'X' or 'x'))
+            return value.ToUpperInvariant();
+        return null;
+    }
 
     private static ProcessorResult Corrupt(string filePath, string reason) => new()
     {

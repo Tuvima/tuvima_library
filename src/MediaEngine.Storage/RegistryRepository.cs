@@ -128,7 +128,12 @@ public sealed class RegistryRepository : IRegistryRepository
         if (!string.IsNullOrWhiteSpace(query.MediaType))
             conditions.Add("fd.media_type = @mediaType");
         if (!string.IsNullOrWhiteSpace(query.Status))
-            conditions.Add("fd.status = @status");
+        {
+            if (query.Status == "Approved")
+                conditions.Add("fd.status IN ('Auto', 'Edited')");
+            else
+                conditions.Add("fd.status = @status");
+        }
         if (query.MinConfidence.HasValue)
             conditions.Add("fd.confidence >= @minConfidence");
         if (!string.IsNullOrWhiteSpace(query.MatchSource))
@@ -456,7 +461,7 @@ public sealed class RegistryRepository : IRegistryRepository
             cmd.Parameters.AddWithValue("@search", $"%{query.Search}%");
         if (!string.IsNullOrWhiteSpace(query.MediaType))
             cmd.Parameters.AddWithValue("@mediaType", query.MediaType);
-        if (!string.IsNullOrWhiteSpace(query.Status))
+        if (!string.IsNullOrWhiteSpace(query.Status) && query.Status != "Approved")
             cmd.Parameters.AddWithValue("@status", query.Status);
         if (query.MinConfidence.HasValue)
             cmd.Parameters.AddWithValue("@minConfidence", query.MinConfidence.Value);
