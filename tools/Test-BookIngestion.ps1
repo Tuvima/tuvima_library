@@ -278,9 +278,10 @@ function New-ValidEpub {
 
     $container = "<?xml version=`"1.0`" encoding=`"UTF-8`"?>`n<container version=`"1.0`" xmlns=`"urn:oasis:names:tc:opendocument:xmlns:container`">`n  <rootfiles>`n    <rootfile full-path=`"OEBPS/content.opf`" media-type=`"application/oebps-package+xml`"/>`n  </rootfiles>`n</container>"
 
-    $opf = "<?xml version=`"1.0`" encoding=`"UTF-8`"?>`n<package version=`"3.0`" xmlns=`"http://www.idpf.org/2007/opf`" unique-identifier=`"uid`">`n  <metadata xmlns:dc=`"http://purl.org/dc/elements/1.1/`" xmlns:opf=`"http://www.idpf.org/2007/opf`">`n    <dc:identifier id=`"uid`">$isbnid</dc:identifier>`n    <dc:title>$et</dc:title>`n    <dc:creator opf:role=`"aut`">$ea</dc:creator>`n    <dc:date>$($Book.Year)</dc:date>`n    <dc:language>en</dc:language>`n    $seriesmeta`n    $genremeta`n  </metadata>`n  <manifest>`n    <item id=`"c1`" href=`"chapter1.xhtml`" media-type=`"application/xhtml+xml`"/>`n  </manifest>`n  <spine><itemref idref=`"c1`"/></spine>`n</package>"
+    $opf = "<?xml version=`"1.0`" encoding=`"UTF-8`"?>`n<package version=`"3.0`" xmlns=`"http://www.idpf.org/2007/opf`" unique-identifier=`"uid`">`n  <metadata xmlns:dc=`"http://purl.org/dc/elements/1.1/`" xmlns:opf=`"http://www.idpf.org/2007/opf`">`n    <dc:identifier id=`"uid`">$isbnid</dc:identifier>`n    <dc:title>$et</dc:title>`n    <dc:creator opf:role=`"aut`">$ea</dc:creator>`n    <dc:date>$($Book.Year)</dc:date>`n    <dc:language>en</dc:language>`n    $seriesmeta`n    $genremeta`n  </metadata>`n  <manifest>`n    <item id=`"c1`" href=`"chapter1.xhtml`" media-type=`"application/xhtml+xml`"/>`n    <item id=`"nav`" href=`"nav.xhtml`" media-type=`"application/xhtml+xml`" properties=`"nav`"/>`n  </manifest>`n  <spine><itemref idref=`"c1`"/></spine>`n</package>"
 
     $chapter = "<?xml version=`"1.0`" encoding=`"utf-8`"?><!DOCTYPE html><html xmlns=`"http://www.w3.org/1999/xhtml`"><head><title>$et</title></head><body><p>Synthetic test content for $et by $ea.</p></body></html>"
+    $nav = "<?xml version=`"1.0`" encoding=`"utf-8`"?><html xmlns=`"http://www.w3.org/1999/xhtml`" xmlns:epub=`"http://www.idpf.org/2007/ops`"><head><title>Navigation</title></head><body><nav epub:type=`"toc`" id=`"toc`"><ol><li><a href=`"chapter1.xhtml`">Chapter 1</a></li></ol></nav></body></html>"
 
     $stream = [System.IO.File]::Create($OutputPath)
     try {
@@ -294,6 +295,8 @@ function New-ValidEpub {
             $w = New-Object System.IO.StreamWriter($e.Open()); $w.Write($opf); $w.Dispose()
             $e = $zip.CreateEntry("OEBPS/chapter1.xhtml")
             $w = New-Object System.IO.StreamWriter($e.Open()); $w.Write($chapter); $w.Dispose()
+            $e = $zip.CreateEntry("OEBPS/nav.xhtml")
+            $w = New-Object System.IO.StreamWriter($e.Open()); $w.Write($nav); $w.Dispose()
         }
         finally { $zip.Dispose() }
     }
@@ -303,7 +306,8 @@ function New-ValidEpub {
 function New-BareEpub {
     param([string]$OutputPath)
     $container = "<?xml version=`"1.0`" encoding=`"UTF-8`"?><container version=`"1.0`" xmlns=`"urn:oasis:names:tc:opendocument:xmlns:container`"><rootfiles><rootfile full-path=`"OEBPS/content.opf`" media-type=`"application/oebps-package+xml`"/></rootfiles></container>"
-    $opf       = "<?xml version=`"1.0`" encoding=`"UTF-8`"?><package version=`"3.0`" xmlns=`"http://www.idpf.org/2007/opf`" unique-identifier=`"uid`"><metadata xmlns:dc=`"http://purl.org/dc/elements/1.1/`"></metadata><manifest><item id=`"c1`" href=`"c1.xhtml`" media-type=`"application/xhtml+xml`"/></manifest><spine><itemref idref=`"c1`"/></spine></package>"
+    $opf       = "<?xml version=`"1.0`" encoding=`"UTF-8`"?><package version=`"3.0`" xmlns=`"http://www.idpf.org/2007/opf`" unique-identifier=`"uid`"><metadata xmlns:dc=`"http://purl.org/dc/elements/1.1/`"><dc:identifier id=`"uid`">urn:uuid:$(([System.Guid]::NewGuid()).ToString())</dc:identifier><dc:language>en</dc:language></metadata><manifest><item id=`"c1`" href=`"c1.xhtml`" media-type=`"application/xhtml+xml`"/><item id=`"nav`" href=`"nav.xhtml`" media-type=`"application/xhtml+xml`" properties=`"nav`"/></manifest><spine><itemref idref=`"c1`"/></spine></package>"
+    $nav       = "<?xml version=`"1.0`" encoding=`"utf-8`"?><html xmlns=`"http://www.w3.org/1999/xhtml`" xmlns:epub=`"http://www.idpf.org/2007/ops`"><head><title>Navigation</title></head><body><nav epub:type=`"toc`" id=`"toc`"><ol><li><a href=`"c1.xhtml`">Content</a></li></ol></nav></body></html>"
     $stream = [System.IO.File]::Create($OutputPath)
     try {
         $zip = New-Object System.IO.Compression.ZipArchive($stream, [System.IO.Compression.ZipArchiveMode]::Create, $true)
@@ -316,6 +320,8 @@ function New-BareEpub {
             $w = New-Object System.IO.StreamWriter($e.Open()); $w.Write($opf); $w.Dispose()
             $e = $zip.CreateEntry("OEBPS/c1.xhtml")
             $w = New-Object System.IO.StreamWriter($e.Open()); $w.Write("<html><body><p>No metadata.</p></body></html>"); $w.Dispose()
+            $e = $zip.CreateEntry("OEBPS/nav.xhtml")
+            $w = New-Object System.IO.StreamWriter($e.Open()); $w.Write($nav); $w.Dispose()
         }
         finally { $zip.Dispose() }
     }
@@ -382,7 +388,16 @@ if ($WipeFirst) {
     }
 
     Write-R " Wiping database and library..." -c "Yellow"
-    if (Test-Path $ApiDbPath) { Remove-Item $ApiDbPath -Force; Write-R "   Deleted: $ApiDbPath" -c "DarkYellow" }
+    if (Test-Path $ApiDbPath) {
+        try {
+            Remove-Item $ApiDbPath -Force -ErrorAction Stop
+            Write-R "   Deleted: $ApiDbPath" -c "DarkYellow"
+        } catch {
+            Write-R " Cannot delete database - engine is holding it open." -c "Red"
+            Write-R "   Stop the Tuvima Engine first, then re-run with -WipeFirst." -c "Yellow"
+            exit 1
+        }
+    }
     $bak = "$ApiDbPath.bak"
     if (Test-Path $bak) { Remove-Item $bak -Force }
     if ($LibraryRoot -and (Test-Path $LibraryRoot)) {
@@ -560,9 +575,18 @@ $reviewItems = Invoke-Api "/review/pending?limit=200"
 $actAll      = Invoke-Api "/activity/recent?limit=500"
 
 $byFilename = @{}
+$byTitle    = @{}
 if ($registry -and $registry.items) {
     foreach ($item in $registry.items) {
         if ($item.file_name) { $byFilename[$item.file_name] = $item }
+        # Index by title — prefer the highest confidence entry when duplicates exist
+        if ($item.title) {
+            $key = $item.title.ToLowerInvariant()
+            $existing = $byTitle[$key]
+            if (-not $existing -or $item.confidence -gt $existing.confidence) {
+                $byTitle[$key] = $item
+            }
+        }
     }
 }
 
@@ -584,53 +608,125 @@ Write-RL $rhdr; Write-RL $rdiv
 $stats = @{ Staged=0; Review=0; Duplicate=0; Failed=0; Unknown=0; TotalConf=0.0; ConfCount=0 }
 
 foreach ($f in $droppedFiles) {
-    $item   = $byFilename[$f.Filename]
     $status = "?"
     $conf   = "  ?"
     $notes  = ""
     $color  = "Gray"
 
-    if ($item) {
-        $pct  = [int]($item.confidence * 100)
-        $conf = "${pct}%"
-
-        $rv = if ($item.review_item_id) { $item.review_item_id } else { $null }
-        if ($rv) {
-            $trigger = if ($item.review_trigger) { $item.review_trigger } else { "review" }
-            $status = "Review"
-            $notes  = $trigger
-            $color  = "Yellow"
-            $stats.Review++
-        } elseif ($item.status) {
-            $status = $item.status
-            $notes  = if ($item.author) { "by $($item.author)" } else { "" }
-            $color  = if ($pct -ge 70) { "Green" } else { "Cyan" }
-            $stats.Staged++
+    # For duplicates/corrupt: check activity events first (these never appear in registry)
+    $isDupInActivity = $false
+    if ($f.Scenario -eq "duplicate") {
+        $isDupInActivity = (@($dupSkips | Where-Object { $_.detail -like "*$($f.Filename)*" }).Count -gt 0)
+        if (-not $isDupInActivity -and $f.Book.Title) {
+            $isDupInActivity = (@($dupSkips | Where-Object { $_.detail -like "*$($f.Book.Title)*" }).Count -gt 0)
         }
-        $stats.TotalConf += $item.confidence
-        $stats.ConfCount++
+    }
+    $isFailInActivity = $false
+    if ($f.Scenario -eq "corrupt") {
+        $isFailInActivity = (@($fails | Where-Object { $_.detail -like "*$($f.Filename)*" }).Count -gt 0)
+    }
 
-    } elseif ($f.Scenario -eq "duplicate") {
+    if ($isDupInActivity) {
         $status = "Duplicate"
         $conf   = "  -"
         $notes  = "hash match -> skip"
         $color  = "DarkCyan"
         $stats.Duplicate++
-
-    } elseif ($f.Scenario -eq "corrupt") {
+    } elseif ($isFailInActivity) {
         $status = "Failed"
         $conf   = "  -"
-        $notes  = "corrupt file"
+        $notes  = "corrupt/parse error"
         $color  = "Red"
         $stats.Failed++
-
     } else {
-        $status = "Not found"
-        $conf   = "  ?"
-        $notes  = "not in registry"
-        $color  = "DarkYellow"
-        $stats.Unknown++
-    }
+        $item = $byFilename[$f.Filename]
+        if (-not $item -and $f.Book.Title) { $item = $byTitle[$f.Book.Title.ToLowerInvariant()] }
+
+        if ($item) {
+            $pct  = [int]($item.confidence * 100)
+            $conf = "${pct}%"
+
+            $rv = if ($item.review_item_id) { $item.review_item_id } else { $null }
+            if ($rv) {
+                $trigger = if ($item.review_trigger) { $item.review_trigger } else { "review" }
+                $status = "Review"
+                $notes  = $trigger
+                $color  = "Yellow"
+                $stats.Review++
+            } elseif ($item.status) {
+                $status = $item.status
+                $notes  = if ($item.author) { "by $($item.author)" } else { "" }
+                $color  = if ($pct -ge 70) { "Green" } else { "Cyan" }
+                $stats.Staged++
+            }
+            $stats.TotalConf += $item.confidence
+            $stats.ConfCount++
+
+        } elseif ($f.Scenario -eq "duplicate") {
+            $status = "Duplicate"
+            $conf   = "  -"
+            $notes  = "hash match -> skip"
+            $color  = "DarkCyan"
+            $stats.Duplicate++
+
+        } elseif ($f.Scenario -eq "corrupt") {
+            $status = "Failed"
+            $conf   = "  -"
+            $notes  = "corrupt file"
+            $color  = "Red"
+            $stats.Failed++
+
+        } else {
+            # Fallback: search the registry by title (handles Wikidata language renames)
+            if ($f.Book.Title -and $f.Book.Title.Length -gt 3) {
+                $enc   = [System.Uri]::EscapeDataString($f.Book.Title)
+                $srch  = Invoke-Api "/registry/items?search=$enc&limit=5"
+                $sitem = if ($srch -and $srch.items -and $srch.items.Count -gt 0) { $srch.items[0] } else { $null }
+                # Second fallback: search by author (handles Wikidata native-language title renames)
+                if (-not $sitem -and $f.Book.Author -and $f.Book.Author.Length -gt 3) {
+                    $encA  = [System.Uri]::EscapeDataString($f.Book.Author)
+                    $srch2 = Invoke-Api "/registry/items?search=$encA&limit=10"
+                    if ($srch2 -and $srch2.items -and $srch2.items.Count -gt 0) {
+                        # Pick highest-confidence confirmed item for this author
+                        $candidates = @($srch2.items | Where-Object { $_.author -and $_.author -like "*$($f.Book.Author.Split(' ')[-1])*" })
+                        if ($candidates.Count -eq 0) { $candidates = @($srch2.items) }
+                        $sitem = $candidates | Sort-Object confidence -Descending | Select-Object -First 1
+                    }
+                }
+                if ($sitem) {
+                    $pct  = [int]($sitem.confidence * 100)
+                    $conf = "${pct}%"
+                    $rv   = if ($sitem.review_item_id) { $sitem.review_item_id } else { $null }
+                    if ($rv) {
+                        $trigger = if ($sitem.review_trigger) { $sitem.review_trigger } else { "review" }
+                        $status = "Review"
+                        $notes  = "$trigger (title renamed: $($sitem.title))"
+                        $color  = "Yellow"
+                        $stats.Review++
+                    } else {
+                        $status = if ($sitem.status) { $sitem.status } else { "?" }
+                        $notes  = "title renamed: $($sitem.title)"
+                        $color  = if ($pct -ge 70) { "Green" } else { "Cyan" }
+                        $stats.Staged++
+                    }
+                    $stats.TotalConf += $sitem.confidence
+                    $stats.ConfCount++
+                } else {
+                    $status = "Not found"
+                    $conf   = "  ?"
+                    $notes  = "not in registry"
+                    $color  = "DarkYellow"
+                    $stats.Unknown++
+                }
+            } else {
+                $status = "Not found"
+                $conf   = "  ?"
+                $notes  = "not in registry"
+                $color  = "DarkYellow"
+                $stats.Unknown++
+            }
+        }
+    } # end else (not dup/fail activity)
 
     $td = if ($f.Book.Title.Length  -gt 30) { $f.Book.Title.Substring(0,27)  + "..." } else { $f.Book.Title  }
     $ad = if ($f.Book.Author.Length -gt 22) { $f.Book.Author.Substring(0,19) + "..." } else { $f.Book.Author }
