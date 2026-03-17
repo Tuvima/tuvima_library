@@ -96,9 +96,6 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-# Kill any stale dotnet.exe processes before starting (silently skips if none running)
-Get-Process dotnet -ErrorAction SilentlyContinue | Stop-Process -Force
-
 # Wipe is the default; suppress with -NoWipe
 $doWipe = -not $NoWipe
 
@@ -605,7 +602,29 @@ if (-not $doWipe) {
 # -- 3. Resolve DB and library paths -----------------------------------------
 $ApiDbPath   = Join-Path $RepoRoot "src\MediaEngine.Api\library.db"
 $LibraryRoot = ""
-if ($null -ne $coreSettings -and $coreSettings.library_root) { $LibraryRoot = $coreSettings.library_root }
+if ($null -ne $coreSettings -and $coreSettings.library_root) {
+    $LibraryRoot = $coreSettings.library_root
+}
+# Fallback: read library_root and watch_directory from config/core.json when engine is offline
+if (-not $LibraryRoot -or (-not $WatchDirectory)) {
+    $configDir = Join-Path $RepoRoot "src\MediaEngine.Api\config"
+    $coreJson  = Join-Path $configDir "core.json"
+    if (Test-Path $coreJson) {
+        try {
+            $coreFile = Get-Content $coreJson -Raw | ConvertFrom-Json
+            if (-not $LibraryRoot -and $coreFile.library_root) {
+                $LibraryRoot = $coreFile.library_root
+                Write-R " Library root (from config): $LibraryRoot" -c "DarkYellow"
+            }
+            if (-not $WatchDirectory -and $coreFile.watch_directory) {
+                $WatchDirectory = $coreFile.watch_directory
+                Write-R " Watch dir (from config): $WatchDirectory" -c "DarkYellow"
+            }
+        } catch {
+            Write-R " Warning: could not parse config/core.json" -c "DarkYellow"
+        }
+    }
+}
 
 # -- 4. Wipe (default unless -NoWipe) ----------------------------------------
 if ($doWipe) {
