@@ -1,6 +1,20 @@
 @inject UIOrchestratorService Orchestrator
 
 <div class="search-panel">
+    @* ── Tab Selection ── *@
+    <div class="search-panel-tabs">
+        <button class="search-tab @(_searchMode == "identity" ? "search-tab-active" : "")"
+                @onclick="@(() => SwitchSearchMode("identity"))">
+            <MudIcon Icon="@Icons.Material.Outlined.Public" Size="Size.Small" Style="margin-right: 4px;" />
+            Identity
+        </button>
+        <button class="search-tab @(_searchMode == "artwork" ? "search-tab-active" : "")"
+                @onclick="@(() => SwitchSearchMode("artwork"))">
+            <MudIcon Icon="@Icons.Material.Outlined.Image" Size="Size.Small" Style="margin-right: 4px;" />
+            Artwork
+        </button>
+    </div>
+
     @* ── Search Controls ── *@
     <div class="search-panel-controls">
         <MudTextField @bind-Value="_query"
@@ -39,7 +53,14 @@
     {
         <MudProgressLinear Indeterminate="true" Color="Color.Primary"
                            Class="mt-2 mb-2" Style="border-radius: 4px;" />
-        <p class="search-panel-hint">Searching Wikidata and enriching top candidates with cover art…</p>
+        @if (_searchMode == "identity")
+        {
+            <p class="search-panel-hint">Searching Wikidata and enriching top candidates with cover art…</p>
+        }
+        else
+        {
+            <p class="search-panel-hint">Searching retail providers for cover art…</p>
+        }
     }
 
     @if (!string.IsNullOrEmpty(_errorMessage))
@@ -47,8 +68,8 @@
         <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-2">@_errorMessage</MudAlert>
     }
 
-    @* ── Results ── *@
-    @if (_universeCandidates.Count > 0)
+    @* ── Identity Results ── *@
+    @if (_searchMode == "identity" && _universeCandidates.Count > 0)
     {
         <div class="search-results-grid">
             @foreach (var c in _universeCandidates)
@@ -131,7 +152,63 @@
         </div>
     }
 
-    @if (_hasSearched && _universeCandidates.Count == 0 && !_searching)
+    @* ── Artwork Results ── *@
+    @if (_searchMode == "artwork" && _retailCandidates.Count > 0)
+    {
+        <div class="search-results-grid">
+            @for (int i = 0; i < _retailCandidates.Count; i++)
+            {
+                var idx = i;
+                var c = _retailCandidates[idx];
+                var isSelected = _selectedRetailIdx == idx;
+                <div class="search-result-card @(isSelected ? "search-result-card-selected" : "")"
+                     @onclick="@(() => SelectRetailCandidate(idx))">
+                    <div class="search-result-cover">
+                        @if (!string.IsNullOrEmpty(c.CoverUrl))
+                        {
+                            <img src="@c.CoverUrl" alt="" class="search-result-img" loading="lazy" />
+                        }
+                        else
+                        {
+                            <div class="search-result-img-placeholder">
+                                <MudIcon Icon="@Icons.Material.Outlined.Image"
+                                         Size="Size.Medium" Style="opacity: 0.3;" />
+                            </div>
+                        }
+                    </div>
+                    <div class="search-result-details">
+                        <div class="search-result-title">@c.Title</div>
+                        <div class="search-result-meta">
+                            @if (!string.IsNullOrEmpty(c.Year)) { @c.Year }
+                            @if (!string.IsNullOrEmpty(c.Author)) { <text> · @c.Author</text> }
+                        </div>
+                        @if (!string.IsNullOrEmpty(c.Description))
+                        {
+                            <div class="search-result-description">
+                                @TruncateText(c.Description, 120)
+                            </div>
+                        }
+                        <div class="search-result-footer">
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                                     Style="font-size: 0.65rem; height: 18px; padding: 0 6px; color: rgba(255,255,255,0.4); border-color: rgba(255,255,255,0.15);">
+                                @c.ProviderName
+                            </MudChip>
+                        </div>
+                    </div>
+                    @if (isSelected)
+                    {
+                        <div class="search-result-selected-icon">
+                            <MudIcon Icon="@Icons.Material.Filled.CheckCircle"
+                                     Style="color: #4CAF50;" Size="Size.Medium" />
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    }
+
+    @if (_hasSearched && !_searching
+         && (_searchMode == "identity" ? _universeCandidates.Count == 0 : _retailCandidates.Count == 0))
     {
         <div class="search-no-results">
             <MudIcon Icon="@Icons.Material.Outlined.SearchOff" Size="Size.Large" Style="opacity: 0.3;" />
@@ -186,6 +263,38 @@
         display: flex;
         flex-direction: column;
         gap: 12px;
+    }
+
+    .search-panel-tabs {
+        display: flex;
+        gap: 4px;
+        border-bottom: 1px solid rgba(255,255,255,0.08);
+        padding-bottom: 0;
+        margin-bottom: 0;
+    }
+
+    .search-tab {
+        background: transparent;
+        border: none;
+        color: rgba(255,255,255,0.5);
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.8rem;
+        font-weight: 500;
+        padding: 8px 14px;
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+    }
+
+    .search-tab:hover {
+        color: rgba(255,255,255,0.8);
+    }
+
+    .search-tab-active {
+        color: #C9922E;
+        border-bottom-color: #C9922E;
     }
 
     .search-panel-controls {
@@ -344,6 +453,7 @@
 
     private string _query = "";
     private string _mediaType = "Epub";
+    private string _searchMode = "identity";
 
     private bool _searching;
     private bool _applying;
@@ -351,8 +461,10 @@
     private bool _showManualForm;
 
     private List<UniverseCandidateDto> _universeCandidates = [];
+    private List<RetailCandidateDto>   _retailCandidates   = [];
 
     private string? _selectedQid;
+    private int?    _selectedRetailIdx;
 
     private string? _errorMessage;
     private string? _successMessage;
@@ -374,17 +486,27 @@
     {
         if (string.IsNullOrWhiteSpace(_query)) return;
 
-        _searching = true;
-        _hasSearched = false;
+        _searching    = true;
+        _hasSearched  = false;
         _errorMessage = null;
         _successMessage = null;
         _universeCandidates = [];
-        _selectedQid = null;
+        _retailCandidates   = [];
+        _selectedQid        = null;
+        _selectedRetailIdx  = null;
 
         try
         {
-            var result = await Orchestrator.SearchUniverseAsync(_query, _mediaType, maxCandidates: 5);
-            _universeCandidates = result;
+            if (_searchMode == "identity")
+            {
+                var result = await Orchestrator.SearchUniverseAsync(_query, _mediaType, maxCandidates: 5);
+                _universeCandidates = result;
+            }
+            else
+            {
+                var result = await Orchestrator.SearchRetailAsync(_query, _mediaType, maxCandidates: 10);
+                _retailCandidates = result;
+            }
             _hasSearched = true;
         }
         catch (Exception)
@@ -397,6 +519,21 @@
         }
     }
 
+    // ── Mode switch ────────────────────────────────────────────────────────
+
+    private void SwitchSearchMode(string mode)
+    {
+        if (_searchMode == mode) return;
+        _searchMode         = mode;
+        _hasSearched        = false;
+        _universeCandidates = [];
+        _retailCandidates   = [];
+        _selectedQid        = null;
+        _selectedRetailIdx  = null;
+        _errorMessage       = null;
+        _successMessage     = null;
+    }
+
     // ── Selection ──────────────────────────────────────────────────────────
 
     private void SelectUniverseCandidate(UniverseCandidateDto candidate)
@@ -404,40 +541,72 @@
         _selectedQid = _selectedQid == candidate.Qid ? null : candidate.Qid;
     }
 
-    private bool HasSelection() => !string.IsNullOrEmpty(_selectedQid);
+    private void SelectRetailCandidate(int idx)
+    {
+        _selectedRetailIdx = _selectedRetailIdx == idx ? null : idx;
+    }
+
+    private bool HasSelection() => _searchMode == "identity"
+        ? !string.IsNullOrEmpty(_selectedQid)
+        : _selectedRetailIdx.HasValue;
 
     // ── Apply ──────────────────────────────────────────────────────────────
 
     private async Task ApplySelected()
     {
-        if (!HasSelection() || string.IsNullOrEmpty(_selectedQid)) return;
+        if (!HasSelection()) return;
 
-        _applying = true;
+        _applying     = true;
         _errorMessage = null;
 
         try
         {
-            var candidate = _universeCandidates.FirstOrDefault(c => c.Qid == _selectedQid);
-            var result = await Orchestrator.ApplyRegistryMatchAsync(EntityId, new ApplyMatchRequestDto
+            if (_searchMode == "identity" && !string.IsNullOrEmpty(_selectedQid))
             {
-                Mode        = "Universe",
-                Qid         = _selectedQid,
-                Title       = candidate?.Label,
-                Year        = candidate?.Year,
-                Author      = candidate?.Author,
-                Director    = candidate?.Director,
-                Description = candidate?.WikipediaExtract ?? candidate?.Description,
-                CoverUrl    = candidate?.CoverUrl,
-            });
+                var candidate = _universeCandidates.FirstOrDefault(c => c.Qid == _selectedQid);
+                var result = await Orchestrator.ApplyRegistryMatchAsync(EntityId, new ApplyMatchRequestDto
+                {
+                    Mode        = "Universe",
+                    Qid         = _selectedQid,
+                    Title       = candidate?.Label,
+                    Year        = candidate?.Year,
+                    Author      = candidate?.Author,
+                    Director    = candidate?.Director,
+                    Description = candidate?.WikipediaExtract ?? candidate?.Description,
+                    CoverUrl    = candidate?.CoverUrl,
+                });
 
-            if (result is not null)
-            {
-                _successMessage = result.Message ?? "Match applied successfully.";
-                await OnMatchApplied.InvokeAsync(result);
+                if (result is not null)
+                {
+                    _successMessage = result.Message ?? "Match applied successfully.";
+                    await OnMatchApplied.InvokeAsync(result);
+                }
+                else
+                {
+                    _errorMessage = "Failed to apply match.";
+                }
             }
-            else
+            else if (_searchMode == "artwork" && _selectedRetailIdx.HasValue)
             {
-                _errorMessage = "Failed to apply match.";
+                var candidate = _retailCandidates[_selectedRetailIdx.Value];
+                var result = await Orchestrator.ApplyRegistryMatchAsync(EntityId, new ApplyMatchRequestDto
+                {
+                    Mode     = "Retail",
+                    Title    = candidate.Title,
+                    Year     = candidate.Year,
+                    Author   = candidate.Author,
+                    CoverUrl = candidate.CoverUrl,
+                });
+
+                if (result is not null)
+                {
+                    _successMessage = result.Message ?? "Artwork applied successfully.";
+                    await OnMatchApplied.InvokeAsync(result);
+                }
+                else
+                {
+                    _errorMessage = "Failed to apply artwork.";
+                }
             }
         }
         catch (Exception)

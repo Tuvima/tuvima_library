@@ -70,17 +70,87 @@ public sealed class SearchService : ISearchService
     }
 
     /// <inheritdoc/>
-    public Task<SearchUniverseResult> SearchUniverseAsync(
+    public async Task<SearchUniverseResult> SearchUniverseAsync(
         SearchUniverseRequest request,
         CancellationToken ct = default)
     {
-        // TODO: Phase 3 - Replace with ReconciliationAdapter.ResolveCandidatesAsync
-        // WikidataAdapter.ResolveCandidatesAsync was removed as part of SPARQL infrastructure cleanup.
-        // Universe search returns empty until ReconciliationAdapter is implemented.
-        _logger.LogWarning(
-            "Universe search is temporarily unavailable (Phase 3 - SPARQL infrastructure rebuild pending). Query: '{Query}'",
-            request.Query);
-        return Task.FromResult(new SearchUniverseResult([], request.Query, request.MediaType));
+        if (string.IsNullOrWhiteSpace(request.Query))
+            return new SearchUniverseResult([], request.Query, request.MediaType);
+
+        var mediaType = ParseMediaType(request.MediaType);
+
+        // Find the Wikidata Reconciliation provider
+        var wikidataProvider = _providers.FirstOrDefault(
+            p => p.Name.Contains("wikidata", StringComparison.OrdinalIgnoreCase)
+              || p.Name.Contains("reconciliation", StringComparison.OrdinalIgnoreCase));
+
+        if (wikidataProvider is null)
+        {
+            _logger.LogWarning("No Wikidata/Reconciliation provider registered. Universe search unavailable.");
+            return new SearchUniverseResult([], request.Query, request.MediaType);
+        }
+
+        // Build endpoint map for cover art enrichment
+        var provConfigs = _configLoader.LoadAllProviders();
+        var endpointMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var pc in provConfigs)
+            foreach (var (key, url) in pc.Endpoints)
+                endpointMap.TryAdd(key, url);
+
+        try
+        {
+            // Search Wikidata via Reconciliation API
+            var providerRequest = new ProviderLookupRequest
+            {
+                EntityId   = Guid.NewGuid(),
+                EntityType = EntityType.Work,
+                MediaType  = mediaType,
+                Title      = request.Query,
+                BaseUrl    = GetProviderBaseUrl(wikidataProvider.Name, endpointMap),
+                Language   = "en",
+                Country    = "us",
+            };
+
+            var searchResults = await wikidataProvider.SearchAsync(
+                providerRequest, request.MaxCandidates, ct).ConfigureAwait(false);
+
+            if (searchResults.Count == 0)
+                return new SearchUniverseResult([], request.Query, request.MediaType);
+
+            // Collect retail providers for cover art enrichment
+            var retailProviders = GetRetailProviders(mediaType);
+            var candidates = new List<UniverseCandidate>();
+
+            foreach (var result in searchResults)
+            {
+                // Skip items without a valid QID
+                var qid = result.ProviderItemId ?? "";
+                if (string.IsNullOrEmpty(qid) || !qid.StartsWith('Q'))
+                    continue;
+
+                var qidCandidate = new QidCandidate
+                {
+                    Qid            = qid,
+                    Label          = result.Title,
+                    Description    = result.Description,
+                    ResolutionTier = "title_search",
+                };
+
+                // Enrich with cover art from retail providers
+                var enriched = await EnrichCandidateAsync(
+                    qidCandidate, request.Query, mediaType, retailProviders, endpointMap, ct)
+                    .ConfigureAwait(false);
+
+                candidates.Add(enriched);
+            }
+
+            return new SearchUniverseResult(candidates, request.Query, request.MediaType);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Universe search failed for query '{Query}'", request.Query);
+            return new SearchUniverseResult([], request.Query, request.MediaType);
+        }
     }
 
     /// <inheritdoc/>
