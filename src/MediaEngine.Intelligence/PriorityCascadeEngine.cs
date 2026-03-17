@@ -153,9 +153,9 @@ public sealed class PriorityCascadeEngine : IScoringEngine
         // Files with very few fields (e.g. only a filename-derived title)
         // should not score high. Scale confidence by min(1, fieldCount/3)
         // so a single-field file gets ~1/3 of its raw average.
-        if (fieldScores.Count > 0 && fieldScores.Count < 3)
+        if (fieldScores.Count == 1)
         {
-            overallConfidence *= fieldScores.Count / 3.0;
+            overallConfidence *= 1.0 / 3.0;
         }
 
         // Apply Library Folder category confidence prior (same as before).
