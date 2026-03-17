@@ -1998,6 +1998,22 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    public async Task<bool> DeleteRegistryItemAsync(Guid entityId, CancellationToken ct = default)
+    {
+        try
+        {
+            var resp = await _http.DeleteAsync($"/registry/items/{entityId}", ct);
+            return resp.IsSuccessStatusCode;
+        }
+        catch (OperationCanceledException) { return false; }
+        catch (Exception ex)
+        {
+            LastError = ex.Message;
+            _logger.LogWarning(ex, "DELETE /registry/items/{EntityId} failed", entityId);
+            return false;
+        }
+    }
+
     public string? LastError { get; private set; }
 
     // ── Private mapping ───────────────────────────────────────────────────────

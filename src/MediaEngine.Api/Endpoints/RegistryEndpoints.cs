@@ -346,6 +346,144 @@ public static class RegistryEndpoints
         .Produces(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator();
 
+        // ── DELETE /registry/items/{entityId} ───────────────────────────────
+        group.MapDelete("/items/{entityId}", async (
+            Guid entityId,
+            IDatabaseConnection db,
+            ISystemActivityRepository activityRepo,
+            CancellationToken ct) =>
+        {
+            // 1. Resolve all media asset file paths for this work
+            var filePaths = new List<string>();
+            string? hubId = null;
+            string? workTitle = null;
+
+            using (var conn = db.CreateConnection())
+            {
+                // Get file paths and hub ID
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = """
+                        SELECT ma.file_path_root
+                        FROM editions e
+                        INNER JOIN media_assets ma ON ma.edition_id = e.id
+                        WHERE e.work_id = @workId
+                        """;
+                    cmd.Parameters.AddWithValue("@workId", entityId.ToString());
+                    using var reader = cmd.ExecuteReader();
+                    while (reader.Read())
+                    {
+                        var path = reader.GetString(0);
+                        if (!string.IsNullOrWhiteSpace(path))
+                            filePaths.Add(path);
+                    }
+                }
+
+                // Get hub ID for cleanup check
+                using (var cmd2 = conn.CreateCommand())
+                {
+                    cmd2.CommandText = "SELECT hub_id, title FROM works WHERE id = @workId";
+                    cmd2.Parameters.AddWithValue("@workId", entityId.ToString());
+                    using var reader2 = cmd2.ExecuteReader();
+                    if (reader2.Read())
+                    {
+                        hubId = reader2.IsDBNull(0) ? null : reader2.GetString(0);
+                        workTitle = reader2.IsDBNull(1) ? null : reader2.GetString(1);
+                    }
+                }
+            }
+
+            if (filePaths.Count == 0)
+                return Results.NotFound($"No media assets found for work {entityId}.");
+
+            // 2. Delete physical files from disk + cover.jpg in same directory
+            foreach (var filePath in filePaths)
+            {
+                try
+                {
+                    if (File.Exists(filePath))
+                        File.Delete(filePath);
+
+                    // Delete cover.jpg in the same directory
+                    var dir = Path.GetDirectoryName(filePath);
+                    if (dir is not null)
+                    {
+                        var coverPath = Path.Combine(dir, "cover.jpg");
+                        if (File.Exists(coverPath))
+                            File.Delete(coverPath);
+
+                        var heroPath = Path.Combine(dir, "hero.jpg");
+                        if (File.Exists(heroPath))
+                            File.Delete(heroPath);
+
+                        // Remove empty directory
+                        if (Directory.Exists(dir) && !Directory.EnumerateFileSystemEntries(dir).Any())
+                            Directory.Delete(dir);
+                    }
+                }
+                catch (IOException)
+                {
+                    // File may be locked or already deleted — continue with DB cleanup
+                }
+            }
+
+            // 3. Delete review_queue entries for assets of this work
+            using (var conn = db.CreateConnection())
+            {
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = """
+                    DELETE FROM review_queue
+                    WHERE entity_id IN (
+                        SELECT ma.id FROM editions e
+                        INNER JOIN media_assets ma ON ma.edition_id = e.id
+                        WHERE e.work_id = @workId
+                    )
+                    """;
+                cmd.Parameters.AddWithValue("@workId", entityId.ToString());
+                cmd.ExecuteNonQuery();
+            }
+
+            // 4. Delete the work (CASCADE handles editions → media_assets → claims → canonical_values)
+            using (var conn = db.CreateConnection())
+            {
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = "DELETE FROM works WHERE id = @workId";
+                cmd.Parameters.AddWithValue("@workId", entityId.ToString());
+                cmd.ExecuteNonQuery();
+            }
+
+            // 5. Clean up hub if no remaining works
+            if (hubId is not null)
+            {
+                using var conn = db.CreateConnection();
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = """
+                    DELETE FROM hubs WHERE id = @hubId
+                    AND NOT EXISTS (SELECT 1 FROM works WHERE hub_id = @hubId)
+                    """;
+                cmd.Parameters.AddWithValue("@hubId", hubId);
+                cmd.ExecuteNonQuery();
+            }
+
+            // 6. Log activity
+            await activityRepo.LogAsync(new SystemActivityEntry
+            {
+                OccurredAt  = DateTimeOffset.UtcNow,
+                ActionType  = SystemActionType.MediaRemoved,
+                HubName     = workTitle,
+                EntityId    = entityId,
+                EntityType  = "Work",
+                Detail      = $"Removed '{workTitle ?? "unknown"}' — {filePaths.Count} file(s) deleted from disk and database.",
+            }, ct);
+
+            return Results.Ok(new { EntityId = entityId, FilesDeleted = filePaths.Count, Message = $"Removed '{workTitle ?? "unknown"}' and {filePaths.Count} file(s)." });
+        })
+        .WithName("DeleteRegistryItem")
+        .WithSummary("Permanently remove a work and all its files from the library.")
+        .Produces(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAdminOrCurator();
+
         return app;
     }
 }

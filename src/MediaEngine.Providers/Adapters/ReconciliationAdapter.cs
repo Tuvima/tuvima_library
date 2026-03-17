@@ -1105,12 +1105,6 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 // Determine confidence and string value.
                 (string? strVal, double confidence) = ExtractValueAndConfidence(val, pCode);
 
-                // Sanitize entity labels that contain non-Latin characters — these are
-                // wrong-language fallbacks from Wikidata. The companion _qid claim preserves
-                // the entity reference so the value is not lost.
-                if (val.Id is not null && !string.IsNullOrWhiteSpace(strVal) && ContainsNonLatinCharacters(strVal))
-                    strVal = null; // Skip — companion _qid claim preserves the entity reference
-
                 if (!string.IsNullOrWhiteSpace(strVal))
                 {
                     // Normalize bridge ID values (strip ISBN dashes, uppercase ASINs, etc.)
@@ -1124,10 +1118,10 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 }
 
                 // Emit individual companion _qid claim per entity value.
+                // Always use the QID as the label — more reliable across languages.
                 if (!string.IsNullOrWhiteSpace(val.Id))
                 {
-                    var label = !string.IsNullOrWhiteSpace(val.Label) && !ContainsNonLatinCharacters(val.Label)
-                        ? val.Label : val.Id;
+                    var label = val.Id;
                     yield return new ProviderClaim($"{claimKey}_qid", $"{val.Id}::{label}", 0.90);
                 }
 
@@ -1279,26 +1273,4 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         return Convert.ToHexString(bytes).ToLowerInvariant();
     }
 
-    // ── Private: Character-set helpers ───────────────────────────────────────
-
-    /// <summary>
-    /// Returns true if the string contains characters outside the Latin script.
-    /// Used to detect wrong-language labels from Wikidata entity references.
-    /// </summary>
-    private static bool ContainsNonLatinCharacters(string text)
-    {
-        foreach (var ch in text)
-        {
-            if (char.IsLetter(ch) && !IsLatinLetter(ch))
-                return true;
-        }
-        return false;
-    }
-
-    private static bool IsLatinLetter(char ch)
-    {
-        // Basic Latin + Latin Extended-A + Latin Extended-B + Latin Supplement
-        return (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z')
-            || (ch >= '\u00C0' && ch <= '\u024F'); // À-ɏ (accented Latin)
-    }
 }

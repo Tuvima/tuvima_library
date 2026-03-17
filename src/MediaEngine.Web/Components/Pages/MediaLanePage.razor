@@ -214,12 +214,9 @@ else
     /// or wraps as hub-level items for other lanes.
     /// </summary>
     private IReadOnlyList<PosterItemViewModel> FlattenToItems(IEnumerable<HubViewModel> hubs) =>
-        IsImplementedLane
-            ? hubs.SelectMany(h => h.Works.Count > 0
-                ? h.Works.Select(w => PosterItemViewModel.FromWork(w, h.CoverUrl, h.DominantHexColor))
-                : [PosterItemViewModel.FromHub(h)])
-              .ToList()
-            : hubs.Select(PosterItemViewModel.FromHub).ToList();
+        hubs.SelectMany(h => h.Works.Select(w =>
+                PosterItemViewModel.FromWork(w, h.CoverUrl, h.DominantHexColor)))
+            .ToList();
 
     private string ContinueLabel => _lane?.Key switch
     {

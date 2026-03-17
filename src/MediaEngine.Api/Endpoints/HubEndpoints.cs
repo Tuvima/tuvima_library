@@ -1,6 +1,7 @@
 ﻿using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
 using MediaEngine.Domain;
+using MediaEngine.Domain.Aggregates;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Endpoints;
@@ -14,11 +15,56 @@ public static class HubEndpoints
 
         group.MapGet("/", async (
             IHubRepository hubRepo,
+            IDatabaseConnection db,
             CancellationToken ct) =>
         {
             var hubs = await hubRepo.GetAllAsync(ct);
-            var dtos = hubs.Where(h => h.Works.Count > 0).Select(HubDto.FromDomain).ToList();
-            return Results.Ok(dtos);
+
+            // Collect work IDs that have at least one non-staging media asset
+            var libraryWorkIds = new HashSet<Guid>();
+            using (var conn = db.CreateConnection())
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = """
+                    SELECT DISTINCT e.work_id
+                    FROM editions e
+                    INNER JOIN media_assets ma ON ma.edition_id = e.id
+                    WHERE ma.file_path_root NOT LIKE '%/.staging/%'
+                      AND ma.file_path_root NOT LIKE '%\.staging\%'
+                      AND ma.file_path_root NOT LIKE '%/.staging\%'
+                    """;
+                using var reader = cmd.ExecuteReader();
+                while (reader.Read())
+                {
+                    if (Guid.TryParse(reader.GetString(0), out var wid))
+                        libraryWorkIds.Add(wid);
+                }
+            }
+
+            // Filter hubs: only include works that are in the library (not staging)
+            var filtered = new List<HubDto>();
+            foreach (var hub in hubs)
+            {
+                var libraryWorks = hub.Works.Where(w => libraryWorkIds.Contains(w.Id)).ToList();
+                if (libraryWorks.Count == 0) continue;
+
+                var filteredHub = new Hub
+                {
+                    Id             = hub.Id,
+                    UniverseId     = hub.UniverseId,
+                    DisplayName    = hub.DisplayName,
+                    CreatedAt      = hub.CreatedAt,
+                    UniverseStatus = hub.UniverseStatus,
+                    ParentHubId    = hub.ParentHubId,
+                    WikidataQid    = hub.WikidataQid,
+                };
+                foreach (var w in libraryWorks)         filteredHub.Works.Add(w);
+                foreach (var r in hub.Relationships)    filteredHub.Relationships.Add(r);
+
+                filtered.Add(HubDto.FromDomain(filteredHub));
+            }
+
+            return Results.Ok(filtered);
         })
         .WithName("GetAllHubs")
         .WithSummary("List all media hubs with their works and canonical metadata values.")
@@ -28,6 +74,7 @@ public static class HubEndpoints
         group.MapGet("/search", async (
             string? q,
             IHubRepository hubRepo,
+            IDatabaseConnection db,
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(q) || q.Trim().Length < 2)
@@ -35,7 +82,52 @@ public static class HubEndpoints
 
             var query = q.Trim();
             var hubs  = await hubRepo.GetAllAsync(ct);
-            var dtos  = hubs.Where(h => h.Works.Count > 0).Select(HubDto.FromDomain).ToList();
+
+            // Collect work IDs that have at least one non-staging media asset
+            var libraryWorkIds = new HashSet<Guid>();
+            using (var conn = db.CreateConnection())
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = """
+                    SELECT DISTINCT e.work_id
+                    FROM editions e
+                    INNER JOIN media_assets ma ON ma.edition_id = e.id
+                    WHERE ma.file_path_root NOT LIKE '%/.staging/%'
+                      AND ma.file_path_root NOT LIKE '%\.staging\%'
+                      AND ma.file_path_root NOT LIKE '%/.staging\%'
+                    """;
+                using var reader = cmd.ExecuteReader();
+                while (reader.Read())
+                {
+                    if (Guid.TryParse(reader.GetString(0), out var wid))
+                        libraryWorkIds.Add(wid);
+                }
+            }
+
+            // Build DTOs for library-only works
+            var filtered = new List<HubDto>();
+            foreach (var hub in hubs)
+            {
+                var libraryWorks = hub.Works.Where(w => libraryWorkIds.Contains(w.Id)).ToList();
+                if (libraryWorks.Count == 0) continue;
+
+                var filteredHub = new Hub
+                {
+                    Id             = hub.Id,
+                    UniverseId     = hub.UniverseId,
+                    DisplayName    = hub.DisplayName,
+                    CreatedAt      = hub.CreatedAt,
+                    UniverseStatus = hub.UniverseStatus,
+                    ParentHubId    = hub.ParentHubId,
+                    WikidataQid    = hub.WikidataQid,
+                };
+                foreach (var w in libraryWorks)         filteredHub.Works.Add(w);
+                foreach (var r in hub.Relationships)    filteredHub.Relationships.Add(r);
+
+                filtered.Add(HubDto.FromDomain(filteredHub));
+            }
+
+            var dtos = filtered;
 
             var results = dtos
                 .SelectMany(hub => hub.Works

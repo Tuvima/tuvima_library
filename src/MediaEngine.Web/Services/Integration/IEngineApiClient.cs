@@ -452,6 +452,9 @@ public interface IEngineApiClient
     Task<CreateManualResponseDto?> CreateManualEntryAsync(
         Guid entityId, CreateManualRequestDto request,
         CancellationToken ct = default);
+
+    /// <summary>DELETE /registry/items/{entityId} — permanently remove a work and all its files.</summary>
+    Task<bool> DeleteRegistryItemAsync(Guid entityId, CancellationToken ct = default);
 }
 
 

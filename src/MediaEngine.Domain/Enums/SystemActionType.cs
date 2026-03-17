@@ -161,6 +161,9 @@ public static class SystemActionType
     /// <summary>A media file failed to ingest (corrupt, quarantined, or unprocessable).</summary>
     public const string MediaFailed = "MediaFailed";
 
+    /// <summary>A media file was removed from the library by user action.</summary>
+    public const string MediaRemoved = "MediaRemoved";
+
     // ── Folder Maintenance ────────────────────────────────────────────
 
     /// <summary>An empty folder was cleaned up during reconciliation.</summary>

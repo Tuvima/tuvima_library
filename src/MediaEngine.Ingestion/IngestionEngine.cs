@@ -434,6 +434,9 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         // (e.g. it scored below the confidence gate on first pass, or LibraryRoot
         // was not configured at that time), attempt to organize it now — metadata
         // may have been enriched by external providers since the initial scan.
+        // Hash lock scope: covers duplicate check → DB insert → organization.
+        // Prevents race conditions when identical files arrive simultaneously.
+        // Defense-in-depth: DB uses INSERT OR IGNORE on content_hash UNIQUE constraint.
         var hashLock = _concurrencyGuard.GetHashLock(hash.Hex);
         await hashLock.WaitAsync(ct).ConfigureAwait(false);
         try
@@ -790,6 +793,34 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             candidate.Path,
             resolvedMediaType.ToString(),
             DateTimeOffset.UtcNow), ct).ConfigureAwait(false);
+
+        // ── Foreign-language metadata check ─────────────────────────────────────
+        // If the file's declared language doesn't match the configured language,
+        // route to the review queue so the user can resolve it.
+        {
+            var configuredLang = _options.ConfiguredLanguage ?? "en";
+            var fileLang = claims.FirstOrDefault(c =>
+                string.Equals(c.ClaimKey, "language", StringComparison.OrdinalIgnoreCase))?.ClaimValue;
+
+            if (!string.IsNullOrWhiteSpace(fileLang)
+                && !string.Equals(fileLang, configuredLang, StringComparison.OrdinalIgnoreCase)
+                && !fileLang.StartsWith(configuredLang + "-", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogInformation(
+                    "Foreign-language file detected: {FileLang} (configured: {ConfiguredLang}) for {Title}",
+                    fileLang, configuredLang, resolvedTitle);
+
+                await _reviewRepo.InsertAsync(new Domain.Entities.ReviewQueueEntry
+                {
+                    Id              = Guid.NewGuid(),
+                    EntityId        = assetId,
+                    EntityType      = "MediaAsset",
+                    Trigger         = Domain.Enums.ReviewTrigger.NonConfiguredLanguage,
+                    ConfidenceScore = scored.OverallConfidence,
+                    Detail          = $"File metadata is in '{fileLang}', but configured language is '{configuredLang}'. Title: {resolvedTitle}",
+                }, ct).ConfigureAwait(false);
+            }
+        }
 
         // Step 11: staging-first flow.
         // ALL files go to .staging/ first — the Library only receives files that

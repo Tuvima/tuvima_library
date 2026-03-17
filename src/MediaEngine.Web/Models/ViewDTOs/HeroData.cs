@@ -72,6 +72,26 @@ public sealed record HeroData
         WorkCount      = hub.WorkCount > 1 ? hub.WorkCount : null,
     };
 
+    /// <summary>Create hero data from an individual Work (carousel slides, work-level display).</summary>
+    public static HeroData FromWork(WorkViewModel work, HubViewModel? parentHub = null) => new()
+    {
+        EntityId       = work.Id,
+        Title          = work.Title,
+        Author         = work.Author,
+        Description    = Truncate(work.Description, 200),
+        CoverUrl       = work.CoverUrl ?? parentHub?.CoverUrl,
+        HeroUrl        = work.HeroUrl ?? parentHub?.HeroUrl,
+        DominantColor  = parentHub?.DominantHexColor,
+        Year           = work.Year,
+        MediaTypeLabel = FormatLabel(work.MediaType),
+        Genre          = work.Genre,
+        Genres         = work.Genres,
+        GenreQids      = work.GenreQids,
+        Rating         = work.Rating,
+        Series         = work.Series,
+        SeriesPosition = work.SeriesPosition,
+    };
+
     /// <summary>Create hero data from a journey item (carousel slides with progress).</summary>
     public static HeroData FromJourney(JourneyItemViewModel item) => new()
     {

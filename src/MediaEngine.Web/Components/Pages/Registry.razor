@@ -248,6 +248,15 @@
                     <MissingUniverseChip Show="@item.MissingUniverse"
                                          Label="@(item.WikidataStatus == "manual" ? "Manual" : "Missing Universe")"
                                          TooltipText="@(item.WikidataStatus == "manual" ? "Manually entered — no Wikidata QID. Use Find Match to link to the universe." : "Matched to retail only. No Wikidata identity yet.")" />
+                    @if (!string.IsNullOrEmpty(item.ReviewTrigger))
+                    {
+                        var (triggerLabel, triggerColor, triggerIcon) = FormatReviewTrigger(item.ReviewTrigger);
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                                 Style="@($"border-color: {triggerColor}; color: {triggerColor}; font-size: 0.65rem; height: 20px; margin-left: 4px;")">
+                            <MudIcon Icon="@triggerIcon" Size="Size.Small" Style="font-size: 0.75rem; margin-right: 2px;" />
+                            @triggerLabel
+                        </MudChip>
+                    }
                 </div>
                 <div class="registry-col-expand">
                     <MudIconButton Icon="@(isExpanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
@@ -384,6 +393,24 @@
                                                                Size="Size.Small"
                                                                Style="color: rgba(255,255,255,0.4); padding: 2px;"
                                                                OnClick="@(() => CopyToClipboard(kvp.Value))" />
+                                            </div>
+                                        }
+                                    </div>
+                                }
+
+                                @* Review Reason *@
+                                @if (!string.IsNullOrEmpty(_expandedDetail?.ReviewTrigger))
+                                {
+                                    var (rtLabel, rtColor, rtIcon) = FormatReviewTrigger(_expandedDetail.ReviewTrigger);
+                                    <div style="margin-bottom: 12px; padding: 8px 12px; border-left: 3px solid @rtColor; background: rgba(255,255,255,0.03); border-radius: 4px;">
+                                        <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+                                            <MudIcon Icon="@rtIcon" Size="Size.Small" Style="@($"color: {rtColor}; font-size: 1rem;")" />
+                                            <span style="@($"color: {rtColor}; font-weight: 600; font-size: 0.8rem;")">@rtLabel</span>
+                                        </div>
+                                        @if (!string.IsNullOrEmpty(_expandedDetail.ReviewDetail))
+                                        {
+                                            <div style="color: rgba(255,255,255,0.6); font-size: 0.75rem; margin-top: 4px;">
+                                                @_expandedDetail.ReviewDetail
                                             </div>
                                         }
                                     </div>
@@ -807,11 +834,8 @@
         var countToRemove = _selectedIds.Count;
         foreach (var id in _selectedIds.ToList())
         {
+            await Orchestrator.DeleteRegistryItemAsync(id);
             var item = _items.FirstOrDefault(i => i.EntityId == id);
-            if (item?.ReviewItemId is not null)
-            {
-                await Orchestrator.DismissReviewAsync(item.ReviewItemId.Value);
-            }
             if (item is not null)
                 _items.Remove(item);
         }
@@ -894,6 +918,24 @@
         "Edited" => "background: rgba(66,165,245,0.15); color: #42A5F5; font-size: 0.7rem; height: 22px;",
         "Duplicate" => "background: rgba(239,83,80,0.15); color: #EF5350; font-size: 0.7rem; height: 22px;",
         _ => "background: rgba(255,255,255,0.05); color: #888; font-size: 0.7rem; height: 22px;",
+    };
+
+    private static (string Label, string Color, string Icon) FormatReviewTrigger(string? trigger) => trigger switch
+    {
+        "LowConfidence"         => ("Low Confidence",        "#FF9800", Icons.Material.Outlined.TrendingDown),
+        "MultipleQidMatches"    => ("Multiple Matches",       "#2196F3", Icons.Material.Outlined.CallSplit),
+        "AuthorityMatchFailed"  => ("Authority Match Failed", "#F44336", Icons.Material.Outlined.LinkOff),
+        "ContentMatchFailed"    => ("Content Match Failed",   "#F44336", Icons.Material.Outlined.SearchOff),
+        "AmbiguousMediaType"    => ("Ambiguous Type",         "#FF9800", Icons.Material.Outlined.HelpOutline),
+        "MissingQid"            => ("Missing QID",            "#2196F3", Icons.Material.Outlined.QuestionMark),
+        "PlaceholderTitle"      => ("Placeholder Title",      "#F44336", Icons.Material.Outlined.Title),
+        "StagedUnidentifiable"  => ("Unidentifiable",         "#F44336", Icons.Material.Outlined.ErrorOutline),
+        "ArtworkUnconfirmed"    => ("Artwork Unconfirmed",    "#FF9800", Icons.Material.Outlined.Image),
+        "MetadataConflict"      => ("Metadata Conflict",      "#FF9800", Icons.Material.Outlined.Compare),
+        "UserFixMatch"          => ("User Fix Match",         "#2196F3", Icons.Material.Outlined.Edit),
+        "ArbiterNeedsReview"    => ("Arbiter Review",         "#FF9800", Icons.Material.Outlined.Gavel),
+        "NonConfiguredLanguage" => ("Wrong Language",         "#FF9800", Icons.Material.Outlined.Translate),
+        _ => ("Needs Review", "#9E9E9E", Icons.Material.Outlined.RateReview),
     };
 
     // ── Bridge / Clipboard Helpers ──────────────────────────────────────────

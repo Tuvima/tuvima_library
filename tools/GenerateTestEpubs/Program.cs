@@ -1,5 +1,5 @@
 // ──────────────────────────────────────────────────────────────────────────────
-// GenerateTestEpubs — Creates exactly 20 test files (EPUBs + M4Bs) that
+// GenerateTestEpubs — Creates exactly 30 test files (EPUBs + M4Bs) that
 // exercise every major ingestion edge case.
 //
 // Scenario groups:
@@ -9,6 +9,11 @@
 //   M4Bs 11–16   : Cross-format Hub link, narrators, orphanage, pseudonym
 //   M4Bs 17–18   : Ingestion hinting — hp-series/ folder (sibling files)
 //   M4Bs 19–20   : Ingestion hinting — expanse-audio/ folder (sibling files)
+//   EPUBs 21–23  : Pseudonym (individual), no-ISBN search, title mismatch
+//   EPUBs 24–26  : Foreign language metadata (Russian, Spanish, French)
+//   EPUB  27     : Same-author different-work
+//   EPUB  28     : Same-title different-edition disambiguation
+//   EPUBs 29–30  : Multi-author works
 //
 // Usage:
 //   dotnet run --project tools/GenerateTestEpubs [output-directory] [--clean]
@@ -193,24 +198,126 @@ var epubs = new EpubSpec[]
         Series: null,                    SeriesPosition: null,
         Language: "en",                  IncludeCover: true,
         CoverHex: "#0A0A0A"),
+
+    // ── Foreign Language Metadata ────────────────────────────────────────
+
+    // Scenario 24 — FOREIGN LANGUAGE: Russian title and author in Cyrillic.
+    //   <dc:language>ru</dc:language> triggers NonConfiguredLanguage review.
+    //   Expected: routed to review queue with "File metadata is in Russian" detail.
+    new("war-and-peace.epub",
+        "Война и мир",
+        Author: "Лев Толстой",              SecondAuthor: null,
+        Isbn: "9780140447934",               Year: "1869",
+        Publisher: "Penguin Classics",
+        Description: "Эпический роман о русском обществе во время наполеоновских войн.",
+        Series: null,                        SeriesPosition: null,
+        Language: "ru",                      IncludeCover: true,
+        CoverHex: "#8D6E63"),
+
+    // Scenario 25 — FOREIGN LANGUAGE: Spanish title.
+    //   <dc:language>es</dc:language> triggers NonConfiguredLanguage review.
+    //   Expected: routed to review queue with "File metadata is in Spanish" detail.
+    new("don-quijote.epub",
+        "Don Quijote de la Mancha",
+        Author: "Miguel de Cervantes",       SecondAuthor: null,
+        Isbn: "9788420412146",               Year: "1605",
+        Publisher: "Real Academia Española",
+        Description: "La historia del ingenioso hidalgo Don Quijote de la Mancha.",
+        Series: null,                        SeriesPosition: null,
+        Language: "es",                      IncludeCover: true,
+        CoverHex: "#D84315"),
+
+    // Scenario 26 — FOREIGN LANGUAGE: French title.
+    //   <dc:language>fr</dc:language> triggers NonConfiguredLanguage review.
+    //   Expected: routed to review queue with "File metadata is in French" detail.
+    new("les-trois-mousquetaires.epub",
+        "Les Trois Mousquetaires",
+        Author: "Alexandre Dumas",           SecondAuthor: null,
+        Isbn: "9782070409228",               Year: "1844",
+        Publisher: "Gallimard",
+        Description: "Les aventures de d'Artagnan et des trois mousquetaires.",
+        Series: null,                        SeriesPosition: null,
+        Language: "fr",                      IncludeCover: true,
+        CoverHex: "#1565C0"),
+
+    // ── Same-Author Different-Work ───────────────────────────────────────
+
+    // Scenario 27 — SAME AUTHOR: George Orwell also wrote #23 (1984).
+    //   Expected: separate Work, same Person record as scenario 23.
+    new("animal-farm.epub",
+        "Animal Farm",
+        Author: "George Orwell",             SecondAuthor: null,
+        Isbn: "9780451526342",               Year: "1945",
+        Publisher: "Secker & Warburg",
+        Description: "A satirical allegory of Soviet totalitarianism.",
+        Series: null,                        SeriesPosition: null,
+        Language: "en",                      IncludeCover: true,
+        CoverHex: "#33691E"),
+
+    // ── Title Disambiguation ─────────────────────────────────────────────
+
+    // Scenario 28 — SAME TITLE DIFFERENT EDITION: "Foundation" with different ISBN than #3.
+    //   Expected: different Edition under same Work; ISBN mismatch may trigger review.
+    new("foundation-del-rey.epub",
+        "Foundation",
+        Author: "Isaac Asimov",              SecondAuthor: null,
+        Isbn: "9780553803716",               Year: "1951",
+        Publisher: "Del Rey",
+        Description: "The first novel in Asimov's Foundation series, Del Rey edition.",
+        Series: "Foundation",                SeriesPosition: "1",
+        Language: "en",                      IncludeCover: false,
+        CoverHex: "#283593"),
+
+    // ── Multi-Author ─────────────────────────────────────────────────────
+
+    // Scenario 29 — MULTI-AUTHOR: Two <dc:creator> entries in OPF.
+    //   Expected: two Person records created (Pratchett + Gaiman), both linked.
+    new("good-omens.epub",
+        "Good Omens",
+        Author: "Terry Pratchett",           SecondAuthor: "Neil Gaiman",
+        Isbn: "9780060853983",               Year: "1990",
+        Publisher: "Workman Publishing",
+        Description: "The Nice and Accurate Prophecies of Agnes Nutter, Witch.",
+        Series: null,                        SeriesPosition: null,
+        Language: "en",                      IncludeCover: true,
+        CoverHex: "#FFD54F"),
+
+    // Scenario 30 — MULTI-AUTHOR: Stephen King + Peter Straub collaboration.
+    //   Expected: two Person records; King already exists from #6 (Bachman pseudonym).
+    new("the-talisman.epub",
+        "The Talisman",
+        Author: "Stephen King",              SecondAuthor: "Peter Straub",
+        Isbn: "9781501192272",               Year: "1984",
+        Publisher: "Viking Press",
+        Description: "A boy's epic quest across two parallel worlds.",
+        Series: null,                        SeriesPosition: null,
+        Language: "en",                      IncludeCover: true,
+        CoverHex: "#4A148C"),
 };
 
-// ── Generate EPUBs 1–8 ────────────────────────────────────────────────────────
+// ── Generate EPUBs 1–8, 21–30 ────────────────────────────────────────────────
 
 int total = 0, failed = 0;
 var manifest = new List<ManifestEntry>();
+var generatedFiles = new List<(string Temp, string Final)>();
 
-Console.WriteLine($"━━━ EPUBs (scenarios 1–8, 21–23) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+Console.WriteLine($"━━━ EPUBs (scenarios 1–8, 21–30) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 string? duneEpubPath = null;
 
-// Scenarios 1–8 are indices 0–7; scenarios 21–23 are indices 8–10.
+// Scenarios 1–8 are indices 0–7; scenarios 21–23 are indices 8–10; scenarios 24–30 are indices 11–17.
 // Map index → scenario number for the manifest and console output.
-static int EpubScenarioNum(int index) => index < 8 ? index + 1 : 21 + (index - 8);
+static int EpubScenarioNum(int index) => index switch
+{
+    < 8 => index + 1,         // 0–7  → scenarios 1–8
+    < 11 => 21 + (index - 8), // 8–10 → scenarios 21–23
+    _ => 24 + (index - 11),   // 11–17 → scenarios 24–30
+};
 
 for (int i = 0; i < epubs.Length; i++)
 {
     var spec    = epubs[i];
-    var outPath = Path.Combine(outputDir, spec.FileName);
+    var outPath = Path.Combine(tempDir, spec.FileName);
+    var finalPath = Path.Combine(outputDir, spec.FileName);
     var num     = EpubScenarioNum(i);
     try
     {
@@ -220,6 +327,7 @@ for (int i = 0; i < epubs.Length; i++)
 
         CreateEpub(outPath, spec, cover);
         if (spec.FileName == "dune.epub") duneEpubPath = outPath;
+        generatedFiles.Add((outPath, finalPath));
 
         var label = $"[{num,2}] {spec.FileName,-46}";
         Console.WriteLine($"  ✓  {label} {(cover is not null ? "[cover]" : "[no cover]")}");
@@ -238,7 +346,8 @@ for (int i = 0; i < epubs.Length; i++)
 //   Expected: processor returns IsCorrupt=true; no asset in DB; MediaFailed activity.
 {
     const int num = 9;
-    var outPath = Path.Combine(outputDir, "corrupt-epub.epub");
+    var outPath = Path.Combine(tempDir, "corrupt-epub.epub");
+    var finalPath = Path.Combine(outputDir, "corrupt-epub.epub");
     try
     {
         // Valid ZIP magic is PK\x03\x04; we write garbage that will fail ZIP parsing.
@@ -246,6 +355,7 @@ for (int i = 0; i < epubs.Length; i++)
         new Random(42).NextBytes(garbage);
         garbage[0] = 0xFF; garbage[1] = 0xFE;   // deliberate non-ZIP header
         File.WriteAllBytes(outPath, garbage);
+        generatedFiles.Add((outPath, finalPath));
 
         Console.WriteLine($"  ✓  [{num,2}] {"corrupt-epub.epub",-46} [corrupt bytes — not a valid ZIP]");
         manifest.Add(new(num, "corrupt-epub.epub", "epub", "Scenario 9 — corrupt"));
@@ -263,12 +373,14 @@ for (int i = 0; i < epubs.Length; i++)
 //   activity logged; no second asset created in DB.
 {
     const int num = 10;
-    var outPath = Path.Combine(outputDir, "dune-duplicate.epub");
+    var outPath = Path.Combine(tempDir, "dune-duplicate.epub");
+    var finalPath = Path.Combine(outputDir, "dune-duplicate.epub");
     try
     {
         if (duneEpubPath is not null && File.Exists(duneEpubPath))
         {
             File.Copy(duneEpubPath, outPath, overwrite: true);
+            generatedFiles.Add((outPath, finalPath));
             Console.WriteLine($"  ✓  [{num,2}] {"dune-duplicate.epub",-46} [byte-identical copy of dune.epub]");
             manifest.Add(new(num, "dune-duplicate.epub", "epub", "Scenario 10 — duplicate"));
             total++;
@@ -378,6 +490,8 @@ var m4bsFlat = new M4bSpec[]
 // redundant Stage 1 SPARQL query and pre-assigning the second file to the same Hub.
 
 var hpSubdir = Path.Combine(outputDir, "hp-series");
+var tempHpSubdir = Path.Combine(tempDir, "hp-series");
+Directory.CreateDirectory(tempHpSubdir);
 var m4bsHpSeries = new M4bSpec[]
 {
     // Scenario 17 — Harry Potter #1. First file in hp-series/ folder.
@@ -408,6 +522,8 @@ var m4bsHpSeries = new M4bSpec[]
 // ── Ingestion hinting — expanse-audio/ subdirectory ──────────────────────────
 
 var expanseSubdir = Path.Combine(outputDir, "expanse-audio");
+var tempExpanseSubdir = Path.Combine(tempDir, "expanse-audio");
+Directory.CreateDirectory(tempExpanseSubdir);
 var m4bsExpanse = new M4bSpec[]
 {
     // Scenario 19 — The Expanse #1. First file in expanse-audio/ folder.
@@ -450,12 +566,14 @@ else
 {
     foreach (var (spec, idx) in m4bsFlat.Select((s, i) => (s, i)))
     {
-        var num     = 11 + idx;
-        var outPath = Path.Combine(outputDir, spec.FileName);
+        var num      = 11 + idx;
+        var outPath  = Path.Combine(tempDir, spec.FileName);
+        var finalPath = Path.Combine(outputDir, spec.FileName);
         try
         {
             byte[]? cover = spec.IncludeCover ? GeneratePng(ffmpegPath, tempDir, spec.CoverHex, 400, 400) : null;
             CreateM4b(ffmpegPath, tempDir, outPath, spec, cover);
+            generatedFiles.Add((outPath, finalPath));
             Console.WriteLine($"  ✓  [{num,2}] {spec.FileName,-46} {(cover is not null ? "[sq cover]" : "[no cover]")}");
             manifest.Add(new(num, spec.FileName, "m4b", $"Scenario {num}"));
             total++;
@@ -473,12 +591,14 @@ else
 
     foreach (var (spec, idx) in m4bsHpSeries.Select((s, i) => (s, i)))
     {
-        var num     = 17 + idx;
-        var outPath = Path.Combine(hpSubdir, spec.FileName);
+        var num      = 17 + idx;
+        var outPath  = Path.Combine(tempHpSubdir, spec.FileName);
+        var finalPath = Path.Combine(hpSubdir, spec.FileName);
         try
         {
             byte[]? cover = spec.IncludeCover ? GeneratePng(ffmpegPath, tempDir, spec.CoverHex, 400, 400) : null;
             CreateM4b(ffmpegPath, tempDir, outPath, spec, cover);
+            generatedFiles.Add((outPath, finalPath));
             Console.WriteLine($"  ✓  [{num,2}] hp-series/{spec.FileName,-38} {(cover is not null ? "[sq cover]" : "[no cover]")}");
             manifest.Add(new(num, $"hp-series/{spec.FileName}", "m4b", $"Scenario {num}"));
             total++;
@@ -496,12 +616,14 @@ else
 
     foreach (var (spec, idx) in m4bsExpanse.Select((s, i) => (s, i)))
     {
-        var num     = 19 + idx;
-        var outPath = Path.Combine(expanseSubdir, spec.FileName);
+        var num      = 19 + idx;
+        var outPath  = Path.Combine(tempExpanseSubdir, spec.FileName);
+        var finalPath = Path.Combine(expanseSubdir, spec.FileName);
         try
         {
             byte[]? cover = spec.IncludeCover ? GeneratePng(ffmpegPath, tempDir, spec.CoverHex, 400, 400) : null;
             CreateM4b(ffmpegPath, tempDir, outPath, spec, cover);
+            generatedFiles.Add((outPath, finalPath));
             Console.WriteLine($"  ✓  [{num,2}] expanse-audio/{spec.FileName,-34} {(cover is not null ? "[sq cover]" : "[no cover]")}");
             manifest.Add(new(num, $"expanse-audio/{spec.FileName}", "m4b", $"Scenario {num}"));
             total++;
@@ -513,6 +635,17 @@ else
         }
     }
 }
+
+// ── Batch copy to output ───────────────────────────────────────────────
+Console.WriteLine();
+Console.WriteLine($"━━━ Copying {generatedFiles.Count} files to watch folder ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+foreach (var (src, dst) in generatedFiles)
+{
+    var dir = Path.GetDirectoryName(dst);
+    if (dir is not null) Directory.CreateDirectory(dir);
+    File.Copy(src, dst, overwrite: true);
+}
+Console.WriteLine($"  ✓  {generatedFiles.Count} files copied to {outputDir}");
 
 // ── Clean up temp ─────────────────────────────────────────────────────────────
 try { Directory.Delete(tempDir, recursive: true); } catch { }
@@ -534,7 +667,7 @@ File.WriteAllText(manifestPath, manifestJson);
 // ── Summary ───────────────────────────────────────────────────────────────────
 Console.WriteLine();
 Console.WriteLine($"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-Console.WriteLine($"  Generated : {total} / 23");
+Console.WriteLine($"  Generated : {total} / 30");
 if (failed > 0) Console.WriteLine($"  Failed    : {failed}");
 Console.WriteLine($"  Manifest  : {manifestPath}");
 Console.WriteLine();
@@ -542,6 +675,20 @@ Console.WriteLine("Next steps:");
 Console.WriteLine("  1. Ensure the Engine is running  (dotnet run --project src/MediaEngine.Api)");
 Console.WriteLine("  2. The Engine watches the output directory automatically.");
 Console.WriteLine("  3. Check results at http://localhost:61495/swagger or the Dashboard.");
+Console.WriteLine();
+Console.WriteLine($"━━━ Test Coverage Summary ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+Console.WriteLine($"  Confidence gates     : 4 scenarios (1, 2, 8, 15)");
+Console.WriteLine($"  Series & position    : 4 scenarios (4, 5, 17, 18)");
+Console.WriteLine($"  Pseudonyms           : 5 scenarios (5, 6, 7, 16, 21)");
+Console.WriteLine($"  Cross-format Hub     : 4 scenarios (1+11, 5+19)");
+Console.WriteLine($"  Narrators            : 2 scenarios (12, 13)");
+Console.WriteLine($"  Ingestion hinting    : 4 scenarios (17-18, 19-20)");
+Console.WriteLine($"  Corrupt & duplicate  : 2 scenarios (9, 10)");
+Console.WriteLine($"  Title disambiguation : 4 scenarios (3, 22, 23, 28)");
+Console.WriteLine($"  Foreign language     : 3 scenarios (24, 25, 26)");
+Console.WriteLine($"  Multi-author         : 2 scenarios (29, 30)");
+Console.WriteLine($"  Same-author diff-work: 1 scenario  (27)");
+Console.WriteLine($"  Total: 30 files covering 11 test categories");
 Console.WriteLine();
 
 return failed > 0 ? 1 : 0;

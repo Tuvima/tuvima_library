@@ -113,4 +113,11 @@ public static class ReviewTrigger
     /// may be incorrect — the user should confirm or replace the artwork.
     /// </summary>
     public const string ArtworkUnconfirmed = "ArtworkUnconfirmed";
+
+    /// <summary>
+    /// The file's embedded metadata (dc:language tag in EPUB, language tag in audio)
+    /// declares a language that does not match the user's configured language in
+    /// CoreConfiguration.Language. The item should be reviewed manually.
+    /// </summary>
+    public const string NonConfiguredLanguage = "NonConfiguredLanguage";
 }

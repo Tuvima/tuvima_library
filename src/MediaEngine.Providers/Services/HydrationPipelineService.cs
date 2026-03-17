@@ -603,6 +603,42 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 ? string.Join(" -> ", waterfallProviders.Select(p => p.Name))
                 : "(none)");
 
+        // ── Wikipedia: runs in parallel with Stage 2 waterfall ───────────────
+        // Wikipedia only needs the QID resolved by Stage 1 — it has no dependency
+        // on cover art or ratings from retail providers. Starting it now lets it
+        // fetch rich descriptions concurrently while the waterfall runs.
+        var wikipediaProvider = _providers.FirstOrDefault(p =>
+            p.Name.Contains("Wikipedia", StringComparison.OrdinalIgnoreCase));
+
+        Task<IReadOnlyList<ProviderClaim>> wikipediaTask;
+        if (wikipediaProvider is not null && result.WikidataQid is not null)
+        {
+            var wikiRequest = new HarvestRequest
+            {
+                EntityId              = request.EntityId,
+                EntityType            = request.EntityType,
+                MediaType             = request.MediaType,
+                Hints                 = request.Hints,
+                PreResolvedQid        = result.WikidataQid,
+                SuppressActivityEntry = request.SuppressActivityEntry,
+                IngestionRunId        = request.IngestionRunId,
+                FolderHintBridgeIds   = request.FolderHintBridgeIds,
+                HintedHubId           = request.HintedHubId,
+                Pass                  = request.Pass,
+            };
+            _logger.LogDebug(
+                "Wikipedia fetch started in parallel with Stage 2 for entity {Id} (QID: {Qid})",
+                request.EntityId, result.WikidataQid);
+            wikipediaTask = Task.Run(
+                () => FetchFromProviderAsync(
+                    wikipediaProvider, wikiRequest, endpointMap, lang, country, ct, effectivePass),
+                ct);
+        }
+        else
+        {
+            wikipediaTask = Task.FromResult<IReadOnlyList<ProviderClaim>>([]);
+        }
+
         foreach (var provider in waterfallProviders)
         {
             var claims = await FetchFromProviderAsync(
@@ -650,6 +686,38 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                     "Pipeline Stage 2 waterfall: provider '{Provider}' returned no results, continuing",
                     provider.Name);
             }
+        }
+
+        // ── Merge Wikipedia results (parallel task started before waterfall) ─
+        try
+        {
+            var wikipediaClaims = await wikipediaTask.ConfigureAwait(false);
+            if (wikipediaClaims.Count > 0 && wikipediaProvider is not null)
+            {
+                await ScoringHelper.PersistClaimsAndScoreAsync(
+                    request.EntityId, wikipediaClaims, wikipediaProvider.ProviderId,
+                    _claimRepo, _canonicalRepo, _scoringEngine, _configLoader,
+                    _providers, ct, _arrayRepo, _logger).ConfigureAwait(false);
+
+                stage2Claims += wikipediaClaims.Count;
+
+                await PublishHarvestEvent(request.EntityId, wikipediaProvider.Name, wikipediaClaims, ct)
+                    .ConfigureAwait(false);
+
+                _logger.LogInformation(
+                    "Wikipedia returned {Claims} claims for entity {Id}",
+                    wikipediaClaims.Count, request.EntityId);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Wikipedia parallel fetch failed for entity {Id}; continuing without Wikipedia claims",
+                request.EntityId);
         }
 
         result.Stage2ClaimsAdded = stage2Claims;

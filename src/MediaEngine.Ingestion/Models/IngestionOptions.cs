@@ -98,6 +98,17 @@ public sealed class IngestionOptions
     /// </summary>
     public int PollIntervalSeconds { get; set; } = 30;
 
+    // ── Language configuration ────────────────────────────────────────
+
+    /// <summary>
+    /// The configured library language (ISO 639-1 code, e.g. "en", "fr", "de").
+    /// Populated from <c>CoreConfiguration.Language</c> by the PostConfigure hook.
+    /// Files whose embedded language tag does not match this value are routed
+    /// to the review queue with trigger <c>ReviewTrigger.NonConfiguredLanguage</c>.
+    /// Default: "en".
+    /// </summary>
+    public string ConfiguredLanguage { get; set; } = "en";
+
     // ── Media Type Disambiguation ────────────────────────────────────
 
     /// <summary>

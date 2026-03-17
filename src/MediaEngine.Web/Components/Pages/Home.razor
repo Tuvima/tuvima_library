@@ -164,8 +164,7 @@ else
     private string?            _error;
     private string?            _seedMessage;
     private List<HubViewModel> _hubs         = [];
-    private List<HubViewModel> _recentHubs   = [];
-    private List<HubViewModel> _carouselHubs = [];
+    private List<(WorkViewModel Work, HubViewModel Hub)> _carouselWorks = [];
 
     // ── Home swimlane data (individual works, not hubs) ───────────────────────
     private List<PosterItemViewModel> _recentWorks    = [];
@@ -180,7 +179,7 @@ else
     private CancellationTokenSource _carouselCts   = new();
 
     private bool _useJourneyCarousel => _journeyItems.Count > 0;
-    private int  _carouselCount      => _useJourneyCarousel ? _journeyItems.Count : _carouselHubs.Count;
+    private int  _carouselCount      => _useJourneyCarousel ? _journeyItems.Count : _carouselWorks.Count;
 
     private int _cardWidth => DeviceContext.Settings.Pages.Home.SwimlaneCardWidth;
 
@@ -209,9 +208,10 @@ else
                 var phrase = ResolveHeroPhrase(data);
                 return data with { Subtitle = phrase };
             }
-            if (_carouselHubs.Count > 0 && _carouselIndex < _carouselHubs.Count)
+            if (_carouselWorks.Count > 0 && _carouselIndex < _carouselWorks.Count)
             {
-                var data = HeroData.FromHub(_carouselHubs[_carouselIndex]);
+                var (work, hub) = _carouselWorks[_carouselIndex];
+                var data = HeroData.FromWork(work, hub);
                 var phrase = ResolveHeroPhrase(data);
                 return data with { Subtitle = phrase };
             }
@@ -289,9 +289,12 @@ else
     {
         var all = _hubs;
 
-        // Carousel fallback pool — recently added hubs shown when no journey items.
-        _recentHubs   = all.OrderByDescending(h => h.CreatedAt).ToList();
-        _carouselHubs = _recentHubs.Take(5).ToList();
+        // Carousel fallback pool — recently added works shown when no journey items.
+        _carouselWorks = all
+            .OrderByDescending(h => h.CreatedAt)
+            .SelectMany(h => h.Works.Select(w => (Work: w, Hub: h)))
+            .Take(5)
+            .ToList();
 
         // Recently Added — individual works flattened from recently added hubs.
         _recentWorks = all
@@ -336,8 +339,8 @@ else
     {
         get
         {
-            if (!_useJourneyCarousel && _carouselHubs.Count > 0)
-                return _carouselHubs[Math.Min(_carouselIndex, _carouselHubs.Count - 1)].DominantHexColor;
+            if (!_useJourneyCarousel && _carouselWorks.Count > 0)
+                return _carouselWorks[Math.Min(_carouselIndex, _carouselWorks.Count - 1)].Hub.DominantHexColor;
 
             // Journey mode: look up the hub by ID.
             if (_journeyItems.Count > 0 && _carouselIndex < _journeyItems.Count)
@@ -398,9 +401,10 @@ else
         {
             HandleJourneyHubNavigate(_journeyItems[_carouselIndex]);
         }
-        else if (_carouselHubs.Count > 0 && _carouselIndex < _carouselHubs.Count)
+        else if (_carouselWorks.Count > 0 && _carouselIndex < _carouselWorks.Count)
         {
-            HandleHubSelected(_carouselHubs[_carouselIndex]);
+            var (work, _) = _carouselWorks[_carouselIndex];
+            Nav.NavigateTo($"/book/{work.Id}");
         }
     }
 

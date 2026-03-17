@@ -363,6 +363,12 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         return ok;
     }
 
+    /// <summary>Permanently removes a work and all its files from the library.</summary>
+    public async Task<bool> DeleteRegistryItemAsync(Guid entityId, CancellationToken ct = default)
+    {
+        return await _api.DeleteRegistryItemAsync(entityId, ct);
+    }
+
     /// <summary>Dismisses a review item.</summary>
     public async Task<bool> DismissReviewAsync(Guid id, CancellationToken ct = default)
     {
