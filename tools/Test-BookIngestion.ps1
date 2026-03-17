@@ -1,27 +1,30 @@
 <#
 .SYNOPSIS
-    Book Ingestion Test - drops synthetic EPUBs into the Tuvima watch folder
+    Media Ingestion Test - drops synthetic EPUBs and M4Bs into the Tuvima watch folder
     and produces a before/after ingestion report.
 
 .DESCRIPTION
-    Generates synthetic EPUB files from a 100-title catalog (varying metadata
+    Generates synthetic EPUB and M4B files from a 110-title catalog (varying metadata
     quality) and drops a stratified selection into the watch folder. Monitors the
     engine API for completion, then queries results and writes a human-readable
-    report.
+    report. Tests both ebook and audiobook ingestion, including paired entries
+    where the same book exists as both EPUB and M4B (validating the
+    Books/{Title} - {QID}/Epub/ and Books/{Title} - {QID}/Audiobook/ layout).
 
     Scenarios:
       high      - Full metadata: title, author, year, ISBN, series, genre (60 books)
+      audiobook - M4B format with iTunes metadata, narrator, ASIN (10 audiobooks)
       medium    - Partial: title, author, year only (20 books)
       low       - No embedded metadata; engine derives title from filename (10 books)
       corrupt   - Invalid file bytes; expect MediaFailed (5 books)
       duplicate - Identical bytes to an earlier book; expect DuplicateSkipped (5 books)
 
     Stratified sampling (default proportions):
-      60% high, 20% medium, 10% low, 5% corrupt, 5% duplicate
+      45% high, 15% audiobook, 20% medium, 10% low, 5% corrupt, 5% duplicate
       Foreign-language books capped at ~7% (max 2 per run).
 
 .PARAMETER Count
-    Number of books to select from the catalog using stratified sampling (default: 30, max: 100).
+    Number of books to select from the catalog using stratified sampling (default: 30, max: 110).
 
 .PARAMETER Seed
     Random seed for reproducible runs. Omit for a fresh random selection.
@@ -70,7 +73,7 @@
 #>
 [CmdletBinding()]
 param(
-    [ValidateRange(1, 100)]
+    [ValidateRange(1, 110)]
     [int]$Count = 30,
 
     [int]$Seed = -1,
@@ -173,111 +176,124 @@ function Invoke-Api {
 # ---------------------------------------------------------------------------
 $Catalog = @(
     # HIGH CONFIDENCE - full metadata (60 books)
-    [pscustomobject]@{Id=1;  Title="Dune";                                 Author="Frank Herbert";       Year="1965"; Series="Dune Chronicles";         Pos="1"; Isbn="9780441013593"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=2;  Title="Foundation";                           Author="Isaac Asimov";        Year="1951"; Series="Foundation";              Pos="1"; Isbn="9780553293357"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=3;  Title="Leviathan Wakes";                      Author="James S.A. Corey";    Year="2011"; Series="The Expanse";             Pos="1"; Isbn="9780316129084"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=4;  Title="The Name of the Wind";                 Author="Patrick Rothfuss";    Year="2007"; Series="Kingkiller Chronicle";    Pos="1"; Isbn="9780756404079"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=5;  Title="A Game of Thrones";                    Author="George R.R. Martin";  Year="1996"; Series="A Song of Ice and Fire"; Pos="1"; Isbn="9780553381689"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=6;  Title="The Way of Kings";                     Author="Brandon Sanderson";   Year="2010"; Series="The Stormlight Archive"; Pos="1"; Isbn="9780765326355"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=7;  Title="Mistborn: The Final Empire";           Author="Brandon Sanderson";   Year="2006"; Series="Mistborn";               Pos="1"; Isbn="9780765311788"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=8;  Title="The Hitchhiker's Guide to the Galaxy"; Author="Douglas Adams";       Year="1979"; Series="Hitchhiker's Guide";     Pos="1"; Isbn="9780345391803"; Genre="Comedy";          S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=9;  Title="Neuromancer";                          Author="William Gibson";      Year="1984"; Series="";                        Pos="";  Isbn="9780441569595"; Genre="Cyberpunk";       S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=10; Title="Ender's Game";                         Author="Orson Scott Card";    Year="1985"; Series="Ender's Game";            Pos="1"; Isbn="9780312853235"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=11; Title="The Lord of the Rings";                Author="J.R.R. Tolkien";      Year="1954"; Series="Middle-earth";            Pos="1"; Isbn="9780261102354"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=12; Title="1984";                                 Author="George Orwell";       Year="1949"; Series="";                        Pos="";  Isbn="9780451524935"; Genre="Dystopian";       S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=13; Title="Brave New World";                      Author="Aldous Huxley";       Year="1932"; Series="";                        Pos="";  Isbn="9780060850524"; Genre="Dystopian";       S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=14; Title="The Martian";                          Author="Andy Weir";           Year="2011"; Series="";                        Pos="";  Isbn="9780553418026"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=15; Title="Project Hail Mary";                    Author="Andy Weir";           Year="2021"; Series="";                        Pos="";  Isbn="9780593135204"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=16; Title="Red Rising";                           Author="Pierce Brown";        Year="2014"; Series="Red Rising Saga";         Pos="1"; Isbn="9780345539786"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=17; Title="The Blade Itself";                     Author="Joe Abercrombie";     Year="2006"; Series="The First Law";           Pos="1"; Isbn="9780575079793"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=18; Title="Words of Radiance";                    Author="Brandon Sanderson";   Year="2014"; Series="The Stormlight Archive"; Pos="2"; Isbn="9780765326362"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=19; Title="Caliban's War";                        Author="James S.A. Corey";    Year="2012"; Series="The Expanse";             Pos="2"; Isbn="9780316202107"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=20; Title="Dune Messiah";                         Author="Frank Herbert";       Year="1969"; Series="Dune Chronicles";         Pos="2"; Isbn="9780441172696"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=21; Title="Foundation and Empire";                Author="Isaac Asimov";        Year="1952"; Series="Foundation";              Pos="2"; Isbn="9780553293371"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=22; Title="The Well of Ascension";                Author="Brandon Sanderson";   Year="2007"; Series="Mistborn";               Pos="2"; Isbn="9780765316882"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=23; Title="The Eye of the World";                 Author="Robert Jordan";       Year="1990"; Series="The Wheel of Time";      Pos="1"; Isbn="9780765334343"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=24; Title="The Great Hunt";                       Author="Robert Jordan";       Year="1990"; Series="The Wheel of Time";      Pos="2"; Isbn="9780765334350"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=25; Title="A Wizard of Earthsea";                 Author="Ursula K. Le Guin";   Year="1968"; Series="Earthsea Cycle";         Pos="1"; Isbn="9780553383041"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=26; Title="The Left Hand of Darkness";            Author="Ursula K. Le Guin";   Year="1969"; Series="Hainish Cycle";          Pos="";  Isbn="9780441478125"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=27; Title="Flowers for Algernon";                 Author="Daniel Keyes";        Year="1966"; Series="";                        Pos="";  Isbn="9780156030304"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=28; Title="Slaughterhouse-Five";                  Author="Kurt Vonnegut";       Year="1969"; Series="";                        Pos="";  Isbn="9780440180296"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=29; Title="The Hobbit";                           Author="J.R.R. Tolkien";      Year="1937"; Series="Middle-earth";            Pos="";  Isbn="9780547928227"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=30; Title="The Color of Magic";                   Author="Terry Pratchett";     Year="1983"; Series="Discworld";              Pos="1"; Isbn="9780062225672"; Genre="Fantasy Comedy";  S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=31; Title="Good Omens";                           Author="Terry Pratchett";     Year="1990"; Series="";                        Pos="";  Isbn="9780060853983"; Genre="Fantasy Comedy";  S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=32; Title="American Gods";                        Author="Neil Gaiman";         Year="2001"; Series="";                        Pos="";  Isbn="9780380973651"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=33; Title="The Lies of Locke Lamora";             Author="Scott Lynch";         Year="2006"; Series="Gentleman Bastard";      Pos="1"; Isbn="9780553588941"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=34; Title="Assassin's Apprentice";                Author="Robin Hobb";          Year="1995"; Series="Farseer Trilogy";        Pos="1"; Isbn="9780553573398"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=35; Title="Ancillary Justice";                    Author="Ann Leckie";          Year="2013"; Series="Imperial Radch";         Pos="1"; Isbn="9780316246620"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=36; Title="The Dispossessed";                     Author="Ursula K. Le Guin";   Year="1974"; Series="Hainish Cycle";          Pos="";  Isbn="9780061054884"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=37; Title="Hyperion";                             Author="Dan Simmons";         Year="1989"; Series="Hyperion Cantos";        Pos="1"; Isbn="9780553283686"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=38; Title="The Fall of Hyperion";                 Author="Dan Simmons";         Year="1990"; Series="Hyperion Cantos";        Pos="2"; Isbn="9780553288208"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=39; Title="Snow Crash";                           Author="Neal Stephenson";     Year="1992"; Series="";                        Pos="";  Isbn="9780553380958"; Genre="Cyberpunk";       S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=40; Title="Cryptonomicon";                        Author="Neal Stephenson";     Year="1999"; Series="";                        Pos="";  Isbn="9780060512804"; Genre="Thriller";        S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=41; Title="Old Man's War";                        Author="John Scalzi";         Year="2005"; Series="Old Man's War";          Pos="1"; Isbn="9780765315034"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=42; Title="The Android's Dream";                  Author="John Scalzi";         Year="2006"; Series="";                        Pos="";  Isbn="9780765348494"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=43; Title="Piranesi";                             Author="Susanna Clarke";      Year="2020"; Series="";                        Pos="";  Isbn="9781635575637"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=44; Title="The Fifth Season";                     Author="N.K. Jemisin";        Year="2015"; Series="The Broken Earth";       Pos="1"; Isbn="9780316229296"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=45; Title="All Systems Red";                      Author="Martha Wells";        Year="2017"; Series="Murderbot Diaries";      Pos="1"; Isbn="9780765397539"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=46; Title="A Memory Called Empire";               Author="Arkady Martine";      Year="2019"; Series="Teixcalaan";             Pos="1"; Isbn="9781250186430"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=47; Title="The Long Way to a Small Angry Planet"; Author="Becky Chambers";      Year="2014"; Series="Wayfarers";             Pos="1"; Isbn="9781473619814"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=48; Title="Klara and the Sun";                    Author="Kazuo Ishiguro";      Year="2021"; Series="";                        Pos="";  Isbn="9780593311295"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=49; Title="The Buried Giant";                     Author="Kazuo Ishiguro";      Year="2015"; Series="";                        Pos="";  Isbn="9780307455796"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=50; Title="Jonathan Strange and Mr Norrell";      Author="Susanna Clarke";      Year="2004"; Series="";                        Pos="";  Isbn="9781582344164"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=51; Title="Children of Time";                     Author="Adrian Tchaikovsky";  Year="2015"; Series="Children of Time";       Pos="1"; Isbn="9781447273288"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=52; Title="To Be Taught If Fortunate";            Author="Becky Chambers";      Year="2020"; Series="";                        Pos="";  Isbn="9781250236234"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=53; Title="The Ninth Rain";                       Author="Jen Williams";        Year="2017"; Series="The Winnowing Flame";    Pos="1"; Isbn="9781472235299"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=54; Title="Abaddon's Gate";                       Author="James S.A. Corey";    Year="2013"; Series="The Expanse";             Pos="3"; Isbn="9780316129060"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=55; Title="Second Foundation";                    Author="Isaac Asimov";        Year="1953"; Series="Foundation";              Pos="3"; Isbn="9780553293388"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=56; Title="Children of Dune";                     Author="Frank Herbert";       Year="1976"; Series="Dune Chronicles";         Pos="3"; Isbn="9780441104024"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=57; Title="The Hero of Ages";                     Author="Brandon Sanderson";   Year="2008"; Series="Mistborn";               Pos="3"; Isbn="9780765356147"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=58; Title="Oathbringer";                          Author="Brandon Sanderson";   Year="2017"; Series="The Stormlight Archive"; Pos="3"; Isbn="9780765326379"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=59; Title="The Dragon Reborn";                    Author="Robert Jordan";       Year="1991"; Series="The Wheel of Time";      Pos="3"; Isbn="9780765334367"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=60; Title="Before They Are Hanged";               Author="Joe Abercrombie";     Year="2007"; Series="The First Law";           Pos="2"; Isbn="9781591025788"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=1;  Title="Dune";                                 Author="Frank Herbert";       Year="1965"; Series="Dune Chronicles";         Pos="1"; Isbn="9780441013593"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=2;  Title="Foundation";                           Author="Isaac Asimov";        Year="1951"; Series="Foundation";              Pos="1"; Isbn="9780553293357"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=3;  Title="Leviathan Wakes";                      Author="James S.A. Corey";    Year="2011"; Series="The Expanse";             Pos="1"; Isbn="9780316129084"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=4;  Title="The Name of the Wind";                 Author="Patrick Rothfuss";    Year="2007"; Series="Kingkiller Chronicle";    Pos="1"; Isbn="9780756404079"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=5;  Title="A Game of Thrones";                    Author="George R.R. Martin";  Year="1996"; Series="A Song of Ice and Fire"; Pos="1"; Isbn="9780553381689"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=6;  Title="The Way of Kings";                     Author="Brandon Sanderson";   Year="2010"; Series="The Stormlight Archive"; Pos="1"; Isbn="9780765326355"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=7;  Title="Mistborn: The Final Empire";           Author="Brandon Sanderson";   Year="2006"; Series="Mistborn";               Pos="1"; Isbn="9780765311788"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=8;  Title="The Hitchhiker's Guide to the Galaxy"; Author="Douglas Adams";       Year="1979"; Series="Hitchhiker's Guide";     Pos="1"; Isbn="9780345391803"; Genre="Comedy";          S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=9;  Title="Neuromancer";                          Author="William Gibson";      Year="1984"; Series="";                        Pos="";  Isbn="9780441569595"; Genre="Cyberpunk";       S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=10; Title="Ender's Game";                         Author="Orson Scott Card";    Year="1985"; Series="Ender's Game";            Pos="1"; Isbn="9780312853235"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=11; Title="The Lord of the Rings";                Author="J.R.R. Tolkien";      Year="1954"; Series="Middle-earth";            Pos="1"; Isbn="9780261102354"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=12; Title="1984";                                 Author="George Orwell";       Year="1949"; Series="";                        Pos="";  Isbn="9780451524935"; Genre="Dystopian";       S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=13; Title="Brave New World";                      Author="Aldous Huxley";       Year="1932"; Series="";                        Pos="";  Isbn="9780060850524"; Genre="Dystopian";       S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=14; Title="The Martian";                          Author="Andy Weir";           Year="2011"; Series="";                        Pos="";  Isbn="9780553418026"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=15; Title="Project Hail Mary";                    Author="Andy Weir";           Year="2021"; Series="";                        Pos="";  Isbn="9780593135204"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=16; Title="Red Rising";                           Author="Pierce Brown";        Year="2014"; Series="Red Rising Saga";         Pos="1"; Isbn="9780345539786"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=17; Title="The Blade Itself";                     Author="Joe Abercrombie";     Year="2006"; Series="The First Law";           Pos="1"; Isbn="9780575079793"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=18; Title="Words of Radiance";                    Author="Brandon Sanderson";   Year="2014"; Series="The Stormlight Archive"; Pos="2"; Isbn="9780765326362"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=19; Title="Caliban's War";                        Author="James S.A. Corey";    Year="2012"; Series="The Expanse";             Pos="2"; Isbn="9780316202107"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=20; Title="Dune Messiah";                         Author="Frank Herbert";       Year="1969"; Series="Dune Chronicles";         Pos="2"; Isbn="9780441172696"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=21; Title="Foundation and Empire";                Author="Isaac Asimov";        Year="1952"; Series="Foundation";              Pos="2"; Isbn="9780553293371"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=22; Title="The Well of Ascension";                Author="Brandon Sanderson";   Year="2007"; Series="Mistborn";               Pos="2"; Isbn="9780765316882"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=23; Title="The Eye of the World";                 Author="Robert Jordan";       Year="1990"; Series="The Wheel of Time";      Pos="1"; Isbn="9780765334343"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=24; Title="The Great Hunt";                       Author="Robert Jordan";       Year="1990"; Series="The Wheel of Time";      Pos="2"; Isbn="9780765334350"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=25; Title="A Wizard of Earthsea";                 Author="Ursula K. Le Guin";   Year="1968"; Series="Earthsea Cycle";         Pos="1"; Isbn="9780553383041"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=26; Title="The Left Hand of Darkness";            Author="Ursula K. Le Guin";   Year="1969"; Series="Hainish Cycle";          Pos="";  Isbn="9780441478125"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=27; Title="Flowers for Algernon";                 Author="Daniel Keyes";        Year="1966"; Series="";                        Pos="";  Isbn="9780156030304"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=28; Title="Slaughterhouse-Five";                  Author="Kurt Vonnegut";       Year="1969"; Series="";                        Pos="";  Isbn="9780440180296"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=29; Title="The Hobbit";                           Author="J.R.R. Tolkien";      Year="1937"; Series="Middle-earth";            Pos="";  Isbn="9780547928227"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=30; Title="The Color of Magic";                   Author="Terry Pratchett";     Year="1983"; Series="Discworld";              Pos="1"; Isbn="9780062225672"; Genre="Fantasy Comedy";  S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=31; Title="Good Omens";                           Author="Terry Pratchett";     Year="1990"; Series="";                        Pos="";  Isbn="9780060853983"; Genre="Fantasy Comedy";  S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=32; Title="American Gods";                        Author="Neil Gaiman";         Year="2001"; Series="";                        Pos="";  Isbn="9780380973651"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=33; Title="The Lies of Locke Lamora";             Author="Scott Lynch";         Year="2006"; Series="Gentleman Bastard";      Pos="1"; Isbn="9780553588941"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=34; Title="Assassin's Apprentice";                Author="Robin Hobb";          Year="1995"; Series="Farseer Trilogy";        Pos="1"; Isbn="9780553573398"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=35; Title="Ancillary Justice";                    Author="Ann Leckie";          Year="2013"; Series="Imperial Radch";         Pos="1"; Isbn="9780316246620"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=36; Title="The Dispossessed";                     Author="Ursula K. Le Guin";   Year="1974"; Series="Hainish Cycle";          Pos="";  Isbn="9780061054884"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=37; Title="Hyperion";                             Author="Dan Simmons";         Year="1989"; Series="Hyperion Cantos";        Pos="1"; Isbn="9780553283686"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=38; Title="The Fall of Hyperion";                 Author="Dan Simmons";         Year="1990"; Series="Hyperion Cantos";        Pos="2"; Isbn="9780553288208"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=39; Title="Snow Crash";                           Author="Neal Stephenson";     Year="1992"; Series="";                        Pos="";  Isbn="9780553380958"; Genre="Cyberpunk";       S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=40; Title="Cryptonomicon";                        Author="Neal Stephenson";     Year="1999"; Series="";                        Pos="";  Isbn="9780060512804"; Genre="Thriller";        S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=41; Title="Old Man's War";                        Author="John Scalzi";         Year="2005"; Series="Old Man's War";          Pos="1"; Isbn="9780765315034"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=42; Title="The Android's Dream";                  Author="John Scalzi";         Year="2006"; Series="";                        Pos="";  Isbn="9780765348494"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=43; Title="Piranesi";                             Author="Susanna Clarke";      Year="2020"; Series="";                        Pos="";  Isbn="9781635575637"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=44; Title="The Fifth Season";                     Author="N.K. Jemisin";        Year="2015"; Series="The Broken Earth";       Pos="1"; Isbn="9780316229296"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=45; Title="All Systems Red";                      Author="Martha Wells";        Year="2017"; Series="Murderbot Diaries";      Pos="1"; Isbn="9780765397539"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=46; Title="A Memory Called Empire";               Author="Arkady Martine";      Year="2019"; Series="Teixcalaan";             Pos="1"; Isbn="9781250186430"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=47; Title="The Long Way to a Small Angry Planet"; Author="Becky Chambers";      Year="2014"; Series="Wayfarers";             Pos="1"; Isbn="9781473619814"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=48; Title="Klara and the Sun";                    Author="Kazuo Ishiguro";      Year="2021"; Series="";                        Pos="";  Isbn="9780593311295"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=49; Title="The Buried Giant";                     Author="Kazuo Ishiguro";      Year="2015"; Series="";                        Pos="";  Isbn="9780307455796"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=50; Title="Jonathan Strange and Mr Norrell";      Author="Susanna Clarke";      Year="2004"; Series="";                        Pos="";  Isbn="9781582344164"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=51; Title="Children of Time";                     Author="Adrian Tchaikovsky";  Year="2015"; Series="Children of Time";       Pos="1"; Isbn="9781447273288"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=52; Title="To Be Taught If Fortunate";            Author="Becky Chambers";      Year="2020"; Series="";                        Pos="";  Isbn="9781250236234"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=53; Title="The Ninth Rain";                       Author="Jen Williams";        Year="2017"; Series="The Winnowing Flame";    Pos="1"; Isbn="9781472235299"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=54; Title="Abaddon's Gate";                       Author="James S.A. Corey";    Year="2013"; Series="The Expanse";             Pos="3"; Isbn="9780316129060"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=55; Title="Second Foundation";                    Author="Isaac Asimov";        Year="1953"; Series="Foundation";              Pos="3"; Isbn="9780553293388"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=56; Title="Children of Dune";                     Author="Frank Herbert";       Year="1976"; Series="Dune Chronicles";         Pos="3"; Isbn="9780441104024"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=57; Title="The Hero of Ages";                     Author="Brandon Sanderson";   Year="2008"; Series="Mistborn";               Pos="3"; Isbn="9780765356147"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=58; Title="Oathbringer";                          Author="Brandon Sanderson";   Year="2017"; Series="The Stormlight Archive"; Pos="3"; Isbn="9780765326379"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=59; Title="The Dragon Reborn";                    Author="Robert Jordan";       Year="1991"; Series="The Wheel of Time";      Pos="3"; Isbn="9780765334367"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=60; Title="Before They Are Hanged";               Author="Joe Abercrombie";     Year="2007"; Series="The First Law";           Pos="2"; Isbn="9781591025788"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
     # MEDIUM CONFIDENCE - title + author + year (20 books)
     # IDs 61-63, 72-80: foreign-language origin (ForeignLanguage=$true)
-    [pscustomobject]@{Id=61; Title="The Alchemist";               Author="Paulo Coelho";        Year="1988"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="pt"; ForeignLanguage=$true}
-    [pscustomobject]@{Id=62; Title="Siddhartha";                  Author="Hermann Hesse";       Year="1922"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="de"; ForeignLanguage=$true}
-    [pscustomobject]@{Id=63; Title="The Trial";                   Author="Franz Kafka";         Year="1925"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="de"; ForeignLanguage=$true}
-    [pscustomobject]@{Id=64; Title="Invisible Man";               Author="Ralph Ellison";       Year="1952"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=65; Title="The Bell Jar";                Author="Sylvia Plath";        Year="1963"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=66; Title="A Farewell to Arms";          Author="Ernest Hemingway";    Year="1929"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=67; Title="For Whom the Bell Tolls";     Author="Ernest Hemingway";    Year="1940"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=68; Title="The Old Man and the Sea";     Author="Ernest Hemingway";    Year="1952"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=69; Title="Of Mice and Men";             Author="John Steinbeck";      Year="1937"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=70; Title="East of Eden";                Author="John Steinbeck";      Year="1952"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=71; Title="Moby Dick";                   Author="Herman Melville";     Year="1851"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=72; Title="Crime and Punishment";        Author="Fyodor Dostoevsky";   Year="1866"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="ru"; ForeignLanguage=$true}
-    [pscustomobject]@{Id=73; Title="The Brothers Karamazov";      Author="Fyodor Dostoevsky";   Year="1879"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="ru"; ForeignLanguage=$true}
-    [pscustomobject]@{Id=74; Title="War and Peace";               Author="Leo Tolstoy";         Year="1869"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="ru"; ForeignLanguage=$true}
-    [pscustomobject]@{Id=75; Title="Anna Karenina";               Author="Leo Tolstoy";         Year="1877"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="ru"; ForeignLanguage=$true}
-    [pscustomobject]@{Id=76; Title="Don Quixote";                 Author="Miguel de Cervantes"; Year="1605"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="es"; ForeignLanguage=$true}
-    [pscustomobject]@{Id=77; Title="The Divine Comedy";           Author="Dante Alighieri";     Year="1320"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="it"; ForeignLanguage=$true}
-    [pscustomobject]@{Id=78; Title="Les Miserables";              Author="Victor Hugo";         Year="1862"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="fr"; ForeignLanguage=$true}
-    [pscustomobject]@{Id=79; Title="The Count of Monte Cristo";   Author="Alexandre Dumas";     Year="1844"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="fr"; ForeignLanguage=$true}
-    [pscustomobject]@{Id=80; Title="Around the World in 80 Days"; Author="Jules Verne";         Year="1872"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="fr"; ForeignLanguage=$true}
+    [pscustomobject]@{Id=61; Title="The Alchemist";               Author="Paulo Coelho";        Year="1988"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="pt"; ForeignLanguage=$true; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=62; Title="Siddhartha";                  Author="Hermann Hesse";       Year="1922"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="de"; ForeignLanguage=$true; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=63; Title="The Trial";                   Author="Franz Kafka";         Year="1925"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="de"; ForeignLanguage=$true; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=64; Title="Invisible Man";               Author="Ralph Ellison";       Year="1952"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=65; Title="The Bell Jar";                Author="Sylvia Plath";        Year="1963"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=66; Title="A Farewell to Arms";          Author="Ernest Hemingway";    Year="1929"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=67; Title="For Whom the Bell Tolls";     Author="Ernest Hemingway";    Year="1940"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=68; Title="The Old Man and the Sea";     Author="Ernest Hemingway";    Year="1952"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=69; Title="Of Mice and Men";             Author="John Steinbeck";      Year="1937"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=70; Title="East of Eden";                Author="John Steinbeck";      Year="1952"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=71; Title="Moby Dick";                   Author="Herman Melville";     Year="1851"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=72; Title="Crime and Punishment";        Author="Fyodor Dostoevsky";   Year="1866"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="ru"; ForeignLanguage=$true; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=73; Title="The Brothers Karamazov";      Author="Fyodor Dostoevsky";   Year="1879"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="ru"; ForeignLanguage=$true; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=74; Title="War and Peace";               Author="Leo Tolstoy";         Year="1869"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="ru"; ForeignLanguage=$true; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=75; Title="Anna Karenina";               Author="Leo Tolstoy";         Year="1877"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="ru"; ForeignLanguage=$true; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=76; Title="Don Quixote";                 Author="Miguel de Cervantes"; Year="1605"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="es"; ForeignLanguage=$true; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=77; Title="The Divine Comedy";           Author="Dante Alighieri";     Year="1320"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="it"; ForeignLanguage=$true; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=78; Title="Les Miserables";              Author="Victor Hugo";         Year="1862"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="fr"; ForeignLanguage=$true; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=79; Title="The Count of Monte Cristo";   Author="Alexandre Dumas";     Year="1844"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="fr"; ForeignLanguage=$true; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=80; Title="Around the World in 80 Days"; Author="Jules Verne";         Year="1872"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="fr"; ForeignLanguage=$true; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
     # LOW CONFIDENCE - no embedded metadata (10 books)
-    [pscustomobject]@{Id=81; Title="unlabeled_scan_001";          Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="low"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=82; Title="ebook_download_final";        Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="low"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=83; Title="converted_doc_v2";            Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="low"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=84; Title="reading_list_item_3";         Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="low"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=85; Title="backup_book_copy";            Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="low"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=86; Title="mystery_epub_untitled";       Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="low"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=87; Title="document_export_003";         Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="low"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=88; Title="temp_file_do_not_delete";     Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="low"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=89; Title="new_book_no_title";           Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="low"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=90; Title="archive_entry_2024";          Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="low"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=81; Title="unlabeled_scan_001";          Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="low"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=82; Title="ebook_download_final";        Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="low"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=83; Title="converted_doc_v2";            Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="low"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=84; Title="reading_list_item_3";         Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="low"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=85; Title="backup_book_copy";            Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="low"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=86; Title="mystery_epub_untitled";       Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="low"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=87; Title="document_export_003";         Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="low"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=88; Title="temp_file_do_not_delete";     Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="low"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=89; Title="new_book_no_title";           Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="low"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=90; Title="archive_entry_2024";          Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="low"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
     # CORRUPT - invalid file bytes (5 books)
-    [pscustomobject]@{Id=91; Title="corrupted_epub_A"; Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="corrupt"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=92; Title="corrupted_epub_B"; Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="corrupt"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=93; Title="truncated_file";   Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="corrupt"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=94; Title="wrong_magic_bytes";Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="corrupt"; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=95; Title="empty_epub";       Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="corrupt"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=91; Title="corrupted_epub_A"; Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="corrupt"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=92; Title="corrupted_epub_B"; Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="corrupt"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=93; Title="truncated_file";   Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="corrupt"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=94; Title="wrong_magic_bytes";Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="corrupt"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=95; Title="empty_epub";       Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="corrupt"; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
     # DUPLICATES - identical bytes to books 1-5 (5 books)
-    [pscustomobject]@{Id=96;  Title="Dune";            Author="Frank Herbert";    Year="1965"; Series="Dune Chronicles"; Pos="1"; Isbn="9780441013593"; Genre="Science Fiction"; S="duplicate"; DuplicateOf=1;  Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=97;  Title="Foundation";      Author="Isaac Asimov";     Year="1951"; Series="Foundation";      Pos="1"; Isbn="9780553293357"; Genre="Science Fiction"; S="duplicate"; DuplicateOf=2;  Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=98;  Title="Leviathan Wakes"; Author="James S.A. Corey"; Year="2011"; Series="The Expanse";     Pos="1"; Isbn="9780316129084"; Genre="Science Fiction"; S="duplicate"; DuplicateOf=3;  Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=99;  Title="The Martian";     Author="Andy Weir";        Year="2011"; Series="";               Pos="";  Isbn="9780553418026"; Genre="Science Fiction"; S="duplicate"; DuplicateOf=14; Language="en"; ForeignLanguage=$false}
-    [pscustomobject]@{Id=100; Title="1984";             Author="George Orwell";    Year="1949"; Series="";               Pos="";  Isbn="9780451524935"; Genre="Dystopian";       S="duplicate"; DuplicateOf=12; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=96;  Title="Dune";            Author="Frank Herbert";    Year="1965"; Series="Dune Chronicles"; Pos="1"; Isbn="9780441013593"; Genre="Science Fiction"; S="duplicate"; DuplicateOf=1;  Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=97;  Title="Foundation";      Author="Isaac Asimov";     Year="1951"; Series="Foundation";      Pos="1"; Isbn="9780553293357"; Genre="Science Fiction"; S="duplicate"; DuplicateOf=2;  Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=98;  Title="Leviathan Wakes"; Author="James S.A. Corey"; Year="2011"; Series="The Expanse";     Pos="1"; Isbn="9780316129084"; Genre="Science Fiction"; S="duplicate"; DuplicateOf=3;  Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=99;  Title="The Martian";     Author="Andy Weir";        Year="2011"; Series="";               Pos="";  Isbn="9780553418026"; Genre="Science Fiction"; S="duplicate"; DuplicateOf=14; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    [pscustomobject]@{Id=100; Title="1984";             Author="George Orwell";    Year="1949"; Series="";               Pos="";  Isbn="9780451524935"; Genre="Dystopian";       S="duplicate"; DuplicateOf=12; Language="en"; ForeignLanguage=$false; Format="Epub"; Narrator=""; Asin=""; PairedWith=$null}
+    # AUDIOBOOK entries - M4B format (10 audiobooks)
+    # Paired audiobooks — same book exists as EPUB above; tests ebook+audiobook layout
+    [pscustomobject]@{Id=101; Title="Dune";                                 Author="Frank Herbert";       Year="1965"; Series="Dune Chronicles";      Pos="1"; Isbn="9780441013593"; Genre="Science Fiction"; S="audiobook"; Language="en"; ForeignLanguage=$false; Format="Audiobook"; Narrator="Scott Brick";       Asin="B002V1OF70"; PairedWith=1}
+    [pscustomobject]@{Id=102; Title="Project Hail Mary";                    Author="Andy Weir";           Year="2021"; Series="";                      Pos="";  Isbn="9780593135204"; Genre="Science Fiction"; S="audiobook"; Language="en"; ForeignLanguage=$false; Format="Audiobook"; Narrator="Ray Porter";        Asin="B08G9PRS1K"; PairedWith=15}
+    [pscustomobject]@{Id=103; Title="The Hitchhiker's Guide to the Galaxy"; Author="Douglas Adams";       Year="1979"; Series="Hitchhiker's Guide";   Pos="1"; Isbn="9780345391803"; Genre="Comedy";          S="audiobook"; Language="en"; ForeignLanguage=$false; Format="Audiobook"; Narrator="Stephen Fry";       Asin="B0009JKV9W"; PairedWith=8}
+    [pscustomobject]@{Id=104; Title="The Name of the Wind";                 Author="Patrick Rothfuss";    Year="2007"; Series="Kingkiller Chronicle";  Pos="1"; Isbn="9780756404079"; Genre="Fantasy";         S="audiobook"; Language="en"; ForeignLanguage=$false; Format="Audiobook"; Narrator="Nick Podehl";       Asin="B002UZMLXM"; PairedWith=4}
+    [pscustomobject]@{Id=105; Title="Ender's Game";                         Author="Orson Scott Card";    Year="1985"; Series="Ender's Game";          Pos="1"; Isbn="9780312853235"; Genre="Science Fiction"; S="audiobook"; Language="en"; ForeignLanguage=$false; Format="Audiobook"; Narrator="Stefan Rudnicki"; Asin="B002V5GWHK"; PairedWith=10}
+    # Standalone audiobooks — no matching EPUB in catalog
+    [pscustomobject]@{Id=106; Title="Born a Crime";           Author="Trevor Noah";     Year="2016"; Series=""; Pos=""; Isbn="9780399588174"; Genre="Memoir";          S="audiobook"; Language="en"; ForeignLanguage=$false; Format="Audiobook"; Narrator="Trevor Noah";       Asin="B01IW9TM5O"; PairedWith=$null}
+    [pscustomobject]@{Id=107; Title="Becoming";               Author="Michelle Obama";  Year="2018"; Series=""; Pos=""; Isbn="9781524763138"; Genre="Memoir";          S="audiobook"; Language="en"; ForeignLanguage=$false; Format="Audiobook"; Narrator="Michelle Obama";    Asin="B07B3JQZCL"; PairedWith=$null}
+    [pscustomobject]@{Id=108; Title="The Sandman: Act I";     Author="Neil Gaiman";     Year="2020"; Series="The Sandman";  Pos="1"; Isbn=""; Genre="Fantasy Drama";    S="audiobook"; Language="en"; ForeignLanguage=$false; Format="Audiobook"; Narrator="Neil Gaiman";       Asin="B086WP794Z"; PairedWith=$null}
+    [pscustomobject]@{Id=109; Title="Sapiens";                Author="Yuval Noah Harari"; Year="2011"; Series=""; Pos=""; Isbn="9780062316097"; Genre="Non-Fiction";    S="audiobook"; Language="en"; ForeignLanguage=$false; Format="Audiobook"; Narrator="Derek Perkins";     Asin="B0741G911Q"; PairedWith=$null}
+    [pscustomobject]@{Id=110; Title="Atomic Habits";          Author="James Clear";     Year="2018"; Series=""; Pos=""; Isbn="9780735211292"; Genre="Self-Help";       S="audiobook"; Language="en"; ForeignLanguage=$false; Format="Audiobook"; Narrator="James Clear";      Asin="B07RFSSYBH"; PairedWith=$null}
 )
 
 # ---------------------------------------------------------------------------
@@ -349,10 +365,197 @@ function New-BareEpub {
     finally { $stream.Dispose() }
 }
 
+function New-SyntheticM4b {
+    param([object]$Book, [string]$OutputPath)
+
+    # Build a minimal valid MP4/M4B with iTunes metadata atoms.
+    # Structure: ftyp + moov(mvhd + trak(tkhd + mdia(mdhd + hdlr + minf(smhd + dinf(dref) + stbl(stsd+stts+stsc+stsz+stco)))) + udta(meta(hdlr+ilst))) + mdat
+
+    $enc = [System.Text.Encoding]::UTF8
+
+    # --- Helper: big-endian 32-bit integer as 4 bytes ---
+    function BE32([int]$v) {
+        $b = [BitConverter]::GetBytes($v); [Array]::Reverse($b); return $b
+    }
+
+    # --- Helper: build an MP4 box (atom) ---
+    function Box([string]$type, [byte[]]$payload) {
+        $size = 8 + $payload.Length
+        return (BE32 $size) + $enc.GetBytes($type) + $payload
+    }
+
+    # --- Helper: full box (version + flags + payload) ---
+    function FullBox([string]$type, [byte]$version, [int]$flags, [byte[]]$payload) {
+        $flagBytes = BE32 $flags
+        $inner = @($version) + $flagBytes[1..3] + $payload
+        return Box $type ([byte[]]$inner)
+    }
+
+    # --- Helper: iTunes metadata data atom ---
+    function DataAtom([string]$value) {
+        $utf8 = $enc.GetBytes($value)
+        # type indicator: 1 = UTF-8 text
+        $inner = (BE32 1) + (BE32 0) + $utf8   # type(4) + locale(4) + value
+        return Box "data" ([byte[]]$inner)
+    }
+
+    # --- Helper: iTunes tag (e.g. ©nam, ©ART) wrapping a data atom ---
+    function ItunesTag([string]$name, [string]$value) {
+        $data = DataAtom $value
+        return Box $name ([byte[]]$data)
+    }
+
+    # --- Build ilst (iTunes metadata container) ---
+    $ilstPayload = @()
+    if ($Book.Title)    { $ilstPayload += ItunesTag ([char]0x00A9 + "nam") $Book.Title }
+    if ($Book.Author)   { $ilstPayload += ItunesTag ([char]0x00A9 + "ART") $Book.Author }
+    if ($Book.Title)    { $ilstPayload += ItunesTag ([char]0x00A9 + "alb") $Book.Title }  # album = book title
+    if ($Book.Year)     { $ilstPayload += ItunesTag ([char]0x00A9 + "day") $Book.Year }
+    if ($Book.Genre)    { $ilstPayload += ItunesTag ([char]0x00A9 + "gen") $Book.Genre }
+    if ($Book.Narrator) { $ilstPayload += ItunesTag ([char]0x00A9 + "wrt") $Book.Narrator }  # composer/writer field for narrator
+
+    # ASIN as freeform atom: ----/mean/name/data
+    if ($Book.Asin) {
+        $meanPayload = (BE32 0) + $enc.GetBytes("com.apple.iTunes")
+        $meanBox = Box "mean" ([byte[]]$meanPayload)
+        $namePayload = (BE32 0) + $enc.GetBytes("ASIN")
+        $nameBox = Box "name" ([byte[]]$namePayload)
+        $dataBox = DataAtom $Book.Asin
+        $freeformPayload = [byte[]]$meanBox + [byte[]]$nameBox + [byte[]]$dataBox
+        $ilstPayload += Box "----" ([byte[]]$freeformPayload)
+    }
+
+    $ilst = Box "ilst" ([byte[]]$ilstPayload)
+
+    # --- meta atom: hdlr + ilst ---
+    $metaHdlrPayload = @([byte]0) * 4 +    # version + flags
+                        @([byte]0) * 4 +    # pre_defined
+                        $enc.GetBytes("mdir") +  # handler type
+                        $enc.GetBytes("appl") +  # reserved (12 bytes)
+                        @([byte]0) * 8 +
+                        @([byte]0)          # name (null terminator)
+    $metaHdlr = Box "hdlr" ([byte[]]$metaHdlrPayload)
+    # meta is a full box (version 0, flags 0)
+    $metaPayload = (BE32 0) + [byte[]]$metaHdlr + [byte[]]$ilst
+    $meta = Box "meta" ([byte[]]$metaPayload)
+
+    # --- udta ---
+    $udta = Box "udta" ([byte[]]$meta)
+
+    # --- mvhd (movie header, version 0, 108 bytes total) ---
+    $mvhdPayload = @([byte]0) * 4 +    # version + flags
+                   (BE32 0) +           # creation_time
+                   (BE32 0) +           # modification_time
+                   (BE32 44100) +       # timescale
+                   (BE32 44100) +       # duration (1 second)
+                   @([byte]0,1,0,0) +   # rate = 1.0 (fixed-point 16.16)
+                   @([byte]1,0) +       # volume = 1.0 (fixed-point 8.8)
+                   @([byte]0) * 10 +    # reserved
+                   # 3x3 unity matrix (36 bytes)
+                   (BE32 0x00010000) + @([byte]0)*4 + @([byte]0)*4 +
+                   @([byte]0)*4 + (BE32 0x00010000) + @([byte]0)*4 +
+                   @([byte]0)*4 + @([byte]0)*4 + (BE32 0x40000000) +
+                   @([byte]0) * 24 +    # pre_defined
+                   (BE32 2)             # next_track_id
+    $mvhd = Box "mvhd" ([byte[]]$mvhdPayload)
+
+    # --- tkhd (track header) ---
+    $tkhdPayload = @([byte]0) +         # version
+                   @([byte]0,0,3) +     # flags (enabled + in_movie)
+                   (BE32 0) +           # creation_time
+                   (BE32 0) +           # modification_time
+                   (BE32 1) +           # track_id
+                   @([byte]0) * 4 +     # reserved
+                   (BE32 44100) +       # duration
+                   @([byte]0) * 8 +     # reserved
+                   @([byte]0,0) +       # layer
+                   @([byte]0,0) +       # alternate_group
+                   @([byte]1,0) +       # volume = 1.0
+                   @([byte]0,0) +       # reserved
+                   # 3x3 unity matrix (36 bytes)
+                   (BE32 0x00010000) + @([byte]0)*4 + @([byte]0)*4 +
+                   @([byte]0)*4 + (BE32 0x00010000) + @([byte]0)*4 +
+                   @([byte]0)*4 + @([byte]0)*4 + (BE32 0x40000000) +
+                   (BE32 0) +           # width
+                   (BE32 0)             # height
+    $tkhd = Box "tkhd" ([byte[]]$tkhdPayload)
+
+    # --- mdhd (media header) ---
+    $mdhdPayload = @([byte]0) * 4 +     # version + flags
+                   (BE32 0) +           # creation_time
+                   (BE32 0) +           # modification_time
+                   (BE32 44100) +       # timescale
+                   (BE32 44100) +       # duration
+                   @([byte]0x55,[byte]0xC4) +  # language = "und"
+                   @([byte]0,0)         # pre_defined
+    $mdhd = Box "mdhd" ([byte[]]$mdhdPayload)
+
+    # --- hdlr (handler, audio) ---
+    $hdlrName = $enc.GetBytes("SoundHandler") + @([byte]0)
+    $hdlrPayload = @([byte]0) * 4 +     # version + flags
+                   @([byte]0) * 4 +     # pre_defined
+                   $enc.GetBytes("soun") +  # handler_type
+                   @([byte]0) * 12 +    # reserved
+                   $hdlrName
+    $hdlr = Box "hdlr" ([byte[]]$hdlrPayload)
+
+    # --- smhd ---
+    $smhd = Box "smhd" ([byte[]](@([byte]0)*4 + @([byte]0)*2 + @([byte]0)*2))
+
+    # --- dref ---
+    $urlEntry = Box "url " ([byte[]](@([byte]0,0,0,1)))  # self-contained
+    $drefPayload = @([byte]0) * 4 + (BE32 1) + [byte[]]$urlEntry  # version+flags, entry_count=1
+    $dref = Box "dref" ([byte[]]$drefPayload)
+    $dinf = Box "dinf" ([byte[]]$dref)
+
+    # --- stbl (empty sample tables) ---
+    $stsd = Box "stsd" ([byte[]](@([byte]0)*4 + (BE32 0)))    # version+flags, entry_count=0
+    $stts = Box "stts" ([byte[]](@([byte]0)*4 + (BE32 0)))
+    $stsc = Box "stsc" ([byte[]](@([byte]0)*4 + (BE32 0)))
+    $stsz = Box "stsz" ([byte[]](@([byte]0)*4 + (BE32 0) + (BE32 0)))  # sample_size=0, sample_count=0
+    $stco = Box "stco" ([byte[]](@([byte]0)*4 + (BE32 0)))
+    $stbl = Box "stbl" ([byte[]]([byte[]]$stsd + [byte[]]$stts + [byte[]]$stsc + [byte[]]$stsz + [byte[]]$stco))
+
+    # --- minf ---
+    $minf = Box "minf" ([byte[]]([byte[]]$smhd + [byte[]]$dinf + [byte[]]$stbl))
+
+    # --- mdia ---
+    $mdia = Box "mdia" ([byte[]]([byte[]]$mdhd + [byte[]]$hdlr + [byte[]]$minf))
+
+    # --- trak ---
+    $trak = Box "trak" ([byte[]]([byte[]]$tkhd + [byte[]]$mdia))
+
+    # --- moov ---
+    $moov = Box "moov" ([byte[]]([byte[]]$mvhd + [byte[]]$trak + [byte[]]$udta))
+
+    # --- ftyp ---
+    $ftypPayload = $enc.GetBytes("M4B ") +   # major brand
+                   (BE32 0) +                 # minor version
+                   $enc.GetBytes("M4B ") +    # compatible brand
+                   $enc.GetBytes("isom")      # compatible brand
+    $ftyp = Box "ftyp" ([byte[]]$ftypPayload)
+
+    # --- mdat (empty) ---
+    $mdat = Box "mdat" ([byte[]]@())
+
+    # --- Write the file ---
+    $allBytes = [byte[]]$ftyp + [byte[]]$moov + [byte[]]$mdat
+    [System.IO.File]::WriteAllBytes($OutputPath, $allBytes)
+}
+
+function New-BareM4b {
+    param([string]$OutputPath)
+    # Create a minimal M4B with valid MP4 structure but no metadata.
+    # Reuse New-SyntheticM4b with empty fields.
+    $bare = [pscustomobject]@{Title=""; Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; Language="en"; Narrator=""; Asin=""}
+    New-SyntheticM4b -Book $bare -OutputPath $OutputPath
+}
+
 function Get-SafeFilename {
-    param([string]$Title)
+    param([string]$Title, [string]$Format = "Epub")
     $safe = $Title -replace '[\\/:*?"<>|]', '_'
-    return "$safe.epub"
+    $ext = if ($Format -eq "Audiobook") { ".m4b" } else { ".epub" }
+    return "$safe$ext"
 }
 
 # ===========================================================================
@@ -361,7 +564,7 @@ function Get-SafeFilename {
 
 $RunStart = Get-Date
 
-Write-H "TUVIMA BOOK INGESTION TEST"
+Write-H "TUVIMA MEDIA INGESTION TEST"
 Write-RL " Run started : $($RunStart.ToString('yyyy-MM-dd HH:mm:ss'))"
 Write-RL " Engine URL  : $EngineUrl"
 Write-RL " Sample size : $Count of $($Catalog.Count) catalog entries"
@@ -485,7 +688,7 @@ if (-not $WatchDirectory -or -not (Test-Path $WatchDirectory -PathType Container
 Write-R " Watch dir   : $WatchDirectory" -c "Green"
 
 # -- 5. Stratified sampling --------------------------------------------------
-# Proportions: 60% high, 20% medium, 10% low, 5% corrupt, 5% duplicate
+# Proportions: 45% high, 15% audiobook, 20% medium, 10% low, 5% corrupt, 5% duplicate
 # Foreign-language books (ForeignLanguage=$true) capped at max 2 per run.
 if ($Seed -ge 0) {
     $rng = New-Object System.Random($Seed)
@@ -494,17 +697,19 @@ if ($Seed -ge 0) {
     $Seed = $rng.Next()
 }
 
-$nHigh      = [Math]::Floor($Count * 0.60)
+$nAudiobook = [Math]::Floor($Count * 0.15)
+$nHigh      = [Math]::Floor($Count * 0.45)
 $nMedium    = [Math]::Floor($Count * 0.20)
 $nLow       = [Math]::Floor($Count * 0.10)
 $nCorrupt   = [Math]::Floor($Count * 0.05)
-$nDuplicate = $Count - $nHigh - $nMedium - $nLow - $nCorrupt   # remainder goes to duplicate
+$nDuplicate = $Count - $nHigh - $nAudiobook - $nMedium - $nLow - $nCorrupt
 
 # Buckets from catalog
 $bucketHigh      = @($Catalog | Where-Object { $_.S -eq "high" }      | Sort-Object { $rng.NextDouble() })
 $bucketMedium    = @($Catalog | Where-Object { $_.S -eq "medium" }    | Sort-Object { $rng.NextDouble() })
 $bucketLow       = @($Catalog | Where-Object { $_.S -eq "low" }       | Sort-Object { $rng.NextDouble() })
 $bucketCorrupt   = @($Catalog | Where-Object { $_.S -eq "corrupt" }   | Sort-Object { $rng.NextDouble() })
+$bucketAudiobook = @($Catalog | Where-Object { $_.S -eq "audiobook" } | Sort-Object { $rng.NextDouble() })
 $bucketDuplicate = @($Catalog | Where-Object { $_.S -eq "duplicate" } | Sort-Object { $rng.NextDouble() })
 
 # Medium bucket: cap foreign-language books at max 2
@@ -522,6 +727,7 @@ $mediumSelected = @($mediumSelected | Sort-Object { $rng.NextDouble() }) | Selec
 
 $selected = @(
     ($bucketHigh      | Select-Object -First $nHigh)
+    ($bucketAudiobook | Select-Object -First $nAudiobook)
     $mediumSelected
     ($bucketLow       | Select-Object -First $nLow)
     ($bucketCorrupt   | Select-Object -First $nCorrupt)
@@ -537,6 +743,15 @@ foreach ($dup in ($selected | Where-Object { $_.S -eq "duplicate" })) {
     }
 }
 
+# Ensure audiobooks with paired ebooks have their ebook counterpart in the list
+foreach ($ab in ($selected | Where-Object { $_.S -eq "audiobook" -and $_.PairedWith })) {
+    $pairedId = $ab.PairedWith
+    if (-not ($selected | Where-Object { $_.Id -eq $pairedId })) {
+        $paired = $Catalog | Where-Object { $_.Id -eq $pairedId }
+        if ($paired) { $selected = @($selected) + @($paired) }
+    }
+}
+
 # Sort: non-duplicates first (ensures originals ingested before duplicates)
 $selected = @($selected | Sort-Object @{Expression={if($_.S -eq "duplicate"){1}else{0}}}, @{Expression={$_.Id}})
 
@@ -549,13 +764,16 @@ $droppedFiles   = New-Object System.Collections.Generic.List[object]
 
 foreach ($book in $selected) {
     $safeId   = $book.Id.ToString().PadLeft(3, '0')
-    $safeName = Get-SafeFilename -Title $book.Title
+    $safeName = Get-SafeFilename -Title $book.Title -Format $book.Format
     $filename = "${safeId}_${safeName}"
     $tmpPath  = Join-Path $TempDir $filename
 
     switch ($book.S) {
         "high" {
             New-ValidEpub -Book $book -OutputPath $tmpPath
+        }
+        "audiobook" {
+            New-SyntheticM4b -Book $book -OutputPath $tmpPath
         }
         "medium" {
             $partial = [pscustomobject]@{Title=$book.Title; Author=$book.Author; Year=$book.Year; Series=""; Pos=""; Isbn=""; Genre=""; Language=$book.Language}
@@ -583,6 +801,7 @@ foreach ($book in $selected) {
 
     $meta = switch ($book.S) {
         "high"      { "title, author, year, ISBN$(if($book.Series){', series'})" }
+        "audiobook" { "M4B: title, author, year$(if($book.Asin){', ASIN'})$(if($book.Series){', series'}) [narrator: $($book.Narrator)]" }
         "medium"    { "title, author, year" }
         "low"       { "filename only (no OPF)" }
         "corrupt"   { "(invalid bytes)" }
@@ -612,6 +831,7 @@ foreach ($f in $droppedFiles) {
     $row = " {0,-4} {1,-44} {2,-10} {3}" -f $f.Num, $fn, $f.Scenario, $f.Meta
     $c   = switch ($f.Scenario) {
         "high"      { "Green" }
+        "audiobook"  { "Magenta" }
         "medium"    { "Cyan" }
         "low"       { "Yellow" }
         "corrupt"   { "Red" }

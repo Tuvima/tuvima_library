@@ -52,9 +52,25 @@ else
     @* ── Hero banner ── *@
     @if (_heroHub is not null)
     {
-        var heroData = _heroJourney is not null
-            ? HeroData.FromHubWithJourney(_heroHub, _heroJourney)
-            : HeroData.FromHub(_heroHub);
+        var heroWork = _heroHub.Works.FirstOrDefault();
+        HeroData heroData;
+        if (_heroJourney is not null && heroWork is not null)
+        {
+            heroData = HeroData.FromWork(heroWork, _heroHub) with
+            {
+                ActionLabel = _heroJourney.ActionLabel,
+                ActionIcon  = HeroData.IconForMediaType(_heroJourney.MediaType),
+                ProgressPct = _heroJourney.ProgressPct,
+            };
+        }
+        else if (heroWork is not null)
+        {
+            heroData = HeroData.FromWork(heroWork, _heroHub);
+        }
+        else
+        {
+            heroData = HeroData.FromHub(_heroHub);
+        }
         heroData = heroData with { Subtitle = ResolveHeroPhrase(heroData) };
         <HubHero Data="@heroData"
                  Visible="true"

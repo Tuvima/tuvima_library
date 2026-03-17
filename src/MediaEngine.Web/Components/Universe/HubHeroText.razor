@@ -36,10 +36,6 @@
     {
         <span class="hero-badge">@Data.Rating</span>
     }
-    @if (Data?.WorkCount is > 1)
-    {
-        <span class="hero-badge">@Data.WorkCount works</span>
-    }
     @if (!string.IsNullOrEmpty(Data?.Series))
     {
         <span class="hero-badge">@Data.Series@(!string.IsNullOrEmpty(Data.SeriesPosition) ? $" #{Data.SeriesPosition}" : "")</span>

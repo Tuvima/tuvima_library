@@ -127,7 +127,7 @@ else
     {
         <div class="person-detail-works-section">
             <PosterSwimlane Title="@($"Works by {_person.Name}")"
-                            Items="@_works.Select(PosterItemViewModel.FromHub).ToList()"
+                            Items="@_works.SelectMany(h => h.Works.Select(w => PosterItemViewModel.FromWork(w, h.CoverUrl, h.DominantHexColor))).ToList()"
                             OnItemSelected="@(item => Nav.NavigateTo(item.NavigationUrl))" />
         </div>
     }

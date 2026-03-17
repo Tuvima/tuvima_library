@@ -69,7 +69,6 @@ public sealed record HeroData
         GenreQids      = hub.GenreQids,
         Rating         = hub.Rating,
         Series         = hub.Series,
-        WorkCount      = hub.WorkCount > 1 ? hub.WorkCount : null,
     };
 
     /// <summary>Create hero data from an individual Work (carousel slides, work-level display).</summary>
@@ -132,7 +131,6 @@ public sealed record HeroData
         GenreQids      = hub.GenreQids,
         Rating         = hub.Rating,
         Series         = hub.Series,
-        WorkCount      = hub.WorkCount > 1 ? hub.WorkCount : null,
         ActionLabel    = journey.ActionLabel,
         ActionIcon     = IconForMediaType(journey.MediaType),
         ProgressPct    = journey.ProgressPct,
