@@ -27,6 +27,9 @@
   "max_concurrency": 1,
   "hydration_stages": [2],
   "cache_ttl_hours": 168,
+  "preferred_bridge_ids": {
+    "Books": ["isbn"]
+  },
 
   "adapter_type": "config_driven",
   "provider_id": "b5000005-0000-4000-8000-000000000006",

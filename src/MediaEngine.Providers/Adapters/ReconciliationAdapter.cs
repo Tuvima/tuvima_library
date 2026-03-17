@@ -10,6 +10,7 @@ using MediaEngine.Domain.Enums;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Models;
 using MediaEngine.Storage.Contracts;
+using MediaEngine.Domain.Services;
 using MediaEngine.Storage.Models;
 
 namespace MediaEngine.Providers.Adapters;
@@ -503,6 +504,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     {
         // Use PreResolvedQid if provided — skip reconciliation entirely.
         var qid = request.PreResolvedQid;
+        string? reconciliationLabel = null;
 
         if (string.IsNullOrWhiteSpace(qid))
         {
@@ -540,6 +542,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             }
 
             qid = top.QID;
+            reconciliationLabel = top.Label;
         }
 
         // Extend the resolved QID with work properties.
@@ -549,6 +552,11 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             .Concat(workProps.Editions)
             .Distinct()
             .ToList();
+
+        // Inject language-specific label (Len) and description (Den) magic suffixes.
+        var language = _configLoader?.LoadCore().Language ?? "en";
+        allProps.Add($"L{language}");
+        allProps.Add($"D{language}");
 
         if (allProps.Count == 0)
             return [new ProviderClaim("wikidata_qid", qid, 1.0)];
@@ -562,8 +570,102 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             new("wikidata_qid", qid, 1.0)
         };
 
+        // Emit the reconciliation match label as a title claim (lower confidence than L{lang}).
+        if (!string.IsNullOrWhiteSpace(reconciliationLabel))
+            claims.Add(new ProviderClaim("title", reconciliationLabel, 0.93));
+
         if (extData is not null)
             claims.AddRange(ExtensionToClaims(extData, _config.DataExtension.PropertyLabels, isWork: true));
+
+        // ── Edition bridge ID resolution ─────────────────────────────────────
+        // Wikidata stores ISBNs and other bridge IDs on edition items (P747),
+        // not on the work itself. If key bridge IDs are still missing after
+        // the work fetch, look them up from edition items.
+        if (extData is not null)
+        {
+            var editionBridgeProps = new[] { "P212", "P957", "P5749", "P3861", "P2969", "P648" }
+                .Where(p => _config.DataExtension.PropertyLabels.ContainsKey(p))
+                .ToList();
+
+            if (editionBridgeProps.Count > 0
+                && extData.Properties.TryGetValue("P747", out var editionRefs)
+                && editionRefs.Count > 0)
+            {
+                // Determine which bridge IDs are still missing from the work-level fetch.
+                var emittedKeys = new HashSet<string>(
+                    claims.Select(c => c.Key), StringComparer.OrdinalIgnoreCase);
+
+                var missingProps = editionBridgeProps
+                    .Where(p => !emittedKeys.Contains(_config.DataExtension.PropertyLabels[p]))
+                    .ToList();
+
+                if (missingProps.Count > 0)
+                {
+                    var editionQids = editionRefs
+                        .Where(v => v.Id is not null)
+                        .Select(v => v.Id!)
+                        .Distinct()
+                        .Take(10)
+                        .ToList();
+
+                    if (editionQids.Count > 0)
+                    {
+                        try
+                        {
+                            // Include P31 in the request to enable media-type filtering.
+                            var propsWithP31 = missingProps.Contains("P31")
+                                ? missingProps
+                                : [.. missingProps, "P31"];
+
+                            var editionData = await ExtendAsync(editionQids, propsWithP31, ct)
+                                .ConfigureAwait(false);
+
+                            // Filter editions by media type: audiobooks get audiobook-class
+                            // editions only, books get non-audiobook editions.
+                            var filteredEditions = FilterEditionsByMediaType(editionData, request.MediaType);
+
+                            foreach (var propCode in missingProps)
+                            {
+                                var claimKey = _config.DataExtension.PropertyLabels[propCode];
+
+                                foreach (var edition in filteredEditions)
+                                {
+                                    if (!edition.Properties.TryGetValue(propCode, out var vals)
+                                        || vals.Count == 0)
+                                        continue;
+
+                                    var firstVal = vals.FirstOrDefault();
+                                    if (firstVal is null) continue;
+
+                                    var strVal = firstVal.Str ?? firstVal.Id;
+                                    if (!string.IsNullOrWhiteSpace(strVal))
+                                    {
+                                        // Normalize bridge ID values for clean storage.
+                                        var normalized = IdentifierNormalizationService.NormalizeRaw(propCode, strVal);
+                                        if (!string.IsNullOrWhiteSpace(normalized))
+                                        {
+                                            claims.Add(new ProviderClaim(claimKey, normalized, 0.90));
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+
+                            _logger.LogDebug("{Provider}: edition bridge resolution added {Count} bridge IDs for {QID}",
+                                Name, claims.Count(c => missingProps.Any(p =>
+                                    _config.DataExtension.PropertyLabels.TryGetValue(p, out var k) &&
+                                    string.Equals(c.Key, k, StringComparison.OrdinalIgnoreCase))),
+                                qid);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogDebug("{Provider}: edition bridge ID resolution failed for {QID}: {Message}",
+                                Name, qid, ex.Message);
+                        }
+                    }
+                }
+            }
+        }
 
         _logger.LogInformation("{Provider}: fetched {Count} work claims for QID {QID}",
             Name, claims.Count, qid);
@@ -606,6 +708,11 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             .Distinct()
             .ToList();
 
+        // Inject language-specific label (Len) and description (Den) magic suffixes.
+        var language = _configLoader?.LoadCore().Language ?? "en";
+        allProps.Add($"L{language}");
+        allProps.Add($"D{language}");
+
         if (allProps.Count == 0)
             return [new ProviderClaim("wikidata_qid", qid, 1.0)];
 
@@ -625,6 +732,38 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             Name, claims.Count, qid);
 
         return claims;
+    }
+
+    /// <summary>
+    /// Filters edition data by media type. Audiobooks get only audiobook-class editions;
+    /// books get only non-audiobook editions. Other media types get all editions unfiltered.
+    /// </summary>
+    private IReadOnlyList<ExtensionResult> FilterEditionsByMediaType(
+        IReadOnlyList<ExtensionResult> editions,
+        MediaType mediaType)
+    {
+        // Only filter for book-related media types.
+        if (mediaType != MediaType.Audiobooks && mediaType != MediaType.Books)
+            return editions;
+
+        var audiobookClasses = _config.InstanceOfClasses.TryGetValue("Audiobooks", out var classes)
+            ? new HashSet<string>(classes, StringComparer.OrdinalIgnoreCase)
+            : new HashSet<string>(["Q122731938", "Q106833962"], StringComparer.OrdinalIgnoreCase);
+
+        var filtered = new List<ExtensionResult>();
+        foreach (var edition in editions)
+        {
+            var isAudiobook = edition.Properties.TryGetValue("P31", out var p31)
+                && p31.Any(v => v.Id is not null && audiobookClasses.Contains(v.Id!));
+
+            if (mediaType == MediaType.Audiobooks && isAudiobook)
+                filtered.Add(edition);
+            else if (mediaType == MediaType.Books && !isAudiobook)
+                filtered.Add(edition);
+        }
+
+        // Fall back to unfiltered if no editions match the filter (avoid losing all data).
+        return filtered.Count > 0 ? filtered : editions;
     }
 
     // ── Private: Reconciliation batch HTTP call ───────────────────────────────
@@ -917,6 +1056,23 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     {
         foreach (var (pCode, values) in ext.Properties)
         {
+            // ── Magic suffix handling (Len, Den, etc.) ──
+            // L{lang} returns the entity label in the user's language.
+            // D{lang} returns the entity description in the user's language.
+            if (pCode.Length == 3 && pCode[0] == 'L' && char.IsLower(pCode[1]))
+            {
+                if (isWork && values.Count > 0 && !string.IsNullOrWhiteSpace(values[0].Str))
+                    yield return new ProviderClaim("title", values[0].Str!, 0.95);
+                continue;
+            }
+
+            if (pCode.Length == 3 && pCode[0] == 'D' && char.IsLower(pCode[1]))
+            {
+                if (values.Count > 0 && !string.IsNullOrWhiteSpace(values[0].Str))
+                    yield return new ProviderClaim("description", values[0].Str!, 0.90);
+                continue;
+            }
+
             if (!propertyLabels.TryGetValue(pCode, out var claimKey))
                 continue;
 
@@ -927,6 +1083,10 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             // P31 (instance_of) used internally for filtering, never as a claim.
             if (string.Equals(pCode, "P31", StringComparison.OrdinalIgnoreCase))
                 continue;
+
+            // P1476 (title) — monolingual text; only take the first value to avoid
+            // emitting every language translation as a separate claim.
+            bool isMonolingualTitle = string.Equals(pCode, "P1476", StringComparison.OrdinalIgnoreCase);
 
             foreach (var val in values)
             {
@@ -945,15 +1105,34 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 // Determine confidence and string value.
                 (string? strVal, double confidence) = ExtractValueAndConfidence(val, pCode);
 
+                // Sanitize entity labels that contain non-Latin characters — these are
+                // wrong-language fallbacks from Wikidata. The companion _qid claim preserves
+                // the entity reference so the value is not lost.
+                if (val.Id is not null && !string.IsNullOrWhiteSpace(strVal) && ContainsNonLatinCharacters(strVal))
+                    strVal = null; // Skip — companion _qid claim preserves the entity reference
+
                 if (!string.IsNullOrWhiteSpace(strVal))
+                {
+                    // Normalize bridge ID values (strip ISBN dashes, uppercase ASINs, etc.)
+                    if (IsBridgeProperty(pCode))
+                    {
+                        var normalized = IdentifierNormalizationService.NormalizeRaw(pCode, strVal);
+                        if (!string.IsNullOrWhiteSpace(normalized))
+                            strVal = normalized;
+                    }
                     yield return new ProviderClaim(claimKey, strVal, confidence);
+                }
 
                 // Emit individual companion _qid claim per entity value.
                 if (!string.IsNullOrWhiteSpace(val.Id))
                 {
-                    var label = !string.IsNullOrWhiteSpace(val.Label) ? val.Label : val.Id;
+                    var label = !string.IsNullOrWhiteSpace(val.Label) && !ContainsNonLatinCharacters(val.Label)
+                        ? val.Label : val.Id;
                     yield return new ProviderClaim($"{claimKey}_qid", $"{val.Id}::{label}", 0.90);
                 }
+
+                // Only emit the first value for monolingual title properties.
+                if (isMonolingualTitle) break;
             }
         }
     }
@@ -1098,5 +1277,28 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     {
         var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(input));
         return Convert.ToHexString(bytes).ToLowerInvariant();
+    }
+
+    // ── Private: Character-set helpers ───────────────────────────────────────
+
+    /// <summary>
+    /// Returns true if the string contains characters outside the Latin script.
+    /// Used to detect wrong-language labels from Wikidata entity references.
+    /// </summary>
+    private static bool ContainsNonLatinCharacters(string text)
+    {
+        foreach (var ch in text)
+        {
+            if (char.IsLetter(ch) && !IsLatinLetter(ch))
+                return true;
+        }
+        return false;
+    }
+
+    private static bool IsLatinLetter(char ch)
+    {
+        // Basic Latin + Latin Extended-A + Latin Extended-B + Latin Supplement
+        return (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z')
+            || (ch >= '\u00C0' && ch <= '\u024F'); // À-ɏ (accented Latin)
     }
 }

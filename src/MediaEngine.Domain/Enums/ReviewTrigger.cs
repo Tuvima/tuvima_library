@@ -104,4 +104,11 @@ public static class ReviewTrigger
     /// The user must provide a real title or match it manually.
     /// </summary>
     public const string PlaceholderTitle = "PlaceholderTitle";
+
+    /// <summary>
+    /// Cover art was deposited by a retail provider using a text search (title + author)
+    /// rather than a precise bridge identifier lookup (ISBN, Apple Books ID). The match
+    /// may be incorrect — the user should confirm or replace the artwork.
+    /// </summary>
+    public const string ArtworkUnconfirmed = "ArtworkUnconfirmed";
 }

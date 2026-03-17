@@ -103,6 +103,17 @@ public sealed class ProviderConfiguration
     public List<int> HydrationStages { get; set; } = [1];
 
     /// <summary>
+    /// Declares which bridge identifiers this provider works best with per media type.
+    /// Key = media type display name (e.g. <c>"Books"</c>, <c>"Audiobooks"</c>),
+    /// value = ordered list of canonical claim keys (e.g. <c>["isbn", "apple_books_id"]</c>).
+    ///
+    /// Used by <c>ExtractBridgeHints</c> to determine which canonical values should
+    /// flow from Stage 1 to Stage 2 as bridge hints for precise retail lookups.
+    /// </summary>
+    [JsonPropertyName("preferred_bridge_ids")]
+    public Dictionary<string, List<string>>? PreferredBridgeIds { get; set; }
+
+    /// <summary>
     /// Time-to-live in hours for cached HTTP responses from this provider.
     /// When set, the <c>ConfigDrivenAdapter</c> caches raw JSON responses and
     /// skips HTTP calls for repeated queries within the TTL window.

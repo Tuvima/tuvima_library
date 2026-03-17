@@ -6,6 +6,7 @@ using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
+using MediaEngine.Domain.Services;
 using MediaEngine.Intelligence.Contracts;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Models;
@@ -67,6 +68,8 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     private readonly ICanonicalValueArrayRepository _arrayRepo;
     private readonly IHeroBannerGenerator _heroGenerator;
     private readonly IDeferredEnrichmentRepository _deferredRepo;
+    private readonly IWikibaseApiService _wikibaseApi;
+    private readonly IFictionalEntityRepository _fictionalEntityRepo;
     private readonly ILogger<HydrationPipelineService> _logger;
 
     // ── Constructor ───────────────────────────────────────────────────────────
@@ -93,6 +96,8 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         ICanonicalValueArrayRepository arrayRepo,
         IHeroBannerGenerator heroGenerator,
         IDeferredEnrichmentRepository deferredRepo,
+        IWikibaseApiService wikibaseApi,
+        IFictionalEntityRepository fictionalEntityRepo,
         ILogger<HydrationPipelineService> logger)
     {
         ArgumentNullException.ThrowIfNull(providers);
@@ -116,6 +121,8 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         ArgumentNullException.ThrowIfNull(arrayRepo);
         ArgumentNullException.ThrowIfNull(heroGenerator);
         ArgumentNullException.ThrowIfNull(deferredRepo);
+        ArgumentNullException.ThrowIfNull(wikibaseApi);
+        ArgumentNullException.ThrowIfNull(fictionalEntityRepo);
         ArgumentNullException.ThrowIfNull(logger);
 
         _providers      = providers.ToList();
@@ -138,8 +145,10 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         _activityRepo   = activityRepo;
         _arrayRepo      = arrayRepo;
         _heroGenerator  = heroGenerator;
-        _deferredRepo   = deferredRepo;
-        _logger         = logger;
+        _deferredRepo        = deferredRepo;
+        _wikibaseApi         = wikibaseApi;
+        _fictionalEntityRepo = fictionalEntityRepo;
+        _logger              = logger;
 
         _channel = Channel.CreateBounded<HarvestRequest>(new BoundedChannelOptions(500)
         {
@@ -574,7 +583,10 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         // Reload canonical values to extract bridge IDs from Stage 1.
         var canonicalsForS2 = await _canonicalRepo.GetByEntityAsync(request.EntityId, ct)
             .ConfigureAwait(false);
-        var bridgeHints = ExtractBridgeHints(canonicalsForS2);
+        var stage2ProviderConfigs = provConfigs
+            .Where(pc => pc.HydrationStages.Contains(2))
+            .ToList();
+        var bridgeHints = ExtractBridgeHints(canonicalsForS2, request.MediaType, stage2ProviderConfigs);
 
         // Enrich the request with bridge IDs from Stage 1 for precise retail lookups.
         var stage2Request = EnrichRequestWithBridgeHints(request, bridgeHints);
@@ -712,6 +724,28 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             if (request.EntityType == EntityType.MediaAsset)
             {
                 await PersistCoverFromUrlAsync(request.EntityId, ct).ConfigureAwait(false);
+            }
+
+            // ArtworkUnconfirmed: if cover art was deposited but no precise bridge ID
+            // lookup was available (ISBN, apple_books_id), the cover came from a fuzzy
+            // text search and needs user confirmation.
+            if (request.EntityType == EntityType.MediaAsset)
+            {
+                var postS2Canonicals = await _canonicalRepo.GetByEntityAsync(request.EntityId, ct)
+                    .ConfigureAwait(false);
+                var hasCover = postS2Canonicals.Any(c =>
+                    string.Equals(c.Key, "cover", StringComparison.OrdinalIgnoreCase)
+                    && !string.IsNullOrEmpty(c.Value));
+                var hadPreciseLookup = bridgeHints.ContainsKey("isbn")
+                    || bridgeHints.ContainsKey("apple_books_id");
+
+                if (hasCover && !hadPreciseLookup)
+                {
+                    await CreateReviewItemAsync(
+                        request, ReviewTrigger.ArtworkUnconfirmed, 0.0,
+                        "Cover art was sourced via text search (no ISBN or Apple Books ID available). Please confirm the artwork is correct.",
+                        result, ct).ConfigureAwait(false);
+                }
             }
         }
         else if (waterfallProviders.Count > 0)
@@ -1617,29 +1651,73 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     }
 
     /// <summary>
-    /// Extracts bridge identifier hints from canonical values.
+    /// Extracts bridge identifier hints from canonical values, driven by Stage 2 provider
+    /// <c>preferred_bridge_ids</c> config. Applies key aliases (<c>isbn_13</c> → <c>isbn</c>)
+    /// and retail format normalization.
     /// </summary>
     private static Dictionary<string, string> ExtractBridgeHints(
-        IReadOnlyList<CanonicalValue> canonicals)
+        IReadOnlyList<CanonicalValue> canonicals,
+        MediaType mediaType,
+        IReadOnlyList<MediaEngine.Storage.Models.ProviderConfiguration> stage2ProviderConfigs)
     {
         var hints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        // Only keys with meaningful Wikidata coverage count as real bridge IDs.
-        // apple_books_id and audible_id are excluded — Wikidata has near-zero coverage
-        // for both, so treating them as bridges creates UniverseMatchFailed review noise
-        // for every book Apple Books matches. ISBN, ASIN, TMDB, IMDb, and Goodreads
-        // are indexed in Wikidata and serve as genuine cross-reference keys.
-        string[] bridgeKeys = ["isbn", "asin", "tmdb_id", "imdb_id", "goodreads_id"];
 
-        foreach (var cv in canonicals)
+        // Collect desired bridge keys from all Stage 2 providers' preferred_bridge_ids
+        // for the current media type.
+        var desiredKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var mediaTypeName = mediaType.ToString();
+
+        foreach (var cfg in stage2ProviderConfigs)
         {
-            if (bridgeKeys.Contains(cv.Key, StringComparer.OrdinalIgnoreCase)
-                && !string.IsNullOrEmpty(cv.Value))
+            if (cfg.PreferredBridgeIds is null) continue;
+
+            if (cfg.PreferredBridgeIds.TryGetValue(mediaTypeName, out var keys))
             {
-                hints.TryAdd(cv.Key, cv.Value);
+                foreach (var k in keys) desiredKeys.Add(k);
             }
         }
 
+        if (desiredKeys.Count == 0) return hints;
+
+        foreach (var cv in canonicals)
+        {
+            if (string.IsNullOrEmpty(cv.Value)) continue;
+
+            // Check if the canonical key matches directly or via alias.
+            var effectiveKey = cv.Key;
+            var alias = IdentifierNormalizationService.GetClaimKeyAlias(cv.Key);
+            if (alias is not null) effectiveKey = alias;
+
+            if (!desiredKeys.Contains(effectiveKey)) continue;
+
+            // Avoid duplicates — first value wins.
+            if (hints.ContainsKey(effectiveKey)) continue;
+
+            // Apply retail format normalization (strip ISBN dashes, etc.)
+            // We need the P-code for normalization, but we only have claim keys here.
+            // Apply a best-effort normalization by stripping common ISBN formatting.
+            var normalizedValue = effectiveKey switch
+            {
+                "isbn" => NormalizeIsbnForRetail(cv.Value),
+                "asin" => cv.Value.Trim().ToUpperInvariant(),
+                _      => cv.Value.Trim()
+            };
+
+            if (!string.IsNullOrWhiteSpace(normalizedValue))
+                hints[effectiveKey] = normalizedValue;
+        }
+
         return hints;
+    }
+
+    /// <summary>
+    /// Strips dashes and spaces from ISBN values for retail API lookups.
+    /// </summary>
+    private static string NormalizeIsbnForRetail(string isbn)
+    {
+        // Strip all non-alphanumeric characters (dashes, spaces).
+        var cleaned = new string(isbn.Where(char.IsLetterOrDigit).ToArray());
+        return cleaned;
     }
 
     /// <summary>
@@ -1715,6 +1793,140 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             workQid, workLabel,
             narrativeRoot.Qid, narrativeRoot.Label,
             entityRefs, ct).ConfigureAwait(false);
+
+        // 4. Resolve actor→character mappings via Wikibase P161+P453 qualifiers.
+        try
+        {
+            await ResolveActorCharacterMappingsAsync(workQid, entityId, ct)
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex,
+                "Actor-character mapping failed for work {Qid}; continuing", workQid);
+        }
+    }
+
+    /// <summary>
+    /// Uses the Wikibase API to fetch P161 (cast_member) statements with P453 (character)
+    /// qualifiers for a work. For each (actor, character) pair found:
+    /// 1. Creates or finds a Person record for the actor.
+    /// 2. Finds the FictionalEntity for the character.
+    /// 3. Links them via character_performer_links.
+    /// </summary>
+    private async Task ResolveActorCharacterMappingsAsync(
+        string workQid,
+        Guid mediaAssetId,
+        CancellationToken ct)
+    {
+        IReadOnlyList<QualifiedStatement> castStatements;
+        try
+        {
+            castStatements = await _wikibaseApi.GetClaimsAsync(workQid, "P161", ct)
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex,
+                "Failed to fetch P161 cast statements for work {Qid}", workQid);
+            return;
+        }
+
+        if (castStatements.Count == 0)
+            return;
+
+        var linkedCount = 0;
+
+        foreach (var statement in castStatements)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            var actorQid = statement.ValueQid;
+            if (string.IsNullOrWhiteSpace(actorQid))
+                continue;
+
+            // Look for P453 (character played in this work) qualifier.
+            if (!statement.Qualifiers.TryGetValue("P453", out var characterQualifiers) ||
+                characterQualifiers.Count == 0)
+                continue;
+
+            foreach (var charQual in characterQualifiers)
+            {
+                var characterQid = charQual.EntityQid;
+                if (string.IsNullOrWhiteSpace(characterQid))
+                    continue;
+
+                try
+                {
+                    // 1. Find or create Person record for the actor.
+                    //    Use RecursiveIdentityService to create and enqueue enrichment.
+                    var actorLabel = statement.ValueLabel ?? actorQid;
+                    var personRefs = new List<PersonReference>
+                    {
+                        new("Cast Member", actorLabel, actorQid)
+                    };
+                    await _identity.EnrichAsync(mediaAssetId, personRefs, ct)
+                        .ConfigureAwait(false);
+
+                    // 2. Find the Person record we just created/found.
+                    var person = await _personRepo.FindByQidAsync(actorQid, ct)
+                        .ConfigureAwait(false);
+
+                    if (person is null)
+                    {
+                        // Fallback: find by name if QID hasn't been set yet
+                        // (enrichment is async, QID may not be written yet).
+                        person = await _personRepo.FindByNameAsync(actorLabel, "Cast Member", ct)
+                            .ConfigureAwait(false);
+                    }
+
+                    if (person is null)
+                    {
+                        _logger.LogDebug(
+                            "Could not find Person record for actor {ActorQid} ({Label})",
+                            actorQid, actorLabel);
+                        continue;
+                    }
+
+                    // 3. Find the FictionalEntity for the character.
+                    var entity = await _fictionalEntityRepo.FindByQidAsync(characterQid, ct)
+                        .ConfigureAwait(false);
+
+                    if (entity is null)
+                    {
+                        _logger.LogDebug(
+                            "No FictionalEntity found for character {CharQid} — " +
+                            "may not have been discovered yet",
+                            characterQid);
+                        continue;
+                    }
+
+                    // 4. Link actor to character for this work.
+                    await _personRepo.LinkToCharacterAsync(
+                        person.Id, entity.Id, workQid, ct)
+                        .ConfigureAwait(false);
+
+                    linkedCount++;
+
+                    _logger.LogDebug(
+                        "Linked actor '{Actor}' ({ActorQid}) to character '{Character}' ({CharQid}) for work {WorkQid}",
+                        actorLabel, actorQid, entity.Label, characterQid, workQid);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _logger.LogWarning(ex,
+                        "Failed to link actor {ActorQid} to character {CharQid} for work {WorkQid}",
+                        actorQid, characterQid, workQid);
+                }
+            }
+        }
+
+        if (linkedCount > 0)
+        {
+            _logger.LogInformation(
+                "Created {Count} actor-character links for work {Qid}",
+                linkedCount, workQid);
+        }
     }
 
     /// <summary>
@@ -1732,7 +1944,6 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         var entityKeys = new Dictionary<string, (string LabelKey, string EntitySubType)>(StringComparer.OrdinalIgnoreCase)
         {
             ["characters_qid"]         = ("characters",        "Character"),
-            ["cast_member_qid"]        = ("cast_member",       "Character"),
             ["narrative_location_qid"] = ("narrative_location","Location"),
         };
 

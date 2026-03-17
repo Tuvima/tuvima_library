@@ -23,6 +23,10 @@
   "max_concurrency": 1,
   "hydration_stages": [2],
   "cache_ttl_hours": 168,
+  "preferred_bridge_ids": {
+    "Books": ["isbn"],
+    "Audiobooks": ["isbn", "apple_books_id"]
+  },
 
   "adapter_type": "config_driven",
   "provider_id": "b1000001-e000-4000-8000-000000000001",
@@ -47,8 +51,19 @@
       "results_path": "results",
       "result_index": 0,
       "fetch_limit": 1,
+      "max_results": 1
+    },
+    {
+      "name": "apple_id_lookup",
+      "priority": 0,
+      "required_fields": ["apple_books_id"],
+      "url_template": "{base_url}/lookup?id={apple_books_id}&country={country}&l={lang}",
+      "results_path": "results",
+      "result_index": 0,
+      "fetch_limit": 1,
       "max_results": 1,
-      "media_types": ["Books"]
+      "tolerate_404": true,
+      "media_types": ["Audiobooks"]
     },
     {
       "name": "ebook_search",

@@ -331,7 +331,7 @@ Three official SVG logo files exist. **Never replace logo placements with hand-w
 
 **Why secondary sources exist:** New releases take time to catalogue. Cover art and promotional imagery are copyright-restricted on Wikimedia. Secondary retail providers (Apple API, TMDB, etc.) fill these gaps: commercial identifiers, cover art, ratings, and metadata for recent releases.
 
-**Plain English:** After a file lands in the library, the Engine quietly reaches out to Wikidata first (as the primary authority via the Reconciliation API), then to retail providers — Apple API, Open Library, Google Books — to fill gaps with cover art and ratings. This happens entirely in the background; the file appears on the Dashboard immediately, and the richer information pops in moments later without any page refresh.
+**Plain English:** After a file lands in the library, the Engine quietly reaches out to Wikidata first (as the primary authority via the Reconciliation API), then to retail providers — Apple API, Open Library, Google Books — solely for cover art and promotional images. Wikidata and Wikipedia are the sole sources for structured data (titles, authors, descriptions, relationships). Retail providers never supply structured metadata. This happens entirely in the background; the file appears on the Dashboard immediately, and the richer information pops in moments later without any page refresh.
 
 **The zero-key providers (no accounts, no API keys required):**
 
@@ -342,6 +342,7 @@ Three official SVG logo files exist. **Never replace logo placements with hand-w
 | **Google Books** | Title, author, year, cover art, ISBN, description, page count, publisher | title 0.75, author 0.8, year 0.85, cover 0.7, isbn 0.9 |
 | **Wikidata** | Person headshot (Wikimedia Commons), biography, Q-identifier | qid/headshot/biography 1.0 |
 | **Wikidata Reconciliation** | QID resolution, core properties, bridge IDs, person data, pen names, audiobook editions | All properties via OpenRefine Reconciliation API + Data Extension API |
+| **Wikipedia** | Rich descriptions (2-3 paragraph summaries) via REST API with QID→sitelink resolution | description 0.90 |
 
 **How it works (the harvest pipeline):**
 
@@ -377,8 +378,11 @@ Adding a new REST+JSON provider is a **zero-code operation**: drop a config file
 
 **Wikidata Reconciliation adapter** (`ReconciliationAdapter`) uses the W3C Reconciliation API and Data Extension API, replacing the former SPARQL-based `WikidataAdapter`. Property configuration lives in `config/providers/wikidata_reconciliation.json`.
 
+**Bridge ID Normalization:** Identifiers flow between Wikidata (dashed ISBNs, mixed-case ASINs, full URLs for IMDb) and retail providers (bare digits, uppercase codes). `IdentifierNormalizationService` (`MediaEngine.Domain.Services`) normalizes 12 identifier types across three directions: `NormalizeRaw` (clean up from any source, with ISBN-13 Mod10 checksum validation), `ToWikidataFormat` (for Wikidata comparison), and `ToRetailFormat` (stripped for API lookups). Key aliases (`isbn_13` → `isbn`, `isbn_10` → `isbn`) are provided by `GetClaimKeyAlias`. Edition bridge ID resolution in `ReconciliationAdapter` filters editions by media type via P31 (instance_of) — audiobooks get audiobook-edition ISBNs, books get print ISBNs.
+
 **Key types:**
 - `ConfigDrivenAdapter` (`MediaEngine.Providers.Adapters`) — universal adapter implementing `IExternalMetadataProvider`
+- `IdentifierNormalizationService` (`MediaEngine.Domain.Services`) — static utility normalizing 12 identifier types (ISBN-13, ISBN-10, ASIN, IMDb, Apple Books ID, TMDB, MusicBrainz, Goodreads, ComicVine, ISRC, LCCN, Apple Podcasts) with checksum validation
 - `JsonPathEvaluator` (`MediaEngine.Providers.Models`) — static utility navigating `System.Text.Json.Nodes.JsonNode` with dot-notation, array indexing, and wildcard iteration
 - `ValueTransformRegistry` (`MediaEngine.Providers.Models`) — named transform functions (to_string, strip_html, url_template, regex_replace, prefer_isbn13, array_join, array_nested_join, first_n_chars, fallback_key)
 
@@ -400,8 +404,11 @@ Adding a new REST+JSON provider is a **zero-code operation**: drop a config file
 
 **Plain English:** After a file is ingested and scored with sufficient confidence, the Library organises it into a clean, human-readable folder structure. User metadata edits are written back into the file's embedded metadata (EPUB OPF, ID3 tags, M4B atoms) via `IMetadataTagger` implementations. Wikidata properties are re-fetchable via batch Reconciliation API. On a database rebuild (Great Inhale v2), the Engine scans media files, extracts embedded metadata via processors, and batch-reconciles with Wikidata.
 
-**File-First design invariant:**
-- The **database is a cache of the filesystem and embedded metadata, not the master copy.** Embedded file metadata wins on conflict during a Great Inhale.
+**Data architecture:**
+- The **database is the authoritative data store** for all metadata, relationships, and universe data. Sidecar files (universe.xml, person.xml) have been eliminated.
+- User metadata edits are written back into the file's embedded metadata (EPUB OPF, ID3 tags) via `IMetadataTagger` for portability.
+- Wikidata properties are re-fetchable via batch Reconciliation API as a recovery fallback.
+- **Recovery model:** Scheduled SQLite backups by domain (universe, people, library) as primary recovery. Wikidata re-fetch as fallback. Great Inhale deprecated — replaced by backup/restore.
 - Cover art is **never stored in the database.** `cover.jpg` lives alongside the file on disk and is always read from there.
 
 **Folder Structure:**
@@ -1305,20 +1312,21 @@ How it works:
 | **Narrative Root Resolver** | Determines which fictional universe a work belongs to (P1434 → P8345 → P179 → Hub DisplayName). Stores in `narrative_roots` table. |
 | **RecursiveFictionalEntityService** | Find-or-create entities by QID, link to work, enqueue enrichment if not yet enriched. Mirrors `RecursiveIdentityService`. |
 | **RelationshipPopulationService** | After entity enrichment, reads `_qid` claims and creates graph edges (father, spouse, member_of, residence, etc.). Depth limit: 1. |
-| **UniverseGraphWriterService** | Debounced writer — waits 5 seconds after last enrichment before writing `universe.xml`. ConcurrentDictionary per universe. |
+| **UniverseGraphWriterService** | No-op — universe.xml sidecar writing removed. Database is the authoritative data store. |
+| **UniverseGraphQueryService** | dotNetRDF in-memory SPARQL graph. Loads entities + relationships from SQLite, caches per universe. Pathfinding, family trees, cross-media queries. |
 | **UniverseGraphEndpoints** | `GET /universes`, `GET /universe/{qid}`, `GET /universe/{qid}/graph` with type/work/ego-network filters. |
 
 **Database tables (M-024 to M-027):** `fictional_entities` (UNIQUE on wikidata_qid), `fictional_entity_work_links` (junction), `entity_relationships` (graph edges with UNIQUE constraint), `narrative_roots` (QID PK with hierarchy).
 
-**Entity types:** `FictionalEntityType.Character`, `Location`, `Organization` — all stored in a single `fictional_entities` table with a CHECK constraint on `entity_sub_type`.
+**Entity types:** `FictionalEntityType.Character`, `Location`, `Organization`, `Event` — all stored in a single `fictional_entities` table with a CHECK constraint on `entity_sub_type`. Event represents narrative events (e.g. Battle of Helm's Deep, Clone Wars).
 
-**Relationship types:** father, mother, spouse, sibling, child, opponent, student_of, member_of, residence, creator, located_in, part_of, head_of, parent_organization, has_parts, performer, same_as.
+**Relationship types (22):** father, mother, spouse, sibling, child, opponent, student_of, partner, member_of, allegiance, educated_at, residence, creator, located_in, part_of, head_of, parent_organization, has_parts, position_held, conflict, significant_person, affiliation. Performer links stored separately in `character_performer_links` table, merged at query time.
 
-**Sidecar:** `.universe/{Label} ({Qid})/universe.xml` — full graph snapshot with entities, relationships, and narrative hierarchy. Actor images are NOT stored here; they stay in `.people/` and are resolved at serve time via performer Person QID.
+**Sidecar:** Removed. All universe graph data stored exclusively in SQLite (fictional_entities, entity_relationships, narrative_roots). dotNetRDF loads from SQLite into in-memory graph for SPARQL queries. Actor headshots resolved from `.people/{QID}/headshot.jpg` via performer Person QID.
 
 **SignalR events:** `FictionalEntityEnrichedEvent`, `RelationshipDiscoveredEvent`, `UniverseGraphUpdatedEvent`.
 
-**Great Inhale extension:** `ScanUniversesAsync` enumerates `.universe/*/universe.xml`, rebuilds narrative roots, entities, relationships, and work links from sidecar data.
+**Great Inhale extension:** Deprecated. Universe data recovery via scheduled SQLite backups or Wikidata re-fetch. `ScanUniversesAsync` is a no-op.
 
 **Query efficiency:** Three layers prevent redundant Reconciliation calls — skip-if-enriched (entity level), provider response cache (HTTP level), universe-level deduplication (known QID).
 
@@ -1333,34 +1341,13 @@ How it works:
 
 **Pseudonym resolution:** After Wikidata enrichment, P1773 (attributed_to) links pen names to real people, P742 (pseudonym) links real people to their pen names. Both directions stored in `person_aliases` table.
 
-**Wikipedia for Persons:** After Wikidata enrichment, the Engine fetches a richer Wikipedia biography (up to 1000 chars, confidence 0.85) via the Wikipedia API to supplement the short Wikidata description.
+**Wikipedia for Persons:** After Wikidata enrichment, the `WikipediaAdapter` (coded adapter) fetches rich Wikipedia descriptions via QID→Wikidata sitelink→Wikipedia REST API (`/api/rest_v1/page/summary/{title}`). Language-aware: reads `CoreConfiguration.Language`. Confidence 0.90. Runs at Stage 2.
 
-**Person folder naming:** `.people/{Name} ({QID})/` format after enrichment provides a QID. Existing folders under old naming patterns (GUID, name-only) are automatically renamed on next enrichment cycle.
+**Actor-character mapping:** `HydrationPipelineService.ResolveActorCharacterMappingsAsync` uses `WikibaseApiService.GetClaimsAsync(workQid, "P161")` to fetch cast member statements with P453 (character) qualifiers. For each (actor QID, character QID) pair: creates Person record for the actor, finds FictionalEntity for the character, links via `character_performer_links`. Actor is a real Person (e.g. Timothée Chalamet) with standard Wikipedia headshot — not a character-specific image.
 
-**Person.xml v1.1 schema:**
-```xml
-<library-person version="1.1">
-  <identity>
-    <name>Oscar Isaac</name>
-    <role>Cast Member</role>
-    <wikidata-qid>Q15072805</wikidata-qid>
-    <occupation>Actor</occupation>
-    <is-pseudonym>false</is-pseudonym>
-  </identity>
-  <biography>...</biography>
-  <details>
-    <date-of-birth>1979-03-09</date-of-birth>
-    <place-of-birth>Guatemala City</place-of-birth>
-    <nationality>American</nationality>
-  </details>
-  <social>...</social>
-  <known-names><name>Oscar Isaac</name></known-names>
-  <characters>
-    <character qid="Q..." label="Duke Leto Atreides"
-               universe-qid="Q3041974" work-qid="Q104686073"/>
-  </characters>
-</library-person>
-```
+**Person folder naming:** `.people/{person_qid}/` format. QID-based path avoids rename issues. Contains `headshot.jpg` (from Wikimedia Commons P18) and `characters/{character_qid}.jpg` (user-uploaded, future feature).
+
+**Person.xml:** Removed. Person data stored exclusively in the database. Person folders (`.people/{QID}/`) contain images only — headshots and future user-uploaded character images. No XML sidecar files.
 
 **New Wikidata properties (Person-scoped):** P19 (place_of_birth), P20 (place_of_death), P27 (country_of_citizenship), P742 (pseudonym), P1773 (attributed_to), P1813 (short_name).
 
@@ -1378,6 +1365,7 @@ Pass 1 runs as part of the normal two-stage hydration pipeline (§3.13) but fetc
 
 - **Stage 1 (Reconciliation — core subset):** Bridge ID lookup (ISBN, ASIN) or title search → resolve QID. Fetch **core properties only**: title, author/artist, year, genre, series, series_position. Skip the full 50+ property Data Extension deep hydration.
 - **Stage 2 (Retail providers):** Cover art, ratings (unchanged).
+- **Wikipedia descriptions:** `WikipediaAdapter` runs at Stage 2 for both works and persons. QID→sitelink→REST API. Confidence 0.90.
 - **Basic person creation:** Find/create Person records for author, narrator, director. Fetch name + headshot + occupation from Wikidata. Skip deep social links and biographical enrichment.
 
 Result: the file appears on the Dashboard within seconds with title, author, cover art, and author photo.
@@ -1403,6 +1391,8 @@ Pass 2 handles everything that makes the library *intelligent* — the deep conn
 2. **Safety net: Nightly sweep.** A configurable cron job (default: daily at 2:00 AM) scans for any Pass 2 requests older than N hours that the priority queue has not yet processed (e.g., due to sustained heavy ingestion). Processes in batches with configurable size and inter-batch delay.
 
 3. **User-triggered override.** The existing "Hydrate" button in the Dashboard runs both passes synchronously via `RunSynchronousAsync`, bypassing the queue entirely.
+
+4. **Dynamic fallback (on UI click).** `POST /universe/entity/{qid}/deep-enrich` — when a user clicks on an un-enriched entity in the Chronicle Explorer, triggers on-demand enrichment for the entity and its 1-hop neighbors. Enqueues via `IMetadataHarvestingService`. Depth capped at 3 to prevent runaway traversal. Returns within 2-3 seconds via existing harvest queue.
 
 **Configuration** (`config/hydration.json` additions):
 ```json
@@ -1676,6 +1666,7 @@ This project uses a two-tier model strategy to balance quality with speed:
 | SkiaSharp | MIT | Hero Banner Pipeline — Cross-platform image processing for cinematic hero banner generation (blur, vignette, grain) |
 | SkiaSharp.NativeAssets.Linux | MIT | Hero Banner Pipeline — Native SkiaSharp binaries for Linux deployment |
 | Cytoscape.js | MIT | Chronicle Engine — Graph visualization for the Chronicle Explorer Dashboard (vendored, no NuGet) |
+| dotNetRDF | MIT | Stage 4c (Universe Graph) — Local in-memory SPARQL graph querying over SQLite data |
 
 ### 5.2 — Mandatory Workflow
 
