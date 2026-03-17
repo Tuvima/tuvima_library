@@ -626,7 +626,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 HintedHubId           = request.HintedHubId,
                 Pass                  = request.Pass,
             };
-            _logger.LogDebug(
+            _logger.LogInformation(
                 "Wikipedia fetch started in parallel with Stage 2 for entity {Id} (QID: {Qid})",
                 request.EntityId, result.WikidataQid);
             wikipediaTask = Task.Run(
@@ -636,6 +636,21 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         }
         else
         {
+            // Log at Information level so missing Wikipedia descriptions are visible in normal logs.
+            if (wikipediaProvider is null)
+            {
+                _logger.LogWarning(
+                    "Wikipedia provider not found in registered providers for entity {Id} — " +
+                    "no rich description will be fetched. Check that WikipediaAdapter is registered as IExternalMetadataProvider.",
+                    request.EntityId);
+            }
+            else
+            {
+                _logger.LogInformation(
+                    "Wikipedia fetch skipped for entity {Id}: Stage 1 did not resolve a Wikidata QID. " +
+                    "No QID means no Wikipedia sitelink lookup is possible.",
+                    request.EntityId);
+            }
             wikipediaTask = Task.FromResult<IReadOnlyList<ProviderClaim>>([]);
         }
 
@@ -705,8 +720,18 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                     .ConfigureAwait(false);
 
                 _logger.LogInformation(
-                    "Wikipedia returned {Claims} claims for entity {Id}",
-                    wikipediaClaims.Count, request.EntityId);
+                    "Wikipedia returned {Claims} claims for entity {Id} (fields: {Fields})",
+                    wikipediaClaims.Count, request.EntityId,
+                    string.Join(", ", wikipediaClaims.Select(c => c.Key).Distinct()));
+            }
+            else if (wikipediaProvider is not null && result.WikidataQid is not null)
+            {
+                // Wikipedia was attempted but returned nothing (no sitelink, empty extract, or HTTP error).
+                // This is logged at Information so operators can see when Wikipedia descriptions are missing.
+                _logger.LogInformation(
+                    "Wikipedia returned 0 claims for entity {Id} (QID: {Qid}). " +
+                    "Possible causes: no Wikipedia article for this QID, Wikipedia API unreachable, or language '{Lang}' has no sitelink.",
+                    request.EntityId, result.WikidataQid, lang);
             }
         }
         catch (OperationCanceledException)

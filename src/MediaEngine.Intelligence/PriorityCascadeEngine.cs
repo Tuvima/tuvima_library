@@ -1,6 +1,7 @@
 using MediaEngine.Domain.Enums;
 using MediaEngine.Intelligence.Contracts;
 using MediaEngine.Intelligence.Models;
+using Microsoft.Extensions.Logging;
 using MediaEngine.Storage.Contracts;
 using MediaEngine.Storage.Models;
 
@@ -14,6 +15,11 @@ namespace MediaEngine.Intelligence;
 /// (description, cover, biography, rating) to prefer other providers.
 /// User edits are accepted only for empty fields (no Wikidata value) and
 /// image fields.
+///
+/// <para>
+/// Field priorities are reloaded on every <see cref="ScoreEntityAsync"/> call so that
+/// changes to <c>config/field_priorities.json</c> take effect without a restart.
+/// </para>
 /// </summary>
 public sealed class PriorityCascadeEngine : IScoringEngine
 {
@@ -26,22 +32,26 @@ public sealed class PriorityCascadeEngine : IScoringEngine
         Guid.Parse("b3000003-d000-4000-8000-000000000004");
 
     /// <summary>
-    /// Per-field provider priority overrides.
-    /// Fields listed here use provider-priority ordering instead of Wikidata-always-wins.
+    /// Configuration loader — used to reload field priorities on every scoring call.
     /// </summary>
-    private readonly FieldPriorityConfiguration _fieldPriorities;
+    private readonly IConfigurationLoader _configLoader;
 
     /// <summary>
     /// Maps provider name (e.g. "wikipedia") to provider GUID for field priority resolution.
-    /// Built from loaded provider configs at construction time.
+    /// Built once at construction from the provider configs that exist at startup.
     /// </summary>
     private readonly IReadOnlyDictionary<string, Guid> _providerNameToGuid;
 
-    public PriorityCascadeEngine(IConfigurationLoader configLoader)
+    private readonly ILogger<PriorityCascadeEngine>? _logger;
+
+    public PriorityCascadeEngine(
+        IConfigurationLoader configLoader,
+        ILogger<PriorityCascadeEngine>? logger = null)
     {
         ArgumentNullException.ThrowIfNull(configLoader);
 
-        _fieldPriorities = configLoader.LoadFieldPriorities();
+        _configLoader = configLoader;
+        _logger       = logger;
 
         // Build provider name → GUID map from all provider configs.
         var nameMap = new Dictionary<string, Guid>(StringComparer.OrdinalIgnoreCase);
@@ -54,12 +64,35 @@ public sealed class PriorityCascadeEngine : IScoringEngine
             }
         }
         _providerNameToGuid = nameMap;
+
+        // Log the field priority config at startup so the operator can confirm it loaded.
+        var initialPriorities = configLoader.LoadFieldPriorities();
+        if (initialPriorities.FieldOverrides.Count == 0)
+        {
+            _logger?.LogWarning(
+                "PriorityCascadeEngine: field_priorities.json not found or empty — " +
+                "Wikidata will win for ALL fields including 'description'. " +
+                "Wikipedia rich descriptions will be stored as claims but will NOT appear as canonical values. " +
+                "Create config/field_priorities.json with a 'description' override to prefer Wikipedia.");
+        }
+        else
+        {
+            _logger?.LogInformation(
+                "PriorityCascadeEngine: loaded {Count} field priority override(s): [{Fields}]",
+                initialPriorities.FieldOverrides.Count,
+                string.Join(", ", initialPriorities.FieldOverrides.Keys));
+        }
     }
 
     public Task<ScoringResult> ScoreEntityAsync(ScoringContext context, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(context);
+
+        // Reload field priorities on every call so changes to field_priorities.json
+        // take effect without a restart. The file is small and the load is a no-op
+        // cache miss (file → parse → return) — negligible cost per scoring call.
+        var fieldPriorities = _configLoader.LoadFieldPriorities();
 
         var fieldScores = new List<FieldScore>();
 
@@ -96,7 +129,7 @@ public sealed class PriorityCascadeEngine : IScoringEngine
             }
 
             // ── Check for per-field provider priority override ───────────
-            if (_fieldPriorities.FieldOverrides.TryGetValue(group.Key, out var fieldOverride)
+            if (fieldPriorities.FieldOverrides.TryGetValue(group.Key, out var fieldOverride)
                 && fieldOverride.Priority.Count > 0)
             {
                 var resolved = ResolveByFieldPriority(claimsForField, fieldOverride);
