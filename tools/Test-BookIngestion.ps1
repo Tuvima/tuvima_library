@@ -349,27 +349,34 @@ Write-RL ""
 
 # -- 1. Engine health check --------------------------------------------------
 Write-R " Checking engine..." -c "Gray"
-$status = Invoke-Api "/system/status"
-if (-not $status) {
+$status       = Invoke-Api "/system/status"
+$engineWasUp  = $null -ne $status
+$coreSettings = $null
+if ($engineWasUp) {
+    Write-R " Engine online" -c "Green"
+    # -- 2. Resolve watch directory from engine settings
+    if (-not $WatchDirectory) {
+        $coreSettings = Invoke-Api "/settings/core"
+        if ($coreSettings -and $coreSettings.watch_directory) {
+            $WatchDirectory = $coreSettings.watch_directory
+        }
+    }
+} elseif ($WipeFirst) {
+    Write-R " Engine offline - will wipe and restart." -c "Yellow"
+} else {
     Write-R " ENGINE NOT RESPONDING at $EngineUrl" -c "Red"
     Write-R "   Start the engine first: cd src/MediaEngine.Api && dotnet run" -c "Yellow"
     exit 1
 }
-Write-R " Engine online" -c "Green"
 
-# -- 2. Resolve watch directory ----------------------------------------------
-if (-not $WatchDirectory) {
-    $coreSettings = Invoke-Api "/settings/core"
-    if ($coreSettings -and $coreSettings.watch_directory) {
-        $WatchDirectory = $coreSettings.watch_directory
+if (-not $WipeFirst) {
+    if (-not $WatchDirectory -or -not (Test-Path $WatchDirectory)) {
+        Write-R " Watch directory not found: '$WatchDirectory'" -c "Red"
+        Write-R "   Set -WatchDirectory or configure it in the engine settings." -c "Yellow"
+        exit 1
     }
+    Write-R " Watch dir   : $WatchDirectory" -c "Green"
 }
-if (-not $WatchDirectory -or -not (Test-Path $WatchDirectory)) {
-    Write-R " Watch directory not found: '$WatchDirectory'" -c "Red"
-    Write-R "   Set -WatchDirectory or configure it in the engine settings." -c "Yellow"
-    exit 1
-}
-Write-R " Watch dir   : $WatchDirectory" -c "Green"
 
 # -- 3. Resolve DB and library paths -----------------------------------------
 $ApiDbPath   = Join-Path $RepoRoot "src\MediaEngine.Api\library.db"
@@ -387,25 +394,81 @@ if ($WipeFirst) {
         if ($confirm -ne "YES") { Write-R "   Aborted." -c "Gray"; exit 0 }
     }
 
+    # Stop ALL running engine instances (any dotnet.exe running MediaEngine.Api)
+    $enginePort = ([uri]$EngineUrl).Port
+    $apiProcs   = Get-CimInstance Win32_Process -Filter "name='dotnet.exe'" -ErrorAction SilentlyContinue |
+                  Where-Object { $_.CommandLine -like "*MediaEngine.Api*" }
+    $tcpConn    = Get-NetTCPConnection -LocalPort $enginePort -State Listen -ErrorAction SilentlyContinue
+    if ($tcpConn -and -not $apiProcs) {
+        $apiProcs = @([PSCustomObject]@{ ProcessId = $tcpConn.OwningProcess })
+    }
+    if ($apiProcs) {
+        Write-R " Stopping engine instances..." -c "Yellow"
+        foreach ($p in $apiProcs) { Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue }
+        Start-Sleep -Seconds 3   # wait for DLL locks to release
+        Write-R "   Engine stopped" -c "DarkYellow"
+    }
+
     Write-R " Wiping database and library..." -c "Yellow"
     if (Test-Path $ApiDbPath) {
-        try {
-            Remove-Item $ApiDbPath -Force -ErrorAction Stop
-            Write-R "   Deleted: $ApiDbPath" -c "DarkYellow"
-        } catch {
-            Write-R " Cannot delete database - engine is holding it open." -c "Red"
-            Write-R "   Stop the Tuvima Engine first, then re-run with -WipeFirst." -c "Yellow"
-            exit 1
-        }
+        Remove-Item $ApiDbPath -Force -ErrorAction SilentlyContinue
+        Write-R "   Deleted: $ApiDbPath" -c "DarkYellow"
     }
     $bak = "$ApiDbPath.bak"
     if (Test-Path $bak) { Remove-Item $bak -Force }
+    foreach ($ext in @(".wal", ".shm")) {
+        $f = "$ApiDbPath$ext"
+        if (Test-Path $f) { Remove-Item $f -Force -ErrorAction SilentlyContinue }
+    }
     if ($LibraryRoot -and (Test-Path $LibraryRoot)) {
         Remove-Item -Path $LibraryRoot -Recurse -Force -ErrorAction SilentlyContinue
         Write-R "   Cleared: $LibraryRoot" -c "DarkYellow"
     }
-    Write-R " Wipe complete" -c "Green"
+    Write-R " Wipe complete." -c "Green"
+
+    # Restart the engine and wait for it to come back online
+    $apiDir = Join-Path $RepoRoot "src\MediaEngine.Api"
+    Write-R " Restarting engine..." -c "Yellow"
+    # Use --no-build (binaries already compiled) and force the correct port via env var
+    $env:ASPNETCORE_URLS        = $EngineUrl
+    $env:ASPNETCORE_ENVIRONMENT = "Development"
+    $engineLog = Join-Path ([System.IO.Path]::GetTempPath()) "tuvima_engine_restart.log"
+    Start-Process -FilePath "dotnet" -ArgumentList "run --no-build --no-launch-profile" `
+        -WorkingDirectory $apiDir -NoNewWindow -RedirectStandardOutput $engineLog -RedirectStandardError "$engineLog.err"
+    $restartDeadline = (Get-Date).AddSeconds(60)
+    $restarted = $false
+    do {
+        Start-Sleep -Seconds 3
+        try {
+            $ping = Invoke-RestMethod -Uri "$EngineUrl/system/status" -TimeoutSec 3 -ErrorAction Stop
+            if ($ping) { $restarted = $true; break }
+        } catch { }
+    } while ((Get-Date) -lt $restartDeadline)
+    if ($restarted) {
+        Write-R " Engine back online." -c "Green"
+        # Re-fetch settings after restart (fresh DB, fresh config)
+        $coreSettings = Invoke-Api "/settings/core"
+        if ($coreSettings -and $coreSettings.library_root) { $LibraryRoot = $coreSettings.library_root }
+        if (-not $WatchDirectory -and $coreSettings -and $coreSettings.watch_directory) {
+            $WatchDirectory = $coreSettings.watch_directory
+        }
+    } else {
+        Write-R " Engine did not restart within 60s. Check the engine manually." -c "Red"
+        exit 1
+    }
 }
+
+# Validate watch directory (after potential WipeFirst restart)
+if (-not $WatchDirectory -or -not (Test-Path $WatchDirectory -PathType Container)) {
+    if ($WatchDirectory -and -not (Test-Path $WatchDirectory)) {
+        New-Item -ItemType Directory -Path $WatchDirectory -Force | Out-Null
+        Write-R " Created watch directory: $WatchDirectory" -c "DarkYellow"
+    } elseif (-not $WatchDirectory) {
+        Write-R " Watch directory not found. Set -WatchDirectory or configure it in the engine." -c "Red"
+        exit 1
+    }
+}
+Write-R " Watch dir   : $WatchDirectory" -c "Green"
 
 # -- 5. Random selection -----------------------------------------------------
 if ($Seed -ge 0) {
