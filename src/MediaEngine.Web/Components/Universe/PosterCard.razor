@@ -6,12 +6,12 @@
    Used inside PosterSwimlane for horizontal scrolling rows. *@
 
 <div class="poster-card" style="width: @(Width)px; --card-width: @(Width)px;" @onclick="OnClick">
-    <div class="poster-card-artwork @(IsAudiobook ? "audiobook-tile" : "") @(string.IsNullOrEmpty(Hub.CoverUrl) ? "no-cover" : "")"
+    <div class="poster-card-artwork @(IsAudiobook ? "audiobook-tile" : "") @(string.IsNullOrEmpty(Item.CoverUrl) ? "no-cover" : "")"
          style="@ArtworkStyle">
-        @if (!string.IsNullOrEmpty(Hub.CoverUrl))
+        @if (!string.IsNullOrEmpty(Item.CoverUrl))
         {
-            <img src="@Hub.CoverUrl"
-                 alt="@Hub.DisplayName"
+            <img src="@Item.CoverUrl"
+                 alt="@Item.Title"
                  class="poster-card-img"
                  loading="lazy" />
         }
@@ -21,79 +21,76 @@
             <div class="poster-card-book-spine">
                 <MudIcon Icon="@MudBlazor.Icons.Material.Filled.MenuBook"
                          Style="font-size: 36px; color: rgba(255,255,255,0.18); margin-bottom: 8px;" />
-                <span class="poster-card-spine-title">@Hub.DisplayName</span>
+                <span class="poster-card-spine-title">@Item.Title</span>
             </div>
         }
 
-        @if (IsNew)
+        @if (Item.IsNew)
         {
             <span class="poster-new-badge">NEW</span>
         }
 
         @* Format badge — book formats only *@
-        @if (!string.IsNullOrEmpty(Hub.PrimaryMediaType))
+        @if (!string.IsNullOrEmpty(Item.FormatBadge))
         {
             <span class="poster-format-badge"
                   style="background: @FormatBadgeColour;">@FormatBadgeText</span>
         }
 
-        @if (ProgressPct.HasValue && ProgressPct.Value > 0)
+        @if (EffectiveProgressPct.HasValue && EffectiveProgressPct.Value > 0)
         {
             <div class="poster-progress-bar">
-                <div class="poster-progress-fill" style="width: @(ProgressPct.Value)%;"></div>
+                <div class="poster-progress-fill" style="width: @(EffectiveProgressPct.Value)%;"></div>
             </div>
         }
     </div>
     <div class="poster-card-info">
-        <span class="poster-card-title">@Hub.DisplayName</span>
+        <span class="poster-card-title">@Item.Title</span>
         @* Author — primary subtitle for books *@
-        @if (!string.IsNullOrEmpty(Hub.Author))
+        @if (!string.IsNullOrEmpty(Item.Subtitle))
         {
-            <span class="poster-card-author">@Hub.Author</span>
-        }
-        @* Series — shown if author is available, or as fallback *@
-        @if (!string.IsNullOrEmpty(Hub.Series) && string.IsNullOrEmpty(Hub.Author))
-        {
-            <span class="poster-card-subtitle">@Hub.Series</span>
+            <span class="poster-card-author">@Item.Subtitle</span>
         }
         <div class="poster-card-meta">
-            @if (!string.IsNullOrEmpty(Hub.Year))
+            @if (!string.IsNullOrEmpty(Item.Year))
             {
-                <span class="poster-meta-badge">@Hub.Year</span>
+                <span class="poster-meta-badge">@Item.Year</span>
             }
         </div>
     </div>
 </div>
 
 @code {
-    [Parameter, EditorRequired] public HubViewModel Hub { get; set; } = default!;
-    [Parameter] public EventCallback<HubViewModel> OnHubSelected { get; set; }
+    [Parameter, EditorRequired] public PosterItemViewModel Item { get; set; } = default!;
+    [Parameter] public EventCallback<PosterItemViewModel> OnItemSelected { get; set; }
     [Parameter] public int Width { get; set; } = 180;
     [Parameter] public double? ProgressPct { get; set; }
 
-    private bool IsNew => DateTimeOffset.UtcNow - Hub.CreatedAt < TimeSpan.FromDays(7);
+    // ProgressPct parameter takes precedence; fall back to Item.Progress so
+    // swimlanes that don't explicitly pass ProgressPct still show the bar.
+    private double? EffectiveProgressPct => ProgressPct ?? Item.Progress;
 
     private bool IsAudiobook =>
-        (Hub.PrimaryMediaType ?? string.Empty).Contains("audio", StringComparison.OrdinalIgnoreCase)
-        || (Hub.PrimaryMediaType ?? string.Empty).Contains("m4b", StringComparison.OrdinalIgnoreCase);
+        (Item.FormatBadge ?? string.Empty).Contains("audio", StringComparison.OrdinalIgnoreCase)
+        || (Item.FormatBadge ?? string.Empty).Contains("m4b", StringComparison.OrdinalIgnoreCase);
 
     private string ArtworkStyle =>
         // Audiobooks: transparent — CSS handles subtle fallback when no cover art
-        IsAudiobook || !string.IsNullOrEmpty(Hub.CoverUrl)
+        IsAudiobook || !string.IsNullOrEmpty(Item.CoverUrl)
             ? string.Empty
-            : $"background: linear-gradient(160deg, {Hub.DominantHexColor ?? "#1A2040"}44 0%, #0D1230 100%);";
+            : $"background: linear-gradient(160deg, {Item.DominantHexColor}44 0%, #0D1230 100%);";
 
 
-    private async Task OnClick() => await OnHubSelected.InvokeAsync(Hub);
+    private async Task OnClick() => await OnItemSelected.InvokeAsync(Item);
 
     private string FormatBadgeText =>
-        FormatBadgeLabel(Hub.PrimaryMediaType ?? string.Empty);
+        FormatBadgeLabel(Item.FormatBadge ?? string.Empty);
 
     private string FormatBadgeColour
     {
         get
         {
-            var t = (Hub.PrimaryMediaType ?? string.Empty).ToLowerInvariant();
+            var t = (Item.FormatBadge ?? string.Empty).ToLowerInvariant();
             if (t.Contains("audio") || t.Contains("m4b")) return "rgba(139, 92, 246, 0.85)"; // purple for audiobooks
             if (t.Contains("comic") || t.Contains("cbz")) return "rgba(20, 160, 100, 0.85)"; // teal for comics
             return "rgba(37, 99, 235, 0.85)"; // blue for books (default)

@@ -129,27 +129,31 @@ else
     @* ── Mobile filter bar (library dropdown only — no filter chips on Home) ── *@
     <MobileFilterBar CurrentLane="null" />
 
-    @* ── Your Library ── *@
-    <PosterSwimlane Title="Your Library"
-                    TotalCount="@_nonHeroHubs.Count"
-                    Hubs="@_nonHeroHubs.Take(12).ToList()"
-                    OnHubSelected="HandleHubSelected"
-                    CardWidth="@_cardWidth" />
-
-    @* ── Recently Added — newest first ── *@
-    <PosterSwimlane Title="Recently Added"
-                    TotalCount="@_recentHubs.Count"
-                    Hubs="@_recentHubs.Take(12).ToList()"
-                    OnHubSelected="HandleHubSelected"
-                    CardWidth="@_cardWidth" />
-
-    @* ── Grouped swimlanes by media type ── *@
-    @foreach (var group in _mediaTypeGroups)
+    @* ── Continue Your Journey — in-progress individual items ── *@
+    @if (_journeyItems.Count > 0)
     {
-        <PosterSwimlane Title="@group.Title"
-                        TotalCount="@group.Hubs.Count"
-                        Hubs="@group.Hubs"
-                        OnHubSelected="HandleHubSelected"
+        <PosterSwimlane Title="Continue Your Journey"
+                        Items="@_journeyItems.Take(10).Select(PosterItemViewModel.FromJourney).ToList()"
+                        OnItemSelected="HandleItemSelected"
+                        CardWidth="@_cardWidth" />
+    }
+
+    @* ── Recently Added — individual works, newest hub first ── *@
+    @if (_recentWorks.Count > 0)
+    {
+        <PosterSwimlane Title="Recently Added"
+                        TotalCount="@_recentWorks.Count"
+                        Items="@_recentWorks.Take(12).ToList()"
+                        OnItemSelected="HandleItemSelected"
+                        CardWidth="@_cardWidth" />
+    }
+
+    @* ── Suggestions — by same authors/genres as recent activity, or broad library explore ── *@
+    @if (_suggestedWorks.Count > 0)
+    {
+        <PosterSwimlane Title="@_suggestionsTitle"
+                        Items="@_suggestedWorks"
+                        OnItemSelected="HandleItemSelected"
                         CardWidth="@_cardWidth" />
     }
 }
@@ -160,10 +164,12 @@ else
     private string?            _error;
     private string?            _seedMessage;
     private List<HubViewModel> _hubs         = [];
-    private List<HubViewModel> _nonHeroHubs  = [];
     private List<HubViewModel> _recentHubs   = [];
     private List<HubViewModel> _carouselHubs = [];
-    private List<MediaTypeGroup> _mediaTypeGroups = [];
+
+    // ── Home swimlane data (individual works, not hubs) ───────────────────────
+    private List<PosterItemViewModel> _recentWorks    = [];
+    private List<PosterItemViewModel> _suggestedWorks = [];
 
     // ── Journey items ────────────────────────────────────────────────────────
     private List<JourneyItemViewModel> _journeyItems = [];
@@ -178,7 +184,8 @@ else
 
     private int _cardWidth => DeviceContext.Settings.Pages.Home.SwimlaneCardWidth;
 
-    private sealed record MediaTypeGroup(string Title, IReadOnlyList<HubViewModel> Hubs);
+    private string _suggestionsTitle =>
+        _journeyItems.Count > 0 ? "You Might Like" : "Explore Your Library";
 
     // ── Device-context helpers ────────────────────────────────────────────────
 
@@ -282,19 +289,40 @@ else
     {
         var all = _hubs;
 
-        // Non-hero hubs (all, for "Your Library" swimlane).
-        _nonHeroHubs = all.ToList();
-
-        // Recently added: newest first — also the carousel fallback pool.
+        // Carousel fallback pool — recently added hubs shown when no journey items.
         _recentHubs   = all.OrderByDescending(h => h.CreatedAt).ToList();
         _carouselHubs = _recentHubs.Take(5).ToList();
 
-        // Group by media type label for swimlane sections.
-        _mediaTypeGroups = all
-            .Where(h => !string.IsNullOrEmpty(h.PrimaryMediaType))
-            .GroupBy(h => FormatMediaType(h.PrimaryMediaType!))
-            .Where(g => g.Count() >= 2)
-            .Select(g => new MediaTypeGroup(g.Key, g.ToList()))
+        // Recently Added — individual works flattened from recently added hubs.
+        _recentWorks = all
+            .OrderByDescending(h => h.CreatedAt)
+            .SelectMany(h => h.Works.Select(w =>
+                PosterItemViewModel.FromWork(w, h.CoverUrl, h.DominantHexColor)))
+            .Take(20)
+            .ToList();
+
+        // Suggestions — works not currently in progress, prioritising same authors.
+        var journeyWorkIds = _journeyItems.Select(j => j.WorkId).ToHashSet();
+        var recentAuthors  = _journeyItems
+            .Select(j => j.Author)
+            .Where(a => !string.IsNullOrEmpty(a))
+            .Select(a => a!)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var candidates = all
+            .SelectMany(h => h.Works.Select(w => (work: w, hub: h)))
+            .Where(x => !journeyWorkIds.Contains(x.work.Id))
+            .ToList();
+
+        // Prefer works by recently-read authors; fall back to all candidates.
+        var authorMatches = candidates
+            .Where(x => !string.IsNullOrEmpty(x.work.Author) && recentAuthors.Contains(x.work.Author!))
+            .ToList();
+
+        _suggestedWorks = (authorMatches.Count >= 4 ? authorMatches : candidates)
+            .OrderByDescending(x => x.hub.CreatedAt)
+            .Select(x => PosterItemViewModel.FromWork(x.work, x.hub.CoverUrl, x.hub.DominantHexColor))
+            .Take(12)
             .ToList();
 
         // Keep index in bounds if data changed.
@@ -384,25 +412,16 @@ else
         }
     }
 
-    // ── Formatting helpers (swimlane grouping only — hero formatting is in HeroData) ──
-
-    private static string FormatMediaType(string mediaType)
-    {
-        var t = mediaType.ToLowerInvariant();
-        if (t.Contains("epub"))                          return "Books";
-        if (t.Contains("m4b") || t.Contains("audio"))   return "Audiobooks";
-        if (t.Contains("book"))                          return "Books";
-        if (t.Contains("video") || t.Contains("movie")) return "Movies";
-        if (t.Contains("comic") || t.Contains("cbz"))   return "Comics";
-        if (t.Contains("mkv") || t.Contains("mp4"))     return "Videos";
-        return mediaType;
-    }
-
-    // ── Hub selection ─────────────────────────────────────────────────────────
+    // ── Hub / Item selection ──────────────────────────────────────────────────
 
     private void HandleHubSelected(HubViewModel hub)
     {
         Nav.NavigateTo($"/book/{hub.Works.FirstOrDefault()?.Id ?? hub.Id}");
+    }
+
+    private void HandleItemSelected(PosterItemViewModel item)
+    {
+        Nav.NavigateTo(item.NavigationUrl);
     }
 
     /// <summary>Cover or title clicked — open Hub Detail with progress context.</summary>
