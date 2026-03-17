@@ -24,8 +24,8 @@
   "hydration_stages": [2],
   "cache_ttl_hours": 168,
   "preferred_bridge_ids": {
-    "Books": ["isbn"],
-    "Audiobooks": ["isbn", "apple_books_id"]
+    "Books": ["isbn", "apple_books_id"],
+    "Audiobooks": ["asin", "apple_books_id"]
   },
 
   "adapter_type": "config_driven",
