@@ -1024,6 +1024,13 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                     await TryAutoResolveAndOrganizeAsync(
                         request, scored.OverallConfidence, ct).ConfigureAwait(false);
                 }
+
+                // Auto-resolve LowConfidence / AuthorityMatchFailed / ContentMatchFailed
+                // items when confidence has improved above the review threshold, even if
+                // not yet high enough for auto-organize.  This prevents orphaned review
+                // items from piling up after successful hydration enrichment.
+                await TryAutoResolveStaleReviewItemsAsync(
+                    request.EntityId, scored.OverallConfidence, ct).ConfigureAwait(false);
             }
 
             // Check for metadata conflicts after post-hydration re-scoring.
@@ -1170,6 +1177,65 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             _logger.LogWarning(ex,
                 "Auto-resolve after hydration failed for entity {Id}",
                 request.EntityId);
+        }
+    }
+
+    /// <summary>
+    /// Auto-resolves stale LowConfidence, AuthorityMatchFailed, and ContentMatchFailed
+    /// review items when hydration has improved confidence above the review threshold
+    /// (default 0.60) but not necessarily above the organize threshold (0.70/0.85).
+    /// This prevents orphaned review items from piling up after successful enrichment.
+    /// </summary>
+    /// <remarks>
+    /// This method is intentionally separate from <see cref="TryAutoResolveAndOrganizeAsync"/>
+    /// which handles the higher-confidence organize path.  It runs independently so that
+    /// review items are cleaned up even when the file isn't ready for auto-organize.
+    /// </remarks>
+    private async Task TryAutoResolveStaleReviewItemsAsync(
+        Guid entityId, double confidence, CancellationToken ct)
+    {
+        try
+        {
+            var reviews = await _reviewRepo.GetByEntityAsync(entityId, ct)
+                .ConfigureAwait(false);
+
+            var staleReviews = reviews.Where(r =>
+                r.Status == ReviewStatus.Pending &&
+                r.Trigger is ReviewTrigger.LowConfidence
+                          or ReviewTrigger.AuthorityMatchFailed
+                          or ReviewTrigger.ContentMatchFailed
+                          or ReviewTrigger.UniverseMatchFailed).ToList();
+
+            foreach (var review in staleReviews)
+            {
+                await _reviewRepo.UpdateStatusAsync(
+                    review.Id, ReviewStatus.Resolved, "auto_hydration", ct)
+                    .ConfigureAwait(false);
+
+                await _activityRepo.LogAsync(new SystemActivityEntry
+                {
+                    ActionType = SystemActionType.ReviewItemResolved,
+                    EntityId   = entityId,
+                    Detail     = $"Auto-resolved ({review.Trigger}): confidence improved to {confidence:P0} after hydration.",
+                }, ct).ConfigureAwait(false);
+
+                await _eventPublisher.PublishAsync("ReviewItemResolved", new
+                {
+                    review_item_id = review.Id,
+                    entity_id      = entityId,
+                    status         = "Resolved",
+                }, ct).ConfigureAwait(false);
+
+                _logger.LogInformation(
+                    "Stale review item {ReviewId} ({Trigger}) auto-resolved for entity {EntityId} — confidence {Confidence:P0}",
+                    review.Id, review.Trigger, entityId, confidence);
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex,
+                "Auto-resolve stale review items failed for entity {Id}",
+                entityId);
         }
     }
 
