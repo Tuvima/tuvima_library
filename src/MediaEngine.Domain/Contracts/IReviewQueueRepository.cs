@@ -71,4 +71,7 @@ public interface IReviewQueueRepository
     /// Returns the number of items dismissed.
     /// </summary>
     Task<int> DismissAllByEntityAsync(Guid entityId, CancellationToken ct = default);
+
+    /// <summary>Deletes review queue entries whose entity_id no longer exists in media_assets.</summary>
+    Task<int> PurgeOrphanedAsync(CancellationToken ct = default);
 }

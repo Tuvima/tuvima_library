@@ -203,6 +203,18 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
         return Task.FromResult(rows);
     }
 
+    /// <inheritdoc/>
+    public Task<int> PurgeOrphanedAsync(CancellationToken ct = default)
+    {
+        using var conn = _db.CreateConnection();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+            DELETE FROM review_queue
+            WHERE entity_id NOT IN (SELECT id FROM media_assets)";
+        var deleted = cmd.ExecuteNonQuery();
+        return Task.FromResult(deleted);
+    }
+
     // ── Row mapping ─────────────────────────────────────────────────────────────
 
     private static ReviewQueueEntry MapRow(SqliteDataReader reader)

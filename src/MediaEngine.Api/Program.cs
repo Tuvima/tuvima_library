@@ -499,6 +499,21 @@ catch (Exception ex)
     app.Logger.LogWarning(ex, "UI settings cache warm-up failed; resolver will fall back to files.");
 }
 
+// ── Purge orphaned review queue entries ──────────────────────────────────────
+// Review queue rows referencing deleted media assets can accumulate and inflate
+// the badge count. Purge them once at startup before the Engine accepts requests.
+try
+{
+    var reviewRepo = app.Services.GetRequiredService<IReviewQueueRepository>();
+    var purged = await reviewRepo.PurgeOrphanedAsync();
+    if (purged > 0)
+        app.Logger.LogInformation("Purged {Count} orphaned review queue entries", purged);
+}
+catch (Exception ex)
+{
+    app.Logger.LogWarning(ex, "Orphaned review queue purge failed; counts may be inflated until next restart.");
+}
+
 // ── Middleware pipeline ───────────────────────────────────────────────────────
 app.UseCors("BlazorWasm");
 app.UseMiddleware<ApiKeyMiddleware>();
