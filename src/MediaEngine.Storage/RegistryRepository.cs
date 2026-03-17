@@ -38,6 +38,7 @@ public sealed class RegistryRepository : IRegistryRepository
                     MAX(CASE WHEN cv.key = 'cover_url' THEN cv.value END) AS cover_url,
                     MAX(CASE WHEN cv.key = 'author' THEN cv.value END) AS author,
                     MAX(CASE WHEN cv.key = 'file_name' THEN cv.value END) AS file_name,
+                    MAX(CASE WHEN cv.key = 'wikidata_qid' THEN cv.value END) AS wikidata_qid,
                     MAX(CASE WHEN cv.key = 'title' THEN cv.winning_provider_id END) AS title_provider_id,
                     MAX(CASE WHEN cv.key = 'title' THEN cv.is_conflicted END) AS title_conflicted
                 FROM works w
@@ -85,7 +86,11 @@ public sealed class RegistryRepository : IRegistryRepository
                     wd.title_provider_id AS match_source,
                     rd.review_id,
                     rd.trigger AS review_trigger,
-                    COALESCE(rd.confidence_score, 0.95) AS confidence,
+                    CASE
+                        WHEN rd.review_id IS NOT NULL THEN COALESCE(rd.confidence_score, 0.0)
+                        WHEN wd.wikidata_qid IS NOT NULL AND wd.wikidata_qid != '' THEN 0.95
+                        ELSE 0.0
+                    END AS confidence,
                     COALESCE(ul.has_locks, 0) AS has_user_locks,
                     CASE
                         WHEN rd.review_id IS NOT NULL THEN 'Review'
@@ -96,7 +101,19 @@ public sealed class RegistryRepository : IRegistryRepository
                     END AS status,
                     CASE WHEN ad.asset_status = 'Conflicted' THEN 1 ELSE 0 END AS has_duplicate,
                     ad.file_path_root,
-                    wd.wikidata_status
+                    wd.wikidata_status,
+                    CASE
+                        WHEN wd.wikidata_qid IS NOT NULL AND wd.wikidata_qid != '' THEN 'matched'
+                        WHEN rd.review_id IS NOT NULL AND rd.trigger = 'AuthorityMatchFailed' THEN 'failed'
+                        WHEN rd.review_id IS NOT NULL THEN 'warning'
+                        ELSE 'none'
+                    END AS wikidata_match,
+                    CASE
+                        WHEN wd.cover_url IS NOT NULL AND wd.cover_url != '' THEN 'matched'
+                        WHEN rd.review_id IS NOT NULL AND rd.trigger = 'ArtworkUnconfirmed' THEN 'failed'
+                        ELSE 'none'
+                    END AS retail_match,
+                    wd.wikidata_qid
                 FROM work_data wd
                 LEFT JOIN asset_data ad ON ad.work_id = wd.entity_id
                 LEFT JOIN review_data rd ON rd.entity_id = ad.asset_id
@@ -136,7 +153,8 @@ public sealed class RegistryRepository : IRegistryRepository
                 fd.entity_id, fd.title, fd.year, fd.media_type, fd.cover_url,
                 fd.match_source, fd.confidence, fd.status, fd.has_duplicate,
                 fd.review_id, fd.review_trigger, fd.has_user_locks,
-                fd.file_name, fd.author, fd.file_path_root, fd.wikidata_status
+                fd.file_name, fd.author, fd.file_path_root, fd.wikidata_status,
+                fd.wikidata_match, fd.retail_match, fd.wikidata_qid
             FROM full_data fd
             {whereClause}
             ORDER BY fd.confidence ASC, fd.title ASC
@@ -167,6 +185,9 @@ public sealed class RegistryRepository : IRegistryRepository
                 FileName = reader.IsDBNull(12) ? null : reader.GetString(12),
                 Author = reader.IsDBNull(13) ? null : reader.GetString(13),
                 WikidataStatus = reader.IsDBNull(15) ? null : reader.GetString(15),
+                WikidataMatch = reader.IsDBNull(16) ? "none" : reader.GetString(16),
+                RetailMatch = reader.IsDBNull(17) ? "none" : reader.GetString(17),
+                WikidataQid = reader.IsDBNull(18) ? null : reader.GetString(18),
             });
         }
 
@@ -250,7 +271,7 @@ public sealed class RegistryRepository : IRegistryRepository
         // Load review queue entry if any (review_queue uses asset ID as entity_id)
         Guid? reviewItemId = null;
         string? reviewTrigger = null, reviewDetail = null, candidatesJson = null;
-        double reviewConfidence = 0.95;
+        double? reviewConfidence = null;
         using (var rqCmd = conn.CreateCommand())
         {
             rqCmd.CommandText = """
@@ -266,7 +287,7 @@ public sealed class RegistryRepository : IRegistryRepository
             {
                 reviewItemId = Guid.Parse(rqReader.GetString(0));
                 reviewTrigger = rqReader.GetString(1);
-                reviewConfidence = rqReader.IsDBNull(2) ? 0.5 : rqReader.GetDouble(2);
+                reviewConfidence = rqReader.IsDBNull(2) ? 0.0 : rqReader.GetDouble(2);
                 reviewDetail = rqReader.IsDBNull(3) ? null : rqReader.GetString(3);
                 candidatesJson = rqReader.IsDBNull(4) ? null : rqReader.GetString(4);
             }
@@ -338,6 +359,10 @@ public sealed class RegistryRepository : IRegistryRepository
         if (!string.IsNullOrEmpty(wikidataQid) && !bridgeIds.ContainsKey("wikidata_qid"))
             bridgeIds["wikidata_qid"] = wikidataQid;
 
+        // Derive match confidence: review score → QID exists (0.95) → no match (0%)
+        var matchConfidence = reviewConfidence
+            ?? (!string.IsNullOrEmpty(wikidataQid) ? 0.95 : 0.0);
+
         var detail = new RegistryItemDetail
         {
             EntityId = entityId,
@@ -345,7 +370,7 @@ public sealed class RegistryRepository : IRegistryRepository
             Year = cv("release_year"),
             MediaType = mediaType,
             CoverUrl = cv("cover_url"),
-            Confidence = reviewConfidence,
+            Confidence = matchConfidence,
             Status = status,
             MatchSource = titleProvider,
             Author = cv("author"),

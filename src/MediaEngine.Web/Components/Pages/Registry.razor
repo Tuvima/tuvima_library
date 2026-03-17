@@ -170,6 +170,7 @@
                 <span class="registry-header-text">@_items.Count items</span>
             </div>
             <div class="registry-col-type">TYPE</div>
+            <div class="registry-col-match">MATCH</div>
             <div class="registry-col-confidence">CONFIDENCE</div>
             <div class="registry-col-status">STATUS</div>
             <div class="registry-col-expand"></div>
@@ -222,6 +223,16 @@
                     <MudIcon Icon="@GetMediaTypeIcon(item.MediaType)" Size="Size.Small"
                              Style="opacity: 0.6;" />
                     <span class="registry-type-label">@FormatMediaType(item.MediaType)</span>
+                </div>
+                <div class="registry-col-match">
+                    <MudTooltip Text="@GetWikidataMatchTooltip(item)">
+                        <MudIcon Icon="@GetMatchIcon(item.WikidataMatch)" Size="Size.Small"
+                                 Style="@GetMatchIconStyle(item.WikidataMatch)" />
+                    </MudTooltip>
+                    <MudTooltip Text="@GetRetailMatchTooltip(item)">
+                        <MudIcon Icon="@GetMatchIcon(item.RetailMatch)" Size="Size.Small"
+                                 Style="@GetMatchIconStyle(item.RetailMatch)" />
+                    </MudTooltip>
                 </div>
                 <div class="registry-col-confidence">
                     <div class="registry-confidence-bar-container">
@@ -388,7 +399,16 @@
                                         {
                                             <div class="registry-detail-bridge-item">
                                                 <span class="registry-detail-bridge-label">@FormatBridgeKey(kvp.Key)</span>
-                                                <span class="registry-detail-bridge-value">@kvp.Value</span>
+                                                @if (kvp.Key == "wikidata_qid")
+                                                {
+                                                    <a href="https://www.wikidata.org/wiki/@kvp.Value" target="_blank"
+                                                       style="color: #42A5F5; text-decoration: none;"
+                                                       @onclick:stopPropagation="true">@kvp.Value</a>
+                                                }
+                                                else
+                                                {
+                                                    <span class="registry-detail-bridge-value">@kvp.Value</span>
+                                                }
                                                 <MudIconButton Icon="@Icons.Material.Filled.ContentCopy"
                                                                Size="Size.Small"
                                                                Style="color: rgba(255,255,255,0.4); padding: 2px;"
@@ -505,17 +525,22 @@
             }
         }
 
-        @* ── Infinite Scroll Sentinel ── *@
-        @if (_hasMore)
-        {
-            <div class="registry-sentinel">
-                @if (_loadingMore)
-                {
-                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Color="Color.Primary" />
-                    <span class="registry-loading-text">Loading more...</span>
-                }
-            </div>
-        }
+        @* ── Pagination ── *@
+        <div class="registry-pagination">
+            <MudButton Variant="Variant.Text" Color="Color.Default" Size="Size.Small"
+                       Disabled="@(_currentPage <= 1)" OnClick="PreviousPage"
+                       StartIcon="@Icons.Material.Filled.ChevronLeft">
+                Previous
+            </MudButton>
+            <span class="registry-page-info">
+                Page @_currentPage of @_totalPages
+            </span>
+            <MudButton Variant="Variant.Text" Color="Color.Default" Size="Size.Small"
+                       Disabled="@(!_hasMore)" OnClick="NextPage"
+                       EndIcon="@Icons.Material.Filled.ChevronRight">
+                Next
+            </MudButton>
+        </div>
 
         @* ── Footer Count ── *@
         <div class="registry-footer">
@@ -551,6 +576,10 @@
     private double _minConfidence;
     private bool _duplicatesOnly;
 
+    // Pagination
+    private int _currentPage = 1;
+    private int _totalPages => Math.Max(1, (int)Math.Ceiling(_totalCount / 50.0));
+
     // Scroll observer
     private DotNetObjectReference<Registry>? _selfRef;
 
@@ -581,6 +610,7 @@
     {
         if (reset)
         {
+            _currentPage = 1;
             _items.Clear();
             _selectedIds.Clear();
             _expandedEntityId = null;
@@ -633,7 +663,54 @@
         StateHasChanged();
     }
 
-    // ── JS Interop for Infinite Scroll ─────────────────────────────────────
+    private async Task PreviousPage()
+    {
+        if (_currentPage <= 1) return;
+        _currentPage--;
+        await LoadPageAsync();
+    }
+
+    private async Task NextPage()
+    {
+        if (!_hasMore) return;
+        _currentPage++;
+        await LoadPageAsync();
+    }
+
+    private async Task LoadPageAsync()
+    {
+        _loading = true;
+        StateHasChanged();
+        _items.Clear();
+        _selectedIds.Clear();
+        _expandedEntityId = null;
+        _expandedDetail = null;
+
+        var offset = (_currentPage - 1) * 50;
+        var result = await Orchestrator.GetRegistryItemsAsync(
+            offset: offset, limit: 50,
+            search: _searchText, type: _typeFilter,
+            status: _statusFilter,
+            minConfidence: _minConfidence > 0 ? _minConfidence / 100.0 : null,
+            matchSource: null,
+            duplicatesOnly: _duplicatesOnly,
+            missingUniverseOnly: _missingUniverseOnly);
+
+        if (result is not null)
+        {
+            var dedupedItems = result.Items
+                .GroupBy(i => i.EntityId)
+                .Select(g => g.OrderByDescending(i => i.Confidence).First())
+                .ToList();
+            _items.AddRange(dedupedItems);
+            _totalCount = result.TotalCount;
+            _hasMore = result.HasMore;
+        }
+        _loading = false;
+        StateHasChanged();
+    }
+
+    // ── JS Interop (kept for backward compatibility) ────────────────────────
 
     [JSInvokable]
     public async Task OnScrollSentinelVisible()
@@ -922,21 +999,52 @@
 
     private static (string Label, string Color, string Icon) FormatReviewTrigger(string? trigger) => trigger switch
     {
-        "LowConfidence"         => ("Low Confidence",        "#FF9800", Icons.Material.Outlined.TrendingDown),
-        "MultipleQidMatches"    => ("Multiple Matches",       "#2196F3", Icons.Material.Outlined.CallSplit),
-        "AuthorityMatchFailed"  => ("Authority Match Failed", "#F44336", Icons.Material.Outlined.LinkOff),
-        "ContentMatchFailed"    => ("Content Match Failed",   "#F44336", Icons.Material.Outlined.SearchOff),
-        "AmbiguousMediaType"    => ("Ambiguous Type",         "#FF9800", Icons.Material.Outlined.HelpOutline),
-        "MissingQid"            => ("Missing QID",            "#2196F3", Icons.Material.Outlined.QuestionMark),
-        "PlaceholderTitle"      => ("Placeholder Title",      "#F44336", Icons.Material.Outlined.Title),
-        "StagedUnidentifiable"  => ("Unidentifiable",         "#F44336", Icons.Material.Outlined.ErrorOutline),
-        "ArtworkUnconfirmed"    => ("Artwork Unconfirmed",    "#FF9800", Icons.Material.Outlined.Image),
-        "MetadataConflict"      => ("Metadata Conflict",      "#FF9800", Icons.Material.Outlined.Compare),
-        "UserFixMatch"          => ("User Fix Match",         "#2196F3", Icons.Material.Outlined.Edit),
-        "ArbiterNeedsReview"    => ("Arbiter Review",         "#FF9800", Icons.Material.Outlined.Gavel),
-        "NonConfiguredLanguage" => ("Wrong Language",         "#FF9800", Icons.Material.Outlined.Translate),
-        "LanguageMismatch"      => ("Language Mismatch",      "#FF9800", Icons.Material.Filled.Translate),
+        "LowConfidence"         => ("Low Confidence",   "#FF9800", Icons.Material.Outlined.TrendingDown),
+        "MultipleQidMatches"    => ("Multiple Matches", "#2196F3", Icons.Material.Outlined.CallSplit),
+        "AuthorityMatchFailed"  => ("Auth Failed",      "#F44336", Icons.Material.Outlined.LinkOff),
+        "ContentMatchFailed"    => ("Content Failed",   "#F44336", Icons.Material.Outlined.SearchOff),
+        "AmbiguousMediaType"    => ("Ambiguous Type",   "#FF9800", Icons.Material.Outlined.HelpOutline),
+        "MissingQid"            => ("Missing QID",      "#2196F3", Icons.Material.Outlined.QuestionMark),
+        "PlaceholderTitle"      => ("Placeholder",      "#F44336", Icons.Material.Outlined.Title),
+        "StagedUnidentifiable"  => ("Unidentifiable",   "#F44336", Icons.Material.Outlined.ErrorOutline),
+        "ArtworkUnconfirmed"    => ("Art Unconfirmed",  "#FF9800", Icons.Material.Outlined.Image),
+        "MetadataConflict"      => ("Conflict",         "#FF9800", Icons.Material.Outlined.Compare),
+        "UserFixMatch"          => ("User Fix",         "#2196F3", Icons.Material.Outlined.Edit),
+        "ArbiterNeedsReview"    => ("Arbiter",          "#FF9800", Icons.Material.Outlined.Gavel),
+        "NonConfiguredLanguage" => ("Language",         "#FF9800", Icons.Material.Outlined.Translate),
+        "LanguageMismatch"      => ("Lang Mismatch",    "#FF9800", Icons.Material.Filled.Translate),
         _ => ("Needs Review", "#9E9E9E", Icons.Material.Outlined.RateReview),
+    };
+
+    private static string GetMatchIcon(string matchStatus) => matchStatus switch
+    {
+        "matched" => Icons.Material.Filled.CheckCircle,
+        "failed"  => Icons.Material.Filled.Cancel,
+        "warning" => Icons.Material.Filled.Warning,
+        _         => Icons.Material.Outlined.RemoveCircleOutline,
+    };
+
+    private static string GetMatchIconStyle(string matchStatus) => matchStatus switch
+    {
+        "matched" => "color: #4CAF50; font-size: 1rem;",
+        "failed"  => "color: #EF5350; font-size: 1rem;",
+        "warning" => "color: #FF9800; font-size: 1rem;",
+        _         => "color: rgba(255,255,255,0.2); font-size: 1rem;",
+    };
+
+    private static string GetWikidataMatchTooltip(RegistryItemViewModel item) => item.WikidataMatch switch
+    {
+        "matched" => "Wikidata: Matched",
+        "failed"  => "Wikidata: Match Failed",
+        "warning" => "Wikidata: Needs Review",
+        _         => "Wikidata: Not Checked",
+    };
+
+    private static string GetRetailMatchTooltip(RegistryItemViewModel item) => item.RetailMatch switch
+    {
+        "matched" => "Retail: Cover Found",
+        "failed"  => "Retail: Artwork Unconfirmed",
+        _         => "Retail: No Cover",
     };
 
     // ── Bridge / Clipboard Helpers ──────────────────────────────────────────
@@ -1133,7 +1241,7 @@
     /* Row */
     .registry-row {
         display: grid;
-        grid-template-columns: 40px 1fr 100px 140px 100px 40px;
+        grid-template-columns: 40px 1fr 80px 120px 120px 100px 40px;
         align-items: center;
         padding: 8px 12px;
         border-bottom: 1px solid rgba(255,255,255,0.04);
@@ -1357,6 +1465,28 @@
         color: rgba(255,255,255,0.6);
     }
 
+    /* Match column */
+    .registry-col-match {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    /* Pagination */
+    .registry-pagination {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+        padding: 16px;
+    }
+
+    .registry-page-info {
+        font-size: 0.8rem;
+        color: rgba(255,255,255,0.5);
+        font-family: 'Montserrat', sans-serif;
+    }
+
     /* Sentinel & Footer */
     .registry-sentinel {
         display: flex;
@@ -1392,6 +1522,7 @@
         }
 
         .registry-col-type,
+        .registry-col-match,
         .registry-col-confidence,
         .registry-col-status {
             display: none;

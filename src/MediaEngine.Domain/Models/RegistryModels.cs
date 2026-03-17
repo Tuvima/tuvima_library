@@ -42,6 +42,15 @@ public sealed record RegistryItem
     /// <summary>True when wikidata_status is 'missing' or 'manual' (no Wikidata QID resolved).</summary>
     [JsonPropertyName("missing_universe")]
     public bool MissingUniverse => WikidataStatus is "missing" or "manual";
+
+    [JsonPropertyName("wikidata_match")]
+    public string WikidataMatch { get; init; } = "none";
+
+    [JsonPropertyName("retail_match")]
+    public string RetailMatch { get; init; } = "none";
+
+    [JsonPropertyName("wikidata_qid")]
+    public string? WikidataQid { get; init; }
 }
 
 /// <summary>Paginated result from registry listing.</summary>
