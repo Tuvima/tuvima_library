@@ -514,8 +514,8 @@ else
         {
             <div class="book-detail-related-section">
                 <PosterSwimlane Title="@_related.SectionTitle"
-                                Hubs="@_related.Hubs.ToList()"
-                                OnHubSelected="@(hub => Nav.NavigateTo($"/hub/{hub.Id}"))" />
+                                Items="@_related.Hubs.Select(PosterItemViewModel.FromHub).ToList()"
+                                OnItemSelected="@(item => Nav.NavigateTo(item.NavigationUrl))" />
             </div>
         }
 

@@ -30,15 +30,24 @@ public static class RelationshipType
     /// <summary>P1066 — Student-of / mentor relationship.</summary>
     public const string StudentOf = "student_of";
 
+    /// <summary>P451 — Romantic partner (non-marriage).</summary>
+    public const string Partner = "partner";
+
     // ── Character/Location → Organization ────────────────────────────────
 
     /// <summary>P463 — Organization membership.</summary>
     public const string MemberOf = "member_of";
 
+    /// <summary>P945 — Military or political allegiance.</summary>
+    public const string Allegiance = "allegiance";
+
     // ── Character/Entity → Location ──────────────────────────────────────
 
     /// <summary>P551 — Where a character resides.</summary>
     public const string Residence = "residence";
+
+    /// <summary>P69 — Educational institution attended.</summary>
+    public const string EducatedAt = "educated_at";
 
     /// <summary>P131 — Located in the administrative territorial entity.</summary>
     public const string LocatedIn = "located_in";
@@ -61,6 +70,12 @@ public static class RelationshipType
 
     /// <summary>P170 — Creator of a fictional character.</summary>
     public const string Creator = "creator";
+
+    /// <summary>P39 — Position held (e.g. King of Gondor).</summary>
+    public const string PositionHeld = "position_held";
+
+    /// <summary>P607 — Involved in a military or narrative conflict.</summary>
+    public const string Conflict = "conflict";
 
     /// <summary>P175 — Performer (actor who portrays a character).</summary>
     public const string Performer = "performer";

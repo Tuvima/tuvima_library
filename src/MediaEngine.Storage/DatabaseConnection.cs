@@ -540,7 +540,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
                     label                    TEXT NOT NULL,
                     description              TEXT,
                     entity_sub_type          TEXT NOT NULL
-                                                 CHECK (entity_sub_type IN ('Character', 'Location', 'Organization')),
+                                                 CHECK (entity_sub_type IN ('Character', 'Location', 'Organization', 'Event')),
                     fictional_universe_qid   TEXT,
                     fictional_universe_label TEXT,
                     image_url                TEXT,
@@ -859,6 +859,11 @@ public sealed class DatabaseConnection : IDatabaseConnection
         MigrateAddColumnIfMissing(conn, "character_performer_links", "character_image_path",
             "ALTER TABLE character_performer_links ADD COLUMN character_image_path TEXT;");
 
+        // ── M-044: Add Event entity sub-type ─────────────────────────────
+        // SQLite does not support ALTER TABLE to modify CHECK constraints,
+        // so we recreate fictional_entities with 'Event' added to the constraint.
+        MigrateExpandFictionalEntitySubTypes(conn);
+
         // Seed S-001: provider_registry entries for all known providers.
         // metadata_claims.provider_id has a FK to provider_registry(id), so these
         // rows MUST exist before any claim is written.  INSERT OR IGNORE makes this
@@ -1074,6 +1079,82 @@ public sealed class DatabaseConnection : IDatabaseConnection
             ALTER TABLE persons_new RENAME TO persons;
 
             CREATE INDEX IF NOT EXISTS idx_persons_name ON persons (name);
+
+            PRAGMA foreign_keys=ON;
+            """;
+        cmd.ExecuteNonQuery();
+    }
+
+    /// <summary>
+    /// Migration M-044: Recreate the <c>fictional_entities</c> table with 'Event' added to the
+    /// <c>entity_sub_type</c> CHECK constraint.
+    ///
+    /// SQLite does not support <c>ALTER TABLE</c> to modify CHECK constraints.
+    /// This migration:
+    /// 1. Disables foreign keys (required for table swap with FK references)
+    /// 2. Creates <c>fictional_entities_new</c> with the expanded constraint
+    /// 3. Copies all existing rows
+    /// 4. Drops the old table
+    /// 5. Renames <c>fictional_entities_new</c> to <c>fictional_entities</c>
+    /// 6. Recreates indices
+    /// 7. Re-enables foreign keys
+    ///
+    /// Idempotent: checks the current CHECK constraint text before migrating.
+    /// </summary>
+    private static void MigrateExpandFictionalEntitySubTypes(SqliteConnection conn)
+    {
+        // Check if the fictional_entities table already has 'Event' in the CHECK constraint.
+        bool alreadyExpanded = false;
+        using (var sqlCmd = conn.CreateCommand())
+        {
+            sqlCmd.CommandText =
+                "SELECT sql FROM sqlite_master WHERE type='table' AND name='fictional_entities';";
+            var sql = sqlCmd.ExecuteScalar() as string;
+            if (sql is not null && sql.Contains("Event", StringComparison.OrdinalIgnoreCase))
+                alreadyExpanded = true;
+            // If the table doesn't exist yet (fresh install), schema handles it.
+            if (sql is null)
+                alreadyExpanded = true;
+        }
+
+        if (alreadyExpanded)
+            return;
+
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            PRAGMA foreign_keys=OFF;
+
+            CREATE TABLE fictional_entities_new (
+                id                       TEXT NOT NULL PRIMARY KEY,
+                wikidata_qid             TEXT NOT NULL UNIQUE,
+                label                    TEXT NOT NULL,
+                description              TEXT,
+                entity_sub_type          TEXT NOT NULL
+                                             CHECK (entity_sub_type IN ('Character', 'Location', 'Organization', 'Event')),
+                fictional_universe_qid   TEXT,
+                fictional_universe_label TEXT,
+                image_url                TEXT,
+                local_image_path         TEXT,
+                created_at               TEXT NOT NULL,
+                enriched_at              TEXT
+            );
+
+            INSERT INTO fictional_entities_new
+                SELECT id, wikidata_qid, label, description, entity_sub_type,
+                       fictional_universe_qid, fictional_universe_label,
+                       image_url, local_image_path, created_at, enriched_at
+                FROM fictional_entities;
+
+            DROP TABLE fictional_entities;
+
+            ALTER TABLE fictional_entities_new RENAME TO fictional_entities;
+
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_fictional_entities_qid
+                ON fictional_entities (wikidata_qid);
+            CREATE INDEX IF NOT EXISTS idx_fictional_entities_type
+                ON fictional_entities (entity_sub_type);
+            CREATE INDEX IF NOT EXISTS idx_fictional_entities_universe
+                ON fictional_entities (fictional_universe_qid);
 
             PRAGMA foreign_keys=ON;
             """;

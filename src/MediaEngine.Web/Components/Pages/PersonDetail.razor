@@ -127,8 +127,8 @@ else
     {
         <div class="person-detail-works-section">
             <PosterSwimlane Title="@($"Works by {_person.Name}")"
-                            Hubs="@_works"
-                            OnHubSelected="@(hub => Nav.NavigateTo($"/book/{hub.Works.FirstOrDefault()?.Id ?? hub.Id}"))" />
+                            Items="@_works.Select(PosterItemViewModel.FromHub).ToList()"
+                            OnItemSelected="@(item => Nav.NavigateTo(item.NavigationUrl))" />
         </div>
     }
 }

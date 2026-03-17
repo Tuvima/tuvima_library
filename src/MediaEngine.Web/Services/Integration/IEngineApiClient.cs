@@ -408,6 +408,13 @@ public interface IEngineApiClient
     /// <summary>GET /universes — list all narrative roots (fictional universes).</summary>
     Task<IReadOnlyList<NarrativeRootDto>> GetUniversesAsync(CancellationToken ct = default);
 
+    /// <summary>
+    /// POST /universe/entity/{qid}/deep-enrich — triggers on-demand deep enrichment for an
+    /// entity and its un-enriched neighbors. Used by Chronicle Explorer when a user clicks
+    /// on an entity that hasn't been deep-enriched yet.
+    /// </summary>
+    Task<DeepEnrichResponse?> TriggerDeepEnrichAsync(string entityQid, int depth = 2, CancellationToken ct = default);
+
     // ── Registry (/registry) ────────────────────────────────────────────────
 
     /// <summary>GET /registry/items — paginated list of all ingested items.</summary>

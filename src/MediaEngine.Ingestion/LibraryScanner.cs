@@ -17,9 +17,9 @@ namespace MediaEngine.Ingestion;
 /// <para>
 /// Files already known to the database (matched by content hash) have their
 /// paths updated if they have moved. New files are noted for a follow-up
-/// ingestion pass. Person and universe sidecars (person.xml, universe.xml)
-/// are still read from <c>.people/</c> and <c>.universe/</c> sub-directories
-/// as those are maintained separately from the edition sidecar system.
+/// ingestion pass. Person sidecars (person.xml) are read from <c>.people/</c>
+/// for recovery. Universe sidecars have been removed — universe data is stored
+/// exclusively in the database.
 /// </para>
 /// </summary>
 public sealed class LibraryScanner : ILibraryScanner
@@ -33,7 +33,6 @@ public sealed class LibraryScanner : ILibraryScanner
     private readonly INarrativeRootRepository        _rootRepo;
     private readonly IFictionalEntityRepository      _fictionalEntityRepo;
     private readonly IEntityRelationshipRepository   _relRepo;
-    private readonly IUniverseSidecarWriter          _universeSidecar;
     private readonly IQidLabelRepository             _qidLabelRepo;
     private readonly ICanonicalValueArrayRepository  _arrayRepo;
     private readonly ILogger<LibraryScanner>         _logger;
@@ -71,7 +70,6 @@ public sealed class LibraryScanner : ILibraryScanner
         INarrativeRootRepository        rootRepo,
         IFictionalEntityRepository      fictionalEntityRepo,
         IEntityRelationshipRepository   relRepo,
-        IUniverseSidecarWriter          universeSidecar,
         IQidLabelRepository             qidLabelRepo,
         ICanonicalValueArrayRepository  arrayRepo,
         ILogger<LibraryScanner>         logger)
@@ -85,7 +83,6 @@ public sealed class LibraryScanner : ILibraryScanner
         _rootRepo             = rootRepo;
         _fictionalEntityRepo  = fictionalEntityRepo;
         _relRepo              = relRepo;
-        _universeSidecar      = universeSidecar;
         _qidLabelRepo         = qidLabelRepo;
         _arrayRepo            = arrayRepo;
         _logger               = logger;
@@ -448,111 +445,20 @@ public sealed class LibraryScanner : ILibraryScanner
         => string.IsNullOrWhiteSpace(value) ? null : value;
 
     // -------------------------------------------------------------------------
-    // Universe scanning (Great Inhale universe graph recovery)
+    // Universe scanning (no-op — universe data is stored in the database)
     // -------------------------------------------------------------------------
 
     /// <inheritdoc/>
-    public async Task<UniverseScanResult> ScanUniversesAsync(
+    public Task<UniverseScanResult> ScanUniversesAsync(
         string libraryRoot,
         CancellationToken ct = default)
     {
-        var universeRoot = Path.Combine(libraryRoot, ".universe");
-        if (!Directory.Exists(universeRoot))
-        {
-            _logger.LogDebug("No .universe/ directory found; skipping universe scan");
-            return new UniverseScanResult();
-        }
-
-        int universesUpserted     = 0;
-        int entitiesUpserted      = 0;
-        int relationshipsUpserted = 0;
-        int errors                = 0;
-
-        _logger.LogInformation("Great Inhale: scanning .universe/ for graph recovery");
-
-        foreach (var subDir in Directory.GetDirectories(universeRoot))
-        {
-            ct.ThrowIfCancellationRequested();
-
-            var xmlPath = Path.Combine(subDir, "universe.xml");
-            if (!File.Exists(xmlPath))
-                continue;
-
-            try
-            {
-                var snapshot = await _universeSidecar.ReadUniverseXmlAsync(xmlPath, ct)
-                    .ConfigureAwait(false);
-
-                if (snapshot is null)
-                {
-                    errors++;
-                    continue;
-                }
-
-                // 1. Upsert the narrative root.
-                await _rootRepo.UpsertAsync(snapshot.Root, ct).ConfigureAwait(false);
-                universesUpserted++;
-
-                // 2. Upsert all fictional entities.
-                foreach (var entitySnapshot in snapshot.Entities)
-                {
-                    ct.ThrowIfCancellationRequested();
-
-                    var entity = entitySnapshot.Entity;
-
-                    // Find-or-create by QID.
-                    var existing = await _fictionalEntityRepo.FindByQidAsync(entity.WikidataQid, ct)
-                        .ConfigureAwait(false);
-
-                    if (existing is null)
-                    {
-                        await _fictionalEntityRepo.CreateAsync(entity, ct).ConfigureAwait(false);
-                        existing = entity;
-                    }
-
-                    // Link entity to each work.
-                    foreach (var wl in entitySnapshot.WorkLinks)
-                    {
-                        await _fictionalEntityRepo.LinkToWorkAsync(
-                            existing.Id, wl.WorkQid, wl.WorkLabel, "appears_in", ct)
-                            .ConfigureAwait(false);
-                    }
-
-                    entitiesUpserted++;
-                }
-
-                // 3. Upsert all relationship edges.
-                foreach (var rel in snapshot.Relationships)
-                {
-                    ct.ThrowIfCancellationRequested();
-
-                    await _relRepo.CreateAsync(rel, ct).ConfigureAwait(false);
-                    relationshipsUpserted++;
-                }
-
-                _logger.LogDebug(
-                    "Universe recovered: '{Label}' ({Qid}) — {EntityCount} entities, {EdgeCount} edges",
-                    snapshot.Root.Label, snapshot.Root.Qid,
-                    snapshot.Entities.Count, snapshot.Relationships.Count);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Great Inhale: error processing universe.xml at {Path}", xmlPath);
-                errors++;
-            }
-        }
-
-        _logger.LogInformation(
-            "Great Inhale: recovered {Universes} universes, {Entities} entities, {Rels} relationships",
-            universesUpserted, entitiesUpserted, relationshipsUpserted);
-
-        return new UniverseScanResult
-        {
-            UniversesUpserted     = universesUpserted,
-            EntitiesUpserted      = entitiesUpserted,
-            RelationshipsUpserted = relationshipsUpserted,
-            Errors                = errors,
-        };
+        // Universe sidecar files (universe.xml) have been removed. Universe data
+        // (fictional_entities, entity_relationships, narrative_roots) is stored
+        // exclusively in the database and does not require filesystem recovery.
+        _logger.LogDebug(
+            "ScanUniversesAsync called — no-op (universe data is stored in the database)");
+        return Task.FromResult(new UniverseScanResult());
     }
 
     // -------------------------------------------------------------------------

@@ -29,4 +29,7 @@ public enum EntityType
 
     /// <summary>A fictional organization or faction in a narrative universe.</summary>
     Organization,
+
+    /// <summary>A narrative event in a fictional universe.</summary>
+    Event,
 }

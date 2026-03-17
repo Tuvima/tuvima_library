@@ -23,6 +23,18 @@ else if (_lane is null)
 {
     <MudAlert Severity="Severity.Warning" Class="mb-4">Unknown content lane.</MudAlert>
 }
+else if (!IsImplementedLane)
+{
+    @* ── Coming Soon — lane not yet implemented ── *@
+    <div class="lane-empty-state">
+        <MudIcon Icon="@_lane.Icon" Size="Size.Large"
+                 Style="@($"opacity: 0.3; font-size: 4rem; margin-bottom: 16px; color: {ContentLanes.AccentColor(_lane)};")" />
+        <h2 class="lane-empty-title" style="@($"color: {ContentLanes.AccentColor(_lane)};")">Coming Soon</h2>
+        <p class="lane-empty-subtitle">
+            @_lane.Label will be available in a future update. Stay tuned!
+        </p>
+    </div>
+}
 else if (_allHubs.Count == 0)
 {
     @* ── Empty state — no content for this lane ── *@
@@ -78,8 +90,8 @@ else
     @if (_viewMode == "az")
     {
         @* ── A-Z Browse mode ── *@
-        <AlphabeticalGrid Hubs="@_displayHubs"
-                          OnHubSelected="HandleHubSelected"
+        <AlphabeticalGrid Items="@FlattenToItems(_displayHubs)"
+                          OnItemSelected="HandleItemSelected"
                           CardWidth="@_cardWidth" />
     }
     else
@@ -91,8 +103,8 @@ else
         {
             <PosterSwimlane Title="@ContinueLabel"
                             TotalCount="@_journeyHubs.Count"
-                            Hubs="@_journeyHubs"
-                            OnHubSelected="HandleHubSelected"
+                            Items="@FlattenToItems(_journeyHubs)"
+                            OnItemSelected="HandleItemSelected"
                             CardWidth="@_cardWidth" />
         }
 
@@ -101,8 +113,8 @@ else
         {
             <PosterSwimlane Title="Recently Added"
                             TotalCount="@_recentHubs.Count"
-                            Hubs="@_recentHubs.Take(12).ToList()"
-                            OnHubSelected="HandleHubSelected"
+                            Items="@FlattenToItems(_recentHubs.Take(12))"
+                            OnItemSelected="HandleItemSelected"
                             CardWidth="@_cardWidth" />
         }
 
@@ -111,8 +123,8 @@ else
         {
             <PosterSwimlane Title="@($"Results ({_displayHubs.Count})")"
                             TotalCount="@_displayHubs.Count"
-                            Hubs="@_displayHubs.Take(24).ToList()"
-                            OnHubSelected="HandleHubSelected"
+                            Items="@FlattenToItems(_displayHubs.Take(24))"
+                            OnItemSelected="HandleItemSelected"
                             CardWidth="@_cardWidth" />
         }
         else
@@ -121,8 +133,8 @@ else
             @foreach (var personGroup in _personGroups.Take(5))
             {
                 <PosterSwimlane Title="@personGroup.PersonName"
-                                Hubs="@personGroup.Hubs"
-                                OnHubSelected="HandleHubSelected"
+                                Items="@FlattenToItems(personGroup.Hubs)"
+                                OnItemSelected="HandleItemSelected"
                                 CardWidth="@_cardWidth">
                     <HeaderContent>
                         <PersonSwimlaneHeader PersonName="@personGroup.PersonName"
@@ -140,8 +152,8 @@ else
                 {
                     <PosterSwimlane Title="@seriesGroup.Name"
                                     TotalCount="@seriesGroup.Hubs.Count"
-                                    Hubs="@seriesGroup.Hubs"
-                                    OnHubSelected="HandleHubSelected"
+                                    Items="@FlattenToItems(seriesGroup.Hubs)"
+                                    OnItemSelected="HandleItemSelected"
                                     CardWidth="@_cardWidth" />
                 }
             }
@@ -151,8 +163,8 @@ else
             {
                 <PosterSwimlane Title="@genreGroup.Name"
                                 TotalCount="@genreGroup.Hubs.Count"
-                                Hubs="@genreGroup.Hubs"
-                                OnHubSelected="HandleHubSelected"
+                                Items="@FlattenToItems(genreGroup.Hubs)"
+                                OnItemSelected="HandleItemSelected"
                                 CardWidth="@_cardWidth" />
             }
 
@@ -161,8 +173,8 @@ else
             {
                 <PosterSwimlane Title="@group.Name"
                                 TotalCount="@group.Hubs.Count"
-                                Hubs="@group.Hubs"
-                                OnHubSelected="HandleHubSelected"
+                                Items="@FlattenToItems(group.Hubs)"
+                                OnItemSelected="HandleItemSelected"
                                 CardWidth="@_cardWidth" />
             }
         }
@@ -193,6 +205,21 @@ else
     private Dictionary<string, PersonViewModel> _personLookup = new();
 
     private int _cardWidth => DeviceContext.Settings.Pages.Home.SwimlaneCardWidth;
+
+    /// <summary>Only Books is fully implemented. Other lanes show "Coming Soon".</summary>
+    private bool IsImplementedLane => _lane?.Key is "books";
+
+    /// <summary>
+    /// Flattens hubs into individual work items for the Books lane,
+    /// or wraps as hub-level items for other lanes.
+    /// </summary>
+    private IReadOnlyList<PosterItemViewModel> FlattenToItems(IEnumerable<HubViewModel> hubs) =>
+        IsImplementedLane
+            ? hubs.SelectMany(h => h.Works.Count > 0
+                ? h.Works.Select(w => PosterItemViewModel.FromWork(w, h.CoverUrl, h.DominantHexColor))
+                : [PosterItemViewModel.FromHub(h)])
+              .ToList()
+            : hubs.Select(PosterItemViewModel.FromHub).ToList();
 
     private string ContinueLabel => _lane?.Key switch
     {
@@ -475,6 +502,9 @@ else
 
     private void HandleHubSelected(HubViewModel hub) =>
         Nav.NavigateTo($"/book/{hub.Works.FirstOrDefault()?.Id ?? hub.Id}");
+
+    private void HandleItemSelected(PosterItemViewModel item) =>
+        Nav.NavigateTo(item.NavigationUrl);
 
     private void HandleJourneyPlay(JourneyItemViewModel item)
     {

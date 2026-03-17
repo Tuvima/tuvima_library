@@ -275,8 +275,15 @@ builder.Services.AddHttpClient("settings_probe", c =>
     c.Timeout = TimeSpan.FromSeconds(5); // outer cap; each probe uses a 3-second CTS
 });
 
-// TODO: Phase 3 - wikidata_api, wikidata_sparql, wikipedia_api HttpClients removed
-// (WikidataAdapter and WikipediaAdapter deleted as part of SPARQL infrastructure cleanup)
+// Named HttpClient for the WikipediaAdapter (Wikidata sitelink API + Wikipedia REST Summary API).
+// Both endpoints are called via this single named client; the adapter substitutes the correct
+// base URL per call.  15-second timeout to handle occasional slow Wikipedia responses.
+builder.Services.AddHttpClient("wikipedia_api", c =>
+{
+    c.Timeout = TimeSpan.FromSeconds(15);
+    c.DefaultRequestHeaders.UserAgent.ParseAdd(
+        "Tuvima Library/1.0 (https://github.com/Tuvima/tuvima_library)");
+});
 
 // Named HttpClient for the ReconciliationAdapter (wikidata.reconci.link + Wikimedia Commons).
 // 30-second timeout to accommodate batch SPARQL-style data extension queries.
@@ -371,6 +378,42 @@ builder.Services.AddSingleton<ICanonicalValueArrayRepository, CanonicalValueArra
     }
 }
 
+// WikipediaAdapter — Wikipedia description fetcher using QID→sitelink resolution.
+// Registered as both its concrete type and IExternalMetadataProvider.
+// Reads its settings (throttle, concurrency, TTL) from config/providers/wikipedia.json if present;
+// falls back to compiled defaults so the adapter is always registered.
+{
+    var wikiConfig = configLoader.LoadConfig<MediaEngine.Storage.Models.ProviderConfiguration>(
+        "providers", "wikipedia");
+    builder.Services.AddSingleton<WikipediaAdapter>(sp =>
+        new WikipediaAdapter(
+            sp.GetRequiredService<IHttpClientFactory>(),
+            sp.GetRequiredService<ILogger<WikipediaAdapter>>(),
+            sp.GetRequiredService<IProviderResponseCacheRepository>(),
+            throttleMs:     wikiConfig?.ThrottleMs     ?? 100,
+            cacheTtlHours:  wikiConfig?.CacheTtlHours  ?? 168,
+            maxConcurrency: wikiConfig?.MaxConcurrency  ?? 2));
+    builder.Services.AddSingleton<IExternalMetadataProvider>(
+        sp => sp.GetRequiredService<WikipediaAdapter>());
+}
+
+// ── Wikibase REST API service ─────────────────────────────────────────────────
+// Supplements ReconciliationAdapter with qualifier extraction (wbgetclaims) and
+// batch entity fetching (wbgetentities). Used by HydrationPipelineService and
+// RecursiveFictionalEntityService for actor→character mapping and entity enrichment.
+builder.Services.AddHttpClient("wikibase_api", c =>
+{
+    c.Timeout = TimeSpan.FromSeconds(30);
+    c.DefaultRequestHeaders.UserAgent.ParseAdd(
+        "Tuvima Library/1.0 (https://github.com/Tuvima/tuvima_library)");
+});
+
+builder.Services.AddSingleton<IWikibaseApiService>(sp =>
+    new WikibaseApiService(
+        sp.GetRequiredService<IHttpClientFactory>(),
+        sp.GetRequiredService<ILogger<WikibaseApiService>>(),
+        sp.GetRequiredService<IProviderResponseCacheRepository>()));
+
 builder.Services.AddSingleton<IMetadataHarvestingService, MetadataHarvestingService>();
 builder.Services.AddSingleton<IRecursiveIdentityService,  RecursiveIdentityService>();
 builder.Services.AddSingleton<ICanonDiscrepancyService,   CanonDiscrepancyService>();
@@ -384,6 +427,7 @@ builder.Services.AddSingleton<IRecursiveFictionalEntityService, RecursiveFiction
 builder.Services.AddSingleton<IRelationshipPopulationService,   RelationshipPopulationService>();
 builder.Services.AddSingleton<IUniverseSidecarWriter,           UniverseSidecarWriter>();
 builder.Services.AddSingleton<IUniverseGraphWriterService,      UniverseGraphWriterService>();
+builder.Services.AddSingleton<IUniverseGraphQueryService,       UniverseGraphQueryService>();
 builder.Services.AddSingleton<ILoreDeltaService,                LoreDeltaService>();
 builder.Services.AddSingleton<IEraActorResolverService,         EraActorResolverService>();
 
@@ -487,6 +531,7 @@ app.MapCanonEndpoints();
 app.MapDeferredEnrichmentEndpoints();
 app.MapRegistryEndpoints();
 app.MapSearchEndpoints();
+app.MapDebugEndpoints();
 
 // ── Development-only seed endpoints ──────────────────────────────────────────
 if (app.Environment.IsDevelopment())

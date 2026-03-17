@@ -46,6 +46,14 @@ else
     @* ── Scrollable content layer ── *@
     <div class="detail-content-layer hub-detail-page">
 
+        @* ── Work in Progress banner ── *@
+        <MudAlert Severity="Severity.Warning"
+                  Icon="@Icons.Material.Filled.Construction"
+                  Class="mb-3"
+                  Style="margin: 0 88px 12px; font-family: 'Montserrat', sans-serif; font-size: 0.85rem;">
+            This page is a work in progress. Full Hub detail view is coming soon.
+        </MudAlert>
+
         @* ── Breadcrumb ── *@
         <div class="hub-detail-breadcrumb-outer">
             <nav class="hub-detail-breadcrumb">
@@ -507,8 +515,8 @@ else
         {
             <div class="hub-detail-related-section">
                 <PosterSwimlane Title="Collections"
-                                Hubs="@_childHubs"
-                                OnHubSelected="@(hub => Nav.NavigateTo($"/hub/{hub.Id}"))" />
+                                Items="@_childHubs.Select(PosterItemViewModel.FromHub).ToList()"
+                                OnItemSelected="@(item => Nav.NavigateTo(item.NavigationUrl))" />
             </div>
         }
 
@@ -517,8 +525,8 @@ else
         {
             <div class="hub-detail-related-section">
                 <PosterSwimlane Title="@_related.SectionTitle"
-                                Hubs="@_related.Hubs.ToList()"
-                                OnHubSelected="@(hub => Nav.NavigateTo($"/hub/{hub.Id}"))" />
+                                Items="@_related.Hubs.Select(PosterItemViewModel.FromHub).ToList()"
+                                OnItemSelected="@(item => Nav.NavigateTo(item.NavigationUrl))" />
             </div>
         }
 

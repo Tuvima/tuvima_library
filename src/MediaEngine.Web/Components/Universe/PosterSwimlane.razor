@@ -6,7 +6,7 @@
    Features: section title with item count, "See All" link, hidden scrollbar,
    scroll-snap, touch-friendly, left/right scroll arrow buttons. *@
 
-@if (Hubs is { Count: > 0 })
+@if (Items is { Count: > 0 })
 {
     <div class="swimlane-section @Class">
         <div class="swimlane-header">
@@ -32,7 +32,7 @@
 
         <div class="swimlane-scroll-wrapper">
             @* Left arrow — only when there are multiple items and we can scroll left *@
-            @if (Hubs.Count > 1 && !_atStart)
+            @if (Items.Count > 1 && !_atStart)
             {
                 <button class="swimlane-arrow swimlane-arrow-left" @onclick="ScrollLeft"
                         aria-label="Scroll left">
@@ -41,16 +41,16 @@
             }
 
             <div class="swimlane-scroll" @ref="_scrollRef">
-                @foreach (var hub in Hubs)
+                @foreach (var item in Items)
                 {
-                    <PosterCard Hub="@hub"
-                                OnHubSelected="OnHubSelected"
+                    <PosterCard Item="@item"
+                                OnItemSelected="OnItemSelected"
                                 Width="@CardWidth" />
                 }
             </div>
 
             @* Right arrow — only when there are multiple items and we can scroll right *@
-            @if (Hubs.Count > 1 && !_atEnd)
+            @if (Items.Count > 1 && !_atEnd)
             {
                 <button class="swimlane-arrow swimlane-arrow-right" @onclick="ScrollRight"
                         aria-label="Scroll right">
@@ -63,8 +63,8 @@
 
 @code {
     [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
-    [Parameter] public IReadOnlyList<HubViewModel> Hubs { get; set; } = [];
-    [Parameter] public EventCallback<HubViewModel> OnHubSelected { get; set; }
+    [Parameter] public IReadOnlyList<PosterItemViewModel> Items { get; set; } = [];
+    [Parameter] public EventCallback<PosterItemViewModel> OnItemSelected { get; set; }
     [Parameter] public int CardWidth { get; set; } = 180;
     [Parameter] public string? Class { get; set; }
     [Parameter] public int? TotalCount { get; set; }
@@ -83,7 +83,7 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender && Hubs.Count > 1)
+        if (firstRender && Items.Count > 1)
         {
             // Determine initial scroll state — content may already overflow right.
             var state = await JS.InvokeAsync<ScrollBoundary>("getSwimlaneScrollState", _scrollRef);

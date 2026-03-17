@@ -324,7 +324,7 @@ public sealed class RegistryRepository : IRegistryRepository
         // Collect bridge identifiers from canonical values
         var bridgeKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
-            "isbn", "asin", "tmdb_id", "imdb_id", "wikidata_qid",
+            "isbn", "isbn_13", "isbn_10", "asin", "tmdb_id", "imdb_id", "wikidata_qid",
             "apple_books_id", "audible_id", "goodreads_id", "musicbrainz_id",
             "comic_vine_id"
         };

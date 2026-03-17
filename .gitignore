@@ -61,3 +61,5 @@ config/
 # See tools/Download-FFmpeg.ps1 or place ffmpeg.exe + ffprobe.exe in tools/ffmpeg/ manually.
 tools/ffmpeg/*.exe
 tools/ffmpeg/*.dll
+tools/reports/*.txt
+tools/reports/*.log

@@ -68,6 +68,16 @@ builder.Services.AddHttpClient<IEngineApiClient, EngineApiClient>(client =>
         client.DefaultRequestHeaders.Add("X-Api-Key", apiKey);
 });
 
+// Named "EngineApi" client — same base address and API key as the typed client above.
+// Used by ad-hoc pages (e.g. the Enrichment Tester) that need direct HttpClient access
+// without routing through IEngineApiClient.
+builder.Services.AddHttpClient("EngineApi", client =>
+{
+    client.BaseAddress = new Uri(apiBase);
+    if (!string.IsNullOrWhiteSpace(apiKey))
+        client.DefaultRequestHeaders.Add("X-Api-Key", apiKey);
+});
+
 // ── State + Orchestration (scoped = one per SignalR circuit) ──────────────────
 builder.Services.AddScoped<UniverseStateContainer>();
 builder.Services.AddScoped<UIOrchestratorService>();

@@ -214,6 +214,150 @@ public static class UniverseGraphEndpoints
             });
         });
 
+        // POST /universe/entity/{qid}/deep-enrich — on-demand deep enrichment.
+        // Fetches 2+ hop entities for a character/entity that hasn't been deep-enriched.
+        group.MapPost("/universe/entity/{qid}/deep-enrich", async (
+            string qid,
+            int? depth,
+            IFictionalEntityRepository entityRepo,
+            IMetadataHarvestingService harvesting,
+            IEntityRelationshipRepository relRepo,
+            CancellationToken ct) =>
+        {
+            // 1. Check if entity exists.
+            var entity = await entityRepo.FindByQidAsync(qid, ct);
+            if (entity is null)
+                return Results.NotFound($"Entity '{qid}' not found.");
+
+            var maxDepth = Math.Min(depth ?? 2, 3); // Cap at 3 to prevent runaway traversal.
+
+            // 2. Get current relationships to find targets for deeper enrichment.
+            var existingEdges = await relRepo.GetByEntityAsync(qid, ct);
+            var neighborQids = existingEdges
+                .SelectMany(e => new[] { e.SubjectQid, e.ObjectQid })
+                .Where(q => !string.Equals(q, qid, StringComparison.OrdinalIgnoreCase))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            // 3. Find neighbors that haven't been enriched yet.
+            var unenrichedCount = 0;
+            foreach (var neighborQid in neighborQids)
+            {
+                ct.ThrowIfCancellationRequested();
+
+                var neighbor = await entityRepo.FindByQidAsync(neighborQid, ct);
+                if (neighbor is null || neighbor.EnrichedAt is not null)
+                    continue;
+
+                var entityType = neighbor.EntitySubType switch
+                {
+                    "Character"    => MediaEngine.Domain.Enums.EntityType.Character,
+                    "Location"     => MediaEngine.Domain.Enums.EntityType.Location,
+                    "Organization" => MediaEngine.Domain.Enums.EntityType.Organization,
+                    "Event"        => MediaEngine.Domain.Enums.EntityType.Event,
+                    _              => MediaEngine.Domain.Enums.EntityType.Character,
+                };
+
+                await harvesting.EnqueueAsync(new MediaEngine.Domain.Models.HarvestRequest
+                {
+                    EntityId   = neighbor.Id,
+                    EntityType = entityType,
+                    MediaType  = MediaEngine.Domain.Enums.MediaType.Unknown,
+                    Hints      = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["wikidata_qid"]     = neighborQid,
+                        ["label"]            = neighbor.Label,
+                        ["entity_sub_type"]  = neighbor.EntitySubType,
+                        ["universe_qid"]     = neighbor.FictionalUniverseQid ?? string.Empty,
+                        ["enrichment_depth"] = "1",
+                    },
+                }, ct);
+
+                unenrichedCount++;
+            }
+
+            // 4. If the entity itself hasn't been enriched, enqueue it too.
+            if (entity.EnrichedAt is null)
+            {
+                var selfEntityType = entity.EntitySubType switch
+                {
+                    "Character"    => MediaEngine.Domain.Enums.EntityType.Character,
+                    "Location"     => MediaEngine.Domain.Enums.EntityType.Location,
+                    "Organization" => MediaEngine.Domain.Enums.EntityType.Organization,
+                    "Event"        => MediaEngine.Domain.Enums.EntityType.Event,
+                    _              => MediaEngine.Domain.Enums.EntityType.Character,
+                };
+
+                await harvesting.EnqueueAsync(new MediaEngine.Domain.Models.HarvestRequest
+                {
+                    EntityId   = entity.Id,
+                    EntityType = selfEntityType,
+                    MediaType  = MediaEngine.Domain.Enums.MediaType.Unknown,
+                    Hints      = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["wikidata_qid"]     = qid,
+                        ["label"]            = entity.Label,
+                        ["entity_sub_type"]  = entity.EntitySubType,
+                        ["universe_qid"]     = entity.FictionalUniverseQid ?? string.Empty,
+                        ["enrichment_depth"] = "0",
+                    },
+                }, ct);
+                unenrichedCount++;
+            }
+
+            return Results.Ok(new
+            {
+                entity_qid          = qid,
+                neighbors_found     = neighborQids.Count,
+                enrichment_enqueued = unenrichedCount,
+                message             = unenrichedCount > 0
+                    ? $"Enqueued {unenrichedCount} entities for deep enrichment."
+                    : "All neighboring entities are already enriched.",
+            });
+        });
+
+        // GET /universe/{qid}/paths?from=Q1&to=Q2&maxHops=4 — find paths between entities.
+        group.MapGet("/universe/{qid}/paths", async (
+            string qid,
+            string from,
+            string to,
+            int? maxHops,
+            IUniverseGraphQueryService graphQuery,
+            CancellationToken ct) =>
+        {
+            var paths = await graphQuery.FindPathsAsync(qid, from, to, maxHops ?? 4, ct);
+            return Results.Ok(new { universe_qid = qid, from_qid = from, to_qid = to, paths });
+        });
+
+        // GET /universe/{qid}/family-tree?character=Q1&generations=3 — character family tree.
+        group.MapGet("/universe/{qid}/family-tree", async (
+            string qid,
+            string character,
+            int? generations,
+            IUniverseGraphQueryService graphQuery,
+            CancellationToken ct) =>
+        {
+            var tree = await graphQuery.GetFamilyTreeAsync(qid, character, generations ?? 3, ct);
+            return Results.Ok(new
+            {
+                universe_qid  = qid,
+                character_qid = character,
+                generations   = tree.ToDictionary(
+                    kvp => kvp.Key.ToString(),
+                    kvp => kvp.Value),
+            });
+        });
+
+        // GET /universe/{qid}/cross-media — entities appearing in 2+ works.
+        group.MapGet("/universe/{qid}/cross-media", async (
+            string qid,
+            IUniverseGraphQueryService graphQuery,
+            CancellationToken ct) =>
+        {
+            var entities = await graphQuery.FindCrossMediaEntitiesAsync(qid, ct);
+            return Results.Ok(new { universe_qid = qid, cross_media_entities = entities });
+        });
+
         return app;
     }
 

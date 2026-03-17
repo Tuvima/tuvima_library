@@ -113,3 +113,19 @@ public sealed class NarrativeRootDto
     [JsonPropertyName("parent_qid")]
     public string? ParentQid { get; set; }
 }
+
+/// <summary>Response from the on-demand deep enrichment endpoint.</summary>
+public sealed class DeepEnrichResponse
+{
+    [JsonPropertyName("entity_qid")]
+    public string EntityQid { get; set; } = string.Empty;
+
+    [JsonPropertyName("neighbors_found")]
+    public int NeighborsFound { get; set; }
+
+    [JsonPropertyName("enrichment_enqueued")]
+    public int EnrichmentEnqueued { get; set; }
+
+    [JsonPropertyName("message")]
+    public string Message { get; set; } = string.Empty;
+}

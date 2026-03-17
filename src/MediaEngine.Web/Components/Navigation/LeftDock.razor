@@ -66,6 +66,17 @@
             }
         </div>
 
+        @* ── Tester ── *@
+        <div class="dock-item @(IsActive("/tester", "tester") ? "dock-item-active" : "")"
+             @onclick="@(() => Nav.NavigateTo("/tester"))"
+             title="Tester">
+            <MudIcon Icon="@Icons.Material.Outlined.Science" Size="Size.Medium" />
+            @if (_expanded)
+            {
+                <span class="dock-label">Tester</span>
+            }
+        </div>
+
         @* ── Settings tree ── *@
         <div class="dock-settings-divider"></div>
 

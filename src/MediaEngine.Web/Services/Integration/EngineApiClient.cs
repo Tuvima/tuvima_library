@@ -1801,6 +1801,25 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    public async Task<DeepEnrichResponse?> TriggerDeepEnrichAsync(string entityQid, int depth = 2, CancellationToken ct = default)
+    {
+        try
+        {
+            var response = await _http.PostAsync(
+                $"universe/entity/{Uri.EscapeDataString(entityQid)}/deep-enrich?depth={depth}",
+                null, ct);
+            if (!response.IsSuccessStatusCode) return null;
+            return await response.Content.ReadFromJsonAsync<DeepEnrichResponse>(cancellationToken: ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /universe/entity/{Qid}/deep-enrich failed", entityQid);
+            LastError = ex.Message;
+            return null;
+        }
+    }
+
     // ── Registry (/registry) ─────────────────────────────────────────────────
 
     public async Task<RegistryPageResponse?> GetRegistryItemsAsync(

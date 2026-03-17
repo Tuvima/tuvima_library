@@ -900,14 +900,16 @@
 
     private static string FormatBridgeKey(string key) => key switch
     {
-        "isbn" => "ISBN",
-        "asin" => "ASIN",
-        "tmdb_id" => "TMDB",
-        "imdb_id" => "IMDb",
-        "wikidata_qid" => "Wikidata",
+        "isbn"          => "ISBN",
+        "isbn_13"       => "ISBN-13",
+        "isbn_10"       => "ISBN-10",
+        "asin"          => "ASIN",
+        "tmdb_id"       => "TMDB",
+        "imdb_id"       => "IMDb",
+        "wikidata_qid"  => "Wikidata",
         "apple_books_id" => "Apple API",
-        "audible_id" => "Audible",
-        "goodreads_id" => "Goodreads",
+        "audible_id"    => "Audible",
+        "goodreads_id"  => "Goodreads",
         "musicbrainz_id" => "MusicBrainz",
         "comic_vine_id" => "Comic Vine",
         _ => key.Replace("_", " ").ToUpperInvariant(),

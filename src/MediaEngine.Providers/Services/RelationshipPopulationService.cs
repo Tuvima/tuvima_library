@@ -71,11 +71,20 @@ internal static class RelationshipClaimMap
             ["opponent_qid"]           = (RelationshipType.Opponent, FictionalEntityType.Character),
             ["student_of_qid"]         = (RelationshipType.StudentOf, FictionalEntityType.Character),
 
+            // Character → Character (romantic)
+            ["partner_qid"]            = (RelationshipType.Partner, FictionalEntityType.Character),
+
             // Character → Organization
             ["member_of_qid"]          = (RelationshipType.MemberOf, FictionalEntityType.Organization),
 
+            // Character → Organization (allegiance)
+            ["allegiance_qid"]         = (RelationshipType.Allegiance, FictionalEntityType.Organization),
+
             // Character → Location
             ["residence_qid"]          = (RelationshipType.Residence, FictionalEntityType.Location),
+
+            // Character → Organization/Location (education)
+            ["educated_at_qid"]        = (RelationshipType.EducatedAt, FictionalEntityType.Organization),
 
             // Character/Location/Org → Person (creator)
             ["creator_qid"]            = (RelationshipType.Creator, FictionalEntityType.Character),
@@ -90,6 +99,12 @@ internal static class RelationshipClaimMap
             // Organization → Organization
             ["parent_organization_qid"] = (RelationshipType.ParentOrganization, FictionalEntityType.Organization),
             ["has_parts_qid"]           = (RelationshipType.HasParts, FictionalEntityType.Organization),
+
+            // Character/Location/Org → Entity (position)
+            ["position_held_qid"]      = (RelationshipType.PositionHeld, FictionalEntityType.Character),
+
+            // Character/Org → Event (conflict)
+            ["conflict_qid"]           = (RelationshipType.Conflict, FictionalEntityType.Event),
 
             // Character → Character (social web)
             ["significant_person_qid"] = (RelationshipType.SignificantPerson, FictionalEntityType.Character),
@@ -212,6 +227,20 @@ public sealed class RelationshipPopulationService : IRelationshipPopulationServi
             _logger.LogInformation(
                 "Created {Count} relationship edges for entity {Qid}",
                 edgesCreated, entityQid);
+
+            if (!string.IsNullOrWhiteSpace(universeQid))
+            {
+                try
+                {
+                    var graphQuery = _serviceProvider.GetService(typeof(IUniverseGraphQueryService))
+                        as IUniverseGraphQueryService;
+                    graphQuery?.InvalidateCache(universeQid);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "Failed to invalidate graph cache for universe {Qid}", universeQid);
+                }
+            }
         }
     }
 
@@ -254,6 +283,7 @@ public sealed class RelationshipPopulationService : IRelationshipPopulationServi
                 FictionalEntityType.Character    => EntityType.Character,
                 FictionalEntityType.Location     => EntityType.Location,
                 FictionalEntityType.Organization => EntityType.Organization,
+                FictionalEntityType.Event        => EntityType.Event,
                 _                                => EntityType.Character,
             };
 

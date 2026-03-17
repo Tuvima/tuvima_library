@@ -12,13 +12,13 @@
             <div class="az-letter-section" id="az-@group.Letter">
                 <div class="az-letter-header">
                     <span class="az-letter">@group.Letter</span>
-                    <span class="az-letter-count">@group.Hubs.Count</span>
+                    <span class="az-letter-count">@group.Items.Count</span>
                 </div>
                 <div class="az-grid">
-                    @foreach (var hub in group.Hubs)
+                    @foreach (var item in group.Items)
                     {
-                        <PosterCard Hub="@hub"
-                                    OnHubSelected="OnHubSelected"
+                        <PosterCard Item="@item"
+                                    OnItemSelected="OnItemSelected"
                                     Width="@CardWidth" />
                     }
                 </div>
@@ -40,8 +40,8 @@
 </div>
 
 @code {
-    [Parameter] public IReadOnlyList<HubViewModel> Hubs { get; set; } = [];
-    [Parameter] public EventCallback<HubViewModel> OnHubSelected { get; set; }
+    [Parameter] public IReadOnlyList<PosterItemViewModel> Items { get; set; } = [];
+    [Parameter] public EventCallback<PosterItemViewModel> OnItemSelected { get; set; }
     [Parameter] public int CardWidth { get; set; } = 180;
 
     private static readonly string[] _allLetters =
@@ -50,7 +50,7 @@
     private List<LetterGroup> _letterGroups = [];
     private HashSet<string> _activeLetters = [];
 
-    private sealed record LetterGroup(string Letter, IReadOnlyList<HubViewModel> Hubs);
+    private sealed record LetterGroup(string Letter, IReadOnlyList<PosterItemViewModel> Items);
 
     protected override void OnParametersSet()
     {
@@ -59,10 +59,10 @@
 
     private void BuildGroups()
     {
-        _letterGroups = Hubs
-            .GroupBy(h => GetLetterKey(h.DisplayName))
+        _letterGroups = Items
+            .GroupBy(i => GetLetterKey(i.Title))
             .OrderBy(g => g.Key == "#" ? "ZZZ" : g.Key)
-            .Select(g => new LetterGroup(g.Key, g.OrderBy(h => h.DisplayName).ToList()))
+            .Select(g => new LetterGroup(g.Key, g.OrderBy(i => i.Title).ToList()))
             .ToList();
 
         _activeLetters = _letterGroups.Select(g => g.Letter).ToHashSet();
