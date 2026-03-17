@@ -96,8 +96,8 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-# Kill any stale dotnet.exe processes before starting
-taskkill /F /IM dotnet.exe 2>$null
+# Kill any stale dotnet.exe processes before starting (silently skips if none running)
+Get-Process dotnet -ErrorAction SilentlyContinue | Stop-Process -Force
 
 # Wipe is the default; suppress with -NoWipe
 $doWipe = -not $NoWipe
