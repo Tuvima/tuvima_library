@@ -274,6 +274,8 @@ file sealed class StubConfigLoader : IConfigurationLoader
     public void SaveMediaTypes(MediaTypeConfiguration config) { }
     public TranscodingSettings LoadTranscoding() => new();
     public void SaveTranscoding(TranscodingSettings settings) { }
+    public FieldPriorityConfiguration LoadFieldPriorities() => new();
+    public void SaveFieldPriorities(FieldPriorityConfiguration config) { }
     public ProviderConfiguration? LoadProvider(string name) => null;
     public void SaveProvider(ProviderConfiguration config) { }
     public IReadOnlyList<ProviderConfiguration> LoadAllProviders() => [];

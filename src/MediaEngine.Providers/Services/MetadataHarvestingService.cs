@@ -451,6 +451,24 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         if (qid is null && headshotUrl is null && biography is null)
             return;
 
+        // ── Pseudonym detection from current claims ───────────────────────────
+        // Compute isPseudonym HERE — before the dedup block — so the merge guard
+        // can use the in-memory value even before UpdateBiographicalFieldsAsync
+        // has persisted it to the DB (which happens further down).
+        //
+        // A person is a pseudonym when their P31 (instance_of) QID is Q127843
+        // (pen name) or Q15632617 (fictional human used as shared pen name).
+        // Check the _qid claim (stable Wikidata IDs) first; fall back to the
+        // label claim for the "pen name" string in case the adapter returned
+        // labels-only.
+        var isPseudonym = claims.Any(c =>
+                c.Key == "instance_of_qid" &&
+                (c.Value.Contains("Q127843", StringComparison.OrdinalIgnoreCase) ||
+                 c.Value.Contains("Q15632617", StringComparison.OrdinalIgnoreCase)))
+            || claims.Any(c =>
+                c.Key == "instance_of" &&
+                c.Value.Contains("pen name", StringComparison.OrdinalIgnoreCase));
+
         // ── QID-based deduplication ───────────────────────────────────────────
         // If another person record already owns this Wikidata QID, skip creating
         // a duplicate folder.  Both DB records will end up pointing at the same
@@ -477,18 +495,23 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
                 if (canonicalPerson is not null && canonicalPerson.Id != request.EntityId)
                 {
                     // Check pseudonym relationship — never merge pseudonym ↔ real person.
+                    // isPseudonym is the value computed from the current claims batch (above);
+                    // this catches the case where the DB flag hasn't been persisted yet
+                    // because UpdateBiographicalFieldsAsync hasn't run yet at this point.
                     var currentPerson = await _personRepo.FindByIdAsync(request.EntityId, ct).ConfigureAwait(false);
-                    bool isPseudonymPair = canonicalPerson.IsPseudonym || currentPerson?.IsPseudonym == true;
+                    bool isPseudonymPair = isPseudonym                          // in-memory, from current claims
+                                       || canonicalPerson.IsPseudonym           // DB flag on the canonical record
+                                       || currentPerson?.IsPseudonym == true;   // DB flag on current record
 
-                    // Also check if they're linked as aliases (pseudonym ↔ real person).
-                    bool isLinkedAlias = false;
+                    // Also use IsPseudonymOrAliasAsync for a comprehensive DB-level check
+                    // on both persons — catches alias links created in prior enrichment runs.
                     if (!isPseudonymPair)
                     {
-                        var aliases = await _personRepo.FindAliasesAsync(request.EntityId, ct).ConfigureAwait(false);
-                        isLinkedAlias = aliases.Any(a => a.Id == canonicalPerson.Id);
+                        isPseudonymPair = await _personRepo.IsPseudonymOrAliasAsync(request.EntityId, ct).ConfigureAwait(false)
+                                       || await _personRepo.IsPseudonymOrAliasAsync(canonicalPerson.Id, ct).ConfigureAwait(false);
                     }
 
-                    if (isPseudonymPair || isLinkedAlias)
+                    if (isPseudonymPair)
                     {
                         _logger.LogInformation(
                             "Person {Id} shares QID {Qid} with {CanonicalId} but is a pseudonym pair — skipping merge",
@@ -547,17 +570,7 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         var placeOfBirth = claims.FirstOrDefault(c => c.Key == "place_of_birth")?.Value;
         var placeOfDeath = claims.FirstOrDefault(c => c.Key == "place_of_death")?.Value;
         var nationality  = claims.FirstOrDefault(c => c.Key == "country_of_citizenship")?.Value;
-        // A person is a pseudonym when their P31 (instance_of) QID is Q127843 (pen name)
-        // or Q15632617 (fictional human used as shared pen name).
-        // Check the _qid claim (stable Wikidata IDs) first; fall back to the label
-        // claim for the "pen name" string in case SPARQL returned labels-only.
-        var isPseudonym = claims.Any(c =>
-                c.Key == "instance_of_qid" &&
-                (c.Value.Contains("Q127843", StringComparison.OrdinalIgnoreCase) ||
-                 c.Value.Contains("Q15632617", StringComparison.OrdinalIgnoreCase)))
-            || claims.Any(c =>
-                c.Key == "instance_of" &&
-                c.Value.Contains("pen name", StringComparison.OrdinalIgnoreCase));
+        // isPseudonym was computed from claims before the dedup block above.
 
         if (dateOfBirth is not null || dateOfDeath is not null || placeOfBirth is not null ||
             placeOfDeath is not null || nationality is not null || isPseudonym)

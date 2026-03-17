@@ -647,4 +647,33 @@ public sealed class PersonRepository : IPersonRepository
         tx.Commit();
         return Task.CompletedTask;
     }
+
+    /// <inheritdoc/>
+    public Task<bool> IsPseudonymOrAliasAsync(Guid personId, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        var id = personId.ToString();
+
+        using var conn = _db.CreateConnection();
+
+        // Check persons.is_pseudonym flag first — cheapest query.
+        using var pseudoCmd = conn.CreateCommand();
+        pseudoCmd.CommandText = "SELECT COUNT(1) FROM persons WHERE id = @Id AND is_pseudonym = 1;";
+        pseudoCmd.Parameters.AddWithValue("@Id", id);
+        var isPseudo = Convert.ToInt32(pseudoCmd.ExecuteScalar()) > 0;
+        if (isPseudo)
+            return Task.FromResult(true);
+
+        // Check person_aliases in either direction — pen name or real author.
+        using var aliasCmd = conn.CreateCommand();
+        aliasCmd.CommandText = """
+            SELECT COUNT(1) FROM person_aliases
+            WHERE pseudonym_person_id = @Id OR real_person_id = @Id;
+            """;
+        aliasCmd.Parameters.AddWithValue("@Id", id);
+        var isAlias = Convert.ToInt32(aliasCmd.ExecuteScalar()) > 0;
+
+        return Task.FromResult(isAlias);
+    }
 }

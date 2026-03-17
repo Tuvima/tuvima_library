@@ -72,6 +72,7 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
     private const string MediaTypesFileName       = "media_types.json";
     private const string DisambiguationFileName   = "disambiguation.json";
     private const string TranscodingFileName      = "transcoding.json";
+    private const string FieldPrioritiesFileName  = "field_priorities.json";
 
     // ── Endpoint distribution map for legacy migration ────────────────────────
 
@@ -249,6 +250,14 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
     /// <inheritdoc/>
     public void SaveTranscoding(TranscodingSettings settings) =>
         SaveFile(TranscodingFileName, settings);
+
+    /// <inheritdoc/>
+    public FieldPriorityConfiguration LoadFieldPriorities() =>
+        LoadFile<FieldPriorityConfiguration>(FieldPrioritiesFileName) ?? new();
+
+    /// <inheritdoc/>
+    public void SaveFieldPriorities(FieldPriorityConfiguration config) =>
+        SaveFile(FieldPrioritiesFileName, config);
 
     /// <inheritdoc/>
     public ProviderSlotConfiguration LoadSlots()
@@ -580,6 +589,16 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
         SaveMaintenance(new MaintenanceSettings());
         SaveSlots(new ProviderSlotConfiguration());
         SaveDisambiguation(new DisambiguationSettings());
+        SaveFieldPriorities(new FieldPriorityConfiguration
+        {
+            FieldOverrides = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["description"] = new() { Priority = ["wikipedia", "apple_api", "wikidata_reconciliation"], Note = "Rich Wikipedia summaries preferred over Wikidata one-liners" },
+                ["biography"]   = new() { Priority = ["wikipedia", "wikidata_reconciliation"], Note = "Rich Wikipedia bios for persons" },
+                ["cover"]       = new() { Priority = ["apple_api", "tmdb", "wikidata_reconciliation"], Note = "Retail providers have high-res commercial art" },
+                ["rating"]      = new() { Priority = ["apple_api", "tmdb"], Note = "Wikidata does not carry ratings" },
+            }
+        });
         SaveMediaTypes(new MediaTypeConfiguration());
 
         // Default providers — same set as the legacy CreateDefaultManifest()

@@ -55,6 +55,14 @@ public sealed class ReviewItemViewModel
     /// <summary>Cover art URL from canonical "cover" value, if available.</summary>
     [JsonPropertyName("cover_url")]
     public string? CoverUrl { get; set; }
+
+    /// <summary>
+    /// Bridge identifiers extracted from canonical values (isbn_13, isbn_10, isbn,
+    /// asin, apple_books_id, wikidata_qid, etc.). ISBN keys are included regardless
+    /// of whether they came from Wikidata or retail providers.
+    /// </summary>
+    [JsonPropertyName("bridge_identifiers")]
+    public Dictionary<string, string> BridgeIdentifiers { get; set; } = [];
 }
 
 /// <summary>Request body for resolving a review queue item.</summary>

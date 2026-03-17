@@ -35,7 +35,7 @@ public static class ReviewEndpoints
         {
             var items = await reviewRepo.GetPendingAsync(limit ?? 50, ct);
 
-            // Enrich each item with entity_title and media_type from canonical values.
+            // Enrich each item with entity_title, media_type, cover_url, and bridge IDs.
             var dtos = new List<ReviewItemDto>(items.Count);
             foreach (var e in items)
             {
@@ -52,7 +52,9 @@ public static class ReviewEndpoints
                 lookup.TryGetValue("media_type", out var mediaType);
                 lookup.TryGetValue("cover", out var coverUrl);
 
-                dtos.Add(ReviewItemDto.FromDomain(e, mediaType, title, coverUrl));
+                var bridgeIds = ExtractBridgeIdentifiers(lookup);
+
+                dtos.Add(ReviewItemDto.FromDomain(e, mediaType, title, coverUrl, bridgeIds));
             }
 
             return Results.Ok(dtos);
@@ -99,7 +101,9 @@ public static class ReviewEndpoints
             lookup.TryGetValue("media_type", out var mediaType);
             lookup.TryGetValue("cover", out var coverUrl);
 
-            return Results.Ok(ReviewItemDto.FromDomain(item, mediaType, title, coverUrl));
+            var bridgeIds = ExtractBridgeIdentifiers(lookup);
+
+            return Results.Ok(ReviewItemDto.FromDomain(item, mediaType, title, coverUrl, bridgeIds));
         })
         .WithName("GetReviewItem")
         .WithSummary("Get a single review queue item with full details.")
@@ -344,5 +348,35 @@ public static class ReviewEndpoints
         .RequireAdminOrCurator();
 
         return app;
+    }
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Extracts bridge identifiers (ISBN-13, ISBN-10, ISBN, ASIN, Apple Books ID,
+    /// Wikidata QID, etc.) from a canonical value lookup dictionary.
+    /// ISBN variants are included so the review queue always shows ISBNs
+    /// regardless of whether they were deposited by Wikidata (isbn_13/isbn_10)
+    /// or by retail providers (isbn).
+    /// </summary>
+    private static Dictionary<string, string> ExtractBridgeIdentifiers(
+        Dictionary<string, string> lookup)
+    {
+        var bridgeKeys = new[]
+        {
+            "isbn_13", "isbn_10", "isbn", "asin",
+            "apple_books_id", "audible_id",
+            "tmdb_id", "imdb_id",
+            "goodreads_id", "musicbrainz_id", "comic_vine_id",
+            "wikidata_qid",
+        };
+
+        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var key in bridgeKeys)
+        {
+            if (lookup.TryGetValue(key, out var val) && !string.IsNullOrWhiteSpace(val))
+                result[key] = val;
+        }
+        return result;
     }
 }

@@ -80,9 +80,11 @@ public static class ReviewTrigger
     public const string MissingQid = "MissingQid";
 
     /// <summary>
-    /// One or more canonical value fields were flagged for review (conflicted,
-    /// missing expected field, or unconfirmed local-only source).
+    /// Legacy: expected-fields scan removed — confidence scoring now handles
+    /// field completeness via field count scaling. Kept for backward
+    /// compatibility with existing review queue rows.
     /// </summary>
+    [Obsolete("Expected-fields scan removed. Confidence scoring handles field completeness.")]
     public const string FieldLevelReview = "FieldLevelReview";
 
     /// <summary>

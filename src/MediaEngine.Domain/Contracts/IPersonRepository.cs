@@ -188,4 +188,14 @@ public interface IPersonRepository
         Guid fromPersonId,
         Guid toPersonId,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns <c>true</c> if the given person is a pseudonym (pen name) or is
+    /// already linked via the <c>person_aliases</c> table (either as the pseudonym
+    /// side or the real-person side).
+    ///
+    /// Used during QID-based deduplication to prevent erroneously merging a pen
+    /// name record (e.g. "James S.A. Corey") into one of its real authors.
+    /// </summary>
+    Task<bool> IsPseudonymOrAliasAsync(Guid personId, CancellationToken ct = default);
 }

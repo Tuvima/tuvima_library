@@ -70,7 +70,7 @@ public sealed class RegistryIngestionTests : IDisposable
         _registryRepo = new RegistryRepository(db);
 
         // Priority cascade engine — Wikidata wins, then highest-confidence retail.
-        _scorer = new PriorityCascadeEngine();
+        _scorer = new PriorityCascadeEngine(new StubConfigurationLoader());
     }
 
     public void Dispose()

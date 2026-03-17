@@ -1,5 +1,7 @@
 using MediaEngine.Domain.Entities;
 using MediaEngine.Intelligence.Models;
+using MediaEngine.Storage.Contracts;
+using MediaEngine.Storage.Models;
 
 namespace MediaEngine.Intelligence.Tests;
 
@@ -17,7 +19,7 @@ public sealed class ConflictResolverTests
 
     private static readonly ScoringConfiguration DefaultConfig = new();
 
-    private static PriorityCascadeEngine CreateEngine() => new();
+    private static PriorityCascadeEngine CreateEngine() => new(new StubConfigurationLoader());
 
     // ── Wikidata beats higher-confidence retail claim ─────────────────────────
 

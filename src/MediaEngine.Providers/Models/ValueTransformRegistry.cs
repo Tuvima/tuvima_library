@@ -76,6 +76,42 @@ public static partial class ValueTransformRegistry
 
             // ── Config-driven transforms (new) ──────────────────────────────
 
+            // Convert each word's first letter to uppercase (title case).
+            // Preserves all-caps acronyms (e.g. "BBC", "USA").
+            // Handles hyphenated words (e.g. "lord-of-the-rings" → "Lord-Of-The-Rings").
+            ["title_case"] = raw =>
+            {
+                if (string.IsNullOrWhiteSpace(raw)) return raw;
+
+                static string CapitalizeSegment(string segment)
+                {
+                    if (segment.Length == 0) return segment;
+                    // Preserve all-caps acronyms (2+ chars, all uppercase letters)
+                    if (segment.Length > 1 && segment.All(c => char.IsLetter(c) && char.IsUpper(c)))
+                        return segment;
+                    return char.ToUpperInvariant(segment[0]) + segment[1..];
+                }
+
+                var words = raw.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                for (int i = 0; i < words.Length; i++)
+                {
+                    var word = words[i];
+                    // Handle hyphenated words: capitalize each hyphen-separated part
+                    if (word.Contains('-'))
+                    {
+                        var parts = word.Split('-');
+                        for (int j = 0; j < parts.Length; j++)
+                            parts[j] = CapitalizeSegment(parts[j]);
+                        words[i] = string.Join('-', parts);
+                    }
+                    else
+                    {
+                        words[i] = CapitalizeSegment(word);
+                    }
+                }
+                return string.Join(' ', words);
+            },
+
             // Pass value through unchanged (useful for int→string coercion in JSON)
             ["to_string"] = raw => raw,
 

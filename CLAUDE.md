@@ -208,9 +208,9 @@ The category tells the Engine *where* to organise files. The media type tells it
 - **Extensibility** — Each media type routes to its own provider pipeline (Books → Apple API/Google Books, Movies → TMDB, Music → MusicBrainz, etc.).
 - **Privacy** — All processing happens locally. Import mode with "copy" preserves originals untouched.
 
-### 3.2 — The Field-Specific Weighted Voter (Intelligence Engine)
+### 3.2 — The Priority Cascade Engine (Intelligence Engine)
 
-**Plain English:** Different information sources disagree about a file's title, author, or year. The Weighted Voter holds an election to determine the truth — and each source's authority is judged *separately for each type of data*.
+**Plain English:** Different information sources disagree about a file's title, author, or year. The Priority Cascade Engine resolves these disputes using a tiered priority system — and each source's authority is judged *separately for each type of data*.
 
 Each piece of metadata (e.g. the title "Dune") is a **Claim**. Claims come from multiple sources:
 
@@ -220,13 +220,59 @@ Each piece of metadata (e.g. the title "Dune") is a **Claim**. Claims come from 
 | Filename | `dune_part1.epub` | Medium (0.5) |
 | External metadata provider | `Dune (Frank Herbert, 1965)` | Configurable per field |
 
-The key upgrade over a simple weighted vote: each provider carries a **per-field trust weight** that reflects how reliable it is *for that specific kind of data*. Wikidata is the definitive authority for franchise identifiers (weight 1.0). Apple API is a single provider that supports multiple media types (ebooks and audiobooks) through media-type-scoped search strategies and field mappings.
+Each provider carries a **per-field trust weight** that reflects how reliable it is *for that specific kind of data*. Wikidata is the definitive authority for franchise identifiers (weight 1.0). Apple API is a single provider that supports multiple media types (ebooks and audiobooks) through media-type-scoped search strategies and field mappings.
 
-All of these weights live in `tuvima_master.json` and can be changed at any time without touching code.
+**Priority Cascade Tiers (evaluated in order):**
+
+| Tier | Name | What it does |
+|---|---|---|
+| **A** | User Locks | User-locked claims always win (confidence 1.0). Never overridden. |
+| **B** | Per-Field Provider Priority | For fields with a priority override in `config/field_priorities.json`, walks the provider list and picks the first provider that has a claim. Skips Tier C for this field. |
+| **C** | Wikidata Authority | For all other fields, Wikidata claims win unconditionally when present. |
+| **D** | Confidence Cascade | When no authority claim exists, the highest-confidence claim wins. |
+
+**Per-Field Provider Priorities (`config/field_priorities.json`):**
+
+Certain fields benefit from a specific provider rather than the default Wikidata-always-wins rule. The config file defines up to 3 provider choices per field:
+
+```json
+{
+  "field_overrides": {
+    "description": {
+      "priority": ["wikipedia", "apple_api", "wikidata_reconciliation"],
+      "note": "Rich Wikipedia summaries preferred over Wikidata one-liners"
+    },
+    "biography": {
+      "priority": ["wikipedia", "wikidata_reconciliation"],
+      "note": "Rich Wikipedia bios for persons"
+    },
+    "cover": {
+      "priority": ["apple_api", "tmdb", "wikidata_reconciliation"],
+      "note": "Retail providers have high-res commercial art"
+    },
+    "rating": {
+      "priority": ["apple_api", "tmdb"],
+      "note": "Wikidata doesn't carry ratings"
+    }
+  }
+}
+```
+
+No additional API calls are needed — this is purely a scoring/selection change after both hydration stages have deposited their claims. Fields NOT listed default to Wikidata-first (Tier C).
+
+**Field Count Scaling:**
+
+Files with very few metadata fields (e.g. only a filename-derived title) receive a confidence penalty to prevent inflated scores:
+
+```
+overallConfidence *= Math.Min(1.0, fieldCount / 3.0)
+```
+
+A file with only 1 field scores at 1/3 of its raw confidence (~0.17 instead of ~0.50). A file with 3+ fields is unaffected (multiplier = 1.0). This ensures corrupt or near-empty files are correctly routed to staging instead of being auto-promoted.
 
 **User-Locked Claims:** When you manually set a metadata value, that Claim is permanently locked. The engine gives it a confidence of 1.0 and never overrides it on any future re-score — regardless of what any external provider says.
 
-The Voter tallies all Claims for each metadata field independently. The winning Claim becomes the **Canonical Value** — the single trusted answer used by the Dashboard.
+The engine tallies all Claims for each metadata field independently. The winning Claim becomes the **Canonical Value** — the single trusted answer used by the Dashboard.
 
 If two Claims are too close to pick a clear winner, the field is flagged as **Conflicted** and surfaced to the user for manual resolution.
 
@@ -234,9 +280,9 @@ If two Claims are too close to pick a clear winner, the field is flagged as **Co
 - **No human help needed** for well-tagged files — the library builds itself.
 - **Transparent conflicts** — the user is only bothered when the machine genuinely cannot decide.
 - **Provenance preserved** — every Claim is kept forever (append-only). History is never lost.
-- **Reliability** — user-set values can never be silently overridden by the scoring engine.
-- **Maintenance** — all weights live in `tuvima_master.json`; zero code changes needed to re-tune trust levels.
-- **Extensibility** — future providers simply declare their field weights in the JSON; the engine picks them up with no new code.
+- **Reliability** — user-set values can never be silently overridden by the scoring engine. Field count scaling prevents inflated confidence for near-empty files.
+- **Maintenance** — per-field provider priorities live in `config/field_priorities.json`; zero code changes needed to re-tune which provider wins for each field.
+- **Extensibility** — future providers simply declare their field weights in the JSON; the engine picks them up with no new code. New field priority overrides are one JSON entry.
 
 ### 3.3 — Security: Secret Store & Guest Keys
 
@@ -384,7 +430,7 @@ Adding a new REST+JSON provider is a **zero-code operation**: drop a config file
 - `ConfigDrivenAdapter` (`MediaEngine.Providers.Adapters`) — universal adapter implementing `IExternalMetadataProvider`
 - `IdentifierNormalizationService` (`MediaEngine.Domain.Services`) — static utility normalizing 12 identifier types (ISBN-13, ISBN-10, ASIN, IMDb, Apple Books ID, TMDB, MusicBrainz, Goodreads, ComicVine, ISRC, LCCN, Apple Podcasts) with checksum validation
 - `JsonPathEvaluator` (`MediaEngine.Providers.Models`) — static utility navigating `System.Text.Json.Nodes.JsonNode` with dot-notation, array indexing, and wildcard iteration
-- `ValueTransformRegistry` (`MediaEngine.Providers.Models`) — named transform functions (to_string, strip_html, url_template, regex_replace, prefer_isbn13, array_join, array_nested_join, first_n_chars, fallback_key)
+- `ValueTransformRegistry` (`MediaEngine.Providers.Models`) — named transform functions (to_string, strip_html, url_template, regex_replace, prefer_isbn13, array_join, array_nested_join, first_n_chars, fallback_key, title_case)
 
 **Key architectural rules for this subsystem:**
 - `MediaEngine.Ingestion` has **zero new project references**. All interfaces (`IMetadataHarvestingService`, `IRecursiveIdentityService`, `IMetadataClaimRepository`, `ICanonicalValueRepository`) live in `MediaEngine.Domain.Contracts` — which Ingestion already references.
@@ -676,6 +722,8 @@ config/
   libraries.json                  ← Library folders: category, media types, source path,
                                      intake mode (watch/import), library root (§3.1)
   scoring.json                    ← Scoring: thresholds, decay
+  field_priorities.json           ← Per-field provider priority overrides (§3.2):
+                                     which provider wins for description, cover, etc.
   maintenance.json                ← Maintenance: retention, vacuum, sync
   hydration.json                  ← Hydration pipeline: stage timeouts, concurrency,
                                      disambiguation/confidence thresholds (§3.13)
@@ -709,9 +757,9 @@ config/
 10. **Config directory path** — specified in `appsettings.json` as `MediaEngine:ConfigDirectory` (default: `"config"`). Legacy `MediaEngine:ManifestPath` is still checked as fallback for backward compatibility.
 
 **Key types:**
-- `IConfigurationLoader` (`MediaEngine.Storage.Contracts`) — granular config access contract: `LoadCore()`, `LoadScoring()`, `LoadMaintenance()`, `LoadProvider(name)`, `LoadAllProviders()`, generic `LoadConfig<T>(subdirectory, name)`.
+- `IConfigurationLoader` (`MediaEngine.Storage.Contracts`) — granular config access contract: `LoadCore()`, `LoadScoring()`, `LoadMaintenance()`, `LoadFieldPriorities()`, `LoadProvider(name)`, `LoadAllProviders()`, generic `LoadConfig<T>(subdirectory, name)`.
 - `ConfigurationDirectoryLoader` (`MediaEngine.Storage`) — implements both `IConfigurationLoader` (new granular access) and `IStorageManifest` (backward compat). Auto-migrates legacy files; `.bak` rotation on every save.
-- `CoreConfiguration`, `ProviderConfiguration` (`MediaEngine.Storage.Models`) — settings models.
+- `CoreConfiguration`, `ProviderConfiguration`, `FieldPriorityConfiguration` (`MediaEngine.Storage.Models`) — settings models.
 - `UniverseConfiguration`, `WikidataPropertyConfig`, `BridgeLookupEntry` (`MediaEngine.Providers.Models`) — universe knowledge model.
 - `ValueTransformRegistry` (`MediaEngine.Providers.Models`) — named transform function registry.
 

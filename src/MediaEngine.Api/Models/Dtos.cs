@@ -986,27 +986,36 @@ public sealed class ReviewItemDto
     [JsonPropertyName("cover_url")]
     public string? CoverUrl { get; init; }
 
+    /// <summary>
+    /// Bridge identifiers extracted from canonical values (isbn, isbn_13, isbn_10,
+    /// asin, apple_books_id, wikidata_qid, etc.). ISBN is shown prominently.
+    /// </summary>
+    [JsonPropertyName("bridge_identifiers")]
+    public Dictionary<string, string> BridgeIdentifiers { get; init; } = [];
+
     public static ReviewItemDto FromDomain(
         Domain.Entities.ReviewQueueEntry e,
         string? mediaType = null,
         string? entityTitle = null,
-        string? coverUrl = null) => new()
+        string? coverUrl = null,
+        Dictionary<string, string>? bridgeIdentifiers = null) => new()
     {
-        Id              = e.Id,
-        EntityId        = e.EntityId,
-        EntityType      = e.EntityType,
-        Trigger         = e.Trigger,
-        Status          = e.Status,
-        ProposedHubId   = e.ProposedHubId,
-        ConfidenceScore = e.ConfidenceScore,
-        CandidatesJson  = e.CandidatesJson,
-        Detail          = e.Detail,
-        CreatedAt       = e.CreatedAt,
-        ResolvedAt      = e.ResolvedAt,
-        ResolvedBy      = e.ResolvedBy,
-        MediaType       = mediaType,
-        EntityTitle     = entityTitle,
-        CoverUrl        = coverUrl,
+        Id                 = e.Id,
+        EntityId           = e.EntityId,
+        EntityType         = e.EntityType,
+        Trigger            = e.Trigger,
+        Status             = e.Status,
+        ProposedHubId      = e.ProposedHubId,
+        ConfidenceScore    = e.ConfidenceScore,
+        CandidatesJson     = e.CandidatesJson,
+        Detail             = e.Detail,
+        CreatedAt          = e.CreatedAt,
+        ResolvedAt         = e.ResolvedAt,
+        ResolvedBy         = e.ResolvedBy,
+        MediaType          = mediaType,
+        EntityTitle        = entityTitle,
+        CoverUrl           = coverUrl,
+        BridgeIdentifiers  = bridgeIdentifiers ?? [],
     };
 }
 

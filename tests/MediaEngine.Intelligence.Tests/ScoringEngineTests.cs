@@ -1,5 +1,7 @@
 using MediaEngine.Domain.Entities;
 using MediaEngine.Intelligence.Models;
+using MediaEngine.Storage.Contracts;
+using MediaEngine.Storage.Models;
 
 namespace MediaEngine.Intelligence.Tests;
 
@@ -16,7 +18,7 @@ public sealed class ScoringEngineTests
 
     private static readonly ScoringConfiguration DefaultConfig = new();
 
-    private static PriorityCascadeEngine CreateEngine() => new();
+    private static PriorityCascadeEngine CreateEngine() => new(new StubConfigurationLoader());
 
     // ── Single claim wins by default ─────────────────────────────────────────
 

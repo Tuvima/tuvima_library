@@ -70,7 +70,7 @@ public sealed class EndToEndIngestionTests : IDisposable
         _chainFactory = new MediaEntityChainFactory(db);
 
         // Priority cascade engine — Wikidata wins, then highest-confidence retail.
-        _scorer = new PriorityCascadeEngine();
+        _scorer = new PriorityCascadeEngine(new StubConfigurationLoader());
     }
 
     public void Dispose()

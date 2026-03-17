@@ -1,0 +1,20 @@
+{
+  "field_overrides": {
+    "description": {
+      "priority": ["wikipedia", "apple_api", "wikidata_reconciliation"],
+      "note": "Rich Wikipedia summaries preferred over Wikidata one-liners"
+    },
+    "biography": {
+      "priority": ["wikipedia", "wikidata_reconciliation"],
+      "note": "Rich Wikipedia bios for persons"
+    },
+    "cover": {
+      "priority": ["apple_api", "tmdb", "wikidata_reconciliation"],
+      "note": "Retail providers have high-res commercial art"
+    },
+    "rating": {
+      "priority": ["apple_api", "tmdb"],
+      "note": "Wikidata does not carry ratings"
+    }
+  }
+}
