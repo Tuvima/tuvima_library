@@ -5,7 +5,7 @@
 
 .DESCRIPTION
     Generates synthetic EPUB files from a 100-title catalog (varying metadata
-    quality) and drops a random selection into the watch folder. Monitors the
+    quality) and drops a stratified selection into the watch folder. Monitors the
     engine API for completion, then queries results and writes a human-readable
     report.
 
@@ -16,8 +16,12 @@
       corrupt   - Invalid file bytes; expect MediaFailed (5 books)
       duplicate - Identical bytes to an earlier book; expect DuplicateSkipped (5 books)
 
+    Stratified sampling (default proportions):
+      60% high, 20% medium, 10% low, 5% corrupt, 5% duplicate
+      Foreign-language books capped at ~7% (max 2 per run).
+
 .PARAMETER Count
-    Number of books to randomly select from the catalog (default: 10, max: 100).
+    Number of books to select from the catalog using stratified sampling (default: 30, max: 100).
 
 .PARAMETER Seed
     Random seed for reproducible runs. Omit for a fresh random selection.
@@ -28,13 +32,15 @@
 .PARAMETER WatchDirectory
     Path to the watch folder. Overrides config auto-detection.
 
+.PARAMETER NoWipe
+    Skip the automatic wipe of library.db and library/staging folders.
+    By default the script wipes automatically before running.
+
 .PARAMETER WipeFirst
-    Wipes library.db and clears library/staging folders before running.
-    Requires confirmation unless -Force is also set.
-    WARNING: Destroys all existing library data.
+    No-op (kept for backward compatibility). Wipe now happens by default unless -NoWipe is set.
 
 .PARAMETER Force
-    Skip the confirmation prompt for -WipeFirst.
+    No-op (kept for backward compatibility). Wipe no longer requires confirmation.
 
 .PARAMETER TimeoutSeconds
     Maximum seconds to wait for ingestion to complete (default: 120).
@@ -43,16 +49,21 @@
     Where to save the text report. Defaults to tools/reports/book-ingestion-<timestamp>.txt.
 
 .EXAMPLE
-    # Quick 10-book test
-    .\Test-BookIngestion.ps1
+    # Standard 30-book test with auto-wipe
+    .\tools\Test-BookIngestion.ps1
 
-    # Reproducible 25-book run
-    .\Test-BookIngestion.ps1 -Count 25 -Seed 42
+    # 10-book test, skip the wipe
+    .\tools\Test-BookIngestion.ps1 -Count 10 -NoWipe
 
-    # Full wipe + 50 books, no confirmation
-    .\Test-BookIngestion.ps1 -Count 50 -WipeFirst -Force
+    # Reproducible run with fixed seed
+    .\tools\Test-BookIngestion.ps1 -Seed 42
 
 .NOTES
+    Standard run command:
+      .\tools\Test-BookIngestion.ps1
+      .\tools\Test-BookIngestion.ps1 -Count 10 -NoWipe
+      .\tools\Test-BookIngestion.ps1 -Seed 42
+
     Run as "book ingestion test" - part of the Tuvima testing arsenal.
     Always produces two reports: pre-ingestion (files dropped in) and
     post-ingestion (status of each file after the engine processes it).
@@ -60,7 +71,7 @@
 [CmdletBinding()]
 param(
     [ValidateRange(1, 100)]
-    [int]$Count = 10,
+    [int]$Count = 30,
 
     [int]$Seed = -1,
 
@@ -68,9 +79,11 @@ param(
 
     [string]$WatchDirectory = "",
 
-    [switch]$WipeFirst,
+    [switch]$NoWipe,
 
-    [switch]$Force,
+    [switch]$WipeFirst,   # no-op: kept for backward compatibility
+
+    [switch]$Force,       # no-op: kept for backward compatibility
 
     [ValidateRange(10, 600)]
     [int]$TimeoutSeconds = 120,
@@ -79,6 +92,12 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+
+# Kill any stale dotnet.exe processes before starting
+taskkill /F /IM dotnet.exe 2>$null
+
+# Wipe is the default; suppress with -NoWipe
+$doWipe = -not $NoWipe
 
 Add-Type -AssemblyName System.IO.Compression
 Add-Type -AssemblyName System.IO.Compression.FileSystem
@@ -154,110 +173,111 @@ function Invoke-Api {
 # ---------------------------------------------------------------------------
 $Catalog = @(
     # HIGH CONFIDENCE - full metadata (60 books)
-    [pscustomobject]@{Id=1;  Title="Dune";                                 Author="Frank Herbert";       Year="1965"; Series="Dune Chronicles";         Pos="1"; Isbn="9780441013593"; Genre="Science Fiction"; S="high"}
-    [pscustomobject]@{Id=2;  Title="Foundation";                           Author="Isaac Asimov";        Year="1951"; Series="Foundation";              Pos="1"; Isbn="9780553293357"; Genre="Science Fiction"; S="high"}
-    [pscustomobject]@{Id=3;  Title="Leviathan Wakes";                      Author="James S.A. Corey";    Year="2011"; Series="The Expanse";             Pos="1"; Isbn="9780316129084"; Genre="Science Fiction"; S="high"}
-    [pscustomobject]@{Id=4;  Title="The Name of the Wind";                 Author="Patrick Rothfuss";    Year="2007"; Series="Kingkiller Chronicle";    Pos="1"; Isbn="9780756404079"; Genre="Fantasy";         S="high"}
-    [pscustomobject]@{Id=5;  Title="A Game of Thrones";                    Author="George R.R. Martin";  Year="1996"; Series="A Song of Ice and Fire"; Pos="1"; Isbn="9780553381689"; Genre="Fantasy";         S="high"}
-    [pscustomobject]@{Id=6;  Title="The Way of Kings";                     Author="Brandon Sanderson";   Year="2010"; Series="The Stormlight Archive"; Pos="1"; Isbn="9780765326355"; Genre="Fantasy";         S="high"}
-    [pscustomobject]@{Id=7;  Title="Mistborn: The Final Empire";           Author="Brandon Sanderson";   Year="2006"; Series="Mistborn";               Pos="1"; Isbn="9780765311788"; Genre="Fantasy";         S="high"}
-    [pscustomobject]@{Id=8;  Title="The Hitchhiker's Guide to the Galaxy"; Author="Douglas Adams";       Year="1979"; Series="Hitchhiker's Guide";     Pos="1"; Isbn="9780345391803"; Genre="Comedy";          S="high"}
-    [pscustomobject]@{Id=9;  Title="Neuromancer";                          Author="William Gibson";      Year="1984"; Series="";                        Pos="";  Isbn="9780441569595"; Genre="Cyberpunk";       S="high"}
-    [pscustomobject]@{Id=10; Title="Ender's Game";                         Author="Orson Scott Card";    Year="1985"; Series="Ender's Game";            Pos="1"; Isbn="9780312853235"; Genre="Science Fiction"; S="high"}
-    [pscustomobject]@{Id=11; Title="The Lord of the Rings";                Author="J.R.R. Tolkien";      Year="1954"; Series="Middle-earth";            Pos="1"; Isbn="9780261102354"; Genre="Fantasy";         S="high"}
-    [pscustomobject]@{Id=12; Title="1984";                                 Author="George Orwell";       Year="1949"; Series="";                        Pos="";  Isbn="9780451524935"; Genre="Dystopian";       S="high"}
-    [pscustomobject]@{Id=13; Title="Brave New World";                      Author="Aldous Huxley";       Year="1932"; Series="";                        Pos="";  Isbn="9780060850524"; Genre="Dystopian";       S="high"}
-    [pscustomobject]@{Id=14; Title="The Martian";                          Author="Andy Weir";           Year="2011"; Series="";                        Pos="";  Isbn="9780553418026"; Genre="Science Fiction"; S="high"}
-    [pscustomobject]@{Id=15; Title="Project Hail Mary";                    Author="Andy Weir";           Year="2021"; Series="";                        Pos="";  Isbn="9780593135204"; Genre="Science Fiction"; S="high"}
-    [pscustomobject]@{Id=16; Title="Red Rising";                           Author="Pierce Brown";        Year="2014"; Series="Red Rising Saga";         Pos="1"; Isbn="9780345539786"; Genre="Science Fiction"; S="high"}
-    [pscustomobject]@{Id=17; Title="The Blade Itself";                     Author="Joe Abercrombie";     Year="2006"; Series="The First Law";           Pos="1"; Isbn="9780575079793"; Genre="Fantasy";         S="high"}
-    [pscustomobject]@{Id=18; Title="Words of Radiance";                    Author="Brandon Sanderson";   Year="2014"; Series="The Stormlight Archive"; Pos="2"; Isbn="9780765326362"; Genre="Fantasy";         S="high"}
-    [pscustomobject]@{Id=19; Title="Caliban's War";                        Author="James S.A. Corey";    Year="2012"; Series="The Expanse";             Pos="2"; Isbn="9780316202107"; Genre="Science Fiction"; S="high"}
-    [pscustomobject]@{Id=20; Title="Dune Messiah";                         Author="Frank Herbert";       Year="1969"; Series="Dune Chronicles";         Pos="2"; Isbn="9780441172696"; Genre="Science Fiction"; S="high"}
-    [pscustomobject]@{Id=21; Title="Foundation and Empire";                Author="Isaac Asimov";        Year="1952"; Series="Foundation";              Pos="2"; Isbn="9780553293371"; Genre="Science Fiction"; S="high"}
-    [pscustomobject]@{Id=22; Title="The Well of Ascension";                Author="Brandon Sanderson";   Year="2007"; Series="Mistborn";               Pos="2"; Isbn="9780765316882"; Genre="Fantasy";         S="high"}
-    [pscustomobject]@{Id=23; Title="The Eye of the World";                 Author="Robert Jordan";       Year="1990"; Series="The Wheel of Time";      Pos="1"; Isbn="9780765334343"; Genre="Fantasy";         S="high"}
-    [pscustomobject]@{Id=24; Title="The Great Hunt";                       Author="Robert Jordan";       Year="1990"; Series="The Wheel of Time";      Pos="2"; Isbn="9780765334350"; Genre="Fantasy";         S="high"}
-    [pscustomobject]@{Id=25; Title="A Wizard of Earthsea";                 Author="Ursula K. Le Guin";   Year="1968"; Series="Earthsea Cycle";         Pos="1"; Isbn="9780553383041"; Genre="Fantasy";         S="high"}
-    [pscustomobject]@{Id=26; Title="The Left Hand of Darkness";            Author="Ursula K. Le Guin";   Year="1969"; Series="Hainish Cycle";          Pos="";  Isbn="9780441478125"; Genre="Science Fiction"; S="high"}
-    [pscustomobject]@{Id=27; Title="Flowers for Algernon";                 Author="Daniel Keyes";        Year="1966"; Series="";                        Pos="";  Isbn="9780156030304"; Genre="Science Fiction"; S="high"}
-    [pscustomobject]@{Id=28; Title="Slaughterhouse-Five";                  Author="Kurt Vonnegut";       Year="1969"; Series="";                        Pos="";  Isbn="9780440180296"; Genre="Science Fiction"; S="high"}
-    [pscustomobject]@{Id=29; Title="The Hobbit";                           Author="J.R.R. Tolkien";      Year="1937"; Series="Middle-earth";            Pos="";  Isbn="9780547928227"; Genre="Fantasy";         S="high"}
-    [pscustomobject]@{Id=30; Title="The Color of Magic";                   Author="Terry Pratchett";     Year="1983"; Series="Discworld";              Pos="1"; Isbn="9780062225672"; Genre="Fantasy Comedy";  S="high"}
-    [pscustomobject]@{Id=31; Title="Good Omens";                           Author="Terry Pratchett";     Year="1990"; Series="";                        Pos="";  Isbn="9780060853983"; Genre="Fantasy Comedy";  S="high"}
-    [pscustomobject]@{Id=32; Title="American Gods";                        Author="Neil Gaiman";         Year="2001"; Series="";                        Pos="";  Isbn="9780380973651"; Genre="Fantasy";         S="high"}
-    [pscustomobject]@{Id=33; Title="The Lies of Locke Lamora";             Author="Scott Lynch";         Year="2006"; Series="Gentleman Bastard";      Pos="1"; Isbn="9780553588941"; Genre="Fantasy";         S="high"}
-    [pscustomobject]@{Id=34; Title="Assassin's Apprentice";                Author="Robin Hobb";          Year="1995"; Series="Farseer Trilogy";        Pos="1"; Isbn="9780553573398"; Genre="Fantasy";         S="high"}
-    [pscustomobject]@{Id=35; Title="Ancillary Justice";                    Author="Ann Leckie";          Year="2013"; Series="Imperial Radch";         Pos="1"; Isbn="9780316246620"; Genre="Science Fiction"; S="high"}
-    [pscustomobject]@{Id=36; Title="The Dispossessed";                     Author="Ursula K. Le Guin";   Year="1974"; Series="Hainish Cycle";          Pos="";  Isbn="9780061054884"; Genre="Science Fiction"; S="high"}
-    [pscustomobject]@{Id=37; Title="Hyperion";                             Author="Dan Simmons";         Year="1989"; Series="Hyperion Cantos";        Pos="1"; Isbn="9780553283686"; Genre="Science Fiction"; S="high"}
-    [pscustomobject]@{Id=38; Title="The Fall of Hyperion";                 Author="Dan Simmons";         Year="1990"; Series="Hyperion Cantos";        Pos="2"; Isbn="9780553288208"; Genre="Science Fiction"; S="high"}
-    [pscustomobject]@{Id=39; Title="Snow Crash";                           Author="Neal Stephenson";     Year="1992"; Series="";                        Pos="";  Isbn="9780553380958"; Genre="Cyberpunk";       S="high"}
-    [pscustomobject]@{Id=40; Title="Cryptonomicon";                        Author="Neal Stephenson";     Year="1999"; Series="";                        Pos="";  Isbn="9780060512804"; Genre="Thriller";        S="high"}
-    [pscustomobject]@{Id=41; Title="Old Man's War";                        Author="John Scalzi";         Year="2005"; Series="Old Man's War";          Pos="1"; Isbn="9780765315034"; Genre="Science Fiction"; S="high"}
-    [pscustomobject]@{Id=42; Title="The Android's Dream";                  Author="John Scalzi";         Year="2006"; Series="";                        Pos="";  Isbn="9780765348494"; Genre="Science Fiction"; S="high"}
-    [pscustomobject]@{Id=43; Title="Piranesi";                             Author="Susanna Clarke";      Year="2020"; Series="";                        Pos="";  Isbn="9781635575637"; Genre="Fantasy";         S="high"}
-    [pscustomobject]@{Id=44; Title="The Fifth Season";                     Author="N.K. Jemisin";        Year="2015"; Series="The Broken Earth";       Pos="1"; Isbn="9780316229296"; Genre="Science Fiction"; S="high"}
-    [pscustomobject]@{Id=45; Title="All Systems Red";                      Author="Martha Wells";        Year="2017"; Series="Murderbot Diaries";      Pos="1"; Isbn="9780765397539"; Genre="Science Fiction"; S="high"}
-    [pscustomobject]@{Id=46; Title="A Memory Called Empire";               Author="Arkady Martine";      Year="2019"; Series="Teixcalaan";             Pos="1"; Isbn="9781250186430"; Genre="Science Fiction"; S="high"}
-    [pscustomobject]@{Id=47; Title="The Long Way to a Small Angry Planet"; Author="Becky Chambers";      Year="2014"; Series="Wayfarers";             Pos="1"; Isbn="9781473619814"; Genre="Science Fiction"; S="high"}
-    [pscustomobject]@{Id=48; Title="Klara and the Sun";                    Author="Kazuo Ishiguro";      Year="2021"; Series="";                        Pos="";  Isbn="9780593311295"; Genre="Science Fiction"; S="high"}
-    [pscustomobject]@{Id=49; Title="The Buried Giant";                     Author="Kazuo Ishiguro";      Year="2015"; Series="";                        Pos="";  Isbn="9780307455796"; Genre="Fantasy";         S="high"}
-    [pscustomobject]@{Id=50; Title="Jonathan Strange and Mr Norrell";      Author="Susanna Clarke";      Year="2004"; Series="";                        Pos="";  Isbn="9781582344164"; Genre="Fantasy";         S="high"}
-    [pscustomobject]@{Id=51; Title="Children of Time";                     Author="Adrian Tchaikovsky";  Year="2015"; Series="Children of Time";       Pos="1"; Isbn="9781447273288"; Genre="Science Fiction"; S="high"}
-    [pscustomobject]@{Id=52; Title="To Be Taught If Fortunate";            Author="Becky Chambers";      Year="2020"; Series="";                        Pos="";  Isbn="9781250236234"; Genre="Science Fiction"; S="high"}
-    [pscustomobject]@{Id=53; Title="The Ninth Rain";                       Author="Jen Williams";        Year="2017"; Series="The Winnowing Flame";    Pos="1"; Isbn="9781472235299"; Genre="Fantasy";         S="high"}
-    [pscustomobject]@{Id=54; Title="Abaddon's Gate";                       Author="James S.A. Corey";    Year="2013"; Series="The Expanse";             Pos="3"; Isbn="9780316129060"; Genre="Science Fiction"; S="high"}
-    [pscustomobject]@{Id=55; Title="Second Foundation";                    Author="Isaac Asimov";        Year="1953"; Series="Foundation";              Pos="3"; Isbn="9780553293388"; Genre="Science Fiction"; S="high"}
-    [pscustomobject]@{Id=56; Title="Children of Dune";                     Author="Frank Herbert";       Year="1976"; Series="Dune Chronicles";         Pos="3"; Isbn="9780441104024"; Genre="Science Fiction"; S="high"}
-    [pscustomobject]@{Id=57; Title="The Hero of Ages";                     Author="Brandon Sanderson";   Year="2008"; Series="Mistborn";               Pos="3"; Isbn="9780765356147"; Genre="Fantasy";         S="high"}
-    [pscustomobject]@{Id=58; Title="Oathbringer";                          Author="Brandon Sanderson";   Year="2017"; Series="The Stormlight Archive"; Pos="3"; Isbn="9780765326379"; Genre="Fantasy";         S="high"}
-    [pscustomobject]@{Id=59; Title="The Dragon Reborn";                    Author="Robert Jordan";       Year="1991"; Series="The Wheel of Time";      Pos="3"; Isbn="9780765334367"; Genre="Fantasy";         S="high"}
-    [pscustomobject]@{Id=60; Title="Before They Are Hanged";               Author="Joe Abercrombie";     Year="2007"; Series="The First Law";           Pos="2"; Isbn="9781591025788"; Genre="Fantasy";         S="high"}
+    [pscustomobject]@{Id=1;  Title="Dune";                                 Author="Frank Herbert";       Year="1965"; Series="Dune Chronicles";         Pos="1"; Isbn="9780441013593"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=2;  Title="Foundation";                           Author="Isaac Asimov";        Year="1951"; Series="Foundation";              Pos="1"; Isbn="9780553293357"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=3;  Title="Leviathan Wakes";                      Author="James S.A. Corey";    Year="2011"; Series="The Expanse";             Pos="1"; Isbn="9780316129084"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=4;  Title="The Name of the Wind";                 Author="Patrick Rothfuss";    Year="2007"; Series="Kingkiller Chronicle";    Pos="1"; Isbn="9780756404079"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=5;  Title="A Game of Thrones";                    Author="George R.R. Martin";  Year="1996"; Series="A Song of Ice and Fire"; Pos="1"; Isbn="9780553381689"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=6;  Title="The Way of Kings";                     Author="Brandon Sanderson";   Year="2010"; Series="The Stormlight Archive"; Pos="1"; Isbn="9780765326355"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=7;  Title="Mistborn: The Final Empire";           Author="Brandon Sanderson";   Year="2006"; Series="Mistborn";               Pos="1"; Isbn="9780765311788"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=8;  Title="The Hitchhiker's Guide to the Galaxy"; Author="Douglas Adams";       Year="1979"; Series="Hitchhiker's Guide";     Pos="1"; Isbn="9780345391803"; Genre="Comedy";          S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=9;  Title="Neuromancer";                          Author="William Gibson";      Year="1984"; Series="";                        Pos="";  Isbn="9780441569595"; Genre="Cyberpunk";       S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=10; Title="Ender's Game";                         Author="Orson Scott Card";    Year="1985"; Series="Ender's Game";            Pos="1"; Isbn="9780312853235"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=11; Title="The Lord of the Rings";                Author="J.R.R. Tolkien";      Year="1954"; Series="Middle-earth";            Pos="1"; Isbn="9780261102354"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=12; Title="1984";                                 Author="George Orwell";       Year="1949"; Series="";                        Pos="";  Isbn="9780451524935"; Genre="Dystopian";       S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=13; Title="Brave New World";                      Author="Aldous Huxley";       Year="1932"; Series="";                        Pos="";  Isbn="9780060850524"; Genre="Dystopian";       S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=14; Title="The Martian";                          Author="Andy Weir";           Year="2011"; Series="";                        Pos="";  Isbn="9780553418026"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=15; Title="Project Hail Mary";                    Author="Andy Weir";           Year="2021"; Series="";                        Pos="";  Isbn="9780593135204"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=16; Title="Red Rising";                           Author="Pierce Brown";        Year="2014"; Series="Red Rising Saga";         Pos="1"; Isbn="9780345539786"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=17; Title="The Blade Itself";                     Author="Joe Abercrombie";     Year="2006"; Series="The First Law";           Pos="1"; Isbn="9780575079793"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=18; Title="Words of Radiance";                    Author="Brandon Sanderson";   Year="2014"; Series="The Stormlight Archive"; Pos="2"; Isbn="9780765326362"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=19; Title="Caliban's War";                        Author="James S.A. Corey";    Year="2012"; Series="The Expanse";             Pos="2"; Isbn="9780316202107"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=20; Title="Dune Messiah";                         Author="Frank Herbert";       Year="1969"; Series="Dune Chronicles";         Pos="2"; Isbn="9780441172696"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=21; Title="Foundation and Empire";                Author="Isaac Asimov";        Year="1952"; Series="Foundation";              Pos="2"; Isbn="9780553293371"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=22; Title="The Well of Ascension";                Author="Brandon Sanderson";   Year="2007"; Series="Mistborn";               Pos="2"; Isbn="9780765316882"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=23; Title="The Eye of the World";                 Author="Robert Jordan";       Year="1990"; Series="The Wheel of Time";      Pos="1"; Isbn="9780765334343"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=24; Title="The Great Hunt";                       Author="Robert Jordan";       Year="1990"; Series="The Wheel of Time";      Pos="2"; Isbn="9780765334350"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=25; Title="A Wizard of Earthsea";                 Author="Ursula K. Le Guin";   Year="1968"; Series="Earthsea Cycle";         Pos="1"; Isbn="9780553383041"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=26; Title="The Left Hand of Darkness";            Author="Ursula K. Le Guin";   Year="1969"; Series="Hainish Cycle";          Pos="";  Isbn="9780441478125"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=27; Title="Flowers for Algernon";                 Author="Daniel Keyes";        Year="1966"; Series="";                        Pos="";  Isbn="9780156030304"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=28; Title="Slaughterhouse-Five";                  Author="Kurt Vonnegut";       Year="1969"; Series="";                        Pos="";  Isbn="9780440180296"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=29; Title="The Hobbit";                           Author="J.R.R. Tolkien";      Year="1937"; Series="Middle-earth";            Pos="";  Isbn="9780547928227"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=30; Title="The Color of Magic";                   Author="Terry Pratchett";     Year="1983"; Series="Discworld";              Pos="1"; Isbn="9780062225672"; Genre="Fantasy Comedy";  S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=31; Title="Good Omens";                           Author="Terry Pratchett";     Year="1990"; Series="";                        Pos="";  Isbn="9780060853983"; Genre="Fantasy Comedy";  S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=32; Title="American Gods";                        Author="Neil Gaiman";         Year="2001"; Series="";                        Pos="";  Isbn="9780380973651"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=33; Title="The Lies of Locke Lamora";             Author="Scott Lynch";         Year="2006"; Series="Gentleman Bastard";      Pos="1"; Isbn="9780553588941"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=34; Title="Assassin's Apprentice";                Author="Robin Hobb";          Year="1995"; Series="Farseer Trilogy";        Pos="1"; Isbn="9780553573398"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=35; Title="Ancillary Justice";                    Author="Ann Leckie";          Year="2013"; Series="Imperial Radch";         Pos="1"; Isbn="9780316246620"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=36; Title="The Dispossessed";                     Author="Ursula K. Le Guin";   Year="1974"; Series="Hainish Cycle";          Pos="";  Isbn="9780061054884"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=37; Title="Hyperion";                             Author="Dan Simmons";         Year="1989"; Series="Hyperion Cantos";        Pos="1"; Isbn="9780553283686"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=38; Title="The Fall of Hyperion";                 Author="Dan Simmons";         Year="1990"; Series="Hyperion Cantos";        Pos="2"; Isbn="9780553288208"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=39; Title="Snow Crash";                           Author="Neal Stephenson";     Year="1992"; Series="";                        Pos="";  Isbn="9780553380958"; Genre="Cyberpunk";       S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=40; Title="Cryptonomicon";                        Author="Neal Stephenson";     Year="1999"; Series="";                        Pos="";  Isbn="9780060512804"; Genre="Thriller";        S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=41; Title="Old Man's War";                        Author="John Scalzi";         Year="2005"; Series="Old Man's War";          Pos="1"; Isbn="9780765315034"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=42; Title="The Android's Dream";                  Author="John Scalzi";         Year="2006"; Series="";                        Pos="";  Isbn="9780765348494"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=43; Title="Piranesi";                             Author="Susanna Clarke";      Year="2020"; Series="";                        Pos="";  Isbn="9781635575637"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=44; Title="The Fifth Season";                     Author="N.K. Jemisin";        Year="2015"; Series="The Broken Earth";       Pos="1"; Isbn="9780316229296"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=45; Title="All Systems Red";                      Author="Martha Wells";        Year="2017"; Series="Murderbot Diaries";      Pos="1"; Isbn="9780765397539"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=46; Title="A Memory Called Empire";               Author="Arkady Martine";      Year="2019"; Series="Teixcalaan";             Pos="1"; Isbn="9781250186430"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=47; Title="The Long Way to a Small Angry Planet"; Author="Becky Chambers";      Year="2014"; Series="Wayfarers";             Pos="1"; Isbn="9781473619814"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=48; Title="Klara and the Sun";                    Author="Kazuo Ishiguro";      Year="2021"; Series="";                        Pos="";  Isbn="9780593311295"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=49; Title="The Buried Giant";                     Author="Kazuo Ishiguro";      Year="2015"; Series="";                        Pos="";  Isbn="9780307455796"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=50; Title="Jonathan Strange and Mr Norrell";      Author="Susanna Clarke";      Year="2004"; Series="";                        Pos="";  Isbn="9781582344164"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=51; Title="Children of Time";                     Author="Adrian Tchaikovsky";  Year="2015"; Series="Children of Time";       Pos="1"; Isbn="9781447273288"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=52; Title="To Be Taught If Fortunate";            Author="Becky Chambers";      Year="2020"; Series="";                        Pos="";  Isbn="9781250236234"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=53; Title="The Ninth Rain";                       Author="Jen Williams";        Year="2017"; Series="The Winnowing Flame";    Pos="1"; Isbn="9781472235299"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=54; Title="Abaddon's Gate";                       Author="James S.A. Corey";    Year="2013"; Series="The Expanse";             Pos="3"; Isbn="9780316129060"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=55; Title="Second Foundation";                    Author="Isaac Asimov";        Year="1953"; Series="Foundation";              Pos="3"; Isbn="9780553293388"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=56; Title="Children of Dune";                     Author="Frank Herbert";       Year="1976"; Series="Dune Chronicles";         Pos="3"; Isbn="9780441104024"; Genre="Science Fiction"; S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=57; Title="The Hero of Ages";                     Author="Brandon Sanderson";   Year="2008"; Series="Mistborn";               Pos="3"; Isbn="9780765356147"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=58; Title="Oathbringer";                          Author="Brandon Sanderson";   Year="2017"; Series="The Stormlight Archive"; Pos="3"; Isbn="9780765326379"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=59; Title="The Dragon Reborn";                    Author="Robert Jordan";       Year="1991"; Series="The Wheel of Time";      Pos="3"; Isbn="9780765334367"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=60; Title="Before They Are Hanged";               Author="Joe Abercrombie";     Year="2007"; Series="The First Law";           Pos="2"; Isbn="9781591025788"; Genre="Fantasy";         S="high"; Language="en"; ForeignLanguage=$false}
     # MEDIUM CONFIDENCE - title + author + year (20 books)
-    [pscustomobject]@{Id=61; Title="The Alchemist";               Author="Paulo Coelho";        Year="1988"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"}
-    [pscustomobject]@{Id=62; Title="Siddhartha";                  Author="Hermann Hesse";       Year="1922"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"}
-    [pscustomobject]@{Id=63; Title="The Trial";                   Author="Franz Kafka";         Year="1925"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"}
-    [pscustomobject]@{Id=64; Title="Invisible Man";               Author="Ralph Ellison";       Year="1952"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"}
-    [pscustomobject]@{Id=65; Title="The Bell Jar";                Author="Sylvia Plath";        Year="1963"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"}
-    [pscustomobject]@{Id=66; Title="A Farewell to Arms";          Author="Ernest Hemingway";    Year="1929"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"}
-    [pscustomobject]@{Id=67; Title="For Whom the Bell Tolls";     Author="Ernest Hemingway";    Year="1940"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"}
-    [pscustomobject]@{Id=68; Title="The Old Man and the Sea";     Author="Ernest Hemingway";    Year="1952"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"}
-    [pscustomobject]@{Id=69; Title="Of Mice and Men";             Author="John Steinbeck";      Year="1937"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"}
-    [pscustomobject]@{Id=70; Title="East of Eden";                Author="John Steinbeck";      Year="1952"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"}
-    [pscustomobject]@{Id=71; Title="Moby Dick";                   Author="Herman Melville";     Year="1851"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"}
-    [pscustomobject]@{Id=72; Title="Crime and Punishment";        Author="Fyodor Dostoevsky";   Year="1866"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"}
-    [pscustomobject]@{Id=73; Title="The Brothers Karamazov";      Author="Fyodor Dostoevsky";   Year="1879"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"}
-    [pscustomobject]@{Id=74; Title="War and Peace";               Author="Leo Tolstoy";         Year="1869"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"}
-    [pscustomobject]@{Id=75; Title="Anna Karenina";               Author="Leo Tolstoy";         Year="1877"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"}
-    [pscustomobject]@{Id=76; Title="Don Quixote";                 Author="Miguel de Cervantes"; Year="1605"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"}
-    [pscustomobject]@{Id=77; Title="The Divine Comedy";           Author="Dante Alighieri";     Year="1320"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"}
-    [pscustomobject]@{Id=78; Title="Les Miserables";              Author="Victor Hugo";         Year="1862"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"}
-    [pscustomobject]@{Id=79; Title="The Count of Monte Cristo";   Author="Alexandre Dumas";     Year="1844"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"}
-    [pscustomobject]@{Id=80; Title="Around the World in 80 Days"; Author="Jules Verne";         Year="1872"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"}
+    # IDs 61-63, 72-80: foreign-language origin (ForeignLanguage=$true)
+    [pscustomobject]@{Id=61; Title="The Alchemist";               Author="Paulo Coelho";        Year="1988"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="pt"; ForeignLanguage=$true}
+    [pscustomobject]@{Id=62; Title="Siddhartha";                  Author="Hermann Hesse";       Year="1922"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="de"; ForeignLanguage=$true}
+    [pscustomobject]@{Id=63; Title="The Trial";                   Author="Franz Kafka";         Year="1925"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="de"; ForeignLanguage=$true}
+    [pscustomobject]@{Id=64; Title="Invisible Man";               Author="Ralph Ellison";       Year="1952"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=65; Title="The Bell Jar";                Author="Sylvia Plath";        Year="1963"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=66; Title="A Farewell to Arms";          Author="Ernest Hemingway";    Year="1929"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=67; Title="For Whom the Bell Tolls";     Author="Ernest Hemingway";    Year="1940"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=68; Title="The Old Man and the Sea";     Author="Ernest Hemingway";    Year="1952"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=69; Title="Of Mice and Men";             Author="John Steinbeck";      Year="1937"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=70; Title="East of Eden";                Author="John Steinbeck";      Year="1952"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=71; Title="Moby Dick";                   Author="Herman Melville";     Year="1851"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=72; Title="Crime and Punishment";        Author="Fyodor Dostoevsky";   Year="1866"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="ru"; ForeignLanguage=$true}
+    [pscustomobject]@{Id=73; Title="The Brothers Karamazov";      Author="Fyodor Dostoevsky";   Year="1879"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="ru"; ForeignLanguage=$true}
+    [pscustomobject]@{Id=74; Title="War and Peace";               Author="Leo Tolstoy";         Year="1869"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="ru"; ForeignLanguage=$true}
+    [pscustomobject]@{Id=75; Title="Anna Karenina";               Author="Leo Tolstoy";         Year="1877"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="ru"; ForeignLanguage=$true}
+    [pscustomobject]@{Id=76; Title="Don Quixote";                 Author="Miguel de Cervantes"; Year="1605"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="es"; ForeignLanguage=$true}
+    [pscustomobject]@{Id=77; Title="The Divine Comedy";           Author="Dante Alighieri";     Year="1320"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="it"; ForeignLanguage=$true}
+    [pscustomobject]@{Id=78; Title="Les Miserables";              Author="Victor Hugo";         Year="1862"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="fr"; ForeignLanguage=$true}
+    [pscustomobject]@{Id=79; Title="The Count of Monte Cristo";   Author="Alexandre Dumas";     Year="1844"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="fr"; ForeignLanguage=$true}
+    [pscustomobject]@{Id=80; Title="Around the World in 80 Days"; Author="Jules Verne";         Year="1872"; Series=""; Pos=""; Isbn=""; Genre=""; S="medium"; Language="fr"; ForeignLanguage=$true}
     # LOW CONFIDENCE - no embedded metadata (10 books)
-    [pscustomobject]@{Id=81; Title="unlabeled_scan_001";          Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="low"}
-    [pscustomobject]@{Id=82; Title="ebook_download_final";        Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="low"}
-    [pscustomobject]@{Id=83; Title="converted_doc_v2";            Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="low"}
-    [pscustomobject]@{Id=84; Title="reading_list_item_3";         Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="low"}
-    [pscustomobject]@{Id=85; Title="backup_book_copy";            Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="low"}
-    [pscustomobject]@{Id=86; Title="mystery_epub_untitled";       Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="low"}
-    [pscustomobject]@{Id=87; Title="document_export_003";         Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="low"}
-    [pscustomobject]@{Id=88; Title="temp_file_do_not_delete";     Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="low"}
-    [pscustomobject]@{Id=89; Title="new_book_no_title";           Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="low"}
-    [pscustomobject]@{Id=90; Title="archive_entry_2024";          Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="low"}
+    [pscustomobject]@{Id=81; Title="unlabeled_scan_001";          Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="low"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=82; Title="ebook_download_final";        Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="low"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=83; Title="converted_doc_v2";            Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="low"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=84; Title="reading_list_item_3";         Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="low"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=85; Title="backup_book_copy";            Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="low"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=86; Title="mystery_epub_untitled";       Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="low"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=87; Title="document_export_003";         Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="low"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=88; Title="temp_file_do_not_delete";     Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="low"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=89; Title="new_book_no_title";           Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="low"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=90; Title="archive_entry_2024";          Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="low"; Language="en"; ForeignLanguage=$false}
     # CORRUPT - invalid file bytes (5 books)
-    [pscustomobject]@{Id=91; Title="corrupted_epub_A"; Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="corrupt"}
-    [pscustomobject]@{Id=92; Title="corrupted_epub_B"; Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="corrupt"}
-    [pscustomobject]@{Id=93; Title="truncated_file";   Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="corrupt"}
-    [pscustomobject]@{Id=94; Title="wrong_magic_bytes";Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="corrupt"}
-    [pscustomobject]@{Id=95; Title="empty_epub";       Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="corrupt"}
+    [pscustomobject]@{Id=91; Title="corrupted_epub_A"; Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="corrupt"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=92; Title="corrupted_epub_B"; Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="corrupt"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=93; Title="truncated_file";   Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="corrupt"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=94; Title="wrong_magic_bytes";Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="corrupt"; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=95; Title="empty_epub";       Author=""; Year=""; Series=""; Pos=""; Isbn=""; Genre=""; S="corrupt"; Language="en"; ForeignLanguage=$false}
     # DUPLICATES - identical bytes to books 1-5 (5 books)
-    [pscustomobject]@{Id=96;  Title="Dune";            Author="Frank Herbert";    Year="1965"; Series="Dune Chronicles"; Pos="1"; Isbn="9780441013593"; Genre="Science Fiction"; S="duplicate"; DuplicateOf=1}
-    [pscustomobject]@{Id=97;  Title="Foundation";      Author="Isaac Asimov";     Year="1951"; Series="Foundation";      Pos="1"; Isbn="9780553293357"; Genre="Science Fiction"; S="duplicate"; DuplicateOf=2}
-    [pscustomobject]@{Id=98;  Title="Leviathan Wakes"; Author="James S.A. Corey"; Year="2011"; Series="The Expanse";     Pos="1"; Isbn="9780316129084"; Genre="Science Fiction"; S="duplicate"; DuplicateOf=3}
-    [pscustomobject]@{Id=99;  Title="The Martian";     Author="Andy Weir";        Year="2011"; Series="";               Pos="";  Isbn="9780553418026"; Genre="Science Fiction"; S="duplicate"; DuplicateOf=14}
-    [pscustomobject]@{Id=100; Title="1984";             Author="George Orwell";    Year="1949"; Series="";               Pos="";  Isbn="9780451524935"; Genre="Dystopian";       S="duplicate"; DuplicateOf=12}
+    [pscustomobject]@{Id=96;  Title="Dune";            Author="Frank Herbert";    Year="1965"; Series="Dune Chronicles"; Pos="1"; Isbn="9780441013593"; Genre="Science Fiction"; S="duplicate"; DuplicateOf=1;  Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=97;  Title="Foundation";      Author="Isaac Asimov";     Year="1951"; Series="Foundation";      Pos="1"; Isbn="9780553293357"; Genre="Science Fiction"; S="duplicate"; DuplicateOf=2;  Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=98;  Title="Leviathan Wakes"; Author="James S.A. Corey"; Year="2011"; Series="The Expanse";     Pos="1"; Isbn="9780316129084"; Genre="Science Fiction"; S="duplicate"; DuplicateOf=3;  Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=99;  Title="The Martian";     Author="Andy Weir";        Year="2011"; Series="";               Pos="";  Isbn="9780553418026"; Genre="Science Fiction"; S="duplicate"; DuplicateOf=14; Language="en"; ForeignLanguage=$false}
+    [pscustomobject]@{Id=100; Title="1984";             Author="George Orwell";    Year="1949"; Series="";               Pos="";  Isbn="9780451524935"; Genre="Dystopian";       S="duplicate"; DuplicateOf=12; Language="en"; ForeignLanguage=$false}
 )
 
 # ---------------------------------------------------------------------------
@@ -278,7 +298,8 @@ function New-ValidEpub {
 
     $container = "<?xml version=`"1.0`" encoding=`"UTF-8`"?>`n<container version=`"1.0`" xmlns=`"urn:oasis:names:tc:opendocument:xmlns:container`">`n  <rootfiles>`n    <rootfile full-path=`"OEBPS/content.opf`" media-type=`"application/oebps-package+xml`"/>`n  </rootfiles>`n</container>"
 
-    $opf = "<?xml version=`"1.0`" encoding=`"UTF-8`"?>`n<package version=`"3.0`" xmlns=`"http://www.idpf.org/2007/opf`" unique-identifier=`"uid`">`n  <metadata xmlns:dc=`"http://purl.org/dc/elements/1.1/`" xmlns:opf=`"http://www.idpf.org/2007/opf`">`n    <dc:identifier id=`"uid`">$isbnid</dc:identifier>`n    <dc:title>$et</dc:title>`n    <dc:creator opf:role=`"aut`">$ea</dc:creator>`n    <dc:date>$($Book.Year)</dc:date>`n    <dc:language>en</dc:language>`n    $seriesmeta`n    $genremeta`n  </metadata>`n  <manifest>`n    <item id=`"c1`" href=`"chapter1.xhtml`" media-type=`"application/xhtml+xml`"/>`n    <item id=`"nav`" href=`"nav.xhtml`" media-type=`"application/xhtml+xml`" properties=`"nav`"/>`n  </manifest>`n  <spine><itemref idref=`"c1`"/></spine>`n</package>"
+    $lang = if ($Book.Language) { $Book.Language } else { "en" }
+    $opf = "<?xml version=`"1.0`" encoding=`"UTF-8`"?>`n<package version=`"3.0`" xmlns=`"http://www.idpf.org/2007/opf`" unique-identifier=`"uid`">`n  <metadata xmlns:dc=`"http://purl.org/dc/elements/1.1/`" xmlns:opf=`"http://www.idpf.org/2007/opf`">`n    <dc:identifier id=`"uid`">$isbnid</dc:identifier>`n    <dc:title>$et</dc:title>`n    <dc:creator opf:role=`"aut`">$ea</dc:creator>`n    <dc:date>$($Book.Year)</dc:date>`n    <dc:language>$lang</dc:language>`n    $seriesmeta`n    $genremeta`n  </metadata>`n  <manifest>`n    <item id=`"c1`" href=`"chapter1.xhtml`" media-type=`"application/xhtml+xml`"/>`n    <item id=`"nav`" href=`"nav.xhtml`" media-type=`"application/xhtml+xml`" properties=`"nav`"/>`n  </manifest>`n  <spine><itemref idref=`"c1`"/></spine>`n</package>"
 
     $chapter = "<?xml version=`"1.0`" encoding=`"utf-8`"?><!DOCTYPE html><html xmlns=`"http://www.w3.org/1999/xhtml`"><head><title>$et</title></head><body><p>Synthetic test content for $et by $ea.</p></body></html>"
     $nav = "<?xml version=`"1.0`" encoding=`"utf-8`"?><html xmlns=`"http://www.w3.org/1999/xhtml`" xmlns:epub=`"http://www.idpf.org/2007/ops`"><head><title>Navigation</title></head><body><nav epub:type=`"toc`" id=`"toc`"><ol><li><a href=`"chapter1.xhtml`">Chapter 1</a></li></ol></nav></body></html>"
@@ -361,7 +382,7 @@ if ($engineWasUp) {
             $WatchDirectory = $coreSettings.watch_directory
         }
     }
-} elseif ($WipeFirst) {
+} elseif ($doWipe) {
     Write-R " Engine offline - will wipe and restart." -c "Yellow"
 } else {
     Write-R " ENGINE NOT RESPONDING at $EngineUrl" -c "Red"
@@ -369,7 +390,7 @@ if ($engineWasUp) {
     exit 1
 }
 
-if (-not $WipeFirst) {
+if (-not $doWipe) {
     if (-not $WatchDirectory -or -not (Test-Path $WatchDirectory)) {
         Write-R " Watch directory not found: '$WatchDirectory'" -c "Red"
         Write-R "   Set -WatchDirectory or configure it in the engine settings." -c "Yellow"
@@ -383,16 +404,9 @@ $ApiDbPath   = Join-Path $RepoRoot "src\MediaEngine.Api\library.db"
 $LibraryRoot = ""
 if ($null -ne $coreSettings -and $coreSettings.library_root) { $LibraryRoot = $coreSettings.library_root }
 
-# -- 4. WipeFirst ------------------------------------------------------------
-if ($WipeFirst) {
-    if (-not $Force) {
-        Write-R ""
-        Write-R " WARNING: -WipeFirst will permanently erase:" -c "Yellow"
-        Write-R "   Database : $ApiDbPath" -c "Yellow"
-        if ($LibraryRoot) { Write-R "   Library  : $LibraryRoot" -c "Yellow" }
-        $confirm = Read-Host "`n   Type YES to continue"
-        if ($confirm -ne "YES") { Write-R "   Aborted." -c "Gray"; exit 0 }
-    }
+# -- 4. Wipe (default unless -NoWipe) ----------------------------------------
+if ($doWipe) {
+    Write-R " Auto-wiping database and library (use -NoWipe to skip)..." -c "Yellow"
 
     # Stop ALL running engine instances (any dotnet.exe running MediaEngine.Api)
     $enginePort = ([uri]$EngineUrl).Port
@@ -470,7 +484,9 @@ if (-not $WatchDirectory -or -not (Test-Path $WatchDirectory -PathType Container
 }
 Write-R " Watch dir   : $WatchDirectory" -c "Green"
 
-# -- 5. Random selection -----------------------------------------------------
+# -- 5. Stratified sampling --------------------------------------------------
+# Proportions: 60% high, 20% medium, 10% low, 5% corrupt, 5% duplicate
+# Foreign-language books (ForeignLanguage=$true) capped at max 2 per run.
 if ($Seed -ge 0) {
     $rng = New-Object System.Random($Seed)
 } else {
@@ -478,8 +494,39 @@ if ($Seed -ge 0) {
     $Seed = $rng.Next()
 }
 
-$shuffled = $Catalog | Sort-Object { $rng.NextDouble() }
-$selected = @($shuffled | Select-Object -First $Count)
+$nHigh      = [Math]::Floor($Count * 0.60)
+$nMedium    = [Math]::Floor($Count * 0.20)
+$nLow       = [Math]::Floor($Count * 0.10)
+$nCorrupt   = [Math]::Floor($Count * 0.05)
+$nDuplicate = $Count - $nHigh - $nMedium - $nLow - $nCorrupt   # remainder goes to duplicate
+
+# Buckets from catalog
+$bucketHigh      = @($Catalog | Where-Object { $_.S -eq "high" }      | Sort-Object { $rng.NextDouble() })
+$bucketMedium    = @($Catalog | Where-Object { $_.S -eq "medium" }    | Sort-Object { $rng.NextDouble() })
+$bucketLow       = @($Catalog | Where-Object { $_.S -eq "low" }       | Sort-Object { $rng.NextDouble() })
+$bucketCorrupt   = @($Catalog | Where-Object { $_.S -eq "corrupt" }   | Sort-Object { $rng.NextDouble() })
+$bucketDuplicate = @($Catalog | Where-Object { $_.S -eq "duplicate" } | Sort-Object { $rng.NextDouble() })
+
+# Medium bucket: cap foreign-language books at max 2
+$foreignCap  = 2
+$medForeign  = @($bucketMedium | Where-Object { $_.ForeignLanguage -eq $true })
+$medDomestic = @($bucketMedium | Where-Object { $_.ForeignLanguage -ne $true })
+$foreignTake = [Math]::Min($foreignCap, $medForeign.Count)
+$domesticNeed = [Math]::Max(0, $nMedium - $foreignTake)
+$domesticTake = [Math]::Min($domesticNeed, $medDomestic.Count)
+# If domestic pool is short, fill remaining slots from foreign (still capped at foreignCap)
+if ($domesticTake -lt $domesticNeed) { $foreignTake = [Math]::Min($foreignCap, $medForeign.Count) }
+$mediumSelected = @($medDomestic | Select-Object -First $domesticTake) + @($medForeign | Select-Object -First $foreignTake)
+# Shuffle the merged medium selection
+$mediumSelected = @($mediumSelected | Sort-Object { $rng.NextDouble() }) | Select-Object -First $nMedium
+
+$selected = @(
+    ($bucketHigh      | Select-Object -First $nHigh)
+    $mediumSelected
+    ($bucketLow       | Select-Object -First $nLow)
+    ($bucketCorrupt   | Select-Object -First $nCorrupt)
+    ($bucketDuplicate | Select-Object -First $nDuplicate)
+) | Where-Object { $_ -ne $null }
 
 # Ensure duplicates have their originals in the list
 foreach ($dup in ($selected | Where-Object { $_.S -eq "duplicate" })) {
@@ -511,7 +558,7 @@ foreach ($book in $selected) {
             New-ValidEpub -Book $book -OutputPath $tmpPath
         }
         "medium" {
-            $partial = [pscustomobject]@{Title=$book.Title; Author=$book.Author; Year=$book.Year; Series=""; Pos=""; Isbn=""; Genre=""}
+            $partial = [pscustomobject]@{Title=$book.Title; Author=$book.Author; Year=$book.Year; Series=""; Pos=""; Isbn=""; Genre=""; Language=$book.Language}
             New-ValidEpub -Book $partial -OutputPath $tmpPath
         }
         "low" {
