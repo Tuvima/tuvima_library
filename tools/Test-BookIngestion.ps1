@@ -99,6 +99,9 @@ $ErrorActionPreference = "Stop"
 # Wipe is the default; suppress with -NoWipe
 $doWipe = -not $NoWipe
 
+# Track the engine process started by this script (so we can shut it down at the end)
+$script:EngineProcess = $null
+
 Add-Type -AssemblyName System.IO.Compression
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
@@ -669,8 +672,8 @@ if ($doWipe) {
     $env:ASPNETCORE_URLS        = $EngineUrl
     $env:ASPNETCORE_ENVIRONMENT = "Development"
     $engineLog = Join-Path ([System.IO.Path]::GetTempPath()) "tuvima_engine_restart.log"
-    Start-Process -FilePath "dotnet" -ArgumentList "run --no-build --no-launch-profile" `
-        -WorkingDirectory $apiDir -NoNewWindow -RedirectStandardOutput $engineLog -RedirectStandardError "$engineLog.err"
+    $script:EngineProcess = Start-Process -FilePath "dotnet" -ArgumentList "run --no-build --no-launch-profile" `
+        -WorkingDirectory $apiDir -NoNewWindow -RedirectStandardOutput $engineLog -RedirectStandardError "$engineLog.err" -PassThru
     $restartDeadline = (Get-Date).AddSeconds(60)
     $restarted = $false
     do {
@@ -1141,3 +1144,10 @@ Write-RL ""
 
 # -- 15. Cleanup -------------------------------------------------------------
 Remove-Item -Path $TempDir -Recurse -Force -ErrorAction SilentlyContinue
+
+# Stop the engine instance started by this script (wipe+restart path only)
+if ($script:EngineProcess -and -not $script:EngineProcess.HasExited) {
+    Write-R " Stopping engine (started by this script)..." -c "DarkGray"
+    Stop-Process -Id $script:EngineProcess.Id -Force -ErrorAction SilentlyContinue
+    Write-R " Engine stopped." -c "DarkGray"
+}
