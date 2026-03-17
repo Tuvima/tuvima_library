@@ -356,7 +356,7 @@ if ($engineWasUp) {
     Write-R " Engine online" -c "Green"
     # -- 2. Resolve watch directory from engine settings
     if (-not $WatchDirectory) {
-        $coreSettings = Invoke-Api "/settings/core"
+        $coreSettings = Invoke-Api "/settings/folders"
         if ($coreSettings -and $coreSettings.watch_directory) {
             $WatchDirectory = $coreSettings.watch_directory
         }
@@ -447,7 +447,7 @@ if ($WipeFirst) {
     if ($restarted) {
         Write-R " Engine back online." -c "Green"
         # Re-fetch settings after restart (fresh DB, fresh config)
-        $coreSettings = Invoke-Api "/settings/core"
+        $coreSettings = Invoke-Api "/settings/folders"
         if ($coreSettings -and $coreSettings.library_root) { $LibraryRoot = $coreSettings.library_root }
         if (-not $WatchDirectory -and $coreSettings -and $coreSettings.watch_directory) {
             $WatchDirectory = $coreSettings.watch_directory
