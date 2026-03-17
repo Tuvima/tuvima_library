@@ -1540,6 +1540,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                                      .ConfigureAwait(false);
             if (lowStaged is not null)
             {
+                CleanEmptyWatchParents(currentPath, _options.WatchDirectory);
                 await _assetRepo.UpdateFilePathAsync(existing.Id, lowStaged, ct)
                                  .ConfigureAwait(false);
                 await CreateIngestionReviewItemAsync(
@@ -1578,7 +1579,10 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
             var otherStaged = await MoveToStagingAsync(currentPath, "low-confidence", ct).ConfigureAwait(false);
             if (otherStaged is not null)
+            {
+                CleanEmptyWatchParents(currentPath, _options.WatchDirectory);
                 await _assetRepo.UpdateFilePathAsync(existing.Id, otherStaged, ct).ConfigureAwait(false);
+            }
 
             await CreateIngestionReviewItemAsync(
                 existing.Id, ReviewTrigger.LowConfidence, 0.0,
@@ -1604,6 +1608,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                           .ConfigureAwait(false);
         if (staged is not null)
         {
+            CleanEmptyWatchParents(currentPath, _options.WatchDirectory);
             await _assetRepo.UpdateFilePathAsync(existing.Id, staged, ct)
                             .ConfigureAwait(false);
 
