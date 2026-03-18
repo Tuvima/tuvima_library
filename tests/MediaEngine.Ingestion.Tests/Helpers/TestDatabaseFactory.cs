@@ -16,6 +16,7 @@ internal sealed class TestDatabaseFactory : IDisposable
 
     public TestDatabaseFactory()
     {
+        DapperConfiguration.Configure();
         var tempPath = Path.Combine(Path.GetTempPath(), $"tuvima_test_{Guid.NewGuid():N}.db");
         _db = new DatabaseConnection(tempPath);
         _db.InitializeSchema();

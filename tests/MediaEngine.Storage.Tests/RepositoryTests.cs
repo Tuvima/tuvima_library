@@ -16,6 +16,7 @@ public sealed class RepositoryTests : IDisposable
 
     public RepositoryTests()
     {
+        DapperConfiguration.Configure();
         _dbPath = Path.Combine(Path.GetTempPath(), $"tuvima_repo_test_{Guid.NewGuid():N}.db");
         _db = new DatabaseConnection(_dbPath);
         _db.InitializeSchema();
