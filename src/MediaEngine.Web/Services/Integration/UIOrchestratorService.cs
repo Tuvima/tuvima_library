@@ -539,6 +539,11 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         Guid hubId, CancellationToken ct = default)
         => _api.GetPersonsByHubAsync(hubId, ct);
 
+    /// <summary>Returns all persons linked to a specific work.</summary>
+    public Task<List<PersonViewModel>> GetPersonsByWorkAsync(
+        Guid workId, CancellationToken ct = default)
+        => _api.GetPersonsByWorkAsync(workId, ct);
+
     /// <summary>Returns persons filtered by role (e.g. "Author") for batch headshot loading.</summary>
     public Task<List<PersonViewModel>> GetPersonsByRoleAsync(
         string role, int limit = 50, CancellationToken ct = default)

@@ -1519,6 +1519,36 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    public async Task<List<PersonViewModel>> GetPersonsByWorkAsync(
+        Guid workId, CancellationToken ct = default)
+    {
+        try
+        {
+            var raw = await _http.GetFromJsonAsync<List<PersonRaw>>(
+                $"/persons/by-work/{workId}", ct);
+            return raw?.Select(p => new PersonViewModel
+            {
+                Id               = p.Id,
+                Name             = p.Name ?? string.Empty,
+                Role             = p.Role ?? string.Empty,
+                WikidataQid      = p.WikidataQid,
+                HeadshotUrl      = p.HeadshotUrl,
+                HasLocalHeadshot = p.HasLocalHeadshot,
+                LocalHeadshotUrl = p.HasLocalHeadshot
+                                   ? AbsoluteUrl($"/persons/{p.Id}/headshot")
+                                   : null,
+                Biography        = p.Biography,
+                Occupation       = p.Occupation,
+            }).ToList() ?? [];
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /persons/by-work/{WorkId} failed", workId);
+            LastError = ex.Message;
+            return [];
+        }
+    }
+
     // -- GET /hubs/{id}/related -------------------------------------------------
 
     public async Task<RelatedHubsViewModel?> GetRelatedHubsAsync(

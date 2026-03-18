@@ -125,6 +125,55 @@ public static class PersonEndpoints
             return Results.Ok(persons);
         });
 
+        // GET /persons/by-work/{workId} — all persons linked to a specific work.
+        group.MapGet("/by-work/{workId:guid}", async (
+            Guid workId,
+            IPersonRepository personRepo,
+            IDatabaseConnection db,
+            CancellationToken ct) =>
+        {
+            var conn = db.Open();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = """
+                SELECT ma.id
+                FROM media_assets ma
+                JOIN editions e ON e.id = ma.edition_id
+                WHERE e.work_id = @workId;
+                """;
+            cmd.Parameters.AddWithValue("@workId", workId.ToString());
+
+            var assetIds = new List<Guid>();
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+                assetIds.Add(Guid.Parse(reader.GetString(0)));
+
+            var seen = new HashSet<Guid>();
+            var persons = new List<object>();
+            foreach (var assetId in assetIds)
+            {
+                var linked = await personRepo.GetByMediaAssetAsync(assetId, ct);
+                foreach (var p in linked)
+                {
+                    if (seen.Add(p.Id))
+                    {
+                        persons.Add(new
+                        {
+                            id                 = p.Id,
+                            name               = p.Name,
+                            role               = p.Role,
+                            wikidata_qid       = p.WikidataQid,
+                            headshot_url       = p.HeadshotUrl,
+                            has_local_headshot = !string.IsNullOrEmpty(p.LocalHeadshotPath)
+                                                 && File.Exists(p.LocalHeadshotPath),
+                            biography          = p.Biography,
+                            occupation         = p.Occupation,
+                        });
+                    }
+                }
+            }
+
+            return Results.Ok(persons);
+        });
 
         // GET /persons/{id}/works — all hubs containing works by this person.
         group.MapGet("/{id:guid}/works", async (

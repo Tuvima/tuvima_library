@@ -300,6 +300,9 @@ public interface IEngineApiClient
     /// <summary>GET /persons/by-hub/{hubId} — all persons linked to works in a hub.</summary>
     Task<List<PersonViewModel>> GetPersonsByHubAsync(Guid hubId, CancellationToken ct = default);
 
+    /// <summary>GET /persons/by-work/{workId} — all persons linked to a specific work.</summary>
+    Task<List<PersonViewModel>> GetPersonsByWorkAsync(Guid workId, CancellationToken ct = default);
+
 
     // ── Related hubs (/hubs/{id}/related) ────────────────────────────────────
 

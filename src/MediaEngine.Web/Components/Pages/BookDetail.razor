@@ -119,46 +119,51 @@ else
                         }
                     </div>
 
-                    @* — Narrator slot (reserved height to prevent layout shift) — *@
-                    <div class="book-detail-sidebar-item book-detail-sidebar-person-slot" style="min-height: 80px;">
-                        <span class="book-detail-sidebar-label">Narrator</span>
-                        @if (_narratorPerson is not null)
-                        {
-                            <div class="book-detail-sidebar-author-wrap"
-                                 @onclick="@(() => Nav.NavigateTo($"/person/{_narratorPerson.Id}"))">
-                                @if (!string.IsNullOrEmpty(_narratorPerson.LocalHeadshotUrl))
-                                {
-                                    <img src="@_narratorPerson.LocalHeadshotUrl" alt="@_narratorPerson.Name"
-                                         class="book-detail-sidebar-avatar" />
-                                }
-                                else if (!string.IsNullOrEmpty(_narratorPerson.HeadshotUrl))
-                                {
-                                    <img src="@_narratorPerson.HeadshotUrl" alt="@_narratorPerson.Name"
-                                         class="book-detail-sidebar-avatar" />
-                                }
-                                else
-                                {
-                                    <div class="book-detail-sidebar-avatar book-detail-sidebar-avatar-initials">
-                                        @_narratorPerson.Initials
-                                    </div>
-                                }
-                                <span class="book-detail-sidebar-author">@_narratorPerson.Name</span>
-                            </div>
-                        }
-                        else if (!string.IsNullOrEmpty(ActiveWork?.Narrator))
-                        {
-                            <div class="book-detail-sidebar-narrator-text">
-                                <MudIcon Icon="@Icons.Material.Filled.Headphones"
-                                         Style="font-size: 0.9rem; color: rgba(201,146,46,0.7); margin-right: 5px;" />
-                                <span class="book-detail-sidebar-value">@ActiveWork!.Narrator</span>
-                            </div>
-                        }
-                        else
-                        {
-                            <MudSkeleton SkeletonType="SkeletonType.Text" Width="120px" Height="16px" />
-                            <MudSkeleton SkeletonType="SkeletonType.Circle" Width="40px" Height="40px" Class="mt-2" />
-                        }
-                    </div>
+                    @* — Narrator slot (only shown for audiobooks) — *@
+                    @if (string.Equals(ActiveWork?.MediaType, "Audiobooks", StringComparison.OrdinalIgnoreCase)
+                         || _narratorPerson is not null
+                         || !string.IsNullOrEmpty(ActiveWork?.Narrator))
+                    {
+                        <div class="book-detail-sidebar-item book-detail-sidebar-person-slot" style="min-height: 80px;">
+                            <span class="book-detail-sidebar-label">Narrator</span>
+                            @if (_narratorPerson is not null)
+                            {
+                                <div class="book-detail-sidebar-author-wrap"
+                                     @onclick="@(() => Nav.NavigateTo($"/person/{_narratorPerson.Id}"))">
+                                    @if (!string.IsNullOrEmpty(_narratorPerson.LocalHeadshotUrl))
+                                    {
+                                        <img src="@_narratorPerson.LocalHeadshotUrl" alt="@_narratorPerson.Name"
+                                             class="book-detail-sidebar-avatar" />
+                                    }
+                                    else if (!string.IsNullOrEmpty(_narratorPerson.HeadshotUrl))
+                                    {
+                                        <img src="@_narratorPerson.HeadshotUrl" alt="@_narratorPerson.Name"
+                                             class="book-detail-sidebar-avatar" />
+                                    }
+                                    else
+                                    {
+                                        <div class="book-detail-sidebar-avatar book-detail-sidebar-avatar-initials">
+                                            @_narratorPerson.Initials
+                                        </div>
+                                    }
+                                    <span class="book-detail-sidebar-author">@_narratorPerson.Name</span>
+                                </div>
+                            }
+                            else if (!string.IsNullOrEmpty(ActiveWork?.Narrator))
+                            {
+                                <div class="book-detail-sidebar-narrator-text">
+                                    <MudIcon Icon="@Icons.Material.Filled.Headphones"
+                                             Style="font-size: 0.9rem; color: rgba(201,146,46,0.7); margin-right: 5px;" />
+                                    <span class="book-detail-sidebar-value">@ActiveWork!.Narrator</span>
+                                </div>
+                            }
+                            else
+                            {
+                                <MudSkeleton SkeletonType="SkeletonType.Text" Width="120px" Height="16px" />
+                                <MudSkeleton SkeletonType="SkeletonType.Circle" Width="40px" Height="40px" Class="mt-2" />
+                            }
+                        </div>
+                    }
 
                     @{
                         var genres        = GenreTags;
@@ -673,17 +678,17 @@ else
             // Create a synthetic hub for backward compat with code that references _hub
             _hub = new HubViewModel { Works = _siblingWorks };
 
-            // Load persons for the work's author/narrator
+            // Load persons linked to this work (author, narrator, etc.)
             try
             {
-                var persons = await Orchestrator.GetPersonsByHubAsync(Guid.Empty);
+                var persons = await Orchestrator.GetPersonsByWorkAsync(_work.Id);
                 _authorPerson   = ResolveAuthorPerson(persons, _work.AuthorQid, _work.Author);
                 _narratorPerson = persons.FirstOrDefault(p =>
                     string.Equals(p.Role, "Narrator", StringComparison.OrdinalIgnoreCase));
             }
             catch
             {
-                // Persons lookup may fail with an empty hub ID — non-fatal
+                // Persons lookup non-fatal
             }
 
             // Progress resolution
@@ -834,7 +839,7 @@ else
 
     private static string GetFormatLabel(string key) => key switch
     {
-        "epub"      => "eBook",
+        "epub"      => "Book",
         "audiobook" => "Audiobook",
         "video"     => "Movie",
         "comic"     => "Comic",
