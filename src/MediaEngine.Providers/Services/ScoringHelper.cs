@@ -179,11 +179,12 @@ internal static class ScoringHelper
                     await arrayRepo.SetValuesAsync(entityId, fieldScore.Key, entries, ct)
                         .ConfigureAwait(false);
 
-                    // Update canonical_values to store only the first value (backward compat).
+                    // Update canonical_values to store the joined string of all values
+                    // so that display fields (e.g. author) show all values (e.g. "Neil Gaiman; Terry Pratchett").
                     var canonical = canonicals.FirstOrDefault(c =>
                         c.Key.Equals(fieldScore.Key, StringComparison.OrdinalIgnoreCase));
                     if (canonical is not null && winningClaims.Count > 1)
-                        canonical.Value = winningClaims[0].ClaimValue;
+                        canonical.Value = string.Join("; ", winningClaims.Select(c => c.ClaimValue));
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
