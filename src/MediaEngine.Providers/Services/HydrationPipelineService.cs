@@ -3084,6 +3084,22 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 "Cover art downloaded for asset {Id} from {Url}",
                 assetId, coverUrl);
 
+            // Write cover_url canonical so the Registry listing query and Dashboard
+            // cards can display the thumbnail.  During initial ingestion this value
+            // is only set when the file has embedded cover art (IngestionEngine.cs).
+            // For files without embedded art (e.g. MP3 audiobooks), this is the
+            // first opportunity to set it — after the provider cover image is on disk.
+            await _canonicalRepo.UpsertBatchAsync(
+            [
+                new CanonicalValue
+                {
+                    EntityId     = assetId,
+                    Key          = "cover_url",
+                    Value        = $"/stream/{assetId}/cover",
+                    LastScoredAt = DateTimeOffset.UtcNow,
+                },
+            ], ct).ConfigureAwait(false);
+
             // Generate cinematic hero banner from the newly downloaded cover art.
             await GenerateHeroBannerAsync(assetId, coverPath, fileDir, ct)
                 .ConfigureAwait(false);

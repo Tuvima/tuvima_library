@@ -1403,12 +1403,17 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                         if (valItem is not JsonObject valObj)
                             continue;
 
-                        var str   = valObj["str"]?.GetValue<string>();
-                        var id    = valObj["id"]?.GetValue<string>();
-                        var label = valObj["text"]?.GetValue<string>() // reconci.link uses "text" for labels
-                                 ?? valObj["name"]?.GetValue<string>();
-                        var date  = valObj["date"]?.GetValue<string>();
-                        var flt   = valObj["float"]?.GetValue<string>();
+                        // Use SafeString() instead of GetValue<string>() — the Wikidata
+                        // Data Extension API can return numeric JSON values (e.g. for the
+                        // "float" field on quantity/duration properties).  GetValue<string>()
+                        // throws InvalidOperationException when the node kind is Number, which
+                        // propagates past the JsonException catch and crashes the entire pipeline.
+                        var str   = SafeNodeString(valObj["str"]);
+                        var id    = SafeNodeString(valObj["id"]);
+                        var label = SafeNodeString(valObj["text"]) // reconci.link uses "text" for labels
+                                 ?? SafeNodeString(valObj["name"]);
+                        var date  = SafeNodeString(valObj["date"]);
+                        var flt   = SafeNodeString(valObj["float"]);
 
                         // Extract QID from full URI if present.
                         if (id is not null && id.StartsWith("http", StringComparison.OrdinalIgnoreCase))
@@ -1658,6 +1663,27 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     }
 
     // ── Private: Extension helpers ────────────────────────────────────────────
+
+    /// <summary>
+    /// Safely converts a <see cref="JsonNode"/> to a string regardless of its
+    /// underlying JSON kind.  Unlike <c>GetValue&lt;string&gt;()</c>, this does
+    /// not throw when the node holds a Number, Boolean, or other non-string value
+    /// — it simply calls <c>ToString()</c> so callers always get a usable string
+    /// or <c>null</c> when the node is absent.
+    /// </summary>
+    private static string? SafeNodeString(JsonNode? node)
+    {
+        if (node is null) return null;
+
+        // JsonValue<string> — fast path; avoids boxing via GetValue<T>.
+        if (node is JsonValue jv && jv.TryGetValue<string>(out var s))
+            return s;
+
+        // Number, Boolean, or other primitive — convert to string representation.
+        // This handles the "float" / "int" fields from the Wikidata Data Extension
+        // API when they come back as JSON numbers rather than quoted strings.
+        return node.ToString();
+    }
 
     private static string? GetFirstLabel(
         Dictionary<string, List<ExtensionValue>> properties,
