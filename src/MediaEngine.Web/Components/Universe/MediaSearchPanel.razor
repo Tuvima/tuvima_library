@@ -1,262 +1,536 @@
 @inject UIOrchestratorService Orchestrator
 
 <div class="search-panel">
-    @* ── Tab Selection ── *@
+
+    @* ── Tab Selection (Both / Data / Images) ── *@
     <div class="search-panel-tabs">
-        <button class="search-tab @(_searchMode == "identity" ? "search-tab-active" : "")"
-                @onclick="@(() => SwitchSearchMode("identity"))">
+        <button class="search-tab @(_searchMode == "both" ? "search-tab-active" : "")"
+                @onclick="@(() => SwitchSearchMode("both"))">
+            <MudIcon Icon="@Icons.Material.Outlined.AllInclusive" Size="Size.Small" Style="margin-right: 4px;" />
+            Both
+        </button>
+        <button class="search-tab @(_searchMode == "data" ? "search-tab-active" : "")"
+                @onclick="@(() => SwitchSearchMode("data"))">
             <MudIcon Icon="@Icons.Material.Outlined.Public" Size="Size.Small" Style="margin-right: 4px;" />
-            Identity
+            Data
         </button>
-        <button class="search-tab @(_searchMode == "artwork" ? "search-tab-active" : "")"
-                @onclick="@(() => SwitchSearchMode("artwork"))">
+        <button class="search-tab @(_searchMode == "images" ? "search-tab-active" : "")"
+                @onclick="@(() => SwitchSearchMode("images"))">
             <MudIcon Icon="@Icons.Material.Outlined.Image" Size="Size.Small" Style="margin-right: 4px;" />
-            Artwork
+            Images
         </button>
     </div>
 
-    @* ── Search Controls ── *@
-    <div class="search-panel-controls">
-        <MudTextField @bind-Value="_query"
-                      Placeholder="Search title, author, ISBN..."
-                      Variant="Variant.Outlined"
-                      Adornment="Adornment.Start"
-                      AdornmentIcon="@Icons.Material.Filled.Search"
-                      Immediate="false"
-                      Class="search-panel-input"
-                      Style="flex: 1;" />
-
-        <MudSelect T="string" @bind-Value="_mediaType"
-                   Label="Type" Variant="Variant.Outlined"
-                   Dense="true" Style="min-width: 130px;"
-                   AnchorOrigin="Origin.BottomCenter">
-            <MudSelectItem T="string" Value="@("Epub")">Book</MudSelectItem>
-            <MudSelectItem T="string" Value="@("Audiobook")">Audiobook</MudSelectItem>
-            <MudSelectItem T="string" Value="@("Movies")">Movie</MudSelectItem>
-            <MudSelectItem T="string" Value="@("TV")">TV Show</MudSelectItem>
-            <MudSelectItem T="string" Value="@("Music")">Music</MudSelectItem>
-            <MudSelectItem T="string" Value="@("Comics")">Comic</MudSelectItem>
-            <MudSelectItem T="string" Value="@("Podcasts")">Podcast</MudSelectItem>
-        </MudSelect>
-
-        <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                   OnClick="RunSearch"
-                   Disabled="@(_searching || string.IsNullOrWhiteSpace(_query))"
-                   StartIcon="@Icons.Material.Filled.Search"
-                   Size="Size.Medium">
-            Search
-        </MudButton>
-    </div>
-
-    @* ── Search State ── *@
-    @if (_searching)
+    @* ── Comparison View (renders in-place when a candidate is selected) ── *@
+    @if (_comparisonCandidate != null)
     {
-        <MudProgressLinear Indeterminate="true" Color="Color.Primary"
-                           Class="mt-2 mb-2" Style="border-radius: 4px;" />
-        @if (_searchMode == "identity")
-        {
-            <p class="search-panel-hint">Searching Wikidata and enriching top candidates with cover art…</p>
-        }
-        else
-        {
-            <p class="search-panel-hint">Searching retail providers for cover art…</p>
-        }
-    }
+        <div class="sp-comparison-view">
+            @* Back link *@
+            <button class="sp-back-link" @onclick="ClearComparison">
+                <MudIcon Icon="@Icons.Material.Filled.ArrowBack" Size="Size.Small" Style="margin-right: 4px;" />
+                Back to results
+            </button>
 
-    @if (!string.IsNullOrEmpty(_errorMessage))
-    {
-        <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-2">@_errorMessage</MudAlert>
-    }
+            <div class="sp-comparison-title">Compare &amp; Apply Match</div>
 
-    @* ── Identity Results ── *@
-    @if (_searchMode == "identity" && _universeCandidates.Count > 0)
-    {
-        <div class="search-results-grid">
-            @foreach (var c in _universeCandidates)
-            {
-                var isSelected = _selectedQid == c.Qid;
-                <div class="search-result-card @(isSelected ? "search-result-card-selected" : "")"
-                     @onclick="@(() => SelectUniverseCandidate(c))">
-                    @* Cover Art *@
-                    <div class="search-result-cover">
-                        @if (!string.IsNullOrEmpty(c.CoverUrl))
+            @* Side-by-side summary *@
+            <div class="sp-comparison-summary">
+                @* Your File *@
+                <div class="sp-comparison-side sp-comparison-current">
+                    <div class="sp-comparison-side-label">Your File</div>
+                    <div class="sp-comparison-cover-wrap">
+                        @if (!string.IsNullOrEmpty(CurrentCoverUrl))
                         {
-                            <img src="@c.CoverUrl" alt="" class="search-result-img" loading="lazy" />
+                            <img src="@CurrentCoverUrl" alt="current cover" class="sp-comparison-cover" />
                         }
                         else
                         {
-                            <div class="search-result-img-placeholder">
-                                <MudIcon Icon="@Icons.Material.Outlined.Public"
-                                         Size="Size.Medium" Style="opacity: 0.3;" />
+                            <div class="sp-comparison-cover-placeholder">
+                                <MudIcon Icon="@Icons.Material.Outlined.InsertDriveFile" Size="Size.Large" Style="opacity: 0.3;" />
                             </div>
                         }
                     </div>
-                    @* Details *@
-                    <div class="search-result-details">
-                        <div class="search-result-title">@c.Label</div>
-                        @if (!string.IsNullOrEmpty(c.Year) || !string.IsNullOrEmpty(c.Author) || !string.IsNullOrEmpty(c.Director))
+                    <div class="sp-comparison-side-title">@(CurrentTitle ?? "(no title)")</div>
+                    @if (!string.IsNullOrEmpty(CurrentAuthor))
+                    {
+                        <div class="sp-comparison-side-meta">@CurrentAuthor</div>
+                    }
+                    @if (!string.IsNullOrEmpty(CurrentYear))
+                    {
+                        <div class="sp-comparison-side-meta">@CurrentYear</div>
+                    }
+                </div>
+
+                <div class="sp-comparison-arrow">
+                    <MudIcon Icon="@Icons.Material.Filled.CompareArrows" Size="Size.Large" Style="color: #C9922E; opacity: 0.6;" />
+                </div>
+
+                @* Candidate *@
+                <div class="sp-comparison-side sp-comparison-candidate">
+                    <div class="sp-comparison-side-label">
+                        @GetCandidateSourceLabel()
+                    </div>
+                    <div class="sp-comparison-cover-wrap">
+                        @{
+                            var candCover = GetCandidateCoverUrl();
+                        }
+                        @if (!string.IsNullOrEmpty(candCover))
                         {
-                            <div class="search-result-meta">
-                                @if (!string.IsNullOrEmpty(c.Year)) { @c.Year }
-                                @if (!string.IsNullOrEmpty(c.Author)) { <text> · @c.Author</text> }
-                                @if (!string.IsNullOrEmpty(c.Director)) { <text> · dir. @c.Director</text> }
+                            <img src="@candCover" alt="candidate cover" class="sp-comparison-cover" />
+                        }
+                        else
+                        {
+                            <div class="sp-comparison-cover-placeholder">
+                                <MudIcon Icon="@Icons.Material.Outlined.Image" Size="Size.Large" Style="opacity: 0.3;" />
                             </div>
                         }
-                        @if (!string.IsNullOrEmpty(c.WikipediaExtract ?? c.Description))
-                        {
-                            <div class="search-result-description">
-                                @TruncateText(c.WikipediaExtract ?? c.Description, 120)
-                            </div>
-                        }
-                        <div class="search-result-footer">
-                            @{
-                                var bridgeLabel = GetBridgeLabel(c);
-                            }
-                            @if (!string.IsNullOrEmpty(bridgeLabel))
+                    </div>
+                    <div class="sp-comparison-side-title">@GetCandidateTitle()</div>
+                    @{
+                        var candAuthor = GetCandidateAuthor();
+                        var candYear   = GetCandidateYear();
+                    }
+                    @if (!string.IsNullOrEmpty(candAuthor))
+                    {
+                        <div class="sp-comparison-side-meta">@candAuthor</div>
+                    }
+                    @if (!string.IsNullOrEmpty(candYear))
+                    {
+                        <div class="sp-comparison-side-meta">@candYear</div>
+                    }
+                </div>
+            </div>
+
+            @* Source attribution *@
+            <div class="sp-source-attribution">
+                @if (_comparisonCandidate is UniverseCandidateDto uc)
+                {
+                    <MudIcon Icon="@Icons.Material.Outlined.Public" Size="Size.Small" Style="margin-right: 4px; color: #C9922E;" />
+                    <span>Source: <strong>Wikidata</strong> · <span class="sp-qid-pill">@uc.Qid</span></span>
+                }
+                else if (_comparisonCandidate is RetailCandidateDto rc)
+                {
+                    <MudIcon Icon="@Icons.Material.Outlined.Store" Size="Size.Small" Style="margin-right: 4px; color: #888;" />
+                    <span>Source: <strong>@rc.ProviderName</strong></span>
+                }
+            </div>
+
+            @* Field diff table *@
+            <div class="sp-diff-table">
+                <div class="sp-diff-header">
+                    <span class="sp-diff-col-field">Field</span>
+                    <span class="sp-diff-col-current">Current</span>
+                    <span class="sp-diff-col-candidate">Candidate</span>
+                    <span class="sp-diff-col-apply">Apply</span>
+                </div>
+                @foreach (var row in BuildDiffRows())
+                {
+                    <div class="sp-diff-row @(row.IsDifferent ? "sp-diff-row-changed" : "")">
+                        <span class="sp-diff-col-field sp-diff-field-name">@row.FieldName</span>
+                        <span class="sp-diff-col-current sp-diff-value @(string.IsNullOrEmpty(row.CurrentValue) ? "sp-diff-empty" : "")">
+                            @(string.IsNullOrEmpty(row.CurrentValue) ? "—" : row.CurrentValue)
+                        </span>
+                        <span class="sp-diff-col-candidate sp-diff-value @(string.IsNullOrEmpty(row.CandidateValue) ? "sp-diff-empty" : "")">
+                            @(string.IsNullOrEmpty(row.CandidateValue) ? "—" : row.CandidateValue)
+                        </span>
+                        <span class="sp-diff-col-apply">
+                            <input type="checkbox"
+                                   class="sp-diff-checkbox"
+                                   checked="@row.IsChecked"
+                                   @onchange="@(e => row.IsChecked = (bool)(e.Value ?? false))" />
+                        </span>
+                    </div>
+                }
+            </div>
+
+            @* Cover art radio selection (when both have covers) *@
+            @{
+                var hasBothCovers = !string.IsNullOrEmpty(CurrentCoverUrl) && !string.IsNullOrEmpty(GetCandidateCoverUrl());
+            }
+            @if (hasBothCovers)
+            {
+                <div class="sp-cover-chooser">
+                    <div class="sp-cover-chooser-label">Cover Art</div>
+                    <div class="sp-cover-chooser-options">
+                        <label class="sp-cover-option @(_useCandidateCover == false ? "sp-cover-option-selected" : "")">
+                            <input type="radio" name="coverChoice_@EntityId" value="current"
+                                   checked="@(_useCandidateCover == false)"
+                                   @onchange="@(() => _useCandidateCover = false)" />
+                            <img src="@CurrentCoverUrl" alt="current" class="sp-cover-thumb" />
+                            <span>Keep current</span>
+                        </label>
+                        <label class="sp-cover-option @(_useCandidateCover == true ? "sp-cover-option-selected" : "")">
+                            <input type="radio" name="coverChoice_@EntityId" value="candidate"
+                                   checked="@(_useCandidateCover == true)"
+                                   @onchange="@(() => _useCandidateCover = true)" />
+                            <img src="@GetCandidateCoverUrl()" alt="candidate" class="sp-cover-thumb" />
+                            <span>Use candidate</span>
+                        </label>
+                    </div>
+                </div>
+            }
+        </div>
+
+        @* Sticky bottom action bar *@
+        <div class="sp-sticky-bar">
+            <MudButton Variant="Variant.Filled"
+                       OnClick="@(() => ApplyFromComparison("both"))"
+                       Disabled="@_applying"
+                       Size="Size.Small"
+                       Style="background: #C9922E; color: #000; font-weight: 700; min-width: 120px;">
+                @(_applying ? "Applying…" : "Apply Match")
+            </MudButton>
+            <MudButton Variant="Variant.Outlined"
+                       OnClick="@(() => ApplyFromComparison("metadata"))"
+                       Disabled="@_applying"
+                       Size="Size.Small"
+                       Style="border-color: rgba(201,146,46,0.5); color: #C9922E;">
+                Apply Metadata
+            </MudButton>
+            <MudButton Variant="Variant.Outlined"
+                       OnClick="@(() => ApplyFromComparison("image"))"
+                       Disabled="@_applying"
+                       Size="Size.Small"
+                       Style="border-color: rgba(255,255,255,0.2); color: rgba(255,255,255,0.7);">
+                Apply Image
+            </MudButton>
+            <MudButton Variant="Variant.Outlined"
+                       OnClick="@(() => _showManualForm = !_showManualForm)"
+                       Size="Size.Small"
+                       Style="border-color: rgba(255,255,255,0.2); color: rgba(255,255,255,0.7);">
+                Manual Entry
+            </MudButton>
+            <MudButton Variant="Variant.Outlined"
+                       OnClick="@(() => { ClearComparison(); _hasSearched = false; })"
+                       Size="Size.Small"
+                       Style="border-color: rgba(239,83,80,0.4); color: #EF5350;">
+                New Search
+            </MudButton>
+        </div>
+    }
+    else
+    {
+        @* ── Normal search flow (shown when not in comparison mode) ── *@
+
+        @* Search Controls *@
+        <div class="search-panel-controls">
+            <MudTextField @bind-Value="_query"
+                          Placeholder="Search title, author, ISBN, QID…"
+                          Variant="Variant.Outlined"
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Search"
+                          Immediate="false"
+                          Class="search-panel-input"
+                          Style="flex: 1;"
+                          OnKeyDown="@OnSearchKeyDown" />
+
+            <MudSelect T="string" @bind-Value="_mediaType"
+                       Label="Type" Variant="Variant.Outlined"
+                       Dense="true" Style="min-width: 130px;"
+                       AnchorOrigin="Origin.BottomCenter">
+                <MudSelectItem T="string" Value="@("Epub")">Book</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Audiobook")">Audiobook</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Movies")">Movie</MudSelectItem>
+                <MudSelectItem T="string" Value="@("TV")">TV Show</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Music")">Music</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Comics")">Comic</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Podcasts")">Podcast</MudSelectItem>
+            </MudSelect>
+
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       OnClick="RunSearch"
+                       Disabled="@(_searching || string.IsNullOrWhiteSpace(_query))"
+                       StartIcon="@Icons.Material.Filled.Search"
+                       Size="Size.Medium">
+                Search
+            </MudButton>
+        </div>
+
+        @* Smart search hint *@
+        <p class="search-panel-hint sp-search-tip">
+            <MudIcon Icon="@Icons.Material.Outlined.Lightbulb" Size="Size.Small"
+                     Style="font-size: 0.75rem; vertical-align: middle; margin-right: 3px; opacity: 0.5;" />
+            Tip: Paste an ISBN, ASIN, TMDB ID, or QID directly
+            @if (!string.IsNullOrEmpty(_detectedIdType))
+            {
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Filled"
+                         Style="font-size: 0.65rem; height: 16px; padding: 0 6px; background: rgba(201,146,46,0.2); color: #C9922E; margin-left: 6px;">
+                    @_detectedIdType detected
+                </MudChip>
+            }
+        </p>
+
+        @* Search progress *@
+        @if (_searching)
+        {
+            <MudProgressLinear Indeterminate="true" Color="Color.Primary"
+                               Class="mt-2 mb-2" Style="border-radius: 4px;" />
+            <p class="search-panel-hint">
+                @if (_searchMode == "data")
+                {
+                    <text>Searching Wikidata…</text>
+                }
+                else if (_searchMode == "images")
+                {
+                    <text>Searching retail providers for cover art…</text>
+                }
+                else
+                {
+                    <text>Searching Wikidata and retail providers…</text>
+                }
+            </p>
+        }
+
+        @if (!string.IsNullOrEmpty(_errorMessage))
+        {
+            <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-2">@_errorMessage</MudAlert>
+        }
+
+        @* ── Results: Data (Wikidata / Universe) ── *@
+        @if ((_searchMode == "both" || _searchMode == "data") && _universeCandidates.Count > 0)
+        {
+            <div class="sp-results-section">
+                @if (_searchMode == "both")
+                {
+                    <div class="sp-section-label">
+                        <MudIcon Icon="@Icons.Material.Outlined.Public" Size="Size.Small" Style="margin-right: 4px; color: #C9922E;" />
+                        Wikidata Matches
+                    </div>
+                }
+
+                @* Best match — first candidate gets promoted treatment *@
+                @{
+                    var best = _universeCandidates[0];
+                    var bestConfColor = GetTrafficLightColor(best.Confidence);
+                }
+                <div class="sp-best-match-card" style="border-left-color: @bestConfColor;"
+                     @onclick="@(() => OpenComparison(best))">
+                    <div class="sp-best-match-badge">BEST MATCH</div>
+                    <div class="sp-result-inner">
+                        <div class="search-result-cover">
+                            @if (!string.IsNullOrEmpty(best.CoverUrl))
                             {
-                                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
-                                         Style="font-size: 0.65rem; height: 18px; padding: 0 6px; color: #C9922E; border-color: rgba(201,146,46,0.4);">
-                                    @bridgeLabel
-                                </MudChip>
+                                <img src="@best.CoverUrl" alt="" class="search-result-img" loading="lazy" />
                             }
                             else
                             {
-                                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
-                                         Style="font-size: 0.65rem; height: 18px; padding: 0 6px; color: rgba(255,255,255,0.4); border-color: rgba(255,255,255,0.15);">
-                                    @c.Qid
-                                </MudChip>
+                                <div class="search-result-img-placeholder">
+                                    <MudIcon Icon="@Icons.Material.Outlined.Public" Size="Size.Medium" Style="opacity: 0.3;" />
+                                </div>
                             }
-                            @if (!string.IsNullOrEmpty(c.InstanceOf))
+                        </div>
+                        <div class="search-result-details">
+                            <div class="search-result-title">@best.Label</div>
+                            @RenderUniverseMeta(best)
+                            @RenderDescription(best.WikipediaExtract ?? best.Description)
+                            <div class="search-result-footer">
+                                @RenderBridgeChip(best)
+                                @RenderInstanceOfChip(best)
+                                @RenderConfidenceChip(best.Confidence)
+                            </div>
+                            @RenderMatchSignals(best.MatchScores, best)
+                        </div>
+                    </div>
+                    <div @onclick:stopPropagation="true" style="align-self: flex-end; margin-top: 8px;">
+                        <MudButton Variant="Variant.Filled"
+                                   Size="Size.Small"
+                                   OnClick="@(() => OpenComparison(best))"
+                                   Style="@($"background: {bestConfColor}; color: #000; font-weight: 700;")">
+                            Match &amp; Confirm
+                        </MudButton>
+                    </div>
+                </div>
+
+                @* Other candidates (collapsible) *@
+                @if (_universeCandidates.Count > 1)
+                {
+                    <button class="sp-other-toggle" @onclick="@(() => _showOtherUniverseCandidates = !_showOtherUniverseCandidates)">
+                        <MudIcon Icon="@(_showOtherUniverseCandidates ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
+                                 Size="Size.Small" Style="margin-right: 4px;" />
+                        @(_showOtherUniverseCandidates ? "Hide" : "Show") @(_universeCandidates.Count - 1) other candidate@(_universeCandidates.Count - 1 == 1 ? "" : "s")
+                    </button>
+
+                    @if (_showOtherUniverseCandidates)
+                    {
+                        <div class="search-results-grid">
+                            @foreach (var c in _universeCandidates.Skip(1))
                             {
-                                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
-                                         Style="font-size: 0.65rem; height: 18px; padding: 0 6px; color: #888; border-color: rgba(255,255,255,0.12);">
-                                    @TruncateText(c.InstanceOf, 30)
-                                </MudChip>
+                                var localC = c;
+                                <div class="search-result-card" @onclick="@(() => OpenComparison(localC))">
+                                    <div class="search-result-cover">
+                                        @if (!string.IsNullOrEmpty(localC.CoverUrl))
+                                        {
+                                            <img src="@localC.CoverUrl" alt="" class="search-result-img" loading="lazy" />
+                                        }
+                                        else
+                                        {
+                                            <div class="search-result-img-placeholder">
+                                                <MudIcon Icon="@Icons.Material.Outlined.Public" Size="Size.Medium" Style="opacity: 0.3;" />
+                                            </div>
+                                        }
+                                    </div>
+                                    <div class="search-result-details">
+                                        <div class="search-result-title">@localC.Label</div>
+                                        @RenderUniverseMeta(localC)
+                                        @RenderDescription(localC.WikipediaExtract ?? localC.Description)
+                                        <div class="search-result-footer">
+                                            @RenderBridgeChip(localC)
+                                            @RenderInstanceOfChip(localC)
+                                            @RenderConfidenceChip(localC.Confidence)
+                                        </div>
+                                        @RenderMatchSignals(localC.MatchScores, localC)
+                                    </div>
+                                </div>
                             }
-                            <MudChip T="string" Size="Size.Small" Variant="Variant.Filled"
-                                     Style="@GetConfidenceStyle(c.Confidence)">
-                                @((int)(c.Confidence * 100))%
-                            </MudChip>
-                        </div>
-                    </div>
-                    @* Selected indicator *@
-                    @if (isSelected)
-                    {
-                        <div class="search-result-selected-icon">
-                            <MudIcon Icon="@Icons.Material.Filled.CheckCircle"
-                                     Style="color: #4CAF50;" Size="Size.Medium" />
                         </div>
                     }
-                </div>
-            }
-        </div>
-    }
+                }
+            </div>
+        }
 
-    @* ── Artwork Results ── *@
-    @if (_searchMode == "artwork" && _retailCandidates.Count > 0)
-    {
-        <div class="search-results-grid">
-            @for (int i = 0; i < _retailCandidates.Count; i++)
-            {
-                var idx = i;
-                var c = _retailCandidates[idx];
-                var isSelected = _selectedRetailIdx == idx;
-                <div class="search-result-card @(isSelected ? "search-result-card-selected" : "")"
-                     @onclick="@(() => SelectRetailCandidate(idx))">
-                    <div class="search-result-cover">
-                        @if (!string.IsNullOrEmpty(c.CoverUrl))
+        @* ── Results: Images (Retail) ── *@
+        @if ((_searchMode == "both" || _searchMode == "images") && _retailCandidates.Count > 0)
+        {
+            <div class="sp-results-section">
+                @if (_searchMode == "both")
+                {
+                    <div class="sp-section-label">
+                        <MudIcon Icon="@Icons.Material.Outlined.Image" Size="Size.Small" Style="margin-right: 4px; color: #888;" />
+                        Image Matches
+                    </div>
+                }
+
+                @* Retail best match *@
+                @if (_retailCandidates.Count > 0)
+                {
+                    var retailBest = _retailCandidates[0];
+                    var retailConfColor = GetTrafficLightColor(retailBest.Confidence);
+                    <div class="sp-best-match-card" style="border-left-color: @retailConfColor;"
+                         @onclick="@(() => OpenComparison(retailBest))">
+                        @if (_searchMode == "images")
                         {
-                            <img src="@c.CoverUrl" alt="" class="search-result-img" loading="lazy" />
+                            <div class="sp-best-match-badge">BEST MATCH</div>
                         }
-                        else
+                        <div class="sp-result-inner">
+                            <div class="search-result-cover">
+                                @if (!string.IsNullOrEmpty(retailBest.CoverUrl))
+                                {
+                                    <img src="@retailBest.CoverUrl" alt="" class="search-result-img" loading="lazy" />
+                                }
+                                else
+                                {
+                                    <div class="search-result-img-placeholder">
+                                        <MudIcon Icon="@Icons.Material.Outlined.Image" Size="Size.Medium" Style="opacity: 0.3;" />
+                                    </div>
+                                }
+                            </div>
+                            <div class="search-result-details">
+                                <div class="search-result-title">@retailBest.Title</div>
+                                @RenderRetailMeta(retailBest)
+                                @RenderDescription(retailBest.Description)
+                                <div class="search-result-footer">
+                                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                                             Style="font-size: 0.65rem; height: 18px; padding: 0 6px; color: rgba(255,255,255,0.4); border-color: rgba(255,255,255,0.15);">
+                                        @retailBest.ProviderName
+                                    </MudChip>
+                                    @RenderConfidenceChip(retailBest.Confidence)
+                                </div>
+                                @RenderMatchSignals(retailBest.MatchScores, null)
+                            </div>
+                        </div>
+                        @if (_searchMode == "images")
                         {
-                            <div class="search-result-img-placeholder">
-                                <MudIcon Icon="@Icons.Material.Outlined.Image"
-                                         Size="Size.Medium" Style="opacity: 0.3;" />
+                            <div @onclick:stopPropagation="true" style="align-self: flex-end; margin-top: 8px;">
+                                <MudButton Variant="Variant.Filled"
+                                           Size="Size.Small"
+                                           OnClick="@(() => OpenComparison(retailBest))"
+                                           Style="@($"background: {retailConfColor}; color: #000; font-weight: 700;")">
+                                    Match &amp; Confirm
+                                </MudButton>
                             </div>
                         }
                     </div>
-                    <div class="search-result-details">
-                        <div class="search-result-title">@c.Title</div>
-                        <div class="search-result-meta">
-                            @if (!string.IsNullOrEmpty(c.Year)) { @c.Year }
-                            @if (!string.IsNullOrEmpty(c.Author)) { <text> · @c.Author</text> }
-                        </div>
-                        @if (!string.IsNullOrEmpty(c.Description))
+
+                    @* Other retail candidates (collapsible) *@
+                    @if (_retailCandidates.Count > 1)
+                    {
+                        <button class="sp-other-toggle" @onclick="@(() => _showOtherRetailCandidates = !_showOtherRetailCandidates)">
+                            <MudIcon Icon="@(_showOtherRetailCandidates ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
+                                     Size="Size.Small" Style="margin-right: 4px;" />
+                            @(_showOtherRetailCandidates ? "Hide" : "Show") @(_retailCandidates.Count - 1) other candidate@(_retailCandidates.Count - 1 == 1 ? "" : "s")
+                        </button>
+
+                        @if (_showOtherRetailCandidates)
                         {
-                            <div class="search-result-description">
-                                @TruncateText(c.Description, 120)
+                            <div class="search-results-grid">
+                                @for (int ri = 1; ri < _retailCandidates.Count; ri++)
+                                {
+                                    var localRc = _retailCandidates[ri];
+                                    <div class="search-result-card" @onclick="@(() => OpenComparison(localRc))">
+                                        <div class="search-result-cover">
+                                            @if (!string.IsNullOrEmpty(localRc.CoverUrl))
+                                            {
+                                                <img src="@localRc.CoverUrl" alt="" class="search-result-img" loading="lazy" />
+                                            }
+                                            else
+                                            {
+                                                <div class="search-result-img-placeholder">
+                                                    <MudIcon Icon="@Icons.Material.Outlined.Image" Size="Size.Medium" Style="opacity: 0.3;" />
+                                                </div>
+                                            }
+                                        </div>
+                                        <div class="search-result-details">
+                                            <div class="search-result-title">@localRc.Title</div>
+                                            @RenderRetailMeta(localRc)
+                                            @RenderDescription(localRc.Description)
+                                            <div class="search-result-footer">
+                                                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                                                         Style="font-size: 0.65rem; height: 18px; padding: 0 6px; color: rgba(255,255,255,0.4); border-color: rgba(255,255,255,0.15);">
+                                                    @localRc.ProviderName
+                                                </MudChip>
+                                                @RenderConfidenceChip(localRc.Confidence)
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
                             </div>
                         }
-                        <div class="search-result-footer">
-                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
-                                     Style="font-size: 0.65rem; height: 18px; padding: 0 6px; color: rgba(255,255,255,0.4); border-color: rgba(255,255,255,0.15);">
-                                @c.ProviderName
-                            </MudChip>
-                        </div>
-                    </div>
-                    @if (isSelected)
-                    {
-                        <div class="search-result-selected-icon">
-                            <MudIcon Icon="@Icons.Material.Filled.CheckCircle"
-                                     Style="color: #4CAF50;" Size="Size.Medium" />
-                        </div>
                     }
-                </div>
-            }
-        </div>
-    }
+                }
+            </div>
+        }
 
-    @if (_hasSearched && !_searching
-         && (_searchMode == "identity" ? _universeCandidates.Count == 0 : _retailCandidates.Count == 0))
-    {
-        <div class="search-no-results">
-            <MudIcon Icon="@Icons.Material.Outlined.SearchOff" Size="Size.Large" Style="opacity: 0.3;" />
-            <p>No matches found.</p>
-            <p class="search-panel-hint">Try a different query, or create a manual entry.</p>
-        </div>
-    }
+        @* No results / Did you mean *@
+        @if (_hasSearched && !_searching && HasNoResults())
+        {
+            <div class="search-no-results">
+                <MudIcon Icon="@Icons.Material.Outlined.SearchOff" Size="Size.Large" Style="opacity: 0.3;" />
+                <p>No matches found.</p>
+                @{
+                    var cleaned = GetCleanedQuery();
+                }
+                @if (!string.IsNullOrEmpty(cleaned) && cleaned != _query.Trim())
+                {
+                    <p class="search-panel-hint">
+                        Did you mean: <button class="sp-did-you-mean" @onclick="@(() => { _query = cleaned; })">@cleaned</button>?
+                    </p>
+                }
+                <p class="search-panel-hint">Try a different query, or create a manual entry.</p>
+            </div>
+        }
 
-    @* ── Selection Summary ── *@
-    @if (HasSelection())
-    {
-        <div class="search-selection-summary">
-            <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small" Style="color: #4CAF50;" />
-            @if (_searchMode == "identity" && !string.IsNullOrEmpty(_selectedQid))
-            {
-                var selected = _universeCandidates.FirstOrDefault(c => c.Qid == _selectedQid);
-                <span>Selected: <strong>@selected?.Label</strong> @(selected?.Year is not null ? $"({selected.Year})" : "") <span class="search-selection-qid">@selected?.Qid</span></span>
-            }
-            else if (_searchMode == "artwork" && _selectedRetailIdx.HasValue)
-            {
-                var selected = _retailCandidates[_selectedRetailIdx.Value];
-                <span>Selected: <strong>@selected.Title</strong> from @selected.ProviderName</span>
-            }
-        </div>
-    }
-
-    @* ── Action Buttons ── *@
-    @if (_hasSearched || _showManualForm)
-    {
-        <div class="search-panel-actions">
-            @if (!_showManualForm)
-            {
-                <MudButton Variant="Variant.Filled" Color="Color.Success"
-                           StartIcon="@Icons.Material.Filled.Check"
-                           OnClick="ApplySelected"
-                           Disabled="@(_applying || (!HasSelection()))"
+        @* Legacy action buttons (shown when searched but no comparison active) *@
+        @if (_hasSearched || _showManualForm)
+        {
+            <div class="search-panel-actions">
+                <MudButton Variant="Variant.Outlined" Color="Color.Default"
+                           StartIcon="@Icons.Material.Outlined.Edit"
+                           OnClick="@(() => _showManualForm = !_showManualForm)"
                            Size="Size.Small">
-                    @(_applying ? "Applying…" : _searchMode == "identity" ? "Apply Identity Match" : "Apply Artwork")
+                    @(_showManualForm ? "Cancel Manual Entry" : "Create Manually")
                 </MudButton>
-            }
-
-            <MudButton Variant="Variant.Outlined" Color="Color.Default"
-                       StartIcon="@Icons.Material.Outlined.Edit"
-                       OnClick="@(() => _showManualForm = !_showManualForm)"
-                       Size="Size.Small">
-                @(_showManualForm ? "Cancel Manual Entry" : "Create Manually")
-            </MudButton>
-        </div>
+            </div>
+        }
     }
 
     @* ── Manual Entry Form ── *@
@@ -272,17 +546,109 @@
     {
         <MudAlert Severity="Severity.Success" Dense="true" Class="mt-2">@_successMessage</MudAlert>
     }
+
 </div>
+
+@* ── Shared render fragments ── *@
+@code {
+    private RenderFragment RenderUniverseMeta(UniverseCandidateDto c) =>
+        @<text>
+            @if (!string.IsNullOrEmpty(c.Year) || !string.IsNullOrEmpty(c.Author) || !string.IsNullOrEmpty(c.Director))
+            {
+                <div class="search-result-meta">
+                    @if (!string.IsNullOrEmpty(c.Year)) { @c.Year }
+                    @if (!string.IsNullOrEmpty(c.Author)) { <text> · @c.Author</text> }
+                    @if (!string.IsNullOrEmpty(c.Director)) { <text> · dir. @c.Director</text> }
+                </div>
+            }
+        </text>;
+
+    private RenderFragment RenderRetailMeta(RetailCandidateDto c) =>
+        @<text>
+            <div class="search-result-meta">
+                @if (!string.IsNullOrEmpty(c.Year)) { @c.Year }
+                @if (!string.IsNullOrEmpty(c.Author)) { <text> · @c.Author</text> }
+                @if (!string.IsNullOrEmpty(c.Director)) { <text> · dir. @c.Director</text> }
+            </div>
+        </text>;
+
+    private RenderFragment RenderDescription(string? text) =>
+        @<text>
+            @if (!string.IsNullOrEmpty(text))
+            {
+                <div class="search-result-description">@TruncateText(text, 120)</div>
+            }
+        </text>;
+
+    private RenderFragment RenderBridgeChip(UniverseCandidateDto c) =>
+        @<text>
+            @{
+                var bridgeLabel = GetBridgeLabel(c);
+            }
+            @if (!string.IsNullOrEmpty(bridgeLabel))
+            {
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                         Style="font-size: 0.65rem; height: 18px; padding: 0 6px; color: #C9922E; border-color: rgba(201,146,46,0.4);">
+                    @bridgeLabel
+                </MudChip>
+            }
+            else
+            {
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                         Style="font-size: 0.65rem; height: 18px; padding: 0 6px; color: rgba(255,255,255,0.4); border-color: rgba(255,255,255,0.15);">
+                    @c.Qid
+                </MudChip>
+            }
+        </text>;
+
+    private RenderFragment RenderInstanceOfChip(UniverseCandidateDto c) =>
+        @<text>
+            @if (!string.IsNullOrEmpty(c.InstanceOf))
+            {
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                         Style="font-size: 0.65rem; height: 18px; padding: 0 6px; color: #888; border-color: rgba(255,255,255,0.12);">
+                    @TruncateText(c.InstanceOf, 30)
+                </MudChip>
+            }
+        </text>;
+
+    private RenderFragment RenderConfidenceChip(double conf) =>
+        @<text>
+            <MudChip T="string" Size="Size.Small" Variant="Variant.Filled"
+                     Style="@GetConfidenceChipStyle(conf)">
+                @((int)(conf * 100))%
+            </MudChip>
+        </text>;
+
+    private RenderFragment RenderMatchSignals(FieldMatchScoresDto? scores, UniverseCandidateDto? uc) =>
+        @<text>
+            @{
+                var signals = BuildMatchSignals(scores, uc);
+            }
+            @if (signals.Count > 0)
+            {
+                <div class="sp-match-signals">
+                    @foreach (var sig in signals)
+                    {
+                        <span class="sp-signal sp-signal-@sig.Level">@sig.Label</span>
+                    }
+                </div>
+            }
+        </text>;
+}
 
 @* ── Styles ── *@
 <style>
+    /* ── Panel shell ── */
     .search-panel {
         padding: 16px 16px 8px 16px;
         display: flex;
         flex-direction: column;
         gap: 12px;
+        font-family: 'Montserrat', sans-serif;
     }
 
+    /* ── Tabs ── */
     .search-panel-tabs {
         display: flex;
         gap: 4px;
@@ -306,15 +672,14 @@
         align-items: center;
     }
 
-    .search-tab:hover {
-        color: rgba(255,255,255,0.8);
-    }
+    .search-tab:hover { color: rgba(255,255,255,0.8); }
 
     .search-tab-active {
         color: #C9922E;
         border-bottom-color: #C9922E;
     }
 
+    /* ── Controls ── */
     .search-panel-controls {
         display: flex;
         align-items: center;
@@ -322,18 +687,99 @@
         flex-wrap: wrap;
     }
 
-    .search-panel-input {
-        flex: 1;
-        min-width: 200px;
-    }
+    .search-panel-input { flex: 1; min-width: 200px; }
 
     .search-panel-hint {
-        font-size: 0.8rem;
-        color: rgba(255,255,255,0.45);
+        font-size: 0.78rem;
+        color: rgba(255,255,255,0.4);
         margin: 0;
         text-align: center;
     }
 
+    .sp-search-tip {
+        font-size: 0.75rem;
+        text-align: left;
+        display: flex;
+        align-items: center;
+        margin-top: -4px;
+    }
+
+    /* ── Section labels ── */
+    .sp-results-section {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .sp-section-label {
+        font-size: 0.72rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: rgba(255,255,255,0.35);
+        display: flex;
+        align-items: center;
+        padding: 0 2px;
+        margin-bottom: 2px;
+    }
+
+    /* ── Best match card ── */
+    .sp-best-match-card {
+        display: flex;
+        flex-direction: column;
+        background: rgba(255,255,255,0.06);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-left: 2px solid #4CAF50; /* overridden inline */
+        border-radius: 8px;
+        padding: 12px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        position: relative;
+    }
+
+    .sp-best-match-card:hover {
+        background: rgba(255,255,255,0.09);
+        border-color: rgba(201,146,46,0.35);
+        border-left-width: 2px;
+    }
+
+    .sp-best-match-badge {
+        position: absolute;
+        top: 8px;
+        right: 10px;
+        font-size: 0.6rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        color: #C9922E;
+        background: rgba(201,146,46,0.12);
+        border: 1px solid rgba(201,146,46,0.35);
+        border-radius: 3px;
+        padding: 2px 6px;
+    }
+
+    .sp-result-inner {
+        display: flex;
+        gap: 14px;
+        align-items: flex-start;
+    }
+
+    /* ── Other-candidates toggle ── */
+    .sp-other-toggle {
+        background: transparent;
+        border: none;
+        color: rgba(255,255,255,0.4);
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.75rem;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        padding: 4px 2px;
+        transition: color 0.15s;
+    }
+
+    .sp-other-toggle:hover { color: rgba(255,255,255,0.7); }
+
+    /* ── Standard result cards (other candidates) ── */
     .search-results-grid {
         display: flex;
         flex-direction: column;
@@ -361,123 +807,252 @@
         border-color: rgba(201,146,46,0.3);
     }
 
-    .search-result-card-selected {
-        background: rgba(201,146,46,0.08) !important;
-        border-color: rgba(201,146,46,0.5) !important;
-    }
-
-    .search-result-cover {
-        flex-shrink: 0;
-        width: 100px;
-        height: 150px;
-    }
-
-    .search-result-img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        border-radius: 4px;
-    }
-
+    .search-result-cover    { flex-shrink: 0; width: 80px; height: 120px; }
+    .search-result-img      { width: 100%; height: 100%; object-fit: cover; border-radius: 4px; }
     .search-result-img-placeholder {
-        width: 100%;
-        height: 100%;
+        width: 100%; height: 100%;
         background: rgba(255,255,255,0.05);
         border-radius: 4px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+        display: flex; align-items: center; justify-content: center;
     }
 
     .search-result-details {
-        flex: 1;
-        min-width: 0;
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
+        flex: 1; min-width: 0;
+        display: flex; flex-direction: column; gap: 4px;
     }
 
     .search-result-title {
-        font-family: 'Montserrat', sans-serif;
-        font-weight: 600;
-        font-size: 0.9rem;
-        color: #fff;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+        font-weight: 600; font-size: 0.88rem; color: #fff;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
 
-    .search-result-meta {
-        font-size: 0.78rem;
-        color: rgba(255,255,255,0.5);
-    }
-
+    .search-result-meta       { font-size: 0.76rem; color: rgba(255,255,255,0.5); }
     .search-result-description {
-        font-size: 0.78rem;
-        color: rgba(255,255,255,0.4);
-        line-height: 1.4;
-        display: -webkit-box;
-        -webkit-line-clamp: 3;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
+        font-size: 0.76rem; color: rgba(255,255,255,0.38); line-height: 1.4;
+        display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
     }
 
     .search-result-footer {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 4px;
-        align-items: center;
-        margin-top: 2px;
+        display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin-top: 2px;
     }
 
-    .search-result-selected-icon {
-        position: absolute;
-        top: 8px;
-        right: 8px;
+    /* ── Match signals ── */
+    .sp-match-signals {
+        display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px;
     }
 
+    .sp-signal {
+        font-size: 0.65rem; padding: 2px 6px; border-radius: 3px;
+        font-family: 'Montserrat', sans-serif;
+    }
+
+    .sp-signal-good    { background: rgba(76,175,80,0.15);  color: #4CAF50; }
+    .sp-signal-warn    { background: rgba(234,179,8,0.15);  color: #EAB308; }
+    .sp-signal-missing { background: rgba(239,83,80,0.12);  color: #EF5350; }
+
+    /* ── No results ── */
     .search-no-results {
-        text-align: center;
-        padding: 24px;
+        text-align: center; padding: 24px;
         color: rgba(255,255,255,0.4);
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 8px;
+        display: flex; flex-direction: column; align-items: center; gap: 8px;
     }
 
+    .sp-did-you-mean {
+        background: none; border: none;
+        color: #C9922E; font-family: 'Montserrat', sans-serif;
+        font-size: inherit; cursor: pointer;
+        text-decoration: underline; padding: 0;
+    }
+
+    /* ── Action row ── */
     .search-panel-actions {
-        display: flex;
-        gap: 10px;
-        flex-wrap: wrap;
-        align-items: center;
+        display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
     }
 
-    .search-selection-summary {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 10px 14px;
-        background: rgba(76,175,80,0.08);
-        border: 1px solid rgba(76,175,80,0.25);
+    /* ── Comparison view ── */
+    .sp-comparison-view {
+        display: flex; flex-direction: column; gap: 14px;
+        padding-bottom: 80px; /* leave room for sticky bar */
+    }
+
+    .sp-back-link {
+        background: none; border: none;
+        color: rgba(255,255,255,0.5); font-family: 'Montserrat', sans-serif;
+        font-size: 0.8rem; cursor: pointer;
+        display: flex; align-items: center;
+        padding: 0; transition: color 0.15s;
+    }
+
+    .sp-back-link:hover { color: #C9922E; }
+
+    .sp-comparison-title {
+        font-size: 0.95rem; font-weight: 700; color: rgba(255,255,255,0.85);
+    }
+
+    .sp-comparison-summary {
+        display: flex; gap: 12px; align-items: flex-start;
+    }
+
+    .sp-comparison-side {
+        flex: 1; display: flex; flex-direction: column; align-items: center;
+        gap: 8px; padding: 12px;
+        background: rgba(255,255,255,0.03);
+        border: 1px solid rgba(255,255,255,0.07);
         border-radius: 8px;
-        font-size: 0.82rem;
-        color: rgba(255,255,255,0.8);
-        flex-shrink: 0;
     }
 
-    .search-selection-qid {
-        font-family: monospace;
-        font-size: 0.7rem;
-        color: rgba(255,255,255,0.4);
+    .sp-comparison-current  { border-color: rgba(255,255,255,0.1); }
+    .sp-comparison-candidate { border-color: rgba(201,146,46,0.25); }
+
+    .sp-comparison-side-label {
+        font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+        letter-spacing: 0.08em; color: rgba(255,255,255,0.4);
+    }
+
+    .sp-comparison-cover-wrap { width: 90px; height: 135px; }
+
+    .sp-comparison-cover {
+        width: 100%; height: 100%; object-fit: cover; border-radius: 4px;
+    }
+
+    .sp-comparison-cover-placeholder {
+        width: 100%; height: 100%;
+        background: rgba(255,255,255,0.04);
+        border-radius: 4px;
+        display: flex; align-items: center; justify-content: center;
+    }
+
+    .sp-comparison-side-title {
+        font-size: 0.82rem; font-weight: 600; color: #fff;
+        text-align: center; line-height: 1.3;
+    }
+
+    .sp-comparison-side-meta {
+        font-size: 0.74rem; color: rgba(255,255,255,0.5); text-align: center;
+    }
+
+    .sp-comparison-arrow {
+        display: flex; align-items: center; padding-top: 60px; flex-shrink: 0;
+    }
+
+    /* ── Source attribution ── */
+    .sp-source-attribution {
+        display: flex; align-items: center;
+        font-size: 0.78rem; color: rgba(255,255,255,0.5);
+        padding: 8px 12px;
+        background: rgba(255,255,255,0.03);
+        border: 1px solid rgba(255,255,255,0.07);
+        border-radius: 6px;
+    }
+
+    .sp-qid-pill {
+        font-family: monospace; font-size: 0.7rem;
+        background: rgba(201,146,46,0.12);
+        color: #C9922E;
+        padding: 1px 6px; border-radius: 3px; margin-left: 4px;
+    }
+
+    /* ── Diff table ── */
+    .sp-diff-table {
+        display: flex; flex-direction: column; gap: 0;
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 8px; overflow: hidden;
+    }
+
+    .sp-diff-header {
+        display: grid;
+        grid-template-columns: 100px 1fr 1fr 40px;
         background: rgba(255,255,255,0.06);
-        padding: 1px 5px;
-        border-radius: 3px;
-        margin-left: 4px;
+        padding: 8px 12px;
+        font-size: 0.68rem; font-weight: 700;
+        text-transform: uppercase; letter-spacing: 0.06em;
+        color: rgba(255,255,255,0.4);
+    }
+
+    .sp-diff-row {
+        display: grid;
+        grid-template-columns: 100px 1fr 1fr 40px;
+        padding: 8px 12px;
+        border-top: 1px solid rgba(255,255,255,0.05);
+        transition: background 0.1s;
+    }
+
+    .sp-diff-row:hover { background: rgba(255,255,255,0.02); }
+
+    .sp-diff-row-changed {
+        border-left: 3px solid rgba(201,146,46,0.4);
+        padding-left: 9px;
+        background: rgba(201,146,46,0.03);
+    }
+
+    .sp-diff-col-field  { display: flex; align-items: center; }
+    .sp-diff-col-current, .sp-diff-col-candidate { display: flex; align-items: center; padding: 0 8px; }
+    .sp-diff-col-apply  { display: flex; align-items: center; justify-content: center; }
+
+    .sp-diff-field-name {
+        font-size: 0.74rem; font-weight: 600; color: rgba(255,255,255,0.55);
+    }
+
+    .sp-diff-value { font-size: 0.78rem; color: rgba(255,255,255,0.8); line-height: 1.3; }
+    .sp-diff-empty { color: rgba(255,255,255,0.25); font-style: italic; }
+
+    .sp-diff-checkbox {
+        width: 16px; height: 16px; cursor: pointer;
+        accent-color: #C9922E;
+    }
+
+    /* ── Cover chooser ── */
+    .sp-cover-chooser {
+        padding: 12px;
+        background: rgba(255,255,255,0.03);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 8px;
+    }
+
+    .sp-cover-chooser-label {
+        font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+        letter-spacing: 0.06em; color: rgba(255,255,255,0.4);
+        margin-bottom: 10px;
+    }
+
+    .sp-cover-chooser-options { display: flex; gap: 16px; }
+
+    .sp-cover-option {
+        display: flex; flex-direction: column; align-items: center; gap: 6px;
+        cursor: pointer; padding: 8px; border-radius: 6px;
+        border: 2px solid transparent;
+        font-size: 0.74rem; color: rgba(255,255,255,0.55);
+        transition: all 0.15s;
+    }
+
+    .sp-cover-option input { display: none; }
+
+    .sp-cover-option-selected {
+        border-color: rgba(201,146,46,0.6);
+        background: rgba(201,146,46,0.07);
+        color: #C9922E;
+    }
+
+    .sp-cover-thumb {
+        width: 60px; height: 90px; object-fit: cover; border-radius: 4px;
+    }
+
+    /* ── Sticky action bar ── */
+    .sp-sticky-bar {
+        position: sticky;
+        bottom: 0;
+        background: rgba(10,10,10,0.95);
+        backdrop-filter: blur(8px);
+        border-top: 1px solid rgba(255,255,255,0.1);
+        padding: 10px 0 6px 0;
+        display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+        z-index: 10;
     }
 </style>
 
 @code {
+    // ── Parameters ─────────────────────────────────────────────────────────
+
     /// <summary>The registry entity ID this panel is searching for.</summary>
     [Parameter] public Guid EntityId { get; set; }
 
@@ -487,28 +1062,51 @@
     /// <summary>Pre-selected media type (from the item's detected type).</summary>
     [Parameter] public string? InitialMediaType { get; set; }
 
+    /// <summary>Current file's title for comparison view.</summary>
+    [Parameter] public string? CurrentTitle { get; set; }
+
+    /// <summary>Current file's author/creator for comparison view.</summary>
+    [Parameter] public string? CurrentAuthor { get; set; }
+
+    /// <summary>Current file's year for comparison view.</summary>
+    [Parameter] public string? CurrentYear { get; set; }
+
+    /// <summary>Current file's narrator (audiobooks) for comparison view.</summary>
+    [Parameter] public string? CurrentNarrator { get; set; }
+
+    /// <summary>Current file's cover URL for comparison view.</summary>
+    [Parameter] public string? CurrentCoverUrl { get; set; }
+
+    /// <summary>Current file's media type for comparison view.</summary>
+    [Parameter] public string? CurrentMediaType { get; set; }
+
     /// <summary>Fires when a match has been successfully applied.</summary>
     [Parameter] public EventCallback<ApplyMatchResponseDto> OnMatchApplied { get; set; }
 
     // ── State ──────────────────────────────────────────────────────────────
 
-    private string _query = "";
+    private string _query     = "";
     private string _mediaType = "Epub";
-    private string _searchMode = "identity";
+    private string _searchMode = "both";
 
     private bool _searching;
     private bool _applying;
     private bool _hasSearched;
     private bool _showManualForm;
+    private bool _showOtherUniverseCandidates;
+    private bool _showOtherRetailCandidates;
+
+    // Comparison mode: either UniverseCandidateDto or RetailCandidateDto
+    private object? _comparisonCandidate;
+    private bool    _useCandidateCover = true;
+    private List<DiffRow> _diffRows = [];
 
     private List<UniverseCandidateDto> _universeCandidates = [];
     private List<RetailCandidateDto>   _retailCandidates   = [];
 
-    private string? _selectedQid;
-    private int?    _selectedRetailIdx;
-
     private string? _errorMessage;
     private string? _successMessage;
+    private string? _detectedIdType;
 
     // ── Search cache (component lifetime) ────────────────────────────────
     private readonly Dictionary<string, List<UniverseCandidateDto>> _universeCache = new();
@@ -525,35 +1123,38 @@
             _mediaType = InitialMediaType;
     }
 
+    // ── Smart search — keyboard Enter ─────────────────────────────────────
+
+    private async Task OnSearchKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await RunSearch();
+    }
+
+    // ── ID type detection ─────────────────────────────────────────────────
+
+    private void DetectIdType()
+    {
+        var q = _query.Trim();
+        if (System.Text.RegularExpressions.Regex.IsMatch(q, @"^Q\d+$"))
+            _detectedIdType = "Wikidata QID";
+        else if (System.Text.RegularExpressions.Regex.IsMatch(q, @"^(97[89])?\d{9}[\dXx]$"))
+            _detectedIdType = "ISBN";
+        else if (System.Text.RegularExpressions.Regex.IsMatch(q, @"^B0[A-Z0-9]{8}$"))
+            _detectedIdType = "ASIN";
+        else if (System.Text.RegularExpressions.Regex.IsMatch(q, @"^tt\d{7,}$"))
+            _detectedIdType = "IMDb ID";
+        else
+            _detectedIdType = null;
+    }
+
     // ── Search ─────────────────────────────────────────────────────────────
 
     private async Task RunSearch()
     {
         if (string.IsNullOrWhiteSpace(_query)) return;
 
-        var cacheKey = $"{_searchMode}|{_query.Trim().ToLowerInvariant()}|{_mediaType}";
-
-        // Check cache first
-        if (_searchMode == "identity" && _universeCache.TryGetValue(cacheKey, out var cachedUniverse))
-        {
-            _universeCandidates = cachedUniverse;
-            _hasSearched = true;
-            _selectedQid = null;
-            _selectedRetailIdx = null;
-            _errorMessage = null;
-            _successMessage = null;
-            return;
-        }
-        if (_searchMode == "artwork" && _retailCache.TryGetValue(cacheKey, out var cachedRetail))
-        {
-            _retailCandidates = cachedRetail;
-            _hasSearched = true;
-            _selectedQid = null;
-            _selectedRetailIdx = null;
-            _errorMessage = null;
-            _successMessage = null;
-            return;
-        }
+        DetectIdType();
+        ClearComparison();
 
         _searching    = true;
         _hasSearched  = false;
@@ -561,23 +1162,46 @@
         _successMessage = null;
         _universeCandidates = [];
         _retailCandidates   = [];
-        _selectedQid        = null;
-        _selectedRetailIdx  = null;
+        _showOtherUniverseCandidates = false;
+        _showOtherRetailCandidates   = false;
+
+        var queryKey = _query.Trim().ToLowerInvariant();
 
         try
         {
-            if (_searchMode == "identity")
+            var fetchUniverse = _searchMode is "both" or "data";
+            var fetchRetail   = _searchMode is "both" or "images";
+
+            if (fetchUniverse)
             {
-                var result = await Orchestrator.SearchUniverseAsync(_query, _mediaType, maxCandidates: 5);
-                _universeCandidates = result;
-                _universeCache[cacheKey] = result;
+                var cacheKey = $"data|{queryKey}|{_mediaType}";
+                if (_universeCache.TryGetValue(cacheKey, out var cached))
+                {
+                    _universeCandidates = cached;
+                }
+                else
+                {
+                    var result = await Orchestrator.SearchUniverseAsync(_query, _mediaType, maxCandidates: 5);
+                    _universeCandidates = result;
+                    _universeCache[cacheKey] = result;
+                }
             }
-            else
+
+            if (fetchRetail)
             {
-                var result = await Orchestrator.SearchRetailAsync(_query, _mediaType, maxCandidates: 10);
-                _retailCandidates = result;
-                _retailCache[cacheKey] = result;
+                var cacheKey = $"images|{queryKey}|{_mediaType}";
+                if (_retailCache.TryGetValue(cacheKey, out var cached))
+                {
+                    _retailCandidates = cached;
+                }
+                else
+                {
+                    var result = await Orchestrator.SearchRetailAsync(_query, _mediaType, maxCandidates: 8);
+                    _retailCandidates = result;
+                    _retailCache[cacheKey] = result;
+                }
             }
+
             _hasSearched = true;
         }
         catch (Exception)
@@ -599,85 +1223,173 @@
         _hasSearched        = false;
         _universeCandidates = [];
         _retailCandidates   = [];
-        _selectedQid        = null;
-        _selectedRetailIdx  = null;
         _errorMessage       = null;
         _successMessage     = null;
+        ClearComparison();
     }
 
-    // ── Selection ──────────────────────────────────────────────────────────
+    // ── Comparison view ────────────────────────────────────────────────────
 
-    private void SelectUniverseCandidate(UniverseCandidateDto candidate)
+    private void OpenComparison(object candidate)
     {
-        _selectedQid = _selectedQid == candidate.Qid ? null : candidate.Qid;
+        _comparisonCandidate = candidate;
+        _useCandidateCover   = !string.IsNullOrEmpty(GetCandidateCoverUrl());
+        _diffRows            = BuildDiffRows();
     }
 
-    private void SelectRetailCandidate(int idx)
+    private void ClearComparison()
     {
-        _selectedRetailIdx = _selectedRetailIdx == idx ? null : idx;
+        _comparisonCandidate = null;
+        _diffRows = [];
     }
 
-    private bool HasSelection() => _searchMode == "identity"
-        ? !string.IsNullOrEmpty(_selectedQid)
-        : _selectedRetailIdx.HasValue;
+    // ── Candidate accessors (works for both UniverseCandidateDto / RetailCandidateDto) ──
 
-    // ── Apply ──────────────────────────────────────────────────────────────
-
-    private async Task ApplySelected()
+    private string GetCandidateTitle() => _comparisonCandidate switch
     {
-        if (!HasSelection()) return;
+        UniverseCandidateDto uc => uc.Label,
+        RetailCandidateDto   rc => rc.Title,
+        _                       => ""
+    };
+
+    private string? GetCandidateAuthor() => _comparisonCandidate switch
+    {
+        UniverseCandidateDto uc => uc.Author ?? uc.Director,
+        RetailCandidateDto   rc => rc.Author ?? rc.Director,
+        _                       => null
+    };
+
+    private string? GetCandidateYear() => _comparisonCandidate switch
+    {
+        UniverseCandidateDto uc => uc.Year,
+        RetailCandidateDto   rc => rc.Year,
+        _                       => null
+    };
+
+    private string? GetCandidateCoverUrl() => _comparisonCandidate switch
+    {
+        UniverseCandidateDto uc => uc.CoverUrl,
+        RetailCandidateDto   rc => rc.CoverUrl,
+        _                       => null
+    };
+
+    private string? GetCandidateDescription() => _comparisonCandidate switch
+    {
+        UniverseCandidateDto uc => uc.WikipediaExtract ?? uc.Description,
+        RetailCandidateDto   rc => rc.Description,
+        _                       => null
+    };
+
+    private string? GetCandidateDirector() => _comparisonCandidate switch
+    {
+        UniverseCandidateDto uc => uc.Director,
+        RetailCandidateDto   rc => rc.Director,
+        _                       => null
+    };
+
+    private string GetCandidateSourceLabel() => _comparisonCandidate switch
+    {
+        UniverseCandidateDto uc => $"Wikidata · {uc.Qid}",
+        RetailCandidateDto   rc => rc.ProviderName,
+        _                       => "Candidate"
+    };
+
+    // ── Diff row construction ──────────────────────────────────────────────
+
+    private List<DiffRow> BuildDiffRows()
+    {
+        var isAudiobook = string.Equals(_mediaType, "Audiobook", StringComparison.OrdinalIgnoreCase)
+                       || string.Equals(CurrentMediaType, "Audiobook", StringComparison.OrdinalIgnoreCase);
+        var isMovie     = string.Equals(_mediaType, "Movies", StringComparison.OrdinalIgnoreCase)
+                       || string.Equals(CurrentMediaType, "Movies", StringComparison.OrdinalIgnoreCase);
+        var isTV        = string.Equals(_mediaType, "TV", StringComparison.OrdinalIgnoreCase)
+                       || string.Equals(CurrentMediaType, "TV", StringComparison.OrdinalIgnoreCase);
+
+        var authorLabel = (isMovie || isTV) ? "Director" : "Author";
+        var candAuthorValue = (isMovie || isTV) ? GetCandidateDirector() : GetCandidateAuthor();
+        var curAuthorValue  = (isMovie || isTV) ? null : CurrentAuthor; // CurrentAuthor covers both
+
+        var rows = new List<DiffRow>
+        {
+            MakeDiffRow("Title",       CurrentTitle,   GetCandidateTitle()),
+            MakeDiffRow(authorLabel,   curAuthorValue, candAuthorValue),
+            MakeDiffRow("Year",        CurrentYear,    GetCandidateYear()),
+        };
+
+        if (isAudiobook)
+            rows.Add(MakeDiffRow("Narrator", CurrentNarrator, null /* candidates don't return narrator */));
+
+        rows.Add(MakeDiffRow("Description", null, GetCandidateDescription()));
+
+        return rows;
+    }
+
+    private static DiffRow MakeDiffRow(string fieldName, string? current, string? candidate)
+    {
+        var cur = TruncateText(current, 80);
+        var can = TruncateText(candidate, 80);
+        return new DiffRow
+        {
+            FieldName      = fieldName,
+            CurrentValue   = cur,
+            CandidateValue = can,
+            IsDifferent    = !string.IsNullOrEmpty(can) && !string.Equals(cur, can, StringComparison.OrdinalIgnoreCase),
+            IsChecked      = !string.IsNullOrEmpty(can) && !string.Equals(cur, can, StringComparison.OrdinalIgnoreCase),
+        };
+    }
+
+    // ── Apply (intent-based) ───────────────────────────────────────────────
+
+    private async Task ApplyFromComparison(string intent)
+    {
+        if (_comparisonCandidate is null) return;
 
         _applying     = true;
         _errorMessage = null;
 
         try
         {
-            if (_searchMode == "identity" && !string.IsNullOrEmpty(_selectedQid))
+            ApplyMatchRequestDto request;
+
+            if (_comparisonCandidate is UniverseCandidateDto uc)
             {
-                var candidate = _universeCandidates.FirstOrDefault(c => c.Qid == _selectedQid);
-                var result = await Orchestrator.ApplyRegistryMatchAsync(EntityId, new ApplyMatchRequestDto
+                request = new ApplyMatchRequestDto
                 {
                     Mode        = "Universe",
-                    Qid         = _selectedQid,
-                    Title       = candidate?.Label,
-                    Year        = candidate?.Year,
-                    Author      = candidate?.Author,
-                    Director    = candidate?.Director,
-                    Description = candidate?.WikipediaExtract ?? candidate?.Description,
-                    CoverUrl    = candidate?.CoverUrl,
-                });
-
-                if (result is not null)
-                {
-                    _successMessage = result.Message ?? "Match applied successfully.";
-                    await OnMatchApplied.InvokeAsync(result);
-                }
-                else
-                {
-                    _errorMessage = "Failed to apply match.";
-                }
+                    Qid         = intent != "image" ? uc.Qid : null,
+                    Title       = intent != "image" ? uc.Label : null,
+                    Year        = intent != "image" ? uc.Year  : null,
+                    Author      = intent != "image" ? uc.Author : null,
+                    Director    = intent != "image" ? uc.Director : null,
+                    Description = intent != "image" ? (uc.WikipediaExtract ?? uc.Description) : null,
+                    CoverUrl    = (intent != "metadata" && _useCandidateCover) ? uc.CoverUrl : null,
+                };
             }
-            else if (_searchMode == "artwork" && _selectedRetailIdx.HasValue)
+            else if (_comparisonCandidate is RetailCandidateDto rc)
             {
-                var candidate = _retailCandidates[_selectedRetailIdx.Value];
-                var result = await Orchestrator.ApplyRegistryMatchAsync(EntityId, new ApplyMatchRequestDto
+                request = new ApplyMatchRequestDto
                 {
-                    Mode     = "Retail",
-                    Title    = candidate.Title,
-                    Year     = candidate.Year,
-                    Author   = candidate.Author,
-                    CoverUrl = candidate.CoverUrl,
-                });
+                    Mode        = "Retail",
+                    Title       = intent != "image" ? rc.Title  : null,
+                    Year        = intent != "image" ? rc.Year   : null,
+                    Author      = intent != "image" ? rc.Author : null,
+                    Director    = intent != "image" ? rc.Director : null,
+                    Description = intent != "image" ? rc.Description : null,
+                    CoverUrl    = (intent != "metadata" && _useCandidateCover) ? rc.CoverUrl : null,
+                };
+            }
+            else return;
 
-                if (result is not null)
-                {
-                    _successMessage = result.Message ?? "Artwork applied successfully.";
-                    await OnMatchApplied.InvokeAsync(result);
-                }
-                else
-                {
-                    _errorMessage = "Failed to apply artwork.";
-                }
+            var result = await Orchestrator.ApplyRegistryMatchAsync(EntityId, request);
+            if (result is not null)
+            {
+                _successMessage = result.Message ?? "Match applied successfully.";
+                ClearComparison();
+                await OnMatchApplied.InvokeAsync(result);
+            }
+            else
+            {
+                _errorMessage = "Failed to apply match.";
             }
         }
         catch (Exception)
@@ -694,7 +1406,6 @@
     {
         _showManualForm = false;
         _successMessage = response.Message ?? "Manual entry created.";
-        // Synthesise an ApplyMatchResponseDto from the manual response
         await OnMatchApplied.InvokeAsync(new ApplyMatchResponseDto
         {
             EntityId       = response.EntityId,
@@ -706,28 +1417,51 @@
 
     // ── Helpers ────────────────────────────────────────────────────────────
 
+    private bool HasNoResults() =>
+        (_searchMode is "both" or "data"   && _universeCandidates.Count == 0) &&
+        (_searchMode is "both" or "images" && _retailCandidates.Count   == 0) ||
+        (_searchMode == "data"   && _universeCandidates.Count == 0) ||
+        (_searchMode == "images" && _retailCandidates.Count   == 0);
+
+    private string GetCleanedQuery()
+    {
+        var q = _query.Trim();
+        // Remove leading numbers like "105 " (Goodreads-style)
+        q = System.Text.RegularExpressions.Regex.Replace(q, @"^\d+\s+", "");
+        // Remove file extensions
+        q = System.Text.RegularExpressions.Regex.Replace(q, @"\.(epub|mp3|m4b|mp4|mkv|cbz|cbr)$", "",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        // Remove common junk tokens
+        q = System.Text.RegularExpressions.Regex.Replace(q, @"\[.*?\]|\(.*?\)", "").Trim();
+        return q;
+    }
+
     private static string? GetBridgeLabel(UniverseCandidateDto c)
     {
         if (c.BridgeIds is null || c.BridgeIds.Count == 0) return null;
-
-        // Priority order: ISBN, ASIN, TMDB, IMDb, MusicBrainz, Comic Vine, Apple Books
-        if (c.BridgeIds.TryGetValue("isbn", out var isbn)) return $"ISBN: {isbn}";
-        if (c.BridgeIds.TryGetValue("asin", out var asin)) return $"ASIN: {asin}";
-        if (c.BridgeIds.TryGetValue("tmdb_id", out var tmdb)) return $"TMDB: {tmdb}";
-        if (c.BridgeIds.TryGetValue("imdb_id", out var imdb)) return $"IMDb: {imdb}";
-        if (c.BridgeIds.TryGetValue("musicbrainz_id", out var mb)) return $"MB: {mb}";
-        if (c.BridgeIds.TryGetValue("comic_vine_id", out var cv)) return $"CV: {cv}";
-        if (c.BridgeIds.TryGetValue("apple_books_id", out var ab)) return $"Apple: {ab}";
-
+        if (c.BridgeIds.TryGetValue("isbn",          out var isbn)) return $"ISBN: {isbn}";
+        if (c.BridgeIds.TryGetValue("asin",          out var asin)) return $"ASIN: {asin}";
+        if (c.BridgeIds.TryGetValue("tmdb_id",       out var tmdb)) return $"TMDB: {tmdb}";
+        if (c.BridgeIds.TryGetValue("imdb_id",       out var imdb)) return $"IMDb: {imdb}";
+        if (c.BridgeIds.TryGetValue("musicbrainz_id",out var mb))   return $"MB: {mb}";
+        if (c.BridgeIds.TryGetValue("comic_vine_id", out var cv))   return $"CV: {cv}";
+        if (c.BridgeIds.TryGetValue("apple_books_id",out var ab))   return $"Apple: {ab}";
         return null;
     }
 
-    private static string GetConfidenceStyle(double conf) => conf switch
+    /// <summary>Returns the traffic-light hex color for the given confidence value.</summary>
+    private static string GetTrafficLightColor(double conf) => conf switch
     {
-        >= 0.90 => "background: rgba(76,175,80,0.2); color: #4CAF50; font-size: 0.65rem; height: 18px; padding: 0 6px;",
-        >= 0.75 => "background: rgba(38,166,154,0.2); color: #26A69A; font-size: 0.65rem; height: 18px; padding: 0 6px;",
+        >= 0.85 => "#4CAF50",
+        >= 0.60 => "#EAB308",
+        _       => "#EF5350",
+    };
+
+    private static string GetConfidenceChipStyle(double conf) => conf switch
+    {
+        >= 0.85 => "background: rgba(76,175,80,0.2); color: #4CAF50; font-size: 0.65rem; height: 18px; padding: 0 6px;",
         >= 0.60 => "background: rgba(234,179,8,0.2); color: #EAB308; font-size: 0.65rem; height: 18px; padding: 0 6px;",
-        _ => "background: rgba(239,83,80,0.2); color: #EF5350; font-size: 0.65rem; height: 18px; padding: 0 6px;",
+        _       => "background: rgba(239,83,80,0.2); color: #EF5350; font-size: 0.65rem; height: 18px; padding: 0 6px;",
     };
 
     private static string TruncateText(string? text, int maxLength)
@@ -735,4 +1469,42 @@
         if (string.IsNullOrEmpty(text)) return "";
         return text.Length <= maxLength ? text : text[..maxLength] + "…";
     }
+
+    /// <summary>Builds "Why this match?" signal chips from FieldMatchScoresDto (or derives from field presence).</summary>
+    private List<MatchSignal> BuildMatchSignals(FieldMatchScoresDto? scores, UniverseCandidateDto? uc)
+    {
+        var signals = new List<MatchSignal>();
+
+        if (scores is not null)
+        {
+            if (scores.TitleScore  >= 0.7)  signals.Add(new("✔ Title match",  "good"));
+            if (scores.AuthorScore >= 0.7)  signals.Add(new("✔ Author match", "good"));
+            if (scores.YearScore   >= 0.7)  signals.Add(new("✔ Year match",   "good"));
+            if (scores.FormatScore is >= 0.4 and < 0.7) signals.Add(new("⚠ Format: Medium", "warn"));
+            if (scores.AuthorScore < 0.3)   signals.Add(new("✗ Author missing", "missing"));
+        }
+        else if (uc is not null)
+        {
+            // Derive from field presence
+            if (!string.IsNullOrEmpty(uc.Author))   signals.Add(new("✔ Has author",   "good"));
+            if (!string.IsNullOrEmpty(uc.Year))     signals.Add(new("✔ Has year",     "good"));
+            if (!string.IsNullOrEmpty(uc.CoverUrl)) signals.Add(new("✔ Has cover art","good"));
+            if (uc.BridgeIds.Count > 0)             signals.Add(new("✔ Bridge ID",    "good"));
+        }
+
+        return signals;
+    }
+
+    // ── Inner types ────────────────────────────────────────────────────────
+
+    private sealed class DiffRow
+    {
+        public string FieldName      { get; set; } = "";
+        public string CurrentValue   { get; set; } = "";
+        public string CandidateValue { get; set; } = "";
+        public bool   IsDifferent    { get; set; }
+        public bool   IsChecked      { get; set; }
+    }
+
+    private sealed record MatchSignal(string Label, string Level);
 }
