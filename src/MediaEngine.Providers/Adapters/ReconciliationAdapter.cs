@@ -1767,44 +1767,22 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         if (qidsToResolve.Count == 0)
             return claims;
 
-        // Batch fetch L{lang} labels for all entity QIDs.
-        var extensions = await ExtendAsync(
-            qidsToResolve.ToList(), [$"L{language}"], ct).ConfigureAwait(false);
-
+        // PRIMARY: use wbgetentities as the authoritative label source.
+        // reconci.link L{lang} pseudo-properties are not reliable — they sometimes return
+        // labels in the wrong language or return empty for valid entities (e.g. Q18590295 "Andy Weir").
+        // wbgetentities is the canonical Wikidata API and always returns the correct label.
         var resolvedLabels = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var ext in extensions)
+
+        if (_wikibaseApi is not null)
         {
-            if (ext.Properties.TryGetValue($"L{language}", out var values) && values.Count > 0)
-            {
-                var label = values[0].Str;
-                if (!string.IsNullOrWhiteSpace(label))
-                    resolvedLabels[ext.QID] = label;
-            }
-        }
-
-        // Fallback: for any QIDs that got no label from reconci.link L{lang},
-        // try wbgetentities with a language chain: configured language → "mul" → "en".
-        // Some entities (e.g. Q18590295 "Andy Weir") have no L{lang} pseudo-property
-        // on reconci.link but DO have labels in wbgetentities.
-        var unresolvedQids = qidsToResolve
-            .Where(q => !resolvedLabels.ContainsKey(q))
-            .ToList();
-
-        if (unresolvedQids.Count > 0 && _wikibaseApi is not null)
-        {
-            _logger.LogDebug(
-                "{Provider}: {Count} QID(s) have no '{Lang}' label from reconci.link — " +
-                "falling back to wbgetentities",
-                Name, unresolvedQids.Count, language);
-
-            // Build a language chain to try in order.
+            // Build a language chain: configured language → "mul" → "en" (last resort).
             var langChain = new List<string> { language };
             if (!string.Equals(language, "mul", StringComparison.OrdinalIgnoreCase))
                 langChain.Add("mul");
             if (!string.Equals(language, "en", StringComparison.OrdinalIgnoreCase))
                 langChain.Add("en");
 
-            var stillUnresolved = unresolvedQids.ToList();
+            var stillUnresolved = qidsToResolve.ToList();
             foreach (var lang in langChain)
             {
                 if (stillUnresolved.Count == 0) break;
@@ -1822,9 +1800,6 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                         {
                             resolvedLabels[entity.Qid] = entity.Label;
                             resolvedThisRound.Add(entity.Qid);
-                            _logger.LogDebug(
-                                "{Provider}: resolved QID {QID} label via wbgetentities lang='{Lang}': '{Label}'",
-                                Name, entity.Qid, lang, entity.Label);
                         }
                     }
 
@@ -1836,16 +1811,42 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 catch (Exception ex)
                 {
                     _logger.LogDebug(ex,
-                        "{Provider}: wbgetentities fallback failed for lang='{Lang}'",
+                        "{Provider}: wbgetentities label fetch failed for lang='{Lang}'",
                         Name, lang);
                     break;
                 }
             }
-        }
 
-        _logger.LogDebug(
-            "{Provider}: resolved {Count}/{Total} entity labels in language '{Lang}'",
-            Name, resolvedLabels.Count, qidsToResolve.Count, language);
+            _logger.LogDebug(
+                "{Provider}: resolved {Count}/{Total} entity labels via wbgetentities " +
+                "(primary: {Lang}, fallback: mul, en)",
+                Name, resolvedLabels.Count, qidsToResolve.Count, language);
+        }
+        else
+        {
+            // No IWikibaseApiService available (test environments) — fall back to the
+            // reconci.link L{lang} pseudo-property approach.
+            _logger.LogDebug(
+                "{Provider}: using reconci.link L{Lang} fallback (no IWikibaseApiService available)",
+                Name, language);
+
+            var extensions = await ExtendAsync(
+                qidsToResolve.ToList(), [$"L{language}"], ct).ConfigureAwait(false);
+
+            foreach (var ext in extensions)
+            {
+                if (ext.Properties.TryGetValue($"L{language}", out var values) && values.Count > 0)
+                {
+                    var label = values[0].Str;
+                    if (!string.IsNullOrWhiteSpace(label))
+                        resolvedLabels[ext.QID] = label;
+                }
+            }
+
+            _logger.LogDebug(
+                "{Provider}: resolved {Count}/{Total} entity labels in language '{Lang}'",
+                Name, resolvedLabels.Count, qidsToResolve.Count, language);
+        }
 
         // Replace labels in ALL claims.
         // - QIDs with a resolved label: update label to the L{lang} value (99% case).
