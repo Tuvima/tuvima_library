@@ -84,6 +84,11 @@ public interface IConfigurationLoader
     /// <summary>Persist media type definitions to <c>config/media_types.json</c>.</summary>
     void SaveMediaTypes(MediaTypeConfiguration config);
 
+    // ── Library Folders ───────────────────────────────────────────────────
+
+    /// <summary>Load library folder definitions from <c>config/libraries.json</c>.</summary>
+    LibrariesConfiguration LoadLibraries();
+
     // ── Field Priorities ───────────────────────────────────────────────────
 
     /// <summary>Load per-field provider priority overrides from <c>config/field_priorities.json</c>.</summary>

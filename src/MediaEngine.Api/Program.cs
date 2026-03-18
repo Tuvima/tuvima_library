@@ -266,6 +266,31 @@ builder.Services.PostConfigure<IngestionOptions>(opts =>
     {
         // First run — defaults from IngestionOptions stand.
     }
+
+    // Load library folder priors from config/libraries.json.
+    // These give the ingestion engine a strong media type prior when a file arrives
+    // from a folder whose content category is already known (e.g. Books folder → Audiobook).
+    try
+    {
+        var libraries = configLoader.LoadLibraries();
+        opts.LibraryFolders = libraries.Libraries
+            .Where(l => !string.IsNullOrWhiteSpace(l.SourcePath))
+            .Select(l => new MediaEngine.Ingestion.Models.LibraryFolderEntry
+            {
+                SourcePath = l.SourcePath,
+                MediaTypes = l.MediaTypes
+                    .Select(s => ParseMediaTypeFromConfig(s))
+                    .Where(mt => mt != MediaEngine.Domain.Enums.MediaType.Unknown)
+                    .ToList(),
+            })
+            .Where(e => e.MediaTypes.Count > 0)
+            .ToList();
+
+    }
+    catch
+    {
+        // No libraries.json or parse failure — library folder priors will not be applied.
+    }
 });
 
 builder.Services.AddSingleton<IAssetHasher, AssetHasher>();
@@ -601,5 +626,28 @@ if (app.Environment.IsDevelopment())
 
 app.Run();
 
+// ── Local helpers ────────────────────────────────────────────────────────────
 
+/// <summary>
+/// Maps config/libraries.json media type strings to the <see cref="MediaType"/> enum.
+/// Config uses short names ("Epub", "Audiobook") that differ from enum values
+/// ("Books", "Audiobooks"). This mapping bridges them.
+/// </summary>
+static MediaEngine.Domain.Enums.MediaType ParseMediaTypeFromConfig(string configValue)
+{
+    // First try direct enum parse (handles "Books", "Movies", "TV", "Music", "Podcasts", "Comic").
+    if (Enum.TryParse<MediaEngine.Domain.Enums.MediaType>(configValue, ignoreCase: true, out var mt))
+        return mt;
 
+    // Map config aliases to enum values.
+    return configValue.ToLowerInvariant() switch
+    {
+        "epub"      => MediaEngine.Domain.Enums.MediaType.Books,
+        "ebook"     => MediaEngine.Domain.Enums.MediaType.Books,
+        "audiobook" => MediaEngine.Domain.Enums.MediaType.Audiobooks,
+        "comics"    => MediaEngine.Domain.Enums.MediaType.Comic,
+        "podcast"   => MediaEngine.Domain.Enums.MediaType.Podcasts,
+        "movie"     => MediaEngine.Domain.Enums.MediaType.Movies,
+        _           => MediaEngine.Domain.Enums.MediaType.Unknown,
+    };
+}

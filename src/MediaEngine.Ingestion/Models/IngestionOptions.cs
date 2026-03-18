@@ -1,6 +1,25 @@
 using System.IO;
+using MediaEngine.Domain.Enums;
 
 namespace MediaEngine.Ingestion.Models;
+
+/// <summary>
+/// Represents a single entry from <c>config/libraries.json</c>.
+/// Populated during startup PostConfigure and made available to the
+/// ingestion pipeline so media type disambiguation can use the
+/// library folder's configured media types as a strong prior.
+/// </summary>
+public sealed class LibraryFolderEntry
+{
+    /// <summary>Source path monitored by this library folder.</summary>
+    public string SourcePath { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Media types configured for this library folder (e.g. Epub, Audiobook).
+    /// Parsed from the JSON <c>media_types</c> string array at startup.
+    /// </summary>
+    public IReadOnlyList<MediaType> MediaTypes { get; init; } = [];
+}
 
 /// <summary>
 /// Runtime options that control the ingestion pipeline behaviour.
@@ -125,6 +144,17 @@ public sealed class IngestionOptions
     /// Default: 0.40.
     /// </summary>
     public double MediaTypeReviewThreshold { get; set; } = 0.40;
+
+    // ── Library Folder Priors ─────────────────────────────────────────
+
+    /// <summary>
+    /// Library folder entries loaded from <c>config/libraries.json</c>.
+    /// Each entry maps a source path to its configured media types so that
+    /// the ingestion pipeline can apply a strong media type prior when a
+    /// file arrives from a folder whose content category is known.
+    /// Populated by the PostConfigure hook in Program.cs at startup.
+    /// </summary>
+    public IReadOnlyList<LibraryFolderEntry> LibraryFolders { get; set; } = [];
 
     // ── Template Resolution ────────────────────────────────────────────
 

@@ -443,6 +443,7 @@ file sealed class IntegrationConfigLoader : IConfigurationLoader
     public void SaveTranscoding(TranscodingSettings settings) { }
     public FieldPriorityConfiguration LoadFieldPriorities() => new();
     public void SaveFieldPriorities(FieldPriorityConfiguration config) { }
+    public LibrariesConfiguration LoadLibraries() => new();
     public ProviderConfiguration? LoadProvider(string name) => null;
     public void SaveProvider(ProviderConfiguration config) { }
     public IReadOnlyList<ProviderConfiguration> LoadAllProviders() => [];

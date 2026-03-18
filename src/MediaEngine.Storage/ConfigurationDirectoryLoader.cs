@@ -259,6 +259,14 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
     public void SaveFieldPriorities(FieldPriorityConfiguration config) =>
         SaveFile(FieldPrioritiesFileName, config);
 
+    // ── Libraries ────────────────────────────────────────────────────────────
+
+    private const string LibrariesFileName = "libraries.json";
+
+    /// <inheritdoc/>
+    public LibrariesConfiguration LoadLibraries() =>
+        LoadFile<LibrariesConfiguration>(LibrariesFileName) ?? new();
+
     /// <inheritdoc/>
     public ProviderSlotConfiguration LoadSlots()
     {

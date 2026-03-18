@@ -3,7 +3,7 @@
   "libraries": [
     {
       "category": "Books",
-      "media_types": ["Epub", "Audiobook"],
+      "media_types": ["Books", "Audiobooks"],
       "source_path": "",
       "library_root": "",
       "intake_mode": "watch",

@@ -627,9 +627,78 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         bool mediaTypeIsConflicted = false;
         bool mediaTypeNeedsReview  = false;
 
-        if (result.MediaTypeCandidates.Count > 0)
+        // Library folder prior: if the file comes from a configured library folder
+        // (config/libraries.json), use that folder's media_types as a strong prior.
+        // This prevents MP3 files in a Books/Audiobook folder from being classified
+        // as Music when the processor heuristics are ambiguous.
+        var candidateList = result.MediaTypeCandidates.ToList();
+        if (_options.LibraryFolders.Count > 0 && candidateList.Count > 0)
         {
-            var topCandidate = result.MediaTypeCandidates[0];
+            var matchedFolder = _options.LibraryFolders.FirstOrDefault(f =>
+                !string.IsNullOrWhiteSpace(f.SourcePath) &&
+                candidate.Path.StartsWith(f.SourcePath, StringComparison.OrdinalIgnoreCase));
+
+            if (matchedFolder is not null && matchedFolder.MediaTypes.Count > 0)
+            {
+                var folderTypes = matchedFolder.MediaTypes;
+
+                // Find the processor's top candidate that is also in the folder's configured types.
+                var matchingCandidate = candidateList.FirstOrDefault(c => folderTypes.Contains(c.Type));
+
+                if (matchingCandidate is not null)
+                {
+                    // The processor agrees with the folder's configured type(s) — boost confidence.
+                    // Must exceed the top candidate's confidence to win the sort, and be at least 0.98
+                    // (library folder config is authoritative when a matching type exists).
+                    var topConfidence = candidateList.Max(c => c.Confidence);
+                    var boostedConfidence = Math.Max(Math.Max(topConfidence + 0.01, matchingCandidate.Confidence), 0.98);
+                    var index = candidateList.IndexOf(matchingCandidate);
+                    candidateList[index] = new Domain.Models.MediaTypeCandidate
+                    {
+                        Type       = matchingCandidate.Type,
+                        Confidence = boostedConfidence,
+                        Reason     = matchingCandidate.Reason,
+                    };
+
+                    // Re-sort so the boosted candidate is first.
+                    candidateList = [.. candidateList.OrderByDescending(c => c.Confidence)];
+
+                    _logger.LogInformation(
+                        "Library folder prior applied: boosted {Type} to {Confidence:P0} for {Path} (folder configured for [{Types}])",
+                        matchingCandidate.Type, boostedConfidence, candidate.Path,
+                        string.Join(", ", folderTypes));
+                }
+                else if (folderTypes.Count == 1)
+                {
+                    // Processor did not produce a candidate matching the folder's single type.
+                    // Override to the folder's type at high confidence — the folder config is authoritative.
+                    candidateList.Insert(0, new Domain.Models.MediaTypeCandidate
+                    {
+                        Type       = folderTypes[0],
+                        Confidence = 0.95,
+                        Reason     = $"Library folder configured for {folderTypes[0]}",
+                    });
+
+                    _logger.LogInformation(
+                        "Library folder prior override: assigned {Type} at 0.95 for {Path} (processor top was {ProcessorTop}; folder only allows {Type})",
+                        folderTypes[0], candidate.Path,
+                        candidateList.Count > 1 ? candidateList[1].Type.ToString() : "none",
+                        folderTypes[0]);
+                }
+                else
+                {
+                    // Processor top candidate is not in the folder's multi-type list.
+                    // Keep processor result but log the mismatch for diagnostics.
+                    _logger.LogInformation(
+                        "Library folder prior: processor top {ProcessorTop} not in folder types [{Types}] for {Path} — no override applied",
+                        candidateList[0].Type, string.Join(", ", folderTypes), candidate.Path);
+                }
+            }
+        }
+
+        if (candidateList.Count > 0)
+        {
+            var topCandidate = candidateList[0];
 
             if (topCandidate.Confidence >= _options.MediaTypeAutoAssignThreshold)
             {
@@ -708,10 +777,10 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         }
 
         // Create AmbiguousMediaType review item when media type confidence is below threshold.
-        if (mediaTypeNeedsReview && result.MediaTypeCandidates.Count > 0)
+        if (mediaTypeNeedsReview && candidateList.Count > 0)
         {
             var candidatesJson = JsonSerializer.Serialize(
-                result.MediaTypeCandidates.Select(c => new
+                candidateList.Select(c => new
                 {
                     type       = c.Type.ToString(),
                     confidence = c.Confidence,
@@ -721,9 +790,9 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
             await CreateAmbiguousMediaTypeReviewItemAsync(
                 assetId,
-                result.MediaTypeCandidates[0].Confidence,
+                candidateList[0].Confidence,
                 candidatesJson,
-                result.MediaTypeCandidates[0].Reason,
+                candidateList[0].Reason,
                 ct, ingestionRunId).ConfigureAwait(false);
         }
 
