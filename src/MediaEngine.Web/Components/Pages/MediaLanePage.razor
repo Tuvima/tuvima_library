@@ -35,7 +35,7 @@ else if (!IsImplementedLane)
         </p>
     </div>
 }
-else if (_allHubs.Count == 0)
+else if (_laneWorks.Count == 0 && _allHubs.Count == 0)
 {
     @* ── Empty state — no content for this lane ── *@
     <div class="lane-empty-state">
@@ -106,7 +106,7 @@ else
     @if (_viewMode == "az")
     {
         @* ── A-Z Browse mode ── *@
-        <AlphabeticalGrid Items="@FlattenToItems(_displayHubs)"
+        <AlphabeticalGrid Items="@WorksToItems(_displayWorks)"
                           OnItemSelected="HandleItemSelected"
                           CardWidth="@_cardWidth" />
     }
@@ -125,11 +125,11 @@ else
         }
 
         @* Recently Added *@
-        @if (_recentHubs.Count > 0 && !_filterState.HasActiveFilters)
+        @if (_recentWorks.Count > 0 && !_filterState.HasActiveFilters)
         {
             <PosterSwimlane Title="Recently Added"
-                            TotalCount="@_recentHubs.Count"
-                            Items="@FlattenToItems(_recentHubs.Take(12))"
+                            TotalCount="@_recentWorks.Count"
+                            Items="@WorksToItems(_recentWorks.Take(12))"
                             OnItemSelected="HandleItemSelected"
                             CardWidth="@_cardWidth" />
         }
@@ -137,9 +137,9 @@ else
         @* Filtered results (when filters are active) *@
         @if (_filterState.HasActiveFilters)
         {
-            <PosterSwimlane Title="@($"Results ({_displayHubs.Count})")"
-                            TotalCount="@_displayHubs.Count"
-                            Items="@FlattenToItems(_displayHubs.Take(24))"
+            <PosterSwimlane Title="@($"Results ({_displayWorks.Count})")"
+                            TotalCount="@_displayWorks.Count"
+                            Items="@WorksToItems(_displayWorks.Take(24))"
                             OnItemSelected="HandleItemSelected"
                             CardWidth="@_cardWidth" />
         }
@@ -149,13 +149,13 @@ else
             @foreach (var personGroup in _personGroups.Take(5))
             {
                 <PosterSwimlane Title="@personGroup.PersonName"
-                                Items="@FlattenToItems(personGroup.Hubs)"
+                                Items="@WorksToItems(personGroup.Works)"
                                 OnItemSelected="HandleItemSelected"
                                 CardWidth="@_cardWidth">
                     <HeaderContent>
                         <PersonSwimlaneHeader PersonName="@personGroup.PersonName"
                                               HeadshotUrl="@personGroup.HeadshotUrl"
-                                              ItemCount="@personGroup.Hubs.Count"
+                                              ItemCount="@personGroup.Works.Count"
                                               ItemNoun="@_filterConfig.ItemNoun" />
                     </HeaderContent>
                 </PosterSwimlane>
@@ -167,8 +167,8 @@ else
                 @foreach (var seriesGroup in _seriesGroups.Take(5))
                 {
                     <PosterSwimlane Title="@seriesGroup.Name"
-                                    TotalCount="@seriesGroup.Hubs.Count"
-                                    Items="@FlattenToItems(seriesGroup.Hubs)"
+                                    TotalCount="@seriesGroup.Works.Count"
+                                    Items="@WorksToItems(seriesGroup.Works)"
                                     OnItemSelected="HandleItemSelected"
                                     CardWidth="@_cardWidth" />
                 }
@@ -178,8 +178,8 @@ else
             @foreach (var genreGroup in _genreGroups.Take(5))
             {
                 <PosterSwimlane Title="@genreGroup.Name"
-                                TotalCount="@genreGroup.Hubs.Count"
-                                Items="@FlattenToItems(genreGroup.Hubs)"
+                                TotalCount="@genreGroup.Works.Count"
+                                Items="@WorksToItems(genreGroup.Works)"
                                 OnItemSelected="HandleItemSelected"
                                 CardWidth="@_cardWidth" />
             }
@@ -188,8 +188,8 @@ else
             @foreach (var group in _mediaTypeGroups)
             {
                 <PosterSwimlane Title="@group.Name"
-                                TotalCount="@group.Hubs.Count"
-                                Items="@FlattenToItems(group.Hubs)"
+                                TotalCount="@group.Works.Count"
+                                Items="@WorksToItems(group.Works)"
                                 OnItemSelected="HandleItemSelected"
                                 CardWidth="@_cardWidth" />
             }
@@ -353,6 +353,7 @@ else
         catch
         {
             _allHubs = [];
+            _laneWorks = [];
         }
         finally
         {
@@ -362,27 +363,28 @@ else
 
     private void BuildFilterOptions()
     {
-        _availableGenres = _allHubs
-            .Where(h => h.Genres.Count > 0 || !string.IsNullOrEmpty(h.Genre))
-            .SelectMany(h => h.Genres.Count > 0
-                ? h.Genres
-                : h.Genre!.Split(['|', ',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        // Build filter options from works (primary data source).
+        _availableGenres = _laneWorks
+            .Where(w => w.Genres.Count > 0 || !string.IsNullOrEmpty(w.Genre))
+            .SelectMany(w => w.Genres.Count > 0
+                ? w.Genres
+                : w.Genre!.Split(['|', ',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                     .Where(g => g != "|"))
             .Where(g => g.Length > 0)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(g => g)
             .ToList();
 
-        _availablePersons = _allHubs
-            .Where(h => !string.IsNullOrEmpty(h.Author))
-            .Select(h => h.Author!)
+        _availablePersons = _laneWorks
+            .Where(w => !string.IsNullOrEmpty(w.Author))
+            .Select(w => w.Author!)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(a => a)
             .ToList();
 
-        _availableSeries = _allHubs
-            .Where(h => !string.IsNullOrEmpty(h.Series))
-            .Select(h => h.Series!)
+        _availableSeries = _laneWorks
+            .Where(w => !string.IsNullOrEmpty(w.Series))
+            .Select(w => w.Series!)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(s => s)
             .ToList();
@@ -390,50 +392,62 @@ else
 
     private void ApplyFilters(IReadOnlyList<JourneyItemViewModel>? journeyItems = null)
     {
-        var filtered = _allHubs.AsEnumerable();
+        // Apply filters to works (primary data source).
+        var filteredWorks = _laneWorks.AsEnumerable();
 
         // Format filter.
         if (_filterState.Format != "All")
         {
             var fmt = _filterState.Format.ToLowerInvariant();
-            filtered = filtered.Where(h =>
-                (h.PrimaryMediaType ?? "").Contains(fmt, StringComparison.OrdinalIgnoreCase));
+            filteredWorks = filteredWorks.Where(w =>
+                (w.MediaType ?? "").Contains(fmt, StringComparison.OrdinalIgnoreCase));
         }
 
         // Genre filter.
         if (_filterState.SelectedGenres.Count > 0)
-            filtered = filtered.Where(h => !string.IsNullOrEmpty(h.Genre)
+            filteredWorks = filteredWorks.Where(w => !string.IsNullOrEmpty(w.Genre)
                 && _filterState.SelectedGenres.Any(g =>
-                    h.Genre!.Contains(g, StringComparison.OrdinalIgnoreCase)));
+                    w.Genre!.Contains(g, StringComparison.OrdinalIgnoreCase)));
 
         // Person filter.
         if (!string.IsNullOrEmpty(_filterState.PersonSearch))
-            filtered = filtered.Where(h => !string.IsNullOrEmpty(h.Author)
-                && h.Author!.Contains(_filterState.PersonSearch, StringComparison.OrdinalIgnoreCase));
+            filteredWorks = filteredWorks.Where(w => !string.IsNullOrEmpty(w.Author)
+                && w.Author!.Contains(_filterState.PersonSearch, StringComparison.OrdinalIgnoreCase));
 
         // Series filter.
         if (!string.IsNullOrEmpty(_filterState.SeriesFilter))
-            filtered = filtered.Where(h => !string.IsNullOrEmpty(h.Series)
-                && h.Series!.Equals(_filterState.SeriesFilter, StringComparison.OrdinalIgnoreCase));
+            filteredWorks = filteredWorks.Where(w => !string.IsNullOrEmpty(w.Series)
+                && w.Series!.Equals(_filterState.SeriesFilter, StringComparison.OrdinalIgnoreCase));
 
         // Year range.
         if (!string.IsNullOrEmpty(_filterState.YearFrom) && int.TryParse(_filterState.YearFrom, out var from))
-            filtered = filtered.Where(h => int.TryParse(h.Year, out var y) && y >= from);
+            filteredWorks = filteredWorks.Where(w => int.TryParse(w.Year, out var y) && y >= from);
         if (!string.IsNullOrEmpty(_filterState.YearTo) && int.TryParse(_filterState.YearTo, out var to))
-            filtered = filtered.Where(h => int.TryParse(h.Year, out var y) && y <= to);
+            filteredWorks = filteredWorks.Where(w => int.TryParse(w.Year, out var y) && y <= to);
 
         // Sort.
-        filtered = _filterState.SortBy switch
+        filteredWorks = _filterState.SortBy switch
         {
-            "title-az"  => filtered.OrderBy(h => h.DisplayName),
-            "title-za"  => filtered.OrderByDescending(h => h.DisplayName),
-            "person-az" => filtered.OrderBy(h => h.Author ?? "zzz"),
-            "year-new"  => filtered.OrderByDescending(h => h.Year ?? "0"),
-            "year-old"  => filtered.OrderBy(h => h.Year ?? "9999"),
-            _           => filtered.OrderByDescending(h => h.CreatedAt),
+            "title-az"  => filteredWorks.OrderBy(w => w.Title),
+            "title-za"  => filteredWorks.OrderByDescending(w => w.Title),
+            "person-az" => filteredWorks.OrderBy(w => w.Author ?? "zzz"),
+            "year-new"  => filteredWorks.OrderByDescending(w => w.Year ?? "0"),
+            "year-old"  => filteredWorks.OrderBy(w => w.Year ?? "9999"),
+            _           => filteredWorks.OrderByDescending(w =>
+                               w.CanonicalValues.Select(cv => cv.LastScoredAt).DefaultIfEmpty(DateTimeOffset.MinValue).Max()),
         };
 
-        _displayHubs = filtered.ToList();
+        _displayWorks = filteredWorks.ToList();
+
+        // Recently added works (sorted by most recent canonical value timestamp).
+        _recentWorks = _displayWorks
+            .OrderByDescending(w =>
+                w.CanonicalValues.Select(cv => cv.LastScoredAt).DefaultIfEmpty(DateTimeOffset.MinValue).Max())
+            .Take(12)
+            .ToList();
+
+        // Keep hub filtering for backward compat (hero selection, journey).
+        _displayHubs = _allHubs.OrderByDescending(h => h.CreatedAt).ToList();
 
         // Hero selection — prefer active journey item.
         var withCovers = _displayHubs.Where(h =>
@@ -464,8 +478,8 @@ else
             _heroJourney = null;
         }
 
-        // Recently added.
-        _recentHubs = _displayHubs.OrderByDescending(h => h.CreatedAt).Take(12).ToList();
+        // Keep hub-based recent for backward compat.
+        _recentHubs = _displayHubs.Take(12).ToList();
 
         // Build smart section groups.
         BuildGroups();
@@ -473,10 +487,10 @@ else
 
     private void BuildGroups()
     {
-        // Person groups (Author, Director, Artist, etc.).
-        _personGroups = _displayHubs
-            .Where(h => !string.IsNullOrEmpty(h.Author))
-            .GroupBy(h => h.Author!, StringComparer.OrdinalIgnoreCase)
+        // Person groups from works (primary data source).
+        _personGroups = _displayWorks
+            .Where(w => !string.IsNullOrEmpty(w.Author))
+            .GroupBy(w => w.Author!, StringComparer.OrdinalIgnoreCase)
             .Where(g => g.Count() >= 2)
             .OrderByDescending(g => g.Count())
             .Take(5)
@@ -484,48 +498,44 @@ else
             {
                 _personLookup.TryGetValue(g.Key.ToLowerInvariant(), out var person);
                 var headshot = person?.LocalHeadshotUrl ?? person?.HeadshotUrl;
-                return new PersonGroup(g.Key, headshot, g.ToList(), g.SelectMany(h => h.Works).ToList());
+                return new PersonGroup(g.Key, headshot, [], g.ToList());
             })
             .ToList();
 
-        // Series groups.
-        _seriesGroups = _displayHubs
-            .Where(h => !string.IsNullOrEmpty(h.Series))
-            .GroupBy(h => h.Series!, StringComparer.OrdinalIgnoreCase)
+        // Series groups from works.
+        _seriesGroups = _displayWorks
+            .Where(w => !string.IsNullOrEmpty(w.Series))
+            .GroupBy(w => w.Series!, StringComparer.OrdinalIgnoreCase)
             .Where(g => g.Count() >= 2)
             .OrderByDescending(g => g.Count())
             .Take(5)
-            .Select(g => new NamedGroup(g.Key,
-                g.OrderBy(h => h.Year ?? "9999").ToList(),
-                g.OrderBy(h => h.Year ?? "9999").SelectMany(h => h.Works).ToList()))
+            .Select(g => new NamedGroup(g.Key, [],
+                g.OrderBy(w => w.Year ?? "9999").ToList()))
             .ToList();
 
-        // Genre groups.
-        _genreGroups = _displayHubs
-            .Where(h => h.Genres.Count > 0 || !string.IsNullOrEmpty(h.Genre))
-            .SelectMany(h => (h.Genres.Count > 0
-                    ? h.Genres
-                    : h.Genre!.Split(['|', ',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        // Genre groups from works.
+        _genreGroups = _displayWorks
+            .Where(w => w.Genres.Count > 0 || !string.IsNullOrEmpty(w.Genre))
+            .SelectMany(w => (w.Genres.Count > 0
+                    ? w.Genres
+                    : w.Genre!.Split(['|', ',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                         .Where(g => g != "|"))
                 .Where(g => g.Length > 0)
-                .Select(g => (Genre: g, Hub: h)))
+                .Select(g => (Genre: g, Work: w)))
             .GroupBy(x => x.Genre, StringComparer.OrdinalIgnoreCase)
             .Where(g => g.Count() >= 2)
             .OrderByDescending(g => g.Count())
             .Take(5)
-            .Select(g =>
-            {
-                var hubs = g.Select(x => x.Hub).Distinct().ToList();
-                return new NamedGroup(g.Key, hubs, hubs.SelectMany(h => h.Works).ToList());
-            })
+            .Select(g => new NamedGroup(g.Key, [],
+                g.Select(x => x.Work).Distinct().ToList()))
             .ToList();
 
-        // Media-type sub-groups (e.g. Books lane → "eBooks", "Audiobooks").
-        _mediaTypeGroups = _allHubs
-            .Where(h => !string.IsNullOrEmpty(h.PrimaryMediaType))
-            .GroupBy(h => FormatMediaType(h.PrimaryMediaType!))
+        // Media-type sub-groups from works (e.g. Books lane → "eBooks", "Audiobooks").
+        _mediaTypeGroups = _laneWorks
+            .Where(w => !string.IsNullOrEmpty(w.MediaType))
+            .GroupBy(w => FormatMediaType(w.MediaType!))
             .Where(g => g.Count() >= 2)
-            .Select(g => new NamedGroup(g.Key, g.ToList(), g.SelectMany(h => h.Works).ToList()))
+            .Select(g => new NamedGroup(g.Key, [], g.ToList()))
             .ToList();
     }
 

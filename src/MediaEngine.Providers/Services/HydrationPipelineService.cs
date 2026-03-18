@@ -665,7 +665,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                             request, ReviewTrigger.LanguageMismatch, 0.0,
                             $"File language '{langCanonical.Value}' does not match the configured library language '{appLanguage}'. " +
                             "This may be a foreign edition or incorrectly tagged file.",
-                            result, ct).ConfigureAwait(false);
+                            result, ct, deferredReviewNotifications).ConfigureAwait(false);
                     }
                 }
             }
@@ -995,7 +995,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                     await CreateReviewItemAsync(
                         request, ReviewTrigger.ArtworkUnconfirmed, 0.0,
                         "Cover art was sourced via text search (no ISBN or Apple Books ID available). Please confirm the artwork is correct.",
-                        result, ct).ConfigureAwait(false);
+                        result, ct, deferredReviewNotifications).ConfigureAwait(false);
                 }
             }
         }
@@ -1009,7 +1009,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             await CreateReviewItemAsync(
                 request, ReviewTrigger.ContentMatchFailed, 0.0,
                 $"All enrichment waterfall providers returned no results for this {request.MediaType}",
-                result, ct).ConfigureAwait(false);
+                result, ct, deferredReviewNotifications).ConfigureAwait(false);
         }
         else
         {
@@ -1060,7 +1060,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                     await CreateReviewItemAsync(
                         request, ReviewTrigger.MissingQid, 0.0,
                         $"No Wikidata QID found. Enrichment match exists ({result.Stage2ClaimsAdded} claims). Placeholder: {placeholder}",
-                        result, ct).ConfigureAwait(false);
+                        result, ct, deferredReviewNotifications).ConfigureAwait(false);
 
                     _logger.LogInformation(
                         "Assigned NF placeholder {Placeholder} to entity {Id} — retail match but no Wikidata QID",
@@ -1120,7 +1120,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 await CreateReviewItemAsync(
                     request, ReviewTrigger.LowConfidence, scored.OverallConfidence,
                     $"Overall confidence {scored.OverallConfidence:P0} below threshold {hydration.AutoReviewConfidenceThreshold:P0}",
-                    result, ct).ConfigureAwait(false);
+                    result, ct, deferredReviewNotifications).ConfigureAwait(false);
             }
             else
             {
@@ -1156,8 +1156,8 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             if (conflictedFields.Count > 0)
             {
                 await CreateMetadataConflictReviewItemAsync(
-                    request.EntityId, scored.OverallConfidence, conflictedFields, ct, request.IngestionRunId)
-                    .ConfigureAwait(false);
+                    request.EntityId, scored.OverallConfidence, conflictedFields, ct, request.IngestionRunId,
+                    deferredReviewNotifications).ConfigureAwait(false);
             }
             else
             {
@@ -1214,6 +1214,32 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             "Hydration pipeline complete for entity {Id}: S1={S1} S2={S2} total={Total} review={Review}",
             request.EntityId, result.Stage1ClaimsAdded, result.Stage2ClaimsAdded,
             result.TotalClaimsAdded, result.NeedsReview);
+
+        // ── Flush deferred review notifications ──────────────────────────────
+        // Now that the pipeline is complete (including auto-resolve passes),
+        // publish SignalR events only for review items that are still Pending.
+        // Items auto-resolved during the pipeline are silently dropped.
+        foreach (var reviewId in deferredReviewNotifications)
+        {
+            try
+            {
+                var review = await _reviewRepo.GetByIdAsync(reviewId, ct).ConfigureAwait(false);
+                if (review?.Status == ReviewStatus.Pending)
+                {
+                    await _eventPublisher.PublishAsync(
+                        "ReviewItemCreated",
+                        new ReviewItemCreatedEvent(
+                            review.Id, review.EntityId, review.Trigger, null),
+                        ct).ConfigureAwait(false);
+                }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(ex,
+                    "Failed to publish deferred ReviewItemCreated event for review {ReviewId}",
+                    reviewId);
+            }
+        }
 
         return result;
     }
