@@ -23,9 +23,38 @@
             }
         </span>
         @{
-            var (badgeText, badgeStyle) = RegistryHelpers.GetPrimaryStatusBadge(Item);
+            // Priority 1: review trigger badge
+            if (!string.IsNullOrEmpty(Item.ReviewTrigger))
+            {
+                var (label, color, _) = RegistryHelpers.FormatReviewTrigger(Item.ReviewTrigger);
+                var bgColor = $"rgba({HexToRgbInline(color)},0.15)";
+                <span class="sidebar-item-badge" style="background: @bgColor; color: @color;">@label</span>
+            }
+            // Priority 2: confidence badge with traffic-light color
+            else if (Item.Confidence > 0)
+            {
+                var hexColor = RegistryHelpers.GetConfidenceHexColor(Item.Confidence);
+                var pct = (int)(Item.Confidence * 100);
+                var bgColor = $"rgba({HexToRgbInline(hexColor)},0.15)";
+                <span class="sidebar-item-badge" style="background: @bgColor; color: @hexColor;">@pct%</span>
+            }
+            // Priority 3: status badge fallback
+            else
+            {
+                var (badgeText, badgeStyle) = RegistryHelpers.GetPrimaryStatusBadge(Item);
+                <span class="sidebar-item-badge" style="@badgeStyle">@badgeText</span>
+            }
         }
-        <span class="sidebar-item-badge" style="@badgeStyle">@badgeText</span>
+    </div>
+    <div class="sidebar-item-actions" @onclick:stopPropagation="true">
+        <button class="sidebar-item-action sidebar-item-action--approve"
+                @onclick="OnQuickApprove" title="Quick approve">
+            <MudIcon Icon="@Icons.Material.Outlined.Check" Size="Size.Small" />
+        </button>
+        <button class="sidebar-item-action sidebar-item-action--reject"
+                @onclick="OnQuickReject" title="Remove">
+            <MudIcon Icon="@Icons.Material.Outlined.Close" Size="Size.Small" />
+        </button>
     </div>
 </div>
 
@@ -33,6 +62,19 @@
     [Parameter, EditorRequired] public RegistryItemViewModel Item { get; set; } = default!;
     [Parameter] public bool IsSelected { get; set; }
     [Parameter] public EventCallback OnClick { get; set; }
+    [Parameter] public EventCallback OnQuickApprove { get; set; }
+    [Parameter] public EventCallback OnQuickReject { get; set; }
+
+    // Inline hex-to-RGB helper to avoid calling a static method in Razor expressions
+    private static string HexToRgbInline(string hex)
+    {
+        hex = hex.TrimStart('#');
+        if (hex.Length < 6) return "255,255,255";
+        var r = Convert.ToInt32(hex[..2], 16);
+        var g = Convert.ToInt32(hex[2..4], 16);
+        var b = Convert.ToInt32(hex[4..6], 16);
+        return $"{r},{g},{b}";
+    }
 }
 
 <style>
@@ -43,6 +85,7 @@
         cursor: pointer;
         border-left: 3px solid transparent;
         transition: background 0.15s ease;
+        align-items: center;
     }
 
     .sidebar-item:hover {
@@ -102,5 +145,51 @@
         border-radius: 4px;
         width: fit-content;
         margin-top: 2px;
+    }
+
+    /* Hide badge on hover to make room for actions */
+    .sidebar-item:hover .sidebar-item-badge {
+        display: none;
+    }
+
+    /* Quick-action hover icons */
+    .sidebar-item-actions {
+        display: none;
+        align-items: center;
+        gap: 2px;
+        flex-shrink: 0;
+    }
+
+    .sidebar-item:hover .sidebar-item-actions {
+        display: flex;
+    }
+
+    .sidebar-item-action {
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        padding: 2px;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        transition: all 0.15s ease;
+    }
+
+    .sidebar-item-action--approve {
+        color: rgba(76,175,80,0.5);
+    }
+
+    .sidebar-item-action--approve:hover {
+        color: #4CAF50;
+        background: rgba(76,175,80,0.12);
+    }
+
+    .sidebar-item-action--reject {
+        color: rgba(239,83,80,0.5);
+    }
+
+    .sidebar-item-action--reject:hover {
+        color: #EF5350;
+        background: rgba(239,83,80,0.12);
     }
 </style>

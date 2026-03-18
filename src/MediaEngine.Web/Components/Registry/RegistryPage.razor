@@ -3,7 +3,7 @@
 @inject IJSRuntime JS
 @implements IDisposable
 
-<div class="rp-shell @(_searchPanelEntityId.HasValue ? "rp-shell--search-open" : "")">
+<div class="rp-shell @(_selectedItem is not null ? "rp-shell--search-open" : "")">
     @* ── Left Sidebar ── *@
     <RegistrySidebar Counts="@_counts"
                      SelectedCategory="@_selectedCategory"
@@ -15,7 +15,9 @@
                      OnMediaTypeChanged="OnMediaTypeChanged"
                      OnSearchChanged="OnSearchChanged"
                      OnItemSelected="OnSidebarItemClicked"
-                     OnLoadMore="LoadMoreAsync" />
+                     OnLoadMore="LoadMoreAsync"
+                     OnQuickApprove="QuickApproveItem"
+                     OnQuickReject="QuickRejectItem" />
 
     @* ── Center Panel ── *@
     <div class="rp-center">
@@ -43,27 +45,29 @@
             <RegistryDetailView Detail="@_selectedDetail"
                                 Item="@_selectedItem"
                                 Loading="@_loadingDetail"
-                                SearchPanelEntityId="@_searchPanelEntityId"
                                 OnApprove="ApproveSelectedMatch"
-                                OnFindMatch="ToggleSearchPanel"
+                                OnRematch="TriggerRematch"
                                 OnRemove="RemoveSelectedItem"
                                 OnMatchApplied="OnMatchApplied" />
         }
     </div>
 
-    @if (_searchPanelEntityId.HasValue && _selectedItem is not null)
+    @if (_selectedItem is not null)
     {
         <div class="rp-search-column">
             <div class="rp-search-header">
                 <MudIcon Icon="@Icons.Material.Outlined.ManageSearch" Size="Size.Small" Style="color: #C9922E;" />
-                <span>Find Match</span>
-                <button class="rp-search-close" @onclick="ToggleSearchPanel">
-                    <MudIcon Icon="@Icons.Material.Outlined.Close" Size="Size.Small" />
-                </button>
+                <span>Find Metadata Match</span>
             </div>
             <MediaSearchPanel EntityId="@_selectedItem.EntityId"
                               InitialQuery="@_selectedItem.Title"
                               InitialMediaType="@_selectedItem.MediaType"
+                              CurrentTitle="@(_selectedDetail?.Title)"
+                              CurrentAuthor="@(_selectedDetail?.Author)"
+                              CurrentYear="@(_selectedDetail?.Year)"
+                              CurrentNarrator="@(_selectedDetail?.Narrator)"
+                              CurrentCoverUrl="@(_selectedDetail?.CoverUrl)"
+                              CurrentMediaType="@(_selectedItem.MediaType)"
                               OnMatchApplied="@OnMatchApplied" />
         </div>
     }
@@ -257,10 +261,44 @@
         }
     }
 
-    private void ToggleSearchPanel()
+    private void TriggerRematch()
     {
         if (_selectedItem is null) return;
-        _searchPanelEntityId = _searchPanelEntityId == _selectedItem.EntityId ? null : _selectedItem.EntityId;
+        // Open search panel (or close and reopen to reset state)
+        _searchPanelEntityId = null;
+        StateHasChanged();
+        _searchPanelEntityId = _selectedItem.EntityId;
+        StateHasChanged();
+    }
+
+    private async Task QuickApproveItem(Guid entityId)
+    {
+        var item = _items.FirstOrDefault(i => i.EntityId == entityId);
+        if (item?.ReviewItemId is null) return;
+        var ok = await Orchestrator.ResolveReviewAsync(item.ReviewItemId.Value, new ReviewResolveRequestDto());
+        if (ok)
+        {
+            item.Status = "Auto";
+            item.ReviewItemId = null;
+            await LoadCountsAsync();
+            StateHasChanged();
+        }
+    }
+
+    private async Task QuickRejectItem(Guid entityId)
+    {
+        var item = _items.FirstOrDefault(i => i.EntityId == entityId);
+        if (item is null) return;
+        if (item.ReviewItemId.HasValue)
+            await Orchestrator.DismissReviewAsync(item.ReviewItemId.Value);
+        _items.Remove(item);
+        if (_selectedEntityId == entityId)
+        {
+            _selectedEntityId = null;
+            _selectedDetail = null;
+            _selectedItem = null;
+        }
+        await LoadCountsAsync();
         StateHasChanged();
     }
 

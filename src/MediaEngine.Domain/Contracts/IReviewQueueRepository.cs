@@ -72,6 +72,15 @@ public interface IReviewQueueRepository
     /// </summary>
     Task<int> DismissAllByEntityAsync(Guid entityId, CancellationToken ct = default);
 
+    /// <summary>
+    /// Resolves all <c>Pending</c> review items for a given entity by setting
+    /// their status to <c>Resolved</c>. Called by <c>AutoOrganizeService</c> when
+    /// a file is successfully promoted from staging to the library — the review
+    /// items are moot once the file passes the organization gate.
+    /// Returns the number of items resolved.
+    /// </summary>
+    Task<int> ResolveAllByEntityAsync(Guid entityId, string resolvedBy = "system:auto-organize", CancellationToken ct = default);
+
     /// <summary>Deletes review queue entries whose entity_id no longer exists in media_assets.</summary>
     Task<int> PurgeOrphanedAsync(CancellationToken ct = default);
 }

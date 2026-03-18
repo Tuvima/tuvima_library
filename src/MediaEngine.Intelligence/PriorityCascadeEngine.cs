@@ -182,15 +182,6 @@ public sealed class PriorityCascadeEngine : IScoringEngine
             ? fieldScores.Average(f => f.Confidence)
             : 0.0;
 
-        // ── Field count scaling ────────────────────────────────────────
-        // Files with very few fields (e.g. only a filename-derived title)
-        // should not score high. Scale confidence by min(1, fieldCount/3)
-        // so a single-field file gets ~1/3 of its raw average.
-        if (fieldScores.Count == 1)
-        {
-            overallConfidence *= 1.0 / 3.0;
-        }
-
         // Apply Library Folder category confidence prior (same as before).
         if (context.CategoryConfidencePrior > 0.0)
             overallConfidence = Math.Min(1.0, overallConfidence + context.CategoryConfidencePrior);

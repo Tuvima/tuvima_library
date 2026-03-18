@@ -140,7 +140,7 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
     {
         using var conn = _db.CreateConnection();
         var count = conn.ExecuteScalar<int>(
-            "SELECT COUNT(*) FROM review_queue WHERE status = @status",
+            "SELECT COUNT(DISTINCT entity_id) FROM review_queue WHERE status = @status",
             new { status = ReviewStatus.Pending });
 
         return Task.FromResult(count);
@@ -163,6 +163,29 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
             now       = DateTimeOffset.UtcNow.ToString("O"),
             entityId  = entityId.ToString(),
             pending   = ReviewStatus.Pending,
+        });
+
+        return Task.FromResult(rows);
+    }
+
+    /// <inheritdoc/>
+    public Task<int> ResolveAllByEntityAsync(Guid entityId, string resolvedBy = "system:auto-organize", CancellationToken ct = default)
+    {
+        using var conn = _db.CreateConnection();
+        var rows = conn.Execute("""
+            UPDATE review_queue
+            SET    status      = @resolved,
+                   resolved_at = @now,
+                   resolved_by = @resolvedBy
+            WHERE  entity_id = @entityId
+              AND  status     = @pending
+            """, new
+        {
+            resolved   = ReviewStatus.Resolved,
+            now        = DateTimeOffset.UtcNow.ToString("O"),
+            resolvedBy,
+            entityId   = entityId.ToString(),
+            pending    = ReviewStatus.Pending,
         });
 
         return Task.FromResult(rows);

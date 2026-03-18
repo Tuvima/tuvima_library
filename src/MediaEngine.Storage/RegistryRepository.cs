@@ -60,14 +60,47 @@ public sealed class RegistryRepository : IRegistryRepository
                 GROUP BY e.work_id
             ),
             review_data AS (
-                SELECT rq.entity_id,
-                       MIN(rq.id) AS review_id,
-                       MIN(rq.trigger) AS trigger,
-                       MAX(rq.confidence_score) AS confidence_score,
-                       MIN(rq.candidates_json) AS candidates_json
+                SELECT DISTINCT rq.entity_id,
+                       (SELECT id FROM review_queue rq2
+                        WHERE rq2.entity_id = rq.entity_id AND rq2.status = 'Pending'
+                        ORDER BY CASE rq2.trigger
+                            WHEN 'AuthorityMatchFailed'  THEN 1
+                            WHEN 'StagedUnidentifiable'  THEN 2
+                            WHEN 'PlaceholderTitle'      THEN 3
+                            WHEN 'AmbiguousMediaType'    THEN 4
+                            WHEN 'MultipleQidMatches'    THEN 5
+                            WHEN 'LowConfidence'         THEN 6
+                            WHEN 'MissingQid'            THEN 7
+                            WHEN 'ContentMatchFailed'    THEN 8
+                            WHEN 'ArtworkUnconfirmed'    THEN 9
+                            WHEN 'LanguageMismatch'      THEN 10
+                            WHEN 'NonConfiguredLanguage' THEN 11
+                            ELSE 99
+                        END LIMIT 1) AS review_id,
+                       (SELECT trigger FROM review_queue rq2
+                        WHERE rq2.entity_id = rq.entity_id AND rq2.status = 'Pending'
+                        ORDER BY CASE rq2.trigger
+                            WHEN 'AuthorityMatchFailed'  THEN 1
+                            WHEN 'StagedUnidentifiable'  THEN 2
+                            WHEN 'PlaceholderTitle'      THEN 3
+                            WHEN 'AmbiguousMediaType'    THEN 4
+                            WHEN 'MultipleQidMatches'    THEN 5
+                            WHEN 'LowConfidence'         THEN 6
+                            WHEN 'MissingQid'            THEN 7
+                            WHEN 'ContentMatchFailed'    THEN 8
+                            WHEN 'ArtworkUnconfirmed'    THEN 9
+                            WHEN 'LanguageMismatch'      THEN 10
+                            WHEN 'NonConfiguredLanguage' THEN 11
+                            ELSE 99
+                        END LIMIT 1) AS trigger,
+                       (SELECT MAX(confidence_score) FROM review_queue rq2
+                        WHERE rq2.entity_id = rq.entity_id AND rq2.status = 'Pending') AS confidence_score,
+                       (SELECT candidates_json FROM review_queue rq2
+                        WHERE rq2.entity_id = rq.entity_id AND rq2.status = 'Pending'
+                          AND rq2.candidates_json IS NOT NULL
+                        LIMIT 1) AS candidates_json
                 FROM review_queue rq
                 WHERE rq.status = 'Pending'
-                GROUP BY rq.entity_id
             ),
             user_lock_data AS (
                 SELECT mc.entity_id, 1 AS has_locks
@@ -267,6 +300,20 @@ public sealed class RegistryRepository : IRegistryRepository
                    detail AS Detail, candidates_json AS CandidatesJson
             FROM review_queue
             WHERE (entity_id = @assetId OR entity_id = @entityId) AND status = 'Pending'
+            ORDER BY CASE trigger
+                WHEN 'AuthorityMatchFailed'  THEN 1
+                WHEN 'StagedUnidentifiable'  THEN 2
+                WHEN 'PlaceholderTitle'      THEN 3
+                WHEN 'AmbiguousMediaType'    THEN 4
+                WHEN 'MultipleQidMatches'    THEN 5
+                WHEN 'LowConfidence'         THEN 6
+                WHEN 'MissingQid'            THEN 7
+                WHEN 'ContentMatchFailed'    THEN 8
+                WHEN 'ArtworkUnconfirmed'    THEN 9
+                WHEN 'LanguageMismatch'      THEN 10
+                WHEN 'NonConfiguredLanguage' THEN 11
+                ELSE 99
+            END
             LIMIT 1
             """, new { assetId = assetIdStr, entityId = entityId.ToString() });
 
@@ -413,7 +460,7 @@ public sealed class RegistryRepository : IRegistryRepository
         if (!string.IsNullOrWhiteSpace(query.Search))
             cmd.Parameters.AddWithValue("@search", $"%{query.Search}%");
         if (!string.IsNullOrWhiteSpace(query.MediaType))
-            cmd.Parameters.AddWithValue("@mediaType", query.MediaType);
+            cmd.Parameters.AddWithValue("@mediaType", NormalizeMediaType(query.MediaType));
         if (!string.IsNullOrWhiteSpace(query.Status) && query.Status != "Approved")
             cmd.Parameters.AddWithValue("@status", query.Status);
         if (query.MinConfidence.HasValue)
@@ -421,4 +468,19 @@ public sealed class RegistryRepository : IRegistryRepository
         if (!string.IsNullOrWhiteSpace(query.MatchSource))
             cmd.Parameters.AddWithValue("@matchSource", query.MatchSource);
     }
+
+    /// <summary>
+    /// Maps legacy or variant media type strings to the canonical <see cref="Domain.Enums.MediaType"/>
+    /// enum name stored in the database. Prevents filter mismatches when UI sends a different casing
+    /// or legacy name (e.g. "Epub" instead of "Books", "Audiobook" instead of "Audiobooks").
+    /// </summary>
+    private static string NormalizeMediaType(string raw) => raw.ToUpperInvariant() switch
+    {
+        "EPUB" or "BOOK" or "EBOOK"         => "Books",
+        "AUDIOBOOK"                          => "Audiobooks",
+        "MOVIE"                              => "Movies",
+        "COMICS"                             => "Comic",
+        "PODCAST"                            => "Podcasts",
+        _ => raw, // Already matches enum name (Books, Audiobooks, Movies, TV, Comic, Podcasts, Music)
+    };
 }

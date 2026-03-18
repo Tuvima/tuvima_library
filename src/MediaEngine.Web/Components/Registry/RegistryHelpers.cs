@@ -21,39 +21,35 @@ public static class RegistryHelpers
 
     public static string FormatMediaType(string? mediaType) => mediaType?.ToUpperInvariant() switch
     {
-        "EPUB" => "Book",
-        "AUDIOBOOK" => "Audiobook",
-        "MOVIES" => "Movie",
-        "TV" => "TV",
-        "MUSIC" => "Music",
-        "COMICS" => "Comic",
-        "PODCASTS" => "Podcast",
-        "UNIVERSE" => "Universe",
+        "EPUB" or "BOOKS" or "BOOK"      => "Book",
+        "AUDIOBOOK" or "AUDIOBOOKS"      => "Audiobook",
+        "MOVIES" or "MOVIE"              => "Movie",
+        "TV"                             => "TV",
+        "MUSIC"                          => "Music",
+        "COMICS" or "COMIC"              => "Comic",
+        "PODCASTS" or "PODCAST"          => "Podcast",
         _ => mediaType ?? "—",
     };
 
     public static Color GetConfidenceColor(double conf) => conf switch
     {
-        >= 0.95 => Color.Success,
-        >= 0.85 => Color.Info,
-        >= 0.70 => Color.Warning,
+        >= 0.85 => Color.Success,
+        >= 0.60 => Color.Warning,
         _ => Color.Error,
     };
 
     public static string GetConfidenceHexColor(double conf) => conf switch
     {
-        >= 0.95 => "#4CAF50",
-        >= 0.85 => "#26A69A",
-        >= 0.70 => "#EAB308",
+        >= 0.85 => "#4CAF50",
+        >= 0.60 => "#EAB308",
         _ => "#EF5350",
     };
 
     public static string GetConfidenceLabel(double conf) => conf switch
     {
-        >= 0.95 => "Excellent",
-        >= 0.85 => "Good",
-        >= 0.70 => "Fair",
-        _ => "Weak",
+        >= 0.85 => "High",
+        >= 0.60 => "Medium",
+        _ => "Low",
     };
 
     public static string GetStatusChipStyle(string status) => status switch

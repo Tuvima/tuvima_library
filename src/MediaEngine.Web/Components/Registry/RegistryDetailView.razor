@@ -58,6 +58,33 @@ else
             </span>
         </div>
 
+        @* ── Threshold Indicator ── *@
+        <div class="rdv-threshold-row">
+            @if (Detail.Confidence >= 0.85)
+            {
+                <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Size="Size.Small"
+                         Style="color: #4CAF50; font-size: 0.85rem;" />
+                <span style="color: #4CAF50; font-size: 0.72rem; font-weight: 500;">Above threshold</span>
+            }
+            else
+            {
+                <MudIcon Icon="@Icons.Material.Outlined.Warning" Size="Size.Small"
+                         Style="color: #EAB308; font-size: 0.85rem;" />
+                <span style="color: #EAB308; font-size: 0.72rem; font-weight: 500;">Review required — Below threshold (85%)</span>
+            }
+        </div>
+
+        @* ── Match Signals ── *@
+        <div class="rdv-match-signals">
+            @foreach (var signal in GetMatchSignals())
+            {
+                <span class="rdv-signal-chip" style="@signal.Style">
+                    <MudIcon Icon="@signal.Icon" Style="font-size: 0.7rem;" />
+                    @signal.Label
+                </span>
+            }
+        </div>
+
         <div class="rdv-actions-row">
             @if (Item?.ReviewItemId is not null)
             {
@@ -66,9 +93,9 @@ else
                     Approve
                 </button>
             }
-            <button class="rdv-btn rdv-btn-find" @onclick="OnFindMatch">
-                <MudIcon Icon="@Icons.Material.Outlined.ManageSearch" Size="Size.Small" />
-                @(SearchPanelEntityId == Item?.EntityId ? "Close Search" : "Find Match")
+            <button class="rdv-btn rdv-btn-rematch" @onclick="OnRematch">
+                <MudIcon Icon="@Icons.Material.Outlined.Refresh" Size="Size.Small" />
+                Re-match
             </button>
             <button class="rdv-btn rdv-btn-remove" @onclick="OnRemove">
                 <MudIcon Icon="@Icons.Material.Outlined.DeleteOutline" Size="Size.Small" />
@@ -96,6 +123,15 @@ else
 
         @if (_activeTab == "metadata")
         {
+            @* ── Section header: unverified vs confirmed ── *@
+            @if (IsUnmatched)
+            {
+                <div class="rdv-unverified-banner">
+                    <MudIcon Icon="@Icons.Material.Outlined.Info" Size="Size.Small" Style="color: #EAB308;" />
+                    <span>File Metadata (unverified) — use search to link to Wikidata</span>
+                </div>
+            }
+
             @* ── Core Metadata Fields ── *@
             <div class="rdv-section">
                 @MetaRow("Author",          Detail.Author)
@@ -215,11 +251,15 @@ else
     [Parameter] public bool                         Loading { get; set; }
     [Parameter] public Guid?                        SearchPanelEntityId { get; set; }
     [Parameter] public EventCallback                OnApprove    { get; set; }
-    [Parameter] public EventCallback                OnFindMatch  { get; set; }
     [Parameter] public EventCallback                OnRemove     { get; set; }
     [Parameter] public EventCallback<ApplyMatchResponseDto> OnMatchApplied { get; set; }
+    [Parameter] public EventCallback                OnRematch    { get; set; }
 
     private string _activeTab = "metadata";
+
+    /// <summary>True when the item has no Wikidata QID — shows the "unverified" banner.</summary>
+    private bool IsUnmatched => Item?.ReviewItemId is not null
+        || string.IsNullOrEmpty(Detail?.WikidataQid);
 
     private static string GetHeroStyle(string? coverUrl) =>
         string.IsNullOrEmpty(coverUrl)
@@ -255,6 +295,57 @@ else
         >= 1_024         => $"{bytes / 1_024.0:F1} KB",
         _                => $"{bytes} B"
     };
+
+    private record MatchSignal(string Label, string Icon, string Style);
+
+    private List<MatchSignal> GetMatchSignals()
+    {
+        if (Detail is null) return [];
+        var signals = new List<MatchSignal>();
+
+        // Title always exists
+        signals.Add(new("Title match", Icons.Material.Outlined.Check,
+            "background: rgba(76,175,80,0.12); color: #4CAF50; border: 1px solid rgba(76,175,80,0.25);"));
+
+        // Author/Director
+        if (!string.IsNullOrEmpty(Detail.Author))
+            signals.Add(new("Author match", Icons.Material.Outlined.Check,
+                "background: rgba(76,175,80,0.12); color: #4CAF50; border: 1px solid rgba(76,175,80,0.25);"));
+        else if (!string.IsNullOrEmpty(Detail.Director))
+            signals.Add(new("Director match", Icons.Material.Outlined.Check,
+                "background: rgba(76,175,80,0.12); color: #4CAF50; border: 1px solid rgba(76,175,80,0.25);"));
+        else
+            signals.Add(new("Author missing", Icons.Material.Outlined.Remove,
+                "background: rgba(239,83,80,0.12); color: #EF5350; border: 1px solid rgba(239,83,80,0.25);"));
+
+        // Year
+        if (!string.IsNullOrEmpty(Detail.Year))
+            signals.Add(new("Year match", Icons.Material.Outlined.Check,
+                "background: rgba(76,175,80,0.12); color: #4CAF50; border: 1px solid rgba(76,175,80,0.25);"));
+        else
+            signals.Add(new("Year missing", Icons.Material.Outlined.Remove,
+                "background: rgba(234,179,8,0.12); color: #EAB308; border: 1px solid rgba(234,179,8,0.25);"));
+
+        // Format confidence based on match method
+        if (!string.IsNullOrEmpty(Detail.MatchMethod))
+            signals.Add(new($"Format: {Detail.MatchMethod}", Icons.Material.Outlined.Info,
+                "background: rgba(66,165,245,0.12); color: #42A5F5; border: 1px solid rgba(66,165,245,0.25);"));
+
+        // Cover art
+        if (!string.IsNullOrEmpty(Detail.CoverUrl))
+            signals.Add(new("Has cover", Icons.Material.Outlined.Image,
+                "background: rgba(76,175,80,0.12); color: #4CAF50; border: 1px solid rgba(76,175,80,0.25);"));
+        else
+            signals.Add(new("No cover", Icons.Material.Outlined.BrokenImage,
+                "background: rgba(239,83,80,0.12); color: #EF5350; border: 1px solid rgba(239,83,80,0.25);"));
+
+        // Wikidata QID
+        if (!string.IsNullOrEmpty(Detail.WikidataQid))
+            signals.Add(new("Wikidata linked", Icons.Material.Outlined.Public,
+                "background: rgba(76,175,80,0.12); color: #4CAF50; border: 1px solid rgba(76,175,80,0.25);"));
+
+        return signals;
+    }
 }
 
 <style>
@@ -590,6 +681,21 @@ else
         margin: 0;
     }
 
+    /* ── Unverified Banner ── */
+    .rdv-unverified-banner {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 12px;
+        background: rgba(234,179,8,0.08);
+        border: 1px solid rgba(234,179,8,0.2);
+        border-radius: 6px;
+        margin-bottom: 10px;
+        font-size: 0.72rem;
+        color: #EAB308;
+        font-weight: 500;
+    }
+
     /* ── Images Placeholder ── */
     .rdv-images-placeholder {
         display: flex;
@@ -600,5 +706,43 @@ else
         color: rgba(255,255,255,0.25);
         font-size: 0.82rem;
         text-align: center;
+    }
+
+    /* ── Threshold Indicator ── */
+    .rdv-threshold-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 2px;
+    }
+
+    /* ── Match Signals ── */
+    .rdv-match-signals {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        margin-top: 6px;
+    }
+
+    .rdv-signal-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 0.65rem;
+        font-weight: 500;
+        white-space: nowrap;
+    }
+
+    /* ── Re-match Button ── */
+    .rdv-btn-rematch {
+        background: rgba(66,165,245,0.12);
+        color: #42A5F5;
+        border: 1px solid rgba(66,165,245,0.25);
+    }
+
+    .rdv-btn-rematch:hover {
+        background: rgba(66,165,245,0.22);
     }
 </style>

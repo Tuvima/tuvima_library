@@ -24,6 +24,7 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
     private readonly ICanonicalValueRepository _canonicalRepo;
     private readonly IFileOrganizer           _organizer;
     private readonly ISystemActivityRepository _activityRepo;
+    private readonly IReviewQueueRepository   _reviewRepo;
     private readonly IEventPublisher          _publisher;
     private readonly IHeroBannerGenerator     _heroGenerator;
     private readonly IOrganizationGate        _gate;
@@ -35,6 +36,7 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         ICanonicalValueRepository  canonicalRepo,
         IFileOrganizer             organizer,
         ISystemActivityRepository  activityRepo,
+        IReviewQueueRepository     reviewRepo,
         IEventPublisher            publisher,
         IHeroBannerGenerator       heroGenerator,
         IOrganizationGate          gate,
@@ -45,6 +47,7 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         _canonicalRepo = canonicalRepo;
         _organizer     = organizer;
         _activityRepo  = activityRepo;
+        _reviewRepo    = reviewRepo;
         _publisher     = publisher;
         _heroGenerator = heroGenerator;
         _gate          = gate;
@@ -191,6 +194,22 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         catch (Exception ex)
         {
             _logger.LogDebug(ex, "Activity log failed for auto-organize — continuing");
+        }
+
+        // Auto-resolve any pending review items for this entity — the file passed
+        // the organization gate, so review items (LowConfidence, ArtworkUnconfirmed, etc.)
+        // created during initial ingestion are now moot.
+        try
+        {
+            var resolved = await _reviewRepo.ResolveAllByEntityAsync(assetId, "system:auto-organize", ct)
+                .ConfigureAwait(false);
+            if (resolved > 0)
+                _logger.LogInformation(
+                    "Auto-resolved {Count} review items for {Id} after successful promotion", resolved, assetId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Review auto-resolve failed for {Id} — continuing", assetId);
         }
 
         try

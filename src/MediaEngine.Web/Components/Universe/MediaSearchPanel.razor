@@ -115,91 +115,86 @@
                 }
             </div>
 
-            @* Field diff table *@
-            <div class="sp-diff-table">
-                <div class="sp-diff-header">
-                    <span class="sp-diff-col-field">Field</span>
-                    <span class="sp-diff-col-current">Current</span>
-                    <span class="sp-diff-col-candidate">Candidate</span>
-                    <span class="sp-diff-col-apply">Apply</span>
+            @if (_comparisonCandidate is UniverseCandidateDto)
+            {
+                @* ── Wikidata: All-or-nothing preview (read-only) ── *@
+                <div class="sp-wikidata-notice">
+                    <MudIcon Icon="@Icons.Material.Outlined.Lock" Size="Size.Small" Style="color: #C9922E;" />
+                    <span>Linking to Wikidata applies <strong>all</strong> available data. Only fields Wikidata does not have can be edited afterward.</span>
                 </div>
-                @foreach (var row in BuildDiffRows())
+
+                @* Read-only field preview (no checkboxes) *@
+                <div class="sp-diff-table">
+                    <div class="sp-diff-header">
+                        <span class="sp-diff-col-field">Field</span>
+                        <span class="sp-diff-col-current">Current</span>
+                        <span class="sp-diff-col-candidate">Wikidata</span>
+                    </div>
+                    @foreach (var row in BuildDiffRows())
+                    {
+                        <div class="sp-diff-row @(row.IsDifferent ? "sp-diff-row-changed" : "")">
+                            <span class="sp-diff-col-field sp-diff-field-name">@row.FieldName</span>
+                            <span class="sp-diff-col-current sp-diff-value @(string.IsNullOrEmpty(row.CurrentValue) ? "sp-diff-empty" : "")">
+                                @(string.IsNullOrEmpty(row.CurrentValue) ? "—" : row.CurrentValue)
+                            </span>
+                            <span class="sp-diff-col-candidate sp-diff-value @(string.IsNullOrEmpty(row.CandidateValue) ? "sp-diff-empty" : "")">
+                                @(string.IsNullOrEmpty(row.CandidateValue) ? "—" : row.CandidateValue)
+                            </span>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                @* ── Retail: Cover art selection ── *@
+                var hasBothCovers = !string.IsNullOrEmpty(CurrentCoverUrl) && !string.IsNullOrEmpty(GetCandidateCoverUrl());
+                if (hasBothCovers)
                 {
-                    <div class="sp-diff-row @(row.IsDifferent ? "sp-diff-row-changed" : "")">
-                        <span class="sp-diff-col-field sp-diff-field-name">@row.FieldName</span>
-                        <span class="sp-diff-col-current sp-diff-value @(string.IsNullOrEmpty(row.CurrentValue) ? "sp-diff-empty" : "")">
-                            @(string.IsNullOrEmpty(row.CurrentValue) ? "—" : row.CurrentValue)
-                        </span>
-                        <span class="sp-diff-col-candidate sp-diff-value @(string.IsNullOrEmpty(row.CandidateValue) ? "sp-diff-empty" : "")">
-                            @(string.IsNullOrEmpty(row.CandidateValue) ? "—" : row.CandidateValue)
-                        </span>
-                        <span class="sp-diff-col-apply">
-                            <input type="checkbox"
-                                   class="sp-diff-checkbox"
-                                   checked="@row.IsChecked"
-                                   @onchange="@(e => row.IsChecked = (bool)(e.Value ?? false))" />
-                        </span>
+                    <div class="sp-cover-chooser">
+                        <div class="sp-cover-chooser-label">Cover Art</div>
+                        <div class="sp-cover-chooser-options">
+                            <label class="sp-cover-option @(_useCandidateCover == false ? "sp-cover-option-selected" : "")">
+                                <input type="radio" name="coverChoice_@EntityId" value="current"
+                                       checked="@(_useCandidateCover == false)"
+                                       @onchange="@(() => _useCandidateCover = false)" />
+                                <img src="@CurrentCoverUrl" alt="current" class="sp-cover-thumb" />
+                                <span>Keep current</span>
+                            </label>
+                            <label class="sp-cover-option @(_useCandidateCover == true ? "sp-cover-option-selected" : "")">
+                                <input type="radio" name="coverChoice_@EntityId" value="candidate"
+                                       checked="@(_useCandidateCover == true)"
+                                       @onchange="@(() => _useCandidateCover = true)" />
+                                <img src="@GetCandidateCoverUrl()" alt="candidate" class="sp-cover-thumb" />
+                                <span>Use candidate</span>
+                            </label>
+                        </div>
                     </div>
                 }
-            </div>
-
-            @* Cover art radio selection (when both have covers) *@
-            @{
-                var hasBothCovers = !string.IsNullOrEmpty(CurrentCoverUrl) && !string.IsNullOrEmpty(GetCandidateCoverUrl());
-            }
-            @if (hasBothCovers)
-            {
-                <div class="sp-cover-chooser">
-                    <div class="sp-cover-chooser-label">Cover Art</div>
-                    <div class="sp-cover-chooser-options">
-                        <label class="sp-cover-option @(_useCandidateCover == false ? "sp-cover-option-selected" : "")">
-                            <input type="radio" name="coverChoice_@EntityId" value="current"
-                                   checked="@(_useCandidateCover == false)"
-                                   @onchange="@(() => _useCandidateCover = false)" />
-                            <img src="@CurrentCoverUrl" alt="current" class="sp-cover-thumb" />
-                            <span>Keep current</span>
-                        </label>
-                        <label class="sp-cover-option @(_useCandidateCover == true ? "sp-cover-option-selected" : "")">
-                            <input type="radio" name="coverChoice_@EntityId" value="candidate"
-                                   checked="@(_useCandidateCover == true)"
-                                   @onchange="@(() => _useCandidateCover = true)" />
-                            <img src="@GetCandidateCoverUrl()" alt="candidate" class="sp-cover-thumb" />
-                            <span>Use candidate</span>
-                        </label>
-                    </div>
-                </div>
             }
         </div>
 
-        @* Sticky bottom action bar *@
+        @* Sticky bottom action bar — context-sensitive *@
         <div class="sp-sticky-bar">
-            <MudButton Variant="Variant.Filled"
-                       OnClick="@(() => ApplyFromComparison("both"))"
-                       Disabled="@_applying"
-                       Size="Size.Small"
-                       Style="background: #C9922E; color: #000; font-weight: 700; min-width: 120px;">
-                @(_applying ? "Applying…" : "Apply Match")
-            </MudButton>
-            <MudButton Variant="Variant.Outlined"
-                       OnClick="@(() => ApplyFromComparison("metadata"))"
-                       Disabled="@_applying"
-                       Size="Size.Small"
-                       Style="border-color: rgba(201,146,46,0.5); color: #C9922E;">
-                Apply Metadata
-            </MudButton>
-            <MudButton Variant="Variant.Outlined"
-                       OnClick="@(() => ApplyFromComparison("image"))"
-                       Disabled="@_applying"
-                       Size="Size.Small"
-                       Style="border-color: rgba(255,255,255,0.2); color: rgba(255,255,255,0.7);">
-                Apply Image
-            </MudButton>
-            <MudButton Variant="Variant.Outlined"
-                       OnClick="@(() => _showManualForm = !_showManualForm)"
-                       Size="Size.Small"
-                       Style="border-color: rgba(255,255,255,0.2); color: rgba(255,255,255,0.7);">
-                Manual Entry
-            </MudButton>
+            @if (_comparisonCandidate is UniverseCandidateDto)
+            {
+                <MudButton Variant="Variant.Filled"
+                           OnClick="@(() => ApplyFromComparison("Universe"))"
+                           Disabled="@_applying"
+                           Size="Size.Small"
+                           Style="background: #C9922E; color: #000; font-weight: 700; min-width: 160px;">
+                    @(_applying ? "Linking…" : "Link to Wikidata")
+                </MudButton>
+            }
+            else
+            {
+                <MudButton Variant="Variant.Filled"
+                           OnClick="@(() => ApplyFromComparison("image"))"
+                           Disabled="@_applying"
+                           Size="Size.Small"
+                           Style="background: #C9922E; color: #000; font-weight: 700; min-width: 140px;">
+                    @(_applying ? "Applying…" : "Use This Cover")
+                </MudButton>
+            }
             <MudButton Variant="Variant.Outlined"
                        OnClick="@(() => { ClearComparison(); _hasSearched = false; })"
                        Size="Size.Small"
@@ -228,12 +223,12 @@
                        Label="Type" Variant="Variant.Outlined"
                        Dense="true" Style="min-width: 130px;"
                        AnchorOrigin="Origin.BottomCenter">
-                <MudSelectItem T="string" Value="@("Epub")">Book</MudSelectItem>
-                <MudSelectItem T="string" Value="@("Audiobook")">Audiobook</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Books")">Book</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Audiobooks")">Audiobook</MudSelectItem>
                 <MudSelectItem T="string" Value="@("Movies")">Movie</MudSelectItem>
                 <MudSelectItem T="string" Value="@("TV")">TV Show</MudSelectItem>
                 <MudSelectItem T="string" Value="@("Music")">Music</MudSelectItem>
-                <MudSelectItem T="string" Value="@("Comics")">Comic</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Comic")">Comic</MudSelectItem>
                 <MudSelectItem T="string" Value="@("Podcasts")">Podcast</MudSelectItem>
             </MudSelect>
 
@@ -950,6 +945,20 @@
         background: rgba(201,146,46,0.12);
         color: #C9922E;
         padding: 1px 6px; border-radius: 3px; margin-left: 4px;
+    }
+
+    /* ── Wikidata all-or-nothing notice ── */
+    .sp-wikidata-notice {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 12px;
+        background: rgba(201,146,46,0.08);
+        border: 1px solid rgba(201,146,46,0.2);
+        border-radius: 6px;
+        margin-bottom: 10px;
+        font-size: 0.72rem;
+        color: rgba(255,255,255,0.7);
     }
 
     /* ── Diff table ── */

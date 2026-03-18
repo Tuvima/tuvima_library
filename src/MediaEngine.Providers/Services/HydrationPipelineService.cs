@@ -335,13 +335,13 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         {
             _logger.LogInformation(
                 "Pipeline Stage 1 (Reconciliation) blocked for entity {Id} " +
-                "(title: \"{Title}\") — no author, year, or bridge identifiers: " +
-                "title-only requests risk false-positive Wikidata matches",
+                "(title: \"{Title}\") — no real title, author, year, or bridge identifiers: " +
+                "file appears to have only placeholder or missing metadata",
                 request.EntityId, titleHint);
 
             await CreateReviewItemAsync(
                 request, ReviewTrigger.AuthorityMatchFailed, 0.0,
-                "Cannot perform authority match: file has no author, year, or " +
+                "Cannot perform authority match: file has no usable title, author, year, or " +
                 "identifiers embedded. Add metadata manually to enable library matching.",
                 result, ct).ConfigureAwait(false);
 
@@ -633,6 +633,60 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             .Where(pc => pc.HydrationStages.Contains(2))
             .ToList();
         var bridgeHints = ExtractBridgeHints(canonicalsForS2, request.MediaType, stage2ProviderConfigs);
+
+        // ── Bridge ID fallback from raw claims ────────────────────────────────
+        // If Stage 1 failed or hasn't deposited canonical values yet, the
+        // canonical_values table may be empty even though EpubProcessor (or
+        // another processor) has already written ISBN / ASIN claims directly
+        // into metadata_claims. Load raw claims and merge any bridge IDs that
+        // are not already present in bridgeHints — canonical values always take
+        // priority, but raw claim values are better than nothing for retail lookups.
+        try
+        {
+            var rawClaims = await _claimRepo.GetByEntityAsync(request.EntityId, ct)
+                .ConfigureAwait(false);
+
+            var bridgeClaimKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "isbn", "isbn_13", "isbn_10",
+                "asin", "apple_books_id",
+                "tmdb_id", "imdb_id",
+                "audible_id", "goodreads_id",
+                "musicbrainz_id", "comic_vine_id",
+            };
+
+            foreach (var claim in rawClaims)
+            {
+                if (string.IsNullOrWhiteSpace(claim.ClaimValue)) continue;
+
+                var effectiveKey = IdentifierNormalizationService.GetClaimKeyAlias(claim.ClaimKey)
+                                   ?? claim.ClaimKey;
+
+                if (!bridgeClaimKeys.Contains(effectiveKey)) continue;
+                if (bridgeHints.ContainsKey(effectiveKey)) continue;
+
+                var normalizedValue = effectiveKey switch
+                {
+                    "isbn" => NormalizeIsbnForRetail(claim.ClaimValue),
+                    "asin" => claim.ClaimValue.Trim().ToUpperInvariant(),
+                    _      => claim.ClaimValue.Trim(),
+                };
+
+                if (!string.IsNullOrWhiteSpace(normalizedValue))
+                {
+                    bridgeHints[effectiveKey] = normalizedValue;
+                    _logger.LogDebug(
+                        "Bridge ID '{Key}' = '{Value}' sourced from raw claims for entity {Id}",
+                        effectiveKey, normalizedValue, request.EntityId);
+                }
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogDebug(ex,
+                "Bridge ID fallback from raw claims failed for entity {Id}; proceeding with canonical bridge IDs only",
+                request.EntityId);
+        }
 
         // Enrich the request with bridge IDs from Stage 1 for precise retail lookups.
         var stage2Request = EnrichRequestWithBridgeHints(request, bridgeHints);
@@ -1273,7 +1327,32 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             if (!string.IsNullOrWhiteSpace(h.GetValueOrDefault(key))) return true;
         }
 
+        // Allow title-only requests when the title is a real, non-placeholder value.
+        // Wikidata's Reconciliation API is designed for fuzzy title search, and the
+        // existing TokenSet ratio >= 0.60 verification already guards against
+        // false-positive matches.
+        var title = h.GetValueOrDefault("title");
+        if (!string.IsNullOrWhiteSpace(title) && IsRealTitle(title)) return true;
+
         return false;
+    }
+
+    /// <summary>
+    /// Returns <c>true</c> when <paramref name="title"/> looks like a genuine work
+    /// title rather than a placeholder or filename-derived hash.
+    /// </summary>
+    private static bool IsRealTitle(string title)
+    {
+        var t = title.Trim();
+        if (string.IsNullOrEmpty(t)) return false;
+        if (t.Equals("Unknown", StringComparison.OrdinalIgnoreCase)) return false;
+        if (t.Equals("Untitled", StringComparison.OrdinalIgnoreCase)) return false;
+        if (t.Equals("(unknown)", StringComparison.OrdinalIgnoreCase)) return false;
+        if (t.Equals("(untitled)", StringComparison.OrdinalIgnoreCase)) return false;
+        // Content-hash filenames: all hex characters, typically 16–64 chars.
+        if (t.Length >= 8 && System.Text.RegularExpressions.Regex.IsMatch(t, @"^[0-9a-fA-F]+$"))
+            return false;
+        return true;
     }
 
     /// <summary>

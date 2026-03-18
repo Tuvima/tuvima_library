@@ -17,27 +17,33 @@
         </button>
         <button class="sidebar-category @(SelectedCategory == "Unmatched" ? "sidebar-category--active" : "")"
                 @onclick="@(() => OnCategorySelected.InvokeAsync("Unmatched"))">
-            <MudIcon Icon="@Icons.Material.Outlined.HelpOutline" Size="Size.Small" />
-            <span class="sidebar-category-label">Unmatched</span>
+            <MudIcon Icon="@Icons.Material.Outlined.LinkOff" Size="Size.Small" />
+            <span class="sidebar-category-label">Needs Match</span>
             <span class="sidebar-category-count sidebar-category-count--warn">@(Counts?.NeedsReview ?? 0)</span>
         </button>
         <button class="sidebar-category @(SelectedCategory == "LowConfidence" ? "sidebar-category--active" : "")"
                 @onclick="@(() => OnCategorySelected.InvokeAsync("LowConfidence"))">
-            <MudIcon Icon="@Icons.Material.Outlined.TrendingDown" Size="Size.Small" />
-            <span class="sidebar-category-label">Low Confidence</span>
-            <span class="sidebar-category-count">0</span>
+            <MudIcon Icon="@Icons.Material.Outlined.RateReview" Size="Size.Small" />
+            <span class="sidebar-category-label">Needs Review</span>
+            <span class="sidebar-category-count sidebar-category-count--warn">0</span>
         </button>
         <button class="sidebar-category @(SelectedCategory == "MissingArt" ? "sidebar-category--active" : "")"
                 @onclick="@(() => OnCategorySelected.InvokeAsync("MissingArt"))">
             <MudIcon Icon="@Icons.Material.Outlined.BrokenImage" Size="Size.Small" />
-            <span class="sidebar-category-label">Missing Art</span>
+            <span class="sidebar-category-label">Missing Images</span>
             <span class="sidebar-category-count">0</span>
         </button>
         <button class="sidebar-category @(SelectedCategory == "UpdatedData" ? "sidebar-category--active" : "")"
                 @onclick="@(() => OnCategorySelected.InvokeAsync("UpdatedData"))">
             <MudIcon Icon="@Icons.Material.Outlined.Update" Size="Size.Small" />
-            <span class="sidebar-category-label">Updated Data</span>
+            <span class="sidebar-category-label">Recently Updated</span>
             <span class="sidebar-category-count">0</span>
+        </button>
+        <button class="sidebar-category @(SelectedCategory == "Staging" ? "sidebar-category--active" : "")"
+                @onclick="@(() => OnCategorySelected.InvokeAsync("Staging"))">
+            <MudIcon Icon="@Icons.Material.Outlined.HourglassEmpty" Size="Size.Small" />
+            <span class="sidebar-category-label">In Staging</span>
+            <span class="sidebar-category-count">@(Counts?.Staging ?? 0)</span>
         </button>
     </div>
 
@@ -78,7 +84,9 @@
             {
                 <RegistrySidebarItem Item="@item"
                                      IsSelected="@(SelectedEntityId == item.EntityId)"
-                                     OnClick="@(() => OnItemSelected.InvokeAsync(item.EntityId))" />
+                                     OnClick="@(() => OnItemSelected.InvokeAsync(item.EntityId))"
+                                     OnQuickApprove="@(() => OnQuickApprove.InvokeAsync(item.EntityId))"
+                                     OnQuickReject="@(() => OnQuickReject.InvokeAsync(item.EntityId))" />
             }
         }
 
@@ -106,18 +114,19 @@
     [Parameter] public EventCallback<string?> OnSearchChanged { get; set; }
     [Parameter] public EventCallback<Guid> OnItemSelected { get; set; }
     [Parameter] public EventCallback OnLoadMore { get; set; }
+    [Parameter] public EventCallback<Guid> OnQuickApprove { get; set; }
+    [Parameter] public EventCallback<Guid> OnQuickReject { get; set; }
 
     private string? SearchText { get; set; }
 
     private static readonly (string Label, string? Value)[] _mediaTypes =
     [
-        ("Books", "Epub"),
-        ("Audio", "Audiobook"),
+        ("Books", "Books"),
+        ("Audio", "Audiobooks"),
         ("Movies", "Movies"),
         ("TV", "TV"),
-        ("Comics", "Comics"),
+        ("Comics", "Comic"),
         ("Podcasts", "Podcasts"),
-        ("Universe", "Universe"),
     ];
 
     private async Task OnSearchDebounced()
