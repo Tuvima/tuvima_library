@@ -27,10 +27,30 @@ using MediaEngine.Providers.Models;
 using MediaEngine.Providers.Services;
 using MediaEngine.Identity;
 using MediaEngine.Identity.Contracts;
+using Microsoft.Extensions.Http.Resilience;
+using Serilog;
 using MediaEngine.Api.DevSupport;
+using MediaEngine.Api.Services.HealthChecks;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 ConfigurationManager config  = builder.Configuration;
+
+// ── Serilog ──────────────────────────────────────────────────────────────────
+// Structured logging with rolling file output for headless Engine operation.
+// Console output preserved for Docker / development.  Rolling files auto-delete
+// after the configured retention period (default: 14 days).
+builder.Host.UseSerilog((context, services, loggerConfig) => loggerConfig
+    .ReadFrom.Configuration(context.Configuration)
+    .ReadFrom.Services(services)
+    .Enrich.FromLogContext()
+    .WriteTo.Console()
+    .WriteTo.File(
+        path: Path.Combine("logs", "tuvima-.log"),
+        rollingInterval: RollingInterval.Day,
+        retainedFileCountLimit: 14,
+        fileSizeLimitBytes: 50 * 1024 * 1024,   // 50 MB per file
+        rollOnFileSizeLimit: true,
+        outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {SourceContext}{NewLine}  {Message:lj}{NewLine}{Exception}"));
 
 // ── Windows Service hosting ────────────────────────────────────────────────────
 // Integrates with the Windows Service Control Manager when the Engine is installed
@@ -276,7 +296,8 @@ builder.Services.AddHostedService<FolderHealthService>();
 builder.Services.AddHttpClient("settings_probe", c =>
 {
     c.Timeout = TimeSpan.FromSeconds(5); // outer cap; each probe uses a 3-second CTS
-});
+})
+.AddStandardResilienceHandler();
 
 // Named HttpClient for the WikipediaAdapter (Wikidata sitelink API + Wikipedia REST Summary API).
 // Both endpoints are called via this single named client; the adapter substitutes the correct
@@ -286,7 +307,8 @@ builder.Services.AddHttpClient("wikipedia_api", c =>
     c.Timeout = TimeSpan.FromSeconds(15);
     c.DefaultRequestHeaders.UserAgent.ParseAdd(
         "Tuvima Library/1.0 (https://github.com/Tuvima/tuvima_library)");
-});
+})
+.AddStandardResilienceHandler();
 
 // Named HttpClient for the ReconciliationAdapter (wikidata.reconci.link + Wikimedia Commons).
 // 30-second timeout to accommodate batch SPARQL-style data extension queries.
@@ -295,7 +317,8 @@ builder.Services.AddHttpClient("wikidata_reconciliation", c =>
     c.Timeout = TimeSpan.FromSeconds(30);
     c.DefaultRequestHeaders.UserAgent.ParseAdd(
         "Tuvima Library/1.0 (https://github.com/Tuvima/tuvima_library)");
-});
+})
+.AddStandardResilienceHandler();
 
 // Image download clients used by HydrationPipelineService (cover art) and
 // MetadataHarvestingService (person headshots).  Wikimedia Commons requires a
@@ -305,13 +328,15 @@ builder.Services.AddHttpClient("cover_download", c =>
     c.Timeout = TimeSpan.FromSeconds(20);
     c.DefaultRequestHeaders.UserAgent.ParseAdd(
         "Tuvima Library/1.0 (https://github.com/Tuvima/tuvima_library)");
-});
+})
+.AddStandardResilienceHandler();
 builder.Services.AddHttpClient("headshot_download", c =>
 {
     c.Timeout = TimeSpan.FromSeconds(20);
     c.DefaultRequestHeaders.UserAgent.ParseAdd(
         "Tuvima Library/1.0 (https://github.com/Tuvima/tuvima_library)");
-});
+})
+.AddStandardResilienceHandler();
 
 // Config-driven providers: scan config/providers/ and register each one.
 // Named HttpClients + ConfigDrivenAdapter instances are created from config.
@@ -332,7 +357,8 @@ foreach (ProviderConfiguration providerConfig in configLoader.LoadAllProviders()
         c.Timeout = TimeSpan.FromSeconds(timeout);
         if (!string.IsNullOrEmpty(userAgent))
         { c.DefaultRequestHeaders.UserAgent.ParseAdd(userAgent); }
-    });
+    })
+    .AddStandardResilienceHandler();
 
     // Capture for closure.
     ProviderConfiguration cfg = providerConfig;
@@ -410,7 +436,8 @@ builder.Services.AddHttpClient("wikibase_api", c =>
     c.Timeout = TimeSpan.FromSeconds(30);
     c.DefaultRequestHeaders.UserAgent.ParseAdd(
         "Tuvima Library/1.0 (https://github.com/Tuvima/tuvima_library)");
-});
+})
+.AddStandardResilienceHandler();
 
 builder.Services.AddSingleton<IWikibaseApiService>(sp =>
     new WikibaseApiService(
@@ -485,6 +512,13 @@ builder.Services.AddSingleton<IUserStateStore, UserStateRepository>();
 builder.Services.AddSingleton<UISettingsCascadeResolver>();
 builder.Services.AddSingleton<UISettingsCacheRepository>();
 
+// ── Health Checks ────────────────────────────────────────────────────────────
+// Standard /health endpoint for Docker HEALTHCHECK, monitoring tools, etc.
+builder.Services.AddHealthChecks()
+    .AddCheck<SqliteHealthCheck>("sqlite", tags: ["db"])
+    .AddCheck<LibraryRootHealthCheck>("library_root", tags: ["storage"])
+    .AddCheck<WatchFolderHealthCheck>("watch_folder", tags: ["storage"]);
+
 // ── Build ─────────────────────────────────────────────────────────────────────
 WebApplication app = builder.Build();
 
@@ -521,6 +555,8 @@ catch (Exception ex)
 app.UseCors("BlazorWasm");
 app.UseMiddleware<ApiKeyMiddleware>();
 app.UseRateLimiter();
+
+app.MapHealthChecks("/health");
 
 if (app.Environment.IsDevelopment())
 {
