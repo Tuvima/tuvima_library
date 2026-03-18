@@ -23,39 +23,58 @@ else
 
     @* ── Metadata Header ── *@
     <div class="rdv-header">
-        <div class="rdv-title-row">
-            <span class="rdv-title">@Detail.Title</span>
-            @if (!string.IsNullOrEmpty(Detail.WikidataQid))
+        @* Cover + title side by side *@
+        <div class="rdv-header-top">
+            @* Cover art thumbnail *@
+            @if (!string.IsNullOrEmpty(Detail.CoverUrl))
             {
-                <span class="rdv-qid-chip">@Detail.WikidataQid</span>
+                <img src="@Detail.CoverUrl" alt="Cover art" class="rdv-cover-thumb" loading="lazy" />
             }
-        </div>
+            else
+            {
+                <div class="rdv-cover-thumb-placeholder">
+                    <MudIcon Icon="@RegistryHelpers.GetMediaTypeIcon(Detail.MediaType)"
+                             Style="font-size: 2rem; opacity: 0.2; color: #fff;" />
+                </div>
+            }
 
-        <div class="rdv-sub-row">
-            <MudIcon Icon="@RegistryHelpers.GetMediaTypeIcon(Detail.MediaType)"
-                     Size="Size.Small"
-                     Style="color: rgba(255,255,255,0.4); margin-right: 4px;" />
-            <span class="rdv-sub-text">@RegistryHelpers.FormatMediaType(Detail.MediaType)</span>
-            @if (!string.IsNullOrEmpty(Detail.Year))
-            {
-                <span class="rdv-sub-sep">·</span>
-                <span class="rdv-sub-text">@Detail.Year</span>
-            }
-            @if (!string.IsNullOrEmpty(Detail.Author))
-            {
-                <span class="rdv-sub-sep">·</span>
-                <span class="rdv-sub-text">@Detail.Author</span>
-            }
-        </div>
+            @* Title + sub-row stacked next to the thumbnail *@
+            <div class="rdv-header-text">
+                <div class="rdv-title-row">
+                    <span class="rdv-title">@Detail.Title</span>
+                    @if (!string.IsNullOrEmpty(Detail.WikidataQid))
+                    {
+                        <span class="rdv-qid-chip">@Detail.WikidataQid</span>
+                    }
+                </div>
 
-        <div class="rdv-confidence-row">
-            <div class="rdv-confidence-bar-track">
-                <div class="rdv-confidence-bar-fill"
-                     style="width: @((int)(Detail.Confidence * 100))%; background: @RegistryHelpers.GetConfidenceHexColor(Detail.Confidence);"></div>
+                <div class="rdv-sub-row">
+                    <MudIcon Icon="@RegistryHelpers.GetMediaTypeIcon(Detail.MediaType)"
+                             Size="Size.Small"
+                             Style="color: rgba(255,255,255,0.4); margin-right: 4px;" />
+                    <span class="rdv-sub-text">@RegistryHelpers.FormatMediaType(Detail.MediaType)</span>
+                    @if (!string.IsNullOrEmpty(Detail.Year))
+                    {
+                        <span class="rdv-sub-sep">·</span>
+                        <span class="rdv-sub-text">@Detail.Year</span>
+                    }
+                    @if (!string.IsNullOrEmpty(Detail.Author))
+                    {
+                        <span class="rdv-sub-sep">·</span>
+                        <span class="rdv-sub-text">@Detail.Author</span>
+                    }
+                </div>
+
+                <div class="rdv-confidence-row">
+                    <div class="rdv-confidence-bar-track">
+                        <div class="rdv-confidence-bar-fill"
+                             style="width: @((int)(Detail.Confidence * 100))%; background: @RegistryHelpers.GetConfidenceHexColor(Detail.Confidence);"></div>
+                    </div>
+                    <span class="rdv-confidence-label" style="color: @RegistryHelpers.GetConfidenceHexColor(Detail.Confidence);">
+                        @RegistryHelpers.GetConfidenceLabel(Detail.Confidence) @((int)(Detail.Confidence * 100))%
+                    </span>
+                </div>
             </div>
-            <span class="rdv-confidence-label" style="color: @RegistryHelpers.GetConfidenceHexColor(Detail.Confidence);">
-                @RegistryHelpers.GetConfidenceLabel(Detail.Confidence) @((int)(Detail.Confidence * 100))%
-            </span>
         </div>
 
         @* ── Threshold Indicator ── *@
@@ -511,6 +530,44 @@ else
         display: flex;
         flex-direction: column;
         gap: 6px;
+    }
+
+    /* Cover + title row */
+    .rdv-header-top {
+        display: flex;
+        align-items: flex-end;
+        gap: 14px;
+    }
+
+    .rdv-cover-thumb {
+        width: 72px;
+        height: 108px;
+        object-fit: cover;
+        border-radius: 6px;
+        flex-shrink: 0;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+        border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .rdv-cover-thumb-placeholder {
+        width: 72px;
+        height: 108px;
+        border-radius: 6px;
+        flex-shrink: 0;
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.06);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .rdv-header-text {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        padding-bottom: 4px;
     }
 
     .rdv-title-row {

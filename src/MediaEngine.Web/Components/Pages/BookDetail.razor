@@ -589,10 +589,13 @@ else
     private bool                    _loading            = true;
     private HubViewModel?           _hub;
     private WorkViewModel?          _work;
+    private List<WorkViewModel>     _siblingWorks       = [];
     private PersonViewModel?        _authorPerson;
     private PersonViewModel?        _narratorPerson;
     private JourneyItemViewModel?   _activeJourney;
+#pragma warning disable CS0649 // _related intentionally unassigned — related hubs deferred until hub intelligence is enabled
     private RelatedHubsViewModel?   _related;
+#pragma warning restore CS0649
     private string?                 _toastMessage;
     private bool                    _showFullDescription;
     private bool                    _showAllGenres;
@@ -614,61 +617,98 @@ else
         _lightboxOpen        = false;
         _selectedFormatKey   = null;
 
-        if (!State.IsLoaded)
-            await Orchestrator.GetHubsAsync();
+        // Load works directly (work-first architecture — hubs deferred to Universe phase)
+        var allWorks = await Orchestrator.GetLibraryWorksAsync();
+        _work = allWorks.FirstOrDefault(w => w.Id == Id);
 
-        // Find the hub containing this work, then the work itself
-        _hub  = State.Hubs.FirstOrDefault(h => h.Works.Any(w => w.Id == Id));
-        _work = _hub?.Works.FirstOrDefault(w => w.Id == Id);
-
-        if (_hub is not null && _work is not null)
+        // If not in library works, check staging/registry via detail endpoint
+        if (_work is null)
         {
-            var personsTask = Orchestrator.GetPersonsByHubAsync(_hub.Id);
-            var journeyTask = Orchestrator.GetJourneyAsync(limit: 50, hubId: _hub.Id);
-            var relatedTask = Orchestrator.GetRelatedHubsAsync(_hub.Id);
-
-            await Task.WhenAll(personsTask, journeyTask, relatedTask);
-
-            var persons = personsTask.Result;
-            var journey = journeyTask.Result;
-            _related    = relatedTask.Result;
-
-            _authorPerson = ResolveAuthorPerson(persons, _work.AuthorQid, _work.Author);
-            _narratorPerson = persons.FirstOrDefault(p =>
-                string.Equals(p.Role, "Narrator", StringComparison.OrdinalIgnoreCase));
-
-            // Progress resolution: journey endpoint filtered to this hub
-            _activeJourney = journey
-                .OrderByDescending(j => j.LastAccessed)
-                .FirstOrDefault(j => j.WorkId == _work.Id)
-                ?? journey.OrderByDescending(j => j.LastAccessed).FirstOrDefault();
-
-            // Fallback: resolve work -> asset -> progress
-            if (_activeJourney is null)
+            var detail = await Orchestrator.GetRegistryItemDetailAsync(Id);
+            if (detail is not null)
             {
-                var assetId = await Orchestrator.ResolveWorkToAssetAsync(_work.Id);
-                if (assetId.HasValue)
+                var cvList = new List<CanonicalValueViewModel>();
+                if (!string.IsNullOrEmpty(detail.Title))
+                    cvList.Add(new CanonicalValueViewModel { Key = "title", Value = detail.Title });
+                if (!string.IsNullOrEmpty(detail.Author))
+                    cvList.Add(new CanonicalValueViewModel { Key = "author", Value = detail.Author });
+                if (!string.IsNullOrEmpty(detail.CoverUrl))
+                    cvList.Add(new CanonicalValueViewModel { Key = "cover", Value = detail.CoverUrl });
+                if (!string.IsNullOrEmpty(detail.WikidataQid))
+                    cvList.Add(new CanonicalValueViewModel { Key = "wikidata_qid", Value = detail.WikidataQid });
+                if (!string.IsNullOrEmpty(detail.Year))
+                    cvList.Add(new CanonicalValueViewModel { Key = "release_year", Value = detail.Year });
+                if (!string.IsNullOrEmpty(detail.Description))
+                    cvList.Add(new CanonicalValueViewModel { Key = "description", Value = detail.Description });
+                if (!string.IsNullOrEmpty(detail.Genre))
+                    cvList.Add(new CanonicalValueViewModel { Key = "genre", Value = detail.Genre });
+                if (!string.IsNullOrEmpty(detail.Series))
+                    cvList.Add(new CanonicalValueViewModel { Key = "series", Value = detail.Series });
+                if (!string.IsNullOrEmpty(detail.SeriesPosition))
+                    cvList.Add(new CanonicalValueViewModel { Key = "series_position", Value = detail.SeriesPosition });
+                if (!string.IsNullOrEmpty(detail.Narrator))
+                    cvList.Add(new CanonicalValueViewModel { Key = "narrator", Value = detail.Narrator });
+                if (!string.IsNullOrEmpty(detail.Rating))
+                    cvList.Add(new CanonicalValueViewModel { Key = "rating", Value = detail.Rating });
+
+                _work = new WorkViewModel
                 {
-                    var progress = await Orchestrator.GetProgressAsync(assetId.Value);
-                    if (progress is not null && progress.ProgressPct > 0)
+                    Id              = detail.EntityId,
+                    MediaType       = detail.MediaType,
+                    CanonicalValues = cvList,
+                };
+            }
+        }
+
+        if (_work is not null)
+        {
+            // Find sibling works (same QID, different format) for format switcher
+            _siblingWorks = string.IsNullOrEmpty(_work.WikidataQid)
+                ? [_work]
+                : allWorks.Where(w => w.WikidataQid == _work.WikidataQid).ToList();
+
+            if (_siblingWorks.Count == 0)
+                _siblingWorks = [_work];
+
+            // Create a synthetic hub for backward compat with code that references _hub
+            _hub = new HubViewModel { Works = _siblingWorks };
+
+            // Load persons for the work's author/narrator
+            try
+            {
+                var persons = await Orchestrator.GetPersonsByHubAsync(Guid.Empty);
+                _authorPerson   = ResolveAuthorPerson(persons, _work.AuthorQid, _work.Author);
+                _narratorPerson = persons.FirstOrDefault(p =>
+                    string.Equals(p.Role, "Narrator", StringComparison.OrdinalIgnoreCase));
+            }
+            catch
+            {
+                // Persons lookup may fail with an empty hub ID — non-fatal
+            }
+
+            // Progress resolution
+            var assetId = await Orchestrator.ResolveWorkToAssetAsync(_work.Id);
+            if (assetId.HasValue)
+            {
+                var progress = await Orchestrator.GetProgressAsync(assetId.Value);
+                if (progress is not null && progress.ProgressPct > 0)
+                {
+                    _activeJourney = new JourneyItemViewModel
                     {
-                        _activeJourney = new JourneyItemViewModel
-                        {
-                            AssetId            = assetId.Value,
-                            WorkId             = _work.Id,
-                            HubId              = _hub.Id,
-                            Title              = _work.Title,
-                            Author             = _work.Author,
-                            CoverUrl           = _work.CoverUrl,
-                            MediaType          = _work.MediaType,
-                            ProgressPct        = progress.ProgressPct,
-                            LastAccessed       = progress.LastAccessed.HasValue
-                                ? new DateTimeOffset(progress.LastAccessed.Value)
-                                : DateTimeOffset.UtcNow,
-                            HubDisplayName     = _hub.DisplayName,
-                            ExtendedProperties = progress.ExtendedProperties,
-                        };
-                    }
+                        AssetId            = assetId.Value,
+                        WorkId             = _work.Id,
+                        HubId              = Guid.Empty,
+                        Title              = _work.Title,
+                        Author             = _work.Author,
+                        CoverUrl           = _work.CoverUrl,
+                        MediaType          = _work.MediaType,
+                        ProgressPct        = progress.ProgressPct,
+                        LastAccessed       = progress.LastAccessed.HasValue
+                            ? new DateTimeOffset(progress.LastAccessed.Value)
+                            : DateTimeOffset.UtcNow,
+                        HubDisplayName     = _work.Title,
+                        ExtendedProperties = progress.ExtendedProperties,
+                    };
                 }
             }
         }
@@ -763,8 +803,8 @@ else
     /// </summary>
     private List<FormatOption> AvailableFormats()
     {
-        if (_hub is null || _work is null) return [];
-        return _hub.Works
+        if (_work is null) return [];
+        return _siblingWorks
             .GroupBy(w => GetFormatKey(w.MediaType))
             .Select(g => new FormatOption(
                 g.Key,

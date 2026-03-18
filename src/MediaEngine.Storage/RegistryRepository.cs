@@ -447,11 +447,21 @@ public sealed class RegistryRepository : IRegistryRepository
                  JOIN media_assets ma ON ma.edition_id = e.id
                  LEFT JOIN canonical_values cv ON cv.entity_id = ma.id AND cv.key = 'cover_url'
                  WHERE cv.value IS NULL OR TRIM(cv.value) = '') AS MissingImages,
+                -- "RecentlyUpdated" counts items where at least one canonical value was
+                -- re-scored in the last 24 hours AND the item has an earlier metadata claim
+                -- (i.e. it was already in the system before today's scoring pass).
+                -- This excludes newly-ingested items whose first-ever canonical values
+                -- happen to fall in the same 24-hour window.
                 (SELECT COUNT(DISTINCT e.work_id)
                  FROM editions e
                  JOIN media_assets ma ON ma.edition_id = e.id
                  JOIN canonical_values cv ON cv.entity_id = ma.id
-                 WHERE cv.last_scored_at >= datetime('now', '-24 hours')) AS RecentlyUpdated,
+                 WHERE cv.last_scored_at >= datetime('now', '-24 hours')
+                   AND EXISTS (
+                     SELECT 1 FROM metadata_claims mc2
+                     WHERE mc2.entity_id = ma.id
+                       AND mc2.claimed_at < datetime('now', '-24 hours')
+                   )) AS RecentlyUpdated,
                 (SELECT COUNT(DISTINCT e.work_id)
                  FROM editions e
                  JOIN media_assets ma ON ma.edition_id = e.id

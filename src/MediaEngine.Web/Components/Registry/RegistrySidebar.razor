@@ -39,12 +39,6 @@
             <span class="sidebar-category-label">Recently Updated</span>
             <span class="sidebar-category-count">@(Counts?.RecentlyUpdated ?? 0)</span>
         </button>
-        <button class="sidebar-category @(SelectedCategory == "Staging" ? "sidebar-category--active" : "")"
-                @onclick="@(() => OnCategorySelected.InvokeAsync("Staging"))">
-            <MudIcon Icon="@Icons.Material.Outlined.HourglassEmpty" Size="Size.Small" />
-            <span class="sidebar-category-label">In Staging</span>
-            <span class="sidebar-category-count">@(Counts?.Staging ?? 0)</span>
-        </button>
     </div>
 
     @* ── Search ── *@
