@@ -197,6 +197,11 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         // Generate cinematic hero banner from cover art.
         await GenerateHeroBannerAsync(assetId, editionFolder, ct).ConfigureAwait(false);
 
+        // Clean up any .tuvima.bak files left behind by metadata taggers.
+        // These backups are normally deleted on success, but can persist when the
+        // tagger fails partway through (e.g. M4B cover art write on a locked file).
+        CleanStagingBakFiles(stagingFolder);
+
         // Clean empty staging subdirectories left behind.
         if (!string.IsNullOrWhiteSpace(_options.StagingPath))
             CleanEmptyParents(stagingFolder, _options.StagingPath);
@@ -401,6 +406,22 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
                 catch { /* best-effort */ }
             }
         }
+    }
+
+    private static void CleanStagingBakFiles(string folder)
+    {
+        if (string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder))
+            return;
+
+        try
+        {
+            foreach (var bakFile in Directory.EnumerateFiles(folder, "*.tuvima.bak"))
+            {
+                try { File.Delete(bakFile); }
+                catch { /* best-effort cleanup */ }
+            }
+        }
+        catch { /* best-effort cleanup */ }
     }
 
     private static void CleanEmptyParents(string folder, string stopAt)
