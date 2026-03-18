@@ -1720,9 +1720,20 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     /// Re-fetches entity labels for ALL entity-valued claims in the configured language.
     /// The Data Extension API's entity reference "name" field does not respect uselang —
     /// it returns Wikidata's default label, which may be in any language.
-    /// This method requests L{lang} labels for ALL entity QIDs found in _qid companion claims
-    /// and replaces those labels unconditionally, regardless of script.
-    /// This ensures a Russian user sees Russian names, a French user sees French names, etc.
+    ///
+    /// <para>
+    /// For entities where a label in the configured language IS found:
+    /// - The <c>_qid</c> companion claim is updated to <c>"Q123::NewLabel"</c>.
+    /// - The primary label claim is updated to the resolved label.
+    /// </para>
+    ///
+    /// <para>
+    /// For entities where NO label exists in the configured language (e.g. Q18590295 has no English label):
+    /// - The <c>_qid</c> companion claim is stripped to just the bare QID (<c>"Q18590295"</c>),
+    ///   removing the wrong-language label portion.
+    /// - The primary label claim is DROPPED entirely so that the file processor's value
+    ///   (e.g. "Andy Weir" from embedded metadata) wins via the Priority Cascade.
+    /// </para>
     /// </summary>
     private async Task<List<ProviderClaim>> ResolveEntityLabelsInLanguageAsync(
         List<ProviderClaim> claims,
@@ -1763,18 +1774,19 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             }
         }
 
-        if (resolvedLabels.Count == 0)
-            return claims; // No labels found in configured language
-
         _logger.LogDebug(
             "{Provider}: resolved {Count}/{Total} entity labels in language '{Lang}'",
             Name, resolvedLabels.Count, qidsToResolve.Count, language);
 
         // Replace labels in ALL claims.
+        // - QIDs with a resolved label: update label to the resolved value.
+        // - QIDs in qidsToResolve but NOT in resolvedLabels (no label in configured language):
+        //     _qid companion → strip to bare QID (remove wrong-language label portion)
+        //     primary label claim → DROP (let file metadata win via Priority Cascade)
         var result = new List<ProviderClaim>(claims.Count);
         foreach (var claim in claims)
         {
-            // Fix companion _qid claims: "Q123::OldLabel" → "Q123::NewLabel"
+            // Fix companion _qid claims: "Q123::OldLabel" → "Q123::NewLabel" (or "Q123" if unresolved)
             if (claim.Key.EndsWith("_qid", StringComparison.OrdinalIgnoreCase))
             {
                 var colonIdx = claim.Value.IndexOf("::", StringComparison.Ordinal);
@@ -1783,7 +1795,16 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                     var qid = claim.Value[..colonIdx].Trim();
                     if (resolvedLabels.TryGetValue(qid, out var newLabel))
                     {
+                        // Label found in configured language — update to resolved label.
                         result.Add(new ProviderClaim(claim.Key, $"{qid}::{newLabel}", claim.Confidence));
+                        continue;
+                    }
+
+                    if (qidsToResolve.Contains(qid))
+                    {
+                        // This QID has no label in the configured language.
+                        // Strip to bare QID to avoid storing a wrong-language label.
+                        result.Add(new ProviderClaim(claim.Key, qid, claim.Confidence));
                         continue;
                     }
                 }
@@ -1816,8 +1837,20 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                         var qid = companionValue[..cIdx].Trim();
                         if (resolvedLabels.TryGetValue(qid, out var newLabel))
                         {
+                            // Label found — update primary claim to resolved label.
                             result.Add(new ProviderClaim(claim.Key, newLabel, claim.Confidence));
                             continue;
+                        }
+
+                        if (qidsToResolve.Contains(qid))
+                        {
+                            // No label in configured language — drop this primary claim entirely.
+                            // The file processor's embedded value (e.g. "Andy Weir") will win
+                            // via the Priority Cascade since it's the only remaining label claim.
+                            _logger.LogDebug(
+                                "{Provider}: dropping primary '{Key}' claim for QID {QID} — no {Lang} label; file metadata wins",
+                                Name, claim.Key, qid, language);
+                            continue; // Do not add to result.
                         }
                     }
                 }
