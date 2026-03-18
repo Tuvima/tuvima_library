@@ -27,9 +27,11 @@ namespace MediaEngine.Api.Services;
 /// </summary>
 public sealed class MissingUniverseSweepService : BackgroundService
 {
-    private static readonly TimeSpan InitialDelay  = TimeSpan.FromSeconds(60);
-    private static readonly TimeSpan SweepInterval = TimeSpan.FromDays(7);
-    private static readonly TimeSpan ItemDelay     = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan InitialDelay = TimeSpan.FromSeconds(60);
+    private static readonly TimeSpan ItemDelay    = TimeSpan.FromSeconds(2);
+
+    /// <summary>Cron expression for the sweep schedule. Default: 4 AM Sundays.</summary>
+    private const string DefaultSchedule = "0 4 * * 0";
 
     private const int    MaxItemsPerSweep     = 100;
     private const double AutoAcceptThreshold  = 0.90;
@@ -74,8 +76,8 @@ public sealed class MissingUniverseSweepService : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation(
-            "MissingUniverseSweepService started — initial delay {Seconds}s, then every {Days}d",
-            InitialDelay.TotalSeconds, SweepInterval.TotalDays);
+            "MissingUniverseSweepService started — initial delay {Seconds}s, schedule: {Schedule}",
+            InitialDelay.TotalSeconds, DefaultSchedule);
 
         // Let the rest of the app fully start before the first sweep.
         await Task.Delay(InitialDelay, stoppingToken);
@@ -95,7 +97,8 @@ public sealed class MissingUniverseSweepService : BackgroundService
                 _logger.LogWarning(ex, "MissingUniverseSweepService: sweep failed; will retry next cycle");
             }
 
-            await Task.Delay(SweepInterval, stoppingToken);
+            var delay = CronScheduler.UntilNext(DefaultSchedule, TimeSpan.FromDays(7));
+            await Task.Delay(delay, stoppingToken);
         }
     }
 

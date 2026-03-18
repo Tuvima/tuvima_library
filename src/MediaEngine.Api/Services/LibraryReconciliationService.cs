@@ -87,9 +87,12 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
 
     // ── BackgroundService ─────────────────────────────────────────────────
 
+    /// <summary>Cron expression for the reconciliation schedule. Default: 5 AM daily.</summary>
+    private const string DefaultSchedule = "0 5 * * *";
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("LibraryReconciliationService started");
+        _logger.LogInformation("LibraryReconciliationService started — schedule: {Schedule}", DefaultSchedule);
 
         // The IngestionEngine already runs reconciliation at startup (Step 2),
         // so this background loop waits the full interval before its first run
@@ -104,7 +107,8 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
 
                 if (intervalHours > 0)
                 {
-                    await Task.Delay(TimeSpan.FromHours(intervalHours), stoppingToken);
+                    var delay = CronScheduler.UntilNext(DefaultSchedule, TimeSpan.FromHours(24));
+                    await Task.Delay(delay, stoppingToken);
                     await ReconcileAsync(stoppingToken);
                 }
                 else

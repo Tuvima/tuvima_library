@@ -4,6 +4,9 @@
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
   <ItemGroup Label="Production">
+    <!-- Cronos: lightweight cron expression parser for configurable background schedules.
+         MIT license — approved for AGPLv3 compatibility (see CLAUDE.md §5.1). -->
+    <PackageVersion Include="Cronos" Version="0.8.4" />
     <PackageVersion Include="dotNetRdf" Version="3.5.1" />
     <!-- FuzzySharp: fuzzy string matching for candidate scoring.
          MIT license — approved for AGPLv3 compatibility (see CLAUDE.md §5.1). -->
@@ -30,6 +33,14 @@
     <!-- Windows Service hosting: integrates with Service Control Manager for .exe installer.
          MIT license — no-op on Linux/macOS/Docker; safe to include unconditionally. -->
     <PackageVersion Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.3" />
+    <!-- Polly / Microsoft.Extensions.Http.Resilience: standard retry, circuit-breaker,
+         and timeout policies for all external HTTP calls.
+         MIT license — approved for AGPLv3 compatibility (see CLAUDE.md §5.1). -->
+    <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.1.0" />
+    <!-- Serilog: structured logging with rolling file output.
+         Apache 2.0 license — approved for AGPLv3 compatibility (see CLAUDE.md §5.1). -->
+    <PackageVersion Include="Serilog.AspNetCore" Version="9.0.0" />
+    <PackageVersion Include="Serilog.Sinks.File" Version="6.0.0" />
     <!-- UI -->
     <PackageVersion Include="MudBlazor" Version="9.0.0" />
   </ItemGroup>

@@ -6,8 +6,15 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Cronos: configurable cron scheduling for background services. -->
+    <PackageReference Include="Cronos" />
     <!-- Swashbuckle 7.x: intentionally pinned — see Directory.Packages.props for rationale. -->
     <PackageReference Include="Swashbuckle.AspNetCore" />
+    <!-- Serilog: structured logging with rolling file sinks for headless Engine operation. -->
+    <PackageReference Include="Serilog.AspNetCore" />
+    <PackageReference Include="Serilog.Sinks.File" />
+    <!-- Polly: standard resilience (retry, circuit-breaker, timeout) for all external HTTP calls. -->
+    <PackageReference Include="Microsoft.Extensions.Http.Resilience" />
     <!-- Windows Service: integrates with SCM when running as installed service. No-op elsewhere. -->
     <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" />
   </ItemGroup>

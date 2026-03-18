@@ -21,8 +21,8 @@ public sealed class ActivityPruningService : BackgroundService
     private readonly IConfigurationLoader      _configLoader;
     private readonly ILogger<ActivityPruningService> _logger;
 
-    /// <summary>How often the prune runs. Default: once per day.</summary>
-    private static readonly TimeSpan PruneInterval = TimeSpan.FromHours(24);
+    /// <summary>Cron expression for the prune schedule. Default: 3 AM daily.</summary>
+    private const string DefaultSchedule = "0 3 * * *";
 
     public ActivityPruningService(
         ISystemActivityRepository activityRepo,
@@ -40,8 +40,7 @@ public sealed class ActivityPruningService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("ActivityPruningService started — checking every {Hours}h",
-            PruneInterval.TotalHours);
+        _logger.LogInformation("ActivityPruningService started — schedule: {Schedule}", DefaultSchedule);
 
         // Initial delay to let the rest of the app start.
         await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
@@ -87,7 +86,10 @@ public sealed class ActivityPruningService : BackgroundService
                 _logger.LogWarning(ex, "Activity prune failed; will retry next cycle");
             }
 
-            await Task.Delay(PruneInterval, stoppingToken);
+            var schedule = DefaultSchedule; // future: read from config/maintenance.json
+            var delay = CronScheduler.UntilNext(schedule, TimeSpan.FromHours(24));
+            _logger.LogInformation("Next activity prune at {NextRun}", DateTimeOffset.Now.Add(delay));
+            await Task.Delay(delay, stoppingToken);
         }
     }
 }
