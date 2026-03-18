@@ -214,50 +214,41 @@ public sealed class RecursiveIdentityService : IRecursiveIdentityService
     // ── Private helpers ───────────────────────────────────────────────────────
 
     /// <summary>
-    /// Creates the <c>.people/{folderName}/</c> directory under the configured
+    /// Creates the <c>.people/{Name} ({QID})/</c> directory under the configured
     /// library root, where downstream services write headshots and character images.
     ///
-    /// Folder name priority:
-    /// <list type="number">
-    ///   <item><term>Wikidata QID</term> — stable, e.g. <c>.people/Q378882/</c></item>
-    ///   <item><term>Temporary DB ID</term> — used when enrichment is still pending,
-    ///         e.g. <c>.people/tmp-3f2504e0-4f89-11d3-9a0c-0305e82c3301/</c></item>
-    /// </list>
+    /// Only creates the folder when the Wikidata QID is known — this gives a
+    /// stable, collision-free name.  When the QID is not yet resolved (enrichment
+    /// pending), folder creation is deferred: the enrichment service will create
+    /// the folder once the QID is available.
     ///
     /// This method is intentionally non-throwing: folder creation failures are logged
-    /// at Warning level and do not abort the ingestion pipeline.
+    /// at Debug level and do not abort the ingestion pipeline.
     /// </summary>
     private void EnsurePersonFolder(Domain.Entities.Person person)
     {
         try
         {
             var libraryRoot = _configLoader.LoadCore().LibraryRoot;
-            if (string.IsNullOrWhiteSpace(libraryRoot))
+            if (string.IsNullOrWhiteSpace(libraryRoot)) return;
+
+            // Only create folder when QID is known — stable, collision-free name.
+            // Enrichment will create the folder later when QID is resolved.
+            if (string.IsNullOrWhiteSpace(person.WikidataQid))
             {
                 _logger.LogDebug(
-                    "Skipping .people/ folder creation for '{Name}' — LibraryRoot is not configured",
-                    person.Name);
+                    "Skipping .people/ folder for '{Name}' — QID not yet known", person.Name);
                 return;
             }
 
-            // Use QID as folder name when available; fall back to a temp ID so the
-            // folder always exists before enrichment tries to write into it.
-            var folderName = !string.IsNullOrWhiteSpace(person.WikidataQid)
-                ? person.WikidataQid
-                : $"tmp-{person.Id}";
-
+            var folderName = $"{person.Name} ({person.WikidataQid})";
             var personFolder = Path.Combine(libraryRoot, ".people", folderName);
             Directory.CreateDirectory(personFolder);
-
-            _logger.LogDebug(
-                "Ensured .people/ folder for '{Name}': {FolderPath}",
-                person.Name, personFolder);
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex,
-                "Failed to create .people/ folder for '{Name}' ({Id})",
-                person.Name, person.Id);
+            _logger.LogDebug(ex,
+                "Failed to create .people/ folder for '{Name}'", person.Name);
         }
     }
 

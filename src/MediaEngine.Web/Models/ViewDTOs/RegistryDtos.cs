@@ -109,6 +109,15 @@ public sealed class RegistryStatusCountsDto
 
     [JsonPropertyName("staging")]
     public int Staging { get; set; }
+
+    [JsonPropertyName("missing_images")]
+    public int MissingImages { get; set; }
+
+    [JsonPropertyName("recently_updated")]
+    public int RecentlyUpdated { get; set; }
+
+    [JsonPropertyName("low_confidence")]
+    public int LowConfidence { get; set; }
 }
 
 /// <summary>Full detail for expanded row.</summary>

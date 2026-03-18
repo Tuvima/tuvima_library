@@ -215,6 +215,11 @@ else
     private List<NamedGroup>   _genreGroups = [];
     private List<NamedGroup>   _mediaTypeGroups = [];
 
+    private List<WorkViewModel> _libraryWorks = [];
+    private List<WorkViewModel> _laneWorks = [];
+    private List<WorkViewModel> _displayWorks = [];
+    private List<WorkViewModel> _recentWorks = [];
+
     private IReadOnlyList<string> _availableGenres = [];
     private IReadOnlyList<string> _availablePersons = [];
     private IReadOnlyList<string> _availableSeries = [];
@@ -234,6 +239,12 @@ else
                 PosterItemViewModel.FromWork(w, h.CoverUrl, h.DominantHexColor)))
             .ToList();
 
+    /// <summary>
+    /// Builds poster items directly from works (work-first display).
+    /// </summary>
+    private static IReadOnlyList<PosterItemViewModel> WorksToItems(IEnumerable<WorkViewModel> works) =>
+        works.Select(w => PosterItemViewModel.FromWork(w, null, null)).ToList();
+
     private string ContinueLabel => _lane?.Key switch
     {
         "books"    => "Continue Reading",
@@ -244,8 +255,8 @@ else
         _          => "Continue",
     };
 
-    private sealed record PersonGroup(string PersonName, string? HeadshotUrl, IReadOnlyList<HubViewModel> Hubs);
-    private sealed record NamedGroup(string Name, IReadOnlyList<HubViewModel> Hubs);
+    private sealed record PersonGroup(string PersonName, string? HeadshotUrl, IReadOnlyList<HubViewModel> Hubs, IReadOnlyList<WorkViewModel> Works);
+    private sealed record NamedGroup(string Name, IReadOnlyList<HubViewModel> Hubs, IReadOnlyList<WorkViewModel> Works);
 
     protected override async Task OnInitializedAsync()
     {
@@ -291,9 +302,23 @@ else
         try
         {
             var allHubs = await Orchestrator.GetHubsAsync();
+            _libraryWorks = await Orchestrator.GetLibraryWorksAsync();
             var journeyItems = await Orchestrator.GetJourneyAsync(limit: 5);
 
-            // Filter to this lane's media types.
+            // Filter works to this lane's media types (primary data source).
+            if (_lane is not null)
+            {
+                _laneWorks = _libraryWorks
+                    .Where(w => _lane.MediaTypes.Any(mt =>
+                        (w.MediaType ?? "").Contains(mt, StringComparison.OrdinalIgnoreCase)))
+                    .ToList();
+            }
+            else
+            {
+                _laneWorks = [];
+            }
+
+            // Keep hub filtering for backward compat (hero, journey).
             if (_lane is not null)
             {
                 _allHubs = allHubs
@@ -459,7 +484,7 @@ else
             {
                 _personLookup.TryGetValue(g.Key.ToLowerInvariant(), out var person);
                 var headshot = person?.LocalHeadshotUrl ?? person?.HeadshotUrl;
-                return new PersonGroup(g.Key, headshot, g.ToList());
+                return new PersonGroup(g.Key, headshot, g.ToList(), g.SelectMany(h => h.Works).ToList());
             })
             .ToList();
 
@@ -471,7 +496,8 @@ else
             .OrderByDescending(g => g.Count())
             .Take(5)
             .Select(g => new NamedGroup(g.Key,
-                g.OrderBy(h => h.Year ?? "9999").ToList()))
+                g.OrderBy(h => h.Year ?? "9999").ToList(),
+                g.OrderBy(h => h.Year ?? "9999").SelectMany(h => h.Works).ToList()))
             .ToList();
 
         // Genre groups.
@@ -487,8 +513,11 @@ else
             .Where(g => g.Count() >= 2)
             .OrderByDescending(g => g.Count())
             .Take(5)
-            .Select(g => new NamedGroup(g.Key,
-                g.Select(x => x.Hub).Distinct().ToList()))
+            .Select(g =>
+            {
+                var hubs = g.Select(x => x.Hub).Distinct().ToList();
+                return new NamedGroup(g.Key, hubs, hubs.SelectMany(h => h.Works).ToList());
+            })
             .ToList();
 
         // Media-type sub-groups (e.g. Books lane → "eBooks", "Audiobooks").
@@ -496,7 +525,7 @@ else
             .Where(h => !string.IsNullOrEmpty(h.PrimaryMediaType))
             .GroupBy(h => FormatMediaType(h.PrimaryMediaType!))
             .Where(g => g.Count() >= 2)
-            .Select(g => new NamedGroup(g.Key, g.ToList()))
+            .Select(g => new NamedGroup(g.Key, g.ToList(), g.SelectMany(h => h.Works).ToList()))
             .ToList();
     }
 

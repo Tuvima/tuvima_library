@@ -15,6 +15,9 @@ public interface IEngineApiClient
     /// <summary>GET /hubs — full hub list with works and canonical values.</summary>
     Task<List<HubViewModel>> GetHubsAsync(CancellationToken ct = default);
 
+    /// <summary>GET /library/works — flat list of works with canonical values (excludes staging).</summary>
+    Task<List<WorkViewModel>> GetLibraryWorksAsync(CancellationToken ct = default);
+
     /// <summary>POST /ingestion/scan — dry-run scan of a directory path.</summary>
     Task<ScanResultViewModel?> TriggerScanAsync(string? rootPath = null, CancellationToken ct = default);
 

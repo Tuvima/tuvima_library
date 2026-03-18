@@ -113,6 +113,32 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
             return;
         }
 
+        // ── Blocking review check ──────────────────────────────────────────
+        // Certain review triggers must block promotion. If a pending review with
+        // a blocking trigger exists, the file stays in staging until the user resolves it.
+        var pendingReviews = await _reviewRepo.GetPendingByEntityAsync(assetId, ct)
+            .ConfigureAwait(false);
+
+        #pragma warning disable CS0618 // Obsolete — kept for backward compat with existing DB rows
+        var blockingTriggers = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ReviewTrigger.LanguageMismatch,
+            ReviewTrigger.NonConfiguredLanguage,
+            ReviewTrigger.AuthorityMatchFailed,
+            ReviewTrigger.MissingQid,
+            ReviewTrigger.StagedUnidentifiable,
+        };
+        #pragma warning restore CS0618
+
+        var blockingReview = pendingReviews.FirstOrDefault(r => blockingTriggers.Contains(r.Trigger));
+        if (blockingReview is not null)
+        {
+            _logger.LogInformation(
+                "Auto-organize blocked for {Id}: pending review '{Trigger}' must be resolved first",
+                assetId, blockingReview.Trigger);
+            return;
+        }
+
         // ── Promote from staging to library ──────────────────────────────
 
         var synth = new IngestionCandidate
@@ -196,9 +222,10 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
             _logger.LogDebug(ex, "Activity log failed for auto-organize — continuing");
         }
 
-        // Auto-resolve any pending review items for this entity — the file passed
-        // the organization gate, so review items (LowConfidence, ArtworkUnconfirmed, etc.)
-        // created during initial ingestion are now moot.
+        // Only resolve non-blocking review items after successful promotion.
+        // Blocking reviews (LanguageMismatch, AuthorityMatchFailed, MissingQid, etc.)
+        // would have prevented reaching this point, so only LowConfidence,
+        // ArtworkUnconfirmed, and ContentMatchFailed remain.
         try
         {
             var resolved = await _reviewRepo.ResolveAllByEntityAsync(assetId, "system:auto-organize", ct)

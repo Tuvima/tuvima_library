@@ -111,6 +111,25 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
     }
 
     /// <inheritdoc/>
+    public Task<IReadOnlyList<ReviewQueueEntry>> GetPendingByEntityAsync(
+        Guid entityId,
+        CancellationToken ct = default)
+    {
+        using var conn = _db.CreateConnection();
+        var rows = conn.Query<ReviewQueueRow>("""
+            SELECT id, entity_id AS EntityId, entity_type AS EntityType, trigger, status,
+                   proposed_hub_id AS ProposedHubId, confidence_score AS ConfidenceScore,
+                   candidates_json AS CandidatesJson, detail, created_at AS CreatedAt,
+                   resolved_at AS ResolvedAt, resolved_by AS ResolvedBy
+            FROM   review_queue
+            WHERE  entity_id = @entityId AND status = @status
+            ORDER BY created_at DESC
+            """, new { entityId = entityId.ToString(), status = ReviewStatus.Pending }).AsList();
+
+        return Task.FromResult<IReadOnlyList<ReviewQueueEntry>>(rows.Select(MapRow).ToList());
+    }
+
+    /// <inheritdoc/>
     public Task UpdateStatusAsync(
         Guid id,
         string status,

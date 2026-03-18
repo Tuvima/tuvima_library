@@ -864,6 +864,40 @@ public sealed class DatabaseConnection : IDatabaseConnection
         // so we recreate fictional_entities with 'Event' added to the constraint.
         MigrateExpandFictionalEntitySubTypes(conn);
 
+        // ── M-045: Hub type for typed containers ─────────────────────────
+        MigrateAddColumnIfMissing(conn, "hubs", "hub_type",
+            "ALTER TABLE hubs ADD COLUMN hub_type TEXT NOT NULL DEFAULT 'Universe';");
+
+        // ── M-046: Hub-Work junction table (many-to-many) ───────────────
+        {
+            using var m046 = conn.CreateCommand();
+            m046.CommandText = """
+                CREATE TABLE IF NOT EXISTS hub_work_links (
+                    hub_id    TEXT NOT NULL,
+                    work_id   TEXT NOT NULL,
+                    linked_at TEXT NOT NULL DEFAULT (datetime('now')),
+                    PRIMARY KEY (hub_id, work_id)
+                );
+                CREATE INDEX IF NOT EXISTS idx_hwl_work ON hub_work_links(work_id);
+                """;
+            m046.ExecuteNonQuery();
+        }
+
+        // ── M-047: Clean up orphan hubs (no works assigned) ─────────────
+        {
+            using var m047 = conn.CreateCommand();
+            m047.CommandText = """
+                DELETE FROM hubs WHERE id NOT IN (
+                    SELECT DISTINCT hub_id FROM works WHERE hub_id IS NOT NULL
+                    UNION
+                    SELECT DISTINCT hub_id FROM hub_work_links
+                );
+                """;
+            var orphansDeleted = m047.ExecuteNonQuery();
+            if (orphansDeleted > 0)
+                System.Diagnostics.Debug.WriteLine($"M-047: Cleaned up {orphansDeleted} orphan hubs");
+        }
+
         // Seed S-001: provider_registry entries for all known providers.
         // metadata_claims.provider_id has a FK to provider_registry(id), so these
         // rows MUST exist before any claim is written.  INSERT OR IGNORE makes this

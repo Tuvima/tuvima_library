@@ -30,9 +30,12 @@ public interface IRegistryRepository
 
 /// <summary>Counts for status tab badges.</summary>
 public sealed record RegistryStatusCounts(
-    [property: JsonPropertyName("total")]        int Total,
-    [property: JsonPropertyName("needs_review")] int NeedsReview,
-    [property: JsonPropertyName("auto_approved")]int AutoApproved,
-    [property: JsonPropertyName("edited")]       int Edited,
-    [property: JsonPropertyName("duplicate")]    int Duplicate,
-    [property: JsonPropertyName("staging")]      int Staging = 0);
+    [property: JsonPropertyName("total")]            int Total,
+    [property: JsonPropertyName("needs_review")]     int NeedsReview,
+    [property: JsonPropertyName("auto_approved")]    int AutoApproved,
+    [property: JsonPropertyName("edited")]           int Edited,
+    [property: JsonPropertyName("duplicate")]        int Duplicate,
+    [property: JsonPropertyName("staging")]          int Staging = 0,
+    [property: JsonPropertyName("missing_images")]   int MissingImages = 0,
+    [property: JsonPropertyName("recently_updated")] int RecentlyUpdated = 0,
+    [property: JsonPropertyName("low_confidence")]   int LowConfidence = 0);

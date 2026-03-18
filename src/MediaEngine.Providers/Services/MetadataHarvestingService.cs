@@ -844,47 +844,41 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
             var peopleRoot = Path.Combine(core.LibraryRoot, ".people");
             Directory.CreateDirectory(peopleRoot);
 
-            // Resolve the folder name: "Name (QID)" when QID is available,
-            // sanitized name or GUID as fallback before enrichment.
-            string folderName;
-            if (person is not null && !string.IsNullOrWhiteSpace(person.WikidataQid) &&
-                !string.IsNullOrWhiteSpace(person.Name))
+            // Resolve the target folder name: "Name (QID)" — the canonical format.
+            // Both Name and QID are required; without QID we cannot build a stable name.
+            if (person is null ||
+                string.IsNullOrWhiteSpace(person.WikidataQid) ||
+                string.IsNullOrWhiteSpace(person.Name))
             {
-                folderName = $"{SanitizeForFilesystem(person.Name)} ({person.WikidataQid})";
-            }
-            else if (person is not null && !string.IsNullOrWhiteSpace(person.Name))
-            {
-                folderName = SanitizeForFilesystem(person.Name);
-            }
-            else
-            {
-                folderName = personId.ToString();
+                // Skip folder creation — will be handled when QID is resolved.
+                // Still attempt headshot download below if folder already exists.
+                return;
             }
 
+            var folderName = $"{SanitizeForFilesystem(person.Name)} ({person.WikidataQid})";
             var personFolder = Path.Combine(peopleRoot, folderName);
 
-            // ── Rename detection: if this person already has a folder under a
-            //    different name (old name, GUID, or pre-QID format), rename it. ──
-            if (!Directory.Exists(personFolder) || ReadPersonIdFromXml(Path.Combine(personFolder, "person.xml")) != personId)
+            // ── Rename detection: migrate legacy folder formats to Name (QID). ──
+            if (!Directory.Exists(personFolder))
             {
-                var renamed = TryRenameExistingPersonFolder(peopleRoot, personId, personFolder);
-                if (renamed)
+                // Check for tmp-{personId} folder from pre-QID ingestion.
+                var tmpFolder = Path.Combine(peopleRoot, $"tmp-{personId}");
+                if (Directory.Exists(tmpFolder))
                 {
-                    await LogPersonFolderRenamedAsync(personId, person?.Name ?? folderName, ct)
+                    Directory.Move(tmpFolder, personFolder);
+                    await LogPersonFolderRenamedAsync(personId, folderName, ct)
                         .ConfigureAwait(false);
                 }
-            }
-
-            // Collision detection: if folder exists, read person.xml → check <id>.
-            // With QID-based naming this should be rare, but kept for safety.
-            if (Directory.Exists(personFolder))
-            {
-                var existingId = ReadPersonIdFromXml(Path.Combine(personFolder, "person.xml"));
-                if (existingId is not null && existingId != personId)
+                // Check for bare QID folder (old format without Name prefix).
+                else
                 {
-                    // Different person occupies this folder — append short hash.
-                    folderName = $"{folderName} [{personId.ToString()[..4]}]";
-                    personFolder = Path.Combine(peopleRoot, folderName);
+                    var bareQidFolder = Path.Combine(peopleRoot, person.WikidataQid);
+                    if (Directory.Exists(bareQidFolder))
+                    {
+                        Directory.Move(bareQidFolder, personFolder);
+                        await LogPersonFolderRenamedAsync(personId, folderName, ct)
+                            .ConfigureAwait(false);
+                    }
                 }
             }
 

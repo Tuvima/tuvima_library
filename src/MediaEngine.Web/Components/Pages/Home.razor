@@ -18,7 +18,7 @@ else if (_error is not null)
 {
     <MudAlert Severity="Severity.Error" Class="mb-4">@_error</MudAlert>
 }
-else if (_hubs.Count == 0)
+else if (_hubs.Count == 0 && _libraryWorks.Count == 0)
 {
     @* ── Empty state — library has no content yet ── *@
     <div class="home-empty-state">
@@ -158,6 +158,7 @@ else
     private string?            _error;
     private string?            _seedMessage;
     private List<HubViewModel> _hubs         = [];
+    private List<WorkViewModel> _libraryWorks = [];
     private List<(WorkViewModel Work, HubViewModel Hub)> _carouselWorks = [];
 
     // ── Home swimlane data (individual works, not hubs) ───────────────────────
@@ -263,6 +264,7 @@ else
         try
         {
             _hubs = await Orchestrator.GetHubsAsync();
+            _libraryWorks = await Orchestrator.GetLibraryWorksAsync();
 
             // Load up to 5 in-progress items for the carousel primary pool.
             _journeyItems = await Orchestrator.GetJourneyAsync(limit: 5);
@@ -284,17 +286,16 @@ else
         var all = _hubs;
 
         // Carousel fallback pool — recently added works shown when no journey items.
+        // Carousel still uses hub data for hero banner (cover art, dominant colour).
         _carouselWorks = all
             .OrderByDescending(h => h.CreatedAt)
             .SelectMany(h => h.Works.Select(w => (Work: w, Hub: h)))
             .Take(5)
             .ToList();
 
-        // Recently Added — individual works flattened from recently added hubs.
-        _recentWorks = all
-            .OrderByDescending(h => h.CreatedAt)
-            .SelectMany(h => h.Works.Select(w =>
-                PosterItemViewModel.FromWork(w, h.CoverUrl, h.DominantHexColor)))
+        // Recently Added — built directly from library works (API returns newest first).
+        _recentWorks = _libraryWorks
+            .Select(w => PosterItemViewModel.FromWork(w, null, null))
             .Take(20)
             .ToList();
 
@@ -306,19 +307,17 @@ else
             .Select(a => a!)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        var candidates = all
-            .SelectMany(h => h.Works.Select(w => (work: w, hub: h)))
-            .Where(x => !journeyWorkIds.Contains(x.work.Id))
+        var candidates = _libraryWorks
+            .Where(w => !journeyWorkIds.Contains(w.Id))
             .ToList();
 
         // Prefer works by recently-read authors; fall back to all candidates.
         var authorMatches = candidates
-            .Where(x => !string.IsNullOrEmpty(x.work.Author) && recentAuthors.Contains(x.work.Author!))
+            .Where(w => !string.IsNullOrEmpty(w.Author) && recentAuthors.Contains(w.Author!))
             .ToList();
 
         _suggestedWorks = (authorMatches.Count >= 4 ? authorMatches : candidates)
-            .OrderByDescending(x => x.hub.CreatedAt)
-            .Select(x => PosterItemViewModel.FromWork(x.work, x.hub.CoverUrl, x.hub.DominantHexColor))
+            .Select(w => PosterItemViewModel.FromWork(w, null, null))
             .Take(12)
             .ToList();
 
@@ -470,7 +469,7 @@ else
     {
         InvokeAsync(() =>
         {
-            if (State.IsLoaded && _hubs.Count > 0)
+            if (State.IsLoaded && (_hubs.Count > 0 || _libraryWorks.Count > 0))
             {
                 ApplyFilter();
                 StateHasChanged();

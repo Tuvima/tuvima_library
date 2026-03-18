@@ -27,7 +27,8 @@ public sealed class HubRepository : IHubRepository
         created_at     AS CreatedAt,
         universe_status AS UniverseStatus,
         parent_hub_id  AS ParentHubId,
-        wikidata_qid   AS WikidataQid
+        wikidata_qid   AS WikidataQid,
+        hub_type       AS HubType
         """;
 
     // Reusable SELECT list for hub_relationships rows.
@@ -59,6 +60,7 @@ public sealed class HubRepository : IHubRepository
     private static Hub NormalizeHub(Hub h)
     {
         h.UniverseStatus ??= "Unknown";
+        h.HubType ??= "Universe";
         return h;
     }
 
@@ -81,6 +83,7 @@ public sealed class HubRepository : IHubRepository
             cmd.CommandText = """
                 SELECT h.id, h.universe_id, h.display_name, h.created_at,
                        h.universe_status, h.parent_hub_id, h.wikidata_qid,
+                       h.hub_type,
                        w.id, w.media_type, w.sequence_index,
                        w.universe_mismatch, w.universe_mismatch_at,
                        w.wikidata_status, w.wikidata_checked_at, w.wikidata_qid
@@ -104,27 +107,28 @@ public sealed class HubRepository : IHubRepository
                         UniverseStatus = reader.IsDBNull(4) ? "Unknown" : reader.GetString(4),
                         ParentHubId    = reader.IsDBNull(5) ? null : Guid.Parse(reader.GetString(5)),
                         WikidataQid    = reader.IsDBNull(6) ? null : reader.GetString(6),
+                        HubType        = reader.IsDBNull(7) ? "Universe" : reader.GetString(7),
                     };
                     hubs[hubId] = hub;
                 }
 
                 // LEFT JOIN: work columns are NULL when the hub has no works.
-                if (!reader.IsDBNull(7))
+                if (!reader.IsDBNull(8))
                 {
-                    var workId = Guid.Parse(reader.GetString(7));
+                    var workId = Guid.Parse(reader.GetString(8));
                     if (!works.ContainsKey(workId))
                     {
                         var work = new Work
                         {
                             Id                 = workId,
                             HubId              = hubId,
-                            MediaType          = Enum.Parse<MediaType>(reader.GetString(8), ignoreCase: true),
-                            SequenceIndex      = reader.IsDBNull(9) ? null : reader.GetInt32(9),
-                            UniverseMismatch   = !reader.IsDBNull(10) && reader.GetInt32(10) == 1,
-                            UniverseMismatchAt = reader.IsDBNull(11) ? null : DateTimeOffset.Parse(reader.GetString(11)),
-                            WikidataStatus     = reader.IsDBNull(12) ? "pending" : reader.GetString(12),
-                            WikidataCheckedAt  = reader.IsDBNull(13) ? null : DateTimeOffset.Parse(reader.GetString(13)),
-                            WikidataQid        = reader.IsDBNull(14) ? null : reader.GetString(14),
+                            MediaType          = Enum.Parse<MediaType>(reader.GetString(9), ignoreCase: true),
+                            SequenceIndex      = reader.IsDBNull(10) ? null : reader.GetInt32(10),
+                            UniverseMismatch   = !reader.IsDBNull(11) && reader.GetInt32(11) == 1,
+                            UniverseMismatchAt = reader.IsDBNull(12) ? null : DateTimeOffset.Parse(reader.GetString(12)),
+                            WikidataStatus     = reader.IsDBNull(13) ? "pending" : reader.GetString(13),
+                            WikidataCheckedAt  = reader.IsDBNull(14) ? null : DateTimeOffset.Parse(reader.GetString(14)),
+                            WikidataQid        = reader.IsDBNull(15) ? null : reader.GetString(15),
                         };
                         works[workId] = work;
                         hub.Works.Add(work);
@@ -408,10 +412,10 @@ public sealed class HubRepository : IHubRepository
 
         using var conn = _db.CreateConnection();
         conn.Execute("""
-            INSERT OR IGNORE INTO hubs(id, universe_id, parent_hub_id, display_name, created_at, universe_status, wikidata_qid)
-                VALUES (@id, @uid, @phid, @dn, @ca, @us, @wqid);
+            INSERT OR IGNORE INTO hubs(id, universe_id, parent_hub_id, display_name, created_at, universe_status, wikidata_qid, hub_type)
+                VALUES (@id, @uid, @phid, @dn, @ca, @us, @wqid, @ht);
             UPDATE hubs SET display_name = @dn, universe_status = @us, parent_hub_id = @phid,
-                            wikidata_qid = @wqid WHERE id = @id;
+                            wikidata_qid = @wqid, hub_type = @ht WHERE id = @id;
             """,
             new
             {
@@ -422,6 +426,7 @@ public sealed class HubRepository : IHubRepository
                 ca   = hub.CreatedAt.ToString("O"),
                 us   = hub.UniverseStatus ?? "Unknown",
                 wqid = hub.WikidataQid,
+                ht   = hub.HubType ?? "Universe",
             });
 
         return Task.FromResult(hub.Id);
@@ -567,7 +572,8 @@ public sealed class HubRepository : IHubRepository
                    h.created_at     AS CreatedAt,
                    h.universe_status AS UniverseStatus,
                    h.parent_hub_id  AS ParentHubId,
-                   h.wikidata_qid   AS WikidataQid
+                   h.wikidata_qid   AS WikidataQid,
+                   h.hub_type       AS HubType
             FROM   hubs h
             INNER JOIN hub_relationships hr ON hr.hub_id = h.id
             WHERE  hr.rel_qid = @qid

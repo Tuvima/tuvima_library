@@ -79,10 +79,11 @@ else
                 @* — Left sidebar — *@
                 <aside class="book-detail-sidebar">
 
-                    @if (!string.IsNullOrEmpty(_work.Author))
-                    {
-                        <div class="book-detail-sidebar-item">
-                            <span class="book-detail-sidebar-label">Author</span>
+                    @* — Author slot (reserved height to prevent layout shift) — *@
+                    <div class="book-detail-sidebar-item book-detail-sidebar-person-slot" style="min-height: 80px;">
+                        <span class="book-detail-sidebar-label">Author</span>
+                        @if (!string.IsNullOrEmpty(_work.Author))
+                        {
                             @if (_authorPerson is not null)
                             {
                                 <div class="book-detail-sidebar-author-wrap"
@@ -110,8 +111,54 @@ else
                             {
                                 <span class="book-detail-sidebar-value">@_work.Author</span>
                             }
-                        </div>
-                    }
+                        }
+                        else
+                        {
+                            <MudSkeleton SkeletonType="SkeletonType.Text" Width="120px" Height="16px" />
+                            <MudSkeleton SkeletonType="SkeletonType.Circle" Width="40px" Height="40px" Class="mt-2" />
+                        }
+                    </div>
+
+                    @* — Narrator slot (reserved height to prevent layout shift) — *@
+                    <div class="book-detail-sidebar-item book-detail-sidebar-person-slot" style="min-height: 80px;">
+                        <span class="book-detail-sidebar-label">Narrator</span>
+                        @if (_narratorPerson is not null)
+                        {
+                            <div class="book-detail-sidebar-author-wrap"
+                                 @onclick="@(() => Nav.NavigateTo($"/person/{_narratorPerson.Id}"))">
+                                @if (!string.IsNullOrEmpty(_narratorPerson.LocalHeadshotUrl))
+                                {
+                                    <img src="@_narratorPerson.LocalHeadshotUrl" alt="@_narratorPerson.Name"
+                                         class="book-detail-sidebar-avatar" />
+                                }
+                                else if (!string.IsNullOrEmpty(_narratorPerson.HeadshotUrl))
+                                {
+                                    <img src="@_narratorPerson.HeadshotUrl" alt="@_narratorPerson.Name"
+                                         class="book-detail-sidebar-avatar" />
+                                }
+                                else
+                                {
+                                    <div class="book-detail-sidebar-avatar book-detail-sidebar-avatar-initials">
+                                        @_narratorPerson.Initials
+                                    </div>
+                                }
+                                <span class="book-detail-sidebar-author">@_narratorPerson.Name</span>
+                            </div>
+                        }
+                        else if (!string.IsNullOrEmpty(ActiveWork?.Narrator))
+                        {
+                            <div class="book-detail-sidebar-narrator-text">
+                                <MudIcon Icon="@Icons.Material.Filled.Headphones"
+                                         Style="font-size: 0.9rem; color: rgba(201,146,46,0.7); margin-right: 5px;" />
+                                <span class="book-detail-sidebar-value">@ActiveWork!.Narrator</span>
+                            </div>
+                        }
+                        else
+                        {
+                            <MudSkeleton SkeletonType="SkeletonType.Text" Width="120px" Height="16px" />
+                            <MudSkeleton SkeletonType="SkeletonType.Circle" Width="40px" Height="40px" Class="mt-2" />
+                        }
+                    </div>
 
                     @{
                         var genres        = GenreTags;
@@ -339,17 +386,6 @@ else
 
                     </div>
 
-                    @* Narrator line — audiobook format *@
-                    @if (ActiveFormatKey == "audiobook" && !string.IsNullOrEmpty(ActiveWork?.Narrator))
-                    {
-                        <div class="book-detail-narrator-row">
-                            <MudIcon Icon="@Icons.Material.Filled.Headphones"
-                                     Style="font-size: 0.9rem; color: rgba(201,146,46,0.7); margin-right: 5px;" />
-                            <span class="book-detail-narrator-label">Narrated by</span>
-                            <span class="book-detail-narrator-name">@ActiveWork!.Narrator</span>
-                        </div>
-                    }
-
                     @* Description *@
                     @if (!string.IsNullOrEmpty(_work.Description))
                     {
@@ -554,6 +590,7 @@ else
     private HubViewModel?           _hub;
     private WorkViewModel?          _work;
     private PersonViewModel?        _authorPerson;
+    private PersonViewModel?        _narratorPerson;
     private JourneyItemViewModel?   _activeJourney;
     private RelatedHubsViewModel?   _related;
     private string?                 _toastMessage;
@@ -597,6 +634,8 @@ else
             _related    = relatedTask.Result;
 
             _authorPerson = ResolveAuthorPerson(persons, _work.AuthorQid, _work.Author);
+            _narratorPerson = persons.FirstOrDefault(p =>
+                string.Equals(p.Role, "Narrator", StringComparison.OrdinalIgnoreCase));
 
             // Progress resolution: journey endpoint filtered to this hub
             _activeJourney = journey
@@ -1171,26 +1210,15 @@ else
         user-select: none;
     }
 
-    /* Narrator row */
-    .book-detail-narrator-row {
+    /* Person slots — reserved space to prevent layout shift */
+    .book-detail-sidebar-person-slot {
+        min-height: 80px;
+    }
+
+    .book-detail-sidebar-narrator-text {
         display: flex;
         align-items: center;
         gap: 2px;
-    }
-
-    .book-detail-narrator-label {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 0.80rem;
-        font-weight: 500;
-        color: rgba(248, 248, 248, 0.45);
-        margin-right: 4px;
-    }
-
-    .book-detail-narrator-name {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 0.80rem;
-        font-weight: 600;
-        color: rgba(248, 248, 248, 0.72);
     }
 
     /* Description */

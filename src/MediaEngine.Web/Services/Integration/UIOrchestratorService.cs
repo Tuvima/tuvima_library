@@ -79,6 +79,11 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         return _state.Universe ?? UniverseMapper.MapFromHubs([]);
     }
 
+    // ── Library works ────────────────────────────────────────────────────────
+
+    public Task<List<WorkViewModel>> GetLibraryWorksAsync(CancellationToken ct = default)
+        => _api.GetLibraryWorksAsync(ct);
+
     // ── System status ─────────────────────────────────────────────────────────
 
     public Task<SystemStatusViewModel?> GetSystemStatusAsync(CancellationToken ct = default)

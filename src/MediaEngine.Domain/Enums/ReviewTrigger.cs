@@ -115,10 +115,10 @@ public static class ReviewTrigger
     public const string ArtworkUnconfirmed = "ArtworkUnconfirmed";
 
     /// <summary>
-    /// The file's embedded metadata (dc:language tag in EPUB, language tag in audio)
-    /// declares a language that does not match the user's configured language in
-    /// CoreConfiguration.Language. The item should be reviewed manually.
+    /// The file's declared language doesn't match the configured library language.
+    /// Replaced by <see cref="LanguageMismatch"/> which runs during hydration with more context.
     /// </summary>
+    [Obsolete("Use LanguageMismatch instead — NonConfiguredLanguage is kept for backward compatibility with existing DB rows.")]
     public const string NonConfiguredLanguage = "NonConfiguredLanguage";
 
     /// <summary>

@@ -305,6 +305,13 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         var pipelineSw = System.Diagnostics.Stopwatch.StartNew();
         long s1Ms = 0, s2Ms = 0;
 
+        // Collect review item IDs created during the pipeline run.
+        // SignalR notifications are deferred until pipeline completion so the
+        // Dashboard doesn't flash "Needs Review" for items that may be
+        // auto-resolved by later stages (e.g. Stage 2 enrichment improving
+        // confidence above the review threshold).
+        var deferredReviewNotifications = new List<Guid>();
+
         // ── Stage 1: Reconciliation ──────────────────────────────────────────
         //
         // Resolves the work's identity via the Wikidata reconciliation API:
@@ -395,7 +402,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 request, ReviewTrigger.AuthorityMatchFailed, 0.0,
                 "Cannot perform authority match: file has no usable title, author, year, or " +
                 "identifiers embedded. Add metadata manually to enable library matching.",
-                result, ct).ConfigureAwait(false);
+                result, ct, deferredReviewNotifications).ConfigureAwait(false);
 
             stage1Providers = [];
         }
@@ -457,10 +464,9 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 new HydrationStageCompletedEvent(request.EntityId, 1, stage1Claims, "reconciliation"),
                 ct).ConfigureAwait(false);
 
-            // Hub Intelligence: assign Work to a Hub based on Wikidata relationships.
-            var qidConfirmed = result.WikidataQid is not null;
-            await RunHubIntelligenceAsync(request.EntityId, qidConfirmed, ct)
-                .ConfigureAwait(false);
+            // Hub Intelligence is deferred to Pass 2 (Universe work). Works are displayed
+            // directly via /library/works without requiring hub_id assignment.
+            _logger.LogDebug("Hub intelligence deferred to Pass 2 for asset {AssetId}", request.EntityId);
 
             // Pseudonym author protection: if the existing author canonical value
             // names a person flagged as a pseudonym (e.g. "Richard Bachman"), emit
@@ -605,7 +611,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             await CreateReviewItemAsync(
                 request, ReviewTrigger.AuthorityMatchFailed, 0.0,
                 $"Wikidata authority match failed for this {request.MediaType}",
-                result, ct).ConfigureAwait(false);
+                result, ct, deferredReviewNotifications).ConfigureAwait(false);
 
             if (!hydration.ContinuePipelineOnAuthorityFailure)
             {
@@ -1758,7 +1764,8 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         double confidence,
         string detail,
         HydrationResult result,
-        CancellationToken ct)
+        CancellationToken ct,
+        List<Guid>? deferredReviewNotifications = null)
     {
         // Dedup: skip if a pending review with the same trigger already exists.
         var existing = await _reviewRepo.GetByEntityAsync(request.EntityId, ct)
@@ -1802,12 +1809,21 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             IngestionRunId = request.IngestionRunId,
         }, ct).ConfigureAwait(false);
 
-        await _eventPublisher.PublishAsync(
-            "ReviewItemCreated",
-            new ReviewItemCreatedEvent(
-                reviewEntry.Id, request.EntityId, trigger,
-                titleCanonical?.Value),
-            ct).ConfigureAwait(false);
+        // Defer SignalR notification until pipeline completion so the Registry
+        // doesn't show "Needs Match" for items still being processed.
+        if (deferredReviewNotifications is not null)
+        {
+            deferredReviewNotifications.Add(reviewEntry.Id);
+        }
+        else
+        {
+            await _eventPublisher.PublishAsync(
+                "ReviewItemCreated",
+                new ReviewItemCreatedEvent(
+                    reviewEntry.Id, request.EntityId, trigger,
+                    titleCanonical?.Value),
+                ct).ConfigureAwait(false);
+        }
     }
 
     /// <summary>
@@ -1820,7 +1836,8 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         double confidence,
         List<string> conflictedFields,
         CancellationToken ct,
-        Guid? ingestionRunId = null)
+        Guid? ingestionRunId = null,
+        List<Guid>? deferredReviewNotifications = null)
     {
         try
         {
@@ -1859,10 +1876,19 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 IngestionRunId = ingestionRunId,
             }, ct).ConfigureAwait(false);
 
-            await _eventPublisher.PublishAsync(
-                "ReviewItemCreated",
-                new ReviewItemCreatedEvent(entry.Id, entityId, ReviewTrigger.MetadataConflict, null),
-                ct).ConfigureAwait(false);
+            // Defer SignalR notification until pipeline completion so the Registry
+            // doesn't show "Needs Match" for items still being processed.
+            if (deferredReviewNotifications is not null)
+            {
+                deferredReviewNotifications.Add(entry.Id);
+            }
+            else
+            {
+                await _eventPublisher.PublishAsync(
+                    "ReviewItemCreated",
+                    new ReviewItemCreatedEvent(entry.Id, entityId, ReviewTrigger.MetadataConflict, null),
+                    ct).ConfigureAwait(false);
+            }
 
             _logger.LogInformation(
                 "MetadataConflict review item created for entity {Id}: {Detail}",
@@ -2723,6 +2749,8 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     /// Path A (QID confirmed): uses franchise/series/universe QIDs for firm linking.
     /// Path B (QID pending): falls back to text-based provisional matching.
     /// </summary>
+#pragma warning disable CS0612
+    [Obsolete("Deferred to Pass 2 Universe work — hub creation disabled during ingestion")]
     private async Task RunHubIntelligenceAsync(
         Guid mediaAssetId, bool qidConfirmed, CancellationToken ct)
     {
@@ -2781,11 +2809,14 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 mediaAssetId);
         }
     }
+#pragma warning restore CS0612
 
     /// <summary>
     /// Creates a singleton Hub for a standalone work, or reuses an existing Hub
     /// with the same display name (case-insensitive).  Safe to call idempotently.
     /// </summary>
+#pragma warning disable CS0612
+    [Obsolete("Deferred to Pass 2 Universe work — hub creation disabled during ingestion")]
     private async Task CreateSingletonHubAsync(Guid workId, string title, CancellationToken ct)
     {
         var existing = await _hubRepo.FindByDisplayNameAsync(title, ct).ConfigureAwait(false);
@@ -2804,12 +2835,15 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         await _hubRepo.UpsertAsync(hub, ct).ConfigureAwait(false);
         await _hubRepo.AssignWorkToHubAsync(workId, hub.Id, ct).ConfigureAwait(false);
     }
+#pragma warning restore CS0612
 
     /// <summary>
     /// Path A: firm Hub assignment using Wikidata relationship QIDs.
     /// Searches Tier 1 (franchise, series, fictional_universe) first,
     /// then Tier 2 (based_on, preceded_by/followed_by).
     /// </summary>
+#pragma warning disable CS0612
+    [Obsolete("Deferred to Pass 2 Universe work — hub creation disabled during ingestion")]
     private async Task RunFirmHubLinkAsync(
         Guid workId, Guid mediaAssetId, IReadOnlyList<CanonicalValue> canonicals, CancellationToken ct)
     {
@@ -2949,11 +2983,14 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 displayName, bestRel.RelType, bestRel.RelQid, workId);
         }
     }
+#pragma warning restore CS0612
 
     /// <summary>
     /// Extracts relationship QIDs from claims (franchise, series, fictional_universe,
     /// based_on, preceded_by, followed_by). Groups by relationship type.
     /// </summary>
+#pragma warning disable CS0612
+    [Obsolete("Deferred to Pass 2 Universe work — hub creation disabled during ingestion")]
     private static List<(string RelType, List<(string Qid, string? Label)> Qids)> ExtractRelationshipQids(
         IReadOnlyList<MetadataClaim> claims)
     {
@@ -3010,6 +3047,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
 
         return result;
     }
+#pragma warning restore CS0612
 
     /// <summary>Maps preceded_by/followed_by to the narrative_chain rel_type.</summary>
     private static string MapToNarrativeChain(string relType)

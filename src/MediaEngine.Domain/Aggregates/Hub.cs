@@ -65,6 +65,12 @@ public sealed class Hub
     /// </summary>
     public Guid? ParentHubId { get; set; }
 
+    /// <summary>
+    /// The type of hub container: Universe, Genre, Author, Collection, or Custom.
+    /// Defaults to "Universe" for backward compatibility.
+    /// </summary>
+    public string HubType { get; set; } = "Universe";
+
     // -------------------------------------------------------------------------
     // Children
     // -------------------------------------------------------------------------

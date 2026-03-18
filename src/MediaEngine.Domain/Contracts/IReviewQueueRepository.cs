@@ -44,6 +44,15 @@ public interface IReviewQueueRepository
         CancellationToken ct = default);
 
     /// <summary>
+    /// Returns all <c>Pending</c> review items for a given entity, ordered by creation date.
+    /// Used by <see cref="MediaEngine.Ingestion.AutoOrganizeService"/> to check for blocking
+    /// reviews before promoting a file from staging.
+    /// </summary>
+    Task<IReadOnlyList<ReviewQueueEntry>> GetPendingByEntityAsync(
+        Guid entityId,
+        CancellationToken ct = default);
+
+    /// <summary>
     /// Updates the status of a review item (e.g. Pending → Resolved or Dismissed).
     /// Sets <see cref="ReviewQueueEntry.ResolvedAt"/> to <c>DateTimeOffset.UtcNow</c>
     /// and <see cref="ReviewQueueEntry.ResolvedBy"/> to the given profile identifier.

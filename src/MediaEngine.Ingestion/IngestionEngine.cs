@@ -878,33 +878,9 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             resolvedMediaType.ToString(),
             DateTimeOffset.UtcNow), ct).ConfigureAwait(false);
 
-        // ── Foreign-language metadata check ─────────────────────────────────────
-        // If the file's declared language doesn't match the configured language,
-        // route to the review queue so the user can resolve it.
-        {
-            var configuredLang = _options.ConfiguredLanguage ?? "en";
-            var fileLang = claims.FirstOrDefault(c =>
-                string.Equals(c.ClaimKey, "language", StringComparison.OrdinalIgnoreCase))?.ClaimValue;
-
-            if (!string.IsNullOrWhiteSpace(fileLang)
-                && !string.Equals(fileLang, configuredLang, StringComparison.OrdinalIgnoreCase)
-                && !fileLang.StartsWith(configuredLang + "-", StringComparison.OrdinalIgnoreCase))
-            {
-                _logger.LogInformation(
-                    "Foreign-language file detected: {FileLang} (configured: {ConfiguredLang}) for {Title}",
-                    fileLang, configuredLang, resolvedTitle);
-
-                await _reviewRepo.InsertAsync(new Domain.Entities.ReviewQueueEntry
-                {
-                    Id              = Guid.NewGuid(),
-                    EntityId        = assetId,
-                    EntityType      = "MediaAsset",
-                    Trigger         = Domain.Enums.ReviewTrigger.NonConfiguredLanguage,
-                    ConfidenceScore = scored.OverallConfidence,
-                    Detail          = $"File metadata is in '{fileLang}', but configured language is '{configuredLang}'. Title: {resolvedTitle}",
-                }, ct).ConfigureAwait(false);
-            }
-        }
+        // Foreign-language metadata check removed — handled by LanguageMismatch trigger
+        // in HydrationPipelineService (runs after Stage 1 with more context).
+        // See ReviewTrigger.NonConfiguredLanguage [Obsolete].
 
         // Step 11: staging-first flow.
         // ALL files go to .staging/ first — the Library only receives files that

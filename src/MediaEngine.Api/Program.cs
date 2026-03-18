@@ -599,6 +599,7 @@ app.MapHub<CommunicationHub>("/hubs/intercom");
 app.MapSystemEndpoints();
 app.MapAdminEndpoints();
 app.MapHubEndpoints();
+app.MapLibraryEndpoints();
 app.MapStreamEndpoints();
 app.MapReadEndpoints();
 app.MapReaderEndpoints();

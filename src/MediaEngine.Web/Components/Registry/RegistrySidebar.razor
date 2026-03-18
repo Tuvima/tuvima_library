@@ -25,19 +25,19 @@
                 @onclick="@(() => OnCategorySelected.InvokeAsync("LowConfidence"))">
             <MudIcon Icon="@Icons.Material.Outlined.RateReview" Size="Size.Small" />
             <span class="sidebar-category-label">Needs Review</span>
-            <span class="sidebar-category-count sidebar-category-count--warn">0</span>
+            <span class="sidebar-category-count sidebar-category-count--warn">@(Counts?.LowConfidence ?? 0)</span>
         </button>
         <button class="sidebar-category @(SelectedCategory == "MissingArt" ? "sidebar-category--active" : "")"
                 @onclick="@(() => OnCategorySelected.InvokeAsync("MissingArt"))">
             <MudIcon Icon="@Icons.Material.Outlined.BrokenImage" Size="Size.Small" />
             <span class="sidebar-category-label">Missing Images</span>
-            <span class="sidebar-category-count">0</span>
+            <span class="sidebar-category-count">@(Counts?.MissingImages ?? 0)</span>
         </button>
         <button class="sidebar-category @(SelectedCategory == "UpdatedData" ? "sidebar-category--active" : "")"
                 @onclick="@(() => OnCategorySelected.InvokeAsync("UpdatedData"))">
             <MudIcon Icon="@Icons.Material.Outlined.Update" Size="Size.Small" />
             <span class="sidebar-category-label">Recently Updated</span>
-            <span class="sidebar-category-count">0</span>
+            <span class="sidebar-category-count">@(Counts?.RecentlyUpdated ?? 0)</span>
         </button>
         <button class="sidebar-category @(SelectedCategory == "Staging" ? "sidebar-category--active" : "")"
                 @onclick="@(() => OnCategorySelected.InvokeAsync("Staging"))">

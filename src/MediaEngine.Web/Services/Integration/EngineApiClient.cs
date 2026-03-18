@@ -61,6 +61,40 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    // ── GET /library/works ─────────────────────────────────────────────────────
+
+    public async Task<List<WorkViewModel>> GetLibraryWorksAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            var response = await _http.GetAsync("/library/works", ct).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode) return [];
+
+            var raw = await response.Content.ReadFromJsonAsync<List<LibraryWorkRaw>>(cancellationToken: ct).ConfigureAwait(false);
+            if (raw is null) return [];
+
+            return raw.Select(w => new WorkViewModel
+            {
+                Id              = w.Id,
+                MediaType       = w.MediaType ?? "Unknown",
+                SequenceIndex   = w.SequenceIndex,
+                CanonicalValues = (w.CanonicalValues ?? new())
+                    .Select(kv => new CanonicalValueViewModel
+                    {
+                        Key   = kv.Key,
+                        Value = AbsoluteUrl(kv.Value),
+                    })
+                    .ToList(),
+            }).ToList();
+        }
+        catch (OperationCanceledException) { return []; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /library/works failed");
+            return [];
+        }
+    }
+
     // ── POST /ingestion/scan ──────────────────────────────────────────────────
 
     public async Task<ScanResultViewModel?> TriggerScanAsync(
@@ -2238,6 +2272,17 @@ public sealed class EngineApiClient : IEngineApiClient
         [property: JsonPropertyName("key")]            string        Key,
         [property: JsonPropertyName("value")]          string        Value,
         [property: JsonPropertyName("last_scored_at")] DateTimeOffset LastScoredAt);
+
+    private sealed class LibraryWorkRaw
+    {
+        [JsonPropertyName("id")]              public Guid Id { get; set; }
+        [JsonPropertyName("mediaType")]       public string? MediaType { get; set; }
+        [JsonPropertyName("sequenceIndex")]   public int? SequenceIndex { get; set; }
+        [JsonPropertyName("wikidataQid")]     public string? WikidataQid { get; set; }
+        [JsonPropertyName("assetId")]         public Guid? AssetId { get; set; }
+        [JsonPropertyName("createdAt")]       public string? CreatedAt { get; set; }
+        [JsonPropertyName("canonicalValues")] public Dictionary<string, string>? CanonicalValues { get; set; }
+    }
 
     private sealed record ScanRaw(
         [property: JsonPropertyName("operations")] List<OperationRaw> Operations);

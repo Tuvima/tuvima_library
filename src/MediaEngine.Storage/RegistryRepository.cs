@@ -418,7 +418,8 @@ public sealed class RegistryRepository : IRegistryRepository
     {
         using var conn = _db.CreateConnection();
 
-        var row = conn.QueryFirstOrDefault<(int Total, int NeedsReview, int Edited, int Duplicate, int Staging)>("""
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
             SELECT
                 (SELECT COUNT(*) FROM works) AS Total,
                 (SELECT COUNT(DISTINCT e.work_id)
@@ -440,14 +441,41 @@ public sealed class RegistryRepository : IRegistryRepository
                    AND NOT EXISTS (
                      SELECT 1 FROM review_queue rq
                      WHERE rq.entity_id = ma.id AND rq.status = 'Pending'
-                   )) AS Staging
-            """);
+                   )) AS Staging,
+                (SELECT COUNT(DISTINCT e.work_id)
+                 FROM editions e
+                 JOIN media_assets ma ON ma.edition_id = e.id
+                 LEFT JOIN canonical_values cv ON cv.entity_id = ma.id AND cv.key = 'cover_url'
+                 WHERE cv.value IS NULL OR TRIM(cv.value) = '') AS MissingImages,
+                (SELECT COUNT(DISTINCT e.work_id)
+                 FROM editions e
+                 JOIN media_assets ma ON ma.edition_id = e.id
+                 JOIN canonical_values cv ON cv.entity_id = ma.id
+                 WHERE cv.last_scored_at >= datetime('now', '-24 hours')) AS RecentlyUpdated,
+                (SELECT COUNT(DISTINCT e.work_id)
+                 FROM editions e
+                 JOIN media_assets ma ON ma.edition_id = e.id
+                 JOIN canonical_values cv ON cv.entity_id = ma.id AND cv.key = 'overall_confidence'
+                 WHERE CAST(cv.value AS REAL) BETWEEN 0.40 AND 0.85
+                   AND NOT EXISTS (SELECT 1 FROM review_queue rq WHERE rq.entity_id = ma.id AND rq.status = 'Pending')
+                ) AS LowConfidence
+            """;
 
-        if (row != default)
+        using var reader = cmd.ExecuteReader();
+        if (reader.Read())
         {
-            var auto = row.Total - row.NeedsReview - row.Edited - row.Duplicate - row.Staging;
+            var total          = reader.GetInt32(0);
+            var needsReview    = reader.GetInt32(1);
+            var edited         = reader.GetInt32(2);
+            var duplicate      = reader.GetInt32(3);
+            var staging        = reader.GetInt32(4);
+            var missingImages  = reader.GetInt32(5);
+            var recentlyUpdated = reader.GetInt32(6);
+            var lowConfidence   = reader.GetInt32(7);
+            var auto = total - needsReview - edited - duplicate - staging;
             return Task.FromResult(new RegistryStatusCounts(
-                row.Total, row.NeedsReview, Math.Max(auto, 0), row.Edited, row.Duplicate, row.Staging));
+                total, needsReview, Math.Max(auto, 0), edited, duplicate, staging,
+                missingImages, recentlyUpdated, lowConfidence));
         }
 
         return Task.FromResult(new RegistryStatusCounts(0, 0, 0, 0, 0, 0));
