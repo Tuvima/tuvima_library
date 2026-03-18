@@ -69,13 +69,16 @@ public sealed class PersonRepository : IPersonRepository
 
         using var conn = _db.CreateConnection();
         // COLLATE NOCASE: SQLite case-insensitive comparison for ASCII names.
+        var p = new DynamicParameters();
+        p.Add("name", name);
+        p.Add("role", role);
         var result = conn.QueryFirstOrDefault<Person>($"""
             SELECT {SelectColumns}
             FROM   persons
             WHERE  name = @name COLLATE NOCASE
               AND  role = @role COLLATE NOCASE
             LIMIT  1;
-            """, new { name, role });
+            """, p);
 
         return Task.FromResult(result);
     }
@@ -87,6 +90,21 @@ public sealed class PersonRepository : IPersonRepository
         ArgumentNullException.ThrowIfNull(person);
 
         using var conn = _db.CreateConnection();
+        var p = new DynamicParameters();
+        p.Add("id",          person.Id.ToString());
+        p.Add("name",        person.Name);
+        p.Add("role",        person.Role);
+        p.Add("wikidataQid", person.WikidataQid);
+        p.Add("headshotUrl", person.HeadshotUrl);
+        p.Add("biography",   person.Biography);
+        p.Add("createdAt",   person.CreatedAt.ToString("o"));
+        p.Add("enrichedAt",  person.EnrichedAt.HasValue ? person.EnrichedAt.Value.ToString("o") : null);
+        p.Add("dateOfBirth",  person.DateOfBirth);
+        p.Add("dateOfDeath",  person.DateOfDeath);
+        p.Add("placeOfBirth", person.PlaceOfBirth);
+        p.Add("placeOfDeath", person.PlaceOfDeath);
+        p.Add("nationality",  person.Nationality);
+        p.Add("isPseudonym",  person.IsPseudonym ? 1 : 0);
         conn.Execute("""
             INSERT INTO persons
                 (id, name, role, wikidata_qid, headshot_url, biography,
@@ -96,24 +114,7 @@ public sealed class PersonRepository : IPersonRepository
                 (@id, @name, @role, @wikidataQid, @headshotUrl, @biography,
                  @createdAt, @enrichedAt, @dateOfBirth, @dateOfDeath,
                  @placeOfBirth, @placeOfDeath, @nationality, @isPseudonym);
-            """,
-            new
-            {
-                id           = person.Id.ToString(),
-                person.Name,
-                person.Role,
-                wikidataQid  = person.WikidataQid,
-                headshotUrl  = person.HeadshotUrl,
-                biography    = person.Biography,
-                createdAt    = person.CreatedAt.ToString("o"),
-                enrichedAt   = person.EnrichedAt.HasValue ? person.EnrichedAt.Value.ToString("o") : null,
-                dateOfBirth  = person.DateOfBirth,
-                dateOfDeath  = person.DateOfDeath,
-                placeOfBirth = person.PlaceOfBirth,
-                placeOfDeath = person.PlaceOfDeath,
-                nationality  = person.Nationality,
-                isPseudonym  = person.IsPseudonym ? 1 : 0,
-            });
+            """, p);
 
         return Task.FromResult(person);
     }
@@ -129,6 +130,12 @@ public sealed class PersonRepository : IPersonRepository
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
+        var p = new DynamicParameters();
+        p.Add("wikidataQid", wikidataQid);
+        p.Add("headshotUrl", headshotUrl);
+        p.Add("biography",   biography);
+        p.Add("enrichedAt",  DateTimeOffset.UtcNow.ToString("o"));
+        p.Add("id",          personId.ToString());
         conn.Execute("""
             UPDATE persons
             SET    wikidata_qid = @wikidataQid,
@@ -136,15 +143,7 @@ public sealed class PersonRepository : IPersonRepository
                    biography    = @biography,
                    enriched_at  = @enrichedAt
             WHERE  id = @id;
-            """,
-            new
-            {
-                wikidataQid,
-                headshotUrl,
-                biography,
-                enrichedAt = DateTimeOffset.UtcNow.ToString("o"),
-                id         = personId.ToString(),
-            });
+            """, p);
 
         return Task.CompletedTask;
     }
@@ -163,6 +162,14 @@ public sealed class PersonRepository : IPersonRepository
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
+        var p = new DynamicParameters();
+        p.Add("dateOfBirth",  dateOfBirth);
+        p.Add("dateOfDeath",  dateOfDeath);
+        p.Add("placeOfBirth", placeOfBirth);
+        p.Add("placeOfDeath", placeOfDeath);
+        p.Add("nationality",  nationality);
+        p.Add("isPseudonym",  isPseudonym ? 1 : 0);
+        p.Add("id",           personId.ToString());
         conn.Execute("""
             UPDATE persons
             SET    date_of_birth  = @dateOfBirth,
@@ -172,17 +179,7 @@ public sealed class PersonRepository : IPersonRepository
                    nationality    = @nationality,
                    is_pseudonym   = @isPseudonym
             WHERE  id = @id;
-            """,
-            new
-            {
-                dateOfBirth,
-                dateOfDeath,
-                placeOfBirth,
-                placeOfDeath,
-                nationality,
-                isPseudonym = isPseudonym ? 1 : 0,
-                id          = personId.ToString(),
-            });
+            """, p);
 
         return Task.CompletedTask;
     }
@@ -201,6 +198,14 @@ public sealed class PersonRepository : IPersonRepository
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
+        var p = new DynamicParameters();
+        p.Add("occupation", occupation);
+        p.Add("instagram",  instagram);
+        p.Add("twitter",    twitter);
+        p.Add("tiktok",     tiktok);
+        p.Add("mastodon",   mastodon);
+        p.Add("website",    website);
+        p.Add("id",         personId.ToString());
         conn.Execute("""
             UPDATE persons
             SET    occupation = COALESCE(@occupation, occupation),
@@ -210,17 +215,7 @@ public sealed class PersonRepository : IPersonRepository
                    mastodon   = COALESCE(@mastodon,   mastodon),
                    website    = COALESCE(@website,    website)
             WHERE  id = @id;
-            """,
-            new
-            {
-                occupation,
-                instagram,
-                twitter,
-                tiktok,
-                mastodon,
-                website,
-                id = personId.ToString(),
-            });
+            """, p);
 
         return Task.CompletedTask;
     }
@@ -238,18 +233,16 @@ public sealed class PersonRepository : IPersonRepository
         using var conn = _db.CreateConnection();
         // INSERT OR IGNORE: composite PK (media_asset_id, person_id, role) prevents
         // duplicate links; repeated calls for the same triplet are safe no-ops.
+        var p = new DynamicParameters();
+        p.Add("mediaAssetId", mediaAssetId.ToString());
+        p.Add("personId",     personId.ToString());
+        p.Add("role",         role);
         conn.Execute("""
             INSERT OR IGNORE INTO person_media_links
                 (media_asset_id, person_id, role)
             VALUES
                 (@mediaAssetId, @personId, @role);
-            """,
-            new
-            {
-                mediaAssetId = mediaAssetId.ToString(),
-                personId     = personId.ToString(),
-                role,
-            });
+            """, p);
 
         return Task.CompletedTask;
     }
@@ -262,6 +255,8 @@ public sealed class PersonRepository : IPersonRepository
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
+        var p = new DynamicParameters();
+        p.Add("mediaAssetId", mediaAssetId.ToString());
         var results = conn.Query<Person>($"""
             SELECT p.id                  AS Id,
                    p.name                AS Name,
@@ -288,7 +283,7 @@ public sealed class PersonRepository : IPersonRepository
             JOIN   person_media_links l ON l.person_id = p.id
             WHERE  l.media_asset_id = @mediaAssetId
             ORDER  BY p.name ASC;
-            """, new { mediaAssetId = mediaAssetId.ToString() }).AsList();
+            """, p).AsList();
 
         return Task.FromResult<IReadOnlyList<Person>>(results);
     }
@@ -303,16 +298,14 @@ public sealed class PersonRepository : IPersonRepository
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
 
         using var conn = _db.CreateConnection();
+        var p = new DynamicParameters();
+        p.Add("path", path);
+        p.Add("id",   id.ToString());
         conn.Execute("""
             UPDATE persons
             SET    local_headshot_path = @path
             WHERE  id = @id;
-            """,
-            new
-            {
-                path,
-                id = id.ToString(),
-            });
+            """, p);
 
         return Task.CompletedTask;
     }
@@ -323,12 +316,14 @@ public sealed class PersonRepository : IPersonRepository
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
+        var p = new DynamicParameters();
+        p.Add("id", id.ToString());
         var result = conn.QueryFirstOrDefault<Person>($"""
             SELECT {SelectColumns}
             FROM   persons
             WHERE  id = @id
             LIMIT  1;
-            """, new { id = id.ToString() });
+            """, p);
 
         return Task.FromResult(result);
     }
@@ -354,9 +349,11 @@ public sealed class PersonRepository : IPersonRepository
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
+        var p = new DynamicParameters();
+        p.Add("id", personId.ToString());
         var count = conn.ExecuteScalar<int>("""
             SELECT COUNT(*) FROM person_media_links WHERE person_id = @id;
-            """, new { id = personId.ToString() });
+            """, p);
 
         return Task.FromResult(count);
     }
@@ -368,12 +365,14 @@ public sealed class PersonRepository : IPersonRepository
         ArgumentException.ThrowIfNullOrWhiteSpace(qid);
 
         using var conn = _db.CreateConnection();
+        var p = new DynamicParameters();
+        p.Add("qid", qid);
         var result = conn.QueryFirstOrDefault<Person>($"""
             SELECT {SelectColumns}
             FROM   persons
             WHERE  wikidata_qid = @qid COLLATE NOCASE
             LIMIT  1;
-            """, new { qid });
+            """, p);
 
         return Task.FromResult(result);
     }
@@ -387,13 +386,15 @@ public sealed class PersonRepository : IPersonRepository
         using var conn = _db.CreateConnection();
 
         // Delete links first (FK-safe even without ON DELETE CASCADE).
+        var p = new DynamicParameters();
+        p.Add("id", id);
         conn.Execute(
             "DELETE FROM person_media_links WHERE person_id = @id;",
-            new { id });
+            p);
 
         conn.Execute(
             "DELETE FROM persons WHERE id = @id;",
-            new { id });
+            p);
 
         return Task.CompletedTask;
     }
@@ -411,17 +412,15 @@ public sealed class PersonRepository : IPersonRepository
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
+        var p = new DynamicParameters();
+        p.Add("pseudonymId", pseudonymPersonId.ToString());
+        p.Add("realId",      realPersonId.ToString());
         conn.Execute("""
             INSERT OR IGNORE INTO person_aliases
                 (pseudonym_person_id, real_person_id)
             VALUES
                 (@pseudonymId, @realId);
-            """,
-            new
-            {
-                pseudonymId = pseudonymPersonId.ToString(),
-                realId      = realPersonId.ToString(),
-            });
+            """, p);
 
         return Task.CompletedTask;
     }
@@ -436,6 +435,8 @@ public sealed class PersonRepository : IPersonRepository
         using var conn = _db.CreateConnection();
         // Returns both directions: real people behind a pseudonym,
         // and pseudonyms used by a real person.
+        var p = new DynamicParameters();
+        p.Add("id", personId.ToString());
         var results = conn.Query<Person>($"""
             SELECT p.id                  AS Id,
                    p.name                AS Name,
@@ -465,7 +466,7 @@ public sealed class PersonRepository : IPersonRepository
                 SELECT pseudonym_person_id FROM person_aliases WHERE real_person_id = @id
             )
             ORDER  BY p.name ASC;
-            """, new { id = personId.ToString() }).AsList();
+            """, p).AsList();
 
         return Task.FromResult<IReadOnlyList<Person>>(results);
     }
@@ -484,18 +485,16 @@ public sealed class PersonRepository : IPersonRepository
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
+        var p = new DynamicParameters();
+        p.Add("personId", personId.ToString());
+        p.Add("entityId", fictionalEntityId.ToString());
+        p.Add("workQid",  workQid);
         conn.Execute("""
             INSERT OR IGNORE INTO character_performer_links
                 (person_id, fictional_entity_id, work_qid)
             VALUES
                 (@personId, @entityId, @workQid);
-            """,
-            new
-            {
-                personId = personId.ToString(),
-                entityId = fictionalEntityId.ToString(),
-                workQid,
-            });
+            """, p);
 
         return Task.CompletedTask;
     }
@@ -508,12 +507,14 @@ public sealed class PersonRepository : IPersonRepository
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
+        var p = new DynamicParameters();
+        p.Add("personId", personId.ToString());
         var rows = conn.Query<CharacterLinkRow>("""
             SELECT fictional_entity_id AS FictionalEntityId,
                    work_qid            AS WorkQid
             FROM   character_performer_links
             WHERE  person_id = @personId;
-            """, new { personId = personId.ToString() }).AsList();
+            """, p).AsList();
 
         IReadOnlyList<(Guid, string?)> result = rows
             .Select(r => (Guid.Parse(r.FictionalEntityId), r.WorkQid))
@@ -541,31 +542,38 @@ public sealed class PersonRepository : IPersonRepository
         using var tx   = conn.BeginTransaction();
 
         // 1. Reassign media links (OR IGNORE handles PK conflicts)
+        var pToFrom = new DynamicParameters();
+        pToFrom.Add("to",   to);
+        pToFrom.Add("from", from);
+
+        var pFrom = new DynamicParameters();
+        pFrom.Add("from", from);
+
         conn.Execute(
             "UPDATE OR IGNORE person_media_links SET person_id = @to WHERE person_id = @from;",
-            new { to, from }, transaction: tx);
+            pToFrom, transaction: tx);
         conn.Execute(
             "DELETE FROM person_media_links WHERE person_id = @from;",
-            new { from }, transaction: tx);
+            pFrom, transaction: tx);
 
         // 2. Reassign character-performer links
         conn.Execute(
             "UPDATE OR IGNORE character_performer_links SET person_id = @to WHERE person_id = @from;",
-            new { to, from }, transaction: tx);
+            pToFrom, transaction: tx);
         conn.Execute(
             "DELETE FROM character_performer_links WHERE person_id = @from;",
-            new { from }, transaction: tx);
+            pFrom, transaction: tx);
 
         // 3. Reassign alias links (both directions)
         conn.Execute(
             "UPDATE OR IGNORE person_aliases SET pseudonym_person_id = @to WHERE pseudonym_person_id = @from;",
-            new { to, from }, transaction: tx);
+            pToFrom, transaction: tx);
         conn.Execute(
             "UPDATE OR IGNORE person_aliases SET real_person_id = @to WHERE real_person_id = @from;",
-            new { to, from }, transaction: tx);
+            pToFrom, transaction: tx);
         conn.Execute(
             "DELETE FROM person_aliases WHERE pseudonym_person_id = @from OR real_person_id = @from;",
-            new { from }, transaction: tx);
+            pFrom, transaction: tx);
 
         tx.Commit();
         return Task.CompletedTask;
@@ -580,9 +588,12 @@ public sealed class PersonRepository : IPersonRepository
         using var conn = _db.CreateConnection();
 
         // Check persons.is_pseudonym flag first — cheapest query.
+        var pId = new DynamicParameters();
+        pId.Add("id", id);
+
         var isPseudo = conn.ExecuteScalar<int>(
             "SELECT COUNT(1) FROM persons WHERE id = @id AND is_pseudonym = 1;",
-            new { id }) > 0;
+            pId) > 0;
 
         if (isPseudo)
             return Task.FromResult(true);
@@ -591,7 +602,7 @@ public sealed class PersonRepository : IPersonRepository
         var isAlias = conn.ExecuteScalar<int>("""
             SELECT COUNT(1) FROM person_aliases
             WHERE pseudonym_person_id = @id OR real_person_id = @id;
-            """, new { id }) > 0;
+            """, pId) > 0;
 
         return Task.FromResult(isAlias);
     }
