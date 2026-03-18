@@ -30,6 +30,12 @@
     "Comics": ["Q1004", "Q838795", "Q21198342", "Q14406742"],
     "Podcasts": ["Q24634210"]
   },
+  "exclude_classes": {
+    "Books": ["Q196600", "Q1259759", "Q15416", "Q24856", "Q7366"],
+    "Audiobooks": ["Q196600", "Q1259759", "Q15416", "Q24856", "Q7366"],
+    "Movies": ["Q196600", "Q1259759"],
+    "TV": ["Q196600", "Q1259759"]
+  },
   "data_extension": {
     "work_properties": {
       "core": ["P31", "P50", "P577", "P1476", "P136", "P179", "P1545"],
@@ -47,7 +53,7 @@
       "P50": "author",
       "P57": "director",
       "P175": "performer",
-      "P577": "publication_date",
+      "P577": "release_year",
       "P1476": "title",
       "P136": "genre",
       "P179": "series",

@@ -326,7 +326,18 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         }
 
         var expectedSet = new HashSet<string>(expectedClasses, StringComparer.OrdinalIgnoreCase);
-        var qids        = candidates.Select(c => c.QID).ToList();
+
+        // Build the exclusion set — entity types that should never match for this media type
+        // (e.g. franchises, multimedia series) even if they walk up to an expected class via P279.
+        var excludedSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (_config.ExcludeClasses.TryGetValue(mediaTypeKey, out var excludedClasses)
+            && excludedClasses.Count > 0)
+        {
+            foreach (var qid in excludedClasses)
+                excludedSet.Add(qid);
+        }
+
+        var qids = candidates.Select(c => c.QID).ToList();
 
         // Extend all candidates with P31.
         var extensions = await ExtendAsync(qids, ["P31"], ct).ConfigureAwait(false);
@@ -348,6 +359,17 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 .Where(v => v.Id is not null)
                 .Select(v => v.Id!)
                 .ToList();
+
+            // Reject candidates whose P31 directly matches an excluded class —
+            // these are franchises, multimedia series, and other meta-types that should
+            // never be returned as the canonical work even if they share a title.
+            if (excludedSet.Count > 0 && instanceOfQids.Any(qid => excludedSet.Contains(qid)))
+            {
+                _logger.LogDebug(
+                    "{Provider}: candidate {QID} '{Label}' excluded — P31 matches exclude_classes for {MediaType}",
+                    Name, candidate.QID, candidate.Label, mediaTypeKey);
+                continue;
+            }
 
             var matched = false;
             foreach (var classQid in instanceOfQids)

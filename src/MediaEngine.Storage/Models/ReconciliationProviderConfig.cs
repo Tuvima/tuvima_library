@@ -17,6 +17,7 @@ public sealed class ReconciliationProviderConfig
     [JsonPropertyName("batch_size")] public int BatchSize { get; set; } = 50;
     [JsonPropertyName("reconciliation")] public ReconciliationSettings Reconciliation { get; set; } = new();
     [JsonPropertyName("instance_of_classes")] public Dictionary<string, List<string>> InstanceOfClasses { get; set; } = new();
+    [JsonPropertyName("exclude_classes")] public Dictionary<string, List<string>> ExcludeClasses { get; set; } = new();
     [JsonPropertyName("data_extension")] public DataExtensionSettings DataExtension { get; set; } = new();
 }
 
