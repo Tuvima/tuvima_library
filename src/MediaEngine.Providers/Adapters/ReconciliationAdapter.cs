@@ -46,6 +46,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     private readonly IProviderResponseCacheRepository? _responseCache;
     private readonly IConfigurationLoader? _configLoader;
     private readonly IFuzzyMatchingService _fuzzy;
+    private readonly IWikibaseApiService? _wikibaseApi;
 
     // Throttle: per-instance semaphore + timestamp gap.
     private readonly SemaphoreSlim _throttle;
@@ -69,7 +70,8 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         ILogger<ReconciliationAdapter> logger,
         IFuzzyMatchingService fuzzy,
         IProviderResponseCacheRepository? responseCache = null,
-        IConfigurationLoader? configLoader = null)
+        IConfigurationLoader? configLoader = null,
+        IWikibaseApiService? wikibaseApi = null)
     {
         ArgumentNullException.ThrowIfNull(config);
         ArgumentNullException.ThrowIfNull(httpFactory);
@@ -82,6 +84,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         _fuzzy         = fuzzy;
         _responseCache = responseCache;
         _configLoader  = configLoader;
+        _wikibaseApi   = wikibaseApi;
 
         _throttle = new SemaphoreSlim(
             Math.Max(1, config.MaxConcurrency),
@@ -1776,6 +1779,67 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 var label = values[0].Str;
                 if (!string.IsNullOrWhiteSpace(label))
                     resolvedLabels[ext.QID] = label;
+            }
+        }
+
+        // Fallback: for any QIDs that got no label from reconci.link L{lang},
+        // try wbgetentities with a language chain: configured language → "mul" → "en".
+        // Some entities (e.g. Q18590295 "Andy Weir") have no L{lang} pseudo-property
+        // on reconci.link but DO have labels in wbgetentities.
+        var unresolvedQids = qidsToResolve
+            .Where(q => !resolvedLabels.ContainsKey(q))
+            .ToList();
+
+        if (unresolvedQids.Count > 0 && _wikibaseApi is not null)
+        {
+            _logger.LogDebug(
+                "{Provider}: {Count} QID(s) have no '{Lang}' label from reconci.link — " +
+                "falling back to wbgetentities",
+                Name, unresolvedQids.Count, language);
+
+            // Build a language chain to try in order.
+            var langChain = new List<string> { language };
+            if (!string.Equals(language, "mul", StringComparison.OrdinalIgnoreCase))
+                langChain.Add("mul");
+            if (!string.Equals(language, "en", StringComparison.OrdinalIgnoreCase))
+                langChain.Add("en");
+
+            var stillUnresolved = unresolvedQids.ToList();
+            foreach (var lang in langChain)
+            {
+                if (stillUnresolved.Count == 0) break;
+
+                try
+                {
+                    var entities = await _wikibaseApi
+                        .GetEntitiesBatchAsync(stillUnresolved, lang, ct)
+                        .ConfigureAwait(false);
+
+                    var resolvedThisRound = new List<string>();
+                    foreach (var entity in entities)
+                    {
+                        if (!string.IsNullOrWhiteSpace(entity.Label))
+                        {
+                            resolvedLabels[entity.Qid] = entity.Label;
+                            resolvedThisRound.Add(entity.Qid);
+                            _logger.LogDebug(
+                                "{Provider}: resolved QID {QID} label via wbgetentities lang='{Lang}': '{Label}'",
+                                Name, entity.Qid, lang, entity.Label);
+                        }
+                    }
+
+                    stillUnresolved = stillUnresolved
+                        .Where(q => !resolvedThisRound.Any(r =>
+                            string.Equals(r, q, StringComparison.OrdinalIgnoreCase)))
+                        .ToList();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex,
+                        "{Provider}: wbgetentities fallback failed for lang='{Lang}'",
+                        Name, lang);
+                    break;
+                }
             }
         }
 
