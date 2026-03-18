@@ -6,9 +6,9 @@
   <img src="assets/images/tuvima-logo.svg" alt="Tuvima Library" height="90" />
 </picture>
 
-**The Private Universe Discovery & Media Engine.**
+**Make your media collection discoverable.**
 
-*Tuvima Library automatically unifies your Ebooks, Audiobooks, Comics, Music, TV Shows, and Movies into single intelligent Hubs — with a cinematic dark dashboard, live metadata enrichment, and a local-first engine that never touches the cloud.*
+*Tuvima Library is the first media platform that organizes by story, not by file type — unifying your books, audiobooks, movies, TV shows, music, comics, and podcasts into intelligent Hubs, with a cinematic dark dashboard, a Universe Explorer that maps the connections between your stories, and a local-first engine that never touches the cloud.*
 
 <br/>
 
@@ -21,15 +21,44 @@
 
 ---
 
-## What is Tuvima Library?
+## Why Tuvima?
 
-You have a book. Then you find the movie adaptation. Then you grab the audiobook for the commute. Three files. Three folders. Three separate apps. Zero connection between them.
+*Tuvima* means "discoverable" — and that's exactly what it does.
 
-**Tuvima Library presents them as one.**
+Plex and Jellyfin organize your videos. Calibre organizes your books. Audiobookshelf organizes your audiobooks. But none of them talk to each other. Your Dune ebook lives in one app. Your Dune audiobook lives in another. The Villeneuve film lives in a third. Three apps, three databases, three interfaces — for the same story.
 
-Drop your files into a Watch Folder, and the Intelligence Engine automatically reads the metadata inside each file, scores it for reliability, and groups everything that belongs to the same story into a single **Hub**. The Hub for *Dune* becomes the single, unified presentation of that story in your collection — your EPUB, your 4K video, your audiobook, and your comic all brought forward together into one visual tile. You navigate by story, not by file type or folder.
+**Tuvima Library is the first media platform that organizes by story, not by file type.**
 
-Everything runs on your own machine. No account. No subscription. No data sent anywhere.
+Drop your files into a watch folder. Within seconds, Tuvima reads each file, identifies it using Wikidata (the knowledge database behind Wikipedia), and files it into a clean, organized library on your hard drive. Books, audiobooks, movies, TV shows, music, comics, and podcasts — all in one place, all managed by one intelligence engine.
+
+### The Hub: your story, every format, one click
+
+This is the idea that no other media manager has. When Tuvima discovers that your Dune ebook, Dune audiobook, and Dune film all share the same creative universe, it groups them into a single "Hub." One entry in your library. Click it, and you see every version of the story you own — read, listen, or watch. No switching apps. No remembering where you put things.
+
+Plex shows you movies. Calibre shows you books. Tuvima shows you *stories*.
+
+### The Universe Explorer
+
+This is where Tuvima lives up to its name. The Universe Explorer makes the hidden relationships in your library *discoverable* — building an interactive map of the fictional worlds you own. Characters, locations, factions, and the connections between them, all visualized as an explorable graph.
+
+Open the Dune universe and see Paul Atreides linked to House Atreides, connected to Arrakis, opposed by the Harkonnens. See which actors played which characters across different film adaptations. Scrub a timeline slider to see relationships change across eras. Discover connections between works you never knew existed.
+
+No other media manager builds a knowledge graph of your collection.
+
+### How Tuvima compares
+
+| | Plex | Jellyfin | Calibre | Audiobookshelf | **Tuvima** |
+|---|---|---|---|---|---|
+| Video | Yes | Yes | No | No | **Yes** |
+| Books | No | No | Yes | No | **Yes** |
+| Audiobooks | No | No | Partial | Yes | **Yes** |
+| Music | Yes | Yes | No | No | **Yes** |
+| Comics | No | No | Partial | No | **Yes** |
+| Podcasts | No | No | No | No | **Yes** |
+| Cross-media linking | No | No | No | No | **Yes (Hubs)** |
+| Universe explorer | No | No | No | No | **Yes** |
+| Fully local (no cloud) | No | Yes | Yes | Yes | **Yes** |
+| Open source | No | Yes (GPL) | Yes (GPL) | Yes (GPL) | **Yes (AGPLv3)** |
 
 ---
 
@@ -37,95 +66,70 @@ Everything runs on your own machine. No account. No subscription. No data sent a
 
 ### Cinematic Dark Dashboard
 
-The Dashboard is dark-mode only — background `#060A16`, designed to let cover art and hero imagery breathe. Navigation uses two persistent elements:
+Dark-mode only, poster-art swimlanes, cinematic hero banners with blurred backdrops — the kind of interface you'd expect from Netflix or Apple TV+, but running entirely on your machine. The dashboard adapts to any screen: full desktop, compact mobile, oversized TV, or minimal in-car audio mode.
 
-- **TopBar** — a 64px glassmorphic bar fixed at the top with the Tuvima wordmark, search, notification bell, and profile avatar
-- **LeftDock** — a floating 64px icon panel with seven fixed content lanes (Home, Search, Books, Video, Music, Podcasts, Comics), Settings, profile avatar, and a live clock. Active lane shown with a 3px amber accent bar
+- **TopBar** — glassmorphic bar with wordmark, search, notification bell, and profile avatar
+- **LeftDock** — floating icon panel with seven content lanes (Home, Search, Books, Video, Music, Podcasts, Comics)
+- **Cinematic Hero Banners** — pre-rendered via SkiaSharp (gaussian blur, radial vignette, film grain). Served from disk — no runtime processing
+- **Poster Swimlanes** — horizontal-scrolling poster rows (2:3 aspect ratio, touch-friendly scroll-snap)
+- **Command Palette** (`Ctrl+K`) — global search across Hubs, Works, and system pages
+- **Real-time updates** — every change pushed live via SignalR the moment a file is detected
 
-**Cinematic Hero Banners** — when a file is ingested, `HeroBannerGenerator` (SkiaSharp) creates a 1920×600 pre-rendered hero image from the cover art: gaussian blur σ40, radial vignette, film grain at 6% opacity. Hero images are served from disk — no runtime image processing during browsing.
+### Hub Detail & Person Detail
 
-**Poster Swimlanes** — the library overview uses horizontal-scrolling poster rows (2:3 aspect ratio, touch-friendly scroll-snap). Rows include "Continue your Journey", "Recently Added", and one row per media type.
+**Hub Detail** (`/hub/{id}`) — full cinematic page for each story. Hero backdrop, cover art, genre chips, action bar with contextual progress (`Continue Reading · 12%`), Wikipedia description, and related works.
 
-**Command Palette** (`Ctrl+K`) — global deep-navigation. Search Hubs, Works, and system pages from anywhere without leaving the current view.
-
-> *Every change is pushed live to your browser via the Intercom channel the moment a new file is detected. The Dashboard is always a real-time reflection of what the Engine knows.*
-
-### Hub Detail & Person Detail Pages
-
-**Hub Detail** (`/hub/{id}`) — a full cinematic page for each story. Breadcrumb navigation (Home / Lane / Author), a full-bleed hero backdrop, 400×600px cover, genre chips, and an action bar (Read Now, Add To, Share, Edit, ⋯ menu). A live progress bar appears when you've started reading, and the action button updates contextually — `Continue Reading · 12%` — so you always know exactly where you left off. Related works swim below in a horizontal row.
-
-**Person Detail** (`/person/{id}`) — the "Human Hub" for every creator. Shows Wikidata-enriched headshot, biography, occupation, social links (Instagram, TikTok, Mastodon, website), and works grouped by role (Author, Narrator, Director).
+**Person Detail** (`/person/{id}`) — the "Human Hub" for every creator. Wikidata-enriched headshot, biography, occupation, social links (Instagram, TikTok, Mastodon, website), and works grouped by role.
 
 ### In-Browser EPUB Reader
 
-A full paginated EPUB reader built directly into the Dashboard — no external app needed. Open any ebook from its Hub Detail page and start reading immediately.
+A full paginated EPUB reader built directly into the Dashboard. CSS multi-column pagination, chapter sidebar, font controls, reading themes (Light/Sepia/Dark), full-text search, and automatic progress tracking (saved every 30 seconds, syncs to Hub Detail in real time).
 
-- **CSS multi-column pagination** with smooth page transitions and swipe/keyboard navigation
-- **Chapter sidebar** (table of contents extracted from the EPUB) with direct chapter-jump
-- **Font controls** — adjustable size and family, persisted to localStorage
-- **Reading themes** — Light, Sepia, and Dark reading modes
-- **Search** — full-text search across chapters with hit highlighting
-- **Progress tracking** — position saved automatically every 30 seconds and on page/chapter change, restored on re-open. Progress syncs back to the Hub Detail page and home screen hero in real time
-- **Persistent close button** — always-visible X that saves progress and returns to the Hub Detail page
+### The Priority Cascade Engine
 
-### The Intelligence Engine (Field-Specific Weighted Voter)
+The Engine never asks you to manually enter metadata. Instead it uses a four-tier **Priority Cascade**:
 
-The Engine never asks you to manually enter a title, year, or author. Instead it uses a **Field-Specific Weighted Voter**:
+| Tier | Rule | Effect |
+|---|---|---|
+| **A** | User-Locked Claims | Your manual edits always win (confidence 1.0). Never overridden. |
+| **B** | Per-Field Provider Priority | Configurable in `config/field_priorities.json` — e.g., Apple API for cover art, Wikipedia for descriptions |
+| **C** | Wikidata Authority | When present, Wikidata claims win unconditionally |
+| **D** | Confidence Cascade | Highest-confidence claim wins |
 
-- Every piece of metadata from every source (embedded file tags, filenames, external providers) is recorded as a **Claim**
-- Each Claim carries a **per-field trust weight** — Audnexus is authoritative for audiobook narrators (0.9), Wikidata is definitive for franchise identifiers (1.0), Open Library excels at ISBN (0.9)
-- The Voter tallies Claims for each field independently and elects a **Canonical Value**
-- If the vote is too close, the conflict is surfaced in the **Needs Review** queue for a single human decision — the only time you ever need to intervene
-- **User-Locked Claims** — when you set a value manually, it is locked at confidence 1.0. No automated provider can override it on any future re-score
+Every piece of metadata from every source (embedded file tags, filenames, external providers) is recorded as an append-only **Claim**. History is never lost.
 
-### Three-Stage Hydration Pipeline
+### Two-Stage Hydration Pipeline
 
-After ingestion, the Engine enriches every file through three background stages:
+After ingestion, the Engine enriches every file through two background stages:
 
 | Stage | Name | What happens |
 |---|---|---|
-| **1** | Retail Match | ALL matching providers run concurrently (Apple Books, Audnexus, Open Library, Google Books). Claims from each are persisted and scored independently |
-| **2** | Universal Bridge | Wikidata QID resolution via bridge IDs (ISBN, ASIN, Apple Books ID). Single SPARQL query fetches 50+ properties for the matched work |
-| **3** | Human Hub | Person enrichment: authors and narrators get Wikidata headshots, biographies, and social links via `RecursiveIdentityService` |
+| **1** | Reconciliation | Wikidata QID resolution via the Reconciliation API. Bridge ID cross-reference (ISBN, ASIN, TMDB ID), title search with media type filtering, Data Extension API for 50+ properties |
+| **2** | Enrichment | Retail providers (Apple API, TMDB, Open Library, Google Books) fill cover art and rating gaps using bridge IDs from Stage 1 |
 
-If Stage 2 finds multiple QID candidates, a **MultipleQidMatches** review item is created — the user picks the correct Wikidata entry from a card grid. Ambiguous media type detections (MP3 that could be audiobook, music, or podcast) also create **AmbiguousMediaType** review items.
+Person enrichment runs in parallel: authors, narrators, and directors get Wikidata headshots, biographies, and social links via `RecursiveIdentityService`.
 
-### Media Type Disambiguation
+### Review Queue
 
-Some containers hold multiple media types — an MP3 could be an audiobook, a music track, or a podcast. Magic bytes detect the format; heuristic signals vote on the content type:
+Every ambiguous decision is surfaced for human attention — never guessed silently:
 
-| Signal | Example | Confidence |
-|---|---|---|
-| Magic bytes (unambiguous) | EPUB → Books, M4B → Audiobooks | 0.95–1.0 |
-| Processor heuristics | Duration, chapter markers, genre tag, bitrate | 0.30–0.80 |
-| Filename / path patterns | `S01E01` → TV, path contains `audiobooks` | 0.25–0.65 |
-| User lock | Manual override | 1.0 (always wins) |
+- **AuthorityMatchFailed** — Wikidata could not resolve a QID
+- **MultipleQidMatches** — multiple Wikidata candidates; user picks one from a card grid
+- **AmbiguousMediaType** — media type could not be confidently determined (MP3: audiobook or music?)
+- **LowConfidence** — overall score below threshold after hydration
 
-Files scoring ≥ 0.70 auto-assign. Between 0.40–0.70 they are provisionally assigned and surfaced in the review queue. Below 0.40 they remain `MediaType.Unknown` and block auto-organize.
+### Privacy-First
 
-### Needs Review Queue
-
-Every ambiguous decision the Engine cannot resolve confidently is queued for human attention:
-
-- **LowConfidence** — overall score below threshold after all three pipeline stages
-- **MultipleQidMatches** — Stage 2 found multiple Wikidata candidates; user picks one
-- **AmbiguousMediaType** — media type could not be confidently determined
-- **MetadataConflict** — two strong claims for the same field that are too close to separate
-
-The profile avatar badge shows the pending count at all times. Resolving a conflict re-runs the hydration pipeline with the chosen answer.
-
-### Privacy-First by Design
-
-- **Local SQLite database** — your entire library catalogue lives in a single file on your own hard drive. No cloud sync, no telemetry
-- **Secret Store** — API keys for external metadata providers are encrypted at rest using your OS's built-in protection layer. Never stored as plain text
-- **Guest Key system** — any external tool that connects to the Engine must present a named, revocable API key. You control exactly who has access
-- **Filesystem-First** — the database is a cache of the filesystem, not the master copy. `library.xml` sidecars carry the authoritative record alongside each file on disk
+- **Local SQLite database** — your entire library in a single file on your hard drive. No cloud, no telemetry
+- **Database is the authoritative data store** — user edits written back to file embedded metadata (EPUB OPF, ID3 tags) for portability
+- **Secret Store** — API keys encrypted at rest using OS-level protection
+- **Guest Key system** — named, revocable API keys for any external tool that connects
 
 ---
 
 ## Screenshots
 
-> *These screenshots are from the current development build and are subject to change as the UI is polished toward v1.0.*
+> *Screenshots from the current development build — subject to change as the UI is polished toward v1.0.*
 
 ### Hub Detail Page
 
@@ -153,7 +157,7 @@ Content-type lane page with cinematic hero banner, format toggle (Book / Audiobo
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/Tuvima/tuvima_library.git
+git clone https://github.com/shyfaruqi/tuvima-library.git
 cd tuvima-library
 
 # 2. Create your local configuration
@@ -224,103 +228,98 @@ Tuvima Library is built on a **headless Engine + visual Dashboard** split. The t
 │    all logic, data, file operations     │    Runs independently; no UI required
 └────────┬────────────────────────────────┘
          │
-   ┌─────▼──────┐   ┌───────────────┐   ┌──────────────────┐
-   │  Storage   │   │  Intelligence │   │    Ingestion     │
-   │  (SQLite)  │   │ (Voter/Scorer)│   │  (Watch Folder)  │
-   └────────────┘   └───────────────┘   └──────────────────┘
+   ┌─────▼──────┐   ┌────────────────┐   ┌──────────────────┐
+   │  Storage   │   │  Intelligence  │   │    Ingestion     │
+   │  (SQLite   │   │  (Priority     │   │  (Watch Folder)  │
+   │  + Dapper) │   │   Cascade)     │   │                  │
+   └────────────┘   └────────────────┘   └──────────────────┘
          │                                       │
    ┌─────▼──────┐                       ┌────────▼─────────┐
    │  Providers │                       │   Processors     │
-   │ (6 built-in│                       │ EPUB/Video/Comic │
-   │  + podcasts│                       │  /Audio/Generic  │
-   └────────────┘                       └──────────────────┘
+   │ (9 built-in│                       │ EPUB/Audio/Video │
+   │ + config-  │                       │  /Comic/Generic  │
+   │  driven)   │                       └──────────────────┘
+   └────────────┘
 ```
 
 **Why the split matters:**
 - The Engine runs silently as a background service — no browser, no interface, no overhead
-- Any app that speaks HTTP can connect to the Engine — see [Arr Compatibility](#arr-compatibility-radarrsonarr) below
+- Any app that speaks HTTP can connect to the Engine
 - The Dashboard can be redesigned or replaced without touching the Engine or database
 
 **Internal Engine layers:**
 
 ```
 MediaEngine.Domain          ← Business rules and data shapes (zero dependencies)
-  └─ MediaEngine.Storage    ← Database reads and writes (raw SQL, no ORM)
-      └─ MediaEngine.Intelligence  ← Weighted Voter, Conflict Resolver, Hub Arbiter
-          └─ MediaEngine.Processors  ← EPUB, Video, Comic, Audio, Generic file readers
-              └─ MediaEngine.Providers  ← 6 built-in metadata providers + config-driven adapter
-                  └─ MediaEngine.Ingestion  ← Watch folder, debounce queue, 3-stage pipeline
-                      └─ MediaEngine.Api    ← HTTP endpoints and SignalR hub
+  └─ MediaEngine.Storage    ← SQLite via Dapper — 39 tables, 23 repositories
+      └─ MediaEngine.Intelligence  ← Priority Cascade Engine, Fuzzy Matcher, Hub Arbiter
+          └─ MediaEngine.Processors  ← EPUB, Audio, Video, Comic, Generic file readers
+              └─ MediaEngine.Providers  ← 9 metadata providers + config-driven adapter
+                  └─ MediaEngine.Ingestion  ← Watch folder, debounce queue, 2-stage pipeline
+                      └─ MediaEngine.Api    ← 21 endpoint groups, SignalR hub, 7 background services
 ```
 
 ---
 
-## Filesystem-First Philosophy
+## Database-First Architecture
 
-**The database is a cache of the filesystem, not the other way around.**
+**The database is the authoritative data store.** User metadata edits are written back to file embedded metadata (EPUB OPF, ID3 tags, MP4 atoms) for portability. Wikidata properties are re-fetchable via batch Reconciliation API as a recovery fallback.
 
-Every organised file carries a `library.xml` sidecar written directly alongside it on disk. If the database is ever wiped or migrated, the library can be fully reconstructed from those XML files alone via the **Great Inhale** (`POST /ingestion/library-scan`).
-
-### Hub-First Folder Structure
+### Library Folder Structure
 
 When a file scores ≥ 0.85 confidence (or has a user-locked value), the Engine auto-organises it:
 
 ```
 {Library Root}/
   Books/
-    The Hobbit (1937)/
-      library.xml                    ← Hub sidecar (display name, year, Wikidata QID, bridges)
-      Epub - Standard/
-        The Hobbit.epub
-        library.xml                  ← Edition sidecar (content hash, title, author, user locks)
-        cover.jpg                    ← Cover art (always on disk, never in the database)
-        hero.jpg                     ← Pre-rendered cinematic hero banner (SkiaSharp)
+    Dune - Q190159/
+      Epub/
+        Dune.epub
+      Audiobook/
+        Dune.m4b
+      cover.jpg                    ← Cover art (always on disk, never in the database)
+      hero.jpg                     ← Pre-rendered cinematic hero banner (SkiaSharp)
+  Movies/
+    Dune Part Two - Q104686073/
+      Dune Part Two.mkv
+      cover.jpg
+      hero.jpg
 ```
 
-### The library.xml Sidecar
-
-Two schemas, both human-readable and backward-compatible:
-
-- **Hub-level** (`<library-hub>`) — display name, year, Wikidata QID, franchise, and a `<bridges>` section with every external platform ID harvested from Wikidata (TMDB, IMDb, Goodreads, Apple Books, etc.)
-- **Edition-level** (`<library-edition>`) — title, author, media type, ISBN, ASIN, content hash, cover path, and any user-locked claims with their lock timestamps
+Files below the confidence threshold land in `.staging/` (pending, low-confidence, or unidentifiable) until hydration improves their score or a user resolves them manually.
 
 ### Activity Ledger
 
-Every significant Engine action is permanently recorded in the `system_activity` table: file ingested, metadata hydrated, review resolved, orphan cleaned, reconciliation run. Configurable retention (default 60 days). Visible in the **Activity** tab in Dashboard Settings.
+Every significant Engine action is permanently recorded: file ingested, metadata hydrated, review resolved, orphan cleaned, reconciliation run. Configurable retention (default 60 days). Visible in the **Activity** tab.
 
 ---
 
 ## Supported Metadata Providers
 
-Eight built-in zero-key providers plus a config-driven adapter for adding any REST+JSON source with zero code changes.
+Nine built-in providers plus a config-driven adapter for adding any REST+JSON source with zero code changes.
 
-### Built-in (Zero-Key)
+### Zero-Key Providers
 
 | Provider | Media types | What it contributes |
 |---|---|---|
-| **Apple Books** | Ebooks, Audiobooks | Cover art (up to 3000×3000 via 9999 trick), description, rating, title |
-| **Apple Podcasts** | Podcasts | Cover art, show description, episode metadata |
-| **Audnexus** | Audiobooks | Narrator, series, series position, cover art, author |
+| **Wikidata Reconciliation** | All media + people | QID resolution via Reconciliation API, 50+ properties via Data Extension API, franchise/series/character relationships, person headshots and biographies |
+| **Wikipedia** | All media + people | Rich 2-3 paragraph descriptions via REST API with QID-to-sitelink resolution |
+| **Apple API** | Ebooks, Audiobooks, Podcasts | Cover art (up to 3000×3000), description, rating, title |
 | **Open Library** | Ebooks | Title, author, year, cover art, ISBN, series |
 | **Google Books** | Ebooks | Title, author, year, cover art, ISBN, description, page count |
 | **MusicBrainz** | Music | Artist, album, year, genre, MBID, Cover Art Archive |
-| **Wikidata** | All media + people | 50+ SPARQL properties — franchise, series, characters, bridge IDs to every major platform, person headshots and biographies |
 
 ### Free API Key Required
 
 | Provider | Media type | What it contributes |
 |---|---|---|
-| **TMDB** | Movies, TV | High-res posters, backdrop images, cast/crew, episode details, TMDB/IMDb bridge |
-| **Comic Vine** | Comics | Character arcs, universe lore, issue details, Comic Vine ID bridge |
+| **TMDB** | Movies, TV | High-res posters, backdrop images, cast/crew, TMDB/IMDb bridge |
+| **Comic Vine** | Comics | Comic covers, issue details, Comic Vine ID bridge |
 | **Podcast Index** | Podcasts | Secondary podcast metadata, GUIDs, episode lists |
 
 ### Provider Response Cache
 
-A `provider_response_cache` table (with per-provider TTL) eliminates redundant API calls when bulk-importing related content — TV episodes from the same series, album tracks, comic issues from one volume. At 1 req/sec MusicBrainz rate, caching reduces a 10,000-track library scan from ~3 hours to ~15 minutes.
-
-### Recursive Person Enrichment
-
-Each author/narrator/director found in a file's embedded tags gets a `Person` record linked to the asset. Unenriched persons are queued for Wikidata lookup. When the headshot, biography, and social links arrive, a `PersonEnriched` SignalR event updates the Dashboard in real time.
+A `provider_response_cache` table (per-provider TTL) eliminates redundant API calls when bulk-importing related content. At 1 req/sec MusicBrainz rate, caching reduces a 10,000-track library scan from ~3 hours to ~15 minutes.
 
 ---
 
@@ -328,92 +327,10 @@ Each author/narrator/director found in a file's embedded tags gets a `Person` re
 
 The Engine uses the same `X-Api-Key` authentication pattern as the \*Arr ecosystem.
 
-**To connect an external app:**
-
 1. Open the Swagger UI at `http://localhost:61495/swagger`
 2. Use `POST /admin/api-keys` to create a named key (e.g. `"Radarr integration"`)
 3. Add the key as an `X-Api-Key` header in your external app's connection settings
-4. Revoke any key individually with `DELETE /admin/api-keys/{id}` — other apps are unaffected
-
----
-
-## Project Roadmap
-
-### Completed — Intelligence & Infrastructure
-
-| Phase | What was built |
-|---|---|
-| **Phases 1–3** | Architecture, domain model (Hub → Work → Edition → MediaAsset), metadata contracts |
-| **Phase 4** | SQLite storage — ORM-less raw SQL, WAL mode, embedded schema, 20+ tables |
-| **Phase 5** | Media processors — EPUB (word count), Video, Comic (CBZ/CBR), Audio (MP3/M4A/M4B), Generic fallback |
-| **Phase 6** | Intelligence Engine — Weighted Voter, Conflict Resolver, Identity Matcher, Hub Arbiter |
-| **Phase 7** | Ingestion Engine — Watch Folder, debounce queue, SHA-256 hasher, background worker |
-| **Phase 8** | Field-Level Arbitration — User-Locked Claims, per-field provider trust matrix |
-| **Phase 9** | External Metadata — Apple Books, Audnexus, Open Library, Google Books, Wikidata SPARQL; Recursive Person Enrichment; Config-driven universal adapter |
-| **Phase A** | Wikidata property map (50+ P-codes), person social links schema, sidecar XML bridge identifiers |
-| **Phase B** | SPARQL deep-hydration engine, three-step QID resolution (bridge IDs → title search → SPARQL) |
-| **Library Org** | Hub-first folder structure, `library.xml` sidecars, Great Inhale rebuild, AutoOrganize (≥0.85 gate) |
-| **Security** | API keys (generate/revoke), role-based auth (Admin/Curator/Consumer), rate limiting, path traversal protection, SignalR auth |
-| **Config** | Directory-based config (`config/`), per-provider JSON files, universe knowledge model, auto-migration from legacy |
-| **Activity Ledger** | System activity table, configurable retention, daily pruning, `ActivityTab` in Dashboard |
-| **Profiles** | User profiles with roles, avatar colours, adaptive device layouts (Web/Mobile/TV) |
-| **Disambiguation** | `AudioProcessor` + `VideoProcessor` heuristic media type voting; confidence-gated auto-assign |
-| **3-Stage Pipeline** | Concurrent Stage 1 providers, Wikidata bridge Stage 2, Person enrichment Stage 3 |
-| **Review Queue** | LowConfidence, MultipleQidMatches, AmbiguousMediaType, MetadataConflict — NeedsReview tab + avatar badge |
-| **Response Cache** | `provider_response_cache` table with per-provider TTL; ETag conditional requests |
-| **Hero Banners** | SkiaSharp cinematic hero generation (blur + vignette + grain) during ingestion and post-hydration |
-| **Reconciliation** | `LibraryReconciliationService` — daily orphan cleanup, `POST /ingestion/reconcile` |
-
-### Completed — Dashboard
-
-| Feature | What was built |
-|---|---|
-| **Cinematic Shell** | Dark-mode only (`#060A16`), TopBar + floating LeftDock (7 content lanes), amber accent (#C9922E) |
-| **Poster Swimlanes** | Horizontal scroll rows (2:3 aspect ratio, scroll-snap, hidden scrollbar), per-media-type grouping |
-| **Hero Banners** | Pre-rendered `hero.jpg` served from disk; CSS blur fallback; full-bleed 1920×600 display |
-| **Hub Detail** | Cinematic page — breadcrumb, cover, genre chips, action bar with contextual progress (`Continue Reading · 12%`), description, related content row |
-| **Person Detail** | Human Hub — Wikidata headshot, bio, social links (Instagram/TikTok/Mastodon/website), works by role |
-| **EPUB Reader** | Paginated in-browser reader — chapter sidebar, font/theme controls, search, auto-saving progress, persistent close button |
-| **Progress Tracking** | `PUT /progress/{assetId}` — automatic save every 30s, restore on re-open, live sync to Hub Detail and home hero |
-| **Real-time** | SignalR Intercom (12 events), live progress bars, review badge, PersonEnriched card updates |
-| **Content Lanes** | 7 fixed lanes (Home/Search/Books/Video/Music/Podcasts/Comics), `MediaLanePage`, Books format toggle |
-| **Command Palette** | `Ctrl+K` global search and navigation |
-| **Settings** | 16 tabs in 3 groups — Preferences, Metadata (Connection Vault, Needs Review, Activity), Server |
-| **Device Profiles** | Web, Mobile, TV — 3-tier cascade (Global → Device → Profile) |
-| **Mobile Nav** | `MobileNavDrawer` slide-out, hamburger in TopBar, responsive cover sizing |
-
-### Planned — The Road to v1.0
-
-| Sprint | Theme | Key Deliverables |
-|---|---|---|
-| **1–2** | More Readers | Comic viewer (page-turn, zoom, RTL manga toggle), persistent audiobook player (chapters, sleep timer, speed) |
-| **3–4** | Video & Music | Video player (HLS, subtitles, chapters, PiP), Music media type, album → Hub mapping |
-| **5–6** | FFmpeg & Transcoding | FFmpeg integration, hardware-accelerated transcoding (NVENC/QuickSync/VAAPI), Shadow Transcoder (scheduled background jobs) |
-| **7–8** | Authentication & Multi-User | Local PIN/password login, profile-scoped progress, Shared Journey Inference, parental controls |
-| **9–10** | Interoperability | OPDS catalog (`/opds/`), Audiobookshelf-compatible API, webhooks, Plex/Calibre/Jellyfin import |
-| **11–12** | Statistics & Collections | Library/personal stats, Smart Collections, Recently Added endpoint |
-| **13–14** | Polish & PWA | Loading skeletons, keyboard accessibility, performance audit, offline-capable PWA, DLNA/Chromecast casting |
-
-### Platform Targets
-
-| Platform | Technology | Status |
-|---|---|---|
-| **Web** (Desktop & Mobile browsers) | Blazor Server | Active — primary interface |
-| **Mobile** (responsive) | Blazor Server (adaptive layout) | Active — mobile nav drawer, touch-optimised swimlanes |
-| **Native iOS** | Swift / SwiftUI | Planned |
-| **Native Android** | Kotlin / Jetpack Compose | Planned |
-| **tvOS** (Apple TV) | SwiftUI | Planned |
-| **Android TV** | Jetpack Compose for TV | Planned |
-| **CarPlay** | CarPlay framework (audio-focused) | Planned |
-| **Android Auto** | Android Auto SDK (audio-focused) | Planned |
-
-All native clients connect to the same headless Intelligence Engine via HTTP + SignalR. The Engine runs on your home server; each client is a thin visual layer.
-
-### Future Horizon
-
-- OIDC authentication (Google, Facebook)
-- Plugin / extension system
-- Multi-language / i18n
+4. Revoke any key individually with `DELETE /admin/api-keys/{id}`
 
 ---
 
@@ -422,18 +339,21 @@ All native clients connect to the same headless Intelligence Engine via HTTP + S
 | What it does | Technology |
 |---|---|
 | Language & runtime | C# / .NET 10 |
-| Database | SQLite via `Microsoft.Data.Sqlite` — raw SQL, no ORM |
-| Engine API | ASP.NET Core minimal APIs |
-| Real-time events | SignalR (`/hubs/intercom`) |
-| Dashboard | Blazor Server |
-| UI components | MudBlazor 9 |
-| SignalR client | `Microsoft.AspNetCore.SignalR.Client` |
+| Database | SQLite via Dapper (micro-ORM) |
+| Engine API | ASP.NET Core minimal APIs (21 endpoint groups) |
+| Real-time events | SignalR (`/hubs/intercom`, 14 event types) |
+| HTTP resilience | Polly (retry, circuit-breaker, timeout) |
+| Dashboard | Blazor Server + MudBlazor 9 |
 | EPUB parsing | VersOne.Epub |
 | Image generation | SkiaSharp (hero banners — blur, vignette, grain) |
 | Audio/video tags | TagLibSharp (ID3v2, MP4 atoms, Vorbis, MKV) |
-| HTTP client lifecycle | `Microsoft.Extensions.Http` (`IHttpClientFactory`, named clients) |
+| Video probing | Xabe.FFmpeg |
+| String matching | FuzzySharp |
+| Graph queries | dotNetRDF (in-memory SPARQL) |
+| Scheduling | Cronos (cron expressions) |
+| Logging | Serilog (rolling files, 14-day retention) |
 | API docs | Swashbuckle (`/swagger`) |
-| Tests | xUnit 2, coverlet (286 tests, 0 failures) |
+| Tests | xUnit + coverlet |
 
 ---
 
@@ -443,16 +363,20 @@ Tuvima Library is free and open-source software, licensed under the **GNU Affero
 
 > This means you are free to use, modify, and distribute Tuvima Library — but if you deploy a modified version as a network service, you must also make your modifications available under the same license.
 
-See the [`LICENSE`](LICENSE) file for the full license text.
+See the [`LICENSE`](LICENSE) file for the full license text. All dependencies are MIT, Apache 2.0, or LGPL licensed and compatible with AGPLv3.
 
-All dependencies are MIT, Apache 2.0, or LGPL licensed and are compatible with AGPLv3.
+No premium tiers. No feature gates. No "Pro" version.
 
 ---
 
 <div align="center">
 
-*Built with care for people who take their media library seriously.*
+**You already own the stories. Tuvima makes them discoverable.**
 
-[Report a Bug](https://github.com/Tuvima/tuvima_library/issues) · [Request a Feature](https://github.com/Tuvima/tuvima_library/issues) · [View the Engine API](http://localhost:61495/swagger)
+Your collection isn't a pile of files. It's stories that moved you — novels you stayed up too late reading, films that changed how you see the world, audiobooks that made long drives disappear. They deserve more than scattered folders and five different apps.
+
+No subscriptions. No cloud. No compromises. Just your stories, finally discoverable.
+
+[Report a Bug](https://github.com/shyfaruqi/tuvima-library/issues) · [Request a Feature](https://github.com/shyfaruqi/tuvima-library/issues) · [View the Engine API](http://localhost:61495/swagger)
 
 </div>
