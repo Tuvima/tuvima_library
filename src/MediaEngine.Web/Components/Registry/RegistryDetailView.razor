@@ -17,7 +17,7 @@ else if (Detail is null)
 }
 else
 {
-    <div class="rdv-hero" style="@GetHeroStyle(Detail.CoverUrl)">
+    <div class="rdv-hero" style="@GetHeroStyle(Detail.HeroUrl, Detail.CoverUrl)">
         <div class="rdv-hero-overlay"></div>
     </div>
 
@@ -353,10 +353,13 @@ else
     private bool IsUnmatched => Item?.ReviewItemId is not null
         || string.IsNullOrEmpty(Detail?.WikidataQid);
 
-    private static string GetHeroStyle(string? coverUrl) =>
-        string.IsNullOrEmpty(coverUrl)
+    private static string GetHeroStyle(string? heroUrl, string? coverUrl)
+    {
+        var url = heroUrl ?? coverUrl;
+        return string.IsNullOrEmpty(url)
             ? "background: linear-gradient(135deg, #0a0a0a, #1a1a2e);"
-            : $"background-image: url('{coverUrl}'); background-size: cover; background-position: center;";
+            : $"background-image: url('{url}'); background-size: cover; background-position: center;";
+    }
 
     private static RenderFragment MetaRow(string label, string? value) => builder =>
     {

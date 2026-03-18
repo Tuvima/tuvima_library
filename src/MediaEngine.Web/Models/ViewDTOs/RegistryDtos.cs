@@ -74,6 +74,9 @@ public sealed class RegistryItemViewModel
 
     [JsonPropertyName("wikidata_qid")]
     public string? WikidataQid { get; set; }
+
+    [JsonPropertyName("hero_url")]
+    public string? HeroUrl { get; set; }
 }
 
 /// <summary>Paginated registry response.</summary>
@@ -137,6 +140,9 @@ public sealed class RegistryItemDetailViewModel
 
     [JsonPropertyName("cover_url")]
     public string? CoverUrl { get; set; }
+
+    [JsonPropertyName("hero_url")]
+    public string? HeroUrl { get; set; }
 
     [JsonPropertyName("confidence")]
     public double Confidence { get; set; }

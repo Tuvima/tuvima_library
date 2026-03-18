@@ -51,6 +51,9 @@ public sealed record RegistryItem
 
     [JsonPropertyName("wikidata_qid")]
     public string? WikidataQid { get; init; }
+
+    [JsonPropertyName("hero_url")]
+    public string? HeroUrl { get; init; }
 }
 
 /// <summary>Paginated result from registry listing.</summary>
@@ -67,6 +70,7 @@ public sealed record RegistryItemDetail
     [JsonPropertyName("year")]           public string? Year { get; init; }
     [JsonPropertyName("media_type")]     public string MediaType { get; init; } = "";
     [JsonPropertyName("cover_url")]      public string? CoverUrl { get; init; }
+    [JsonPropertyName("hero_url")]       public string? HeroUrl { get; init; }
     [JsonPropertyName("confidence")]     public double Confidence { get; init; }
     [JsonPropertyName("status")]         public string Status { get; init; } = "Auto";
     [JsonPropertyName("match_source")]   public string? MatchSource { get; init; }

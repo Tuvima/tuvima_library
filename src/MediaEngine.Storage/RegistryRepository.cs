@@ -37,6 +37,7 @@ public sealed class RegistryRepository : IRegistryRepository
                     MAX(CASE WHEN cv.key = 'title' THEN cv.value END) AS title,
                     MAX(CASE WHEN cv.key = 'release_year' THEN cv.value END) AS year,
                     MAX(CASE WHEN cv.key = 'cover_url' THEN cv.value END) AS cover_url,
+                    MAX(CASE WHEN cv.key = 'hero' THEN cv.value END) AS hero_url,
                     MAX(CASE WHEN cv.key = 'author' THEN cv.value END) AS author,
                     MAX(CASE WHEN cv.key = 'file_name' THEN cv.value END) AS file_name,
                     MAX(CASE WHEN cv.key = 'wikidata_qid' THEN cv.value END) AS wikidata_qid,
@@ -115,6 +116,7 @@ public sealed class RegistryRepository : IRegistryRepository
                     wd.year,
                     wd.media_type,
                     wd.cover_url,
+                    wd.hero_url,
                     wd.author,
                     wd.file_name,
                     wd.title_provider_id AS match_source,
@@ -195,7 +197,7 @@ public sealed class RegistryRepository : IRegistryRepository
                 fd.match_source, fd.confidence, fd.status, fd.has_duplicate,
                 fd.review_id, fd.review_trigger, fd.has_user_locks,
                 fd.file_name, fd.author, fd.file_path_root, fd.wikidata_status,
-                fd.wikidata_match, fd.retail_match, fd.wikidata_qid
+                fd.wikidata_match, fd.retail_match, fd.wikidata_qid, fd.hero_url
             FROM full_data fd
             {whereClause}
             ORDER BY fd.confidence ASC, fd.title ASC
@@ -229,6 +231,7 @@ public sealed class RegistryRepository : IRegistryRepository
                 WikidataMatch  = reader.IsDBNull(16) ? "none" : reader.GetString(16),
                 RetailMatch    = reader.IsDBNull(17) ? "none" : reader.GetString(17),
                 WikidataQid    = reader.IsDBNull(18) ? null : reader.GetString(18),
+                HeroUrl        = reader.IsDBNull(19) ? null : reader.GetString(19),
             });
         }
 
@@ -382,6 +385,7 @@ public sealed class RegistryRepository : IRegistryRepository
             Year           = cv("release_year"),
             MediaType      = mediaType,
             CoverUrl       = cv("cover_url"),
+            HeroUrl        = cv("hero"),
             Confidence     = matchConfidence,
             Status         = status,
             MatchSource    = titleProvider,
@@ -445,8 +449,14 @@ public sealed class RegistryRepository : IRegistryRepository
                 (SELECT COUNT(DISTINCT e.work_id)
                  FROM editions e
                  JOIN media_assets ma ON ma.edition_id = e.id
-                 LEFT JOIN canonical_values cv ON cv.entity_id = ma.id AND cv.key = 'cover_url'
-                 WHERE cv.value IS NULL OR TRIM(cv.value) = '') AS MissingImages,
+                 LEFT JOIN canonical_values cv_cover ON cv_cover.entity_id = ma.id AND cv_cover.key = 'cover_url'
+                 WHERE (cv_cover.value IS NULL OR TRIM(cv_cover.value) = '')
+                   AND EXISTS (
+                     SELECT 1 FROM canonical_values cv2
+                     WHERE cv2.entity_id = ma.id AND cv2.key = 'wikidata_qid'
+                     AND cv2.value IS NOT NULL AND TRIM(cv2.value) != ''
+                   )
+                ) AS MissingImages,
                 -- "RecentlyUpdated" counts items where at least one canonical value was
                 -- re-scored in the last 24 hours AND the item has an earlier metadata claim
                 -- (i.e. it was already in the system before today's scoring pass).

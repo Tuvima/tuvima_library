@@ -918,7 +918,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 "Moving to staging ({Subcategory}) — confidence {Confidence:P0} for {Path}",
                 stagingSubcategory, scored.OverallConfidence, candidate.Path);
 
-            currentPath = await MoveToStagingAsync(currentPath, stagingSubcategory, ct)
+            currentPath = await MoveToStagingAsync(currentPath, stagingSubcategory, ct, assetId)
                               .ConfigureAwait(false) ?? currentPath;
 
             // Clean empty subdirectories left behind in the watch folder.
@@ -1627,7 +1627,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             string lowSubcategory = reorgScored.OverallConfidence < 0.40
                 ? "unidentifiable"
                 : "low-confidence";
-            var lowStaged = await MoveToStagingAsync(currentPath, lowSubcategory, ct)
+            var lowStaged = await MoveToStagingAsync(currentPath, lowSubcategory, ct, existing.Id)
                                      .ConfigureAwait(false);
             if (lowStaged is not null)
             {
@@ -1668,7 +1668,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 "Moving to staging and creating review item.",
                 existing.ContentHash[..12]);
 
-            var otherStaged = await MoveToStagingAsync(currentPath, "low-confidence", ct).ConfigureAwait(false);
+            var otherStaged = await MoveToStagingAsync(currentPath, "low-confidence", ct, existing.Id).ConfigureAwait(false);
             if (otherStaged is not null)
             {
                 CleanEmptyWatchParents(currentPath, _options.WatchDirectory);
@@ -1695,7 +1695,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             : relative.StartsWith("Other", StringComparison.OrdinalIgnoreCase) ? "other"
             : "pending";
 
-        var staged = await MoveToStagingAsync(currentPath, subcategory, ct)
+        var staged = await MoveToStagingAsync(currentPath, subcategory, ct, existing.Id)
                           .ConfigureAwait(false);
         if (staged is not null)
         {
@@ -1801,7 +1801,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     /// is not configured or the move fails.
     /// </summary>
     private async Task<string?> MoveToStagingAsync(
-        string currentPath, string subcategory, CancellationToken ct)
+        string currentPath, string subcategory, CancellationToken ct,
+        Guid? assetId = null)
     {
         if (string.IsNullOrWhiteSpace(_options.StagingPath))
             return null;
@@ -1812,7 +1813,18 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                     _options.WatchDirectory, StringComparison.OrdinalIgnoreCase))
             return null;
 
-        var stagingSubDir = Path.Combine(_options.StagingPath, subcategory);
+        // Create a per-item subdirectory using the first 12 chars of the asset GUID
+        // so that companion files (cover.jpg, hero.jpg) don't collide across items.
+        string stagingSubDir;
+        if (assetId.HasValue)
+        {
+            var itemDir = assetId.Value.ToString("N")[..12];
+            stagingSubDir = Path.Combine(_options.StagingPath, subcategory, itemDir);
+        }
+        else
+        {
+            stagingSubDir = Path.Combine(_options.StagingPath, subcategory);
+        }
         Directory.CreateDirectory(stagingSubDir);
 
         var destPath = Path.Combine(stagingSubDir, Path.GetFileName(currentPath));
