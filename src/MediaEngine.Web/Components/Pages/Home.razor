@@ -59,12 +59,6 @@ else if (_hubs.Count == 0)
 }
 else
 {
-    @* ── Pending files alert (Watch Folder) — respects device settings ── *@
-    @if (!DeviceContext.IsFeatureDisabled("pending_files_alert") && _pendingDisplay != "hidden")
-    {
-        <PendingFilesAlert Class="mb-4" DisplayMode="@_pendingDisplay" />
-    }
-
     @* ── Page ambient background — tracks current carousel slide ── *@
     @if (_ambientColor is not null)
     {

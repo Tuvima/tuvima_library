@@ -46,24 +46,12 @@
             }
         }
     </div>
-    <div class="sidebar-item-actions" @onclick:stopPropagation="true">
-        <button class="sidebar-item-action sidebar-item-action--approve"
-                @onclick="OnQuickApprove" title="Quick approve">
-            <MudIcon Icon="@Icons.Material.Outlined.Check" Size="Size.Small" />
-        </button>
-        <button class="sidebar-item-action sidebar-item-action--reject"
-                @onclick="OnQuickReject" title="Remove">
-            <MudIcon Icon="@Icons.Material.Outlined.Close" Size="Size.Small" />
-        </button>
-    </div>
 </div>
 
 @code {
     [Parameter, EditorRequired] public RegistryItemViewModel Item { get; set; } = default!;
     [Parameter] public bool IsSelected { get; set; }
     [Parameter] public EventCallback OnClick { get; set; }
-    [Parameter] public EventCallback OnQuickApprove { get; set; }
-    [Parameter] public EventCallback OnQuickReject { get; set; }
 
     // Inline hex-to-RGB helper to avoid calling a static method in Razor expressions
     private static string HexToRgbInline(string hex)

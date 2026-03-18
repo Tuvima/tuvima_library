@@ -427,6 +427,133 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     }
 
     /// <summary>
+    /// Resolves the Wikidata Q-identifier of the audiobook edition of a master work.
+    ///
+    /// <para>
+    /// This is Step 2 of the 3-step audiobook pivot strategy:
+    /// <list type="number">
+    ///   <item>Step 1 — Match master work: Reconciliation API returns the novel/story QID (e.g. Dune = Q190192).</item>
+    ///   <item>Step 2 — Pivot to audio edition: this method queries P747 (has_edition_or_translation) on the
+    ///     master work and filters by P31 (instance_of) = audiobook class, returning the edition QID.</item>
+    ///   <item>Step 3 — Harvest audiobook ISBN: caller uses the edition QID with Data Extension to get P212.</item>
+    /// </list>
+    /// </para>
+    ///
+    /// <para>
+    /// When <paramref name="narratorHint"/> is provided and multiple audiobook editions exist,
+    /// the edition whose narrator best matches the hint is returned first.
+    /// </para>
+    /// </summary>
+    /// <param name="masterWorkQid">The Wikidata Q-identifier of the master work (novel/story).</param>
+    /// <param name="narratorHint">Optional narrator name for edition disambiguation.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The audiobook edition QID, or <c>null</c> if no audiobook edition is found in Wikidata.</returns>
+    public async Task<string?> ResolveAudiobookEditionQidAsync(
+        string masterWorkQid,
+        string? narratorHint = null,
+        CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(masterWorkQid))
+            return null;
+
+        try
+        {
+            // Step 2a: Fetch P747 (has_edition_or_translation) from the master work.
+            var workExtensions = await ExtendAsync([masterWorkQid], ["P747"], ct).ConfigureAwait(false);
+            var workData = workExtensions.FirstOrDefault(e =>
+                string.Equals(e.QID, masterWorkQid, StringComparison.OrdinalIgnoreCase));
+
+            if (workData is null
+                || !workData.Properties.TryGetValue("P747", out var editionValues)
+                || editionValues.Count == 0)
+            {
+                _logger.LogDebug("{Provider}: no P747 editions found on master work {QID} — audiobook pivot skipped",
+                    Name, masterWorkQid);
+                return null;
+            }
+
+            var editionQids = editionValues
+                .Where(v => v.Id is not null)
+                .Select(v => v.Id!)
+                .Distinct()
+                .ToList();
+
+            if (editionQids.Count == 0)
+                return null;
+
+            _logger.LogDebug("{Provider}: master work {QID} has {Count} edition(s) — filtering for audiobook class",
+                Name, masterWorkQid, editionQids.Count);
+
+            // Step 2b: Extend all editions with P31 + P175 (narrator) for filtering and ranking.
+            var editionData = await ExtendAsync(editionQids, ["P31", "P175"], ct).ConfigureAwait(false);
+
+            // Audiobook class QIDs from config (Q122731938 = audiobook, Q106833962 = audiobook edition).
+            var audiobookClasses = _config.InstanceOfClasses.TryGetValue("Audiobooks", out var classes)
+                ? new HashSet<string>(classes, StringComparer.OrdinalIgnoreCase)
+                : new HashSet<string>(["Q122731938", "Q106833962"], StringComparer.OrdinalIgnoreCase);
+
+            // Collect audiobook editions with optional narrator for ranking.
+            var audiobookEditions = new List<(string QID, string? Narrator)>();
+            foreach (var edition in editionData)
+            {
+                if (!edition.Properties.TryGetValue("P31", out var p31Values))
+                    continue;
+
+                var isAudiobook = p31Values.Any(v =>
+                    v.Id is not null && audiobookClasses.Contains(v.Id!));
+
+                if (!isAudiobook)
+                    continue;
+
+                var narrator = GetFirstLabel(edition.Properties, "P175");
+                audiobookEditions.Add((edition.QID, narrator));
+            }
+
+            if (audiobookEditions.Count == 0)
+            {
+                _logger.LogDebug("{Provider}: no audiobook-class editions found for master work {QID}",
+                    Name, masterWorkQid);
+                return null;
+            }
+
+            // Step 2c: If narrator hint provided and multiple editions exist, rank by narrator match.
+            string selectedQid;
+            if (!string.IsNullOrWhiteSpace(narratorHint) && audiobookEditions.Count > 1)
+            {
+                selectedQid = audiobookEditions
+                    .OrderByDescending(e => _fuzzy.ComputeTokenSetRatio(narratorHint, e.Narrator ?? ""))
+                    .First()
+                    .QID;
+
+                _logger.LogInformation(
+                    "{Provider}: audiobook pivot — selected edition {QID} for master work {MasterQID} " +
+                    "(narrator hint: '{Narrator}', {Count} candidates ranked)",
+                    Name, selectedQid, masterWorkQid, narratorHint, audiobookEditions.Count);
+            }
+            else
+            {
+                selectedQid = audiobookEditions[0].QID;
+                _logger.LogInformation(
+                    "{Provider}: audiobook pivot — resolved edition {QID} for master work {MasterQID}",
+                    Name, selectedQid, masterWorkQid);
+            }
+
+            return selectedQid;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "{Provider}: ResolveAudiobookEditionQidAsync failed for master work {QID}",
+                Name, masterWorkQid);
+            return null;
+        }
+    }
+
+    /// <summary>
     /// Discovers audiobook editions of a work via P747 (has_edition_or_translation)
     /// followed by P31 filtering to retain only audiobook-class items.
     /// When <paramref name="narratorHint"/> is provided and multiple editions exist,
@@ -581,7 +708,41 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             reconciliationLabel = top.Label;
         }
 
+        // ── Step 2 & 3: Audiobook Edition Pivot ──────────────────────────────────
+        // For audiobooks, the master work QID (e.g. Dune = Q190192) does not carry
+        // an audiobook ISBN — only its audiobook edition item (P747 + P31 filter) does.
+        // Pivot to the edition QID so that Data Extension returns the audiobook-specific
+        // P212 (ISBN-13) and other edition-level bridge IDs (P5749 / ASIN, P3861 / Apple Books ID).
+        string masterWorkQid = qid; // preserve the master work QID for claims
+        string? audiobookEditionQid = null;
+
+        if (request.MediaType == MediaType.Audiobooks)
+        {
+            var narratorHint = request.Narrator;
+            audiobookEditionQid = await ResolveAudiobookEditionQidAsync(qid, narratorHint, ct)
+                .ConfigureAwait(false);
+
+            if (!string.IsNullOrWhiteSpace(audiobookEditionQid))
+            {
+                _logger.LogInformation(
+                    "{Provider}: audiobook 3-step pivot — master work {MasterQID} → edition {EditionQID}; " +
+                    "Data Extension will target the edition for audiobook-specific bridge IDs",
+                    Name, qid, audiobookEditionQid);
+            }
+            else
+            {
+                _logger.LogDebug(
+                    "{Provider}: audiobook 3-step pivot — no edition found for master work {MasterQID}; " +
+                    "falling back to master work for Data Extension",
+                    Name, qid);
+            }
+        }
+
         // Extend the resolved QID with work properties.
+        // For audiobooks with a resolved edition, target the edition QID so we get
+        // edition-level bridge IDs (ISBN-13, ASIN). Also always emit a claim for the
+        // master work QID so that Hub grouping is correct.
+        var extendQid = audiobookEditionQid ?? qid;
         var workProps = _config.DataExtension.WorkProperties;
         var allProps  = workProps.Core
             .Concat(workProps.Bridges)
@@ -595,16 +756,25 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         allProps.Add($"D{language}");
 
         if (allProps.Count == 0)
-            return [new ProviderClaim("wikidata_qid", qid, 1.0)];
+            return [new ProviderClaim("wikidata_qid", masterWorkQid, 1.0)];
 
-        var extensions = await ExtendAsync([qid], allProps, ct).ConfigureAwait(false);
+        // Step 3: Run Data Extension against the edition QID for audiobooks (pivot target),
+        // or the master work QID for all other media types.
+        var extensions = await ExtendAsync([extendQid], allProps, ct).ConfigureAwait(false);
         var extData    = extensions.FirstOrDefault(e =>
-            string.Equals(e.QID, qid, StringComparison.OrdinalIgnoreCase));
+            string.Equals(e.QID, extendQid, StringComparison.OrdinalIgnoreCase));
 
         var claims = new List<ProviderClaim>
         {
-            new("wikidata_qid", qid, 1.0)
+            // Always emit the master work QID as the canonical wikidata_qid.
+            // This ensures Hub grouping is based on the creative work, not the edition.
+            new("wikidata_qid", masterWorkQid, 1.0)
         };
+
+        // When we pivoted to an audiobook edition, also emit the edition QID as a separate
+        // claim so other parts of the pipeline can reference it (e.g. for cover art lookup).
+        if (audiobookEditionQid is not null)
+            claims.Add(new ProviderClaim("audiobook_edition_qid", audiobookEditionQid, 1.0));
 
         // Emit the reconciliation match label as a title claim (lower confidence than L{lang}).
         if (!string.IsNullOrWhiteSpace(reconciliationLabel))
@@ -664,7 +834,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                             claims.Add(new ProviderClaim("author", penName, 0.95));
                             _logger.LogInformation(
                                 "{Provider}: pen name detected for QID {QID} — {AuthorCount} co-authors share pen name \"{PenName}\"",
-                                Name, qid, authorQids.Count, penName);
+                                Name, masterWorkQid, authorQids.Count, penName);
                         }
                     }
                 }
@@ -672,25 +842,52 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             catch (Exception ex)
             {
                 _logger.LogDebug("{Provider}: pen name detection failed for QID {QID}: {Message}",
-                    Name, qid, ex.Message);
+                    Name, masterWorkQid, ex.Message);
             }
         }
 
         // ── Edition bridge ID resolution ─────────────────────────────────────
         // Wikidata stores ISBNs and other bridge IDs on edition items (P747),
         // not on the work itself. If key bridge IDs are still missing after
-        // the work fetch, look them up from edition items.
+        // the work/edition fetch, look them up via P747 on the master work.
+        //
+        // When the audiobook 3-step pivot has already targeted an edition QID,
+        // the Data Extension call above directly targeted that edition and should
+        // already have returned its bridge IDs (P212, P5749 etc.). In that case,
+        // most or all of these properties will already be in `claims` and this block
+        // will find nothing missing. It still runs as a safety net for any gaps.
         if (extData is not null)
         {
             var editionBridgeProps = new[] { "P212", "P957", "P5749", "P3861", "P2969", "P648" }
                 .Where(p => _config.DataExtension.PropertyLabels.ContainsKey(p))
                 .ToList();
 
+            // When we pivoted to an audiobook edition, extData is that edition — it won't
+            // have P747 pointing to further sub-editions. For the standard bridge fallback,
+            // we need P747 from the master work. Fetch it separately in that case.
+            ExtensionResult? editionSource = extData;
+            if (audiobookEditionQid is not null)
+            {
+                try
+                {
+                    var masterExtensions = await ExtendAsync([masterWorkQid], ["P747"], ct).ConfigureAwait(false);
+                    editionSource = masterExtensions.FirstOrDefault(e =>
+                        string.Equals(e.QID, masterWorkQid, StringComparison.OrdinalIgnoreCase))
+                        ?? extData;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug("{Provider}: master work P747 fetch failed for {QID}: {Message}",
+                        Name, masterWorkQid, ex.Message);
+                }
+            }
+
             if (editionBridgeProps.Count > 0
-                && extData.Properties.TryGetValue("P747", out var editionRefs)
+                && editionSource is not null
+                && editionSource.Properties.TryGetValue("P747", out var editionRefs)
                 && editionRefs.Count > 0)
             {
-                // Determine which bridge IDs are still missing from the work-level fetch.
+                // Determine which bridge IDs are still missing from the work/edition-level fetch.
                 var emittedKeys = new HashSet<string>(
                     claims.Select(c => c.Key), StringComparer.OrdinalIgnoreCase);
 
@@ -750,24 +947,22 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                                 }
                             }
 
-                            _logger.LogDebug("{Provider}: edition bridge resolution added {Count} bridge IDs for {QID}",
-                                Name, claims.Count(c => missingProps.Any(p =>
-                                    _config.DataExtension.PropertyLabels.TryGetValue(p, out var k) &&
-                                    string.Equals(c.Key, k, StringComparison.OrdinalIgnoreCase))),
-                                qid);
+                            _logger.LogDebug("{Provider}: edition bridge resolution added bridge IDs for {QID}",
+                                Name, masterWorkQid);
                         }
                         catch (Exception ex)
                         {
                             _logger.LogDebug("{Provider}: edition bridge ID resolution failed for {QID}: {Message}",
-                                Name, qid, ex.Message);
+                                Name, masterWorkQid, ex.Message);
                         }
                     }
                 }
             }
         }
 
-        _logger.LogInformation("{Provider}: fetched {Count} work claims for QID {QID}",
-            Name, claims.Count, qid);
+        _logger.LogInformation(
+            "{Provider}: fetched {Count} work claims for {QID} (audiobook edition pivot: {Pivoted})",
+            Name, claims.Count, masterWorkQid, audiobookEditionQid is not null);
 
         return claims;
     }
@@ -874,7 +1069,11 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         var result  = new Dictionary<string, IReadOnlyList<ReconciliationCandidate>>(StringComparer.Ordinal);
         var payload = BuildQueriesPayload(batch, _config.Reconciliation.MaxCandidates);
 
-        var cacheKey = BuildCacheKey($"reconcile:{payload}");
+        // Language must be included in the cache key: reconci.link embeds the language
+        // in the endpoint URL path (e.g. /en/api vs /fr/api), so the same query payload
+        // will yield different label/description text for different language settings.
+        var language = _configLoader?.LoadCore().Language ?? "en";
+        var cacheKey = BuildCacheKey($"reconcile:{language}:{payload}");
 
         if (_responseCache is not null)
         {
@@ -886,8 +1085,12 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             }
         }
 
-        var endpoint     = _config.Endpoints.Reconciliation;
-        var formBody     = $"queries={Uri.EscapeDataString(payload)}";
+        // The Wikidata reconci.link service embeds language in the URL path
+        // (https://wikidata.reconci.link/{lang}/api). Substitute the configured
+        // language so that changes to CoreConfiguration.Language are respected
+        // automatically, without needing to edit the endpoint URL in config.
+        var endpoint = SubstituteLanguageInEndpoint(_config.Endpoints.Reconciliation, language);
+        var formBody = $"queries={Uri.EscapeDataString(payload)}";
         var responseBody = await PostFormAsync(endpoint, formBody, ct).ConfigureAwait(false);
 
         if (string.IsNullOrWhiteSpace(responseBody))
@@ -1370,6 +1573,43 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     {
         var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(input));
         return Convert.ToHexString(bytes).ToLowerInvariant();
+    }
+
+    // ── Private: Language substitution ───────────────────────────────────────
+
+    /// <summary>
+    /// Substitutes the language segment in a reconci.link reconciliation endpoint URL.
+    ///
+    /// The Wikidata reconciliation service at wikidata.reconci.link uses a language
+    /// code in the URL path: <c>https://wikidata.reconci.link/{lang}/api</c>.
+    /// This method replaces the language segment so that the configured
+    /// <see cref="CoreConfiguration.Language"/> is always used, regardless of
+    /// what language code is hardcoded in the config file's endpoint URL.
+    ///
+    /// If the URL does not match the expected reconci.link pattern, it is returned
+    /// unchanged (safe fallback — no accidental URL corruption for custom endpoints).
+    /// </summary>
+    /// <param name="endpointUrl">The endpoint URL from configuration (e.g. "https://wikidata.reconci.link/en/api").</param>
+    /// <param name="language">The two-letter BCP-47 language code to substitute (e.g. "en", "fr").</param>
+    /// <returns>The endpoint URL with the language segment replaced, or the original URL if not matched.</returns>
+    private static string SubstituteLanguageInEndpoint(string endpointUrl, string language)
+    {
+        // Pattern: https://wikidata.reconci.link/{lang}/api
+        // Replace the lang segment between the host and /api.
+        const string host   = "wikidata.reconci.link/";
+        const string suffix = "/api";
+
+        var hostIdx = endpointUrl.IndexOf(host, StringComparison.OrdinalIgnoreCase);
+        if (hostIdx < 0)
+            return endpointUrl; // Not a reconci.link URL — leave unchanged.
+
+        var afterHost = hostIdx + host.Length;
+        var apiIdx    = endpointUrl.IndexOf(suffix, afterHost, StringComparison.OrdinalIgnoreCase);
+        if (apiIdx < 0)
+            return endpointUrl; // Unexpected format — leave unchanged.
+
+        // Rebuild: everything before the lang segment + new lang + /api + anything after.
+        return endpointUrl[..afterHost] + language + endpointUrl[apiIdx..];
     }
 
 }

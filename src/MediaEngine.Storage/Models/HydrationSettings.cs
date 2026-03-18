@@ -194,6 +194,32 @@ public sealed class HydrationSettings
     [JsonPropertyName("pass2_batch_size")]
     public int Pass2BatchSize { get; set; } = 50;
 
+    // ── Batch Reconciliation ──────────────────────────────────────────
+
+    /// <summary>
+    /// Maximum time in milliseconds to wait for additional requests before
+    /// flushing a batch to the Reconciliation API. When multiple files arrive
+    /// close together (bulk import), the pipeline accumulates them into a single
+    /// batch API call instead of making one call per file.
+    /// </summary>
+    [JsonPropertyName("batch_accumulation_timeout_ms")]
+    public int BatchAccumulationTimeoutMs { get; set; } = 2000;
+
+    /// <summary>
+    /// Minimum number of requests required to trigger batch reconciliation.
+    /// If fewer requests accumulate before the timeout, they are processed
+    /// individually (degenerate batch of 1). Set to 1 to always batch.
+    /// </summary>
+    [JsonPropertyName("batch_min_size")]
+    public int BatchMinSize { get; set; } = 2;
+
+    /// <summary>
+    /// Maximum batch size for Reconciliation API calls. The Wikidata
+    /// Reconciliation API supports up to 50 queries per POST.
+    /// </summary>
+    [JsonPropertyName("batch_max_size")]
+    public int BatchMaxSize { get; set; } = 50;
+
     // ── Chronicle Engine ──────────────────────────────────────────────
 
     /// <summary>

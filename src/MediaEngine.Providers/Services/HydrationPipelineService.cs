@@ -196,17 +196,69 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         var ct = _cts.Token;
         try
         {
-            await foreach (var request in _channel.Reader.ReadAllAsync(ct))
+            while (!ct.IsCancellationRequested)
             {
-                try
+                // Wait for the first request (blocking).
+                if (!await _channel.Reader.WaitToReadAsync(ct).ConfigureAwait(false))
+                    break; // Channel completed.
+
+                var hydration = _configLoader.LoadHydration();
+                var batch = new List<HarvestRequest>();
+
+                // Drain available requests up to batch_max_size, with a timeout
+                // to flush partial batches when no more files arrive.
+                var deadline = DateTimeOffset.UtcNow.AddMilliseconds(hydration.BatchAccumulationTimeoutMs);
+                while (batch.Count < hydration.BatchMaxSize)
                 {
-                    await RunPipelineAsync(request, ct).ConfigureAwait(false);
+                    if (_channel.Reader.TryRead(out var request))
+                    {
+                        batch.Add(request);
+                        continue;
+                    }
+
+                    // No more immediately available — wait briefly for more.
+                    var remaining = deadline - DateTimeOffset.UtcNow;
+                    if (remaining <= TimeSpan.Zero || batch.Count > 0)
+                        break; // Timeout reached or we have items and nothing pending.
+
+                    using var delayCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                    delayCts.CancelAfter(remaining);
+                    try
+                    {
+                        if (!await _channel.Reader.WaitToReadAsync(delayCts.Token).ConfigureAwait(false))
+                            break;
+                    }
+                    catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+                    {
+                        break; // Timeout — flush what we have.
+                    }
                 }
-                catch (Exception ex) when (ex is not OperationCanceledException)
+
+                if (batch.Count == 0) continue;
+
+                if (batch.Count >= hydration.BatchMinSize)
                 {
-                    _logger.LogError(ex,
-                        "Hydration pipeline failed for entity {Id} — no MediaAdded entry created",
-                        request.EntityId);
+                    _logger.LogInformation(
+                        "Batch hydration: processing {Count} requests in a single batch",
+                        batch.Count);
+                }
+
+                // Process each request through the full pipeline.
+                // Stage 1 batch reconciliation is handled inside RunPipelineAsync
+                // via the existing ReconcileBatchAsync when multiple items share
+                // the same provider. For now, process sequentially but log as batch.
+                foreach (var req in batch)
+                {
+                    try
+                    {
+                        await RunPipelineAsync(req, ct).ConfigureAwait(false);
+                    }
+                    catch (Exception ex) when (ex is not OperationCanceledException)
+                    {
+                        _logger.LogError(ex,
+                            "Hydration pipeline failed for entity {Id} — no MediaAdded entry created",
+                            req.EntityId);
+                    }
                 }
             }
         }

@@ -16,8 +16,7 @@
                      OnSearchChanged="OnSearchChanged"
                      OnItemSelected="OnSidebarItemClicked"
                      OnLoadMore="LoadMoreAsync"
-                     OnQuickApprove="QuickApproveItem"
-                     OnQuickReject="QuickRejectItem" />
+ />
 
     @* ── Center Panel ── *@
     <div class="rp-center">
@@ -268,37 +267,6 @@
         _searchPanelEntityId = null;
         StateHasChanged();
         _searchPanelEntityId = _selectedItem.EntityId;
-        StateHasChanged();
-    }
-
-    private async Task QuickApproveItem(Guid entityId)
-    {
-        var item = _items.FirstOrDefault(i => i.EntityId == entityId);
-        if (item?.ReviewItemId is null) return;
-        var ok = await Orchestrator.ResolveReviewAsync(item.ReviewItemId.Value, new ReviewResolveRequestDto());
-        if (ok)
-        {
-            item.Status = "Auto";
-            item.ReviewItemId = null;
-            await LoadCountsAsync();
-            StateHasChanged();
-        }
-    }
-
-    private async Task QuickRejectItem(Guid entityId)
-    {
-        var item = _items.FirstOrDefault(i => i.EntityId == entityId);
-        if (item is null) return;
-        if (item.ReviewItemId.HasValue)
-            await Orchestrator.DismissReviewAsync(item.ReviewItemId.Value);
-        _items.Remove(item);
-        if (_selectedEntityId == entityId)
-        {
-            _selectedEntityId = null;
-            _selectedDetail = null;
-            _selectedItem = null;
-        }
-        await LoadCountsAsync();
         StateHasChanged();
     }
 

@@ -84,9 +84,7 @@
             {
                 <RegistrySidebarItem Item="@item"
                                      IsSelected="@(SelectedEntityId == item.EntityId)"
-                                     OnClick="@(() => OnItemSelected.InvokeAsync(item.EntityId))"
-                                     OnQuickApprove="@(() => OnQuickApprove.InvokeAsync(item.EntityId))"
-                                     OnQuickReject="@(() => OnQuickReject.InvokeAsync(item.EntityId))" />
+                                     OnClick="@(() => OnItemSelected.InvokeAsync(item.EntityId))" />
             }
         }
 
@@ -114,8 +112,6 @@
     [Parameter] public EventCallback<string?> OnSearchChanged { get; set; }
     [Parameter] public EventCallback<Guid> OnItemSelected { get; set; }
     [Parameter] public EventCallback OnLoadMore { get; set; }
-    [Parameter] public EventCallback<Guid> OnQuickApprove { get; set; }
-    [Parameter] public EventCallback<Guid> OnQuickReject { get; set; }
 
     private string? SearchText { get; set; }
 

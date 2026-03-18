@@ -674,6 +674,21 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             IsConflicted = mediaTypeIsConflicted,
         });
 
+        // Persist cover_url canonical value so the Registry listing query can show
+        // cover art thumbnails. Without this, the sidebar shows "Missing Art" even
+        // when cover.jpg exists on disk — the listing query reads from canonical_values,
+        // not from the filesystem.
+        if (result.CoverImage is { Length: > 0 })
+        {
+            canonicals.Add(new CanonicalValue
+            {
+                EntityId     = assetId,
+                Key          = "cover_url",
+                Value        = $"/stream/{assetId}/cover",
+                LastScoredAt = scored.ScoredAt,
+            });
+        }
+
         await _canonicalRepo.UpsertBatchAsync(canonicals, ct).ConfigureAwait(false);
 
         // Create MetadataConflict review item when any canonical value has IsConflicted=true.

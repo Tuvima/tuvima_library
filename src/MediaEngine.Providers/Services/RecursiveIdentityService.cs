@@ -4,6 +4,7 @@ using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
+using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Providers.Services;
 
@@ -18,6 +19,12 @@ namespace MediaEngine.Providers.Services;
 ///     <see cref="HarvestRequest"/> with <see cref="EntityType.Person"/>
 ///     so the <see cref="MetadataHarvestingService"/> can dispatch it to
 ///     <c>WikidataAdapter</c>.
+///  4. Creates the <c>.people/{QID}/</c> folder under the library root
+///     immediately after the Person record is created, so downstream
+///     services (headshot download, character images) have a guaranteed
+///     location to write to.  When the QID is not yet known (enrichment
+///     pending), a temporary folder keyed by the database ID is created
+///     and will be renamed by the enrichment service once the QID is resolved.
 ///
 /// This service is intentionally lightweight: all heavy I/O runs later,
 /// asynchronously, via the harvest queue.
@@ -28,6 +35,7 @@ public sealed class RecursiveIdentityService : IRecursiveIdentityService
 {
     private readonly IPersonRepository _personRepo;
     private readonly IMetadataHarvestingService _harvesting;
+    private readonly IConfigurationLoader _configLoader;
     private readonly ILogger<RecursiveIdentityService> _logger;
 
     // Prevents concurrent threads from creating duplicate Person rows for the
@@ -39,19 +47,22 @@ public sealed class RecursiveIdentityService : IRecursiveIdentityService
     public RecursiveIdentityService(
         IPersonRepository personRepo,
         IMetadataHarvestingService harvesting,
+        IConfigurationLoader configLoader,
         ILogger<RecursiveIdentityService> logger)
     {
         ArgumentNullException.ThrowIfNull(personRepo);
         ArgumentNullException.ThrowIfNull(harvesting);
+        ArgumentNullException.ThrowIfNull(configLoader);
         ArgumentNullException.ThrowIfNull(logger);
-        _personRepo = personRepo;
-        _harvesting = harvesting;
-        _logger     = logger;
+        _personRepo   = personRepo;
+        _harvesting   = harvesting;
+        _configLoader = configLoader;
+        _logger       = logger;
     }
 
     // ── IRecursiveIdentityService ─────────────────────────────────────────────
 
-    /// <inheritdoc/>
+    /// <inheritdoc />
     public async Task EnrichAsync(
         Guid mediaAssetId,
         IReadOnlyList<PersonReference> persons,
@@ -84,8 +95,6 @@ public sealed class RecursiveIdentityService : IRecursiveIdentityService
             }
         }
     }
-
-    // ── Private helpers ───────────────────────────────────────────────────────
 
     private async Task ProcessPersonAsync(
         Guid mediaAssetId,
@@ -160,6 +169,19 @@ public sealed class RecursiveIdentityService : IRecursiveIdentityService
         await _personRepo.LinkToMediaAssetAsync(mediaAssetId, person.Id, reference.Role, ct)
             .ConfigureAwait(false);
 
+        // 2a. Ensure the .people/ folder exists for this person.
+        //
+        // The folder name uses the Wikidata QID when available (e.g. ".people/Q378882/"),
+        // because QIDs are the stable, collision-free identity. When the QID is not yet
+        // known (enrichment is still pending), a temporary folder keyed by the database
+        // GUID is created (e.g. ".people/tmp-{Id}/"). The enrichment service is
+        // responsible for renaming the temporary folder to the QID once it is resolved.
+        //
+        // Failures here are non-fatal: the person record and harvest request are still
+        // committed regardless. A missing folder simply means headshots will be skipped
+        // until the folder is created on the next run.
+        EnsurePersonFolder(person);
+
         // 3. If not yet enriched, enqueue a Wikidata harvest request.
         if (person.EnrichedAt is null)
         {
@@ -185,6 +207,56 @@ public sealed class RecursiveIdentityService : IRecursiveIdentityService
 
             _logger.LogDebug(
                 "Enqueued Wikidata enrichment for person '{Name}' ({Id})",
+                person.Name, person.Id);
+        }
+    }
+
+    // ── Private helpers ───────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Creates the <c>.people/{folderName}/</c> directory under the configured
+    /// library root, where downstream services write headshots and character images.
+    ///
+    /// Folder name priority:
+    /// <list type="number">
+    ///   <item><term>Wikidata QID</term> — stable, e.g. <c>.people/Q378882/</c></item>
+    ///   <item><term>Temporary DB ID</term> — used when enrichment is still pending,
+    ///         e.g. <c>.people/tmp-3f2504e0-4f89-11d3-9a0c-0305e82c3301/</c></item>
+    /// </list>
+    ///
+    /// This method is intentionally non-throwing: folder creation failures are logged
+    /// at Warning level and do not abort the ingestion pipeline.
+    /// </summary>
+    private void EnsurePersonFolder(Domain.Entities.Person person)
+    {
+        try
+        {
+            var libraryRoot = _configLoader.LoadCore().LibraryRoot;
+            if (string.IsNullOrWhiteSpace(libraryRoot))
+            {
+                _logger.LogDebug(
+                    "Skipping .people/ folder creation for '{Name}' — LibraryRoot is not configured",
+                    person.Name);
+                return;
+            }
+
+            // Use QID as folder name when available; fall back to a temp ID so the
+            // folder always exists before enrichment tries to write into it.
+            var folderName = !string.IsNullOrWhiteSpace(person.WikidataQid)
+                ? person.WikidataQid
+                : $"tmp-{person.Id}";
+
+            var personFolder = Path.Combine(libraryRoot, ".people", folderName);
+            Directory.CreateDirectory(personFolder);
+
+            _logger.LogDebug(
+                "Ensured .people/ folder for '{Name}': {FolderPath}",
+                person.Name, personFolder);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Failed to create .people/ folder for '{Name}' ({Id})",
                 person.Name, person.Id);
         }
     }

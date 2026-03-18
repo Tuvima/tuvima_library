@@ -82,11 +82,13 @@ public sealed class CoreConfiguration
     /// <summary>
     /// BCP-47 two-letter language code (e.g. "en", "fr") for metadata downloads
     /// and UI localisation. Drives provider search language and Wikidata label language.
-    /// Defaults to the host OS UI culture.
+    /// Defaults to "en" so that Wikidata API calls always return English labels unless
+    /// the user explicitly sets a different language in config/library.json. Using the
+    /// host OS UI culture as the default caused Wikidata to return labels in whatever
+    /// language the server OS is set to (e.g. Russian on a Russian-locale machine).
     /// </summary>
     [JsonPropertyName("language")]
-    public string Language { get; set; } =
-        CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
+    public string Language { get; set; } = "en";
 
     /// <summary>
     /// ISO 3166-1 alpha-2 country code (e.g. "US", "GB") for regional metadata
