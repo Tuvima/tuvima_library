@@ -92,4 +92,11 @@ public sealed class HarvestRequest
     /// Spec: §3.24 — Two-Pass Enrichment Architecture.
     /// </summary>
     public HydrationPass Pass { get; init; } = HydrationPass.Quick;
+
+    /// <summary>
+    /// Number of times this request has been re-enqueued after a pipeline failure.
+    /// The processing loop increments this on each retry and stops after 3 attempts,
+    /// creating a review queue entry on final failure.
+    /// </summary>
+    public int RetryCount { get; set; }
 }

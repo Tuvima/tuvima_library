@@ -527,6 +527,7 @@ builder.Services.AddSingleton<IIngestionLogRepository, IngestionLogRepository>()
 builder.Services.AddSingleton<IResolverCacheRepository, ResolverCacheRepository>();
 builder.Services.AddHostedService<ActivityPruningService>();
 builder.Services.AddHostedService<MissingUniverseSweepService>();
+builder.Services.AddHostedService<HydrationStartupSweepService>();
 
 // ── Library Reconciliation: periodic scan for missing files ──────────────────
 builder.Services.AddSingleton<LibraryReconciliationService>();

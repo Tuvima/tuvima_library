@@ -253,11 +253,31 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                     {
                         await RunPipelineAsync(req, ct).ConfigureAwait(false);
                     }
-                    catch (Exception ex) when (ex is not OperationCanceledException)
+                    catch (OperationCanceledException)
                     {
-                        _logger.LogError(ex,
-                            "Hydration pipeline failed for entity {Id} — no MediaAdded entry created",
+                        throw; // Let shutdown propagate.
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex,
+                            "Hydration pipeline failed for entity {Id} — will retry",
                             req.EntityId);
+
+                        req.RetryCount += 1;
+                        if (req.RetryCount <= 3)
+                        {
+                            // Re-enqueue for retry — TryWrite is non-blocking.
+                            _channel.Writer.TryWrite(req);
+                            _logger.LogInformation(
+                                "Re-enqueued entity {Id} for retry (attempt {Attempt}/3)",
+                                req.EntityId, req.RetryCount);
+                        }
+                        else
+                        {
+                            _logger.LogError(
+                                "Entity {Id} failed after 3 retries — no further automatic attempts will be made",
+                                req.EntityId);
+                        }
                     }
                 }
             }
@@ -274,6 +294,11 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     private async Task<HydrationResult> RunPipelineAsync(
         HarvestRequest request, CancellationToken ct)
     {
+        var titleHintForLog = request.Hints.GetValueOrDefault("title", "unknown");
+        _logger.LogInformation(
+            "[HYDRATION] Starting pipeline for entity {Id} — title: \"{Title}\", media type: {MediaType}",
+            request.EntityId, titleHintForLog, request.MediaType);
+
         var result       = new HydrationResult();
         var hydration    = _configLoader.LoadHydration();
         var provConfigs  = _configLoader.LoadAllProviders();
@@ -1240,6 +1265,12 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                     reviewId);
             }
         }
+
+        _logger.LogInformation(
+            "[HYDRATION] Completed pipeline for entity {Id} — title: \"{Title}\", claims: {ClaimCount}, QID: {Qid}",
+            request.EntityId, titleHintForLog,
+            result.TotalClaimsAdded,
+            result.WikidataQid ?? "none");
 
         return result;
     }
