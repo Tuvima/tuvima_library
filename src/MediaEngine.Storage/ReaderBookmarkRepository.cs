@@ -1,3 +1,4 @@
+using Dapper;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Storage.Contracts;
@@ -17,59 +18,59 @@ public sealed class ReaderBookmarkRepository : IReaderBookmarkRepository
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
-            SELECT id, user_id, asset_id, chapter_index, cfi_position, label, created_at
+        var rows = conn.Query<BookmarkRow>("""
+            SELECT id            AS Id,
+                   user_id       AS UserId,
+                   asset_id      AS AssetId,
+                   chapter_index AS ChapterIndex,
+                   cfi_position  AS CfiPosition,
+                   label         AS Label,
+                   created_at    AS CreatedAt
             FROM   reader_bookmarks
-            WHERE  user_id = @user_id AND asset_id = @asset_id
+            WHERE  user_id = @userId AND asset_id = @assetId
             ORDER BY created_at DESC;
-            """;
-        cmd.Parameters.AddWithValue("@user_id", userId);
-        cmd.Parameters.AddWithValue("@asset_id", assetId.ToString());
+            """, new { userId, assetId = assetId.ToString() }).AsList();
 
-        using var reader = cmd.ExecuteReader();
-        var results = new List<ReaderBookmark>();
-        while (reader.Read())
-            results.Add(MapBookmark(reader));
-
-        return Task.FromResult<IReadOnlyList<ReaderBookmark>>(results);
+        return Task.FromResult<IReadOnlyList<ReaderBookmark>>(rows.ConvertAll(MapRow));
     }
 
     public Task<ReaderBookmark?> FindByIdAsync(Guid id, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
-            SELECT id, user_id, asset_id, chapter_index, cfi_position, label, created_at
+        var row = conn.QueryFirstOrDefault<BookmarkRow>("""
+            SELECT id            AS Id,
+                   user_id       AS UserId,
+                   asset_id      AS AssetId,
+                   chapter_index AS ChapterIndex,
+                   cfi_position  AS CfiPosition,
+                   label         AS Label,
+                   created_at    AS CreatedAt
             FROM   reader_bookmarks
             WHERE  id = @id
             LIMIT  1;
-            """;
-        cmd.Parameters.AddWithValue("@id", id.ToString());
+            """, new { id = id.ToString() });
 
-        using var reader = cmd.ExecuteReader();
-        var result = reader.Read() ? MapBookmark(reader) : null;
-        return Task.FromResult(result);
+        return Task.FromResult(row is null ? null : MapRow(row));
     }
 
     public Task InsertAsync(ReaderBookmark bookmark, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
+        conn.Execute("""
             INSERT INTO reader_bookmarks (id, user_id, asset_id, chapter_index, cfi_position, label, created_at)
-            VALUES (@id, @user_id, @asset_id, @chapter_index, @cfi_position, @label, @created_at);
-            """;
-        cmd.Parameters.AddWithValue("@id", bookmark.Id.ToString());
-        cmd.Parameters.AddWithValue("@user_id", bookmark.UserId);
-        cmd.Parameters.AddWithValue("@asset_id", bookmark.AssetId.ToString());
-        cmd.Parameters.AddWithValue("@chapter_index", bookmark.ChapterIndex);
-        cmd.Parameters.AddWithValue("@cfi_position", (object?)bookmark.CfiPosition ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@label", (object?)bookmark.Label ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@created_at", bookmark.CreatedAt.ToString("O"));
-        cmd.ExecuteNonQuery();
+            VALUES (@id, @userId, @assetId, @chapterIndex, @cfiPosition, @label, @createdAt);
+            """, new
+        {
+            id           = bookmark.Id.ToString(),
+            userId       = bookmark.UserId,
+            assetId      = bookmark.AssetId.ToString(),
+            chapterIndex = bookmark.ChapterIndex,
+            cfiPosition  = bookmark.CfiPosition,
+            label        = bookmark.Label,
+            createdAt    = bookmark.CreatedAt.ToString("O"),
+        });
 
         return Task.CompletedTask;
     }
@@ -78,22 +79,36 @@ public sealed class ReaderBookmarkRepository : IReaderBookmarkRepository
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = "DELETE FROM reader_bookmarks WHERE id = @id;";
-        cmd.Parameters.AddWithValue("@id", id.ToString());
-        cmd.ExecuteNonQuery();
+        conn.Execute(
+            "DELETE FROM reader_bookmarks WHERE id = @id;",
+            new { id = id.ToString() });
 
         return Task.CompletedTask;
     }
 
-    private static ReaderBookmark MapBookmark(Microsoft.Data.Sqlite.SqliteDataReader r) => new()
+    // ── Private DTO + mapper ─────────────────────────────────────────────────
+    // SQLite stores Guid and DateTime as TEXT strings; Dapper cannot auto-convert
+    // them to Guid/DateTime, so we read into a flat string DTO and convert in code.
+
+    private sealed class BookmarkRow
     {
-        Id           = Guid.Parse(r.GetString(0)),
-        UserId       = r.GetString(1),
-        AssetId      = Guid.Parse(r.GetString(2)),
-        ChapterIndex = r.GetInt32(3),
-        CfiPosition  = r.IsDBNull(4) ? null : r.GetString(4),
-        Label        = r.IsDBNull(5) ? null : r.GetString(5),
-        CreatedAt    = DateTime.Parse(r.GetString(6)),
+        public string  Id           { get; set; } = string.Empty;
+        public string  UserId       { get; set; } = string.Empty;
+        public string  AssetId      { get; set; } = string.Empty;
+        public int     ChapterIndex { get; set; }
+        public string? CfiPosition  { get; set; }
+        public string? Label        { get; set; }
+        public string  CreatedAt    { get; set; } = string.Empty;
+    }
+
+    private static ReaderBookmark MapRow(BookmarkRow r) => new()
+    {
+        Id           = Guid.Parse(r.Id),
+        UserId       = r.UserId,
+        AssetId      = Guid.Parse(r.AssetId),
+        ChapterIndex = r.ChapterIndex,
+        CfiPosition  = r.CfiPosition,
+        Label        = r.Label,
+        CreatedAt    = DateTime.Parse(r.CreatedAt),
     };
 }

@@ -1,3 +1,4 @@
+using Dapper;
 using Microsoft.Data.Sqlite;
 using MediaEngine.Storage.Contracts;
 
@@ -9,7 +10,6 @@ namespace MediaEngine.Storage;
 /// filesystem I/O on every request.
 ///
 /// <para>
-/// ORM-less: all SQL is executed via <see cref="SqliteCommand"/>.
 /// The cache is rebuilt from config files on Engine startup and updated
 /// on every save operation.
 /// </para>
@@ -34,11 +34,9 @@ public sealed class UISettingsCacheRepository
     public string? Get(string scope)
     {
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT settings FROM ui_settings_cache WHERE scope = @scope;";
-        cmd.Parameters.AddWithValue("@scope", scope);
-
-        return cmd.ExecuteScalar() as string;
+        return conn.ExecuteScalar<string?>(
+            "SELECT settings FROM ui_settings_cache WHERE scope = @scope",
+            new { scope });
     }
 
     /// <summary>
@@ -47,17 +45,12 @@ public sealed class UISettingsCacheRepository
     public void Upsert(string scope, string settingsJson)
     {
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
+        conn.Execute("""
             INSERT INTO ui_settings_cache (scope, settings, cached_at)
-            VALUES (@scope, @settings, strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+            VALUES (@scope, @settingsJson, strftime('%Y-%m-%dT%H:%M:%fZ','now'))
             ON CONFLICT(scope)
-            DO UPDATE SET settings = excluded.settings, cached_at = excluded.cached_at;
-            """;
-
-        cmd.Parameters.AddWithValue("@scope",    scope);
-        cmd.Parameters.AddWithValue("@settings", settingsJson);
-        cmd.ExecuteNonQuery();
+            DO UPDATE SET settings = excluded.settings, cached_at = excluded.cached_at
+            """, new { scope, settingsJson });
     }
 
     /// <summary>
@@ -66,10 +59,9 @@ public sealed class UISettingsCacheRepository
     public void Delete(string scope)
     {
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = "DELETE FROM ui_settings_cache WHERE scope = @scope;";
-        cmd.Parameters.AddWithValue("@scope", scope);
-        cmd.ExecuteNonQuery();
+        conn.Execute(
+            "DELETE FROM ui_settings_cache WHERE scope = @scope",
+            new { scope });
     }
 
     /// <summary>
@@ -78,9 +70,7 @@ public sealed class UISettingsCacheRepository
     public void Clear()
     {
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = "DELETE FROM ui_settings_cache;";
-        cmd.ExecuteNonQuery();
+        conn.Execute("DELETE FROM ui_settings_cache");
     }
 
     /// <summary>
@@ -96,7 +86,8 @@ public sealed class UISettingsCacheRepository
 
         try
         {
-            // Clear existing cache
+            // Clear existing cache — must use raw command here because the transaction
+            // cannot be passed through Dapper's Execute overload for SqliteTransaction
             using (var clearCmd = conn.CreateCommand())
             {
                 clearCmd.Transaction = transaction;
@@ -140,7 +131,6 @@ public sealed class UISettingsCacheRepository
             ON CONFLICT(scope)
             DO UPDATE SET settings = excluded.settings, cached_at = excluded.cached_at;
             """;
-
         cmd.Parameters.AddWithValue("@scope",    scope);
         cmd.Parameters.AddWithValue("@settings", settingsJson);
         cmd.ExecuteNonQuery();

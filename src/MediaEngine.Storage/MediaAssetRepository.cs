@@ -1,4 +1,4 @@
-using Microsoft.Data.Sqlite;
+using Dapper;
 using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
@@ -7,15 +7,8 @@ using MediaEngine.Storage.Contracts;
 namespace MediaEngine.Storage;
 
 /// <summary>
-/// ORM-less SQLite implementation of <see cref="IMediaAssetRepository"/>.
-/// All SQL is executed via raw <see cref="SqliteCommand"/>; no reflection or
-/// expression trees are used.
-///
-/// Thread safety: <see cref="IDatabaseConnection.Open"/> returns a single shared
-/// <see cref="SqliteConnection"/> (SQLite is serialised within a process by the
-/// driver).  Each public method creates its own <see cref="SqliteCommand"/> and
-/// disposes it before returning, so concurrent calls are safe as long as the
-/// connection itself is not disposed mid-call.
+/// SQLite implementation of <see cref="IMediaAssetRepository"/>.
+/// Uses Dapper for type-safe column-to-property mapping.
 ///
 /// Spec: Phase 4 – Hash Dominance (content_hash UNIQUE + INSERT OR IGNORE);
 ///       Phase 7 – Asset lifecycle status transitions.
@@ -24,15 +17,40 @@ public sealed class MediaAssetRepository : IMediaAssetRepository
 {
     private readonly IDatabaseConnection _db;
 
+    /// <summary>
+    /// Flat projection used by Dapper to read rows. The <c>Status</c> column is
+    /// stored as TEXT in SQLite; we capture it as a string and convert to the
+    /// <see cref="AssetStatus"/> enum in <see cref="ToAsset"/>.
+    /// </summary>
+    private sealed record MediaAssetRow(
+        string Id,
+        string EditionId,
+        string ContentHash,
+        string FilePathRoot,
+        string Status);
+
+    private static MediaAsset ToAsset(MediaAssetRow r) => new()
+    {
+        Id           = Guid.Parse(r.Id),
+        EditionId    = Guid.Parse(r.EditionId),
+        ContentHash  = r.ContentHash,
+        FilePathRoot = r.FilePathRoot,
+        Status       = Enum.Parse<AssetStatus>(r.Status, ignoreCase: true),
+    };
+
+    private const string SelectColumns = """
+        id             AS Id,
+        edition_id     AS EditionId,
+        content_hash   AS ContentHash,
+        file_path_root AS FilePathRoot,
+        status         AS Status
+        """;
+
     public MediaAssetRepository(IDatabaseConnection db)
     {
         ArgumentNullException.ThrowIfNull(db);
         _db = db;
     }
-
-    // -------------------------------------------------------------------------
-    // IMediaAssetRepository
-    // -------------------------------------------------------------------------
 
     /// <inheritdoc/>
     public Task<MediaAsset?> FindByHashAsync(string contentHash, CancellationToken ct = default)
@@ -41,18 +59,14 @@ public sealed class MediaAssetRepository : IMediaAssetRepository
         ArgumentException.ThrowIfNullOrWhiteSpace(contentHash);
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
-            SELECT id, edition_id, content_hash, file_path_root, status
+        var row = conn.QueryFirstOrDefault<MediaAssetRow>($"""
+            SELECT {SelectColumns}
             FROM   media_assets
-            WHERE  content_hash = @content_hash
+            WHERE  content_hash = @contentHash
             LIMIT  1;
-            """;
-        cmd.Parameters.AddWithValue("@content_hash", contentHash);
+            """, new { contentHash });
 
-        using var reader = cmd.ExecuteReader();
-        var result = reader.Read() ? MapRow(reader) : null;
-        return Task.FromResult(result);
+        return Task.FromResult(row is null ? null : (MediaAsset?)ToAsset(row));
     }
 
     /// <inheritdoc/>
@@ -62,18 +76,14 @@ public sealed class MediaAssetRepository : IMediaAssetRepository
         ArgumentException.ThrowIfNullOrWhiteSpace(pathRoot);
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
-            SELECT id, edition_id, content_hash, file_path_root, status
+        var row = conn.QueryFirstOrDefault<MediaAssetRow>($"""
+            SELECT {SelectColumns}
             FROM   media_assets
-            WHERE  file_path_root = @path
+            WHERE  file_path_root = @pathRoot
             LIMIT  1;
-            """;
-        cmd.Parameters.AddWithValue("@path", pathRoot);
+            """, new { pathRoot });
 
-        using var reader = cmd.ExecuteReader();
-        var result = reader.Read() ? MapRow(reader) : null;
-        return Task.FromResult(result);
+        return Task.FromResult(row is null ? null : (MediaAsset?)ToAsset(row));
     }
 
     /// <inheritdoc/>
@@ -82,18 +92,14 @@ public sealed class MediaAssetRepository : IMediaAssetRepository
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
-            SELECT id, edition_id, content_hash, file_path_root, status
+        var row = conn.QueryFirstOrDefault<MediaAssetRow>($"""
+            SELECT {SelectColumns}
             FROM   media_assets
             WHERE  id = @id
             LIMIT  1;
-            """;
-        cmd.Parameters.AddWithValue("@id", id.ToString());
+            """, new { id = id.ToString() });
 
-        using var reader = cmd.ExecuteReader();
-        var result = reader.Read() ? MapRow(reader) : null;
-        return Task.FromResult(result);
+        return Task.FromResult(row is null ? null : (MediaAsset?)ToAsset(row));
     }
 
     /// <inheritdoc/>
@@ -115,26 +121,23 @@ public sealed class MediaAssetRepository : IMediaAssetRepository
         using var conn = _db.CreateConnection();
 
         // Step 1: attempt the insert.
-        using var insertCmd = conn.CreateCommand();
-        insertCmd.CommandText = """
+        conn.Execute("""
             INSERT OR IGNORE INTO media_assets
                 (id, edition_id, content_hash, file_path_root, status)
             VALUES
-                (@id, @edition_id, @content_hash, @file_path_root, @status);
-            """;
-        insertCmd.Parameters.AddWithValue("@id",             asset.Id.ToString());
-        insertCmd.Parameters.AddWithValue("@edition_id",     asset.EditionId.ToString());
-        insertCmd.Parameters.AddWithValue("@content_hash",   asset.ContentHash);
-        insertCmd.Parameters.AddWithValue("@file_path_root", asset.FilePathRoot);
-        insertCmd.Parameters.AddWithValue("@status",         asset.Status.ToString());
-        insertCmd.ExecuteNonQuery();
+                (@id, @editionId, @contentHash, @filePathRoot, @status);
+            """,
+            new
+            {
+                id           = asset.Id.ToString(),
+                editionId    = asset.EditionId.ToString(),
+                contentHash  = asset.ContentHash,
+                filePathRoot = asset.FilePathRoot,
+                status       = asset.Status.ToString(),
+            });
 
-        // Step 2: check whether the row was actually written.
-        // changes() returns 1 if a row was inserted, 0 if IGNORE fired.
-        using var changesCmd = conn.CreateCommand();
-        changesCmd.CommandText = "SELECT changes();";
-        var changes = Convert.ToInt64(changesCmd.ExecuteScalar()!);
-
+        // Step 2: changes() returns 1 if a row was inserted, 0 if IGNORE fired.
+        var changes = conn.ExecuteScalar<long>("SELECT changes();");
         return Task.FromResult(changes > 0);
     }
 
@@ -144,15 +147,16 @@ public sealed class MediaAssetRepository : IMediaAssetRepository
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
+        conn.Execute("""
             UPDATE media_assets
             SET    status = @status
             WHERE  id     = @id;
-            """;
-        cmd.Parameters.AddWithValue("@status", status.ToString());
-        cmd.Parameters.AddWithValue("@id",     id.ToString());
-        cmd.ExecuteNonQuery();
+            """,
+            new
+            {
+                status = status.ToString(),
+                id     = id.ToString(),
+            });
 
         return Task.CompletedTask;
     }
@@ -164,15 +168,16 @@ public sealed class MediaAssetRepository : IMediaAssetRepository
         ArgumentException.ThrowIfNullOrWhiteSpace(newPath);
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
+        conn.Execute("""
             UPDATE media_assets
             SET    file_path_root = @path
             WHERE  id             = @id;
-            """;
-        cmd.Parameters.AddWithValue("@path", newPath);
-        cmd.Parameters.AddWithValue("@id",   id.ToString());
-        cmd.ExecuteNonQuery();
+            """,
+            new
+            {
+                path = newPath,
+                id   = id.ToString(),
+            });
 
         return Task.CompletedTask;
     }
@@ -183,10 +188,9 @@ public sealed class MediaAssetRepository : IMediaAssetRepository
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = "DELETE FROM media_assets WHERE id = @id;";
-        cmd.Parameters.AddWithValue("@id", id.ToString());
-        cmd.ExecuteNonQuery();
+        conn.Execute(
+            "DELETE FROM media_assets WHERE id = @id;",
+            new { id = id.ToString() });
 
         return Task.CompletedTask;
     }
@@ -197,20 +201,13 @@ public sealed class MediaAssetRepository : IMediaAssetRepository
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
-            SELECT id, edition_id, content_hash, file_path_root, status
+        var rows = conn.Query<MediaAssetRow>($"""
+            SELECT {SelectColumns}
             FROM   media_assets
             WHERE  status = @status;
-            """;
-        cmd.Parameters.AddWithValue("@status", status.ToString());
+            """, new { status = status.ToString() }).AsList();
 
-        using var reader = cmd.ExecuteReader();
-        var results = new List<MediaAsset>();
-        while (reader.Read())
-            results.Add(MapRow(reader));
-
-        return Task.FromResult<IReadOnlyList<MediaAsset>>(results);
+        return Task.FromResult<IReadOnlyList<MediaAsset>>(rows.Select(ToAsset).ToList());
     }
 
     /// <inheritdoc/>
@@ -219,39 +216,19 @@ public sealed class MediaAssetRepository : IMediaAssetRepository
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
-            SELECT ma.id, ma.edition_id, ma.content_hash, ma.file_path_root, ma.status
+        var row = conn.QueryFirstOrDefault<MediaAssetRow>($"""
+            SELECT ma.id             AS Id,
+                   ma.edition_id     AS EditionId,
+                   ma.content_hash   AS ContentHash,
+                   ma.file_path_root AS FilePathRoot,
+                   ma.status         AS Status
             FROM   media_assets ma
             JOIN   editions e ON e.id = ma.edition_id
-            WHERE  e.work_id = @work_id
+            WHERE  e.work_id = @workId
               AND  ma.status = 'Normal'
             LIMIT  1;
-            """;
-        cmd.Parameters.AddWithValue("@work_id", workId.ToString());
+            """, new { workId = workId.ToString() });
 
-        using var reader = cmd.ExecuteReader();
-        var result = reader.Read() ? MapRow(reader) : null;
-        return Task.FromResult(result);
+        return Task.FromResult(row is null ? null : (MediaAsset?)ToAsset(row));
     }
-
-    // -------------------------------------------------------------------------
-    // Private row mapper
-    // -------------------------------------------------------------------------
-
-    /// <summary>
-    /// Maps the current <see cref="SqliteDataReader"/> row to a <see cref="MediaAsset"/>.
-    /// Column ordinals match the SELECT list used in every query in this class:
-    ///   0 = id, 1 = edition_id, 2 = content_hash, 3 = file_path_root, 4 = status
-    /// </summary>
-    private static MediaAsset MapRow(SqliteDataReader r) => new()
-    {
-        Id           = Guid.Parse(r.GetString(0)),
-        EditionId    = Guid.Parse(r.GetString(1)),
-        ContentHash  = r.GetString(2),
-        FilePathRoot = r.GetString(3),
-        // The CHECK constraint in schema.sql ensures status is one of the three
-        // valid enum names; Enum.Parse is safe to call without a try/catch here.
-        Status       = Enum.Parse<AssetStatus>(r.GetString(4), ignoreCase: true),
-    };
 }

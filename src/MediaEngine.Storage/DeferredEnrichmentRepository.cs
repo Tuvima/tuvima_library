@@ -1,4 +1,4 @@
-using Microsoft.Data.Sqlite;
+using Dapper;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
@@ -8,7 +8,6 @@ namespace MediaEngine.Storage;
 
 /// <summary>
 /// SQLite implementation of <see cref="IDeferredEnrichmentRepository"/>.
-/// ORM-less: all SQL is executed via <see cref="SqliteCommand"/>.
 /// </summary>
 public sealed class DeferredEnrichmentRepository : IDeferredEnrichmentRepository
 {
@@ -26,28 +25,25 @@ public sealed class DeferredEnrichmentRepository : IDeferredEnrichmentRepository
         ArgumentNullException.ThrowIfNull(request);
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
+        conn.Execute("""
             INSERT OR IGNORE INTO deferred_enrichment_queue
                 (id, entity_id, wikidata_qid, media_type, hints_json,
                  created_at, status, processed_at)
             VALUES
-                (@id, @entityId, @qid, @mediaType, @hints,
-                 @createdAt, @status, @processedAt);
-            """;
-
-        cmd.Parameters.AddWithValue("@id",          request.Id.ToString());
-        cmd.Parameters.AddWithValue("@entityId",    request.EntityId.ToString());
-        cmd.Parameters.AddWithValue("@qid",         (object?)request.WikidataQid ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@mediaType",   request.MediaType.ToString());
-        cmd.Parameters.AddWithValue("@hints",       (object?)request.HintsJson ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@createdAt",   request.CreatedAt.ToString("O"));
-        cmd.Parameters.AddWithValue("@status",      request.Status);
-        cmd.Parameters.AddWithValue("@processedAt", request.ProcessedAt.HasValue
-                                                        ? (object)request.ProcessedAt.Value.ToString("O")
-                                                        : DBNull.Value);
-
-        cmd.ExecuteNonQuery();
+                (@Id, @EntityId, @WikidataQid, @MediaType, @HintsJson,
+                 @CreatedAt, @Status, @ProcessedAt);
+            """,
+            new
+            {
+                Id          = request.Id,
+                EntityId    = request.EntityId,
+                request.WikidataQid,
+                MediaType   = request.MediaType.ToString(),
+                request.HintsJson,
+                CreatedAt   = request.CreatedAt,
+                request.Status,
+                ProcessedAt = request.ProcessedAt,
+            });
         return Task.CompletedTask;
     }
 
@@ -56,23 +52,22 @@ public sealed class DeferredEnrichmentRepository : IDeferredEnrichmentRepository
         int limit = 50, CancellationToken ct = default)
     {
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
-            SELECT id, entity_id, wikidata_qid, media_type, hints_json,
-                   created_at, status, processed_at
+        var rows = conn.Query<DeferredEnrichmentRow>("""
+            SELECT id           AS Id,
+                   entity_id    AS EntityId,
+                   wikidata_qid AS WikidataQid,
+                   media_type   AS MediaType,
+                   hints_json   AS HintsJson,
+                   created_at   AS CreatedAt,
+                   status       AS Status,
+                   processed_at AS ProcessedAt
             FROM   deferred_enrichment_queue
             WHERE  status = 'Pending'
             ORDER BY created_at ASC
             LIMIT  @limit;
-            """;
-        cmd.Parameters.AddWithValue("@limit", limit);
+            """, new { limit }).AsList();
 
-        var results = new List<DeferredEnrichmentRequest>();
-        using var reader = cmd.ExecuteReader();
-        while (reader.Read())
-            results.Add(MapRow(reader));
-
-        return Task.FromResult<IReadOnlyList<DeferredEnrichmentRequest>>(results);
+        return Task.FromResult<IReadOnlyList<DeferredEnrichmentRequest>>(rows.ConvertAll(MapRow));
     }
 
     /// <inheritdoc/>
@@ -82,42 +77,40 @@ public sealed class DeferredEnrichmentRepository : IDeferredEnrichmentRepository
         var cutoff = DateTimeOffset.UtcNow.Subtract(threshold);
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
-            SELECT id, entity_id, wikidata_qid, media_type, hints_json,
-                   created_at, status, processed_at
+        var rows = conn.Query<DeferredEnrichmentRow>("""
+            SELECT id           AS Id,
+                   entity_id    AS EntityId,
+                   wikidata_qid AS WikidataQid,
+                   media_type   AS MediaType,
+                   hints_json   AS HintsJson,
+                   created_at   AS CreatedAt,
+                   status       AS Status,
+                   processed_at AS ProcessedAt
             FROM   deferred_enrichment_queue
             WHERE  status = 'Pending'
               AND  created_at < @cutoff
             ORDER BY created_at ASC
             LIMIT  @limit;
-            """;
-        cmd.Parameters.AddWithValue("@cutoff", cutoff.ToString("O"));
-        cmd.Parameters.AddWithValue("@limit",  limit);
+            """, new { cutoff, limit }).AsList();
 
-        var results = new List<DeferredEnrichmentRequest>();
-        using var reader = cmd.ExecuteReader();
-        while (reader.Read())
-            results.Add(MapRow(reader));
-
-        return Task.FromResult<IReadOnlyList<DeferredEnrichmentRequest>>(results);
+        return Task.FromResult<IReadOnlyList<DeferredEnrichmentRequest>>(rows.ConvertAll(MapRow));
     }
 
     /// <inheritdoc/>
     public Task MarkProcessedAsync(Guid id, CancellationToken ct = default)
     {
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
+        conn.Execute("""
             UPDATE deferred_enrichment_queue
             SET    status       = 'Processed',
                    processed_at = @now
             WHERE  id = @id;
-            """;
-        cmd.Parameters.AddWithValue("@id",  id.ToString());
-        cmd.Parameters.AddWithValue("@now", DateTimeOffset.UtcNow.ToString("O"));
-
-        cmd.ExecuteNonQuery();
+            """,
+            new
+            {
+                id,
+                now = DateTimeOffset.UtcNow,
+            });
         return Task.CompletedTask;
     }
 
@@ -125,18 +118,18 @@ public sealed class DeferredEnrichmentRepository : IDeferredEnrichmentRepository
     public Task MarkProcessedByEntityAsync(Guid entityId, CancellationToken ct = default)
     {
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
+        conn.Execute("""
             UPDATE deferred_enrichment_queue
             SET    status       = 'Processed',
                    processed_at = @now
             WHERE  entity_id = @entityId
               AND  status     = 'Pending';
-            """;
-        cmd.Parameters.AddWithValue("@entityId", entityId.ToString());
-        cmd.Parameters.AddWithValue("@now",      DateTimeOffset.UtcNow.ToString("O"));
-
-        cmd.ExecuteNonQuery();
+            """,
+            new
+            {
+                entityId,
+                now = DateTimeOffset.UtcNow,
+            });
         return Task.CompletedTask;
     }
 
@@ -144,31 +137,40 @@ public sealed class DeferredEnrichmentRepository : IDeferredEnrichmentRepository
     public Task<int> CountPendingAsync(CancellationToken ct = default)
     {
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT COUNT(*) FROM deferred_enrichment_queue WHERE status = 'Pending';";
-
-        var count = Convert.ToInt32(cmd.ExecuteScalar() ?? 0);
+        var count = conn.ExecuteScalar<int>(
+            "SELECT COUNT(*) FROM deferred_enrichment_queue WHERE status = 'Pending';");
         return Task.FromResult(count);
     }
 
-    // ── Row mapping ──────────────────────────────────────────────────────────────
+    // ── Private intermediate row type and mapper ──────────────────────────────
 
-    private static DeferredEnrichmentRequest MapRow(SqliteDataReader reader)
+    /// <summary>
+    /// Intermediate row type for Dapper mapping.
+    /// <see cref="MediaType"/> is stored as TEXT and parsed on read.
+    /// <see cref="CreatedAt"/> and <see cref="ProcessedAt"/> use the
+    /// registered <c>DateTimeOffsetTypeHandler</c>.
+    /// </summary>
+    private sealed class DeferredEnrichmentRow
     {
-        return new DeferredEnrichmentRequest
-        {
-            Id          = Guid.Parse(reader.GetString(0)),
-            EntityId    = Guid.Parse(reader.GetString(1)),
-            WikidataQid = reader.IsDBNull(2) ? null : reader.GetString(2),
-            MediaType   = Enum.TryParse<MediaType>(reader.GetString(3), true, out var mt)
-                              ? mt : MediaType.Unknown,
-            HintsJson   = reader.IsDBNull(4) ? null : reader.GetString(4),
-            CreatedAt   = DateTimeOffset.TryParse(reader.GetString(5), out var created)
-                              ? created : DateTimeOffset.UtcNow,
-            Status      = reader.GetString(6),
-            ProcessedAt = reader.IsDBNull(7) ? null
-                              : DateTimeOffset.TryParse(reader.GetString(7), out var processed)
-                                  ? processed : null,
-        };
+        public Guid           Id          { get; set; }
+        public Guid           EntityId    { get; set; }
+        public string?        WikidataQid { get; set; }
+        public string         MediaType   { get; set; } = string.Empty;
+        public string?        HintsJson   { get; set; }
+        public DateTimeOffset CreatedAt   { get; set; }
+        public string         Status      { get; set; } = string.Empty;
+        public DateTimeOffset? ProcessedAt { get; set; }
     }
+
+    private static DeferredEnrichmentRequest MapRow(DeferredEnrichmentRow r) => new()
+    {
+        Id          = r.Id,
+        EntityId    = r.EntityId,
+        WikidataQid = r.WikidataQid,
+        MediaType   = Enum.TryParse<MediaType>(r.MediaType, true, out var mt) ? mt : MediaType.Unknown,
+        HintsJson   = r.HintsJson,
+        CreatedAt   = r.CreatedAt,
+        Status      = r.Status,
+        ProcessedAt = r.ProcessedAt,
+    };
 }

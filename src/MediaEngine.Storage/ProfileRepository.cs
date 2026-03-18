@@ -1,4 +1,4 @@
-using Microsoft.Data.Sqlite;
+using Dapper;
 using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
@@ -7,12 +7,12 @@ using MediaEngine.Storage.Contracts;
 namespace MediaEngine.Storage;
 
 /// <summary>
-/// ORM-less SQLite implementation of <see cref="IProfileRepository"/>.
+/// SQLite implementation of <see cref="IProfileRepository"/>.
 ///
 /// The seed profile (<see cref="Profile.SeedProfileId"/>) is protected:
 /// <see cref="DeleteAsync"/> will return <see langword="false"/> for it.
 ///
-/// Spec: Settings & Management Layer — Identity & Multi-User.
+/// Spec: Settings &amp; Management Layer — Identity &amp; Multi-User.
 /// </summary>
 public sealed class ProfileRepository : IProfileRepository
 {
@@ -30,21 +30,19 @@ public sealed class ProfileRepository : IProfileRepository
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
-            SELECT id, display_name, avatar_color, role, pin_hash, created_at, navigation_config
+        var rows = conn.Query<ProfileRow>("""
+            SELECT id           AS Id,
+                   display_name AS DisplayName,
+                   avatar_color AS AvatarColor,
+                   role         AS Role,
+                   pin_hash     AS PinHash,
+                   created_at   AS CreatedAt,
+                   navigation_config AS NavigationConfig
             FROM   profiles
             ORDER  BY created_at ASC;
-            """;
+            """).AsList();
 
-        var results = new List<Profile>();
-        using var reader = cmd.ExecuteReader();
-        while (reader.Read())
-        {
-            results.Add(MapRow(reader));
-        }
-
-        return Task.FromResult<IReadOnlyList<Profile>>(results);
+        return Task.FromResult<IReadOnlyList<Profile>>(rows.ConvertAll(MapRow));
     }
 
     /// <inheritdoc/>
@@ -53,18 +51,20 @@ public sealed class ProfileRepository : IProfileRepository
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
-            SELECT id, display_name, avatar_color, role, pin_hash, created_at, navigation_config
+        var row = conn.QueryFirstOrDefault<ProfileRow>("""
+            SELECT id           AS Id,
+                   display_name AS DisplayName,
+                   avatar_color AS AvatarColor,
+                   role         AS Role,
+                   pin_hash     AS PinHash,
+                   created_at   AS CreatedAt,
+                   navigation_config AS NavigationConfig
             FROM   profiles
             WHERE  id = @id
             LIMIT  1;
-            """;
-        cmd.Parameters.AddWithValue("@id", id.ToString());
+            """, new { id = id.ToString() });
 
-        using var reader = cmd.ExecuteReader();
-        var result = reader.Read() ? MapRow(reader) : null;
-        return Task.FromResult(result);
+        return Task.FromResult(row is null ? null : MapRow(row));
     }
 
     /// <inheritdoc/>
@@ -74,19 +74,19 @@ public sealed class ProfileRepository : IProfileRepository
         ArgumentNullException.ThrowIfNull(profile);
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
+        conn.Execute("""
             INSERT INTO profiles (id, display_name, avatar_color, role, pin_hash, created_at, navigation_config)
             VALUES (@id, @name, @color, @role, @pin, @created, @nav);
-            """;
-        cmd.Parameters.AddWithValue("@id",      profile.Id.ToString());
-        cmd.Parameters.AddWithValue("@name",    profile.DisplayName);
-        cmd.Parameters.AddWithValue("@color",   profile.AvatarColor);
-        cmd.Parameters.AddWithValue("@role",    profile.Role.ToString());
-        cmd.Parameters.AddWithValue("@pin",     profile.PinHash ?? (object)DBNull.Value);
-        cmd.Parameters.AddWithValue("@created", profile.CreatedAt.ToString("O"));
-        cmd.Parameters.AddWithValue("@nav",     profile.NavigationConfig ?? (object)DBNull.Value);
-        cmd.ExecuteNonQuery();
+            """, new
+        {
+            id      = profile.Id.ToString(),
+            name    = profile.DisplayName,
+            color   = profile.AvatarColor,
+            role    = profile.Role.ToString(),
+            pin     = profile.PinHash,
+            created = profile.CreatedAt.ToString("O"),
+            nav     = profile.NavigationConfig,
+        });
 
         return Task.CompletedTask;
     }
@@ -98,8 +98,7 @@ public sealed class ProfileRepository : IProfileRepository
         ArgumentNullException.ThrowIfNull(profile);
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
+        var rows = conn.Execute("""
             UPDATE profiles
             SET    display_name      = @name,
                    avatar_color      = @color,
@@ -107,18 +106,15 @@ public sealed class ProfileRepository : IProfileRepository
                    pin_hash          = @pin,
                    navigation_config = @nav
             WHERE  id = @id;
-            """;
-        cmd.Parameters.AddWithValue("@name",  profile.DisplayName);
-        cmd.Parameters.AddWithValue("@color", profile.AvatarColor);
-        cmd.Parameters.AddWithValue("@role",  profile.Role.ToString());
-        cmd.Parameters.AddWithValue("@pin",   profile.PinHash ?? (object)DBNull.Value);
-        cmd.Parameters.AddWithValue("@nav",   profile.NavigationConfig ?? (object)DBNull.Value);
-        cmd.Parameters.AddWithValue("@id",    profile.Id.ToString());
-        cmd.ExecuteNonQuery();
-
-        using var changesCmd = conn.CreateCommand();
-        changesCmd.CommandText = "SELECT changes();";
-        var rows = Convert.ToInt64(changesCmd.ExecuteScalar()!);
+            """, new
+        {
+            name  = profile.DisplayName,
+            color = profile.AvatarColor,
+            role  = profile.Role.ToString(),
+            pin   = profile.PinHash,
+            nav   = profile.NavigationConfig,
+            id    = profile.Id.ToString(),
+        });
 
         return Task.FromResult(rows > 0);
     }
@@ -133,32 +129,37 @@ public sealed class ProfileRepository : IProfileRepository
             return Task.FromResult(false);
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = "DELETE FROM profiles WHERE id = @id;";
-        cmd.Parameters.AddWithValue("@id", id.ToString());
-        cmd.ExecuteNonQuery();
-
-        using var changesCmd = conn.CreateCommand();
-        changesCmd.CommandText = "SELECT changes();";
-        var rows = Convert.ToInt64(changesCmd.ExecuteScalar()!);
+        var rows = conn.Execute(
+            "DELETE FROM profiles WHERE id = @id;",
+            new { id = id.ToString() });
 
         return Task.FromResult(rows > 0);
     }
 
-    // ── Row mapper ─────────────────────────────────────────────────────────
+    // ── Private DTO + mapper ────────────────────────────────────────────────
+    // SQLite stores GUIDs as TEXT and DateTimeOffset as ISO-8601 strings.
+    // Dapper cannot convert these automatically, so we read into a flat string
+    // DTO and convert in code.
 
-    /// <summary>
-    /// Maps the current reader row to a <see cref="Profile"/>.
-    /// Column ordinals: 0=id, 1=display_name, 2=avatar_color, 3=role, 4=pin_hash, 5=created_at, 6=navigation_config.
-    /// </summary>
-    private static Profile MapRow(SqliteDataReader r) => new()
+    private sealed class ProfileRow
     {
-        Id               = Guid.Parse(r.GetString(0)),
-        DisplayName      = r.GetString(1),
-        AvatarColor      = r.GetString(2),
-        Role             = Enum.Parse<ProfileRole>(r.GetString(3)),
-        PinHash          = r.IsDBNull(4) ? null : r.GetString(4),
-        CreatedAt        = DateTimeOffset.Parse(r.GetString(5)),
-        NavigationConfig = r.IsDBNull(6) ? null : r.GetString(6),
+        public string Id               { get; set; } = string.Empty;
+        public string DisplayName      { get; set; } = string.Empty;
+        public string AvatarColor      { get; set; } = string.Empty;
+        public string Role             { get; set; } = string.Empty;
+        public string? PinHash         { get; set; }
+        public string CreatedAt        { get; set; } = string.Empty;
+        public string? NavigationConfig { get; set; }
+    }
+
+    private static Profile MapRow(ProfileRow r) => new()
+    {
+        Id               = Guid.Parse(r.Id),
+        DisplayName      = r.DisplayName,
+        AvatarColor      = r.AvatarColor,
+        Role             = Enum.Parse<ProfileRole>(r.Role),
+        PinHash          = r.PinHash,
+        CreatedAt        = DateTimeOffset.Parse(r.CreatedAt),
+        NavigationConfig = r.NavigationConfig,
     };
 }

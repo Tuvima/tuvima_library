@@ -1,3 +1,4 @@
+using Dapper;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Storage.Contracts;
@@ -5,7 +6,7 @@ using MediaEngine.Storage.Contracts;
 namespace MediaEngine.Storage;
 
 /// <summary>
-/// ORM-less SQLite implementation of <see cref="IProviderConfigurationRepository"/>.
+/// SQLite implementation of <see cref="IProviderConfigurationRepository"/>.
 ///
 /// Secret handling rules (enforced here, not in the caller):
 /// • On write  : if <c>is_secret = 1</c>, value is encrypted via <see cref="ISecretStore"/>
@@ -37,31 +38,23 @@ public sealed class ProviderConfigurationRepository : IProviderConfigurationRepo
         ArgumentException.ThrowIfNullOrWhiteSpace(providerId);
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
-            SELECT key, is_secret
+        var rows = conn.Query<(string Key, int IsSecret)>("""
+            SELECT key       AS Key,
+                   is_secret AS IsSecret
             FROM   provider_config
-            WHERE  provider_id = @provider_id
+            WHERE  provider_id = @providerId
             ORDER  BY key;
-            """;
-        cmd.Parameters.AddWithValue("@provider_id", providerId);
+            """, new { providerId }).AsList();
 
-        var results = new List<ProviderConfiguration>();
-        using var reader = cmd.ExecuteReader();
-        while (reader.Read())
+        var results = rows.ConvertAll(r => new ProviderConfiguration
         {
-            var isSecret = reader.GetInt32(1) == 1;
-            results.Add(new ProviderConfiguration
-            {
-                ProviderId = providerId,
-                Key        = reader.GetString(0),
-                Value      = isSecret ? Mask : string.Empty, // non-secret value not needed for listing
-                IsSecret   = isSecret,
-            });
-        }
+            ProviderId = providerId,
+            Key        = r.Key,
+            Value      = r.IsSecret == 1 ? Mask : string.Empty,
+            IsSecret   = r.IsSecret == 1,
+        });
 
-        IReadOnlyList<ProviderConfiguration> result = results;
-        return Task.FromResult(result);
+        return Task.FromResult<IReadOnlyList<ProviderConfiguration>>(results);
     }
 
     /// <inheritdoc/>
@@ -73,29 +66,23 @@ public sealed class ProviderConfigurationRepository : IProviderConfigurationRepo
         ArgumentException.ThrowIfNullOrWhiteSpace(key);
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
-            SELECT value, is_secret
+        var row = conn.QueryFirstOrDefault<(string Value, int IsSecret)>("""
+            SELECT value     AS Value,
+                   is_secret AS IsSecret
             FROM   provider_config
-            WHERE  provider_id = @provider_id
+            WHERE  provider_id = @providerId
               AND  key         = @key
             LIMIT  1;
-            """;
-        cmd.Parameters.AddWithValue("@provider_id", providerId);
-        cmd.Parameters.AddWithValue("@key",         key);
+            """, new { providerId, key });
 
-        using var reader = cmd.ExecuteReader();
-        if (!reader.Read())
+        if (row == default)
             return Task.FromResult<string?>(null);
-
-        var storedValue = reader.GetString(0);
-        var isSecret    = reader.GetInt32(1) == 1;
 
         // Decrypt if secret; return raw value otherwise.
         // SECURITY: result is never logged — callers must observe the same rule.
-        var plaintext = isSecret
-            ? _secrets.Decrypt(storedValue)
-            : storedValue;
+        var plaintext = row.IsSecret == 1
+            ? _secrets.Decrypt(row.Value)
+            : row.Value;
 
         return Task.FromResult<string?>(plaintext);
     }
@@ -119,19 +106,19 @@ public sealed class ProviderConfigurationRepository : IProviderConfigurationRepo
             : plaintextValue;
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
+        conn.Execute("""
             INSERT INTO provider_config (provider_id, key, value, is_secret)
-            VALUES (@provider_id, @key, @value, @is_secret)
+            VALUES (@providerId, @key, @value, @isSecret)
             ON CONFLICT(provider_id, key) DO UPDATE SET
                 value     = excluded.value,
                 is_secret = excluded.is_secret;
-            """;
-        cmd.Parameters.AddWithValue("@provider_id", providerId);
-        cmd.Parameters.AddWithValue("@key",         key);
-        cmd.Parameters.AddWithValue("@value",       storedValue);
-        cmd.Parameters.AddWithValue("@is_secret",   isSecret ? 1 : 0);
-        cmd.ExecuteNonQuery();
+            """, new
+        {
+            providerId,
+            key,
+            value    = storedValue,
+            isSecret = isSecret ? 1 : 0,
+        });
 
         return Task.CompletedTask;
     }
@@ -142,14 +129,10 @@ public sealed class ProviderConfigurationRepository : IProviderConfigurationRepo
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
+        conn.Execute("""
             DELETE FROM provider_config
-            WHERE provider_id = @provider_id AND key = @key;
-            """;
-        cmd.Parameters.AddWithValue("@provider_id", providerId);
-        cmd.Parameters.AddWithValue("@key",         key);
-        cmd.ExecuteNonQuery();
+            WHERE provider_id = @providerId AND key = @key;
+            """, new { providerId, key });
 
         return Task.CompletedTask;
     }

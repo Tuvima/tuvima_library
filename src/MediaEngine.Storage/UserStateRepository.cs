@@ -1,5 +1,5 @@
 using System.Text.Json;
-using Microsoft.Data.Sqlite;
+using Dapper;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Storage.Contracts;
@@ -7,12 +7,11 @@ using MediaEngine.Storage.Contracts;
 namespace MediaEngine.Storage;
 
 /// <summary>
-/// ORM-less SQLite implementation of <see cref="IUserStateStore"/>.
+/// SQLite implementation of <see cref="IUserStateStore"/>.
 ///
 /// Tracks user progress (reading position, playback timestamp, completion %)
 /// for each media asset.  Extended properties are serialised as a JSON blob.
 ///
-/// Thread safety: same serialised-connection model as <see cref="PersonRepository"/>.
 /// Spec: Phase 2 – IUserStateStore.
 /// </summary>
 public sealed class UserStateRepository : IUserStateStore
@@ -31,20 +30,16 @@ public sealed class UserStateRepository : IUserStateStore
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
-            SELECT user_id, asset_id, content_hash, progress_pct,
-                   last_accessed, extended_properties
+        var row = conn.QueryFirstOrDefault<UserStateRow>("""
+            SELECT user_id AS UserId, asset_id AS AssetId, content_hash AS ContentHash,
+                   progress_pct AS ProgressPct, last_accessed AS LastAccessed,
+                   extended_properties AS ExtendedProperties
             FROM   user_states
             WHERE  user_id  = @userId
-              AND  asset_id = @assetId;
-            """;
-        cmd.Parameters.AddWithValue("@userId",  userId.ToString());
-        cmd.Parameters.AddWithValue("@assetId", assetId.ToString());
+              AND  asset_id = @assetId
+            """, new { userId = userId.ToString(), assetId = assetId.ToString() });
 
-        using var reader = cmd.ExecuteReader();
-        var result = reader.Read() ? MapRow(reader) : null;
-        return Task.FromResult(result);
+        return Task.FromResult(row is null ? null : (UserState?)MapRow(row));
     }
 
     /// <inheritdoc/>
@@ -54,26 +49,25 @@ public sealed class UserStateRepository : IUserStateStore
         ArgumentNullException.ThrowIfNull(state);
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
+        conn.Execute("""
             INSERT OR REPLACE INTO user_states
                 (user_id, asset_id, content_hash, progress_pct,
                  last_accessed, extended_properties)
             VALUES
                 (@userId, @assetId, @contentHash, @progressPct,
-                 @lastAccessed, @extendedProperties);
-            """;
-        cmd.Parameters.AddWithValue("@userId",      state.UserId.ToString());
-        cmd.Parameters.AddWithValue("@assetId",     state.AssetId.ToString());
-        cmd.Parameters.AddWithValue("@contentHash", (object?)state.ContentHash ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@progressPct", state.ProgressPct);
-        cmd.Parameters.AddWithValue("@lastAccessed", state.LastAccessed.ToString("O"));
-        cmd.Parameters.AddWithValue("@extendedProperties",
-            state.ExtendedProperties.Count > 0
+                 @lastAccessed, @extendedProperties)
+            """, new
+        {
+            userId             = state.UserId.ToString(),
+            assetId            = state.AssetId.ToString(),
+            contentHash        = string.IsNullOrEmpty(state.ContentHash) ? null : state.ContentHash,
+            progressPct        = state.ProgressPct,
+            lastAccessed       = state.LastAccessed.ToString("O"),
+            extendedProperties = state.ExtendedProperties.Count > 0
                 ? JsonSerializer.Serialize(state.ExtendedProperties)
-                : DBNull.Value);
+                : null,
+        });
 
-        cmd.ExecuteNonQuery();
         return Task.CompletedTask;
     }
 
@@ -85,21 +79,15 @@ public sealed class UserStateRepository : IUserStateStore
         ArgumentException.ThrowIfNullOrWhiteSpace(contentHash);
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
-            SELECT user_id, asset_id, content_hash, progress_pct,
-                   last_accessed, extended_properties
+        var rows = conn.Query<UserStateRow>("""
+            SELECT user_id AS UserId, asset_id AS AssetId, content_hash AS ContentHash,
+                   progress_pct AS ProgressPct, last_accessed AS LastAccessed,
+                   extended_properties AS ExtendedProperties
             FROM   user_states
-            WHERE  content_hash = @hash;
-            """;
-        cmd.Parameters.AddWithValue("@hash", contentHash);
+            WHERE  content_hash = @contentHash
+            """, new { contentHash }).AsList();
 
-        using var reader = cmd.ExecuteReader();
-        var results = new List<UserState>();
-        while (reader.Read())
-            results.Add(MapRow(reader));
-
-        return Task.FromResult<IReadOnlyList<UserState>>(results);
+        return Task.FromResult<IReadOnlyList<UserState>>(rows.Select(MapRow).ToList());
     }
 
     /// <inheritdoc/>
@@ -109,43 +97,40 @@ public sealed class UserStateRepository : IUserStateStore
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
-            SELECT user_id, asset_id, content_hash, progress_pct,
-                   last_accessed, extended_properties
+        var rows = conn.Query<UserStateRow>("""
+            SELECT user_id AS UserId, asset_id AS AssetId, content_hash AS ContentHash,
+                   progress_pct AS ProgressPct, last_accessed AS LastAccessed,
+                   extended_properties AS ExtendedProperties
             FROM   user_states
             WHERE  user_id = @userId
             ORDER BY last_accessed DESC
-            LIMIT @limit;
-            """;
-        cmd.Parameters.AddWithValue("@userId", userId.ToString());
-        cmd.Parameters.AddWithValue("@limit",  limit);
+            LIMIT @limit
+            """, new { userId = userId.ToString(), limit }).AsList();
 
-        using var reader = cmd.ExecuteReader();
-        var results = new List<UserState>();
-        while (reader.Read())
-            results.Add(MapRow(reader));
-
-        return Task.FromResult<IReadOnlyList<UserState>>(results);
+        return Task.FromResult<IReadOnlyList<UserState>>(rows.Select(MapRow).ToList());
     }
 
-    // ── Mapping ─────────────────────────────────────────────────────────────
+    // ── Private helpers ──────────────────────────────────────────────────────
 
-    private static UserState MapRow(SqliteDataReader reader)
+    private sealed class UserStateRow
     {
-        var extJson = reader.IsDBNull(5) ? null : reader.GetString(5);
-        var extProps = string.IsNullOrEmpty(extJson)
-            ? []
-            : JsonSerializer.Deserialize<Dictionary<string, string>>(extJson) ?? [];
-
-        return new UserState
-        {
-            UserId       = Guid.Parse(reader.GetString(0)),
-            AssetId      = Guid.Parse(reader.GetString(1)),
-            ContentHash  = reader.IsDBNull(2) ? string.Empty : reader.GetString(2),
-            ProgressPct  = reader.GetDouble(3),
-            LastAccessed = DateTimeOffset.Parse(reader.GetString(4)),
-            ExtendedProperties = extProps,
-        };
+        public string UserId             { get; set; } = "";
+        public string AssetId            { get; set; } = "";
+        public string? ContentHash       { get; set; }
+        public double ProgressPct        { get; set; }
+        public string LastAccessed       { get; set; } = "";
+        public string? ExtendedProperties { get; set; }
     }
+
+    private static UserState MapRow(UserStateRow r) => new()
+    {
+        UserId       = Guid.Parse(r.UserId),
+        AssetId      = Guid.Parse(r.AssetId),
+        ContentHash  = r.ContentHash ?? string.Empty,
+        ProgressPct  = r.ProgressPct,
+        LastAccessed = DateTimeOffset.Parse(r.LastAccessed),
+        ExtendedProperties = string.IsNullOrEmpty(r.ExtendedProperties)
+            ? []
+            : JsonSerializer.Deserialize<Dictionary<string, string>>(r.ExtendedProperties) ?? [],
+    };
 }

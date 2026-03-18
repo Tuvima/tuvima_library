@@ -1,4 +1,4 @@
-using Microsoft.Data.Sqlite;
+using Dapper;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Storage.Contracts;
@@ -6,13 +6,11 @@ using MediaEngine.Storage.Contracts;
 namespace MediaEngine.Storage;
 
 /// <summary>
-/// ORM-less SQLite implementation of <see cref="IFictionalEntityRepository"/>.
+/// SQLite implementation of <see cref="IFictionalEntityRepository"/>.
 ///
 /// Fictional entities (Characters, Locations, Organizations) are discovered
 /// during work hydration and enriched asynchronously via Wikidata SPARQL.
 /// Work-link junction records live in <c>fictional_entity_work_links</c>.
-///
-/// Thread safety: same serialised-connection model as <see cref="PersonRepository"/>.
 /// </summary>
 public sealed class FictionalEntityRepository : IFictionalEntityRepository
 {
@@ -31,19 +29,23 @@ public sealed class FictionalEntityRepository : IFictionalEntityRepository
         ArgumentException.ThrowIfNullOrWhiteSpace(qid);
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
-            SELECT id, wikidata_qid, label, description, entity_sub_type,
-                   fictional_universe_qid, fictional_universe_label,
-                   image_url, local_image_path, created_at, enriched_at
+        var result = conn.QueryFirstOrDefault<FictionalEntity>("""
+            SELECT id                      AS Id,
+                   wikidata_qid            AS WikidataQid,
+                   label                   AS Label,
+                   description             AS Description,
+                   entity_sub_type         AS EntitySubType,
+                   fictional_universe_qid  AS FictionalUniverseQid,
+                   fictional_universe_label AS FictionalUniverseLabel,
+                   image_url               AS ImageUrl,
+                   local_image_path        AS LocalImagePath,
+                   created_at              AS CreatedAt,
+                   enriched_at             AS EnrichedAt
             FROM   fictional_entities
             WHERE  wikidata_qid = @qid COLLATE NOCASE
             LIMIT  1;
-            """;
-        cmd.Parameters.AddWithValue("@qid", qid);
-
-        using var reader = cmd.ExecuteReader();
-        return Task.FromResult(reader.Read() ? MapRow(reader) : null);
+            """, new { qid });
+        return Task.FromResult(result);
     }
 
     /// <inheritdoc/>
@@ -52,19 +54,23 @@ public sealed class FictionalEntityRepository : IFictionalEntityRepository
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
-            SELECT id, wikidata_qid, label, description, entity_sub_type,
-                   fictional_universe_qid, fictional_universe_label,
-                   image_url, local_image_path, created_at, enriched_at
+        var result = conn.QueryFirstOrDefault<FictionalEntity>("""
+            SELECT id                      AS Id,
+                   wikidata_qid            AS WikidataQid,
+                   label                   AS Label,
+                   description             AS Description,
+                   entity_sub_type         AS EntitySubType,
+                   fictional_universe_qid  AS FictionalUniverseQid,
+                   fictional_universe_label AS FictionalUniverseLabel,
+                   image_url               AS ImageUrl,
+                   local_image_path        AS LocalImagePath,
+                   created_at              AS CreatedAt,
+                   enriched_at             AS EnrichedAt
             FROM   fictional_entities
             WHERE  id = @id
             LIMIT  1;
-            """;
-        cmd.Parameters.AddWithValue("@id", id.ToString());
-
-        using var reader = cmd.ExecuteReader();
-        return Task.FromResult(reader.Read() ? MapRow(reader) : null);
+            """, new { id });
+        return Task.FromResult(result);
     }
 
     /// <inheritdoc/>
@@ -75,23 +81,24 @@ public sealed class FictionalEntityRepository : IFictionalEntityRepository
         ArgumentException.ThrowIfNullOrWhiteSpace(universeQid);
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
-            SELECT id, wikidata_qid, label, description, entity_sub_type,
-                   fictional_universe_qid, fictional_universe_label,
-                   image_url, local_image_path, created_at, enriched_at
+        var results = conn.Query<FictionalEntity>("""
+            SELECT id                      AS Id,
+                   wikidata_qid            AS WikidataQid,
+                   label                   AS Label,
+                   description             AS Description,
+                   entity_sub_type         AS EntitySubType,
+                   fictional_universe_qid  AS FictionalUniverseQid,
+                   fictional_universe_label AS FictionalUniverseLabel,
+                   image_url               AS ImageUrl,
+                   local_image_path        AS LocalImagePath,
+                   created_at              AS CreatedAt,
+                   enriched_at             AS EnrichedAt
             FROM   fictional_entities
             WHERE  fictional_universe_qid = @universeQid
             ORDER BY entity_sub_type, label;
-            """;
-        cmd.Parameters.AddWithValue("@universeQid", universeQid);
+            """, new { universeQid }).AsList();
 
-        var result = new List<FictionalEntity>();
-        using var reader = cmd.ExecuteReader();
-        while (reader.Read())
-            result.Add(MapRow(reader));
-
-        return Task.FromResult<IReadOnlyList<FictionalEntity>>(result);
+        return Task.FromResult<IReadOnlyList<FictionalEntity>>(results);
     }
 
     /// <inheritdoc/>
@@ -101,25 +108,25 @@ public sealed class FictionalEntityRepository : IFictionalEntityRepository
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
-            SELECT id, wikidata_qid, label, description, entity_sub_type,
-                   fictional_universe_qid, fictional_universe_label,
-                   image_url, local_image_path, created_at, enriched_at
+        var results = conn.Query<FictionalEntity>("""
+            SELECT id                      AS Id,
+                   wikidata_qid            AS WikidataQid,
+                   label                   AS Label,
+                   description             AS Description,
+                   entity_sub_type         AS EntitySubType,
+                   fictional_universe_qid  AS FictionalUniverseQid,
+                   fictional_universe_label AS FictionalUniverseLabel,
+                   image_url               AS ImageUrl,
+                   local_image_path        AS LocalImagePath,
+                   created_at              AS CreatedAt,
+                   enriched_at             AS EnrichedAt
             FROM   fictional_entities
             WHERE  fictional_universe_qid = @universeQid
-              AND  entity_sub_type = @subType
+              AND  entity_sub_type = @entitySubType
             ORDER BY label;
-            """;
-        cmd.Parameters.AddWithValue("@universeQid", universeQid);
-        cmd.Parameters.AddWithValue("@subType", entitySubType);
+            """, new { universeQid, entitySubType }).AsList();
 
-        var result = new List<FictionalEntity>();
-        using var reader = cmd.ExecuteReader();
-        while (reader.Read())
-            result.Add(MapRow(reader));
-
-        return Task.FromResult<IReadOnlyList<FictionalEntity>>(result);
+        return Task.FromResult<IReadOnlyList<FictionalEntity>>(results);
     }
 
     /// <inheritdoc/>
@@ -129,31 +136,30 @@ public sealed class FictionalEntityRepository : IFictionalEntityRepository
         ArgumentNullException.ThrowIfNull(entity);
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
+        conn.Execute("""
             INSERT INTO fictional_entities
                 (id, wikidata_qid, label, description, entity_sub_type,
                  fictional_universe_qid, fictional_universe_label,
                  image_url, local_image_path, created_at, enriched_at)
             VALUES
-                (@id, @qid, @label, @description, @subType,
-                 @universeQid, @universeLabel,
-                 @imageUrl, @localImagePath, @createdAt, @enrichedAt);
-            """;
-        cmd.Parameters.AddWithValue("@id", entity.Id.ToString());
-        cmd.Parameters.AddWithValue("@qid", entity.WikidataQid);
-        cmd.Parameters.AddWithValue("@label", entity.Label);
-        cmd.Parameters.AddWithValue("@description", (object?)entity.Description ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@subType", entity.EntitySubType);
-        cmd.Parameters.AddWithValue("@universeQid", (object?)entity.FictionalUniverseQid ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@universeLabel", (object?)entity.FictionalUniverseLabel ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@imageUrl", (object?)entity.ImageUrl ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@localImagePath", (object?)entity.LocalImagePath ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@createdAt", entity.CreatedAt.ToString("o"));
-        cmd.Parameters.AddWithValue("@enrichedAt", entity.EnrichedAt.HasValue
-            ? entity.EnrichedAt.Value.ToString("o") : DBNull.Value);
-
-        cmd.ExecuteNonQuery();
+                (@Id, @WikidataQid, @Label, @Description, @EntitySubType,
+                 @FictionalUniverseQid, @FictionalUniverseLabel,
+                 @ImageUrl, @LocalImagePath, @CreatedAt, @EnrichedAt);
+            """,
+            new
+            {
+                Id                    = entity.Id,
+                entity.WikidataQid,
+                entity.Label,
+                entity.Description,
+                entity.EntitySubType,
+                entity.FictionalUniverseQid,
+                entity.FictionalUniverseLabel,
+                entity.ImageUrl,
+                entity.LocalImagePath,
+                CreatedAt             = entity.CreatedAt,
+                EnrichedAt            = entity.EnrichedAt,
+            });
         return Task.CompletedTask;
     }
 
@@ -168,20 +174,20 @@ public sealed class FictionalEntityRepository : IFictionalEntityRepository
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
+        conn.Execute("""
             UPDATE fictional_entities
             SET    description = @description,
-                   image_url = @imageUrl,
+                   image_url   = @imageUrl,
                    enriched_at = @enrichedAt
-            WHERE  id = @id;
-            """;
-        cmd.Parameters.AddWithValue("@id", entityId.ToString());
-        cmd.Parameters.AddWithValue("@description", (object?)description ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@imageUrl", (object?)imageUrl ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@enrichedAt", enrichedAt.ToString("o"));
-
-        cmd.ExecuteNonQuery();
+            WHERE  id = @entityId;
+            """,
+            new
+            {
+                entityId,
+                description,
+                imageUrl,
+                enrichedAt,
+            });
         return Task.CompletedTask;
     }
 
@@ -193,19 +199,13 @@ public sealed class FictionalEntityRepository : IFictionalEntityRepository
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
+        conn.Execute("""
             INSERT OR IGNORE INTO fictional_entity_work_links
                 (entity_id, work_qid, work_label, link_type)
             VALUES
                 (@entityId, @workQid, @workLabel, @linkType);
-            """;
-        cmd.Parameters.AddWithValue("@entityId", entityId.ToString());
-        cmd.Parameters.AddWithValue("@workQid", workQid);
-        cmd.Parameters.AddWithValue("@workLabel", (object?)workLabel ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@linkType", linkType);
-
-        cmd.ExecuteNonQuery();
+            """,
+            new { entityId, workQid, workLabel, linkType });
         return Task.CompletedTask;
     }
 
@@ -216,25 +216,17 @@ public sealed class FictionalEntityRepository : IFictionalEntityRepository
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
-            SELECT work_qid, work_label, link_type
+        var rows = conn.Query<WorkLinkRow>("""
+            SELECT work_qid   AS WorkQid,
+                   work_label AS WorkLabel,
+                   link_type  AS LinkType
             FROM   fictional_entity_work_links
             WHERE  entity_id = @entityId
             ORDER BY work_qid;
-            """;
-        cmd.Parameters.AddWithValue("@entityId", entityId.ToString());
+            """, new { entityId }).AsList();
 
-        var result = new List<(string, string?, string)>();
-        using var reader = cmd.ExecuteReader();
-        while (reader.Read())
-        {
-            result.Add((
-                reader.GetString(0),
-                reader.IsDBNull(1) ? null : reader.GetString(1),
-                reader.GetString(2)
-            ));
-        }
+        var result = rows
+            .ConvertAll(r => (r.WorkQid, r.WorkLabel, r.LinkType));
 
         return Task.FromResult<IReadOnlyList<(string WorkQid, string? WorkLabel, string LinkType)>>(result);
     }
@@ -245,9 +237,8 @@ public sealed class FictionalEntityRepository : IFictionalEntityRepository
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT COUNT(*) FROM fictional_entities;";
-        return Task.FromResult(Convert.ToInt32(cmd.ExecuteScalar()));
+        var count = conn.ExecuteScalar<int>("SELECT COUNT(*) FROM fictional_entities;");
+        return Task.FromResult(count);
     }
 
     /// <inheritdoc/>
@@ -256,32 +247,22 @@ public sealed class FictionalEntityRepository : IFictionalEntityRepository
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
+        conn.Execute("""
             UPDATE fictional_entities
             SET    wikidata_revision_id = @revisionId
-            WHERE  id = @id;
-            """;
-        cmd.Parameters.AddWithValue("@id", entityId.ToString());
-        cmd.Parameters.AddWithValue("@revisionId", revisionId);
-        cmd.ExecuteNonQuery();
+            WHERE  id = @entityId;
+            """,
+            new { entityId, revisionId });
         return Task.CompletedTask;
     }
 
-    // ── Row Mapper ──────────────────────────────────────────────────────────
+    // ── Private row types ────────────────────────────────────────────────────
 
-    private static FictionalEntity MapRow(SqliteDataReader r) => new()
+    /// <summary>Intermediate row type for <see cref="GetWorkLinksAsync"/>.</summary>
+    private sealed class WorkLinkRow
     {
-        Id                    = Guid.Parse(r.GetString(0)),
-        WikidataQid           = r.GetString(1),
-        Label                 = r.GetString(2),
-        Description           = r.IsDBNull(3) ? null : r.GetString(3),
-        EntitySubType         = r.GetString(4),
-        FictionalUniverseQid  = r.IsDBNull(5) ? null : r.GetString(5),
-        FictionalUniverseLabel = r.IsDBNull(6) ? null : r.GetString(6),
-        ImageUrl              = r.IsDBNull(7) ? null : r.GetString(7),
-        LocalImagePath        = r.IsDBNull(8) ? null : r.GetString(8),
-        CreatedAt             = DateTimeOffset.Parse(r.GetString(9)),
-        EnrichedAt            = r.IsDBNull(10) ? null : DateTimeOffset.Parse(r.GetString(10)),
-    };
+        public string  WorkQid   { get; set; } = string.Empty;
+        public string? WorkLabel { get; set; }
+        public string  LinkType  { get; set; } = string.Empty;
+    }
 }

@@ -1,3 +1,4 @@
+using Dapper;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
@@ -19,87 +20,88 @@ public sealed class AlignmentJobRepository : IAlignmentJobRepository
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
-            SELECT id, ebook_asset_id, audiobook_asset_id, status,
-                   alignment_data, error_message, created_at, completed_at
+        var row = conn.QueryFirstOrDefault<AlignmentJobRow>("""
+            SELECT id             AS Id,
+                   ebook_asset_id    AS EbookAssetId,
+                   audiobook_asset_id AS AudiobookAssetId,
+                   status            AS Status,
+                   alignment_data    AS AlignmentData,
+                   error_message     AS ErrorMessage,
+                   created_at        AS CreatedAt,
+                   completed_at      AS CompletedAt
             FROM   alignment_jobs
             WHERE  id = @id
             LIMIT  1;
-            """;
-        cmd.Parameters.AddWithValue("@id", id.ToString());
-
-        using var reader = cmd.ExecuteReader();
-        var result = reader.Read() ? MapJob(reader) : null;
-        return Task.FromResult(result);
+            """, new { id });
+        return Task.FromResult(row is null ? null : MapRow(row));
     }
 
     public Task<IReadOnlyList<AlignmentJob>> ListByAssetAsync(Guid ebookAssetId, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
-            SELECT id, ebook_asset_id, audiobook_asset_id, status,
-                   alignment_data, error_message, created_at, completed_at
+        var rows = conn.Query<AlignmentJobRow>("""
+            SELECT id             AS Id,
+                   ebook_asset_id    AS EbookAssetId,
+                   audiobook_asset_id AS AudiobookAssetId,
+                   status            AS Status,
+                   alignment_data    AS AlignmentData,
+                   error_message     AS ErrorMessage,
+                   created_at        AS CreatedAt,
+                   completed_at      AS CompletedAt
             FROM   alignment_jobs
-            WHERE  ebook_asset_id = @ebook_asset_id
+            WHERE  ebook_asset_id = @ebookAssetId
             ORDER BY created_at DESC;
-            """;
-        cmd.Parameters.AddWithValue("@ebook_asset_id", ebookAssetId.ToString());
-
-        using var reader = cmd.ExecuteReader();
-        var results = new List<AlignmentJob>();
-        while (reader.Read())
-            results.Add(MapJob(reader));
-
-        return Task.FromResult<IReadOnlyList<AlignmentJob>>(results);
+            """, new { ebookAssetId });
+        return Task.FromResult<IReadOnlyList<AlignmentJob>>(rows.Select(MapRow).ToList());
     }
 
     public Task<AlignmentJob?> FindPendingAsync(CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
-            SELECT id, ebook_asset_id, audiobook_asset_id, status,
-                   alignment_data, error_message, created_at, completed_at
+        var row = conn.QueryFirstOrDefault<AlignmentJobRow>("""
+            SELECT id             AS Id,
+                   ebook_asset_id    AS EbookAssetId,
+                   audiobook_asset_id AS AudiobookAssetId,
+                   status            AS Status,
+                   alignment_data    AS AlignmentData,
+                   error_message     AS ErrorMessage,
+                   created_at        AS CreatedAt,
+                   completed_at      AS CompletedAt
             FROM   alignment_jobs
             WHERE  status = 'Pending'
             ORDER BY created_at ASC
             LIMIT  1;
-            """;
-
-        using var reader = cmd.ExecuteReader();
-        var result = reader.Read() ? MapJob(reader) : null;
-        return Task.FromResult(result);
+            """);
+        return Task.FromResult(row is null ? null : MapRow(row));
     }
 
     public Task InsertAsync(AlignmentJob job, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
+        conn.Execute("""
             INSERT INTO alignment_jobs
                 (id, ebook_asset_id, audiobook_asset_id, status,
                  alignment_data, error_message, created_at, completed_at)
             VALUES
-                (@id, @ebook_asset_id, @audiobook_asset_id, @status,
-                 @alignment_data, @error_message, @created_at, @completed_at);
-            """;
-        cmd.Parameters.AddWithValue("@id", job.Id.ToString());
-        cmd.Parameters.AddWithValue("@ebook_asset_id", job.EbookAssetId.ToString());
-        cmd.Parameters.AddWithValue("@audiobook_asset_id", job.AudiobookAssetId.ToString());
-        cmd.Parameters.AddWithValue("@status", job.Status.ToString());
-        cmd.Parameters.AddWithValue("@alignment_data", (object?)job.AlignmentData ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@error_message", (object?)job.ErrorMessage ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@created_at", job.CreatedAt.ToString("O"));
-        cmd.Parameters.AddWithValue("@completed_at", job.CompletedAt.HasValue
-            ? (object)job.CompletedAt.Value.ToString("O")
-            : DBNull.Value);
-        cmd.ExecuteNonQuery();
-
+                (@Id, @EbookAssetId, @AudiobookAssetId, @Status,
+                 @AlignmentData, @ErrorMessage, @CreatedAt, @CompletedAt);
+            """,
+            new
+            {
+                Id               = job.Id,
+                EbookAssetId     = job.EbookAssetId,
+                AudiobookAssetId = job.AudiobookAssetId,
+                Status           = job.Status.ToString(),
+                job.AlignmentData,
+                job.ErrorMessage,
+                CreatedAt        = job.CreatedAt.ToString("O"),
+                CompletedAt      = job.CompletedAt.HasValue
+                                       ? job.CompletedAt.Value.ToString("O")
+                                       : (string?)null,
+            });
         return Task.CompletedTask;
     }
 
@@ -107,24 +109,24 @@ public sealed class AlignmentJobRepository : IAlignmentJobRepository
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
+        conn.Execute("""
             UPDATE alignment_jobs
-            SET    status         = @status,
-                   alignment_data = @alignment_data,
-                   error_message  = @error_message,
-                   completed_at   = CASE WHEN @status IN ('Completed', 'Failed')
-                                         THEN @completed_at
+            SET    status         = @Status,
+                   alignment_data = @AlignmentData,
+                   error_message  = @ErrorMessage,
+                   completed_at   = CASE WHEN @Status IN ('Completed', 'Failed')
+                                         THEN @CompletedAt
                                          ELSE completed_at END
-            WHERE  id = @id;
-            """;
-        cmd.Parameters.AddWithValue("@id", id.ToString());
-        cmd.Parameters.AddWithValue("@status", status.ToString());
-        cmd.Parameters.AddWithValue("@alignment_data", (object?)alignmentData ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@error_message", (object?)errorMessage ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@completed_at", DateTime.UtcNow.ToString("O"));
-        cmd.ExecuteNonQuery();
-
+            WHERE  id = @Id;
+            """,
+            new
+            {
+                Id             = id,
+                Status         = status.ToString(),
+                AlignmentData  = alignmentData,
+                ErrorMessage   = errorMessage,
+                CompletedAt    = DateTime.UtcNow.ToString("O"),
+            });
         return Task.CompletedTask;
     }
 
@@ -132,23 +134,38 @@ public sealed class AlignmentJobRepository : IAlignmentJobRepository
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = "DELETE FROM alignment_jobs WHERE id = @id;";
-        cmd.Parameters.AddWithValue("@id", id.ToString());
-        cmd.ExecuteNonQuery();
-
+        conn.Execute("DELETE FROM alignment_jobs WHERE id = @id;", new { id });
         return Task.CompletedTask;
     }
 
-    private static AlignmentJob MapJob(Microsoft.Data.Sqlite.SqliteDataReader r) => new()
+    // ── Private intermediate row type and mapper ──────────────────────────────
+
+    /// <summary>
+    /// Intermediate row type for Dapper mapping.
+    /// Status and date columns are kept as strings because Dapper cannot
+    /// automatically convert TEXT → enum or TEXT → DateTime without a type handler.
+    /// </summary>
+    private sealed class AlignmentJobRow
     {
-        Id                = Guid.Parse(r.GetString(0)),
-        EbookAssetId      = Guid.Parse(r.GetString(1)),
-        AudiobookAssetId  = Guid.Parse(r.GetString(2)),
-        Status            = Enum.Parse<AlignmentJobStatus>(r.GetString(3)),
-        AlignmentData     = r.IsDBNull(4) ? null : r.GetString(4),
-        ErrorMessage      = r.IsDBNull(5) ? null : r.GetString(5),
-        CreatedAt         = DateTime.Parse(r.GetString(6)),
-        CompletedAt       = r.IsDBNull(7) ? null : DateTime.Parse(r.GetString(7)),
+        public Guid    Id                { get; set; }
+        public Guid    EbookAssetId      { get; set; }
+        public Guid    AudiobookAssetId  { get; set; }
+        public string  Status            { get; set; } = string.Empty;
+        public string? AlignmentData     { get; set; }
+        public string? ErrorMessage      { get; set; }
+        public string  CreatedAt         { get; set; } = string.Empty;
+        public string? CompletedAt       { get; set; }
+    }
+
+    private static AlignmentJob MapRow(AlignmentJobRow r) => new()
+    {
+        Id               = r.Id,
+        EbookAssetId     = r.EbookAssetId,
+        AudiobookAssetId = r.AudiobookAssetId,
+        Status           = Enum.Parse<AlignmentJobStatus>(r.Status),
+        AlignmentData    = r.AlignmentData,
+        ErrorMessage     = r.ErrorMessage,
+        CreatedAt        = DateTime.Parse(r.CreatedAt),
+        CompletedAt      = r.CompletedAt is null ? null : DateTime.Parse(r.CompletedAt),
     };
 }

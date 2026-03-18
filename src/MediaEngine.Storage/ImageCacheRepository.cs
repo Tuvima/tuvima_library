@@ -1,4 +1,4 @@
-using Microsoft.Data.Sqlite;
+using Dapper;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Storage.Contracts;
 
@@ -11,7 +11,7 @@ namespace MediaEngine.Storage;
 /// when the same image URL (or identical image content) appears across
 /// multiple entities.
 ///
-/// ORM-less: all SQL is executed via <see cref="SqliteCommand"/>.
+/// Uses Dapper for type-safe column-to-property mapping.
 /// </summary>
 public sealed class ImageCacheRepository : IImageCacheRepository
 {
@@ -29,16 +29,13 @@ public sealed class ImageCacheRepository : IImageCacheRepository
         ArgumentException.ThrowIfNullOrWhiteSpace(contentHash);
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
+        var result = conn.ExecuteScalar<string>("""
             SELECT file_path
             FROM   image_cache
-            WHERE  content_hash = @hash;
-            """;
-        cmd.Parameters.AddWithValue("@hash", contentHash);
+            WHERE  content_hash = @contentHash;
+            """, new { contentHash });
 
-        var result = cmd.ExecuteScalar();
-        return Task.FromResult(result as string);
+        return Task.FromResult(result);
     }
 
     /// <inheritdoc/>
@@ -52,20 +49,20 @@ public sealed class ImageCacheRepository : IImageCacheRepository
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
+        conn.Execute("""
             INSERT OR IGNORE INTO image_cache
                 (content_hash, file_path, source_url, downloaded_at)
             VALUES
-                (@hash, @path, @url, @at);
-            """;
+                (@contentHash, @filePath, @sourceUrl, @downloadedAt);
+            """,
+            new
+            {
+                contentHash,
+                filePath,
+                sourceUrl,
+                downloadedAt = DateTimeOffset.UtcNow.ToString("O"),
+            });
 
-        cmd.Parameters.AddWithValue("@hash", contentHash);
-        cmd.Parameters.AddWithValue("@path", filePath);
-        cmd.Parameters.AddWithValue("@url",  (object?)sourceUrl ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@at",   DateTimeOffset.UtcNow.ToString("O"));
-
-        cmd.ExecuteNonQuery();
         return Task.CompletedTask;
     }
 
@@ -75,16 +72,13 @@ public sealed class ImageCacheRepository : IImageCacheRepository
         ArgumentException.ThrowIfNullOrWhiteSpace(contentHash);
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
+        var result = conn.ExecuteScalar<long?>("""
             SELECT is_user_override
             FROM   image_cache
-            WHERE  content_hash = @hash;
-            """;
-        cmd.Parameters.AddWithValue("@hash", contentHash);
+            WHERE  content_hash = @contentHash;
+            """, new { contentHash });
 
-        var result = cmd.ExecuteScalar();
-        return Task.FromResult(result is long val && val != 0);
+        return Task.FromResult(result.HasValue && result.Value != 0);
     }
 
     /// <inheritdoc/>
@@ -93,17 +87,14 @@ public sealed class ImageCacheRepository : IImageCacheRepository
         ArgumentException.ThrowIfNullOrWhiteSpace(sourceUrl);
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
+        var result = conn.ExecuteScalar<string>("""
             SELECT file_path
             FROM   image_cache
-            WHERE  source_url = @url
+            WHERE  source_url = @sourceUrl
             LIMIT  1;
-            """;
-        cmd.Parameters.AddWithValue("@url", sourceUrl);
+            """, new { sourceUrl });
 
-        var result = cmd.ExecuteScalar();
-        return Task.FromResult(result as string);
+        return Task.FromResult(result);
     }
 
     /// <inheritdoc/>
@@ -112,16 +103,17 @@ public sealed class ImageCacheRepository : IImageCacheRepository
         ArgumentException.ThrowIfNullOrWhiteSpace(contentHash);
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
+        conn.Execute("""
             UPDATE image_cache
-            SET    is_user_override = @override
-            WHERE  content_hash = @hash;
-            """;
-        cmd.Parameters.AddWithValue("@override", isOverride ? 1 : 0);
-        cmd.Parameters.AddWithValue("@hash", contentHash);
+            SET    is_user_override = @isOverride
+            WHERE  content_hash = @contentHash;
+            """,
+            new
+            {
+                isOverride = isOverride ? 1 : 0,
+                contentHash,
+            });
 
-        cmd.ExecuteNonQuery();
         return Task.CompletedTask;
     }
 }

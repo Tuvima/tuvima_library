@@ -1,3 +1,4 @@
+using Dapper;
 using Microsoft.Data.Sqlite;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Models;
@@ -24,7 +25,7 @@ public sealed class RegistryRepository : IRegistryRepository
     {
         using var conn = _db.CreateConnection();
 
-        // Build the core query with pivoted canonical values.
+        // Build the core CTE query with pivoted canonical values.
         // Canonical values are stored against media_asset.id, so we join
         // through editions → media_assets to find the correct entity_id.
         var sql = """
@@ -121,7 +122,9 @@ public sealed class RegistryRepository : IRegistryRepository
             )
             """;
 
-        // Build WHERE clause
+        // Build WHERE clause dynamically — must use raw SqliteCommand because
+        // Dapper's anonymous-object parameter binding does not support conditional
+        // parameter lists, and the WHERE clause itself changes shape at runtime.
         var conditions = new List<string>();
         if (!string.IsNullOrWhiteSpace(query.Search))
             conditions.Add("(fd.title LIKE @search OR fd.file_name LIKE @search OR fd.author LIKE @search)");
@@ -166,7 +169,7 @@ public sealed class RegistryRepository : IRegistryRepository
             LIMIT @limit OFFSET @offset
             """;
         AddParameters(dataCmd, query);
-        dataCmd.Parameters.AddWithValue("@limit", query.Limit);
+        dataCmd.Parameters.AddWithValue("@limit",  query.Limit);
         dataCmd.Parameters.AddWithValue("@offset", query.Offset);
 
         var items = new List<RegistryItem>();
@@ -175,24 +178,24 @@ public sealed class RegistryRepository : IRegistryRepository
         {
             items.Add(new RegistryItem
             {
-                EntityId = Guid.Parse(reader.GetString(0)),
-                Title = reader.GetString(1),
-                Year = reader.IsDBNull(2) ? null : reader.GetString(2),
-                MediaType = reader.GetString(3),
-                CoverUrl = reader.IsDBNull(4) ? null : reader.GetString(4),
-                MatchSource = reader.IsDBNull(5) ? null : reader.GetString(5),
-                Confidence = reader.GetDouble(6),
-                Status = reader.GetString(7),
-                HasDuplicate = reader.GetInt32(8) == 1,
-                ReviewItemId = reader.IsDBNull(9) ? null : Guid.Parse(reader.GetString(9)),
+                EntityId      = Guid.Parse(reader.GetString(0)),
+                Title         = reader.GetString(1),
+                Year          = reader.IsDBNull(2)  ? null : reader.GetString(2),
+                MediaType     = reader.GetString(3),
+                CoverUrl      = reader.IsDBNull(4)  ? null : reader.GetString(4),
+                MatchSource   = reader.IsDBNull(5)  ? null : reader.GetString(5),
+                Confidence    = reader.GetDouble(6),
+                Status        = reader.GetString(7),
+                HasDuplicate  = reader.GetInt32(8) == 1,
+                ReviewItemId  = reader.IsDBNull(9)  ? null : Guid.Parse(reader.GetString(9)),
                 ReviewTrigger = reader.IsDBNull(10) ? null : reader.GetString(10),
-                HasUserLocks = reader.GetInt32(11) == 1,
-                FileName = reader.IsDBNull(12) ? null : reader.GetString(12),
-                Author = reader.IsDBNull(13) ? null : reader.GetString(13),
+                HasUserLocks  = reader.GetInt32(11) == 1,
+                FileName      = reader.IsDBNull(12) ? null : reader.GetString(12),
+                Author        = reader.IsDBNull(13) ? null : reader.GetString(13),
                 WikidataStatus = reader.IsDBNull(15) ? null : reader.GetString(15),
-                WikidataMatch = reader.IsDBNull(16) ? "none" : reader.GetString(16),
-                RetailMatch = reader.IsDBNull(17) ? "none" : reader.GetString(17),
-                WikidataQid = reader.IsDBNull(18) ? null : reader.GetString(18),
+                WikidataMatch  = reader.IsDBNull(16) ? "none" : reader.GetString(16),
+                RetailMatch    = reader.IsDBNull(17) ? "none" : reader.GetString(17),
+                WikidataQid    = reader.IsDBNull(18) ? null : reader.GetString(18),
             });
         }
 
@@ -205,138 +208,95 @@ public sealed class RegistryRepository : IRegistryRepository
 
         // Canonical values and claims are stored against media_asset.id, not works.id.
         // Resolve the asset ID through the editions → media_assets chain.
-        string? assetIdStr = null;
-        using (var assetCmd = conn.CreateCommand())
-        {
-            assetCmd.CommandText = """
-                SELECT MIN(ma.id) AS id
-                FROM editions e
-                INNER JOIN media_assets ma ON ma.edition_id = e.id
-                WHERE e.work_id = @entityId
-                """;
-            assetCmd.Parameters.AddWithValue("@entityId", entityId.ToString());
-            assetIdStr = assetCmd.ExecuteScalar()?.ToString();
-        }
+        var assetIdStr = conn.ExecuteScalar<string?>("""
+            SELECT MIN(ma.id) AS id
+            FROM editions e
+            INNER JOIN media_assets ma ON ma.edition_id = e.id
+            WHERE e.work_id = @entityId
+            """, new { entityId = entityId.ToString() });
 
         if (assetIdStr is null)
             return Task.FromResult<RegistryItemDetail?>(null);
 
         // Load all canonical values for this entity (keyed by asset ID)
-        var canonicalValues = new List<RegistryCanonicalValue>();
-        using (var cvCmd = conn.CreateCommand())
-        {
-            cvCmd.CommandText = """
-                SELECT key, value, is_conflicted, winning_provider_id, needs_review, last_scored_at
-                FROM canonical_values
-                WHERE entity_id = @assetId
-                ORDER BY key
-                """;
-            cvCmd.Parameters.AddWithValue("@assetId", assetIdStr);
-            using var cvReader = cvCmd.ExecuteReader();
-            while (cvReader.Read())
-            {
-                canonicalValues.Add(new RegistryCanonicalValue(
-                    Key: cvReader.GetString(0),
-                    Value: cvReader.GetString(1),
-                    IsConflicted: cvReader.GetInt32(2) == 1,
-                    WinningProviderId: cvReader.IsDBNull(3) ? null : cvReader.GetString(3),
-                    NeedsReview: cvReader.GetInt32(4) == 1,
-                    LastScoredAt: DateTimeOffset.TryParse(cvReader.GetString(5), out var dt) ? dt : DateTimeOffset.MinValue));
-            }
-        }
+        var canonicalValues = conn.Query<(string Key, string Value, int IsConflicted,
+            string? WinningProviderId, int NeedsReview, string LastScoredAt)>("""
+            SELECT key AS Key, value AS Value, is_conflicted AS IsConflicted,
+                   winning_provider_id AS WinningProviderId, needs_review AS NeedsReview,
+                   last_scored_at AS LastScoredAt
+            FROM canonical_values
+            WHERE entity_id = @assetId
+            ORDER BY key
+            """, new { assetId = assetIdStr })
+            .Select(r => new RegistryCanonicalValue(
+                Key:               r.Key,
+                Value:             r.Value,
+                IsConflicted:      r.IsConflicted == 1,
+                WinningProviderId: r.WinningProviderId,
+                NeedsReview:       r.NeedsReview == 1,
+                LastScoredAt:      DateTimeOffset.TryParse(r.LastScoredAt, out var dt) ? dt : DateTimeOffset.MinValue))
+            .ToList();
 
         if (canonicalValues.Count == 0)
             return Task.FromResult<RegistryItemDetail?>(null);
 
         // Load claim history (also keyed by asset ID)
-        var claims = new List<RegistryClaimRecord>();
-        using (var claimCmd = conn.CreateCommand())
-        {
-            claimCmd.CommandText = """
-                SELECT id, claim_key, claim_value, provider_id, confidence, is_user_locked, claimed_at
-                FROM metadata_claims
-                WHERE entity_id = @assetId
-                ORDER BY claimed_at DESC
-                """;
-            claimCmd.Parameters.AddWithValue("@assetId", assetIdStr);
-            using var claimReader = claimCmd.ExecuteReader();
-            while (claimReader.Read())
-            {
-                claims.Add(new RegistryClaimRecord(
-                    Id: Guid.Parse(claimReader.GetString(0)),
-                    ClaimKey: claimReader.GetString(1),
-                    ClaimValue: claimReader.GetString(2),
-                    ProviderId: Guid.Parse(claimReader.GetString(3)),
-                    Confidence: claimReader.GetDouble(4),
-                    IsUserLocked: claimReader.GetInt32(5) == 1,
-                    ClaimedAt: DateTimeOffset.TryParse(claimReader.GetString(6), out var cdt) ? cdt : DateTimeOffset.MinValue));
-            }
-        }
+        var claims = conn.Query<(string Id, string ClaimKey, string ClaimValue, string ProviderId,
+            double Confidence, int IsUserLocked, string ClaimedAt)>("""
+            SELECT id AS Id, claim_key AS ClaimKey, claim_value AS ClaimValue,
+                   provider_id AS ProviderId, confidence AS Confidence,
+                   is_user_locked AS IsUserLocked, claimed_at AS ClaimedAt
+            FROM metadata_claims
+            WHERE entity_id = @assetId
+            ORDER BY claimed_at DESC
+            """, new { assetId = assetIdStr })
+            .Select(r => new RegistryClaimRecord(
+                Id:           Guid.Parse(r.Id),
+                ClaimKey:     r.ClaimKey,
+                ClaimValue:   r.ClaimValue,
+                ProviderId:   Guid.Parse(r.ProviderId),
+                Confidence:   r.Confidence,
+                IsUserLocked: r.IsUserLocked == 1,
+                ClaimedAt:    DateTimeOffset.TryParse(r.ClaimedAt, out var cdt) ? cdt : DateTimeOffset.MinValue))
+            .ToList();
 
         // Load review queue entry if any (review_queue uses asset ID as entity_id)
-        Guid? reviewItemId = null;
-        string? reviewTrigger = null, reviewDetail = null, candidatesJson = null;
-        double? reviewConfidence = null;
-        using (var rqCmd = conn.CreateCommand())
-        {
-            rqCmd.CommandText = """
-                SELECT id, trigger, confidence_score, detail, candidates_json
-                FROM review_queue
-                WHERE (entity_id = @assetId OR entity_id = @entityId) AND status = 'Pending'
-                LIMIT 1
-                """;
-            rqCmd.Parameters.AddWithValue("@assetId", assetIdStr);
-            rqCmd.Parameters.AddWithValue("@entityId", entityId.ToString());
-            using var rqReader = rqCmd.ExecuteReader();
-            if (rqReader.Read())
-            {
-                reviewItemId = Guid.Parse(rqReader.GetString(0));
-                reviewTrigger = rqReader.GetString(1);
-                reviewConfidence = rqReader.IsDBNull(2) ? 0.0 : rqReader.GetDouble(2);
-                reviewDetail = rqReader.IsDBNull(3) ? null : rqReader.GetString(3);
-                candidatesJson = rqReader.IsDBNull(4) ? null : rqReader.GetString(4);
-            }
-        }
+        var rqRow = conn.QueryFirstOrDefault<(string Id, string Trigger, double? ConfidenceScore,
+            string? Detail, string? CandidatesJson)>("""
+            SELECT id AS Id, trigger AS Trigger, confidence_score AS ConfidenceScore,
+                   detail AS Detail, candidates_json AS CandidatesJson
+            FROM review_queue
+            WHERE (entity_id = @assetId OR entity_id = @entityId) AND status = 'Pending'
+            LIMIT 1
+            """, new { assetId = assetIdStr, entityId = entityId.ToString() });
+
+        Guid? reviewItemId    = rqRow == default ? null : Guid.Parse(rqRow.Id);
+        string? reviewTrigger = rqRow == default ? null : rqRow.Trigger;
+        string? reviewDetail  = rqRow == default ? null : rqRow.Detail;
+        string? candidatesJson = rqRow == default ? null : rqRow.CandidatesJson;
+        double? reviewConfidence = rqRow == default ? null : rqRow.ConfidenceScore;
 
         // Load media asset info
-        string? filePath = null, contentHash = null, fileName = null;
-        using (var maCmd = conn.CreateCommand())
-        {
-            maCmd.CommandText = """
-                SELECT ma.file_path_root, ma.content_hash
-                FROM editions e
-                INNER JOIN media_assets ma ON ma.edition_id = e.id
-                WHERE e.work_id = @entityId
-                LIMIT 1
-                """;
-            maCmd.Parameters.AddWithValue("@entityId", entityId.ToString());
-            using var maReader = maCmd.ExecuteReader();
-            if (maReader.Read())
-            {
-                filePath = maReader.IsDBNull(0) ? null : maReader.GetString(0);
-                contentHash = maReader.IsDBNull(1) ? null : maReader.GetString(1);
-                if (filePath is not null)
-                    fileName = Path.GetFileName(filePath);
-            }
-        }
+        var maRow = conn.QueryFirstOrDefault<(string? FilePath, string? ContentHash)>("""
+            SELECT ma.file_path_root AS FilePath, ma.content_hash AS ContentHash
+            FROM editions e
+            INNER JOIN media_assets ma ON ma.edition_id = e.id
+            WHERE e.work_id = @entityId
+            LIMIT 1
+            """, new { entityId = entityId.ToString() });
 
-        // Load wikidata_status from the work
-        string? wikidataStatus = null;
-        using (var wsCmd = conn.CreateCommand())
-        {
-            wsCmd.CommandText = "SELECT wikidata_status FROM works WHERE id = @entityId";
-            wsCmd.Parameters.AddWithValue("@entityId", entityId.ToString());
-            wikidataStatus = wsCmd.ExecuteScalar()?.ToString();
-        }
+        string? filePath    = maRow == default ? null : maRow.FilePath;
+        string? contentHash = maRow == default ? null : maRow.ContentHash;
+        string? fileName    = filePath is not null ? Path.GetFileName(filePath) : null;
 
-        // Load work media type
-        string mediaType = "";
-        using (var wCmd = conn.CreateCommand())
-        {
-            wCmd.CommandText = "SELECT media_type FROM works WHERE id = @entityId";
-            wCmd.Parameters.AddWithValue("@entityId", entityId.ToString());
-            mediaType = wCmd.ExecuteScalar()?.ToString() ?? "";
-        }
+        // Load wikidata_status and media_type from the work
+        var workRow = conn.QueryFirstOrDefault<(string? WikidataStatus, string? MediaType)>("""
+            SELECT wikidata_status AS WikidataStatus, media_type AS MediaType
+            FROM works WHERE id = @entityId
+            """, new { entityId = entityId.ToString() });
+
+        string? wikidataStatus = workRow == default ? null : workRow.WikidataStatus;
+        string  mediaType      = workRow == default ? "" : workRow.MediaType ?? "";
 
         // Helper to get canonical value by key
         string? cv(string key) => canonicalValues.FirstOrDefault(v => v.Key == key)?.Value;
@@ -370,38 +330,38 @@ public sealed class RegistryRepository : IRegistryRepository
 
         var detail = new RegistryItemDetail
         {
-            EntityId = entityId,
-            Title = cv("title") ?? "Untitled",
-            Year = cv("release_year"),
-            MediaType = mediaType,
-            CoverUrl = cv("cover_url"),
-            Confidence = matchConfidence,
-            Status = status,
-            MatchSource = titleProvider,
-            Author = cv("author"),
-            Director = cv("director"),
-            Cast = cv("cast"),
-            Language = cv("language"),
-            Genre = cv("genre"),
-            Runtime = cv("runtime"),
-            Description = cv("description"),
-            Series = cv("series"),
+            EntityId       = entityId,
+            Title          = cv("title") ?? "Untitled",
+            Year           = cv("release_year"),
+            MediaType      = mediaType,
+            CoverUrl       = cv("cover_url"),
+            Confidence     = matchConfidence,
+            Status         = status,
+            MatchSource    = titleProvider,
+            Author         = cv("author"),
+            Director       = cv("director"),
+            Cast           = cv("cast"),
+            Language       = cv("language"),
+            Genre          = cv("genre"),
+            Runtime        = cv("runtime"),
+            Description    = cv("description"),
+            Series         = cv("series"),
             SeriesPosition = cv("series_position"),
-            Narrator = cv("narrator"),
-            Rating = cv("rating"),
-            WikidataQid = wikidataQid,
+            Narrator       = cv("narrator"),
+            Rating         = cv("rating"),
+            WikidataQid    = wikidataQid,
             WikidataStatus = wikidataStatus,
-            FileName = fileName ?? cv("file_name"),
-            FilePath = filePath,
-            ContentHash = contentHash,
-            ReviewItemId = reviewItemId,
-            ReviewTrigger = reviewTrigger,
-            ReviewDetail = reviewDetail,
+            FileName       = fileName ?? cv("file_name"),
+            FilePath       = filePath,
+            ContentHash    = contentHash,
+            ReviewItemId   = reviewItemId,
+            ReviewTrigger  = reviewTrigger,
+            ReviewDetail   = reviewDetail,
             CandidatesJson = candidatesJson,
-            HasUserLocks = hasUserLocks,
+            HasUserLocks   = hasUserLocks,
             CanonicalValues = canonicalValues,
-            ClaimHistory = claims,
-            BridgeIds = bridgeIds,
+            ClaimHistory   = claims,
+            BridgeIds      = bridgeIds,
         };
 
         return Task.FromResult<RegistryItemDetail?>(detail);
@@ -410,24 +370,21 @@ public sealed class RegistryRepository : IRegistryRepository
     public Task<RegistryStatusCounts> GetStatusCountsAsync(CancellationToken ct = default)
     {
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
 
-        // Review queue and metadata claims use media_asset.id as entity_id,
-        // so we join through editions → media_assets to map back to works.
-        cmd.CommandText = """
+        var row = conn.QueryFirstOrDefault<(int Total, int NeedsReview, int Edited, int Duplicate, int Staging)>("""
             SELECT
-                (SELECT COUNT(*) FROM works) AS total,
+                (SELECT COUNT(*) FROM works) AS Total,
                 (SELECT COUNT(DISTINCT e.work_id)
                  FROM review_queue rq
                  INNER JOIN media_assets ma ON ma.id = rq.entity_id
                  INNER JOIN editions e ON e.id = ma.edition_id
-                 WHERE rq.status = 'Pending') AS needs_review,
+                 WHERE rq.status = 'Pending') AS NeedsReview,
                 (SELECT COUNT(DISTINCT e.work_id)
                  FROM metadata_claims mc
                  INNER JOIN media_assets ma ON ma.id = mc.entity_id
                  INNER JOIN editions e ON e.id = ma.edition_id
-                 WHERE mc.is_user_locked = 1) AS edited,
-                (SELECT COUNT(*) FROM media_assets WHERE status = 'Conflicted') AS duplicate,
+                 WHERE mc.is_user_locked = 1) AS Edited,
+                (SELECT COUNT(*) FROM media_assets WHERE status = 'Conflicted') AS Duplicate,
                 (SELECT COUNT(DISTINCT e.work_id)
                  FROM media_assets ma
                  INNER JOIN editions e ON e.id = ma.edition_id
@@ -436,24 +393,20 @@ public sealed class RegistryRepository : IRegistryRepository
                    AND NOT EXISTS (
                      SELECT 1 FROM review_queue rq
                      WHERE rq.entity_id = ma.id AND rq.status = 'Pending'
-                   )) AS staging
-            """;
+                   )) AS Staging
+            """);
 
-        using var reader = cmd.ExecuteReader();
-        if (reader.Read())
+        if (row != default)
         {
-            var total = reader.GetInt32(0);
-            var needsReview = reader.GetInt32(1);
-            var edited = reader.GetInt32(2);
-            var duplicate = reader.GetInt32(3);
-            var staging = reader.GetInt32(4);
-            var auto = total - needsReview - edited - duplicate - staging;
-
-            return Task.FromResult(new RegistryStatusCounts(total, needsReview, Math.Max(auto, 0), edited, duplicate, staging));
+            var auto = row.Total - row.NeedsReview - row.Edited - row.Duplicate - row.Staging;
+            return Task.FromResult(new RegistryStatusCounts(
+                row.Total, row.NeedsReview, Math.Max(auto, 0), row.Edited, row.Duplicate, row.Staging));
         }
 
         return Task.FromResult(new RegistryStatusCounts(0, 0, 0, 0, 0, 0));
     }
+
+    // ── Private helpers ──────────────────────────────────────────────────────
 
     private static void AddParameters(SqliteCommand cmd, RegistryQuery query)
     {

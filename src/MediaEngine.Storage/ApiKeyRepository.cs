@@ -1,3 +1,4 @@
+using Dapper;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Storage.Contracts;
@@ -5,7 +6,7 @@ using MediaEngine.Storage.Contracts;
 namespace MediaEngine.Storage;
 
 /// <summary>
-/// ORM-less SQLite implementation of <see cref="IApiKeyRepository"/>.
+/// SQLite implementation of <see cref="IApiKeyRepository"/>.
 ///
 /// SECURITY rules:
 /// • <c>hashed_key</c> is the SHA-256 hex of the plaintext key; plaintext is never stored.
@@ -30,18 +31,18 @@ public sealed class ApiKeyRepository : IApiKeyRepository
         ArgumentNullException.ThrowIfNull(key);
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
+        conn.Execute("""
             INSERT INTO api_keys (id, label, hashed_key, role, created_at)
-            VALUES (@id, @label, @hashed_key, @role, @created_at);
-            """;
-        cmd.Parameters.AddWithValue("@id",         key.Id.ToString());
-        cmd.Parameters.AddWithValue("@label",      key.Label);
-        cmd.Parameters.AddWithValue("@hashed_key", key.HashedKey);
-        cmd.Parameters.AddWithValue("@role",       key.Role);
-        cmd.Parameters.AddWithValue("@created_at", key.CreatedAt.ToString("O"));
-        cmd.ExecuteNonQuery();
-
+            VALUES (@Id, @Label, @HashedKey, @Role, @CreatedAt);
+            """,
+            new
+            {
+                Id        = key.Id,
+                key.Label,
+                key.HashedKey,
+                key.Role,
+                CreatedAt = key.CreatedAt,
+            });
         return Task.CompletedTask;
     }
 
@@ -52,17 +53,16 @@ public sealed class ApiKeyRepository : IApiKeyRepository
         ArgumentException.ThrowIfNullOrWhiteSpace(hashedKey);
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
-            SELECT id, label, hashed_key, role, created_at
+        var result = conn.QueryFirstOrDefault<ApiKey>("""
+            SELECT id         AS Id,
+                   label      AS Label,
+                   hashed_key AS HashedKey,
+                   role       AS Role,
+                   created_at AS CreatedAt
             FROM   api_keys
-            WHERE  hashed_key = @hashed_key
+            WHERE  hashed_key = @hashedKey
             LIMIT  1;
-            """;
-        cmd.Parameters.AddWithValue("@hashed_key", hashedKey);
-
-        using var reader = cmd.ExecuteReader();
-        var result = reader.Read() ? MapRow(reader) : null;
+            """, new { hashedKey });
         return Task.FromResult(result);
     }
 
@@ -72,29 +72,26 @@ public sealed class ApiKeyRepository : IApiKeyRepository
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
-            SELECT id, label, role, created_at
+        // HashedKey is intentionally omitted from this query to prevent accidental exposure.
+        var rows = conn.Query<ApiKeyListRow>("""
+            SELECT id         AS Id,
+                   label      AS Label,
+                   role       AS Role,
+                   created_at AS CreatedAt
             FROM   api_keys
             ORDER  BY created_at DESC;
-            """;
+            """).AsList();
 
-        var results = new List<ApiKey>();
-        using var reader = cmd.ExecuteReader();
-        while (reader.Read())
+        var results = rows.ConvertAll(r => new ApiKey
         {
-            results.Add(new ApiKey
-            {
-                Id         = Guid.Parse(reader.GetString(0)),
-                Label      = reader.GetString(1),
-                HashedKey  = string.Empty,  // intentionally omitted for listing
-                Role       = reader.GetString(2),
-                CreatedAt  = DateTimeOffset.Parse(reader.GetString(3)),
-            });
-        }
+            Id        = r.Id,
+            Label     = r.Label,
+            HashedKey = string.Empty,   // intentionally omitted for listing
+            Role      = r.Role,
+            CreatedAt = r.CreatedAt,
+        });
 
-        IReadOnlyList<ApiKey> result = results;
-        return Task.FromResult(result);
+        return Task.FromResult<IReadOnlyList<ApiKey>>(results);
     }
 
     /// <inheritdoc/>
@@ -103,15 +100,7 @@ public sealed class ApiKeyRepository : IApiKeyRepository
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
-        using var deleteCmd = conn.CreateCommand();
-        deleteCmd.CommandText = "DELETE FROM api_keys WHERE id = @id;";
-        deleteCmd.Parameters.AddWithValue("@id", id.ToString());
-        deleteCmd.ExecuteNonQuery();
-
-        using var changesCmd = conn.CreateCommand();
-        changesCmd.CommandText = "SELECT changes();";
-        var rows = Convert.ToInt64(changesCmd.ExecuteScalar()!);
-
+        var rows = conn.Execute("DELETE FROM api_keys WHERE id = @id;", new { id });
         return Task.FromResult(rows > 0);
     }
 
@@ -121,19 +110,17 @@ public sealed class ApiKeyRepository : IApiKeyRepository
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = "DELETE FROM api_keys;";
-        var deleted = cmd.ExecuteNonQuery();
-
+        var deleted = conn.Execute("DELETE FROM api_keys;");
         return Task.FromResult(deleted);
     }
 
-    private static ApiKey MapRow(Microsoft.Data.Sqlite.SqliteDataReader r) => new()
+    // ── Private row type for GetAllAsync (no HashedKey) ───────────────────────
+
+    private sealed class ApiKeyListRow
     {
-        Id        = Guid.Parse(r.GetString(0)),
-        Label     = r.GetString(1),
-        HashedKey = r.GetString(2),
-        Role      = r.GetString(3),
-        CreatedAt = DateTimeOffset.Parse(r.GetString(4)),
-    };
+        public Guid           Id        { get; set; }
+        public string         Label     { get; set; } = string.Empty;
+        public string         Role      { get; set; } = string.Empty;
+        public DateTimeOffset CreatedAt { get; set; }
+    }
 }

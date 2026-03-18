@@ -1,11 +1,11 @@
-using Microsoft.Data.Sqlite;
+using Dapper;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Storage;
 
 /// <summary>
-/// ORM-less SQLite implementation of <see cref="ICanonicalValueArrayRepository"/>.
+/// SQLite implementation of <see cref="ICanonicalValueArrayRepository"/>.
 ///
 /// Multi-valued canonical fields (genre, characters, cast_member, etc.) are stored
 /// as individual rows in <c>canonical_value_arrays</c> rather than as
@@ -40,45 +40,31 @@ public sealed class CanonicalValueArrayRepository : ICanonicalValueArrayReposito
             try
             {
                 // Delete existing entries for this (entity, key) pair.
-                using (var delCmd = conn.CreateCommand())
-                {
-                    delCmd.Transaction = tx;
-                    delCmd.CommandText = """
-                        DELETE FROM canonical_value_arrays
-                        WHERE entity_id = @entity_id AND key = @key;
-                        """;
-                    delCmd.Parameters.AddWithValue("@entity_id", entityId.ToString());
-                    delCmd.Parameters.AddWithValue("@key", key);
-                    delCmd.ExecuteNonQuery();
-                }
+                conn.Execute("""
+                    DELETE FROM canonical_value_arrays
+                    WHERE entity_id = @entityId AND key = @key;
+                    """,
+                    new { entityId, key },
+                    transaction: tx);
 
                 if (entries.Count > 0)
                 {
-                    using var cmd = conn.CreateCommand();
-                    cmd.Transaction = tx;
-                    cmd.CommandText = """
+                    ct.ThrowIfCancellationRequested();
+                    conn.Execute("""
                         INSERT INTO canonical_value_arrays
                             (entity_id, key, ordinal, value, value_qid)
                         VALUES
-                            (@entity_id, @key, @ordinal, @value, @value_qid);
-                        """;
-
-                    var pEntityId = cmd.Parameters.Add("@entity_id", SqliteType.Text);
-                    var pKey      = cmd.Parameters.Add("@key",       SqliteType.Text);
-                    var pOrdinal  = cmd.Parameters.Add("@ordinal",   SqliteType.Integer);
-                    var pValue    = cmd.Parameters.Add("@value",     SqliteType.Text);
-                    var pValueQid = cmd.Parameters.Add("@value_qid", SqliteType.Text);
-
-                    foreach (var entry in entries)
-                    {
-                        ct.ThrowIfCancellationRequested();
-                        pEntityId.Value = entityId.ToString();
-                        pKey.Value      = key;
-                        pOrdinal.Value  = entry.Ordinal;
-                        pValue.Value    = entry.Value;
-                        pValueQid.Value = (object?)entry.ValueQid ?? DBNull.Value;
-                        cmd.ExecuteNonQuery();
-                    }
+                            (@EntityId, @Key, @Ordinal, @Value, @ValueQid);
+                        """,
+                        entries.Select(e => new
+                        {
+                            EntityId = entityId.ToString(),
+                            Key      = key,
+                            e.Ordinal,
+                            e.Value,
+                            ValueQid = e.ValueQid,
+                        }),
+                        transaction: tx);
                 }
 
                 tx.Commit();
@@ -104,23 +90,23 @@ public sealed class CanonicalValueArrayRepository : ICanonicalValueArrayReposito
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
-            SELECT ordinal, value, value_qid
+        // Use intermediate row type because CanonicalArrayEntry has init-only properties
+        // which Dapper cannot set directly.
+        var rows = conn.Query<CanonicalArrayKeyedRow>("""
+            SELECT ordinal   AS Ordinal,
+                   value     AS Value,
+                   value_qid AS ValueQid
             FROM canonical_value_arrays
-            WHERE entity_id = @entity_id AND key = @key
+            WHERE entity_id = @entityId AND key = @key
             ORDER BY ordinal ASC;
-            """;
-        cmd.Parameters.AddWithValue("@entity_id", entityId.ToString());
-        cmd.Parameters.AddWithValue("@key", key);
+            """, new { entityId, key }).AsList();
 
-        var results = new List<CanonicalArrayEntry>();
-        using var reader = cmd.ExecuteReader();
-        while (reader.Read())
+        var results = rows.ConvertAll(r => new CanonicalArrayEntry
         {
-            ct.ThrowIfCancellationRequested();
-            results.Add(MapRow(reader));
-        }
+            Ordinal  = r.Ordinal,
+            Value    = r.Value,
+            ValueQid = r.ValueQid,
+        });
 
         return Task.FromResult<IReadOnlyList<CanonicalArrayEntry>>(results);
     }
@@ -133,39 +119,37 @@ public sealed class CanonicalValueArrayRepository : ICanonicalValueArrayReposito
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
-            SELECT key, ordinal, value, value_qid
+        var rows = conn.Query<CanonicalArrayKeyedRow>("""
+            SELECT key       AS Key,
+                   ordinal   AS Ordinal,
+                   value     AS Value,
+                   value_qid AS ValueQid
             FROM canonical_value_arrays
-            WHERE entity_id = @entity_id
+            WHERE entity_id = @entityId
             ORDER BY key ASC, ordinal ASC;
-            """;
-        cmd.Parameters.AddWithValue("@entity_id", entityId.ToString());
+            """, new { entityId }).AsList();
 
-        var results = new Dictionary<string, List<CanonicalArrayEntry>>(StringComparer.OrdinalIgnoreCase);
-        using var reader = cmd.ExecuteReader();
-        while (reader.Read())
+        var grouped = new Dictionary<string, List<CanonicalArrayEntry>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var row in rows)
         {
             ct.ThrowIfCancellationRequested();
-            var key = reader.GetString(0);
-            if (!results.TryGetValue(key, out var list))
+            if (!grouped.TryGetValue(row.Key, out var list))
             {
                 list = [];
-                results[key] = list;
+                grouped[row.Key] = list;
             }
             list.Add(new CanonicalArrayEntry
             {
-                Ordinal  = reader.GetInt32(1),
-                Value    = reader.GetString(2),
-                ValueQid = reader.IsDBNull(3) ? null : reader.GetString(3),
+                Ordinal  = row.Ordinal,
+                Value    = row.Value,
+                ValueQid = row.ValueQid,
             });
         }
 
-        // Cast to read-only interfaces.
         var readOnly = new Dictionary<string, IReadOnlyList<CanonicalArrayEntry>>(
             StringComparer.OrdinalIgnoreCase);
-        foreach (var (key, list) in results)
-            readOnly[key] = list;
+        foreach (var (k, list) in grouped)
+            readOnly[k] = list;
 
         return Task.FromResult<IReadOnlyDictionary<string, IReadOnlyList<CanonicalArrayEntry>>>(readOnly);
     }
@@ -179,10 +163,9 @@ public sealed class CanonicalValueArrayRepository : ICanonicalValueArrayReposito
         try
         {
             using var conn = _db.CreateConnection();
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = "DELETE FROM canonical_value_arrays WHERE entity_id = @entity_id;";
-            cmd.Parameters.AddWithValue("@entity_id", entityId.ToString());
-            cmd.ExecuteNonQuery();
+            conn.Execute(
+                "DELETE FROM canonical_value_arrays WHERE entity_id = @entityId;",
+                new { entityId });
         }
         finally
         {
@@ -190,14 +173,17 @@ public sealed class CanonicalValueArrayRepository : ICanonicalValueArrayReposito
         }
     }
 
-    // -------------------------------------------------------------------------
-    // Private
-    // -------------------------------------------------------------------------
+    // ── Private intermediate row type ─────────────────────────────────────────
 
-    private static CanonicalArrayEntry MapRow(SqliteDataReader r) => new()
+    /// <summary>
+    /// Intermediate row type for <see cref="GetAllByEntityAsync"/> that includes
+    /// the grouping key alongside the entry fields.
+    /// </summary>
+    private sealed class CanonicalArrayKeyedRow
     {
-        Ordinal  = r.GetInt32(0),
-        Value    = r.GetString(1),
-        ValueQid = r.IsDBNull(2) ? null : r.GetString(2),
-    };
+        public string  Key      { get; set; } = string.Empty;
+        public int     Ordinal  { get; set; }
+        public string  Value    { get; set; } = string.Empty;
+        public string? ValueQid { get; set; }
+    }
 }

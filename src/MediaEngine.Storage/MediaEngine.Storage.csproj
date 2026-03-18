@@ -6,8 +6,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- ORM-less SQLite access via Microsoft.Data.Sqlite -->
+    <!-- SQLite access via Microsoft.Data.Sqlite + Dapper micro-ORM -->
     <PackageReference Include="Microsoft.Data.Sqlite" />
+    <PackageReference Include="Dapper" />
   </ItemGroup>
 
   <ItemGroup>

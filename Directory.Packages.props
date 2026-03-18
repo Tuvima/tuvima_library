@@ -7,6 +7,9 @@
     <!-- Cronos: lightweight cron expression parser for configurable background schedules.
          MIT license — approved for AGPLv3 compatibility (see CLAUDE.md §5.1). -->
     <PackageVersion Include="Cronos" Version="0.8.4" />
+    <!-- Dapper: micro-ORM for type-safe SQLite data access with named column mapping.
+         Apache 2.0 license — approved for AGPLv3 compatibility (see CLAUDE.md §5.1). -->
+    <PackageVersion Include="Dapper" Version="2.1.66" />
     <PackageVersion Include="dotNetRdf" Version="3.5.1" />
     <!-- FuzzySharp: fuzzy string matching for candidate scoring.
          MIT license — approved for AGPLv3 compatibility (see CLAUDE.md §5.1). -->

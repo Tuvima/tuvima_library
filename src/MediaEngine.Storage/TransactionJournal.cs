@@ -1,10 +1,10 @@
+using Dapper;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Storage;
 
 /// <summary>
 /// Appends rows to <c>transaction_log</c> and prunes old entries.
-/// ORM-less: uses raw <see cref="Microsoft.Data.Sqlite.SqliteCommand"/>.
 /// Spec: Phase 4 – ITransactionJournal interface.
 /// </summary>
 public sealed class TransactionJournal : ITransactionJournal
@@ -29,18 +29,10 @@ public sealed class TransactionJournal : ITransactionJournal
         ArgumentException.ThrowIfNullOrWhiteSpace(entityId);
 
         using var conn = _db.CreateConnection();
-
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
+        conn.Execute("""
             INSERT INTO transaction_log (event_type, entity_type, entity_id)
-            VALUES (@event_type, @entity_type, @entity_id);
-            """;
-
-        cmd.Parameters.AddWithValue("@event_type",  eventType);
-        cmd.Parameters.AddWithValue("@entity_type", entityType);
-        cmd.Parameters.AddWithValue("@entity_id",   entityId);
-
-        cmd.ExecuteNonQuery();
+            VALUES (@eventType, @entityType, @entityId)
+            """, new { eventType, entityType, entityId });
     }
 
     /// <inheritdoc/>
@@ -61,9 +53,7 @@ public sealed class TransactionJournal : ITransactionJournal
         using var conn = _db.CreateConnection();
 
         // Read current row count first to avoid an unnecessary DELETE.
-        using var countCmd = conn.CreateCommand();
-        countCmd.CommandText = "SELECT COUNT(*) FROM transaction_log;";
-        var count = Convert.ToInt64(countCmd.ExecuteScalar()!);
+        var count = conn.ExecuteScalar<long>("SELECT COUNT(*) FROM transaction_log");
 
         if (count <= maxEntries)
             return;
@@ -71,17 +61,14 @@ public sealed class TransactionJournal : ITransactionJournal
         var excess = count - maxEntries;
 
         // Delete the oldest [excess] rows identified by the lowest id values.
-        using var deleteCmd = conn.CreateCommand();
-        deleteCmd.CommandText = """
+        conn.Execute("""
             DELETE FROM transaction_log
             WHERE id IN (
                 SELECT id
                 FROM   transaction_log
                 ORDER  BY id ASC
                 LIMIT  @excess
-            );
-            """;
-        deleteCmd.Parameters.AddWithValue("@excess", excess);
-        deleteCmd.ExecuteNonQuery();
+            )
+            """, new { excess });
     }
 }

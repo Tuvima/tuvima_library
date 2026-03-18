@@ -1,4 +1,4 @@
-using Microsoft.Data.Sqlite;
+using Dapper;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
@@ -9,7 +9,6 @@ namespace MediaEngine.Storage;
 /// <summary>
 /// SQLite implementation of <see cref="IReviewQueueRepository"/>.
 ///
-/// ORM-less: all SQL is executed via <see cref="SqliteCommand"/>.
 /// All methods are async-safe and non-blocking.
 /// </summary>
 public sealed class ReviewQueueRepository : IReviewQueueRepository
@@ -28,8 +27,7 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
         ArgumentNullException.ThrowIfNull(entry);
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
+        conn.Execute("""
             INSERT INTO review_queue
                 (id, entity_id, entity_type, trigger, status,
                  proposed_hub_id, confidence_score, candidates_json,
@@ -37,27 +35,23 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
             VALUES
                 (@id, @entityId, @entityType, @trigger, @status,
                  @proposedHubId, @confidence, @candidates,
-                 @detail, @createdAt, @resolvedAt, @resolvedBy);
-            """;
+                 @detail, @createdAt, @resolvedAt, @resolvedBy)
+            """, new
+        {
+            id            = entry.Id.ToString(),
+            entityId      = entry.EntityId.ToString(),
+            entityType    = entry.EntityType,
+            trigger       = entry.Trigger,
+            status        = entry.Status,
+            proposedHubId = entry.ProposedHubId,
+            confidence    = entry.ConfidenceScore,
+            candidates    = entry.CandidatesJson,
+            detail        = entry.Detail,
+            createdAt     = entry.CreatedAt.ToString("O"),
+            resolvedAt    = entry.ResolvedAt.HasValue ? (object)entry.ResolvedAt.Value.ToString("O") : null,
+            resolvedBy    = entry.ResolvedBy,
+        });
 
-        cmd.Parameters.AddWithValue("@id",            entry.Id.ToString());
-        cmd.Parameters.AddWithValue("@entityId",      entry.EntityId.ToString());
-        cmd.Parameters.AddWithValue("@entityType",    entry.EntityType);
-        cmd.Parameters.AddWithValue("@trigger",       entry.Trigger);
-        cmd.Parameters.AddWithValue("@status",        entry.Status);
-        cmd.Parameters.AddWithValue("@proposedHubId", (object?)entry.ProposedHubId    ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@confidence",    entry.ConfidenceScore.HasValue
-                                                          ? (object)entry.ConfidenceScore.Value
-                                                          : DBNull.Value);
-        cmd.Parameters.AddWithValue("@candidates",    (object?)entry.CandidatesJson   ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@detail",        (object?)entry.Detail           ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@createdAt",     entry.CreatedAt.ToString("O"));
-        cmd.Parameters.AddWithValue("@resolvedAt",    entry.ResolvedAt.HasValue
-                                                          ? (object)entry.ResolvedAt.Value.ToString("O")
-                                                          : DBNull.Value);
-        cmd.Parameters.AddWithValue("@resolvedBy",    (object?)entry.ResolvedBy       ?? DBNull.Value);
-
-        cmd.ExecuteNonQuery();
         return Task.FromResult(entry.Id);
     }
 
@@ -67,50 +61,34 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
         CancellationToken ct = default)
     {
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
-            SELECT id, entity_id, entity_type, trigger, status,
-                   proposed_hub_id, confidence_score, candidates_json,
-                   detail, created_at, resolved_at, resolved_by
+        var rows = conn.Query<ReviewQueueRow>("""
+            SELECT id, entity_id AS EntityId, entity_type AS EntityType, trigger, status,
+                   proposed_hub_id AS ProposedHubId, confidence_score AS ConfidenceScore,
+                   candidates_json AS CandidatesJson, detail, created_at AS CreatedAt,
+                   resolved_at AS ResolvedAt, resolved_by AS ResolvedBy
             FROM   review_queue
             WHERE  status = @status
             ORDER BY created_at DESC
-            LIMIT  @limit;
-            """;
-        cmd.Parameters.AddWithValue("@status", ReviewStatus.Pending);
-        cmd.Parameters.AddWithValue("@limit",  limit);
+            LIMIT  @limit
+            """, new { status = ReviewStatus.Pending, limit }).AsList();
 
-        var results = new List<ReviewQueueEntry>();
-        using var reader = cmd.ExecuteReader();
-        while (reader.Read())
-        {
-            results.Add(MapRow(reader));
-        }
-
-        return Task.FromResult<IReadOnlyList<ReviewQueueEntry>>(results);
+        return Task.FromResult<IReadOnlyList<ReviewQueueEntry>>(rows.Select(MapRow).ToList());
     }
 
     /// <inheritdoc/>
     public Task<ReviewQueueEntry?> GetByIdAsync(Guid id, CancellationToken ct = default)
     {
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
-            SELECT id, entity_id, entity_type, trigger, status,
-                   proposed_hub_id, confidence_score, candidates_json,
-                   detail, created_at, resolved_at, resolved_by
+        var row = conn.QueryFirstOrDefault<ReviewQueueRow>("""
+            SELECT id, entity_id AS EntityId, entity_type AS EntityType, trigger, status,
+                   proposed_hub_id AS ProposedHubId, confidence_score AS ConfidenceScore,
+                   candidates_json AS CandidatesJson, detail, created_at AS CreatedAt,
+                   resolved_at AS ResolvedAt, resolved_by AS ResolvedBy
             FROM   review_queue
-            WHERE  id = @id;
-            """;
-        cmd.Parameters.AddWithValue("@id", id.ToString());
+            WHERE  id = @id
+            """, new { id = id.ToString() });
 
-        using var reader = cmd.ExecuteReader();
-        if (reader.Read())
-        {
-            return Task.FromResult<ReviewQueueEntry?>(MapRow(reader));
-        }
-
-        return Task.FromResult<ReviewQueueEntry?>(null);
+        return Task.FromResult(row is null ? null : (ReviewQueueEntry?)MapRow(row));
     }
 
     /// <inheritdoc/>
@@ -119,25 +97,17 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
         CancellationToken ct = default)
     {
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
-            SELECT id, entity_id, entity_type, trigger, status,
-                   proposed_hub_id, confidence_score, candidates_json,
-                   detail, created_at, resolved_at, resolved_by
+        var rows = conn.Query<ReviewQueueRow>("""
+            SELECT id, entity_id AS EntityId, entity_type AS EntityType, trigger, status,
+                   proposed_hub_id AS ProposedHubId, confidence_score AS ConfidenceScore,
+                   candidates_json AS CandidatesJson, detail, created_at AS CreatedAt,
+                   resolved_at AS ResolvedAt, resolved_by AS ResolvedBy
             FROM   review_queue
             WHERE  entity_id = @entityId
-            ORDER BY created_at DESC;
-            """;
-        cmd.Parameters.AddWithValue("@entityId", entityId.ToString());
+            ORDER BY created_at DESC
+            """, new { entityId = entityId.ToString() }).AsList();
 
-        var results = new List<ReviewQueueEntry>();
-        using var reader = cmd.ExecuteReader();
-        while (reader.Read())
-        {
-            results.Add(MapRow(reader));
-        }
-
-        return Task.FromResult<IReadOnlyList<ReviewQueueEntry>>(results);
+        return Task.FromResult<IReadOnlyList<ReviewQueueEntry>>(rows.Select(MapRow).ToList());
     }
 
     /// <inheritdoc/>
@@ -148,21 +118,20 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
         CancellationToken ct = default)
     {
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
+        conn.Execute("""
             UPDATE review_queue
             SET    status      = @status,
                    resolved_at = @resolvedAt,
                    resolved_by = @resolvedBy
-            WHERE  id = @id;
-            """;
+            WHERE  id = @id
+            """, new
+        {
+            id         = id.ToString(),
+            status,
+            resolvedAt = DateTimeOffset.UtcNow.ToString("O"),
+            resolvedBy,
+        });
 
-        cmd.Parameters.AddWithValue("@id",         id.ToString());
-        cmd.Parameters.AddWithValue("@status",     status);
-        cmd.Parameters.AddWithValue("@resolvedAt", DateTimeOffset.UtcNow.ToString("O"));
-        cmd.Parameters.AddWithValue("@resolvedBy", (object?)resolvedBy ?? DBNull.Value);
-
-        cmd.ExecuteNonQuery();
         return Task.CompletedTask;
     }
 
@@ -170,14 +139,10 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
     public Task<int> GetPendingCountAsync(CancellationToken ct = default)
     {
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
-            SELECT COUNT(*) FROM review_queue
-            WHERE  status = @status;
-            """;
-        cmd.Parameters.AddWithValue("@status", ReviewStatus.Pending);
+        var count = conn.ExecuteScalar<int>(
+            "SELECT COUNT(*) FROM review_queue WHERE status = @status",
+            new { status = ReviewStatus.Pending });
 
-        var count = Convert.ToInt32(cmd.ExecuteScalar() ?? 0);
         return Task.FromResult(count);
     }
 
@@ -185,21 +150,21 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
     public Task<int> DismissAllByEntityAsync(Guid entityId, CancellationToken ct = default)
     {
         using var conn = _db.CreateConnection();
-        using var cmd  = conn.CreateCommand();
-        cmd.CommandText = """
+        var rows = conn.Execute("""
             UPDATE review_queue
             SET    status      = @dismissed,
                    resolved_at = @now,
                    resolved_by = 'reconciliation'
             WHERE  entity_id = @entityId
-              AND  status     = @pending;
-            """;
-        cmd.Parameters.AddWithValue("@dismissed", ReviewStatus.Dismissed);
-        cmd.Parameters.AddWithValue("@now",        DateTimeOffset.UtcNow.ToString("O"));
-        cmd.Parameters.AddWithValue("@entityId",   entityId.ToString());
-        cmd.Parameters.AddWithValue("@pending",    ReviewStatus.Pending);
+              AND  status     = @pending
+            """, new
+        {
+            dismissed = ReviewStatus.Dismissed,
+            now       = DateTimeOffset.UtcNow.ToString("O"),
+            entityId  = entityId.ToString(),
+            pending   = ReviewStatus.Pending,
+        });
 
-        var rows = cmd.ExecuteNonQuery();
         return Task.FromResult(rows);
     }
 
@@ -207,37 +172,45 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
     public Task<int> PurgeOrphanedAsync(CancellationToken ct = default)
     {
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = @"
-            DELETE FROM review_queue
-            WHERE entity_id NOT IN (SELECT id FROM media_assets)";
-        var deleted = cmd.ExecuteNonQuery();
+        var deleted = conn.Execute(
+            "DELETE FROM review_queue WHERE entity_id NOT IN (SELECT id FROM media_assets)");
+
         return Task.FromResult(deleted);
     }
 
-    // ── Row mapping ─────────────────────────────────────────────────────────────
+    // ── Private helpers ──────────────────────────────────────────────────────
 
-    private static ReviewQueueEntry MapRow(SqliteDataReader reader)
+    /// <summary>Flat data-transfer struct that Dapper populates from a SELECT row.</summary>
+    private sealed class ReviewQueueRow
     {
-        var resolvedAtText = reader.IsDBNull(10) ? null : reader.GetString(10);
-
-        return new ReviewQueueEntry
-        {
-            Id              = Guid.Parse(reader.GetString(0)),
-            EntityId        = Guid.Parse(reader.GetString(1)),
-            EntityType      = reader.GetString(2),
-            Trigger         = reader.GetString(3),
-            Status          = reader.GetString(4),
-            ProposedHubId   = reader.IsDBNull(5) ? null : reader.GetString(5),
-            ConfidenceScore = reader.IsDBNull(6) ? null : reader.GetDouble(6),
-            CandidatesJson  = reader.IsDBNull(7) ? null : reader.GetString(7),
-            Detail          = reader.IsDBNull(8) ? null : reader.GetString(8),
-            CreatedAt       = DateTimeOffset.TryParse(reader.GetString(9), out var created)
-                                  ? created : DateTimeOffset.UtcNow,
-            ResolvedAt      = resolvedAtText is not null
-                                  && DateTimeOffset.TryParse(resolvedAtText, out var resolved)
-                                  ? resolved : null,
-            ResolvedBy      = reader.IsDBNull(11) ? null : reader.GetString(11),
-        };
+        public string Id            { get; set; } = "";
+        public string EntityId      { get; set; } = "";
+        public string EntityType    { get; set; } = "";
+        public string Trigger       { get; set; } = "";
+        public string Status        { get; set; } = "";
+        public string? ProposedHubId  { get; set; }
+        public double? ConfidenceScore { get; set; }
+        public string? CandidatesJson  { get; set; }
+        public string? Detail          { get; set; }
+        public string CreatedAt   { get; set; } = "";
+        public string? ResolvedAt { get; set; }
+        public string? ResolvedBy { get; set; }
     }
+
+    private static ReviewQueueEntry MapRow(ReviewQueueRow r) => new()
+    {
+        Id              = Guid.Parse(r.Id),
+        EntityId        = Guid.Parse(r.EntityId),
+        EntityType      = r.EntityType,
+        Trigger         = r.Trigger,
+        Status          = r.Status,
+        ProposedHubId   = r.ProposedHubId,
+        ConfidenceScore = r.ConfidenceScore,
+        CandidatesJson  = r.CandidatesJson,
+        Detail          = r.Detail,
+        CreatedAt       = DateTimeOffset.TryParse(r.CreatedAt, out var created) ? created : DateTimeOffset.UtcNow,
+        ResolvedAt      = r.ResolvedAt is not null && DateTimeOffset.TryParse(r.ResolvedAt, out var resolved)
+                              ? resolved : null,
+        ResolvedBy      = r.ResolvedBy,
+    };
 }

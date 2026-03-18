@@ -1,4 +1,4 @@
-using Microsoft.Data.Sqlite;
+using Dapper;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Storage.Contracts;
@@ -6,13 +6,11 @@ using MediaEngine.Storage.Contracts;
 namespace MediaEngine.Storage;
 
 /// <summary>
-/// ORM-less SQLite implementation of <see cref="IEntityRelationshipRepository"/>.
+/// SQLite implementation of <see cref="IEntityRelationshipRepository"/>.
 ///
 /// Graph edges are inserted idempotently (duplicate subject+type+object silently ignored).
 /// Lookups support both directions (outgoing from subject, incoming to object) for
 /// bidirectional graph traversal.
-///
-/// Thread safety: same serialised-connection model as <see cref="PersonRepository"/>.
 /// </summary>
 public sealed class EntityRelationshipRepository : IEntityRelationshipRepository
 {
@@ -31,28 +29,28 @@ public sealed class EntityRelationshipRepository : IEntityRelationshipRepository
         ArgumentNullException.ThrowIfNull(edge);
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
+        conn.Execute("""
             INSERT OR IGNORE INTO entity_relationships
                 (id, subject_qid, relationship_type, object_qid,
                  confidence, context_work_qid, discovered_at,
                  start_time, end_time)
             VALUES
-                (@id, @subjectQid, @relType, @objectQid,
-                 @confidence, @contextWorkQid, @discoveredAt,
-                 @startTime, @endTime);
-            """;
-        cmd.Parameters.AddWithValue("@id", Guid.NewGuid().ToString());
-        cmd.Parameters.AddWithValue("@subjectQid", edge.SubjectQid);
-        cmd.Parameters.AddWithValue("@relType", edge.RelationshipTypeValue);
-        cmd.Parameters.AddWithValue("@objectQid", edge.ObjectQid);
-        cmd.Parameters.AddWithValue("@confidence", edge.Confidence);
-        cmd.Parameters.AddWithValue("@contextWorkQid", (object?)edge.ContextWorkQid ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@discoveredAt", edge.DiscoveredAt.ToString("o"));
-        cmd.Parameters.AddWithValue("@startTime", (object?)edge.StartTime ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@endTime", (object?)edge.EndTime ?? DBNull.Value);
-
-        cmd.ExecuteNonQuery();
+                (@Id, @SubjectQid, @RelType, @ObjectQid,
+                 @Confidence, @ContextWorkQid, @DiscoveredAt,
+                 @StartTime, @EndTime);
+            """,
+            new
+            {
+                Id             = Guid.NewGuid(),
+                SubjectQid     = edge.SubjectQid,
+                RelType        = edge.RelationshipTypeValue,
+                ObjectQid      = edge.ObjectQid,
+                edge.Confidence,
+                edge.ContextWorkQid,
+                DiscoveredAt   = edge.DiscoveredAt,
+                edge.StartTime,
+                edge.EndTime,
+            });
         return Task.CompletedTask;
     }
 
@@ -89,37 +87,24 @@ public sealed class EntityRelationshipRepository : IEntityRelationshipRepository
         if (entityQids.Count == 0)
             return Task.FromResult<IReadOnlyList<EntityRelationship>>([]);
 
+        // Dapper expands @qids into a parameterised IN clause automatically.
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-
-        // Build IN clause with parameterized values
-        var paramNames = new List<string>(entityQids.Count);
-        var idx = 0;
-        foreach (var qid in entityQids)
-        {
-            var paramName = $"@q{idx}";
-            paramNames.Add(paramName);
-            cmd.Parameters.AddWithValue(paramName, qid);
-            idx++;
-        }
-
-        var inClause = string.Join(", ", paramNames);
-        cmd.CommandText = $"""
-            SELECT subject_qid, relationship_type, object_qid,
-                   confidence, context_work_qid, discovered_at,
-                   start_time, end_time
+        var rows = conn.Query<EntityRelationshipRow>("""
+            SELECT subject_qid       AS SubjectQid,
+                   relationship_type AS RelationshipTypeValue,
+                   object_qid        AS ObjectQid,
+                   confidence        AS Confidence,
+                   context_work_qid  AS ContextWorkQid,
+                   discovered_at     AS DiscoveredAt,
+                   start_time        AS StartTime,
+                   end_time          AS EndTime
             FROM   entity_relationships
-            WHERE  subject_qid IN ({inClause})
-              AND  object_qid  IN ({inClause})
+            WHERE  subject_qid IN @qids
+              AND  object_qid  IN @qids
             ORDER BY subject_qid, relationship_type;
-            """;
+            """, new { qids = entityQids }).AsList();
 
-        var result = new List<EntityRelationship>();
-        using var reader = cmd.ExecuteReader();
-        while (reader.Read())
-            result.Add(MapRow(reader));
-
-        return Task.FromResult<IReadOnlyList<EntityRelationship>>(result);
+        return Task.FromResult<IReadOnlyList<EntityRelationship>>(rows.ConvertAll(MapRow));
     }
 
     /// <inheritdoc/>
@@ -128,44 +113,59 @@ public sealed class EntityRelationshipRepository : IEntityRelationshipRepository
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT COUNT(*) FROM entity_relationships;";
-        return Task.FromResult(Convert.ToInt32(cmd.ExecuteScalar()));
+        var count = conn.ExecuteScalar<int>("SELECT COUNT(*) FROM entity_relationships;");
+        return Task.FromResult(count);
     }
 
-    // ── Private Helpers ──────────────────────────────────────────────────────
+    // ── Private helpers ───────────────────────────────────────────────────────
 
     private IReadOnlyList<EntityRelationship> QueryEdges(string whereClause, string qid)
     {
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = $"""
-            SELECT subject_qid, relationship_type, object_qid,
-                   confidence, context_work_qid, discovered_at,
-                   start_time, end_time
+        var rows = conn.Query<EntityRelationshipRow>($"""
+            SELECT subject_qid       AS SubjectQid,
+                   relationship_type AS RelationshipTypeValue,
+                   object_qid        AS ObjectQid,
+                   confidence        AS Confidence,
+                   context_work_qid  AS ContextWorkQid,
+                   discovered_at     AS DiscoveredAt,
+                   start_time        AS StartTime,
+                   end_time          AS EndTime
             FROM   entity_relationships
             WHERE  {whereClause}
             ORDER BY relationship_type, object_qid;
-            """;
-        cmd.Parameters.AddWithValue("@qid", qid);
+            """, new { qid }).AsList();
 
-        var result = new List<EntityRelationship>();
-        using var reader = cmd.ExecuteReader();
-        while (reader.Read())
-            result.Add(MapRow(reader));
-
-        return result;
+        return rows.ConvertAll(MapRow);
     }
 
-    private static EntityRelationship MapRow(SqliteDataReader r) => new()
+    // ── Private intermediate row type and mapper ──────────────────────────────
+
+    /// <summary>
+    /// Intermediate row type for Dapper mapping.
+    /// <see cref="DiscoveredAt"/> uses the registered <c>DateTimeOffsetTypeHandler</c>.
+    /// </summary>
+    private sealed class EntityRelationshipRow
     {
-        SubjectQid            = r.GetString(0),
-        RelationshipTypeValue = r.GetString(1),
-        ObjectQid             = r.GetString(2),
-        Confidence            = r.GetDouble(3),
-        ContextWorkQid        = r.IsDBNull(4) ? null : r.GetString(4),
-        DiscoveredAt          = DateTimeOffset.Parse(r.GetString(5)),
-        StartTime             = r.IsDBNull(6) ? null : r.GetString(6),
-        EndTime               = r.IsDBNull(7) ? null : r.GetString(7),
+        public string         SubjectQid            { get; set; } = string.Empty;
+        public string         RelationshipTypeValue { get; set; } = string.Empty;
+        public string         ObjectQid             { get; set; } = string.Empty;
+        public double         Confidence            { get; set; }
+        public string?        ContextWorkQid        { get; set; }
+        public DateTimeOffset DiscoveredAt          { get; set; }
+        public string?        StartTime             { get; set; }
+        public string?        EndTime               { get; set; }
+    }
+
+    private static EntityRelationship MapRow(EntityRelationshipRow r) => new()
+    {
+        SubjectQid            = r.SubjectQid,
+        RelationshipTypeValue = r.RelationshipTypeValue,
+        ObjectQid             = r.ObjectQid,
+        Confidence            = r.Confidence,
+        ContextWorkQid        = r.ContextWorkQid,
+        DiscoveredAt          = r.DiscoveredAt,
+        StartTime             = r.StartTime,
+        EndTime               = r.EndTime,
     };
 }

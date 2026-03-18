@@ -1,11 +1,11 @@
-using Microsoft.Data.Sqlite;
+using Dapper;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Storage;
 
 /// <summary>
-/// ORM-less SQLite implementation of <see cref="IQidLabelRepository"/>.
+/// SQLite implementation of <see cref="IQidLabelRepository"/>.
 ///
 /// The <c>qid_labels</c> table caches Wikidata QID-to-label mappings
 /// locally so that display labels can be resolved without network access.
@@ -27,11 +27,10 @@ public sealed class QidLabelRepository : IQidLabelRepository
         ArgumentException.ThrowIfNullOrWhiteSpace(qid);
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT label FROM qid_labels WHERE qid = @qid;";
-        cmd.Parameters.AddWithValue("@qid", qid);
+        var result = conn.ExecuteScalar<string?>(
+            "SELECT label FROM qid_labels WHERE qid = @qid;",
+            new { qid });
 
-        var result = cmd.ExecuteScalar() as string;
         return Task.FromResult(result);
     }
 
@@ -55,22 +54,23 @@ public sealed class QidLabelRepository : IQidLabelRepository
         {
             ct.ThrowIfCancellationRequested();
 
-            using var cmd = conn.CreateCommand();
+            // Build numbered placeholders and a matching anonymous-object dictionary.
             var placeholders = new string[chunk.Count];
+            var parameters   = new DynamicParameters();
             for (int i = 0; i < chunk.Count; i++)
             {
                 placeholders[i] = $"@q{i}";
-                cmd.Parameters.AddWithValue($"@q{i}", chunk[i]);
+                parameters.Add($"q{i}", chunk[i]);
             }
 
-            cmd.CommandText = $"""
-                SELECT qid, label FROM qid_labels
+            var sql = $"""
+                SELECT qid AS Qid, label AS Label
+                FROM qid_labels
                 WHERE qid IN ({string.Join(',', placeholders)});
                 """;
 
-            using var reader = cmd.ExecuteReader();
-            while (reader.Read())
-                result[reader.GetString(0)] = reader.GetString(1);
+            foreach (var row in conn.Query<(string Qid, string Label)>(sql, parameters))
+                result[row.Qid] = row.Label;
         }
 
         return Task.FromResult<IReadOnlyDictionary<string, string>>(result);
@@ -92,22 +92,22 @@ public sealed class QidLabelRepository : IQidLabelRepository
         try
         {
             using var conn = _db.CreateConnection();
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = """
+            conn.Execute("""
                 INSERT INTO qid_labels (qid, label, description, entity_type, fetched_at, updated_at)
-                VALUES (@qid, @label, @description, @entity_type, @now, @now)
+                VALUES (@qid, @label, @description, @entityType, @now, @now)
                 ON CONFLICT(qid) DO UPDATE SET
                     label       = excluded.label,
                     description = excluded.description,
                     entity_type = COALESCE(excluded.entity_type, qid_labels.entity_type),
                     updated_at  = excluded.updated_at;
-                """;
-            cmd.Parameters.AddWithValue("@qid", qid);
-            cmd.Parameters.AddWithValue("@label", label);
-            cmd.Parameters.AddWithValue("@description", (object?)description ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@entity_type", (object?)entityType ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@now", DateTimeOffset.UtcNow.ToString("o"));
-            cmd.ExecuteNonQuery();
+                """, new
+            {
+                qid,
+                label,
+                description,
+                entityType,
+                now = DateTimeOffset.UtcNow.ToString("o"),
+            });
         }
         finally
         {
@@ -127,14 +127,12 @@ public sealed class QidLabelRepository : IQidLabelRepository
         try
         {
             using var conn = _db.CreateConnection();
-            using var tx = conn.BeginTransaction();
+            using var tx   = conn.BeginTransaction();
             try
             {
-                using var cmd = conn.CreateCommand();
-                cmd.Transaction = tx;
-                cmd.CommandText = """
+                const string sql = """
                     INSERT INTO qid_labels (qid, label, description, entity_type, fetched_at, updated_at)
-                    VALUES (@qid, @label, @description, @entity_type, @fetched_at, @updated_at)
+                    VALUES (@qid, @label, @description, @entityType, @fetchedAt, @updatedAt)
                     ON CONFLICT(qid) DO UPDATE SET
                         label       = excluded.label,
                         description = excluded.description,
@@ -142,23 +140,18 @@ public sealed class QidLabelRepository : IQidLabelRepository
                         updated_at  = excluded.updated_at;
                     """;
 
-                var pQid         = cmd.Parameters.Add("@qid",         SqliteType.Text);
-                var pLabel       = cmd.Parameters.Add("@label",       SqliteType.Text);
-                var pDescription = cmd.Parameters.Add("@description", SqliteType.Text);
-                var pEntityType  = cmd.Parameters.Add("@entity_type", SqliteType.Text);
-                var pFetchedAt   = cmd.Parameters.Add("@fetched_at",  SqliteType.Text);
-                var pUpdatedAt   = cmd.Parameters.Add("@updated_at",  SqliteType.Text);
-
                 foreach (var entry in labels)
                 {
                     ct.ThrowIfCancellationRequested();
-                    pQid.Value         = entry.Qid;
-                    pLabel.Value       = entry.Label;
-                    pDescription.Value = (object?)entry.Description ?? DBNull.Value;
-                    pEntityType.Value  = (object?)entry.EntityType ?? DBNull.Value;
-                    pFetchedAt.Value   = entry.FetchedAt.ToString("o");
-                    pUpdatedAt.Value   = entry.UpdatedAt.ToString("o");
-                    cmd.ExecuteNonQuery();
+                    conn.Execute(sql, new
+                    {
+                        qid         = entry.Qid,
+                        label       = entry.Label,
+                        description = entry.Description,
+                        entityType  = entry.EntityType,
+                        fetchedAt   = entry.FetchedAt.ToString("o"),
+                        updatedAt   = entry.UpdatedAt.ToString("o"),
+                    }, tx);
                 }
 
                 tx.Commit();
@@ -193,31 +186,35 @@ public sealed class QidLabelRepository : IQidLabelRepository
         {
             ct.ThrowIfCancellationRequested();
 
-            using var cmd = conn.CreateCommand();
             var placeholders = new string[chunk.Count];
+            var parameters   = new DynamicParameters();
             for (int i = 0; i < chunk.Count; i++)
             {
                 placeholders[i] = $"@q{i}";
-                cmd.Parameters.AddWithValue($"@q{i}", chunk[i]);
+                parameters.Add($"q{i}", chunk[i]);
             }
 
-            cmd.CommandText = $"""
-                SELECT qid, label, description, entity_type, fetched_at, updated_at
+            var sql = $"""
+                SELECT qid         AS Qid,
+                       label       AS Label,
+                       description AS Description,
+                       entity_type AS EntityType,
+                       fetched_at  AS FetchedAt,
+                       updated_at  AS UpdatedAt
                 FROM qid_labels
                 WHERE qid IN ({string.Join(',', placeholders)});
                 """;
 
-            using var reader = cmd.ExecuteReader();
-            while (reader.Read())
+            foreach (var row in conn.Query<QidLabelRow>(sql, parameters))
             {
                 results.Add(new QidLabel
                 {
-                    Qid         = reader.GetString(0),
-                    Label       = reader.GetString(1),
-                    Description = reader.IsDBNull(2) ? null : reader.GetString(2),
-                    EntityType  = reader.IsDBNull(3) ? null : reader.GetString(3),
-                    FetchedAt   = DateTimeOffset.Parse(reader.GetString(4)),
-                    UpdatedAt   = DateTimeOffset.Parse(reader.GetString(5)),
+                    Qid         = row.Qid,
+                    Label       = row.Label,
+                    Description = row.Description,
+                    EntityType  = row.EntityType,
+                    FetchedAt   = DateTimeOffset.Parse(row.FetchedAt),
+                    UpdatedAt   = DateTimeOffset.Parse(row.UpdatedAt),
                 });
             }
         }
@@ -231,34 +228,46 @@ public sealed class QidLabelRepository : IQidLabelRepository
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
-            SELECT qid, label, description, entity_type, fetched_at, updated_at
+        var rows = conn.Query<QidLabelRow>("""
+            SELECT qid         AS Qid,
+                   label       AS Label,
+                   description AS Description,
+                   entity_type AS EntityType,
+                   fetched_at  AS FetchedAt,
+                   updated_at  AS UpdatedAt
             FROM qid_labels ORDER BY qid;
-            """;
+            """).AsList();
 
-        var results = new List<QidLabel>();
-        using var reader = cmd.ExecuteReader();
-        while (reader.Read())
+        ct.ThrowIfCancellationRequested();
+
+        var results = rows.ConvertAll(row => new QidLabel
         {
-            ct.ThrowIfCancellationRequested();
-            results.Add(new QidLabel
-            {
-                Qid         = reader.GetString(0),
-                Label       = reader.GetString(1),
-                Description = reader.IsDBNull(2) ? null : reader.GetString(2),
-                EntityType  = reader.IsDBNull(3) ? null : reader.GetString(3),
-                FetchedAt   = DateTimeOffset.Parse(reader.GetString(4)),
-                UpdatedAt   = DateTimeOffset.Parse(reader.GetString(5)),
-            });
-        }
+            Qid         = row.Qid,
+            Label       = row.Label,
+            Description = row.Description,
+            EntityType  = row.EntityType,
+            FetchedAt   = DateTimeOffset.Parse(row.FetchedAt),
+            UpdatedAt   = DateTimeOffset.Parse(row.UpdatedAt),
+        });
 
         return Task.FromResult<IReadOnlyList<QidLabel>>(results);
     }
 
-    // -------------------------------------------------------------------------
-    // Helpers
-    // -------------------------------------------------------------------------
+    // ── Private DTO ─────────────────────────────────────────────────────────
+    // QidLabel uses required init-only properties; Dapper cannot construct it
+    // directly. We read into a mutable DTO and convert in code.
+
+    private sealed class QidLabelRow
+    {
+        public string  Qid         { get; set; } = string.Empty;
+        public string  Label       { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public string? EntityType  { get; set; }
+        public string  FetchedAt   { get; set; } = string.Empty;
+        public string  UpdatedAt   { get; set; } = string.Empty;
+    }
+
+    // ── Helpers ─────────────────────────────────────────────────────────────
 
     private static List<List<T>> Chunk<T>(List<T> source, int size)
     {

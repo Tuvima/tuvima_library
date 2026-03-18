@@ -1,3 +1,4 @@
+using Dapper;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Storage.Contracts;
@@ -17,68 +18,72 @@ public sealed class ReaderHighlightRepository : IReaderHighlightRepository
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
-            SELECT id, user_id, asset_id, chapter_index, start_offset, end_offset,
-                   selected_text, color, note_text, created_at
+        var rows = conn.Query<HighlightRow>("""
+            SELECT id            AS Id,
+                   user_id       AS UserId,
+                   asset_id      AS AssetId,
+                   chapter_index AS ChapterIndex,
+                   start_offset  AS StartOffset,
+                   end_offset    AS EndOffset,
+                   selected_text AS SelectedText,
+                   color         AS Color,
+                   note_text     AS NoteText,
+                   created_at    AS CreatedAt
             FROM   reader_highlights
-            WHERE  user_id = @user_id AND asset_id = @asset_id
+            WHERE  user_id = @userId AND asset_id = @assetId
             ORDER BY chapter_index, start_offset;
-            """;
-        cmd.Parameters.AddWithValue("@user_id", userId);
-        cmd.Parameters.AddWithValue("@asset_id", assetId.ToString());
+            """, new { userId, assetId = assetId.ToString() }).AsList();
 
-        using var reader = cmd.ExecuteReader();
-        var results = new List<ReaderHighlight>();
-        while (reader.Read())
-            results.Add(MapHighlight(reader));
-
-        return Task.FromResult<IReadOnlyList<ReaderHighlight>>(results);
+        return Task.FromResult<IReadOnlyList<ReaderHighlight>>(rows.ConvertAll(MapRow));
     }
 
     public Task<ReaderHighlight?> FindByIdAsync(Guid id, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
-            SELECT id, user_id, asset_id, chapter_index, start_offset, end_offset,
-                   selected_text, color, note_text, created_at
+        var row = conn.QueryFirstOrDefault<HighlightRow>("""
+            SELECT id            AS Id,
+                   user_id       AS UserId,
+                   asset_id      AS AssetId,
+                   chapter_index AS ChapterIndex,
+                   start_offset  AS StartOffset,
+                   end_offset    AS EndOffset,
+                   selected_text AS SelectedText,
+                   color         AS Color,
+                   note_text     AS NoteText,
+                   created_at    AS CreatedAt
             FROM   reader_highlights
             WHERE  id = @id
             LIMIT  1;
-            """;
-        cmd.Parameters.AddWithValue("@id", id.ToString());
+            """, new { id = id.ToString() });
 
-        using var reader = cmd.ExecuteReader();
-        var result = reader.Read() ? MapHighlight(reader) : null;
-        return Task.FromResult(result);
+        return Task.FromResult(row is null ? null : MapRow(row));
     }
 
     public Task InsertAsync(ReaderHighlight highlight, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
+        conn.Execute("""
             INSERT INTO reader_highlights
                 (id, user_id, asset_id, chapter_index, start_offset, end_offset,
                  selected_text, color, note_text, created_at)
             VALUES
-                (@id, @user_id, @asset_id, @chapter_index, @start_offset, @end_offset,
-                 @selected_text, @color, @note_text, @created_at);
-            """;
-        cmd.Parameters.AddWithValue("@id", highlight.Id.ToString());
-        cmd.Parameters.AddWithValue("@user_id", highlight.UserId);
-        cmd.Parameters.AddWithValue("@asset_id", highlight.AssetId.ToString());
-        cmd.Parameters.AddWithValue("@chapter_index", highlight.ChapterIndex);
-        cmd.Parameters.AddWithValue("@start_offset", highlight.StartOffset);
-        cmd.Parameters.AddWithValue("@end_offset", highlight.EndOffset);
-        cmd.Parameters.AddWithValue("@selected_text", highlight.SelectedText);
-        cmd.Parameters.AddWithValue("@color", highlight.Color);
-        cmd.Parameters.AddWithValue("@note_text", (object?)highlight.NoteText ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@created_at", highlight.CreatedAt.ToString("O"));
-        cmd.ExecuteNonQuery();
+                (@id, @userId, @assetId, @chapterIndex, @startOffset, @endOffset,
+                 @selectedText, @color, @noteText, @createdAt);
+            """, new
+        {
+            id           = highlight.Id.ToString(),
+            userId       = highlight.UserId,
+            assetId      = highlight.AssetId.ToString(),
+            chapterIndex = highlight.ChapterIndex,
+            startOffset  = highlight.StartOffset,
+            endOffset    = highlight.EndOffset,
+            selectedText = highlight.SelectedText,
+            color        = highlight.Color,
+            noteText     = highlight.NoteText,
+            createdAt    = highlight.CreatedAt.ToString("O"),
+        });
 
         return Task.CompletedTask;
     }
@@ -87,17 +92,12 @@ public sealed class ReaderHighlightRepository : IReaderHighlightRepository
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
+        conn.Execute("""
             UPDATE reader_highlights
             SET    color     = COALESCE(@color, color),
-                   note_text = @note_text
+                   note_text = @noteText
             WHERE  id = @id;
-            """;
-        cmd.Parameters.AddWithValue("@id", id.ToString());
-        cmd.Parameters.AddWithValue("@color", (object?)color ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@note_text", (object?)noteText ?? DBNull.Value);
-        cmd.ExecuteNonQuery();
+            """, new { id = id.ToString(), color, noteText });
 
         return Task.CompletedTask;
     }
@@ -106,25 +106,42 @@ public sealed class ReaderHighlightRepository : IReaderHighlightRepository
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = "DELETE FROM reader_highlights WHERE id = @id;";
-        cmd.Parameters.AddWithValue("@id", id.ToString());
-        cmd.ExecuteNonQuery();
+        conn.Execute(
+            "DELETE FROM reader_highlights WHERE id = @id;",
+            new { id = id.ToString() });
 
         return Task.CompletedTask;
     }
 
-    private static ReaderHighlight MapHighlight(Microsoft.Data.Sqlite.SqliteDataReader r) => new()
+    // ── Private DTO + mapper ─────────────────────────────────────────────────
+    // SQLite stores Guid and DateTime as TEXT strings; Dapper cannot auto-convert
+    // them to Guid/DateTime, so we read into a flat string DTO and convert in code.
+
+    private sealed class HighlightRow
     {
-        Id           = Guid.Parse(r.GetString(0)),
-        UserId       = r.GetString(1),
-        AssetId      = Guid.Parse(r.GetString(2)),
-        ChapterIndex = r.GetInt32(3),
-        StartOffset  = r.GetInt32(4),
-        EndOffset    = r.GetInt32(5),
-        SelectedText = r.GetString(6),
-        Color        = r.GetString(7),
-        NoteText     = r.IsDBNull(8) ? null : r.GetString(8),
-        CreatedAt    = DateTime.Parse(r.GetString(9)),
+        public string  Id           { get; set; } = string.Empty;
+        public string  UserId       { get; set; } = string.Empty;
+        public string  AssetId      { get; set; } = string.Empty;
+        public int     ChapterIndex { get; set; }
+        public int     StartOffset  { get; set; }
+        public int     EndOffset    { get; set; }
+        public string  SelectedText { get; set; } = string.Empty;
+        public string  Color        { get; set; } = string.Empty;
+        public string? NoteText     { get; set; }
+        public string  CreatedAt    { get; set; } = string.Empty;
+    }
+
+    private static ReaderHighlight MapRow(HighlightRow r) => new()
+    {
+        Id           = Guid.Parse(r.Id),
+        UserId       = r.UserId,
+        AssetId      = Guid.Parse(r.AssetId),
+        ChapterIndex = r.ChapterIndex,
+        StartOffset  = r.StartOffset,
+        EndOffset    = r.EndOffset,
+        SelectedText = r.SelectedText,
+        Color        = r.Color,
+        NoteText     = r.NoteText,
+        CreatedAt    = DateTime.Parse(r.CreatedAt),
     };
 }

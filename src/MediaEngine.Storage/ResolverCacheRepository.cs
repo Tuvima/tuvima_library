@@ -1,4 +1,4 @@
-using Microsoft.Data.Sqlite;
+using Dapper;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Storage.Contracts;
 
@@ -22,30 +22,30 @@ public sealed class ResolverCacheRepository : IResolverCacheRepository
     public Task<ResolverCacheEntry?> FindAsync(string cacheKey, CancellationToken ct = default)
     {
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
-            SELECT cache_key, normalized_title, media_type, wikidata_qid,
-                   confidence, entity_label, created_at, expires_at
-            FROM resolver_cache
-            WHERE cache_key = @key
-              AND expires_at > @now;
-            """;
-        cmd.Parameters.AddWithValue("@key", cacheKey);
-        cmd.Parameters.AddWithValue("@now", DateTimeOffset.UtcNow.ToString("O"));
 
-        using var reader = cmd.ExecuteReader();
-        if (!reader.Read())
+        var row = conn.QueryFirstOrDefault<(string CacheKey, string NormalizedTitle, string MediaType,
+            string? WikidataQid, double Confidence, string? EntityLabel,
+            string CreatedAt, string ExpiresAt)>("""
+            SELECT cache_key AS CacheKey, normalized_title AS NormalizedTitle, media_type AS MediaType,
+                   wikidata_qid AS WikidataQid, confidence AS Confidence, entity_label AS EntityLabel,
+                   created_at AS CreatedAt, expires_at AS ExpiresAt
+            FROM resolver_cache
+            WHERE cache_key = @cacheKey
+              AND expires_at > @now
+            """, new { cacheKey, now = DateTimeOffset.UtcNow.ToString("O") });
+
+        if (row == default)
             return Task.FromResult<ResolverCacheEntry?>(null);
 
         var entry = new ResolverCacheEntry(
-            CacheKey:        reader.GetString(0),
-            NormalizedTitle: reader.GetString(1),
-            MediaType:       reader.GetString(2),
-            WikidataQid:     reader.IsDBNull(3) ? null : reader.GetString(3),
-            Confidence:      reader.GetDouble(4),
-            EntityLabel:     reader.IsDBNull(5) ? null : reader.GetString(5),
-            CreatedAt:       DateTimeOffset.Parse(reader.GetString(6)),
-            ExpiresAt:       DateTimeOffset.Parse(reader.GetString(7)));
+            CacheKey:        row.CacheKey,
+            NormalizedTitle: row.NormalizedTitle,
+            MediaType:       row.MediaType,
+            WikidataQid:     row.WikidataQid,
+            Confidence:      row.Confidence,
+            EntityLabel:     row.EntityLabel,
+            CreatedAt:       DateTimeOffset.Parse(row.CreatedAt),
+            ExpiresAt:       DateTimeOffset.Parse(row.ExpiresAt));
 
         return Task.FromResult<ResolverCacheEntry?>(entry);
     }
@@ -56,8 +56,7 @@ public sealed class ResolverCacheRepository : IResolverCacheRepository
         ArgumentNullException.ThrowIfNull(entry);
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
+        conn.Execute("""
             INSERT INTO resolver_cache
                 (cache_key, normalized_title, media_type, wikidata_qid,
                  confidence, entity_label, created_at, expires_at)
@@ -69,19 +68,19 @@ public sealed class ResolverCacheRepository : IResolverCacheRepository
                 confidence   = excluded.confidence,
                 entity_label = excluded.entity_label,
                 created_at   = excluded.created_at,
-                expires_at   = excluded.expires_at;
-            """;
+                expires_at   = excluded.expires_at
+            """, new
+        {
+            key        = entry.CacheKey,
+            title      = entry.NormalizedTitle,
+            mediaType  = entry.MediaType,
+            qid        = entry.WikidataQid,
+            confidence = entry.Confidence,
+            label      = entry.EntityLabel,
+            created    = entry.CreatedAt.ToString("O"),
+            expires    = entry.ExpiresAt.ToString("O"),
+        });
 
-        cmd.Parameters.AddWithValue("@key",        entry.CacheKey);
-        cmd.Parameters.AddWithValue("@title",      entry.NormalizedTitle);
-        cmd.Parameters.AddWithValue("@mediaType",  entry.MediaType);
-        cmd.Parameters.AddWithValue("@qid",        (object?)entry.WikidataQid ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@confidence", entry.Confidence);
-        cmd.Parameters.AddWithValue("@label",      (object?)entry.EntityLabel ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@created",    entry.CreatedAt.ToString("O"));
-        cmd.Parameters.AddWithValue("@expires",    entry.ExpiresAt.ToString("O"));
-
-        cmd.ExecuteNonQuery();
         return Task.CompletedTask;
     }
 
@@ -89,11 +88,10 @@ public sealed class ResolverCacheRepository : IResolverCacheRepository
     public Task<int> PurgeExpiredAsync(CancellationToken ct = default)
     {
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = "DELETE FROM resolver_cache WHERE expires_at <= @now;";
-        cmd.Parameters.AddWithValue("@now", DateTimeOffset.UtcNow.ToString("O"));
+        var deleted = conn.Execute(
+            "DELETE FROM resolver_cache WHERE expires_at <= @now",
+            new { now = DateTimeOffset.UtcNow.ToString("O") });
 
-        int deleted = cmd.ExecuteNonQuery();
         return Task.FromResult(deleted);
     }
 }

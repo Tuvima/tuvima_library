@@ -96,6 +96,11 @@ A single power user who wants complete, private control over a large media colle
 | Real-time intercom | SignalR | Pushes live updates (e.g. "new book added") to the dashboard without a page refresh |
 | Book file reader | VersOne.Epub | Reads the information embedded inside EPUB book files |
 | Engine API documentation | Swashbuckle | Auto-generates an interactive, explorable menu of all the Engine's capabilities at `/swagger` |
+| Structured logging | Serilog | Writes rolling log files so the Engine's actions can be reviewed after the fact |
+| Resilient HTTP calls | Polly (Microsoft.Extensions.Http.Resilience) | Automatically retries failed external API calls with backoff and circuit-breaking |
+| Cron scheduling | Cronos | Runs background maintenance tasks at specific times (e.g. 3 AM) instead of fixed intervals |
+| Standard health probe | ASP.NET Core Health Checks | Exposes `/health` for Docker, monitoring tools, and container orchestrators |
+| Data access layer | Dapper | Lightweight data-access helper that maps database rows to C# objects by column name |
 | Automated quality checks | xUnit + coverlet | Runs a set of automated tests after every change to catch mistakes early |
 | Version control | Git + GitHub | Tracks every change made to the code, with full history |
 
@@ -1716,6 +1721,11 @@ This project uses a two-tier model strategy to balance quality with speed:
 | Cytoscape.js | MIT | Chronicle Engine — Graph visualization for the Chronicle Explorer Dashboard (vendored, no NuGet) |
 | dotNetRDF | MIT | Stage 4c (Universe Graph) — Local in-memory SPARQL graph querying over SQLite data |
 | FuzzySharp | MIT | Fuzzy string matching — candidate re-ranking, title verification, narrator disambiguation, sequel-safe composite scoring |
+| Serilog.AspNetCore | Apache 2.0 | Structured logging with rolling file output for headless Engine operation |
+| Serilog.Sinks.File | Apache 2.0 | Rolling file sink for Serilog — auto-deletes after configurable retention |
+| Microsoft.Extensions.Http.Resilience | MIT | Standard retry, circuit-breaker, and timeout policies for all external HTTP calls (Polly-based) |
+| Cronos | MIT | Lightweight cron expression parser for configurable background task scheduling |
+| Dapper | Apache 2.0 | Micro-ORM for type-safe SQLite data access with named column mapping |
 
 ### 5.2 — Mandatory Workflow
 

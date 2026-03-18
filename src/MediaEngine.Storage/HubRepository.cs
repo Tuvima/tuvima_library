@@ -1,3 +1,4 @@
+using Dapper;
 using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
@@ -6,20 +7,64 @@ using MediaEngine.Storage.Contracts;
 namespace MediaEngine.Storage;
 
 /// <summary>
-/// ORM-less SQLite implementation of <see cref="IHubRepository"/>.
+/// SQLite implementation of <see cref="IHubRepository"/>.
 /// Loads all hubs with their child Works and each Work's CanonicalValues
 /// using two sequential queries (no N+1) — same pattern as
 /// <see cref="MediaAssetRepository"/>.
+///
+/// Uses Dapper for simple single-table queries; raw reader retained for the
+/// complex multi-table JOIN in <see cref="GetAllAsync"/>.
 /// </summary>
 public sealed class HubRepository : IHubRepository
 {
     private readonly IDatabaseConnection _db;
+
+    // Reusable SELECT list for single-hub queries (no table prefix needed).
+    private const string HubSelectColumns = """
+        id             AS Id,
+        universe_id    AS UniverseId,
+        display_name   AS DisplayName,
+        created_at     AS CreatedAt,
+        universe_status AS UniverseStatus,
+        parent_hub_id  AS ParentHubId,
+        wikidata_qid   AS WikidataQid
+        """;
+
+    // Reusable SELECT list for hub_relationships rows.
+    private const string RelSelectColumns = """
+        id            AS Id,
+        hub_id        AS HubId,
+        rel_type      AS RelType,
+        rel_qid       AS RelQid,
+        rel_label     AS RelLabel,
+        confidence    AS Confidence,
+        discovered_at AS DiscoveredAt
+        """;
 
     public HubRepository(IDatabaseConnection db)
     {
         ArgumentNullException.ThrowIfNull(db);
         _db = db;
     }
+
+    // -------------------------------------------------------------------------
+    // Helpers — post-query fixup for Hub rows
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Dapper maps nullable Guid columns to Guid? via the registered type handler,
+    /// but UniverseStatus defaults to null when the DB column is NULL.
+    /// This helper normalises defaults after Dapper mapping.
+    /// </summary>
+    private static Hub NormalizeHub(Hub h)
+    {
+        h.UniverseStatus ??= "Unknown";
+        return h;
+    }
+
+    // -------------------------------------------------------------------------
+    // GetAllAsync — kept as raw reader (complex 3-query grouping pattern)
+    // -------------------------------------------------------------------------
 
     /// <inheritdoc/>
     public Task<IReadOnlyList<Hub>> GetAllAsync(CancellationToken ct = default)
@@ -64,7 +109,6 @@ public sealed class HubRepository : IHubRepository
                 }
 
                 // LEFT JOIN: work columns are NULL when the hub has no works.
-                // h.wikidata_qid is at ordinal 6; w.id starts at ordinal 7.
                 if (!reader.IsDBNull(7))
                 {
                     var workId = Guid.Parse(reader.GetString(7));
@@ -90,10 +134,6 @@ public sealed class HubRepository : IHubRepository
         }
 
         // ── Query B: canonical values for all loaded works ────────────────────
-        // Canonical values are stored with EntityId = media_asset.id (the asset
-        // that was scored), not the work.id.  We join through editions →
-        // media_assets to resolve the correct asset IDs, then project the
-        // work_id so we can attach each value to the right Work object.
         if (works.Count > 0)
         {
             var workIds    = works.Keys.ToList();
@@ -169,6 +209,10 @@ public sealed class HubRepository : IHubRepository
         return Task.FromResult(result);
     }
 
+    // -------------------------------------------------------------------------
+    // Single-hub read methods — converted to Dapper
+    // -------------------------------------------------------------------------
+
     /// <inheritdoc/>
     public Task<Hub?> FindByRelationshipQidAsync(string relType, string qid, CancellationToken ct = default)
     {
@@ -177,74 +221,34 @@ public sealed class HubRepository : IHubRepository
         using var conn = _db.CreateConnection();
 
         // Find the hub that owns a relationship matching (rel_type, rel_qid).
-        Guid? hubId = null;
-        using (var cmd = conn.CreateCommand())
-        {
-            cmd.CommandText = """
-                SELECT hub_id FROM hub_relationships
-                WHERE  rel_type = @relType AND rel_qid = @qid
-                LIMIT  1;
-                """;
-            cmd.Parameters.AddWithValue("@relType", relType);
-            cmd.Parameters.AddWithValue("@qid", qid);
-            var result = cmd.ExecuteScalar();
-            if (result is string s)
-                hubId = Guid.Parse(s);
-        }
+        var hubIdStr = conn.ExecuteScalar<string>("""
+            SELECT hub_id FROM hub_relationships
+            WHERE  rel_type = @relType AND rel_qid = @qid
+            LIMIT  1;
+            """, new { relType, qid });
 
-        if (hubId is null)
+        if (hubIdStr is null)
             return Task.FromResult<Hub?>(null);
 
-        // Load the Hub with its relationships.
-        using var hubCmd = conn.CreateCommand();
-        hubCmd.CommandText = """
-            SELECT id, universe_id, display_name, created_at, universe_status, parent_hub_id, wikidata_qid
-            FROM   hubs WHERE id = @id;
-            """;
-        hubCmd.Parameters.AddWithValue("@id", hubId.Value.ToString());
+        var hubId = Guid.Parse(hubIdStr);
 
-        Hub? hub = null;
-        using (var reader = hubCmd.ExecuteReader())
-        {
-            if (reader.Read())
-            {
-                hub = new Hub
-                {
-                    Id             = Guid.Parse(reader.GetString(0)),
-                    UniverseId     = reader.IsDBNull(1) ? null : Guid.Parse(reader.GetString(1)),
-                    DisplayName    = reader.IsDBNull(2) ? null : reader.GetString(2),
-                    CreatedAt      = DateTimeOffset.Parse(reader.GetString(3)),
-                    UniverseStatus = reader.IsDBNull(4) ? "Unknown" : reader.GetString(4),
-                    ParentHubId    = reader.IsDBNull(5) ? null : Guid.Parse(reader.GetString(5)),
-                    WikidataQid    = reader.IsDBNull(6) ? null : reader.GetString(6),
-                };
-            }
-        }
+        var hub = conn.QueryFirstOrDefault<Hub>($"""
+            SELECT {HubSelectColumns}
+            FROM   hubs WHERE id = @id;
+            """, new { id = hubId.ToString() });
 
         if (hub is null)
             return Task.FromResult<Hub?>(null);
 
+        NormalizeHub(hub);
+
         // Load relationships for this hub.
-        using var relCmd = conn.CreateCommand();
-        relCmd.CommandText = """
-            SELECT id, hub_id, rel_type, rel_qid, rel_label, confidence, discovered_at
+        var rels = conn.Query<HubRelationship>($"""
+            SELECT {RelSelectColumns}
             FROM   hub_relationships WHERE hub_id = @hid;
-            """;
-        relCmd.Parameters.AddWithValue("@hid", hubId.Value.ToString());
-        using var relReader = relCmd.ExecuteReader();
-        while (relReader.Read())
-        {
-            hub.Relationships.Add(new HubRelationship
-            {
-                Id           = Guid.Parse(relReader.GetString(0)),
-                HubId        = hub.Id,
-                RelType      = relReader.GetString(2),
-                RelQid       = relReader.GetString(3),
-                RelLabel     = relReader.IsDBNull(4) ? null : relReader.GetString(4),
-                Confidence   = relReader.GetDouble(5),
-                DiscoveredAt = DateTimeOffset.Parse(relReader.GetString(6)),
-            });
-        }
+            """, new { hid = hubId.ToString() }).AsList();
+
+        hub.Relationships.AddRange(rels);
 
         return Task.FromResult<Hub?>(hub);
     }
@@ -259,26 +263,25 @@ public sealed class HubRepository : IHubRepository
         try
         {
             using var conn = _db.CreateConnection();
-            using var tx = conn.BeginTransaction();
+            using var tx   = conn.BeginTransaction();
 
-            foreach (var rel in relationships)
+            const string sql = """
+                INSERT OR IGNORE INTO hub_relationships (id, hub_id, rel_type, rel_qid, rel_label, confidence, discovered_at)
+                VALUES (@id, @hubId, @relType, @relQid, @relLabel, @confidence, @discoveredAt);
+                """;
+
+            var rows = relationships.Select(r => new
             {
-                using var cmd = conn.CreateCommand();
-                cmd.Transaction = tx;
-                cmd.CommandText = """
-                    INSERT OR IGNORE INTO hub_relationships (id, hub_id, rel_type, rel_qid, rel_label, confidence, discovered_at)
-                    VALUES (@id, @hubId, @relType, @relQid, @relLabel, @confidence, @discoveredAt);
-                    """;
-                cmd.Parameters.AddWithValue("@id", rel.Id.ToString());
-                cmd.Parameters.AddWithValue("@hubId", rel.HubId.ToString());
-                cmd.Parameters.AddWithValue("@relType", rel.RelType);
-                cmd.Parameters.AddWithValue("@relQid", rel.RelQid);
-                cmd.Parameters.AddWithValue("@relLabel", rel.RelLabel ?? (object)DBNull.Value);
-                cmd.Parameters.AddWithValue("@confidence", rel.Confidence);
-                cmd.Parameters.AddWithValue("@discoveredAt", rel.DiscoveredAt.ToString("O"));
-                cmd.ExecuteNonQuery();
-            }
+                id           = r.Id.ToString(),
+                hubId        = r.HubId.ToString(),
+                r.RelType,
+                r.RelQid,
+                relLabel     = r.RelLabel,
+                r.Confidence,
+                discoveredAt = r.DiscoveredAt.ToString("O"),
+            });
 
+            conn.Execute(sql, rows, transaction: tx);
             tx.Commit();
         }
         finally
@@ -293,22 +296,15 @@ public sealed class HubRepository : IHubRepository
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
+        var result = conn.ExecuteScalar<string>("""
             SELECT e.work_id
             FROM   media_assets ma
             JOIN   editions e ON e.id = ma.edition_id
             WHERE  ma.id = @assetId
             LIMIT  1;
-            """;
-        cmd.Parameters.AddWithValue("@assetId", mediaAssetId.ToString());
+            """, new { assetId = mediaAssetId.ToString() });
 
-        using var reader = cmd.ExecuteReader();
-        Guid? result = null;
-        if (reader.Read())
-            result = Guid.Parse(reader.GetString(0));
-
-        return Task.FromResult(result);
+        return Task.FromResult(result is null ? null : (Guid?)Guid.Parse(result));
     }
 
     /// <inheritdoc/>
@@ -317,20 +313,13 @@ public sealed class HubRepository : IHubRepository
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
+        var result = conn.ExecuteScalar<string>("""
             SELECT h.display_name
             FROM   works w
             JOIN   hubs h ON h.id = w.hub_id
             WHERE  w.id = @workId
             LIMIT  1;
-            """;
-        cmd.Parameters.AddWithValue("@workId", workId.ToString());
-
-        using var reader = cmd.ExecuteReader();
-        string? result = null;
-        if (reader.Read() && !reader.IsDBNull(0))
-            result = reader.GetString(0);
+            """, new { workId = workId.ToString() });
 
         return Task.FromResult(result);
     }
@@ -344,13 +333,9 @@ public sealed class HubRepository : IHubRepository
         try
         {
             using var conn = _db.CreateConnection();
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = """
-                UPDATE works SET hub_id = @hubId WHERE id = @workId;
-                """;
-            cmd.Parameters.AddWithValue("@hubId", hubId.ToString());
-            cmd.Parameters.AddWithValue("@workId", workId.ToString());
-            cmd.ExecuteNonQuery();
+            conn.Execute(
+                "UPDATE works SET hub_id = @hubId WHERE id = @workId;",
+                new { hubId = hubId.ToString(), workId = workId.ToString() });
         }
         finally
         {
@@ -366,46 +351,31 @@ public sealed class HubRepository : IHubRepository
         await _db.AcquireWriteLockAsync(ct);
         try
         {
+            var keep  = keepHubId.ToString();
+            var merge = mergeHubId.ToString();
+
             using var conn = _db.CreateConnection();
-            using var tx = conn.BeginTransaction();
+            using var tx   = conn.BeginTransaction();
 
             // Re-assign all Works from mergeHub to keepHub.
-            using (var cmd = conn.CreateCommand())
-            {
-                cmd.Transaction = tx;
-                cmd.CommandText = "UPDATE works SET hub_id = @keep WHERE hub_id = @merge;";
-                cmd.Parameters.AddWithValue("@keep", keepHubId.ToString());
-                cmd.Parameters.AddWithValue("@merge", mergeHubId.ToString());
-                cmd.ExecuteNonQuery();
-            }
+            conn.Execute(
+                "UPDATE works SET hub_id = @keep WHERE hub_id = @merge;",
+                new { keep, merge }, transaction: tx);
 
             // Move all relationships from mergeHub to keepHub (ignore duplicates).
-            using (var cmd = conn.CreateCommand())
-            {
-                cmd.Transaction = tx;
-                cmd.CommandText = "UPDATE OR IGNORE hub_relationships SET hub_id = @keep WHERE hub_id = @merge;";
-                cmd.Parameters.AddWithValue("@keep", keepHubId.ToString());
-                cmd.Parameters.AddWithValue("@merge", mergeHubId.ToString());
-                cmd.ExecuteNonQuery();
-            }
+            conn.Execute(
+                "UPDATE OR IGNORE hub_relationships SET hub_id = @keep WHERE hub_id = @merge;",
+                new { keep, merge }, transaction: tx);
 
             // Delete any remaining relationships on the merged hub (duplicates that couldn't move).
-            using (var cmd = conn.CreateCommand())
-            {
-                cmd.Transaction = tx;
-                cmd.CommandText = "DELETE FROM hub_relationships WHERE hub_id = @merge;";
-                cmd.Parameters.AddWithValue("@merge", mergeHubId.ToString());
-                cmd.ExecuteNonQuery();
-            }
+            conn.Execute(
+                "DELETE FROM hub_relationships WHERE hub_id = @merge;",
+                new { merge }, transaction: tx);
 
             // Delete the merged hub.
-            using (var cmd = conn.CreateCommand())
-            {
-                cmd.Transaction = tx;
-                cmd.CommandText = "DELETE FROM hubs WHERE id = @merge;";
-                cmd.Parameters.AddWithValue("@merge", mergeHubId.ToString());
-                cmd.ExecuteNonQuery();
-            }
+            conn.Execute(
+                "DELETE FROM hubs WHERE id = @merge;",
+                new { merge }, transaction: tx);
 
             tx.Commit();
         }
@@ -421,31 +391,14 @@ public sealed class HubRepository : IHubRepository
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
-            SELECT id, universe_id, display_name, created_at, universe_status, parent_hub_id, wikidata_qid
+        var hub = conn.QueryFirstOrDefault<Hub>($"""
+            SELECT {HubSelectColumns}
             FROM   hubs
             WHERE  LOWER(display_name) = LOWER(@name)
             LIMIT  1;
-            """;
-        cmd.Parameters.AddWithValue("@name", displayName);
+            """, new { name = displayName });
 
-        using var reader = cmd.ExecuteReader();
-        if (!reader.Read())
-            return Task.FromResult<Hub?>(null);
-
-        var hub = new Hub
-        {
-            Id             = Guid.Parse(reader.GetString(0)),
-            UniverseId     = reader.IsDBNull(1) ? null : Guid.Parse(reader.GetString(1)),
-            DisplayName    = reader.IsDBNull(2) ? null : reader.GetString(2),
-            CreatedAt      = DateTimeOffset.Parse(reader.GetString(3)),
-            UniverseStatus = reader.IsDBNull(4) ? "Unknown" : reader.GetString(4),
-            ParentHubId    = reader.IsDBNull(5) ? null : Guid.Parse(reader.GetString(5)),
-            WikidataQid    = reader.IsDBNull(6) ? null : reader.GetString(6),
-        };
-
-        return Task.FromResult<Hub?>(hub);
+        return Task.FromResult(hub is null ? null : (Hub?)NormalizeHub(hub));
     }
 
     /// <inheritdoc/>
@@ -454,29 +407,22 @@ public sealed class HubRepository : IHubRepository
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
-
-        // INSERT OR IGNORE ensures idempotency for new hubs.
-        // UPDATE sets display_name and parent_hub_id on every call so the latest
-        // ingested values win.
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
+        conn.Execute("""
             INSERT OR IGNORE INTO hubs(id, universe_id, parent_hub_id, display_name, created_at, universe_status, wikidata_qid)
                 VALUES (@id, @uid, @phid, @dn, @ca, @us, @wqid);
             UPDATE hubs SET display_name = @dn, universe_status = @us, parent_hub_id = @phid,
                             wikidata_qid = @wqid WHERE id = @id;
-            """;
-        cmd.Parameters.AddWithValue("@id",   hub.Id.ToString());
-        cmd.Parameters.AddWithValue("@uid",  hub.UniverseId.HasValue
-            ? hub.UniverseId.Value.ToString()
-            : (object)DBNull.Value);
-        cmd.Parameters.AddWithValue("@phid", hub.ParentHubId.HasValue
-            ? hub.ParentHubId.Value.ToString()
-            : (object)DBNull.Value);
-        cmd.Parameters.AddWithValue("@dn",   hub.DisplayName ?? (object)DBNull.Value);
-        cmd.Parameters.AddWithValue("@ca",   hub.CreatedAt.ToString("O"));
-        cmd.Parameters.AddWithValue("@us",   hub.UniverseStatus ?? "Unknown");
-        cmd.Parameters.AddWithValue("@wqid", (object?)hub.WikidataQid ?? DBNull.Value);
-        cmd.ExecuteNonQuery();
+            """,
+            new
+            {
+                id   = hub.Id.ToString(),
+                uid  = hub.UniverseId.HasValue ? hub.UniverseId.Value.ToString() : null,
+                phid = hub.ParentHubId.HasValue ? hub.ParentHubId.Value.ToString() : null,
+                dn   = hub.DisplayName,
+                ca   = hub.CreatedAt.ToString("O"),
+                us   = hub.UniverseStatus ?? "Unknown",
+                wqid = hub.WikidataQid,
+            });
 
         return Task.FromResult(hub.Id);
     }
@@ -487,16 +433,17 @@ public sealed class HubRepository : IHubRepository
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
+        conn.Execute("""
             UPDATE works
             SET    universe_mismatch    = 1,
                    universe_mismatch_at = @now
             WHERE  id = @id;
-            """;
-        cmd.Parameters.AddWithValue("@id",  workId.ToString());
-        cmd.Parameters.AddWithValue("@now", DateTimeOffset.UtcNow.ToString("O"));
-        cmd.ExecuteNonQuery();
+            """,
+            new
+            {
+                id  = workId.ToString(),
+                now = DateTimeOffset.UtcNow.ToString("O"),
+            });
 
         return Task.CompletedTask;
     }
@@ -507,17 +454,18 @@ public sealed class HubRepository : IHubRepository
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
+        conn.Execute("""
             UPDATE works
             SET    wikidata_status     = @status,
                    wikidata_checked_at = @now
             WHERE  id = @id;
-            """;
-        cmd.Parameters.AddWithValue("@id",     workId.ToString());
-        cmd.Parameters.AddWithValue("@status", status);
-        cmd.Parameters.AddWithValue("@now",    DateTimeOffset.UtcNow.ToString("O"));
-        cmd.ExecuteNonQuery();
+            """,
+            new
+            {
+                id     = workId.ToString(),
+                status,
+                now    = DateTimeOffset.UtcNow.ToString("O"),
+            });
 
         return Task.CompletedTask;
     }
@@ -531,52 +479,36 @@ public sealed class HubRepository : IHubRepository
         int total = 0;
 
         // Pass 1: Remove editions that have no media assets.
-        using (var cmd = conn.CreateCommand())
-        {
-            cmd.CommandText = """
-                DELETE FROM editions
-                WHERE id NOT IN (
-                    SELECT DISTINCT edition_id FROM media_assets
-                );
-                """;
-            total += cmd.ExecuteNonQuery();
-        }
+        total += conn.Execute("""
+            DELETE FROM editions
+            WHERE id NOT IN (
+                SELECT DISTINCT edition_id FROM media_assets
+            );
+            """);
 
         // Pass 2: Remove works that have no editions (after pass 1).
-        using (var cmd = conn.CreateCommand())
-        {
-            cmd.CommandText = """
-                DELETE FROM works
-                WHERE id NOT IN (
-                    SELECT DISTINCT work_id FROM editions
-                );
-                """;
-            total += cmd.ExecuteNonQuery();
-        }
+        total += conn.Execute("""
+            DELETE FROM works
+            WHERE id NOT IN (
+                SELECT DISTINCT work_id FROM editions
+            );
+            """);
 
         // Pass 3: Remove hubs that have no works (after pass 2),
         // including their child hub_relationships rows.
-        using (var cmd = conn.CreateCommand())
-        {
-            cmd.CommandText = """
-                DELETE FROM hub_relationships
-                WHERE hub_id NOT IN (
-                    SELECT DISTINCT hub_id FROM works
-                );
-                """;
-            cmd.ExecuteNonQuery(); // relationships are not counted in the total
-        }
+        conn.Execute("""
+            DELETE FROM hub_relationships
+            WHERE hub_id NOT IN (
+                SELECT DISTINCT hub_id FROM works
+            );
+            """); // relationships are not counted in the total
 
-        using (var cmd = conn.CreateCommand())
-        {
-            cmd.CommandText = """
-                DELETE FROM hubs
-                WHERE id NOT IN (
-                    SELECT DISTINCT hub_id FROM works
-                );
-                """;
-            total += cmd.ExecuteNonQuery();
-        }
+        total += conn.Execute("""
+            DELETE FROM hubs
+            WHERE id NOT IN (
+                SELECT DISTINCT hub_id FROM works
+            );
+            """);
 
         return Task.FromResult(total);
     }
@@ -587,33 +519,16 @@ public sealed class HubRepository : IHubRepository
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
-            SELECT id, universe_id, display_name, created_at, universe_status, parent_hub_id, wikidata_qid
+        var results = conn.Query<Hub>($"""
+            SELECT {HubSelectColumns}
             FROM   hubs
             WHERE  parent_hub_id = @parentHubId
             ORDER  BY display_name;
-            """;
-        cmd.Parameters.AddWithValue("@parentHubId", parentHubId.ToString());
+            """, new { parentHubId = parentHubId.ToString() })
+            .Select(NormalizeHub)
+            .ToList();
 
-        var results = new List<Hub>();
-        using var reader = cmd.ExecuteReader();
-        while (reader.Read())
-        {
-            results.Add(new Hub
-            {
-                Id             = Guid.Parse(reader.GetString(0)),
-                UniverseId     = reader.IsDBNull(1) ? null : Guid.Parse(reader.GetString(1)),
-                DisplayName    = reader.IsDBNull(2) ? null : reader.GetString(2),
-                CreatedAt      = DateTimeOffset.Parse(reader.GetString(3)),
-                UniverseStatus = reader.IsDBNull(4) ? "Unknown" : reader.GetString(4),
-                ParentHubId    = reader.IsDBNull(5) ? null : Guid.Parse(reader.GetString(5)),
-                WikidataQid    = reader.IsDBNull(6) ? null : reader.GetString(6),
-            });
-        }
-
-        IReadOnlyList<Hub> result = results;
-        return Task.FromResult(result);
+        return Task.FromResult<IReadOnlyList<Hub>>(results);
     }
 
     /// <inheritdoc/>
@@ -625,15 +540,13 @@ public sealed class HubRepository : IHubRepository
         try
         {
             using var conn = _db.CreateConnection();
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = """
-                UPDATE hubs SET parent_hub_id = @parentHubId WHERE id = @id;
-                """;
-            cmd.Parameters.AddWithValue("@parentHubId", parentHubId.HasValue
-                ? parentHubId.Value.ToString()
-                : (object)DBNull.Value);
-            cmd.Parameters.AddWithValue("@id", hubId.ToString());
-            cmd.ExecuteNonQuery();
+            conn.Execute(
+                "UPDATE hubs SET parent_hub_id = @parentHubId WHERE id = @id;",
+                new
+                {
+                    parentHubId = parentHubId.HasValue ? parentHubId.Value.ToString() : null,
+                    id          = hubId.ToString(),
+                });
         }
         finally
         {
@@ -647,34 +560,23 @@ public sealed class HubRepository : IHubRepository
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
-            SELECT h.id, h.universe_id, h.display_name, h.created_at, h.universe_status, h.parent_hub_id, h.wikidata_qid
+        var hub = conn.QueryFirstOrDefault<Hub>($"""
+            SELECT h.id             AS Id,
+                   h.universe_id    AS UniverseId,
+                   h.display_name   AS DisplayName,
+                   h.created_at     AS CreatedAt,
+                   h.universe_status AS UniverseStatus,
+                   h.parent_hub_id  AS ParentHubId,
+                   h.wikidata_qid   AS WikidataQid
             FROM   hubs h
             INNER JOIN hub_relationships hr ON hr.hub_id = h.id
             WHERE  hr.rel_qid = @qid
               AND  hr.rel_type IN ('franchise', 'fictional_universe')
               AND  h.parent_hub_id IS NULL
             LIMIT  1;
-            """;
-        cmd.Parameters.AddWithValue("@qid", qid);
+            """, new { qid });
 
-        using var reader = cmd.ExecuteReader();
-        if (!reader.Read())
-            return Task.FromResult<Hub?>(null);
-
-        var hub = new Hub
-        {
-            Id             = Guid.Parse(reader.GetString(0)),
-            UniverseId     = reader.IsDBNull(1) ? null : Guid.Parse(reader.GetString(1)),
-            DisplayName    = reader.IsDBNull(2) ? null : reader.GetString(2),
-            CreatedAt      = DateTimeOffset.Parse(reader.GetString(3)),
-            UniverseStatus = reader.IsDBNull(4) ? "Unknown" : reader.GetString(4),
-            ParentHubId    = reader.IsDBNull(5) ? null : Guid.Parse(reader.GetString(5)),
-            WikidataQid    = reader.IsDBNull(6) ? null : reader.GetString(6),
-        };
-
-        return Task.FromResult<Hub?>(hub);
+        return Task.FromResult(hub is null ? null : (Hub?)NormalizeHub(hub));
     }
 
     /// <inheritdoc/>
@@ -683,22 +585,16 @@ public sealed class HubRepository : IHubRepository
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
+        var results = conn.Query<string>("""
             SELECT DISTINCT hub_id
             FROM   hub_relationships
             WHERE  rel_qid  = @qid
               AND  rel_type IN ('franchise', 'fictional_universe');
-            """;
-        cmd.Parameters.AddWithValue("@qid", qid);
+            """, new { qid })
+            .Select(Guid.Parse)
+            .ToList();
 
-        var results = new List<Guid>();
-        using var reader = cmd.ExecuteReader();
-        while (reader.Read())
-            results.Add(Guid.Parse(reader.GetString(0)));
-
-        IReadOnlyList<Guid> result = results;
-        return Task.FromResult(result);
+        return Task.FromResult<IReadOnlyList<Guid>>(results);
     }
 
     /// <inheritdoc/>
@@ -707,32 +603,13 @@ public sealed class HubRepository : IHubRepository
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
-            SELECT id, hub_id, rel_type, rel_qid, rel_label, confidence, discovered_at
+        var results = conn.Query<HubRelationship>($"""
+            SELECT {RelSelectColumns}
             FROM   hub_relationships
             WHERE  hub_id = @hubId;
-            """;
-        cmd.Parameters.AddWithValue("@hubId", hubId.ToString());
+            """, new { hubId = hubId.ToString() }).AsList();
 
-        var results = new List<HubRelationship>();
-        using var reader = cmd.ExecuteReader();
-        while (reader.Read())
-        {
-            results.Add(new HubRelationship
-            {
-                Id           = Guid.Parse(reader.GetString(0)),
-                HubId        = Guid.Parse(reader.GetString(1)),
-                RelType      = reader.GetString(2),
-                RelQid       = reader.GetString(3),
-                RelLabel     = reader.IsDBNull(4) ? null : reader.GetString(4),
-                Confidence   = reader.GetDouble(5),
-                DiscoveredAt = DateTimeOffset.Parse(reader.GetString(6)),
-            });
-        }
-
-        IReadOnlyList<HubRelationship> result = results;
-        return Task.FromResult(result);
+        return Task.FromResult<IReadOnlyList<HubRelationship>>(results);
     }
 
     /// <inheritdoc/>
@@ -741,31 +618,14 @@ public sealed class HubRepository : IHubRepository
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
-            SELECT id, universe_id, display_name, created_at, universe_status, parent_hub_id, wikidata_qid
+        var hub = conn.QueryFirstOrDefault<Hub>($"""
+            SELECT {HubSelectColumns}
             FROM   hubs
             WHERE  id = @id
             LIMIT  1;
-            """;
-        cmd.Parameters.AddWithValue("@id", hubId.ToString());
+            """, new { id = hubId.ToString() });
 
-        using var reader = cmd.ExecuteReader();
-        if (!reader.Read())
-            return Task.FromResult<Hub?>(null);
-
-        var hub = new Hub
-        {
-            Id             = Guid.Parse(reader.GetString(0)),
-            UniverseId     = reader.IsDBNull(1) ? null : Guid.Parse(reader.GetString(1)),
-            DisplayName    = reader.IsDBNull(2) ? null : reader.GetString(2),
-            CreatedAt      = DateTimeOffset.Parse(reader.GetString(3)),
-            UniverseStatus = reader.IsDBNull(4) ? "Unknown" : reader.GetString(4),
-            ParentHubId    = reader.IsDBNull(5) ? null : Guid.Parse(reader.GetString(5)),
-            WikidataQid    = reader.IsDBNull(6) ? null : reader.GetString(6),
-        };
-
-        return Task.FromResult<Hub?>(hub);
+        return Task.FromResult(hub is null ? null : (Hub?)NormalizeHub(hub));
     }
 
     /// <inheritdoc/>
@@ -774,29 +634,13 @@ public sealed class HubRepository : IHubRepository
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
-            SELECT id, universe_id, display_name, created_at, universe_status,
-                   parent_hub_id, wikidata_qid
+        var hub = conn.QueryFirstOrDefault<Hub>($"""
+            SELECT {HubSelectColumns}
             FROM   hubs
             WHERE  wikidata_qid = @qid
             LIMIT  1;
-            """;
-        cmd.Parameters.AddWithValue("@qid", qid);
+            """, new { qid });
 
-        using var reader = cmd.ExecuteReader();
-        if (!reader.Read())
-            return Task.FromResult<Hub?>(null);
-
-        return Task.FromResult<Hub?>(new Hub
-        {
-            Id             = Guid.Parse(reader.GetString(0)),
-            UniverseId     = reader.IsDBNull(1) ? null : Guid.Parse(reader.GetString(1)),
-            DisplayName    = reader.IsDBNull(2) ? null : reader.GetString(2),
-            CreatedAt      = DateTimeOffset.Parse(reader.GetString(3)),
-            UniverseStatus = reader.IsDBNull(4) ? "Unknown" : reader.GetString(4),
-            ParentHubId    = reader.IsDBNull(5) ? null : Guid.Parse(reader.GetString(5)),
-            WikidataQid    = reader.IsDBNull(6) ? null : reader.GetString(6),
-        });
+        return Task.FromResult(hub is null ? null : (Hub?)NormalizeHub(hub));
     }
 }

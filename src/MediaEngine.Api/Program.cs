@@ -136,6 +136,10 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 // ── Storage / Database ────────────────────────────────────────────────────────
+// Register Dapper type handlers for Guid ↔ string and DateTimeOffset ↔ ISO-8601
+// conversions.  Must run before any Dapper queries execute.
+DapperConfiguration.Configure();
+
 // TUVIMA_DB_PATH overrides the config value — used by Docker and the installer
 // to pin the database to a persistent volume outside the container image.
 string dbPath = Environment.GetEnvironmentVariable("TUVIMA_DB_PATH")

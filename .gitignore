@@ -63,3 +63,6 @@ tools/ffmpeg/*.exe
 tools/ffmpeg/*.dll
 tools/reports/*.txt
 tools/reports/*.log
+
+# Serilog rolling log files — generated at runtime, never committed
+logs/

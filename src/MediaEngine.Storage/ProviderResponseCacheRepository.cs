@@ -1,4 +1,4 @@
-using Microsoft.Data.Sqlite;
+using Dapper;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Storage.Contracts;
 
@@ -10,8 +10,6 @@ namespace MediaEngine.Storage;
 /// Caches raw JSON responses from metadata provider API calls to prevent
 /// redundant HTTP requests for the same query.  Entries have a per-provider
 /// TTL and support ETag-based conditional revalidation.
-///
-/// ORM-less: all SQL is executed via <see cref="SqliteCommand"/>.
 /// </summary>
 public sealed class ProviderResponseCacheRepository : IProviderResponseCacheRepository
 {
@@ -29,25 +27,18 @@ public sealed class ProviderResponseCacheRepository : IProviderResponseCacheRepo
         ArgumentException.ThrowIfNullOrWhiteSpace(cacheKey);
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
-            SELECT response_json, etag
+        var row = conn.QueryFirstOrDefault<(string ResponseJson, string? Etag)>("""
+            SELECT response_json AS ResponseJson,
+                   etag          AS Etag
             FROM   provider_response_cache
-            WHERE  cache_key  = @key
+            WHERE  cache_key  = @cacheKey
               AND  expires_at > @now;
-            """;
-        cmd.Parameters.AddWithValue("@key", cacheKey);
-        cmd.Parameters.AddWithValue("@now", DateTimeOffset.UtcNow.ToString("O"));
+            """, new { cacheKey, now = DateTimeOffset.UtcNow.ToString("O") });
 
-        using var reader = cmd.ExecuteReader();
-        if (reader.Read())
-        {
-            var json = reader.GetString(0);
-            var etag = reader.IsDBNull(1) ? null : reader.GetString(1);
-            return Task.FromResult<CachedResponse?>(new CachedResponse(json, etag));
-        }
+        if (row == default)
+            return Task.FromResult<CachedResponse?>(null);
 
-        return Task.FromResult<CachedResponse?>(null);
+        return Task.FromResult<CachedResponse?>(new CachedResponse(row.ResponseJson, row.Etag));
     }
 
     /// <inheritdoc/>
@@ -64,32 +55,31 @@ public sealed class ProviderResponseCacheRepository : IProviderResponseCacheRepo
         ArgumentException.ThrowIfNullOrWhiteSpace(providerId);
         ArgumentException.ThrowIfNullOrWhiteSpace(responseJson);
 
-        var now = DateTimeOffset.UtcNow;
+        var now       = DateTimeOffset.UtcNow;
         var expiresAt = now.AddHours(ttlHours);
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
+        conn.Execute("""
             INSERT INTO provider_response_cache
                 (cache_key, provider_id, query_hash, response_json, etag, fetched_at, expires_at)
             VALUES
-                (@key, @pid, @qhash, @json, @etag, @fetched, @expires)
+                (@cacheKey, @providerId, @queryHash, @responseJson, @etag, @fetchedAt, @expiresAt)
             ON CONFLICT(cache_key) DO UPDATE SET
                 response_json = excluded.response_json,
                 etag          = excluded.etag,
                 fetched_at    = excluded.fetched_at,
                 expires_at    = excluded.expires_at;
-            """;
+            """, new
+        {
+            cacheKey,
+            providerId,
+            queryHash,
+            responseJson,
+            etag,
+            fetchedAt = now.ToString("O"),
+            expiresAt = expiresAt.ToString("O"),
+        });
 
-        cmd.Parameters.AddWithValue("@key",     cacheKey);
-        cmd.Parameters.AddWithValue("@pid",     providerId);
-        cmd.Parameters.AddWithValue("@qhash",   queryHash);
-        cmd.Parameters.AddWithValue("@json",    responseJson);
-        cmd.Parameters.AddWithValue("@etag",    (object?)etag ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@fetched", now.ToString("O"));
-        cmd.Parameters.AddWithValue("@expires", expiresAt.ToString("O"));
-
-        cmd.ExecuteNonQuery();
         return Task.CompletedTask;
     }
 
@@ -99,17 +89,14 @@ public sealed class ProviderResponseCacheRepository : IProviderResponseCacheRepo
         ArgumentException.ThrowIfNullOrWhiteSpace(cacheKey);
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
+        var result = conn.ExecuteScalar<string?>("""
             SELECT etag
             FROM   provider_response_cache
-            WHERE  cache_key = @key
+            WHERE  cache_key = @cacheKey
               AND  etag IS NOT NULL;
-            """;
-        cmd.Parameters.AddWithValue("@key", cacheKey);
+            """, new { cacheKey });
 
-        var result = cmd.ExecuteScalar();
-        return Task.FromResult(result as string);
+        return Task.FromResult(result);
     }
 
     /// <inheritdoc/>
@@ -120,16 +107,12 @@ public sealed class ProviderResponseCacheRepository : IProviderResponseCacheRepo
         var expiresAt = DateTimeOffset.UtcNow.AddHours(ttlHours);
 
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
+        conn.Execute("""
             UPDATE provider_response_cache
-            SET    expires_at = @expires
-            WHERE  cache_key  = @key;
-            """;
-        cmd.Parameters.AddWithValue("@key",     cacheKey);
-        cmd.Parameters.AddWithValue("@expires", expiresAt.ToString("O"));
+            SET    expires_at = @expiresAt
+            WHERE  cache_key  = @cacheKey;
+            """, new { cacheKey, expiresAt = expiresAt.ToString("O") });
 
-        cmd.ExecuteNonQuery();
         return Task.CompletedTask;
     }
 
@@ -137,14 +120,11 @@ public sealed class ProviderResponseCacheRepository : IProviderResponseCacheRepo
     public Task<int> PurgeExpiredAsync(CancellationToken ct = default)
     {
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
+        var count = conn.Execute("""
             DELETE FROM provider_response_cache
             WHERE  expires_at <= @now;
-            """;
-        cmd.Parameters.AddWithValue("@now", DateTimeOffset.UtcNow.ToString("O"));
+            """, new { now = DateTimeOffset.UtcNow.ToString("O") });
 
-        var count = cmd.ExecuteNonQuery();
         return Task.FromResult(count);
     }
 
@@ -152,10 +132,7 @@ public sealed class ProviderResponseCacheRepository : IProviderResponseCacheRepo
     public Task<int> ClearAllAsync(CancellationToken ct = default)
     {
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = "DELETE FROM provider_response_cache;";
-
-        var count = cmd.ExecuteNonQuery();
+        var count = conn.Execute("DELETE FROM provider_response_cache;");
         return Task.FromResult(count);
     }
 
@@ -163,25 +140,26 @@ public sealed class ProviderResponseCacheRepository : IProviderResponseCacheRepo
     public Task<CacheStats> GetStatsAsync(CancellationToken ct = default)
     {
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
+        var row = conn.QueryFirstOrDefault<StatsRow>("""
             SELECT
-                COUNT(*),
-                SUM(CASE WHEN expires_at > @now THEN 1 ELSE 0 END),
-                MIN(fetched_at)
+                COUNT(*) AS Total,
+                SUM(CASE WHEN expires_at > @now THEN 1 ELSE 0 END) AS Active,
+                MIN(fetched_at) AS OldestFetchedAt
             FROM provider_response_cache;
-            """;
-        cmd.Parameters.AddWithValue("@now", DateTimeOffset.UtcNow.ToString("O"));
+            """, new { now = DateTimeOffset.UtcNow.ToString("O") });
 
-        using var reader = cmd.ExecuteReader();
-        if (reader.Read())
-        {
-            var total   = reader.GetInt32(0);
-            var active  = reader.IsDBNull(1) ? 0 : reader.GetInt32(1);
-            var oldest  = reader.IsDBNull(2) ? null : reader.GetString(2);
-            return Task.FromResult(new CacheStats(total, active, oldest));
-        }
+        if (row is null)
+            return Task.FromResult(new CacheStats(0, 0, null));
 
-        return Task.FromResult(new CacheStats(0, 0, null));
+        return Task.FromResult(new CacheStats(row.Total, row.Active, row.OldestFetchedAt));
+    }
+
+    // ── Private DTO ─────────────────────────────────────────────────────────
+
+    private sealed class StatsRow
+    {
+        public int     Total          { get; set; }
+        public int     Active         { get; set; }
+        public string? OldestFetchedAt { get; set; }
     }
 }
