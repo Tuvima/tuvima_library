@@ -1847,7 +1847,16 @@ public sealed class EngineApiClient : IEngineApiClient
             if (missingUniverseOnly)
                 url += "&missingUniverseOnly=true";
 
-            return await _http.GetFromJsonAsync<RegistryPageResponse>(url, ct);
+            var response = await _http.GetFromJsonAsync<RegistryPageResponse>(url, ct);
+            if (response?.Items is not null)
+            {
+                foreach (var item in response.Items)
+                {
+                    if (item.CoverUrl is not null)
+                        item.CoverUrl = AbsoluteUrl(item.CoverUrl);
+                }
+            }
+            return response;
         }
         catch (OperationCanceledException) { return null; }
         catch (Exception ex)
@@ -1863,8 +1872,11 @@ public sealed class EngineApiClient : IEngineApiClient
     {
         try
         {
-            return await _http.GetFromJsonAsync<RegistryItemDetailViewModel>(
+            var detail = await _http.GetFromJsonAsync<RegistryItemDetailViewModel>(
                 $"/registry/items/{entityId}/detail", ct);
+            if (detail?.CoverUrl is not null)
+                detail.CoverUrl = AbsoluteUrl(detail.CoverUrl);
+            return detail;
         }
         catch (OperationCanceledException) { return null; }
         catch (Exception ex)

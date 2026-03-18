@@ -2464,18 +2464,102 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     private static IReadOnlyList<PersonReference> ExtractPersonReferencesFromRawClaims(
         IReadOnlyList<ProviderClaim> rawClaims)
     {
-        // Convert the raw claims to a CanonicalValue-like lookup by taking the
-        // LAST claim for each key (most recent wins).
-        var byKey = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        // Accumulate ALL values per key as a list (preserves multi-valued fields like author).
+        var byKey = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
         foreach (var c in rawClaims)
-            byKey[c.Key] = c.Value;   // last write wins
+        {
+            if (!byKey.TryGetValue(c.Key, out var list))
+            {
+                list = [];
+                byKey[c.Key] = list;
+            }
+            list.Add(c.Value);
+        }
 
-        // Wrap as fake CanonicalValue list so the existing helper can be reused.
-        var fakeCanonicals = byKey
-            .Select(kv => new CanonicalValue { Key = kv.Key, Value = kv.Value })
+        var refs = new List<PersonReference>();
+        AddPersonRefsFromLists(refs, "Author",   byKey, "author",    "author_qid");
+        AddPersonRefsFromLists(refs, "Narrator", byKey, "narrator",  "narrator_qid");
+        AddPersonRefsFromLists(refs, "Narrator", byKey, "performer", "performer_qid");
+        AddPersonRefsFromLists(refs, "Director", byKey, "director",  "director_qid");
+
+        // Collective pseudonym constituent members.
+        if (byKey.TryGetValue("collective_members_qid", out var collectiveValues))
+        {
+            foreach (var segment in collectiveValues)
+            {
+                var colonIndex = segment.IndexOf("::", StringComparison.Ordinal);
+                if (colonIndex > 0)
+                {
+                    var qid   = segment[..colonIndex].Trim();
+                    var label = segment[(colonIndex + 2)..].Trim();
+                    if (!string.IsNullOrEmpty(label) && !string.IsNullOrEmpty(qid))
+                    {
+                        var alreadyPresent = refs.Any(r =>
+                            string.Equals(r.WikidataQid, qid, StringComparison.OrdinalIgnoreCase));
+                        if (!alreadyPresent)
+                            refs.Add(new PersonReference("Author", label, qid));
+                    }
+                }
+            }
+        }
+
+        // Deduplicate by (Role, QID or Name).
+        return refs
+            .GroupBy(r => (r.Role, Key: r.WikidataQid ?? r.Name),
+                     new RoleKeyComparer())
+            .Select(g => g.First())
             .ToList();
+    }
 
-        return ExtractPersonReferences(fakeCanonicals);
+    /// <summary>
+    /// Builds person references from a list-based claim accumulator.
+    /// Pairs name claims with QID counterparts by index (they are emitted in matching order
+    /// by <c>ExtensionToClaims</c>).
+    /// </summary>
+    private static void AddPersonRefsFromLists(
+        List<PersonReference> refs,
+        string role,
+        Dictionary<string, List<string>> byKey,
+        string nameKey,
+        string qidKey)
+    {
+        if (!byKey.TryGetValue(nameKey, out var names))
+            return;
+
+        byKey.TryGetValue(qidKey, out var qids);
+
+        for (int i = 0; i < names.Count; i++)
+        {
+            var name = names[i];
+            if (string.IsNullOrWhiteSpace(name))
+                continue;
+
+            string? qid = null;
+            if (qids is not null && i < qids.Count)
+            {
+                var segment = qids[i];
+                var colonIdx = segment.IndexOf("::", StringComparison.Ordinal);
+                if (colonIdx > 0)
+                    qid = segment[..colonIdx].Trim();
+                else if (!string.IsNullOrWhiteSpace(segment))
+                    qid = segment.Trim();
+            }
+
+            refs.Add(new PersonReference(role, name, string.IsNullOrEmpty(qid) ? null : qid));
+        }
+    }
+
+    /// <summary>Comparer for deduplicating person references by (Role, Key) tuple.</summary>
+    private sealed class RoleKeyComparer : IEqualityComparer<(string Role, string Key)>
+    {
+        public bool Equals((string Role, string Key) x, (string Role, string Key) y) =>
+            StringComparer.OrdinalIgnoreCase.Equals(x.Role, y.Role) &&
+            StringComparer.OrdinalIgnoreCase.Equals(x.Key, y.Key);
+
+        public int GetHashCode((string Role, string Key) obj) =>
+            HashCode.Combine(
+                StringComparer.OrdinalIgnoreCase.GetHashCode(obj.Role),
+                StringComparer.OrdinalIgnoreCase.GetHashCode(obj.Key));
     }
 
     /// Extracts person references (author, narrator) from canonical values
@@ -2493,6 +2577,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
 
         AddPersonRefs(refs, "Author",   canonicals, "author",   "author_qid");
         AddPersonRefs(refs, "Narrator", canonicals, "narrator", "narrator_qid");
+        AddPersonRefs(refs, "Narrator", canonicals, "performer", "performer_qid");
         AddPersonRefs(refs, "Director", canonicals, "director", "director_qid");
 
         // Collective pseudonym constituent members: the author audit query
@@ -2523,7 +2608,12 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             }
         }
 
-        return refs;
+        // Deduplicate by (Role, QID or Name) — e.g. same person as both narrator and performer.
+        return refs
+            .GroupBy(r => (r.Role, Key: r.WikidataQid ?? r.Name),
+                     new RoleKeyComparer())
+            .Select(g => g.First())
+            .ToList();
     }
 
     /// <summary>

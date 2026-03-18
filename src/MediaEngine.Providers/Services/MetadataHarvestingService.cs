@@ -670,6 +670,8 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
             {
                 foreach (var realQidList in attributedTo)
                 {
+                    // DEPRECATED: |||  safety net for legacy SPARQL data. New Reconciliation API
+                    // emits individual claims — this split is a no-op for new data.
                     var qids = realQidList.Split("|||", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
                     foreach (var rawQid in qids)
                     {
@@ -698,6 +700,7 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
 
             foreach (var penQidList in pseudonymQids)
             {
+                // DEPRECATED: ||| safety net for legacy SPARQL data.
                 var qids = penQidList.Split("|||", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
                 foreach (var rawQid in qids)
                 {
@@ -941,6 +944,9 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
     /// Normalizes multi-valued strings that use <c>|||</c> separator into
     /// human-readable comma-separated form (e.g. "Actor, Screenwriter, Producer").
     /// Returns <c>null</c> for null/whitespace input.
+    /// <para>DEPRECATED: Legacy safety net. New Reconciliation API emits individual claims;
+    /// canonical_values_array stores decomposed values. This helper is retained for
+    /// backward compatibility with pre-array data.</para>
     /// </summary>
     private static string? NormalizeMultiValue(string? value)
     {

@@ -158,7 +158,7 @@ public sealed class NarrativeRootResolver : INarrativeRootResolver
             qid = rawQid.Contains('/') ? rawQid.Split('/')[^1] : rawQid;
         }
 
-        // Multi-valued: take the first QID only (broadest universe)
+        // DEPRECATED: ||| safety net for legacy SPARQL data. New claims are individual values.
         if (qid.Contains("|||"))
             qid = qid.Split("|||")[0].Trim();
 
@@ -197,6 +197,7 @@ public sealed class NarrativeRootResolver : INarrativeRootResolver
         if (lookup.TryGetValue($"{claimKey}_qid", out var val) && !string.IsNullOrWhiteSpace(val))
         {
             var qid = val.Contains('/') ? val.Split('/')[^1] : val;
+            // DEPRECATED: ||| safety net for legacy data.
             if (qid.Contains("|||")) qid = qid.Split("|||")[0].Trim();
             if (qid.Contains("::")) qid = qid.Split("::", 2)[0];
             return qid;

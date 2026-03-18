@@ -659,8 +659,13 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             if (string.IsNullOrWhiteSpace(request.Title))
                 return [];
 
+            // Clean audiobook titles before reconciliation — strip "(Unabridged)", ": A Novel", etc.
+            var searchTitle = request.MediaType == MediaType.Audiobooks
+                ? CleanAudiobookTitle(request.Title)
+                : request.Title;
+
             var constraints = BuildTitleSearchConstraints(request);
-            var candidates  = await ReconcileAsync(request.Title, constraints, ct).ConfigureAwait(false);
+            var candidates  = await ReconcileAsync(searchTitle, constraints, ct).ConfigureAwait(false);
 
             if (candidates.Count == 0)
             {
@@ -691,15 +696,21 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
 
             // Fuzzy title verification — prevent blind acceptance of wrong Wikidata entities.
             // A high Wikidata reconciliation score does not guarantee the title matches.
+            // Audiobooks get a relaxed threshold (0.50) because file titles often contain
+            // extra text like narrator names, edition info, or subtitle variations.
             if (!string.IsNullOrWhiteSpace(request.Title))
             {
-                var titleMatch = _fuzzy.ComputeTokenSetRatio(request.Title, top.Label);
-                if (titleMatch < 0.60)
+                var compareTitle = request.MediaType == MediaType.Audiobooks
+                    ? CleanAudiobookTitle(request.Title)
+                    : request.Title;
+                var fuzzyThreshold = request.MediaType == MediaType.Audiobooks ? 0.50 : 0.60;
+                var titleMatch = _fuzzy.ComputeTokenSetRatio(compareTitle, top.Label);
+                if (titleMatch < fuzzyThreshold)
                 {
                     _logger.LogDebug(
                         "{Provider}: title mismatch for top candidate '{Label}' ({QID}) — " +
-                        "fuzzy score {Score:F2} < 0.60 against local title '{LocalTitle}'",
-                        Name, top.Label, top.QID, titleMatch, request.Title);
+                        "fuzzy score {Score:F2} < {Threshold:F2} against local title '{LocalTitle}'",
+                        Name, top.Label, top.QID, titleMatch, fuzzyThreshold, compareTitle);
                     return [];
                 }
             }
@@ -739,30 +750,8 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         }
 
         // Extend the resolved QID with work properties.
-        // For audiobooks with a resolved edition, target the edition QID so we get
-        // edition-level bridge IDs (ISBN-13, ASIN). Also always emit a claim for the
-        // master work QID so that Hub grouping is correct.
-        var extendQid = audiobookEditionQid ?? qid;
         var workProps = _config.DataExtension.WorkProperties;
-        var allProps  = workProps.Core
-            .Concat(workProps.Bridges)
-            .Concat(workProps.Editions)
-            .Distinct()
-            .ToList();
-
-        // Inject language-specific label (Len) and description (Den) magic suffixes.
         var language = _configLoader?.LoadCore().Language ?? "en";
-        allProps.Add($"L{language}");
-        allProps.Add($"D{language}");
-
-        if (allProps.Count == 0)
-            return [new ProviderClaim("wikidata_qid", masterWorkQid, 1.0)];
-
-        // Step 3: Run Data Extension against the edition QID for audiobooks (pivot target),
-        // or the master work QID for all other media types.
-        var extensions = await ExtendAsync([extendQid], allProps, ct).ConfigureAwait(false);
-        var extData    = extensions.FirstOrDefault(e =>
-            string.Equals(e.QID, extendQid, StringComparison.OrdinalIgnoreCase));
 
         var claims = new List<ProviderClaim>
         {
@@ -780,8 +769,72 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         if (!string.IsNullOrWhiteSpace(reconciliationLabel))
             claims.Add(new ProviderClaim("title", reconciliationLabel, 0.93));
 
-        if (extData is not null)
-            claims.AddRange(ExtensionToClaims(extData, _config.DataExtension.PropertyLabels, isWork: true));
+        // extData holds the master work extension result — used by pen name detection and
+        // edition bridge ID resolution below. Set inside both branches.
+        ExtensionResult? extData = null;
+
+        if (audiobookEditionQid is not null)
+        {
+            // ── Dual Data Extension for audiobooks ──
+            // Audiobook editions on Wikidata often lack P50 (author) and P577 (year) —
+            // those live on the master work. Run TWO calls:
+            // 1. Master work QID → core properties (author, year, title, genre, series)
+            // 2. Edition QID → edition-specific properties (performer, ASIN, duration, ISBN)
+
+            // Master work: core properties + language labels
+            var masterProps = workProps.Core.ToList();
+            masterProps.Add($"L{language}");
+            masterProps.Add($"D{language}");
+
+            var masterExtensions = await ExtendAsync([masterWorkQid], masterProps, ct).ConfigureAwait(false);
+            extData = masterExtensions.FirstOrDefault(e =>
+                string.Equals(e.QID, masterWorkQid, StringComparison.OrdinalIgnoreCase));
+            if (extData is not null)
+                claims.AddRange(ExtensionToClaims(extData, _config.DataExtension.PropertyLabels, isWork: true));
+
+            // Edition: edition-specific properties + bridges
+            var editionProps = (_config.DataExtension.AudiobookEditionProperties ?? [])
+                .Concat(workProps.Bridges)
+                .Concat(workProps.Editions)
+                .Distinct()
+                .ToList();
+
+            if (editionProps.Count > 0)
+            {
+                var editionExtensions = await ExtendAsync([audiobookEditionQid], editionProps, ct).ConfigureAwait(false);
+                var editionData = editionExtensions.FirstOrDefault(e =>
+                    string.Equals(e.QID, audiobookEditionQid, StringComparison.OrdinalIgnoreCase));
+                if (editionData is not null)
+                    claims.AddRange(ExtensionToClaims(editionData, _config.DataExtension.PropertyLabels, isWork: true));
+            }
+
+            _logger.LogDebug(
+                "{Provider}: dual Data Extension for audiobook — master {MasterQID} ({MasterCount} props) + " +
+                "edition {EditionQID} ({EditionCount} props)",
+                Name, masterWorkQid, masterProps.Count, audiobookEditionQid, editionProps.Count);
+        }
+        else
+        {
+            // ── Standard single Data Extension ──
+            var allProps = workProps.Core
+                .Concat(workProps.Bridges)
+                .Concat(workProps.Editions)
+                .Distinct()
+                .ToList();
+
+            allProps.Add($"L{language}");
+            allProps.Add($"D{language}");
+
+            if (allProps.Count == 0)
+                return [new ProviderClaim("wikidata_qid", masterWorkQid, 1.0)];
+
+            var extensions = await ExtendAsync([qid], allProps, ct).ConfigureAwait(false);
+            extData = extensions.FirstOrDefault(e =>
+                string.Equals(e.QID, qid, StringComparison.OrdinalIgnoreCase));
+
+            if (extData is not null)
+                claims.AddRange(ExtensionToClaims(extData, _config.DataExtension.PropertyLabels, isWork: true));
+        }
 
         // ── Pen name detection via P50 + P742 ────────────────────────────────
         // When Wikidata P50 lists 2+ authors (e.g. Daniel Abraham + Ty Franck for
@@ -1420,10 +1473,10 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 }
 
                 // Emit individual companion _qid claim per entity value.
-                // Always use the QID as the label — more reliable across languages.
+                // Use the human-readable label when available; fall back to QID.
                 if (!string.IsNullOrWhiteSpace(val.Id))
                 {
-                    var label = val.Id;
+                    var label = val.Label ?? val.Str ?? val.Id;
                     yield return new ProviderClaim($"{claimKey}_qid", $"{val.Id}::{label}", 0.90);
                 }
 
@@ -1481,6 +1534,36 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         "P5842" => true, // apple_podcasts_id
         _       => false,
     };
+
+    /// <summary>
+    /// Strips common audiobook title suffixes that interfere with Wikidata reconciliation.
+    /// Examples: "(Unabridged)", ": A Novel", "- A Memoir", "(Audiobook)", etc.
+    /// </summary>
+    private static string CleanAudiobookTitle(string title)
+    {
+        // Remove parenthesized/bracketed suffixes: (Unabridged), [Abridged], (Audiobook), etc.
+        var cleaned = System.Text.RegularExpressions.Regex.Replace(
+            title,
+            @"\s*[\(\[]\s*(?:Unabridged|Abridged|Audiobook|Audio\s*Edition|Narrated)\s*[\)\]]",
+            "",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase).Trim();
+
+        // Remove trailing subtitle patterns: ": A Novel", "- A Memoir", ": A Thriller", etc.
+        cleaned = System.Text.RegularExpressions.Regex.Replace(
+            cleaned,
+            @"\s*[:\-–—]\s*A\s+(?:Novel|Memoir|Thriller|Mystery|Romance|Story|Tale|Novella|Biography|History)\s*$",
+            "",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase).Trim();
+
+        // Remove trailing "A Novel" etc. without separator
+        cleaned = System.Text.RegularExpressions.Regex.Replace(
+            cleaned,
+            @"\s+A\s+(?:Novel|Memoir)\s*$",
+            "",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase).Trim();
+
+        return string.IsNullOrWhiteSpace(cleaned) ? title : cleaned;
+    }
 
     private static string? ExtractYear(string isoDate)
     {
