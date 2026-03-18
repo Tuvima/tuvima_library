@@ -858,6 +858,11 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 claims.AddRange(ExtensionToClaims(extData, _config.DataExtension.PropertyLabels, isWork: true));
         }
 
+        // Fix entity reference labels that may be in wrong language.
+        // The Data Extension API returns entity names in Wikidata's "best" language,
+        // not necessarily the configured language. Re-fetch labels for person entities.
+        claims = await FixEntityReferenceLabelsAsync(claims, language, ct).ConfigureAwait(false);
+
         // ── Pen name detection via P50 + P742 ────────────────────────────────
         // When Wikidata P50 lists 2+ authors (e.g. Daniel Abraham + Ty Franck for
         // "The Expanse"), their individual real names become the author claims. But if
@@ -1096,6 +1101,9 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
 
         if (extData is not null)
             claims.AddRange(ExtensionToClaims(extData, _config.DataExtension.PropertyLabels, isWork: false));
+
+        // Fix entity reference labels that may be in wrong language.
+        claims = await FixEntityReferenceLabelsAsync(claims, language, ct).ConfigureAwait(false);
 
         _logger.LogInformation("{Provider}: fetched {Count} person claims for QID {QID}",
             Name, claims.Count, qid);
@@ -1678,6 +1686,139 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     {
         var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(input));
         return Convert.ToHexString(bytes).ToLowerInvariant();
+    }
+
+    // ── Private: Entity reference label language correction ──────────────────
+
+    /// <summary>
+    /// Re-fetches entity labels for person-role claims (author, director, performer)
+    /// when the Data Extension API returns labels in the wrong language.
+    /// The <c>uselang</c> parameter only affects the <c>meta</c> section of the response —
+    /// entity reference labels in <c>rows</c> are returned in Wikidata's "best" language,
+    /// which may be Cyrillic, CJK, etc. even when the configured language is English.
+    /// </summary>
+    private async Task<List<ProviderClaim>> FixEntityReferenceLabelsAsync(
+        List<ProviderClaim> claims,
+        string language,
+        CancellationToken ct)
+    {
+        // Person-role keys whose labels come from entity references.
+        var personKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "author", "director", "performer", "narrator", "illustrator",
+            "screenwriter", "composer", "voice_actor", "cast_member",
+        };
+
+        // Collect entity QIDs from companion _qid claims for person fields.
+        // Format: "Q123::Label" — extract the QID.
+        var qidsToFix = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase); // QID → current label
+        foreach (var claim in claims)
+        {
+            if (!claim.Key.EndsWith("_qid", StringComparison.OrdinalIgnoreCase))
+                continue;
+            var baseKey = claim.Key[..^4]; // strip "_qid"
+            if (!personKeys.Contains(baseKey))
+                continue;
+
+            var colonIdx = claim.Value.IndexOf("::", StringComparison.Ordinal);
+            if (colonIdx <= 0) continue;
+
+            var qid   = claim.Value[..colonIdx].Trim();
+            var label = claim.Value[(colonIdx + 2)..].Trim();
+
+            // Check if label contains non-Latin characters (likely wrong language).
+            if (!string.IsNullOrEmpty(label) && ContainsNonLatinCharacters(label))
+                qidsToFix[qid] = label;
+        }
+
+        if (qidsToFix.Count == 0)
+            return claims; // All labels are fine
+
+        // Fetch L{lang} labels for the problematic QIDs.
+        _logger.LogDebug(
+            "{Provider}: {Count} entity reference label(s) contain non-Latin characters; " +
+            "re-fetching L{Lang} labels",
+            Name, qidsToFix.Count, language);
+
+        var extensions = await ExtendAsync(
+            qidsToFix.Keys.ToList(), [$"L{language}"], ct).ConfigureAwait(false);
+
+        var fixedLabels = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var ext in extensions)
+        {
+            if (ext.Properties.TryGetValue($"L{language}", out var values) && values.Count > 0)
+            {
+                var englishLabel = values[0].Str;
+                if (!string.IsNullOrWhiteSpace(englishLabel))
+                    fixedLabels[ext.QID] = englishLabel;
+            }
+        }
+
+        if (fixedLabels.Count == 0)
+            return claims; // No English labels found (Wikidata doesn't have them)
+
+        // Replace wrong-language labels in claims.
+        var result = new List<ProviderClaim>(claims.Count);
+        foreach (var claim in claims)
+        {
+            // Fix companion _qid claims: "Q123::WrongLabel" → "Q123::EnglishLabel"
+            if (claim.Key.EndsWith("_qid", StringComparison.OrdinalIgnoreCase))
+            {
+                var colonIdx = claim.Value.IndexOf("::", StringComparison.Ordinal);
+                if (colonIdx > 0)
+                {
+                    var qid = claim.Value[..colonIdx].Trim();
+                    if (fixedLabels.TryGetValue(qid, out var fixedLabel))
+                    {
+                        result.Add(new ProviderClaim(claim.Key, $"{qid}::{fixedLabel}", claim.Confidence));
+                        continue;
+                    }
+                }
+            }
+
+            // Fix primary label claims (author, director, etc.)
+            var baseKey2 = claim.Key;
+            if (personKeys.Contains(baseKey2) && ContainsNonLatinCharacters(claim.Value))
+            {
+                // Find the QID for this claim value by checking companion claims.
+                var qidKey = $"{baseKey2}_qid";
+                var companionClaim = claims.FirstOrDefault(c =>
+                    string.Equals(c.Key, qidKey, StringComparison.OrdinalIgnoreCase) &&
+                    c.Value.Contains(claim.Value, StringComparison.OrdinalIgnoreCase));
+
+                if (companionClaim is not null)
+                {
+                    var cIdx = companionClaim.Value.IndexOf("::", StringComparison.Ordinal);
+                    if (cIdx > 0)
+                    {
+                        var qid = companionClaim.Value[..cIdx].Trim();
+                        if (fixedLabels.TryGetValue(qid, out var fixedLabel))
+                        {
+                            result.Add(new ProviderClaim(claim.Key, fixedLabel, claim.Confidence));
+                            continue;
+                        }
+                    }
+                }
+            }
+
+            result.Add(claim);
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Returns true if the string contains characters outside the Basic Latin and
+    /// Latin Extended ranges (non-ASCII-Latin scripts like Cyrillic, CJK, Arabic, etc.).
+    /// </summary>
+    private static bool ContainsNonLatinCharacters(string s)
+    {
+        foreach (var c in s)
+        {
+            if (c > 0x024F && !char.IsPunctuation(c) && !char.IsWhiteSpace(c) && !char.IsDigit(c))
+                return true;
+        }
+        return false;
     }
 
     // ── Private: Language substitution ───────────────────────────────────────
