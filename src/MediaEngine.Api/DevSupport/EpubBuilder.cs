@@ -22,7 +22,11 @@ public static class EpubBuilder
         string isbn,
         int    year,
         string description,
-        string? publisher = null)
+        string? publisher = null,
+        string language = "en",
+        string[]? additionalAuthors = null,
+        string? series = null,
+        int? seriesPosition = null)
     {
         using var stream = new MemoryStream();
         using (var archive = new ZipArchive(stream, ZipArchiveMode.Create, leaveOpen: true))
@@ -34,7 +38,7 @@ public static class EpubBuilder
             AddEntry(archive, "META-INF/container.xml", ContainerXml());
 
             // 3. OEBPS/content.opf — OPF package with metadata
-            AddEntry(archive, "OEBPS/content.opf", ContentOpf(title, author, isbn, year, description, publisher));
+            AddEntry(archive, "OEBPS/content.opf", ContentOpf(title, author, isbn, year, description, publisher, language, additionalAuthors, series, seriesPosition));
 
             // 4. OEBPS/toc.ncx — minimal NCX for EPUB 2 compat
             AddEntry(archive, "OEBPS/toc.ncx", TocNcx(title, isbn));
@@ -78,11 +82,39 @@ public static class EpubBuilder
         """;
 
     private static string ContentOpf(string title, string author, string isbn,
-        int year, string description, string? publisher)
+        int year, string description, string? publisher,
+        string language = "en", string[]? additionalAuthors = null,
+        string? series = null, int? seriesPosition = null)
     {
         string pubNode = publisher is not null
             ? $"\n    <dc:publisher>{Escape(publisher)}</dc:publisher>"
             : "";
+
+        // Additional dc:creator elements for co-authors.
+        var extraCreators = new StringBuilder();
+        if (additionalAuthors is not null)
+        {
+            foreach (string coAuthor in additionalAuthors)
+            {
+                extraCreators.AppendLine($"    <dc:creator>{Escape(coAuthor)}</dc:creator>");
+            }
+        }
+
+        // Calibre-style series metadata (widely used by ebook managers).
+        string seriesNodes = "";
+        if (series is not null)
+        {
+            seriesNodes = $"""
+
+                <meta name="calibre:series" content="{Escape(series)}"/>
+                <meta name="calibre:series_index" content="{seriesPosition ?? 1}"/>
+            """;
+        }
+
+        // ISBN identifier — use a UUID fallback when ISBN is empty.
+        string identifierValue = !string.IsNullOrEmpty(isbn)
+            ? $"urn:isbn:{isbn}"
+            : $"urn:uuid:{Guid.NewGuid()}";
 
         return $"""
             <?xml version="1.0" encoding="UTF-8"?>
@@ -90,10 +122,11 @@ public static class EpubBuilder
               <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
                 <dc:title>{Escape(title)}</dc:title>
                 <dc:creator>{Escape(author)}</dc:creator>
-                <dc:identifier id="bookid">urn:isbn:{isbn}</dc:identifier>
-                <dc:language>en</dc:language>
-                <dc:date>{year}-01-01</dc:date>
-                <dc:description>{Escape(description)}</dc:description>{pubNode}
+            {extraCreators.ToString().TrimEnd()}
+                <dc:identifier id="bookid">{identifierValue}</dc:identifier>
+                <dc:language>{Escape(language)}</dc:language>
+                <dc:date>{(year > 0 ? $"{year}-01-01" : "")}</dc:date>
+                <dc:description>{Escape(description)}</dc:description>{pubNode}{seriesNodes}
               </metadata>
               <manifest>
                 <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>
