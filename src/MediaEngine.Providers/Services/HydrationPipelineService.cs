@@ -299,6 +299,77 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             "[HYDRATION] Starting pipeline for entity {Id} — title: \"{Title}\", media type: {MediaType}",
             request.EntityId, titleHintForLog, request.MediaType);
 
+        // ── Language mismatch guard (before Stage 1) ────────────────────────
+        // If the file declares a language that differs from the configured app
+        // language, block the entire pipeline immediately — no Wikidata call is
+        // made, saving the API call for items that should never be hydrated.
+        if (request.EntityType == EntityType.MediaAsset)
+        {
+            try
+            {
+                var earlyCanonicals = await _canonicalRepo.GetByEntityAsync(request.EntityId, ct)
+                    .ConfigureAwait(false);
+                var langCanonical = earlyCanonicals.FirstOrDefault(c =>
+                    string.Equals(c.Key, "language", StringComparison.OrdinalIgnoreCase));
+
+                if (langCanonical is not null && !string.IsNullOrWhiteSpace(langCanonical.Value))
+                {
+                    var coreConfig     = _configLoader.LoadCore();
+                    var appLanguage    = coreConfig.Language ?? "en";
+                    var fileLang       = langCanonical.Value.Split('-', '_')[0].ToLowerInvariant().Trim();
+                    var configuredLang = appLanguage.Split('-', '_')[0].ToLowerInvariant().Trim();
+
+                    if (!string.IsNullOrEmpty(fileLang)
+                        && !string.IsNullOrEmpty(configuredLang)
+                        && !string.Equals(fileLang, configuredLang, StringComparison.OrdinalIgnoreCase))
+                    {
+                        _logger.LogInformation(
+                            "[HYDRATION] Skipping pipeline for entity {Id} — language '{Lang}' does not match configured '{ConfigLang}'",
+                            request.EntityId, fileLang, configuredLang);
+
+                        var langResult               = new HydrationResult();
+                        var langDeferredNotifications = new List<Guid>();
+
+                        await CreateReviewItemAsync(
+                            request, ReviewTrigger.LanguageMismatch, 0.0,
+                            $"File language '{langCanonical.Value}' does not match the configured library language '{appLanguage}'. " +
+                            "This may be a foreign edition or incorrectly tagged file.",
+                            langResult, ct, langDeferredNotifications).ConfigureAwait(false);
+
+                        // Publish deferred SignalR notifications (same pattern as end-of-pipeline flush).
+                        foreach (var rid in langDeferredNotifications)
+                        {
+                            try
+                            {
+                                var review = await _reviewRepo.GetByIdAsync(rid, ct).ConfigureAwait(false);
+                                if (review?.Status == ReviewStatus.Pending)
+                                {
+                                    await _eventPublisher.PublishAsync(
+                                        "ReviewItemCreated",
+                                        new ReviewItemCreatedEvent(
+                                            review.Id, review.EntityId, review.Trigger, null),
+                                        ct).ConfigureAwait(false);
+                                }
+                            }
+                            catch (Exception evEx) when (evEx is not OperationCanceledException)
+                            {
+                                _logger.LogWarning(evEx,
+                                    "Failed to publish language-mismatch ReviewItemCreated event for review {ReviewId}", rid);
+                            }
+                        }
+
+                        return langResult;
+                    }
+                }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogDebug(ex,
+                    "Language mismatch pre-check failed for entity {Id}; continuing",
+                    request.EntityId);
+            }
+        }
+
         var result       = new HydrationResult();
         var hydration    = _configLoader.LoadHydration();
         var provConfigs  = _configLoader.LoadAllProviders();
@@ -656,51 +727,6 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
 
         s1Ms = stageSw.ElapsedMilliseconds;
         stageSw.Restart();
-
-        // ── Language mismatch check (between Stage 1 and Stage 2) ────────────
-        // If the file's embedded dc:language tag declares a language different from
-        // the configured app language, flag it for user review immediately. This
-        // ensures foreign-language books are surfaced before Stage 2 enrichment
-        // proceeds with potentially incorrect metadata.
-        if (request.EntityType == EntityType.MediaAsset)
-        {
-            try
-            {
-                var canonicalsAfterS1 = await _canonicalRepo.GetByEntityAsync(request.EntityId, ct)
-                    .ConfigureAwait(false);
-                var langCanonical = canonicalsAfterS1.FirstOrDefault(c =>
-                    string.Equals(c.Key, "language", StringComparison.OrdinalIgnoreCase));
-
-                if (langCanonical is not null && !string.IsNullOrWhiteSpace(langCanonical.Value))
-                {
-                    var appLanguage = _configLoader.LoadCore().Language ?? "en";
-                    // Normalize both to primary subtag for comparison ("en-US" → "en").
-                    var fileLang = langCanonical.Value.Split('-', '_')[0].ToLowerInvariant().Trim();
-                    var configuredLang = appLanguage.Split('-', '_')[0].ToLowerInvariant().Trim();
-
-                    if (!string.IsNullOrEmpty(fileLang)
-                        && !string.IsNullOrEmpty(configuredLang)
-                        && !string.Equals(fileLang, configuredLang, StringComparison.OrdinalIgnoreCase))
-                    {
-                        _logger.LogInformation(
-                            "Language mismatch detected for entity {Id}: file declares '{FileLang}', configured language is '{ConfiguredLang}'",
-                            request.EntityId, fileLang, configuredLang);
-
-                        await CreateReviewItemAsync(
-                            request, ReviewTrigger.LanguageMismatch, 0.0,
-                            $"File language '{langCanonical.Value}' does not match the configured library language '{appLanguage}'. " +
-                            "This may be a foreign edition or incorrectly tagged file.",
-                            result, ct, deferredReviewNotifications).ConfigureAwait(false);
-                    }
-                }
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                _logger.LogDebug(ex,
-                    "Language mismatch check failed for entity {Id}; continuing",
-                    request.EntityId);
-            }
-        }
 
         // ── Stage 2: Enrichment (Waterfall) ─────────────────────────────────
         //
