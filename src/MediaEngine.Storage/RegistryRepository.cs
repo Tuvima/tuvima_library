@@ -139,7 +139,7 @@ public sealed class RegistryRepository : IRegistryRepository
                     ad.file_path_root,
                     wd.wikidata_status,
                     CASE
-                        WHEN wd.wikidata_qid IS NOT NULL AND wd.wikidata_qid != '' THEN 'matched'
+                        WHEN wd.wikidata_qid IS NOT NULL AND wd.wikidata_qid != '' AND wd.wikidata_qid NOT LIKE 'NF%' THEN 'matched'
                         WHEN rd.review_id IS NOT NULL AND rd.trigger = 'AuthorityMatchFailed' THEN 'failed'
                         WHEN rd.review_id IS NOT NULL THEN 'warning'
                         ELSE 'none'

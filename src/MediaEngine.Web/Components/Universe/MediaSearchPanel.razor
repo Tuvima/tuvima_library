@@ -2,24 +2,6 @@
 
 <div class="search-panel">
 
-    @* ── Tab Selection (Both / Data / Images) ── *@
-    <div class="search-panel-tabs">
-        <button class="search-tab @(_searchMode == "both" ? "search-tab-active" : "")"
-                @onclick="@(() => SwitchSearchMode("both"))">
-            <MudIcon Icon="@Icons.Material.Outlined.AllInclusive" Size="Size.Small" Style="margin-right: 4px;" />
-            Both
-        </button>
-        <button class="search-tab @(_searchMode == "data" ? "search-tab-active" : "")"
-                @onclick="@(() => SwitchSearchMode("data"))">
-            <MudIcon Icon="@Icons.Material.Outlined.Public" Size="Size.Small" Style="margin-right: 4px;" />
-            Data
-        </button>
-        <button class="search-tab @(_searchMode == "images" ? "search-tab-active" : "")"
-                @onclick="@(() => SwitchSearchMode("images"))">
-            <MudIcon Icon="@Icons.Material.Outlined.Image" Size="Size.Small" Style="margin-right: 4px;" />
-            Images
-        </button>
-    </div>
 
     @* ── Comparison View (renders in-place when a candidate is selected) ── *@
     @if (_comparisonCandidate != null)
@@ -260,20 +242,7 @@
         {
             <MudProgressLinear Indeterminate="true" Color="Color.Primary"
                                Class="mt-2 mb-2" Style="border-radius: 4px;" />
-            <p class="search-panel-hint">
-                @if (_searchMode == "data")
-                {
-                    <text>Searching Wikidata…</text>
-                }
-                else if (_searchMode == "images")
-                {
-                    <text>Searching retail providers for cover art…</text>
-                }
-                else
-                {
-                    <text>Searching Wikidata and retail providers…</text>
-                }
-            </p>
+            <p class="search-panel-hint">Searching Wikidata…</p>
         }
 
         @if (!string.IsNullOrEmpty(_errorMessage))
@@ -282,16 +251,9 @@
         }
 
         @* ── Results: Data (Wikidata / Universe) ── *@
-        @if ((_searchMode == "both" || _searchMode == "data") && _universeCandidates.Count > 0)
+        @if (_universeCandidates.Count > 0)
         {
             <div class="sp-results-section">
-                @if (_searchMode == "both")
-                {
-                    <div class="sp-section-label">
-                        <MudIcon Icon="@Icons.Material.Outlined.Public" Size="Size.Small" Style="margin-right: 4px; color: #C9922E;" />
-                        Wikidata Matches
-                    </div>
-                }
 
                 @* Best match — first candidate gets promoted treatment *@
                 @{
@@ -383,117 +345,7 @@
             </div>
         }
 
-        @* ── Results: Images (Retail) ── *@
-        @if ((_searchMode == "both" || _searchMode == "images") && _retailCandidates.Count > 0)
-        {
-            <div class="sp-results-section">
-                @if (_searchMode == "both")
-                {
-                    <div class="sp-section-label">
-                        <MudIcon Icon="@Icons.Material.Outlined.Image" Size="Size.Small" Style="margin-right: 4px; color: #888;" />
-                        Image Matches
-                    </div>
-                }
 
-                @* Retail best match *@
-                @if (_retailCandidates.Count > 0)
-                {
-                    var retailBest = _retailCandidates[0];
-                    var retailConfColor = GetTrafficLightColor(retailBest.Confidence);
-                    <div class="sp-best-match-card" style="border-left-color: @retailConfColor;"
-                         @onclick="@(() => OpenComparison(retailBest))">
-                        @if (_searchMode == "images")
-                        {
-                            <div class="sp-best-match-badge">BEST MATCH</div>
-                        }
-                        <div class="sp-result-inner">
-                            <div class="search-result-cover">
-                                @if (!string.IsNullOrEmpty(retailBest.CoverUrl))
-                                {
-                                    <img src="@retailBest.CoverUrl" alt="" class="search-result-img" loading="lazy" />
-                                }
-                                else
-                                {
-                                    <div class="search-result-img-placeholder">
-                                        <MudIcon Icon="@Icons.Material.Outlined.Image" Size="Size.Medium" Style="opacity: 0.3;" />
-                                    </div>
-                                }
-                            </div>
-                            <div class="search-result-details">
-                                <div class="search-result-title">@retailBest.Title</div>
-                                @RenderRetailMeta(retailBest)
-                                @RenderDescription(retailBest.Description)
-                                <div class="search-result-footer">
-                                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
-                                             Style="font-size: 0.65rem; height: 18px; padding: 0 6px; color: rgba(255,255,255,0.4); border-color: rgba(255,255,255,0.15);">
-                                        @retailBest.ProviderName
-                                    </MudChip>
-                                    @RenderConfidenceChip(retailBest.Confidence)
-                                </div>
-                                @RenderMatchSignals(retailBest.MatchScores, null)
-                            </div>
-                        </div>
-                        @if (_searchMode == "images")
-                        {
-                            <div @onclick:stopPropagation="true" style="align-self: flex-end; margin-top: 8px;">
-                                <MudButton Variant="Variant.Filled"
-                                           Size="Size.Small"
-                                           OnClick="@(() => OpenComparison(retailBest))"
-                                           Style="@($"background: {retailConfColor}; color: #000; font-weight: 700;")">
-                                    Match &amp; Confirm
-                                </MudButton>
-                            </div>
-                        }
-                    </div>
-
-                    @* Other retail candidates (collapsible) *@
-                    @if (_retailCandidates.Count > 1)
-                    {
-                        <button class="sp-other-toggle" @onclick="@(() => _showOtherRetailCandidates = !_showOtherRetailCandidates)">
-                            <MudIcon Icon="@(_showOtherRetailCandidates ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
-                                     Size="Size.Small" Style="margin-right: 4px;" />
-                            @(_showOtherRetailCandidates ? "Hide" : "Show") @(_retailCandidates.Count - 1) other candidate@(_retailCandidates.Count - 1 == 1 ? "" : "s")
-                        </button>
-
-                        @if (_showOtherRetailCandidates)
-                        {
-                            <div class="search-results-grid">
-                                @for (int ri = 1; ri < _retailCandidates.Count; ri++)
-                                {
-                                    var localRc = _retailCandidates[ri];
-                                    <div class="search-result-card" @onclick="@(() => OpenComparison(localRc))">
-                                        <div class="search-result-cover">
-                                            @if (!string.IsNullOrEmpty(localRc.CoverUrl))
-                                            {
-                                                <img src="@localRc.CoverUrl" alt="" class="search-result-img" loading="lazy" />
-                                            }
-                                            else
-                                            {
-                                                <div class="search-result-img-placeholder">
-                                                    <MudIcon Icon="@Icons.Material.Outlined.Image" Size="Size.Medium" Style="opacity: 0.3;" />
-                                                </div>
-                                            }
-                                        </div>
-                                        <div class="search-result-details">
-                                            <div class="search-result-title">@localRc.Title</div>
-                                            @RenderRetailMeta(localRc)
-                                            @RenderDescription(localRc.Description)
-                                            <div class="search-result-footer">
-                                                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
-                                                         Style="font-size: 0.65rem; height: 18px; padding: 0 6px; color: rgba(255,255,255,0.4); border-color: rgba(255,255,255,0.15);">
-                                                    @localRc.ProviderName
-                                                </MudChip>
-                                                @RenderConfidenceChip(localRc.Confidence)
-                                            </div>
-                                        </div>
-                                    </div>
-                                }
-                            </div>
-                        }
-                    }
-                }
-            </div>
-        }
 
         @* No results / Did you mean *@
         @if (_hasSearched && !_searching && HasNoResults())
@@ -1096,14 +948,12 @@
 
     private string _query     = "";
     private string _mediaType = "Epub";
-    private string _searchMode = "both";
 
     private bool _searching;
     private bool _applying;
     private bool _hasSearched;
     private bool _showManualForm;
     private bool _showOtherUniverseCandidates;
-    private bool _showOtherRetailCandidates;
 
     // Comparison mode: either UniverseCandidateDto or RetailCandidateDto
     private object? _comparisonCandidate;
@@ -1111,7 +961,6 @@
     private List<DiffRow> _diffRows = [];
 
     private List<UniverseCandidateDto> _universeCandidates = [];
-    private List<RetailCandidateDto>   _retailCandidates   = [];
 
     private string? _errorMessage;
     private string? _successMessage;
@@ -1119,7 +968,6 @@
 
     // ── Search cache (component lifetime) ────────────────────────────────
     private readonly Dictionary<string, List<UniverseCandidateDto>> _universeCache = new();
-    private readonly Dictionary<string, List<RetailCandidateDto>>   _retailCache   = new();
 
     // ── Lifecycle ──────────────────────────────────────────────────────────
 
@@ -1170,45 +1018,22 @@
         _errorMessage = null;
         _successMessage = null;
         _universeCandidates = [];
-        _retailCandidates   = [];
         _showOtherUniverseCandidates = false;
-        _showOtherRetailCandidates   = false;
 
         var queryKey = _query.Trim().ToLowerInvariant();
 
         try
         {
-            var fetchUniverse = _searchMode is "both" or "data";
-            var fetchRetail   = _searchMode is "both" or "images";
-
-            if (fetchUniverse)
+            var cacheKey = $"data|{queryKey}|{_mediaType}";
+            if (_universeCache.TryGetValue(cacheKey, out var cached))
             {
-                var cacheKey = $"data|{queryKey}|{_mediaType}";
-                if (_universeCache.TryGetValue(cacheKey, out var cached))
-                {
-                    _universeCandidates = cached;
-                }
-                else
-                {
-                    var result = await Orchestrator.SearchUniverseAsync(_query, _mediaType, maxCandidates: 5);
-                    _universeCandidates = result;
-                    _universeCache[cacheKey] = result;
-                }
+                _universeCandidates = cached;
             }
-
-            if (fetchRetail)
+            else
             {
-                var cacheKey = $"images|{queryKey}|{_mediaType}";
-                if (_retailCache.TryGetValue(cacheKey, out var cached))
-                {
-                    _retailCandidates = cached;
-                }
-                else
-                {
-                    var result = await Orchestrator.SearchRetailAsync(_query, _mediaType, maxCandidates: 8);
-                    _retailCandidates = result;
-                    _retailCache[cacheKey] = result;
-                }
+                var result = await Orchestrator.SearchUniverseAsync(_query, _mediaType, maxCandidates: 5);
+                _universeCandidates = result;
+                _universeCache[cacheKey] = result;
             }
 
             _hasSearched = true;
@@ -1225,17 +1050,8 @@
 
     // ── Mode switch ────────────────────────────────────────────────────────
 
-    private void SwitchSearchMode(string mode)
-    {
-        if (_searchMode == mode) return;
-        _searchMode         = mode;
-        _hasSearched        = false;
-        _universeCandidates = [];
-        _retailCandidates   = [];
-        _errorMessage       = null;
-        _successMessage     = null;
-        ClearComparison();
-    }
+    // Mode switching is disabled — search always uses "data" (Wikidata) mode only.
+    private void SwitchSearchMode(string mode) { }
 
     // ── Comparison view ────────────────────────────────────────────────────
 
@@ -1426,11 +1242,7 @@
 
     // ── Helpers ────────────────────────────────────────────────────────────
 
-    private bool HasNoResults() =>
-        (_searchMode is "both" or "data"   && _universeCandidates.Count == 0) &&
-        (_searchMode is "both" or "images" && _retailCandidates.Count   == 0) ||
-        (_searchMode == "data"   && _universeCandidates.Count == 0) ||
-        (_searchMode == "images" && _retailCandidates.Count   == 0);
+    private bool HasNoResults() => _universeCandidates.Count == 0;
 
     private string GetCleanedQuery()
     {

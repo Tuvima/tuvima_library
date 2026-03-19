@@ -488,9 +488,12 @@ else
                 "background: rgba(239,83,80,0.12); color: #EF5350; border: 1px solid rgba(239,83,80,0.25);"));
 
         // Wikidata QID
-        if (!string.IsNullOrEmpty(Detail.WikidataQid))
+        if (!string.IsNullOrEmpty(Detail.WikidataQid) && !Detail.WikidataQid.StartsWith("NF", StringComparison.Ordinal))
             signals.Add(new("Wikidata linked", Icons.Material.Outlined.Public,
                 "background: rgba(76,175,80,0.12); color: #4CAF50; border: 1px solid rgba(76,175,80,0.25);"));
+        else if (!string.IsNullOrEmpty(Detail.WikidataQid) && Detail.WikidataQid.StartsWith("NF", StringComparison.Ordinal))
+            signals.Add(new("Needs Wikidata link", Icons.Material.Outlined.LinkOff,
+                "background: rgba(255,152,0,0.12); color: #FF9800; border: 1px solid rgba(255,152,0,0.25);"));
 
         return signals;
     }
