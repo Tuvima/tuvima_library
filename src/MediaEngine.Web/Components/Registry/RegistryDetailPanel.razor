@@ -42,7 +42,7 @@
                 </MudStack>
             </MudStack>
             <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
-                           OnClick="OnClose" Style="flex-shrink: 0;" />
+                           OnClick="@(async () => await OnClose())" Style="flex-shrink: 0;" />
         </div>
 
         @* Status + Confidence *@
@@ -125,7 +125,7 @@
                                 {
                                     <MudText Typo="Typo.caption" Class="mud-text-secondary">@entry.Detail</MudText>
                                 }
-                                <MudText Typo="Typo.caption" Style="color: rgba(255,255,255,0.35); font-size: 0.7rem;">
+                                <MudText Typo="Typo.caption" Style="color: rgba(255,255,255,0.35); font-size: 0.7rem; margin-top: 2px;">
                                     @FormatTimeAgo(entry.OccurredAt)
                                 </MudText>
                             </div>
