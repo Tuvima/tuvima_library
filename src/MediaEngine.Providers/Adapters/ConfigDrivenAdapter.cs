@@ -570,7 +570,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                 var cachedJson = JsonNode.Parse(cached.ResponseJson);
                 if (cachedJson is not null)
                 {
-                    var resultNode = NavigateToResult(cachedJson, strategy, request.Title);
+                    var resultNode = NavigateToResult(cachedJson, strategy, request.Title, request.Author);
                     if (resultNode is not null)
                         return ExtractClaims(resultNode, request.MediaType);
                 }
@@ -636,7 +636,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                     var cachedJson = JsonNode.Parse(refreshed.ResponseJson);
                     if (cachedJson is not null)
                     {
-                        var resultNode = NavigateToResult(cachedJson, strategy, request.Title);
+                        var resultNode = NavigateToResult(cachedJson, strategy, request.Title, request.Author);
                         if (resultNode is not null)
                             return ExtractClaims(resultNode, request.MediaType);
                     }
@@ -674,7 +674,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                 return [];
 
             // Navigate to result object.
-            var resultObj = NavigateToResult(json, strategy, request.Title);
+            var resultObj = NavigateToResult(json, strategy, request.Title, request.Author);
             if (resultObj is null)
                 return [];
 
@@ -779,7 +779,8 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
     // ── Result navigation ───────────────────────────────────────────────────
 
     private static JsonNode? NavigateToResult(
-        JsonNode json, SearchStrategyConfig strategy, string? queryTitle = null)
+        JsonNode json, SearchStrategyConfig strategy,
+        string? queryTitle = null, string? queryAuthor = null)
     {
         // If no results_path, treat the whole response as the result.
         if (string.IsNullOrEmpty(strategy.ResultsPath))
@@ -789,44 +790,49 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         if (resultsNode is not JsonArray arr || arr.Count == 0)
             return null;
 
-        // When we have a query title and multiple results, pick the result whose
-        // title is the closest match rather than blindly using result_index.
-        // This prevents Apple API returning a lesser-known edition (study guide,
-        // annotated version) as the first result and using its cover art.
+        // When we have a query title/author and multiple results, score each result
+        // by combined title + author similarity and pick the best one. If the best
+        // score is too low (e.g. all results are study guides, not the actual work),
+        // return null to avoid applying metadata from a wrong result.
         if (!string.IsNullOrWhiteSpace(queryTitle) && arr.Count > 1)
         {
-            var bestNode = arr[0];
+            JsonNode? bestNode = null;
             var bestScore = -1.0;
 
-            // Find the title field path from common provider patterns.
-            var titlePaths = new[] { "trackName", "collectionName", "title", "name" };
+            var titlePaths  = new[] { "trackName", "collectionName", "title", "name" };
+            var authorPaths = new[] { "artistName", "author", "authors", "creator" };
 
             foreach (var node in arr)
             {
                 if (node is null) continue;
 
-                string? nodeTitle = null;
-                foreach (var tp in titlePaths)
-                {
-                    var tn = JsonPathEvaluator.Evaluate(node, tp);
-                    if (tn is not null)
-                    {
-                        nodeTitle = JsonPathEvaluator.GetStringValue(tn);
-                        if (!string.IsNullOrWhiteSpace(nodeTitle)) break;
-                    }
-                }
+                var nodeTitle  = ExtractFirstString(node, titlePaths);
+                var nodeAuthor = ExtractFirstString(node, authorPaths);
 
                 if (string.IsNullOrWhiteSpace(nodeTitle)) continue;
 
-                var score = ComputeTitleSimilarity(queryTitle, nodeTitle);
-                if (score > bestScore)
+                var titleScore  = ComputeWordOverlap(queryTitle, nodeTitle);
+                var authorScore = !string.IsNullOrWhiteSpace(queryAuthor) && !string.IsNullOrWhiteSpace(nodeAuthor)
+                    ? ComputeWordOverlap(queryAuthor, nodeAuthor)
+                    : 0.5; // Neutral when no author available
+
+                // Combined score: equal weight — wrong author is a strong disqualifier.
+                var combined = titleScore * 0.5 + authorScore * 0.5;
+
+                if (combined > bestScore)
                 {
-                    bestScore = score;
+                    bestScore = combined;
                     bestNode = node;
                 }
             }
 
-            return bestNode;
+            // Minimum quality gate: if best combined score is below 0.50, none of the
+            // results are a credible match (e.g. all study guides with wrong authors).
+            // Return null so the pipeline skips this provider rather than applying bad data.
+            if (bestScore < 0.50)
+                return null;
+
+            return bestNode ?? arr[0];
         }
 
         var index = Math.Clamp(strategy.ResultIndex, 0, arr.Count - 1);
@@ -834,10 +840,27 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
     }
 
     /// <summary>
-    /// Simple word-overlap title similarity (0.0–1.0) for result selection.
-    /// Compares normalized word sets, returning harmonic mean of coverage and precision.
+    /// Extracts the first non-empty string value from a JSON node by trying multiple paths.
     /// </summary>
-    private static double ComputeTitleSimilarity(string query, string title)
+    private static string? ExtractFirstString(JsonNode node, string[] paths)
+    {
+        foreach (var path in paths)
+        {
+            var val = JsonPathEvaluator.Evaluate(node, path);
+            if (val is not null)
+            {
+                var s = JsonPathEvaluator.GetStringValue(val);
+                if (!string.IsNullOrWhiteSpace(s)) return s;
+            }
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Word-overlap similarity (0.0–1.0). Compares normalized word sets,
+    /// returning harmonic mean of coverage and precision (F1 score).
+    /// </summary>
+    private static double ComputeWordOverlap(string query, string candidate)
     {
         var qWords = query.ToLowerInvariant()
             .Split([' ', ',', '.', '-', ':', ';', '\'', '"', '(', ')', '[', ']'],
@@ -845,16 +868,16 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             .Where(w => w.Length >= 2)
             .ToHashSet();
 
-        var tWords = title.ToLowerInvariant()
+        var cWords = candidate.ToLowerInvariant()
             .Split([' ', ',', '.', '-', ':', ';', '\'', '"', '(', ')', '[', ']'],
                    StringSplitOptions.RemoveEmptyEntries)
             .Where(w => w.Length >= 2)
             .ToHashSet();
 
-        if (qWords.Count == 0 || tWords.Count == 0) return 0.0;
+        if (qWords.Count == 0 || cWords.Count == 0) return 0.0;
 
-        var coverage  = (double)qWords.Count(w => tWords.Contains(w)) / qWords.Count;
-        var precision = (double)tWords.Count(w => qWords.Contains(w)) / tWords.Count;
+        var coverage  = (double)qWords.Count(w => cWords.Contains(w)) / qWords.Count;
+        var precision = (double)cWords.Count(w => qWords.Contains(w)) / cWords.Count;
 
         if (coverage + precision == 0) return 0.0;
         return 2 * coverage * precision / (coverage + precision);
