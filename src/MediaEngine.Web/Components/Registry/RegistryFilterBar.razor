@@ -1,0 +1,257 @@
+@using MediaEngine.Web.Models.ViewDTOs
+@using MudBlazor
+
+<div class="rfb-bar">
+    @* ── Tabs: All / Needs Review ── *@
+    <div class="rfb-tabs">
+        <button class="rfb-tab @(ActiveTab == "all" ? "rfb-tab--on" : "")"
+                @onclick="@(() => SetTab("all"))">
+            All <span class="rfb-tab-ct">@(Counts?.Total ?? 0)</span>
+        </button>
+        <button class="rfb-tab rfb-tab--review @(ActiveTab == "review" ? "rfb-tab--on" : "")"
+                @onclick="@(() => SetTab("review"))">
+            Needs Review <span class="rfb-tab-ct rfb-tab-ct--review">@(Counts?.NeedsReview ?? 0)</span>
+        </button>
+    </div>
+
+    @* ── Search ── *@
+    <div class="rfb-search">
+        <MudTextField @bind-Value="_searchText" Placeholder="Search library..."
+                      Variant="Variant.Outlined" Margin="Margin.Dense"
+                      Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                      Immediate="true" DebounceInterval="400"
+                      OnDebounceIntervalElapsed="OnSearchDebounced"
+                      Style="font-size: 0.82rem; min-width: 200px;" />
+    </div>
+
+    @* ── Select toggle ── *@
+    <button class="rfb-icon-btn @(SelectionMode ? "rfb-icon-btn--on" : "")"
+            @onclick="ToggleSelectionMode"
+            title="Toggle selection mode">
+        <MudIcon Icon="@Icons.Material.Outlined.ChecklistRtl" Style="font-size: 1.1rem;" />
+    </button>
+
+    <div class="rfb-spacer"></div>
+
+    @* ── Group By dropdown ── *@
+    <div class="rfb-dropdowns">
+        <MudSelect T="string" Value="@GroupBy" ValueChanged="OnGroupByChanged"
+                   Variant="Variant.Outlined" Margin="Margin.Dense"
+                   Dense="true" Label="Group by"
+                   Style="font-size: 0.78rem; width: 140px;">
+            <MudSelectItem Value="@("date")">Date</MudSelectItem>
+            <MudSelectItem Value="@("media_type")">Media Type</MudSelectItem>
+            <MudSelectItem Value="@("confidence")">Confidence</MudSelectItem>
+            <MudSelectItem Value="@("status")">Status</MudSelectItem>
+        </MudSelect>
+
+        @* ── Sort ── *@
+        <MudSelect T="string" Value="@SortBy" ValueChanged="OnSortChanged"
+                   Variant="Variant.Outlined" Margin="Margin.Dense"
+                   Dense="true" Label="Sort"
+                   Style="font-size: 0.78rem; width: 130px;">
+            <MudSelectItem Value="@("newest")">Newest</MudSelectItem>
+            <MudSelectItem Value="@("oldest")">Oldest</MudSelectItem>
+            <MudSelectItem Value="@("confidence")">Confidence</MudSelectItem>
+        </MudSelect>
+
+        @* ── Window ── *@
+        <MudSelect T="int" Value="@MaxDays" ValueChanged="OnMaxDaysChanged"
+                   Variant="Variant.Outlined" Margin="Margin.Dense"
+                   Dense="true" Label="Window"
+                   Style="font-size: 0.78rem; width: 140px;">
+            <MudSelectItem Value="30">30 days</MudSelectItem>
+            <MudSelectItem Value="60">60 days</MudSelectItem>
+            <MudSelectItem Value="90">90 days</MudSelectItem>
+            <MudSelectItem Value="0">All time</MudSelectItem>
+        </MudSelect>
+    </div>
+
+    @* ── Card size slider ── *@
+    <div class="rfb-size-slider">
+        <MudIcon Icon="@Icons.Material.Outlined.CropPortrait" Style="font-size: 0.9rem; opacity: 0.4;" />
+        <MudSlider T="int" Value="@CardSize" ValueChanged="OnCardSizeChanged"
+                   Min="64" Max="112" Step="8"
+                   Style="width: 100px; margin: 0 2px;" />
+        <MudIcon Icon="@Icons.Material.Outlined.CropPortrait" Style="font-size: 1.3rem; opacity: 0.4;" />
+    </div>
+</div>
+
+@code {
+    [Parameter] public RegistryStatusCountsDto? Counts { get; set; }
+    [Parameter] public string ActiveTab { get; set; } = "all";
+    [Parameter] public EventCallback<string> ActiveTabChanged { get; set; }
+    [Parameter] public string? SearchText { get; set; }
+    [Parameter] public EventCallback<string?> SearchTextChanged { get; set; }
+    [Parameter] public string GroupBy { get; set; } = "date";
+    [Parameter] public EventCallback<string> GroupByChanged { get; set; }
+    [Parameter] public bool SelectionMode { get; set; }
+    [Parameter] public EventCallback<bool> SelectionModeChanged { get; set; }
+    [Parameter] public string SortBy { get; set; } = "newest";
+    [Parameter] public EventCallback<string> SortByChanged { get; set; }
+    [Parameter] public int MaxDays { get; set; } = 60;
+    [Parameter] public EventCallback<int> MaxDaysChanged { get; set; }
+    [Parameter] public int CardSize { get; set; } = 80;
+    [Parameter] public EventCallback<int> CardSizeChanged { get; set; }
+
+    private string? _searchText;
+
+    protected override void OnParametersSet()
+    {
+        _searchText = SearchText;
+    }
+
+    private async Task SetTab(string tab)
+    {
+        await ActiveTabChanged.InvokeAsync(tab);
+    }
+
+    private async Task OnSearchDebounced()
+    {
+        await SearchTextChanged.InvokeAsync(_searchText);
+    }
+
+    private async Task ToggleSelectionMode()
+    {
+        await SelectionModeChanged.InvokeAsync(!SelectionMode);
+    }
+
+    private async Task OnGroupByChanged(string groupBy)
+    {
+        await GroupByChanged.InvokeAsync(groupBy);
+    }
+
+    private async Task OnSortChanged(string sort)
+    {
+        await SortByChanged.InvokeAsync(sort);
+    }
+
+    private async Task OnMaxDaysChanged(int days)
+    {
+        await MaxDaysChanged.InvokeAsync(days);
+    }
+
+    private async Task OnCardSizeChanged(int size)
+    {
+        await CardSizeChanged.InvokeAsync(size);
+    }
+}
+
+<style>
+    .rfb-bar {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 16px 10px 88px;
+        background: rgba(8,13,30,0.8);
+        backdrop-filter: blur(10px);
+        border-bottom: 1px solid rgba(255,255,255,0.04);
+        position: sticky;
+        top: 56px;
+        z-index: 20;
+        flex-wrap: wrap;
+        row-gap: 8px;
+    }
+
+    /* ── Tabs ── */
+    .rfb-tabs {
+        display: flex;
+        gap: 2px;
+        background: rgba(255,255,255,0.04);
+        border-radius: 6px;
+        padding: 2px;
+        flex-shrink: 0;
+    }
+    .rfb-tab {
+        background: transparent;
+        border: none;
+        color: rgba(255,255,255,0.4);
+        font-size: 0.82rem;
+        font-weight: 500;
+        padding: 6px 14px;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        white-space: nowrap;
+    }
+    .rfb-tab:hover { color: rgba(255,255,255,0.7); }
+    .rfb-tab--on {
+        background: rgba(255,255,255,0.08);
+        color: #fff;
+    }
+    .rfb-tab--review.rfb-tab--on {
+        background: rgba(201,146,46,0.15);
+        color: #C9922E;
+    }
+    .rfb-tab-ct {
+        font-size: 0.68rem;
+        font-weight: 600;
+        opacity: 0.6;
+        background: rgba(255,255,255,0.06);
+        padding: 1px 6px;
+        border-radius: 8px;
+    }
+    .rfb-tab-ct--review {
+        background: rgba(201,146,46,0.15);
+        opacity: 1;
+    }
+
+    /* ── Search ── */
+    .rfb-search { flex-shrink: 0; }
+
+    /* ── Icon button (select toggle) ── */
+    .rfb-icon-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        border-radius: 6px;
+        border: 1px solid rgba(255,255,255,0.08);
+        background: rgba(255,255,255,0.03);
+        color: rgba(255,255,255,0.4);
+        cursor: pointer;
+        transition: all 0.15s ease;
+        flex-shrink: 0;
+    }
+    .rfb-icon-btn:hover {
+        color: rgba(255,255,255,0.7);
+        border-color: rgba(255,255,255,0.15);
+        background: rgba(255,255,255,0.06);
+    }
+    .rfb-icon-btn--on {
+        background: rgba(201,146,46,0.15);
+        border-color: rgba(201,146,46,0.4);
+        color: #C9922E;
+    }
+
+    .rfb-spacer { flex: 1; min-width: 4px; }
+
+    /* ── Dropdowns group ── */
+    .rfb-dropdowns {
+        display: flex;
+        gap: 8px;
+        flex-shrink: 0;
+    }
+
+    /* ── Card size slider ── */
+    .rfb-size-slider {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        flex-shrink: 0;
+    }
+
+    /* ── Mobile responsive ── */
+    @@media (max-width: 768px) {
+        .rfb-bar {
+            padding-left: 12px;
+            gap: 8px;
+        }
+        .rfb-size-slider { display: none; }
+        .rfb-spacer { display: none; }
+    }
+</style>

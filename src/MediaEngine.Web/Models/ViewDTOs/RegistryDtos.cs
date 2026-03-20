@@ -121,6 +121,9 @@ public sealed class RegistryStatusCountsDto
 
     [JsonPropertyName("low_confidence")]
     public int LowConfidence { get; set; }
+
+    [JsonPropertyName("rejected")]
+    public int Rejected { get; set; }
 }
 
 /// <summary>Full detail for expanded row.</summary>
@@ -280,4 +283,17 @@ public sealed class RegistryClaimRecordDto
 
     [JsonPropertyName("claimed_at")]
     public DateTimeOffset ClaimedAt { get; set; }
+}
+
+/// <summary>Response from batch registry operations.</summary>
+public sealed class BatchRegistryResponse
+{
+    [JsonPropertyName("processed_count")]
+    public int ProcessedCount { get; set; }
+
+    [JsonPropertyName("total_requested")]
+    public int TotalRequested { get; set; }
+
+    [JsonPropertyName("message")]
+    public string Message { get; set; } = "";
 }

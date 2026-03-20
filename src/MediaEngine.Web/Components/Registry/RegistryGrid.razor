@@ -1,0 +1,403 @@
+@using MediaEngine.Web.Models.ViewDTOs
+
+@if (Items.Count == 0 && !Loading)
+{
+    <div class="rg-empty">
+        <MudIcon Icon="@Icons.Material.Outlined.Inbox" Style="font-size: 3rem; opacity: 0.2; margin-bottom: 12px;" />
+        <p style="color: rgba(255,255,255,0.3); font-size: 0.85rem;">No items match your filters.</p>
+    </div>
+}
+else
+{
+    <div class="rg-container" style="--rc-card-width: @(CardSize)px;">
+        @foreach (var group in GetGroups())
+        {
+            var isExpanded = IsExpanded(group.Key);
+            <div class="rg-section">
+                <div class="rg-section-header @(group.IsReviewGroup ? "rg-section-header--review" : "")"
+                     style="@(group.HeaderColor is not null ? $"--rg-header-accent: {group.HeaderColor};" : "")"
+                     @onclick="@(() => ToggleSection(group.Key))">
+                    <MudIcon Icon="@(isExpanded ? Icons.Material.Filled.ExpandMore : Icons.Material.Filled.ChevronRight)"
+                             Size="Size.Small" Style="font-size: 1rem; opacity: 0.4;" />
+                    @if (!string.IsNullOrEmpty(group.HeaderIcon))
+                    {
+                        <MudIcon Icon="@group.HeaderIcon" Size="Size.Small"
+                                 Style="@($"font-size: 0.9rem; color: {group.HeaderColor ?? "rgba(255,255,255,0.6)"};")" />
+                    }
+                    <span class="rg-section-label">@group.Label</span>
+                    <span class="rg-section-count">@group.Items.Count</span>
+
+                    @if (group.IsReviewGroup && group.Items.Count > 0)
+                    {
+                        <div class="rg-section-actions" @onclick:stopPropagation="true">
+                            <MudButton Variant="Variant.Text" Size="Size.Small"
+                                       StartIcon="@Icons.Material.Filled.Check"
+                                       OnClick="@(() => OnApproveGroup.InvokeAsync(group.Items.Select(i => i.EntityId).ToList()))"
+                                       Style="font-size: 0.68rem; color: #4ade80; padding: 2px 6px; min-width: 0; height: 22px;">
+                                Approve All
+                            </MudButton>
+                            <MudButton Variant="Variant.Text" Size="Size.Small"
+                                       StartIcon="@Icons.Material.Filled.Block"
+                                       OnClick="@(() => OnRejectGroup.InvokeAsync(group.Items.Select(i => i.EntityId).ToList()))"
+                                       Style="font-size: 0.68rem; color: #ef4444; padding: 2px 6px; min-width: 0; height: 22px;">
+                                Reject All
+                            </MudButton>
+                        </div>
+                    }
+                </div>
+
+                @if (isExpanded)
+                {
+                    <div class="rg-grid">
+                        @foreach (var item in group.Items)
+                        {
+                            <RegistryCard Item="@item"
+                                          IsSelected="@SelectedIds.Contains(item.EntityId)"
+                                          SelectionModeActive="@SelectionModeActive"
+                                          OnSelectionToggled="OnSelectionToggled"
+                                          OnApproveClicked="OnApproveClicked"
+                                          OnRejectClicked="OnRejectClicked"
+                                          OnNavigate="OnNavigate" />
+                        }
+                    </div>
+                }
+            </div>
+        }
+
+        @if (HasMore)
+        {
+            <div class="rg-load-more">
+                <MudButton Variant="Variant.Text" Size="Size.Small"
+                           OnClick="OnLoadMore" FullWidth="true"
+                           Style="color: rgba(255,255,255,0.3); font-size: 0.75rem;">
+                    Load more...
+                </MudButton>
+            </div>
+        }
+
+        @if (Loading)
+        {
+            <div class="rg-loading">
+                <MudProgressCircular Indeterminate="true" Size="Size.Small"
+                                     Style="color: rgba(255,255,255,0.2);" />
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public List<RegistryItemViewModel> Items { get; set; } = [];
+    [Parameter] public HashSet<Guid> SelectedIds { get; set; } = [];
+    [Parameter] public bool NeedsReviewFilter { get; set; }
+    [Parameter] public string GroupBy { get; set; } = "date";
+    [Parameter] public int CardSize { get; set; } = 80;
+    [Parameter] public bool SelectionModeActive { get; set; }
+    [Parameter] public bool HasMore { get; set; }
+    [Parameter] public bool Loading { get; set; }
+    [Parameter] public EventCallback<Guid> OnSelectionToggled { get; set; }
+    [Parameter] public EventCallback<Guid> OnApproveClicked { get; set; }
+    [Parameter] public EventCallback<Guid> OnRejectClicked { get; set; }
+    [Parameter] public EventCallback<Guid> OnNavigate { get; set; }
+    [Parameter] public EventCallback OnLoadMore { get; set; }
+    [Parameter] public EventCallback<List<Guid>> OnApproveGroup { get; set; }
+    [Parameter] public EventCallback<List<Guid>> OnRejectGroup { get; set; }
+
+    private readonly Dictionary<string, bool> _expandedSections = new();
+
+    private record SectionGroup(
+        string Key,
+        string Label,
+        List<RegistryItemViewModel> Items,
+        bool IsReviewGroup = false,
+        string? HeaderIcon = null,
+        string? HeaderColor = null);
+
+    private bool IsExpanded(string key)
+    {
+        if (_expandedSections.TryGetValue(key, out var expanded))
+            return expanded;
+
+        // Default: all expanded for Needs Review, only first for All
+        if (NeedsReviewFilter)
+            return true;
+
+        var groups = GetGroups();
+        return groups.Count > 0 && groups[0].Key == key;
+    }
+
+    private void ToggleSection(string key)
+    {
+        var current = IsExpanded(key);
+        _expandedSections[key] = !current;
+    }
+
+    private List<SectionGroup> GetGroups()
+    {
+        if (NeedsReviewFilter)
+            return GetReviewGroups();
+
+        return GroupBy switch
+        {
+            "media_type" => GetMediaTypeGroups(),
+            "confidence" => GetConfidenceGroups(),
+            "status"     => GetStatusGroups(),
+            _            => GetDateGroups(),
+        };
+    }
+
+    // ── Review groups (by trigger reason) ────────────────────────────────────
+
+    private List<SectionGroup> GetReviewGroups()
+    {
+        var order = new[]
+        {
+            ("AuthorityMatchFailed", "No Match Found"),
+            ("MultipleQidMatches",  "Multiple Matches"),
+            ("LowConfidence",       "Low Confidence"),
+            ("AmbiguousMediaType",  "Ambiguous Type"),
+            ("Rejected",            "Rejected"),
+        };
+
+        var result = new List<SectionGroup>();
+        var ungrouped = Items.ToList();
+
+        foreach (var (trigger, label) in order)
+        {
+            var grpItems = ungrouped
+                .Where(i => string.Equals(i.ReviewTrigger, trigger, StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(i => i.CreatedAt)
+                .ToList();
+
+            if (grpItems.Count == 0) continue;
+
+            var (_, color, icon) = RegistryHelpers.FormatReviewTrigger(trigger);
+            result.Add(new SectionGroup(trigger, label, grpItems,
+                IsReviewGroup: true, HeaderIcon: icon, HeaderColor: color));
+        }
+
+        // Catch-all for items with unrecognised or null trigger
+        var remaining = ungrouped
+            .Where(i => !order.Any(o =>
+                string.Equals(i.ReviewTrigger, o.Item1, StringComparison.OrdinalIgnoreCase)))
+            .OrderByDescending(i => i.CreatedAt)
+            .ToList();
+
+        if (remaining.Count > 0)
+            result.Add(new SectionGroup("other", "Other", remaining, IsReviewGroup: true));
+
+        return result;
+    }
+
+    // ── Date groups ───────────────────────────────────────────────────────────
+
+    private List<SectionGroup> GetDateGroups()
+    {
+        var today = DateTimeOffset.Now.Date;
+        var groups = new Dictionary<string, (string Label, List<RegistryItemViewModel> Items)>(StringComparer.Ordinal);
+
+        foreach (var item in Items)
+        {
+            var itemDate = item.CreatedAt.LocalDateTime.Date;
+            string key, label;
+
+            if (itemDate == today)
+            {
+                key = "today"; label = "Today";
+            }
+            else if (itemDate == today.AddDays(-1))
+            {
+                key = "yesterday"; label = "Yesterday";
+            }
+            else if (itemDate > today.AddDays(-7))
+            {
+                key = itemDate.ToString("yyyy-MM-dd");
+                label = itemDate.ToString("dddd");
+            }
+            else
+            {
+                key = itemDate.ToString("yyyy-MM");
+                label = itemDate.ToString("MMMM d");
+            }
+
+            if (!groups.TryGetValue(key, out var g))
+            {
+                g = (label, []);
+                groups[key] = g;
+            }
+            g.Items.Add(item);
+        }
+
+        return groups
+            .OrderByDescending(kvp => kvp.Value.Items[0].CreatedAt)
+            .Select(kvp => new SectionGroup(kvp.Key, kvp.Value.Label, kvp.Value.Items))
+            .ToList();
+    }
+
+    // ── Media type groups ─────────────────────────────────────────────────────
+
+    private List<SectionGroup> GetMediaTypeGroups()
+    {
+        var order = new[] { "Books", "Audiobooks", "Movies", "TV", "Comics", "Music", "Podcasts" };
+        var byType = Items.GroupBy(i => i.MediaType ?? "Unknown").ToDictionary(g => g.Key, g => g.ToList());
+
+        var result = new List<SectionGroup>();
+        foreach (var mt in order)
+        {
+            if (byType.TryGetValue(mt, out var items) && items.Count > 0)
+                result.Add(new SectionGroup(mt, mt, items));
+        }
+        // Anything not in the order list
+        foreach (var kvp in byType)
+        {
+            if (!order.Contains(kvp.Key) && kvp.Value.Count > 0)
+                result.Add(new SectionGroup(kvp.Key, kvp.Key, kvp.Value));
+        }
+        return result;
+    }
+
+    // ── Confidence groups ─────────────────────────────────────────────────────
+
+    private List<SectionGroup> GetConfidenceGroups()
+    {
+        var high   = Items.Where(i => i.Confidence >= 0.85).ToList();
+        var medium = Items.Where(i => i.Confidence >= 0.60 && i.Confidence < 0.85).ToList();
+        var low    = Items.Where(i => i.Confidence < 0.60).ToList();
+
+        var result = new List<SectionGroup>();
+        if (high.Count > 0)
+            result.Add(new SectionGroup("high", "High Confidence (≥85%)", high,
+                HeaderIcon: Icons.Material.Filled.VerifiedUser, HeaderColor: "#4ade80"));
+        if (medium.Count > 0)
+            result.Add(new SectionGroup("medium", "Medium Confidence (60–85%)", medium,
+                HeaderIcon: Icons.Material.Filled.Info, HeaderColor: "#C9922E"));
+        if (low.Count > 0)
+            result.Add(new SectionGroup("low", "Low Confidence (<60%)", low,
+                HeaderIcon: Icons.Material.Filled.Warning, HeaderColor: "#ef4444"));
+        return result;
+    }
+
+    // ── Status groups ─────────────────────────────────────────────────────────
+
+    private List<SectionGroup> GetStatusGroups()
+    {
+        var statuses = new[]
+        {
+            ("Auto",     "Auto-matched"),
+            ("Review",   "Needs Review"),
+            ("Edited",   "Edited"),
+            ("Rejected", "Rejected"),
+        };
+
+        var result = new List<SectionGroup>();
+        foreach (var (statusKey, label) in statuses)
+        {
+            var items = Items.Where(i => string.Equals(i.Status, statusKey, StringComparison.OrdinalIgnoreCase)).ToList();
+            if (items.Count > 0)
+                result.Add(new SectionGroup(statusKey, label, items));
+        }
+        return result;
+    }
+}
+
+<style>
+    .rg-container {
+        padding: 12px 16px 40px 88px;
+    }
+
+    /* ── Section ── */
+    .rg-section {
+        margin-bottom: 16px;
+    }
+    .rg-section-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 8px;
+        cursor: pointer;
+        user-select: none;
+        position: sticky;
+        top: 104px;
+        z-index: 10;
+        background: rgba(0,0,0,0.85);
+        backdrop-filter: blur(4px);
+        border-radius: 4px;
+        margin-bottom: 8px;
+    }
+    .rg-section-header:hover {
+        background: rgba(255,255,255,0.03);
+    }
+    .rg-section-header--review {
+        border-left: 3px solid var(--rg-header-accent, rgba(255,255,255,0.1));
+        padding-left: 10px;
+    }
+    .rg-section-label {
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: rgba(255,255,255,0.6);
+        letter-spacing: 0.02em;
+        flex: 1;
+    }
+    .rg-section-count {
+        font-size: 0.65rem;
+        color: rgba(255,255,255,0.3);
+        background: rgba(255,255,255,0.05);
+        padding: 1px 6px;
+        border-radius: 8px;
+    }
+    .rg-section-actions {
+        display: flex;
+        gap: 2px;
+        margin-left: auto;
+    }
+
+    /* ── Grid ── */
+    .rg-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(var(--rc-card-width, 80px), 1fr));
+        gap: 8px;
+        padding: 4px 0;
+    }
+
+    /* ── Load more / loading ── */
+    .rg-load-more {
+        padding: 16px 0;
+    }
+    .rg-loading {
+        display: flex;
+        justify-content: center;
+        padding: 24px;
+    }
+
+    /* ── Empty state ── */
+    .rg-empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 80px 20px;
+        text-align: center;
+    }
+
+    /* ── Mobile ── */
+    @@media (max-width: 768px) {
+        .rg-container {
+            padding-left: 12px;
+            padding-right: 12px;
+        }
+        .rg-grid {
+            gap: 6px;
+        }
+        .rg-section-header {
+            top: 96px;
+            overflow: hidden;
+        }
+        .rg-section-label {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            flex-shrink: 1;
+            min-width: 0;
+        }
+        .rg-section-actions { display: none; }
+    }
+</style>

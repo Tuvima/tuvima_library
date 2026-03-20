@@ -380,6 +380,14 @@ public interface IEngineApiClient
         string query, string? mediaType = null, string? providerId = null,
         int maxResultsPerProvider = 5, CancellationToken ct = default);
 
+
+    // ── Search results cache (/metadata/{entityId}/search-cache) ────────
+
+    /// <summary>GET /metadata/{entityId}/search-cache — cached fan-out search results (30-day TTL).</summary>
+    Task<string?> GetSearchResultsCacheAsync(Guid entityId, CancellationToken ct = default);
+
+    /// <summary>PUT /metadata/{entityId}/search-cache — store fan-out search results.</summary>
+    Task SaveSearchResultsCacheAsync(Guid entityId, string resultsJson, CancellationToken ct = default);
     // â”€â”€ Canonical values (/metadata/canonical/{entityId}) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     /// <summary>GET /metadata/canonical/{entityId} â€” get all canonical values with provenance.</summary>
@@ -428,8 +436,21 @@ public interface IEngineApiClient
         int offset = 0, int limit = 50,
         string? search = null, string? type = null, string? status = null,
         double? minConfidence = null, string? matchSource = null,
-        bool duplicatesOnly = false, bool missingUniverseOnly = false,
+        bool? duplicatesOnly = null, bool? missingUniverseOnly = null,
+        string? sort = null, int? maxDays = null,
         CancellationToken ct = default);
+
+    /// <summary>POST /registry/batch/approve — bulk-approve registry items.</summary>
+    Task<BatchRegistryResponse?> BatchApproveRegistryItemsAsync(Guid[] entityIds, CancellationToken ct = default);
+
+    /// <summary>POST /registry/batch/delete — bulk-delete registry items.</summary>
+    Task<BatchRegistryResponse?> BatchDeleteRegistryItemsAsync(Guid[] entityIds, CancellationToken ct = default);
+
+    /// <summary>POST /registry/items/{entityId}/reject — reject a single registry item.</summary>
+    Task<BatchRegistryResponse?> RejectRegistryItemAsync(Guid entityId, CancellationToken ct = default);
+
+    /// <summary>POST /registry/batch/reject — bulk-reject registry items.</summary>
+    Task<BatchRegistryResponse?> BatchRejectRegistryItemsAsync(Guid[] entityIds, CancellationToken ct = default);
 
     /// <summary>GET /registry/items/{entityId}/detail — full detail for expanded row.</summary>
     Task<RegistryItemDetailViewModel?> GetRegistryItemDetailAsync(Guid entityId, CancellationToken ct = default);

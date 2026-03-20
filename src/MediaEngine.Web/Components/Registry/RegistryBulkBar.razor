@@ -2,29 +2,52 @@
     <MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined">
         @SelectedCount selected
     </MudChip>
+
+    <MudButton Variant="Variant.Text" Size="Size.Small"
+               OnClick="OnSelectAll" Disabled="@Processing"
+               Style="color: rgba(255,255,255,0.5); font-size: 0.75rem;">
+        Select All (@TotalCount)
+    </MudButton>
+    <MudButton Variant="Variant.Text" Size="Size.Small"
+               OnClick="OnDeselectAll" Disabled="@Processing"
+               Style="color: rgba(255,255,255,0.5); font-size: 0.75rem;">
+        Deselect All
+    </MudButton>
+
+    <div style="flex: 1;"></div>
+
+    @if (Processing)
+    {
+        <MudProgressCircular Indeterminate="true" Size="Size.Small"
+                             Style="color: rgba(255,255,255,0.3); width: 20px; height: 20px;" />
+    }
+
     <MudButton Variant="Variant.Filled" Color="Color.Success" Size="Size.Small"
                StartIcon="@Icons.Material.Filled.Check" OnClick="OnApprove"
                Disabled="@Processing">
         Approve
     </MudButton>
-    <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
-               StartIcon="@Icons.Material.Filled.Edit" OnClick="OnEditMatch"
+    <MudButton Variant="Variant.Filled" Color="Color.Warning" Size="Size.Small"
+               StartIcon="@Icons.Material.Filled.Block" OnClick="OnReject"
                Disabled="@Processing">
-        Edit matches
+        Reject
     </MudButton>
     <MudButton Variant="Variant.Filled" Color="Color.Error" Size="Size.Small"
-               StartIcon="@Icons.Material.Filled.Delete" OnClick="OnRemove"
+               StartIcon="@Icons.Material.Filled.Warning" OnClick="OnDelete"
                Disabled="@Processing">
-        Remove
+        Delete from Library
     </MudButton>
 </div>
 
 @code {
     [Parameter] public int SelectedCount { get; set; }
+    [Parameter] public int TotalCount { get; set; }
     [Parameter] public bool Processing { get; set; }
     [Parameter] public EventCallback OnApprove { get; set; }
-    [Parameter] public EventCallback OnEditMatch { get; set; }
-    [Parameter] public EventCallback OnRemove { get; set; }
+    [Parameter] public EventCallback OnReject { get; set; }
+    [Parameter] public EventCallback OnDelete { get; set; }
+    [Parameter] public EventCallback OnSelectAll { get; set; }
+    [Parameter] public EventCallback OnDeselectAll { get; set; }
 }
 
 <style>
@@ -32,14 +55,12 @@
         display: flex;
         align-items: center;
         gap: 8px;
-        padding: 8px 16px;
-        background: rgba(255,255,255,0.04);
+        padding: 8px 16px 8px 88px;
+        background: rgba(8,13,30,0.85);
         backdrop-filter: blur(12px);
-        border: 1px solid rgba(255,255,255,0.06);
-        border-radius: 8px;
-        margin-bottom: 12px;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
         position: sticky;
-        top: 0;
-        z-index: 10;
+        top: 104px;
+        z-index: 15;
     }
 </style>

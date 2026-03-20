@@ -142,3 +142,24 @@ window.scrollToLetter = function (elementId) {
         el.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 };
+
+// -- Registry Card helpers ---------------------------------------------------
+
+window.registryCardHelpers = {
+    isNearBottomEdge: function (element, threshold) {
+        if (!element) return false;
+        var rect = element.getBoundingClientRect();
+        return (window.innerHeight - rect.bottom) < threshold;
+    }
+};
+
+// -- Registry Settings (localStorage) ----------------------------------------
+
+window.registrySettings = {
+    getCardSize: function () {
+        return parseInt(localStorage.getItem('registry-card-size') || '80', 10);
+    },
+    setCardSize: function (size) {
+        localStorage.setItem('registry-card-size', size.toString());
+    }
+};

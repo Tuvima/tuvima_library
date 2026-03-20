@@ -305,6 +305,21 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                 "{Provider}/{Strategy}: search returned {Count} items",
                 Name, strategy.Name, items.Count);
 
+            // Trust the provider's own relevance ordering: if the first result scores
+            // ≥ 0.80 on the title-match heuristic, the provider already found the right
+            // item and we should use it immediately.  Returning only that result prevents
+            // a lower-ranked item (e.g. a study guide) from winning purely because its
+            // title has higher word-overlap with the query.
+            // When the first result scores < 0.80 we fall through and return all items so
+            // that the caller can apply best-score-wins re-ranking as before.
+            if (items.Count > 0 && items[0].Confidence >= 0.80)
+            {
+                _logger.LogDebug(
+                    "{Provider}/{Strategy}: first result score {Score:P0} ≥ 80 % — using provider ordering",
+                    Name, strategy.Name, items[0].Confidence);
+                return [items[0]];
+            }
+
             return items;
         }
         finally

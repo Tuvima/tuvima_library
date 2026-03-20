@@ -606,9 +606,26 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         int offset = 0, int limit = 50,
         string? search = null, string? type = null, string? status = null,
         double? minConfidence = null, string? matchSource = null,
-        bool duplicatesOnly = false, bool missingUniverseOnly = false,
+        bool? duplicatesOnly = null, bool? missingUniverseOnly = null,
+        string? sort = null, int? maxDays = null,
         CancellationToken ct = default)
-        => _api.GetRegistryItemsAsync(offset, limit, search, type, status, minConfidence, matchSource, duplicatesOnly, missingUniverseOnly, ct);
+        => _api.GetRegistryItemsAsync(offset, limit, search, type, status, minConfidence, matchSource, duplicatesOnly, missingUniverseOnly, sort, maxDays, ct);
+
+    /// <summary>Bulk-approves registry items by entity ID.</summary>
+    public Task<BatchRegistryResponse?> BatchApproveRegistryItemsAsync(Guid[] entityIds, CancellationToken ct = default)
+        => _api.BatchApproveRegistryItemsAsync(entityIds, ct);
+
+    /// <summary>Bulk-deletes registry items by entity ID.</summary>
+    public Task<BatchRegistryResponse?> BatchDeleteRegistryItemsAsync(Guid[] entityIds, CancellationToken ct = default)
+        => _api.BatchDeleteRegistryItemsAsync(entityIds, ct);
+
+    /// <summary>Rejects a single registry item.</summary>
+    public Task<BatchRegistryResponse?> RejectRegistryItemAsync(Guid entityId, CancellationToken ct = default)
+        => _api.RejectRegistryItemAsync(entityId, ct);
+
+    /// <summary>Bulk-rejects registry items by entity ID.</summary>
+    public Task<BatchRegistryResponse?> BatchRejectRegistryItemsAsync(Guid[] entityIds, CancellationToken ct = default)
+        => _api.BatchRejectRegistryItemsAsync(entityIds, ct);
 
     /// <summary>Returns full detail for a single registry item.</summary>
     public Task<RegistryItemDetailViewModel?> GetRegistryItemDetailAsync(Guid entityId, CancellationToken ct = default)
@@ -868,6 +885,15 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         string query, string? mediaType = null, string? providerId = null,
         int maxResultsPerProvider = 5, CancellationToken ct = default)
         => _api.SearchMetadataFanOutAsync(query, mediaType, providerId, maxResultsPerProvider, ct);
+
+    // ── Search results cache ────────────────────────────────────────────
+
+    public Task<string?> GetSearchResultsCacheAsync(Guid entityId, CancellationToken ct = default)
+        => _api.GetSearchResultsCacheAsync(entityId, ct);
+
+    public Task SaveSearchResultsCacheAsync(Guid entityId, string resultsJson, CancellationToken ct = default)
+        => _api.SaveSearchResultsCacheAsync(entityId, resultsJson, ct);
+
 
     // â”€â”€ Canonical values â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 

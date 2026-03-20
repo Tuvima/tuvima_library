@@ -1474,7 +1474,7 @@ public sealed class EngineApiClient : IEngineApiClient
                 WikidataQid      = p.WikidataQid,
                 HeadshotUrl      = p.HeadshotUrl,
                 HasLocalHeadshot = p.HasLocalHeadshot,
-                LocalHeadshotUrl = p.HasLocalHeadshot
+                LocalHeadshotUrl = (p.HasLocalHeadshot || !string.IsNullOrEmpty(p.HeadshotUrl))
                                    ? AbsoluteUrl($"/persons/{p.Id}/headshot")
                                    : null,
                 Biography        = p.Biography,
@@ -1504,7 +1504,7 @@ public sealed class EngineApiClient : IEngineApiClient
                 WikidataQid      = p.WikidataQid,
                 HeadshotUrl      = p.HeadshotUrl,
                 HasLocalHeadshot = p.HasLocalHeadshot,
-                LocalHeadshotUrl = p.HasLocalHeadshot
+                LocalHeadshotUrl = (p.HasLocalHeadshot || !string.IsNullOrEmpty(p.HeadshotUrl))
                                    ? AbsoluteUrl($"/persons/{p.Id}/headshot")
                                    : null,
                 Biography        = p.Biography,
@@ -1534,7 +1534,7 @@ public sealed class EngineApiClient : IEngineApiClient
                 WikidataQid      = p.WikidataQid,
                 HeadshotUrl      = p.HeadshotUrl,
                 HasLocalHeadshot = p.HasLocalHeadshot,
-                LocalHeadshotUrl = p.HasLocalHeadshot
+                LocalHeadshotUrl = (p.HasLocalHeadshot || !string.IsNullOrEmpty(p.HeadshotUrl))
                                    ? AbsoluteUrl($"/persons/{p.Id}/headshot")
                                    : null,
                 Biography        = p.Biography,
@@ -1591,7 +1591,7 @@ public sealed class EngineApiClient : IEngineApiClient
                 Role             = raw.Role ?? string.Empty,
                 HeadshotUrl      = raw.HeadshotUrl,
                 HasLocalHeadshot = raw.HasLocalHeadshot,
-                LocalHeadshotUrl = raw.HasLocalHeadshot ? AbsoluteUrl($"/persons/{raw.Id}/headshot") : null,
+                LocalHeadshotUrl = (raw.HasLocalHeadshot || !string.IsNullOrEmpty(raw.HeadshotUrl)) ? AbsoluteUrl($"/persons/{raw.Id}/headshot") : null,
                 Biography        = raw.Biography,
                 Occupation       = raw.Occupation,
                 Instagram        = raw.Instagram,
@@ -1721,6 +1721,38 @@ public sealed class EngineApiClient : IEngineApiClient
             return null;
         }
     }
+
+    // ── Search results cache ────────────────────────────────────────────
+
+    public async Task<string?> GetSearchResultsCacheAsync(Guid entityId, CancellationToken ct = default)
+    {
+        try
+        {
+            var response = await _http.GetAsync($"/metadata/{entityId}/search-cache", ct);
+            if (!response.IsSuccessStatusCode) return null;
+            var wrapper = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>(cancellationToken: ct);
+            return wrapper.TryGetProperty("results_json", out var rj) ? rj.GetString() : null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GetSearchResultsCacheAsync failed for {EntityId}", entityId);
+            return null;
+        }
+    }
+
+    public async Task SaveSearchResultsCacheAsync(Guid entityId, string resultsJson, CancellationToken ct = default)
+    {
+        try
+        {
+            var payload = new { results_json = resultsJson };
+            await _http.PutAsJsonAsync($"/metadata/{entityId}/search-cache", payload, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "SaveSearchResultsCacheAsync failed for {EntityId}", entityId);
+        }
+    }
+
 
     // â”€â”€ Canonical values â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -1890,7 +1922,8 @@ public sealed class EngineApiClient : IEngineApiClient
         int offset = 0, int limit = 50,
         string? search = null, string? type = null, string? status = null,
         double? minConfidence = null, string? matchSource = null,
-        bool duplicatesOnly = false, bool missingUniverseOnly = false,
+        bool? duplicatesOnly = null, bool? missingUniverseOnly = null,
+        string? sort = null, int? maxDays = null,
         CancellationToken ct = default)
     {
         try
@@ -1906,10 +1939,14 @@ public sealed class EngineApiClient : IEngineApiClient
                 url += $"&minConfidence={minConfidence.Value}";
             if (!string.IsNullOrWhiteSpace(matchSource))
                 url += $"&matchSource={Uri.EscapeDataString(matchSource)}";
-            if (duplicatesOnly)
+            if (duplicatesOnly == true)
                 url += "&duplicatesOnly=true";
-            if (missingUniverseOnly)
+            if (missingUniverseOnly == true)
                 url += "&missingUniverseOnly=true";
+            if (!string.IsNullOrWhiteSpace(sort))
+                url += $"&sort={Uri.EscapeDataString(sort)}";
+            if (maxDays.HasValue)
+                url += $"&maxDays={maxDays.Value}";
 
             var response = await _http.GetFromJsonAsync<RegistryPageResponse>(url, ct);
             if (response?.Items is not null)
@@ -1927,6 +1964,69 @@ public sealed class EngineApiClient : IEngineApiClient
         {
             _logger.LogWarning(ex, "GET /registry/items failed");
             LastError = ex.Message;
+            return null;
+        }
+    }
+
+    public async Task<BatchRegistryResponse?> BatchApproveRegistryItemsAsync(Guid[] entityIds, CancellationToken ct = default)
+    {
+        try
+        {
+            var request = new { entity_ids = entityIds };
+            var response = await _http.PostAsJsonAsync("/registry/batch/approve", request, ct);
+            response.EnsureSuccessStatusCode();
+            return await response.Content.ReadFromJsonAsync<BatchRegistryResponse>(ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Batch approve failed");
+            return null;
+        }
+    }
+
+    public async Task<BatchRegistryResponse?> BatchDeleteRegistryItemsAsync(Guid[] entityIds, CancellationToken ct = default)
+    {
+        try
+        {
+            var request = new { entity_ids = entityIds };
+            var response = await _http.PostAsJsonAsync("/registry/batch/delete", request, ct);
+            response.EnsureSuccessStatusCode();
+            return await response.Content.ReadFromJsonAsync<BatchRegistryResponse>(ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Batch delete failed");
+            return null;
+        }
+    }
+
+    public async Task<BatchRegistryResponse?> RejectRegistryItemAsync(Guid entityId, CancellationToken ct = default)
+    {
+        try
+        {
+            var response = await _http.PostAsJsonAsync($"/registry/items/{entityId}/reject", new { }, ct);
+            response.EnsureSuccessStatusCode();
+            return await response.Content.ReadFromJsonAsync<BatchRegistryResponse>(ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Reject registry item {EntityId} failed", entityId);
+            return null;
+        }
+    }
+
+    public async Task<BatchRegistryResponse?> BatchRejectRegistryItemsAsync(Guid[] entityIds, CancellationToken ct = default)
+    {
+        try
+        {
+            var request = new { entity_ids = entityIds };
+            var response = await _http.PostAsJsonAsync("/registry/batch/reject", request, ct);
+            response.EnsureSuccessStatusCode();
+            return await response.Content.ReadFromJsonAsync<BatchRegistryResponse>(ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Batch reject failed");
             return null;
         }
     }
