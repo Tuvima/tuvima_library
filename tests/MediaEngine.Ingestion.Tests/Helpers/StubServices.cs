@@ -206,22 +206,6 @@ internal sealed class TestProcessorRegistry : IProcessorRegistry
     }
 }
 
-// ── Item History Repository Stub ──────────────────────────────────────────────
-
-internal sealed class StubItemHistoryRepository : IItemHistoryRepository
-{
-    public List<(Guid EntityId, string EventType, string Label, string? Detail)> Events { get; } = [];
-
-    public Task AppendAsync(Guid entityId, string eventType, string label, string? detail = null, CancellationToken ct = default)
-    {
-        Events.Add((entityId, eventType, label, detail));
-        return Task.CompletedTask;
-    }
-
-    public Task<IReadOnlyList<MediaEngine.Domain.Entities.ItemHistoryEntry>> GetHistoryAsync(Guid entityId, CancellationToken ct = default)
-        => Task.FromResult<IReadOnlyList<MediaEngine.Domain.Entities.ItemHistoryEntry>>([]);
-}
-
 // ── Configuration Loader Stub ───────────────────────────────────────────────
 
 internal sealed class StubConfigurationLoader : IConfigurationLoader

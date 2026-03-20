@@ -135,8 +135,7 @@ public sealed class ComprehensiveIngestionTests : IDisposable
             _heroGenerator,
             new MediaEngine.Ingestion.Services.IngestionHintCache(),
             new MediaEngine.Ingestion.OrganizationGate(),
-            _ingestionLog,
-            new StubItemHistoryRepository());
+            _ingestionLog);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
 

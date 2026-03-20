@@ -104,9 +104,6 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     // Per-file ingestion lifecycle log — tracks each file from detection to completion.
     private readonly IIngestionLogRepository _ingestionLog;
 
-    // Per-item history — append-only event log for each media item's lifecycle.
-    private readonly IItemHistoryRepository _itemHistory;
-
     // Centralized concurrency guard (Principle 5: formalized lock hierarchy).
     // Replaces inline ConcurrentDictionary<string, SemaphoreSlim> instances.
     // Lock order: folder → hash (see ConcurrencyGuard doc for full hierarchy).
@@ -137,8 +134,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         IHeroBannerGenerator       heroGenerator,
         IIngestionHintCache        hintCache,
         IOrganizationGate          gate,
-        IIngestionLogRepository    ingestionLog,
-        IItemHistoryRepository     itemHistory)
+        IIngestionLogRepository    ingestionLog)
     {
         _watcher        = watcher;
         _debounce       = debounce;
@@ -164,7 +160,6 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         _hintCache      = hintCache;
         _gate           = gate;
         _ingestionLog   = ingestionLog;
-        _itemHistory    = itemHistory;
     }
 
     // =========================================================================
@@ -563,12 +558,22 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         var claims  = BuildClaims(assetId, result);
 
         // History: file detected.
-        try { await _itemHistory.AppendAsync(assetId, ItemHistoryEventType.FileDetected, "File detected in watch folder", Path.GetFileName(candidate.Path), ct).ConfigureAwait(false); }
-        catch (Exception ex) { _logger.LogWarning(ex, "Failed to log item history (FileDetected)"); }
+        await SafeActivityLogAsync(new SystemActivityEntry
+        {
+            ActionType = SystemActionType.FileDetected,
+            EntityId = assetId,
+            Detail = $"File detected in watch folder: {Path.GetFileName(candidate.Path)}",
+            IngestionRunId = ingestionRunId,
+        }, ct).ConfigureAwait(false);
 
         // History: metadata extracted.
-        try { await _itemHistory.AppendAsync(assetId, ItemHistoryEventType.MetadataExtracted, "Metadata extracted", $"{result.Claims.Count} fields found", ct).ConfigureAwait(false); }
-        catch (Exception ex) { _logger.LogWarning(ex, "Failed to log item history (MetadataExtracted)"); }
+        await SafeActivityLogAsync(new SystemActivityEntry
+        {
+            ActionType = "MetadataExtracted",
+            EntityId = assetId,
+            Detail = $"Metadata extracted — {result.Claims.Count} fields found",
+            IngestionRunId = ingestionRunId,
+        }, ct).ConfigureAwait(false);
 
         // Step 9: score.
         // CategoryConfidencePrior: currently 0.0 (single WatchDirectory = general catch-all).
@@ -588,8 +593,13 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         var scored = await _scorer.ScoreEntityAsync(scoringContext, ct).ConfigureAwait(false);
 
         // History: confidence scored.
-        try { await _itemHistory.AppendAsync(assetId, ItemHistoryEventType.ConfidenceScored, $"Confidence: {scored.OverallConfidence:P0}", $"Score: {scored.OverallConfidence:F2}", ct).ConfigureAwait(false); }
-        catch (Exception ex) { _logger.LogWarning(ex, "Failed to log item history (ConfidenceScored)"); }
+        await SafeActivityLogAsync(new SystemActivityEntry
+        {
+            ActionType = "ConfidenceScored",
+            EntityId = assetId,
+            Detail = $"Confidence: {scored.OverallConfidence:P0} — Score: {scored.OverallConfidence:F2}",
+            IngestionRunId = ingestionRunId,
+        }, ct).ConfigureAwait(false);
 
         // Phase 9: persist claims (append-only; enables re-scoring on weight changes).
         await _claimRepo.InsertBatchAsync(claims, ct).ConfigureAwait(false);
@@ -942,8 +952,13 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             CleanEmptyWatchParents(candidate.Path, _options.WatchDirectory);
 
             // History: staged.
-            try { await _itemHistory.AppendAsync(assetId, ItemHistoryEventType.Staged, "Moved to staging", stagingSubcategory, ct).ConfigureAwait(false); }
-            catch (Exception ex) { _logger.LogWarning(ex, "Failed to log item history (Staged)"); }
+            await SafeActivityLogAsync(new SystemActivityEntry
+            {
+                ActionType = SystemActionType.MovedToStaging,
+                EntityId = assetId,
+                Detail = $"Moved to staging: {stagingSubcategory}",
+                IngestionRunId = ingestionRunId,
+            }, ct).ConfigureAwait(false);
 
             if (gateResult.ReviewTrigger is not null)
             {
@@ -953,8 +968,13 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                     ct, ingestionRunId).ConfigureAwait(false);
 
                 // History: review created.
-                try { await _itemHistory.AppendAsync(assetId, ItemHistoryEventType.ReviewCreated, "Sent for review", gateResult.ReviewTrigger, ct).ConfigureAwait(false); }
-                catch (Exception ex) { _logger.LogWarning(ex, "Failed to log item history (ReviewCreated)"); }
+                await SafeActivityLogAsync(new SystemActivityEntry
+                {
+                    ActionType = SystemActionType.ReviewItemCreated,
+                    EntityId = assetId,
+                    Detail = $"Sent for review: {gateResult.ReviewTrigger}",
+                    IngestionRunId = ingestionRunId,
+                }, ct).ConfigureAwait(false);
             }
 
             // Lifecycle log: staged.

@@ -929,6 +929,31 @@ public sealed class DatabaseConnection : IDatabaseConnection
             m049.ExecuteNonQuery();
         }
 
+        // ── M-050: Consolidate item_history into system_activity ─────────
+        {
+            using var m050Check = conn.CreateCommand();
+            m050Check.CommandText =
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='item_history';";
+            var tableExists = Convert.ToInt64(m050Check.ExecuteScalar()) > 0;
+
+            if (tableExists)
+            {
+                using var m050 = conn.CreateCommand();
+                m050.CommandText = """
+                    INSERT INTO system_activity (occurred_at, action_type, entity_id, detail)
+                    SELECT
+                        occurred_at,
+                        event_type,
+                        entity_id,
+                        label || CASE WHEN detail IS NOT NULL THEN ' — ' || detail ELSE '' END
+                    FROM item_history;
+
+                    DROP TABLE item_history;
+                    """;
+                m050.ExecuteNonQuery();
+            }
+        }
+
         // Seed S-001: provider_registry entries for all known providers.
         // metadata_claims.provider_id has a FK to provider_registry(id), so these
         // rows MUST exist before any claim is written.  INSERT OR IGNORE makes this

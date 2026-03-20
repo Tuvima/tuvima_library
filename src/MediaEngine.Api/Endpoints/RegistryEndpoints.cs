@@ -974,7 +974,7 @@ public static class RegistryEndpoints
         group.MapPost("/items/{entityId:guid}/recover", async (
             Guid entityId,
             IReviewQueueRepository reviewRepo,
-            IItemHistoryRepository historyRepo,
+            ISystemActivityRepository activityRepo,
             CancellationToken ct) =>
         {
             // Find the rejected review entry(s) and dismiss them.
@@ -989,7 +989,12 @@ public static class RegistryEndpoints
 
             try
             {
-                await historyRepo.AppendAsync(entityId, ItemHistoryEventType.Recovered, "Recovered from rejected state", null, ct);
+                await activityRepo.LogAsync(new SystemActivityEntry
+                {
+                    ActionType = "Recovered",
+                    EntityId = entityId,
+                    Detail = "Recovered from rejected state",
+                }, ct);
             }
             catch (Exception) { /* history is supplementary */ }
 
@@ -1001,15 +1006,14 @@ public static class RegistryEndpoints
         .RequireAdminOrCurator();
 
         // ── GET /registry/items/{entityId}/history ────────────────────────────
-        // entityId is a work ID from the registry listing; item_history stores
-        // media_asset IDs, so we resolve work → asset first.
+        // entityId is a work ID from the registry listing. system_activity entries
+        // may reference the work ID or the asset ID, so we query for both.
         group.MapGet("/items/{entityId:guid}/history", async (
             Guid entityId,
-            IItemHistoryRepository historyRepo,
             IDatabaseConnection db,
             CancellationToken ct) =>
         {
-            // Resolve asset ID from work ID
+            // Resolve asset ID from work ID so we can find events logged against either.
             string? assetIdStr;
             using (var conn = db.CreateConnection())
             using (var cmd = conn.CreateCommand())
@@ -1025,20 +1029,38 @@ public static class RegistryEndpoints
                 assetIdStr = cmd.ExecuteScalar()?.ToString();
             }
 
-            var lookupId = assetIdStr is not null && Guid.TryParse(assetIdStr, out var assetId)
-                ? assetId
-                : entityId;
+            // Query system_activity for both work ID and asset ID.
+            var workIdStr = entityId.ToString();
+            var assetId = assetIdStr ?? workIdStr;
 
-            var entries = await historyRepo.GetHistoryAsync(lookupId, ct);
-            return Results.Ok(entries.Select(e => new
+            using var conn2 = db.CreateConnection();
+            using var cmd2 = conn2.CreateCommand();
+            cmd2.CommandText = """
+                SELECT id, occurred_at, action_type, entity_id, detail
+                FROM system_activity
+                WHERE entity_id = @workId OR entity_id = @assetId
+                ORDER BY occurred_at DESC
+                LIMIT 200
+                """;
+            cmd2.Parameters.AddWithValue("@workId", workIdStr);
+            cmd2.Parameters.AddWithValue("@assetId", assetId);
+
+            var entries = new List<object>();
+            using var reader = cmd2.ExecuteReader();
+            while (reader.Read())
             {
-                id = e.Id,
-                entity_id = e.EntityId,
-                occurred_at = e.OccurredAt,
-                event_type = e.EventType,
-                label = e.Label,
-                detail = e.Detail
-            }));
+                entries.Add(new
+                {
+                    id = reader.GetInt64(0).ToString(),
+                    entity_id = reader.IsDBNull(3) ? entityId : (Guid.TryParse(reader.GetString(3), out var eid) ? eid : entityId),
+                    occurred_at = reader.IsDBNull(1) ? DateTimeOffset.UtcNow : DateTimeOffset.Parse(reader.GetString(1)),
+                    event_type = reader.IsDBNull(2) ? "" : reader.GetString(2),
+                    label = reader.IsDBNull(2) ? "" : FormatActionTypeLabel(reader.GetString(2)),
+                    detail = reader.IsDBNull(4) ? (string?)null : reader.GetString(4),
+                });
+            }
+
+            return Results.Ok(entries);
         })
         .WithName("GetRegistryItemHistory")
         .WithSummary("Get processing history timeline for a registry item")
@@ -1047,4 +1069,37 @@ public static class RegistryEndpoints
 
         return app;
     }
+
+    /// <summary>Converts a system_activity action_type into a human-readable label for the History tab.</summary>
+    private static string FormatActionTypeLabel(string actionType) => actionType switch
+    {
+        "FileDetected"             => "File detected",
+        "FileIngested"             => "File ingested",
+        "MetadataExtracted"        => "Metadata extracted",
+        "ConfidenceScored"         => "Confidence scored",
+        "MovedToStaging"           => "Moved to staging",
+        "Promoted"                 => "Promoted to library",
+        "ReviewItemCreated"        => "Sent for review",
+        "ReviewItemResolved"       => "Review resolved",
+        "HydrationStarted"         => "Enrichment started",
+        "HydrationCompleted"       => "Enrichment complete",
+        "WikidataMatched"          => "Identified on Wikidata",
+        "WikidataMatchFailed"      => "No Wikidata match found",
+        "RetailEnriched"           => "Cover art retrieved",
+        "RetailEnrichFailed"       => "No cover art found",
+        "MetadataManualOverride"   => "Manual metadata override",
+        "MetadataWrittenToFile"    => "Metadata written to file",
+        "CoverArtSaved"            => "Cover art saved",
+        "HeroBannerGenerated"      => "Hero banner generated",
+        "HubCreated"               => "Hub created",
+        "HubAssigned"              => "Assigned to hub",
+        "PersonHydrated"           => "Person enriched",
+        "FileRejected"             => "Rejected",
+        "Recovered"                => "Recovered from rejection",
+        "FileHashed"               => "Content fingerprinted",
+        "DuplicateSkipped"         => "Duplicate skipped",
+        "EntityChainCreated"       => "Library records created",
+        "HydrationEnqueued"        => "Queued for enrichment",
+        _                          => actionType.Replace("_", " "),
+    };
 }

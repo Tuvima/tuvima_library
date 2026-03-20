@@ -70,7 +70,6 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     private readonly IDeferredEnrichmentRepository _deferredRepo;
     private readonly IWikibaseApiService _wikibaseApi;
     private readonly IFictionalEntityRepository _fictionalEntityRepo;
-    private readonly IItemHistoryRepository _itemHistory;
     private readonly ILogger<HydrationPipelineService> _logger;
 
     // ── Constructor ───────────────────────────────────────────────────────────
@@ -99,7 +98,6 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         IDeferredEnrichmentRepository deferredRepo,
         IWikibaseApiService wikibaseApi,
         IFictionalEntityRepository fictionalEntityRepo,
-        IItemHistoryRepository itemHistory,
         ILogger<HydrationPipelineService> logger)
     {
         ArgumentNullException.ThrowIfNull(providers);
@@ -125,7 +123,6 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         ArgumentNullException.ThrowIfNull(deferredRepo);
         ArgumentNullException.ThrowIfNull(wikibaseApi);
         ArgumentNullException.ThrowIfNull(fictionalEntityRepo);
-        ArgumentNullException.ThrowIfNull(itemHistory);
         ArgumentNullException.ThrowIfNull(logger);
 
         _providers      = providers.ToList();
@@ -151,7 +148,6 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         _deferredRepo        = deferredRepo;
         _wikibaseApi         = wikibaseApi;
         _fictionalEntityRepo = fictionalEntityRepo;
-        _itemHistory         = itemHistory;
         _logger              = logger;
 
         _channel = Channel.CreateBounded<HarvestRequest>(new BoundedChannelOptions(500)
@@ -304,7 +300,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             request.EntityId, titleHintForLog, request.MediaType);
 
         // History: hydration started.
-        try { await _itemHistory.AppendAsync(request.EntityId, ItemHistoryEventType.HydrationStarted, "Background enrichment started", null, ct).ConfigureAwait(false); }
+        try { await _activityRepo.LogAsync(new SystemActivityEntry { ActionType = "HydrationStarted", EntityId = request.EntityId, Detail = "Background enrichment started" }, ct).ConfigureAwait(false); }
         catch (Exception ex) when (ex is not OperationCanceledException) { _logger.LogWarning(ex, "Failed to log item history (HydrationStarted)"); }
 
         // ── Language mismatch guard (before Stage 1) ────────────────────────
@@ -564,7 +560,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         if (stage1Claims > 0)
         {
             // History: Wikidata matched.
-            try { await _itemHistory.AppendAsync(request.EntityId, ItemHistoryEventType.WikidataMatched, "Identified on Wikidata", result.WikidataQid is not null ? $"QID: {result.WikidataQid}" : null, ct).ConfigureAwait(false); }
+            try { await _activityRepo.LogAsync(new SystemActivityEntry { ActionType = "WikidataMatched", EntityId = request.EntityId, Detail = result.WikidataQid is not null ? $"Identified on Wikidata — QID: {result.WikidataQid}" : "Identified on Wikidata" }, ct).ConfigureAwait(false); }
             catch (Exception ex) when (ex is not OperationCanceledException) { _logger.LogWarning(ex, "Failed to log item history (WikidataMatched)"); }
 
             await _eventPublisher.PublishAsync(
@@ -717,7 +713,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 request.EntityId);
 
             // History: Wikidata match failed.
-            try { await _itemHistory.AppendAsync(request.EntityId, ItemHistoryEventType.WikidataMatchFailed, "No Wikidata match found", null, ct).ConfigureAwait(false); }
+            try { await _activityRepo.LogAsync(new SystemActivityEntry { ActionType = "WikidataMatchFailed", EntityId = request.EntityId, Detail = "No Wikidata match found" }, ct).ConfigureAwait(false); }
             catch (Exception ex) when (ex is not OperationCanceledException) { _logger.LogWarning(ex, "Failed to log item history (WikidataMatchFailed)"); }
 
             // Authority match failed — create review item.
@@ -976,7 +972,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         if (stage2Claims > 0)
         {
             // History: retail enrichment succeeded.
-            try { await _itemHistory.AppendAsync(request.EntityId, ItemHistoryEventType.RetailEnriched, "Additional metadata retrieved", null, ct).ConfigureAwait(false); }
+            try { await _activityRepo.LogAsync(new SystemActivityEntry { ActionType = "RetailEnriched", EntityId = request.EntityId, Detail = "Additional metadata retrieved" }, ct).ConfigureAwait(false); }
             catch (Exception ex) when (ex is not OperationCanceledException) { _logger.LogWarning(ex, "Failed to log item history (RetailEnriched)"); }
             // Post-hydration auto-resolve: if Stage 2 returned 3+ claims and this
             // entity has a pending AmbiguousMediaType review item, the provider match
@@ -1077,7 +1073,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 request.EntityId, string.Join(", ", waterfallProviders.Select(p => p.Name)));
 
             // History: retail enrichment failed.
-            try { await _itemHistory.AppendAsync(request.EntityId, ItemHistoryEventType.RetailEnrichFailed, "No additional metadata found", null, ct).ConfigureAwait(false); }
+            try { await _activityRepo.LogAsync(new SystemActivityEntry { ActionType = "RetailEnrichFailed", EntityId = request.EntityId, Detail = "No additional metadata found" }, ct).ConfigureAwait(false); }
             catch (Exception ex) when (ex is not OperationCanceledException) { _logger.LogWarning(ex, "Failed to log item history (RetailEnrichFailed)"); }
 
             // All waterfall providers ran but returned no results -> ContentMatchFailed.
@@ -1323,7 +1319,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             result.WikidataQid ?? "none");
 
         // History: hydration completed.
-        try { await _itemHistory.AppendAsync(request.EntityId, ItemHistoryEventType.HydrationCompleted, "Enrichment complete", $"{result.TotalClaimsAdded} claims added", ct).ConfigureAwait(false); }
+        try { await _activityRepo.LogAsync(new SystemActivityEntry { ActionType = "HydrationCompleted", EntityId = request.EntityId, Detail = $"Enrichment complete — {result.TotalClaimsAdded} claims added" }, ct).ConfigureAwait(false); }
         catch (Exception ex) when (ex is not OperationCanceledException) { _logger.LogWarning(ex, "Failed to log item history (HydrationCompleted)"); }
 
         return result;
