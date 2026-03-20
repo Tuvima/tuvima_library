@@ -823,7 +823,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         // For audiobooks, the master work QID (e.g. Dune = Q190192) does not carry
         // an audiobook ISBN — only its audiobook edition item (P747 + P31 filter) does.
         // Pivot to the edition QID so that Data Extension returns the audiobook-specific
-        // P212 (ISBN-13) and other edition-level bridge IDs (P5749 / ASIN, P3861 / Apple Books ID).
+        // P212 (ISBN-13) and other edition-level bridge IDs (P5749 / ASIN, P6395 / Apple Books ID).
         string masterWorkQid = qid; // preserve the master work QID for claims
         string? audiobookEditionQid = null;
 
@@ -1204,7 +1204,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         // will find nothing missing. It still runs as a safety net for any gaps.
         if (extData is not null)
         {
-            var editionBridgeProps = new[] { "P212", "P957", "P5749", "P3861", "P2969", "P648" }
+            var editionBridgeProps = new[] { "P212", "P957", "P5749", "P6395", "P2969", "P648" }
                 .Where(p => _config.DataExtension.PropertyLabels.ContainsKey(p))
                 .ToList();
 
@@ -1838,7 +1838,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         "P5749" => true, // asin
         "P4947" => true, // tmdb_movie_id
         "P345"  => true, // imdb_id
-        "P3861" => true, // apple_books_id
+        "P6395" => true, // apple_books_id
         "P5905" => true, // comic_vine_id
         "P434"  => true, // musicbrainz_artist_id
         "P436"  => true, // musicbrainz_release_id

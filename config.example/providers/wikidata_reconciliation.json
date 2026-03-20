@@ -39,7 +39,7 @@
   "data_extension": {
     "work_properties": {
       "core": ["P31", "P50", "P577", "P1476", "P136", "P179", "P1545"],
-      "bridges": ["P212", "P957", "P5749", "P4947", "P345", "P3861", "P5905", "P434", "P436", "P5842", "P2969", "P648"],
+      "bridges": ["P212", "P957", "P5749", "P4947", "P345", "P6395", "P5905", "P434", "P436", "P5842", "P2969", "P648"],
       "editions": ["P747"]
     },
     "person_properties": {
@@ -64,7 +64,7 @@
       "P5749": "asin",
       "P4947": "tmdb_movie_id",
       "P345": "imdb_id",
-      "P3861": "apple_books_id",
+      "P6395": "apple_books_id",
       "P5905": "comic_vine_id",
       "P434": "musicbrainz_artist_id",
       "P436": "musicbrainz_release_id",

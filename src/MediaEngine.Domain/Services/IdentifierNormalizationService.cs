@@ -25,7 +25,7 @@ public static class IdentifierNormalizationService
             "P957"  => NormalizeIsbn10(rawValue),
             "P5749" => NormalizeAsin(rawValue),
             "P345"  => NormalizeImdbId(rawValue),
-            "P3861" => NormalizeAppleBooksId(rawValue),
+            "P6395" => NormalizeAppleBooksId(rawValue),
             "P4947" => NormalizeTmdbId(rawValue),
             "P434"  => NormalizeMusicBrainzId(rawValue),
             "P2969" => NormalizeGoodreadsId(rawValue),
@@ -210,7 +210,7 @@ public static class IdentifierNormalizationService
     #endregion
 
     // -------------------------------------------------------------------------
-    #region Apple Books ID (P3861)
+    #region Apple Books ID (P6395)
     // -------------------------------------------------------------------------
 
     private static string? NormalizeAppleBooksId(string rawValue)

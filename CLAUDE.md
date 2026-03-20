@@ -1256,8 +1256,8 @@ Wikidata Reconciliation (Stage 1) is the universal authority source for all medi
 
 | Media Type | Retail Primary | Retail Secondary | Retail Tertiary | Bridge to Wikidata |
 |-----------|-------------------|-----------|----------|-------------------|
-| **Books** | Apple API (zero-key) | Google Books (key) | Open Library (zero-key) | ISBN (P212), Apple Books ID (P3861) |
-| **Audiobooks** | Apple API (zero-key) | Google Books (key) | — | ASIN, Apple Books ID (P3861) |
+| **Books** | Apple API (zero-key) | Google Books (key) | Open Library (zero-key) | ISBN (P212), Apple Books ID (P6395) |
+| **Audiobooks** | Apple API (zero-key) | Google Books (key) | — | ASIN, Apple Books ID (P6395) |
 | **Movies** | TMDB (free key) | — | — | TMDB ID (P4947), IMDb ID (P345) |
 | **TV Shows** | TMDB (free key) | — | — | TMDB TV ID (P4983), IMDb ID (P345) |
 | **Comics** | Comic Vine (free key) | — | — | Comic Vine ID (P5905) |

@@ -60,7 +60,7 @@ public static class WikidataPropertyDefaults
         new("P4584", "first_appearance",    "Stage 1: Story & Narrative", "Work", 0.8, false, true),
 
         // Stage 1: Bridges — Books
-        new("P3861", "apple_books_id", "Stage 1: Bridges — Books", "Work", 1.0, true, true),
+        new("P6395", "apple_books_id", "Stage 1: Bridges — Books", "Work", 1.0, true, true),
         new("P212",  "isbn",           "Stage 1: Bridges — Books", "Work", 1.0, true, true),
         new("P1566", "asin",           "Stage 1: Bridges — Books", "Work", 1.0, true, true),
         new("P2969", "goodreads_id",   "Stage 1: Bridges — Books", "Work", 1.0, true, true),
@@ -162,7 +162,7 @@ public static class WikidataPropertyDefaults
     public static List<BridgeEntry> GetBridgeEntries() =>
     [
         new("P212",  "isbn"),
-        new("P3861", "apple_books_id"),
+        new("P6395", "apple_books_id"),
         new("P3398", "audible_id"),
         new("P4947", "tmdb_movie_id"),
         new("P4983", "tmdb_tv_id"),
@@ -184,7 +184,7 @@ public static class WikidataPropertyDefaults
     /// <summary>Returns human-readable label for a bridge P-code.</summary>
     public static string GetBridgeLabel(string pCode) => pCode switch
     {
-        "P3861" => "Apple Books ID",
+        "P6395" => "Apple Books ID",
         "P3398" => "Audible ID",
         "P4947" => "TMDB Movie ID",
         "P4983" => "TMDB TV ID",
@@ -208,7 +208,7 @@ public static class WikidataPropertyDefaults
     /// <summary>Returns the target provider name for a bridge P-code.</summary>
     public static string GetTargetProvider(string pCode) => pCode switch
     {
-        "P3861" => "Apple Books",
+        "P6395" => "Apple Books",
         "P3398" => "Audnexus",
         "P4947" => "TMDB",
         "P4983" => "TMDB",

@@ -10,7 +10,7 @@ namespace MediaEngine.Providers.Models;
 /// </summary>
 public sealed class BridgeLookupEntry
 {
-    /// <summary>The Wikidata property code used for lookup, e.g. <c>"P3861"</c>.</summary>
+    /// <summary>The Wikidata property code used for lookup, e.g. <c>"P6395"</c>.</summary>
     [JsonPropertyName("p_code")]
     public string PCode { get; set; } = string.Empty;
 

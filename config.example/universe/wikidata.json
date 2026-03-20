@@ -48,7 +48,7 @@
     "P607":   { "claim_key": "conflict",                  "category": "Stage 1: Story & Narrative",     "entity_scope": "Work",   "confidence": 0.9,  "is_bridge": false, "enabled": true, "is_entity_valued": true,  "value_transform": null, "is_multi_valued": true },
 
     "_comment_stage1_bridges_books": "── Stage 1: Bridges — Books ────────────────────────────────────",
-    "P3861":  { "claim_key": "apple_books_id",             "category": "Stage 1: Bridges — Books",       "entity_scope": "Work",   "confidence": 1.0,  "is_bridge": true,  "enabled": true, "is_entity_valued": false, "value_transform": null },
+    "P6395":  { "claim_key": "apple_books_id",             "category": "Stage 1: Bridges — Books",       "entity_scope": "Work",   "confidence": 1.0,  "is_bridge": true,  "enabled": true, "is_entity_valued": false, "value_transform": null },
     "P212":   { "claim_key": "isbn",                       "category": "Stage 1: Bridges — Books",       "entity_scope": "Work",   "confidence": 1.0,  "is_bridge": true,  "enabled": true, "is_entity_valued": false, "value_transform": null },
     "P1566":  { "claim_key": "asin",                       "category": "Stage 1: Bridges — Books",       "entity_scope": "Work",   "confidence": 1.0,  "is_bridge": true,  "enabled": true, "is_entity_valued": false, "value_transform": null },
     "P2969":  { "claim_key": "goodreads_id",               "category": "Stage 1: Bridges — Books",       "entity_scope": "Work",   "confidence": 1.0,  "is_bridge": true,  "enabled": true, "is_entity_valued": false, "value_transform": null },
@@ -147,7 +147,7 @@
   },
   "bridge_lookup_priority": [
     { "p_code": "P212",  "request_field": "isbn" },
-    { "p_code": "P3861", "request_field": "apple_books_id" },
+    { "p_code": "P6395", "request_field": "apple_books_id" },
     { "p_code": "P3398", "request_field": "audible_id" },
     { "p_code": "P4947", "request_field": "tmdb_movie_id" },
     { "p_code": "P4983", "request_field": "tmdb_tv_id" },

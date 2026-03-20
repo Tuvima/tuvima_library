@@ -44,7 +44,7 @@ public sealed class ProviderLookupRequest
 
     // ── External bridge hints ───────────────────────────────────────────────
 
-    /// <summary>Apple Books ID (Wikidata P3861). Used for QID cross-reference.</summary>
+    /// <summary>Apple Books ID (Wikidata P6395). Used for QID cross-reference.</summary>
     public string? AppleBooksId { get; init; }
 
     /// <summary>Audible ID (Wikidata P3398). Used for QID cross-reference.</summary>
