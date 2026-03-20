@@ -183,7 +183,9 @@ public sealed class RecursiveIdentityService : IRecursiveIdentityService
         EnsurePersonFolder(person);
 
         // 3. If not yet enriched, enqueue a Wikidata harvest request.
-        if (person.EnrichedAt is null)
+        //    Skip for collective pseudonyms — Wikidata would return one of the real
+        //    co-authors, overwriting the pen name identity with the wrong person's data.
+        if (person.EnrichedAt is null && !reference.IsCollectivePseudonym)
         {
             var hints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {

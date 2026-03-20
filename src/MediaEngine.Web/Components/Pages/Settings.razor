@@ -177,6 +177,8 @@
                 <ConnectionVaultTab CurrentRole="@_currentRole" />
                 break;
             case SettingsSection.NeedsReview:
+                Nav.NavigateTo("/registry/review", replace: true);
+                break;
             case SettingsSection.Activity:
             case SettingsSection.Conflicts:
                 Nav.NavigateTo("/registry", replace: true);

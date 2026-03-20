@@ -1061,10 +1061,12 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             IngestionRunId = ingestionRunId,
         }, ct).ConfigureAwait(false);
 
-        // Phase 9: trigger recursive person enrichment for authors/narrators.
-        var persons = ExtractPersonReferences(candidate.Metadata);
-        if (persons.Count > 0)
-            await _identity.EnrichAsync(assetId, persons, ct).ConfigureAwait(false);
+        // Phase 9: person enrichment is deferred to the hydration pipeline (Stage 1),
+        // which has pen name detection logic.  Running it here causes a race condition:
+        // the background MetadataHarvestingService would enrich "James S.A. Corey" with
+        // a co-author's bio before the pipeline can detect it as a collective pseudonym.
+        // HydrationPipelineService.ExtractPersonReferencesFromRawClaims handles person
+        // creation, linking, and enrichment after pen name detection has run.
 
         // D2: populate folder hint for sibling files.
         // Only set for the first file in the folder — subsequent siblings consume it.

@@ -23,4 +23,15 @@ namespace MediaEngine.Domain.Models;
 /// lists all co-authors by QID.
 /// Example: <c>"Q1159871"</c> (Daniel Abraham).
 /// </param>
-public sealed record PersonReference(string Role, string Name, string? WikidataQid = null);
+/// <param name="IsCollectivePseudonym">
+/// When <c>true</c>, this person represents a shared pen name used by multiple co-authors
+/// (e.g. "James S. A. Corey" = Daniel Abraham + Ty Franck). The enrichment service should
+/// NOT attempt to resolve this person against Wikidata, because Wikidata treats the pen name
+/// as an alias of one of the real authors — enriching would overwrite the pen name identity
+/// with the wrong individual's biography and headshot.
+/// </param>
+public sealed record PersonReference(
+    string Role,
+    string Name,
+    string? WikidataQid = null,
+    bool IsCollectivePseudonym = false);

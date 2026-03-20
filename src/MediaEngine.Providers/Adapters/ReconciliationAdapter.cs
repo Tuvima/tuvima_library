@@ -1017,11 +1017,78 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                                 .FirstOrDefault(t => string.Equals(t.key, sharedKey, StringComparison.OrdinalIgnoreCase))
                                 .display ?? sharedKey;
 
+                            // Re-key existing P50-derived author and author_qid claims so the
+                            // pen name wins as canonical author.  The real-name claims move to
+                            // author_real_name / author_real_name_qid — they are NOT displayed
+                            // and feed only the collective_members_qid enrichment path below.
+                            for (int i = 0; i < claims.Count; i++)
+                            {
+                                if (string.Equals(claims[i].Key, "author_qid", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    claims[i] = new ProviderClaim("author_real_name_qid", claims[i].Value, claims[i].Confidence);
+                                }
+                                else if (string.Equals(claims[i].Key, "author", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    claims[i] = new ProviderClaim("author_real_name", claims[i].Value, claims[i].Confidence);
+                                }
+                            }
+
                             // Higher confidence than the individual real-name claims (0.90) so the pen name wins.
                             claims.Add(new ProviderClaim("author", penName, 0.95));
+
+                            // Signal to the pipeline that this is a collective pseudonym so person
+                            // enrichment skips Wikidata lookup (which would return a co-author, not the pen name).
+                            claims.Add(new ProviderClaim("author_is_collective_pseudonym", "true", 0.95));
+
+                            // Resolve the pen name's own QID. P742 returns string values (not entity refs),
+                            // so we need a Reconciliation lookup for the pen name to get its QID.
+                            // IMPORTANT: the Reconciliation API may return one of the co-authors instead
+                            // of the pen name entity — we must reject any QID that matches a known co-author.
+                            string? penNameQid = sharedKey.StartsWith("Q", StringComparison.OrdinalIgnoreCase)
+                                ? sharedKey : null;
+
+                            if (penNameQid is null)
+                            {
+                                try
+                                {
+                                    var penNameCandidates = await ReconcileAsync(penName, null, ct).ConfigureAwait(false);
+                                    var bestMatch = penNameCandidates
+                                        .Where(c => (c.Match || c.Score >= 80)
+                                                    && !authorQids.Contains(c.QID)) // reject co-author QIDs
+                                        .OrderByDescending(c => c.Score)
+                                        .FirstOrDefault();
+
+                                    if (bestMatch is not null)
+                                        penNameQid = bestMatch.QID;
+                                }
+                                catch (Exception ex)
+                                {
+                                    _logger.LogDebug("{Provider}: pen name QID lookup failed for \"{PenName}\": {Message}",
+                                        Name, penName, ex.Message);
+                                }
+                            }
+
+                            // Only emit author_qid if we found a genuine pen name entity QID.
+                            // If not, the person record will be created by name only — safe from
+                            // being enriched with the wrong co-author's data.
+                            if (penNameQid is not null)
+                            {
+                                claims.Add(new ProviderClaim("author_qid", $"{penNameQid}::{penName}", 0.95));
+                            }
+
+                            // Emit the real co-authors as collective_members_qid so the pipeline
+                            // creates Person records for them with normal (non-pseudonym) enrichment.
+                            // The re-keyed author_real_name_qid claims carry the QID::Label format.
+                            var memberClaims = claims
+                                .Where(c => string.Equals(c.Key, "author_real_name_qid", StringComparison.OrdinalIgnoreCase)
+                                             && !string.IsNullOrWhiteSpace(c.Value))
+                                .Select(c => new ProviderClaim("collective_members_qid", c.Value, 0.90))
+                                .ToList();
+                            claims.AddRange(memberClaims);
+
                             _logger.LogInformation(
-                                "{Provider}: pen name detected for QID {QID} — {AuthorCount} co-authors share pen name \"{PenName}\"",
-                                Name, masterWorkQid, authorQids.Count, penName);
+                                "{Provider}: pen name detected for QID {QID} — {AuthorCount} co-authors share pen name \"{PenName}\" (QID: {PenNameQid})",
+                                Name, masterWorkQid, authorQids.Count, penName, penNameQid ?? "none");
                         }
                     }
                 }
@@ -1073,30 +1140,49 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
 
                     if (!penNameAlreadyEmitted)
                     {
-                        // Re-key the existing Wikidata P50 real-name "author" claims so they
-                        // don't compete in the canonical author field election.
-                        var indicesToRekey = new List<int>();
+                        // Re-key the existing Wikidata P50 real-name "author" and "author_qid"
+                        // claims so they don't compete in the canonical field elections.
                         for (int i = 0; i < claims.Count; i++)
                         {
                             if (string.Equals(claims[i].Key, "author", StringComparison.OrdinalIgnoreCase))
                             {
-                                indicesToRekey.Add(i);
+                                claims[i] = new ProviderClaim("author_real_name", claims[i].Value, claims[i].Confidence);
                             }
-                        }
-
-                        foreach (var idx in indicesToRekey)
-                        {
-                            var original = claims[idx];
-                            claims[idx] = new ProviderClaim("author_real_name", original.Value, original.Confidence);
+                            else if (string.Equals(claims[i].Key, "author_qid", StringComparison.OrdinalIgnoreCase))
+                            {
+                                claims[i] = new ProviderClaim("author_real_name_qid", claims[i].Value, claims[i].Confidence);
+                            }
                         }
 
                         // Emit the embedded (credited) author name at high confidence so it
                         // wins as the canonical author value in the priority cascade.
                         claims.Add(new ProviderClaim("author", embeddedAuthor, 0.95));
+
+                        // Resolve the pen name's QID via Reconciliation lookup so person
+                        // enrichment creates a Person for the pen name, not the real authors.
+                        try
+                        {
+                            var penNameCandidates = await ReconcileAsync(embeddedAuthor, null, ct).ConfigureAwait(false);
+                            var bestMatch = penNameCandidates
+                                .Where(c => c.Match || c.Score >= 80)
+                                .OrderByDescending(c => c.Score)
+                                .FirstOrDefault();
+
+                            if (bestMatch is not null)
+                            {
+                                claims.Add(new ProviderClaim("author_qid", $"{bestMatch.QID}::{embeddedAuthor}", 0.95));
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogDebug("{Provider}: pen name QID lookup failed for \"{PenName}\": {Message}",
+                                Name, embeddedAuthor, ex.Message);
+                        }
+
                         _logger.LogInformation(
                             "{Provider}: embedded author \"{EmbeddedAuthor}\" does not match Wikidata P50 " +
                             "authors for QID {QID} — treating as pen name. Real author claims re-keyed to " +
-                            "\"author_real_name\"; credited pen name emitted as canonical author.",
+                            "\"author_real_name\"/\"author_real_name_qid\"; credited pen name emitted as canonical author.",
                             Name, embeddedAuthor, masterWorkQid);
                     }
                 }

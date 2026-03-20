@@ -14,6 +14,17 @@
               Class="@($"fuzzy-search-field {Class}")"
               Style="@Style" />
 
+<style>
+    .fuzzy-search-field .mud-input-adornment-end {
+        cursor: pointer;
+        opacity: 0.5;
+        transition: opacity 0.15s ease;
+    }
+    .fuzzy-search-field .mud-input-adornment-end:hover {
+        opacity: 1;
+    }
+</style>
+
 @code {
     [Parameter] public string Placeholder { get; set; } = "Search...";
     [Parameter] public string? Value { get; set; }

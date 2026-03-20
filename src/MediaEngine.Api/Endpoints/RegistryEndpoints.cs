@@ -1001,12 +1001,35 @@ public static class RegistryEndpoints
         .RequireAdminOrCurator();
 
         // ── GET /registry/items/{entityId}/history ────────────────────────────
+        // entityId is a work ID from the registry listing; item_history stores
+        // media_asset IDs, so we resolve work → asset first.
         group.MapGet("/items/{entityId:guid}/history", async (
             Guid entityId,
             IItemHistoryRepository historyRepo,
+            IDatabaseConnection db,
             CancellationToken ct) =>
         {
-            var entries = await historyRepo.GetHistoryAsync(entityId, ct);
+            // Resolve asset ID from work ID
+            string? assetIdStr;
+            using (var conn = db.CreateConnection())
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = """
+                    SELECT ma.id
+                    FROM editions e
+                    INNER JOIN media_assets ma ON ma.edition_id = e.id
+                    WHERE e.work_id = @workId
+                    LIMIT 1
+                    """;
+                cmd.Parameters.AddWithValue("@workId", entityId.ToString());
+                assetIdStr = cmd.ExecuteScalar()?.ToString();
+            }
+
+            var lookupId = assetIdStr is not null && Guid.TryParse(assetIdStr, out var assetId)
+                ? assetId
+                : entityId;
+
+            var entries = await historyRepo.GetHistoryAsync(lookupId, ct);
             return Results.Ok(entries.Select(e => new
             {
                 id = e.Id,

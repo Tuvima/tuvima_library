@@ -20,10 +20,13 @@
             </div>
         }
 
-        @* ── Status dot (top-left) ── *@
+        @* ── Review corner badge (top-left diagonal ribbon) ── *@
         @if (NeedsReview)
         {
-            <span class="rc-status-dot" style="background: @RegistryHelpers.GetConfidenceHexColor(Item.Confidence);"></span>
+            var (_, trigColor, trigIcon) = RegistryHelpers.FormatReviewTrigger(Item.ReviewTrigger);
+            <span class="rc-corner-badge" style="--badge-color: @trigColor;">
+                <MudIcon Icon="@trigIcon" Style="font-size: 0.55rem; color: #fff;" />
+            </span>
         }
 
         @* ── Selected indicator (top-right, only in selection mode) ── *@
@@ -67,9 +70,9 @@
             if (Item.ReviewTrigger == "Rejected")
                 return "border-left: 3px solid rgba(239,83,80,0.5); opacity: 0.6;";
 
-            // Needs review: amber
+            // Needs review: muted amber
             if (NeedsReview)
-                return "border-left: 3px solid #C9922E;";
+                return "border-left: 3px solid rgba(176,137,64,0.5);";
 
             // New (created < 24h ago)
             if ((DateTimeOffset.UtcNow - Item.CreatedAt).TotalHours < 24)
@@ -130,8 +133,7 @@
         border-color: rgba(255,255,255,0.15);
     }
     .rc-wrap--review .rc-thumb {
-        border-color: rgba(234,179,8,0.5);
-        box-shadow: 0 0 8px rgba(234,179,8,0.25);
+        border-color: rgba(176,137,64,0.35);
     }
     .rc-thumb-img {
         width: 100%;
@@ -162,15 +164,34 @@
         max-width: var(--rc-card-width, 80px);
     }
 
-    /* ── Status dot ── */
-    .rc-status-dot {
+    /* ── Corner badge (diagonal ribbon, top-left) ── */
+    .rc-corner-badge {
         position: absolute;
-        top: 4px;
-        left: 4px;
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        box-shadow: 0 0 4px rgba(0,0,0,0.6);
+        top: 0;
+        left: 0;
+        width: 22px;
+        height: 22px;
+        overflow: hidden;
+        z-index: 3;
+        display: flex;
+        align-items: flex-start;
+        justify-content: flex-start;
+        pointer-events: none;
+    }
+    .rc-corner-badge::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        border-style: solid;
+        border-width: 22px 22px 0 0;
+        border-color: var(--badge-color, #B08940) transparent transparent transparent;
+        opacity: 0.85;
+    }
+    .rc-corner-badge :deep(.mud-icon-root) {
+        position: relative;
+        z-index: 1;
+        margin: 2px 0 0 2px;
     }
 
     /* ── Selection mark ── */

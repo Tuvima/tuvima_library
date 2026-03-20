@@ -599,6 +599,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             var personRefs = stage1RawClaims.Count > 0
                 ? ExtractPersonReferencesFromRawClaims(stage1RawClaims)
                 : ExtractPersonReferences(canonicalsAfterS1);
+
             if (personRefs.Count > 0)
             {
                 try
@@ -2618,6 +2619,25 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         AddPersonRefsFromLists(refs, "Narrator", byKey, "performer", "performer_qid");
         AddPersonRefsFromLists(refs, "Director", byKey, "director",  "director_qid");
 
+        // Mark author refs as collective pseudonyms when the adapter flagged it.
+        // This prevents person enrichment from looking up the pen name on Wikidata
+        // (which would return one of the co-authors instead of the pen name entity).
+        // NOTE: We mark ALL existing author refs (regardless of whether they have a QID)
+        // because the pen name QID resolution may have succeeded, giving the pen name
+        // author a QID. The real co-authors are added AFTER this block via
+        // collective_members_qid and are therefore unaffected.
+        if (byKey.TryGetValue("author_is_collective_pseudonym", out var pseudoFlags)
+            && pseudoFlags.Any(f => string.Equals(f, "true", StringComparison.OrdinalIgnoreCase)))
+        {
+            for (int i = 0; i < refs.Count; i++)
+            {
+                if (string.Equals(refs[i].Role, "Author", StringComparison.OrdinalIgnoreCase))
+                {
+                    refs[i] = refs[i] with { IsCollectivePseudonym = true };
+                }
+            }
+        }
+
         // Collective pseudonym constituent members.
         if (byKey.TryGetValue("collective_members_qid", out var collectiveValues))
         {
@@ -2630,8 +2650,12 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                     var label = segment[(colonIndex + 2)..].Trim();
                     if (!string.IsNullOrEmpty(label) && !string.IsNullOrEmpty(qid))
                     {
+                        // Skip if this QID or name already exists in the refs list.
+                        // This prevents the pen name entity (e.g. Q6142591 "James S. A. Corey")
+                        // from being re-added as a non-pseudonym when it's already marked as one.
                         var alreadyPresent = refs.Any(r =>
-                            string.Equals(r.WikidataQid, qid, StringComparison.OrdinalIgnoreCase));
+                            string.Equals(r.WikidataQid, qid, StringComparison.OrdinalIgnoreCase)
+                            || (r.IsCollectivePseudonym && string.Equals(r.Name, label, StringComparison.OrdinalIgnoreCase)));
                         if (!alreadyPresent)
                             refs.Add(new PersonReference("Author", label, qid));
                     }

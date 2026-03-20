@@ -22,7 +22,7 @@ else
                     @if (!string.IsNullOrEmpty(group.HeaderIcon))
                     {
                         <MudIcon Icon="@group.HeaderIcon" Size="Size.Small"
-                                 Style="@($"font-size: 0.9rem; color: {group.HeaderColor ?? "rgba(255,255,255,0.6)"};")" />
+                                 Style="@($"font-size: 0.9rem; color: {group.HeaderColor ?? "rgba(255,255,255,0.6)"}; opacity: 0.6;")" />
                     }
                     <span class="rg-section-label">@group.Label</span>
                     <span class="rg-section-count">@group.Items.Count</span>
@@ -33,13 +33,13 @@ else
                             <MudButton Variant="Variant.Text" Size="Size.Small"
                                        StartIcon="@Icons.Material.Filled.Check"
                                        OnClick="@(() => OnApproveGroup.InvokeAsync(group.Items.Select(i => i.EntityId).ToList()))"
-                                       Style="font-size: 0.68rem; color: #4ade80; padding: 2px 6px; min-width: 0; height: 22px;">
+                                       Style="font-size: 0.68rem; color: #5A8A5E; padding: 2px 6px; min-width: 0; height: 22px;">
                                 Approve All
                             </MudButton>
                             <MudButton Variant="Variant.Text" Size="Size.Small"
                                        StartIcon="@Icons.Material.Filled.Block"
                                        OnClick="@(() => OnRejectGroup.InvokeAsync(group.Items.Select(i => i.EntityId).ToList()))"
-                                       Style="font-size: 0.68rem; color: #ef4444; padding: 2px 6px; min-width: 0; height: 22px;">
+                                       Style="font-size: 0.68rem; color: #A05050; padding: 2px 6px; min-width: 0; height: 22px;">
                                 Reject All
                             </MudButton>
                         </div>
@@ -153,36 +153,45 @@ else
 
     private List<SectionGroup> GetReviewGroups()
     {
-        var order = new[]
+        // Each entry: (groupKey, label, triggers[]) — triggers with the same key are merged.
+        var order = new (string Key, string Label, string[] Triggers)[]
         {
-            ("AuthorityMatchFailed", "No Match Found"),
-            ("MultipleQidMatches",  "Multiple Matches"),
-            ("LowConfidence",       "Low Confidence"),
-            ("AmbiguousMediaType",  "Ambiguous Type"),
-            ("Rejected",            "Rejected"),
+            ("AuthorityMatchFailed", "No Match Found",       ["AuthorityMatchFailed"]),
+            ("ContentMatchFailed",   "No Cover Art Found",   ["ContentMatchFailed"]),
+            ("MissingQid",           "Needs Manual Match",   ["MissingQid"]),
+            ("MultipleQidMatches",   "Multiple Matches",     ["MultipleQidMatches"]),
+            ("LowConfidence",        "Low Confidence",       ["LowConfidence"]),
+            ("PlaceholderTitle",     "Missing Title",        ["PlaceholderTitle"]),
+            ("StagedUnidentifiable", "Cannot Identify",      ["StagedUnidentifiable"]),
+            ("AmbiguousMediaType",   "Ambiguous Type",       ["AmbiguousMediaType"]),
+            ("ArtworkUnconfirmed",   "Verify Cover Art",     ["ArtworkUnconfirmed"]),
+            ("MetadataConflict",     "Conflicting Data",     ["MetadataConflict"]),
+            ("ForeignLanguage",      "Foreign Language",     ["LanguageMismatch", "NonConfiguredLanguage"]),
+            ("ArbiterNeedsReview",   "Review Grouping",      ["ArbiterNeedsReview"]),
+            ("UserFixMatch",         "User Correction",      ["UserFixMatch"]),
+            ("Rejected",             "Rejected",             ["Rejected"]),
         };
 
+        var allKnownTriggers = order.SelectMany(o => o.Triggers).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var result = new List<SectionGroup>();
-        var ungrouped = Items.ToList();
 
-        foreach (var (trigger, label) in order)
+        foreach (var (key, label, triggers) in order)
         {
-            var grpItems = ungrouped
-                .Where(i => string.Equals(i.ReviewTrigger, trigger, StringComparison.OrdinalIgnoreCase))
+            var grpItems = Items
+                .Where(i => triggers.Any(t => string.Equals(i.ReviewTrigger, t, StringComparison.OrdinalIgnoreCase)))
                 .OrderByDescending(i => i.CreatedAt)
                 .ToList();
 
             if (grpItems.Count == 0) continue;
 
-            var (_, color, icon) = RegistryHelpers.FormatReviewTrigger(trigger);
-            result.Add(new SectionGroup(trigger, label, grpItems,
+            var (_, color, icon) = RegistryHelpers.FormatReviewTrigger(triggers[0]);
+            result.Add(new SectionGroup(key, label, grpItems,
                 IsReviewGroup: true, HeaderIcon: icon, HeaderColor: color));
         }
 
         // Catch-all for items with unrecognised or null trigger
-        var remaining = ungrouped
-            .Where(i => !order.Any(o =>
-                string.Equals(i.ReviewTrigger, o.Item1, StringComparison.OrdinalIgnoreCase)))
+        var remaining = Items
+            .Where(i => !allKnownTriggers.Contains(i.ReviewTrigger ?? ""))
             .OrderByDescending(i => i.CreatedAt)
             .ToList();
 
@@ -270,13 +279,13 @@ else
         var result = new List<SectionGroup>();
         if (high.Count > 0)
             result.Add(new SectionGroup("high", "High Confidence (≥85%)", high,
-                HeaderIcon: Icons.Material.Filled.VerifiedUser, HeaderColor: "#4ade80"));
+                HeaderIcon: Icons.Material.Filled.VerifiedUser, HeaderColor: "#5A8A5E"));
         if (medium.Count > 0)
             result.Add(new SectionGroup("medium", "Medium Confidence (60–85%)", medium,
-                HeaderIcon: Icons.Material.Filled.Info, HeaderColor: "#C9922E"));
+                HeaderIcon: Icons.Material.Filled.Info, HeaderColor: "#B08940"));
         if (low.Count > 0)
             result.Add(new SectionGroup("low", "Low Confidence (<60%)", low,
-                HeaderIcon: Icons.Material.Filled.Warning, HeaderColor: "#ef4444"));
+                HeaderIcon: Icons.Material.Filled.Warning, HeaderColor: "#A05050"));
         return result;
     }
 
@@ -331,7 +340,7 @@ else
         background: rgba(255,255,255,0.03);
     }
     .rg-section-header--review {
-        border-left: 3px solid var(--rg-header-accent, rgba(255,255,255,0.1));
+        border-left: 2px solid var(--rg-header-accent, rgba(255,255,255,0.08));
         padding-left: 10px;
     }
     .rg-section-label {

@@ -40,9 +40,9 @@ public static class RegistryHelpers
 
     public static string GetConfidenceHexColor(double conf) => conf switch
     {
-        >= 0.85 => "#4CAF50",
-        >= 0.60 => "#EAB308",
-        _ => "#EF5350",
+        >= 0.85 => "#5A8A5E",
+        >= 0.60 => "#B08940",
+        _ => "#A05050",
     };
 
     public static string GetConfidenceLabel(double conf) => conf switch
@@ -54,30 +54,31 @@ public static class RegistryHelpers
 
     public static string GetStatusChipStyle(string status) => status switch
     {
-        "Auto" => "background: rgba(76,175,80,0.15); color: #4CAF50; font-size: 0.7rem; height: 22px;",
-        "Review" => "background: rgba(234,179,8,0.15); color: #EAB308; font-size: 0.7rem; height: 22px;",
-        "Edited" => "background: rgba(66,165,245,0.15); color: #42A5F5; font-size: 0.7rem; height: 22px;",
-        "Duplicate" => "background: rgba(239,83,80,0.15); color: #EF5350; font-size: 0.7rem; height: 22px;",
-        _ => "background: rgba(255,255,255,0.05); color: #888; font-size: 0.7rem; height: 22px;",
+        "Auto" => "background: rgba(90,138,94,0.15); color: #5A8A5E; font-size: 0.7rem; height: 22px;",
+        "Review" => "background: rgba(176,137,64,0.15); color: #B08940; font-size: 0.7rem; height: 22px;",
+        "Edited" => "background: rgba(92,122,153,0.15); color: #5C7A99; font-size: 0.7rem; height: 22px;",
+        "Duplicate" => "background: rgba(160,80,80,0.15); color: #A05050; font-size: 0.7rem; height: 22px;",
+        _ => "background: rgba(255,255,255,0.05); color: #6B6B6B; font-size: 0.7rem; height: 22px;",
     };
 
     public static (string Label, string Color, string Icon) FormatReviewTrigger(string? trigger) => trigger switch
     {
-        "LowConfidence"         => ("Needs Verification",     "#FF9800", Icons.Material.Outlined.TrendingDown),
-        "MultipleQidMatches"    => ("Multiple Matches Found", "#2196F3", Icons.Material.Outlined.CallSplit),
-        "AuthorityMatchFailed"  => ("No Match Found",         "#F44336", Icons.Material.Outlined.LinkOff),
-        "ContentMatchFailed"    => ("No Cover Art Found",     "#F44336", Icons.Material.Outlined.SearchOff),
-        "AmbiguousMediaType"    => ("Unknown Format",         "#FF9800", Icons.Material.Outlined.HelpOutline),
-        "MissingQid"            => ("Needs Manual Match",     "#2196F3", Icons.Material.Outlined.QuestionMark),
-        "PlaceholderTitle"      => ("Missing Title",          "#F44336", Icons.Material.Outlined.Title),
-        "StagedUnidentifiable"  => ("Cannot Identify",        "#F44336", Icons.Material.Outlined.ErrorOutline),
-        "ArtworkUnconfirmed"    => ("Verify Cover Art",       "#FF9800", Icons.Material.Outlined.Image),
-        "MetadataConflict"      => ("Conflicting Data",       "#FF9800", Icons.Material.Outlined.Compare),
-        "UserFixMatch"          => ("User Correction",        "#2196F3", Icons.Material.Outlined.Edit),
-        "ArbiterNeedsReview"    => ("Review Grouping",        "#FF9800", Icons.Material.Outlined.Gavel),
-        "NonConfiguredLanguage" => ("Foreign Language",       "#FF9800", Icons.Material.Outlined.Translate),
-        "LanguageMismatch"      => ("Foreign Language",       "#FF9800", Icons.Material.Filled.Translate),
-        _ => ("Needs Review", "#9E9E9E", Icons.Material.Outlined.RateReview),
+        // Muted cinematic palette: warm amber, cool slate, soft rose — never raw Material Design.
+        "LowConfidence"         => ("Needs Verification",     "#B08940", Icons.Material.Outlined.TrendingDown),
+        "MultipleQidMatches"    => ("Multiple Matches Found", "#5C7A99", Icons.Material.Outlined.CallSplit),
+        "AuthorityMatchFailed"  => ("No Match Found",         "#A05050", Icons.Material.Outlined.LinkOff),
+        "ContentMatchFailed"    => ("No Cover Art Found",     "#A05050", Icons.Material.Outlined.SearchOff),
+        "AmbiguousMediaType"    => ("Unknown Format",         "#B08940", Icons.Material.Outlined.HelpOutline),
+        "MissingQid"            => ("Needs Manual Match",     "#5C7A99", Icons.Material.Outlined.QuestionMark),
+        "PlaceholderTitle"      => ("Missing Title",          "#A05050", Icons.Material.Outlined.Title),
+        "StagedUnidentifiable"  => ("Cannot Identify",        "#A05050", Icons.Material.Outlined.ErrorOutline),
+        "ArtworkUnconfirmed"    => ("Verify Cover Art",       "#B08940", Icons.Material.Outlined.Image),
+        "MetadataConflict"      => ("Conflicting Data",       "#B08940", Icons.Material.Outlined.Compare),
+        "UserFixMatch"          => ("User Correction",        "#5C7A99", Icons.Material.Outlined.Edit),
+        "ArbiterNeedsReview"    => ("Review Grouping",        "#B08940", Icons.Material.Outlined.Gavel),
+        "NonConfiguredLanguage" => ("Foreign Language",       "#B08940", Icons.Material.Outlined.Translate),
+        "LanguageMismatch"      => ("Foreign Language",       "#B08940", Icons.Material.Filled.Translate),
+        _ => ("Needs Review", "#6B6B6B", Icons.Material.Outlined.RateReview),
     };
 
     public static string FormatBridgeKey(string key) => key switch
