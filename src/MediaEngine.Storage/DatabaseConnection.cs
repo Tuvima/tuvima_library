@@ -898,6 +898,37 @@ public sealed class DatabaseConnection : IDatabaseConnection
                 System.Diagnostics.Debug.WriteLine($"M-047: Cleaned up {orphansDeleted} orphan hubs");
         }
 
+        // ── M-048: Search results cache (fan-out search results per entity) ──
+        {
+            using var m048 = conn.CreateCommand();
+            m048.CommandText = """
+                CREATE TABLE IF NOT EXISTS search_results_cache (
+                    entity_id    TEXT NOT NULL PRIMARY KEY,
+                    results_json TEXT NOT NULL,
+                    searched_at  TEXT NOT NULL
+                );
+                """;
+            m048.ExecuteNonQuery();
+        }
+
+        // ── M-049: Item History — per-entity event timeline ──────────────
+        {
+            using var m049 = conn.CreateCommand();
+            m049.CommandText = """
+                CREATE TABLE IF NOT EXISTS item_history (
+                    id          TEXT NOT NULL PRIMARY KEY,
+                    entity_id   TEXT NOT NULL,
+                    occurred_at TEXT NOT NULL,
+                    event_type  TEXT NOT NULL,
+                    label       TEXT NOT NULL,
+                    detail      TEXT
+                );
+                CREATE INDEX IF NOT EXISTS idx_item_history_entity
+                    ON item_history(entity_id, occurred_at);
+                """;
+            m049.ExecuteNonQuery();
+        }
+
         // Seed S-001: provider_registry entries for all known providers.
         // metadata_claims.provider_id has a FK to provider_registry(id), so these
         // rows MUST exist before any claim is written.  INSERT OR IGNORE makes this

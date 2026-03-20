@@ -504,6 +504,7 @@ builder.Services.AddSingleton<ISearchService,                SearchService>();
 builder.Services.AddSingleton<IImageCacheRepository,              ImageCacheRepository>();
 builder.Services.AddSingleton<IProviderResponseCacheRepository,  ProviderResponseCacheRepository>();
 builder.Services.AddSingleton<ISearchResultsCacheRepository,     SearchResultsCacheRepository>();
+builder.Services.AddSingleton<IItemHistoryRepository,            ItemHistoryRepository>();
 
 // ── Great Inhale scanner ──────────────────────────────────────────────────────
 builder.Services.AddSingleton<ILibraryScanner, LibraryScanner>();

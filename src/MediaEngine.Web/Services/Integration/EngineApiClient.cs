@@ -2190,6 +2190,38 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    public async Task<List<RegistryItemHistoryDto>> GetItemHistoryAsync(
+        Guid entityId, CancellationToken ct = default)
+    {
+        try
+        {
+            var result = await _http.GetFromJsonAsync<List<RegistryItemHistoryDto>>(
+                $"/registry/items/{entityId}/history", ct);
+            return result ?? [];
+        }
+        catch (OperationCanceledException) { return []; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /registry/items/{EntityId}/history failed", entityId);
+            return [];
+        }
+    }
+
+    public async Task<bool> RecoverRegistryItemAsync(Guid entityId, CancellationToken ct = default)
+    {
+        try
+        {
+            var resp = await _http.PostAsJsonAsync($"/registry/items/{entityId}/recover", new { }, ct);
+            return resp.IsSuccessStatusCode;
+        }
+        catch (OperationCanceledException) { return false; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /registry/items/{EntityId}/recover failed", entityId);
+            return false;
+        }
+    }
+
     public string? LastError { get; private set; }
 
     // ── Private mapping ───────────────────────────────────────────────────────

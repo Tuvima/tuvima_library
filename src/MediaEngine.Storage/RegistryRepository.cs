@@ -1,4 +1,5 @@
 using Dapper;
+using FuzzySharp;
 using Microsoft.Data.Sqlite;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Models;
@@ -287,6 +288,28 @@ public sealed class RegistryRepository : IRegistryRepository
                                          ? createdDt
                                          : DateTimeOffset.MinValue),
             });
+        }
+
+        // Post-query fuzzy filter: when a search term is present, re-rank and
+        // filter items using FuzzySharp token-set ratio so that "dun" matches "Dune"
+        // and partial/misspelled queries still surface the right items.
+        if (!string.IsNullOrWhiteSpace(query.Search))
+        {
+            var searchTerm = query.Search.Trim();
+            items = items
+                .Select(item => new
+                {
+                    Item = item,
+                    Score = Math.Max(
+                        Fuzz.TokenSetRatio(searchTerm, item.Title ?? ""),
+                        Fuzz.TokenSetRatio(searchTerm, item.Author ?? ""))
+                })
+                .Where(x => x.Score >= 60)
+                .OrderByDescending(x => x.Score)
+                .Select(x => x.Item)
+                .ToList();
+            totalCount = items.Count;
+            items = items.Skip(query.Offset).Take(query.Limit).ToList();
         }
 
         return Task.FromResult(new RegistryPageResult(items, totalCount, query.Offset + items.Count < totalCount));

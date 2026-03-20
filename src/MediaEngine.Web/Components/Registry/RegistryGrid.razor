@@ -53,8 +53,10 @@ else
                         {
                             <RegistryCard Item="@item"
                                           IsSelected="@SelectedIds.Contains(item.EntityId)"
+                                          IsFocused="@(FocusedEntityId == item.EntityId)"
                                           SelectionModeActive="@SelectionModeActive"
                                           OnSelectionToggled="OnSelectionToggled"
+                                          OnCardClicked="OnCardClicked"
                                           OnApproveClicked="OnApproveClicked"
                                           OnRejectClicked="OnRejectClicked"
                                           OnNavigate="OnNavigate" />
@@ -88,6 +90,7 @@ else
 @code {
     [Parameter] public List<RegistryItemViewModel> Items { get; set; } = [];
     [Parameter] public HashSet<Guid> SelectedIds { get; set; } = [];
+    [Parameter] public Guid? FocusedEntityId { get; set; }
     [Parameter] public bool NeedsReviewFilter { get; set; }
     [Parameter] public string GroupBy { get; set; } = "date";
     [Parameter] public int CardSize { get; set; } = 80;
@@ -95,6 +98,7 @@ else
     [Parameter] public bool HasMore { get; set; }
     [Parameter] public bool Loading { get; set; }
     [Parameter] public EventCallback<Guid> OnSelectionToggled { get; set; }
+    [Parameter] public EventCallback<Guid> OnCardClicked { get; set; }
     [Parameter] public EventCallback<Guid> OnApproveClicked { get; set; }
     [Parameter] public EventCallback<Guid> OnRejectClicked { get; set; }
     [Parameter] public EventCallback<Guid> OnNavigate { get; set; }

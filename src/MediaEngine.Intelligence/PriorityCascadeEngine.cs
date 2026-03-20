@@ -162,10 +162,13 @@ public sealed class PriorityCascadeEngine : IScoringEngine
             }
 
             // ── B: Priority cascade (no Wikidata, no override) ───────────
-            // Pick the highest-confidence claim.
+            // Pick the highest-confidence claim. When claims tie on confidence
+            // (e.g. multiple dc:creator claims all at 1.0 from the EPUB processor),
+            // prefer the EARLIEST claim so the first author in the file remains
+            // the primary canonical author rather than the last one inserted.
             var bestClaim = claimsForField
                 .OrderByDescending(c => c.Confidence)
-                .ThenByDescending(c => c.ClaimedAt)
+                .ThenBy(c => c.ClaimedAt)
                 .First();
 
             fieldScores.Add(new FieldScore

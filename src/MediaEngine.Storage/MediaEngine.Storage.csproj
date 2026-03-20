@@ -9,6 +9,8 @@
     <!-- SQLite access via Microsoft.Data.Sqlite + Dapper micro-ORM -->
     <PackageReference Include="Microsoft.Data.Sqlite" />
     <PackageReference Include="Dapper" />
+    <!-- FuzzySharp: fuzzy string matching for post-query search filtering -->
+    <PackageReference Include="FuzzySharp" />
   </ItemGroup>
 
   <ItemGroup>

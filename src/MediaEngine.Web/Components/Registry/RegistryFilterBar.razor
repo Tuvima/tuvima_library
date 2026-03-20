@@ -16,12 +16,10 @@
 
     @* ── Search ── *@
     <div class="rfb-search">
-        <MudTextField @bind-Value="_searchText" Placeholder="Search library..."
-                      Variant="Variant.Outlined" Margin="Margin.Dense"
-                      Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
-                      Immediate="true" DebounceInterval="400"
-                      OnDebounceIntervalElapsed="OnSearchDebounced"
-                      Style="font-size: 0.82rem; min-width: 200px;" />
+        <FuzzySearchField Value="@SearchText"
+                          ValueChanged="SearchTextChanged"
+                          Placeholder="Filter items..."
+                          Style="max-width: 240px;" />
     </div>
 
     @* ── Select toggle ── *@
@@ -94,21 +92,9 @@
     [Parameter] public int CardSize { get; set; } = 80;
     [Parameter] public EventCallback<int> CardSizeChanged { get; set; }
 
-    private string? _searchText;
-
-    protected override void OnParametersSet()
-    {
-        _searchText = SearchText;
-    }
-
     private async Task SetTab(string tab)
     {
         await ActiveTabChanged.InvokeAsync(tab);
-    }
-
-    private async Task OnSearchDebounced()
-    {
-        await SearchTextChanged.InvokeAsync(_searchText);
     }
 
     private async Task ToggleSelectionMode()

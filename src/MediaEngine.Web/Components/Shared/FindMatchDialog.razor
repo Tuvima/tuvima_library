@@ -1,0 +1,299 @@
+@namespace MediaEngine.Web.Components.Shared
+@using MediaEngine.Web.Services.Integration
+@using MediaEngine.Web.Models.ViewDTOs
+@inject UIOrchestratorService Orchestrator
+
+<MudDialog>
+    <TitleContent>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.ManageSearch" />
+            <MudText Typo="Typo.h6">Find Match</MudText>
+        </MudStack>
+    </TitleContent>
+    <DialogContent>
+        <MudStack Spacing="3" Class="pa-2" Style="min-width: 480px; max-height: 70vh; overflow-y: auto;">
+            @* Current metadata *@
+            <MudStack Spacing="1">
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">Current metadata</MudText>
+                <MudText Typo="Typo.body1"><b>@CurrentTitle</b></MudText>
+                @if (!string.IsNullOrEmpty(CurrentAuthor))
+                {
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">@CurrentAuthor</MudText>
+                }
+            </MudStack>
+
+            <MudDivider />
+
+            @* Media type selector *@
+            <MudStack Spacing="1">
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">Media type</MudText>
+                <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+                    @foreach (var mt in _mediaTypeOptions)
+                    {
+                        var isActive = _selectedMediaType == mt;
+                        <button class="fmd-mt-btn @(isActive ? "fmd-mt-btn--on" : "")"
+                                @onclick="@(() => OnMediaTypeChanged(mt))">
+                            @mt
+                        </button>
+                    }
+                </div>
+            </MudStack>
+
+            @* Search bar *@
+            <MudTextField T="string" @bind-Value="_searchText"
+                          Placeholder="Search Wikidata..."
+                          Adornment="Adornment.End"
+                          AdornmentIcon="@Icons.Material.Filled.Search"
+                          OnAdornmentClick="OnSearch"
+                          OnKeyUp="OnSearchKeyUp"
+                          Immediate="true"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          Disabled="@_searching" />
+
+            @* Results *@
+            @if (_searching)
+            {
+                <MudStack AlignItems="AlignItems.Center" Class="py-4">
+                    <MudProgressCircular Indeterminate="true" Size="Size.Medium" Color="Color.Primary" />
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">Searching...</MudText>
+                </MudStack>
+            }
+            else if (_searched && _results.Count == 0)
+            {
+                <MudAlert Severity="Severity.Info" Variant="Variant.Text" Dense="true">
+                    No matches found. Try adjusting the search text or media type.
+                </MudAlert>
+            }
+            else if (_results.Count > 0)
+            {
+                <MudStack Spacing="2">
+                    @foreach (var result in _results)
+                    {
+                        var isBorderAmber = _confirmingItem == result;
+                        <MudPaper Class="pa-3" Elevation="0"
+                                  Style="@($"border: 1px solid {(isBorderAmber ? "#C9922E" : "rgba(255,255,255,0.08)")}; border-radius: 8px; background: rgba(255,255,255,0.03); cursor: pointer;")"
+                                  @onclick="@(() => OnResultClicked(result))">
+                            <MudStack Spacing="1">
+                                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Start">
+                                    <MudStack Spacing="0" Style="flex: 1; min-width: 0;">
+                                        <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">@(result.Title ?? "Untitled")</MudText>
+                                        @if (!string.IsNullOrEmpty(result.Description))
+                                        {
+                                            <MudText Typo="Typo.body2" Class="mud-text-secondary"
+                                                     Style="overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">
+                                                @result.Description
+                                            </MudText>
+                                        }
+                                    </MudStack>
+                                    @if (!string.IsNullOrEmpty(result.ThumbnailUrl))
+                                    {
+                                        <MudImage Src="@result.ThumbnailUrl" Width="48" Height="72"
+                                                  ObjectFit="ObjectFit.Cover" Class="rounded ml-2"
+                                                  Style="flex-shrink: 0;" />
+                                    }
+                                </MudStack>
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" @onclick:stopPropagation="true">
+                                    <MudStack Row="true" Spacing="1">
+                                        @if (result.Confidence > 0)
+                                        {
+                                            <MudChip T="string" Size="Size.Small" Variant="Variant.Filled"
+                                                     Color="@(result.Confidence >= 0.85 ? Color.Success : result.Confidence >= 0.6 ? Color.Warning : Color.Error)">
+                                                @($"{result.Confidence:P0}")
+                                            </MudChip>
+                                        }
+                                        @{
+                                            var qid = GetQid(result);
+                                        }
+                                        @if (!string.IsNullOrEmpty(qid))
+                                        {
+                                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">@qid</MudChip>
+                                        }
+                                    </MudStack>
+                                    @if (_applyingItem == result)
+                                    {
+                                        <MudProgressCircular Indeterminate="true" Size="Size.Small" Color="Color.Primary" />
+                                    }
+                                    else if (_appliedItem == result)
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Success" Icon="@Icons.Material.Filled.Check">Applied</MudChip>
+                                    }
+                                    else if (_confirmingItem == result)
+                                    {
+                                        <MudStack Row="true" Spacing="1">
+                                            <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary"
+                                                       OnClick="@(() => OnConfirmApply(result))">Confirm</MudButton>
+                                            <MudButton Size="Size.Small" Variant="Variant.Text"
+                                                       OnClick="@(() => _confirmingItem = null)">Cancel</MudButton>
+                                        </MudStack>
+                                    }
+                                    else
+                                    {
+                                        <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary"
+                                                   OnClick="@(() => _confirmingItem = result)">Select</MudButton>
+                                    }
+                                </MudStack>
+                            </MudStack>
+                        </MudPaper>
+                    }
+                </MudStack>
+            }
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Variant="Variant.Text">Close</MudButton>
+    </DialogActions>
+</MudDialog>
+
+<style>
+    .fmd-mt-btn {
+        padding: 3px 10px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 500;
+        cursor: pointer;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: transparent;
+        color: rgba(255, 255, 255, 0.35);
+        font-family: 'Montserrat', sans-serif;
+        transition: all 0.12s ease;
+    }
+
+    .fmd-mt-btn:hover {
+        border-color: rgba(255, 255, 255, 0.18);
+        color: rgba(255, 255, 255, 0.6);
+    }
+
+    .fmd-mt-btn--on {
+        background: rgba(201, 146, 46, 0.12);
+        border-color: rgba(201, 146, 46, 0.40);
+        color: #C9922E;
+    }
+</style>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = null!;
+
+    [Parameter] public Guid EntityId { get; set; }
+    [Parameter] public string? CurrentTitle { get; set; }
+    [Parameter] public string? CurrentAuthor { get; set; }
+    [Parameter] public string? InitialMediaType { get; set; }
+
+    private static readonly string[] _mediaTypeOptions =
+        ["Books", "Audiobooks", "Movies", "TV", "Comics", "Music", "Podcasts"];
+
+    private string _selectedMediaType = "Books";
+    private string _searchText = "";
+    private bool _searching;
+    private bool _searched;
+    private List<SearchResultItemViewModel> _results = [];
+    private SearchResultItemViewModel? _confirmingItem;
+    private SearchResultItemViewModel? _applyingItem;
+    private SearchResultItemViewModel? _appliedItem;
+
+    protected override void OnParametersSet()
+    {
+        _searchText = CurrentTitle ?? "";
+        _selectedMediaType = InitialMediaType ?? "Books";
+    }
+
+    private void OnMediaTypeChanged(string mediaType)
+    {
+        _selectedMediaType = mediaType;
+        _results.Clear();
+        _confirmingItem = null;
+        _appliedItem = null;
+        _searched = false;
+    }
+
+    private async Task OnSearchKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await OnSearch();
+    }
+
+    private async Task OnSearch()
+    {
+        if (string.IsNullOrWhiteSpace(_searchText)) return;
+
+        _searching = true;
+        _searched = false;
+        _results.Clear();
+        _confirmingItem = null;
+        StateHasChanged();
+
+        try
+        {
+            var fanOut = await Orchestrator.SearchMetadataFanOutAsync(
+                _searchText, _selectedMediaType);
+
+            _results = fanOut?.Results
+                .SelectMany(p => p.Items)
+                .ToList() ?? [];
+        }
+        catch (Exception)
+        {
+            _results.Clear();
+        }
+
+        _searching = false;
+        _searched = true;
+        StateHasChanged();
+    }
+
+    private void OnResultClicked(SearchResultItemViewModel item)
+    {
+        if (_confirmingItem == item)
+            _confirmingItem = null;
+        else
+        {
+            _confirmingItem = item;
+            _appliedItem = null;
+        }
+    }
+
+    private async Task OnConfirmApply(SearchResultItemViewModel item)
+    {
+        _applyingItem = item;
+        _confirmingItem = null;
+        StateHasChanged();
+
+        try
+        {
+            var fields = item.RawFields
+                .Where(kv => !string.IsNullOrEmpty(kv.Value))
+                .ToDictionary(kv => kv.Key, kv => kv.Value);
+
+            // Include title if not already in raw fields
+            if (!string.IsNullOrEmpty(item.Title) && !fields.ContainsKey("title"))
+                fields["title"] = item.Title;
+
+            if (fields.Count > 0)
+                await Orchestrator.OverrideMetadataAsync(EntityId, fields);
+
+            if (!string.IsNullOrEmpty(item.ThumbnailUrl))
+                await Orchestrator.ApplyCoverFromUrlAsync(EntityId, item.ThumbnailUrl);
+
+            _appliedItem = item;
+            _applyingItem = null;
+            StateHasChanged();
+
+            await Task.Delay(800);
+            MudDialog.Close(DialogResult.Ok(GetQid(item)));
+        }
+        catch (Exception)
+        {
+            _applyingItem = null;
+            StateHasChanged();
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private static string? GetQid(SearchResultItemViewModel item)
+    {
+        if (item.RawFields.TryGetValue("wikidata_qid", out var qid) && !string.IsNullOrEmpty(qid))
+            return qid;
+        return item.ProviderItemId;
+    }
+}

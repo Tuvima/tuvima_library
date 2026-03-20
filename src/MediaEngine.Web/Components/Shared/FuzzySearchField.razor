@@ -1,0 +1,42 @@
+@* Reusable fuzzy search field with instant filtering and clear button *@
+
+<MudTextField T="string"
+              Value="@Value"
+              ValueChanged="@OnValueChanged"
+              Placeholder="@Placeholder"
+              Adornment="Adornment.End"
+              AdornmentIcon="@_adornmentIcon"
+              OnAdornmentClick="@OnClearClick"
+              Immediate="true"
+              DebounceInterval="100"
+              Variant="Variant.Outlined"
+              Margin="Margin.Dense"
+              Class="@($"fuzzy-search-field {Class}")"
+              Style="@Style" />
+
+@code {
+    [Parameter] public string Placeholder { get; set; } = "Search...";
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public string? Style { get; set; }
+
+    private string _adornmentIcon => string.IsNullOrEmpty(Value)
+        ? Icons.Material.Filled.Search
+        : Icons.Material.Filled.Close;
+
+    private async Task OnValueChanged(string? newValue)
+    {
+        Value = newValue;
+        await ValueChanged.InvokeAsync(string.IsNullOrWhiteSpace(newValue) ? null : newValue);
+    }
+
+    private async Task OnClearClick()
+    {
+        if (!string.IsNullOrEmpty(Value))
+        {
+            Value = null;
+            await ValueChanged.InvokeAsync(null);
+        }
+    }
+}

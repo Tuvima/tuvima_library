@@ -1,198 +1,134 @@
-﻿@namespace MediaEngine.Web.Components.Settings
+@namespace MediaEngine.Web.Components.Settings
 @using MediaEngine.Web.Models.ViewDTOs
 @inject UIOrchestratorService Orchestrator
 @inject ISnackbar Snackbar
 
-@* â”€â”€ Metadata Edit Panel â€” search providers, compare fields, cherry-pick â”€â”€â”€â”€â”€â”€â”€â”€ *@
+@* — Edit Panel — Wikidata Reconciliation match tool ──────────────────────── *@
 
-<MudDrawer @bind-Open="IsOpen" Anchor="Anchor.Right" Elevation="2"
-           Variant="DrawerVariant.Temporary" Width="520px"
-           Style="background: #0D1120; border-left: 1px solid rgba(255,255,255,0.08);">
+@if (!IsOpen) { return; }
 
-    @* â”€â”€ Header â”€â”€ *@
-    <MudDrawerHeader Style="border-bottom: 1px solid rgba(255,255,255,0.07); padding: 16px 20px;">
-        <div style="display:flex; align-items:center; gap:12px; width:100%;">
-            <MudIcon Icon="@Icons.Material.Filled.Edit" Style="color: #C9922E;" />
-            <MudText Typo="Typo.subtitle1"
-                     Style="font-family:'Montserrat',sans-serif; font-weight:600; color:rgba(248,248,248,0.90); flex:1;">
-                Edit Metadata
-            </MudText>
-            <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
-                           OnClick="@(() => { IsOpen = false; IsOpenChanged.InvokeAsync(false); })"
-                           Style="color:rgba(248,248,248,0.45);" />
-        </div>
-    </MudDrawerHeader>
+<div class="hep-panel @(Persistent ? "hep-persistent" : "hep-standalone")">
 
-    <div class="hub-edit-panel-body">
+    @* ── Header ── *@
+    <div class="hep-header">
+        <MudIcon Icon="@Icons.Material.Filled.ManageSearch" Style="color: #C9922E; font-size: 1.2rem;" />
+        <span class="hep-header-title">Match to Wikidata</span>
+        <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
+                       OnClick="@(() => { IsOpen = false; IsOpenChanged.InvokeAsync(false); })"
+                       Style="color:rgba(248,248,248,0.45);" />
+    </div>
 
-        @* â”€â”€ Search bar â”€â”€ *@
-        <div class="hub-edit-search-bar">
-            <MudTextField @bind-Value="_searchQuery" Placeholder="Search metadata providersâ€¦"
-                          Variant="Variant.Outlined" Margin="Margin.Dense"
-                          Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Search"
-                          OnAdornmentClick="@OnSearch" OnKeyUp="@OnSearchKeyUp"
-                          Style="font-family:'Montserrat',sans-serif;"
-                          Disabled="@_searching" />
-        </div>
+    @* ── Media type selector ── *@
+    <div class="hep-media-type-bar">
+        @foreach (var mt in _mediaTypeOptions)
+        {
+            var isActive = _selectedMediaType == mt.Value;
+            <button class="hep-mt-btn @(isActive ? "hep-mt-btn--on" : "")"
+                    @onclick="@(() => OnMediaTypeChanged(mt.Value))">
+                @mt.Label
+            </button>
+        }
+    </div>
 
-        @* â”€â”€ Loading indicator â”€â”€ *@
+    @* ── Search bar ── *@
+    <div class="hep-search-bar">
+        <MudTextField @bind-Value="_searchQuery" Placeholder="Search Wikidata..."
+                      Variant="Variant.Outlined" Margin="Margin.Dense"
+                      Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Search"
+                      OnAdornmentClick="@OnSearch" OnKeyUp="@OnSearchKeyUp"
+                      Style="font-family:'Montserrat',sans-serif;"
+                      Disabled="@_searching" />
+    </div>
+
+    @* ── Results area (scrollable) ── *@
+    <div class="hep-results-scroll">
+
         @if (_searching)
         {
-            <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-2"
-                               Style="border-radius: 4px;" />
-            <MudText Typo="Typo.body2" Style="color:rgba(248,248,248,0.50); text-align:center;">
-                Searching providersâ€¦
-            </MudText>
-        }
-
-        @* â”€â”€ Current metadata section (always visible) â”€â”€ *@
-        @if (_canonicalFields.Count > 0 && !_searching)
-        {
-            <div class="hub-edit-section">
-                <div class="hub-edit-section-header">
-                    <MudIcon Icon="@Icons.Material.Filled.DataObject" Size="Size.Small"
-                             Style="color:rgba(248,248,248,0.35);" />
-                    <span class="hub-edit-section-label">Current Metadata</span>
-                </div>
-                <div class="hub-edit-current-grid">
-                    @foreach (var f in _canonicalFields.Where(f => !string.IsNullOrEmpty(f.Value)))
-                    {
-                        <div class="hub-edit-field-row">
-                            <span class="hub-edit-field-key">@f.DisplayName</span>
-                            <span class="hub-edit-field-val @(f.IsUserLocked ? "hub-edit-locked" : "")">
-                                @Truncate(f.Value ?? "â€”", 60)
-                                @if (f.IsUserLocked)
-                                {
-                                    <MudIcon Icon="@Icons.Material.Filled.Lock" Size="Size.Small"
-                                             Style="color:#C9922E; font-size:0.7rem; margin-left:4px;" />
-                                }
-                            </span>
-                        </div>
-                    }
-                </div>
+            <div class="hep-status-msg">
+                <MudProgressCircular Indeterminate="true" Size="Size.Small"
+                                     Style="color: #C9922E;" />
+                <span>Searching Wikidata...</span>
             </div>
         }
-
-        @* â”€â”€ Search results â”€â”€ *@
-        @if (_searchResults is not null && !_searching)
+        else if (_results is not null && _results.Count == 0)
         {
-            <div class="hub-edit-section">
-                <div class="hub-edit-section-header">
-                    <MudIcon Icon="@Icons.Material.Filled.TravelExplore" Size="Size.Small"
-                             Style="color:rgba(248,248,248,0.35);" />
-                    <span class="hub-edit-section-label">
-                        Results â€” @_searchResults.RespondedProviders / @_searchResults.TotalProviders providers
-                        (@(_searchResults.ElapsedMs.ToString("F0"))ms)
-                    </span>
-                </div>
+            <div class="hep-status-msg">
+                <MudIcon Icon="@Icons.Material.Outlined.SearchOff"
+                         Style="font-size: 2rem; opacity: 0.15;" />
+                <span>No matches found</span>
+            </div>
+        }
+        else if (_results is not null)
+        {
+            @foreach (var item in _results)
+            {
+                var isSelected = _confirmingItem == item || _appliedItem == item;
+                <div class="hep-result-card @(isSelected ? "hep-result-card--selected" : "")"
+                     @onclick="@(() => OnResultClicked(item))">
+                    <div class="hep-result-meta">
+                        <span class="hep-result-title">@(item.Title ?? "Untitled")</span>
+                        @if (!string.IsNullOrEmpty(item.Description))
+                        {
+                            <span class="hep-result-desc">@Truncate(item.Description, 140)</span>
+                        }
+                        @if (item.Confidence > 0)
+                        {
+                            <span class="hep-result-conf">@((item.Confidence * 100).ToString("F0"))%</span>
+                        }
+                    </div>
 
-                @if (_searchResults.Results.Count == 0)
-                {
-                    <MudAlert Severity="Severity.Info" Dense="true"
-                              Style="background:rgba(99,141,255,0.08); border:1px solid rgba(99,141,255,0.15); border-radius:8px;">
-                        No results found. Try a different search query.
-                    </MudAlert>
-                }
-                else
-                {
-                    @foreach (var provider in _searchResults.Results)
-                    {
-                        <div class="hub-edit-provider-group">
-                            <button class="hub-edit-provider-header"
-                                    @onclick="@(() => ToggleProvider(provider.ProviderId))">
-                                <MudIcon Icon="@(_expandedProviders.Contains(provider.ProviderId)
-                                                    ? Icons.Material.Filled.ExpandMore
-                                                    : Icons.Material.Filled.ChevronRight)"
-                                         Size="Size.Small" Style="color:rgba(248,248,248,0.40);" />
-                                <span class="hub-edit-provider-name">@provider.ProviderName</span>
-                                <span class="hub-edit-provider-count">@provider.Items.Count results</span>
-                                @if (!string.IsNullOrEmpty(provider.Error))
+                    @* ── Inline apply: check → confirm → applied ── *@
+                    <div class="hep-result-action" @onclick:stopPropagation="true">
+                        @if (_appliedItem == item)
+                        {
+                            <div class="hep-check hep-check--applied" title="Applied">
+                                <MudIcon Icon="@Icons.Material.Filled.CheckCircle"
+                                         Style="font-size: 1.3rem; color: #22c55e;" />
+                            </div>
+                        }
+                        else if (_confirmingItem == item)
+                        {
+                            <button class="hep-check hep-check--confirm"
+                                    @onclick="@(() => OnConfirmApply(item))"
+                                    disabled="@_applying"
+                                    title="Click to confirm">
+                                @if (_applying)
                                 {
-                                    <MudIcon Icon="@Icons.Material.Filled.Warning" Size="Size.Small"
-                                             Style="color:#e67e22;" />
+                                    <MudProgressCircular Indeterminate="true" Size="Size.Small"
+                                                         Style="color: #22c55e;" />
+                                }
+                                else
+                                {
+                                    <MudIcon Icon="@Icons.Material.Filled.CheckCircle"
+                                             Style="font-size: 1.3rem;" />
+                                    <span class="hep-confirm-label">Confirm?</span>
                                 }
                             </button>
-
-                            @if (_expandedProviders.Contains(provider.ProviderId))
-                            {
-                                @foreach (var item in provider.Items)
-                                {
-                                    var itemKey = $"{provider.ProviderId}:{item.ProviderItemId ?? item.Title}";
-                                    <div class="hub-edit-result-card">
-                                        <div class="hub-edit-result-top">
-                                            @if (!string.IsNullOrEmpty(item.ThumbnailUrl))
-                                            {
-                                                <img src="@item.ThumbnailUrl" alt=""
-                                                     class="hub-edit-result-thumb" />
-                                            }
-                                            <div class="hub-edit-result-meta">
-                                                <span class="hub-edit-result-title">
-                                                    @(item.Title ?? "Untitled")
-                                                </span>
-                                                @if (!string.IsNullOrEmpty(item.Author))
-                                                {
-                                                    <span class="hub-edit-result-author">@item.Author</span>
-                                                }
-                                                @if (!string.IsNullOrEmpty(item.Year))
-                                                {
-                                                    <span class="hub-edit-result-year">@item.Year</span>
-                                                }
-                                            </div>
-                                        </div>
-
-                                        @if (_expandedResult == itemKey)
-                                        {
-                                            @* â”€â”€ Diff grid â”€â”€ *@
-                                            <HubEditDiffGrid CanonicalFields="_canonicalFields"
-                                                             ProviderItem="item"
-                                                             CurrentCoverUrl="@CurrentCoverUrl"
-                                                             @bind-SelectedFields="_selectedFields"
-                                                             @bind-SelectedCoverUrl="_selectedCoverUrl" />
-
-                                            <div class="hub-edit-result-actions">
-                                                <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                                                           Size="Size.Small" OnClick="@OnApplySelected"
-                                                           Disabled="@(!HasSelections)"
-                                                           Style="text-transform:none; font-family:'Montserrat',sans-serif; font-weight:600;">
-                                                    Apply Selected (@SelectionCount)
-                                                </MudButton>
-                                                <MudButton Variant="Variant.Text" Size="Size.Small"
-                                                           OnClick="@(() => _expandedResult = null)"
-                                                           Style="text-transform:none; color:rgba(248,248,248,0.50);">
-                                                    Collapse
-                                                </MudButton>
-                                            </div>
-                                        }
-                                        else
-                                        {
-                                            <MudButton Variant="Variant.Text" Size="Size.Small" FullWidth="true"
-                                                       OnClick="@(() => ExpandResult(itemKey, item))"
-                                                       StartIcon="@Icons.Material.Filled.CompareArrows"
-                                                       Style="text-transform:none; color:#C9922E; font-family:'Montserrat',sans-serif; font-weight:600;">
-                                                Compare Fields
-                                            </MudButton>
-                                        }
-                                    </div>
-                                }
-                            }
-                        </div>
-                    }
-                }
-            </div>
+                        }
+                        else
+                        {
+                            <button class="hep-check hep-check--idle"
+                                    @onclick="@(() => { _confirmingItem = item; })"
+                                    title="Apply this match">
+                                <MudIcon Icon="@Icons.Material.Outlined.CheckCircleOutline"
+                                         Style="font-size: 1.3rem;" />
+                            </button>
+                        }
+                    </div>
+                </div>
+            }
         }
-
-        @* â”€â”€ Applying overlay â”€â”€ *@
-        @if (_applying)
+        else
         {
-            <div class="hub-edit-applying-overlay">
-                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Medium" />
-                <MudText Typo="Typo.body2" Style="color:rgba(248,248,248,0.70); margin-top:12px;">
-                    Applying selected fieldsâ€¦
-                </MudText>
+            <div class="hep-status-msg">
+                <MudIcon Icon="@Icons.Material.Outlined.TravelExplore"
+                         Style="font-size: 2rem; opacity: 0.10;" />
+                <span>Search for a Wikidata match</span>
             </div>
         }
     </div>
-</MudDrawer>
+</div>
 
 @code {
     [Parameter] public bool IsOpen { get; set; }
@@ -201,32 +137,113 @@
     [Parameter] public Guid EntityId { get; set; }
     [Parameter] public string? MediaType { get; set; }
     [Parameter] public string? CurrentCoverUrl { get; set; }
+    [Parameter] public string? PreloadedCandidates { get; set; }
     [Parameter] public EventCallback OnApplied { get; set; }
+
+    /// <summary>When true, renders as a persistent side panel (no overlay).</summary>
+    [Parameter] public bool Persistent { get; set; }
 
     private string _searchQuery = "";
     private bool _searching;
     private bool _applying;
-    private FanOutSearchResponseViewModel? _searchResults;
-    private List<CanonicalFieldViewModel> _canonicalFields = [];
-    private HashSet<string> _expandedProviders = [];
-    private string? _expandedResult;
-    private Dictionary<string, string> _selectedFields = new();
-    private string? _selectedCoverUrl;
+    private string _selectedMediaType = "";
+    private List<SearchResultItemViewModel>? _results;
+    private SearchResultItemViewModel? _confirmingItem;
+    private SearchResultItemViewModel? _appliedItem;
+    private Guid _lastEntityId;
 
-    private bool HasSelections => _selectedFields.Count > 0 || _selectedCoverUrl is not null;
-    private int SelectionCount => _selectedFields.Count + (_selectedCoverUrl is not null ? 1 : 0);
+    private static readonly string WikidataProviderId = "b3000003-d000-4000-8000-000000000004";
 
-    protected override async Task OnParametersSetAsync()
+    private static readonly (string Label, string Value)[] _mediaTypeOptions =
+    [
+        ("Book", "Books"),
+        ("Audiobook", "Audiobooks"),
+        ("Movie", "Movies"),
+        ("TV", "TV"),
+        ("Comic", "Comic"),
+        ("Music", "Music"),
+        ("Podcast", "Podcasts"),
+    ];
+
+    protected override void OnParametersSet()
     {
-        if (IsOpen && EntityId != Guid.Empty && _canonicalFields.Count == 0)
+        // Reset state when entity changes
+        if (EntityId != Guid.Empty && EntityId != _lastEntityId)
         {
-            await LoadCanonicalValues();
+            _lastEntityId = EntityId;
+            _results = null;
+            _confirmingItem = null;
+            _appliedItem = null;
+            _searchQuery = "";
+            _searching = false;
+            _applying = false;
+
+            // Auto-select media type from the file's detected type
+            _selectedMediaType = !string.IsNullOrEmpty(MediaType) ? MediaType : "Books";
+
+            // Load preloaded candidates if available (from pipeline disambiguation)
+            TryLoadPreloadedCandidates();
+        }
+
+        // Fallback: ensure something is selected
+        if (string.IsNullOrEmpty(_selectedMediaType))
+        {
+            _selectedMediaType = !string.IsNullOrEmpty(MediaType) ? MediaType : "Books";
         }
     }
 
-    private async Task LoadCanonicalValues()
+    private void TryLoadPreloadedCandidates()
     {
-        _canonicalFields = await Orchestrator.GetCanonicalValuesAsync(EntityId);
+        if (string.IsNullOrEmpty(PreloadedCandidates)) return;
+
+        try
+        {
+            var candidates = System.Text.Json.JsonSerializer.Deserialize<List<PreloadedCandidate>>(
+                PreloadedCandidates);
+
+            if (candidates is { Count: > 0 })
+            {
+                _results = candidates.Select(c => new SearchResultItemViewModel
+                {
+                    Title = c.Label,
+                    Description = c.Description,
+                    ProviderItemId = c.Qid,
+                    Confidence = (c.Score ?? 0) / 100.0,
+                    RawFields = new Dictionary<string, string>
+                    {
+                        ["wikidata_qid"] = c.Qid ?? "",
+                    },
+                }).ToList();
+            }
+        }
+        catch
+        {
+            // Ignore malformed JSON
+        }
+    }
+
+    private sealed class PreloadedCandidate
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("qid")]
+        public string? Qid { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("label")]
+        public string? Label { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("description")]
+        public string? Description { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("score")]
+        public double? Score { get; set; }
+    }
+
+    private void OnMediaTypeChanged(string mediaType)
+    {
+        _selectedMediaType = mediaType;
+        // Clear results when switching media type
+        _results = null;
+        _confirmingItem = null;
+        _appliedItem = null;
     }
 
     private async Task OnSearch()
@@ -234,29 +251,33 @@
         if (string.IsNullOrWhiteSpace(_searchQuery)) return;
 
         _searching = true;
-        _searchResults = null;
-        _expandedResult = null;
-        _selectedFields.Clear();
-        _selectedCoverUrl = null;
+        _results = null;
+        _confirmingItem = null;
+        _appliedItem = null;
         StateHasChanged();
 
         try
         {
-            _searchResults = await Orchestrator.SearchMetadataFanOutAsync(
-                _searchQuery, MediaType);
+            var fanOut = await Orchestrator.SearchMetadataFanOutAsync(
+                _searchQuery,
+                _selectedMediaType,
+                WikidataProviderId);
 
-            // Auto-expand first provider that has results
-            if (_searchResults?.Results is { Count: > 0 })
+            if (fanOut?.Results is { Count: > 0 })
             {
-                var firstWithResults = _searchResults.Results
-                    .FirstOrDefault(p => p.Items.Count > 0);
-                if (firstWithResults is not null)
-                    _expandedProviders.Add(firstWithResults.ProviderId);
+                _results = fanOut.Results
+                    .SelectMany(p => p.Items)
+                    .ToList();
+            }
+            else
+            {
+                _results = [];
             }
         }
         catch (Exception ex)
         {
             Snackbar.Add($"Search failed: {ex.Message}", Severity.Error);
+            _results = [];
         }
         finally
         {
@@ -270,74 +291,55 @@
         if (e.Key == "Enter") await OnSearch();
     }
 
-    private void ToggleProvider(string providerId)
+    private void OnResultClicked(SearchResultItemViewModel item)
     {
-        if (!_expandedProviders.Add(providerId))
-            _expandedProviders.Remove(providerId);
-    }
-
-    private void ExpandResult(string itemKey, SearchResultItemViewModel item)
-    {
-        _expandedResult = itemKey;
-        _selectedFields.Clear();
-        _selectedCoverUrl = null;
-
-        // Pre-select fields where provider has data and current is empty
-        if (item.RawFields is not null)
+        // Clicking the card itself starts the confirm flow
+        if (_confirmingItem == item)
         {
-            foreach (var (key, value) in item.RawFields)
-            {
-                if (string.IsNullOrEmpty(value)) continue;
-                var current = _canonicalFields.FirstOrDefault(f =>
-                    string.Equals(f.Key, key, StringComparison.OrdinalIgnoreCase));
-                if (current is null || string.IsNullOrEmpty(current.Value))
-                    _selectedFields[key] = value;
-            }
+            _confirmingItem = null; // toggle off
+        }
+        else
+        {
+            _confirmingItem = item;
+            _appliedItem = null;
         }
     }
 
-    private async Task OnApplySelected()
+    private async Task OnConfirmApply(SearchResultItemViewModel item)
     {
-        if (!HasSelections) return;
-
         _applying = true;
         StateHasChanged();
 
         try
         {
+            var fields = item.RawFields
+                .Where(kv => !string.IsNullOrEmpty(kv.Value))
+                .ToDictionary(kv => kv.Key, kv => kv.Value);
+
             int applied = 0;
 
-            // Apply text field overrides
-            if (_selectedFields.Count > 0)
+            if (fields.Count > 0)
             {
-                var ok = await Orchestrator.OverrideMetadataAsync(EntityId, _selectedFields);
-                if (ok) applied += _selectedFields.Count;
+                var ok = await Orchestrator.OverrideMetadataAsync(EntityId, fields);
+                if (ok) applied += fields.Count;
             }
 
-            // Apply cover from URL
-            if (_selectedCoverUrl is not null)
+            if (!string.IsNullOrEmpty(item.ThumbnailUrl))
             {
-                var ok = await Orchestrator.ApplyCoverFromUrlAsync(EntityId, _selectedCoverUrl);
+                var ok = await Orchestrator.ApplyCoverFromUrlAsync(EntityId, item.ThumbnailUrl);
                 if (ok) applied++;
             }
 
             if (applied > 0)
             {
-                Snackbar.Add($"Updated {applied} field(s) successfully", Severity.Success);
-
-                // Reload canonical values to reflect changes
-                await LoadCanonicalValues();
-                _searchResults = null;
-                _expandedResult = null;
-                _selectedFields.Clear();
-                _selectedCoverUrl = null;
-
-                // Notify parent to refresh
+                _appliedItem = item;
+                _confirmingItem = null;
+                Snackbar.Add($"Match applied — {applied} field(s) updated", Severity.Success);
                 await OnApplied.InvokeAsync();
             }
             else
             {
-                Snackbar.Add("No fields were updated â€” check Engine logs", Severity.Warning);
+                Snackbar.Add("No fields were updated", Severity.Warning);
             }
         }
         catch (Exception ex)
@@ -356,190 +358,220 @@
 }
 
 <style>
-    .hub-edit-panel-body {
-        padding: 16px 20px;
+    /* ── Panel container ── */
+    .hep-panel {
         display: flex;
         flex-direction: column;
-        gap: 16px;
-        overflow-y: auto;
-        max-height: calc(100vh - 68px);
+        height: 100%;
+        background: #0a0e1a;
+        border-left: 1px solid rgba(255, 255, 255, 0.08);
     }
 
-    .hub-edit-search-bar {
-        position: sticky;
-        top: 0;
-        z-index: 1;
-        background: #0D1120;
-        padding-bottom: 4px;
-    }
-
-    .hub-edit-section {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-    }
-
-    .hub-edit-section-header {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 4px 0;
-    }
-
-    .hub-edit-section-label {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 0.72rem;
-        font-weight: 700;
-        color: rgba(248, 248, 248, 0.40);
-        text-transform: uppercase;
-        letter-spacing: 0.10em;
-    }
-
-    .hub-edit-current-grid {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-        background: rgba(255, 255, 255, 0.03);
-        border: 1px solid rgba(255, 255, 255, 0.06);
-        border-radius: 8px;
-        padding: 10px 14px;
-    }
-
-    .hub-edit-field-row {
-        display: flex;
-        justify-content: space-between;
-        align-items: baseline;
-        gap: 12px;
-        padding: 3px 0;
-    }
-
-    .hub-edit-field-key {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 0.75rem;
-        font-weight: 600;
-        color: rgba(248, 248, 248, 0.45);
+    .hep-persistent {
+        min-width: 380px;
+        max-width: 480px;
         flex-shrink: 0;
-        min-width: 80px;
     }
 
-    .hub-edit-field-val {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 0.78rem;
-        font-weight: 400;
-        color: rgba(248, 248, 248, 0.70);
-        text-align: right;
-        word-break: break-word;
+    .hep-standalone {
+        position: fixed;
+        top: 56px;
+        right: 0;
+        bottom: 0;
+        width: 460px;
+        z-index: 100;
+        box-shadow: -4px 0 24px rgba(0, 0, 0, 0.5);
+    }
+
+    /* ── Header ── */
+    .hep-header {
         display: flex;
         align-items: center;
-        justify-content: flex-end;
+        gap: 10px;
+        padding: 14px 16px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+        flex-shrink: 0;
     }
 
-    .hub-edit-locked { color: #C9922E; }
-
-    /* â”€â”€ Provider groups â”€â”€ */
-    .hub-edit-provider-group {
-        border: 1px solid rgba(255, 255, 255, 0.06);
-        border-radius: 8px;
-        overflow: hidden;
-    }
-
-    .hub-edit-provider-header {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        width: 100%;
-        padding: 10px 12px;
-        background: rgba(255, 255, 255, 0.04);
-        border: none;
-        cursor: pointer;
-        transition: background 0.15s;
-    }
-
-    .hub-edit-provider-header:hover {
-        background: rgba(255, 255, 255, 0.07);
-    }
-
-    .hub-edit-provider-name {
+    .hep-header-title {
         font-family: 'Montserrat', sans-serif;
-        font-size: 0.82rem;
         font-weight: 600;
-        color: rgba(248, 248, 248, 0.85);
+        font-size: 0.9rem;
+        color: rgba(248, 248, 248, 0.90);
         flex: 1;
-        text-align: left;
     }
 
-    .hub-edit-provider-count {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 0.70rem;
-        font-weight: 500;
-        color: rgba(248, 248, 248, 0.40);
-    }
-
-    /* â”€â”€ Result cards â”€â”€ */
-    .hub-edit-result-card {
-        border-top: 1px solid rgba(255, 255, 255, 0.05);
-        padding: 12px;
+    /* ── Media type selector ── */
+    .hep-media-type-bar {
         display: flex;
-        flex-direction: column;
-        gap: 8px;
-    }
-
-    .hub-edit-result-top {
-        display: flex;
-        gap: 12px;
-        align-items: flex-start;
-    }
-
-    .hub-edit-result-thumb {
-        width: 48px;
-        height: 72px;
-        object-fit: cover;
-        border-radius: 4px;
+        gap: 3px;
+        padding: 8px 16px;
+        flex-wrap: wrap;
         flex-shrink: 0;
-        background: rgba(255, 255, 255, 0.04);
     }
 
-    .hub-edit-result-meta {
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-        min-width: 0;
-    }
-
-    .hub-edit-result-title {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 0.82rem;
-        font-weight: 600;
-        color: rgba(248, 248, 248, 0.88);
-        line-height: 1.3;
-    }
-
-    .hub-edit-result-author {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 0.75rem;
+    .hep-mt-btn {
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 11px;
         font-weight: 500;
-        color: rgba(248, 248, 248, 0.55);
-    }
-
-    .hub-edit-result-year {
+        cursor: pointer;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: transparent;
+        color: rgba(255, 255, 255, 0.35);
         font-family: 'Montserrat', sans-serif;
-        font-size: 0.72rem;
-        font-weight: 500;
-        color: rgba(248, 248, 248, 0.38);
+        transition: all 0.12s ease;
     }
 
-    .hub-edit-result-actions {
-        display: flex;
-        gap: 8px;
-        justify-content: flex-end;
-        padding-top: 4px;
+    .hep-mt-btn:hover {
+        border-color: rgba(255, 255, 255, 0.18);
+        color: rgba(255, 255, 255, 0.6);
     }
 
-    .hub-edit-applying-overlay {
+    .hep-mt-btn--on {
+        background: rgba(201, 146, 46, 0.12);
+        border-color: rgba(201, 146, 46, 0.40);
+        color: #C9922E;
+    }
+
+    /* ── Search bar ── */
+    .hep-search-bar {
+        padding: 0 16px 8px;
+        flex-shrink: 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    /* ── Results (scrollable) ── */
+    .hep-results-scroll {
+        flex: 1;
+        overflow-y: auto;
+        padding: 8px 12px;
+        min-height: 0;
+    }
+
+    .hep-results-scroll::-webkit-scrollbar { width: 5px; }
+    .hep-results-scroll::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.06); border-radius: 3px; }
+
+    .hep-status-msg {
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
+        gap: 10px;
         padding: 40px 0;
+        color: rgba(255, 255, 255, 0.25);
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.8rem;
+    }
+
+    /* ── Result card ── */
+    .hep-result-card {
+        display: flex;
+        gap: 12px;
+        padding: 10px;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        cursor: pointer;
+        transition: all 0.12s ease;
+        margin-bottom: 6px;
+        align-items: flex-start;
+    }
+
+    .hep-result-card:hover {
+        border-color: rgba(255, 255, 255, 0.12);
+        background: rgba(255, 255, 255, 0.02);
+    }
+
+    .hep-result-card--selected {
+        border-color: rgba(34, 197, 94, 0.25);
+        background: rgba(34, 197, 94, 0.04);
+    }
+
+    .hep-result-meta {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .hep-result-title {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: rgba(248, 248, 248, 0.90);
+        line-height: 1.3;
+    }
+
+    .hep-result-desc {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.72rem;
+        font-weight: 400;
+        color: rgba(248, 248, 248, 0.35);
+        line-height: 1.4;
+        margin-top: 2px;
+    }
+
+    .hep-result-conf {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.68rem;
+        font-weight: 600;
+        color: rgba(201, 146, 46, 0.7);
+        margin-top: 2px;
+    }
+
+    /* ── Inline apply checkmark ── */
+    .hep-result-action {
+        flex-shrink: 0;
+        display: flex;
+        align-items: flex-start;
+        padding-top: 2px;
+    }
+
+    .hep-check {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        border: none;
+        background: none;
+        cursor: pointer;
+        padding: 4px;
+        border-radius: 6px;
+        transition: all 0.15s ease;
+    }
+
+    .hep-check--idle {
+        color: rgba(255, 255, 255, 0.15);
+    }
+
+    .hep-check--idle:hover {
+        color: #22c55e;
+        background: rgba(34, 197, 94, 0.08);
+    }
+
+    .hep-check--confirm {
+        color: #22c55e;
+        background: rgba(34, 197, 94, 0.10);
+        animation: hep-pulse 1.2s ease-in-out infinite;
+    }
+
+    .hep-check--confirm:hover {
+        background: rgba(34, 197, 94, 0.18);
+    }
+
+    .hep-confirm-label {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.68rem;
+        font-weight: 600;
+        color: #22c55e;
+    }
+
+    .hep-check--applied {
+        padding: 4px;
+    }
+
+    @@keyframes hep-pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.6; }
     }
 </style>

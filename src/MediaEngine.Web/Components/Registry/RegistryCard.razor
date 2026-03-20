@@ -1,14 +1,10 @@
 @using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Components.Registry
-@inject IJSRuntime JSRuntime
-@implements IDisposable
 
-<div class="rc-wrap @(_hovered ? "rc-wrap--hover" : "") @(IsSelected ? "rc-wrap--selected" : "") @(NeedsReview ? "rc-wrap--review" : "")"
-     @ref="_cardRef"
-     @onmouseenter="OnMouseEnter"
-     @onmouseleave="OnMouseLeave"
+<div class="rc-wrap @(IsFocused ? "rc-wrap--focused" : "") @(IsSelected ? "rc-wrap--selected" : "") @(NeedsReview ? "rc-wrap--review" : "")"
      @onclick="HandleClick"
-     @onclick:stopPropagation="true">
+     @onclick:stopPropagation="true"
+     style="@CardStateStyle">
 
     @* ── Thumbnail ── *@
     <div class="rc-thumb">
@@ -43,147 +39,45 @@
         </span>
     </div>
 
-    @* ── Popover (below card) ── *@
-    @if (_hovered && !SelectionModeActive)
-    {
-        <div class="rc-popover @(_flipUp ? "rc-popover--up" : "")"
-             @onmouseenter="OnMouseEnter"
-             @onmouseleave="OnMouseLeave">
-
-            @* Bridge: closes gap between thumb and popover *@
-
-            <div class="rc-pop-title">@Item.Title</div>
-            @if (!string.IsNullOrEmpty(Item.Author))
-            {
-                <div class="rc-pop-author">@Item.Author</div>
-            }
-            <div class="rc-pop-meta">
-                <span class="rc-pop-type">
-                    <MudIcon Icon="@RegistryHelpers.GetMediaTypeIcon(Item.MediaType)"
-                             Style="font-size: 0.6rem; margin-right: 3px;" />
-                    @RegistryHelpers.FormatMediaType(Item.MediaType)
-                </span>
-                @if (!string.IsNullOrEmpty(Item.Year))
-                {
-                    <span class="rc-pop-year">@Item.Year</span>
-                }
-            </div>
-
-            @* ── Confidence bar ── *@
-            <div class="rc-pop-conf">
-                <div class="rc-pop-conf-bar">
-                    <div class="rc-pop-conf-fill"
-                         style="width: @((int)(Item.Confidence * 100))%; background: @RegistryHelpers.GetConfidenceHexColor(Item.Confidence);"></div>
-                </div>
-                <span class="rc-pop-conf-pct" style="color: @RegistryHelpers.GetConfidenceHexColor(Item.Confidence);">
-                    @((int)(Item.Confidence * 100))%
-                </span>
-            </div>
-
-            @* ── Review trigger ── *@
-            @if (!string.IsNullOrEmpty(Item.ReviewTrigger))
-            {
-                var (trigLabel, trigColor, trigIcon) = RegistryHelpers.FormatReviewTrigger(Item.ReviewTrigger);
-                <div class="rc-pop-trigger" style="color: @trigColor;">
-                    <MudIcon Icon="@trigIcon" Size="Size.Small" Style="@($"font-size: 0.75rem; color: {trigColor};")" />
-                    <span>@trigLabel</span>
-                </div>
-            }
-
-            @* ── Actions ── *@
-            @if (NeedsReview)
-            {
-                <div class="rc-pop-actions">
-                    <MudButton Variant="Variant.Filled" Color="Color.Success" Size="Size.Small"
-                               StartIcon="@Icons.Material.Filled.Check"
-                               OnClick="HandleApprove"
-                               Style="font-size: 0.7rem; padding: 2px 6px; min-width: 0; height: 26px;">
-                        Approve
-                    </MudButton>
-                    <MudButton Variant="Variant.Text" Size="Size.Small"
-                               StartIcon="@Icons.Material.Filled.Block"
-                               OnClick="HandleReject"
-                               Style="font-size: 0.7rem; color: #ef4444; padding: 2px 6px; min-width: 0; height: 26px;">
-                        Reject
-                    </MudButton>
-                    <MudButton Variant="Variant.Text" Size="Size.Small"
-                               OnClick="HandleDetails"
-                               Style="font-size: 0.7rem; color: rgba(255,255,255,0.5); padding: 2px 6px; min-width: 0; height: 26px;">
-                        Details
-                    </MudButton>
-                </div>
-            }
-            else
-            {
-                <div class="rc-pop-actions">
-                    <MudButton Variant="Variant.Text" Size="Size.Small"
-                               OnClick="HandleDetails"
-                               Style="font-size: 0.7rem; color: rgba(255,255,255,0.5); padding: 2px 8px; min-width: 0; height: 26px;">
-                        View Details
-                    </MudButton>
-                </div>
-            }
-        </div>
-    }
+    @* ── Title (below thumbnail, always visible) ── *@
+    <div class="rc-title">@Item.Title</div>
 </div>
 
 @code {
     [Parameter, EditorRequired] public RegistryItemViewModel Item { get; set; } = default!;
     [Parameter] public bool IsSelected { get; set; }
+    [Parameter] public bool IsFocused { get; set; }
     [Parameter] public bool SelectionModeActive { get; set; }
     [Parameter] public EventCallback<Guid> OnSelectionToggled { get; set; }
+    [Parameter] public EventCallback<Guid> OnCardClicked { get; set; }
     [Parameter] public EventCallback<Guid> OnApproveClicked { get; set; }
     [Parameter] public EventCallback<Guid> OnRejectClicked { get; set; }
     [Parameter] public EventCallback<Guid> OnNavigate { get; set; }
-
-    private ElementReference _cardRef;
-    private bool _hovered;
-    private bool _flipUp;
-    private CancellationTokenSource? _hideCts;
 
     private bool NeedsReview =>
         !string.IsNullOrEmpty(Item.ReviewTrigger) ||
         (Item.Confidence > 0 && Item.Confidence < 0.85 && !Item.HasUserLocks);
 
-    private async Task OnMouseEnter()
+    /// <summary>Color-coded left border based on item state</summary>
+    private string CardStateStyle
     {
-        _hideCts?.Cancel();
-        _hovered = true;
-
-        // Check if near bottom edge of viewport — flip popover above card
-        try
+        get
         {
-            _flipUp = await JSRuntime.InvokeAsync<bool>(
-                "registryCardHelpers.isNearBottomEdge", _cardRef, 280);
+            // Rejected: red, dimmed
+            if (Item.ReviewTrigger == "Rejected")
+                return "border-left: 3px solid rgba(239,83,80,0.5); opacity: 0.6;";
+
+            // Needs review: amber
+            if (NeedsReview)
+                return "border-left: 3px solid #C9922E;";
+
+            // New (created < 24h ago)
+            if ((DateTimeOffset.UtcNow - Item.CreatedAt).TotalHours < 24)
+                return "border-left: 3px solid #4A90D9;";
+
+            // Normal: no special border
+            return "";
         }
-        catch
-        {
-            _flipUp = false;
-        }
-
-        StateHasChanged();
-    }
-
-    private void OnMouseLeave()
-    {
-        _hideCts?.Cancel();
-        _hideCts = new CancellationTokenSource();
-        var token = _hideCts.Token;
-
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await Task.Delay(300, token);
-                await InvokeAsync(() =>
-                {
-                    _hovered = false;
-                    _flipUp = false;
-                    StateHasChanged();
-                });
-            }
-            catch (TaskCanceledException) { }
-        });
     }
 
     private async Task HandleClick()
@@ -191,28 +85,7 @@
         if (SelectionModeActive)
             await OnSelectionToggled.InvokeAsync(Item.EntityId);
         else
-            await OnNavigate.InvokeAsync(Item.EntityId);
-    }
-
-    private async Task HandleApprove()
-    {
-        await OnApproveClicked.InvokeAsync(Item.EntityId);
-    }
-
-    private async Task HandleReject()
-    {
-        await OnRejectClicked.InvokeAsync(Item.EntityId);
-    }
-
-    private async Task HandleDetails()
-    {
-        await OnNavigate.InvokeAsync(Item.EntityId);
-    }
-
-    public void Dispose()
-    {
-        _hideCts?.Cancel();
-        _hideCts?.Dispose();
+            await OnCardClicked.InvokeAsync(Item.EntityId);
     }
 }
 
@@ -221,14 +94,25 @@
         position: relative;
         width: var(--rc-card-width, 80px);
         cursor: pointer;
-        transition: transform 0.15s ease;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
         z-index: 1;
+        border-radius: 4px;
     }
-    .rc-wrap--hover {
+    .rc-wrap:hover {
         transform: translateY(-2px);
-        z-index: 50;
+        z-index: 2;
     }
-    .rc-wrap--selected { }
+    .rc-wrap--focused {
+        transform: scale(1.05);
+        z-index: 10;
+    }
+    .rc-wrap--focused .rc-thumb {
+        border-color: #C9922E;
+        box-shadow: 0 4px 16px rgba(201,146,46,0.3);
+    }
+    .rc-wrap--selected .rc-thumb {
+        border-color: #C9922E;
+    }
 
     /* ── Thumbnail ── */
     .rc-thumb {
@@ -241,21 +125,13 @@
         border: 2px solid rgba(255,255,255,0.06);
         transition: border-color 0.15s ease, box-shadow 0.15s ease;
     }
-    .rc-wrap--selected .rc-thumb {
-        border-color: #C9922E;
-    }
-    .rc-wrap--hover .rc-thumb {
+    .rc-wrap:hover .rc-thumb {
         box-shadow: 0 4px 12px rgba(0,0,0,0.5);
         border-color: rgba(255,255,255,0.15);
     }
-    /* Needs review: amber glow */
     .rc-wrap--review .rc-thumb {
         border-color: rgba(234,179,8,0.5);
         box-shadow: 0 0 8px rgba(234,179,8,0.25);
-    }
-    .rc-wrap--review.rc-wrap--hover .rc-thumb {
-        border-color: rgba(234,179,8,0.7);
-        box-shadow: 0 0 12px rgba(234,179,8,0.35);
     }
     .rc-thumb-img {
         width: 100%;
@@ -272,6 +148,20 @@
         background: linear-gradient(135deg, #0D1230 0%, #1a1a3e 100%);
     }
 
+    /* ── Title ── */
+    .rc-title {
+        font-size: 0.65rem;
+        color: rgba(255,255,255,0.6);
+        margin-top: 4px;
+        line-height: 1.3;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        text-align: center;
+        max-width: var(--rc-card-width, 80px);
+    }
+
     /* ── Status dot ── */
     .rc-status-dot {
         position: absolute;
@@ -283,7 +173,7 @@
         box-shadow: 0 0 4px rgba(0,0,0,0.6);
     }
 
-    /* ── Selection mark (top-right, only in selection mode) ── */
+    /* ── Selection mark ── */
     .rc-sel-mark {
         position: absolute;
         top: 3px;
@@ -310,7 +200,7 @@
         margin: 1px 0 0 5px;
     }
 
-    /* ── Media type badge (bottom-right) ── */
+    /* ── Media type badge ── */
     .rc-type-badge {
         position: absolute;
         bottom: 3px;
@@ -323,133 +213,5 @@
         align-items: center;
         justify-content: center;
         border: 1px solid rgba(255,255,255,0.12);
-    }
-
-    /* ── Popover (below card, centered) ── */
-    .rc-popover {
-        position: absolute;
-        top: calc(100% + 4px);
-        left: 50%;
-        transform: translateX(-50%);
-        width: 200px;
-        background: rgba(12,16,36,0.95);
-        backdrop-filter: blur(12px);
-        border: 1px solid rgba(255,255,255,0.1);
-        border-radius: 8px;
-        padding: 10px;
-        z-index: 100;
-        box-shadow: 0 8px 24px rgba(0,0,0,0.7);
-        animation: rc-pop-in 0.15s ease;
-    }
-    /* Bridge — closes the gap between card and popover */
-    .rc-popover::before {
-        content: '';
-        position: absolute;
-        bottom: 100%;
-        left: 0;
-        width: 100%;
-        height: 8px;
-    }
-
-    /* Flip up: popover above the card */
-    .rc-popover--up {
-        top: auto;
-        bottom: calc(100% + 4px);
-        animation: rc-pop-in-up 0.15s ease;
-    }
-    .rc-popover--up::before {
-        bottom: auto;
-        top: 100%;
-    }
-
-    @@keyframes rc-pop-in {
-        from { opacity: 0; transform: translate(-50%, -4px); }
-        to   { opacity: 1; transform: translate(-50%, 0); }
-    }
-    @@keyframes rc-pop-in-up {
-        from { opacity: 0; transform: translate(-50%, 4px); }
-        to   { opacity: 1; transform: translate(-50%, 0); }
-    }
-
-    .rc-pop-title {
-        font-size: 0.8rem;
-        font-weight: 600;
-        color: #fff;
-        line-height: 1.3;
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-        margin-bottom: 2px;
-    }
-    .rc-pop-author {
-        font-size: 0.7rem;
-        color: rgba(255,255,255,0.5);
-        margin-bottom: 6px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-    .rc-pop-meta {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        margin-bottom: 8px;
-    }
-    .rc-pop-type {
-        font-size: 0.65rem;
-        color: rgba(255,255,255,0.5);
-        background: rgba(255,255,255,0.06);
-        padding: 2px 6px;
-        border-radius: 4px;
-        display: inline-flex;
-        align-items: center;
-    }
-    .rc-pop-year {
-        font-size: 0.65rem;
-        color: rgba(255,255,255,0.35);
-    }
-
-    /* ── Confidence bar ── */
-    .rc-pop-conf {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        margin-bottom: 6px;
-    }
-    .rc-pop-conf-bar {
-        flex: 1;
-        height: 4px;
-        background: rgba(255,255,255,0.08);
-        border-radius: 2px;
-        overflow: hidden;
-    }
-    .rc-pop-conf-fill {
-        height: 100%;
-        border-radius: 2px;
-        transition: width 0.2s ease;
-    }
-    .rc-pop-conf-pct {
-        font-size: 0.7rem;
-        font-weight: 600;
-        min-width: 28px;
-        text-align: right;
-    }
-
-    /* ── Trigger ── */
-    .rc-pop-trigger {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        font-size: 0.68rem;
-        margin-bottom: 8px;
-    }
-
-    /* ── Actions ── */
-    .rc-pop-actions {
-        display: flex;
-        align-items: center;
-        gap: 2px;
-        flex-wrap: wrap;
     }
 </style>

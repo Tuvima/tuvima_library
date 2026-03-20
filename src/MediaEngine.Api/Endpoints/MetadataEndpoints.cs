@@ -670,7 +670,7 @@ public static class MetadataEndpoints
         .RequireAdmin();
 
 
-        // â”€â”€ POST /metadata/search-all â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // â"€â"€ POST /metadata/search-all â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
         //
         // Fan-out search: queries ALL eligible providers concurrently and returns
         // merged results grouped by provider. Powers the HubDetail edit panel.
@@ -744,6 +744,7 @@ public static class MetadataEndpoints
                             ThumbnailUrl   = r.ThumbnailUrl,
                             ProviderItemId = r.ProviderItemId,
                             Confidence     = r.Confidence,
+                            ResultType     = r.ResultType,
                             RawFields      = BuildRawFields(r),
                         }).ToList(),
                     };
@@ -789,7 +790,38 @@ public static class MetadataEndpoints
         .Produces(StatusCodes.Status400BadRequest)
         .RequireAdminOrCurator();
 
-        // â”€â”€ GET /metadata/canonical/{entityId} â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── GET /metadata/{entityId}/search-cache ─────────────────────────
+        group.MapGet("/{entityId:guid}/search-cache", async (
+            Guid entityId,
+            ISearchResultsCacheRepository cache) =>
+        {
+            var json = await cache.FindAsync(entityId, maxAgeDays: 30);
+            return json is not null
+                ? Results.Ok(new { results_json = json })
+                : Results.NotFound();
+        })
+        .WithName("GetSearchResultsCache")
+        .WithSummary("Retrieve cached fan-out search results for an entity (30-day TTL)")
+        .Produces<object>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status404NotFound);
+
+        // ── PUT /metadata/{entityId}/search-cache ─────────────────────────
+        group.MapPut("/{entityId:guid}/search-cache", async (
+            Guid entityId,
+            SearchCacheUpsertRequest body,
+            ISearchResultsCacheRepository cache) =>
+        {
+            if (string.IsNullOrEmpty(body.ResultsJson))
+                return Results.BadRequest("results_json is required");
+            await cache.UpsertAsync(entityId, body.ResultsJson);
+            return Results.NoContent();
+        })
+        .WithName("PutSearchResultsCache")
+        .WithSummary("Cache fan-out search results for an entity")
+        .Produces(StatusCodes.Status204NoContent)
+        .Produces(StatusCodes.Status400BadRequest);
+
+        // â"€â"€ GET /metadata/canonical/{entityId} â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
         //
         // Returns all current canonical values for an entity with confidence,
         // provider attribution, and user-lock status.
@@ -859,7 +891,7 @@ public static class MetadataEndpoints
         .Produces(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator();
 
-        // â”€â”€ POST /metadata/{entityId}/cover-from-url â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // â"€â"€ POST /metadata/{entityId}/cover-from-url â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
         //
         // Downloads a cover image from a provider URL, saves as cover.jpg,
         // regenerates the hero banner, and updates canonical values.

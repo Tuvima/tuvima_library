@@ -21,6 +21,11 @@ namespace MediaEngine.Providers.Models;
 /// </param>
 /// <param name="Confidence">Match confidence score from the provider (0.0–1.0).</param>
 /// <param name="ProviderName">Name of the provider that produced this result.</param>
+/// <param name="ResultType">
+/// Optional tag indicating the nature of this result: "audiobook_edition" for a specific
+/// audiobook edition QID, "work" for a literary work used as a fallback, or null when
+/// unspecified (e.g. results from retail providers).
+/// </param>
 public sealed record SearchResultItem(
     string Title,
     string? Author,
@@ -29,4 +34,5 @@ public sealed record SearchResultItem(
     string? ThumbnailUrl,
     string? ProviderItemId,
     double Confidence,
-    string ProviderName);
+    string ProviderName,
+    string? ResultType = null);

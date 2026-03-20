@@ -101,6 +101,9 @@ public sealed class FanOutSearchResultItem
     [JsonPropertyName("confidence")]
     public double Confidence { get; init; }
 
+    [JsonPropertyName("result_type")]
+    public string? ResultType { get; init; }
+
     /// <summary>
     /// All raw fields extracted by the provider's field mappings.
     /// Keys are claim keys (e.g. "isbn", "series", "narrator").
@@ -142,4 +145,30 @@ public sealed class CoverFromUrlRequest
 {
     [JsonPropertyName("image_url")]
     public string ImageUrl { get; init; } = string.Empty;
+}
+
+/// <summary>Request for batch registry operations.</summary>
+public sealed class BatchRegistryRequest
+{
+    [JsonPropertyName("entity_ids")]
+    public Guid[] EntityIds { get; init; } = [];
+}
+
+/// <summary>Response from batch registry operations.</summary>
+public sealed class BatchRegistryResponse
+{
+    [JsonPropertyName("processed_count")]
+    public int ProcessedCount { get; init; }
+
+    [JsonPropertyName("total_requested")]
+    public int TotalRequested { get; init; }
+
+    [JsonPropertyName("message")]
+    public string Message { get; init; } = "";
+}
+
+/// <summary>Request body for caching search results.</summary>
+public sealed class SearchCacheUpsertRequest
+{
+    public string ResultsJson { get; init; } = "";
 }

@@ -25,16 +25,27 @@ public sealed record CanonicalFieldViewModel(
         "asin" => "ASIN",
         "narrator" => "Narrator",
         "series" => "Series",
-        "series_position" => "Series Position",
+        "series_position" => "Position in Series",
         "genre" => "Genre",
         "publisher" => "Publisher",
-        "page_count" => "Page Count",
+        "page_count" => "Pages",
         "language" => "Language",
         "media_type" => "Media Type",
-        "dominant_color" => "Dominant Color",
+        "dominant_color" => "Dominant Colour",
         "hero" => "Hero Banner",
-        "wikidata_qid" => "Wikidata QID",
-        _ => Key.Replace("_", " ").ToUpperInvariant(),
+        "wikidata_qid" => "Work ID",
+        "edition_qid" => "Edition ID",
+        "apple_books_id" => "Apple Books ID",
+        "tmdb_id" => "TMDB ID",
+        "imdb_id" => "IMDb ID",
+        "musicbrainz_id" => "MusicBrainz ID",
+        "goodreads_id" => "Goodreads ID",
+        "cast_member" => "Cast",
+        "director" => "Director",
+        "duration" => "Duration",
+        "rating" => "Rating",
+        _ => System.Globalization.CultureInfo.CurrentCulture.TextInfo
+                 .ToTitleCase(Key.Replace("_", " ")),
     };
 }
 
@@ -99,6 +110,9 @@ public sealed class SearchResultItemViewModel
 
     [JsonPropertyName("confidence")]
     public double Confidence { get; init; }
+
+    [JsonPropertyName("result_type")]
+    public string? ResultType { get; init; }
 
     [JsonPropertyName("raw_fields")]
     public Dictionary<string, string> RawFields { get; init; } = [];

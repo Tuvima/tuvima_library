@@ -455,6 +455,12 @@ public interface IEngineApiClient
     /// <summary>GET /registry/items/{entityId}/detail — full detail for expanded row.</summary>
     Task<RegistryItemDetailViewModel?> GetRegistryItemDetailAsync(Guid entityId, CancellationToken ct = default);
 
+    /// <summary>GET /registry/items/{entityId}/history — processing history timeline.</summary>
+    Task<List<RegistryItemHistoryDto>> GetItemHistoryAsync(Guid entityId, CancellationToken ct = default);
+
+    /// <summary>POST /registry/items/{entityId}/recover — recover a previously rejected item.</summary>
+    Task<bool> RecoverRegistryItemAsync(Guid entityId, CancellationToken ct = default);
+
     /// <summary>GET /registry/counts — status counts for tab badges.</summary>
     Task<RegistryStatusCountsDto?> GetRegistryStatusCountsAsync(CancellationToken ct = default);
 

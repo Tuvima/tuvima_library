@@ -158,8 +158,15 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
     public Task<int> GetPendingCountAsync(CancellationToken ct = default)
     {
         using var conn = _db.CreateConnection();
-        var count = conn.ExecuteScalar<int>(
-            "SELECT COUNT(DISTINCT entity_id) FROM review_queue WHERE status = @status",
+        // Count distinct works (not media assets) to match the Registry "Needs Review" count.
+        // Falls back to entity_id count if the join chain is broken (orphan review entries).
+        var count = conn.ExecuteScalar<int>("""
+            SELECT COUNT(DISTINCT e.work_id)
+            FROM review_queue rq
+            INNER JOIN media_assets ma ON ma.id = rq.entity_id
+            INNER JOIN editions e ON e.id = ma.edition_id
+            WHERE rq.status = @status
+            """,
             new { status = ReviewStatus.Pending });
 
         return Task.FromResult(count);

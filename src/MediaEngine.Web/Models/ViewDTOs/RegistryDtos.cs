@@ -297,3 +297,25 @@ public sealed class BatchRegistryResponse
     [JsonPropertyName("message")]
     public string Message { get; set; } = "";
 }
+
+/// <summary>A single entry in the processing history timeline for a registry item.</summary>
+public sealed class RegistryItemHistoryDto
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = "";
+
+    [JsonPropertyName("entity_id")]
+    public Guid EntityId { get; set; }
+
+    [JsonPropertyName("occurred_at")]
+    public DateTimeOffset OccurredAt { get; set; }
+
+    [JsonPropertyName("event_type")]
+    public string EventType { get; set; } = "";
+
+    [JsonPropertyName("label")]
+    public string Label { get; set; } = "";
+
+    [JsonPropertyName("detail")]
+    public string? Detail { get; set; }
+}

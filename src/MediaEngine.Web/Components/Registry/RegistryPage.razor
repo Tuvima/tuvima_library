@@ -6,57 +6,66 @@
 @inject IJSRuntime JSRuntime
 @implements IDisposable
 
-@* ── Filter Bar (sticky top) ── *@
-<RegistryFilterBar Counts="_counts"
-                   ActiveTab="_activeTab"
-                   ActiveTabChanged="OnTabChanged"
-                   SearchText="@_searchText"
-                   SearchTextChanged="OnSearchChanged"
-                   GroupBy="_groupBy"
-                   GroupByChanged="OnGroupByChanged"
-                   SelectionMode="_selectionMode"
-                   SelectionModeChanged="OnSelectionModeChanged"
-                   SortBy="@_sortBy"
-                   SortByChanged="OnSortChanged"
-                   MaxDays="_maxDays"
-                   MaxDaysChanged="OnMaxDaysChanged"
-                   CardSize="_cardSize"
-                   CardSizeChanged="OnCardSizeChanged" />
+<div class="registry-layout @(_selectedItem is not null ? "detail-open" : "")">
+    <div class="registry-main">
+        @* ── Filter Bar (sticky top) ── *@
+        <RegistryFilterBar Counts="_counts"
+                           ActiveTab="@ActiveTab"
+                           ActiveTabChanged="OnTabChanged"
+                           SearchText="@_searchText"
+                           SearchTextChanged="OnSearchChanged"
+                           GroupBy="_groupBy"
+                           GroupByChanged="OnGroupByChanged"
+                           SelectionMode="_selectionMode"
+                           SelectionModeChanged="OnSelectionModeChanged"
+                           SortBy="@_sortBy"
+                           SortByChanged="OnSortChanged"
+                           MaxDays="_maxDays"
+                           MaxDaysChanged="OnMaxDaysChanged"
+                           CardSize="_cardSize"
+                           CardSizeChanged="OnCardSizeChanged" />
 
-@* ── Bulk Bar (only when items selected in selection mode) ── *@
-@if (_selectionMode && _selectedIds.Count > 0)
-{
-    <RegistryBulkBar SelectedCount="_selectedIds.Count"
-                     TotalCount="_items.Count"
-                     Processing="_processing"
-                     OnApprove="BatchApproveAsync"
-                     OnReject="BatchRejectAsync"
-                     OnDelete="BatchDeleteAsync"
-                     OnSelectAll="SelectAll"
-                     OnDeselectAll="DeselectAll" />
-}
+        @* ── Bulk Bar (only when items selected in selection mode) ── *@
+        @if (_selectionMode && _selectedIds.Count > 0)
+        {
+            <RegistryBulkBar SelectedCount="_selectedIds.Count"
+                             TotalCount="_items.Count"
+                             Processing="_processing"
+                             OnApprove="BatchApproveAsync"
+                             OnReject="BatchRejectAsync"
+                             OnDelete="BatchDeleteAsync"
+                             OnSelectAll="SelectAll"
+                             OnDeselectAll="DeselectAll" />
+        }
 
-@* ── Grid ── *@
-<RegistryGrid Items="_items"
-              SelectedIds="_selectedIds"
-              NeedsReviewFilter="@(_activeTab == "review")"
-              GroupBy="_groupBy"
-              CardSize="_cardSize"
-              SelectionModeActive="_selectionMode"
-              HasMore="_hasMore"
-              Loading="_loading"
-              OnSelectionToggled="ToggleSelection"
-              OnApproveClicked="QuickApproveAsync"
-              OnRejectClicked="QuickRejectAsync"
-              OnNavigate="NavigateToItem"
-              OnLoadMore="LoadMoreAsync"
-              OnApproveGroup="GroupApproveAsync"
-              OnRejectGroup="GroupRejectAsync" />
+        @* ── Grid ── *@
+        <RegistryGrid Items="_items"
+                      SelectedIds="_selectedIds"
+                      FocusedEntityId="@_selectedItem?.EntityId"
+                      NeedsReviewFilter="@(ActiveTab == "review")"
+                      GroupBy="_groupBy"
+                      CardSize="_cardSize"
+                      SelectionModeActive="_selectionMode"
+                      HasMore="_hasMore"
+                      Loading="_loading"
+                      OnSelectionToggled="ToggleSelection"
+                      OnCardClicked="OnCardClicked"
+                      OnApproveClicked="QuickApproveAsync"
+                      OnRejectClicked="QuickRejectAsync"
+                      OnNavigate="OnCardClicked"
+                      OnLoadMore="LoadMoreAsync"
+                      OnApproveGroup="GroupApproveAsync"
+                      OnRejectGroup="GroupRejectAsync" />
+    </div>
 
-@* ── Delete Confirmation Dialog ── *@
-<MudMessageBox @ref="_deleteConfirmBox"
-               Title="Delete from Library"
-               CancelText="Cancel">
+    @* ── Detail Panel (right side) ── *@
+    <RegistryDetailPanel Item="_selectedItem"
+                         OnCloseRequested="CloseDetailPanel"
+                         OnItemChanged="OnDetailItemChanged" />
+</div>
+
+@* ── Confirmation Dialogs ── *@
+<MudMessageBox @ref="_deleteConfirmBox" Title="Delete from Library" CancelText="Cancel">
     <MessageContent>
         This will permanently delete <strong>@_selectedIds.Count</strong> file(s) from your library. This cannot be undone.
     </MessageContent>
@@ -65,10 +74,7 @@
     </YesButton>
 </MudMessageBox>
 
-@* ── Reject Confirmation Dialog ── *@
-<MudMessageBox @ref="_rejectConfirmBox"
-               Title="Reject Items"
-               CancelText="Cancel">
+<MudMessageBox @ref="_rejectConfirmBox" Title="Reject Items" CancelText="Cancel">
     <MessageContent>
         Reject <strong>@_pendingRejectCount</strong> item(s)? They will be moved to the rejected folder and automatically deleted after 30 days.
     </MessageContent>
@@ -77,10 +83,7 @@
     </YesButton>
 </MudMessageBox>
 
-@* ── Approve Confirmation Dialog ── *@
-<MudMessageBox @ref="_approveConfirmBox"
-               Title="Approve Items"
-               CancelText="Cancel">
+<MudMessageBox @ref="_approveConfirmBox" Title="Approve Items" CancelText="Cancel">
     <MessageContent>
         Approve <strong>@_pendingApproveCount</strong> item(s)?
     </MessageContent>
@@ -88,6 +91,22 @@
         <MudButton Variant="Variant.Filled" Color="Color.Success">Approve</MudButton>
     </YesButton>
 </MudMessageBox>
+
+<style>
+    .registry-layout {
+        display: flex;
+        min-height: 100%;
+        position: relative;
+    }
+    .registry-main {
+        flex: 1;
+        min-width: 0;
+        transition: padding-right 0.25s ease;
+    }
+    .registry-layout.detail-open .registry-main {
+        padding-right: 384px;
+    }
+</style>
 
 @code {
     // ── State ──
@@ -97,13 +116,13 @@
     private List<RegistryItemViewModel> _items = [];
     private HashSet<Guid> _selectedIds = [];
     private RegistryStatusCountsDto? _counts;
+    private RegistryItemViewModel? _selectedItem;
 
     private bool _loading;
     private bool _hasMore;
     private bool _processing;
 
-    // Tab / grouping / ui state
-    private string _activeTab = "all";
+    // Grouping / UI state
     private string _groupBy = "date";
     private bool _selectionMode;
     private int _cardSize = 80;
@@ -117,6 +136,9 @@
     private int _pendingRejectCount;
     private int _pendingApproveCount;
 
+    // ── URL-driven tab ──
+    private string ActiveTab => Nav.Uri.Contains("/review", StringComparison.OrdinalIgnoreCase) ? "review" : "all";
+
     // ── Lifecycle ──
 
     protected override async Task OnInitializedAsync()
@@ -126,11 +148,6 @@
 
         _loading = true;
         await LoadCountsAsync();
-
-        // Default to "review" tab when there are pending items
-        if (_counts is not null && _counts.NeedsReview > 0)
-            _activeTab = "review";
-
         await LoadItemsAsync(reset: true);
         _loading = false;
     }
@@ -139,7 +156,6 @@
     {
         if (firstRender)
         {
-            // Load persisted card size from localStorage
             try
             {
                 var stored = await JSRuntime.InvokeAsync<int>("registrySettings.getCardSize");
@@ -159,7 +175,7 @@
     {
         if (reset) _items.Clear();
 
-        var statusFilter = _activeTab == "review" ? "Review" : (string?)null;
+        var statusFilter = ActiveTab == "review" ? "Review" : (string?)null;
         var maxDaysParam = _maxDays > 0 ? _maxDays : (int?)null;
 
         var result = await Orchestrator.GetRegistryItemsAsync(
@@ -171,7 +187,7 @@
             minConfidence: null,
             matchSource: null,
             duplicatesOnly: false,
-            missingUniverseOnly: _activeTab == "review",
+            missingUniverseOnly: ActiveTab == "review",
             sort: _sortBy,
             maxDays: maxDaysParam);
 
@@ -203,12 +219,13 @@
         StateHasChanged();
     }
 
-    // ── Filter / Tab Handlers ──
+    // ── Tab / Filter Handlers ──
 
     private async Task OnTabChanged(string tab)
     {
-        _activeTab = tab;
         _selectedIds.Clear();
+        _selectedItem = null;
+        Nav.NavigateTo(tab == "review" ? "/registry/review" : "/registry");
         await ReloadItems();
     }
 
@@ -260,6 +277,51 @@
         StateHasChanged();
         await LoadItemsAsync(reset: true);
         _loading = false;
+        StateHasChanged();
+    }
+
+    // ── Card Click → Detail Panel ──
+
+    private void OnCardClicked(Guid entityId)
+    {
+        if (_selectionMode)
+        {
+            ToggleSelection(entityId);
+            return;
+        }
+
+        var item = _items.FirstOrDefault(i => i.EntityId == entityId);
+        if (item is null) return;
+
+        // Toggle: click same card closes panel
+        if (_selectedItem?.EntityId == entityId)
+        {
+            _selectedItem = null;
+        }
+        else
+        {
+            _selectedItem = item;
+        }
+        StateHasChanged();
+    }
+
+    private void CloseDetailPanel()
+    {
+        _selectedItem = null;
+        StateHasChanged();
+    }
+
+    private async Task OnDetailItemChanged()
+    {
+        // Refresh the list and counts after an action in the detail panel
+        await LoadCountsAsync();
+        await ReloadItems();
+
+        // Re-select the updated item if it's still in the list
+        if (_selectedItem is not null)
+        {
+            _selectedItem = _items.FirstOrDefault(i => i.EntityId == _selectedItem.EntityId);
+        }
         StateHasChanged();
     }
 
@@ -465,16 +527,11 @@
         StateHasChanged();
     }
 
-    // ── Navigation ──
+    // ── Navigation (from detail panel View Details link) ──
 
     private void NavigateToItem(Guid entityId)
     {
-        var item = _items.FirstOrDefault(i => i.EntityId == entityId);
-        var needsReview = item is not null && (
-            !string.IsNullOrEmpty(item.ReviewTrigger) ||
-            (item.Confidence > 0 && item.Confidence < 0.85 && !item.HasUserLocks));
-        var url = needsReview ? $"/book/{entityId}?edit=true" : $"/book/{entityId}";
-        Nav.NavigateTo(url);
+        Nav.NavigateTo($"/book/{entityId}");
     }
 
     // ── SignalR ──

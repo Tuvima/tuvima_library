@@ -1,0 +1,1227 @@
+@namespace MediaEngine.Web.Components.Settings
+@using MediaEngine.Web.Models.ViewDTOs
+@inject UIOrchestratorService Orchestrator
+@inject ISnackbar Snackbar
+
+<MudDialog Class="eo-dialog">
+    <TitleContent>
+        <div class="eo-title-bar">
+            <MudIcon Icon="@Icons.Material.Filled.ManageSearch" Style="color: #C9922E; font-size: 1.2rem;" />
+            <span class="eo-title">Edit Metadata</span>
+            <span style="flex: 1;"></span>
+            <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
+                           OnClick="@Cancel"
+                           Style="color: rgba(248,248,248,0.6);" />
+        </div>
+    </TitleContent>
+
+    <DialogContent>
+        @* ── Tab bar (inside dialog body so MudBlazor can't clip it) ── *@
+        <div class="eo-tab-bar">
+            <button class="eo-tab @(_activeTab == 0 ? "eo-tab--on" : "")"
+                    @onclick="@(() => SetTab(0))">Search</button>
+            <button class="eo-tab @(_activeTab == 1 ? "eo-tab--on" : "")"
+                    @onclick="@(() => SetTab(1))">Details</button>
+            <button class="eo-tab @(_activeTab == 2 ? "eo-tab--on" : "")"
+                    @onclick="@(() => SetTab(2))">Images</button>
+        </div>
+
+        <div class="eo-body">
+            @if (_activeTab == 0)
+            {
+                @* ══════════ SEARCH TAB ══════════ *@
+                <div class="eo-search-tab">
+                    @* ── Search bar + media type dropdown ── *@
+                    <div class="eo-search-row">
+                        <MudTextField @bind-Value="_searchQuery" Placeholder="Search..."
+                                      Variant="Variant.Outlined" Margin="Margin.Dense"
+                                      Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Search"
+                                      OnAdornmentClick="@OnSearch" OnKeyUp="@OnSearchKeyUp"
+                                      Style="flex: 1; font-size: 0.85rem;"
+                                      Disabled="@_searching" />
+
+                        <MudSelect T="string" Value="_selectedMediaType" ValueChanged="OnMediaTypeChanged"
+                                   Variant="Variant.Outlined"
+                                   Margin="Margin.Dense" Dense="true"
+                                   Style="min-width: 130px; max-width: 150px; font-size: 0.82rem;"
+                                   AnchorOrigin="Origin.BottomLeft" TransformOrigin="Origin.TopLeft">
+                            @foreach (var mt in _mediaTypeOptions)
+                            {
+                                <MudSelectItem Value="@mt.Value">@mt.Label</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </div>
+
+                    @* ── Two-column: images (left 50%) + results (right 50%) ── *@
+                    <div class="eo-search-columns">
+                        @* ── Left: image gallery ── *@
+                        <div class="eo-poster-col">
+                            @if (_retailCovers.Count > 0)
+                            {
+                                @* ── Selected image large ── *@
+                                <div class="eo-poster-frame">
+                                    <img src="@_retailCovers[_selectedCoverIndex].CoverUrl"
+                                         alt="Cover art"
+                                         class="eo-poster-img" />
+                                </div>
+
+                                @* ── Thumbnail strip: all images ── *@
+                                @if (_retailCovers.Count > 1)
+                                {
+                                    <div class="eo-thumb-strip">
+                                        @for (var i = 0; i < _retailCovers.Count; i++)
+                                        {
+                                            var idx = i;
+                                            <div class="eo-thumb @(idx == _selectedCoverIndex ? "eo-thumb--on" : "")"
+                                                 @onclick="@(() => _selectedCoverIndex = idx)">
+                                                <img src="@_retailCovers[idx].CoverUrl"
+                                                     alt="Cover art" />
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                            }
+                            else if (_loadingRetail)
+                            {
+                                <div class="eo-poster-frame eo-poster-frame--empty">
+                                    <MudProgressCircular Indeterminate="true" Size="Size.Small"
+                                                         Style="color: rgba(201,146,46,0.5);" />
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="eo-poster-frame eo-poster-frame--empty">
+                                    <MudIcon Icon="@Icons.Material.Outlined.MenuBook"
+                                             Style="font-size: 2.5rem; opacity: 0.08;" />
+                                </div>
+                            }
+                        </div>
+
+                        @* ── Right: scrollable search results ── *@
+                        <div class="eo-results-col">
+                            @if (_searching)
+                            {
+                                <div class="eo-status">
+                                    <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: #C9922E;" />
+                                    <span>Searching...</span>
+                                </div>
+                            }
+                            else if (_results is not null && _results.Count == 0)
+                            {
+                                <div class="eo-status">
+                                    <MudIcon Icon="@Icons.Material.Outlined.SearchOff" Style="font-size: 2rem; opacity: 0.12;" />
+                                    <span>No matches found</span>
+                                </div>
+                            }
+                            else if (_results is not null)
+                            {
+                                @foreach (var item in _results)
+                                {
+                                    var isHighlighted = _highlightedItem == item;
+                                    var isApplied = _appliedItem == item;
+                                    <div class="eo-result @(isHighlighted ? "eo-result--hl" : "") @(isApplied ? "eo-result--applied" : "")"
+                                         @onclick="@(() => OnResultClicked(item))">
+                                        @if (item.ResultType == "audiobook_edition")
+                                        {
+                                            <div class="eo-result-type eo-result-type--audiobook" title="Audiobook edition">
+                                                <MudIcon Icon="@Icons.Material.Filled.Headphones" Style="font-size: 1.1rem;" />
+                                            </div>
+                                        }
+                                        else if (item.ResultType == "work")
+                                        {
+                                            <div class="eo-result-type eo-result-type--work" title="Literary work (no audiobook edition found)">
+                                                <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Style="font-size: 1.1rem;" />
+                                            </div>
+                                        }
+                                        <div class="eo-result-text">
+                                            <span class="eo-result-title">@(item.Title ?? "Untitled")</span>
+                                            @if (!string.IsNullOrEmpty(item.Description))
+                                            {
+                                                <span class="eo-result-desc">@Truncate(item.Description, 120)</span>
+                                            }
+                                            @if (item.Confidence > 0)
+                                            {
+                                                <span class="eo-result-conf">@((item.Confidence * 100).ToString("F0"))% match</span>
+                                            }
+                                        </div>
+
+                                        <div class="eo-result-action" @onclick:stopPropagation="true">
+                                            @if (_appliedItem == item)
+                                            {
+                                                <div class="eo-chk eo-chk--done" title="Applied">
+                                                    <MudIcon Icon="@Icons.Material.Filled.CheckCircle"
+                                                             Style="font-size: 1.3rem; color: #22c55e;" />
+                                                </div>
+                                            }
+                                            else if (_confirmingItem == item)
+                                            {
+                                                <button class="eo-chk eo-chk--confirm"
+                                                        @onclick="@(() => OnConfirmApply(item))"
+                                                        disabled="@_applying" title="Click to confirm">
+                                                    @if (_applying)
+                                                    {
+                                                        <MudProgressCircular Indeterminate="true" Size="Size.Small"
+                                                                             Style="color: #22c55e;" />
+                                                    }
+                                                    else
+                                                    {
+                                                        <MudIcon Icon="@Icons.Material.Filled.CheckCircle"
+                                                                 Style="font-size: 1.3rem;" />
+                                                        <span class="eo-confirm-lbl">Confirm?</span>
+                                                    }
+                                                </button>
+                                            }
+                                            else
+                                            {
+                                                <button class="eo-chk eo-chk--idle"
+                                                        @onclick="@(() => { _confirmingItem = item; })"
+                                                        title="Apply this match">
+                                                    <MudIcon Icon="@Icons.Material.Outlined.CheckCircleOutline"
+                                                             Style="font-size: 1.3rem;" />
+                                                </button>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                            }
+                            else
+                            {
+                                <div class="eo-status">
+                                    <MudIcon Icon="@Icons.Material.Outlined.TravelExplore"
+                                             Style="font-size: 2rem; opacity: 0.08;" />
+                                    <span>Search to find a match</span>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+            else if (_activeTab == 1)
+            {
+                @* ══════════ DETAILS TAB ══════════ *@
+                <div class="eo-meta-tab">
+                    @if (_loadingMeta)
+                    {
+                        <div class="eo-status"><MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: rgba(255,255,255,0.15);" /></div>
+                    }
+                    else
+                    {
+                        @* ── Authority banner ── *@
+                        <div class="eo-authority-banner">
+                            <MudIcon Icon="@Icons.Material.Filled.VerifiedUser" Style="font-size: 0.9rem; color: rgba(201,146,46,0.7);" />
+                            <span>Verified from authoritative sources</span>
+                            @if (!string.IsNullOrEmpty(_wikidataQid))
+                            {
+                                <a href="https://www.wikidata.org/wiki/@_wikidataQid" target="_blank"
+                                   class="eo-qid-chip" title="View on Wikidata">
+                                    @_wikidataQid
+                                    <MudIcon Icon="@Icons.Material.Filled.OpenInNew" Style="font-size: 0.65rem;" />
+                                </a>
+                            }
+                        </div>
+
+                        @RenderGroupedFields()
+
+                        @* ── File Tags section ── *@
+                        @if (_fileTagClaims is { Count: > 0 })
+                        {
+                            <div class="eo-group" style="margin-top: 12px;">
+                                <div class="eo-group-header">
+                                    <MudIcon Icon="@Icons.Material.Outlined.InsertDriveFile" Style="font-size: 0.85rem; color: rgba(255,255,255,0.25);" />
+                                    <span class="eo-group-title">Embedded File Tags</span>
+                                </div>
+                                @foreach (var claim in _fileTagClaims.Where(c => !HiddenKeys.Contains(c.Key)))
+                                {
+                                    <div class="eo-row">
+                                        <span class="eo-row-label">@FormatFieldKey(claim.Key)</span>
+                                        <span class="eo-row-value">@Truncate(claim.Value, 300)</span>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    }
+                </div>
+            }
+            else
+            {
+                @* ══════════ IMAGES TAB (stub) ══════════ *@
+                <div class="eo-meta-tab">
+                    <div class="eo-status" style="padding: 80px 0;">
+                        <MudIcon Icon="@Icons.Material.Outlined.PhotoLibrary"
+                                 Style="font-size: 2.5rem; opacity: 0.08;" />
+                        <span>Image management coming soon</span>
+                    </div>
+                </div>
+            }
+        </div>
+    </DialogContent>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
+
+    [Parameter] public Guid EntityId { get; set; }
+    [Parameter] public Guid HubId { get; set; }
+    [Parameter] public string? MediaType { get; set; }
+    [Parameter] public string? PreloadedCandidates { get; set; }
+    [Parameter] public string? InitialSearchQuery { get; set; }
+    [Parameter] public List<CanonicalValueViewModel>? WorkCanonicalValues { get; set; }
+
+    // ── State ──────────────────────────────────────────────────────────
+    private int _activeTab;
+    private bool _loadingMeta;
+    private List<CanonicalFieldViewModel>? _canonicalValues;
+    private List<ClaimFieldDto>? _fileTagClaims;
+    private string? _wikidataQid;
+
+    private string _searchQuery = "";
+    private string _selectedMediaType = "";
+    private bool _searching;
+    private bool _applying;
+    private List<SearchResultItemViewModel>? _results;
+    private SearchResultItemViewModel? _highlightedItem;
+    private SearchResultItemViewModel? _confirmingItem;
+    private SearchResultItemViewModel? _appliedItem;
+    private bool _appliedAny;
+
+    // Provider image gallery
+    private List<RetailCoverEntry> _retailCovers = [];
+    private int _selectedCoverIndex;
+    private bool _loadingRetail;
+    private CancellationTokenSource? _retailCts;
+
+    private static readonly string WikidataProviderId = "b3000003-d000-4000-8000-000000000004";
+    private static readonly Guid LocalFilesystemProviderId = Guid.Parse("a0000000-0000-4000-8000-000000000000");
+
+    private static readonly Dictionary<string, int> ProviderPriority = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["apple_api"] = 100, ["apple_books"] = 100,
+        ["tmdb"] = 90, ["google_books"] = 70, ["open_library"] = 60,
+    };
+
+    private static readonly (string Label, string Value)[] _mediaTypeOptions =
+    [
+        ("Book", "Books"), ("Audiobook", "Audiobooks"), ("Movie", "Movies"),
+        ("TV", "TV"), ("Comic", "Comic"), ("Music", "Music"), ("Podcast", "Podcasts"),
+    ];
+
+    private sealed record RetailCoverEntry(string CoverUrl, string ProviderName, int Priority);
+
+    // ── Lifecycle ──────────────────────────────────────────────────────
+
+    protected override async Task OnInitializedAsync()
+    {
+        _selectedMediaType = !string.IsNullOrEmpty(MediaType) ? MediaType : "Books";
+        if (!string.IsNullOrWhiteSpace(InitialSearchQuery))
+            _searchQuery = InitialSearchQuery;
+        TryLoadPreloadedCandidates();
+        await LoadMetadataAsync();
+
+        // Auto-search when we have a pre-filled query but no cached/preloaded results
+        if (!string.IsNullOrWhiteSpace(_searchQuery) && (_results is null || _results.Count == 0))
+            await OnSearch();
+    }
+
+    private async Task LoadMetadataAsync()
+    {
+        _loadingMeta = true;
+        StateHasChanged();
+
+        try
+        {
+            var apiCanonicals = await Orchestrator.GetCanonicalValuesAsync(EntityId);
+            if (apiCanonicals is { Count: > 0 })
+                _canonicalValues = apiCanonicals;
+            else if (WorkCanonicalValues is { Count: > 0 })
+                _canonicalValues = WorkCanonicalValues
+                    .Where(cv => !string.IsNullOrEmpty(cv.Value))
+                    .Select(cv => new CanonicalFieldViewModel(cv.Key, cv.Value, 0.0, null, false, false))
+                    .ToList();
+
+            _wikidataQid = _canonicalValues?.FirstOrDefault(c => c.Key == "wikidata_qid")?.Value;
+
+            var allClaims = await Orchestrator.GetClaimHistoryAsync(EntityId);
+            if (allClaims is { Count: > 0 })
+            {
+                _fileTagClaims = allClaims
+                    .Where(c => c.ProviderId == LocalFilesystemProviderId)
+                    .GroupBy(c => c.ClaimKey)
+                    .Select(g => g.OrderByDescending(c => c.Confidence).First())
+                    .Select(c => new ClaimFieldDto(c.ClaimKey, c.ClaimValue))
+                    .ToList();
+            }
+
+            if ((_fileTagClaims is null || _fileTagClaims.Count == 0) && WorkCanonicalValues is { Count: > 0 })
+                _fileTagClaims = WorkCanonicalValues
+                    .Where(cv => !string.IsNullOrEmpty(cv.Value))
+                    .Select(cv => new ClaimFieldDto(cv.Key, cv.Value!))
+                    .ToList();
+        }
+        catch
+        {
+            if (WorkCanonicalValues is { Count: > 0 })
+                _canonicalValues = WorkCanonicalValues
+                    .Where(cv => !string.IsNullOrEmpty(cv.Value))
+                    .Select(cv => new CanonicalFieldViewModel(cv.Key, cv.Value, 0.0, null, false, false))
+                    .ToList();
+        }
+        finally
+        {
+            _loadingMeta = false;
+            StateHasChanged();
+        }
+    }
+
+    private void SetTab(int tab) { _activeTab = tab; StateHasChanged(); }
+
+    // ── Preloaded candidates ───────────────────────────────────────────
+
+    private void TryLoadPreloadedCandidates()
+    {
+        if (string.IsNullOrEmpty(PreloadedCandidates)) return;
+        try
+        {
+            // Try cached search results format first (List<SearchResultItemViewModel>)
+            var cached = System.Text.Json.JsonSerializer.Deserialize<List<SearchResultItemViewModel>>(
+                PreloadedCandidates,
+                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            if (cached is { Count: > 0 } && !string.IsNullOrEmpty(cached[0].Title))
+            {
+                _results = cached;
+                return;
+            }
+        }
+        catch { /* Not cached format — try review queue format */ }
+
+        try
+        {
+            // Review queue format (qid/label/description/score)
+            var candidates = System.Text.Json.JsonSerializer.Deserialize<List<PreloadedCandidate>>(PreloadedCandidates);
+            if (candidates is { Count: > 0 })
+                _results = candidates.Select(c => new SearchResultItemViewModel
+                {
+                    Title = c.Label, Description = c.Description, ProviderItemId = c.Qid,
+                    Confidence = (c.Score ?? 0) / 100.0,
+                    RawFields = new Dictionary<string, string> { ["wikidata_qid"] = c.Qid ?? "" },
+                }).ToList();
+        }
+        catch { /* Ignore malformed JSON */ }
+    }
+
+    private sealed class PreloadedCandidate
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("qid")] public string? Qid { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("label")] public string? Label { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("description")] public string? Description { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("score")] public double? Score { get; set; }
+    }
+
+    private sealed record ClaimFieldDto(string Key, string Value);
+
+    // ── Search ─────────────────────────────────────────────────────────
+
+    private async Task OnMediaTypeChanged(string mediaType)
+    {
+        _selectedMediaType = mediaType;
+        _results = null;
+        _confirmingItem = null;
+        _appliedItem = null;
+        _highlightedItem = null;
+        _retailCovers = [];
+        _selectedCoverIndex = 0;
+        CancelRetailLookup();
+        await InvokeAsync(StateHasChanged);
+
+        if (!string.IsNullOrWhiteSpace(_searchQuery))
+            await OnSearch();
+    }
+
+    private async Task OnSearch()
+    {
+        if (string.IsNullOrWhiteSpace(_searchQuery)) return;
+        _searching = true;
+        _results = null;
+        _confirmingItem = null;
+        _appliedItem = null;
+        _highlightedItem = null;
+        _retailCovers = [];
+        _selectedCoverIndex = 0;
+        CancelRetailLookup();
+        StateHasChanged();
+
+        try
+        {
+            var fanOut = await Orchestrator.SearchMetadataFanOutAsync(
+                _searchQuery, _selectedMediaType, WikidataProviderId);
+            _results = fanOut?.Results is { Count: > 0 }
+                ? fanOut.Results.SelectMany(p => p.Items).ToList()
+                : [];
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Search failed: {ex.Message}", Severity.Error);
+            _results = [];
+        }
+        finally
+        {
+            _searching = false;
+            StateHasChanged();
+        }
+
+        // Cache results for future visits (30-day TTL, server-side)
+        if (_results is { Count: > 0 } && EntityId != Guid.Empty)
+        {
+            try
+            {
+                var json = System.Text.Json.JsonSerializer.Serialize(_results);
+                await Orchestrator.SaveSearchResultsCacheAsync(EntityId, json);
+            }
+            catch { /* Non-critical — cache write failure is silent */ }
+        }
+    }
+
+    private async Task OnSearchKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await OnSearch();
+    }
+
+    // ── Highlight & provider gallery ────────────────────────────────
+
+    private async Task OnResultClicked(SearchResultItemViewModel item)
+    {
+        if (_highlightedItem == item)
+        {
+            _highlightedItem = null;
+            _retailCovers = [];
+            _selectedCoverIndex = 0;
+            CancelRetailLookup();
+            return;
+        }
+
+        _highlightedItem = item;
+        _retailCovers = [];
+        _selectedCoverIndex = 0;
+        _confirmingItem = null;
+        StateHasChanged();
+
+        await FetchRetailCoversAsync(item);
+    }
+
+    /// <summary>
+    /// Searches retail providers using BOTH the Wikidata label AND the user's original
+    /// search query (if different). This ensures popular aliases like "1984" find Apple
+    /// results even when Wikidata labels the work "Nineteen Eighty-Four".
+    /// </summary>
+    private async Task FetchRetailCoversAsync(SearchResultItemViewModel item)
+    {
+        CancelRetailLookup();
+        _retailCts = new CancellationTokenSource();
+        var ct = _retailCts.Token;
+
+        var wikidataLabel = item.Title;
+        if (string.IsNullOrWhiteSpace(wikidataLabel)) return;
+
+        _loadingRetail = true;
+        StateHasChanged();
+
+        try
+        {
+            // Primary search: use the Wikidata label (formal title)
+            var primaryTask = Orchestrator.SearchRetailAsync(wikidataLabel, _selectedMediaType, 5, ct);
+
+            // Secondary search: use the user's original query if it differs from the label
+            // (catches popular aliases like "1984" vs "Nineteen Eighty-Four")
+            Task<List<RetailCandidateDto>> secondaryTask;
+            var userQuery = _searchQuery?.Trim();
+            var labelsMatch = string.Equals(userQuery, wikidataLabel, StringComparison.OrdinalIgnoreCase);
+
+            if (!string.IsNullOrWhiteSpace(userQuery) && !labelsMatch)
+                secondaryTask = Orchestrator.SearchRetailAsync(userQuery, _selectedMediaType, 5, ct);
+            else
+                secondaryTask = Task.FromResult(new List<RetailCandidateDto>());
+
+            var primary = await primaryTask;
+            var secondary = await secondaryTask;
+            if (ct.IsCancellationRequested || _highlightedItem != item) return;
+
+            // Combine, deduplicate by URL (not by provider — allow multiple from same provider),
+            // sort by priority then confidence
+            var allCovers = primary.Concat(secondary)
+                .Where(c => !string.IsNullOrEmpty(c.CoverUrl))
+                .DistinctBy(c => c.CoverUrl, StringComparer.OrdinalIgnoreCase)
+                .Select(c => new RetailCoverEntry(
+                    c.CoverUrl!,
+                    FormatProviderName(c.ProviderName),
+                    ProviderPriority.TryGetValue(c.ProviderName, out var p) ? p : 50))
+                .OrderByDescending(e => e.Priority)
+                .ToList();
+
+            _retailCovers = allCovers;
+            _selectedCoverIndex = 0;
+        }
+        catch (OperationCanceledException) { /* Expected on cancel */ }
+        catch { /* Retail lookup is best-effort */ }
+        finally
+        {
+            if (_highlightedItem == item)
+            {
+                _loadingRetail = false;
+                StateHasChanged();
+            }
+        }
+    }
+
+    private void CancelRetailLookup()
+    {
+        _retailCts?.Cancel();
+        _retailCts?.Dispose();
+        _retailCts = null;
+        _loadingRetail = false;
+    }
+
+    // ── Apply ──────────────────────────────────────────────────────────
+
+    private async Task OnConfirmApply(SearchResultItemViewModel item)
+    {
+        _applying = true;
+        StateHasChanged();
+
+        try
+        {
+            var fields = item.RawFields
+                .Where(kv => !string.IsNullOrEmpty(kv.Value))
+                .ToDictionary(kv => kv.Key, kv => kv.Value);
+
+            int applied = 0;
+            if (fields.Count > 0)
+            {
+                var ok = await Orchestrator.OverrideMetadataAsync(EntityId, fields);
+                if (ok) applied += fields.Count;
+            }
+
+            var coverUrl = _retailCovers.Count > 0
+                ? _retailCovers[_selectedCoverIndex].CoverUrl
+                : item.ThumbnailUrl;
+            if (!string.IsNullOrEmpty(coverUrl))
+            {
+                var ok = await Orchestrator.ApplyCoverFromUrlAsync(EntityId, coverUrl);
+                if (ok) applied++;
+            }
+
+            if (applied > 0)
+            {
+                _appliedItem = item;
+                _confirmingItem = null;
+                _appliedAny = true;
+                Snackbar.Add($"Match applied — {applied} field(s) updated", Severity.Success);
+                await LoadMetadataAsync();
+            }
+            else
+            {
+                Snackbar.Add("No fields were updated", Severity.Warning);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Apply failed: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _applying = false;
+            StateHasChanged();
+        }
+    }
+
+    private void Cancel()
+    {
+        CancelRetailLookup();
+        MudDialog.Close(_appliedAny ? DialogResult.Ok(true) : DialogResult.Cancel());
+    }
+
+    // ── Helpers ─────────────────────────────────────────────────────────
+
+    // ── Details tab rendering ───────────────────────────────────────────
+
+    private RenderFragment RenderGroupedFields() => __builder =>
+    {
+        var visibleFields = GetVisibleCanonicalFields();
+        var grouped = GroupFields(visibleFields);
+        if (grouped.Count > 0)
+        {
+            foreach (var group in grouped)
+            {
+                <div class="eo-group">
+                    <div class="eo-group-header">
+                        <MudIcon Icon="@group.Icon" Style="font-size: 0.85rem; color: rgba(255,255,255,0.25);" />
+                        <span class="eo-group-title">@group.Label</span>
+                    </div>
+                    @foreach (var field in group.Fields)
+                    {
+                        <div class="eo-row">
+                            <span class="eo-row-label">@field.DisplayName</span>
+                            <span class="eo-row-value">@Truncate(field.Value!, 300)</span>
+                            @if (field.IsUserLocked)
+                            {
+                                <MudIcon Icon="@Icons.Material.Filled.Lock" Style="font-size: 0.7rem; color: rgba(201,146,46,0.5);" title="Locked by you" />
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        }
+        else
+        {
+            <div class="eo-status"><span>No metadata available</span></div>
+        }
+    };
+
+    // ── Details tab helpers ─────────────────────────────────────────────
+
+    /// <summary>Fields that should not appear in the Details tab.</summary>
+    private static readonly HashSet<string> HiddenKeys = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "cover", "hero", "dominant_color",
+        // Companion QID fields — only work QID and edition QID are shown
+        "genre_qid", "author_qid", "narrator_qid", "director_qid",
+        "cast_member_qid", "characters_qid", "series_qid",
+        "publisher_qid", "location_qid", "franchise_qid",
+    };
+
+    private sealed record FieldGroup(string Label, string Icon, List<CanonicalFieldViewModel> Fields);
+
+    private List<CanonicalFieldViewModel> GetVisibleCanonicalFields()
+    {
+        if (_canonicalValues is null) return [];
+        return _canonicalValues
+            .Where(c => !HiddenKeys.Contains(c.Key) && !string.IsNullOrEmpty(c.Value))
+            .ToList();
+    }
+
+    private static List<FieldGroup> GroupFields(List<CanonicalFieldViewModel> fields)
+    {
+        if (fields.Count == 0) return [];
+
+        // Category definitions: (label, icon, keys in display order)
+        var categories = new (string Label, string Icon, string[] Keys)[]
+        {
+            ("About", Icons.Material.Outlined.MenuBook,
+                ["title", "description", "year", "genre", "language"]),
+            ("People", Icons.Material.Outlined.People,
+                ["author", "narrator", "director", "cast_member"]),
+            ("Series & Collection", Icons.Material.Outlined.CollectionsBookmark,
+                ["series", "series_position", "publisher"]),
+            ("Identifiers", Icons.Material.Outlined.Fingerprint,
+                ["wikidata_qid", "edition_qid", "isbn", "asin", "apple_books_id",
+                 "tmdb_id", "imdb_id", "musicbrainz_id", "goodreads_id"]),
+            ("Technical", Icons.Material.Outlined.Settings,
+                ["media_type", "page_count", "duration", "rating"]),
+        };
+
+        var grouped = new List<FieldGroup>();
+        var assigned = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var (label, icon, keys) in categories)
+        {
+            var matching = new List<CanonicalFieldViewModel>();
+            foreach (var key in keys)
+            {
+                var field = fields.FirstOrDefault(f =>
+                    string.Equals(f.Key, key, StringComparison.OrdinalIgnoreCase));
+                if (field is not null)
+                {
+                    matching.Add(field);
+                    assigned.Add(field.Key);
+                }
+            }
+            if (matching.Count > 0)
+                grouped.Add(new FieldGroup(label, icon, matching));
+        }
+
+        // Any remaining fields not in a category
+        var uncategorized = fields.Where(f => !assigned.Contains(f.Key)).ToList();
+        if (uncategorized.Count > 0)
+            grouped.Add(new FieldGroup("Other", Icons.Material.Outlined.MoreHoriz, uncategorized));
+
+        return grouped;
+    }
+
+    private static string FormatFieldKey(string key) =>
+        System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(key.Replace('_', ' '));
+
+    private static string FormatProviderName(string name) => name switch
+    {
+        "apple_api" => "Apple", "apple_books" => "Apple",
+        "open_library" => "Open Library", "google_books" => "Google Books",
+        "tmdb" => "TMDB",
+        _ => System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(name.Replace('_', ' ')),
+    };
+
+    private static string Truncate(string text, int maxLength) =>
+        text.Length <= maxLength ? text : text[..maxLength].TrimEnd() + "\u2026";
+}
+
+<style>
+    /* ── Dialog shell ── */
+    .eo-dialog {
+        background: #0d1117 !important;
+        max-width: 1100px !important;
+        width: 80vw !important;
+    }
+
+    .eo-dialog .mud-dialog-content {
+        padding: 0 !important;
+        overflow: hidden !important;
+    }
+
+    .eo-dialog .mud-dialog-actions {
+        display: none !important;
+    }
+
+    .eo-dialog .mud-dialog-title {
+        padding: 12px 16px !important;
+        overflow: visible !important;
+    }
+
+    /* ── Title bar ── */
+    .eo-title-bar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+    }
+
+    .eo-title {
+        font-family: 'Montserrat', sans-serif;
+        font-weight: 600;
+        font-size: 0.92rem;
+        color: rgba(248, 248, 248, 0.90);
+        white-space: nowrap;
+    }
+
+    /* ── Tab bar (below title, inside dialog content) ── */
+    .eo-tab-bar {
+        display: flex;
+        gap: 2px;
+        padding: 8px 16px;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+        background: rgba(255,255,255,0.02);
+        flex-shrink: 0;
+    }
+
+    .eo-tab {
+        padding: 6px 16px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        cursor: pointer;
+        border: none;
+        background: transparent;
+        color: rgba(255, 255, 255, 0.35);
+        font-family: 'Montserrat', sans-serif;
+        transition: all 0.15s ease;
+        border-radius: 4px;
+        white-space: nowrap;
+        letter-spacing: 0.02em;
+    }
+
+    .eo-tab:hover {
+        color: rgba(255, 255, 255, 0.65);
+        background: rgba(255,255,255,0.06);
+    }
+
+    .eo-tab--on {
+        color: #C9922E !important;
+        background: rgba(201,146,46,0.12) !important;
+    }
+
+    /* ── Body ── */
+    .eo-body {
+        height: 62vh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    /* ── Search tab ── */
+    .eo-search-tab {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-height: 0;
+    }
+
+    .eo-search-row {
+        display: flex;
+        gap: 8px;
+        padding: 12px 20px;
+        align-items: flex-start;
+        flex-shrink: 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    /* ── Two-column 50/50 ── */
+    .eo-search-columns {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    /* ── Poster gallery column ── */
+    .eo-poster-col {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        padding: 20px 16px;
+        border-right: 1px solid rgba(255, 255, 255, 0.04);
+        gap: 10px;
+        overflow-y: auto;
+    }
+
+    .eo-poster-col::-webkit-scrollbar { width: 4px; }
+    .eo-poster-col::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.06); border-radius: 2px; }
+
+    .eo-poster-frame {
+        width: 280px;
+        height: 420px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        flex-shrink: 0;
+    }
+
+    .eo-poster-frame--empty {
+        border: 1px dashed rgba(255, 255, 255, 0.06);
+        background: rgba(255, 255, 255, 0.015);
+    }
+
+    .eo-poster-img {
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+        border-radius: 6px;
+    }
+
+    .eo-poster-provider {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.70rem;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.30);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    /* ── Thumbnail strip ── */
+    .eo-thumb-strip {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        justify-content: center;
+        padding-top: 4px;
+    }
+
+    .eo-thumb {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 3px;
+        cursor: pointer;
+        padding: 4px;
+        border-radius: 6px;
+        border: 2px solid transparent;
+        transition: all 0.15s ease;
+    }
+
+    .eo-thumb:hover {
+        border-color: rgba(255,255,255,0.15);
+        background: rgba(255,255,255,0.03);
+    }
+
+    .eo-thumb--on {
+        border-color: #C9922E !important;
+        background: rgba(201,146,46,0.08) !important;
+    }
+
+    .eo-thumb img {
+        width: 56px;
+        height: 84px;
+        object-fit: contain;
+        border-radius: 4px;
+        background: rgba(255,255,255,0.02);
+    }
+
+    .eo-thumb-label {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.58rem;
+        font-weight: 600;
+        color: rgba(255,255,255,0.25);
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        text-align: center;
+        max-width: 70px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    /* ── Results column ── */
+    .eo-results-col {
+        overflow-y: auto;
+        padding: 8px 12px;
+        min-height: 0;
+    }
+
+    .eo-results-col::-webkit-scrollbar { width: 4px; }
+    .eo-results-col::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.06); border-radius: 2px; }
+
+    .eo-status {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        padding: 50px 0;
+        color: rgba(255, 255, 255, 0.2);
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.8rem;
+    }
+
+    .eo-result {
+        display: flex;
+        gap: 10px;
+        padding: 10px 14px;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        background: rgba(255, 255, 255, 0.015);
+        cursor: pointer;
+        transition: all 0.12s ease;
+        margin-bottom: 6px;
+        align-items: flex-start;
+    }
+
+    .eo-result:hover {
+        border-color: rgba(255, 255, 255, 0.12);
+        background: rgba(255, 255, 255, 0.03);
+    }
+
+    .eo-result--hl {
+        border-color: rgba(201, 146, 46, 0.35);
+        background: rgba(201, 146, 46, 0.06);
+    }
+
+    .eo-result--applied {
+        border-color: rgba(34, 197, 94, 0.30);
+        background: rgba(34, 197, 94, 0.05);
+    }
+
+    .eo-result-type {
+        flex-shrink: 0;
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-top: 1px;
+    }
+
+    .eo-result-type--audiobook {
+        color: #C9922E;
+        background: rgba(201, 146, 46, 0.10);
+    }
+
+    .eo-result-type--work {
+        color: rgba(255, 255, 255, 0.30);
+        background: rgba(255, 255, 255, 0.04);
+    }
+
+    .eo-result-text {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+    }
+
+    .eo-result-title {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: rgba(248, 248, 248, 0.90);
+        line-height: 1.3;
+    }
+
+    .eo-result-desc {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.73rem;
+        color: rgba(248, 248, 248, 0.35);
+        line-height: 1.4;
+    }
+
+    .eo-result-conf {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: rgba(201, 146, 46, 0.7);
+    }
+
+    .eo-result-action {
+        flex-shrink: 0;
+        display: flex;
+        align-items: flex-start;
+        padding-top: 4px;
+    }
+
+    .eo-chk {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        border: none;
+        background: none;
+        cursor: pointer;
+        padding: 4px;
+        border-radius: 6px;
+        transition: all 0.15s ease;
+    }
+
+    .eo-chk--idle { color: rgba(255, 255, 255, 0.10); }
+    .eo-chk--idle:hover { color: #22c55e; background: rgba(34, 197, 94, 0.08); }
+
+    .eo-chk--confirm {
+        color: #22c55e;
+        background: rgba(34, 197, 94, 0.10);
+        animation: eo-pulse 1.2s ease-in-out infinite;
+    }
+
+    .eo-chk--confirm:hover { background: rgba(34, 197, 94, 0.18); }
+
+    .eo-confirm-lbl {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.68rem;
+        font-weight: 600;
+        color: #22c55e;
+    }
+
+    .eo-chk--done { padding: 4px; }
+
+    @@keyframes eo-pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.6; }
+    }
+
+    /* ── Details tab ── */
+    .eo-authority-banner {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 14px;
+        margin-bottom: 16px;
+        border-radius: 8px;
+        background: rgba(201, 146, 46, 0.06);
+        border: 1px solid rgba(201, 146, 46, 0.15);
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.75rem;
+        font-weight: 500;
+        color: rgba(201, 146, 46, 0.65);
+    }
+
+    .eo-group {
+        margin-bottom: 6px;
+    }
+
+    .eo-group-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 0 6px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .eo-group-title {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.68rem;
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.30);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+    }
+
+    .eo-section-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 0 0 8px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        margin-bottom: 4px;
+    }
+
+    .eo-section-title {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.50);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .eo-qid-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: #C9922E;
+        background: rgba(201, 146, 46, 0.10);
+        border: 1px solid rgba(201, 146, 46, 0.25);
+        text-decoration: none;
+        transition: all 0.12s ease;
+    }
+
+    .eo-qid-chip:hover {
+        background: rgba(201, 146, 46, 0.18);
+        border-color: rgba(201, 146, 46, 0.40);
+    }
+
+    .eo-meta-tab {
+        padding: 16px 20px;
+        overflow-y: auto;
+        flex: 1;
+    }
+
+    .eo-meta-tab::-webkit-scrollbar { width: 5px; }
+    .eo-meta-tab::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.06); border-radius: 3px; }
+
+    .eo-row {
+        display: flex;
+        align-items: baseline;
+        padding: 10px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        gap: 20px;
+    }
+
+    .eo-row:last-child { border-bottom: none; }
+
+    .eo-row-label {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.40);
+        min-width: 120px;
+        flex-shrink: 0;
+        text-transform: capitalize;
+    }
+
+    .eo-row-value {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.85rem;
+        color: rgba(255, 255, 255, 0.85);
+        word-break: break-word;
+        flex: 1;
+    }
+</style>

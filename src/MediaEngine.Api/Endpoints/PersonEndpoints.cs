@@ -42,10 +42,12 @@ public static class PersonEndpoints
         });
 
         // GET /persons/{id}/headshot — serves headshot.jpg from .people/ folder.
+        // If no local file exists but a Wikimedia URL is known, downloads and caches it.
         group.MapGet("/{id:guid}/headshot", async (
             Guid id,
             IPersonRepository personRepo,
             IConfigurationLoader configLoader,
+            IHttpClientFactory httpFactory,
             CancellationToken ct) =>
         {
             var person = await personRepo.FindByIdAsync(id, ct);
@@ -63,10 +65,53 @@ public static class PersonEndpoints
             var core = configLoader.LoadCore();
             if (!string.IsNullOrWhiteSpace(core.LibraryRoot))
             {
-                var headshotPath = Path.Combine(
-                    core.LibraryRoot, ".people", id.ToString(), "headshot.jpg");
-                if (File.Exists(headshotPath))
-                    return Results.File(headshotPath, "image/jpeg");
+                // Try Name (QID) folder naming
+                if (!string.IsNullOrWhiteSpace(person.WikidataQid) && !string.IsNullOrWhiteSpace(person.Name))
+                {
+                    var sanitizedName = string.Join("_", person.Name.Split(Path.GetInvalidFileNameChars()));
+                    var namedFolder = Path.Combine(core.LibraryRoot, ".people",
+                        $"{sanitizedName} ({person.WikidataQid})");
+                    var namedPath = Path.Combine(namedFolder, "headshot.jpg");
+                    if (File.Exists(namedPath))
+                    {
+                        await personRepo.UpdateLocalHeadshotPathAsync(id, namedPath, ct);
+                        return Results.File(namedPath, "image/jpeg");
+                    }
+                }
+
+                // Try bare GUID folder
+                var guidPath = Path.Combine(core.LibraryRoot, ".people", id.ToString(), "headshot.jpg");
+                if (File.Exists(guidPath))
+                {
+                    await personRepo.UpdateLocalHeadshotPathAsync(id, guidPath, ct);
+                    return Results.File(guidPath, "image/jpeg");
+                }
+            }
+
+            // No local file — download from Wikimedia and cache locally.
+            if (!string.IsNullOrEmpty(person.HeadshotUrl) && !string.IsNullOrWhiteSpace(core?.LibraryRoot))
+            {
+                try
+                {
+                    using var client = httpFactory.CreateClient("headshot_download");
+                    var bytes = await client.GetByteArrayAsync(person.HeadshotUrl, ct);
+                    if (bytes.Length > 0)
+                    {
+                        var folderName = !string.IsNullOrWhiteSpace(person.WikidataQid) && !string.IsNullOrWhiteSpace(person.Name)
+                            ? $"{string.Join("_", person.Name.Split(Path.GetInvalidFileNameChars()))} ({person.WikidataQid})"
+                            : id.ToString();
+                        var personFolder = Path.Combine(core.LibraryRoot, ".people", folderName);
+                        Directory.CreateDirectory(personFolder);
+                        var localPath = Path.Combine(personFolder, "headshot.jpg");
+                        await File.WriteAllBytesAsync(localPath, bytes, ct);
+                        await personRepo.UpdateLocalHeadshotPathAsync(id, localPath, ct);
+                        return Results.File(localPath, "image/jpeg");
+                    }
+                }
+                catch
+                {
+                    // Download failed — fall through to 404
+                }
             }
 
             return Results.NotFound("Headshot not available.");

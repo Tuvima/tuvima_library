@@ -1717,7 +1717,17 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             if (isBridge)
                 return (val.Id, 0.95);
 
-            // For entity references (author, series, etc.) prefer the label.
+            // P50 (author) claims from Wikidata get a reduced confidence (0.75) so that
+            // an embedded author from file metadata (confidence 1.0) always wins in the
+            // priority cascade. This preserves pen names: when the EPUB credits a pen name
+            // like "James S. A. Corey" but Wikidata P50 lists the real authors, the file's
+            // credited author takes precedence. The pen name preservation block in
+            // FetchWorkAsync re-keys P50 real-name claims when a mismatch is detected —
+            // this reduced confidence acts as a second safety net for that same scenario.
+            if (string.Equals(pCode, "P50", StringComparison.OrdinalIgnoreCase))
+                return (val.Label ?? val.Id, 0.75);
+
+            // For other entity references (series, director, etc.) prefer the label.
             return (val.Label ?? val.Id, 0.90);
         }
 
