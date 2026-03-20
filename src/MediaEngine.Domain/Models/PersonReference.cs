@@ -25,10 +25,9 @@ namespace MediaEngine.Domain.Models;
 /// </param>
 /// <param name="IsCollectivePseudonym">
 /// When <c>true</c>, this person represents a shared pen name used by multiple co-authors
-/// (e.g. "James S. A. Corey" = Daniel Abraham + Ty Franck). The enrichment service should
-/// NOT attempt to resolve this person against Wikidata, because Wikidata treats the pen name
-/// as an alias of one of the real authors — enriching would overwrite the pen name identity
-/// with the wrong individual's biography and headshot.
+/// (e.g. "James S. A. Corey" Q6142591 = Daniel Abraham + Ty Franck). The pen name entity
+/// is enriched normally using its own QID. This flag is informational — it signals that
+/// the real authors behind the pen name are listed as separate PersonReferences.
 /// </param>
 public sealed record PersonReference(
     string Role,

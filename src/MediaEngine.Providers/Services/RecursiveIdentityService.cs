@@ -183,9 +183,10 @@ public sealed class RecursiveIdentityService : IRecursiveIdentityService
         EnsurePersonFolder(person);
 
         // 3. If not yet enriched, enqueue a Wikidata harvest request.
-        //    Skip for collective pseudonyms — Wikidata would return one of the real
-        //    co-authors, overwriting the pen name identity with the wrong person's data.
-        if (person.EnrichedAt is null && !reference.IsCollectivePseudonym)
+        //    Collective pseudonyms (e.g. "James S. A. Corey" = Q6142591) are enriched
+        //    normally — their QID is already resolved by Stage 1, so the harvest
+        //    service will fetch the correct entity directly.
+        if (person.EnrichedAt is null)
         {
             var hints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {

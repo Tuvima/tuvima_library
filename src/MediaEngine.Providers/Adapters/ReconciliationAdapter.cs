@@ -1052,9 +1052,12 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                                 try
                                 {
                                     var penNameCandidates = await ReconcileAsync(penName, null, ct).ConfigureAwait(false);
+                                    // Reject only the real co-authors (the ones that have P742),
+                                    // NOT the pen name entity itself which may also appear in P50.
+                                    var realCoAuthorQids = penNamesByAuthor.Keys;
                                     var bestMatch = penNameCandidates
                                         .Where(c => (c.Match || c.Score >= 80)
-                                                    && !authorQids.Contains(c.QID)) // reject co-author QIDs
+                                                    && !realCoAuthorQids.Contains(c.QID))
                                         .OrderByDescending(c => c.Score)
                                         .FirstOrDefault();
 

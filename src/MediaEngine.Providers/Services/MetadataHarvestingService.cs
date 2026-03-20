@@ -1148,6 +1148,7 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
             ImdbId       = h.GetValueOrDefault("imdb_id"),
             PersonName   = h.GetValueOrDefault("name"),
             PersonRole   = h.GetValueOrDefault("role"),
+            PreResolvedQid = request.PreResolvedQid ?? h.GetValueOrDefault("wikidata_qid"),
             BaseUrl      = baseUrl,
             SparqlBaseUrl = sparqlBaseUrl,
             Language     = lang,
