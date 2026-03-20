@@ -133,7 +133,8 @@ public sealed class RegistryIngestionTests : IDisposable
             _heroGenerator,
             new MediaEngine.Ingestion.Services.IngestionHintCache(),
             new MediaEngine.Ingestion.OrganizationGate(),
-            _ingestionLog);
+            _ingestionLog,
+            new StubItemHistoryRepository());
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
 

@@ -28,6 +28,7 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
     private readonly IEventPublisher          _publisher;
     private readonly IHeroBannerGenerator     _heroGenerator;
     private readonly IOrganizationGate        _gate;
+    private readonly IItemHistoryRepository   _itemHistory;
     private readonly IngestionOptions         _options;
     private readonly ILogger<AutoOrganizeService> _logger;
 
@@ -40,6 +41,7 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         IEventPublisher            publisher,
         IHeroBannerGenerator       heroGenerator,
         IOrganizationGate          gate,
+        IItemHistoryRepository     itemHistory,
         IOptions<IngestionOptions> options,
         ILogger<AutoOrganizeService> logger)
     {
@@ -51,6 +53,7 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         _publisher     = publisher;
         _heroGenerator = heroGenerator;
         _gate          = gate;
+        _itemHistory   = itemHistory;
         _options       = options.Value;
         _logger        = logger;
     }
@@ -209,6 +212,10 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         _logger.LogInformation(
             "Promoted asset {Id} from staging to library: {Source} → {Dest}",
             assetId, asset.FilePathRoot, destPath);
+
+        // History: promoted to library.
+        try { await _itemHistory.AppendAsync(assetId, ItemHistoryEventType.Promoted, "Promoted to library", null, ct).ConfigureAwait(false); }
+        catch (Exception ex) { _logger.LogWarning(ex, "Failed to log item history (Promoted) for {Id}", assetId); }
 
         try
         {

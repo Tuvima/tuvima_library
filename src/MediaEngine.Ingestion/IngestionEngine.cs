@@ -104,6 +104,9 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     // Per-file ingestion lifecycle log — tracks each file from detection to completion.
     private readonly IIngestionLogRepository _ingestionLog;
 
+    // Per-item history — append-only event log for each media item's lifecycle.
+    private readonly IItemHistoryRepository _itemHistory;
+
     // Centralized concurrency guard (Principle 5: formalized lock hierarchy).
     // Replaces inline ConcurrentDictionary<string, SemaphoreSlim> instances.
     // Lock order: folder → hash (see ConcurrencyGuard doc for full hierarchy).
@@ -134,7 +137,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         IHeroBannerGenerator       heroGenerator,
         IIngestionHintCache        hintCache,
         IOrganizationGate          gate,
-        IIngestionLogRepository    ingestionLog)
+        IIngestionLogRepository    ingestionLog,
+        IItemHistoryRepository     itemHistory)
     {
         _watcher        = watcher;
         _debounce       = debounce;
@@ -160,6 +164,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         _hintCache      = hintCache;
         _gate           = gate;
         _ingestionLog   = ingestionLog;
+        _itemHistory    = itemHistory;
     }
 
     // =========================================================================
@@ -557,6 +562,14 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         var assetId = Guid.NewGuid();
         var claims  = BuildClaims(assetId, result);
 
+        // History: file detected.
+        try { await _itemHistory.AppendAsync(assetId, ItemHistoryEventType.FileDetected, "File detected in watch folder", Path.GetFileName(candidate.Path), ct).ConfigureAwait(false); }
+        catch (Exception ex) { _logger.LogWarning(ex, "Failed to log item history (FileDetected)"); }
+
+        // History: metadata extracted.
+        try { await _itemHistory.AppendAsync(assetId, ItemHistoryEventType.MetadataExtracted, "Metadata extracted", $"{result.Claims.Count} fields found", ct).ConfigureAwait(false); }
+        catch (Exception ex) { _logger.LogWarning(ex, "Failed to log item history (MetadataExtracted)"); }
+
         // Step 9: score.
         // CategoryConfidencePrior: currently 0.0 (single WatchDirectory = general catch-all).
         // When Library Folders (config/libraries.json) are implemented, category-specific
@@ -573,6 +586,10 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         };
 
         var scored = await _scorer.ScoreEntityAsync(scoringContext, ct).ConfigureAwait(false);
+
+        // History: confidence scored.
+        try { await _itemHistory.AppendAsync(assetId, ItemHistoryEventType.ConfidenceScored, $"Confidence: {scored.OverallConfidence:P0}", $"Score: {scored.OverallConfidence:F2}", ct).ConfigureAwait(false); }
+        catch (Exception ex) { _logger.LogWarning(ex, "Failed to log item history (ConfidenceScored)"); }
 
         // Phase 9: persist claims (append-only; enables re-scoring on weight changes).
         await _claimRepo.InsertBatchAsync(claims, ct).ConfigureAwait(false);
@@ -924,12 +941,20 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             // Clean empty subdirectories left behind in the watch folder.
             CleanEmptyWatchParents(candidate.Path, _options.WatchDirectory);
 
+            // History: staged.
+            try { await _itemHistory.AppendAsync(assetId, ItemHistoryEventType.Staged, "Moved to staging", stagingSubcategory, ct).ConfigureAwait(false); }
+            catch (Exception ex) { _logger.LogWarning(ex, "Failed to log item history (Staged)"); }
+
             if (gateResult.ReviewTrigger is not null)
             {
                 await CreateIngestionReviewItemAsync(
                     assetId, gateResult.ReviewTrigger, scored.OverallConfidence,
                     gateResult.ReviewDetail!,
                     ct, ingestionRunId).ConfigureAwait(false);
+
+                // History: review created.
+                try { await _itemHistory.AppendAsync(assetId, ItemHistoryEventType.ReviewCreated, "Sent for review", gateResult.ReviewTrigger, ct).ConfigureAwait(false); }
+                catch (Exception ex) { _logger.LogWarning(ex, "Failed to log item history (ReviewCreated)"); }
             }
 
             // Lifecycle log: staged.

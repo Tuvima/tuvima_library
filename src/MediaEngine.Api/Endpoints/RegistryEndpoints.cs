@@ -970,6 +970,58 @@ public static class RegistryEndpoints
         .Produces<BatchRegistryResponse>(StatusCodes.Status200OK)
         .RequireAdminOrCurator();
 
+        // ── POST /registry/items/{entityId}/recover ───────────────────────────
+        group.MapPost("/items/{entityId:guid}/recover", async (
+            Guid entityId,
+            IReviewQueueRepository reviewRepo,
+            IItemHistoryRepository historyRepo,
+            CancellationToken ct) =>
+        {
+            // Find the rejected review entry(s) and dismiss them.
+            var entries = await reviewRepo.GetPendingByEntityAsync(entityId, ct);
+            foreach (var entry in entries)
+            {
+                if (entry.Trigger == ReviewTrigger.Rejected)
+                {
+                    await reviewRepo.UpdateStatusAsync(entry.Id, ReviewStatus.Dismissed, "user:recover", ct);
+                }
+            }
+
+            try
+            {
+                await historyRepo.AppendAsync(entityId, ItemHistoryEventType.Recovered, "Recovered from rejected state", null, ct);
+            }
+            catch (Exception) { /* history is supplementary */ }
+
+            return Results.Ok(new { message = "Item recovered" });
+        })
+        .WithName("RecoverRegistryItem")
+        .WithSummary("Recover a previously rejected registry item — removes the Rejected status.")
+        .Produces(StatusCodes.Status200OK)
+        .RequireAdminOrCurator();
+
+        // ── GET /registry/items/{entityId}/history ────────────────────────────
+        group.MapGet("/items/{entityId:guid}/history", async (
+            Guid entityId,
+            IItemHistoryRepository historyRepo,
+            CancellationToken ct) =>
+        {
+            var entries = await historyRepo.GetHistoryAsync(entityId, ct);
+            return Results.Ok(entries.Select(e => new
+            {
+                id = e.Id,
+                entity_id = e.EntityId,
+                occurred_at = e.OccurredAt,
+                event_type = e.EventType,
+                label = e.Label,
+                detail = e.Detail
+            }));
+        })
+        .WithName("GetRegistryItemHistory")
+        .WithSummary("Get processing history timeline for a registry item")
+        .Produces(StatusCodes.Status200OK)
+        .RequireAdminOrCurator();
+
         return app;
     }
 }
