@@ -570,7 +570,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                 var cachedJson = JsonNode.Parse(cached.ResponseJson);
                 if (cachedJson is not null)
                 {
-                    var resultNode = NavigateToResult(cachedJson, strategy, request.Title, request.Author);
+                    var resultNode = NavigateToResult(cachedJson, strategy, request.Title, request.Author, request.AuthorAlias);
                     if (resultNode is not null)
                         return ExtractClaims(resultNode, request.MediaType);
                 }
@@ -636,7 +636,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                     var cachedJson = JsonNode.Parse(refreshed.ResponseJson);
                     if (cachedJson is not null)
                     {
-                        var resultNode = NavigateToResult(cachedJson, strategy, request.Title, request.Author);
+                        var resultNode = NavigateToResult(cachedJson, strategy, request.Title, request.Author, request.AuthorAlias);
                         if (resultNode is not null)
                             return ExtractClaims(resultNode, request.MediaType);
                     }
@@ -674,7 +674,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                 return [];
 
             // Navigate to result object.
-            var resultObj = NavigateToResult(json, strategy, request.Title, request.Author);
+            var resultObj = NavigateToResult(json, strategy, request.Title, request.Author, request.AuthorAlias);
             if (resultObj is null)
                 return [];
 
@@ -780,7 +780,8 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
 
     private static JsonNode? NavigateToResult(
         JsonNode json, SearchStrategyConfig strategy,
-        string? queryTitle = null, string? queryAuthor = null)
+        string? queryTitle = null, string? queryAuthor = null,
+        string? queryAuthorAlias = null)
     {
         // If no results_path, treat the whole response as the result.
         if (string.IsNullOrEmpty(strategy.ResultsPath))
@@ -790,16 +791,18 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         if (resultsNode is not JsonArray arr || arr.Count == 0)
             return null;
 
-        // When we have a query title/author and multiple results, use author-first
-        // gating: filter to results by the correct author, then pick the best title
-        // match. This prevents study guides and book analyses (which share the title
-        // but have different authors) from being selected.
-        if (!string.IsNullOrWhiteSpace(queryTitle) && arr.Count > 1)
+        // Author-first gating: validate every result against the expected title/author.
+        // This applies to ALL strategies — lookup (single result) and search (multiple).
+        // Prevents wrong books from being accepted when an ID lookup returns a
+        // different work (e.g. Apple Books ID pointing to wrong edition) or when
+        // a title search returns study guides by different authors.
+        if (!string.IsNullOrWhiteSpace(queryTitle))
         {
             var titlePaths  = new[] { "trackName", "collectionName", "title", "name" };
             var authorPaths = new[] { "artistName", "author", "authors", "creator" };
 
-            // Score all results.
+            // Score all results. For author matching, check both the primary author
+            // and the alias (real name ↔ pen name). Take the higher score.
             var scored = new List<(JsonNode Node, double TitleScore, double AuthorScore)>();
             foreach (var node in arr)
             {
@@ -810,10 +813,21 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
 
                 if (string.IsNullOrWhiteSpace(nodeTitle)) continue;
 
-                var titleScore  = ComputeWordOverlap(queryTitle, nodeTitle);
-                var authorScore = !string.IsNullOrWhiteSpace(queryAuthor) && !string.IsNullOrWhiteSpace(nodeAuthor)
-                    ? ComputeWordOverlap(queryAuthor, nodeAuthor)
-                    : 0.0;
+                var titleScore = ComputeWordOverlap(queryTitle, nodeTitle);
+
+                // Check author match against both primary name and alias (pen name / real name).
+                var authorScore = 0.0;
+                if (!string.IsNullOrWhiteSpace(nodeAuthor))
+                {
+                    if (!string.IsNullOrWhiteSpace(queryAuthor))
+                        authorScore = ComputeWordOverlap(queryAuthor, nodeAuthor);
+
+                    if (!string.IsNullOrWhiteSpace(queryAuthorAlias))
+                    {
+                        var aliasScore = ComputeWordOverlap(queryAuthorAlias, nodeAuthor);
+                        authorScore = Math.Max(authorScore, aliasScore);
+                    }
+                }
 
                 scored.Add((node, titleScore, authorScore));
             }
@@ -833,7 +847,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
 
             // No author-matched results. If we don't have an author to check against,
             // fall back to best title match with a quality threshold.
-            if (string.IsNullOrWhiteSpace(queryAuthor))
+            if (string.IsNullOrWhiteSpace(queryAuthor) && string.IsNullOrWhiteSpace(queryAuthorAlias))
             {
                 var best = scored.OrderByDescending(s => s.TitleScore).First();
                 return best.TitleScore >= 0.50 ? best.Node : null;

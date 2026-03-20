@@ -814,6 +814,14 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 request.EntityId);
         }
 
+        // Inject author_real_name from canonical values into bridge hints so
+        // BuildLookupRequest can use the real author for retail provider matching
+        // (pen names like "Richard Bachman" won't match Apple's "Stephen King").
+        var authorRealName = canonicalsForS2
+            .FirstOrDefault(cv => cv.Key == "author_real_name")?.Value;
+        if (!string.IsNullOrWhiteSpace(authorRealName))
+            bridgeHints.TryAdd("author_real_name", authorRealName);
+
         // Enrich the request with bridge IDs from Stage 1 for precise retail lookups.
         var stage2Request = EnrichRequestWithBridgeHints(request, bridgeHints);
 
@@ -2858,6 +2866,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             MediaType     = request.MediaType,
             Title         = h.GetValueOrDefault("title"),
             Author        = h.GetValueOrDefault("author"),
+            AuthorAlias   = h.GetValueOrDefault("author_real_name"),
             Narrator      = h.GetValueOrDefault("narrator"),
             Asin          = h.GetValueOrDefault("asin"),
             Isbn          = NormalizeIsbnHint(h.GetValueOrDefault("isbn")),

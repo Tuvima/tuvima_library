@@ -31,6 +31,13 @@ public sealed class ProviderLookupRequest
     /// <summary>Author name, e.g. <c>"Frank Herbert"</c>.</summary>
     public string? Author { get; init; }
 
+    /// <summary>
+    /// Alternate author name (real name behind pen name, or pen name behind real name).
+    /// Used by result validation to accept matches against either the canonical author
+    /// or their alias (e.g. "Stephen King" for "Richard Bachman", or vice versa).
+    /// </summary>
+    public string? AuthorAlias { get; init; }
+
     /// <summary>Narrator name (audiobooks), e.g. <c>"Scott Brick"</c>.</summary>
     public string? Narrator { get; init; }
 
