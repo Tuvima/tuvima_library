@@ -202,6 +202,22 @@ public static class SystemActionType
 
     /// <summary>A canon discrepancy was detected between edition and master work.</summary>
     public const string CanonDiscrepancyDetected = "CanonDiscrepancyDetected";
+
+    // ── Reject Workflow ──────────────────────────────────────────────────────
+
+    /// <summary>
+    /// A file was explicitly rejected by the user and moved to
+    /// <c>.staging/rejected/</c>. The file remains on disk and in the database
+    /// until the retention period expires.
+    /// </summary>
+    public const string FileRejected = "FileRejected";
+
+    /// <summary>
+    /// A rejected file exceeded the configured <c>rejected_retention_days</c>
+    /// and was permanently deleted from disk and from the database by the
+    /// <c>RejectedFileCleanupService</c>.
+    /// </summary>
+    public const string FileExpired = "FileExpired";
 }
 
 

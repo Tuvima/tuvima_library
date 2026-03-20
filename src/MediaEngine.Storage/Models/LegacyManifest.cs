@@ -311,6 +311,15 @@ public sealed class MaintenanceSettings
     /// </summary>
     [JsonPropertyName("reconciliation_interval_hours")]
     public int ReconciliationIntervalHours { get; set; } = 24;
+
+    /// <summary>
+    /// Number of days to retain rejected files in <c>.staging/rejected/</c>
+    /// before the <c>RejectedFileCleanupService</c> permanently deletes them.
+    /// Set to 0 to disable automatic cleanup of rejected files.
+    /// Default: 30 days.
+    /// </summary>
+    [JsonPropertyName("rejected_retention_days")]
+    public int RejectedRetentionDays { get; set; } = 30;
 }
 
 /// <summary>

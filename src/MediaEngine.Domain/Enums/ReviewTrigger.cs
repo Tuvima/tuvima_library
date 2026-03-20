@@ -128,4 +128,11 @@ public static class ReviewTrigger
     /// or in a foreign edition. The user should confirm or reclassify the item.
     /// </summary>
     public const string LanguageMismatch = "LanguageMismatch";
+
+    /// <summary>
+    /// The user explicitly rejected this file. It has been moved to
+    /// <c>.staging/rejected/</c> and is pending retention-based cleanup.
+    /// The file can still be recovered by hydrating or approving it.
+    /// </summary>
+    public const string Rejected = "Rejected";
 }

@@ -1,0 +1,277 @@
+using MediaEngine.Domain.Contracts;
+using MediaEngine.Domain.Entities;
+using MediaEngine.Domain.Enums;
+using MediaEngine.Storage.Contracts;
+
+namespace MediaEngine.Api.Services;
+
+/// <summary>
+/// Background service that runs once daily and permanently deletes rejected files
+/// from <c>.staging/rejected/</c> that exceed the configured retention period.
+///
+/// Retention period is read from <c>config/maintenance.json → rejected_retention_days</c>.
+/// Default: 30 days.  Set to 0 to disable automatic cleanup.
+///
+/// For each expired file the service:
+/// <list type="number">
+///   <item>Deletes the physical file from <c>.staging/rejected/</c>.</item>
+///   <item>Removes the media_asset record (CASCADE handles editions → metadata_claims → canonical_values).</item>
+///   <item>Removes the work and hub when no other editions remain.</item>
+///   <item>Logs a <c>FileExpired</c> activity entry.</item>
+/// </list>
+/// </summary>
+public sealed class RejectedFileCleanupService : BackgroundService
+{
+    private readonly IDatabaseConnection          _db;
+    private readonly ISystemActivityRepository    _activityRepo;
+    private readonly IConfigurationLoader         _configLoader;
+    private readonly IStorageManifest             _manifest;
+    private readonly ILogger<RejectedFileCleanupService> _logger;
+
+    /// <summary>Cron expression for the cleanup schedule. Default: 4 AM daily.</summary>
+    private const string DefaultSchedule = "0 4 * * *";
+
+    public RejectedFileCleanupService(
+        IDatabaseConnection          db,
+        ISystemActivityRepository    activityRepo,
+        IConfigurationLoader         configLoader,
+        IStorageManifest             manifest,
+        ILogger<RejectedFileCleanupService> logger)
+    {
+        ArgumentNullException.ThrowIfNull(db);
+        ArgumentNullException.ThrowIfNull(activityRepo);
+        ArgumentNullException.ThrowIfNull(configLoader);
+        ArgumentNullException.ThrowIfNull(manifest);
+        ArgumentNullException.ThrowIfNull(logger);
+
+        _db           = db;
+        _activityRepo = activityRepo;
+        _configLoader = configLoader;
+        _manifest     = manifest;
+        _logger       = logger;
+    }
+
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        _logger.LogInformation("RejectedFileCleanupService started — schedule: {Schedule}", DefaultSchedule);
+
+        // Initial delay to let the rest of the app start.
+        await Task.Delay(TimeSpan.FromSeconds(45), stoppingToken);
+
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            try
+            {
+                await RunCleanupPassAsync(stoppingToken);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Rejected file cleanup pass failed; will retry next cycle");
+            }
+
+            var delay = CronScheduler.UntilNext(DefaultSchedule, TimeSpan.FromHours(24));
+            _logger.LogInformation("Next rejected-file cleanup at {NextRun}", DateTimeOffset.Now.Add(delay));
+            await Task.Delay(delay, stoppingToken);
+        }
+    }
+
+    // ── Internal ──────────────────────────────────────────────────────────────
+
+    private async Task RunCleanupPassAsync(CancellationToken ct)
+    {
+        var maintenance = _configLoader.LoadMaintenance();
+        int retentionDays = maintenance.RejectedRetentionDays;
+
+        if (retentionDays <= 0)
+        {
+            _logger.LogDebug("RejectedFileCleanupService: cleanup disabled (rejected_retention_days=0)");
+            return;
+        }
+
+        // Determine the library root so we can build the rejected folder path.
+        string libraryRoot;
+        try
+        {
+            var core = _manifest.Load();
+            libraryRoot = core.LibraryRoot ?? string.Empty;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "RejectedFileCleanupService: could not load LibraryRoot — skipping cleanup pass");
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(libraryRoot))
+        {
+            _logger.LogDebug("RejectedFileCleanupService: LibraryRoot not configured — skipping cleanup pass");
+            return;
+        }
+
+        var rejectedDir = Path.Combine(libraryRoot, ".staging", "rejected");
+        if (!Directory.Exists(rejectedDir))
+        {
+            _logger.LogDebug("RejectedFileCleanupService: rejected folder does not exist — nothing to clean");
+            return;
+        }
+
+        // Find all media assets whose file_path_root sits inside .staging/rejected/
+        // AND whose corresponding review_queue entry (trigger='Rejected') was created
+        // more than retentionDays ago.
+        var cutoff = DateTimeOffset.UtcNow.AddDays(-retentionDays).ToString("o");
+
+        var expiredAssets = new List<(string AssetId, string FilePath, string? WorkId, string? HubId, string? WorkTitle)>();
+
+        using (var conn = _db.CreateConnection())
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = """
+                SELECT ma.id         AS AssetId,
+                       ma.file_path_root AS FilePath,
+                       e.work_id     AS WorkId,
+                       w.hub_id      AS HubId,
+                       w.title       AS WorkTitle
+                FROM media_assets ma
+                INNER JOIN editions e ON e.id = ma.edition_id
+                INNER JOIN works    w ON w.id = e.work_id
+                INNER JOIN review_queue rq ON rq.entity_id = ma.id
+                WHERE rq.trigger = 'Rejected'
+                  AND rq.status  = 'Pending'
+                  AND rq.created_at <= @cutoff
+                  AND (ma.file_path_root LIKE @rejPath1 OR ma.file_path_root LIKE @rejPath2)
+                """;
+            cmd.Parameters.AddWithValue("@cutoff",   cutoff);
+            // Match both Unix and Windows path separators.
+            cmd.Parameters.AddWithValue("@rejPath1", "%/.staging/rejected/%");
+            cmd.Parameters.AddWithValue("@rejPath2", @"%\.staging\rejected\%");
+
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                expiredAssets.Add((
+                    AssetId:   reader.GetString(0),
+                    FilePath:  reader.GetString(1),
+                    WorkId:    reader.IsDBNull(2) ? null : reader.GetString(2),
+                    HubId:     reader.IsDBNull(3) ? null : reader.GetString(3),
+                    WorkTitle: reader.IsDBNull(4) ? null : reader.GetString(4)));
+            }
+        }
+
+        if (expiredAssets.Count == 0)
+        {
+            _logger.LogDebug(
+                "RejectedFileCleanupService: no rejected files exceed {Days}d retention — nothing to clean",
+                retentionDays);
+            return;
+        }
+
+        _logger.LogInformation(
+            "RejectedFileCleanupService: {Count} rejected file(s) exceed {Days}d retention — cleaning up",
+            expiredAssets.Count, retentionDays);
+
+        int cleaned = 0;
+
+        foreach (var (assetId, filePath, workId, hubId, workTitle) in expiredAssets)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            try
+            {
+                // 1. Delete the physical file.
+                try
+                {
+                    if (File.Exists(filePath))
+                        File.Delete(filePath);
+                }
+                catch (IOException ex)
+                {
+                    _logger.LogWarning(ex, "RejectedFileCleanupService: could not delete file {Path} — skipping", filePath);
+                    continue;
+                }
+
+                // 2. Remove the review_queue entry.
+                using (var conn = _db.CreateConnection())
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = "DELETE FROM review_queue WHERE entity_id = @assetId AND trigger = 'Rejected'";
+                    cmd.Parameters.AddWithValue("@assetId", assetId);
+                    cmd.ExecuteNonQuery();
+                }
+
+                // 3. Remove the media_asset (CASCADE handles metadata_claims, canonical_values).
+                using (var conn = _db.CreateConnection())
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = "DELETE FROM media_assets WHERE id = @assetId";
+                    cmd.Parameters.AddWithValue("@assetId", assetId);
+                    cmd.ExecuteNonQuery();
+                }
+
+                // 4. Remove the edition if it has no remaining assets.
+                if (workId is not null)
+                {
+                    using var conn = _db.CreateConnection();
+                    using var cmd = conn.CreateCommand();
+                    cmd.CommandText = """
+                        DELETE FROM editions
+                        WHERE work_id = @workId
+                          AND NOT EXISTS (SELECT 1 FROM media_assets ma WHERE ma.edition_id = editions.id)
+                        """;
+                    cmd.Parameters.AddWithValue("@workId", workId);
+                    cmd.ExecuteNonQuery();
+                }
+
+                // 5. Remove the work if it has no remaining editions.
+                if (workId is not null)
+                {
+                    using var conn = _db.CreateConnection();
+                    using var cmd = conn.CreateCommand();
+                    cmd.CommandText = """
+                        DELETE FROM works WHERE id = @workId
+                          AND NOT EXISTS (SELECT 1 FROM editions WHERE work_id = @workId)
+                        """;
+                    cmd.Parameters.AddWithValue("@workId", workId);
+                    cmd.ExecuteNonQuery();
+                }
+
+                // 6. Remove the hub if it has no remaining works.
+                if (hubId is not null)
+                {
+                    using var conn = _db.CreateConnection();
+                    using var cmd = conn.CreateCommand();
+                    cmd.CommandText = """
+                        DELETE FROM hubs WHERE id = @hubId
+                          AND NOT EXISTS (SELECT 1 FROM works WHERE hub_id = @hubId)
+                        """;
+                    cmd.Parameters.AddWithValue("@hubId", hubId);
+                    cmd.ExecuteNonQuery();
+                }
+
+                // 7. Log the expiry.
+                await _activityRepo.LogAsync(new SystemActivityEntry
+                {
+                    OccurredAt  = DateTimeOffset.UtcNow,
+                    ActionType  = SystemActionType.FileExpired,
+                    HubName     = workTitle,
+                    EntityId    = Guid.TryParse(workId, out var wid) ? wid : Guid.Empty,
+                    EntityType  = "Work",
+                    Detail      = $"Rejected file '{workTitle ?? Path.GetFileName(filePath)}' expired after {retentionDays} days and was permanently deleted.",
+                    ChangesJson = $"{{\"asset_id\":\"{assetId}\",\"retention_days\":{retentionDays}}}",
+                }, ct);
+
+                cleaned++;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "RejectedFileCleanupService: error cleaning asset {AssetId} — skipping", assetId);
+            }
+        }
+
+        _logger.LogInformation(
+            "RejectedFileCleanupService: cleaned {Cleaned} of {Total} expired rejected file(s)",
+            cleaned, expiredAssets.Count);
+    }
+}

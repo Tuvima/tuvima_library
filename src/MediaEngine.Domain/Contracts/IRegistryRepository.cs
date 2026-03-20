@@ -38,4 +38,5 @@ public sealed record RegistryStatusCounts(
     [property: JsonPropertyName("staging")]          int Staging = 0,
     [property: JsonPropertyName("missing_images")]   int MissingImages = 0,
     [property: JsonPropertyName("recently_updated")] int RecentlyUpdated = 0,
-    [property: JsonPropertyName("low_confidence")]   int LowConfidence = 0);
+    [property: JsonPropertyName("low_confidence")]   int LowConfidence = 0,
+    [property: JsonPropertyName("rejected")]         int Rejected = 0);

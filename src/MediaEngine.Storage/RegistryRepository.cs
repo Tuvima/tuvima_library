@@ -38,7 +38,35 @@ public sealed class RegistryRepository : IRegistryRepository
                     MAX(CASE WHEN cv.key = 'release_year' THEN cv.value END) AS year,
                     MAX(CASE WHEN cv.key = 'cover_url' THEN cv.value END) AS cover_url,
                     MAX(CASE WHEN cv.key = 'hero' THEN cv.value END) AS hero_url,
-                    MAX(CASE WHEN cv.key = 'author' THEN cv.value END) AS author,
+                    -- Multi-author display: "A & B" or "A & B + N more", falling back to
+                    -- canonical_values.author when no array entries exist.
+                    COALESCE(
+                        (SELECT
+                            CASE
+                                WHEN cnt.total = 1 THEN a1.value
+                                WHEN cnt.total = 2 THEN a1.value || ' & ' || a2.value
+                                ELSE a1.value || ' & ' || a2.value || ' + ' || (cnt.total - 2) || ' more'
+                            END
+                         FROM (SELECT COUNT(*) AS total
+                               FROM canonical_value_arrays cva0
+                               INNER JOIN media_assets ma0 ON ma0.id = cva0.entity_id
+                               INNER JOIN editions e0 ON e0.id = ma0.edition_id
+                               WHERE e0.work_id = w.id AND cva0.key = 'author') cnt
+                         LEFT JOIN (SELECT cva1.value, cva1.entity_id
+                                    FROM canonical_value_arrays cva1
+                                    INNER JOIN media_assets ma1 ON ma1.id = cva1.entity_id
+                                    INNER JOIN editions e1 ON e1.id = ma1.edition_id
+                                    WHERE e1.work_id = w.id AND cva1.key = 'author'
+                                    ORDER BY cva1.ordinal LIMIT 1) a1 ON 1=1
+                         LEFT JOIN (SELECT cva2.value, cva2.entity_id
+                                    FROM canonical_value_arrays cva2
+                                    INNER JOIN media_assets ma2b ON ma2b.id = cva2.entity_id
+                                    INNER JOIN editions e2b ON e2b.id = ma2b.edition_id
+                                    WHERE e2b.work_id = w.id AND cva2.key = 'author'
+                                    ORDER BY cva2.ordinal LIMIT 1 OFFSET 1) a2 ON cnt.total >= 2
+                         WHERE cnt.total >= 1),
+                        MAX(CASE WHEN cv.key = 'author' THEN cv.value END)
+                    ) AS author,
                     MAX(CASE WHEN cv.key = 'file_name' THEN cv.value END) AS file_name,
                     MAX(CASE WHEN cv.key = 'wikidata_qid' THEN cv.value END) AS wikidata_qid,
                     MAX(CASE WHEN cv.key = 'title' THEN cv.winning_provider_id END) AS title_provider_id,
@@ -58,6 +86,15 @@ public sealed class RegistryRepository : IRegistryRepository
                     MAX(LENGTH(ma.content_hash)) AS file_size_proxy
                 FROM editions e
                 INNER JOIN media_assets ma ON ma.edition_id = e.id
+                GROUP BY e.work_id
+            ),
+            ingest_date_data AS (
+                SELECT
+                    e.work_id,
+                    MIN(mc.claimed_at) AS first_claimed_at
+                FROM editions e
+                INNER JOIN media_assets ma ON ma.edition_id = e.id
+                INNER JOIN metadata_claims mc ON mc.entity_id = ma.id
                 GROUP BY e.work_id
             ),
             review_data AS (
@@ -129,6 +166,7 @@ public sealed class RegistryRepository : IRegistryRepository
                     END AS confidence,
                     COALESCE(ul.has_locks, 0) AS has_user_locks,
                     CASE
+                        WHEN rd.review_id IS NOT NULL AND rd.trigger = 'Rejected' THEN 'Rejected'
                         WHEN rd.review_id IS NOT NULL THEN 'Review'
                         WHEN ul.has_locks = 1 THEN 'Edited'
                         WHEN ad.asset_status = 'Conflicted' THEN 'Duplicate'
@@ -149,11 +187,13 @@ public sealed class RegistryRepository : IRegistryRepository
                         WHEN rd.review_id IS NOT NULL AND rd.trigger = 'ArtworkUnconfirmed' THEN 'failed'
                         ELSE 'none'
                     END AS retail_match,
-                    wd.wikidata_qid
+                    wd.wikidata_qid,
+                    idd.first_claimed_at AS created_at
                 FROM work_data wd
                 LEFT JOIN asset_data ad ON ad.work_id = wd.entity_id
                 LEFT JOIN review_data rd ON rd.entity_id = ad.asset_id
                 LEFT JOIN user_lock_data ul ON ul.entity_id = ad.asset_id
+                LEFT JOIN ingest_date_data idd ON idd.work_id = wd.entity_id
             )
             """;
 
@@ -180,8 +220,17 @@ public sealed class RegistryRepository : IRegistryRepository
             conditions.Add("fd.has_duplicate = 1");
         if (query.MissingUniverseOnly)
             conditions.Add("fd.wikidata_status IN ('missing', 'manual')");
+        if (query.MaxDays.HasValue)
+            conditions.Add($"fd.created_at >= datetime('now', '-{query.MaxDays.Value} days')");
 
         var whereClause = conditions.Count > 0 ? "WHERE " + string.Join(" AND ", conditions) : "";
+
+        var orderBy = query.Sort switch
+        {
+            "oldest"     => "ORDER BY fd.created_at ASC, fd.title ASC",
+            "confidence" => "ORDER BY fd.confidence ASC, fd.title ASC",
+            _            => "ORDER BY fd.created_at DESC, fd.title ASC", // "newest" is the default
+        };
 
         // Count query
         using var countCmd = conn.CreateCommand();
@@ -197,10 +246,11 @@ public sealed class RegistryRepository : IRegistryRepository
                 fd.match_source, fd.confidence, fd.status, fd.has_duplicate,
                 fd.review_id, fd.review_trigger, fd.has_user_locks,
                 fd.file_name, fd.author, fd.file_path_root, fd.wikidata_status,
-                fd.wikidata_match, fd.retail_match, fd.wikidata_qid, fd.hero_url
+                fd.wikidata_match, fd.retail_match, fd.wikidata_qid, fd.hero_url,
+                fd.created_at
             FROM full_data fd
             {whereClause}
-            ORDER BY fd.confidence ASC, fd.title ASC
+            {orderBy}
             LIMIT @limit OFFSET @offset
             """;
         AddParameters(dataCmd, query);
@@ -232,6 +282,10 @@ public sealed class RegistryRepository : IRegistryRepository
                 RetailMatch    = reader.IsDBNull(17) ? "none" : reader.GetString(17),
                 WikidataQid    = reader.IsDBNull(18) ? null : reader.GetString(18),
                 HeroUrl        = reader.IsDBNull(19) ? null : reader.GetString(19),
+                CreatedAt      = reader.IsDBNull(20) ? DateTimeOffset.MinValue
+                                     : (DateTimeOffset.TryParse(reader.GetString(20), out var createdDt)
+                                         ? createdDt
+                                         : DateTimeOffset.MinValue),
             });
         }
 
@@ -478,24 +532,31 @@ public sealed class RegistryRepository : IRegistryRepository
                  JOIN canonical_values cv ON cv.entity_id = ma.id AND cv.key = 'overall_confidence'
                  WHERE CAST(cv.value AS REAL) BETWEEN 0.40 AND 0.85
                    AND NOT EXISTS (SELECT 1 FROM review_queue rq WHERE rq.entity_id = ma.id AND rq.status = 'Pending')
-                ) AS LowConfidence
+                ) AS LowConfidence,
+                (SELECT COUNT(DISTINCT e.work_id)
+                 FROM review_queue rq
+                 INNER JOIN media_assets ma ON ma.id = rq.entity_id
+                 INNER JOIN editions e ON e.id = ma.edition_id
+                 WHERE rq.status = 'Pending' AND rq.trigger = 'Rejected'
+                ) AS Rejected
             """;
 
         using var reader = cmd.ExecuteReader();
         if (reader.Read())
         {
-            var total          = reader.GetInt32(0);
-            var needsReview    = reader.GetInt32(1);
-            var edited         = reader.GetInt32(2);
-            var duplicate      = reader.GetInt32(3);
-            var staging        = reader.GetInt32(4);
-            var missingImages  = reader.GetInt32(5);
+            var total           = reader.GetInt32(0);
+            var needsReview     = reader.GetInt32(1);
+            var edited          = reader.GetInt32(2);
+            var duplicate       = reader.GetInt32(3);
+            var staging         = reader.GetInt32(4);
+            var missingImages   = reader.GetInt32(5);
             var recentlyUpdated = reader.GetInt32(6);
             var lowConfidence   = reader.GetInt32(7);
-            var auto = total - needsReview - edited - duplicate - staging;
+            var rejected        = reader.GetInt32(8);
+            var auto = total - needsReview - edited - duplicate - staging - rejected;
             return Task.FromResult(new RegistryStatusCounts(
                 total, needsReview, Math.Max(auto, 0), edited, duplicate, staging,
-                missingImages, recentlyUpdated, lowConfidence));
+                missingImages, recentlyUpdated, lowConfidence, rejected));
         }
 
         return Task.FromResult(new RegistryStatusCounts(0, 0, 0, 0, 0, 0));

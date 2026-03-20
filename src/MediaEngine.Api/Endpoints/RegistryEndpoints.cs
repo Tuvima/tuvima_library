@@ -1,3 +1,4 @@
+using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
@@ -28,6 +29,8 @@ public static class RegistryEndpoints
             double? minConfidence,
             string? matchSource,
             bool? duplicatesOnly,
+            string? sort,
+            int? maxDays,
             IRegistryRepository repo,
             CancellationToken ct) =>
         {
@@ -39,7 +42,9 @@ public static class RegistryEndpoints
                 Status: status,
                 MinConfidence: minConfidence,
                 MatchSource: matchSource,
-                DuplicatesOnly: duplicatesOnly ?? false);
+                DuplicatesOnly: duplicatesOnly ?? false,
+                Sort: sort,
+                MaxDays: maxDays);
 
             var result = await repo.GetPageAsync(query, ct);
             return Results.Ok(result);
@@ -482,6 +487,487 @@ public static class RegistryEndpoints
         .WithSummary("Permanently remove a work and all its files from the library.")
         .Produces(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status404NotFound)
+        .RequireAdminOrCurator();
+
+        // ── POST /registry/items/{entityId}/reject ────────────────────────────
+        group.MapPost("/items/{entityId}/reject", async (
+            Guid entityId,
+            ISystemActivityRepository activityRepo,
+            IReviewQueueRepository reviewRepo,
+            IDatabaseConnection db,
+            IStorageManifest manifest,
+            CancellationToken ct) =>
+        {
+            // Resolve the media asset's current file path and its ID.
+            string? assetIdStr = null;
+            string? currentFilePath = null;
+            string? hubId = null;
+            string? workTitle = null;
+
+            using (var conn = db.CreateConnection())
+            {
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = """
+                        SELECT ma.id, ma.file_path_root
+                        FROM editions e
+                        INNER JOIN media_assets ma ON ma.edition_id = e.id
+                        WHERE e.work_id = @workId
+                        LIMIT 1
+                        """;
+                    cmd.Parameters.AddWithValue("@workId", entityId.ToString());
+                    using var reader = cmd.ExecuteReader();
+                    if (reader.Read())
+                    {
+                        assetIdStr      = reader.GetString(0);
+                        currentFilePath = reader.IsDBNull(1) ? null : reader.GetString(1);
+                    }
+                }
+
+                using (var cmd2 = conn.CreateCommand())
+                {
+                    cmd2.CommandText = "SELECT hub_id, title FROM works WHERE id = @workId";
+                    cmd2.Parameters.AddWithValue("@workId", entityId.ToString());
+                    using var reader2 = cmd2.ExecuteReader();
+                    if (reader2.Read())
+                    {
+                        hubId      = reader2.IsDBNull(0) ? null : reader2.GetString(0);
+                        workTitle  = reader2.IsDBNull(1) ? null : reader2.GetString(1);
+                    }
+                }
+            }
+
+            if (assetIdStr is null || currentFilePath is null)
+                return Results.NotFound($"No media asset found for work {entityId}.");
+
+            if (!Guid.TryParse(assetIdStr, out var assetId))
+                return Results.Problem("Invalid asset ID in database.");
+
+            // Resolve the library root to build the .staging/rejected/ path.
+            var core = manifest.Load();
+            var libraryRoot = core.LibraryRoot;
+            if (string.IsNullOrWhiteSpace(libraryRoot))
+                return Results.BadRequest("LibraryRoot is not configured. Cannot determine rejected folder.");
+
+            var rejectedDir = Path.Combine(libraryRoot, ".staging", "rejected");
+            Directory.CreateDirectory(rejectedDir);
+
+            var fileName    = Path.GetFileName(currentFilePath);
+            var newFilePath = Path.Combine(rejectedDir, fileName);
+
+            // Avoid collisions: append asset ID suffix when a same-named file already exists.
+            if (File.Exists(newFilePath) && !string.Equals(currentFilePath, newFilePath, StringComparison.OrdinalIgnoreCase))
+                newFilePath = Path.Combine(rejectedDir, $"{Path.GetFileNameWithoutExtension(fileName)}__{assetId}{Path.GetExtension(fileName)}");
+
+            // Move the file if it is not already in the rejected folder.
+            if (!string.Equals(currentFilePath, newFilePath, StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    if (File.Exists(currentFilePath))
+                        File.Move(currentFilePath, newFilePath, overwrite: false);
+                }
+                catch (IOException ex)
+                {
+                    return Results.Problem($"Could not move file to rejected folder: {ex.Message}");
+                }
+            }
+
+            // Update the file_path_root in the database.
+            using (var conn = db.CreateConnection())
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = "UPDATE media_assets SET file_path_root = @path WHERE id = @id";
+                cmd.Parameters.AddWithValue("@path", newFilePath);
+                cmd.Parameters.AddWithValue("@id",   assetIdStr);
+                cmd.ExecuteNonQuery();
+            }
+
+            // Dismiss pending review items and insert a new Rejected entry.
+            using (var conn = db.CreateConnection())
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = """
+                    UPDATE review_queue
+                    SET status = 'Dismissed', resolved_at = @now, resolved_by = 'user:reject'
+                    WHERE entity_id = @assetId AND status = 'Pending'
+                    """;
+                cmd.Parameters.AddWithValue("@assetId", assetIdStr);
+                cmd.Parameters.AddWithValue("@now",     DateTimeOffset.UtcNow.ToString("o"));
+                cmd.ExecuteNonQuery();
+            }
+
+            // Insert a Rejected review queue entry so the item shows as "Rejected" in the Registry.
+            using (var conn = db.CreateConnection())
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = """
+                    INSERT INTO review_queue
+                        (id, entity_id, entity_type, trigger, status, confidence_score, detail, created_at)
+                    VALUES
+                        (@id, @entityId, 'MediaAsset', @trigger, 'Pending', 0, @detail, @createdAt)
+                    """;
+                cmd.Parameters.AddWithValue("@id",        Guid.NewGuid().ToString());
+                cmd.Parameters.AddWithValue("@entityId",  assetIdStr);
+                cmd.Parameters.AddWithValue("@trigger",   ReviewTrigger.Rejected);
+                cmd.Parameters.AddWithValue("@detail",    $"Rejected by user. File moved to .staging/rejected/.");
+                cmd.Parameters.AddWithValue("@createdAt", DateTimeOffset.UtcNow.ToString("o"));
+                cmd.ExecuteNonQuery();
+            }
+
+            // Log to the activity ledger.
+            await activityRepo.LogAsync(new SystemActivityEntry
+            {
+                OccurredAt = DateTimeOffset.UtcNow,
+                ActionType = SystemActionType.FileRejected,
+                HubName    = workTitle,
+                EntityId   = entityId,
+                EntityType = "Work",
+                Detail     = $"Rejected '{workTitle ?? "unknown"}' — file moved to .staging/rejected/.",
+            }, ct);
+
+            return Results.Ok(new { EntityId = entityId, NewFilePath = newFilePath, Message = $"Rejected '{workTitle ?? "unknown"}'." });
+        })
+        .WithName("RejectRegistryItem")
+        .WithSummary("Reject a registry item: move its file to .staging/rejected/ and mark it as Rejected.")
+        .Produces(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAdminOrCurator();
+
+        // ── POST /registry/batch/approve ──────────────────────────────────────
+        group.MapPost("/batch/approve", async (
+            BatchRegistryRequest request,
+            IMetadataClaimRepository claimRepo,
+            IHubRepository hubRepo,
+            IReviewQueueRepository reviewRepo,
+            IDatabaseConnection db,
+            CancellationToken ct) =>
+        {
+            if (request.EntityIds is null || request.EntityIds.Length == 0)
+                return Results.BadRequest("No entity IDs provided.");
+
+            int processed = 0;
+
+            foreach (var entityId in request.EntityIds)
+            {
+                try
+                {
+                    // Mark as missing universe (retail-only match)
+                    await hubRepo.UpdateWorkWikidataStatusAsync(entityId, "missing", ct);
+
+                    // Dismiss any pending review items for this work's assets
+                    using var conn = db.CreateConnection();
+                    using var cmd = conn.CreateCommand();
+                    cmd.CommandText = """
+                        UPDATE review_queue SET status = 'Resolved', resolved_at = @now
+                        WHERE status = 'Pending' AND entity_id IN (
+                            SELECT ma.id FROM editions e
+                            INNER JOIN media_assets ma ON ma.edition_id = e.id
+                            WHERE e.work_id = @workId
+                        )
+                        """;
+                    cmd.Parameters.AddWithValue("@workId", entityId.ToString());
+                    cmd.Parameters.AddWithValue("@now", DateTimeOffset.UtcNow.ToString("o"));
+                    cmd.ExecuteNonQuery();
+
+                    processed++;
+                }
+                catch { /* Skip failed items */ }
+            }
+
+            return Results.Ok(new BatchRegistryResponse
+            {
+                ProcessedCount  = processed,
+                TotalRequested  = request.EntityIds.Length,
+                Message         = $"Approved {processed} of {request.EntityIds.Length} items.",
+            });
+        })
+        .WithName("BatchApproveRegistryItems")
+        .WithSummary("Approve multiple registry items in batch (marks as missing universe, dismisses reviews).")
+        .Produces<BatchRegistryResponse>(StatusCodes.Status200OK)
+        .RequireAdminOrCurator();
+
+        // ── POST /registry/batch/delete ───────────────────────────────────────
+        group.MapPost("/batch/delete", async (
+            BatchRegistryRequest request,
+            IDatabaseConnection db,
+            ISystemActivityRepository activityRepo,
+            CancellationToken ct) =>
+        {
+            if (request.EntityIds is null || request.EntityIds.Length == 0)
+                return Results.BadRequest("No entity IDs provided.");
+
+            int processed   = 0;
+            int filesRemoved = 0;
+
+            foreach (var entityId in request.EntityIds)
+            {
+                try
+                {
+                    var filePaths  = new List<string>();
+                    string? hubId      = null;
+                    string? workTitle  = null;
+
+                    using (var conn = db.CreateConnection())
+                    {
+                        using (var cmd = conn.CreateCommand())
+                        {
+                            cmd.CommandText = """
+                                SELECT ma.file_path_root
+                                FROM editions e
+                                INNER JOIN media_assets ma ON ma.edition_id = e.id
+                                WHERE e.work_id = @workId
+                                """;
+                            cmd.Parameters.AddWithValue("@workId", entityId.ToString());
+                            using var reader = cmd.ExecuteReader();
+                            while (reader.Read())
+                            {
+                                var path = reader.GetString(0);
+                                if (!string.IsNullOrWhiteSpace(path))
+                                    filePaths.Add(path);
+                            }
+                        }
+
+                        using (var cmd2 = conn.CreateCommand())
+                        {
+                            cmd2.CommandText = "SELECT hub_id, title FROM works WHERE id = @workId";
+                            cmd2.Parameters.AddWithValue("@workId", entityId.ToString());
+                            using var reader2 = cmd2.ExecuteReader();
+                            if (reader2.Read())
+                            {
+                                hubId     = reader2.IsDBNull(0) ? null : reader2.GetString(0);
+                                workTitle = reader2.IsDBNull(1) ? null : reader2.GetString(1);
+                            }
+                        }
+                    }
+
+                    if (filePaths.Count == 0) continue;
+
+                    foreach (var filePath in filePaths)
+                    {
+                        try
+                        {
+                            if (File.Exists(filePath)) File.Delete(filePath);
+                            var dir = Path.GetDirectoryName(filePath);
+                            if (dir is not null)
+                            {
+                                var coverPath = Path.Combine(dir, "cover.jpg");
+                                if (File.Exists(coverPath)) File.Delete(coverPath);
+                                var heroPath = Path.Combine(dir, "hero.jpg");
+                                if (File.Exists(heroPath)) File.Delete(heroPath);
+                                if (Directory.Exists(dir) && !Directory.EnumerateFileSystemEntries(dir).Any())
+                                    Directory.Delete(dir);
+                            }
+                            filesRemoved++;
+                        }
+                        catch (IOException) { }
+                    }
+
+                    using (var conn = db.CreateConnection())
+                    {
+                        using var cmd = conn.CreateCommand();
+                        cmd.CommandText = """
+                            DELETE FROM review_queue
+                            WHERE entity_id IN (
+                                SELECT ma.id FROM editions e
+                                INNER JOIN media_assets ma ON ma.edition_id = e.id
+                                WHERE e.work_id = @workId
+                            )
+                            """;
+                        cmd.Parameters.AddWithValue("@workId", entityId.ToString());
+                        cmd.ExecuteNonQuery();
+                    }
+
+                    using (var conn = db.CreateConnection())
+                    {
+                        using var cmd = conn.CreateCommand();
+                        cmd.CommandText = "DELETE FROM works WHERE id = @workId";
+                        cmd.Parameters.AddWithValue("@workId", entityId.ToString());
+                        cmd.ExecuteNonQuery();
+                    }
+
+                    if (hubId is not null)
+                    {
+                        using var conn = db.CreateConnection();
+                        using var cmd = conn.CreateCommand();
+                        cmd.CommandText = """
+                            DELETE FROM hubs WHERE id = @hubId
+                            AND NOT EXISTS (SELECT 1 FROM works WHERE hub_id = @hubId)
+                            """;
+                        cmd.Parameters.AddWithValue("@hubId", hubId);
+                        cmd.ExecuteNonQuery();
+                    }
+
+                    await activityRepo.LogAsync(new SystemActivityEntry
+                    {
+                        OccurredAt = DateTimeOffset.UtcNow,
+                        ActionType = SystemActionType.MediaRemoved,
+                        HubName    = workTitle,
+                        EntityId   = entityId,
+                        EntityType = "Work",
+                        Detail     = $"Batch removed '{workTitle ?? "unknown"}' — {filePaths.Count} file(s) deleted.",
+                    }, ct);
+
+                    processed++;
+                }
+                catch { /* Skip failed items */ }
+            }
+
+            return Results.Ok(new BatchRegistryResponse
+            {
+                ProcessedCount  = processed,
+                TotalRequested  = request.EntityIds.Length,
+                Message         = $"Deleted {processed} of {request.EntityIds.Length} items ({filesRemoved} files removed).",
+            });
+        })
+        .WithName("BatchDeleteRegistryItems")
+        .WithSummary("Permanently delete multiple registry items and their files in batch.")
+        .Produces<BatchRegistryResponse>(StatusCodes.Status200OK)
+        .RequireAdminOrCurator();
+
+        // ── POST /registry/batch/reject ───────────────────────────────────────
+        group.MapPost("/batch/reject", async (
+            BatchRegistryRequest request,
+            IDatabaseConnection db,
+            ISystemActivityRepository activityRepo,
+            IStorageManifest manifest,
+            CancellationToken ct) =>
+        {
+            if (request.EntityIds is null || request.EntityIds.Length == 0)
+                return Results.BadRequest("No entity IDs provided.");
+
+            var core = manifest.Load();
+            var libraryRoot = core.LibraryRoot;
+            if (string.IsNullOrWhiteSpace(libraryRoot))
+                return Results.BadRequest("LibraryRoot is not configured. Cannot determine rejected folder.");
+
+            var rejectedDir = Path.Combine(libraryRoot, ".staging", "rejected");
+            Directory.CreateDirectory(rejectedDir);
+
+            int processed = 0;
+
+            foreach (var entityId in request.EntityIds)
+            {
+                try
+                {
+                    string? assetIdStr      = null;
+                    string? currentFilePath = null;
+                    string? workTitle       = null;
+
+                    using (var conn = db.CreateConnection())
+                    {
+                        using (var cmd = conn.CreateCommand())
+                        {
+                            cmd.CommandText = """
+                                SELECT ma.id, ma.file_path_root
+                                FROM editions e
+                                INNER JOIN media_assets ma ON ma.edition_id = e.id
+                                WHERE e.work_id = @workId
+                                LIMIT 1
+                                """;
+                            cmd.Parameters.AddWithValue("@workId", entityId.ToString());
+                            using var reader = cmd.ExecuteReader();
+                            if (reader.Read())
+                            {
+                                assetIdStr      = reader.GetString(0);
+                                currentFilePath = reader.IsDBNull(1) ? null : reader.GetString(1);
+                            }
+                        }
+
+                        using (var cmd2 = conn.CreateCommand())
+                        {
+                            cmd2.CommandText = "SELECT title FROM works WHERE id = @workId";
+                            cmd2.Parameters.AddWithValue("@workId", entityId.ToString());
+                            using var reader2 = cmd2.ExecuteReader();
+                            if (reader2.Read())
+                                workTitle = reader2.IsDBNull(0) ? null : reader2.GetString(0);
+                        }
+                    }
+
+                    if (assetIdStr is null || currentFilePath is null) continue;
+                    if (!Guid.TryParse(assetIdStr, out var assetId)) continue;
+
+                    var fileName    = Path.GetFileName(currentFilePath);
+                    var newFilePath = Path.Combine(rejectedDir, fileName);
+
+                    if (File.Exists(newFilePath) && !string.Equals(currentFilePath, newFilePath, StringComparison.OrdinalIgnoreCase))
+                        newFilePath = Path.Combine(rejectedDir, $"{Path.GetFileNameWithoutExtension(fileName)}__{assetId}{Path.GetExtension(fileName)}");
+
+                    if (!string.Equals(currentFilePath, newFilePath, StringComparison.OrdinalIgnoreCase))
+                    {
+                        try
+                        {
+                            if (File.Exists(currentFilePath))
+                                File.Move(currentFilePath, newFilePath, overwrite: false);
+                        }
+                        catch (IOException) { /* Skip if file is locked or already moved */ }
+                    }
+
+                    using (var conn = db.CreateConnection())
+                    using (var cmd = conn.CreateCommand())
+                    {
+                        cmd.CommandText = "UPDATE media_assets SET file_path_root = @path WHERE id = @id";
+                        cmd.Parameters.AddWithValue("@path", newFilePath);
+                        cmd.Parameters.AddWithValue("@id",   assetIdStr);
+                        cmd.ExecuteNonQuery();
+                    }
+
+                    using (var conn = db.CreateConnection())
+                    using (var cmd = conn.CreateCommand())
+                    {
+                        cmd.CommandText = """
+                            UPDATE review_queue
+                            SET status = 'Dismissed', resolved_at = @now, resolved_by = 'user:reject'
+                            WHERE entity_id = @assetId AND status = 'Pending'
+                            """;
+                        cmd.Parameters.AddWithValue("@assetId", assetIdStr);
+                        cmd.Parameters.AddWithValue("@now",     DateTimeOffset.UtcNow.ToString("o"));
+                        cmd.ExecuteNonQuery();
+                    }
+
+                    using (var conn = db.CreateConnection())
+                    using (var cmd = conn.CreateCommand())
+                    {
+                        cmd.CommandText = """
+                            INSERT INTO review_queue
+                                (id, entity_id, entity_type, trigger, status, confidence_score, detail, created_at)
+                            VALUES
+                                (@id, @entityId, 'MediaAsset', @trigger, 'Pending', 0, @detail, @createdAt)
+                            """;
+                        cmd.Parameters.AddWithValue("@id",        Guid.NewGuid().ToString());
+                        cmd.Parameters.AddWithValue("@entityId",  assetIdStr);
+                        cmd.Parameters.AddWithValue("@trigger",   ReviewTrigger.Rejected);
+                        cmd.Parameters.AddWithValue("@detail",    $"Rejected by user (batch). File moved to .staging/rejected/.");
+                        cmd.Parameters.AddWithValue("@createdAt", DateTimeOffset.UtcNow.ToString("o"));
+                        cmd.ExecuteNonQuery();
+                    }
+
+                    await activityRepo.LogAsync(new SystemActivityEntry
+                    {
+                        OccurredAt = DateTimeOffset.UtcNow,
+                        ActionType = SystemActionType.FileRejected,
+                        HubName    = workTitle,
+                        EntityId   = entityId,
+                        EntityType = "Work",
+                        Detail     = $"Batch rejected '{workTitle ?? "unknown"}' — file moved to .staging/rejected/.",
+                    }, ct);
+
+                    processed++;
+                }
+                catch { /* Skip failed items */ }
+            }
+
+            return Results.Ok(new BatchRegistryResponse
+            {
+                ProcessedCount = processed,
+                TotalRequested = request.EntityIds.Length,
+                Message        = $"Rejected {processed} of {request.EntityIds.Length} items.",
+            });
+        })
+        .WithName("BatchRejectRegistryItems")
+        .WithSummary("Reject multiple registry items in batch: move files to .staging/rejected/ and mark as Rejected.")
+        .Produces<BatchRegistryResponse>(StatusCodes.Status200OK)
         .RequireAdminOrCurator();
 
         return app;
