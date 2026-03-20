@@ -553,7 +553,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         // Automatic single-result match — request only as many results as we need.
         var fetchLimit = strategy.FetchLimit > 0 ? strategy.FetchLimit : 5;
         var url = BuildUrl(strategy, request, fetchLimit);
-        _logger.LogDebug("{Provider}/{Strategy}: GET {Url}", Name, strategy.Name, url);
+        _logger.LogDebug("{Provider}/{Strategy}: FETCH {Url}", Name, strategy.Name, url);
 
         // ── Response cache check ─────────────────────────────────────────────
         var cacheKey = BuildCacheKey(url);
@@ -790,18 +790,17 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         if (resultsNode is not JsonArray arr || arr.Count == 0)
             return null;
 
-        // When we have a query title/author and multiple results, score each result
-        // by combined title + author similarity and pick the best one. If the best
-        // score is too low (e.g. all results are study guides, not the actual work),
-        // return null to avoid applying metadata from a wrong result.
+        // When we have a query title/author and multiple results, use author-first
+        // gating: filter to results by the correct author, then pick the best title
+        // match. This prevents study guides and book analyses (which share the title
+        // but have different authors) from being selected.
         if (!string.IsNullOrWhiteSpace(queryTitle) && arr.Count > 1)
         {
-            JsonNode? bestNode = null;
-            var bestScore = -1.0;
-
             var titlePaths  = new[] { "trackName", "collectionName", "title", "name" };
             var authorPaths = new[] { "artistName", "author", "authors", "creator" };
 
+            // Score all results.
+            var scored = new List<(JsonNode Node, double TitleScore, double AuthorScore)>();
             foreach (var node in arr)
             {
                 if (node is null) continue;
@@ -814,25 +813,34 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                 var titleScore  = ComputeWordOverlap(queryTitle, nodeTitle);
                 var authorScore = !string.IsNullOrWhiteSpace(queryAuthor) && !string.IsNullOrWhiteSpace(nodeAuthor)
                     ? ComputeWordOverlap(queryAuthor, nodeAuthor)
-                    : 0.5; // Neutral when no author available
+                    : 0.0;
 
-                // Combined score: equal weight — wrong author is a strong disqualifier.
-                var combined = titleScore * 0.5 + authorScore * 0.5;
-
-                if (combined > bestScore)
-                {
-                    bestScore = combined;
-                    bestNode = node;
-                }
+                scored.Add((node, titleScore, authorScore));
             }
 
-            // Minimum quality gate: if best combined score is below 0.50, none of the
-            // results are a credible match (e.g. all study guides with wrong authors).
-            // Return null so the pipeline skips this provider rather than applying bad data.
-            if (bestScore < 0.50)
+            if (scored.Count == 0)
                 return null;
 
-            return bestNode ?? arr[0];
+            // Author-first gate: keep only results where the author matches (>= 0.50).
+            // This filters out study guides, analyses, and books by different authors.
+            var authorMatched = scored.Where(s => s.AuthorScore >= 0.50).ToList();
+
+            if (authorMatched.Count > 0)
+            {
+                // From author-matched results, pick the best title match.
+                return authorMatched.OrderByDescending(s => s.TitleScore).First().Node;
+            }
+
+            // No author-matched results. If we don't have an author to check against,
+            // fall back to best title match with a quality threshold.
+            if (string.IsNullOrWhiteSpace(queryAuthor))
+            {
+                var best = scored.OrderByDescending(s => s.TitleScore).First();
+                return best.TitleScore >= 0.50 ? best.Node : null;
+            }
+
+            // Had an author but no results matched it — reject all results.
+            return null;
         }
 
         var index = Math.Clamp(strategy.ResultIndex, 0, arr.Count - 1);

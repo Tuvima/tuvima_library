@@ -62,15 +62,14 @@
       "result_index": 0,
       "fetch_limit": 1,
       "max_results": 1,
-      "tolerate_404": true,
-      "media_types": ["Audiobooks"]
+      "tolerate_404": true
     },
     {
       "name": "ebook_search",
       "priority": 1,
       "required_fields": ["title"],
       "url_template": "{base_url}/search?term={query}&entity=ebook&limit={limit}&country={country}&l={lang}",
-      "query_template": "{title} {author}",
+      "query_template": "{title}",
       "results_path": "results",
       "result_index": 0,
       "fetch_limit": 5,
@@ -82,7 +81,7 @@
       "priority": 1,
       "required_fields": ["title"],
       "url_template": "{base_url}/search?term={query}&entity=audiobook&limit={limit}&country={country}&l={lang}",
-      "query_template": "{title} {author}",
+      "query_template": "{title}",
       "results_path": "results",
       "result_index": 0,
       "fetch_limit": 5,
