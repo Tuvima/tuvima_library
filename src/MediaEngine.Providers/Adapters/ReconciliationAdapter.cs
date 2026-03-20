@@ -171,8 +171,83 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             // Optionally filter by media type using P31.
             if (request.MediaType != MediaType.Unknown)
             {
-                candidates = await FilterByMediaTypeAsync(
+                var filtered = await FilterByMediaTypeAsync(
                     candidates, request.MediaType, ct).ConfigureAwait(false);
+
+                // For audiobooks: if audiobook-specific filtering eliminates everything,
+                // fall back to Books classes (an audiobook is a format of a literary work).
+                if (filtered.Count == 0 && request.MediaType == MediaType.Audiobooks)
+                {
+                    _logger.LogDebug("{Provider}: audiobook filter returned 0 results, falling back to Books classes",
+                        Name);
+                    filtered = await FilterByMediaTypeAsync(
+                        candidates, MediaType.Books, ct).ConfigureAwait(false);
+                }
+
+                candidates = filtered.Count > 0 ? filtered : candidates;
+            }
+
+            // For audiobook searches: discover audiobook editions via P747 for work-level results.
+            // Edition results go first (they're more specific), work fallbacks come after.
+            if (request.MediaType == MediaType.Audiobooks)
+            {
+                var editionResults = new List<SearchResultItem>();
+                var workResults    = new List<SearchResultItem>();
+
+                foreach (var c in candidates.Take(limit))
+                {
+                    // Try to discover audiobook editions for this candidate.
+                    var editions = await DiscoverAudiobookEditionsAsync(c.QID, null, ct)
+                        .ConfigureAwait(false);
+
+                    if (editions.Count > 0)
+                    {
+                        foreach (var ed in editions)
+                        {
+                            // Build a rich description with audiobook-specific details.
+                            var parts = new List<string>();
+                            if (!string.IsNullOrEmpty(ed.Narrator))
+                                parts.Add($"Narrated by {ed.Narrator}");
+                            if (!string.IsNullOrEmpty(ed.Duration))
+                                parts.Add($"Duration: {ed.Duration}");
+                            if (!string.IsNullOrEmpty(ed.Publisher))
+                                parts.Add($"Publisher: {ed.Publisher}");
+                            if (!string.IsNullOrEmpty(c.Description))
+                                parts.Add(c.Description);
+
+                            var editionDesc = parts.Count > 0
+                                ? string.Join(" · ", parts)
+                                : c.Description;
+
+                            editionResults.Add(new SearchResultItem(
+                                Title:          c.Label,
+                                Author:         null,
+                                Description:    editionDesc,
+                                Year:           null,
+                                ThumbnailUrl:   null,
+                                ProviderItemId: ed.EditionQid ?? c.QID,
+                                Confidence:     c.Score / 100.0,
+                                ProviderName:   Name,
+                                ResultType:     "audiobook_edition"));
+                        }
+                    }
+
+                    // Always include the work as a fallback.
+                    workResults.Add(new SearchResultItem(
+                        Title:          c.Label,
+                        Author:         null,
+                        Description:    c.Description,
+                        Year:           null,
+                        ThumbnailUrl:   null,
+                        ProviderItemId: c.QID,
+                        Confidence:     c.Score / 100.0,
+                        ProviderName:   Name,
+                        ResultType:     "work"));
+                }
+
+                // Editions first, then work fallbacks.
+                var combined = editionResults.Concat(workResults).Take(limit).ToList();
+                return combined.Count > 0 ? combined : workResults.Take(limit).ToList();
             }
 
             return candidates
@@ -641,7 +716,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 var asin      = GetFirstStr(edition.Properties, "P5749");
                 var publisher = GetFirstLabel(edition.Properties, "P123");
 
-                results.Add(new AudiobookEditionData(narrator, duration, asin, publisher));
+                results.Add(new AudiobookEditionData(edition.QID, null, narrator, duration, asin, publisher));
             }
 
             // Rank editions by narrator match if hint available.
@@ -872,6 +947,11 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         // all those authors share a common pen name (P742), the work was *published*
         // under that pen name. Emit a high-confidence pen name claim (0.95) so it
         // beats the individual real-name claims (0.90) in the scoring election.
+        //
+        // Wikidata P742 (pseudonym) is stored as an item reference (entity link),
+        // not a plain string. The pen name entity has its own QID (e.g. Q18614905
+        // for "James S. A. Corey"). We match shared pen names by QID to avoid
+        // language/label mismatches, then resolve the display label for the claim.
         if (extData is not null
             && extData.Properties.TryGetValue("P50", out var authorRefs)
             && authorRefs.Count >= 2)
@@ -890,29 +970,53 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                     var penNameExtensions = await ExtendAsync(authorQids, ["P742"], ct)
                         .ConfigureAwait(false);
 
-                    // Collect all P742 values per author.
+                    // Collect all P742 values per author, keyed by their canonical identifier.
+                    // P742 values are Wikidata item references (Id/Label), not plain strings (Str).
+                    // We use a (key → display label) map: key is the QID when available so that
+                    // the intersection is stable regardless of label language; display label is
+                    // the human-readable pen name string used for the final claim value.
                     var penNamesByAuthor = penNameExtensions
                         .Where(e => e.Properties.TryGetValue("P742", out var vals) && vals.Count > 0)
                         .ToDictionary(
                             e => e.QID,
                             e => e.Properties["P742"]
-                                .Where(v => v.Str is not null)
-                                .Select(v => v.Str!)
-                                .ToHashSet(StringComparer.OrdinalIgnoreCase),
+                                .Where(v => v.Str is not null || v.Id is not null)
+                                .Select(v =>
+                                {
+                                    // Use QID as the canonical key for intersection; prefer label as display name.
+                                    var key = v.Id ?? v.Str!;
+                                    var display = v.Label ?? v.Str ?? v.Id!;
+                                    return (key, display);
+                                })
+                                .DistinctBy(t => t.key, StringComparer.OrdinalIgnoreCase)
+                                .ToList(),
                             StringComparer.OrdinalIgnoreCase);
 
                     if (penNamesByAuthor.Count >= 2)
                     {
-                        // Find pen names shared by all co-authors.
-                        var sharedPenNames = penNamesByAuthor.Values
+                        // Find pen name keys shared by all co-authors.
+                        var firstAuthorKeys = new HashSet<string>(
+                            penNamesByAuthor.Values.First().Select(t => t.key),
+                            StringComparer.OrdinalIgnoreCase);
+
+                        var sharedKeys = penNamesByAuthor.Values
                             .Skip(1)
                             .Aggregate(
-                                new HashSet<string>(penNamesByAuthor.Values.First(), StringComparer.OrdinalIgnoreCase),
-                                (acc, next) => { acc.IntersectWith(next); return acc; });
+                                firstAuthorKeys,
+                                (acc, next) =>
+                                {
+                                    acc.IntersectWith(next.Select(t => t.key));
+                                    return acc;
+                                });
 
-                        if (sharedPenNames.Count > 0)
+                        if (sharedKeys.Count > 0)
                         {
-                            var penName = sharedPenNames.First();
+                            var sharedKey = sharedKeys.First();
+                            // Resolve the display label from the first author's pen name list.
+                            var penName = penNamesByAuthor.Values.First()
+                                .FirstOrDefault(t => string.Equals(t.key, sharedKey, StringComparison.OrdinalIgnoreCase))
+                                .display ?? sharedKey;
+
                             // Higher confidence than the individual real-name claims (0.90) so the pen name wins.
                             claims.Add(new ProviderClaim("author", penName, 0.95));
                             _logger.LogInformation(
@@ -926,6 +1030,76 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             {
                 _logger.LogDebug("{Provider}: pen name detection failed for QID {QID}: {Message}",
                     Name, masterWorkQid, ex.Message);
+            }
+        }
+
+        // ── Pen name preservation via embedded-author mismatch ────────────────
+        // Safety net for when P742 data is missing or the pen name detection
+        // block above could not resolve a shared pen name. If the request carries
+        // an embedded author name (from file metadata / local_filesystem provider)
+        // that does NOT fuzzy-match any of the "author" claims emitted so far from
+        // Wikidata P50, it is very likely a pen name situation — the file was
+        // credited to the pen name but Wikidata lists the real people.
+        //
+        // In that case we:
+        //   1. Re-key the Wikidata P50 real-name "author" claims as "author_real_name"
+        //      so they are available for person enrichment but do NOT compete with the
+        //      canonical author field in the priority cascade.
+        //   2. Emit the embedded author name at Wikidata authority confidence (0.95)
+        //      so the credited pen name wins as the canonical author.
+        if (!string.IsNullOrWhiteSpace(request.Author) && extData is not null
+            && extData.Properties.TryGetValue("P50", out var p50AuthorRefs)
+            && p50AuthorRefs.Count > 0)
+        {
+            // Collect the author labels that ExtensionToClaims already emitted.
+            var wikiAuthorClaims = claims
+                .Where(c => string.Equals(c.Key, "author", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            if (wikiAuthorClaims.Count > 0)
+            {
+                // Check whether the embedded author matches ANY of the Wikidata author labels.
+                var embeddedAuthor = request.Author;
+                bool embeddedMatchesAnyWikiAuthor = wikiAuthorClaims
+                    .Any(c => _fuzzy.ComputeTokenSetRatio(embeddedAuthor, c.Value) >= 0.80);
+
+                if (!embeddedMatchesAnyWikiAuthor)
+                {
+                    // Check if the pen name detection block already added a pen name author
+                    // at confidence 0.95 — if so, no further action is needed.
+                    bool penNameAlreadyEmitted = wikiAuthorClaims
+                        .Any(c => string.Equals(c.Value, embeddedAuthor, StringComparison.OrdinalIgnoreCase)
+                                  || _fuzzy.ComputeTokenSetRatio(embeddedAuthor, c.Value) >= 0.90);
+
+                    if (!penNameAlreadyEmitted)
+                    {
+                        // Re-key the existing Wikidata P50 real-name "author" claims so they
+                        // don't compete in the canonical author field election.
+                        var indicesToRekey = new List<int>();
+                        for (int i = 0; i < claims.Count; i++)
+                        {
+                            if (string.Equals(claims[i].Key, "author", StringComparison.OrdinalIgnoreCase))
+                            {
+                                indicesToRekey.Add(i);
+                            }
+                        }
+
+                        foreach (var idx in indicesToRekey)
+                        {
+                            var original = claims[idx];
+                            claims[idx] = new ProviderClaim("author_real_name", original.Value, original.Confidence);
+                        }
+
+                        // Emit the embedded (credited) author name at high confidence so it
+                        // wins as the canonical author value in the priority cascade.
+                        claims.Add(new ProviderClaim("author", embeddedAuthor, 0.95));
+                        _logger.LogInformation(
+                            "{Provider}: embedded author \"{EmbeddedAuthor}\" does not match Wikidata P50 " +
+                            "authors for QID {QID} — treating as pen name. Real author claims re-keyed to " +
+                            "\"author_real_name\"; credited pen name emitted as canonical author.",
+                            Name, embeddedAuthor, masterWorkQid);
+                    }
+                }
             }
         }
 
