@@ -1,12 +1,14 @@
 @using MediaEngine.Web.Components.Registry
 @using MediaEngine.Web.Models.ViewDTOs
+@using MediaEngine.Web.Components.Settings
 @inject UIOrchestratorService Orchestrator
 @inject NavigationManager Nav
 @inject ISnackbar Snackbar
 @inject IJSRuntime JSRuntime
+@inject IDialogService DialogService
 @implements IDisposable
 
-<div class="registry-layout @(_selectedItem is not null ? "detail-open" : "")">
+<div class="registry-layout @("")">
     <div class="registry-main">
         @* ── Filter Bar (sticky top) ── *@
         <RegistryFilterBar Counts="_counts"
@@ -41,7 +43,7 @@
         @* ── Grid ── *@
         <RegistryGrid Items="@_items"
                       SelectedIds="@_selectedIds"
-                      FocusedEntityId="@_selectedItem?.EntityId"
+                      FocusedEntityId="@null"
                       NeedsReviewFilter="@(ActiveTab == "review")"
                       GroupBy="@_groupBy"
                       CardSize="@_cardSize"
@@ -57,11 +59,6 @@
                       OnApproveGroup="GroupApproveAsync"
                       OnRejectGroup="GroupRejectAsync" />
     </div>
-
-    @* ── Detail Panel (right side) ── *@
-    <RegistryDetailPanel Item="_selectedItem"
-                         OnCloseRequested="CloseDetailPanel"
-                         OnItemChanged="OnDetailItemChanged" />
 </div>
 
 @* ── Confirmation Dialogs ── *@
@@ -101,10 +98,6 @@
     .registry-main {
         flex: 1;
         min-width: 0;
-        transition: margin-right 0.25s ease;
-    }
-    .registry-layout.detail-open .registry-main {
-        margin-right: 380px;
     }
 </style>
 
@@ -116,7 +109,6 @@
     private List<RegistryItemViewModel> _items = [];
     private HashSet<Guid> _selectedIds = [];
     private RegistryStatusCountsDto? _counts;
-    private RegistryItemViewModel? _selectedItem;
 
     private bool _loading;
     private bool _hasMore;
@@ -137,7 +129,8 @@
     private int _pendingApproveCount;
 
     // ── URL-driven tab ──
-    private string ActiveTab => Nav.Uri.Contains("/review", StringComparison.OrdinalIgnoreCase) ? "review" : "all";
+    private string _activeTab = "all";
+    private string ActiveTab => _activeTab;
 
     // ── Lifecycle ──
 
@@ -145,6 +138,8 @@
     {
         Orchestrator.OnActivityChanged += HandleIntercomEvent;
         Orchestrator.OnReviewCountChanged += HandleIntercomEvent;
+
+        _activeTab = Nav.Uri.Contains("/review", StringComparison.OrdinalIgnoreCase) ? "review" : "all";
 
         _loading = true;
         await LoadCountsAsync();
@@ -224,7 +219,7 @@
     private async Task OnTabChanged(string tab)
     {
         _selectedIds.Clear();
-        _selectedItem = null;
+        _activeTab = tab;
         Nav.NavigateTo(tab == "review" ? "/registry/review" : "/registry");
         await ReloadItems();
     }
@@ -280,9 +275,9 @@
         StateHasChanged();
     }
 
-    // ── Card Click → Detail Panel ──
+    // ── Card Click → Dialog ──
 
-    private void OnCardClicked(Guid entityId)
+    private async Task OnCardClicked(Guid entityId)
     {
         if (_selectionMode)
         {
@@ -293,36 +288,33 @@
         var item = _items.FirstOrDefault(i => i.EntityId == entityId);
         if (item is null) return;
 
-        // Toggle: click same card closes panel
-        if (_selectedItem?.EntityId == entityId)
+        var parameters = new DialogParameters<MediaItemEditor>
         {
-            _selectedItem = null;
-        }
-        else
+            { x => x.EntityId, item.EntityId },
+            { x => x.HubId, Guid.Empty },
+            { x => x.MediaType, item.MediaType },
+            { x => x.InitialSearchQuery, item.Title },
+            { x => x.RegistryItem, item },
+            { x => x.InitialTab, 0 },
+        };
+
+        var options = new DialogOptions
         {
-            _selectedItem = item;
-        }
-        StateHasChanged();
-    }
+            MaxWidth = MaxWidth.Large,
+            FullWidth = true,
+            CloseButton = false,
+            NoHeader = false,
+            BackdropClick = true,
+        };
 
-    private void CloseDetailPanel()
-    {
-        _selectedItem = null;
-        StateHasChanged();
-    }
+        var dialog = await DialogService.ShowAsync<MediaItemEditor>("Media Item Editor", parameters, options);
+        var result = await dialog.Result;
 
-    private async Task OnDetailItemChanged()
-    {
-        // Refresh the list and counts after an action in the detail panel
-        await LoadCountsAsync();
-        await ReloadItems();
-
-        // Re-select the updated item if it's still in the list
-        if (_selectedItem is not null)
+        if (result is not null && !result.Canceled)
         {
-            _selectedItem = _items.FirstOrDefault(i => i.EntityId == _selectedItem.EntityId);
+            await LoadCountsAsync();
+            await ReloadItems();
         }
-        StateHasChanged();
     }
 
     // ── Selection ──
@@ -525,13 +517,6 @@
 
         _processing = false;
         StateHasChanged();
-    }
-
-    // ── Navigation (from detail panel View Details link) ──
-
-    private void NavigateToItem(Guid entityId)
-    {
-        Nav.NavigateTo($"/book/{entityId}");
     }
 
     // ── SignalR ──

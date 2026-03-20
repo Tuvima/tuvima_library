@@ -1,13 +1,15 @@
 @namespace MediaEngine.Web.Components.Settings
 @using MediaEngine.Web.Models.ViewDTOs
+@using MediaEngine.Web.Services.Integration
 @inject UIOrchestratorService Orchestrator
+@inject IEngineApiClient ApiClient
 @inject ISnackbar Snackbar
 
 <MudDialog Class="eo-dialog">
     <TitleContent>
         <div class="eo-title-bar">
             <MudIcon Icon="@Icons.Material.Filled.ManageSearch" Style="color: #C9922E; font-size: 1.2rem;" />
-            <span class="eo-title">Edit Metadata</span>
+            <span class="eo-title">Media Item Editor</span>
             <span style="flex: 1;"></span>
             <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
                            OnClick="@Cancel"
@@ -19,184 +21,17 @@
         @* ── Tab bar (inside dialog body so MudBlazor can't clip it) ── *@
         <div class="eo-tab-bar">
             <button class="eo-tab @(_activeTab == 0 ? "eo-tab--on" : "")"
-                    @onclick="@(() => SetTab(0))">Search</button>
+                    @onclick="@(() => SetTab(0))">Details</button>
             <button class="eo-tab @(_activeTab == 1 ? "eo-tab--on" : "")"
-                    @onclick="@(() => SetTab(1))">Details</button>
+                    @onclick="@(() => SetTab(1))">Update Match</button>
             <button class="eo-tab @(_activeTab == 2 ? "eo-tab--on" : "")"
-                    @onclick="@(() => SetTab(2))">Images</button>
+                    @onclick="@(() => SetTab(2))">History</button>
+            <button class="eo-tab @(_activeTab == 3 ? "eo-tab--on" : "")"
+                    @onclick="@(() => SetTab(3))">Images</button>
         </div>
 
         <div class="eo-body">
             @if (_activeTab == 0)
-            {
-                @* ══════════ SEARCH TAB ══════════ *@
-                <div class="eo-search-tab">
-                    @* ── Search bar + media type dropdown ── *@
-                    <div class="eo-search-row">
-                        <MudTextField @bind-Value="_searchQuery" Placeholder="Search..."
-                                      Variant="Variant.Outlined" Margin="Margin.Dense"
-                                      Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Search"
-                                      OnAdornmentClick="@OnSearch" OnKeyUp="@OnSearchKeyUp"
-                                      Style="flex: 1; font-size: 0.85rem;"
-                                      Disabled="@_searching" />
-
-                        <MudSelect T="string" Value="_selectedMediaType" ValueChanged="OnMediaTypeChanged"
-                                   Variant="Variant.Outlined"
-                                   Margin="Margin.Dense" Dense="true"
-                                   Style="min-width: 130px; max-width: 150px; font-size: 0.82rem;"
-                                   AnchorOrigin="Origin.BottomLeft" TransformOrigin="Origin.TopLeft">
-                            @foreach (var mt in _mediaTypeOptions)
-                            {
-                                <MudSelectItem Value="@mt.Value">@mt.Label</MudSelectItem>
-                            }
-                        </MudSelect>
-                    </div>
-
-                    @* ── Two-column: images (left 50%) + results (right 50%) ── *@
-                    <div class="eo-search-columns">
-                        @* ── Left: image gallery ── *@
-                        <div class="eo-poster-col">
-                            @if (_retailCovers.Count > 0)
-                            {
-                                @* ── Selected image large ── *@
-                                <div class="eo-poster-frame">
-                                    <img src="@_retailCovers[_selectedCoverIndex].CoverUrl"
-                                         alt="Cover art"
-                                         class="eo-poster-img" />
-                                </div>
-
-                                @* ── Thumbnail strip: all images ── *@
-                                @if (_retailCovers.Count > 1)
-                                {
-                                    <div class="eo-thumb-strip">
-                                        @for (var i = 0; i < _retailCovers.Count; i++)
-                                        {
-                                            var idx = i;
-                                            <div class="eo-thumb @(idx == _selectedCoverIndex ? "eo-thumb--on" : "")"
-                                                 @onclick="@(() => _selectedCoverIndex = idx)">
-                                                <img src="@_retailCovers[idx].CoverUrl"
-                                                     alt="Cover art" />
-                                            </div>
-                                        }
-                                    </div>
-                                }
-                            }
-                            else if (_loadingRetail)
-                            {
-                                <div class="eo-poster-frame eo-poster-frame--empty">
-                                    <MudProgressCircular Indeterminate="true" Size="Size.Small"
-                                                         Style="color: rgba(201,146,46,0.5);" />
-                                </div>
-                            }
-                            else
-                            {
-                                <div class="eo-poster-frame eo-poster-frame--empty">
-                                    <MudIcon Icon="@Icons.Material.Outlined.MenuBook"
-                                             Style="font-size: 2.5rem; opacity: 0.08;" />
-                                </div>
-                            }
-                        </div>
-
-                        @* ── Right: scrollable search results ── *@
-                        <div class="eo-results-col">
-                            @if (_searching)
-                            {
-                                <div class="eo-status">
-                                    <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: #C9922E;" />
-                                    <span>Searching...</span>
-                                </div>
-                            }
-                            else if (_results is not null && _results.Count == 0)
-                            {
-                                <div class="eo-status">
-                                    <MudIcon Icon="@Icons.Material.Outlined.SearchOff" Style="font-size: 2rem; opacity: 0.12;" />
-                                    <span>No matches found</span>
-                                </div>
-                            }
-                            else if (_results is not null)
-                            {
-                                @foreach (var item in _results)
-                                {
-                                    var isHighlighted = _highlightedItem == item;
-                                    var isApplied = _appliedItem == item;
-                                    <div class="eo-result @(isHighlighted ? "eo-result--hl" : "") @(isApplied ? "eo-result--applied" : "")"
-                                         @onclick="@(() => OnResultClicked(item))">
-                                        @if (item.ResultType == "audiobook_edition")
-                                        {
-                                            <div class="eo-result-type eo-result-type--audiobook" title="Audiobook edition">
-                                                <MudIcon Icon="@Icons.Material.Filled.Headphones" Style="font-size: 1.1rem;" />
-                                            </div>
-                                        }
-                                        else if (item.ResultType == "work")
-                                        {
-                                            <div class="eo-result-type eo-result-type--work" title="Literary work (no audiobook edition found)">
-                                                <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Style="font-size: 1.1rem;" />
-                                            </div>
-                                        }
-                                        <div class="eo-result-text">
-                                            <span class="eo-result-title">@(item.Title ?? "Untitled")</span>
-                                            @if (!string.IsNullOrEmpty(item.Description))
-                                            {
-                                                <span class="eo-result-desc">@Truncate(item.Description, 120)</span>
-                                            }
-                                            @if (item.Confidence > 0)
-                                            {
-                                                <span class="eo-result-conf">@((item.Confidence * 100).ToString("F0"))% match</span>
-                                            }
-                                        </div>
-
-                                        <div class="eo-result-action" @onclick:stopPropagation="true">
-                                            @if (_appliedItem == item)
-                                            {
-                                                <div class="eo-chk eo-chk--done" title="Applied">
-                                                    <MudIcon Icon="@Icons.Material.Filled.CheckCircle"
-                                                             Style="font-size: 1.3rem; color: #22c55e;" />
-                                                </div>
-                                            }
-                                            else if (_confirmingItem == item)
-                                            {
-                                                <button class="eo-chk eo-chk--confirm"
-                                                        @onclick="@(() => OnConfirmApply(item))"
-                                                        disabled="@_applying" title="Click to confirm">
-                                                    @if (_applying)
-                                                    {
-                                                        <MudProgressCircular Indeterminate="true" Size="Size.Small"
-                                                                             Style="color: #22c55e;" />
-                                                    }
-                                                    else
-                                                    {
-                                                        <MudIcon Icon="@Icons.Material.Filled.CheckCircle"
-                                                                 Style="font-size: 1.3rem;" />
-                                                        <span class="eo-confirm-lbl">Confirm?</span>
-                                                    }
-                                                </button>
-                                            }
-                                            else
-                                            {
-                                                <button class="eo-chk eo-chk--idle"
-                                                        @onclick="@(() => { _confirmingItem = item; })"
-                                                        title="Apply this match">
-                                                    <MudIcon Icon="@Icons.Material.Outlined.CheckCircleOutline"
-                                                             Style="font-size: 1.3rem;" />
-                                                </button>
-                                            }
-                                        </div>
-                                    </div>
-                                }
-                            }
-                            else
-                            {
-                                <div class="eo-status">
-                                    <MudIcon Icon="@Icons.Material.Outlined.TravelExplore"
-                                             Style="font-size: 2rem; opacity: 0.08;" />
-                                    <span>Search to find a match</span>
-                                </div>
-                            }
-                        </div>
-                    </div>
-                </div>
-            }
-            else if (_activeTab == 1)
             {
                 @* ══════════ DETAILS TAB ══════════ *@
                 <div class="eo-meta-tab">
@@ -242,6 +77,213 @@
                     }
                 </div>
             }
+            else if (_activeTab == 1)
+            {
+                @* ══════════ UPDATE MATCH TAB ══════════ *@
+                <div class="eo-search-tab">
+                    @* ── Search bar + media type dropdown ── *@
+                    <div class="eo-search-row">
+                        <MudTextField @bind-Value="_searchQuery" Placeholder="Search..."
+                                      Variant="Variant.Outlined" Margin="Margin.Dense"
+                                      Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Search"
+                                      OnAdornmentClick="@OnSearch" OnKeyUp="@OnSearchKeyUp"
+                                      Style="flex: 1; font-size: 0.85rem;"
+                                      Disabled="@_searching" />
+
+                        <MudSelect T="string" Value="_selectedMediaType" ValueChanged="OnMediaTypeChanged"
+                                   Variant="Variant.Outlined"
+                                   Margin="Margin.Dense" Dense="true"
+                                   Style="min-width: 130px; max-width: 150px; font-size: 0.82rem;"
+                                   AnchorOrigin="Origin.BottomLeft" TransformOrigin="Origin.TopLeft">
+                            @foreach (var mt in _mediaTypeOptions)
+                            {
+                                <MudSelectItem Value="@mt.Value">@mt.Label</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </div>
+
+                    @* ── Two-column: images (left 50%) + results (right 50%) ── *@
+                    <div class="eo-search-columns" style="flex: 1; min-height: 0;">
+                        @* ── Left: image gallery ── *@
+                        <div class="eo-poster-col">
+                            @if (_retailCovers.Count > 0)
+                            {
+                                @* ── Selected image large ── *@
+                                <div class="eo-poster-frame">
+                                    <img src="@_retailCovers[_selectedCoverIndex].CoverUrl"
+                                         alt="Cover art"
+                                         class="eo-poster-img" />
+                                </div>
+
+                                @* ── Thumbnail strip: all images ── *@
+                                @if (_retailCovers.Count > 1)
+                                {
+                                    <div class="eo-thumb-strip">
+                                        @for (var i = 0; i < _retailCovers.Count; i++)
+                                        {
+                                            var idx = i;
+                                            <div class="eo-thumb @(idx == _selectedCoverIndex ? "eo-thumb--on" : "")"
+                                                 @onclick="@(() => _selectedCoverIndex = idx)">
+                                                <img src="@_retailCovers[idx].CoverUrl"
+                                                     alt="Cover art" />
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                            }
+                            else if (_loadingRetail)
+                            {
+                                <div class="eo-poster-frame eo-poster-frame--empty">
+                                    <MudProgressCircular Indeterminate="true" Size="Size.Small"
+                                                         Style="color: rgba(201,146,46,0.5);" />
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="eo-poster-frame eo-poster-frame--empty">
+                                    <MudIcon Icon="@Icons.Material.Outlined.MenuBook"
+                                             Style="font-size: 2.5rem; opacity: 0.08;" />
+                                </div>
+                            }
+                        </div>
+
+                        @* ── Right: scrollable results + sticky apply bar ── *@
+                        <div style="display: flex; flex-direction: column; min-height: 0; overflow: hidden;">
+                            <div class="eo-results-col" style="flex: 1; min-height: 0;">
+                                @if (_searching)
+                                {
+                                    <div class="eo-status">
+                                        <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: #C9922E;" />
+                                        <span>Searching...</span>
+                                    </div>
+                                }
+                                else if (_results is not null && _results.Count == 0)
+                                {
+                                    <div class="eo-status">
+                                        <MudIcon Icon="@Icons.Material.Outlined.SearchOff" Style="font-size: 2rem; opacity: 0.12;" />
+                                        <span>No matches found</span>
+                                    </div>
+                                }
+                                else if (_results is not null)
+                                {
+                                    @foreach (var item in _results)
+                                    {
+                                        var isHighlighted = _highlightedItem == item;
+                                        var isApplied = _appliedItem == item;
+                                        <div class="eo-result @(isHighlighted ? "eo-result--hl" : "") @(isApplied ? "eo-result--applied" : "")"
+                                             @onclick="@(() => OnResultClicked(item))">
+                                            @if (item.ResultType == "audiobook_edition")
+                                            {
+                                                <div class="eo-result-type eo-result-type--audiobook" title="Audiobook edition">
+                                                    <MudIcon Icon="@Icons.Material.Filled.Headphones" Style="font-size: 1.1rem;" />
+                                                </div>
+                                            }
+                                            else if (item.ResultType == "work")
+                                            {
+                                                <div class="eo-result-type eo-result-type--work" title="Literary work (no audiobook edition found)">
+                                                    <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Style="font-size: 1.1rem;" />
+                                                </div>
+                                            }
+                                            <div class="eo-result-text">
+                                                <span class="eo-result-title">@(item.Title ?? "Untitled")</span>
+                                                @if (!string.IsNullOrEmpty(item.Description))
+                                                {
+                                                    <span class="eo-result-desc">@Truncate(item.Description, 120)</span>
+                                                }
+                                                @if (item.Confidence > 0)
+                                                {
+                                                    <span class="eo-result-conf">@((item.Confidence * 100).ToString("F0"))% match</span>
+                                                }
+                                            </div>
+                                        </div>
+                                    }
+                                }
+                                else
+                                {
+                                    <div class="eo-status">
+                                        <MudIcon Icon="@Icons.Material.Outlined.TravelExplore"
+                                                 Style="font-size: 2rem; opacity: 0.08;" />
+                                        <span>Search to find a match</span>
+                                    </div>
+                                }
+                            </div>
+
+                            @* ── Sticky Apply bar ── *@
+                            <div class="eo-apply-bar">
+                                @if (_applying)
+                                {
+                                    <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: #C9922E;" />
+                                }
+                                else if (_appliedItem is not null && _confirmingItem is null)
+                                {
+                                    <MudChip T="string" Color="Color.Success" Size="Size.Small" Icon="@Icons.Material.Filled.CheckCircle">Applied</MudChip>
+                                }
+                                else if (_confirmingItem is not null)
+                                {
+                                    <span style="font-family: 'Montserrat', sans-serif; font-size: 0.8rem; color: rgba(255,255,255,0.6);">Confirm Apply?</span>
+                                    <MudButton Variant="Variant.Filled" Color="Color.Success" Size="Size.Small"
+                                               OnClick="@(() => OnConfirmApply(_confirmingItem))"
+                                               Disabled="@_applying">
+                                        Confirm
+                                    </MudButton>
+                                    <MudButton Variant="Variant.Text" Size="Size.Small"
+                                               OnClick="@(() => _confirmingItem = null)"
+                                               Style="color: rgba(255,255,255,0.4);">
+                                        Cancel
+                                    </MudButton>
+                                }
+                                else if (_highlightedItem is not null)
+                                {
+                                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                                               OnClick="@(() => _confirmingItem = _highlightedItem)">
+                                        Apply
+                                    </MudButton>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+            else if (_activeTab == 2)
+            {
+                @* ══════════ HISTORY TAB ══════════ *@
+                <div class="eo-meta-tab">
+                    @if (_loadingHistory)
+                    {
+                        <div class="eo-status">
+                            <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: rgba(255,255,255,0.15);" />
+                        </div>
+                    }
+                    else if (_history.Count == 0)
+                    {
+                        <div class="eo-status" style="padding: 80px 0;">
+                            <MudIcon Icon="@Icons.Material.Outlined.Timeline" Style="font-size: 2.5rem; opacity: 0.08;" />
+                            <span>No processing history available</span>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="history-timeline">
+                            @foreach (var entry in _history)
+                            {
+                                <div class="timeline-entry">
+                                    <div class="timeline-dot" style="background: @GetEventColor(entry.EventType);"></div>
+                                    <div class="timeline-content">
+                                        <MudText Typo="Typo.body2" Style="font-weight: 500;">@entry.Label</MudText>
+                                        @if (!string.IsNullOrEmpty(entry.Detail))
+                                        {
+                                            <MudText Typo="Typo.caption" Class="mud-text-secondary">@entry.Detail</MudText>
+                                        }
+                                        <MudText Typo="Typo.caption" Style="color: rgba(255,255,255,0.35); font-size: 0.7rem; margin-top: 2px;">
+                                            @FormatTimeAgo(entry.OccurredAt)
+                                        </MudText>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            }
             else
             {
                 @* ══════════ IMAGES TAB (stub) ══════════ *@
@@ -266,6 +308,8 @@
     [Parameter] public string? PreloadedCandidates { get; set; }
     [Parameter] public string? InitialSearchQuery { get; set; }
     [Parameter] public List<CanonicalValueViewModel>? WorkCanonicalValues { get; set; }
+    [Parameter] public RegistryItemViewModel? RegistryItem { get; set; }
+    [Parameter] public int InitialTab { get; set; }
 
     // ── State ──────────────────────────────────────────────────────────
     private int _activeTab;
@@ -290,6 +334,10 @@
     private bool _loadingRetail;
     private CancellationTokenSource? _retailCts;
 
+    // History
+    private bool _loadingHistory;
+    private List<RegistryItemHistoryDto> _history = [];
+
     private static readonly string WikidataProviderId = "b3000003-d000-4000-8000-000000000004";
     private static readonly Guid LocalFilesystemProviderId = Guid.Parse("a0000000-0000-4000-8000-000000000000");
 
@@ -311,11 +359,33 @@
 
     protected override async Task OnInitializedAsync()
     {
+        _activeTab = InitialTab;
         _selectedMediaType = !string.IsNullOrEmpty(MediaType) ? MediaType : "Books";
         if (!string.IsNullOrWhiteSpace(InitialSearchQuery))
             _searchQuery = InitialSearchQuery;
         TryLoadPreloadedCandidates();
+
+        // Try loading cached results from the server
+        if ((_results is null || _results.Count == 0) && EntityId != Guid.Empty)
+        {
+            try
+            {
+                var cached = await Orchestrator.GetSearchResultsCacheAsync(EntityId);
+                if (!string.IsNullOrEmpty(cached))
+                {
+                    var items = System.Text.Json.JsonSerializer.Deserialize<List<SearchResultItemViewModel>>(
+                        cached, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                    if (items is { Count: > 0 })
+                        _results = items;
+                }
+            }
+            catch { /* Non-critical */ }
+        }
+
         await LoadMetadataAsync();
+
+        if (InitialTab == 2)
+            await LoadHistoryAsync();
 
         // Auto-search when we have a pre-filled query but no cached/preloaded results
         if (!string.IsNullOrWhiteSpace(_searchQuery) && (_results is null || _results.Count == 0))
@@ -372,7 +442,29 @@
         }
     }
 
-    private void SetTab(int tab) { _activeTab = tab; StateHasChanged(); }
+    private async Task SetTab(int tab)
+    {
+        _activeTab = tab;
+        if (tab == 2 && _history.Count == 0 && !_loadingHistory)
+            await LoadHistoryAsync();
+        StateHasChanged();
+    }
+
+    private async Task LoadHistoryAsync()
+    {
+        _loadingHistory = true;
+        StateHasChanged();
+        try
+        {
+            _history = await ApiClient.GetItemHistoryAsync(EntityId);
+        }
+        catch
+        {
+            _history = [];
+        }
+        _loadingHistory = false;
+        StateHasChanged();
+    }
 
     // ── Preloaded candidates ───────────────────────────────────────────
 
@@ -758,6 +850,43 @@
 
     private static string Truncate(string text, int maxLength) =>
         text.Length <= maxLength ? text : text[..maxLength].TrimEnd() + "\u2026";
+
+    // ── History helpers ─────────────────────────────────────────────────
+
+    private static string GetEventColor(string eventType) => eventType switch
+    {
+        "FileDetected"         => "#4A90D9",
+        "MetadataExtracted"    => "#4A90D9",
+        "ConfidenceScored"     => "#C9922E",
+        "WikidataMatched"      => "#4CAF50",
+        "WikidataMatchFailed"  => "#EF5350",
+        "CoverArtFound"        => "#4CAF50",
+        "CoverArtNotFound"     => "#EF5350",
+        "PersonLinked"         => "#4CAF50",
+        "Staged"               => "#C9922E",
+        "Promoted"             => "#4CAF50",
+        "MetadataUpdated"      => "#4CAF50",
+        "UserEdited"           => "#4A90D9",
+        "Rejected"             => "#EF5350",
+        "Recovered"            => "#4CAF50",
+        "ReviewCreated"        => "#C9922E",
+        "ReviewResolved"       => "#4CAF50",
+        "HydrationStarted"     => "#4A90D9",
+        "HydrationCompleted"   => "#4CAF50",
+        "RetailEnriched"       => "#4CAF50",
+        "RetailEnrichFailed"   => "#EF5350",
+        _                      => "rgba(255,255,255,0.3)"
+    };
+
+    private static string FormatTimeAgo(DateTimeOffset occurredAt)
+    {
+        var diff = DateTimeOffset.UtcNow - occurredAt;
+        if (diff.TotalSeconds < 60) return "Just now";
+        if (diff.TotalMinutes < 60) return $"{(int)diff.TotalMinutes}m ago";
+        if (diff.TotalHours < 24) return $"{(int)diff.TotalHours}h ago";
+        if (diff.TotalDays < 7) return $"{(int)diff.TotalDays}d ago";
+        return occurredAt.ToString("MMM d, yyyy");
+    }
 }
 
 <style>
@@ -1223,5 +1352,54 @@
         color: rgba(255, 255, 255, 0.85);
         word-break: break-word;
         flex: 1;
+    }
+
+    /* ── History timeline ── */
+    .history-timeline {
+        position: relative;
+        padding-left: 20px;
+    }
+    .history-timeline::before {
+        content: '';
+        position: absolute;
+        left: 6px;
+        top: 8px;
+        bottom: 8px;
+        width: 2px;
+        background: rgba(255, 255, 255, 0.08);
+    }
+    .timeline-entry {
+        position: relative;
+        padding-bottom: 16px;
+    }
+    .timeline-entry:last-child {
+        padding-bottom: 0;
+    }
+    .timeline-dot {
+        position: absolute;
+        left: -17px;
+        top: 4px;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        border: 2px solid #0d1117;
+    }
+    .timeline-content {
+        padding-left: 4px;
+    }
+
+    /* ── Apply bar ── */
+    .eo-apply-bar {
+        position: sticky;
+        bottom: 0;
+        padding: 12px 16px;
+        background: rgba(13, 17, 23, 0.95);
+        border-top: 1px solid rgba(255, 255, 255, 0.06);
+        backdrop-filter: blur(8px);
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 8px;
+        flex-shrink: 0;
     }
 </style>

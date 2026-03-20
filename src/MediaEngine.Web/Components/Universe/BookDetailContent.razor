@@ -347,7 +347,7 @@ else
                             <span class="book-detail-action-label">Share</span>
                         </button>
 
-                        <button class="book-detail-action-btn" @onclick="@OpenEditOverlay">
+                        <button class="book-detail-action-btn" @onclick="@OpenMediaItemEditor">
                             <div class="book-detail-action-circle">
                                 <MudIcon Icon="@Icons.Material.Filled.Edit"
                                          Style="color: rgba(248,248,248,0.65); font-size: 1.3rem;" />
@@ -501,7 +501,7 @@ else
                             <span class="book-detail-action-label">Share</span>
                         </button>
 
-                        <button class="book-detail-action-btn" @onclick="@OpenEditOverlay">
+                        <button class="book-detail-action-btn" @onclick="@OpenMediaItemEditor">
                             <div class="book-detail-action-circle">
                                 <MudIcon Icon="@Icons.Material.Filled.Edit"
                                          Style="color: rgba(248,248,248,0.65); font-size: 1.3rem;" />
@@ -743,7 +743,7 @@ else
         _loading = false;
 
         if (AutoOpenEdit)
-            await OpenEditOverlay();
+            await OpenMediaItemEditor();
     }
 
     // — Action handlers —
@@ -802,16 +802,16 @@ else
         await OnItemChanged.InvokeAsync();
     }
 
-    private async Task OpenEditOverlay()
+    private async Task OpenMediaItemEditor()
     {
         var parameters = new DialogParameters
         {
-            { nameof(EditOverlay.EntityId), _work?.Id ?? Guid.Empty },
-            { nameof(EditOverlay.HubId), _hub?.Id ?? Guid.Empty },
-            { nameof(EditOverlay.MediaType), _work?.MediaType },
-            { nameof(EditOverlay.PreloadedCandidates), CandidatesJson ?? _cachedSearchResults },
-            { nameof(EditOverlay.InitialSearchQuery), _work?.Title },
-            { nameof(EditOverlay.WorkCanonicalValues), _work?.CanonicalValues },
+            { nameof(MediaItemEditor.EntityId), _work?.Id ?? Guid.Empty },
+            { nameof(MediaItemEditor.HubId), _hub?.Id ?? Guid.Empty },
+            { nameof(MediaItemEditor.MediaType), _work?.MediaType },
+            { nameof(MediaItemEditor.PreloadedCandidates), CandidatesJson ?? _cachedSearchResults },
+            { nameof(MediaItemEditor.InitialSearchQuery), _work?.Title },
+            { nameof(MediaItemEditor.WorkCanonicalValues), _work?.CanonicalValues },
         };
 
         var options = new DialogOptions
@@ -823,7 +823,7 @@ else
             BackdropClick = true,
         };
 
-        var dialog = await DialogService.ShowAsync<EditOverlay>("Edit Metadata", parameters, options);
+        var dialog = await DialogService.ShowAsync<MediaItemEditor>("Edit Metadata", parameters, options);
         var result = await dialog.Result;
 
         // If changes were applied, reload the book detail

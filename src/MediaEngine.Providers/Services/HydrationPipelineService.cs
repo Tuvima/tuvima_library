@@ -3191,8 +3191,10 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
 
     /// <summary>
     /// Downloads cover art from a provider-supplied URL and saves it as
-    /// <c>cover.jpg</c> in the media file's directory.  Skips if the file
-    /// already has a cover or if no cover URL canonical value exists.
+    /// <c>cover.jpg</c> in the media file's directory.  Always overwrites
+    /// an existing cover (e.g. EPUB-embedded) with the provider image,
+    /// since the ISBN-matched provider cover is edition-correct.
+    /// Skips if no cover URL canonical value exists.
     /// Uses <see cref="IImageCacheRepository"/> for content-hash dedup.
     /// </summary>
     private async Task PersistCoverFromUrlAsync(Guid assetId, CancellationToken ct)
@@ -3221,7 +3223,6 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             }
 
             var coverPath = Path.Combine(fileDir, "cover.jpg");
-            if (File.Exists(coverPath)) return; // already have a cover
 
             // 2. Check for a cover URL in canonical values.
             var canonicals = await _canonicalRepo.GetByEntityAsync(assetId, ct)
@@ -3244,7 +3245,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             if (cached is not null && File.Exists(cached))
             {
                 // Same image already exists elsewhere — copy it.
-                File.Copy(cached, coverPath, overwrite: false);
+                File.Copy(cached, coverPath, overwrite: true);
             }
             else
             {
