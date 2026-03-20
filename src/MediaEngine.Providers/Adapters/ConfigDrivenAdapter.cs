@@ -570,7 +570,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                 var cachedJson = JsonNode.Parse(cached.ResponseJson);
                 if (cachedJson is not null)
                 {
-                    var resultNode = NavigateToResult(cachedJson, strategy);
+                    var resultNode = NavigateToResult(cachedJson, strategy, request.Title);
                     if (resultNode is not null)
                         return ExtractClaims(resultNode, request.MediaType);
                 }
@@ -636,7 +636,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                     var cachedJson = JsonNode.Parse(refreshed.ResponseJson);
                     if (cachedJson is not null)
                     {
-                        var resultNode = NavigateToResult(cachedJson, strategy);
+                        var resultNode = NavigateToResult(cachedJson, strategy, request.Title);
                         if (resultNode is not null)
                             return ExtractClaims(resultNode, request.MediaType);
                     }
@@ -674,7 +674,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                 return [];
 
             // Navigate to result object.
-            var resultObj = NavigateToResult(json, strategy);
+            var resultObj = NavigateToResult(json, strategy, request.Title);
             if (resultObj is null)
                 return [];
 
@@ -778,7 +778,8 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
 
     // ── Result navigation ───────────────────────────────────────────────────
 
-    private static JsonNode? NavigateToResult(JsonNode json, SearchStrategyConfig strategy)
+    private static JsonNode? NavigateToResult(
+        JsonNode json, SearchStrategyConfig strategy, string? queryTitle = null)
     {
         // If no results_path, treat the whole response as the result.
         if (string.IsNullOrEmpty(strategy.ResultsPath))
@@ -788,8 +789,75 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         if (resultsNode is not JsonArray arr || arr.Count == 0)
             return null;
 
+        // When we have a query title and multiple results, pick the result whose
+        // title is the closest match rather than blindly using result_index.
+        // This prevents Apple API returning a lesser-known edition (study guide,
+        // annotated version) as the first result and using its cover art.
+        if (!string.IsNullOrWhiteSpace(queryTitle) && arr.Count > 1)
+        {
+            var bestNode = arr[0];
+            var bestScore = -1.0;
+
+            // Find the title field path from common provider patterns.
+            var titlePaths = new[] { "trackName", "collectionName", "title", "name" };
+
+            foreach (var node in arr)
+            {
+                if (node is null) continue;
+
+                string? nodeTitle = null;
+                foreach (var tp in titlePaths)
+                {
+                    var tn = JsonPathEvaluator.Evaluate(node, tp);
+                    if (tn is not null)
+                    {
+                        nodeTitle = JsonPathEvaluator.GetStringValue(tn);
+                        if (!string.IsNullOrWhiteSpace(nodeTitle)) break;
+                    }
+                }
+
+                if (string.IsNullOrWhiteSpace(nodeTitle)) continue;
+
+                var score = ComputeTitleSimilarity(queryTitle, nodeTitle);
+                if (score > bestScore)
+                {
+                    bestScore = score;
+                    bestNode = node;
+                }
+            }
+
+            return bestNode;
+        }
+
         var index = Math.Clamp(strategy.ResultIndex, 0, arr.Count - 1);
         return arr[index];
+    }
+
+    /// <summary>
+    /// Simple word-overlap title similarity (0.0–1.0) for result selection.
+    /// Compares normalized word sets, returning harmonic mean of coverage and precision.
+    /// </summary>
+    private static double ComputeTitleSimilarity(string query, string title)
+    {
+        var qWords = query.ToLowerInvariant()
+            .Split([' ', ',', '.', '-', ':', ';', '\'', '"', '(', ')', '[', ']'],
+                   StringSplitOptions.RemoveEmptyEntries)
+            .Where(w => w.Length >= 2)
+            .ToHashSet();
+
+        var tWords = title.ToLowerInvariant()
+            .Split([' ', ',', '.', '-', ':', ';', '\'', '"', '(', ')', '[', ']'],
+                   StringSplitOptions.RemoveEmptyEntries)
+            .Where(w => w.Length >= 2)
+            .ToHashSet();
+
+        if (qWords.Count == 0 || tWords.Count == 0) return 0.0;
+
+        var coverage  = (double)qWords.Count(w => tWords.Contains(w)) / qWords.Count;
+        var precision = (double)tWords.Count(w => qWords.Contains(w)) / tWords.Count;
+
+        if (coverage + precision == 0) return 0.0;
+        return 2 * coverage * precision / (coverage + precision);
     }
 
     // ── Claim extraction ────────────────────────────────────────────────────
