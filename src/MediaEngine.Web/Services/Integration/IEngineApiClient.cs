@@ -465,6 +465,9 @@ public interface IEngineApiClient
     /// <summary>POST /registry/items/{entityId}/recover — recover a previously rejected item.</summary>
     Task<bool> RecoverRegistryItemAsync(Guid entityId, CancellationToken ct = default);
 
+    /// <summary>POST /registry/items/{entityId}/auto-register — auto-register an item using its top candidate.</summary>
+    Task<BatchRegistryResponse?> AutoRegisterItemAsync(Guid entityId, CancellationToken ct = default);
+
     /// <summary>POST /registry/items/{entityId}/provisional — mark an item as provisional with curator metadata.</summary>
     Task<bool> MarkProvisionalAsync(Guid entityId, ProvisionalMetadataRequestDto metadata, CancellationToken ct = default);
 

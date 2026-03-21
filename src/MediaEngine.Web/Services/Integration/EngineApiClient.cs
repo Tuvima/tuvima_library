@@ -2319,6 +2319,23 @@ public sealed class EngineApiClient : IEngineApiClient
     }
 
     /// <inheritdoc/>
+    public async Task<BatchRegistryResponse?> AutoRegisterItemAsync(Guid entityId, CancellationToken ct = default)
+    {
+        try
+        {
+            var resp = await _http.PostAsJsonAsync($"/registry/items/{entityId}/auto-register", new { }, ct);
+            resp.EnsureSuccessStatusCode();
+            return await resp.Content.ReadFromJsonAsync<BatchRegistryResponse>(ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /registry/items/{EntityId}/auto-register failed", entityId);
+            return null;
+        }
+    }
+
+    /// <inheritdoc/>
     public async Task<bool> MarkProvisionalAsync(Guid entityId, ProvisionalMetadataRequestDto metadata, CancellationToken ct = default)
     {
         try
@@ -2330,6 +2347,23 @@ public sealed class EngineApiClient : IEngineApiClient
         {
             _logger.LogWarning(ex, "MarkProvisionalAsync failed for entity {EntityId}", entityId);
             return false;
+        }
+    }
+
+    /// <inheritdoc/>
+    public async Task<BatchRegistryResponse?> AutoRegisterItemAsync(Guid entityId, CancellationToken ct = default)
+    {
+        try
+        {
+            var resp = await _http.PostAsync($"registry/items/{entityId}/auto-register", null, ct);
+            if (!resp.IsSuccessStatusCode) return null;
+            return await resp.Content.ReadFromJsonAsync<BatchRegistryResponse>(ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /registry/items/{EntityId}/auto-register failed", entityId);
+            return null;
         }
     }
 

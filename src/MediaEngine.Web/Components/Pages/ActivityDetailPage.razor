@@ -9,6 +9,7 @@
 @inject UIOrchestratorService Orchestrator
 @inject IEngineApiClient ApiClient
 @inject ISnackbar Snackbar
+@inject IDialogService DialogService
 @implements IDisposable
 
 <PageTitle>Library overview — Tuvima Library</PageTitle>
@@ -45,6 +46,23 @@
             </button>
         }
     </div>
+
+    @* ── Bulk actions bar (In Review tab only) ── *@
+    @if (_activeTab == "review" && _items.Count > 0)
+    {
+        <div class="adp-bulk-bar">
+            <span class="adp-bulk-label">Bulk:</span>
+            <button class="adp-bulk-btn adp-bulk-btn--register" @onclick="HandleBulkAutoRegister"
+                    disabled="@_bulkProcessing" type="button">
+                Auto-register above
+            </button>
+            <input type="range" min="50" max="99" step="1"
+                   class="adp-bulk-slider"
+                   value="@_bulkThreshold"
+                   @oninput="HandleSliderInput" />
+            <span class="adp-bulk-value">@((_bulkThreshold / 100.0).ToString("0.00"))</span>
+        </div>
+    }
 
     @* ── Main content ── *@
     <div class="adp-content">
@@ -152,6 +170,9 @@
 
     private RegistryFourStateCountsDto? _counts;
     private bool _loading = true;
+
+    private int _bulkThreshold = 90;
+    private bool _bulkProcessing;
 
     // ── Tab definitions (computed after counts load) ───────────────────────────
 
@@ -304,12 +325,66 @@
         await LoadCountsAsync();
         await LoadItemsAsync();
 
-        // Keep selection if the item still exists
+        // Clear selection if the item is no longer in the current list (e.g. moved to Registered)
         if (_selectedItem is not null)
         {
-            _selectedItem = _items.FirstOrDefault(i => i.EntityId == _selectedItem.EntityId)
-                            ?? _selectedItem;
+            _selectedItem = _items.FirstOrDefault(i => i.EntityId == _selectedItem.EntityId);
         }
+    }
+
+    private void HandleSliderInput(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var val))
+            _bulkThreshold = val;
+    }
+
+    private async Task HandleBulkAutoRegister()
+    {
+        _bulkProcessing = true;
+        StateHasChanged();
+
+        try
+        {
+            var threshold = _bulkThreshold / 100.0;
+            var eligible = _items.Where(i => i.Confidence >= threshold).ToList();
+
+            if (eligible.Count == 0)
+            {
+                Snackbar.Add("No items above the selected confidence threshold.", Severity.Info);
+                _bulkProcessing = false;
+                return;
+            }
+
+            var confirmed = await DialogService.ShowMessageBoxAsync(
+                "Auto-register items?",
+                $"This will register {eligible.Count} items with confidence above {threshold:P0}.",
+                yesText: "Register all", cancelText: "Cancel");
+
+            if (confirmed == true)
+            {
+                int registered = 0;
+                foreach (var item in eligible)
+                {
+                    try
+                    {
+                        // Auto-register using the top candidate (if available)
+                        var result = await ApiClient.AutoRegisterItemAsync(item.EntityId);
+                        if (result is not null) registered++;
+                    }
+                    catch { /* skip failures silently */ }
+                }
+
+                Snackbar.Add($"Registered {registered} of {eligible.Count} items.",
+                             registered > 0 ? Severity.Success : Severity.Warning);
+                await HandleItemChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Bulk operation failed: {ex.Message}", Severity.Error);
+        }
+
+        _bulkProcessing = false;
     }
 
     private async Task HandleUnreject(Guid entityId)
@@ -520,6 +595,62 @@
         font-weight: 600;
         font-variant-numeric: tabular-nums;
         transition: background 0.15s ease, color 0.15s ease;
+    }
+
+    /* ── Bulk actions bar ── */
+    .adp-bulk-bar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 16px;
+        border-bottom: 1px solid rgba(140, 120, 180, 0.1);
+        background: rgba(20, 16, 42, 0.5);
+    }
+
+    .adp-bulk-label {
+        font-size: 11px;
+        font-weight: 400;
+        color: rgba(200, 190, 220, 0.35);
+    }
+
+    .adp-bulk-btn {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 11px;
+        font-weight: 500;
+        padding: 3px 10px;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: background 0.15s ease;
+    }
+
+    .adp-bulk-btn--register {
+        background: rgba(93, 202, 165, 0.12);
+        color: #5DCAA5;
+        border: 1px solid rgba(93, 202, 165, 0.18);
+    }
+
+    .adp-bulk-btn--register:hover:not(:disabled) {
+        background: rgba(93, 202, 165, 0.2);
+    }
+
+    .adp-bulk-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .adp-bulk-slider {
+        width: 70px;
+        height: 4px;
+        accent-color: #EF9F27;
+        cursor: pointer;
+    }
+
+    .adp-bulk-value {
+        font-size: 11px;
+        font-weight: 500;
+        color: rgba(200, 190, 220, 0.6);
+        min-width: 28px;
+        font-variant-numeric: tabular-nums;
     }
 
     /* ── Two-column layout ── */
