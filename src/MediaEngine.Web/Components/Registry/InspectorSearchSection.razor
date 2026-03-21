@@ -408,7 +408,8 @@ else
         try
         {
             var mt = string.IsNullOrEmpty(_mediaType) ? null : _mediaType;
-            var response = await Orchestrator.SearchMetadataFanOutAsync(_query, mt);
+            // Inspector searches Wikidata only — retail providers (Stage 2) run after a match is confirmed.
+            var response = await Orchestrator.SearchMetadataFanOutAsync(_query, mt, providerId: "wikidata_reconciliation");
             if (response?.Results is not null)
             {
                 foreach (var provider in response.Results)
