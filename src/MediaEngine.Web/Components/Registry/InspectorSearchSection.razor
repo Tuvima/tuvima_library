@@ -112,6 +112,14 @@
                                 @if (!string.IsNullOrWhiteSpace(c.Qid))
                                 {
                                     <span class="isearch-card-qid">@c.Qid</span>
+                                    <a href="https://en.wikipedia.org/wiki/Special:GoToLinkedPage/enwiki/@c.Qid"
+                                       target="_blank" rel="noopener"
+                                       class="isearch-card-wiki"
+                                       title="View on Wikipedia"
+                                       @onclick:stopPropagation="true">
+                                        <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Style="font-size: 11px;" />
+                                        <span>Wikipedia</span>
+                                    </a>
                                 }
                                 @if (c.Confidence > 0)
                                 {
@@ -279,6 +287,14 @@ else
                                 @if (!string.IsNullOrWhiteSpace(c.Qid))
                                 {
                                     <span class="isearch-card-qid">@c.Qid</span>
+                                    <a href="https://en.wikipedia.org/wiki/Special:GoToLinkedPage/enwiki/@c.Qid"
+                                       target="_blank" rel="noopener"
+                                       class="isearch-card-wiki"
+                                       title="View on Wikipedia"
+                                       @onclick:stopPropagation="true">
+                                        <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Style="font-size: 11px;" />
+                                        <span>Wikipedia</span>
+                                    </a>
                                 }
                                 @if (c.Confidence > 0)
                                 {
@@ -835,6 +851,21 @@ else
         font-weight: 500;
         color: rgba(201, 146, 46, 0.70);
         font-variant-numeric: tabular-nums;
+    }
+
+    .isearch-card-wiki {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        font-size: 10px;
+        font-weight: 500;
+        color: rgba(74, 144, 217, 0.60);
+        text-decoration: none;
+        transition: color 0.15s ease;
+    }
+
+    .isearch-card-wiki:hover {
+        color: rgba(74, 144, 217, 0.90);
     }
 
     .isearch-card-conf {
