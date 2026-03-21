@@ -9,7 +9,7 @@
 @if (Item is null)
 {
     <div class="inspector-empty">
-        <MudIcon Icon="@Icons.Material.Outlined.Info" Style="font-size: 32px; color: rgba(255,255,255,0.12); margin-bottom: 10px;" />
+        <MudIcon Icon="@Icons.Material.Outlined.Info" Style="font-size: 32px; color: rgba(140,120,180,0.18); margin-bottom: 10px;" />
         <span class="inspector-empty-text">Select an item to inspect</span>
     </div>
 }
@@ -29,7 +29,7 @@ else
             <span class="inspector-section-label">FROM YOUR FILE</span>
 
             <div class="inspector-file-row">
-                <!-- Cover thumbnail -->
+                <!-- Cover thumbnail with hover-peek -->
                 <div class="inspector-cover-wrap">
                     @if (!string.IsNullOrEmpty(Item.CoverUrl))
                     {
@@ -37,14 +37,15 @@ else
                              onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='flex')" />
                         <div class="inspector-cover inspector-cover--placeholder" style="display: none;">
                             <MudIcon Icon="@Icons.Material.Outlined.Image"
-                                     Style="font-size: 18px; color: rgba(255,255,255,0.18);" />
+                                     Style="font-size: 18px; color: rgba(200,190,220,0.18);" />
                         </div>
+                        <img src="@Item.CoverUrl" class="inspector-cover-peek" alt="" />
                     }
                     else
                     {
                         <div class="inspector-cover inspector-cover--placeholder">
                             <MudIcon Icon="@Icons.Material.Outlined.Image"
-                                     Style="font-size: 18px; color: rgba(255,255,255,0.18);" />
+                                     Style="font-size: 18px; color: rgba(200,190,220,0.18);" />
                         </div>
                     }
                 </div>
@@ -58,7 +59,7 @@ else
                     }
                     <div class="inspector-type-row">
                         <MudIcon Icon="@RegistryHelpers.GetMediaTypeIcon(Item.MediaType)"
-                                 Style="font-size: 13px; color: rgba(255,255,255,0.40);" />
+                                 Style="font-size: 13px; color: rgba(200,190,220,0.40);" />
                         <span class="inspector-format-label">@RegistryHelpers.FormatMediaType(Item.MediaType)</span>
                     </div>
                 </div>
@@ -118,23 +119,57 @@ else
                     <span class="inspector-provenance">Matched via @Item.MatchMethod</span>
                 }
             </div>
+
+            <!-- Wikipedia + Wikidata external links -->
+            <div class="inspector-ext-links">
+                <a href="https://www.wikidata.org/wiki/@Item.WikidataQid" target="_blank" rel="noopener"
+                   class="inspector-ext-link">
+                    <MudIcon Icon="@Icons.Material.Outlined.Launch" Style="font-size: 12px;" />
+                    Wikidata (@Item.WikidataQid)
+                </a>
+                <a href="https://en.wikipedia.org/wiki/Special:GoToLinkedPage/enwiki/@Item.WikidataQid" target="_blank" rel="noopener"
+                   class="inspector-ext-link">
+                    <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Style="font-size: 12px;" />
+                    Wikipedia
+                </a>
+            </div>
         }
 
-        <!-- Wikidata search + candidates + actions (F6) -->
-        <InspectorSearchSection Item="Item"
-                                OnRegistered="HandleRegistered"
-                                OnSkipped="HandleSkipped"
-                                OnMarkedProvisional="HandleProvisional" />
+        <!-- Inspector tab toggle -->
+        <div class="inspector-tabs">
+            <button class="inspector-tab @(_inspectorTab == "resolve" ? "inspector-tab--active" : "")"
+                    @onclick='() => _inspectorTab = "resolve"'>Resolve</button>
+            <button class="inspector-tab @(_inspectorTab == "history" ? "inspector-tab--active" : "")"
+                    @onclick='() => _inspectorTab = "history"'>History</button>
+            <button class="inspector-tab @(_inspectorTab == "metadata" ? "inspector-tab--active" : "")"
+                    @onclick='() => _inspectorTab = "metadata"'>Metadata</button>
+        </div>
 
-        <!-- Collapsible sections -->
-        @if (_reports.Count > 0)
+        <!-- Tab content -->
+        @if (_inspectorTab == "resolve")
         {
-            <InspectorReportSection Reports="_reports" Loading="_reportsLoading"
-                                     OnResolve="HandleResolveReport"
-                                     OnDismiss="HandleDismissReport" />
+            <!-- Wikidata search + candidates + actions -->
+            <InspectorSearchSection Item="Item"
+                                    OnRegistered="HandleRegistered"
+                                    OnMarkedProvisional="HandleProvisional"
+                                    OnRejected="HandleRejected" />
+
+            <!-- Report section (always shown in resolve tab when present) -->
+            @if (_reports.Count > 0)
+            {
+                <InspectorReportSection Reports="_reports" Loading="_reportsLoading"
+                                         OnResolve="HandleResolveReport"
+                                         OnDismiss="HandleDismissReport" />
+            }
         }
-        <InspectorHistorySection History="_history" Loading="_historyLoading" />
-        <InspectorMetadataSection Fields="_fields" Loading="_fieldsLoading" />
+        else if (_inspectorTab == "history")
+        {
+            <InspectorHistorySection History="_history" Loading="_historyLoading" />
+        }
+        else if (_inspectorTab == "metadata")
+        {
+            <InspectorMetadataSection Fields="_fields" Loading="_fieldsLoading" />
+        }
 
     </div>
 }
@@ -151,6 +186,7 @@ else
     private bool                          _fieldsLoading;
     private bool                          _reportsLoading;
     private Guid?                         _loadedEntityId;
+    private string                        _inspectorTab  = "resolve";
 
     protected override async Task OnParametersSetAsync()
     {
@@ -158,6 +194,7 @@ else
             return;
 
         _loadedEntityId = Item.EntityId;
+        _inspectorTab   = "resolve"; // Reset to resolve tab on new item
         _historyLoading = true;
         _fieldsLoading  = true;
         _reportsLoading = true;
@@ -199,8 +236,8 @@ else
         await OnItemChanged.InvokeAsync();
     }
 
-    private async Task HandleSkipped() => await OnItemChanged.InvokeAsync();
     private async Task HandleProvisional() => await OnItemChanged.InvokeAsync();
+    private async Task HandleRejected()    => await OnItemChanged.InvokeAsync();
 
     private async Task HandleResolveReport(long activityId)
     {
@@ -234,8 +271,8 @@ else
     .inspector-panel {
         width: 350px;
         height: 100%;
-        background: rgba(6, 6, 14, 0.95);
-        border-left: 1px solid rgba(255, 255, 255, 0.06);
+        background: rgba(12, 10, 20, 0.95);
+        border-left: 1px solid rgba(140, 120, 180, 0.1);
         backdrop-filter: blur(12px);
         overflow-y: auto;
         font-family: 'Montserrat', sans-serif;
@@ -247,8 +284,8 @@ else
     .inspector-empty {
         width: 350px;
         height: 100%;
-        background: rgba(6, 6, 14, 0.95);
-        border-left: 1px solid rgba(255, 255, 255, 0.06);
+        background: rgba(12, 10, 20, 0.95);
+        border-left: 1px solid rgba(140, 120, 180, 0.1);
         backdrop-filter: blur(12px);
         display: flex;
         flex-direction: column;
@@ -260,7 +297,7 @@ else
     .inspector-empty-text {
         font-size: 12px;
         font-weight: 400;
-        color: rgba(255, 255, 255, 0.20);
+        color: rgba(200, 190, 220, 0.20);
         letter-spacing: 0.3px;
     }
 
@@ -278,22 +315,50 @@ else
         width: 26px;
         height: 26px;
         background: transparent;
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(140, 120, 180, 0.12);
         border-radius: 4px;
         cursor: pointer;
-        color: rgba(255, 255, 255, 0.35);
+        color: rgba(200, 190, 220, 0.35);
         transition: color 0.15s ease, border-color 0.15s ease;
     }
 
     .inspector-close:hover {
-        color: rgba(255, 255, 255, 0.65);
-        border-color: rgba(255, 255, 255, 0.18);
+        color: rgba(200, 190, 220, 0.65);
+        border-color: rgba(140, 120, 180, 0.25);
+    }
+
+    /* ── Tab toggle ── */
+    .inspector-tabs {
+        padding: 8px 14px;
+        border-bottom: 1px solid rgba(140, 120, 180, 0.1);
+        display: flex;
+        gap: 2px;
+        background: #14102a;
+    }
+
+    .inspector-tab {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 11px;
+        padding: 4px 12px;
+        border-radius: 6px;
+        border: none;
+        background: transparent;
+        color: rgba(200, 190, 220, 0.35);
+        cursor: pointer;
+        font-weight: 400;
+        transition: all 0.15s ease;
+    }
+
+    .inspector-tab--active {
+        background: rgba(140, 120, 180, 0.12);
+        color: #c0b8e0;
+        font-weight: 500;
     }
 
     /* ── Generic section block ── */
     .inspector-section {
         padding: 12px 16px;
-        border-top: 1px solid rgba(255, 255, 255, 0.06);
+        border-top: 1px solid rgba(140, 120, 180, 0.1);
     }
 
     .inspector-section:first-of-type {
@@ -306,7 +371,7 @@ else
         font-weight: 600;
         letter-spacing: 1px;
         text-transform: uppercase;
-        color: rgba(255, 255, 255, 0.35);
+        color: rgba(200, 190, 220, 0.30);
         margin-bottom: 10px;
     }
 
@@ -320,6 +385,7 @@ else
 
     .inspector-cover-wrap {
         flex-shrink: 0;
+        position: relative;
     }
 
     .inspector-cover {
@@ -331,11 +397,29 @@ else
     }
 
     .inspector-cover--placeholder {
-        background: rgba(255, 255, 255, 0.03);
-        border: 1px dashed rgba(255, 255, 255, 0.15);
+        background: rgba(140, 120, 180, 0.06);
+        border: 1px dashed rgba(140, 120, 180, 0.18);
         display: flex;
         align-items: center;
         justify-content: center;
+    }
+
+    /* ── Hover-peek enlarged thumbnail ── */
+    .inspector-cover-peek {
+        display: none;
+        position: absolute;
+        left: -220px;
+        top: 0;
+        width: 200px;
+        border-radius: 8px;
+        border: 1px solid rgba(140, 120, 180, 0.2);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+        z-index: 50;
+        object-fit: contain;
+    }
+
+    .inspector-cover-wrap:hover .inspector-cover-peek {
+        display: block;
     }
 
     .inspector-file-meta {
@@ -350,7 +434,7 @@ else
     .inspector-title {
         font-size: 14px;
         font-weight: 500;
-        color: rgba(255, 255, 255, 0.88);
+        color: #e0dce8;
         line-height: 1.35;
         overflow: hidden;
         display: -webkit-box;
@@ -361,7 +445,7 @@ else
     .inspector-author {
         font-size: 12px;
         font-weight: 400;
-        color: rgba(255, 255, 255, 0.50);
+        color: rgba(200, 190, 220, 0.50);
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -377,7 +461,7 @@ else
     .inspector-format-label {
         font-size: 11px;
         font-weight: 400;
-        color: rgba(255, 255, 255, 0.38);
+        color: rgba(200, 190, 220, 0.38);
     }
 
     /* ── Chips row (state + review trigger) ── */
@@ -419,7 +503,7 @@ else
     .inspector-conf-bar-wrap {
         height: 4px;
         width: 100%;
-        background: rgba(255, 255, 255, 0.07);
+        background: rgba(140, 120, 180, 0.10);
         border-radius: 2px;
         overflow: hidden;
     }
@@ -456,8 +540,30 @@ else
         display: block;
         font-size: 11px;
         font-weight: 400;
-        color: rgba(255, 255, 255, 0.30);
+        color: rgba(200, 190, 220, 0.30);
         font-style: italic;
     }
 
+    /* ── External links (Wikipedia / Wikidata) ── */
+    .inspector-ext-links {
+        display: flex;
+        gap: 12px;
+        padding: 8px 16px;
+        border-top: 1px solid rgba(140, 120, 180, 0.08);
+    }
+
+    .inspector-ext-link {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 11px;
+        font-weight: 500;
+        color: rgba(133, 183, 235, 0.7);
+        text-decoration: none;
+        transition: color 0.15s ease;
+    }
+
+    .inspector-ext-link:hover {
+        color: rgba(133, 183, 235, 0.9);
+    }
 </style>
