@@ -218,6 +218,28 @@ public static class SystemActionType
     /// <c>RejectedFileCleanupService</c>.
     /// </summary>
     public const string FileExpired = "FileExpired";
+
+    // ── Ingestion Batches ──────────────────────────────────────────────────
+
+    /// <summary>An ingestion batch was created when the engine began processing a queue of files.</summary>
+    public const string BatchCreated = "BatchCreated";
+
+    /// <summary>An ingestion batch completed — all queued files reached a terminal state.</summary>
+    public const string BatchCompleted = "BatchCompleted";
+
+    /// <summary>An ingestion batch failed — processing was interrupted or could not complete.</summary>
+    public const string BatchFailed = "BatchFailed";
+
+    // ── User Problem Reports ───────────────────────────────────────────────
+
+    /// <summary>A user submitted a problem report on a Library item.</summary>
+    public const string UserReportSubmitted = "UserReportSubmitted";
+
+    /// <summary>A curator resolved a user problem report.</summary>
+    public const string UserReportResolved = "UserReportResolved";
+
+    /// <summary>A curator dismissed a user problem report without action.</summary>
+    public const string UserReportDismissed = "UserReportDismissed";
 }
 
 

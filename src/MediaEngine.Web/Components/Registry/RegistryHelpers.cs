@@ -1,3 +1,4 @@
+using System.IO;
 using MediaEngine.Web.Models.ViewDTOs;
 using MudBlazor;
 
@@ -132,4 +133,129 @@ public static class RegistryHelpers
         var b = Convert.ToInt32(hex[4..6], 16);
         return $"rgba({r},{g},{b},{alpha})";
     }
+
+    // ── Four-State Colors (Registry Overhaul spec) ────────────────────────
+
+    /// <summary>Returns the hex color for the four-state model: Registered (#5DCAA5), Review (#EF9F27), NoMatch (#B4B2A9), Failed (#EF5350).</summary>
+    public static string GetStateColor(string state) => state switch
+    {
+        "Registered" => "#5DCAA5",
+        "Review" or "NeedsReview" => "#EF9F27",
+        "NoMatch" => "#B4B2A9",
+        "Failed" => "#EF5350",
+        _ => "#B4B2A9",
+    };
+
+    /// <summary>Returns a CSS style for a state-colored left border (3px solid).</summary>
+    public static string GetStateBorderStyle(string state) =>
+        $"border-left: 3px solid {GetStateColor(state)};";
+
+    /// <summary>Returns the label text for a four-state badge.</summary>
+    public static string GetStateLabel(string state) => state switch
+    {
+        "Registered" => "Registered",
+        "Review" or "NeedsReview" => "Review",
+        "NoMatch" => "No Match",
+        "Failed" => "Failed",
+        _ => state,
+    };
+
+    /// <summary>Returns the icon for a four-state badge.</summary>
+    public static string GetStateIcon(string state) => state switch
+    {
+        "Registered" => Icons.Material.Outlined.CheckCircle,
+        "Review" or "NeedsReview" => Icons.Material.Outlined.RateReview,
+        "NoMatch" => Icons.Material.Outlined.HelpOutline,
+        "Failed" => Icons.Material.Outlined.Error,
+        _ => Icons.Material.Outlined.Circle,
+    };
+
+    // ── Timeline Event Helpers ──────────────────────────────────────────────
+
+    /// <summary>
+    /// Formats a day group label for the Timeline view: "TODAY", "YESTERDAY", or day name.
+    /// </summary>
+    public static string FormatTimelineDayGroup(DateTimeOffset timestamp)
+    {
+        var local = timestamp.ToLocalTime();
+        var today = DateTimeOffset.Now.Date;
+
+        if (local.Date == today) return "TODAY";
+        if (local.Date == today.AddDays(-1)) return "YESTERDAY";
+        if ((today - local.Date).TotalDays < 7) return local.ToString("dddd").ToUpperInvariant();
+        return local.ToString("MMMM d").ToUpperInvariant();
+    }
+
+    // ── Batch Friendly Timestamps ──────────────────────────────────────────
+
+    /// <summary>
+    /// Formats a batch timestamp into a human-friendly label per the Registry spec:
+    /// "Just now", "This afternoon", "Yesterday evening", "Tuesday, 3:42 PM", "March 18, 3:42 PM".
+    /// </summary>
+    public static string FormatBatchTimestamp(DateTimeOffset timestamp)
+    {
+        var now = DateTimeOffset.Now;
+        var local = timestamp.ToLocalTime();
+        var diff = now - local;
+
+        // Within the last 2 minutes
+        if (diff.TotalMinutes < 2)
+            return "Just now";
+
+        // Today
+        if (local.Date == now.Date)
+        {
+            var period = GetDayPeriod(local);
+            return $"This {period}";
+        }
+
+        // Yesterday
+        if (local.Date == now.Date.AddDays(-1))
+        {
+            var period = GetDayPeriod(local);
+            return $"Yesterday {period}";
+        }
+
+        // Within past 7 days — use day name
+        if (diff.TotalDays < 7)
+            return $"{local:dddd}, {local:h:mm tt}";
+
+        // Older — use month + day
+        return $"{local:MMMM d}, {local:h:mm tt}";
+    }
+
+    /// <summary>
+    /// Formats a batch subtitle: "{count} items added to {category}".
+    /// </summary>
+    public static string FormatBatchSubtitle(int filesTotal, string? category, string? sourcePath)
+    {
+        var countText = filesTotal == 1 ? "1 item" : $"{filesTotal:N0} items";
+        if (!string.IsNullOrWhiteSpace(category))
+            return $"{countText} added to {category}";
+        if (!string.IsNullOrWhiteSpace(sourcePath))
+            return $"{countText} from {Path.GetFileName(sourcePath)}";
+        return $"{countText} processed";
+    }
+
+    /// <summary>
+    /// Formats a batch processing duration into a compact string: "14m", "2h 5m", "45s".
+    /// </summary>
+    public static string FormatBatchDuration(DateTimeOffset started, DateTimeOffset? completed)
+    {
+        if (completed is null) return "in progress";
+        var span = completed.Value - started;
+        return span switch
+        {
+            { TotalSeconds: < 60 } => $"{(int)span.TotalSeconds}s",
+            { TotalMinutes: < 60 } => $"{(int)span.TotalMinutes}m",
+            _ => $"{(int)span.TotalHours}h {span.Minutes}m"
+        };
+    }
+
+    private static string GetDayPeriod(DateTimeOffset dt) => dt.Hour switch
+    {
+        < 12 => "morning",
+        < 17 => "afternoon",
+        _ => "evening"
+    };
 }

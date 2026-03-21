@@ -319,3 +319,71 @@ public sealed class RegistryItemHistoryDto
     [JsonPropertyName("detail")]
     public string? Detail { get; set; }
 }
+
+/// <summary>Four-state counts for the Registry overhaul filter tabs.</summary>
+public sealed class RegistryFourStateCountsDto
+{
+    [JsonPropertyName("registered")]
+    public int Registered { get; set; }
+
+    [JsonPropertyName("needs_review")]
+    public int NeedsReview { get; set; }
+
+    [JsonPropertyName("no_match")]
+    public int NoMatch { get; set; }
+
+    [JsonPropertyName("failed")]
+    public int Failed { get; set; }
+
+    [JsonPropertyName("trigger_counts")]
+    public Dictionary<string, int> TriggerCounts { get; set; } = [];
+
+    /// <summary>Convenience: total across all four states.</summary>
+    public int All => Registered + NeedsReview + NoMatch + Failed;
+
+    /// <summary>Alias for NeedsReview — used by filter bar tab display.</summary>
+    public int Review => NeedsReview;
+}
+
+/// <summary>Dashboard view model for an ingestion batch.</summary>
+public sealed class IngestionBatchViewModel
+{
+    [JsonPropertyName("id")]
+    public Guid Id { get; set; }
+
+    [JsonPropertyName("status")]
+    public string Status { get; set; } = "";
+
+    [JsonPropertyName("source_path")]
+    public string? SourcePath { get; set; }
+
+    [JsonPropertyName("category")]
+    public string? Category { get; set; }
+
+    [JsonPropertyName("files_total")]
+    public int FilesTotal { get; set; }
+
+    [JsonPropertyName("files_processed")]
+    public int FilesProcessed { get; set; }
+
+    [JsonPropertyName("files_registered")]
+    public int FilesRegistered { get; set; }
+
+    [JsonPropertyName("files_review")]
+    public int FilesReview { get; set; }
+
+    [JsonPropertyName("files_no_match")]
+    public int FilesNoMatch { get; set; }
+
+    [JsonPropertyName("files_failed")]
+    public int FilesFailed { get; set; }
+
+    [JsonPropertyName("started_at")]
+    public DateTimeOffset StartedAt { get; set; }
+
+    [JsonPropertyName("completed_at")]
+    public DateTimeOffset? CompletedAt { get; set; }
+
+    [JsonPropertyName("created_at")]
+    public DateTimeOffset CreatedAt { get; set; }
+}

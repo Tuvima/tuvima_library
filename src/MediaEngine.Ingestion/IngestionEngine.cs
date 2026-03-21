@@ -104,6 +104,9 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     // Per-file ingestion lifecycle log — tracks each file from detection to completion.
     private readonly IIngestionLogRepository _ingestionLog;
 
+    // Ingestion batch repository — tracks batches of files through the pipeline.
+    private readonly IIngestionBatchRepository _batchRepo;
+
     // Centralized concurrency guard (Principle 5: formalized lock hierarchy).
     // Replaces inline ConcurrentDictionary<string, SemaphoreSlim> instances.
     // Lock order: folder → hash (see ConcurrencyGuard doc for full hierarchy).
@@ -134,7 +137,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         IHeroBannerGenerator       heroGenerator,
         IIngestionHintCache        hintCache,
         IOrganizationGate          gate,
-        IIngestionLogRepository    ingestionLog)
+        IIngestionLogRepository    ingestionLog,
+        IIngestionBatchRepository  batchRepo)
     {
         _watcher        = watcher;
         _debounce       = debounce;
@@ -160,6 +164,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         _hintCache      = hintCache;
         _gate           = gate;
         _ingestionLog   = ingestionLog;
+        _batchRepo      = batchRepo;
     }
 
     // =========================================================================
@@ -358,6 +363,10 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         // can be grouped into a single consolidated card in the Dashboard.
         var ingestionRunId = Guid.NewGuid();
 
+        // Batch tracking: propagate batch ID and track the final outcome.
+        var batchId      = candidate.BatchId;
+        var batchOutcome = "failed"; // assume worst — overridden on success paths
+
         // Step 2: skip failed probe candidates.
         if (candidate.IsFailed)
         {
@@ -550,6 +559,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 candidate.Path,
                 $"Corrupt: {result.CorruptReason}",
                 DateTimeOffset.UtcNow), ct).ConfigureAwait(false);
+            await UpdateBatchCounterAsync(batchId, "failed", ct).ConfigureAwait(false);
             return;
         }
 
@@ -985,6 +995,10 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             catch (Exception ex) { _logger.LogDebug(ex, "Ingestion log update failed — continuing"); }
         }
 
+        // Batch outcome: determine whether this file is "registered" or "review".
+        // Corrupt and insert-failed paths keep batchOutcome = "failed" (the default set at the top).
+        batchOutcome = gateResult.ReviewTrigger is not null ? "review" : "registered";
+
         // Phase 9→Pipeline: enqueue non-blocking three-stage hydration pipeline.
         // IMPORTANT: placed AFTER the organization gate so that any LowConfidence review
         // item created above already exists in the database before the hydration pipeline's
@@ -1316,6 +1330,9 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             _concurrencyGuard.ReleaseHashLock(hash.Hex);
         }
 
+        // Update batch counters with the final outcome.
+        await UpdateBatchCounterAsync(batchId, batchOutcome, ct).ConfigureAwait(false);
+
         // end of ProcessCandidateCoreAsync
     }
 
@@ -1477,6 +1494,9 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             ? SearchOption.AllDirectories
             : SearchOption.TopDirectoryOnly;
 
+        // Create an ingestion batch for this scan.
+        var batchId = Guid.NewGuid();
+
         int count = 0;
         try
         {
@@ -1499,6 +1519,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                     Path       = filePath,
                     EventType  = FileEventType.Created,
                     OccurredAt = DateTimeOffset.UtcNow,
+                    BatchId    = batchId,
                 });
                 count++;
             }
@@ -1514,6 +1535,36 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             _logger.LogInformation(
                 "Initial scan: enqueued {Count} existing file(s) from {Dir}",
                 count, directory);
+
+        if (count > 0)
+        {
+            try
+            {
+                _batchRepo.CreateAsync(new Domain.Entities.IngestionBatch
+                {
+                    Id         = batchId,
+                    Status     = "running",
+                    SourcePath = directory,
+                    FilesTotal = count,
+                }).GetAwaiter().GetResult(); // Sync context — ScanExistingFiles is void
+
+                _activityRepo.LogAsync(new Domain.Entities.SystemActivityEntry
+                {
+                    ActionType     = Domain.Enums.SystemActionType.BatchCreated,
+                    EntityType     = "Batch",
+                    EntityId       = batchId,
+                    Detail         = $"Ingestion batch created: {count} file(s) from {Path.GetFileName(directory)}",
+                    ChangesJson    = System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        files_total = count,
+                        source_path = directory,
+                        source_name = Path.GetFileName(directory),
+                    }),
+                    IngestionRunId = batchId,
+                }).GetAwaiter().GetResult();
+            }
+            catch (Exception ex) { _logger.LogWarning(ex, "Failed to create ingestion batch record"); }
+        }
     }
 
     // =========================================================================
@@ -2317,6 +2368,58 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         catch (Exception ex)
         {
             _logger.LogDebug(ex, "Event publish failed for '{Event}' — pipeline continues", eventName);
+        }
+    }
+
+    /// <summary>
+    /// Increments the appropriate counter on the ingestion batch and checks
+    /// whether all files in the batch have been processed.
+    /// </summary>
+    private async Task UpdateBatchCounterAsync(
+        Guid? batchId, string outcome, CancellationToken ct)
+    {
+        if (batchId is null) return;
+        try
+        {
+            var batch = await _batchRepo.GetByIdAsync(batchId.Value, ct).ConfigureAwait(false);
+            if (batch is null) return;
+
+            // Increment the appropriate counter based on outcome.
+            var registered = batch.FilesRegistered + (outcome == "registered" ? 1 : 0);
+            var review     = batch.FilesReview     + (outcome == "review"     ? 1 : 0);
+            var noMatch    = batch.FilesNoMatch    + (outcome == "nomatch"    ? 1 : 0);
+            var failed     = batch.FilesFailed     + (outcome == "failed"     ? 1 : 0);
+            var processed  = registered + review + noMatch + failed;
+
+            await _batchRepo.UpdateCountsAsync(
+                batchId.Value, batch.FilesTotal, processed,
+                registered, review, noMatch, failed, ct).ConfigureAwait(false);
+
+            // Check if batch is complete.
+            if (processed >= batch.FilesTotal)
+            {
+                await _batchRepo.CompleteAsync(batchId.Value, "completed", ct).ConfigureAwait(false);
+                await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
+                {
+                    ActionType     = Domain.Enums.SystemActionType.BatchCompleted,
+                    EntityType     = "Batch",
+                    EntityId       = batchId,
+                    Detail         = $"Ingestion batch completed: {registered} registered, {review} review, {noMatch} no match, {failed} failed",
+                    ChangesJson    = System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        files_total      = batch.FilesTotal,
+                        files_registered = registered,
+                        files_review     = review,
+                        files_no_match   = noMatch,
+                        files_failed     = failed,
+                    }),
+                    IngestionRunId = batchId,
+                }, ct).ConfigureAwait(false);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Batch counter update failed for {BatchId}", batchId);
         }
     }
 

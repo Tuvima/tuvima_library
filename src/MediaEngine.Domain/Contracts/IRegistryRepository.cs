@@ -26,7 +26,24 @@ public interface IRegistryRepository
     /// Returns counts for each status category (All, Review, Auto, Edited, Duplicate).
     /// </summary>
     Task<RegistryStatusCounts> GetStatusCountsAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns counts for the four spec states (Registered, NeedsReview, NoMatch, Failed)
+    /// plus a per-trigger breakdown within NeedsReview. Optionally scoped to a single batch.
+    /// </summary>
+    Task<RegistryFourStateCounts> GetFourStateCountsAsync(Guid? batchId = null, CancellationToken ct = default);
 }
+
+/// <summary>
+/// Four-state counts for the Registry overhaul: Registered, NeedsReview, NoMatch, Failed.
+/// Includes per-trigger breakdown within NeedsReview (e.g. "LowConfidence" → 25).
+/// </summary>
+public sealed record RegistryFourStateCounts(
+    [property: JsonPropertyName("registered")]    int Registered,
+    [property: JsonPropertyName("needs_review")]  int NeedsReview,
+    [property: JsonPropertyName("no_match")]      int NoMatch,
+    [property: JsonPropertyName("failed")]        int Failed,
+    [property: JsonPropertyName("trigger_counts")] IReadOnlyDictionary<string, int> TriggerCounts);
 
 /// <summary>Counts for status tab badges.</summary>
 public sealed record RegistryStatusCounts(

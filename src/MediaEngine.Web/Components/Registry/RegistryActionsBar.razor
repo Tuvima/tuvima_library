@@ -1,0 +1,188 @@
+@using MudBlazor
+
+<div class="rab-container">
+
+    @* ── Auto-register slider ── *@
+    <div class="rab-auto-section">
+        <button class="rab-auto-btn" @onclick="OnAutoRegister"
+                disabled="@(Processing || EligibleCount == 0)">
+            @if (Processing)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true"
+                                     Style="width: 12px; height: 12px; color: rgba(93,202,165,0.6);" />
+            }
+            else
+            {
+                <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Style="font-size: 13px;" />
+            }
+            <span>Auto-register above</span>
+        </button>
+        <div class="rab-slider-wrap">
+            <input type="range" class="rab-slider" min="60" max="100" step="5"
+                   value="@ThresholdPct" @onchange="HandleSliderChange" />
+            <span class="rab-slider-value">@((ThresholdPct / 100.0).ToString("F2"))</span>
+        </div>
+        @if (EligibleCount > 0)
+        {
+            <span class="rab-eligible">@EligibleCount eligible</span>
+        }
+    </div>
+
+    @* ── Retry failed ── *@
+    @if (FailedCount > 0)
+    {
+        <button class="rab-retry-btn" @onclick="OnRetryFailed" disabled="@Processing">
+            <MudIcon Icon="@Icons.Material.Outlined.Refresh" Style="font-size: 13px;" />
+            <span>Retry failed (@FailedCount)</span>
+        </button>
+    }
+
+</div>
+
+@code {
+    [Parameter] public int ThresholdPct { get; set; } = 90;
+    [Parameter] public EventCallback<int> ThresholdPctChanged { get; set; }
+    [Parameter] public int EligibleCount { get; set; }
+    [Parameter] public int FailedCount { get; set; }
+    [Parameter] public bool Processing { get; set; }
+    [Parameter] public EventCallback OnAutoRegister { get; set; }
+    [Parameter] public EventCallback OnRetryFailed { get; set; }
+
+    private async Task HandleSliderChange(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var val))
+            await ThresholdPctChanged.InvokeAsync(val);
+    }
+}
+
+<style>
+    .rab-container {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 8px 16px;
+        background: rgba(8, 13, 30, 0.80);
+        backdrop-filter: blur(12px);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        position: sticky;
+        top: 104px;
+        z-index: 14;
+        font-family: 'Montserrat', sans-serif;
+    }
+
+    /* ── Auto-register section ── */
+    .rab-auto-section {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex: 1;
+    }
+
+    .rab-auto-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 5px 10px;
+        border-radius: 8px;
+        background: rgba(93, 202, 165, 0.08);
+        border: 1px solid rgba(93, 202, 165, 0.18);
+        color: rgba(93, 202, 165, 0.80);
+        font-family: 'Montserrat', sans-serif;
+        font-size: 11px;
+        font-weight: 500;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: background 0.15s ease, border-color 0.15s ease;
+    }
+
+    .rab-auto-btn:hover:not(:disabled) {
+        background: rgba(93, 202, 165, 0.14);
+        border-color: rgba(93, 202, 165, 0.30);
+    }
+
+    .rab-auto-btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+    }
+
+    /* ── Slider ── */
+    .rab-slider-wrap {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .rab-slider {
+        width: 80px;
+        height: 4px;
+        -webkit-appearance: none;
+        appearance: none;
+        background: rgba(255, 255, 255, 0.10);
+        border-radius: 2px;
+        outline: none;
+        cursor: pointer;
+    }
+
+    .rab-slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #5DCAA5;
+        cursor: pointer;
+        border: none;
+    }
+
+    .rab-slider::-moz-range-thumb {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #5DCAA5;
+        cursor: pointer;
+        border: none;
+    }
+
+    .rab-slider-value {
+        font-size: 11px;
+        font-weight: 500;
+        color: rgba(93, 202, 165, 0.75);
+        font-variant-numeric: tabular-nums;
+        min-width: 28px;
+    }
+
+    .rab-eligible {
+        font-size: 11px;
+        font-weight: 400;
+        color: rgba(255, 255, 255, 0.30);
+        white-space: nowrap;
+    }
+
+    /* ── Retry failed ── */
+    .rab-retry-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 5px 10px;
+        border-radius: 8px;
+        background: rgba(239, 83, 80, 0.08);
+        border: 1px solid rgba(239, 83, 80, 0.18);
+        color: rgba(239, 83, 80, 0.75);
+        font-family: 'Montserrat', sans-serif;
+        font-size: 11px;
+        font-weight: 500;
+        cursor: pointer;
+        white-space: nowrap;
+        flex-shrink: 0;
+        transition: background 0.15s ease, border-color 0.15s ease;
+    }
+
+    .rab-retry-btn:hover:not(:disabled) {
+        background: rgba(239, 83, 80, 0.14);
+        border-color: rgba(239, 83, 80, 0.30);
+    }
+
+    .rab-retry-btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+    }
+</style>

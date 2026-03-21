@@ -1,0 +1,581 @@
+@using MediaEngine.Web.Models.ViewDTOs
+@using MediaEngine.Web.Components.Registry
+@using MediaEngine.Web.Services.Integration
+@using MudBlazor
+
+@inject UIOrchestratorService Orchestrator
+
+<div class="rtl-container">
+
+    @* ── Filter chips ── *@
+    <div class="rtl-filters">
+        @foreach (var filter in _filterOptions)
+        {
+            var isActive = _activeFilter == filter.Key;
+            <button class="rtl-filter-chip @(isActive ? "rtl-filter-chip--active" : "")"
+                    style="@(isActive ? $"background: {filter.Value.Color}20; border-color: {filter.Value.Color}55; color: {filter.Value.Color};" : "")"
+                    @onclick="() => SetFilter(filter.Key)">
+                <MudIcon Icon="@filter.Value.Icon" Style="font-size: 12px;" />
+                <span>@filter.Value.Label</span>
+            </button>
+        }
+    </div>
+
+    @* ── Timeline ── *@
+    @if (_loading)
+    {
+        <div class="rtl-loading">
+            <MudProgressCircular Indeterminate="true" Size="Size.Small"
+                                 Style="width: 20px; height: 20px; color: rgba(255,255,255,0.25);" />
+        </div>
+    }
+    else if (_dayGroups.Count == 0)
+    {
+        <div class="rtl-empty">
+            <MudIcon Icon="@Icons.Material.Outlined.Timeline" Style="font-size: 32px; color: rgba(255,255,255,0.12);" />
+            <span class="rtl-empty-text">No activity yet</span>
+        </div>
+    }
+    else
+    {
+        <div class="rtl-timeline">
+            @foreach (var dayGroup in _dayGroups)
+            {
+                <div class="rtl-day-header">@dayGroup.Label</div>
+
+                @foreach (var evt in dayGroup.Events)
+                {
+                    var category = CategorizeEvent(evt);
+                    var catInfo = GetCategoryInfo(category);
+
+                    <div class="rtl-event">
+                        @* ── Dot + connector line ── *@
+                        <div class="rtl-event-rail">
+                            <div class="rtl-dot" style="background: @catInfo.Color; border-color: @(catInfo.Color)40;">
+                                <MudIcon Icon="@catInfo.Icon" Style="font-size: 10px; color: #fff;" />
+                            </div>
+                            <div class="rtl-connector"></div>
+                        </div>
+
+                        @* ── Event content ── *@
+                        <div class="rtl-event-content">
+                            <div class="rtl-event-header">
+                                <span class="rtl-event-title" style="color: @catInfo.Color;">@catInfo.Verb</span>
+                                <span class="rtl-event-time">@evt.RelativeTime</span>
+                            </div>
+
+                            @switch (category)
+                            {
+                                case EventCategory.Ingestion:
+                                    @RenderIngestionEvent(evt)
+                                    break;
+                                case EventCategory.Enrichment:
+                                    @RenderEnrichmentEvent(evt)
+                                    break;
+                                case EventCategory.Report:
+                                    @RenderReportEvent(evt)
+                                    break;
+                                case EventCategory.Curator:
+                                    @RenderCuratorEvent(evt)
+                                    break;
+                            }
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public EventCallback<Guid?> OnOpenInListView { get; set; }
+
+    private bool _loading;
+    private string _activeFilter = "all";
+    private List<ActivityEntryViewModel> _allEntries = [];
+    private List<DayGroup> _dayGroups = [];
+
+    private readonly Dictionary<string, FilterOption> _filterOptions = new()
+    {
+        ["all"]         = new("All events",       Icons.Material.Outlined.Timeline,   "rgba(255,255,255,0.55)"),
+        ["ingestion"]   = new("Ingestion",        Icons.Material.Outlined.Upload,     "#4A90D9"),
+        ["enrichment"]  = new("Universe",         Icons.Material.Outlined.Public,     "#534AB7"),
+        ["reports"]     = new("Reports",          Icons.Material.Outlined.Warning,    "#EF5350"),
+        ["curator"]     = new("Curator actions",  Icons.Material.Outlined.Verified,   "#5DCAA5"),
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        _loading = true;
+        StateHasChanged();
+
+        try
+        {
+            _allEntries = await Orchestrator.GetRecentActivityAsync(200);
+        }
+        catch { _allEntries = []; }
+
+        RebuildDayGroups();
+        _loading = false;
+    }
+
+    private void SetFilter(string filter)
+    {
+        _activeFilter = filter;
+        RebuildDayGroups();
+        StateHasChanged();
+    }
+
+    private void RebuildDayGroups()
+    {
+        var filtered = _activeFilter == "all"
+            ? _allEntries
+            : _allEntries.Where(e => CategorizeEvent(e) == ParseFilterCategory(_activeFilter)).ToList();
+
+        var now = DateTimeOffset.Now;
+        _dayGroups = filtered
+            .Where(e => DateTimeOffset.TryParse(e.OccurredAt, out _))
+            .GroupBy(e =>
+            {
+                var dt = DateTimeOffset.Parse(e.OccurredAt).LocalDateTime.Date;
+                return dt;
+            })
+            .OrderByDescending(g => g.Key)
+            .Select(g => new DayGroup
+            {
+                Label = FormatDayLabel(g.Key, now.LocalDateTime.Date),
+                Events = g.OrderByDescending(e => e.OccurredAt).ToList()
+            })
+            .ToList();
+    }
+
+    private static string FormatDayLabel(DateTime date, DateTime today)
+    {
+        if (date == today) return "TODAY";
+        if (date == today.AddDays(-1)) return "YESTERDAY";
+        if (date >= today.AddDays(-6)) return date.DayOfWeek.ToString().ToUpperInvariant();
+        return date.ToString("MMMM d").ToUpperInvariant();
+    }
+
+    // ── Event categorization ──
+
+    private enum EventCategory { Ingestion, Enrichment, Report, Curator }
+
+    private static EventCategory CategorizeEvent(ActivityEntryViewModel evt) => evt.ActionType switch
+    {
+        "FileIngested" or "MediaAdded" or "MediaFailed" or "MediaRemoved"
+            or "BatchCreated" or "BatchCompleted" or "BatchFailed"
+            or "FileDetected" or "FileHashed" or "FileProcessed" or "FileScored"
+            or "EntityChainCreated" or "CoverArtSaved" or "HeroBannerGenerated"
+            or "MovedToStaging" or "FileRejected" or "FileExpired"
+            or "HydrationEnqueued" or "HydrationStage1Completed" or "HydrationStage2Completed"
+            or "MetadataHydrated"
+            => EventCategory.Ingestion,
+
+        "CharacterEnriched" or "LocationEnriched" or "OrganizationEnriched"
+            or "RelationshipDiscovered" or "PersonHydrated" or "NarrativeRootResolved"
+            or "LoreDeltaChecked" or "CanonDiscrepancyDetected"
+            => EventCategory.Enrichment,
+
+        "UserReportSubmitted" or "UserReportResolved" or "UserReportDismissed"
+            => EventCategory.Report,
+
+        "ReviewItemResolved" or "MetadataManualOverride" or "ReviewItemCreated"
+            or "ReconciliationCompleted" or "ActivityPruned"
+            => EventCategory.Curator,
+
+        _ => EventCategory.Curator
+    };
+
+    private static EventCategory ParseFilterCategory(string filter) => filter switch
+    {
+        "ingestion"  => EventCategory.Ingestion,
+        "enrichment" => EventCategory.Enrichment,
+        "reports"    => EventCategory.Report,
+        "curator"    => EventCategory.Curator,
+        _            => EventCategory.Curator
+    };
+
+    private record CategoryInfo(string Verb, string Icon, string Color);
+
+    private CategoryInfo GetCategoryInfo(EventCategory cat) => cat switch
+    {
+        EventCategory.Ingestion  => new("Ingestion", Icons.Material.Outlined.Upload, "#4A90D9"),
+        EventCategory.Enrichment => new("Universe enrichment", Icons.Material.Outlined.Public, "#534AB7"),
+        EventCategory.Report     => new("Problem reported", Icons.Material.Outlined.Warning, "#EF5350"),
+        EventCategory.Curator    => new("Curator action", Icons.Material.Outlined.Verified, "#5DCAA5"),
+        _                        => new("Activity", Icons.Material.Outlined.Info, "rgba(255,255,255,0.5)")
+    };
+
+    // ── Render fragments ──
+
+    private RenderFragment RenderIngestionEvent(ActivityEntryViewModel evt) => __builder =>
+    {
+        var rich = evt.RichData;
+        if (rich is not null)
+        {
+            <div class="rtl-card">
+                <div class="rtl-card-row">
+                    @if (!string.IsNullOrEmpty(rich.CoverUrl ?? rich.Cover))
+                    {
+                        <img src="@(rich.CoverUrl ?? rich.Cover)" alt="" class="rtl-card-thumb" loading="lazy" />
+                    }
+                    <div class="rtl-card-meta">
+                        <span class="rtl-card-title">@(rich.Title ?? evt.HubName ?? "Unknown")</span>
+                        @if (!string.IsNullOrWhiteSpace(rich.Author))
+                        {
+                            <span class="rtl-card-sub">@rich.Author</span>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(rich.MatchMethodLabel))
+                        {
+                            <span class="rtl-card-hint">@rich.MatchMethodLabel</span>
+                        }
+                    </div>
+                </div>
+                @if (rich.NeedsReview)
+                {
+                    <div class="rtl-card-alert">
+                        <MudIcon Icon="@Icons.Material.Outlined.Warning" Style="font-size: 11px; color: #EF9F27;" />
+                        <span>Needs review</span>
+                        @if (evt.IngestionRunId is not null && Guid.TryParse(evt.IngestionRunId, out var runId))
+                        {
+                            <button class="rtl-link-btn" @onclick="() => OnOpenInListView.InvokeAsync(runId)">
+                                Open in list view
+                            </button>
+                        }
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <span class="rtl-event-detail">@(evt.Detail ?? evt.ActionType)</span>
+        }
+    };
+
+    private RenderFragment RenderEnrichmentEvent(ActivityEntryViewModel evt) => __builder =>
+    {
+        <div class="rtl-card rtl-card--enrichment">
+            <span class="rtl-card-title">@(evt.HubName ?? "Entity enriched")</span>
+            @if (!string.IsNullOrWhiteSpace(evt.Detail))
+            {
+                <span class="rtl-card-sub">@evt.Detail</span>
+            }
+            @if (!string.IsNullOrWhiteSpace(evt.EntityType))
+            {
+                <span class="rtl-card-hint">@evt.EntityType</span>
+            }
+        </div>
+    };
+
+    private RenderFragment RenderReportEvent(ActivityEntryViewModel evt) => __builder =>
+    {
+        <div class="rtl-card rtl-card--report">
+            <span class="rtl-card-title">@(evt.HubName ?? "Report")</span>
+            @if (!string.IsNullOrWhiteSpace(evt.Detail))
+            {
+                <span class="rtl-card-detail-quote">@evt.Detail</span>
+            }
+            @if (evt.EntityId is not null && Guid.TryParse(evt.EntityId, out var eid))
+            {
+                <button class="rtl-link-btn" @onclick="() => OnOpenInListView.InvokeAsync(null)">
+                    Fix match
+                </button>
+            }
+        </div>
+    };
+
+    private RenderFragment RenderCuratorEvent(ActivityEntryViewModel evt) => __builder =>
+    {
+        var review = evt.ReviewData;
+        if (review is not null)
+        {
+            <div class="rtl-card rtl-card--curator">
+                <span class="rtl-card-title">@(review.Title ?? evt.HubName ?? "Review resolved")</span>
+                @if (!string.IsNullOrWhiteSpace(review.Action))
+                {
+                    <span class="rtl-card-sub">Action: @review.Action</span>
+                }
+                @if (!string.IsNullOrWhiteSpace(review.Qid))
+                {
+                    <span class="rtl-card-hint" style="color: rgba(201,146,46,0.70);">@review.Qid</span>
+                }
+            </div>
+        }
+        else
+        {
+            <span class="rtl-event-detail">@(evt.Detail ?? evt.ActionType)</span>
+        }
+    };
+
+    // ── Data models ──
+
+    private record FilterOption(string Label, string Icon, string Color);
+
+    private sealed class DayGroup
+    {
+        public string Label { get; set; } = "";
+        public List<ActivityEntryViewModel> Events { get; set; } = [];
+    }
+}
+
+<style>
+    .rtl-container {
+        display: flex;
+        flex-direction: column;
+        padding: 16px 20px;
+        font-family: 'Montserrat', sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+    }
+
+    /* ── Filter chips ── */
+    .rtl-filters {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-bottom: 20px;
+    }
+
+    .rtl-filter-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 5px 10px;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: transparent;
+        color: rgba(255, 255, 255, 0.45);
+        font-family: 'Montserrat', sans-serif;
+        font-size: 11px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        white-space: nowrap;
+    }
+
+    .rtl-filter-chip:hover {
+        border-color: rgba(255, 255, 255, 0.18);
+        color: rgba(255, 255, 255, 0.65);
+    }
+
+    .rtl-filter-chip--active {
+        font-weight: 500;
+    }
+
+    /* ── Loading / empty ── */
+    .rtl-loading {
+        display: flex;
+        justify-content: center;
+        padding: 48px;
+    }
+
+    .rtl-empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        padding: 64px 24px;
+    }
+
+    .rtl-empty-text {
+        font-size: 13px;
+        font-weight: 400;
+        color: rgba(255, 255, 255, 0.20);
+    }
+
+    /* ── Timeline ── */
+    .rtl-timeline {
+        display: flex;
+        flex-direction: column;
+    }
+
+    /* ── Day group header ── */
+    .rtl-day-header {
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 1px;
+        color: rgba(255, 255, 255, 0.30);
+        margin: 20px 0 12px 38px;
+    }
+
+    .rtl-day-header:first-child {
+        margin-top: 0;
+    }
+
+    /* ── Event row ── */
+    .rtl-event {
+        display: flex;
+        gap: 12px;
+        min-height: 48px;
+    }
+
+    /* ── Rail (dot + connector) ── */
+    .rtl-event-rail {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 22px;
+        flex-shrink: 0;
+    }
+
+    .rtl-dot {
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        border: 2px solid;
+    }
+
+    .rtl-connector {
+        width: 1px;
+        flex: 1;
+        min-height: 12px;
+        background: rgba(255, 255, 255, 0.06);
+    }
+
+    /* ── Event content ── */
+    .rtl-event-content {
+        flex: 1;
+        min-width: 0;
+        padding-bottom: 16px;
+    }
+
+    .rtl-event-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 6px;
+    }
+
+    .rtl-event-title {
+        font-size: 12px;
+        font-weight: 500;
+    }
+
+    .rtl-event-time {
+        font-size: 11px;
+        font-weight: 300;
+        color: rgba(255, 255, 255, 0.25);
+    }
+
+    .rtl-event-detail {
+        font-size: 11px;
+        font-weight: 400;
+        color: rgba(255, 255, 255, 0.40);
+        line-height: 1.5;
+    }
+
+    /* ── Event cards ── */
+    .rtl-card {
+        background: rgba(10, 10, 18, 0.85);
+        border: 0.5px solid rgba(255, 255, 255, 0.06);
+        border-radius: 12px;
+        padding: 10px 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .rtl-card--enrichment {
+        border-left: 3px solid rgba(83, 74, 183, 0.40);
+    }
+
+    .rtl-card--report {
+        border-left: 3px solid rgba(239, 83, 80, 0.40);
+    }
+
+    .rtl-card--curator {
+        border-left: 3px solid rgba(93, 202, 165, 0.40);
+    }
+
+    .rtl-card-row {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+    }
+
+    .rtl-card-thumb {
+        width: 32px;
+        height: 46px;
+        border-radius: 3px;
+        object-fit: cover;
+        flex-shrink: 0;
+    }
+
+    .rtl-card-meta {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .rtl-card-title {
+        font-size: 13px;
+        font-weight: 500;
+        color: rgba(255, 255, 255, 0.80);
+        line-height: 1.3;
+        overflow: hidden;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+    }
+
+    .rtl-card-sub {
+        font-size: 11px;
+        font-weight: 400;
+        color: rgba(255, 255, 255, 0.40);
+    }
+
+    .rtl-card-hint {
+        font-size: 11px;
+        font-weight: 300;
+        color: rgba(255, 255, 255, 0.25);
+        font-style: italic;
+    }
+
+    .rtl-card-detail-quote {
+        font-size: 11px;
+        font-weight: 400;
+        font-style: italic;
+        color: rgba(255, 255, 255, 0.35);
+        line-height: 1.5;
+        padding-left: 8px;
+        border-left: 2px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .rtl-card-alert {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 11px;
+        font-weight: 400;
+        color: rgba(239, 159, 39, 0.75);
+        margin-top: 4px;
+    }
+
+    /* ── Link button ── */
+    .rtl-link-btn {
+        background: none;
+        border: 0.5px solid rgba(74, 144, 217, 0.35);
+        border-radius: 6px;
+        padding: 2px 8px;
+        font-family: 'Montserrat', sans-serif;
+        font-size: 10px;
+        font-weight: 500;
+        color: rgba(74, 144, 217, 0.80);
+        cursor: pointer;
+        white-space: nowrap;
+        transition: background 0.15s ease, border-color 0.15s ease;
+        margin-left: auto;
+    }
+
+    .rtl-link-btn:hover {
+        background: rgba(74, 144, 217, 0.08);
+        border-color: rgba(74, 144, 217, 0.55);
+    }
+</style>

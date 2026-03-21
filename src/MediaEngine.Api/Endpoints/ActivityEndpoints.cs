@@ -92,6 +92,26 @@ public static class ActivityEndpoints
         .Produces(StatusCodes.Status400BadRequest)
         .RequireAdmin();
 
+        // GET /activity/by-types?types=BatchCreated,BatchCompleted&limit=50
+        // Returns recent entries filtered by action types — used by Timeline view.
+        group.MapGet("/by-types", async (
+            ISystemActivityRepository repo,
+            string? types,
+            int? limit) =>
+        {
+            var typeList = string.IsNullOrWhiteSpace(types)
+                ? Array.Empty<string>()
+                : types.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+            var entries = await repo.GetRecentByTypesAsync(typeList, limit ?? 50);
+            var response = entries.Select(MapEntry).ToList();
+            return Results.Ok(response);
+        })
+        .WithName("GetActivityByTypes")
+        .WithSummary("Returns recent activity entries filtered by one or more action types (comma-separated).")
+        .Produces<List<ActivityEntryResponse>>(StatusCodes.Status200OK)
+        .RequireAdminOrCurator();
+
         // GET /activity/run/{runId} — returns all entries for a specific ingestion run.
         group.MapGet("/run/{runId:guid}", async (
             ISystemActivityRepository repo,

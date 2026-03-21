@@ -35,6 +35,7 @@ public sealed class EndToEndIngestionTests : IDisposable
     private readonly IReviewQueueRepository _reviewRepo;
     private readonly ISystemActivityRepository _activityRepo;
     private readonly IIngestionLogRepository _ingestionLog;
+    private readonly IIngestionBatchRepository _batchRepo;
     private readonly IMediaEntityChainFactory _chainFactory;
     private readonly IScoringEngine _scorer;
 
@@ -67,6 +68,7 @@ public sealed class EndToEndIngestionTests : IDisposable
         _reviewRepo = new ReviewQueueRepository(db);
         _activityRepo = new SystemActivityRepository(db);
         _ingestionLog = new IngestionLogRepository(db);
+        _batchRepo    = new IngestionBatchRepository(db);
         _chainFactory = new MediaEntityChainFactory(db);
 
         // Priority cascade engine — Wikidata wins, then highest-confidence retail.
@@ -141,7 +143,8 @@ public sealed class EndToEndIngestionTests : IDisposable
             _heroGenerator,
             new MediaEngine.Ingestion.Services.IngestionHintCache(),
             new MediaEngine.Ingestion.OrganizationGate(),
-            _ingestionLog);
+            _ingestionLog,
+            _batchRepo);
 
         // Run the engine with a timeout. The engine will:
         // 1. Run reconciliation (stub — no-op)

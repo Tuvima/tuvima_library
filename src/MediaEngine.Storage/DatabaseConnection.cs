@@ -954,6 +954,32 @@ public sealed class DatabaseConnection : IDatabaseConnection
             }
         }
 
+        // ── M-051: Ingestion batches — groups files into processing runs ────
+        {
+            using var m051 = conn.CreateCommand();
+            m051.CommandText = """
+                CREATE TABLE IF NOT EXISTS ingestion_batches (
+                    id                TEXT NOT NULL PRIMARY KEY,
+                    status            TEXT NOT NULL DEFAULT 'running',
+                    source_path       TEXT,
+                    category          TEXT,
+                    files_total       INTEGER NOT NULL DEFAULT 0,
+                    files_processed   INTEGER NOT NULL DEFAULT 0,
+                    files_registered  INTEGER NOT NULL DEFAULT 0,
+                    files_review      INTEGER NOT NULL DEFAULT 0,
+                    files_no_match    INTEGER NOT NULL DEFAULT 0,
+                    files_failed      INTEGER NOT NULL DEFAULT 0,
+                    started_at        TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+                    completed_at      TEXT,
+                    created_at        TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+                    updated_at        TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+                );
+                CREATE INDEX IF NOT EXISTS idx_ingestion_batches_status ON ingestion_batches(status);
+                CREATE INDEX IF NOT EXISTS idx_ingestion_batches_created ON ingestion_batches(created_at);
+                """;
+            m051.ExecuteNonQuery();
+        }
+
         // Seed S-001: provider_registry entries for all known providers.
         // metadata_claims.provider_id has a FK to provider_registry(id), so these
         // rows MUST exist before any claim is written.  INSERT OR IGNORE makes this

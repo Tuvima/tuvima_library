@@ -1,0 +1,224 @@
+@using MediaEngine.Web.Models.ViewDTOs
+@using MudBlazor
+
+<div class="irpt-section">
+    <button class="irpt-toggle" @onclick="() => _expanded = !_expanded">
+        <MudIcon Icon="@(_expanded ? Icons.Material.Outlined.ExpandLess : Icons.Material.Outlined.ExpandMore)"
+                 Style="font-size: 14px; color: rgba(255,255,255,0.30);" />
+        <span class="irpt-label">REPORTS (@Reports.Count)</span>
+        <span class="irpt-badge" style="background: rgba(239,83,80,0.15); color: #EF5350;">@Reports.Count</span>
+    </button>
+
+    @if (_expanded)
+    {
+        @if (Loading)
+        {
+            <div class="irpt-loading">
+                <MudProgressCircular Size="Size.Small" Indeterminate="true"
+                                     Style="width: 16px; height: 16px; color: rgba(255,255,255,0.2);" />
+            </div>
+        }
+        else if (Reports.Count == 0)
+        {
+            <span class="irpt-empty">No reports for this item</span>
+        }
+        else
+        {
+            <div class="irpt-list">
+                @foreach (var report in Reports)
+                {
+                    <div class="irpt-card">
+                        <div class="irpt-card-header">
+                            <span class="irpt-category">@report.Category</span>
+                            <span class="irpt-time">@FormatTime(report.OccurredAt)</span>
+                        </div>
+                        @if (!string.IsNullOrWhiteSpace(report.Note))
+                        {
+                            <span class="irpt-note">"@report.Note"</span>
+                        }
+                        <div class="irpt-card-footer">
+                            <span class="irpt-reporter">@report.ReporterName</span>
+                            <div class="irpt-actions">
+                                <button class="irpt-action-btn irpt-action-btn--resolve"
+                                        @onclick="() => OnResolve.InvokeAsync(report.Id)">
+                                    Resolve
+                                </button>
+                                <button class="irpt-action-btn irpt-action-btn--dismiss"
+                                        @onclick="() => OnDismiss.InvokeAsync(report.Id)">
+                                    Dismiss
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public List<ReportEntryDto> Reports { get; set; } = [];
+    [Parameter] public bool Loading { get; set; }
+    [Parameter] public EventCallback<long> OnResolve { get; set; }
+    [Parameter] public EventCallback<long> OnDismiss { get; set; }
+
+    private bool _expanded;
+
+    private static string FormatTime(string occurredAt)
+    {
+        if (DateTimeOffset.TryParse(occurredAt, out var dt))
+        {
+            var diff = DateTimeOffset.Now - dt;
+            if (diff.TotalMinutes < 60) return $"{(int)diff.TotalMinutes}m ago";
+            if (diff.TotalHours < 24) return $"{(int)diff.TotalHours}h ago";
+            return $"{(int)diff.TotalDays}d ago";
+        }
+        return occurredAt;
+    }
+}
+
+<style>
+    .irpt-section {
+        border-top: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .irpt-toggle {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        width: 100%;
+        padding: 10px 16px;
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        font-family: 'Montserrat', sans-serif;
+        transition: background 0.12s ease;
+    }
+
+    .irpt-toggle:hover {
+        background: rgba(255, 255, 255, 0.02);
+    }
+
+    .irpt-label {
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 1px;
+        color: rgba(255, 255, 255, 0.35);
+        text-transform: uppercase;
+        flex: 1;
+        text-align: left;
+    }
+
+    .irpt-badge {
+        font-size: 10px;
+        font-weight: 600;
+        padding: 1px 6px;
+        border-radius: 8px;
+    }
+
+    .irpt-loading {
+        display: flex;
+        justify-content: center;
+        padding: 16px;
+    }
+
+    .irpt-empty {
+        display: block;
+        padding: 8px 16px 12px;
+        font-size: 11px;
+        font-weight: 400;
+        color: rgba(255, 255, 255, 0.20);
+        font-style: italic;
+    }
+
+    .irpt-list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding: 0 16px 12px;
+    }
+
+    .irpt-card {
+        background: rgba(239, 83, 80, 0.04);
+        border: 0.5px solid rgba(239, 83, 80, 0.12);
+        border-radius: 8px;
+        padding: 8px 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .irpt-card-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .irpt-category {
+        font-size: 11px;
+        font-weight: 500;
+        color: rgba(239, 83, 80, 0.80);
+    }
+
+    .irpt-time {
+        font-size: 10px;
+        font-weight: 300;
+        color: rgba(255, 255, 255, 0.25);
+    }
+
+    .irpt-note {
+        font-size: 11px;
+        font-weight: 400;
+        font-style: italic;
+        color: rgba(255, 255, 255, 0.35);
+        line-height: 1.4;
+    }
+
+    .irpt-card-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-top: 2px;
+    }
+
+    .irpt-reporter {
+        font-size: 10px;
+        font-weight: 400;
+        color: rgba(255, 255, 255, 0.20);
+    }
+
+    .irpt-actions {
+        display: flex;
+        gap: 8px;
+    }
+
+    .irpt-action-btn {
+        background: transparent;
+        border: none;
+        font-family: 'Montserrat', sans-serif;
+        font-size: 10px;
+        font-weight: 500;
+        cursor: pointer;
+        padding: 0;
+        text-decoration: underline;
+        transition: color 0.12s ease;
+    }
+
+    .irpt-action-btn--resolve {
+        color: rgba(93, 202, 165, 0.65);
+        text-decoration-color: rgba(93, 202, 165, 0.25);
+    }
+
+    .irpt-action-btn--resolve:hover {
+        color: rgba(93, 202, 165, 0.90);
+    }
+
+    .irpt-action-btn--dismiss {
+        color: rgba(255, 255, 255, 0.30);
+        text-decoration-color: rgba(255, 255, 255, 0.12);
+    }
+
+    .irpt-action-btn--dismiss:hover {
+        color: rgba(255, 255, 255, 0.50);
+    }
+</style>

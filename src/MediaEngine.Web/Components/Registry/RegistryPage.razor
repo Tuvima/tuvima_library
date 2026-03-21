@@ -8,57 +8,132 @@
 @inject IDialogService DialogService
 @implements IDisposable
 
-<div class="registry-layout @("")">
-    <div class="registry-main">
-        @* ── Filter Bar (sticky top) ── *@
-        <RegistryFilterBar Counts="_counts"
-                           ActiveTab="@ActiveTab"
-                           ActiveTabChanged="OnTabChanged"
-                           SearchText="@_searchText"
-                           SearchTextChanged="OnSearchChanged"
-                           GroupBy="@_groupBy"
-                           GroupByChanged="OnGroupByChanged"
-                           SelectionMode="@_selectionMode"
-                           SelectionModeChanged="OnSelectionModeChanged"
-                           SortBy="@_sortBy"
-                           SortByChanged="OnSortChanged"
-                           MaxDays="@_maxDays"
-                           MaxDaysChanged="OnMaxDaysChanged"
-                           CardSize="@_cardSize"
-                           CardSizeChanged="OnCardSizeChanged" />
+<div class="registry-layout">
 
-        @* ── Bulk Bar (only when items selected in selection mode) ── *@
-        @if (_selectionMode && _selectedIds.Count > 0)
-        {
-            <RegistryBulkBar SelectedCount="_selectedIds.Count"
-                             TotalCount="_items.Count"
-                             Processing="_processing"
-                             OnApprove="BatchApproveAsync"
-                             OnReject="BatchRejectAsync"
-                             OnDelete="BatchDeleteAsync"
-                             OnSelectAll="SelectAll"
-                             OnDeselectAll="DeselectAll" />
-        }
-
-        @* ── Grid ── *@
-        <RegistryGrid Items="@_items"
-                      SelectedIds="@_selectedIds"
-                      FocusedEntityId="@null"
-                      NeedsReviewFilter="@(ActiveTab == "review")"
-                      GroupBy="@_groupBy"
-                      CardSize="@_cardSize"
-                      SelectionModeActive="@_selectionMode"
-                      HasMore="_hasMore"
-                      Loading="_loading"
-                      OnSelectionToggled="ToggleSelection"
-                      OnCardClicked="OnCardClicked"
-                      OnApproveClicked="QuickApproveAsync"
-                      OnRejectClicked="QuickRejectAsync"
-                      OnNavigate="OnCardClicked"
-                      OnLoadMore="LoadMoreAsync"
-                      OnApproveGroup="GroupApproveAsync"
-                      OnRejectGroup="GroupRejectAsync" />
+    @* ── Header ── *@
+    <div class="registry-header">
+        <span class="registry-title">Registry</span>
+        <div class="registry-view-toggle">
+            <button class="registry-toggle-btn @(_viewMode == "list" ? "active" : "")"
+                    @onclick='() => SetViewMode("list")'>
+                List
+            </button>
+            <button class="registry-toggle-btn @(_viewMode == "timeline" ? "active" : "")"
+                    @onclick='() => SetViewMode("timeline")'>
+                Timeline
+            </button>
+        </div>
     </div>
+
+    @* ── Content ── *@
+    @if (_viewMode == "timeline")
+    {
+        <RegistryTimeline OnOpenInListView="HandleTimelineOpenInList" />
+    }
+    else
+    {
+        <div class="registry-list-zone" @onkeydown="HandleKeyDown" tabindex="0">
+            <div class="registry-main">
+                @if (_selectedBatchId is null && _selectedBatchTimestamp != "All batches")
+                {
+                    @* ── Mode 1: Batch List ── *@
+                    <RegistryBatchList Batches="_batches"
+                                       AttentionCount="_attentionCount"
+                                       OnBatchSelected="SelectBatch"
+                                       OnAttentionClicked="OpenAttentionQueue" />
+                }
+                else
+                {
+                    @* ── Mode 2: Batch Item List ── *@
+                    @* Back to batch list + batch header *@
+                    <div class="registry-batch-header">
+                        <button class="registry-back-btn" @onclick="ClearBatchSelection">
+                            <MudIcon Icon="@Icons.Material.Outlined.ArrowBack" Style="font-size: 1.1rem;" />
+                        </button>
+                        <div class="registry-batch-info">
+                            <span class="registry-batch-timestamp">@_selectedBatchTimestamp</span>
+                            @if (!string.IsNullOrEmpty(_selectedBatchCategory))
+                            {
+                                <span class="registry-batch-category">@_selectedBatchCategory</span>
+                            }
+                        </div>
+                        @if (_selectedBatchKpis is not null)
+                        {
+                            <div class="registry-batch-kpis">
+                                <span class="registry-kpi" style="color: #5DCAA5;">@_selectedBatchKpis.FilesRegistered</span>
+                                <span class="registry-kpi" style="color: #EF9F27;">@_selectedBatchKpis.FilesReview</span>
+                                <span class="registry-kpi" style="color: #B4B2A9;">@_selectedBatchKpis.FilesNoMatch</span>
+                                <span class="registry-kpi" style="color: #EF5350;">@_selectedBatchKpis.FilesFailed</span>
+                            </div>
+                        }
+                    </div>
+
+                    @* ── Filter Bar ── *@
+                    <RegistryFilterBar Counts="_counts"
+                                       FourStateCounts="_fourStateCounts"
+                                       ActiveTab="@ActiveTab"
+                                       ActiveTabChanged="OnTabChanged"
+                                       SearchText="@_searchText"
+                                       SearchTextChanged="OnSearchChanged"
+                                       GroupBy="@_groupBy"
+                                       GroupByChanged="OnGroupByChanged"
+                                       SelectionMode="@_selectionMode"
+                                       SelectionModeChanged="OnSelectionModeChanged"
+                                       SortBy="@_sortBy"
+                                       SortByChanged="OnSortChanged" />
+
+                    @* ── Actions Bar (persistent: auto-register + retry failed) ── *@
+                    <RegistryActionsBar ThresholdPct="_autoRegisterPct"
+                                        ThresholdPctChanged="val => { _autoRegisterPct = val; StateHasChanged(); }"
+                                        EligibleCount="ComputeAutoRegisterEligible()"
+                                        FailedCount="_fourStateCounts?.Failed ?? 0"
+                                        Processing="_processing"
+                                        OnAutoRegister="AutoRegisterAsync"
+                                        OnRetryFailed="RetryFailedAsync" />
+
+                    @* ── Bulk Bar (selection mode) ── *@
+                    @if (_selectionMode && _selectedIds.Count > 0)
+                    {
+                        <RegistryBulkBar SelectedCount="_selectedIds.Count"
+                                         TotalCount="_items.Count"
+                                         Processing="_processing"
+                                         OnApprove="BatchApproveAsync"
+                                         OnReject="BatchRejectAsync"
+                                         OnDelete="BatchDeleteAsync"
+                                         OnSelectAll="SelectAll"
+                                         OnDeselectAll="DeselectAll" />
+                    }
+
+                    @* ── Grid ── *@
+                    <RegistryGrid Items="@_items"
+                                  SelectedIds="@_selectedIds"
+                                  FocusedEntityId="@_inspectorItem?.EntityId"
+                                  NeedsReviewFilter="@(ActiveTab == "review")"
+                                  GroupBy="@_groupBy"
+                                  CardSize="@_cardSize"
+                                  SelectionModeActive="@_selectionMode"
+                                  HasMore="_hasMore"
+                                  Loading="_loading"
+                                  OnSelectionToggled="ToggleSelection"
+                                  OnCardClicked="OnCardClicked"
+                                  OnApproveClicked="QuickApproveAsync"
+                                  OnRejectClicked="QuickRejectAsync"
+                                  OnNavigate="OnCardClicked"
+                                  OnLoadMore="LoadMoreAsync"
+                                  OnApproveGroup="GroupApproveAsync"
+                                  OnRejectGroup="GroupRejectAsync" />
+                }
+            </div>
+
+            @* ── Inspector Panel (350px, right side) ── *@
+            @if (_inspectorOpen)
+            {
+                <RegistryInspector Item="_inspectorItem"
+                                   OnClose="CloseInspector"
+                                   OnItemChanged="HandleInspectorItemChanged" />
+            }
+        </div>
+    }
 </div>
 
 @* ── Confirmation Dialogs ── *@
@@ -90,14 +165,170 @@
 </MudMessageBox>
 
 <style>
+    @@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@@400;500;600&display=swap');
+
     .registry-layout {
         display: flex;
+        flex-direction: column;
         min-height: 100%;
+        background: #000000;
         position: relative;
     }
+
+    /* ── Header ── */
+    .registry-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px 20px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        flex-shrink: 0;
+    }
+
+    .registry-title {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 20px;
+        font-weight: 500;
+        color: #ffffff;
+        letter-spacing: 0.01em;
+    }
+
+    /* ── View toggle (pill segmented control) ── */
+    .registry-view-toggle {
+        display: flex;
+        align-items: center;
+        background: rgba(255, 255, 255, 0.06);
+        border-radius: 20px;
+        padding: 3px;
+        gap: 0;
+    }
+
+    .registry-toggle-btn {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 13px;
+        font-weight: 500;
+        color: rgba(255, 255, 255, 0.45);
+        background: transparent;
+        border: none;
+        border-radius: 17px;
+        padding: 5px 16px;
+        cursor: pointer;
+        transition: background 0.15s ease, color 0.15s ease;
+        white-space: nowrap;
+        line-height: 1.4;
+    }
+
+    .registry-toggle-btn:hover:not(.active) {
+        color: rgba(255, 255, 255, 0.70);
+        background: rgba(255, 255, 255, 0.05);
+    }
+
+    .registry-toggle-btn.active {
+        background: #C9922E;
+        color: #ffffff;
+    }
+
+    /* ── Three-zone layout (list + inspector) ── */
+    .registry-list-zone {
+        display: flex;
+        flex: 1;
+        min-height: 0;
+        outline: none;
+    }
+
+    .registry-list-zone .registry-main {
+        flex: 1;
+        min-width: 0;
+        overflow-y: auto;
+    }
+
+    /* ── Main content zone ── */
     .registry-main {
         flex: 1;
         min-width: 0;
+    }
+
+    /* ── Timeline placeholder ── */
+    .registry-timeline-placeholder {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 300px;
+        color: rgba(255, 255, 255, 0.35);
+        font-family: 'Montserrat', sans-serif;
+        font-size: 14px;
+        font-weight: 500;
+        letter-spacing: 0.03em;
+    }
+
+    /* ── Batch header (Mode 2) ── */
+    .registry-batch-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 16px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        font-family: 'Montserrat', sans-serif;
+    }
+
+    .registry-back-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        border: 0.5px solid rgba(255, 255, 255, 0.1);
+        background: rgba(255, 255, 255, 0.04);
+        color: rgba(255, 255, 255, 0.6);
+        cursor: pointer;
+        transition: all 0.15s ease;
+        flex-shrink: 0;
+    }
+
+    .registry-back-btn:hover {
+        background: rgba(255, 255, 255, 0.08);
+        color: #fff;
+        border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .registry-batch-info {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex: 1;
+        min-width: 0;
+    }
+
+    .registry-batch-timestamp {
+        font-size: 14px;
+        font-weight: 500;
+        color: rgba(255, 255, 255, 0.88);
+        white-space: nowrap;
+    }
+
+    .registry-batch-category {
+        font-size: 11px;
+        font-weight: 500;
+        color: rgba(255, 255, 255, 0.45);
+        background: rgba(255, 255, 255, 0.06);
+        padding: 2px 8px;
+        border-radius: 4px;
+        white-space: nowrap;
+    }
+
+    .registry-batch-kpis {
+        display: flex;
+        gap: 12px;
+        flex-shrink: 0;
+    }
+
+    .registry-kpi {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 14px;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
     }
 </style>
 
@@ -109,6 +340,19 @@
     private List<RegistryItemViewModel> _items = [];
     private HashSet<Guid> _selectedIds = [];
     private RegistryStatusCountsDto? _counts;
+    private RegistryFourStateCountsDto? _fourStateCounts;
+    private List<IngestionBatchViewModel> _batches = [];
+    private int _attentionCount;
+
+    // Batch selection state (Mode 2)
+    private Guid? _selectedBatchId;
+    private string _selectedBatchTimestamp = "";
+    private string? _selectedBatchCategory;
+    private IngestionBatchViewModel? _selectedBatchKpis;
+
+    // Inspector state
+    private RegistryItemViewModel? _inspectorItem;
+    private bool _inspectorOpen => _inspectorItem is not null;
 
     private bool _loading;
     private bool _hasMore;
@@ -122,15 +366,20 @@
     // Filters
     private string? _searchText;
     private string _sortBy = "newest";
-    private int _maxDays = 60;
 
     // Pending counts for confirmation dialogs
     private int _pendingRejectCount;
     private int _pendingApproveCount;
 
+    // Auto-register threshold
+    private int _autoRegisterPct = 90;
+
     // ── URL-driven tab ──
     private string _activeTab = "all";
     private string ActiveTab => _activeTab;
+
+    // ── View mode (list / timeline) ──
+    private string _viewMode = "list";
 
     // ── Lifecycle ──
 
@@ -140,28 +389,20 @@
         Orchestrator.OnReviewCountChanged += HandleIntercomEvent;
 
         _activeTab = Nav.Uri.Contains("/review", StringComparison.OrdinalIgnoreCase) ? "review" : "all";
+        _viewMode = Nav.Uri.Contains("/timeline", StringComparison.OrdinalIgnoreCase) ? "timeline" : "list";
 
         _loading = true;
+        await LoadBatchesAsync();
         await LoadCountsAsync();
-        await LoadItemsAsync(reset: true);
         _loading = false;
     }
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    // ── View Mode ──
+
+    private void SetViewMode(string mode)
     {
-        if (firstRender)
-        {
-            try
-            {
-                var stored = await JSRuntime.InvokeAsync<int>("registrySettings.getCardSize");
-                if (stored >= 64 && stored <= 112)
-                {
-                    _cardSize = stored;
-                    StateHasChanged();
-                }
-            }
-            catch { /* ignore */ }
-        }
+        _viewMode = mode;
+        Nav.NavigateTo(mode == "timeline" ? "/registry/timeline" : "/registry");
     }
 
     // ── Data Loading ──
@@ -170,8 +411,13 @@
     {
         if (reset) _items.Clear();
 
-        var statusFilter = ActiveTab == "review" ? "Review" : (string?)null;
-        var maxDaysParam = _maxDays > 0 ? _maxDays : (int?)null;
+        var statusFilter = ActiveTab switch
+        {
+            "review" => "Review",
+            "nomatch" => "NoMatch",
+            "failed" => "Failed",
+            _ => (string?)null,
+        };
 
         var result = await Orchestrator.GetRegistryItemsAsync(
             offset: _items.Count,
@@ -184,7 +430,7 @@
             duplicatesOnly: false,
             missingUniverseOnly: ActiveTab == "review",
             sort: _sortBy,
-            maxDays: maxDaysParam);
+            maxDays: null);
 
         if (result is not null)
         {
@@ -202,6 +448,8 @@
     private async Task LoadCountsAsync()
     {
         _counts = await Orchestrator.GetRegistryStatusCountsAsync();
+        if (_selectedBatchId is not null)
+            _fourStateCounts = await Orchestrator.GetRegistryFourStateCountsAsync(_selectedBatchId);
     }
 
     private async Task LoadMoreAsync()
@@ -214,13 +462,70 @@
         StateHasChanged();
     }
 
+    private async Task LoadBatchesAsync()
+    {
+        try
+        {
+            _batches = (await Orchestrator.GetIngestionBatchesAsync(20)).ToList();
+            _attentionCount = await Orchestrator.GetBatchAttentionCountAsync();
+        }
+        catch { /* Engine offline — empty batch list is fine */ }
+    }
+
+    private async Task SelectBatch(Guid batchId)
+    {
+        _selectedBatchId = batchId;
+        _selectedBatchKpis = _batches.FirstOrDefault(b => b.Id == batchId);
+        if (_selectedBatchKpis is not null)
+        {
+            _selectedBatchTimestamp = RegistryHelpers.FormatBatchTimestamp(_selectedBatchKpis.StartedAt);
+            _selectedBatchCategory = _selectedBatchKpis.Category;
+        }
+
+        // Load four-state counts for this batch
+        _fourStateCounts = await Orchestrator.GetRegistryFourStateCountsAsync(_selectedBatchId);
+
+        // Load items for this batch
+        _activeTab = "all";
+        await LoadItemsAsync(reset: true);
+        StateHasChanged();
+    }
+
+    private async Task ClearBatchSelection()
+    {
+        _selectedBatchId = null;
+        _selectedBatchKpis = null;
+        _selectedBatchTimestamp = "";
+        _selectedBatchCategory = null;
+        _fourStateCounts = null;
+        _items.Clear();
+        _selectedIds.Clear();
+        await LoadBatchesAsync();
+        StateHasChanged();
+    }
+
+    private async Task OpenAttentionQueue()
+    {
+        // Cross-batch review queue: load all items needing review without batch scope
+        _selectedBatchId = null; // null means cross-batch
+        _fourStateCounts = await Orchestrator.GetRegistryFourStateCountsAsync(null);
+        _activeTab = "review";
+        _selectedBatchTimestamp = "All batches";
+        _selectedBatchCategory = null;
+        _selectedBatchKpis = null;
+        await LoadItemsAsync(reset: true);
+        StateHasChanged();
+    }
+
     // ── Tab / Filter Handlers ──
 
     private async Task OnTabChanged(string tab)
     {
         _selectedIds.Clear();
         _activeTab = tab;
-        Nav.NavigateTo(tab == "review" ? "/registry/review" : "/registry");
+        // Only navigate URL if no batch selected (top-level tabs)
+        if (_selectedBatchId is null && _selectedBatchTimestamp != "All batches")
+            Nav.NavigateTo(tab == "review" ? "/registry/review" : "/registry");
         await ReloadItems();
     }
 
@@ -249,23 +554,6 @@
         await ReloadItems();
     }
 
-    private async Task OnMaxDaysChanged(int days)
-    {
-        _maxDays = days;
-        await ReloadItems();
-    }
-
-    private async Task OnCardSizeChanged(int size)
-    {
-        _cardSize = size;
-        try
-        {
-            await JSRuntime.InvokeVoidAsync("registrySettings.setCardSize", size);
-        }
-        catch { /* ignore */ }
-        StateHasChanged();
-    }
-
     private async Task ReloadItems()
     {
         _loading = true;
@@ -275,46 +563,70 @@
         StateHasChanged();
     }
 
-    // ── Card Click → Dialog ──
+    // ── Card Click → Inspector ──
 
-    private async Task OnCardClicked(Guid entityId)
+    private Task OnCardClicked(Guid entityId)
     {
         if (_selectionMode)
         {
             ToggleSelection(entityId);
-            return;
+            return Task.CompletedTask;
         }
 
         var item = _items.FirstOrDefault(i => i.EntityId == entityId);
-        if (item is null) return;
+        if (item is null) return Task.CompletedTask;
 
-        var parameters = new DialogParameters<MediaItemEditor>
+        _inspectorItem = item;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private void CloseInspector()
+    {
+        _inspectorItem = null;
+        StateHasChanged();
+    }
+
+    private void HandleKeyDown(KeyboardEventArgs e)
+    {
+        switch (e.Key)
         {
-            { x => x.EntityId, item.EntityId },
-            { x => x.HubId, Guid.Empty },
-            { x => x.MediaType, item.MediaType },
-            { x => x.InitialSearchQuery, item.Title },
-            { x => x.RegistryItem, item },
-            { x => x.InitialTab, 0 },
-        };
-
-        var options = new DialogOptions
-        {
-            MaxWidth = MaxWidth.Large,
-            FullWidth = true,
-            CloseButton = false,
-            NoHeader = false,
-            BackdropClick = true,
-        };
-
-        var dialog = await DialogService.ShowAsync<MediaItemEditor>("Media Item Editor", parameters, options);
-        var result = await dialog.Result;
-
-        if (result is not null && !result.Canceled)
-        {
-            await LoadCountsAsync();
-            await ReloadItems();
+            case "Escape":
+                CloseInspector();
+                break;
+            case "ArrowDown":
+                NavigateItems(1);
+                break;
+            case "ArrowUp":
+                NavigateItems(-1);
+                break;
+            case "r" or "R":
+                if (_inspectorItem is not null)
+                    _ = QuickApproveAsync(_inspectorItem.EntityId);
+                break;
+            case "s" or "S":
+                if (_inspectorItem is not null)
+                    NavigateItems(1); // Skip = move to next item
+                break;
         }
+    }
+
+    private void NavigateItems(int direction)
+    {
+        if (_items.Count == 0) return;
+
+        if (_inspectorItem is null)
+        {
+            _inspectorItem = _items[0];
+        }
+        else
+        {
+            var idx = _items.FindIndex(i => i.EntityId == _inspectorItem.EntityId);
+            if (idx < 0) return;
+            var newIdx = Math.Clamp(idx + direction, 0, _items.Count - 1);
+            _inspectorItem = _items[newIdx];
+        }
+        StateHasChanged();
     }
 
     // ── Selection ──
@@ -516,6 +828,96 @@
         }
 
         _processing = false;
+        StateHasChanged();
+    }
+
+    // ── Auto-Register ──
+
+    private int ComputeAutoRegisterEligible()
+    {
+        var threshold = _autoRegisterPct / 100.0;
+        return _items.Count(i =>
+            i.Confidence >= threshold
+            && string.IsNullOrEmpty(i.ReviewTrigger)
+            && (string.IsNullOrEmpty(i.WikidataQid) || i.WikidataQid.StartsWith("NF", StringComparison.OrdinalIgnoreCase)));
+    }
+
+    private async Task AutoRegisterAsync()
+    {
+        var threshold = _autoRegisterPct / 100.0;
+        var eligibleIds = _items
+            .Where(i => i.Confidence >= threshold
+                     && string.IsNullOrEmpty(i.ReviewTrigger)
+                     && (string.IsNullOrEmpty(i.WikidataQid) || i.WikidataQid.StartsWith("NF", StringComparison.OrdinalIgnoreCase)))
+            .Select(i => i.EntityId)
+            .ToArray();
+
+        if (eligibleIds.Length == 0) return;
+
+        _processing = true;
+        StateHasChanged();
+
+        var result = await Orchestrator.BatchApproveRegistryItemsAsync(eligibleIds);
+        if (result is not null)
+            Snackbar.Add($"Auto-registered {result.ProcessedCount} items above {(_autoRegisterPct / 100.0).ToString("F2")}", Severity.Success);
+        else
+            Snackbar.Add("Auto-register failed", Severity.Error);
+
+        await LoadCountsAsync();
+        await ReloadItems();
+        _processing = false;
+        StateHasChanged();
+    }
+
+    // ── Retry Failed ──
+
+    private async Task RetryFailedAsync()
+    {
+        var failedIds = _items
+            .Where(i => i.WikidataStatus is "failed")
+            .Select(i => i.EntityId)
+            .ToArray();
+
+        if (failedIds.Length == 0) return;
+
+        _processing = true;
+        StateHasChanged();
+
+        var retried = 0;
+        foreach (var id in failedIds)
+        {
+            try
+            {
+                await Orchestrator.TriggerHydrationAsync(id);
+                retried++;
+            }
+            catch { /* individual failure is ok */ }
+        }
+
+        Snackbar.Add($"Retried hydration for {retried} items", Severity.Info);
+        await LoadCountsAsync();
+        await ReloadItems();
+        _processing = false;
+        StateHasChanged();
+    }
+
+    // ── Inspector Item Changed ──
+
+    private async Task HandleInspectorItemChanged()
+    {
+        await LoadCountsAsync();
+        await ReloadItems();
+    }
+
+    // ── Timeline → List deep-link ──
+
+    private async Task HandleTimelineOpenInList(Guid? batchId)
+    {
+        _viewMode = "list";
+        if (batchId.HasValue)
+            await SelectBatch(batchId.Value);
+        else
+            await OpenAttentionQueue();
         StateHasChanged();
     }
 

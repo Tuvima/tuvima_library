@@ -42,4 +42,14 @@ public interface ISystemActivityRepository
     Task<IReadOnlyList<SystemActivityEntry>> GetByRunIdAsync(
         Guid runId,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns recent activity entries filtered by one or more action types.
+    /// Used by the Timeline view to show events of specific categories
+    /// (ingestion, universe, reports, curator actions).
+    /// </summary>
+    Task<IReadOnlyList<SystemActivityEntry>> GetRecentByTypesAsync(
+        IReadOnlyList<string> actionTypes,
+        int limit = 50,
+        CancellationToken ct = default);
 }

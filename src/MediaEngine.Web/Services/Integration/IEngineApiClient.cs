@@ -185,6 +185,10 @@ public interface IEngineApiClient
     /// <summary>GET /activity/run/{runId} — all entries for a specific ingestion run.</summary>
     Task<List<ActivityEntryViewModel>> GetActivityByRunIdAsync(Guid runId, CancellationToken ct = default);
 
+    /// <summary>GET /activity/by-types?types=...&amp;limit= — entries filtered by action type for Timeline view.</summary>
+    Task<List<ActivityEntryViewModel>> GetActivityByTypesAsync(
+        string[] actionTypes, int limit = 50, CancellationToken ct = default);
+
     // ── UI Settings (/settings/ui) ───────────────────────────────────────────────
 
     /// <summary>
@@ -464,6 +468,21 @@ public interface IEngineApiClient
     /// <summary>GET /registry/counts — status counts for tab badges.</summary>
     Task<RegistryStatusCountsDto?> GetRegistryStatusCountsAsync(CancellationToken ct = default);
 
+    /// <summary>GET /registry/state-counts — four-state counts with trigger breakdown.</summary>
+    Task<RegistryFourStateCountsDto?> GetRegistryFourStateCountsAsync(
+        Guid? batchId = null, CancellationToken ct = default);
+
+    /// <summary>GET /ingestion/batches — recent ingestion batches.</summary>
+    Task<IReadOnlyList<IngestionBatchViewModel>> GetIngestionBatchesAsync(
+        int limit = 20, CancellationToken ct = default);
+
+    /// <summary>GET /ingestion/batches/{id} — single batch detail.</summary>
+    Task<IngestionBatchViewModel?> GetIngestionBatchByIdAsync(
+        Guid id, CancellationToken ct = default);
+
+    /// <summary>GET /ingestion/batches/attention-count — items needing attention.</summary>
+    Task<int> GetBatchAttentionCountAsync(CancellationToken ct = default);
+
     // ── Search (/search) ──────────────────────────────────────────────────
 
     /// <summary>POST /search/universe — search Wikidata for identity candidates, enriched with cover art.</summary>
@@ -488,6 +507,18 @@ public interface IEngineApiClient
 
     /// <summary>DELETE /registry/items/{entityId} — permanently remove a work and all its files.</summary>
     Task<bool> DeleteRegistryItemAsync(Guid entityId, CancellationToken ct = default);
+
+    /// <summary>Submit a problem report on a media item.</summary>
+    Task<SubmitReportResponseDto?> SubmitReportAsync(SubmitReportRequestDto request, CancellationToken ct = default);
+
+    /// <summary>Get all problem reports for a specific entity.</summary>
+    Task<List<ReportEntryDto>> GetReportsForEntityAsync(Guid entityId, CancellationToken ct = default);
+
+    /// <summary>Resolve a problem report.</summary>
+    Task<bool> ResolveReportAsync(long activityId, CancellationToken ct = default);
+
+    /// <summary>Dismiss a problem report.</summary>
+    Task<bool> DismissReportAsync(long activityId, CancellationToken ct = default);
 }
 
 

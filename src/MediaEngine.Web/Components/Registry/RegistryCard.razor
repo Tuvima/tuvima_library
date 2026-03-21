@@ -40,6 +40,23 @@
             <MudIcon Icon="@RegistryHelpers.GetMediaTypeIcon(Item.MediaType)"
                      Style="font-size: 0.7rem; color: rgba(255,255,255,0.85);" />
         </span>
+
+        @* ── Quick-action hover buttons (bottom-left) ── *@
+        @if (!SelectionModeActive && NeedsReview)
+        {
+            <div class="rc-quick-actions">
+                <button class="rc-quick-btn rc-quick-btn--approve"
+                        @onclick="HandleApprove" @onclick:stopPropagation="true"
+                        title="Approve">
+                    <MudIcon Icon="@Icons.Material.Outlined.Check" Style="font-size: 0.65rem;" />
+                </button>
+                <button class="rc-quick-btn rc-quick-btn--reject"
+                        @onclick="HandleReject" @onclick:stopPropagation="true"
+                        title="Reject">
+                    <MudIcon Icon="@Icons.Material.Outlined.Close" Style="font-size: 0.65rem;" />
+                </button>
+            </div>
+        }
     </div>
 
     @* ── Title (below thumbnail, always visible) ── *@
@@ -61,24 +78,28 @@
         !string.IsNullOrEmpty(Item.ReviewTrigger) ||
         (Item.Confidence > 0 && Item.Confidence < 0.85 && !Item.HasUserLocks);
 
-    /// <summary>Color-coded left border based on item state</summary>
+    /// <summary>Four-state left border + registered dimming per Registry spec.</summary>
     private string CardStateStyle
     {
         get
         {
-            // Rejected: red, dimmed
+            // Determine the four-state classification
+            var isRegistered = !string.IsNullOrEmpty(Item.WikidataQid)
+                && !Item.WikidataQid.StartsWith("NF", StringComparison.OrdinalIgnoreCase)
+                && string.IsNullOrEmpty(Item.ReviewTrigger);
+
             if (Item.ReviewTrigger == "Rejected")
-                return "border-left: 3px solid rgba(239,83,80,0.5); opacity: 0.6;";
+                return "border-left: 3px solid #EF5350; border-radius: 0; opacity: 0.55;";
 
-            // Needs review: muted amber
             if (NeedsReview)
-                return "border-left: 3px solid rgba(176,137,64,0.5);";
+                return "border-left: 3px solid #EF9F27; border-radius: 0;";
 
-            // New (created < 24h ago)
-            if ((DateTimeOffset.UtcNow - Item.CreatedAt).TotalHours < 24)
-                return "border-left: 3px solid #4A90D9;";
+            if (Item.MissingUniverse && string.IsNullOrEmpty(Item.ReviewTrigger))
+                return "border-left: 3px solid #B4B2A9; border-radius: 0;";
 
-            // Normal: no special border
+            if (isRegistered)
+                return "border-left: 3px solid #5DCAA5; border-radius: 0; opacity: 0.55;";
+
             return "";
         }
     }
@@ -90,6 +111,9 @@
         else
             await OnCardClicked.InvokeAsync(Item.EntityId);
     }
+
+    private async Task HandleApprove() => await OnApproveClicked.InvokeAsync(Item.EntityId);
+    private async Task HandleReject() => await OnRejectClicked.InvokeAsync(Item.EntityId);
 }
 
 <style>
@@ -99,19 +123,18 @@
         cursor: pointer;
         transition: transform 0.15s ease, box-shadow 0.15s ease;
         z-index: 1;
-        border-radius: 4px;
+        border-radius: 4px; /* overridden to 0 by inline state style when left-border is active */
     }
     .rc-wrap:hover {
         transform: translateY(-2px);
         z-index: 2;
     }
     .rc-wrap--focused {
-        transform: scale(1.05);
         z-index: 10;
     }
     .rc-wrap--focused .rc-thumb {
-        border-color: #C9922E;
-        box-shadow: 0 4px 16px rgba(201,146,46,0.3);
+        border-color: rgba(74,144,217,0.7);
+        box-shadow: 0 0 0 1.5px rgba(74,144,217,0.5);
     }
     .rc-wrap--selected .rc-thumb {
         border-color: #C9922E;
@@ -234,5 +257,53 @@
         align-items: center;
         justify-content: center;
         border: 1px solid rgba(255,255,255,0.12);
+    }
+
+    /* ── Quick-action hover buttons ── */
+    .rc-quick-actions {
+        position: absolute;
+        bottom: 3px;
+        left: 3px;
+        display: flex;
+        gap: 3px;
+        opacity: 0;
+        transition: opacity 0.15s ease;
+        z-index: 4;
+    }
+
+    .rc-wrap:hover .rc-quick-actions {
+        opacity: 1;
+    }
+
+    .rc-quick-btn {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        border: 1px solid rgba(255,255,255,0.15);
+        transition: background 0.12s ease, border-color 0.12s ease;
+    }
+
+    .rc-quick-btn--approve {
+        background: rgba(93, 202, 165, 0.65);
+        color: #fff;
+    }
+
+    .rc-quick-btn--approve:hover {
+        background: rgba(93, 202, 165, 0.90);
+        border-color: rgba(93, 202, 165, 0.60);
+    }
+
+    .rc-quick-btn--reject {
+        background: rgba(239, 83, 80, 0.55);
+        color: #fff;
+    }
+
+    .rc-quick-btn--reject:hover {
+        background: rgba(239, 83, 80, 0.85);
+        border-color: rgba(239, 83, 80, 0.60);
     }
 </style>

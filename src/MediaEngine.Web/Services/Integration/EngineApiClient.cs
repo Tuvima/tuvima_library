@@ -892,6 +892,24 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    public async Task<List<ActivityEntryViewModel>> GetActivityByTypesAsync(
+        string[] actionTypes, int limit = 50, CancellationToken ct = default)
+    {
+        try
+        {
+            var typesParam = string.Join(",", actionTypes);
+            var raw = await _http.GetFromJsonAsync<List<ActivityEntryViewModel>>(
+                $"/activity/by-types?types={Uri.EscapeDataString(typesParam)}&limit={limit}", ct);
+            return raw ?? [];
+        }
+        catch (OperationCanceledException) { return []; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /activity/by-types failed");
+            return [];
+        }
+    }
+
     // ── Organization template ────────────────────────────────────────────────
 
     public async Task<OrganizationTemplateDto?> GetOrganizationTemplateAsync(
@@ -2066,6 +2084,84 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    /// <inheritdoc/>
+    public async Task<RegistryFourStateCountsDto?> GetRegistryFourStateCountsAsync(
+        Guid? batchId = null, CancellationToken ct = default)
+    {
+        try
+        {
+            var url = batchId.HasValue
+                ? $"/registry/state-counts?batchId={batchId.Value}"
+                : "/registry/state-counts";
+            return await _http.GetFromJsonAsync<RegistryFourStateCountsDto>(url, ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /registry/state-counts failed");
+            LastError = ex.Message;
+            return null;
+        }
+    }
+
+    /// <inheritdoc/>
+    public async Task<IReadOnlyList<IngestionBatchViewModel>> GetIngestionBatchesAsync(
+        int limit = 20, CancellationToken ct = default)
+    {
+        try
+        {
+            var result = await _http.GetFromJsonAsync<List<IngestionBatchViewModel>>(
+                $"ingestion/batches?limit={limit}", ct).ConfigureAwait(false);
+            return result ?? [];
+        }
+        catch (OperationCanceledException) { return []; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to fetch ingestion batches");
+            return [];
+        }
+    }
+
+    /// <inheritdoc/>
+    public async Task<IngestionBatchViewModel?> GetIngestionBatchByIdAsync(
+        Guid id, CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<IngestionBatchViewModel>(
+                $"ingestion/batches/{id}", ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to fetch batch {Id}", id);
+            return null;
+        }
+    }
+
+    /// <inheritdoc/>
+    public async Task<int> GetBatchAttentionCountAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            var result = await _http.GetFromJsonAsync<AttentionCountResponse>(
+                "ingestion/batches/attention-count", ct).ConfigureAwait(false);
+            return result?.Count ?? 0;
+        }
+        catch (OperationCanceledException) { return 0; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to fetch batch attention count");
+            return 0;
+        }
+    }
+
+    private sealed class AttentionCountResponse
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("count")]
+        public int Count { get; set; }
+    }
+
     // ── Search (/search) ─────────────────────────────────────────────────────
 
     public async Task<SearchUniverseResponseDto?> SearchUniverseAsync(
@@ -2405,6 +2501,46 @@ public sealed class EngineApiClient : IEngineApiClient
             return resp.IsSuccessStatusCode;
         }
         catch (Exception ex) { LastError = ex.Message; return false; }
+    }
+
+    public async Task<SubmitReportResponseDto?> SubmitReportAsync(SubmitReportRequestDto request, CancellationToken ct = default)
+    {
+        try
+        {
+            var response = await _http.PostAsJsonAsync("/reports", request, ct);
+            if (!response.IsSuccessStatusCode) return null;
+            return await response.Content.ReadFromJsonAsync<SubmitReportResponseDto>(cancellationToken: ct);
+        }
+        catch { return null; }
+    }
+
+    public async Task<List<ReportEntryDto>> GetReportsForEntityAsync(Guid entityId, CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<List<ReportEntryDto>>($"/reports/entity/{entityId}", ct) ?? [];
+        }
+        catch { return []; }
+    }
+
+    public async Task<bool> ResolveReportAsync(long activityId, CancellationToken ct = default)
+    {
+        try
+        {
+            var response = await _http.PostAsync($"/reports/{activityId}/resolve", null, ct);
+            return response.IsSuccessStatusCode;
+        }
+        catch { return false; }
+    }
+
+    public async Task<bool> DismissReportAsync(long activityId, CancellationToken ct = default)
+    {
+        try
+        {
+            var response = await _http.PostAsync($"/reports/{activityId}/dismiss", null, ct);
+            return response.IsSuccessStatusCode;
+        }
+        catch { return false; }
     }
 
     // ── Raw response shapes (mirror API Dtos.cs) ──────────────────────────────

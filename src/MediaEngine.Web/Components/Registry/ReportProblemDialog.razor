@@ -1,0 +1,110 @@
+@using MediaEngine.Web.Models.ViewDTOs
+@using MediaEngine.Web.Services.Integration
+@using MudBlazor
+
+@inject UIOrchestratorService Orchestrator
+
+<MudDialog>
+    <TitleContent>
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <MudIcon Icon="@Icons.Material.Outlined.Warning" Style="font-size: 20px; color: #EF9F27;" />
+            <span>Report a problem</span>
+        </div>
+    </TitleContent>
+    <DialogContent>
+        <div class="rpd-content">
+            @if (!string.IsNullOrEmpty(ItemTitle))
+            {
+                <div class="rpd-item-label">
+                    <span style="color: rgba(255,255,255,0.40); font-size: 11px;">Reporting issue with:</span>
+                    <span style="color: rgba(255,255,255,0.80); font-size: 13px; font-weight: 500;">@ItemTitle</span>
+                </div>
+            }
+
+            <MudSelect T="string" @bind-Value="_category" Label="Category" Variant="Variant.Outlined"
+                       Dense="true" Margin="Margin.Dense">
+                <MudSelectItem Value="@("Wrong title or author")">Wrong title or author</MudSelectItem>
+                <MudSelectItem Value="@("Wrong cover art")">Wrong cover art</MudSelectItem>
+                <MudSelectItem Value="@("Wrong media type")">Wrong media type</MudSelectItem>
+                <MudSelectItem Value="@("Duplicate entry")">Duplicate entry</MudSelectItem>
+                <MudSelectItem Value="@("Missing metadata")">Missing metadata</MudSelectItem>
+                <MudSelectItem Value="@("Wrong match")">Wrong Wikidata match</MudSelectItem>
+                <MudSelectItem Value="@("Other")">Other</MudSelectItem>
+            </MudSelect>
+
+            <MudTextField T="string" @bind-Value="_note" Label="Details (optional)"
+                          Variant="Variant.Outlined" Lines="3"
+                          Placeholder="Describe the problem…"
+                          Margin="Margin.Dense" />
+        </div>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Variant="Variant.Text" Size="Size.Small"
+                   Style="color: rgba(255,255,255,0.45);">Cancel</MudButton>
+        <MudButton OnClick="Submit" Variant="Variant.Filled" Color="Color.Warning" Size="Size.Small"
+                   Disabled="@(string.IsNullOrEmpty(_category) || _submitting)">
+            @if (_submitting)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true"
+                                     Style="width: 14px; height: 14px; margin-right: 6px;" />
+            }
+            Submit Report
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public Guid EntityId { get; set; }
+    [Parameter] public string? ItemTitle { get; set; }
+
+    private string _category = "Wrong title or author";
+    private string _note = "";
+    private bool _submitting;
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private async Task Submit()
+    {
+        if (string.IsNullOrEmpty(_category)) return;
+
+        _submitting = true;
+        StateHasChanged();
+
+        var request = new SubmitReportRequestDto
+        {
+            EntityId = EntityId,
+            ItemTitle = ItemTitle,
+            Category = _category,
+            Note = _note,
+        };
+
+        var result = await Orchestrator.SubmitReportAsync(request);
+        _submitting = false;
+
+        if (result?.Success == true)
+            MudDialog.Close(DialogResult.Ok(true));
+        else
+            MudDialog.Close(DialogResult.Cancel());
+    }
+}
+
+<style>
+    .rpd-content {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        min-width: 320px;
+    }
+
+    .rpd-item-label {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        padding: 8px 10px;
+        background: rgba(255, 255, 255, 0.03);
+        border-radius: 8px;
+        border: 0.5px solid rgba(255, 255, 255, 0.06);
+    }
+</style>

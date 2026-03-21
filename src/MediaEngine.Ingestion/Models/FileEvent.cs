@@ -24,4 +24,10 @@ public sealed class FileEvent
     /// <summary>Wall-clock time the OS reported the event. Used as a version stamp
     /// inside <see cref="DebounceQueue"/> to detect superseded entries.</summary>
     public required DateTimeOffset OccurredAt { get; init; }
+
+    /// <summary>
+    /// Optional batch identifier linking this event to an ingestion batch.
+    /// Populated when files are enqueued by <see cref="IngestionEngine.ScanExistingFiles"/>.
+    /// </summary>
+    public Guid? BatchId { get; init; }
 }

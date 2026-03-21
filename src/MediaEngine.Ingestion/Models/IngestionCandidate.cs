@@ -66,6 +66,12 @@ public sealed class IngestionCandidate
     /// </summary>
     public double CategoryConfidencePrior { get; set; }
 
+    /// <summary>
+    /// Optional batch identifier linking this candidate to an ingestion batch.
+    /// Propagated from <see cref="FileEvent.BatchId"/>.
+    /// </summary>
+    public Guid? BatchId { get; init; }
+
     // -------------------------------------------------------------------------
     // Factory helpers
     // -------------------------------------------------------------------------
@@ -78,6 +84,7 @@ public sealed class IngestionCandidate
         EventType   = evt.EventType,
         DetectedAt  = evt.OccurredAt,
         ReadyAt     = DateTimeOffset.UtcNow,
+        BatchId     = evt.BatchId,
     };
 
     /// <summary>Creates a failed candidate when the probe is exhausted.</summary>
@@ -90,5 +97,6 @@ public sealed class IngestionCandidate
         ReadyAt       = DateTimeOffset.UtcNow,
         IsFailed      = true,
         FailureReason = reason,
+        BatchId       = evt.BatchId,
     };
 }

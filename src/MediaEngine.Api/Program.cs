@@ -525,6 +525,7 @@ builder.Services.AddHostedService<WhisperSyncBackgroundService>();
 // ── Phase 1 (Activity Log): System activity ledger + daily pruning ───────────
 builder.Services.AddSingleton<ISystemActivityRepository, SystemActivityRepository>();
 builder.Services.AddSingleton<IIngestionLogRepository, IngestionLogRepository>();
+builder.Services.AddSingleton<IIngestionBatchRepository, IngestionBatchRepository>();
 builder.Services.AddSingleton<IResolverCacheRepository, ResolverCacheRepository>();
 builder.Services.AddHostedService<ActivityPruningService>();
 builder.Services.AddHostedService<RejectedFileCleanupService>();
@@ -620,6 +621,7 @@ app.MapCanonEndpoints();
 app.MapDeferredEnrichmentEndpoints();
 app.MapRegistryEndpoints();
 app.MapSearchEndpoints();
+app.MapReportEndpoints();
 app.MapDebugEndpoints();
 
 // ── Development-only seed endpoints ──────────────────────────────────────────

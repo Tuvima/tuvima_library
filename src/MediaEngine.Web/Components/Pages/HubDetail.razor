@@ -1,7 +1,9 @@
 ﻿@page "/hub/{Id:guid}"
+@using MediaEngine.Web.Components.Registry
 @inject UIOrchestratorService  Orchestrator
 @inject UniverseStateContainer  State
 @inject NavigationManager       Nav
+@inject IDialogService          DialogService
 
 <PageTitle>@(_hub?.DisplayName ?? "Hub") — Tuvima Library</PageTitle>
 
@@ -748,7 +750,25 @@ else
 
     private void OnShare()       => ShowToast("Share link copied");
 
-    private void OnReportIssue() => ShowToast("Issue reporting coming soon");
+    private async Task OnReportIssue()
+    {
+        if (_hub is null) return;
+        var parameters = new DialogParameters
+        {
+            { nameof(ReportProblemDialog.EntityId), _hub.Id },
+            { nameof(ReportProblemDialog.ItemTitle), _hub.DisplayName }
+        };
+        var options = new DialogOptions
+        {
+            MaxWidth = MaxWidth.Small,
+            FullWidth = false,
+            BackdropClick = true
+        };
+        var dialog = await DialogService.ShowAsync<ReportProblemDialog>("Report a problem", parameters, options);
+        var result = await dialog.Result;
+        if (result is { Canceled: false })
+            ShowToast("Report submitted — thank you");
+    }
 
     private async Task OnMarkFinished()
     {

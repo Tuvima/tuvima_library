@@ -2,6 +2,7 @@ using Microsoft.Extensions.Options;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services;
+using MediaEngine.Domain.Contracts;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.Models;
 
@@ -181,6 +182,94 @@ public static class IngestionEndpoints
         .Produces(StatusCodes.Status200OK)
         .RequireAdmin();
 
+        // ── GET /ingestion/batches ────────────────────────────────────────────
+        group.MapGet("/batches", async (
+            IIngestionBatchRepository batchRepo,
+            int? limit) =>
+        {
+            var batches = await batchRepo.GetRecentAsync(limit ?? 20);
+            return Results.Ok(batches.Select(b => new IngestionBatchResponse
+            {
+                Id              = b.Id,
+                Status          = b.Status,
+                SourcePath      = b.SourcePath,
+                Category        = b.Category,
+                FilesTotal      = b.FilesTotal,
+                FilesProcessed  = b.FilesProcessed,
+                FilesRegistered = b.FilesRegistered,
+                FilesReview     = b.FilesReview,
+                FilesNoMatch    = b.FilesNoMatch,
+                FilesFailed     = b.FilesFailed,
+                StartedAt       = b.StartedAt,
+                CompletedAt     = b.CompletedAt,
+                CreatedAt       = b.CreatedAt,
+            }).ToList());
+        })
+        .WithName("GetRecentBatches")
+        .WithSummary("List recent ingestion batches, newest first.")
+        .Produces<List<IngestionBatchResponse>>(StatusCodes.Status200OK)
+        .RequireAdminOrCurator();
+
+        // ── GET /ingestion/batches/attention-count ────────────────────────────
+        group.MapGet("/batches/attention-count", async (
+            IIngestionBatchRepository batchRepo) =>
+        {
+            var count = await batchRepo.GetNeedsAttentionCountAsync();
+            return Results.Ok(new { count });
+        })
+        .WithName("GetBatchAttentionCount")
+        .WithSummary("Count of items across all batches that need curator attention.")
+        .Produces(StatusCodes.Status200OK)
+        .RequireAdminOrCurator();
+
+        // ── GET /ingestion/batches/{id} ───────────────────────────────────────
+        group.MapGet("/batches/{id:guid}", async (
+            Guid id,
+            IIngestionBatchRepository batchRepo) =>
+        {
+            var batch = await batchRepo.GetByIdAsync(id);
+            if (batch is null) return Results.NotFound();
+            return Results.Ok(new IngestionBatchResponse
+            {
+                Id              = batch.Id,
+                Status          = batch.Status,
+                SourcePath      = batch.SourcePath,
+                Category        = batch.Category,
+                FilesTotal      = batch.FilesTotal,
+                FilesProcessed  = batch.FilesProcessed,
+                FilesRegistered = batch.FilesRegistered,
+                FilesReview     = batch.FilesReview,
+                FilesNoMatch    = batch.FilesNoMatch,
+                FilesFailed     = batch.FilesFailed,
+                StartedAt       = batch.StartedAt,
+                CompletedAt     = batch.CompletedAt,
+                CreatedAt       = batch.CreatedAt,
+            });
+        })
+        .WithName("GetBatchById")
+        .WithSummary("Get details of a specific ingestion batch.")
+        .Produces<IngestionBatchResponse>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAdminOrCurator();
+
         return app;
     }
+}
+
+/// <summary>API response shape for an ingestion batch.</summary>
+public sealed class IngestionBatchResponse
+{
+    public Guid Id { get; init; }
+    public string Status { get; init; } = "";
+    public string? SourcePath { get; init; }
+    public string? Category { get; init; }
+    public int FilesTotal { get; init; }
+    public int FilesProcessed { get; init; }
+    public int FilesRegistered { get; init; }
+    public int FilesReview { get; init; }
+    public int FilesNoMatch { get; init; }
+    public int FilesFailed { get; init; }
+    public DateTimeOffset StartedAt { get; init; }
+    public DateTimeOffset? CompletedAt { get; init; }
+    public DateTimeOffset CreatedAt { get; init; }
 }

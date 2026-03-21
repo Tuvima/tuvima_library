@@ -123,4 +123,49 @@ public sealed class SystemActivityRepository : ISystemActivityRepository
 
         return Task.FromResult<IReadOnlyList<SystemActivityEntry>>(results);
     }
+
+    /// <inheritdoc/>
+    public Task<IReadOnlyList<SystemActivityEntry>> GetRecentByTypesAsync(
+        IReadOnlyList<string> actionTypes,
+        int limit = 50,
+        CancellationToken ct = default)
+    {
+        if (actionTypes.Count == 0)
+            return GetRecentAsync(limit, ct);
+
+        using var conn = _db.CreateConnection();
+
+        // Build parameterized IN clause: @t0, @t1, @t2, ...
+        var paramNames = new List<string>();
+        var parameters = new DynamicParameters();
+        for (var i = 0; i < actionTypes.Count; i++)
+        {
+            var paramName = $"t{i}";
+            paramNames.Add($"@{paramName}");
+            parameters.Add(paramName, actionTypes[i]);
+        }
+        parameters.Add("limit", limit);
+
+        var inClause = string.Join(", ", paramNames);
+        var results = conn.Query<SystemActivityEntry>($"""
+            SELECT id             AS Id,
+                   occurred_at    AS OccurredAt,
+                   action_type    AS ActionType,
+                   hub_name       AS HubName,
+                   entity_id      AS EntityId,
+                   entity_type    AS EntityType,
+                   profile_id     AS ProfileId,
+                   changes_json   AS ChangesJson,
+                   detail         AS Detail,
+                   ingestion_run_id AS IngestionRunId
+            FROM   system_activity
+            WHERE  action_type IN ({inClause})
+            ORDER BY id DESC
+            LIMIT  @limit;
+            """,
+            parameters)
+            .AsList();
+
+        return Task.FromResult<IReadOnlyList<SystemActivityEntry>>(results);
+    }
 }

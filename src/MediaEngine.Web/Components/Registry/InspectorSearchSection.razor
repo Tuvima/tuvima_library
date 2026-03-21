@@ -1,0 +1,720 @@
+@using MediaEngine.Web.Models.ViewDTOs
+@using MediaEngine.Web.Components.Registry
+@using MediaEngine.Web.Services.Integration
+@using MudBlazor
+
+@inject UIOrchestratorService Orchestrator
+
+<div class="isearch-section">
+    <span class="isearch-section-label">WIKIDATA SEARCH</span>
+
+    @* ── Search input row ── *@
+    <div class="isearch-input-row">
+        <input class="isearch-input"
+               type="text"
+               placeholder="Search title, author, ISBN…"
+               @bind="_query"
+               @bind:event="oninput"
+               @onkeydown="HandleSearchKeyDown" />
+        <select class="isearch-type-select" @bind="_mediaType">
+            <option value="">Any</option>
+            <option value="Books">Book</option>
+            <option value="Audiobooks">Audiobook</option>
+            <option value="Movies">Movie</option>
+            <option value="TV">TV</option>
+            <option value="Music">Music</option>
+            <option value="Comics">Comic</option>
+            <option value="Podcasts">Podcast</option>
+        </select>
+        <button class="isearch-btn" @onclick="RunSearch" disabled="@(_searching || string.IsNullOrWhiteSpace(_query))">
+            @if (_searching)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true"
+                                     Style="width: 14px; height: 14px; color: rgba(255,255,255,0.5);" />
+            }
+            else
+            {
+                <MudIcon Icon="@Icons.Material.Outlined.Search" Style="font-size: 14px;" />
+            }
+        </button>
+    </div>
+
+    @* ── Search hint ── *@
+    @if (!_hasSearched)
+    {
+        <span class="isearch-hint">Press Enter to search</span>
+    }
+    else if (_candidates.Count > 0)
+    {
+        <span class="isearch-hint">@_candidates.Count @(_candidates.Count == 1 ? "result" : "results") · Edit query to search again</span>
+    }
+    else if (!_searching)
+    {
+        <span class="isearch-hint isearch-hint--empty">No results found · Try a different query</span>
+    }
+
+    @* ── Candidate cards ── *@
+    @if (_candidates.Count > 0)
+    {
+        <div class="isearch-candidates">
+            @foreach (var c in _candidates)
+            {
+                var isSelected = _selectedCandidate == c;
+                <div class="isearch-card @(isSelected ? "isearch-card--selected" : "")"
+                     @onclick="() => SelectCandidate(c)">
+
+                    @* Cover area *@
+                    <div class="isearch-card-cover">
+                        @if (!string.IsNullOrEmpty(c.CoverUrl))
+                        {
+                            <img src="@c.CoverUrl" alt="" class="isearch-card-img" loading="lazy" />
+                        }
+                        else if (_loadingCovers.Contains(c))
+                        {
+                            <div class="isearch-card-img isearch-card-img--loading">
+                                <MudProgressCircular Size="Size.Small" Indeterminate="true"
+                                                     Style="width: 14px; height: 14px; color: rgba(255,255,255,0.3);" />
+                            </div>
+                        }
+                        else
+                        {
+                            <button class="isearch-load-cover" @onclick="() => LoadCover(c)" @onclick:stopPropagation="true">
+                                <MudIcon Icon="@Icons.Material.Outlined.Image" Style="font-size: 12px;" />
+                                <span>Load cover</span>
+                            </button>
+                        }
+                    </div>
+
+                    @* Text area *@
+                    <div class="isearch-card-body">
+                        <span class="isearch-card-title">@c.Title</span>
+                        @if (!string.IsNullOrWhiteSpace(c.Author))
+                        {
+                            <span class="isearch-card-author">@c.Author</span>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(c.Description))
+                        {
+                            <span class="isearch-card-desc">@TruncateDescription(c.Description)</span>
+                        }
+                        <div class="isearch-card-footer">
+                            @if (!string.IsNullOrWhiteSpace(c.Year))
+                            {
+                                <span class="isearch-card-year">@c.Year</span>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(c.Qid))
+                            {
+                                <span class="isearch-card-qid">@c.Qid</span>
+                            }
+                            @if (c.Confidence > 0)
+                            {
+                                var confColor = RegistryHelpers.GetConfidenceHexColor(c.Confidence);
+                                <span class="isearch-card-conf" style="color: @confColor;">
+                                    @((int)(c.Confidence * 100))%
+                                </span>
+                            }
+                        </div>
+                    </div>
+
+                    @* Selection indicator *@
+                    @if (isSelected)
+                    {
+                        <span class="isearch-card-check">
+                            <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Style="font-size: 16px; color: #4A90D9;" />
+                        </span>
+                    }
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@* ── Actions section ── *@
+<div class="isearch-actions-section">
+    @if (_selectedCandidate is not null)
+    {
+        <button class="isearch-btn-register" @onclick="RegisterSelected" disabled="@_registering">
+            @if (_registering)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true"
+                                     Style="width: 14px; height: 14px; color: rgba(93,202,165,0.7);" />
+            }
+            else
+            {
+                <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Style="font-size: 14px;" />
+            }
+            <span>Register as '@TruncateTitle(_selectedCandidate.Title)'</span>
+        </button>
+    }
+    else
+    {
+        <button class="isearch-btn-register isearch-btn-register--disabled" disabled>
+            <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Style="font-size: 14px;" />
+            <span>Select a candidate to register</span>
+        </button>
+    }
+    <div class="isearch-text-actions">
+        <button class="isearch-text-btn" @onclick="HandleSkip" disabled="@_registering">Skip</button>
+        <button class="isearch-text-btn" @onclick="HandleProvisional" disabled="@_registering">Mark provisional</button>
+    </div>
+
+    @* ── Registration result ── *@
+    @if (!string.IsNullOrEmpty(_resultMessage))
+    {
+        <div class="isearch-result @(_resultSuccess ? "isearch-result--ok" : "isearch-result--err")">
+            <MudIcon Icon="@(_resultSuccess ? Icons.Material.Outlined.CheckCircle : Icons.Material.Outlined.Error)"
+                     Style="font-size: 13px;" />
+            <span>@_resultMessage</span>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public RegistryItemViewModel Item { get; set; } = default!;
+    [Parameter] public EventCallback OnRegistered { get; set; }
+    [Parameter] public EventCallback OnSkipped { get; set; }
+    [Parameter] public EventCallback OnMarkedProvisional { get; set; }
+
+    private string _query = "";
+    private string _mediaType = "";
+    private bool _searching;
+    private bool _hasSearched;
+    private bool _registering;
+    private List<CandidateViewModel> _candidates = [];
+    private HashSet<CandidateViewModel> _loadingCovers = [];
+    private CandidateViewModel? _selectedCandidate;
+    private string? _resultMessage;
+    private bool _resultSuccess;
+    private Guid? _lastItemId;
+
+    protected override void OnParametersSet()
+    {
+        if (Item.EntityId != _lastItemId)
+        {
+            _lastItemId = Item.EntityId;
+            _query = Item.Title ?? "";
+            _mediaType = Item.MediaType ?? "";
+            _candidates = [];
+            _selectedCandidate = null;
+            _hasSearched = false;
+            _resultMessage = null;
+            _loadingCovers = [];
+        }
+    }
+
+    private async Task HandleSearchKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(_query))
+            await RunSearch();
+    }
+
+    private async Task RunSearch()
+    {
+        if (string.IsNullOrWhiteSpace(_query) || _searching) return;
+
+        _searching = true;
+        _selectedCandidate = null;
+        _resultMessage = null;
+        _candidates = [];
+        StateHasChanged();
+
+        try
+        {
+            var mt = string.IsNullOrEmpty(_mediaType) ? null : _mediaType;
+            var response = await Orchestrator.SearchMetadataFanOutAsync(_query, mt);
+            if (response?.Results is not null)
+            {
+                foreach (var provider in response.Results)
+                {
+                    foreach (var item in provider.Items)
+                    {
+                        _candidates.Add(new CandidateViewModel
+                        {
+                            Title = item.Title ?? "",
+                            Author = item.Author,
+                            Description = item.Description,
+                            Year = item.Year,
+                            CoverUrl = item.ThumbnailUrl,
+                            Qid = item.RawFields.GetValueOrDefault("wikidata_qid"),
+                            Confidence = item.Confidence,
+                            ProviderName = provider.ProviderName,
+                            ProviderId = provider.ProviderId,
+                            ProviderItemId = item.ProviderItemId,
+                            RawFields = item.RawFields
+                        });
+                    }
+                }
+
+                // Sort by confidence descending
+                _candidates = _candidates.OrderByDescending(c => c.Confidence).ToList();
+            }
+        }
+        catch
+        {
+            // Silent fail — empty results shown
+        }
+
+        _searching = false;
+        _hasSearched = true;
+    }
+
+    private void SelectCandidate(CandidateViewModel candidate)
+    {
+        _selectedCandidate = _selectedCandidate == candidate ? null : candidate;
+        _resultMessage = null;
+    }
+
+    private async Task LoadCover(CandidateViewModel candidate)
+    {
+        if (_loadingCovers.Contains(candidate)) return;
+        _loadingCovers.Add(candidate);
+        StateHasChanged();
+
+        try
+        {
+            var searchQuery = candidate.Title;
+            if (!string.IsNullOrWhiteSpace(candidate.Author))
+                searchQuery += " " + candidate.Author;
+
+            var mt = string.IsNullOrEmpty(_mediaType) ? "Books" : _mediaType;
+            var result = await Orchestrator.SearchRetailAsync(searchQuery, mt, 1);
+            if (result.Count > 0 && !string.IsNullOrEmpty(result[0].CoverUrl))
+            {
+                candidate.CoverUrl = result[0].CoverUrl;
+            }
+        }
+        catch
+        {
+            // Silent fail
+        }
+
+        _loadingCovers.Remove(candidate);
+    }
+
+    private async Task RegisterSelected()
+    {
+        if (_selectedCandidate is null || _registering) return;
+
+        _registering = true;
+        _resultMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            var request = new ApplyMatchRequestDto
+            {
+                Mode = string.IsNullOrEmpty(_selectedCandidate.Qid) ? "Retail" : "Universe",
+                Qid = _selectedCandidate.Qid,
+                Title = _selectedCandidate.Title,
+                Year = _selectedCandidate.Year,
+                Author = _selectedCandidate.Author,
+                Description = _selectedCandidate.Description,
+                CoverUrl = _selectedCandidate.CoverUrl
+            };
+
+            var response = await Orchestrator.ApplyRegistryMatchAsync(Item.EntityId, request);
+            if (response is not null)
+            {
+                _resultMessage = response.Message ?? $"Registered — {response.ClaimsWritten} claims written";
+                _resultSuccess = true;
+                await OnRegistered.InvokeAsync();
+            }
+            else
+            {
+                _resultMessage = "Registration failed — no response from engine";
+                _resultSuccess = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            _resultMessage = $"Error: {ex.Message}";
+            _resultSuccess = false;
+        }
+
+        _registering = false;
+    }
+
+    private async Task HandleSkip()
+    {
+        await OnSkipped.InvokeAsync();
+    }
+
+    private async Task HandleProvisional()
+    {
+        await OnMarkedProvisional.InvokeAsync();
+    }
+
+    private static string TruncateDescription(string desc)
+        => desc.Length > 120 ? desc[..117] + "…" : desc;
+
+    private static string TruncateTitle(string title)
+        => title.Length > 30 ? title[..27] + "…" : title;
+
+    /// <summary>Local view model flattening provider results into a single list.</summary>
+    private sealed class CandidateViewModel
+    {
+        public string Title { get; set; } = "";
+        public string? Author { get; set; }
+        public string? Description { get; set; }
+        public string? Year { get; set; }
+        public string? CoverUrl { get; set; }
+        public string? Qid { get; set; }
+        public double Confidence { get; set; }
+        public string ProviderName { get; set; } = "";
+        public string ProviderId { get; set; } = "";
+        public string? ProviderItemId { get; set; }
+        public Dictionary<string, string> RawFields { get; set; } = [];
+    }
+}
+
+<style>
+    /* ── Section ── */
+    .isearch-section {
+        padding: 12px 16px;
+        border-top: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .isearch-section-label {
+        display: block;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.35);
+        margin-bottom: 10px;
+    }
+
+    /* ── Search input row ── */
+    .isearch-input-row {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 6px;
+    }
+
+    .isearch-input {
+        flex: 1;
+        min-width: 0;
+        padding: 6px 10px;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.10);
+        background: rgba(255, 255, 255, 0.04);
+        color: rgba(255, 255, 255, 0.85);
+        font-family: 'Montserrat', sans-serif;
+        font-size: 12px;
+        font-weight: 400;
+        outline: none;
+        transition: border-color 0.15s ease;
+    }
+
+    .isearch-input:focus {
+        border-color: rgba(201, 146, 46, 0.45);
+    }
+
+    .isearch-input::placeholder {
+        color: rgba(255, 255, 255, 0.25);
+        font-weight: 300;
+    }
+
+    .isearch-type-select {
+        width: 72px;
+        padding: 6px 4px;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.10);
+        background: rgba(255, 255, 255, 0.04);
+        color: rgba(255, 255, 255, 0.65);
+        font-family: 'Montserrat', sans-serif;
+        font-size: 11px;
+        font-weight: 400;
+        outline: none;
+        cursor: pointer;
+        -webkit-appearance: none;
+    }
+
+    .isearch-type-select option {
+        background: #0a0a12;
+        color: rgba(255, 255, 255, 0.85);
+    }
+
+    .isearch-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        flex-shrink: 0;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.10);
+        background: rgba(255, 255, 255, 0.04);
+        color: rgba(255, 255, 255, 0.55);
+        cursor: pointer;
+        transition: background 0.15s ease, border-color 0.15s ease;
+    }
+
+    .isearch-btn:hover:not(:disabled) {
+        background: rgba(255, 255, 255, 0.08);
+        border-color: rgba(255, 255, 255, 0.18);
+    }
+
+    .isearch-btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+    }
+
+    /* ── Hint text ── */
+    .isearch-hint {
+        display: block;
+        font-size: 11px;
+        font-weight: 300;
+        color: rgba(255, 255, 255, 0.30);
+        margin-bottom: 10px;
+    }
+
+    .isearch-hint--empty {
+        color: rgba(239, 159, 39, 0.55);
+    }
+
+    /* ── Candidate list ── */
+    .isearch-candidates {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        max-height: 320px;
+        overflow-y: auto;
+    }
+
+    .isearch-card {
+        display: flex;
+        gap: 10px;
+        padding: 10px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        cursor: pointer;
+        transition: border-color 0.15s ease, background 0.15s ease;
+        position: relative;
+    }
+
+    .isearch-card:hover {
+        background: rgba(255, 255, 255, 0.05);
+        border-color: rgba(255, 255, 255, 0.12);
+    }
+
+    .isearch-card--selected {
+        border-color: rgba(74, 144, 217, 0.55);
+        background: rgba(74, 144, 217, 0.06);
+    }
+
+    .isearch-card--selected:hover {
+        border-color: rgba(74, 144, 217, 0.70);
+    }
+
+    /* ── Card cover ── */
+    .isearch-card-cover {
+        flex-shrink: 0;
+        width: 44px;
+        height: 64px;
+    }
+
+    .isearch-card-img {
+        width: 44px;
+        height: 64px;
+        border-radius: 3px;
+        object-fit: cover;
+        display: block;
+    }
+
+    .isearch-card-img--loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px dashed rgba(255, 255, 255, 0.12);
+    }
+
+    .isearch-load-cover {
+        width: 44px;
+        height: 64px;
+        border-radius: 3px;
+        border: 1px dashed rgba(255, 255, 255, 0.15);
+        background: rgba(255, 255, 255, 0.02);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 3px;
+        cursor: pointer;
+        transition: border-color 0.15s ease;
+        color: rgba(255, 255, 255, 0.30);
+        font-family: 'Montserrat', sans-serif;
+        font-size: 8px;
+        font-weight: 500;
+    }
+
+    .isearch-load-cover:hover {
+        border-color: rgba(255, 255, 255, 0.30);
+        color: rgba(255, 255, 255, 0.50);
+    }
+
+    /* ── Card body ── */
+    .isearch-card-body {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .isearch-card-title {
+        font-size: 13px;
+        font-weight: 500;
+        color: rgba(255, 255, 255, 0.85);
+        line-height: 1.3;
+        overflow: hidden;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+    }
+
+    .isearch-card-author {
+        font-size: 11px;
+        font-weight: 400;
+        color: rgba(255, 255, 255, 0.45);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .isearch-card-desc {
+        font-size: 11px;
+        font-weight: 400;
+        color: rgba(255, 255, 255, 0.30);
+        line-height: 1.4;
+        overflow: hidden;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+    }
+
+    .isearch-card-footer {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 2px;
+    }
+
+    .isearch-card-year {
+        font-size: 11px;
+        font-weight: 300;
+        color: rgba(255, 255, 255, 0.35);
+    }
+
+    .isearch-card-qid {
+        font-size: 11px;
+        font-weight: 500;
+        color: rgba(201, 146, 46, 0.70);
+        font-variant-numeric: tabular-nums;
+    }
+
+    .isearch-card-conf {
+        font-size: 11px;
+        font-weight: 500;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .isearch-card-check {
+        position: absolute;
+        top: 6px;
+        right: 6px;
+    }
+
+    /* ── Actions section ── */
+    .isearch-actions-section {
+        padding: 12px 16px;
+        border-top: 1px solid rgba(255, 255, 255, 0.06);
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .isearch-btn-register {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 14px;
+        border-radius: 8px;
+        font-family: 'Montserrat', sans-serif;
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: opacity 0.15s ease, background 0.15s ease;
+        width: 100%;
+        justify-content: center;
+        background: rgba(93, 202, 165, 0.12);
+        border: 1px solid rgba(93, 202, 165, 0.25);
+        color: rgba(93, 202, 165, 0.90);
+    }
+
+    .isearch-btn-register:hover:not(:disabled) {
+        background: rgba(93, 202, 165, 0.18);
+    }
+
+    .isearch-btn-register:disabled {
+        cursor: not-allowed;
+        opacity: 0.6;
+    }
+
+    .isearch-btn-register--disabled {
+        background: rgba(93, 202, 165, 0.06);
+        border: 1px solid rgba(93, 202, 165, 0.12);
+        color: rgba(93, 202, 165, 0.35);
+    }
+
+    .isearch-text-actions {
+        display: flex;
+        justify-content: center;
+        gap: 20px;
+    }
+
+    .isearch-text-btn {
+        background: transparent;
+        border: none;
+        font-family: 'Montserrat', sans-serif;
+        font-size: 11px;
+        font-weight: 500;
+        color: rgba(255, 255, 255, 0.35);
+        cursor: pointer;
+        padding: 0;
+        text-decoration: underline;
+        text-decoration-color: rgba(255, 255, 255, 0.15);
+        transition: color 0.15s ease;
+    }
+
+    .isearch-text-btn:hover:not(:disabled) {
+        color: rgba(255, 255, 255, 0.55);
+    }
+
+    .isearch-text-btn:disabled {
+        cursor: not-allowed;
+        opacity: 0.5;
+    }
+
+    /* ── Result message ── */
+    .isearch-result {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 10px;
+        border-radius: 8px;
+        font-size: 11px;
+        font-weight: 400;
+    }
+
+    .isearch-result--ok {
+        background: rgba(93, 202, 165, 0.08);
+        color: rgba(93, 202, 165, 0.85);
+    }
+
+    .isearch-result--err {
+        background: rgba(239, 83, 80, 0.08);
+        color: rgba(239, 83, 80, 0.85);
+    }
+</style>

@@ -585,6 +585,124 @@ public sealed class RegistryRepository : IRegistryRepository
         return Task.FromResult(new RegistryStatusCounts(0, 0, 0, 0, 0, 0));
     }
 
+    public Task<RegistryFourStateCounts> GetFourStateCountsAsync(Guid? batchId = null, CancellationToken ct = default)
+    {
+        using var conn = _db.CreateConnection();
+
+        // ── Batch-scoped: read directly from ingestion_batches counters ──
+        if (batchId.HasValue)
+        {
+            var batch = conn.QueryFirstOrDefault<(int FilesRegistered, int FilesReview,
+                int FilesNoMatch, int FilesFailed)>("""
+                SELECT files_registered AS FilesRegistered,
+                       files_review     AS FilesReview,
+                       files_no_match   AS FilesNoMatch,
+                       files_failed     AS FilesFailed
+                FROM ingestion_batches
+                WHERE id = @batchId
+                """, new { batchId = batchId.Value.ToString() });
+
+            // Trigger breakdown for batch-scoped: join through ingestion_log → media_assets → review_queue
+            var batchTriggers = conn.Query<(string Trigger, int Count)>("""
+                SELECT rq.trigger AS Trigger, COUNT(*) AS Count
+                FROM review_queue rq
+                INNER JOIN media_assets ma ON ma.id = rq.entity_id
+                INNER JOIN ingestion_log il ON il.content_hash = ma.content_hash
+                WHERE rq.status = 'Pending'
+                  AND il.ingestion_run_id = @batchId
+                GROUP BY rq.trigger
+                ORDER BY Count DESC
+                """, new { batchId = batchId.Value.ToString() })
+                .ToDictionary(r => r.Trigger, r => r.Count);
+
+            return Task.FromResult(new RegistryFourStateCounts(
+                batch.FilesRegistered,
+                batch.FilesReview,
+                batch.FilesNoMatch,
+                batch.FilesFailed,
+                batchTriggers));
+        }
+
+        // ── Cross-batch: compute from works + review_queue + ingestion_batches ──
+
+        // Pending review asset IDs (for exclusion from other states)
+        // NeedsReview = works with at least one pending review_queue entry
+        // Registered = works with valid QID (not NF%) and NOT in review
+        // NoMatch = works without valid QID and NOT in review
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            SELECT
+                -- Registered: has valid QID, no pending review
+                (SELECT COUNT(*) FROM works w
+                 WHERE EXISTS (
+                     SELECT 1 FROM editions e
+                     INNER JOIN media_assets ma ON ma.edition_id = e.id
+                     INNER JOIN canonical_values cv ON cv.entity_id = ma.id
+                     WHERE e.work_id = w.id AND cv.key = 'wikidata_qid'
+                       AND cv.value IS NOT NULL AND TRIM(cv.value) != '' AND cv.value NOT LIKE 'NF%'
+                 )
+                 AND NOT EXISTS (
+                     SELECT 1 FROM editions e2
+                     INNER JOIN media_assets ma2 ON ma2.edition_id = e2.id
+                     INNER JOIN review_queue rq ON rq.entity_id = ma2.id
+                     WHERE e2.work_id = w.id AND rq.status = 'Pending'
+                 )) AS Registered,
+
+                -- NeedsReview: has pending review_queue entry
+                (SELECT COUNT(DISTINCT e.work_id)
+                 FROM review_queue rq
+                 INNER JOIN media_assets ma ON ma.id = rq.entity_id
+                 INNER JOIN editions e ON e.id = ma.edition_id
+                 WHERE rq.status = 'Pending') AS NeedsReview,
+
+                -- NoMatch: no valid QID and no pending review
+                (SELECT COUNT(*) FROM works w
+                 WHERE NOT EXISTS (
+                     SELECT 1 FROM editions e
+                     INNER JOIN media_assets ma ON ma.edition_id = e.id
+                     INNER JOIN canonical_values cv ON cv.entity_id = ma.id
+                     WHERE e.work_id = w.id AND cv.key = 'wikidata_qid'
+                       AND cv.value IS NOT NULL AND TRIM(cv.value) != '' AND cv.value NOT LIKE 'NF%'
+                 )
+                 AND NOT EXISTS (
+                     SELECT 1 FROM editions e2
+                     INNER JOIN media_assets ma2 ON ma2.edition_id = e2.id
+                     INNER JOIN review_queue rq ON rq.entity_id = ma2.id
+                     WHERE e2.work_id = w.id AND rq.status = 'Pending'
+                 )) AS NoMatch,
+
+                -- Failed: sum of failed files across all batches
+                (SELECT COALESCE(SUM(files_failed), 0) FROM ingestion_batches) AS Failed
+            """;
+
+        int registered = 0, needsReview = 0, noMatch = 0, failed = 0;
+        using (var reader = cmd.ExecuteReader())
+        {
+            if (reader.Read())
+            {
+                registered  = reader.GetInt32(0);
+                needsReview = reader.GetInt32(1);
+                noMatch     = reader.GetInt32(2);
+                failed      = reader.GetInt32(3);
+            }
+        }
+
+        // Trigger counts: per-trigger breakdown within NeedsReview
+        var triggerCounts = conn.Query<(string Trigger, int Count)>("""
+            SELECT rq.trigger AS Trigger, COUNT(DISTINCT e.work_id) AS Count
+            FROM review_queue rq
+            INNER JOIN media_assets ma ON ma.id = rq.entity_id
+            INNER JOIN editions e ON e.id = ma.edition_id
+            WHERE rq.status = 'Pending'
+            GROUP BY rq.trigger
+            ORDER BY Count DESC
+            """)
+            .ToDictionary(r => r.Trigger, r => r.Count);
+
+        return Task.FromResult(new RegistryFourStateCounts(
+            registered, needsReview, noMatch, failed, triggerCounts));
+    }
+
     // ── Private helpers ──────────────────────────────────────────────────────
 
     private static void AddParameters(SqliteCommand cmd, RegistryQuery query)

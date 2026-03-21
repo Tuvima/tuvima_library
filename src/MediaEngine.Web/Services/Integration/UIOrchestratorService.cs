@@ -288,6 +288,11 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     public Task<bool> UpdateRetentionAsync(int days, CancellationToken ct = default)
         => _api.UpdateRetentionAsync(days, ct);
 
+    /// <summary>Returns activity entries filtered by action types — used by Timeline view.</summary>
+    public Task<List<ActivityEntryViewModel>> GetActivityByTypesAsync(
+        string[] actionTypes, int limit = 50, CancellationToken ct = default)
+        => _api.GetActivityByTypesAsync(actionTypes, limit, ct);
+
     /// <summary>Triggers a library reconciliation scan for missing files.</summary>
     public Task<ReconciliationResultDto?> TriggerReconciliationAsync(CancellationToken ct = default)
         => _api.TriggerReconciliationAsync(ct);
@@ -635,6 +640,23 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     public Task<RegistryStatusCountsDto?> GetRegistryStatusCountsAsync(CancellationToken ct = default)
         => _api.GetRegistryStatusCountsAsync(ct);
 
+    /// <summary>Returns four-state counts (Registered, NeedsReview, NoMatch, Failed) with trigger breakdown.</summary>
+    public Task<RegistryFourStateCountsDto?> GetRegistryFourStateCountsAsync(
+        Guid? batchId = null, CancellationToken ct = default)
+        => _api.GetRegistryFourStateCountsAsync(batchId, ct);
+
+    /// <summary>Fetches recent ingestion batches from the Engine.</summary>
+    public async Task<IReadOnlyList<IngestionBatchViewModel>> GetIngestionBatchesAsync(int limit = 20)
+        => await _api.GetIngestionBatchesAsync(limit);
+
+    /// <summary>Fetches a single ingestion batch by ID.</summary>
+    public async Task<IngestionBatchViewModel?> GetIngestionBatchByIdAsync(Guid id)
+        => await _api.GetIngestionBatchByIdAsync(id);
+
+    /// <summary>Fetches the count of items needing curator attention across all batches.</summary>
+    public async Task<int> GetBatchAttentionCountAsync()
+        => await _api.GetBatchAttentionCountAsync();
+
     // ── Search ────────────────────────────────────────────────────────────────
 
     /// <summary>POST /search/universe — Wikidata candidate search enriched with retail cover art.</summary>
@@ -906,5 +928,17 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     public Task<bool> ApplyCoverFromUrlAsync(
         Guid entityId, string imageUrl, CancellationToken ct = default)
         => _api.ApplyCoverFromUrlAsync(entityId, imageUrl, ct);
+
+    public Task<SubmitReportResponseDto?> SubmitReportAsync(SubmitReportRequestDto request, CancellationToken ct = default)
+        => _api.SubmitReportAsync(request, ct);
+
+    public Task<List<ReportEntryDto>> GetReportsForEntityAsync(Guid entityId, CancellationToken ct = default)
+        => _api.GetReportsForEntityAsync(entityId, ct);
+
+    public Task<bool> ResolveReportAsync(long activityId, CancellationToken ct = default)
+        => _api.ResolveReportAsync(activityId, ct);
+
+    public Task<bool> DismissReportAsync(long activityId, CancellationToken ct = default)
+        => _api.DismissReportAsync(activityId, ct);
 }
 

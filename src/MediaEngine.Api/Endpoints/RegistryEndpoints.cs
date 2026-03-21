@@ -84,6 +84,21 @@ public static class RegistryEndpoints
         .Produces<RegistryStatusCounts>(StatusCodes.Status200OK)
         .RequireAdminOrCurator();
 
+        // ── GET /registry/state-counts ───────────────────────────────────────
+        // Four-state counts (Registered, NeedsReview, NoMatch, Failed) + trigger breakdown.
+        group.MapGet("/state-counts", async (
+            Guid? batchId,
+            IRegistryRepository repo,
+            CancellationToken ct) =>
+        {
+            var counts = await repo.GetFourStateCountsAsync(batchId, ct);
+            return Results.Ok(counts);
+        })
+        .WithName("GetRegistryFourStateCounts")
+        .WithSummary("Four-state counts (Registered, NeedsReview, NoMatch, Failed) with trigger breakdown.")
+        .Produces<RegistryFourStateCounts>(StatusCodes.Status200OK)
+        .RequireAdminOrCurator();
+
         // ── POST /registry/items/{entityId}/apply-match ────────────────────
         group.MapPost("/items/{entityId}/apply-match", async (
             Guid entityId,
