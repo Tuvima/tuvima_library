@@ -5,6 +5,8 @@
 
 @inject IEngineApiClient ApiClient
 @inject UIOrchestratorService Orchestrator
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
 
 @if (Item is null)
 {
@@ -148,18 +150,27 @@ else
         <!-- Tab content -->
         @if (_inspectorTab == "resolve")
         {
-            <!-- Wikidata search + candidates + actions -->
-            <InspectorSearchSection Item="Item"
-                                    OnRegistered="HandleRegistered"
-                                    OnMarkedProvisional="HandleProvisional"
-                                    OnRejected="HandleRejected" />
-
-            <!-- Report section (always shown in resolve tab when present) -->
-            @if (_reports.Count > 0)
+            @if (_showProvisionalForm)
             {
-                <InspectorReportSection Reports="_reports" Loading="_reportsLoading"
-                                         OnResolve="HandleResolveReport"
-                                         OnDismiss="HandleDismissReport" />
+                <ProvisionalFormPanel Item="Item"
+                                      OnSaved="HandleProvisionalSaved"
+                                      OnCancelled="HandleProvisionalCancelled" />
+            }
+            else
+            {
+                <!-- Wikidata search + candidates + actions -->
+                <InspectorSearchSection Item="Item"
+                                        OnRegistered="HandleRegistered"
+                                        OnMarkedProvisional="HandleShowProvisionalForm"
+                                        OnRejected="HandleRejected" />
+
+                <!-- Report section (always shown in resolve tab when present) -->
+                @if (_reports.Count > 0)
+                {
+                    <InspectorReportSection Reports="_reports" Loading="_reportsLoading"
+                                             OnResolve="HandleResolveReport"
+                                             OnDismiss="HandleDismissReport" />
+                }
             }
         }
         else if (_inspectorTab == "history")
@@ -187,6 +198,7 @@ else
     private bool                          _reportsLoading;
     private Guid?                         _loadedEntityId;
     private string                        _inspectorTab  = "resolve";
+    private bool                          _showProvisionalForm;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -195,6 +207,7 @@ else
 
         _loadedEntityId = Item.EntityId;
         _inspectorTab   = "resolve"; // Reset to resolve tab on new item
+        _showProvisionalForm = false;
         _historyLoading = true;
         _fieldsLoading  = true;
         _reportsLoading = true;
@@ -236,8 +249,43 @@ else
         await OnItemChanged.InvokeAsync();
     }
 
-    private async Task HandleProvisional() => await OnItemChanged.InvokeAsync();
-    private async Task HandleRejected()    => await OnItemChanged.InvokeAsync();
+    private void HandleShowProvisionalForm()
+    {
+        _showProvisionalForm = true;
+    }
+
+    private async Task HandleProvisionalSaved()
+    {
+        _showProvisionalForm = false;
+        await OnItemChanged.InvokeAsync();
+    }
+
+    private void HandleProvisionalCancelled()
+    {
+        _showProvisionalForm = false;
+    }
+
+    private async Task HandleRejected()
+    {
+        if (Item is null) return;
+        try
+        {
+            var result = await ApiClient.RejectRegistryItemAsync(Item.EntityId);
+            if (result is not null)
+            {
+                Snackbar.Add("Item rejected.", Severity.Success);
+                await OnItemChanged.InvokeAsync();
+            }
+            else
+            {
+                Snackbar.Add("Could not reject item.", Severity.Warning);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+    }
 
     private async Task HandleResolveReport(long activityId)
     {

@@ -10,34 +10,6 @@
 
 <div class="registry-layout">
 
-    @* ── Attention Banner (only when stale items exist) ── *@
-    @if (_bannerReviewCount > 0 || _bannerReportCount > 0)
-    {
-        <div class="registry-attention-banner">
-            <div class="registry-attention-items">
-                @if (_bannerReportCount > 0)
-                {
-                    <button class="registry-attention-item registry-attention-item--reports"
-                            @onclick='() => Nav.NavigateTo("/registry/activity?state=review")'>
-                        <MudIcon Icon="@Icons.Material.Outlined.Warning" Style="font-size: 13px;" />
-                        <span>@_bannerReportCount unresolved @(_bannerReportCount == 1 ? "report" : "reports")</span>
-                    </button>
-                }
-                @if (_bannerReviewCount > 0)
-                {
-                    <button class="registry-attention-item registry-attention-item--review"
-                            @onclick='() => Nav.NavigateTo("/registry/activity?state=review")'>
-                        <span>@_bannerReviewCount items in review</span>
-                    </button>
-                }
-            </div>
-            @if (!string.IsNullOrEmpty(_bannerOldestAge))
-            {
-                <span class="registry-attention-age">Oldest: @_bannerOldestAge</span>
-            }
-        </div>
-    }
-
     @* ── Header ── *@
     <div class="registry-header">
         <span class="registry-title">Registry</span>
@@ -47,7 +19,7 @@
     <div class="registry-stats-bar">
         <button class="registry-stat-card registry-stat-card--registered"
                 @onclick='() => Nav.NavigateTo("/registry/activity?state=registered")'>
-            <span class="registry-stat-value">@(_fourStateCounts?.Registered ?? 0)</span>
+            <span class="registry-stat-value" style="color: #5DCAA5;">@(_fourStateCounts?.Registered ?? 0)</span>
             <span class="registry-stat-label">Registered</span>
             @if ((_fourStateCounts?.Provisional ?? 0) > 0)
             {
@@ -56,29 +28,18 @@
         </button>
         <button class="registry-stat-card registry-stat-card--review"
                 @onclick='() => Nav.NavigateTo("/registry/activity?state=review")'>
-            <span class="registry-stat-value">@(_fourStateCounts?.InReview ?? 0)</span>
+            <span class="registry-stat-value" style="color: #EF9F27;">@(_fourStateCounts?.InReview ?? 0)</span>
             <span class="registry-stat-label">In Review</span>
         </button>
         <button class="registry-stat-card registry-stat-card--rejected"
                 @onclick='() => Nav.NavigateTo("/registry/activity?state=rejected")'>
-            <span class="registry-stat-value">@(_fourStateCounts?.Rejected ?? 0)</span>
+            <span class="registry-stat-value" style="color: #E24B4A;">@(_fourStateCounts?.Rejected ?? 0)</span>
             <span class="registry-stat-label">Rejected</span>
         </button>
     </div>
 
-    @* ── Filter Chips ── *@
-    <div class="registry-filter-chips">
-        @foreach (var chip in _filterChips)
-        {
-            <button class="registry-chip @(chip.Key == _activeFilter ? "registry-chip--active" : "")"
-                    @onclick="() => SetFilter(chip.Key)">
-                @chip.Label
-            </button>
-        }
-    </div>
-
     @* ── Timeline (always shown, full-width) ── *@
-    <RegistryTimeline OnOpenInListView="HandleTimelineNavigate" FilterCategory="@_activeFilter" />
+    <RegistryTimeline OnOpenInListView="HandleTimelineNavigate" />
 
 </div>
 
@@ -118,59 +79,6 @@
         letter-spacing: 0.01em;
     }
 
-    /* ── Attention Banner ── */
-    .registry-attention-banner {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 8px 20px;
-        background: rgba(201, 146, 46, 0.08);
-        border-bottom: 1px solid rgba(201, 146, 46, 0.20);
-        flex-shrink: 0;
-        gap: 16px;
-    }
-
-    .registry-attention-items {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        flex-wrap: wrap;
-    }
-
-    .registry-attention-item {
-        display: inline-flex;
-        align-items: center;
-        gap: 5px;
-        padding: 3px 10px;
-        background: none;
-        border: none;
-        font-family: 'Montserrat', sans-serif;
-        font-size: 12px;
-        font-weight: 500;
-        cursor: pointer;
-        transition: opacity 0.15s ease;
-        white-space: nowrap;
-    }
-
-    .registry-attention-item:hover { opacity: 0.8; }
-    .registry-attention-item--reports { color: #EF9F27; }
-    .registry-attention-item--review { color: rgba(255, 255, 255, 0.65); }
-
-    .registry-attention-item + .registry-attention-item::before {
-        content: '/';
-        margin-right: 4px;
-        color: rgba(255, 255, 255, 0.15);
-        font-weight: 300;
-    }
-
-    .registry-attention-age {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 11px;
-        font-weight: 300;
-        color: rgba(255, 255, 255, 0.30);
-        white-space: nowrap;
-    }
-
     /* ── Stats Bar ── */
     .registry-stats-bar {
         display: flex;
@@ -202,7 +110,6 @@
     .registry-stat-value {
         font-size: 24px;
         font-weight: 600;
-        color: #ffffff;
         font-variant-numeric: tabular-nums;
     }
 
@@ -221,60 +128,10 @@
         color: rgba(255, 255, 255, 0.25);
         margin-top: 4px;
     }
-
-    /* ── Filter Chips ── */
-    .registry-filter-chips {
-        display: flex;
-        gap: 6px;
-        padding: 0 20px 12px 20px;
-        flex-shrink: 0;
-        overflow-x: auto;
-    }
-
-    .registry-chip {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 12px;
-        font-weight: 500;
-        color: rgba(255, 255, 255, 0.40);
-        background: rgba(255, 255, 255, 0.04);
-        border: 1px solid rgba(255, 255, 255, 0.06);
-        border-radius: 16px;
-        padding: 5px 14px;
-        cursor: pointer;
-        transition: all 0.15s ease;
-        white-space: nowrap;
-    }
-
-    .registry-chip:hover {
-        color: rgba(255, 255, 255, 0.65);
-        background: rgba(255, 255, 255, 0.06);
-    }
-
-    .registry-chip--active {
-        color: #C9922E;
-        background: rgba(201, 146, 46, 0.12);
-        border-color: rgba(201, 146, 46, 0.30);
-    }
 </style>
 
 @code {
     private RegistryFourStateCountsDto? _fourStateCounts;
-
-    // Attention banner
-    private int _bannerReviewCount;
-    private int _bannerReportCount;
-    private string? _bannerOldestAge;
-
-    // Filter chips
-    private string _activeFilter = "all";
-    private static readonly (string Key, string Label)[] _filterChips =
-    [
-        ("all", "All events"),
-        ("ingestion", "Ingestion"),
-        ("universe", "Universe"),
-        ("reports", "Reports"),
-        ("curator", "Curator actions"),
-    ];
 
     protected override async Task OnInitializedAsync()
     {
@@ -282,67 +139,11 @@
         Orchestrator.OnReviewCountChanged += HandleIntercomEvent;
 
         await LoadCountsAsync();
-        await LoadBannerDataAsync();
     }
 
     private async Task LoadCountsAsync()
     {
         _fourStateCounts = await Orchestrator.GetRegistryFourStateCountsAsync();
-    }
-
-    private async Task LoadBannerDataAsync()
-    {
-        try
-        {
-            if (_fourStateCounts is not null)
-                _bannerReviewCount = _fourStateCounts.InReview;
-
-            var reportEntries = await Orchestrator.GetActivityByTypesAsync(
-                ["UserReportSubmitted"], 500);
-            _bannerReportCount = reportEntries.Count;
-
-            var oldestDates = new List<DateTimeOffset>();
-            if (_bannerReviewCount > 0)
-            {
-                var batches = await Orchestrator.GetIngestionBatchesAsync(100);
-                var oldestBatch = batches
-                    .Where(b => b.FilesReview > 0)
-                    .OrderBy(b => b.StartedAt)
-                    .FirstOrDefault();
-                if (oldestBatch is not null)
-                    oldestDates.Add(oldestBatch.StartedAt);
-            }
-            if (reportEntries.Count > 0)
-            {
-                var oldest = reportEntries
-                    .Where(e => DateTimeOffset.TryParse(e.OccurredAt, out _))
-                    .OrderBy(e => e.OccurredAt)
-                    .FirstOrDefault();
-                if (oldest is not null && DateTimeOffset.TryParse(oldest.OccurredAt, out var dt))
-                    oldestDates.Add(dt);
-            }
-
-            if (oldestDates.Count > 0)
-            {
-                var oldest = oldestDates.Min();
-                var age = DateTimeOffset.Now - oldest;
-                _bannerOldestAge = age switch
-                {
-                    { TotalMinutes: < 60 } => $"{(int)age.TotalMinutes} minutes ago",
-                    { TotalHours: < 24 } => $"{(int)age.TotalHours} hours ago",
-                    { TotalDays: < 7 } => $"{(int)age.TotalDays} days ago",
-                    { TotalDays: < 30 } => $"{(int)(age.TotalDays / 7)} weeks ago",
-                    _ => $"{(int)(age.TotalDays / 30)} months ago",
-                };
-            }
-        }
-        catch { /* Banner is non-critical */ }
-    }
-
-    private void SetFilter(string filter)
-    {
-        _activeFilter = filter;
-        StateHasChanged();
     }
 
     private void HandleTimelineNavigate(Guid? batchId)
@@ -356,7 +157,6 @@
         await InvokeAsync(async () =>
         {
             await LoadCountsAsync();
-            await LoadBannerDataAsync();
             StateHasChanged();
         });
     }

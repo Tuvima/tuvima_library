@@ -37,6 +37,7 @@
                     style="@(isActive ? $"--tab-color: {tab.Color};" : "")"
                     @onclick="() => SetActiveTab(tab.Key)"
                     type="button">
+                <MudIcon Icon="@tab.Icon" Style="font-size: 14px;" />
                 <span class="adp-tab-label">@tab.Label</span>
                 <span class="adp-tab-badge" style="@(isActive ? $"background: {tab.Color}20; color: {tab.Color};" : "")">
                     @tab.Count
@@ -55,14 +56,14 @@
             {
                 <div class="adp-loading">
                     <MudProgressCircular Indeterminate="true" Size="MudBlazor.Size.Small"
-                                         Style="color: rgba(255,255,255,0.3);" />
+                                         Style="color: rgba(200,190,220,0.3);" />
                     <span class="adp-loading-text">Loading…</span>
                 </div>
             }
             else if (_items.Count == 0)
             {
                 <div class="adp-empty">
-                    <MudIcon Icon="@GetEmptyIcon()" Style="font-size: 36px; color: rgba(255,255,255,0.10); margin-bottom: 10px;" />
+                    <MudIcon Icon="@GetEmptyIcon()" Style="font-size: 36px; color: rgba(140,120,180,0.18); margin-bottom: 10px;" />
                     <span class="adp-empty-title">@GetEmptyTitle()</span>
                     <span class="adp-empty-sub">@GetEmptySubtitle()</span>
                 </div>
@@ -91,7 +92,8 @@
                                 <ActivityItemCard Item="@item"
                                                   IsSelected="@(_selectedItem?.EntityId == item.EntityId)"
                                                   OnSelect="HandleItemSelect"
-                                                  OnUnreject="HandleUnreject" />
+                                                  OnUnreject="HandleUnreject"
+                                                  ShowTriggerChip="false" />
                             }
                         </div>
                     </div>
@@ -106,7 +108,8 @@
                         <ActivityItemCard Item="@item"
                                           IsSelected="@(_selectedItem?.EntityId == item.EntityId)"
                                           OnSelect="HandleItemSelect"
-                                          OnUnreject="HandleUnreject" />
+                                          OnUnreject="HandleUnreject"
+                                          ShowTriggerChip="true" />
                     }
                 </div>
             }
@@ -125,12 +128,17 @@
 
     </div>
 
+    @* ── Mobile bottom drawer (stub — content defined in a future session) ── *@
+    <div class="adp-mobile-drawer" style="display: none;">
+        <!-- Bottom drawer with thumb-friendly placement. Components to be defined. -->
+    </div>
+
 </div>
 
 @code {
     // ── Tab model ─────────────────────────────────────────────────────────────
 
-    private sealed record TabDef(string Key, string Label, string Color, int Count);
+    private sealed record TabDef(string Key, string Label, string Color, string Icon, int Count);
 
     // ── State ─────────────────────────────────────────────────────────────────
 
@@ -250,10 +258,10 @@
 
         _tabs =
         [
-            new TabDef("review",      "In Review",    "#EF9F27", inReview),
-            new TabDef("rejected",    "Rejected",     "#E24B4A", rejected),
-            new TabDef("registered",  "Registered",   "#5DCAA5", registered),
-            new TabDef("provisional", "Provisional",  "#B4B2A9", provisional),
+            new TabDef("review",      "In Review",    "#EF9F27", Icons.Material.Outlined.RateReview,   inReview),
+            new TabDef("rejected",    "Rejected",     "#E24B4A", Icons.Material.Outlined.Block,         rejected),
+            new TabDef("registered",  "Registered",   "#5DCAA5", Icons.Material.Outlined.CheckCircle,   registered),
+            new TabDef("provisional", "Provisional",  "#B4B2A9", Icons.Material.Outlined.EditNote,      provisional),
         ];
     }
 
@@ -268,12 +276,13 @@
         _             => "InReview",
     };
 
-    private async Task SetActiveTab(string key)
+    private async Task SetActiveTab(string tab)
     {
-        if (_activeTab == key) return;
-        _activeTab    = key;
+        _activeTab    = tab;
         _reasonFilter = null;  // clear reason filter on explicit tab switch
         _selectedItem = null;
+        var newUrl = $"/registry/activity?state={tab}";
+        Nav.NavigateTo(newUrl, forceLoad: false, replace: true);
         await LoadItemsAsync();
     }
 
@@ -366,20 +375,20 @@
 
     private static string GetTriggerDescription(string? trigger) => trigger switch
     {
-        "LowConfidence"        => "Overall confidence below threshold",
-        "MultipleQidMatches"   => "Multiple Wikidata candidates found",
-        "UserFixMatch"         => "User requested re-match",
-        "ArbiterNeedsReview"   => "Arbiter flagged for review",
-        "AuthorityMatchFailed" => "Wikidata lookup found no match",
-        "ContentMatchFailed"   => "Retail provider lookup found no match",
-        "MetadataConflict"     => "Conflicting metadata claims",
-        "AmbiguousMediaType"   => "Could not determine media type",
-        "MissingQid"           => "Missing Wikidata identifier",
-        "StagedUnidentifiable" => "File could not be identified",
-        "PlaceholderTitle"     => "Title is a placeholder",
-        "ArtworkUnconfirmed"   => "Cover art needs confirmation",
-        "LanguageMismatch"     => "Language does not match library",
-        "UserReport"           => "User reported an issue",
+        "MultipleQidMatches"   => "Pick the correct entity",
+        "LowConfidence"        => "Below confidence threshold",
+        "AuthorityMatchFailed" => "No Wikidata match found",
+        "ContentMatchFailed"   => "No cover art found",
+        "AmbiguousMediaType"   => "Unclear media type",
+        "MissingQid"           => "Needs manual match",
+        "PlaceholderTitle"     => "Missing title",
+        "StagedUnidentifiable" => "Cannot identify",
+        "ArtworkUnconfirmed"   => "Verify cover art",
+        "MetadataConflict"     => "Conflicting metadata",
+        "UserFixMatch"         => "User requested correction",
+        "ArbiterNeedsReview"   => "Review grouping",
+        "LanguageMismatch"     => "Foreign language",
+        "UserReport"           => "Users flagged a problem",
         _                      => "",
     };
 }
@@ -394,11 +403,11 @@
     /* ── Root container ── */
     .adp-root {
         min-height: 100vh;
-        background: #000000;
+        background: #0c0a14;
         font-family: 'Montserrat', sans-serif;
         padding: 24px 32px 40px 84px; /* 84px left for dock clearance */
         box-sizing: border-box;
-        color: rgba(255, 255, 255, 0.85);
+        color: #e0dce8;
     }
 
     @@media (max-width: 768px) {
@@ -422,7 +431,7 @@
         background: transparent;
         border: none;
         cursor: pointer;
-        color: rgba(255, 255, 255, 0.45);
+        color: rgba(200, 190, 220, 0.45);
         font-family: 'Montserrat', sans-serif;
         font-size: 12px;
         font-weight: 500;
@@ -432,26 +441,26 @@
     }
 
     .adp-back-btn:hover {
-        color: rgba(255, 255, 255, 0.75);
-        background: rgba(255, 255, 255, 0.05);
+        color: rgba(200, 190, 220, 0.75);
+        background: rgba(140, 120, 180, 0.1);
     }
 
     .adp-breadcrumb-sep {
         font-size: 12px;
-        color: rgba(255, 255, 255, 0.18);
+        color: rgba(200, 190, 220, 0.18);
     }
 
     .adp-breadcrumb-current {
         font-size: 12px;
         font-weight: 500;
-        color: rgba(255, 255, 255, 0.40);
+        color: rgba(200, 190, 220, 0.40);
     }
 
     /* ── Page title ── */
     .adp-page-title {
         font-size: 22px;
         font-weight: 700;
-        color: rgba(255, 255, 255, 0.92);
+        color: #e0dce8;
         margin: 0 0 22px 0;
         letter-spacing: -0.3px;
     }
@@ -471,20 +480,20 @@
         gap: 7px;
         padding: 7px 14px;
         border-radius: 20px;
-        border: 1px solid rgba(255, 255, 255, 0.09);
-        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(140, 120, 180, 0.12);
+        background: rgba(140, 120, 180, 0.06);
         cursor: pointer;
         font-family: 'Montserrat', sans-serif;
         font-size: 12px;
         font-weight: 500;
-        color: rgba(255, 255, 255, 0.50);
+        color: rgba(200, 190, 220, 0.55);
         transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
     }
 
     .adp-tab:hover {
-        background: rgba(255, 255, 255, 0.08);
-        color: rgba(255, 255, 255, 0.75);
-        border-color: rgba(255, 255, 255, 0.15);
+        background: rgba(140, 120, 180, 0.1);
+        color: rgba(200, 190, 220, 0.85);
+        border-color: rgba(140, 120, 180, 0.22);
     }
 
     .adp-tab--active {
@@ -505,8 +514,8 @@
         height: 18px;
         padding: 0 5px;
         border-radius: 9px;
-        background: rgba(255, 255, 255, 0.07);
-        color: rgba(255, 255, 255, 0.40);
+        background: rgba(140, 120, 180, 0.10);
+        color: rgba(200, 190, 220, 0.45);
         font-size: 10px;
         font-weight: 600;
         font-variant-numeric: tabular-nums;
@@ -530,14 +539,15 @@
 
     /* ── Right panel (inspector) ── */
     .adp-right-panel {
-        width: 360px;
+        width: 400px;
+        min-width: 380px;
         flex-shrink: 0;
         position: sticky;
         top: 72px; /* TopBar height + gap */
         max-height: calc(100vh - 80px);
         overflow-y: auto;
-        background: rgba(6, 6, 14, 0.95);
-        border-left: 1px solid rgba(255, 255, 255, 0.06);
+        background: #14102a;
+        border-left: 1px solid rgba(140, 120, 180, 0.12);
         border-radius: 6px 0 0 6px;
     }
 
@@ -553,7 +563,7 @@
 
     .adp-loading-text {
         font-size: 12px;
-        color: rgba(255, 255, 255, 0.28);
+        color: rgba(200, 190, 220, 0.35);
     }
 
     /* ── Empty state ── */
@@ -570,13 +580,13 @@
     .adp-empty-title {
         font-size: 15px;
         font-weight: 600;
-        color: rgba(255, 255, 255, 0.35);
+        color: rgba(200, 190, 220, 0.55);
     }
 
     .adp-empty-sub {
         font-size: 12px;
         font-weight: 400;
-        color: rgba(255, 255, 255, 0.22);
+        color: rgba(200, 190, 220, 0.35);
         max-width: 280px;
         line-height: 1.5;
     }
@@ -592,7 +602,7 @@
         gap: 6px;
         margin-bottom: 10px;
         padding-bottom: 6px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        border-bottom: 1px solid rgba(140, 120, 180, 0.12);
     }
 
     .adp-group-name {
@@ -605,9 +615,9 @@
     .adp-group-count {
         font-size: 11px;
         font-weight: 600;
-        color: rgba(255, 255, 255, 0.35);
+        color: rgba(200, 190, 220, 0.55);
         font-variant-numeric: tabular-nums;
-        background: rgba(255, 255, 255, 0.06);
+        background: rgba(140, 120, 180, 0.10);
         padding: 1px 6px;
         border-radius: 8px;
     }
@@ -615,7 +625,7 @@
     .adp-group-desc {
         font-size: 11px;
         font-weight: 400;
-        color: rgba(255, 255, 255, 0.28);
+        color: rgba(200, 190, 220, 0.35);
         font-style: italic;
     }
 
@@ -631,5 +641,22 @@
         display: flex;
         flex-direction: column;
         gap: 1px;
+    }
+
+    /* ── Mobile layout ── */
+    @@media (max-width: 768px) {
+        .adp-right-panel {
+            display: none;
+        }
+
+        .adp-mobile-drawer {
+            display: block !important;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            /* Drawer content will be added in a future session */
+        }
     }
 </style>

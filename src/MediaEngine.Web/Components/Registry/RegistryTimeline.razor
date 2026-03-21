@@ -4,6 +4,7 @@
 @using MudBlazor
 
 @inject UIOrchestratorService Orchestrator
+@inject NavigationManager Nav
 
 <div class="rtl-container">
 
@@ -228,7 +229,7 @@
 
     protected override void OnParametersSet()
     {
-        if (!string.IsNullOrEmpty(FilterCategory) && FilterCategory != _activeFilter)
+        if (!string.IsNullOrEmpty(FilterCategory) && _filterOptions.ContainsKey(FilterCategory))
         {
             _activeFilter = FilterCategory;
         }
@@ -236,6 +237,13 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // Read filter from URL query param
+        var uri = Nav.ToAbsoluteUri(Nav.Uri);
+        var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+        var filterParam = query["filter"];
+        if (!string.IsNullOrEmpty(filterParam) && _filterOptions.ContainsKey(filterParam))
+            _activeFilter = filterParam;
+
         _loading = true;
         StateHasChanged();
 
@@ -272,6 +280,14 @@
     private void SetFilter(string filter)
     {
         _activeFilter = filter;
+
+        // Update URL query param so the back button works
+        var uri = Nav.ToAbsoluteUri(Nav.Uri);
+        var newUrl = filter == "all"
+            ? uri.GetLeftPart(UriPartial.Path)
+            : $"{uri.GetLeftPart(UriPartial.Path)}?filter={filter}";
+        Nav.NavigateTo(newUrl, forceLoad: false, replace: true);
+
         RebuildTimeline();
         StateHasChanged();
     }

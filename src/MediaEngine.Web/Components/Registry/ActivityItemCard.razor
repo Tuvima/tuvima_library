@@ -16,19 +16,19 @@
             <div class="aic-thumb-fallback">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="aic-thumb-svg">
                     <rect x="3" y="2" width="14" height="20" rx="1.5"
-                          fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="1.2"
+                          fill="none" stroke="rgba(200,190,220,0.18)" stroke-width="1.2"
                           stroke-dasharray="3 2" />
-                    <rect x="5" y="5" width="8" height="1" rx="0.5" fill="rgba(255,255,255,0.14)" />
-                    <rect x="5" y="8" width="10" height="1" rx="0.5" fill="rgba(255,255,255,0.10)" />
-                    <rect x="5" y="11" width="7" height="1" rx="0.5" fill="rgba(255,255,255,0.10)" />
-                    <rect x="5" y="14" width="9" height="1" rx="0.5" fill="rgba(255,255,255,0.08)" />
+                    <rect x="5" y="5" width="8" height="1" rx="0.5" fill="rgba(200,190,220,0.14)" />
+                    <rect x="5" y="8" width="10" height="1" rx="0.5" fill="rgba(200,190,220,0.10)" />
+                    <rect x="5" y="11" width="7" height="1" rx="0.5" fill="rgba(200,190,220,0.10)" />
+                    <rect x="5" y="14" width="9" height="1" rx="0.5" fill="rgba(200,190,220,0.08)" />
                 </svg>
             </div>
         }
 
         @* Zoom hint overlay *@
         <div class="aic-thumb-zoom-hint" aria-hidden="true">
-            <MudIcon Icon="@Icons.Material.Outlined.ZoomIn" Style="font-size: 0.75rem; color: rgba(255,255,255,0.9);" />
+            <MudIcon Icon="@Icons.Material.Outlined.ZoomIn" Style="font-size: 0.75rem; color: rgba(224,220,232,0.9);" />
         </div>
     </div>
 
@@ -63,8 +63,8 @@
                 <span class="aic-subtitle">@SubtitleText</span>
             }
 
-            @* Review trigger chip *@
-            @if (!string.IsNullOrEmpty(Item.ReviewTrigger))
+            @* Review trigger chip — only shown when ShowTriggerChip is true *@
+            @if (ShowTriggerChip && !string.IsNullOrEmpty(Item.ReviewTrigger))
             {
                 var (trigLabel, trigColor, trigIcon) = RegistryHelpers.FormatReviewTrigger(Item.ReviewTrigger);
                 <span class="aic-trigger-chip" style="color: @trigColor; border-color: @(trigColor + "44");">
@@ -101,6 +101,7 @@
     [Parameter] public bool IsSelected { get; set; }
     [Parameter] public EventCallback<RegistryItemViewModel> OnSelect { get; set; }
     [Parameter] public EventCallback<Guid> OnUnreject { get; set; }
+    [Parameter] public bool ShowTriggerChip { get; set; } = true;
 
     private bool _popoverOpen;
 
@@ -113,7 +114,7 @@
         get
         {
             var hex = RegistryHelpers.GetConfidenceHexColor(Item.Confidence).TrimStart('#');
-            if (hex.Length < 6) return "rgba(255,255,255,0.08)";
+            if (hex.Length < 6) return "rgba(140,120,180,0.12)";
             var r = Convert.ToInt32(hex[..2], 16);
             var g = Convert.ToInt32(hex[2..4], 16);
             var b = Convert.ToInt32(hex[4..6], 16);
@@ -198,15 +199,15 @@
     }
 
     .aic-row:hover {
-        background: rgba(255, 255, 255, 0.04);
+        background: rgba(140, 120, 180, 0.1);
     }
 
     .aic-row--selected {
-        background: rgba(255, 255, 255, 0.06);
+        background: rgba(140, 120, 180, 0.06);
     }
 
     .aic-row--selected:hover {
-        background: rgba(255, 255, 255, 0.08);
+        background: rgba(140, 120, 180, 0.12);
     }
 
     /* ── Thumbnail ─────────────────────────────────────────────────────────── */
@@ -217,14 +218,14 @@
         flex-shrink: 0;
         border-radius: 3px;
         overflow: hidden;
-        background: rgba(13, 18, 48, 0.9);
-        border: 1px solid rgba(255, 255, 255, 0.07);
+        background: rgba(20, 16, 42, 0.9);
+        border: 1px solid rgba(140, 120, 180, 0.12);
         cursor: pointer;
         transition: border-color 0.12s ease;
     }
 
     .aic-thumb-wrap:hover {
-        border-color: rgba(255, 255, 255, 0.25);
+        border-color: rgba(140, 120, 180, 0.35);
     }
 
     .aic-thumb-img {
@@ -240,8 +241,8 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        background: rgba(13, 18, 48, 0.6);
-        border: 1px dashed rgba(255, 255, 255, 0.12);
+        background: rgba(20, 16, 42, 0.6);
+        border: 1px dashed rgba(140, 120, 180, 0.18);
         border-radius: 2px;
         box-sizing: border-box;
     }
@@ -271,8 +272,8 @@
 
     /* ── Popover ───────────────────────────────────────────────────────────── */
     .aic-popover {
-        background: rgba(10, 14, 36, 0.96);
-        border: 1px solid rgba(255, 255, 255, 0.10);
+        background: rgba(20, 16, 42, 0.96);
+        border: 1px solid rgba(140, 120, 180, 0.12);
         border-radius: 6px;
         padding: 6px;
         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7);
@@ -307,7 +308,7 @@
     .aic-title {
         font-size: 0.78rem;
         font-weight: 500;
-        color: rgba(255, 255, 255, 0.82);
+        color: #e0dce8;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -340,7 +341,7 @@
 
     .aic-subtitle {
         font-size: 0.68rem;
-        color: rgba(255, 255, 255, 0.38);
+        color: rgba(200, 190, 220, 0.55);
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -389,9 +390,9 @@
         font-size: 0.62rem;
         font-family: 'Montserrat', sans-serif;
         font-weight: 500;
-        color: rgba(180, 178, 169, 0.75);
-        background: rgba(255, 255, 255, 0.05);
-        border: 1px solid rgba(255, 255, 255, 0.10);
+        color: rgba(200, 190, 220, 0.75);
+        background: rgba(140, 120, 180, 0.06);
+        border: 1px solid rgba(140, 120, 180, 0.12);
         border-radius: 4px;
         padding: 1px 7px;
         cursor: pointer;
@@ -400,15 +401,15 @@
     }
 
     .aic-unreject-btn:hover {
-        background: rgba(255, 255, 255, 0.10);
-        color: rgba(255, 255, 255, 0.88);
-        border-color: rgba(255, 255, 255, 0.22);
+        background: rgba(140, 120, 180, 0.15);
+        color: #e0dce8;
+        border-color: rgba(140, 120, 180, 0.30);
     }
 
     /* ── Timestamp ─────────────────────────────────────────────────────────── */
     .aic-timestamp {
         font-size: 0.60rem;
-        color: rgba(255, 255, 255, 0.25);
+        color: rgba(200, 190, 220, 0.25);
         white-space: nowrap;
         flex-shrink: 0;
         font-family: 'Montserrat', sans-serif;

@@ -278,7 +278,7 @@ public static class RegistryHelpers
     }
 
     /// <summary>
-    /// Formats a batch subtitle: "{count} items added to {category}".
+    /// Formats a batch subtitle: "{count} items added to {category}" or "{count} items from watch folder".
     /// </summary>
     public static string FormatBatchSubtitle(int filesTotal, string? category, string? sourcePath)
     {
@@ -286,7 +286,7 @@ public static class RegistryHelpers
         if (!string.IsNullOrWhiteSpace(category))
             return $"{countText} added to {category}";
         if (!string.IsNullOrWhiteSpace(sourcePath))
-            return $"{countText} from {Path.GetFileName(sourcePath)}";
+            return $"{countText} from watch folder";
         return $"{countText} processed";
     }
 
