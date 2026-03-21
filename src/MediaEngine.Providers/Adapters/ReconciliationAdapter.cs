@@ -431,8 +431,10 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 || !props.TryGetValue("P31", out var p31Values)
                 || p31Values.Count == 0)
             {
-                // No P31 data — cannot filter, keep candidate.
-                filtered.Add(candidate);
+                // No P31 data — cannot verify media type, skip candidate.
+                _logger.LogDebug(
+                    "{Provider}: candidate {QID} '{Label}' dropped — no P31 data for {MediaType} filtering",
+                    Name, candidate.QID, candidate.Label, mediaTypeKey);
                 continue;
             }
 
@@ -452,25 +454,19 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 continue;
             }
 
-            var matched = false;
-            foreach (var classQid in instanceOfQids)
+            // Direct P31 match only — no P279 subclass walking, which is too
+            // permissive (operas walk up to "creative work" and match Books).
+            if (instanceOfQids.Any(qid => expectedSet.Contains(qid)))
             {
-                if (expectedSet.Contains(classQid))
-                {
-                    matched = true;
-                    break;
-                }
-
-                // Walk P279 subclass_of up to 3 levels.
-                if (await WalkSubclassAsync(classQid, expectedSet, mediaTypeKey, 3, ct).ConfigureAwait(false))
-                {
-                    matched = true;
-                    break;
-                }
-            }
-
-            if (matched)
                 filtered.Add(candidate);
+            }
+            else
+            {
+                _logger.LogDebug(
+                    "{Provider}: candidate {QID} '{Label}' dropped — P31 [{P31}] does not match {MediaType} classes",
+                    Name, candidate.QID, candidate.Label,
+                    string.Join(", ", instanceOfQids), mediaTypeKey);
+            }
         }
 
         _logger.LogDebug("{Provider}: FilterByMediaType({MediaType}) kept {Kept}/{Total} candidates",
