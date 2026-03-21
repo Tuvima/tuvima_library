@@ -335,7 +335,7 @@ The real-time intercom (`/hubs/intercom`) requires authentication via `X-Api-Key
 ### 3.4 — Dashboard UI Features
 
 **Dark-Mode-Only Cinematic Design**
-The Dashboard is dark-mode only — light mode has been fully removed. Background is solid `#000000`. All CSS custom properties are set for dark surfaces with glassmorphic blur overlays.
+The Dashboard is dark-mode only — light mode has been fully removed. Background uses an ambient gradient system: base color `#080B14` with three radial gradients (purple top-left `rgba(127,119,221,0.10)`, warm amber top-right `rgba(201,146,46,0.06)`, blue bottom-center `rgba(55,138,221,0.05)`) applied at the `MudLayout` root via `.app-bg` class, plus a subtle SVG noise overlay at 1.5% opacity for film-grain texture. Page root containers use `transparent` backgrounds to let the gradient show through; sticky headers and modal overlays remain opaque. All CSS custom properties are set for dark surfaces with glassmorphic blur overlays.
 
 **Dual Navigation: TopBar + LeftDock**
 The Dashboard uses a horizontal top bar and an icon-only left dock:

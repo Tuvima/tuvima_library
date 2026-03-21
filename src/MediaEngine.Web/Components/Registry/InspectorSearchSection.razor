@@ -188,19 +188,19 @@
 }
 else
 {
-    @* ── Unmatched state: search + register ── *@
-    <div class="isearch-section">
-        <span class="isearch-section-label">WIKIDATA SEARCH</span>
+    @* ── Search workspace ── *@
+    <div class="isearch-workspace">
+        <h3 class="isearch-heading">Search Wikidata</h3>
 
-        @* ── Search input row ── *@
-        <div class="isearch-input-row">
-            <input class="isearch-input"
+        @* ── Search input row (promoted, larger) ── *@
+        <div class="isearch-search-row">
+            <input class="isearch-input isearch-input--primary"
                    type="text"
                    placeholder="Search title, author, ISBN…"
                    @bind="_query"
                    @bind:event="oninput"
                    @onkeydown="HandleSearchKeyDown" />
-            <select class="isearch-type-select" @bind="_mediaType">
+            <select class="isearch-type-select isearch-type-select--primary" @bind="_mediaType">
                 <option value="">Any</option>
                 <option value="Books">Book</option>
                 <option value="Audiobooks">Audiobook</option>
@@ -210,53 +210,56 @@ else
                 <option value="Comics">Comic</option>
                 <option value="Podcasts">Podcast</option>
             </select>
-            <button class="isearch-btn" @onclick="RunSearch" disabled="@(_searching || string.IsNullOrWhiteSpace(_query))">
+            <button class="isearch-search-btn" @onclick="RunSearch" disabled="@(_searching || string.IsNullOrWhiteSpace(_query))">
                 @if (_searching)
                 {
                     <MudProgressCircular Size="Size.Small" Indeterminate="true"
-                                         Style="width: 14px; height: 14px; color: rgba(200,190,220,0.5);" />
+                                         Style="width: 16px; height: 16px; color: rgba(200,190,220,0.5);" />
                 }
                 else
                 {
-                    <MudIcon Icon="@Icons.Material.Outlined.Search" Style="font-size: 14px;" />
+                    <MudIcon Icon="@Icons.Material.Outlined.Search" Style="font-size: 16px;" />
+                    <span>Search</span>
                 }
             </button>
         </div>
 
-        @* ── Search hint ── *@
-        @if (!_hasSearched)
-        {
-            <span class="isearch-hint">@(!string.IsNullOrWhiteSpace(_query) ? "Press Enter or click search to find matches" : "Enter a search query")</span>
-        }
-        else if (_candidates.Count > 0)
-        {
-            <span class="isearch-hint">@_candidates.Count @(_candidates.Count == 1 ? "result" : "results") · Edit query to search again</span>
-        }
-        else if (!_searching)
-        {
-            <span class="isearch-hint isearch-hint--empty">No results found · Try a different query</span>
-        }
+        @* ── Hint ── *@
+        <span class="isearch-search-hint">
+            @if (!_hasSearched)
+            {
+                @("Try removing the year, original language, or alternate titles")
+            }
+            else if (_candidates.Count > 0)
+            {
+                @($"{_candidates.Count} {(_candidates.Count == 1 ? "result" : "results")} · Edit query to search again")
+            }
+            else if (!_searching)
+            {
+                <span class="isearch-search-hint--empty">No results found · Try a different query</span>
+            }
+        </span>
 
-        @* ── Candidate cards ── *@
+        @* ── Results list ── *@
         @if (_candidates.Count > 0)
         {
-            <div class="isearch-candidates">
+            <div class="isearch-results-list">
                 @foreach (var c in _candidates)
                 {
                     var isSelected = _selectedCandidate == c;
-                    <div class="isearch-card @(isSelected ? "isearch-card--selected" : "")"
+                    <div class="isearch-result-item @(isSelected ? "isearch-result-item--selected" : "")"
                          @onclick="() => SelectCandidate(c)">
 
-                        @* Cover area *@
-                        <div class="isearch-card-cover">
+                        @* Cover *@
+                        <div class="isearch-result-cover">
                             @if (!string.IsNullOrEmpty(c.CoverUrl))
                             {
-                                <img src="@c.CoverUrl" alt="" class="isearch-card-img" loading="lazy"
+                                <img src="@c.CoverUrl" alt="" class="isearch-result-img" loading="lazy"
                                      onerror="this.style.display='none'" />
                             }
                             else if (_loadingCovers.Contains(c))
                             {
-                                <div class="isearch-card-img isearch-card-img--loading">
+                                <div class="isearch-result-img isearch-result-img--loading">
                                     <MudProgressCircular Size="Size.Small" Indeterminate="true"
                                                          Style="width: 14px; height: 14px; color: rgba(200,190,220,0.3);" />
                                 </div>
@@ -265,67 +268,115 @@ else
                             {
                                 <button class="isearch-load-cover" @onclick="() => LoadCover(c)" @onclick:stopPropagation="true">
                                     <MudIcon Icon="@Icons.Material.Outlined.Image" Style="font-size: 12px;" />
-                                    <span>Load cover</span>
+                                    <span>Load</span>
                                 </button>
                             }
                         </div>
 
-                        @* Text area *@
-                        <div class="isearch-card-body">
-                            <span class="isearch-card-title">@c.Title</span>
-                            @if (!string.IsNullOrWhiteSpace(c.Author))
-                            {
-                                <span class="isearch-card-author">@c.Author</span>
-                            }
+                        @* Text content *@
+                        <div class="isearch-result-body">
+                            <span class="isearch-result-title">@c.Title</span>
                             @if (!string.IsNullOrWhiteSpace(c.Description))
                             {
-                                <span class="isearch-card-desc">@TruncateDescription(c.Description)</span>
+                                <span class="isearch-result-desc">@TruncateDescription(c.Description)</span>
                             }
-                            <div class="isearch-card-footer">
-                                @if (!string.IsNullOrWhiteSpace(c.Year))
-                                {
-                                    <span class="isearch-card-year">@c.Year</span>
-                                }
+                            <div class="isearch-result-meta">
                                 @if (!string.IsNullOrWhiteSpace(c.Qid))
                                 {
-                                    <span class="isearch-card-qid">@c.Qid</span>
-                                    <a href="https://www.wikidata.org/wiki/Special:GoToLinkedPage/@(StateContainer.Language)wiki/@c.Qid"
-                                       target="_blank" rel="noopener"
-                                       class="isearch-card-wiki"
-                                       title="View on Wikipedia"
-                                       @onclick:stopPropagation="true">
-                                        <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Style="font-size: 11px;" />
-                                        <span>Wikipedia</span>
-                                    </a>
+                                    <span class="isearch-result-qid">@c.Qid</span>
                                 }
-                                @if (c.Confidence > 0)
+                                @if (!string.IsNullOrWhiteSpace(c.ProviderName))
                                 {
-                                    var confColor = RegistryHelpers.GetConfidenceHexColor(c.Confidence);
-                                    <span class="isearch-card-conf" style="color: @confColor;">
-                                        @((int)(c.Confidence * 100))%
-                                    </span>
+                                    <span class="isearch-result-provider">@c.ProviderName</span>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(c.Year))
+                                {
+                                    <span class="isearch-result-year">@c.Year</span>
                                 }
                             </div>
                         </div>
 
-                        @* Selection indicator *@
+                        @* Match signals *@
+                        <div class="isearch-result-signals">
+                            @{
+                                var (titleMatch, authorMatch, yearMatch) = ComputeMatchSignals(c);
+                            }
+                            <span class="isearch-signal @(titleMatch ? "isearch-signal--match" : "isearch-signal--miss")">
+                                <MudIcon Icon="@(titleMatch ? Icons.Material.Outlined.Check : Icons.Material.Outlined.Close)"
+                                         Style="font-size: 12px;" />
+                                Title
+                            </span>
+                            <span class="isearch-signal @(authorMatch ? "isearch-signal--match" : "isearch-signal--miss")">
+                                <MudIcon Icon="@(authorMatch ? Icons.Material.Outlined.Check : Icons.Material.Outlined.Close)"
+                                         Style="font-size: 12px;" />
+                                Author
+                            </span>
+                            <span class="isearch-signal @(yearMatch == "match" ? "isearch-signal--match" : yearMatch == "warn" ? "isearch-signal--warn" : "isearch-signal--miss")">
+                                <MudIcon Icon="@(yearMatch == "match" ? Icons.Material.Outlined.Check : yearMatch == "warn" ? Icons.Material.Outlined.Warning : Icons.Material.Outlined.Close)"
+                                         Style="font-size: 12px;" />
+                                Year
+                            </span>
+                        </div>
+
                         @if (isSelected)
                         {
-                            <span class="isearch-card-check">
-                                <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Style="font-size: 16px; color: #4A90D9;" />
-                            </span>
+                            <button class="isearch-result-select-btn"
+                                    @onclick:stopPropagation="true">
+                                <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Style="font-size: 14px; color: #4A90D9;" />
+                            </button>
                         }
                     </div>
                 }
             </div>
         }
-    </div>
 
-    @* ── Actions section ── *@
-    <div class="isearch-actions-section">
+        @* ── Comparison panel (only when candidate selected) ── *@
         @if (_selectedCandidate is not null)
         {
-            <button class="isearch-btn-register @(_confirmingRegister ? "isearch-btn-register--confirming" : "")"
+            <div class="isearch-comparison">
+                <div class="isearch-comparison-col">
+                    <span class="isearch-comparison-label">Your File</span>
+                    <div class="isearch-comparison-field">
+                        <span class="isearch-comparison-key">Title</span>
+                        <span class="isearch-comparison-val">@(Item.Title ?? "—")</span>
+                    </div>
+                    <div class="isearch-comparison-field">
+                        <span class="isearch-comparison-key">Author</span>
+                        <span class="isearch-comparison-val">@(Item.Author ?? "—")</span>
+                    </div>
+                    <div class="isearch-comparison-field">
+                        <span class="isearch-comparison-key">Year</span>
+                        <span class="isearch-comparison-val">@(Item.Year ?? "—")</span>
+                    </div>
+                </div>
+                <div class="isearch-comparison-col">
+                    <span class="isearch-comparison-label">Selected Result</span>
+                    <div class="isearch-comparison-field">
+                        <span class="isearch-comparison-key">Title</span>
+                        <span class="isearch-comparison-val">@(_selectedCandidate.Title ?? "—")</span>
+                    </div>
+                    <div class="isearch-comparison-field">
+                        <span class="isearch-comparison-key">Author</span>
+                        <span class="isearch-comparison-val">@(_selectedCandidate.Author ?? "—")</span>
+                    </div>
+                    <div class="isearch-comparison-field">
+                        <span class="isearch-comparison-key">Year</span>
+                        @{
+                            var (_, _, ym) = ComputeMatchSignals(_selectedCandidate);
+                            var yearClass = ym == "match" ? "isearch-comparison-val--match" : ym == "warn" ? "isearch-comparison-val--warn" : "";
+                        }
+                        <span class="isearch-comparison-val @yearClass">@(_selectedCandidate.Year ?? "—")</span>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+
+    @* ── Actions ── *@
+    <div class="isearch-workspace-actions">
+        @if (_selectedCandidate is not null)
+        {
+            <button class="isearch-action-accept @(_confirmingRegister ? "isearch-action--confirming" : "")"
                     @onclick="HandleRegisterClick" disabled="@_registering">
                 @if (_registering)
                 {
@@ -341,32 +392,30 @@ else
                 else
                 {
                     <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Style="font-size: 14px;" />
-                    <span>Register as '@TruncateTitle(_selectedCandidate.Title)'</span>
+                    <span>Accept Match</span>
                 }
             </button>
         }
         else
         {
-            <button class="isearch-btn-register isearch-btn-register--disabled" disabled>
+            <button class="isearch-action-accept isearch-action-accept--disabled" disabled>
                 <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Style="font-size: 14px;" />
                 <span>Select a candidate to register</span>
             </button>
         }
 
-        <div class="isearch-secondary-actions">
-            <button class="isearch-btn-provisional" @onclick="HandleProvisionalClick" disabled="@_registering">
-                <MudIcon Icon="@Icons.Material.Outlined.EditNote" Style="font-size: 14px;" />
-                <span>Mark provisional</span>
-            </button>
-            <button class="isearch-btn-reject @(_confirmingReject ? "isearch-btn-reject--confirming" : "")"
-                    @onclick="HandleRejectClick" disabled="@_registering">
-                <MudIcon Icon="@(_confirmingReject ? Icons.Material.Outlined.Warning : Icons.Material.Outlined.Block)"
-                         Style="font-size: 14px;" />
-                <span>@(_confirmingReject ? "Are you sure?" : "Reject")</span>
-            </button>
-        </div>
+        <button class="isearch-action-provisional" @onclick="HandleProvisionalClick" disabled="@_registering">
+            <MudIcon Icon="@Icons.Material.Outlined.EditNote" Style="font-size: 14px;" />
+            <span>Mark Provisional</span>
+        </button>
 
-        @* ── Registration result ── *@
+        <button class="isearch-action-reject @(_confirmingReject ? "isearch-action--confirming" : "")"
+                @onclick="HandleRejectClick" disabled="@_registering">
+            <MudIcon Icon="@(_confirmingReject ? Icons.Material.Outlined.Warning : Icons.Material.Outlined.Block)"
+                     Style="font-size: 14px;" />
+            <span>@(_confirmingReject ? "Are you sure?" : "Reject")</span>
+        </button>
+
         @if (!string.IsNullOrEmpty(_resultMessage))
         {
             <div class="isearch-result @(_resultSuccess ? "isearch-result--ok" : "isearch-result--err")">
@@ -626,6 +675,30 @@ else
     private static string TruncateTitle(string title)
         => title.Length > 30 ? title[..27] + "…" : title;
 
+    /// <summary>Compare candidate fields against file metadata to produce match signals.</summary>
+    private (bool titleMatch, bool authorMatch, string yearMatch) ComputeMatchSignals(CandidateViewModel candidate)
+    {
+        var titleMatch = !string.IsNullOrWhiteSpace(candidate.Title)
+            && !string.IsNullOrWhiteSpace(Item.Title)
+            && (candidate.Title.Contains(Item.Title, StringComparison.OrdinalIgnoreCase)
+               || (Item.Title?.Contains(candidate.Title ?? "", StringComparison.OrdinalIgnoreCase) ?? false));
+
+        var authorMatch = !string.IsNullOrWhiteSpace(candidate.Author)
+            && !string.IsNullOrWhiteSpace(Item.Author)
+            && (candidate.Author.Contains(Item.Author, StringComparison.OrdinalIgnoreCase)
+                || Item.Author.Contains(candidate.Author, StringComparison.OrdinalIgnoreCase));
+
+        string yearMatch;
+        if (string.IsNullOrWhiteSpace(candidate.Year) || string.IsNullOrWhiteSpace(Item.Year))
+            yearMatch = "miss"; // no data to compare
+        else if (candidate.Year == Item.Year)
+            yearMatch = "match";
+        else
+            yearMatch = "warn"; // mismatch
+
+        return (titleMatch, authorMatch, yearMatch);
+    }
+
     /// <summary>Local view model flattening provider results into a single list.</summary>
     private sealed class CandidateViewModel
     {
@@ -647,7 +720,7 @@ else
     /* ── Section ── */
     .isearch-section {
         padding: 12px 16px;
-        border-top: 1px solid rgba(140, 120, 180, 0.1);
+        border-top: none;
     }
 
     .isearch-section-label {
@@ -1110,5 +1183,415 @@ else
     @@keyframes pulse-confirm {
         0%, 100% { opacity: 1; }
         50% { opacity: 0.7; }
+    }
+
+    /* ── Workspace container ── */
+    .isearch-workspace {
+        padding: 20px 20px 0;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    .isearch-heading {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 18px;
+        font-weight: 600;
+        color: #e0dce8;
+        margin: 0;
+    }
+
+    /* ── Primary search row ── */
+    .isearch-search-row {
+        display: flex;
+        gap: 8px;
+    }
+
+    .isearch-input--primary {
+        flex: 1;
+        min-width: 0;
+        padding: 10px 14px;
+        height: 40px;
+        border-radius: 8px;
+        border: 1px solid rgba(140, 120, 180, 0.20);
+        background: rgba(140, 120, 180, 0.08);
+        color: #e0dce8;
+        font-family: 'Montserrat', sans-serif;
+        font-size: 14px;
+        font-weight: 400;
+        outline: none;
+        transition: border-color 0.15s ease;
+        box-sizing: border-box;
+    }
+
+    .isearch-input--primary:focus {
+        border-color: rgba(201, 146, 46, 0.50);
+    }
+
+    .isearch-input--primary::placeholder {
+        color: rgba(200, 190, 220, 0.30);
+        font-weight: 300;
+    }
+
+    .isearch-type-select--primary {
+        width: 90px;
+        height: 40px;
+        padding: 8px 8px;
+        border-radius: 8px;
+        border: 1px solid rgba(140, 120, 180, 0.20);
+        background: rgba(140, 120, 180, 0.08);
+        color: rgba(200, 190, 220, 0.70);
+        font-family: 'Montserrat', sans-serif;
+        font-size: 12px;
+        font-weight: 400;
+        outline: none;
+        cursor: pointer;
+        -webkit-appearance: none;
+        box-sizing: border-box;
+    }
+
+    .isearch-type-select--primary option {
+        background: #0e0b1a;
+        color: #e0dce8;
+    }
+
+    .isearch-search-btn {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 0 16px;
+        height: 40px;
+        border-radius: 8px;
+        border: 1px solid rgba(140, 120, 180, 0.20);
+        background: rgba(140, 120, 180, 0.10);
+        color: rgba(200, 190, 220, 0.70);
+        font-family: 'Montserrat', sans-serif;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background 0.15s ease, border-color 0.15s ease;
+        flex-shrink: 0;
+        box-sizing: border-box;
+    }
+
+    .isearch-search-btn:hover:not(:disabled) {
+        background: rgba(140, 120, 180, 0.18);
+        border-color: rgba(140, 120, 180, 0.30);
+    }
+
+    .isearch-search-btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+    }
+
+    /* ── Search hint ── */
+    .isearch-search-hint {
+        display: block;
+        font-size: 12px;
+        font-weight: 400;
+        color: rgba(200, 190, 220, 0.35);
+        font-family: 'Montserrat', sans-serif;
+    }
+
+    .isearch-search-hint--empty {
+        color: rgba(239, 159, 39, 0.55);
+    }
+
+    /* ── Results list ── */
+    .isearch-results-list {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        max-height: 400px;
+        overflow-y: auto;
+    }
+
+    .isearch-result-item {
+        display: flex;
+        gap: 12px;
+        padding: 14px 16px;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: background 0.12s ease;
+        position: relative;
+        align-items: flex-start;
+    }
+
+    .isearch-result-item:hover {
+        background: rgba(255, 255, 255, 0.03);
+    }
+
+    .isearch-result-item--selected {
+        background: rgba(74, 144, 217, 0.06);
+    }
+
+    .isearch-result-item--selected:hover {
+        background: rgba(74, 144, 217, 0.09);
+    }
+
+    /* ── Result cover ── */
+    .isearch-result-cover {
+        flex-shrink: 0;
+        width: 44px;
+        height: 64px;
+    }
+
+    .isearch-result-img {
+        width: 44px;
+        height: 64px;
+        border-radius: 3px;
+        object-fit: cover;
+        display: block;
+    }
+
+    .isearch-result-img--loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(140, 120, 180, 0.06);
+        border: 1px dashed rgba(140, 120, 180, 0.15);
+        border-radius: 3px;
+    }
+
+    /* ── Result body ── */
+    .isearch-result-body {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+    }
+
+    .isearch-result-title {
+        font-size: 14px;
+        font-weight: 500;
+        color: #e0dce8;
+        line-height: 1.35;
+        overflow: hidden;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+    }
+
+    .isearch-result-desc {
+        font-size: 12px;
+        font-weight: 400;
+        color: rgba(200, 190, 220, 0.35);
+        line-height: 1.4;
+        overflow: hidden;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+    }
+
+    .isearch-result-meta {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 2px;
+    }
+
+    .isearch-result-qid {
+        font-size: 12px;
+        font-weight: 500;
+        color: rgba(201, 146, 46, 0.70);
+        font-variant-numeric: tabular-nums;
+    }
+
+    .isearch-result-provider {
+        font-size: 11px;
+        font-weight: 400;
+        color: rgba(200, 190, 220, 0.30);
+    }
+
+    .isearch-result-year {
+        font-size: 11px;
+        font-weight: 400;
+        color: rgba(200, 190, 220, 0.35);
+    }
+
+    /* ── Match signals ── */
+    .isearch-result-signals {
+        flex-shrink: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        align-self: center;
+        min-width: 80px;
+    }
+
+    .isearch-signal {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 11px;
+        font-weight: 500;
+        font-family: 'Montserrat', sans-serif;
+    }
+
+    .isearch-signal--match {
+        color: rgba(93, 202, 165, 0.80);
+    }
+
+    .isearch-signal--warn {
+        color: rgba(239, 159, 39, 0.80);
+    }
+
+    .isearch-signal--miss {
+        color: rgba(200, 190, 220, 0.25);
+    }
+
+    .isearch-result-select-btn {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        padding: 0;
+    }
+
+    /* ── Comparison panel ── */
+    .isearch-comparison {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+        padding: 16px 0 0;
+    }
+
+    .isearch-comparison-col {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .isearch-comparison-label {
+        font-size: 12px;
+        font-weight: 600;
+        color: rgba(200, 190, 220, 0.50);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 4px;
+    }
+
+    .isearch-comparison-field {
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+    }
+
+    .isearch-comparison-key {
+        font-size: 10px;
+        font-weight: 500;
+        color: rgba(200, 190, 220, 0.30);
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+
+    .isearch-comparison-val {
+        font-size: 13px;
+        font-weight: 400;
+        color: rgba(200, 190, 220, 0.70);
+    }
+
+    .isearch-comparison-val--match {
+        color: rgba(93, 202, 165, 0.80);
+    }
+
+    .isearch-comparison-val--warn {
+        color: rgba(239, 159, 39, 0.80);
+    }
+
+    /* ── Workspace actions ── */
+    .isearch-workspace-actions {
+        display: flex;
+        gap: 12px;
+        padding: 16px 20px 20px;
+        align-items: center;
+    }
+
+    .isearch-action-accept {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 10px 20px;
+        border-radius: 8px;
+        font-family: 'Montserrat', sans-serif;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: opacity 0.15s ease, background 0.15s ease;
+        background: rgba(93, 202, 165, 0.15);
+        border: 1px solid rgba(93, 202, 165, 0.30);
+        color: rgba(93, 202, 165, 0.90);
+    }
+
+    .isearch-action-accept:hover:not(:disabled) {
+        background: rgba(93, 202, 165, 0.22);
+    }
+
+    .isearch-action-accept:disabled {
+        cursor: not-allowed;
+        opacity: 0.6;
+    }
+
+    .isearch-action-accept--disabled {
+        background: rgba(93, 202, 165, 0.06);
+        border: 1px solid rgba(93, 202, 165, 0.12);
+        color: rgba(93, 202, 165, 0.35);
+    }
+
+    .isearch-action-provisional {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        padding: 10px 16px;
+        border-radius: 8px;
+        border: 1px solid rgba(140, 120, 180, 0.20);
+        background: transparent;
+        color: rgba(192, 184, 224, 0.70);
+        font-family: 'Montserrat', sans-serif;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background 0.15s ease;
+    }
+
+    .isearch-action-provisional:hover:not(:disabled) {
+        background: rgba(140, 120, 180, 0.10);
+    }
+
+    .isearch-action-provisional:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .isearch-action-reject {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        padding: 10px 16px;
+        border-radius: 8px;
+        border: none;
+        background: transparent;
+        color: rgba(226, 75, 74, 0.65);
+        font-family: 'Montserrat', sans-serif;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background 0.15s ease;
+    }
+
+    .isearch-action-reject:hover:not(:disabled) {
+        background: rgba(226, 75, 74, 0.08);
+    }
+
+    .isearch-action-reject:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .isearch-action--confirming {
+        animation: pulse-confirm 1s ease-in-out infinite;
     }
 </style>

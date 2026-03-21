@@ -32,11 +32,6 @@
         <div class="aic-title-row">
             <span class="aic-title">@Item.Title</span>
 
-            @* Confidence badge *@
-            <span class="aic-conf-badge"
-                  style="background: @ConfidenceBg; color: @ConfidenceColor;">
-                @((int)(Item.Confidence * 100))%
-            </span>
         </div>
 
         <div class="aic-meta-row">
@@ -89,21 +84,6 @@
     [Parameter] public bool ShowTriggerChip { get; set; } = true;
 
     // ── Computed display values ────────────────────────────────────────────
-
-    private string ConfidenceColor => RegistryHelpers.GetConfidenceHexColor(Item.Confidence);
-
-    private string ConfidenceBg
-    {
-        get
-        {
-            var hex = RegistryHelpers.GetConfidenceHexColor(Item.Confidence).TrimStart('#');
-            if (hex.Length < 6) return "rgba(140,120,180,0.12)";
-            var r = Convert.ToInt32(hex[..2], 16);
-            var g = Convert.ToInt32(hex[2..4], 16);
-            var b = Convert.ToInt32(hex[4..6], 16);
-            return $"rgba({r},{g},{b},0.16)";
-        }
-    }
 
     private string SubtitleText
     {
@@ -183,7 +163,7 @@
         display: flex;
         align-items: center;
         gap: 10px;
-        padding: 7px 10px 7px 8px;
+        padding: 10px 12px 10px 8px;
         cursor: pointer;
         transition: background 0.12s ease;
         position: relative;
@@ -271,18 +251,6 @@
         font-family: 'Montserrat', sans-serif;
     }
 
-    /* ── Confidence badge ──────────────────────────────────────────────────── */
-    .aic-conf-badge {
-        flex-shrink: 0;
-        font-size: 0.62rem;
-        font-weight: 600;
-        padding: 1px 5px;
-        border-radius: 8px;
-        letter-spacing: 0.02em;
-        font-family: 'Montserrat', sans-serif;
-        /* background + color set inline — confidence-driven */
-    }
-
     /* ── Meta row ──────────────────────────────────────────────────────────── */
     .aic-meta-row {
         display: flex;
@@ -362,7 +330,7 @@
     /* ── Timestamp ─────────────────────────────────────────────────────────── */
     .aic-timestamp {
         font-size: 0.60rem;
-        color: rgba(200, 190, 220, 0.25);
+        color: rgba(200, 190, 220, 0.40);
         white-space: nowrap;
         flex-shrink: 0;
         font-family: 'Montserrat', sans-serif;

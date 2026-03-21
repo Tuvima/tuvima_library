@@ -93,8 +93,11 @@
                 {
                     var (trigLabel, trigColor, trigIcon) = RegistryHelpers.FormatReviewTrigger(group.Key);
                     var description = GetTriggerDescription(group.Key);
+                    var isCollapsed = _collapsedGroups.Contains(group.Key);
                     <div class="adp-group">
-                        <div class="adp-group-header">
+                        <div class="adp-group-header" @onclick="() => ToggleGroup(group.Key)">
+                            <MudIcon Icon="@(isCollapsed ? Icons.Material.Filled.ChevronRight : Icons.Material.Filled.ExpandMore)"
+                                     Style="font-size: 16px; color: rgba(200,190,220,0.35); flex-shrink: 0; cursor: pointer;" />
                             <MudIcon Icon="@trigIcon"
                                      Style="@($"font-size: 13px; color: {trigColor}; flex-shrink: 0;")" />
                             <span class="adp-group-name" style="color: @trigColor;">@trigLabel</span>
@@ -103,17 +106,40 @@
                             {
                                 <span class="adp-group-desc">— @description</span>
                             }
-                        </div>
-                        <div class="adp-group-items">
-                            @foreach (var item in group.Value)
+
+                            @* Batch actions *@
+                            @if (group.Value.Count > 0)
                             {
-                                <ActivityItemCard Item="@item"
-                                                  IsSelected="@(_selectedItem?.EntityId == item.EntityId)"
-                                                  OnSelect="HandleItemSelect"
-                                                  OnUnreject="HandleUnreject"
-                                                  ShowTriggerChip="false" />
+                                <div class="adp-group-actions" @onclick:stopPropagation="true">
+                                    <button class="adp-group-action adp-group-action--approve"
+                                            @onclick="() => HandleBatchApprove(group.Value)"
+                                            title="Approve all in this group">
+                                        <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Style="font-size: 12px;" />
+                                        <span>Approve All</span>
+                                    </button>
+                                    <button class="adp-group-action adp-group-action--reject"
+                                            @onclick="() => HandleBatchReject(group.Value)"
+                                            title="Reject all in this group">
+                                        <MudIcon Icon="@Icons.Material.Outlined.Block" Style="font-size: 12px;" />
+                                        <span>Reject All</span>
+                                    </button>
+                                </div>
                             }
                         </div>
+
+                        @if (!isCollapsed)
+                        {
+                            <div class="adp-group-items">
+                                @foreach (var item in group.Value)
+                                {
+                                    <ActivityItemCard Item="@item"
+                                                      IsSelected="@(_selectedItem?.EntityId == item.EntityId)"
+                                                      OnSelect="HandleItemSelect"
+                                                      OnUnreject="HandleUnreject"
+                                                      ShowTriggerChip="false" />
+                                }
+                            </div>
+                        }
                     </div>
                 }
             }
@@ -173,6 +199,7 @@
 
     private int _bulkThreshold = 90;
     private bool _bulkProcessing;
+    private HashSet<string> _collapsedGroups = [];
 
     // ── Tab definitions (computed after counts load) ───────────────────────────
 
@@ -408,6 +435,72 @@
         }
     }
 
+    private void ToggleGroup(string groupKey)
+    {
+        if (!_collapsedGroups.Remove(groupKey))
+            _collapsedGroups.Add(groupKey);
+    }
+
+    private async Task HandleBatchApprove(List<RegistryItemViewModel> items)
+    {
+        _bulkProcessing = true;
+        StateHasChanged();
+
+        try
+        {
+            foreach (var item in items.ToList())
+            {
+                try
+                {
+                    await ApiClient.AutoRegisterItemAsync(item.EntityId);
+                }
+                catch
+                {
+                    // Continue with remaining items
+                }
+            }
+
+            Snackbar.Add($"Approved {items.Count} items.", Severity.Success);
+            await LoadCountsAsync();
+            await LoadItemsAsync();
+        }
+        finally
+        {
+            _bulkProcessing = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task HandleBatchReject(List<RegistryItemViewModel> items)
+    {
+        _bulkProcessing = true;
+        StateHasChanged();
+
+        try
+        {
+            foreach (var item in items.ToList())
+            {
+                try
+                {
+                    await ApiClient.RejectRegistryItemAsync(item.EntityId);
+                }
+                catch
+                {
+                    // Continue with remaining items
+                }
+            }
+
+            Snackbar.Add($"Rejected {items.Count} items.", Severity.Success);
+            await LoadCountsAsync();
+            await LoadItemsAsync();
+        }
+        finally
+        {
+            _bulkProcessing = false;
+            StateHasChanged();
+        }
+    }
+
     private void HandleReviewCountChanged()
     {
         InvokeAsync(async () =>
@@ -478,7 +571,7 @@
     /* ── Root container ── */
     .adp-root {
         min-height: 100vh;
-        background: #0c0a14;
+        background: transparent;
         font-family: 'Montserrat', sans-serif;
         padding: 24px 32px 40px 84px; /* 84px left for dock clearance */
         box-sizing: border-box;
@@ -656,7 +749,7 @@
     /* ── Two-column layout ── */
     .adp-content {
         display: flex;
-        gap: 16px;
+        gap: 24px;
         align-items: flex-start;
         min-height: calc(100vh - 200px);
     }
@@ -675,12 +768,12 @@
         max-width: 720px;
         flex-shrink: 0;
         position: sticky;
-        top: 72px; /* TopBar height + gap */
+        top: 72px;
         max-height: calc(100vh - 80px);
         overflow-y: auto;
-        background: #14102a;
-        border: 1px solid rgba(140, 120, 180, 0.12);
-        border-radius: 6px;
+        background: transparent;
+        border: none;
+        border-radius: 0;
     }
 
     /* ── Loading state ── */
@@ -732,9 +825,9 @@
         display: flex;
         align-items: center;
         gap: 6px;
-        margin-bottom: 10px;
+        margin-bottom: 14px;
         padding-bottom: 6px;
-        border-bottom: 1px solid rgba(140, 120, 180, 0.12);
+        cursor: pointer;
     }
 
     .adp-group-name {
@@ -761,18 +854,57 @@
         font-style: italic;
     }
 
+    .adp-group-actions {
+        display: flex;
+        gap: 6px;
+        margin-left: auto;
+        flex-shrink: 0;
+    }
+
+    .adp-group-action {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 8px;
+        border-radius: 6px;
+        font-family: 'Montserrat', sans-serif;
+        font-size: 10px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background 0.15s ease;
+        border: none;
+    }
+
+    .adp-group-action--approve {
+        background: rgba(93, 202, 165, 0.10);
+        color: rgba(93, 202, 165, 0.75);
+    }
+
+    .adp-group-action--approve:hover {
+        background: rgba(93, 202, 165, 0.18);
+    }
+
+    .adp-group-action--reject {
+        background: rgba(226, 75, 74, 0.08);
+        color: rgba(226, 75, 74, 0.65);
+    }
+
+    .adp-group-action--reject:hover {
+        background: rgba(226, 75, 74, 0.15);
+    }
+
     /* ── Group items grid ── */
     .adp-group-items {
         display: flex;
         flex-direction: column;
-        gap: 1px;
+        gap: 4px;
     }
 
     /* ── Flat list ── */
     .adp-flat-list {
         display: flex;
         flex-direction: column;
-        gap: 1px;
+        gap: 4px;
     }
 
     /* ── Mobile layout ── */
