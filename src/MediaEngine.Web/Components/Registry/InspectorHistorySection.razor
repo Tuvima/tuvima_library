@@ -14,19 +14,18 @@
     }
     else
     {
-        var displayed = History.Take(MaxEntries).ToList();
+        var milestones = CondenseToMilestones(History);
 
         <div class="ihs-timeline">
-            @for (int i = 0; i < displayed.Count; i++)
+            @for (int i = 0; i < milestones.Count; i++)
             {
-                var entry = displayed[i];
-                var isLast = i == displayed.Count - 1;
-                var (dotBg, dotCore) = GetDotColors(entry.EventType);
+                var m = milestones[i];
+                var isLast = i == milestones.Count - 1;
 
                 <div class="ihs-entry">
                     <div class="ihs-track">
-                        <div class="ihs-dot" style="background: @dotBg;">
-                            <div class="ihs-dot-inner" style="background: @dotCore;"></div>
+                        <div class="ihs-dot" style="background: @m.DotBg;">
+                            <div class="ihs-dot-inner" style="background: @m.DotCore;"></div>
                         </div>
                         @if (!isLast)
                         {
@@ -34,26 +33,16 @@
                         }
                     </div>
                     <div class="ihs-content @(isLast ? "ihs-content--last" : "")">
-                        <span class="ihs-label">@entry.Label</span>
-                        @{
-                            var friendly = SimplifyDetail(entry.Detail, entry.EventType);
-                        }
-                        @if (!string.IsNullOrWhiteSpace(friendly))
+                        <span class="ihs-label">@m.Label</span>
+                        @if (!string.IsNullOrWhiteSpace(m.Detail))
                         {
-                            <span class="ihs-detail">@friendly</span>
+                            <span class="ihs-detail">@m.Detail</span>
                         }
-                        <span class="ihs-time">@FormatTimestamp(entry.OccurredAt)</span>
+                        <span class="ihs-time">@FormatTimestamp(m.OccurredAt)</span>
                     </div>
                 </div>
             }
         </div>
-
-        @if (History.Count > MaxEntries)
-        {
-            <button class="ihs-load-more" @onclick="() => OnLoadMore.InvokeAsync()" type="button">
-                Load more
-            </button>
-        }
     }
 </div>
 
@@ -62,6 +51,110 @@
     [Parameter] public bool Loading { get; set; }
     [Parameter] public int MaxEntries { get; set; } = 100;
     [Parameter] public EventCallback OnLoadMore { get; set; }
+
+    private sealed record Milestone(string Label, string? Detail, DateTimeOffset OccurredAt, string DotBg, string DotCore);
+
+    /// <summary>
+    /// Collapses raw system_activity entries into a short pipeline summary:
+    /// File picked up → Metadata extracted → Searched → Matched/No match →
+    /// Sent for review / Cover art downloaded → Registered.
+    /// </summary>
+    private static List<Milestone> CondenseToMilestones(List<RegistryItemHistoryDto> raw)
+    {
+        var milestones = new List<Milestone>();
+
+        // Walk oldest-first so the timeline reads top-to-bottom chronologically
+        var ordered = raw.OrderBy(e => e.OccurredAt).ToList();
+
+        // Track which milestone phases we've already emitted
+        var emitted = new HashSet<string>();
+
+        foreach (var entry in ordered)
+        {
+            var phase = ClassifyPhase(entry.EventType);
+            if (phase is null || !emitted.Add(phase))
+                continue;
+
+            var (label, detail, dotBg, dotCore) = phase switch
+            {
+                "picked_up"    => ("File picked up", (string?)null, "rgba(55,138,221,0.15)", "#85B7EB"),
+                "extracted"    => ("Metadata extracted", SummarizeExtraction(ordered), "rgba(55,138,221,0.15)", "#85B7EB"),
+                "searched"     => ("Searched for match", (string?)null, "rgba(55,138,221,0.15)", "#85B7EB"),
+                "matched"      => ("Matched", SummarizeMatch(ordered), "rgba(76,175,80,0.15)", "#66BB6A"),
+                "no_match"     => ("No match found", (string?)null, "rgba(239,159,39,0.15)", "#EF9F27"),
+                "review"       => ("Sent for review", SummarizeReview(ordered), "rgba(239,159,39,0.15)", "#EF9F27"),
+                "cover_art"    => ("Cover art downloaded", (string?)null, "rgba(55,138,221,0.15)", "#85B7EB"),
+                "registered"   => ("Registered", (string?)null, "rgba(76,175,80,0.15)", "#66BB6A"),
+                "rejected"     => ("Rejected", (string?)null, "rgba(229,115,115,0.15)", "#E57373"),
+                "recovered"    => ("Recovered", (string?)null, "rgba(76,175,80,0.15)", "#66BB6A"),
+                "manual_edit"  => ("Manually edited", (string?)null, "rgba(140,120,180,0.15)", "#B39DDB"),
+                _              => (entry.Label, (string?)null, "rgba(140,120,180,0.12)", "rgba(200,190,220,0.35)"),
+            };
+
+            milestones.Add(new Milestone(label, detail, entry.OccurredAt, dotBg, dotCore));
+        }
+
+        return milestones;
+    }
+
+    /// <summary>Maps raw event types to simplified pipeline phases.</summary>
+    private static string? ClassifyPhase(string eventType) => eventType switch
+    {
+        "FileDetected" or "FileIngested" or "FileHashed"  => "picked_up",
+        "MetadataExtracted" or "ConfidenceScored" or
+            "EntityChainCreated" or "MovedToStaging"       => "extracted",
+        "HydrationStarted" or "HydrationEnqueued"         => "searched",
+        "WikidataMatched" or "HubAssigned" or
+            "HubCreated" or "HydrationCompleted"           => "matched",
+        "WikidataMatchFailed"                              => "no_match",
+        "ReviewItemCreated"                                => "review",
+        "ReviewItemResolved" or "Promoted"                 => "registered",
+        "RetailEnriched" or "CoverArtSaved" or
+            "HeroBannerGenerated"                          => "cover_art",
+        "FileRejected"                                     => "rejected",
+        "Recovered"                                        => "recovered",
+        "MetadataManualOverride" or "MetadataWrittenToFile" => "manual_edit",
+        "PersonHydrated"                                   => null,  // skip — not user-facing
+        "DuplicateSkipped"                                 => null,  // skip
+        _                                                  => null,
+    };
+
+    private static string? SummarizeExtraction(List<RegistryItemHistoryDto> ordered)
+    {
+        var extracted = ordered.FirstOrDefault(e => e.EventType == "MetadataExtracted");
+        if (extracted?.Detail is not null)
+        {
+            // Try to pull something short from the detail
+            var d = extracted.Detail.Trim();
+            if (d.Length > 60) d = d[..57] + "…";
+            if (d.Length >= 3) return d;
+        }
+        return null;
+    }
+
+    private static string? SummarizeMatch(List<RegistryItemHistoryDto> ordered)
+    {
+        var match = ordered.FirstOrDefault(e => e.EventType == "WikidataMatched");
+        if (match?.Detail is not null)
+        {
+            var d = match.Detail.Trim();
+            if (d.Length > 60) d = d[..57] + "…";
+            if (d.Length >= 3) return d;
+        }
+        return null;
+    }
+
+    private static string? SummarizeReview(List<RegistryItemHistoryDto> ordered)
+    {
+        var review = ordered.FirstOrDefault(e => e.EventType == "ReviewItemCreated");
+        if (review?.Detail is not null)
+        {
+            var d = review.Detail.Trim();
+            if (d.Length > 60) d = d[..57] + "…";
+            if (d.Length >= 3) return d;
+        }
+        return null;
+    }
 
     private static string FormatTimestamp(DateTimeOffset time)
     {
@@ -73,47 +166,6 @@
             return $"Yesterday, {local:h:mm tt}";
         return local.ToString("MMM d, h:mm tt");
     }
-
-    /// <summary>Strips technical jargon from detail strings, returning plain-English summaries.</summary>
-    private static string? SimplifyDetail(string? detail, string eventType)
-    {
-        if (string.IsNullOrWhiteSpace(detail)) return null;
-
-        // Strip common technical prefixes/patterns
-        var d = detail.Trim();
-
-        // Remove GUIDs
-        d = System.Text.RegularExpressions.Regex.Replace(d, @"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}", "").Trim();
-
-        // Remove file paths (Windows or Unix)
-        d = System.Text.RegularExpressions.Regex.Replace(d, @"[A-Z]:\\[^\s,;]+", "").Trim();
-        d = System.Text.RegularExpressions.Regex.Replace(d, @"/[^\s,;]+/[^\s,;]+", "").Trim();
-
-        // Remove "Entity:" or "Asset:" prefixes
-        d = System.Text.RegularExpressions.Regex.Replace(d, @"^(Entity|Asset|Work|Edition|Hub|MediaAsset)\s*:\s*", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase).Trim();
-
-        // Clean up leftover punctuation
-        d = System.Text.RegularExpressions.Regex.Replace(d, @"^[,;:\s]+", "").Trim();
-        d = System.Text.RegularExpressions.Regex.Replace(d, @"[,;:\s]+$", "").Trim();
-
-        // If nothing meaningful remains, return null
-        if (d.Length < 3) return null;
-
-        // Cap length
-        if (d.Length > 120) d = d[..117] + "...";
-
-        return d;
-    }
-
-    private static (string bg, string core) GetDotColors(string eventType) => eventType switch
-    {
-        "ReviewItemCreated" or "ReviewItemResolved" => ("rgba(239,159,39,0.15)", "#EF9F27"),
-        "MetadataHydrated" or "MetadataHarvested" or "FileIngested" or
-        "MetadataExtracted" or "HydrationStarted" or "HydrationCompleted" or
-        "WikidataMatched" or "RetailEnriched" => ("rgba(55,138,221,0.15)", "#85B7EB"),
-        "FileRejected" => ("rgba(229,115,115,0.15)", "#E57373"),
-        _ => ("rgba(140,120,180,0.12)", "rgba(200,190,220,0.35)"),
-    };
 }
 
 <style>
@@ -216,27 +268,5 @@
         font-weight: 300;
         color: rgba(200, 190, 220, 0.25);
         margin-top: 2px;
-    }
-
-    .ihs-load-more {
-        display: block;
-        width: 100%;
-        margin-top: 8px;
-        padding: 5px 0;
-        background: transparent;
-        border: 1px solid rgba(140, 120, 180, 0.12);
-        border-radius: 4px;
-        font-family: 'Montserrat', sans-serif;
-        font-size: 10px;
-        font-weight: 500;
-        color: rgba(200, 190, 220, 0.35);
-        cursor: pointer;
-        text-align: center;
-        transition: color 0.15s ease, border-color 0.15s ease;
-    }
-
-    .ihs-load-more:hover {
-        color: rgba(200, 190, 220, 0.65);
-        border-color: rgba(140, 120, 180, 0.25);
     }
 </style>
