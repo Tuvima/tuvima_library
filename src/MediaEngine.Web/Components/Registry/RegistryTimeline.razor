@@ -268,7 +268,11 @@
                 "ReviewItemResolved", "MetadataManualOverride",
                 "UserReportResolved", "UserReportDismissed"
             };
-            _allCuratorActions = await Orchestrator.GetActivityByTypesAsync(curatorTypes, 200);
+            var rawCuratorActions = await Orchestrator.GetActivityByTypesAsync(curatorTypes, 200);
+            // Filter out auto-resolved events — only show genuinely manual curator actions
+            _allCuratorActions = rawCuratorActions
+                .Where(a => a.Detail is null || !a.Detail.StartsWith("Auto-resolved", StringComparison.OrdinalIgnoreCase))
+                .ToList();
 
             var reportTypes = new[] { "UserReportSubmitted" };
             _allReports = await Orchestrator.GetActivityByTypesAsync(reportTypes, 200);

@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using Microsoft.Extensions.Options;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
@@ -259,17 +260,42 @@ public static class IngestionEndpoints
 /// <summary>API response shape for an ingestion batch.</summary>
 public sealed class IngestionBatchResponse
 {
+    [JsonPropertyName("id")]
     public Guid Id { get; init; }
+
+    [JsonPropertyName("status")]
     public string Status { get; init; } = "";
+
+    [JsonPropertyName("source_path")]
     public string? SourcePath { get; init; }
+
+    [JsonPropertyName("category")]
     public string? Category { get; init; }
+
+    [JsonPropertyName("files_total")]
     public int FilesTotal { get; init; }
+
+    [JsonPropertyName("files_processed")]
     public int FilesProcessed { get; init; }
+
+    [JsonPropertyName("files_registered")]
     public int FilesRegistered { get; init; }
+
+    [JsonPropertyName("files_review")]
     public int FilesReview { get; init; }
+
+    [JsonPropertyName("files_no_match")]
     public int FilesNoMatch { get; init; }
+
+    [JsonPropertyName("files_failed")]
     public int FilesFailed { get; init; }
+
+    [JsonPropertyName("started_at")]
     public DateTimeOffset StartedAt { get; init; }
+
+    [JsonPropertyName("completed_at")]
     public DateTimeOffset? CompletedAt { get; init; }
+
+    [JsonPropertyName("created_at")]
     public DateTimeOffset CreatedAt { get; init; }
 }
