@@ -107,25 +107,35 @@ public static class RegistryEndpoints
             IHydrationPipelineService pipeline,
             IHubRepository hubRepo,
             IDatabaseConnection db,
+            ISystemActivityRepository activityRepo,
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(request.Mode))
                 return Results.BadRequest("Mode is required ('Universe' or 'Retail').");
 
-            // Resolve asset ID from work ID
+            // Resolve asset ID and work title from work ID
             string? assetIdStr = null;
+            string? workTitle = null;
             using (var conn = db.CreateConnection())
-            using (var cmd = conn.CreateCommand())
             {
-                cmd.CommandText = """
-                    SELECT ma.id
-                    FROM editions e
-                    INNER JOIN media_assets ma ON ma.edition_id = e.id
-                    WHERE e.work_id = @workId
-                    LIMIT 1
-                    """;
-                cmd.Parameters.AddWithValue("@workId", entityId.ToString());
-                assetIdStr = cmd.ExecuteScalar()?.ToString();
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = """
+                        SELECT ma.id
+                        FROM editions e
+                        INNER JOIN media_assets ma ON ma.edition_id = e.id
+                        WHERE e.work_id = @workId
+                        LIMIT 1
+                        """;
+                    cmd.Parameters.AddWithValue("@workId", entityId.ToString());
+                    assetIdStr = cmd.ExecuteScalar()?.ToString();
+                }
+                using (var cmd2 = conn.CreateCommand())
+                {
+                    cmd2.CommandText = "SELECT title FROM works WHERE id = @workId";
+                    cmd2.Parameters.AddWithValue("@workId", entityId.ToString());
+                    workTitle = cmd2.ExecuteScalar()?.ToString();
+                }
             }
 
             if (assetIdStr is null)
@@ -208,6 +218,46 @@ public static class RegistryEndpoints
                     // Hydration failure doesn't fail the match — claims are already written
                     hydrationTriggered = false;
                 }
+
+                // Set curator_state = 'registered' — the curator confirmed a QID match
+                using (var conn = db.CreateConnection())
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = """
+                        UPDATE works SET curator_state = 'registered', rejected_at = NULL
+                        WHERE id = @workId
+                        """;
+                    cmd.Parameters.AddWithValue("@workId", entityId.ToString());
+                    cmd.ExecuteNonQuery();
+                }
+
+                // Dismiss any pending review items for this asset
+                using (var conn = db.CreateConnection())
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = """
+                        UPDATE review_queue
+                        SET status = 'Resolved', resolved_at = @now, resolved_by = 'user:curator'
+                        WHERE entity_id = @assetId AND status = 'Pending'
+                        """;
+                    cmd.Parameters.AddWithValue("@assetId", assetIdStr);
+                    cmd.Parameters.AddWithValue("@now",     now.ToString("o"));
+                    cmd.ExecuteNonQuery();
+                }
+
+                // Use the request title if provided, fall back to DB title
+                var displayTitle = request.Title ?? workTitle ?? "unknown";
+
+                // Log curator manual approval to the activity ledger
+                await activityRepo.LogAsync(new SystemActivityEntry
+                {
+                    OccurredAt = DateTimeOffset.UtcNow,
+                    ActionType = SystemActionType.ReviewItemResolved,
+                    HubName    = displayTitle,
+                    EntityId   = entityId,
+                    EntityType = "Work",
+                    Detail     = $"Registered '{displayTitle}' — curator confirmed QID {request.Qid}.",
+                }, ct);
             }
             else
             {
@@ -250,11 +300,9 @@ public static class RegistryEndpoints
                 WikidataStatus     = wikidataStatus,
                 ClaimsWritten      = claims.Count,
                 HydrationTriggered = hydrationTriggered,
-                Message            = hydrationTriggered
-                    ? $"Universe match applied. QID {request.Qid} locked. Full hydration complete."
-                    : wikidataStatus == "missing"
-                        ? "Retail match applied. Item marked as Missing Universe."
-                        : $"Universe match applied. QID {request.Qid} locked.",
+                Message            = wikidataStatus == "confirmed"
+                    ? $"Registered. QID {request.Qid} confirmed by curator."
+                    : "Retail match applied. Item marked as Missing Universe.",
             });
         })
         .WithName("ApplyRegistryMatch")
