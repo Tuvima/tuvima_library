@@ -112,14 +112,13 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     // Lock order: folder → hash (see ConcurrencyGuard doc for full hierarchy).
     private readonly ConcurrencyGuard _concurrencyGuard = new();
 
-    // Sliding-window batch tracker for FSW-sourced file events.
-    // Groups rapid-fire FSW detections into a single ingestion batch so the
-    // Registry page can display them alongside ScanExistingFiles batches.
-    private Guid? _activeFswBatchId;
-    private int _activeFswBatchCount;
-    private DateTimeOffset _lastFswEventTime = DateTimeOffset.MinValue;
-    private readonly object _fswBatchLock = new();
-    private static readonly TimeSpan FswBatchWindow = TimeSpan.FromSeconds(30);
+    // Collect-then-process: accumulate FSW/poll events, create batch after quiet period.
+    private readonly List<FileEvent> _fswBuffer = [];
+    private readonly HashSet<string> _fswBufferedPaths = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _enqueuedPaths = new(StringComparer.OrdinalIgnoreCase);
+    private readonly object _fswBufferLock = new();
+    private Timer? _fswFlushTimer;
+    private static readonly TimeSpan FswQuietPeriod = TimeSpan.FromSeconds(30);
 
     public IngestionEngine(
         IFileWatcher              watcher,
@@ -185,8 +184,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         // works even if no directory was configured at startup.
         _watcher.FileDetected += (_, evt) =>
         {
-            AssignFswBatch(evt);
-            _debounce.Enqueue(evt);
+            BufferFswEvent(evt);
         };
 
         // ── Step 1: Log server start (no paths — just the fact) ──────────
@@ -371,9 +369,9 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
     private async Task ProcessCandidateCoreAsync(IngestionCandidate candidate, CancellationToken ct)
     {
-        // Generate a correlation ID for this ingestion run so all activity entries
-        // can be grouped into a single consolidated card in the Dashboard.
-        var ingestionRunId = Guid.NewGuid();
+        // Use the batch ID as the ingestion run ID so all activity entries
+        // for files in the same batch share one correlation ID.
+        var ingestionRunId = candidate.BatchId ?? Guid.NewGuid();
 
         // Batch tracking: propagate batch ID and track the final outcome.
         var batchId      = candidate.BatchId;
@@ -1647,8 +1645,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                         EventType = FileEventType.Created,
                         OccurredAt = DateTimeOffset.UtcNow,
                     };
-                    AssignFswBatch(pollEvt);
-                    _debounce.Enqueue(pollEvt);
+                    BufferFswEvent(pollEvt);
                     enqueued++;
                 }
 
@@ -2442,62 +2439,100 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     }
 
     /// <summary>
-    /// Assigns an FSW-sourced or polling-sourced file event to a sliding-window batch.
-    /// If no batch is active or the window has expired (5 s since last event),
-    /// a new batch record is created.  Events that already carry a BatchId
-    /// (e.g. from <see cref="ScanExistingFiles"/>) are left untouched.
+    /// Adds an FSW/poll-sourced file event to the collection buffer.
+    /// Resets the quiet-period timer. Events that already carry a BatchId
+    /// (e.g. from <see cref="ScanExistingFiles"/>) are passed directly to
+    /// the debounce queue.
     /// </summary>
-    private void AssignFswBatch(FileEvent evt)
+    private void BufferFswEvent(FileEvent evt)
     {
-        // Only assign batches to events that don't already have one.
-        if (evt.BatchId is not null) return;
-
-        lock (_fswBatchLock)
+        // Events from ScanExistingFiles already have a batch — pass through.
+        if (evt.BatchId is not null)
         {
-            var now = DateTimeOffset.UtcNow;
-            if (_activeFswBatchId is null || (now - _lastFswEventTime) > FswBatchWindow)
-            {
-                // Start a new batch.
-                _activeFswBatchId = Guid.NewGuid();
-                _activeFswBatchCount = 0;
+            _debounce.Enqueue(evt);
+            return;
+        }
 
-                try
+        lock (_fswBufferLock)
+        {
+            // Deduplicate: skip if this path was already enqueued in ANY batch
+            // (prevents poll sweep re-detecting files still being processed).
+            if (!_enqueuedPaths.Add(evt.Path))
+                return;
+
+            _fswBufferedPaths.Add(evt.Path);
+            _fswBuffer.Add(evt);
+
+            // Reset (or start) the quiet-period timer.
+            _fswFlushTimer?.Dispose();
+            _fswFlushTimer = new Timer(
+                _ => FlushFswBuffer(),
+                null,
+                FswQuietPeriod,
+                Timeout.InfiniteTimeSpan);
+        }
+    }
+
+    /// <summary>
+    /// Called when the quiet period expires. Creates a batch record with the
+    /// exact file count, stamps every buffered event with the batch ID,
+    /// and flushes them all into the debounce queue for processing.
+    /// </summary>
+    private void FlushFswBuffer()
+    {
+        List<FileEvent> snapshot;
+        lock (_fswBufferLock)
+        {
+            if (_fswBuffer.Count == 0) return;
+            snapshot = [.. _fswBuffer];
+            _fswBuffer.Clear();
+            _fswBufferedPaths.Clear();
+            _fswFlushTimer?.Dispose();
+            _fswFlushTimer = null;
+        }
+
+        var batchId = Guid.NewGuid();
+        var count = snapshot.Count;
+
+        // Create the batch record with the exact total.
+        try
+        {
+            _batchRepo.CreateAsync(new Domain.Entities.IngestionBatch
+            {
+                Id         = batchId,
+                Status     = "running",
+                SourcePath = Path.GetDirectoryName(snapshot[0].Path),
+                FilesTotal = count,
+            }).GetAwaiter().GetResult();
+
+            _activityRepo.LogAsync(new Domain.Entities.SystemActivityEntry
+            {
+                ActionType     = Domain.Enums.SystemActionType.BatchCreated,
+                EntityType     = "Batch",
+                EntityId       = batchId,
+                Detail         = $"Ingestion batch created: {count} file(s)",
+                ChangesJson    = System.Text.Json.JsonSerializer.Serialize(new
                 {
-                    _batchRepo.CreateAsync(new Domain.Entities.IngestionBatch
-                    {
-                        Id         = _activeFswBatchId.Value,
-                        Status     = "running",
-                        SourcePath = Path.GetDirectoryName(evt.Path),
-                        FilesTotal = 0, // Will be incremented below.
-                    }).GetAwaiter().GetResult();
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Failed to create FSW batch record");
-                }
-            }
+                    files_total = count,
+                    source_path = Path.GetDirectoryName(snapshot[0].Path),
+                }),
+                IngestionRunId = batchId,
+            }).GetAwaiter().GetResult();
 
-            evt.BatchId = _activeFswBatchId;
-            _activeFswBatchCount++;
-            _lastFswEventTime = now;
+            _logger.LogInformation(
+                "FSW batch created: {BatchId} with {Count} file(s)",
+                batchId, count);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to create FSW batch record");
+        }
 
-            // Update the batch total count.
-            try
-            {
-                _batchRepo.UpdateCountsAsync(
-                    _activeFswBatchId.Value,
-                    filesTotal: _activeFswBatchCount,
-                    filesProcessed: 0,
-                    filesRegistered: 0,
-                    filesReview: 0,
-                    filesNoMatch: 0,
-                    filesFailed: 0
-                ).GetAwaiter().GetResult();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogDebug(ex, "Batch count update failed for {BatchId}", _activeFswBatchId);
-            }
+        // Stamp and enqueue all events.
+        foreach (var evt in snapshot)
+        {
+            evt.BatchId = batchId;
+            _debounce.Enqueue(evt);
         }
     }
 
