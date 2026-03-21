@@ -157,6 +157,7 @@ public sealed class IngestionBatchRepository : IIngestionBatchRepository
         var results = conn.Query<IngestionBatch>($"""
             SELECT {SelectColumns}
             FROM   ingestion_batches
+            WHERE  status != 'abandoned'
             ORDER BY created_at DESC
             LIMIT  @limit;
             """, new { limit }).AsList();
@@ -175,5 +176,25 @@ public sealed class IngestionBatchRepository : IIngestionBatchRepository
             """);
 
         return Task.FromResult(count);
+    }
+
+    /// <inheritdoc/>
+    public Task<int> AbandonRunningAsync(CancellationToken ct = default)
+    {
+        using var conn = _db.CreateConnection();
+        var affected = conn.Execute("""
+            UPDATE ingestion_batches
+            SET    status       = 'abandoned',
+                   completed_at = @completedAt,
+                   updated_at   = @updatedAt
+            WHERE  status = 'running';
+            """,
+            new
+            {
+                completedAt = DateTimeOffset.UtcNow.ToString("O"),
+                updatedAt   = DateTimeOffset.UtcNow.ToString("O"),
+            });
+
+        return Task.FromResult(affected);
     }
 }

@@ -50,4 +50,11 @@ public interface IIngestionBatchRepository
     /// where at least one such file exists).
     /// </summary>
     Task<int> GetNeedsAttentionCountAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// Marks all batches currently in "running" status as "abandoned".
+    /// Called on Engine startup to clean up batches that were interrupted
+    /// by a previous shutdown. Returns the number of batches abandoned.
+    /// </summary>
+    Task<int> AbandonRunningAsync(CancellationToken ct = default);
 }

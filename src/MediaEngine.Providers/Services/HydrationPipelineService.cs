@@ -70,6 +70,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     private readonly IDeferredEnrichmentRepository _deferredRepo;
     private readonly IWikibaseApiService _wikibaseApi;
     private readonly IFictionalEntityRepository _fictionalEntityRepo;
+    private readonly IIngestionBatchRepository _batchRepo;
     private readonly ILogger<HydrationPipelineService> _logger;
 
     // ── Constructor ───────────────────────────────────────────────────────────
@@ -98,6 +99,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         IDeferredEnrichmentRepository deferredRepo,
         IWikibaseApiService wikibaseApi,
         IFictionalEntityRepository fictionalEntityRepo,
+        IIngestionBatchRepository batchRepo,
         ILogger<HydrationPipelineService> logger)
     {
         ArgumentNullException.ThrowIfNull(providers);
@@ -122,6 +124,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         ArgumentNullException.ThrowIfNull(heroGenerator);
         ArgumentNullException.ThrowIfNull(deferredRepo);
         ArgumentNullException.ThrowIfNull(wikibaseApi);
+        ArgumentNullException.ThrowIfNull(batchRepo);
         ArgumentNullException.ThrowIfNull(fictionalEntityRepo);
         ArgumentNullException.ThrowIfNull(logger);
 
@@ -145,6 +148,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         _activityRepo   = activityRepo;
         _arrayRepo      = arrayRepo;
         _heroGenerator  = heroGenerator;
+        _batchRepo           = batchRepo;
         _deferredRepo        = deferredRepo;
         _wikibaseApi         = wikibaseApi;
         _fictionalEntityRepo = fictionalEntityRepo;
@@ -991,6 +995,9 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                             review.Id, ReviewStatus.Resolved, "auto_hydration", ct)
                             .ConfigureAwait(false);
 
+                        // Adjust batch counters: shift one file from Review → Registered.
+                        await AdjustBatchForResolveAsync(request.IngestionRunId, ct).ConfigureAwait(false);
+
                         await _activityRepo.LogAsync(new SystemActivityEntry
                         {
                             ActionType = SystemActionType.ReviewItemResolved,
@@ -1359,6 +1366,9 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                     review.Id, ReviewStatus.Resolved, "auto_hydration", ct)
                     .ConfigureAwait(false);
 
+                // Adjust batch counters: shift one file from Review → Registered.
+                await AdjustBatchForResolveAsync(request.IngestionRunId, ct).ConfigureAwait(false);
+
                 await _activityRepo.LogAsync(new SystemActivityEntry
                 {
                     ActionType = SystemActionType.ReviewItemResolved,
@@ -1431,6 +1441,10 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 await _reviewRepo.UpdateStatusAsync(
                     review.Id, ReviewStatus.Resolved, "auto_hydration", ct)
                     .ConfigureAwait(false);
+
+                // Note: no batch adjustment here — this method is called outside the
+                // normal pipeline flow (e.g. on-demand hydration) and may not have
+                // a batch context.
 
                 await _activityRepo.LogAsync(new SystemActivityEntry
                 {
@@ -1898,6 +1912,9 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         };
 
         await _reviewRepo.InsertAsync(reviewEntry, ct).ConfigureAwait(false);
+
+        // Adjust batch counters: shift one file from Registered → Review.
+        await AdjustBatchForReviewAsync(request.IngestionRunId, ct).ConfigureAwait(false);
 
         result.NeedsReview  = true;
         result.ReviewReason = trigger;
@@ -3334,6 +3351,64 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             _logger.LogWarning(ex,
                 "Hero banner generation failed for asset {Id}; continuing",
                 assetId);
+        }
+    }
+
+    // ── Batch Counter Adjustments ──────────────────────────────────────────────
+
+    /// <summary>
+    /// Shifts one file from Registered → Review in the batch counters.
+    /// Called when hydration creates a review item for an already-counted file.
+    /// </summary>
+    private async Task AdjustBatchForReviewAsync(Guid? batchId, CancellationToken ct)
+    {
+        if (batchId is null) return;
+        try
+        {
+            var batch = await _batchRepo.GetByIdAsync(batchId.Value, ct).ConfigureAwait(false);
+            if (batch is null || batch.FilesRegistered <= 0) return;
+
+            await _batchRepo.UpdateCountsAsync(
+                batchId.Value,
+                batch.FilesTotal,
+                batch.FilesProcessed,
+                batch.FilesRegistered - 1,
+                batch.FilesReview + 1,
+                batch.FilesNoMatch,
+                batch.FilesFailed,
+                ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogDebug(ex, "Batch review adjustment (reg→review) failed for {BatchId}", batchId);
+        }
+    }
+
+    /// <summary>
+    /// Shifts one file from Review → Registered in the batch counters.
+    /// Called when hydration auto-resolves a review item.
+    /// </summary>
+    private async Task AdjustBatchForResolveAsync(Guid? batchId, CancellationToken ct)
+    {
+        if (batchId is null) return;
+        try
+        {
+            var batch = await _batchRepo.GetByIdAsync(batchId.Value, ct).ConfigureAwait(false);
+            if (batch is null || batch.FilesReview <= 0) return;
+
+            await _batchRepo.UpdateCountsAsync(
+                batchId.Value,
+                batch.FilesTotal,
+                batch.FilesProcessed,
+                batch.FilesRegistered + 1,
+                batch.FilesReview - 1,
+                batch.FilesNoMatch,
+                batch.FilesFailed,
+                ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogDebug(ex, "Batch resolve adjustment (review→reg) failed for {BatchId}", batchId);
         }
     }
 

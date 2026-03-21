@@ -196,6 +196,21 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             Detail     = "Server started",
         }, stoppingToken).ConfigureAwait(false);
 
+        // ── Step 1b: Abandon stale batches ─────────────────────────────────
+        // Any batches still "running" from the previous Engine session were
+        // interrupted by shutdown. Mark them as abandoned so they don't appear
+        // as active in the Dashboard.
+        try
+        {
+            var abandoned = await _batchRepo.AbandonRunningAsync(stoppingToken).ConfigureAwait(false);
+            if (abandoned > 0)
+                _logger.LogInformation("Marked {Count} stale batch(es) as abandoned", abandoned);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "Failed to abandon stale batches — continuing");
+        }
+
         // ── Step 2: Reconcile BEFORE scanning ────────────────────────────
         // Clean orphaned DB records so the initial scan sees files as fresh
         // rather than producing false "duplicate skipped" entries.
@@ -2171,7 +2186,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         double confidence,
         string detail,
         CancellationToken ct,
-        Guid? ingestionRunId = null)
+        Guid? ingestionRunId = null,
+        bool adjustBatchCounter = false)
     {
         try
         {
@@ -2201,6 +2217,13 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             };
 
             await _reviewRepo.InsertAsync(entry, ct).ConfigureAwait(false);
+
+            // Adjust batch counter: move one file from "registered" to "review"
+            // so the batch KPIs reflect the current state of its files.
+            // Only needed for post-ingestion review items (hydration callbacks) —
+            // during ingestion, the batch outcome is set directly.
+            if (adjustBatchCounter)
+                await AdjustBatchForReviewAsync(ingestionRunId, ct).ConfigureAwait(false);
 
             // Activity: review item created.
             await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
@@ -2435,6 +2458,35 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         catch (Exception ex)
         {
             _logger.LogDebug(ex, "Batch counter update failed for {BatchId}", batchId);
+        }
+    }
+
+    /// <summary>
+    /// Adjusts batch counters when a review item is created post-ingestion
+    /// (e.g. during background hydration). Moves one file from "registered"
+    /// to "review" so the batch KPIs reflect the current state.
+    /// </summary>
+    private async Task AdjustBatchForReviewAsync(Guid? batchId, CancellationToken ct)
+    {
+        if (batchId is null) return;
+        try
+        {
+            var batch = await _batchRepo.GetByIdAsync(batchId.Value, ct).ConfigureAwait(false);
+            if (batch is null || batch.FilesRegistered <= 0) return;
+
+            await _batchRepo.UpdateCountsAsync(
+                batchId.Value,
+                batch.FilesTotal,
+                batch.FilesProcessed,
+                batch.FilesRegistered - 1,
+                batch.FilesReview + 1,
+                batch.FilesNoMatch,
+                batch.FilesFailed,
+                ct).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Batch review adjustment failed for {BatchId}", batchId);
         }
     }
 
