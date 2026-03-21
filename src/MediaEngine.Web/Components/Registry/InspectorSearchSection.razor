@@ -439,7 +439,7 @@ else
                             Description = item.Description,
                             Year = item.Year,
                             CoverUrl = item.ThumbnailUrl,
-                            Qid = item.RawFields.GetValueOrDefault("wikidata_qid"),
+                            Qid = item.RawFields.GetValueOrDefault("wikidata_qid") ?? item.ProviderItemId,
                             Confidence = item.Confidence,
                             ProviderName = provider.ProviderName,
                             ProviderId = provider.ProviderId,
