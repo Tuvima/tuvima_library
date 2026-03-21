@@ -694,6 +694,10 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         CancellationToken ct = default)
         => _api.CreateManualEntryAsync(entityId, request, ct);
 
+    /// <summary>Mark a registry item as provisional with curator-entered metadata.</summary>
+    public Task<bool> MarkProvisionalAsync(Guid entityId, ProvisionalMetadataRequestDto metadata, CancellationToken ct = default)
+        => _api.MarkProvisionalAsync(entityId, metadata, ct);
+
     // ── SignalR Intercom ───────────────────────────────────────────────────────
 
     /// <summary>

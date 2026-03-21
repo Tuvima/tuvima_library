@@ -2318,6 +2318,21 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    /// <inheritdoc/>
+    public async Task<bool> MarkProvisionalAsync(Guid entityId, ProvisionalMetadataRequestDto metadata, CancellationToken ct = default)
+    {
+        try
+        {
+            var response = await _http.PostAsJsonAsync($"registry/items/{entityId}/provisional", metadata, ct);
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "MarkProvisionalAsync failed for entity {EntityId}", entityId);
+            return false;
+        }
+    }
+
     public string? LastError { get; private set; }
 
     // ── Private mapping ───────────────────────────────────────────────────────

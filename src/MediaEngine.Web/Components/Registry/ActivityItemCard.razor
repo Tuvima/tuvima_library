@@ -1,0 +1,418 @@
+@using MediaEngine.Web.Models.ViewDTOs
+@using MudBlazor
+
+<div class="aic-row @(IsSelected ? "aic-row--selected" : "")"
+     style="border-left: 3px solid @RegistryHelpers.GetStatusColor(Item.Status);"
+     @onclick="HandleRowClick">
+
+    @* ── Cover thumbnail ── *@
+    <div class="aic-thumb-wrap" @onclick="HandleThumbClick" @onclick:stopPropagation="true">
+        @if (!string.IsNullOrEmpty(Item.CoverUrl))
+        {
+            <img src="@Item.CoverUrl" alt="@Item.Title" class="aic-thumb-img" loading="lazy" />
+        }
+        else
+        {
+            <div class="aic-thumb-fallback">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="aic-thumb-svg">
+                    <rect x="3" y="2" width="14" height="20" rx="1.5"
+                          fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="1.2"
+                          stroke-dasharray="3 2" />
+                    <rect x="5" y="5" width="8" height="1" rx="0.5" fill="rgba(255,255,255,0.14)" />
+                    <rect x="5" y="8" width="10" height="1" rx="0.5" fill="rgba(255,255,255,0.10)" />
+                    <rect x="5" y="11" width="7" height="1" rx="0.5" fill="rgba(255,255,255,0.10)" />
+                    <rect x="5" y="14" width="9" height="1" rx="0.5" fill="rgba(255,255,255,0.08)" />
+                </svg>
+            </div>
+        }
+
+        @* Zoom hint overlay *@
+        <div class="aic-thumb-zoom-hint" aria-hidden="true">
+            <MudIcon Icon="@Icons.Material.Outlined.ZoomIn" Style="font-size: 0.75rem; color: rgba(255,255,255,0.9);" />
+        </div>
+    </div>
+
+    @* ── Cover popover ── *@
+    @if (!string.IsNullOrEmpty(Item.CoverUrl))
+    {
+        <MudPopover Open="_popoverOpen"
+                    AnchorOrigin="Origin.CenterRight"
+                    TransformOrigin="Origin.CenterLeft"
+                    OverflowBehavior="OverflowBehavior.FlipNever"
+                    Class="aic-popover">
+            <img src="@Item.CoverUrl" alt="@Item.Title" class="aic-popover-img" />
+        </MudPopover>
+    }
+
+    @* ── Main content ── *@
+    <div class="aic-body">
+        <div class="aic-title-row">
+            <span class="aic-title">@Item.Title</span>
+
+            @* Confidence badge *@
+            <span class="aic-conf-badge"
+                  style="background: @ConfidenceBg; color: @ConfidenceColor;">
+                @((int)(Item.Confidence * 100))%
+            </span>
+        </div>
+
+        <div class="aic-meta-row">
+            @* Author / year subtitle *@
+            @if (!string.IsNullOrEmpty(SubtitleText))
+            {
+                <span class="aic-subtitle">@SubtitleText</span>
+            }
+
+            @* Review trigger chip *@
+            @if (!string.IsNullOrEmpty(Item.ReviewTrigger))
+            {
+                var (trigLabel, trigColor, trigIcon) = RegistryHelpers.FormatReviewTrigger(Item.ReviewTrigger);
+                <span class="aic-trigger-chip" style="color: @trigColor; border-color: @(trigColor + "44");">
+                    <MudIcon Icon="@trigIcon" Style="@($"font-size: 0.6rem; color: {trigColor};")" />
+                    @trigLabel
+                </span>
+            }
+        </div>
+
+        @* Rejected: purge countdown + un-reject ── *@
+        @if (Item.Status == "Rejected")
+        {
+            <div class="aic-rejected-row" @onclick:stopPropagation="true">
+                <span class="aic-purge-badge">
+                    <MudIcon Icon="@Icons.Material.Outlined.Timer" Style="font-size: 0.6rem;" />
+                    Purge in @PurgeCountdown
+                </span>
+                <button class="aic-unreject-btn"
+                        @onclick="HandleUnreject"
+                        title="Un-reject this item">
+                    <MudIcon Icon="@Icons.Material.Outlined.Restore" Style="font-size: 0.65rem;" />
+                    Un-reject
+                </button>
+            </div>
+        }
+    </div>
+
+    @* ── Timestamp ── *@
+    <div class="aic-timestamp">@RelativeTime</div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public RegistryItemViewModel Item { get; set; } = default!;
+    [Parameter] public bool IsSelected { get; set; }
+    [Parameter] public EventCallback<RegistryItemViewModel> OnSelect { get; set; }
+    [Parameter] public EventCallback<Guid> OnUnreject { get; set; }
+
+    private bool _popoverOpen;
+
+    // ── Computed display values ────────────────────────────────────────────
+
+    private string ConfidenceColor => RegistryHelpers.GetConfidenceHexColor(Item.Confidence);
+
+    private string ConfidenceBg
+    {
+        get
+        {
+            var hex = RegistryHelpers.GetConfidenceHexColor(Item.Confidence).TrimStart('#');
+            if (hex.Length < 6) return "rgba(255,255,255,0.08)";
+            var r = Convert.ToInt32(hex[..2], 16);
+            var g = Convert.ToInt32(hex[2..4], 16);
+            var b = Convert.ToInt32(hex[4..6], 16);
+            return $"rgba({r},{g},{b},0.16)";
+        }
+    }
+
+    private string SubtitleText
+    {
+        get
+        {
+            var parts = new List<string>();
+            if (!string.IsNullOrEmpty(Item.Author))   parts.Add(Item.Author);
+            if (!string.IsNullOrEmpty(Item.Year))     parts.Add(Item.Year);
+            return string.Join(" · ", parts);
+        }
+    }
+
+    private string RelativeTime
+    {
+        get
+        {
+            var diff = DateTimeOffset.Now - Item.CreatedAt;
+            return diff switch
+            {
+                { TotalSeconds: < 60 }  => "just now",
+                { TotalMinutes: < 60 }  => $"{(int)diff.TotalMinutes}m ago",
+                { TotalHours: < 24 }    => $"{(int)diff.TotalHours}h ago",
+                { TotalDays: < 7 }      => $"{(int)diff.TotalDays}d ago",
+                _                       => Item.CreatedAt.ToLocalTime().ToString("MMM d"),
+            };
+        }
+    }
+
+    /// <summary>Mock purge countdown — 7 days from ingestion for Rejected items.</summary>
+    private string PurgeCountdown
+    {
+        get
+        {
+            var purgeAt = Item.CreatedAt.AddDays(7);
+            var remaining = purgeAt - DateTimeOffset.Now;
+            if (remaining <= TimeSpan.Zero) return "soon";
+            if (remaining.TotalHours < 24)  return $"{(int)remaining.TotalHours}h";
+            return $"{(int)remaining.TotalDays}d";
+        }
+    }
+
+    // ── Event handlers ─────────────────────────────────────────────────────
+
+    private async Task HandleRowClick()
+    {
+        _popoverOpen = false;
+        await OnSelect.InvokeAsync(Item);
+    }
+
+    private void HandleThumbClick()
+    {
+        if (!string.IsNullOrEmpty(Item.CoverUrl))
+            _popoverOpen = !_popoverOpen;
+    }
+
+    private async Task HandleUnreject()
+    {
+        await OnUnreject.InvokeAsync(Item.EntityId);
+    }
+}
+
+<style>
+    /* ── Row ───────────────────────────────────────────────────────────────── */
+    .aic-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 7px 10px 7px 8px;
+        cursor: pointer;
+        transition: background 0.12s ease;
+        position: relative;
+        min-height: 54px;
+        box-sizing: border-box;
+        font-family: 'Montserrat', sans-serif;
+        /* left border set inline — semantic color per status */
+    }
+
+    .aic-row:hover {
+        background: rgba(255, 255, 255, 0.04);
+    }
+
+    .aic-row--selected {
+        background: rgba(255, 255, 255, 0.06);
+    }
+
+    .aic-row--selected:hover {
+        background: rgba(255, 255, 255, 0.08);
+    }
+
+    /* ── Thumbnail ─────────────────────────────────────────────────────────── */
+    .aic-thumb-wrap {
+        position: relative;
+        width: 32px;
+        height: 46px;
+        flex-shrink: 0;
+        border-radius: 3px;
+        overflow: hidden;
+        background: rgba(13, 18, 48, 0.9);
+        border: 1px solid rgba(255, 255, 255, 0.07);
+        cursor: pointer;
+        transition: border-color 0.12s ease;
+    }
+
+    .aic-thumb-wrap:hover {
+        border-color: rgba(255, 255, 255, 0.25);
+    }
+
+    .aic-thumb-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    }
+
+    .aic-thumb-fallback {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(13, 18, 48, 0.6);
+        border: 1px dashed rgba(255, 255, 255, 0.12);
+        border-radius: 2px;
+        box-sizing: border-box;
+    }
+
+    .aic-thumb-svg {
+        width: 20px;
+        height: 28px;
+        flex-shrink: 0;
+    }
+
+    /* Zoom hint — shows on hover */
+    .aic-thumb-zoom-hint {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.50);
+        opacity: 0;
+        transition: opacity 0.12s ease;
+        pointer-events: none;
+    }
+
+    .aic-thumb-wrap:hover .aic-thumb-zoom-hint {
+        opacity: 1;
+    }
+
+    /* ── Popover ───────────────────────────────────────────────────────────── */
+    .aic-popover {
+        background: rgba(10, 14, 36, 0.96);
+        border: 1px solid rgba(255, 255, 255, 0.10);
+        border-radius: 6px;
+        padding: 6px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7);
+        backdrop-filter: blur(8px);
+    }
+
+    .aic-popover-img {
+        width: 200px;
+        height: auto;
+        max-height: 300px;
+        object-fit: contain;
+        display: block;
+        border-radius: 3px;
+    }
+
+    /* ── Body ──────────────────────────────────────────────────────────────── */
+    .aic-body {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+    }
+
+    .aic-title-row {
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+        min-width: 0;
+    }
+
+    .aic-title {
+        font-size: 0.78rem;
+        font-weight: 500;
+        color: rgba(255, 255, 255, 0.82);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        flex: 1;
+        min-width: 0;
+        letter-spacing: 0.01em;
+        font-family: 'Montserrat', sans-serif;
+    }
+
+    /* ── Confidence badge ──────────────────────────────────────────────────── */
+    .aic-conf-badge {
+        flex-shrink: 0;
+        font-size: 0.62rem;
+        font-weight: 600;
+        padding: 1px 5px;
+        border-radius: 8px;
+        letter-spacing: 0.02em;
+        font-family: 'Montserrat', sans-serif;
+        /* background + color set inline — confidence-driven */
+    }
+
+    /* ── Meta row ──────────────────────────────────────────────────────────── */
+    .aic-meta-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+        min-width: 0;
+    }
+
+    .aic-subtitle {
+        font-size: 0.68rem;
+        color: rgba(255, 255, 255, 0.38);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        font-family: 'Montserrat', sans-serif;
+    }
+
+    /* ── Review trigger chip ───────────────────────────────────────────────── */
+    .aic-trigger-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        font-size: 0.60rem;
+        font-weight: 500;
+        padding: 1px 5px;
+        border-radius: 8px;
+        border: 1px solid;
+        background: transparent;
+        white-space: nowrap;
+        letter-spacing: 0.01em;
+        font-family: 'Montserrat', sans-serif;
+        flex-shrink: 0;
+        /* color + border-color set inline */
+    }
+
+    /* ── Rejected row ──────────────────────────────────────────────────────── */
+    .aic-rejected-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 1px;
+    }
+
+    .aic-purge-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        font-size: 0.60rem;
+        color: rgba(226, 75, 74, 0.75);
+        font-family: 'Montserrat', sans-serif;
+    }
+
+    .aic-unreject-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        font-size: 0.62rem;
+        font-family: 'Montserrat', sans-serif;
+        font-weight: 500;
+        color: rgba(180, 178, 169, 0.75);
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.10);
+        border-radius: 4px;
+        padding: 1px 7px;
+        cursor: pointer;
+        transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+        line-height: 1.5;
+    }
+
+    .aic-unreject-btn:hover {
+        background: rgba(255, 255, 255, 0.10);
+        color: rgba(255, 255, 255, 0.88);
+        border-color: rgba(255, 255, 255, 0.22);
+    }
+
+    /* ── Timestamp ─────────────────────────────────────────────────────────── */
+    .aic-timestamp {
+        font-size: 0.60rem;
+        color: rgba(255, 255, 255, 0.25);
+        white-space: nowrap;
+        flex-shrink: 0;
+        font-family: 'Montserrat', sans-serif;
+        align-self: flex-start;
+        padding-top: 2px;
+    }
+</style>

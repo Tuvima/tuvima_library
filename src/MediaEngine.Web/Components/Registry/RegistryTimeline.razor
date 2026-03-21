@@ -49,7 +49,7 @@
                     {
                         @* ── Batch card ── *@
                         var batch = item.Batch!;
-                        var reviewCount = batch.FilesReview + batch.FilesNoMatch;
+                        var reviewCount = batch.FilesReview + batch.FilesNoMatch + batch.FilesFailed;
                         <div class="rtl-event">
                             <div class="rtl-event-rail">
                                 <div class="rtl-dot" style="background: #4A90D920; border-color: #4A90D955;">
@@ -76,25 +76,11 @@
                                             <span class="rtl-batch-kpi-number" style="color: #5DCAA5;">@batch.FilesRegistered</span>
                                             <span class="rtl-batch-kpi-label">Registered</span>
                                         </div>
-                                        @if (batch.FilesReview > 0)
+                                        @if (reviewCount > 0)
                                         {
                                             <div class="rtl-batch-kpi">
-                                                <span class="rtl-batch-kpi-number" style="color: #EF9F27;">@batch.FilesReview</span>
-                                                <span class="rtl-batch-kpi-label">Review</span>
-                                            </div>
-                                        }
-                                        @if (batch.FilesNoMatch > 0)
-                                        {
-                                            <div class="rtl-batch-kpi">
-                                                <span class="rtl-batch-kpi-number" style="color: #B4B2A9;">@batch.FilesNoMatch</span>
-                                                <span class="rtl-batch-kpi-label">No match</span>
-                                            </div>
-                                        }
-                                        @if (batch.FilesFailed > 0)
-                                        {
-                                            <div class="rtl-batch-kpi">
-                                                <span class="rtl-batch-kpi-number" style="color: #EF5350;">@batch.FilesFailed</span>
-                                                <span class="rtl-batch-kpi-label">Failed</span>
+                                                <span class="rtl-batch-kpi-number" style="color: #EF9F27;">@reviewCount</span>
+                                                <span class="rtl-batch-kpi-label">In Review</span>
                                             </div>
                                         }
                                     </div>
@@ -105,7 +91,7 @@
                                                 @reviewCount @(reviewCount == 1 ? "item" : "items") still @(reviewCount == 1 ? "needs" : "need") review
                                             </span>
                                             <button class="rtl-link-btn" @onclick="() => OnOpenInListView.InvokeAsync(batch.Id)">
-                                                Open in list view
+                                                View activity →
                                             </button>
                                         </div>
                                     }
@@ -126,7 +112,7 @@
                     {
                         @* ── Aggregated batch summary (weekly/monthly) ── *@
                         var agg = item.Aggregation!;
-                        var aggReview = agg.TotalReview + agg.TotalNoMatch;
+                        var aggReview = agg.TotalReview + agg.TotalNoMatch + agg.TotalFailed;
                         <div class="rtl-event">
                             <div class="rtl-event-rail">
                                 <div class="rtl-dot" style="background: #4A90D920; border-color: #4A90D955;">
@@ -146,25 +132,11 @@
                                             <span class="rtl-batch-kpi-number" style="color: #5DCAA5;">@agg.TotalRegistered</span>
                                             <span class="rtl-batch-kpi-label">Registered</span>
                                         </div>
-                                        @if (agg.TotalReview > 0)
+                                        @if (aggReview > 0)
                                         {
                                             <div class="rtl-batch-kpi">
-                                                <span class="rtl-batch-kpi-number" style="color: #EF9F27;">@agg.TotalReview</span>
-                                                <span class="rtl-batch-kpi-label">Review</span>
-                                            </div>
-                                        }
-                                        @if (agg.TotalNoMatch > 0)
-                                        {
-                                            <div class="rtl-batch-kpi">
-                                                <span class="rtl-batch-kpi-number" style="color: #B4B2A9;">@agg.TotalNoMatch</span>
-                                                <span class="rtl-batch-kpi-label">No match</span>
-                                            </div>
-                                        }
-                                        @if (agg.TotalFailed > 0)
-                                        {
-                                            <div class="rtl-batch-kpi">
-                                                <span class="rtl-batch-kpi-number" style="color: #EF5350;">@agg.TotalFailed</span>
-                                                <span class="rtl-batch-kpi-label">Failed</span>
+                                                <span class="rtl-batch-kpi-number" style="color: #EF9F27;">@aggReview</span>
+                                                <span class="rtl-batch-kpi-label">In Review</span>
                                             </div>
                                         }
                                     </div>
@@ -237,6 +209,7 @@
 
 @code {
     [Parameter] public EventCallback<Guid?> OnOpenInListView { get; set; }
+    [Parameter] public string? FilterCategory { get; set; }
 
     private bool _loading;
     private string _activeFilter = "all";
@@ -252,6 +225,14 @@
         ["reports"]   = new("Reports",         Icons.Material.Outlined.Warning,   "#EF5350"),
         ["curator"]   = new("Curator actions", Icons.Material.Outlined.Verified,  "#5DCAA5"),
     };
+
+    protected override void OnParametersSet()
+    {
+        if (!string.IsNullOrEmpty(FilterCategory) && FilterCategory != _activeFilter)
+        {
+            _activeFilter = FilterCategory;
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {

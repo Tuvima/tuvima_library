@@ -219,6 +219,24 @@ public static class SystemActionType
     /// </summary>
     public const string FileExpired = "FileExpired";
 
+    /// <summary>
+    /// A curator marked an item as provisional with manually-entered metadata.
+    /// The item is visible in the Library and periodically re-checked against Wikidata.
+    /// </summary>
+    public const string ItemProvisional = "ItemProvisional";
+
+    /// <summary>
+    /// A rejected item was automatically purged after exceeding the configured
+    /// retention period. Both the file on disk and database records were deleted.
+    /// </summary>
+    public const string AutoPurge = "AutoPurge";
+
+    /// <summary>
+    /// A previously rejected item was un-rejected by a curator and returned
+    /// to the review queue for re-evaluation.
+    /// </summary>
+    public const string ItemUnrejected = "ItemUnrejected";
+
     // ── Ingestion Batches ──────────────────────────────────────────────────
 
     /// <summary>An ingestion batch was created when the engine began processing a queue of files.</summary>

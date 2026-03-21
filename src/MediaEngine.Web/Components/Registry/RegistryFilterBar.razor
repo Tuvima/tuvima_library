@@ -6,15 +6,15 @@
     <div class="rfb-tabs">
         <button class="rfb-tab rfb-tab--review @(ActiveTab == "review" ? "rfb-tab--on" : "")"
                 @onclick="@(() => SetTab("review"))">
-            Review <span class="rfb-tab-ct rfb-tab-ct--review">@(FourStateCounts?.Review ?? Counts?.NeedsReview ?? 0)</span>
+            In Review <span class="rfb-tab-ct rfb-tab-ct--review">@(FourStateCounts?.InReview ?? Counts?.NeedsReview ?? 0)</span>
         </button>
-        <button class="rfb-tab rfb-tab--nomatch @(ActiveTab == "nomatch" ? "rfb-tab--on" : "")"
-                @onclick="@(() => SetTab("nomatch"))">
-            No Match <span class="rfb-tab-ct rfb-tab-ct--nomatch">@(FourStateCounts?.NoMatch ?? 0)</span>
+        <button class="rfb-tab rfb-tab--nomatch @(ActiveTab == "provisional" ? "rfb-tab--on" : "")"
+                @onclick="@(() => SetTab("provisional"))">
+            Provisional <span class="rfb-tab-ct rfb-tab-ct--nomatch">@(FourStateCounts?.Provisional ?? 0)</span>
         </button>
-        <button class="rfb-tab rfb-tab--failed @(ActiveTab == "failed" ? "rfb-tab--on" : "")"
-                @onclick="@(() => SetTab("failed"))">
-            Failed <span class="rfb-tab-ct rfb-tab-ct--failed">@(FourStateCounts?.Failed ?? 0)</span>
+        <button class="rfb-tab rfb-tab--failed @(ActiveTab == "rejected" ? "rfb-tab--on" : "")"
+                @onclick="@(() => SetTab("rejected"))">
+            Rejected <span class="rfb-tab-ct rfb-tab-ct--failed">@(FourStateCounts?.Rejected ?? 0)</span>
         </button>
         <button class="rfb-tab @(ActiveTab == "all" ? "rfb-tab--on" : "")"
                 @onclick="@(() => SetTab("all"))">

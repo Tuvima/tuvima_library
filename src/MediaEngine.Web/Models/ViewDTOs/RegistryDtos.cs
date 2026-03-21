@@ -320,29 +320,26 @@ public sealed class RegistryItemHistoryDto
     public string? Detail { get; set; }
 }
 
-/// <summary>Four-state counts for the Registry overhaul filter tabs.</summary>
+/// <summary>Four-state counts for the Registry lifecycle: Registered, InReview, Provisional, Rejected.</summary>
 public sealed class RegistryFourStateCountsDto
 {
     [JsonPropertyName("registered")]
     public int Registered { get; set; }
 
-    [JsonPropertyName("needs_review")]
-    public int NeedsReview { get; set; }
+    [JsonPropertyName("in_review")]
+    public int InReview { get; set; }
 
-    [JsonPropertyName("no_match")]
-    public int NoMatch { get; set; }
+    [JsonPropertyName("provisional")]
+    public int Provisional { get; set; }
 
-    [JsonPropertyName("failed")]
-    public int Failed { get; set; }
+    [JsonPropertyName("rejected")]
+    public int Rejected { get; set; }
 
     [JsonPropertyName("trigger_counts")]
     public Dictionary<string, int> TriggerCounts { get; set; } = [];
 
     /// <summary>Convenience: total across all four states.</summary>
-    public int All => Registered + NeedsReview + NoMatch + Failed;
-
-    /// <summary>Alias for NeedsReview — used by filter bar tab display.</summary>
-    public int Review => NeedsReview;
+    public int All => Registered + InReview + Provisional + Rejected;
 }
 
 /// <summary>Dashboard view model for an ingestion batch.</summary>
@@ -386,4 +383,53 @@ public sealed class IngestionBatchViewModel
 
     [JsonPropertyName("created_at")]
     public DateTimeOffset CreatedAt { get; set; }
+}
+
+/// <summary>Request body for marking an item as provisional with curator-entered metadata.</summary>
+public sealed class ProvisionalMetadataRequestDto
+{
+    [JsonPropertyName("media_type")]
+    public string? MediaType { get; set; }
+
+    [JsonPropertyName("title")]
+    public string Title { get; set; } = "";
+
+    [JsonPropertyName("creator")]
+    public string? Creator { get; set; }
+
+    [JsonPropertyName("year")]
+    public string? Year { get; set; }
+
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
+
+    [JsonPropertyName("narrator")]
+    public string? Narrator { get; set; }
+
+    [JsonPropertyName("isbn")]
+    public string? Isbn { get; set; }
+
+    [JsonPropertyName("director")]
+    public string? Director { get; set; }
+
+    [JsonPropertyName("runtime")]
+    public string? Runtime { get; set; }
+
+    [JsonPropertyName("seasons")]
+    public string? Seasons { get; set; }
+
+    [JsonPropertyName("track_count")]
+    public string? TrackCount { get; set; }
+
+    [JsonPropertyName("host")]
+    public string? Host { get; set; }
+
+    [JsonPropertyName("writer")]
+    public string? Writer { get; set; }
+
+    [JsonPropertyName("artist")]
+    public string? Artist { get; set; }
+
+    [JsonPropertyName("page_count")]
+    public string? PageCount { get; set; }
 }

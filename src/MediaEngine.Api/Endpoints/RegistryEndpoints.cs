@@ -511,6 +511,7 @@ public static class RegistryEndpoints
             IReviewQueueRepository reviewRepo,
             IDatabaseConnection db,
             IStorageManifest manifest,
+            IEventPublisher publisher,
             CancellationToken ct) =>
         {
             // Resolve the media asset's current file path and its ID.
@@ -598,7 +599,7 @@ public static class RegistryEndpoints
                 cmd.ExecuteNonQuery();
             }
 
-            // Dismiss pending review items and insert a new Rejected entry.
+            // Dismiss any pending review items for this asset.
             using (var conn = db.CreateConnection())
             using (var cmd = conn.CreateCommand())
             {
@@ -612,21 +613,16 @@ public static class RegistryEndpoints
                 cmd.ExecuteNonQuery();
             }
 
-            // Insert a Rejected review queue entry so the item shows as "Rejected" in the Registry.
+            // Set curator_state = 'rejected' on the works table.
             using (var conn = db.CreateConnection())
             using (var cmd = conn.CreateCommand())
             {
                 cmd.CommandText = """
-                    INSERT INTO review_queue
-                        (id, entity_id, entity_type, trigger, status, confidence_score, detail, created_at)
-                    VALUES
-                        (@id, @entityId, 'MediaAsset', @trigger, 'Pending', 0, @detail, @createdAt)
+                    UPDATE works SET curator_state = 'rejected', rejected_at = @now
+                    WHERE id = @workId
                     """;
-                cmd.Parameters.AddWithValue("@id",        Guid.NewGuid().ToString());
-                cmd.Parameters.AddWithValue("@entityId",  assetIdStr);
-                cmd.Parameters.AddWithValue("@trigger",   ReviewTrigger.Rejected);
-                cmd.Parameters.AddWithValue("@detail",    $"Rejected by user. File moved to .staging/rejected/.");
-                cmd.Parameters.AddWithValue("@createdAt", DateTimeOffset.UtcNow.ToString("o"));
+                cmd.Parameters.AddWithValue("@workId", entityId.ToString());
+                cmd.Parameters.AddWithValue("@now",    DateTimeOffset.UtcNow.ToString("o"));
                 cmd.ExecuteNonQuery();
             }
 
@@ -639,6 +635,12 @@ public static class RegistryEndpoints
                 EntityId   = entityId,
                 EntityType = "Work",
                 Detail     = $"Rejected '{workTitle ?? "unknown"}' — file moved to .staging/rejected/.",
+            }, ct);
+
+            await publisher.PublishAsync("ReviewItemResolved", new
+            {
+                entity_id = entityId,
+                action = "rejected",
             }, ct);
 
             return Results.Ok(new { EntityId = entityId, NewFilePath = newFilePath, Message = $"Rejected '{workTitle ?? "unknown"}'." });
@@ -945,16 +947,11 @@ public static class RegistryEndpoints
                     using (var cmd = conn.CreateCommand())
                     {
                         cmd.CommandText = """
-                            INSERT INTO review_queue
-                                (id, entity_id, entity_type, trigger, status, confidence_score, detail, created_at)
-                            VALUES
-                                (@id, @entityId, 'MediaAsset', @trigger, 'Pending', 0, @detail, @createdAt)
+                            UPDATE works SET curator_state = 'rejected', rejected_at = @now
+                            WHERE id = @workId
                             """;
-                        cmd.Parameters.AddWithValue("@id",        Guid.NewGuid().ToString());
-                        cmd.Parameters.AddWithValue("@entityId",  assetIdStr);
-                        cmd.Parameters.AddWithValue("@trigger",   ReviewTrigger.Rejected);
-                        cmd.Parameters.AddWithValue("@detail",    $"Rejected by user (batch). File moved to .staging/rejected/.");
-                        cmd.Parameters.AddWithValue("@createdAt", DateTimeOffset.UtcNow.ToString("o"));
+                        cmd.Parameters.AddWithValue("@workId", entityId.ToString());
+                        cmd.Parameters.AddWithValue("@now",    DateTimeOffset.UtcNow.ToString("o"));
                         cmd.ExecuteNonQuery();
                     }
 
@@ -988,17 +985,200 @@ public static class RegistryEndpoints
         // ── POST /registry/items/{entityId}/recover ───────────────────────────
         group.MapPost("/items/{entityId:guid}/recover", async (
             Guid entityId,
+            IDatabaseConnection db,
             IReviewQueueRepository reviewRepo,
             ISystemActivityRepository activityRepo,
+            IEventPublisher publisher,
             CancellationToken ct) =>
         {
-            // Find the rejected review entry(s) and dismiss them.
-            var entries = await reviewRepo.GetPendingByEntityAsync(entityId, ct);
-            foreach (var entry in entries)
+            // Clear the rejected state on the work.
+            using var conn = db.CreateConnection();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = """
+                UPDATE works SET curator_state = NULL, rejected_at = NULL
+                WHERE id = @workId AND curator_state = 'rejected'
+                """;
+            cmd.Parameters.AddWithValue("@workId", entityId.ToString());
+            var affected = cmd.ExecuteNonQuery();
+
+            if (affected == 0)
+                return Results.NotFound($"Work {entityId} is not in rejected state.");
+
+            // Create a new review queue entry so the item goes back to InReview.
+            string? assetIdStr = null;
+            using (var cmd3 = conn.CreateCommand())
             {
-                if (entry.Trigger == ReviewTrigger.Rejected)
+                cmd3.CommandText = """
+                    SELECT ma.id FROM editions e
+                    INNER JOIN media_assets ma ON ma.edition_id = e.id
+                    WHERE e.work_id = @workId LIMIT 1
+                    """;
+                cmd3.Parameters.AddWithValue("@workId", entityId.ToString());
+                var result = cmd3.ExecuteScalar();
+                assetIdStr = result as string;
+            }
+
+            if (assetIdStr is not null)
+            {
+                using var cmd2 = conn.CreateCommand();
+                cmd2.CommandText = """
+                    INSERT INTO review_queue
+                        (id, entity_id, entity_type, trigger, status, confidence_score, detail, created_at)
+                    VALUES
+                        (@id, @entityId, 'MediaAsset', @trigger, 'Pending', 0, @detail, @createdAt)
+                    """;
+                cmd2.Parameters.AddWithValue("@id",        Guid.NewGuid().ToString());
+                cmd2.Parameters.AddWithValue("@entityId",  assetIdStr);
+                cmd2.Parameters.AddWithValue("@trigger",   "UserFixMatch");
+                cmd2.Parameters.AddWithValue("@detail",    "Un-rejected by user — returned to review queue.");
+                cmd2.Parameters.AddWithValue("@createdAt", DateTimeOffset.UtcNow.ToString("o"));
+                cmd2.ExecuteNonQuery();
+            }
+
+            try
+            {
+                await activityRepo.LogAsync(new SystemActivityEntry
                 {
-                    await reviewRepo.UpdateStatusAsync(entry.Id, ReviewStatus.Dismissed, "user:recover", ct);
+                    ActionType = SystemActionType.ItemUnrejected,
+                    EntityId   = entityId,
+                    EntityType = "Work",
+                    Detail     = "Un-rejected — returned to review queue for re-evaluation.",
+                }, ct);
+            }
+            catch (Exception) { /* history is supplementary */ }
+
+            await publisher.PublishAsync("ReviewItemCreated", new
+            {
+                review_item_id = Guid.Empty,
+                entity_id = entityId,
+                trigger = "UserFixMatch",
+            }, ct);
+
+            return Results.Ok(new { message = "Item un-rejected and returned to review queue." });
+        })
+        .WithName("RecoverRegistryItem")
+        .WithSummary("Recover a previously rejected registry item — removes the Rejected status.")
+        .Produces(StatusCodes.Status200OK)
+        .RequireAdminOrCurator();
+
+        // ── POST /registry/items/{entityId}/provisional ─────────────────────────
+        group.MapPost("/items/{entityId:guid}/provisional", async (
+            Guid entityId,
+            ProvisionalMetadataRequest body,
+            IDatabaseConnection db,
+            IReviewQueueRepository reviewRepo,
+            ISystemActivityRepository activityRepo,
+            IEventPublisher publisher,
+            CancellationToken ct) =>
+        {
+            if (string.IsNullOrWhiteSpace(body.Title))
+                return Results.BadRequest("Title is required for provisional metadata.");
+
+            // Serialize the full provisional metadata as JSON for storage.
+            var metadataJson = System.Text.Json.JsonSerializer.Serialize(body);
+
+            // Set curator_state = 'provisional' on the works table.
+            using var conn = db.CreateConnection();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = """
+                UPDATE works
+                SET curator_state = 'provisional',
+                    provisional_metadata_json = @json,
+                    title = @title
+                WHERE id = @workId
+                """;
+            cmd.Parameters.AddWithValue("@workId", entityId.ToString());
+            cmd.Parameters.AddWithValue("@json",   metadataJson);
+            cmd.Parameters.AddWithValue("@title",  body.Title);
+            var affected = cmd.ExecuteNonQuery();
+
+            if (affected == 0)
+                return Results.NotFound($"Work {entityId} not found.");
+
+            // Dismiss any pending review items — the curator has taken ownership.
+            string? assetIdStr = null;
+            using (var cmd2 = conn.CreateCommand())
+            {
+                cmd2.CommandText = """
+                    SELECT ma.id FROM editions e
+                    INNER JOIN media_assets ma ON ma.edition_id = e.id
+                    WHERE e.work_id = @workId LIMIT 1
+                    """;
+                cmd2.Parameters.AddWithValue("@workId", entityId.ToString());
+                assetIdStr = cmd2.ExecuteScalar() as string;
+            }
+
+            if (assetIdStr is not null)
+            {
+                using var cmd3 = conn.CreateCommand();
+                cmd3.CommandText = """
+                    UPDATE review_queue
+                    SET status = 'Dismissed', resolved_at = @now, resolved_by = 'user:provisional'
+                    WHERE entity_id = @assetId AND status = 'Pending'
+                    """;
+                cmd3.Parameters.AddWithValue("@assetId", assetIdStr);
+                cmd3.Parameters.AddWithValue("@now",     DateTimeOffset.UtcNow.ToString("o"));
+                cmd3.ExecuteNonQuery();
+            }
+
+            // Store provisional metadata as user-locked claims at confidence 1.0.
+            if (assetIdStr is not null && Guid.TryParse(assetIdStr, out var assetGuid))
+            {
+                var now = DateTimeOffset.UtcNow.ToString("o");
+                var localProviderId = "a1b2c3d4-e5f6-4700-8900-0a1b2c3d4e5f"; // LocalProcessorProviderId
+
+                var fields = new Dictionary<string, string?>
+                {
+                    ["title"]       = body.Title,
+                    ["author"]      = body.Creator,
+                    ["year"]        = body.Year,
+                    ["description"] = body.Description,
+                    ["narrator"]    = body.Narrator,
+                    ["isbn"]        = body.Isbn,
+                    ["director"]    = body.Director,
+                    ["runtime"]     = body.Runtime,
+                    ["host"]        = body.Host,
+                    ["writer"]      = body.Writer,
+                    ["artist"]      = body.Artist,
+                };
+
+                foreach (var (key, value) in fields)
+                {
+                    if (string.IsNullOrWhiteSpace(value)) continue;
+
+                    using var claimCmd = conn.CreateCommand();
+                    claimCmd.CommandText = """
+                        INSERT OR REPLACE INTO metadata_claims
+                            (id, entity_id, claim_key, claim_value, provider_id, confidence, is_user_locked, claimed_at)
+                        VALUES
+                            (@id, @entityId, @key, @value, @providerId, 1.0, 1, @now)
+                        """;
+                    claimCmd.Parameters.AddWithValue("@id",         Guid.NewGuid().ToString());
+                    claimCmd.Parameters.AddWithValue("@entityId",   assetIdStr);
+                    claimCmd.Parameters.AddWithValue("@key",        key);
+                    claimCmd.Parameters.AddWithValue("@value",      value);
+                    claimCmd.Parameters.AddWithValue("@providerId", localProviderId);
+                    claimCmd.Parameters.AddWithValue("@now",        now);
+                    claimCmd.ExecuteNonQuery();
+
+                    // Also upsert canonical values so the UI sees them immediately.
+                    using var cvCmd = conn.CreateCommand();
+                    cvCmd.CommandText = """
+                        INSERT INTO canonical_values (entity_id, key, value, winning_provider_id, is_conflicted, needs_review, last_scored_at)
+                        VALUES (@entityId, @key, @value, @providerId, 0, 0, @now)
+                        ON CONFLICT(entity_id, key) DO UPDATE SET
+                            value = excluded.value,
+                            winning_provider_id = excluded.winning_provider_id,
+                            is_conflicted = 0,
+                            needs_review = 0,
+                            last_scored_at = excluded.last_scored_at
+                        """;
+                    cvCmd.Parameters.AddWithValue("@entityId",   assetIdStr);
+                    cvCmd.Parameters.AddWithValue("@key",        key);
+                    cvCmd.Parameters.AddWithValue("@value",      value);
+                    cvCmd.Parameters.AddWithValue("@providerId", localProviderId);
+                    cvCmd.Parameters.AddWithValue("@now",        now);
+                    cvCmd.ExecuteNonQuery();
                 }
             }
 
@@ -1006,18 +1186,34 @@ public static class RegistryEndpoints
             {
                 await activityRepo.LogAsync(new SystemActivityEntry
                 {
-                    ActionType = "Recovered",
-                    EntityId = entityId,
-                    Detail = "Recovered from rejected state",
+                    ActionType = SystemActionType.ItemProvisional,
+                    EntityId   = entityId,
+                    EntityType = "Work",
+                    HubName    = body.Title,
+                    Detail     = $"Marked '{body.Title}' as provisional with curator-entered metadata.",
                 }, ct);
             }
             catch (Exception) { /* history is supplementary */ }
 
-            return Results.Ok(new { message = "Item recovered" });
+            await publisher.PublishAsync("ReviewItemResolved", new
+            {
+                entity_id = entityId,
+                action = "provisional",
+            }, ct);
+
+            return Results.Ok(new
+            {
+                EntityId = entityId,
+                State    = "Provisional",
+                Title    = body.Title,
+                Message  = $"'{body.Title}' marked as provisional.",
+            });
         })
-        .WithName("RecoverRegistryItem")
-        .WithSummary("Recover a previously rejected registry item — removes the Rejected status.")
+        .WithName("MarkProvisional")
+        .WithSummary("Mark a registry item as provisional with curator-entered metadata.")
         .Produces(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator();
 
         // ── GET /registry/items/{entityId}/history ────────────────────────────

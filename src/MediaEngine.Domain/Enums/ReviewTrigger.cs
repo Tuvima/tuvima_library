@@ -48,13 +48,6 @@ public static class ReviewTrigger
     public const string ContentMatchFailed = "ContentMatchFailed";
 
     /// <summary>
-    /// Legacy: Stage 2 (Universe Match) failed. Superseded by
-    /// <see cref="AuthorityMatchFailed"/> when the pipeline was reversed.
-    /// Kept for backward compatibility with existing review queue rows.
-    /// </summary>
-    public const string UniverseMatchFailed = "UniverseMatchFailed";
-
-    /// <summary>
     /// The scoring engine detected a metadata conflict: two or more claims for
     /// the same field have confidence values within the conflict epsilon. The file
     /// is still organised with the best guess, but the user should verify the
@@ -80,25 +73,10 @@ public static class ReviewTrigger
     public const string MissingQid = "MissingQid";
 
     /// <summary>
-    /// Legacy: expected-fields scan removed — confidence scoring now handles
-    /// field completeness via field count scaling. Kept for backward
-    /// compatibility with existing review queue rows.
-    /// </summary>
-    [Obsolete("Expected-fields scan removed. Confidence scoring handles field completeness.")]
-    public const string FieldLevelReview = "FieldLevelReview";
-
-    /// <summary>
     /// File scored below 0.40 overall confidence with no user-locked claims.
     /// Moved to .staging/unidentifiable/ — deeply broken or unrecognizable.
     /// </summary>
     public const string StagedUnidentifiable = "StagedUnidentifiable";
-
-    /// <summary>
-    /// Legacy alias for <see cref="StagedUnidentifiable"/>.
-    /// Kept for backward compatibility with existing review queue rows.
-    /// </summary>
-    [Obsolete("Use StagedUnidentifiable instead.")]
-    public const string OrphanedUnidentifiable = "OrphanedUnidentifiable";
 
     /// <summary>
     /// The file's title is a placeholder ("Unknown", "Untitled", blank) and
@@ -115,13 +93,6 @@ public static class ReviewTrigger
     public const string ArtworkUnconfirmed = "ArtworkUnconfirmed";
 
     /// <summary>
-    /// The file's declared language doesn't match the configured library language.
-    /// Replaced by <see cref="LanguageMismatch"/> which runs during hydration with more context.
-    /// </summary>
-    [Obsolete("Use LanguageMismatch instead — NonConfiguredLanguage is kept for backward compatibility with existing DB rows.")]
-    public const string NonConfiguredLanguage = "NonConfiguredLanguage";
-
-    /// <summary>
     /// The file's embedded language metadata (dc:language in EPUB OPF, id3 lang tag)
     /// does not match the user's configured library language in
     /// <c>CoreConfiguration.Language</c>. The book may be in the wrong language
@@ -129,10 +100,6 @@ public static class ReviewTrigger
     /// </summary>
     public const string LanguageMismatch = "LanguageMismatch";
 
-    /// <summary>
-    /// The user explicitly rejected this file. It has been moved to
-    /// <c>.staging/rejected/</c> and is pending retention-based cleanup.
-    /// The file can still be recovered by hydrating or approving it.
-    /// </summary>
-    public const string Rejected = "Rejected";
+    /// <summary>A user submitted a problem report flagging incorrect or missing metadata.</summary>
+    public const string UserReport = "UserReport";
 }

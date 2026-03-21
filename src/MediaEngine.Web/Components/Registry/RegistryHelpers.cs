@@ -77,8 +77,8 @@ public static class RegistryHelpers
         "MetadataConflict"      => ("Conflicting Data",       "#B08940", Icons.Material.Outlined.Compare),
         "UserFixMatch"          => ("User Correction",        "#5C7A99", Icons.Material.Outlined.Edit),
         "ArbiterNeedsReview"    => ("Review Grouping",        "#B08940", Icons.Material.Outlined.Gavel),
-        "NonConfiguredLanguage" => ("Foreign Language",       "#B08940", Icons.Material.Outlined.Translate),
         "LanguageMismatch"      => ("Foreign Language",       "#B08940", Icons.Material.Filled.Translate),
+        "UserReport"            => ("User Report",            "#C9922E", Icons.Material.Filled.Flag),
         _ => ("Needs Review", "#6B6B6B", Icons.Material.Outlined.RateReview),
     };
 
@@ -134,15 +134,66 @@ public static class RegistryHelpers
         return $"rgba({r},{g},{b},{alpha})";
     }
 
+    // ── Status helpers (new 4-state model) ────────────────────────────────
+
+    /// <summary>Returns the hex color for the four-state registry model.</summary>
+    public static string GetStatusColor(string status) => status switch
+    {
+        "Registered"  => "#5DCAA5",  // teal green
+        "InReview"    => "#EF9F27",  // amber
+        "Provisional" => "#B4B2A9",  // neutral gray
+        "Rejected"    => "#E24B4A",  // red
+        // Legacy statuses (backward compat during migration)
+        "Review"      => "#EF9F27",
+        "Auto"        => "#5DCAA5",
+        "Edited"      => "#5DCAA5",
+        "Staging"     => "#EF9F27",
+        "Duplicate"   => "#EF9F27",
+        _             => "rgba(255,255,255,0.3)",
+    };
+
+    /// <summary>Returns the icon for a registry status badge.</summary>
+    public static string GetStatusIcon(string status) => status switch
+    {
+        "Registered"  => Icons.Material.Filled.CheckCircle,
+        "InReview"    => Icons.Material.Filled.RateReview,
+        "Provisional" => Icons.Material.Filled.EditNote,
+        "Rejected"    => Icons.Material.Filled.Block,
+        // Legacy
+        "Review"      => Icons.Material.Filled.RateReview,
+        "Auto"        => Icons.Material.Filled.CheckCircle,
+        "Edited"      => Icons.Material.Filled.CheckCircle,
+        "Staging"     => Icons.Material.Filled.HourglassBottom,
+        "Duplicate"   => Icons.Material.Filled.FileCopy,
+        _             => Icons.Material.Filled.HelpOutline,
+    };
+
+    /// <summary>Returns the display label for a registry status.</summary>
+    public static string GetStatusLabel(string status) => status switch
+    {
+        "Registered"  => "Registered",
+        "InReview"    => "In Review",
+        "Provisional" => "Provisional",
+        "Rejected"    => "Rejected",
+        // Legacy
+        "Review"      => "In Review",
+        "Auto"        => "Registered",
+        "Edited"      => "Registered",
+        "Staging"     => "In Review",
+        "Duplicate"   => "In Review",
+        _             => status,
+    };
+
     // ── Four-State Colors (Registry Overhaul spec) ────────────────────────
 
-    /// <summary>Returns the hex color for the four-state model: Registered (#5DCAA5), Review (#EF9F27), NoMatch (#B4B2A9), Failed (#EF5350).</summary>
+    /// <summary>Returns the hex color for the four-state model: Registered (#5DCAA5), InReview (#EF9F27), Provisional (#B4B2A9), Rejected (#E24B4A).</summary>
     public static string GetStateColor(string state) => state switch
     {
-        "Registered" => "#5DCAA5",
-        "Review" or "NeedsReview" => "#EF9F27",
-        "NoMatch" => "#B4B2A9",
-        "Failed" => "#EF5350",
+        "Registered"                => "#5DCAA5",
+        "InReview" or "Review"
+            or "NeedsReview"        => "#EF9F27",
+        "Provisional" or "NoMatch"  => "#B4B2A9",
+        "Rejected" or "Failed"      => "#E24B4A",
         _ => "#B4B2A9",
     };
 
@@ -153,20 +204,22 @@ public static class RegistryHelpers
     /// <summary>Returns the label text for a four-state badge.</summary>
     public static string GetStateLabel(string state) => state switch
     {
-        "Registered" => "Registered",
-        "Review" or "NeedsReview" => "Review",
-        "NoMatch" => "No Match",
-        "Failed" => "Failed",
+        "Registered"                => "Registered",
+        "InReview" or "Review"
+            or "NeedsReview"        => "In Review",
+        "Provisional" or "NoMatch"  => "Provisional",
+        "Rejected" or "Failed"      => "Rejected",
         _ => state,
     };
 
     /// <summary>Returns the icon for a four-state badge.</summary>
     public static string GetStateIcon(string state) => state switch
     {
-        "Registered" => Icons.Material.Outlined.CheckCircle,
-        "Review" or "NeedsReview" => Icons.Material.Outlined.RateReview,
-        "NoMatch" => Icons.Material.Outlined.HelpOutline,
-        "Failed" => Icons.Material.Outlined.Error,
+        "Registered"                => Icons.Material.Outlined.CheckCircle,
+        "InReview" or "Review"
+            or "NeedsReview"        => Icons.Material.Outlined.RateReview,
+        "Provisional" or "NoMatch"  => Icons.Material.Outlined.HelpOutline,
+        "Rejected" or "Failed"      => Icons.Material.Outlined.Error,
         _ => Icons.Material.Outlined.Circle,
     };
 

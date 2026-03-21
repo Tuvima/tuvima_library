@@ -465,6 +465,9 @@ public interface IEngineApiClient
     /// <summary>POST /registry/items/{entityId}/recover — recover a previously rejected item.</summary>
     Task<bool> RecoverRegistryItemAsync(Guid entityId, CancellationToken ct = default);
 
+    /// <summary>POST /registry/items/{entityId}/provisional — mark an item as provisional with curator metadata.</summary>
+    Task<bool> MarkProvisionalAsync(Guid entityId, ProvisionalMetadataRequestDto metadata, CancellationToken ct = default);
+
     /// <summary>GET /registry/counts — status counts for tab badges.</summary>
     Task<RegistryStatusCountsDto?> GetRegistryStatusCountsAsync(CancellationToken ct = default);
 

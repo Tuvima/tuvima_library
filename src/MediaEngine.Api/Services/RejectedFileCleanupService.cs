@@ -118,9 +118,8 @@ public sealed class RejectedFileCleanupService : BackgroundService
             return;
         }
 
-        // Find all media assets whose file_path_root sits inside .staging/rejected/
-        // AND whose corresponding review_queue entry (trigger='Rejected') was created
-        // more than retentionDays ago.
+        // Find all works with curator_state = 'rejected' whose rejected_at timestamp
+        // is older than retentionDays.
         var cutoff = DateTimeOffset.UtcNow.AddDays(-retentionDays).ToString("o");
 
         var expiredAssets = new List<(string AssetId, string FilePath, string? WorkId, string? HubId, string? WorkTitle)>();
@@ -134,19 +133,14 @@ public sealed class RejectedFileCleanupService : BackgroundService
                        e.work_id     AS WorkId,
                        w.hub_id      AS HubId,
                        w.title       AS WorkTitle
-                FROM media_assets ma
-                INNER JOIN editions e ON e.id = ma.edition_id
-                INNER JOIN works    w ON w.id = e.work_id
-                INNER JOIN review_queue rq ON rq.entity_id = ma.id
-                WHERE rq.trigger = 'Rejected'
-                  AND rq.status  = 'Pending'
-                  AND rq.created_at <= @cutoff
-                  AND (ma.file_path_root LIKE @rejPath1 OR ma.file_path_root LIKE @rejPath2)
+                FROM works w
+                INNER JOIN editions e ON e.work_id = w.id
+                INNER JOIN media_assets ma ON ma.edition_id = e.id
+                WHERE w.curator_state = 'rejected'
+                  AND w.rejected_at IS NOT NULL
+                  AND w.rejected_at <= @cutoff
                 """;
-            cmd.Parameters.AddWithValue("@cutoff",   cutoff);
-            // Match both Unix and Windows path separators.
-            cmd.Parameters.AddWithValue("@rejPath1", "%/.staging/rejected/%");
-            cmd.Parameters.AddWithValue("@rejPath2", @"%\.staging\rejected\%");
+            cmd.Parameters.AddWithValue("@cutoff", cutoff);
 
             using var reader = cmd.ExecuteReader();
             while (reader.Read())
@@ -192,11 +186,11 @@ public sealed class RejectedFileCleanupService : BackgroundService
                     continue;
                 }
 
-                // 2. Remove the review_queue entry.
+                // 2. Clear curator_state and remove any remaining review_queue entries.
                 using (var conn = _db.CreateConnection())
                 using (var cmd = conn.CreateCommand())
                 {
-                    cmd.CommandText = "DELETE FROM review_queue WHERE entity_id = @assetId AND trigger = 'Rejected'";
+                    cmd.CommandText = "DELETE FROM review_queue WHERE entity_id = @assetId";
                     cmd.Parameters.AddWithValue("@assetId", assetId);
                     cmd.ExecuteNonQuery();
                 }
@@ -220,6 +214,16 @@ public sealed class RejectedFileCleanupService : BackgroundService
                         WHERE work_id = @workId
                           AND NOT EXISTS (SELECT 1 FROM media_assets ma WHERE ma.edition_id = editions.id)
                         """;
+                    cmd.Parameters.AddWithValue("@workId", workId);
+                    cmd.ExecuteNonQuery();
+                }
+
+                // 5a. Clear curator_state on the work.
+                if (workId is not null)
+                {
+                    using var conn = _db.CreateConnection();
+                    using var cmd = conn.CreateCommand();
+                    cmd.CommandText = "UPDATE works SET curator_state = NULL, rejected_at = NULL WHERE id = @workId";
                     cmd.Parameters.AddWithValue("@workId", workId);
                     cmd.ExecuteNonQuery();
                 }
@@ -254,7 +258,7 @@ public sealed class RejectedFileCleanupService : BackgroundService
                 await _activityRepo.LogAsync(new SystemActivityEntry
                 {
                     OccurredAt  = DateTimeOffset.UtcNow,
-                    ActionType  = SystemActionType.FileExpired,
+                    ActionType  = SystemActionType.AutoPurge,
                     HubName     = workTitle,
                     EntityId    = Guid.TryParse(workId, out var wid) ? wid : Guid.Empty,
                     EntityType  = "Work",

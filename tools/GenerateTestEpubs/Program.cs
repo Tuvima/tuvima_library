@@ -202,7 +202,7 @@ var epubs = new EpubSpec[]
     // ── Foreign Language Metadata ────────────────────────────────────────
 
     // Scenario 24 — FOREIGN LANGUAGE: Russian title and author in Cyrillic.
-    //   <dc:language>ru</dc:language> triggers NonConfiguredLanguage review.
+    //   <dc:language>ru</dc:language> triggers LanguageMismatch review.
     //   Expected: routed to review queue with "File metadata is in Russian" detail.
     new("war-and-peace.epub",
         "Война и мир",
@@ -215,7 +215,7 @@ var epubs = new EpubSpec[]
         CoverHex: "#8D6E63"),
 
     // Scenario 25 — FOREIGN LANGUAGE: Spanish title.
-    //   <dc:language>es</dc:language> triggers NonConfiguredLanguage review.
+    //   <dc:language>es</dc:language> triggers LanguageMismatch review.
     //   Expected: routed to review queue with "File metadata is in Spanish" detail.
     new("don-quijote.epub",
         "Don Quijote de la Mancha",
@@ -228,7 +228,7 @@ var epubs = new EpubSpec[]
         CoverHex: "#D84315"),
 
     // Scenario 26 — FOREIGN LANGUAGE: French title.
-    //   <dc:language>fr</dc:language> triggers NonConfiguredLanguage review.
+    //   <dc:language>fr</dc:language> triggers LanguageMismatch review.
     //   Expected: routed to review queue with "File metadata is in French" detail.
     new("les-trois-mousquetaires.epub",
         "Les Trois Mousquetaires",

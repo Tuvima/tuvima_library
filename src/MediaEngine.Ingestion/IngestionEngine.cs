@@ -946,7 +946,6 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
         // Foreign-language metadata check removed — handled by LanguageMismatch trigger
         // in HydrationPipelineService (runs after Stage 1 with more context).
-        // See ReviewTrigger.NonConfiguredLanguage [Obsolete].
 
         // Step 11: staging-first flow.
         // ALL files go to .staging/ first — the Library only receives files that

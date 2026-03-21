@@ -1353,12 +1353,10 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 r.Status == ReviewStatus.Pending &&
                 r.Trigger is ReviewTrigger.LowConfidence
                           or ReviewTrigger.ContentMatchFailed
-                          or ReviewTrigger.AuthorityMatchFailed
-                          or ReviewTrigger.UniverseMatchFailed).ToList();
+                          or ReviewTrigger.AuthorityMatchFailed).ToList();
             // AuthorityMatchFailed is auto-resolved here because high confidence from
             // Stage 2 enrichment providers is sufficient to identify and organise the file
             // — Wikidata reconciliation is optional enrichment.
-            // UniverseMatchFailed is kept for backward compatibility with existing rows.
 
             foreach (var review in resolvable)
             {
@@ -1433,8 +1431,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 r.Status == ReviewStatus.Pending &&
                 r.Trigger is ReviewTrigger.LowConfidence
                           or ReviewTrigger.AuthorityMatchFailed
-                          or ReviewTrigger.ContentMatchFailed
-                          or ReviewTrigger.UniverseMatchFailed).ToList();
+                          or ReviewTrigger.ContentMatchFailed).ToList();
 
             foreach (var review in staleReviews)
             {

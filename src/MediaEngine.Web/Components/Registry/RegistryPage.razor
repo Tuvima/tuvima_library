@@ -10,15 +10,15 @@
 
 <div class="registry-layout">
 
-    @* ── Attention Banner (persistent across both views) ── *@
-    @if (_bannerReviewCount > 0 || _bannerFailedCount > 0 || _bannerReportCount > 0)
+    @* ── Attention Banner (only when stale items exist) ── *@
+    @if (_bannerReviewCount > 0 || _bannerReportCount > 0)
     {
         <div class="registry-attention-banner">
             <div class="registry-attention-items">
                 @if (_bannerReportCount > 0)
                 {
                     <button class="registry-attention-item registry-attention-item--reports"
-                            @onclick='() => GoToListFiltered("reports")'>
+                            @onclick='() => Nav.NavigateTo("/registry/activity?state=review")'>
                         <MudIcon Icon="@Icons.Material.Outlined.Warning" Style="font-size: 13px;" />
                         <span>@_bannerReportCount unresolved @(_bannerReportCount == 1 ? "report" : "reports")</span>
                     </button>
@@ -26,15 +26,8 @@
                 @if (_bannerReviewCount > 0)
                 {
                     <button class="registry-attention-item registry-attention-item--review"
-                            @onclick='() => GoToListFiltered("review")'>
-                        <span>@_bannerReviewCount pending review</span>
-                    </button>
-                }
-                @if (_bannerFailedCount > 0)
-                {
-                    <button class="registry-attention-item registry-attention-item--failed"
-                            @onclick='() => GoToListFiltered("failed")'>
-                        <span>@_bannerFailedCount failed</span>
+                            @onclick='() => Nav.NavigateTo("/registry/activity?state=review")'>
+                        <span>@_bannerReviewCount items in review</span>
                     </button>
                 }
             </div>
@@ -48,175 +41,62 @@
     @* ── Header ── *@
     <div class="registry-header">
         <span class="registry-title">Registry</span>
-        <div class="registry-view-toggle">
-            <button class="registry-toggle-btn @(_viewMode == "list" ? "active" : "")"
-                    @onclick='() => SetViewMode("list")'>
-                List
-            </button>
-            <button class="registry-toggle-btn @(_viewMode == "timeline" ? "active" : "")"
-                    @onclick='() => SetViewMode("timeline")'>
-                Timeline
-            </button>
-        </div>
     </div>
 
-    @* ── Content ── *@
-    @if (_viewMode == "timeline")
-    {
-        <RegistryTimeline OnOpenInListView="HandleTimelineOpenInList" />
-    }
-    else
-    {
-        <div class="registry-list-zone" @onkeydown="HandleKeyDown" tabindex="0">
-            <div class="registry-main">
-                @if (_selectedBatchId is null && _selectedBatchTimestamp != "All batches")
-                {
-                    @* ── Mode 1: Batch List ── *@
-                    <RegistryBatchList Batches="_batches"
-                                       AttentionCount="_attentionCount"
-                                       OnBatchSelected="SelectBatch"
-                                       OnAttentionClicked="OpenAttentionQueue" />
-                }
-                else
-                {
-                    @* ── Mode 2: Batch Item List ── *@
-                    @* Back to batch list + batch header *@
-                    <div class="registry-batch-header">
-                        <button class="registry-back-btn" @onclick="ClearBatchSelection">
-                            <MudIcon Icon="@Icons.Material.Outlined.ArrowBack" Style="font-size: 1.1rem;" />
-                        </button>
-                        <div class="registry-batch-info">
-                            <span class="registry-batch-timestamp">@_selectedBatchTimestamp</span>
-                            @if (!string.IsNullOrEmpty(_selectedBatchCategory))
-                            {
-                                <span class="registry-batch-category">@_selectedBatchCategory</span>
-                            }
-                        </div>
-                        @if (_selectedBatchKpis is not null)
-                        {
-                            <div class="registry-batch-kpis">
-                                <span class="registry-kpi" style="color: #5DCAA5;">@_selectedBatchKpis.FilesRegistered</span>
-                                <span class="registry-kpi" style="color: #EF9F27;">@_selectedBatchKpis.FilesReview</span>
-                                <span class="registry-kpi" style="color: #B4B2A9;">@_selectedBatchKpis.FilesNoMatch</span>
-                                <span class="registry-kpi" style="color: #EF5350;">@_selectedBatchKpis.FilesFailed</span>
-                            </div>
-                        }
-                    </div>
-
-                    @* ── Filter Bar ── *@
-                    <RegistryFilterBar Counts="_counts"
-                                       FourStateCounts="_fourStateCounts"
-                                       ActiveTab="@ActiveTab"
-                                       ActiveTabChanged="OnTabChanged"
-                                       SearchText="@_searchText"
-                                       SearchTextChanged="OnSearchChanged"
-                                       GroupBy="@_groupBy"
-                                       GroupByChanged="OnGroupByChanged"
-                                       SelectionMode="@_selectionMode"
-                                       SelectionModeChanged="OnSelectionModeChanged"
-                                       SortBy="@_sortBy"
-                                       SortByChanged="OnSortChanged" />
-
-                    @* ── Actions Bar (persistent: auto-register + retry failed) ── *@
-                    <RegistryActionsBar ThresholdPct="_autoRegisterPct"
-                                        ThresholdPctChanged="val => { _autoRegisterPct = val; StateHasChanged(); }"
-                                        EligibleCount="ComputeAutoRegisterEligible()"
-                                        FailedCount="_fourStateCounts?.Failed ?? 0"
-                                        Processing="_processing"
-                                        OnAutoRegister="AutoRegisterAsync"
-                                        OnRetryFailed="RetryFailedAsync" />
-
-                    @* ── Bulk Bar (selection mode) ── *@
-                    @if (_selectionMode && _selectedIds.Count > 0)
-                    {
-                        <RegistryBulkBar SelectedCount="_selectedIds.Count"
-                                         TotalCount="_items.Count"
-                                         Processing="_processing"
-                                         OnApprove="BatchApproveAsync"
-                                         OnReject="BatchRejectAsync"
-                                         OnDelete="BatchDeleteAsync"
-                                         OnSelectAll="SelectAll"
-                                         OnDeselectAll="DeselectAll" />
-                    }
-
-                    @* ── Grid ── *@
-                    <RegistryGrid Items="@_items"
-                                  SelectedIds="@_selectedIds"
-                                  FocusedEntityId="@_inspectorItem?.EntityId"
-                                  NeedsReviewFilter="@(ActiveTab == "review")"
-                                  GroupBy="@_groupBy"
-                                  CardSize="@_cardSize"
-                                  SelectionModeActive="@_selectionMode"
-                                  HasMore="_hasMore"
-                                  Loading="_loading"
-                                  OnSelectionToggled="ToggleSelection"
-                                  OnCardClicked="OnCardClicked"
-                                  OnApproveClicked="QuickApproveAsync"
-                                  OnRejectClicked="QuickRejectAsync"
-                                  OnNavigate="OnCardClicked"
-                                  OnLoadMore="LoadMoreAsync"
-                                  OnApproveGroup="GroupApproveAsync"
-                                  OnRejectGroup="GroupRejectAsync" />
-                }
-            </div>
-
-            @* ── Inspector Panel (350px, right side) ── *@
-            @if (_inspectorOpen)
+    @* ── Stats Bar (3 clickable cards) ── *@
+    <div class="registry-stats-bar">
+        <button class="registry-stat-card registry-stat-card--registered"
+                @onclick='() => Nav.NavigateTo("/registry/activity?state=registered")'>
+            <span class="registry-stat-value">@(_fourStateCounts?.Registered ?? 0)</span>
+            <span class="registry-stat-label">Registered</span>
+            @if ((_fourStateCounts?.Provisional ?? 0) > 0)
             {
-                <RegistryInspector Item="_inspectorItem"
-                                   OnClose="CloseInspector"
-                                   OnItemChanged="HandleInspectorItemChanged" />
+                <span class="registry-stat-footnote">@(_fourStateCounts?.Provisional ?? 0) provisional</span>
             }
-        </div>
-    }
+        </button>
+        <button class="registry-stat-card registry-stat-card--review"
+                @onclick='() => Nav.NavigateTo("/registry/activity?state=review")'>
+            <span class="registry-stat-value">@(_fourStateCounts?.InReview ?? 0)</span>
+            <span class="registry-stat-label">In Review</span>
+        </button>
+        <button class="registry-stat-card registry-stat-card--rejected"
+                @onclick='() => Nav.NavigateTo("/registry/activity?state=rejected")'>
+            <span class="registry-stat-value">@(_fourStateCounts?.Rejected ?? 0)</span>
+            <span class="registry-stat-label">Rejected</span>
+        </button>
+    </div>
+
+    @* ── Filter Chips ── *@
+    <div class="registry-filter-chips">
+        @foreach (var chip in _filterChips)
+        {
+            <button class="registry-chip @(chip.Key == _activeFilter ? "registry-chip--active" : "")"
+                    @onclick="() => SetFilter(chip.Key)">
+                @chip.Label
+            </button>
+        }
+    </div>
+
+    @* ── Timeline (always shown, full-width) ── *@
+    <RegistryTimeline OnOpenInListView="HandleTimelineNavigate" FilterCategory="@_activeFilter" />
+
 </div>
-
-@* ── Confirmation Dialogs ── *@
-<MudMessageBox @ref="_deleteConfirmBox" Title="Delete from Library" CancelText="Cancel">
-    <MessageContent>
-        This will permanently delete <strong>@_selectedIds.Count</strong> file(s) from your library. This cannot be undone.
-    </MessageContent>
-    <YesButton>
-        <MudButton Variant="Variant.Filled" Color="Color.Error">Delete</MudButton>
-    </YesButton>
-</MudMessageBox>
-
-<MudMessageBox @ref="_rejectConfirmBox" Title="Reject Items" CancelText="Cancel">
-    <MessageContent>
-        Reject <strong>@_pendingRejectCount</strong> item(s)? They will be moved to the rejected folder and automatically deleted after 30 days.
-    </MessageContent>
-    <YesButton>
-        <MudButton Variant="Variant.Filled" Color="Color.Error">Reject</MudButton>
-    </YesButton>
-</MudMessageBox>
-
-<MudMessageBox @ref="_approveConfirmBox" Title="Approve Items" CancelText="Cancel">
-    <MessageContent>
-        Approve <strong>@_pendingApproveCount</strong> item(s)?
-    </MessageContent>
-    <YesButton>
-        <MudButton Variant="Variant.Filled" Color="Color.Success">Approve</MudButton>
-    </YesButton>
-</MudMessageBox>
 
 <style>
     @@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@@400;500;600&display=swap');
 
-    /* Override MudContainer max-width for full-bleed registry */
     .registry-layout {
         display: flex;
         flex-direction: column;
         min-height: calc(100vh - 64px);
         background: #000000;
         position: relative;
-        /* Break out of MudContainer padding */
         margin: -24px -16px -24px -16px;
         padding: 0;
     }
 
     @@media (min-width: 960px) {
         .registry-layout {
-            /* Compensate for MudContainer padding + clear dock */
             margin: -24px -32px -24px -32px;
             padding-left: 84px;
         }
@@ -226,9 +106,7 @@
     .registry-header {
         display: flex;
         align-items: center;
-        justify-content: space-between;
-        padding: 16px 20px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        padding: 16px 20px 8px 20px;
         flex-shrink: 0;
     }
 
@@ -238,41 +116,6 @@
         font-weight: 500;
         color: #ffffff;
         letter-spacing: 0.01em;
-    }
-
-    /* ── View toggle (pill segmented control) ── */
-    .registry-view-toggle {
-        display: flex;
-        align-items: center;
-        background: rgba(255, 255, 255, 0.06);
-        border-radius: 20px;
-        padding: 3px;
-        gap: 0;
-    }
-
-    .registry-toggle-btn {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 13px;
-        font-weight: 500;
-        color: rgba(255, 255, 255, 0.45);
-        background: transparent;
-        border: none;
-        border-radius: 17px;
-        padding: 5px 16px;
-        cursor: pointer;
-        transition: background 0.15s ease, color 0.15s ease;
-        white-space: nowrap;
-        line-height: 1.4;
-    }
-
-    .registry-toggle-btn:hover:not(.active) {
-        color: rgba(255, 255, 255, 0.70);
-        background: rgba(255, 255, 255, 0.05);
-    }
-
-    .registry-toggle-btn.active {
-        background: #C9922E;
-        color: #ffffff;
     }
 
     /* ── Attention Banner ── */
@@ -309,21 +152,9 @@
         white-space: nowrap;
     }
 
-    .registry-attention-item:hover {
-        opacity: 0.8;
-    }
-
-    .registry-attention-item--reports {
-        color: #EF9F27;
-    }
-
-    .registry-attention-item--review {
-        color: rgba(255, 255, 255, 0.65);
-    }
-
-    .registry-attention-item--failed {
-        color: rgba(255, 255, 255, 0.50);
-    }
+    .registry-attention-item:hover { opacity: 0.8; }
+    .registry-attention-item--reports { color: #EF9F27; }
+    .registry-attention-item--review { color: rgba(255, 255, 255, 0.65); }
 
     .registry-attention-item + .registry-attention-item::before {
         content: '/';
@@ -340,208 +171,142 @@
         white-space: nowrap;
     }
 
-    /* ── Three-zone layout (list + inspector) ── */
-    .registry-list-zone {
+    /* ── Stats Bar ── */
+    .registry-stats-bar {
         display: flex;
-        flex: 1;
-        min-height: 0;
-        outline: none;
-    }
-
-    .registry-list-zone .registry-main {
-        flex: 1;
-        min-width: 0;
-        overflow-y: auto;
-    }
-
-    /* ── Main content zone ── */
-    .registry-main {
-        flex: 1;
-        min-width: 0;
-    }
-
-    /* ── Timeline placeholder ── */
-    .registry-timeline-placeholder {
-        flex: 1;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        min-height: 300px;
-        color: rgba(255, 255, 255, 0.35);
-        font-family: 'Montserrat', sans-serif;
-        font-size: 14px;
-        font-weight: 500;
-        letter-spacing: 0.03em;
-    }
-
-    /* ── Batch header (Mode 2) ── */
-    .registry-batch-header {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        padding: 12px 16px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-        font-family: 'Montserrat', sans-serif;
-    }
-
-    .registry-back-btn {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 32px;
-        height: 32px;
-        border-radius: 8px;
-        border: 0.5px solid rgba(255, 255, 255, 0.1);
-        background: rgba(255, 255, 255, 0.04);
-        color: rgba(255, 255, 255, 0.6);
-        cursor: pointer;
-        transition: all 0.15s ease;
+        gap: 10px;
+        padding: 0 20px 12px 20px;
         flex-shrink: 0;
     }
 
-    .registry-back-btn:hover {
-        background: rgba(255, 255, 255, 0.08);
-        color: #fff;
-        border-color: rgba(255, 255, 255, 0.2);
-    }
-
-    .registry-batch-info {
-        display: flex;
-        align-items: center;
-        gap: 10px;
+    .registry-stat-card {
         flex: 1;
-        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 14px 12px 10px 12px;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        background: rgba(255, 255, 255, 0.02);
+        cursor: pointer;
+        transition: border-color 0.15s ease, background 0.15s ease;
+        font-family: 'Montserrat', sans-serif;
     }
 
-    .registry-batch-timestamp {
-        font-size: 14px;
-        font-weight: 500;
-        color: rgba(255, 255, 255, 0.88);
-        white-space: nowrap;
+    .registry-stat-card:hover { background: rgba(255, 255, 255, 0.04); }
+
+    .registry-stat-card--registered:hover { border-color: #5DCAA5; }
+    .registry-stat-card--review:hover { border-color: #EF9F27; }
+    .registry-stat-card--rejected:hover { border-color: #E24B4A; }
+
+    .registry-stat-value {
+        font-size: 24px;
+        font-weight: 600;
+        color: #ffffff;
+        font-variant-numeric: tabular-nums;
     }
 
-    .registry-batch-category {
+    .registry-stat-label {
         font-size: 11px;
         font-weight: 500;
-        color: rgba(255, 255, 255, 0.45);
-        background: rgba(255, 255, 255, 0.06);
-        padding: 2px 8px;
-        border-radius: 4px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: rgba(255, 255, 255, 0.40);
+        margin-top: 2px;
+    }
+
+    .registry-stat-footnote {
+        font-size: 10px;
+        font-weight: 400;
+        color: rgba(255, 255, 255, 0.25);
+        margin-top: 4px;
+    }
+
+    /* ── Filter Chips ── */
+    .registry-filter-chips {
+        display: flex;
+        gap: 6px;
+        padding: 0 20px 12px 20px;
+        flex-shrink: 0;
+        overflow-x: auto;
+    }
+
+    .registry-chip {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 12px;
+        font-weight: 500;
+        color: rgba(255, 255, 255, 0.40);
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 16px;
+        padding: 5px 14px;
+        cursor: pointer;
+        transition: all 0.15s ease;
         white-space: nowrap;
     }
 
-    .registry-batch-kpis {
-        display: flex;
-        gap: 12px;
-        flex-shrink: 0;
+    .registry-chip:hover {
+        color: rgba(255, 255, 255, 0.65);
+        background: rgba(255, 255, 255, 0.06);
     }
 
-    .registry-kpi {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 14px;
-        font-weight: 600;
-        font-variant-numeric: tabular-nums;
+    .registry-chip--active {
+        color: #C9922E;
+        background: rgba(201, 146, 46, 0.12);
+        border-color: rgba(201, 146, 46, 0.30);
     }
 </style>
 
 @code {
-    // ── State ──
-    private MudMessageBox? _deleteConfirmBox;
-    private MudMessageBox? _rejectConfirmBox;
-    private MudMessageBox? _approveConfirmBox;
-    private List<RegistryItemViewModel> _items = [];
-    private HashSet<Guid> _selectedIds = [];
-    private RegistryStatusCountsDto? _counts;
     private RegistryFourStateCountsDto? _fourStateCounts;
-    private List<IngestionBatchViewModel> _batches = [];
-    private int _attentionCount;
 
-    // Batch selection state (Mode 2)
-    private Guid? _selectedBatchId;
-    private string _selectedBatchTimestamp = "";
-    private string? _selectedBatchCategory;
-    private IngestionBatchViewModel? _selectedBatchKpis;
-
-    // Inspector state
-    private RegistryItemViewModel? _inspectorItem;
-    private bool _inspectorOpen => _inspectorItem is not null;
-
-    private bool _loading;
-    private bool _hasMore;
-    private bool _processing;
-
-    // Grouping / UI state
-    private string _groupBy = "date";
-    private bool _selectionMode;
-    private int _cardSize = 80;
-
-    // Filters
-    private string? _searchText;
-    private string _sortBy = "newest";
-
-    // Pending counts for confirmation dialogs
-    private int _pendingRejectCount;
-    private int _pendingApproveCount;
-
-    // Auto-register threshold
-    private int _autoRegisterPct = 90;
-
-    // ── URL-driven tab ──
-    private string _activeTab = "all";
-    private string ActiveTab => _activeTab;
-
-    // ── View mode (list / timeline) ──
-    private string _viewMode = "list";
-
-    // ── Attention banner ──
+    // Attention banner
     private int _bannerReviewCount;
-    private int _bannerFailedCount;
     private int _bannerReportCount;
     private string? _bannerOldestAge;
 
-    // ── Lifecycle ──
+    // Filter chips
+    private string _activeFilter = "all";
+    private static readonly (string Key, string Label)[] _filterChips =
+    [
+        ("all", "All events"),
+        ("ingestion", "Ingestion"),
+        ("universe", "Universe"),
+        ("reports", "Reports"),
+        ("curator", "Curator actions"),
+    ];
 
     protected override async Task OnInitializedAsync()
     {
         Orchestrator.OnActivityChanged += HandleIntercomEvent;
         Orchestrator.OnReviewCountChanged += HandleIntercomEvent;
 
-        _activeTab = Nav.Uri.Contains("/review", StringComparison.OrdinalIgnoreCase) ? "review" : "all";
-        _viewMode = Nav.Uri.Contains("/timeline", StringComparison.OrdinalIgnoreCase) ? "timeline" : "list";
-
-        _loading = true;
-        await LoadBatchesAsync();
         await LoadCountsAsync();
-        _loading = false;
         await LoadBannerDataAsync();
     }
 
-    // ── Attention Banner ──
+    private async Task LoadCountsAsync()
+    {
+        _fourStateCounts = await Orchestrator.GetRegistryFourStateCountsAsync();
+    }
 
     private async Task LoadBannerDataAsync()
     {
         try
         {
-            // Get four-state counts (no batch filter = all items)
-            var counts = await Orchestrator.GetRegistryFourStateCountsAsync();
-            if (counts is not null)
-            {
-                _bannerReviewCount = counts.NeedsReview;
-                _bannerFailedCount = counts.Failed;
-            }
+            if (_fourStateCounts is not null)
+                _bannerReviewCount = _fourStateCounts.InReview;
 
-            // Get unresolved report count from activity entries
             var reportEntries = await Orchestrator.GetActivityByTypesAsync(
                 ["UserReportSubmitted"], 500);
-            _bannerReportCount = reportEntries.Count; // Simplified — reports are rare, count all submitted
+            _bannerReportCount = reportEntries.Count;
 
-            // Calculate oldest unresolved item age
             var oldestDates = new List<DateTimeOffset>();
-            if (_bannerReviewCount > 0 || _bannerFailedCount > 0)
+            if (_bannerReviewCount > 0)
             {
                 var batches = await Orchestrator.GetIngestionBatchesAsync(100);
                 var oldestBatch = batches
-                    .Where(b => b.FilesReview > 0 || b.FilesFailed > 0)
+                    .Where(b => b.FilesReview > 0)
                     .OrderBy(b => b.StartedAt)
                     .FirstOrDefault();
                 if (oldestBatch is not null)
@@ -574,552 +339,27 @@
         catch { /* Banner is non-critical */ }
     }
 
-    private void GoToListFiltered(string filter)
+    private void SetFilter(string filter)
     {
-        _viewMode = "list";
-        _selectedBatchId = null;
-        _selectedBatchTimestamp = "All batches";
-        _activeTab = filter == "reports" ? "review" : filter;
-        _ = LoadItemsAsync();
+        _activeFilter = filter;
         StateHasChanged();
     }
 
-    // ── View Mode ──
-
-    private void SetViewMode(string mode)
+    private void HandleTimelineNavigate(Guid? batchId)
     {
-        _viewMode = mode;
-        Nav.NavigateTo(mode == "timeline" ? "/registry/timeline" : "/registry");
+        var target = batchId.HasValue ? $"?source=batch-{batchId.Value}" : "";
+        Nav.NavigateTo($"/registry/activity{target}");
     }
-
-    // ── Data Loading ──
-
-    private async Task LoadItemsAsync(bool reset = false)
-    {
-        if (reset) _items.Clear();
-
-        var statusFilter = ActiveTab switch
-        {
-            "review" => "Review",
-            "nomatch" => "NoMatch",
-            "failed" => "Failed",
-            _ => (string?)null,
-        };
-
-        var result = await Orchestrator.GetRegistryItemsAsync(
-            offset: _items.Count,
-            limit: 50,
-            search: _searchText,
-            type: null,
-            status: statusFilter,
-            minConfidence: null,
-            matchSource: null,
-            duplicatesOnly: false,
-            missingUniverseOnly: ActiveTab == "review",
-            sort: _sortBy,
-            maxDays: null);
-
-        if (result is not null)
-        {
-            var existingIds = new HashSet<Guid>(_items.Select(i => i.EntityId));
-            var dedupedItems = result.Items
-                .GroupBy(i => i.EntityId)
-                .Select(g => g.OrderByDescending(i => i.Confidence).First())
-                .Where(i => !existingIds.Contains(i.EntityId))
-                .ToList();
-            _items.AddRange(dedupedItems);
-            _hasMore = result.HasMore;
-        }
-    }
-
-    private async Task LoadCountsAsync()
-    {
-        _counts = await Orchestrator.GetRegistryStatusCountsAsync();
-        if (_selectedBatchId is not null)
-            _fourStateCounts = await Orchestrator.GetRegistryFourStateCountsAsync(_selectedBatchId);
-    }
-
-    private async Task LoadMoreAsync()
-    {
-        if (_loading || !_hasMore) return;
-        _loading = true;
-        StateHasChanged();
-        await LoadItemsAsync(reset: false);
-        _loading = false;
-        StateHasChanged();
-    }
-
-    private async Task LoadBatchesAsync()
-    {
-        try
-        {
-            _batches = (await Orchestrator.GetIngestionBatchesAsync(20)).ToList();
-            _attentionCount = await Orchestrator.GetBatchAttentionCountAsync();
-        }
-        catch { /* Engine offline — empty batch list is fine */ }
-    }
-
-    private async Task SelectBatch(Guid batchId)
-    {
-        _selectedBatchId = batchId;
-        _selectedBatchKpis = _batches.FirstOrDefault(b => b.Id == batchId);
-        if (_selectedBatchKpis is not null)
-        {
-            _selectedBatchTimestamp = RegistryHelpers.FormatBatchTimestamp(_selectedBatchKpis.StartedAt);
-            _selectedBatchCategory = _selectedBatchKpis.Category;
-        }
-
-        // Load four-state counts for this batch
-        _fourStateCounts = await Orchestrator.GetRegistryFourStateCountsAsync(_selectedBatchId);
-
-        // Load items for this batch
-        _activeTab = "all";
-        await LoadItemsAsync(reset: true);
-        StateHasChanged();
-    }
-
-    private async Task ClearBatchSelection()
-    {
-        _selectedBatchId = null;
-        _selectedBatchKpis = null;
-        _selectedBatchTimestamp = "";
-        _selectedBatchCategory = null;
-        _fourStateCounts = null;
-        _items.Clear();
-        _selectedIds.Clear();
-        await LoadBatchesAsync();
-        StateHasChanged();
-    }
-
-    private async Task OpenAttentionQueue()
-    {
-        // Cross-batch review queue: load all items needing review without batch scope
-        _selectedBatchId = null; // null means cross-batch
-        _fourStateCounts = await Orchestrator.GetRegistryFourStateCountsAsync(null);
-        _activeTab = "review";
-        _selectedBatchTimestamp = "All batches";
-        _selectedBatchCategory = null;
-        _selectedBatchKpis = null;
-        await LoadItemsAsync(reset: true);
-        StateHasChanged();
-    }
-
-    // ── Tab / Filter Handlers ──
-
-    private async Task OnTabChanged(string tab)
-    {
-        _selectedIds.Clear();
-        _activeTab = tab;
-        // Only navigate URL if no batch selected (top-level tabs)
-        if (_selectedBatchId is null && _selectedBatchTimestamp != "All batches")
-            Nav.NavigateTo(tab == "review" ? "/registry/review" : "/registry");
-        await ReloadItems();
-    }
-
-    private async Task OnSearchChanged(string? search)
-    {
-        _searchText = search;
-        await ReloadItems();
-    }
-
-    private async Task OnGroupByChanged(string groupBy)
-    {
-        _groupBy = groupBy;
-        StateHasChanged();
-    }
-
-    private void OnSelectionModeChanged(bool active)
-    {
-        _selectionMode = active;
-        if (!active) _selectedIds.Clear();
-        StateHasChanged();
-    }
-
-    private async Task OnSortChanged(string sort)
-    {
-        _sortBy = sort;
-        await ReloadItems();
-    }
-
-    private async Task ReloadItems()
-    {
-        _loading = true;
-        StateHasChanged();
-        await LoadItemsAsync(reset: true);
-        _loading = false;
-        StateHasChanged();
-    }
-
-    // ── Card Click → Inspector ──
-
-    private Task OnCardClicked(Guid entityId)
-    {
-        if (_selectionMode)
-        {
-            ToggleSelection(entityId);
-            return Task.CompletedTask;
-        }
-
-        var item = _items.FirstOrDefault(i => i.EntityId == entityId);
-        if (item is null) return Task.CompletedTask;
-
-        _inspectorItem = item;
-        StateHasChanged();
-        return Task.CompletedTask;
-    }
-
-    private void CloseInspector()
-    {
-        _inspectorItem = null;
-        StateHasChanged();
-    }
-
-    private void HandleKeyDown(KeyboardEventArgs e)
-    {
-        switch (e.Key)
-        {
-            case "Escape":
-                CloseInspector();
-                break;
-            case "ArrowDown":
-                NavigateItems(1);
-                break;
-            case "ArrowUp":
-                NavigateItems(-1);
-                break;
-            case "r" or "R":
-                if (_inspectorItem is not null)
-                    _ = QuickApproveAsync(_inspectorItem.EntityId);
-                break;
-            case "s" or "S":
-                if (_inspectorItem is not null)
-                    NavigateItems(1); // Skip = move to next item
-                break;
-        }
-    }
-
-    private void NavigateItems(int direction)
-    {
-        if (_items.Count == 0) return;
-
-        if (_inspectorItem is null)
-        {
-            _inspectorItem = _items[0];
-        }
-        else
-        {
-            var idx = _items.FindIndex(i => i.EntityId == _inspectorItem.EntityId);
-            if (idx < 0) return;
-            var newIdx = Math.Clamp(idx + direction, 0, _items.Count - 1);
-            _inspectorItem = _items[newIdx];
-        }
-        StateHasChanged();
-    }
-
-    // ── Selection ──
-
-    private void ToggleSelection(Guid entityId)
-    {
-        if (!_selectionMode) return;
-        if (!_selectedIds.Remove(entityId))
-            _selectedIds.Add(entityId);
-        StateHasChanged();
-    }
-
-    private void SelectAll()
-    {
-        foreach (var item in _items)
-            _selectedIds.Add(item.EntityId);
-        StateHasChanged();
-    }
-
-    private void DeselectAll()
-    {
-        _selectedIds.Clear();
-        StateHasChanged();
-    }
-
-    // ── Quick Approve (single card) ──
-
-    private async Task QuickApproveAsync(Guid entityId)
-    {
-        var result = await Orchestrator.BatchApproveRegistryItemsAsync([entityId]);
-        if (result is not null)
-        {
-            Snackbar.Add("Item approved", Severity.Success);
-            await LoadCountsAsync();
-            await ReloadItems();
-        }
-        else
-        {
-            Snackbar.Add("Failed to approve item", Severity.Error);
-        }
-    }
-
-    // ── Quick Reject (single card) ──
-
-    private async Task QuickRejectAsync(Guid entityId)
-    {
-        var result = await Orchestrator.RejectRegistryItemAsync(entityId);
-        if (result is not null)
-        {
-            Snackbar.Add("Item rejected", Severity.Warning);
-            await LoadCountsAsync();
-            await ReloadItems();
-        }
-        else
-        {
-            Snackbar.Add("Failed to reject item", Severity.Error);
-        }
-    }
-
-    // ── Batch Approve ──
-
-    private async Task BatchApproveAsync()
-    {
-        if (_selectedIds.Count == 0) return;
-        _processing = true;
-        StateHasChanged();
-
-        var ids = _selectedIds.ToArray();
-        var result = await Orchestrator.BatchApproveRegistryItemsAsync(ids);
-        if (result is not null)
-        {
-            Snackbar.Add($"Approved {result.ProcessedCount} of {result.TotalRequested} items", Severity.Success);
-            _selectedIds.Clear();
-            await LoadCountsAsync();
-            await ReloadItems();
-        }
-        else
-        {
-            Snackbar.Add("Batch approve failed", Severity.Error);
-        }
-
-        _processing = false;
-        StateHasChanged();
-    }
-
-    // ── Batch Reject ──
-
-    private async Task BatchRejectAsync()
-    {
-        if (_selectedIds.Count == 0) return;
-
-        _pendingRejectCount = _selectedIds.Count;
-        var confirmed = await _rejectConfirmBox!.ShowAsync();
-        if (confirmed != true) return;
-
-        _processing = true;
-        StateHasChanged();
-
-        var ids = _selectedIds.ToArray();
-        var result = await Orchestrator.BatchRejectRegistryItemsAsync(ids);
-        if (result is not null)
-        {
-            Snackbar.Add($"Rejected {result.ProcessedCount} of {result.TotalRequested} items", Severity.Warning);
-            _selectedIds.Clear();
-            await LoadCountsAsync();
-            await ReloadItems();
-        }
-        else
-        {
-            Snackbar.Add("Batch reject failed", Severity.Error);
-        }
-
-        _processing = false;
-        StateHasChanged();
-    }
-
-    // ── Batch Delete ──
-
-    private async Task BatchDeleteAsync()
-    {
-        if (_selectedIds.Count == 0) return;
-
-        var confirmed = await _deleteConfirmBox!.ShowAsync();
-        if (confirmed != true) return;
-
-        _processing = true;
-        StateHasChanged();
-
-        var ids = _selectedIds.ToArray();
-        var result = await Orchestrator.BatchDeleteRegistryItemsAsync(ids);
-        if (result is not null)
-        {
-            Snackbar.Add($"Deleted {result.ProcessedCount} of {result.TotalRequested} items", Severity.Warning);
-            _selectedIds.Clear();
-            await LoadCountsAsync();
-            await ReloadItems();
-        }
-        else
-        {
-            Snackbar.Add("Batch delete failed", Severity.Error);
-        }
-
-        _processing = false;
-        StateHasChanged();
-    }
-
-    // ── Group Approve ──
-
-    private async Task GroupApproveAsync(List<Guid> ids)
-    {
-        if (ids.Count == 0) return;
-
-        _pendingApproveCount = ids.Count;
-        var confirmed = await _approveConfirmBox!.ShowAsync();
-        if (confirmed != true) return;
-
-        _processing = true;
-        StateHasChanged();
-
-        var result = await Orchestrator.BatchApproveRegistryItemsAsync(ids.ToArray());
-        if (result is not null)
-        {
-            Snackbar.Add($"Approved {result.ProcessedCount} items", Severity.Success);
-            await LoadCountsAsync();
-            await ReloadItems();
-        }
-        else
-        {
-            Snackbar.Add("Group approve failed", Severity.Error);
-        }
-
-        _processing = false;
-        StateHasChanged();
-    }
-
-    // ── Group Reject ──
-
-    private async Task GroupRejectAsync(List<Guid> ids)
-    {
-        if (ids.Count == 0) return;
-
-        _pendingRejectCount = ids.Count;
-        var confirmed = await _rejectConfirmBox!.ShowAsync();
-        if (confirmed != true) return;
-
-        _processing = true;
-        StateHasChanged();
-
-        var result = await Orchestrator.BatchRejectRegistryItemsAsync(ids.ToArray());
-        if (result is not null)
-        {
-            Snackbar.Add($"Rejected {result.ProcessedCount} items", Severity.Warning);
-            await LoadCountsAsync();
-            await ReloadItems();
-        }
-        else
-        {
-            Snackbar.Add("Group reject failed", Severity.Error);
-        }
-
-        _processing = false;
-        StateHasChanged();
-    }
-
-    // ── Auto-Register ──
-
-    private int ComputeAutoRegisterEligible()
-    {
-        var threshold = _autoRegisterPct / 100.0;
-        return _items.Count(i =>
-            i.Confidence >= threshold
-            && string.IsNullOrEmpty(i.ReviewTrigger)
-            && (string.IsNullOrEmpty(i.WikidataQid) || i.WikidataQid.StartsWith("NF", StringComparison.OrdinalIgnoreCase)));
-    }
-
-    private async Task AutoRegisterAsync()
-    {
-        var threshold = _autoRegisterPct / 100.0;
-        var eligibleIds = _items
-            .Where(i => i.Confidence >= threshold
-                     && string.IsNullOrEmpty(i.ReviewTrigger)
-                     && (string.IsNullOrEmpty(i.WikidataQid) || i.WikidataQid.StartsWith("NF", StringComparison.OrdinalIgnoreCase)))
-            .Select(i => i.EntityId)
-            .ToArray();
-
-        if (eligibleIds.Length == 0) return;
-
-        _processing = true;
-        StateHasChanged();
-
-        var result = await Orchestrator.BatchApproveRegistryItemsAsync(eligibleIds);
-        if (result is not null)
-            Snackbar.Add($"Auto-registered {result.ProcessedCount} items above {(_autoRegisterPct / 100.0).ToString("F2")}", Severity.Success);
-        else
-            Snackbar.Add("Auto-register failed", Severity.Error);
-
-        await LoadCountsAsync();
-        await ReloadItems();
-        _processing = false;
-        StateHasChanged();
-    }
-
-    // ── Retry Failed ──
-
-    private async Task RetryFailedAsync()
-    {
-        var failedIds = _items
-            .Where(i => i.WikidataStatus is "failed")
-            .Select(i => i.EntityId)
-            .ToArray();
-
-        if (failedIds.Length == 0) return;
-
-        _processing = true;
-        StateHasChanged();
-
-        var retried = 0;
-        foreach (var id in failedIds)
-        {
-            try
-            {
-                await Orchestrator.TriggerHydrationAsync(id);
-                retried++;
-            }
-            catch { /* individual failure is ok */ }
-        }
-
-        Snackbar.Add($"Retried hydration for {retried} items", Severity.Info);
-        await LoadCountsAsync();
-        await ReloadItems();
-        _processing = false;
-        StateHasChanged();
-    }
-
-    // ── Inspector Item Changed ──
-
-    private async Task HandleInspectorItemChanged()
-    {
-        await LoadCountsAsync();
-        await ReloadItems();
-    }
-
-    // ── Timeline → List deep-link ──
-
-    private async Task HandleTimelineOpenInList(Guid? batchId)
-    {
-        _viewMode = "list";
-        if (batchId.HasValue)
-            await SelectBatch(batchId.Value);
-        else
-            await OpenAttentionQueue();
-        StateHasChanged();
-    }
-
-    // ── SignalR ──
 
     private async void HandleIntercomEvent()
     {
         await InvokeAsync(async () =>
         {
             await LoadCountsAsync();
+            await LoadBannerDataAsync();
             StateHasChanged();
         });
     }
-
-    // ── Dispose ──
 
     public void Dispose()
     {

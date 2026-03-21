@@ -1129,3 +1129,27 @@ public sealed class LabelResolveEntry
     [JsonPropertyName("entity_type")]
     public string? EntityType { get; init; }
 }
+
+// ── POST /registry/items/{entityId}/provisional ────────────────────────────────
+
+/// <summary>
+/// Request body for marking a registry item as provisional with curator-entered metadata.
+/// </summary>
+public sealed class ProvisionalMetadataRequest
+{
+    [JsonPropertyName("media_type")]  public string? MediaType { get; init; }
+    [JsonPropertyName("title")]       public string Title { get; init; } = "";
+    [JsonPropertyName("creator")]     public string? Creator { get; init; }
+    [JsonPropertyName("year")]        public string? Year { get; init; }
+    [JsonPropertyName("description")] public string? Description { get; init; }
+    [JsonPropertyName("narrator")]    public string? Narrator { get; init; }
+    [JsonPropertyName("isbn")]        public string? Isbn { get; init; }
+    [JsonPropertyName("director")]    public string? Director { get; init; }
+    [JsonPropertyName("runtime")]     public string? Runtime { get; init; }
+    [JsonPropertyName("seasons")]     public string? Seasons { get; init; }
+    [JsonPropertyName("track_count")] public string? TrackCount { get; init; }
+    [JsonPropertyName("host")]        public string? Host { get; init; }
+    [JsonPropertyName("writer")]      public string? Writer { get; init; }
+    [JsonPropertyName("artist")]      public string? Artist { get; init; }
+    [JsonPropertyName("page_count")]  public string? PageCount { get; init; }
+}

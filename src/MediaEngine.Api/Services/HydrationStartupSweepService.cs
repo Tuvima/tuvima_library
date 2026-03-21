@@ -13,8 +13,8 @@ namespace MediaEngine.Api.Services;
 /// hydration pipeline. This recovers items that were lost when the Engine was
 /// killed mid-batch during a previous run.
 ///
-/// Items are excluded if they have a pending <c>LanguageMismatch</c> or
-/// <c>NonConfiguredLanguage</c> review item — those require user action first.
+/// Items are excluded if they have a pending <c>LanguageMismatch</c>
+/// review item — those require user action first.
 /// </summary>
 public sealed class HydrationStartupSweepService : BackgroundService
 {
@@ -113,7 +113,7 @@ public sealed class HydrationStartupSweepService : BackgroundService
 
     /// <summary>
     /// Returns media assets that have no real <c>wikidata_qid</c> canonical value
-    /// and no blocking review items (LanguageMismatch, NonConfiguredLanguage).
+    /// and no blocking review items (LanguageMismatch).
     /// </summary>
     private List<(Guid AssetId, string MediaType, string? Title, string? Author, string? Isbn)>
         LoadUnhydratedItems()
@@ -143,7 +143,7 @@ public sealed class HydrationStartupSweepService : BackgroundService
                 SELECT 1 FROM review_queue rq
                 WHERE rq.entity_id = ma.id
                   AND rq.status = 'Pending'
-                  AND rq.trigger IN ('LanguageMismatch', 'NonConfiguredLanguage')
+                  AND rq.trigger IN ('LanguageMismatch')
             )
             GROUP BY ma.id, w.media_type
             """;

@@ -980,6 +980,18 @@ public sealed class DatabaseConnection : IDatabaseConnection
             m051.ExecuteNonQuery();
         }
 
+        // ── M-052  Registry lifecycle columns ─────────────────────────────
+        // Add curator_state (provisional/rejected), rejected_at (purge countdown),
+        // and provisional_metadata_json (curator-entered fields) to the works table.
+        // These columns power the new 4-state Registry model:
+        //   Registered (default) / InReview (review_queue) / Provisional / Rejected
+        MigrateAddColumnIfMissing(conn, "works", "curator_state",
+            "ALTER TABLE works ADD COLUMN curator_state TEXT");
+        MigrateAddColumnIfMissing(conn, "works", "rejected_at",
+            "ALTER TABLE works ADD COLUMN rejected_at TEXT");
+        MigrateAddColumnIfMissing(conn, "works", "provisional_metadata_json",
+            "ALTER TABLE works ADD COLUMN provisional_metadata_json TEXT");
+
         // Seed S-001: provider_registry entries for all known providers.
         // metadata_claims.provider_id has a FK to provider_registry(id), so these
         // rows MUST exist before any claim is written.  INSERT OR IGNORE makes this

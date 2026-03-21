@@ -1,0 +1,635 @@
+@page "/registry/activity"
+
+@using MediaEngine.Web.Models.ViewDTOs
+@using MediaEngine.Web.Components.Registry
+@using MediaEngine.Web.Services.Integration
+@using MudBlazor
+
+@inject NavigationManager Nav
+@inject UIOrchestratorService Orchestrator
+@inject IEngineApiClient ApiClient
+@inject ISnackbar Snackbar
+@implements IDisposable
+
+<PageTitle>Library overview — Tuvima Library</PageTitle>
+
+<div class="adp-root">
+
+    @* ── Back nav ── *@
+    <div class="adp-breadcrumb">
+        <button class="adp-back-btn" @onclick='() => Nav.NavigateTo("/registry")' type="button">
+            <MudIcon Icon="@Icons.Material.Outlined.ArrowBack" Style="font-size: 15px;" />
+            <span>Registry</span>
+        </button>
+        <span class="adp-breadcrumb-sep">/</span>
+        <span class="adp-breadcrumb-current">Library overview</span>
+    </div>
+
+    @* ── Page title ── *@
+    <h1 class="adp-page-title">Library overview</h1>
+
+    @* ── Filter tabs ── *@
+    <div class="adp-tab-row">
+        @foreach (var tab in _tabs)
+        {
+            var isActive = tab.Key == _activeTab;
+            <button class="adp-tab @(isActive ? "adp-tab--active" : "")"
+                    style="@(isActive ? $"--tab-color: {tab.Color};" : "")"
+                    @onclick="() => SetActiveTab(tab.Key)"
+                    type="button">
+                <span class="adp-tab-label">@tab.Label</span>
+                <span class="adp-tab-badge" style="@(isActive ? $"background: {tab.Color}20; color: {tab.Color};" : "")">
+                    @tab.Count
+                </span>
+            </button>
+        }
+    </div>
+
+    @* ── Main content ── *@
+    <div class="adp-content">
+
+        @* ── Left panel: item list ── *@
+        <div class="adp-left-panel" style="@(_selectedItem is not null ? "" : "flex: 1;")">
+
+            @if (_loading)
+            {
+                <div class="adp-loading">
+                    <MudProgressCircular Indeterminate="true" Size="MudBlazor.Size.Small"
+                                         Style="color: rgba(255,255,255,0.3);" />
+                    <span class="adp-loading-text">Loading…</span>
+                </div>
+            }
+            else if (_items.Count == 0)
+            {
+                <div class="adp-empty">
+                    <MudIcon Icon="@GetEmptyIcon()" Style="font-size: 36px; color: rgba(255,255,255,0.10); margin-bottom: 10px;" />
+                    <span class="adp-empty-title">@GetEmptyTitle()</span>
+                    <span class="adp-empty-sub">@GetEmptySubtitle()</span>
+                </div>
+            }
+            else if (_activeTab == "review")
+            {
+                @* ── Grouped view for In Review tab ── *@
+                @foreach (var group in _groupedItems)
+                {
+                    var (trigLabel, trigColor, trigIcon) = RegistryHelpers.FormatReviewTrigger(group.Key);
+                    var description = GetTriggerDescription(group.Key);
+                    <div class="adp-group">
+                        <div class="adp-group-header">
+                            <MudIcon Icon="@trigIcon"
+                                     Style="@($"font-size: 13px; color: {trigColor}; flex-shrink: 0;")" />
+                            <span class="adp-group-name" style="color: @trigColor;">@group.Key.ToUpperInvariant()</span>
+                            <span class="adp-group-count">@group.Value.Count</span>
+                            @if (!string.IsNullOrEmpty(description))
+                            {
+                                <span class="adp-group-desc">— @description</span>
+                            }
+                        </div>
+                        <div class="adp-group-items">
+                            @foreach (var item in group.Value)
+                            {
+                                <ActivityItemCard Item="@item"
+                                                  IsSelected="@(_selectedItem?.EntityId == item.EntityId)"
+                                                  OnSelect="HandleItemSelect"
+                                                  OnUnreject="HandleUnreject" />
+                            }
+                        </div>
+                    </div>
+                }
+            }
+            else
+            {
+                @* ── Flat list for other tabs ── *@
+                <div class="adp-flat-list">
+                    @foreach (var item in _items)
+                    {
+                        <ActivityItemCard Item="@item"
+                                          IsSelected="@(_selectedItem?.EntityId == item.EntityId)"
+                                          OnSelect="HandleItemSelect"
+                                          OnUnreject="HandleUnreject" />
+                    }
+                </div>
+            }
+
+        </div>
+
+        @* ── Right panel: inspector ── *@
+        @if (_selectedItem is not null)
+        {
+            <div class="adp-right-panel">
+                <RegistryInspector Item="@_selectedItem"
+                                   OnClose="HandleInspectorClose"
+                                   OnItemChanged="HandleItemChanged" />
+            </div>
+        }
+
+    </div>
+
+</div>
+
+@code {
+    // ── Tab model ─────────────────────────────────────────────────────────────
+
+    private sealed record TabDef(string Key, string Label, string Color, int Count);
+
+    // ── State ─────────────────────────────────────────────────────────────────
+
+    private string _activeTab = "review";
+    private string? _reasonFilter;
+    private string? _sourceFilter;
+
+    private List<RegistryItemViewModel> _items = [];
+    private Dictionary<string, List<RegistryItemViewModel>> _groupedItems = [];
+    private RegistryItemViewModel? _selectedItem;
+
+    private RegistryFourStateCountsDto? _counts;
+    private bool _loading = true;
+
+    // ── Tab definitions (computed after counts load) ───────────────────────────
+
+    private List<TabDef> _tabs = [];
+
+    // ── Lifecycle ─────────────────────────────────────────────────────────────
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Parse query params
+        var uri = new Uri(Nav.Uri);
+        var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+
+        var stateParam = query["state"];
+        if (!string.IsNullOrEmpty(stateParam))
+            _activeTab = stateParam.ToLowerInvariant();
+
+        _reasonFilter = query["reason"];
+        _sourceFilter = query["source"];
+
+        // Subscribe to live review count changes
+        Orchestrator.OnReviewCountChanged += HandleReviewCountChanged;
+
+        // Load counts then items
+        await LoadCountsAsync();
+        await LoadItemsAsync();
+    }
+
+    public void Dispose()
+    {
+        Orchestrator.OnReviewCountChanged -= HandleReviewCountChanged;
+    }
+
+    // ── Data loading ──────────────────────────────────────────────────────────
+
+    private async Task LoadCountsAsync()
+    {
+        try
+        {
+            _counts = await Orchestrator.GetRegistryFourStateCountsAsync();
+        }
+        catch
+        {
+            _counts = new RegistryFourStateCountsDto();
+        }
+        RebuildTabs();
+    }
+
+    private async Task LoadItemsAsync()
+    {
+        _loading = true;
+        StateHasChanged();
+
+        try
+        {
+            var apiStatus = MapTabToApiStatus(_activeTab);
+            var response  = await Orchestrator.GetRegistryItemsAsync(
+                offset: 0,
+                limit: 200,
+                status: apiStatus);
+
+            _items = response?.Items ?? [];
+
+            // Apply reason filter if present
+            if (!string.IsNullOrEmpty(_reasonFilter))
+                _items = _items.Where(i => i.ReviewTrigger == _reasonFilter).ToList();
+
+            // Rebuild grouped view for In Review tab
+            BuildGroupedItems();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Could not load items: {ex.Message}", Severity.Warning);
+            _items = [];
+            _groupedItems = [];
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void BuildGroupedItems()
+    {
+        if (_activeTab != "review")
+        {
+            _groupedItems = [];
+            return;
+        }
+
+        // Group by ReviewTrigger, sort groups by size descending
+        _groupedItems = _items
+            .GroupBy(i => i.ReviewTrigger ?? "Unknown")
+            .OrderByDescending(g => g.Count())
+            .ToDictionary(g => g.Key, g => g.ToList());
+    }
+
+    private void RebuildTabs()
+    {
+        var registered  = _counts?.Registered  ?? 0;
+        var inReview    = _counts?.InReview     ?? 0;
+        var provisional = _counts?.Provisional  ?? 0;
+        var rejected    = _counts?.Rejected     ?? 0;
+
+        _tabs =
+        [
+            new TabDef("review",      "In Review",    "#EF9F27", inReview),
+            new TabDef("rejected",    "Rejected",     "#E24B4A", rejected),
+            new TabDef("registered",  "Registered",   "#5DCAA5", registered),
+            new TabDef("provisional", "Provisional",  "#B4B2A9", provisional),
+        ];
+    }
+
+    // ── Tab helpers ───────────────────────────────────────────────────────────
+
+    private static string MapTabToApiStatus(string tab) => tab switch
+    {
+        "review"      => "InReview",
+        "rejected"    => "Rejected",
+        "registered"  => "Registered",
+        "provisional" => "Provisional",
+        _             => "InReview",
+    };
+
+    private async Task SetActiveTab(string key)
+    {
+        if (_activeTab == key) return;
+        _activeTab    = key;
+        _reasonFilter = null;  // clear reason filter on explicit tab switch
+        _selectedItem = null;
+        await LoadItemsAsync();
+    }
+
+    // ── Event handlers ────────────────────────────────────────────────────────
+
+    private void HandleItemSelect(RegistryItemViewModel item)
+    {
+        _selectedItem = _selectedItem?.EntityId == item.EntityId ? null : item;
+    }
+
+    private void HandleInspectorClose()
+    {
+        _selectedItem = null;
+    }
+
+    private async Task HandleItemChanged()
+    {
+        // Reload counts and items after an action (resolve, approve, etc.)
+        await LoadCountsAsync();
+        await LoadItemsAsync();
+
+        // Keep selection if the item still exists
+        if (_selectedItem is not null)
+        {
+            _selectedItem = _items.FirstOrDefault(i => i.EntityId == _selectedItem.EntityId)
+                            ?? _selectedItem;
+        }
+    }
+
+    private async Task HandleUnreject(Guid entityId)
+    {
+        try
+        {
+            var ok = await ApiClient.RecoverRegistryItemAsync(entityId);
+            if (ok)
+            {
+                Snackbar.Add("Item recovered and returned to review queue.", Severity.Success);
+                await HandleItemChanged();
+            }
+            else
+            {
+                Snackbar.Add("Could not recover item.", Severity.Warning);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private void HandleReviewCountChanged()
+    {
+        InvokeAsync(async () =>
+        {
+            await LoadCountsAsync();
+            StateHasChanged();
+        });
+    }
+
+    // ── Empty state helpers ───────────────────────────────────────────────────
+
+    private string GetEmptyIcon() => _activeTab switch
+    {
+        "review"      => Icons.Material.Outlined.RateReview,
+        "rejected"    => Icons.Material.Outlined.Block,
+        "registered"  => Icons.Material.Outlined.CheckCircle,
+        "provisional" => Icons.Material.Outlined.HelpOutline,
+        _             => Icons.Material.Outlined.Inbox,
+    };
+
+    private string GetEmptyTitle() => _activeTab switch
+    {
+        "review"      => "Nothing needs review",
+        "rejected"    => "No rejected items",
+        "registered"  => "No registered items",
+        "provisional" => "No provisional items",
+        _             => "No items",
+    };
+
+    private string GetEmptySubtitle() => _activeTab switch
+    {
+        "review"      => "All items are either registered or provisional.",
+        "rejected"    => "Items rejected here can be recovered at any time.",
+        "registered"  => "Items confirmed against a Wikidata identity will appear here.",
+        "provisional" => "Items awaiting better metadata appear here.",
+        _             => "",
+    };
+
+    // ── Trigger description map ───────────────────────────────────────────────
+
+    private static string GetTriggerDescription(string? trigger) => trigger switch
+    {
+        "LowConfidence"        => "Overall confidence below threshold",
+        "MultipleQidMatches"   => "Multiple Wikidata candidates found",
+        "UserFixMatch"         => "User requested re-match",
+        "ArbiterNeedsReview"   => "Arbiter flagged for review",
+        "AuthorityMatchFailed" => "Wikidata lookup found no match",
+        "ContentMatchFailed"   => "Retail provider lookup found no match",
+        "MetadataConflict"     => "Conflicting metadata claims",
+        "AmbiguousMediaType"   => "Could not determine media type",
+        "MissingQid"           => "Missing Wikidata identifier",
+        "StagedUnidentifiable" => "File could not be identified",
+        "PlaceholderTitle"     => "Title is a placeholder",
+        "ArtworkUnconfirmed"   => "Cover art needs confirmation",
+        "LanguageMismatch"     => "Language does not match library",
+        "UserReport"           => "User reported an issue",
+        _                      => "",
+    };
+}
+
+@* ── ActivityItemCard — inline component ─────────────────────────────────── *@
+
+@* Defined below as a separate file in the Registry folder per spec *@
+
+<style>
+    @@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap');
+
+    /* ── Root container ── */
+    .adp-root {
+        min-height: 100vh;
+        background: #000000;
+        font-family: 'Montserrat', sans-serif;
+        padding: 24px 32px 40px 84px; /* 84px left for dock clearance */
+        box-sizing: border-box;
+        color: rgba(255, 255, 255, 0.85);
+    }
+
+    @@media (max-width: 768px) {
+        .adp-root {
+            padding: 20px 16px 40px 16px;
+        }
+    }
+
+    /* ── Breadcrumb / back nav ── */
+    .adp-breadcrumb {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 14px;
+    }
+
+    .adp-back-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        color: rgba(255, 255, 255, 0.45);
+        font-family: 'Montserrat', sans-serif;
+        font-size: 12px;
+        font-weight: 500;
+        padding: 4px 6px;
+        border-radius: 4px;
+        transition: color 0.15s ease, background 0.15s ease;
+    }
+
+    .adp-back-btn:hover {
+        color: rgba(255, 255, 255, 0.75);
+        background: rgba(255, 255, 255, 0.05);
+    }
+
+    .adp-breadcrumb-sep {
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.18);
+    }
+
+    .adp-breadcrumb-current {
+        font-size: 12px;
+        font-weight: 500;
+        color: rgba(255, 255, 255, 0.40);
+    }
+
+    /* ── Page title ── */
+    .adp-page-title {
+        font-size: 22px;
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.92);
+        margin: 0 0 22px 0;
+        letter-spacing: -0.3px;
+    }
+
+    /* ── Filter tabs ── */
+    .adp-tab-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 24px;
+        flex-wrap: wrap;
+    }
+
+    .adp-tab {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        padding: 7px 14px;
+        border-radius: 20px;
+        border: 1px solid rgba(255, 255, 255, 0.09);
+        background: rgba(255, 255, 255, 0.04);
+        cursor: pointer;
+        font-family: 'Montserrat', sans-serif;
+        font-size: 12px;
+        font-weight: 500;
+        color: rgba(255, 255, 255, 0.50);
+        transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    }
+
+    .adp-tab:hover {
+        background: rgba(255, 255, 255, 0.08);
+        color: rgba(255, 255, 255, 0.75);
+        border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .adp-tab--active {
+        background: color-mix(in srgb, var(--tab-color, #EF9F27) 15%, transparent);
+        border-color: color-mix(in srgb, var(--tab-color, #EF9F27) 40%, transparent);
+        color: var(--tab-color, #EF9F27);
+    }
+
+    .adp-tab-label {
+        /* no extra styling needed */
+    }
+
+    .adp-tab-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 20px;
+        height: 18px;
+        padding: 0 5px;
+        border-radius: 9px;
+        background: rgba(255, 255, 255, 0.07);
+        color: rgba(255, 255, 255, 0.40);
+        font-size: 10px;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+        transition: background 0.15s ease, color 0.15s ease;
+    }
+
+    /* ── Two-column layout ── */
+    .adp-content {
+        display: flex;
+        gap: 0;
+        align-items: flex-start;
+        min-height: calc(100vh - 200px);
+    }
+
+    /* ── Left panel ── */
+    .adp-left-panel {
+        flex: 1;
+        min-width: 0;
+        padding-right: 16px;
+    }
+
+    /* ── Right panel (inspector) ── */
+    .adp-right-panel {
+        width: 360px;
+        flex-shrink: 0;
+        position: sticky;
+        top: 72px; /* TopBar height + gap */
+        max-height: calc(100vh - 80px);
+        overflow-y: auto;
+        background: rgba(6, 6, 14, 0.95);
+        border-left: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 6px 0 0 6px;
+    }
+
+    /* ── Loading state ── */
+    .adp-loading {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        padding: 60px 20px;
+    }
+
+    .adp-loading-text {
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.28);
+    }
+
+    /* ── Empty state ── */
+    .adp-empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 80px 20px;
+        text-align: center;
+    }
+
+    .adp-empty-title {
+        font-size: 15px;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.35);
+    }
+
+    .adp-empty-sub {
+        font-size: 12px;
+        font-weight: 400;
+        color: rgba(255, 255, 255, 0.22);
+        max-width: 280px;
+        line-height: 1.5;
+    }
+
+    /* ── Group headers (In Review grouped view) ── */
+    .adp-group {
+        margin-bottom: 28px;
+    }
+
+    .adp-group-header {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 10px;
+        padding-bottom: 6px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .adp-group-name {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+    }
+
+    .adp-group-count {
+        font-size: 11px;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.35);
+        font-variant-numeric: tabular-nums;
+        background: rgba(255, 255, 255, 0.06);
+        padding: 1px 6px;
+        border-radius: 8px;
+    }
+
+    .adp-group-desc {
+        font-size: 11px;
+        font-weight: 400;
+        color: rgba(255, 255, 255, 0.28);
+        font-style: italic;
+    }
+
+    /* ── Group items grid ── */
+    .adp-group-items {
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+    }
+
+    /* ── Flat list ── */
+    .adp-flat-list {
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+    }
+</style>

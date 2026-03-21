@@ -71,12 +71,13 @@ public sealed class RegistryRepository : IRegistryRepository
                     MAX(CASE WHEN cv.key = 'file_name' THEN cv.value END) AS file_name,
                     MAX(CASE WHEN cv.key = 'wikidata_qid' THEN cv.value END) AS wikidata_qid,
                     MAX(CASE WHEN cv.key = 'title' THEN cv.winning_provider_id END) AS title_provider_id,
-                    MAX(CASE WHEN cv.key = 'title' THEN cv.is_conflicted END) AS title_conflicted
+                    MAX(CASE WHEN cv.key = 'title' THEN cv.is_conflicted END) AS title_conflicted,
+                    w.curator_state
                 FROM works w
                 LEFT JOIN editions e2 ON e2.work_id = w.id
                 LEFT JOIN media_assets ma2 ON ma2.edition_id = e2.id
                 LEFT JOIN canonical_values cv ON cv.entity_id = ma2.id
-                GROUP BY w.id, w.media_type, w.wikidata_status
+                GROUP BY w.id, w.media_type, w.wikidata_status, w.curator_state
             ),
             asset_data AS (
                 SELECT
@@ -113,7 +114,6 @@ public sealed class RegistryRepository : IRegistryRepository
                             WHEN 'ContentMatchFailed'    THEN 8
                             WHEN 'ArtworkUnconfirmed'    THEN 9
                             WHEN 'LanguageMismatch'      THEN 10
-                            WHEN 'NonConfiguredLanguage' THEN 11
                             ELSE 99
                         END LIMIT 1) AS review_id,
                        (SELECT trigger FROM review_queue rq2
@@ -129,7 +129,6 @@ public sealed class RegistryRepository : IRegistryRepository
                             WHEN 'ContentMatchFailed'    THEN 8
                             WHEN 'ArtworkUnconfirmed'    THEN 9
                             WHEN 'LanguageMismatch'      THEN 10
-                            WHEN 'NonConfiguredLanguage' THEN 11
                             ELSE 99
                         END LIMIT 1) AS trigger,
                        (SELECT MAX(confidence_score) FROM review_queue rq2
@@ -167,12 +166,10 @@ public sealed class RegistryRepository : IRegistryRepository
                     END AS confidence,
                     COALESCE(ul.has_locks, 0) AS has_user_locks,
                     CASE
-                        WHEN rd.review_id IS NOT NULL AND rd.trigger = 'Rejected' THEN 'Rejected'
-                        WHEN rd.review_id IS NOT NULL THEN 'Review'
-                        WHEN ul.has_locks = 1 THEN 'Edited'
-                        WHEN ad.asset_status = 'Conflicted' THEN 'Duplicate'
-                        WHEN ad.file_path_root LIKE '%/.staging/%' OR ad.file_path_root LIKE '%\.staging\%' THEN 'Staging'
-                        ELSE 'Auto'
+                        WHEN wd.curator_state = 'rejected' THEN 'Rejected'
+                        WHEN wd.curator_state = 'provisional' THEN 'Provisional'
+                        WHEN rd.review_id IS NOT NULL THEN 'InReview'
+                        ELSE 'Registered'
                     END AS status,
                     CASE WHEN ad.asset_status = 'Conflicted' THEN 1 ELSE 0 END AS has_duplicate,
                     ad.file_path_root,
@@ -391,7 +388,6 @@ public sealed class RegistryRepository : IRegistryRepository
                 WHEN 'ContentMatchFailed'    THEN 8
                 WHEN 'ArtworkUnconfirmed'    THEN 9
                 WHEN 'LanguageMismatch'      THEN 10
-                WHEN 'NonConfiguredLanguage' THEN 11
                 ELSE 99
             END
             LIMIT 1
@@ -556,12 +552,7 @@ public sealed class RegistryRepository : IRegistryRepository
                  WHERE CAST(cv.value AS REAL) BETWEEN 0.40 AND 0.85
                    AND NOT EXISTS (SELECT 1 FROM review_queue rq WHERE rq.entity_id = ma.id AND rq.status = 'Pending')
                 ) AS LowConfidence,
-                (SELECT COUNT(DISTINCT e.work_id)
-                 FROM review_queue rq
-                 INNER JOIN media_assets ma ON ma.id = rq.entity_id
-                 INNER JOIN editions e ON e.id = ma.edition_id
-                 WHERE rq.status = 'Pending' AND rq.trigger = 'Rejected'
-                ) AS Rejected
+                (SELECT COUNT(*) FROM works WHERE curator_state = 'rejected') AS Rejected
             """;
 
         using var reader = cmd.ExecuteReader();
@@ -615,11 +606,14 @@ public sealed class RegistryRepository : IRegistryRepository
                 """, new { batchId = batchId.Value.ToString() })
                 .ToDictionary(r => r.Trigger, r => r.Count);
 
+            // Map legacy batch counters to new 4-state model:
+            // NoMatch + Failed → counted as InReview (items needing attention)
+            // Provisional and Rejected are 0 for batch-scoped counts (batches don't track these)
             return Task.FromResult(new RegistryFourStateCounts(
                 batch.FilesRegistered,
-                batch.FilesReview,
-                batch.FilesNoMatch,
-                batch.FilesFailed,
+                batch.FilesReview + batch.FilesNoMatch + batch.FilesFailed,
+                0, // Provisional — not tracked per-batch
+                0, // Rejected — not tracked per-batch
                 batchTriggers));
         }
 
@@ -632,15 +626,9 @@ public sealed class RegistryRepository : IRegistryRepository
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             SELECT
-                -- Registered: has valid QID, no pending review
+                -- Registered: no curator_state override, no pending review, has valid QID
                 (SELECT COUNT(*) FROM works w
-                 WHERE EXISTS (
-                     SELECT 1 FROM editions e
-                     INNER JOIN media_assets ma ON ma.edition_id = e.id
-                     INNER JOIN canonical_values cv ON cv.entity_id = ma.id
-                     WHERE e.work_id = w.id AND cv.key = 'wikidata_qid'
-                       AND cv.value IS NOT NULL AND TRIM(cv.value) != '' AND cv.value NOT LIKE 'NF%'
-                 )
+                 WHERE (w.curator_state IS NULL OR w.curator_state = '')
                  AND NOT EXISTS (
                      SELECT 1 FROM editions e2
                      INNER JOIN media_assets ma2 ON ma2.edition_id = e2.id
@@ -648,59 +636,51 @@ public sealed class RegistryRepository : IRegistryRepository
                      WHERE e2.work_id = w.id AND rq.status = 'Pending'
                  )) AS Registered,
 
-                -- NeedsReview: has pending review_queue entry
+                -- InReview: has pending review_queue entry AND not provisional/rejected
                 (SELECT COUNT(DISTINCT e.work_id)
                  FROM review_queue rq
                  INNER JOIN media_assets ma ON ma.id = rq.entity_id
                  INNER JOIN editions e ON e.id = ma.edition_id
-                 WHERE rq.status = 'Pending') AS NeedsReview,
+                 INNER JOIN works w ON w.id = e.work_id
+                 WHERE rq.status = 'Pending'
+                   AND (w.curator_state IS NULL OR w.curator_state = '')) AS InReview,
 
-                -- NoMatch: no valid QID and no pending review
-                (SELECT COUNT(*) FROM works w
-                 WHERE NOT EXISTS (
-                     SELECT 1 FROM editions e
-                     INNER JOIN media_assets ma ON ma.edition_id = e.id
-                     INNER JOIN canonical_values cv ON cv.entity_id = ma.id
-                     WHERE e.work_id = w.id AND cv.key = 'wikidata_qid'
-                       AND cv.value IS NOT NULL AND TRIM(cv.value) != '' AND cv.value NOT LIKE 'NF%'
-                 )
-                 AND NOT EXISTS (
-                     SELECT 1 FROM editions e2
-                     INNER JOIN media_assets ma2 ON ma2.edition_id = e2.id
-                     INNER JOIN review_queue rq ON rq.entity_id = ma2.id
-                     WHERE e2.work_id = w.id AND rq.status = 'Pending'
-                 )) AS NoMatch,
+                -- Provisional: curator_state = 'provisional'
+                (SELECT COUNT(*) FROM works WHERE curator_state = 'provisional') AS Provisional,
 
-                -- Failed: sum of failed files across all batches
-                (SELECT COALESCE(SUM(files_failed), 0) FROM ingestion_batches) AS Failed
+                -- Rejected: curator_state = 'rejected'
+                (SELECT COUNT(*) FROM works WHERE curator_state = 'rejected') AS Rejected
             """;
 
-        int registered = 0, needsReview = 0, noMatch = 0, failed = 0;
+        int registered = 0, inReview = 0, provisional = 0, rejected = 0;
         using (var reader = cmd.ExecuteReader())
         {
             if (reader.Read())
             {
                 registered  = reader.GetInt32(0);
-                needsReview = reader.GetInt32(1);
-                noMatch     = reader.GetInt32(2);
-                failed      = reader.GetInt32(3);
+                inReview    = reader.GetInt32(1);
+                provisional = reader.GetInt32(2);
+                rejected    = reader.GetInt32(3);
             }
         }
 
-        // Trigger counts: per-trigger breakdown within NeedsReview
+        // Trigger counts: per-trigger breakdown within InReview
+        // Exclude provisional/rejected works to keep counts consistent with the new model
         var triggerCounts = conn.Query<(string Trigger, int Count)>("""
             SELECT rq.trigger AS Trigger, COUNT(DISTINCT e.work_id) AS Count
             FROM review_queue rq
             INNER JOIN media_assets ma ON ma.id = rq.entity_id
             INNER JOIN editions e ON e.id = ma.edition_id
+            INNER JOIN works w ON w.id = e.work_id
             WHERE rq.status = 'Pending'
+              AND (w.curator_state IS NULL OR w.curator_state = '')
             GROUP BY rq.trigger
             ORDER BY Count DESC
             """)
             .ToDictionary(r => r.Trigger, r => r.Count);
 
         return Task.FromResult(new RegistryFourStateCounts(
-            registered, needsReview, noMatch, failed, triggerCounts));
+            registered, inReview, provisional, rejected, triggerCounts));
     }
 
     // ── Private helpers ──────────────────────────────────────────────────────

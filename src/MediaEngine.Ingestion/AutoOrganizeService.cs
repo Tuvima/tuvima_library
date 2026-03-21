@@ -119,16 +119,13 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         var pendingReviews = await _reviewRepo.GetPendingByEntityAsync(assetId, ct)
             .ConfigureAwait(false);
 
-        #pragma warning disable CS0618 // Obsolete — kept for backward compat with existing DB rows
         var blockingTriggers = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             ReviewTrigger.LanguageMismatch,
-            ReviewTrigger.NonConfiguredLanguage,
             ReviewTrigger.AuthorityMatchFailed,
             ReviewTrigger.MissingQid,
             ReviewTrigger.StagedUnidentifiable,
         };
-        #pragma warning restore CS0618
 
         var blockingReview = pendingReviews.FirstOrDefault(r => blockingTriggers.Contains(r.Trigger));
         if (blockingReview is not null)
