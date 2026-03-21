@@ -10,6 +10,41 @@
 
 <div class="registry-layout">
 
+    @* ── Attention Banner (persistent across both views) ── *@
+    @if (_bannerReviewCount > 0 || _bannerFailedCount > 0 || _bannerReportCount > 0)
+    {
+        <div class="registry-attention-banner">
+            <div class="registry-attention-items">
+                @if (_bannerReportCount > 0)
+                {
+                    <button class="registry-attention-item registry-attention-item--reports"
+                            @onclick='() => GoToListFiltered("reports")'>
+                        <MudIcon Icon="@Icons.Material.Outlined.Warning" Style="font-size: 13px;" />
+                        <span>@_bannerReportCount unresolved @(_bannerReportCount == 1 ? "report" : "reports")</span>
+                    </button>
+                }
+                @if (_bannerReviewCount > 0)
+                {
+                    <button class="registry-attention-item registry-attention-item--review"
+                            @onclick='() => GoToListFiltered("review")'>
+                        <span>@_bannerReviewCount pending review</span>
+                    </button>
+                }
+                @if (_bannerFailedCount > 0)
+                {
+                    <button class="registry-attention-item registry-attention-item--failed"
+                            @onclick='() => GoToListFiltered("failed")'>
+                        <span>@_bannerFailedCount failed</span>
+                    </button>
+                }
+            </div>
+            @if (!string.IsNullOrEmpty(_bannerOldestAge))
+            {
+                <span class="registry-attention-age">Oldest: @_bannerOldestAge</span>
+            }
+        </div>
+    }
+
     @* ── Header ── *@
     <div class="registry-header">
         <span class="registry-title">Registry</span>
@@ -183,7 +218,7 @@
         .registry-layout {
             /* Compensate for MudContainer padding + clear dock */
             margin: -24px -32px -24px -32px;
-            padding-left: 52px;
+            padding-left: 84px;
         }
     }
 
@@ -238,6 +273,71 @@
     .registry-toggle-btn.active {
         background: #C9922E;
         color: #ffffff;
+    }
+
+    /* ── Attention Banner ── */
+    .registry-attention-banner {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 20px;
+        background: rgba(201, 146, 46, 0.08);
+        border-bottom: 1px solid rgba(201, 146, 46, 0.20);
+        flex-shrink: 0;
+        gap: 16px;
+    }
+
+    .registry-attention-items {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        flex-wrap: wrap;
+    }
+
+    .registry-attention-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 3px 10px;
+        background: none;
+        border: none;
+        font-family: 'Montserrat', sans-serif;
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: opacity 0.15s ease;
+        white-space: nowrap;
+    }
+
+    .registry-attention-item:hover {
+        opacity: 0.8;
+    }
+
+    .registry-attention-item--reports {
+        color: #EF9F27;
+    }
+
+    .registry-attention-item--review {
+        color: rgba(255, 255, 255, 0.65);
+    }
+
+    .registry-attention-item--failed {
+        color: rgba(255, 255, 255, 0.50);
+    }
+
+    .registry-attention-item + .registry-attention-item::before {
+        content: '/';
+        margin-right: 4px;
+        color: rgba(255, 255, 255, 0.15);
+        font-weight: 300;
+    }
+
+    .registry-attention-age {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 11px;
+        font-weight: 300;
+        color: rgba(255, 255, 255, 0.30);
+        white-space: nowrap;
     }
 
     /* ── Three-zone layout (list + inspector) ── */
@@ -393,6 +493,12 @@
     // ── View mode (list / timeline) ──
     private string _viewMode = "list";
 
+    // ── Attention banner ──
+    private int _bannerReviewCount;
+    private int _bannerFailedCount;
+    private int _bannerReportCount;
+    private string? _bannerOldestAge;
+
     // ── Lifecycle ──
 
     protected override async Task OnInitializedAsync()
@@ -407,6 +513,75 @@
         await LoadBatchesAsync();
         await LoadCountsAsync();
         _loading = false;
+        await LoadBannerDataAsync();
+    }
+
+    // ── Attention Banner ──
+
+    private async Task LoadBannerDataAsync()
+    {
+        try
+        {
+            // Get four-state counts (no batch filter = all items)
+            var counts = await Orchestrator.GetRegistryFourStateCountsAsync();
+            if (counts is not null)
+            {
+                _bannerReviewCount = counts.NeedsReview;
+                _bannerFailedCount = counts.Failed;
+            }
+
+            // Get unresolved report count from activity entries
+            var reportEntries = await Orchestrator.GetActivityByTypesAsync(
+                ["UserReportSubmitted"], 500);
+            _bannerReportCount = reportEntries.Count; // Simplified — reports are rare, count all submitted
+
+            // Calculate oldest unresolved item age
+            var oldestDates = new List<DateTimeOffset>();
+            if (_bannerReviewCount > 0 || _bannerFailedCount > 0)
+            {
+                var batches = await Orchestrator.GetIngestionBatchesAsync(100);
+                var oldestBatch = batches
+                    .Where(b => b.FilesReview > 0 || b.FilesFailed > 0)
+                    .OrderBy(b => b.StartedAt)
+                    .FirstOrDefault();
+                if (oldestBatch is not null)
+                    oldestDates.Add(oldestBatch.StartedAt);
+            }
+            if (reportEntries.Count > 0)
+            {
+                var oldest = reportEntries
+                    .Where(e => DateTimeOffset.TryParse(e.OccurredAt, out _))
+                    .OrderBy(e => e.OccurredAt)
+                    .FirstOrDefault();
+                if (oldest is not null && DateTimeOffset.TryParse(oldest.OccurredAt, out var dt))
+                    oldestDates.Add(dt);
+            }
+
+            if (oldestDates.Count > 0)
+            {
+                var oldest = oldestDates.Min();
+                var age = DateTimeOffset.Now - oldest;
+                _bannerOldestAge = age switch
+                {
+                    { TotalMinutes: < 60 } => $"{(int)age.TotalMinutes} minutes ago",
+                    { TotalHours: < 24 } => $"{(int)age.TotalHours} hours ago",
+                    { TotalDays: < 7 } => $"{(int)age.TotalDays} days ago",
+                    { TotalDays: < 30 } => $"{(int)(age.TotalDays / 7)} weeks ago",
+                    _ => $"{(int)(age.TotalDays / 30)} months ago",
+                };
+            }
+        }
+        catch { /* Banner is non-critical */ }
+    }
+
+    private void GoToListFiltered(string filter)
+    {
+        _viewMode = "list";
+        _selectedBatchId = null;
+        _selectedBatchTimestamp = "All batches";
+        _activeTab = filter == "reports" ? "review" : filter;
+        _ = LoadItemsAsync();
+        StateHasChanged();
     }
 
     // ── View Mode ──
