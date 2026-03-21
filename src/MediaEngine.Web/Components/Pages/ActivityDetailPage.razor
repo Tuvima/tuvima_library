@@ -97,7 +97,7 @@
                         <div class="adp-group-header">
                             <MudIcon Icon="@trigIcon"
                                      Style="@($"font-size: 13px; color: {trigColor}; flex-shrink: 0;")" />
-                            <span class="adp-group-name" style="color: @trigColor;">@group.Key.ToUpperInvariant()</span>
+                            <span class="adp-group-name" style="color: @trigColor;">@trigLabel</span>
                             <span class="adp-group-count">@group.Value.Count</span>
                             @if (!string.IsNullOrEmpty(description))
                             {
@@ -661,17 +661,18 @@
         min-height: calc(100vh - 200px);
     }
 
-    /* ── Left panel ── */
+    /* ── Left panel (narrow item list) ── */
     .adp-left-panel {
-        flex: 1;
+        flex: 0 0 340px;
+        max-width: 380px;
         min-width: 0;
-        padding-right: 16px;
+        padding-right: 0;
     }
 
-    /* ── Right panel (inspector) ── */
+    /* ── Right panel (wide inspector) ── */
     .adp-right-panel {
-        width: 400px;
-        min-width: 380px;
+        flex: 1;
+        min-width: 400px;
         flex-shrink: 0;
         position: sticky;
         top: 72px; /* TopBar height + gap */

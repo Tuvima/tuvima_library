@@ -6,7 +6,7 @@
      @onclick="HandleRowClick">
 
     @* ── Cover thumbnail ── *@
-    <div class="aic-thumb-wrap" @onclick="HandleThumbClick" @onclick:stopPropagation="true">
+    <div class="aic-thumb-wrap">
         @if (!string.IsNullOrEmpty(Item.CoverUrl))
         {
             <img src="@Item.CoverUrl" alt="@Item.Title" class="aic-thumb-img" loading="lazy" />
@@ -25,24 +25,7 @@
                 </svg>
             </div>
         }
-
-        @* Zoom hint overlay *@
-        <div class="aic-thumb-zoom-hint" aria-hidden="true">
-            <MudIcon Icon="@Icons.Material.Outlined.ZoomIn" Style="font-size: 0.75rem; color: rgba(224,220,232,0.9);" />
-        </div>
     </div>
-
-    @* ── Cover popover ── *@
-    @if (!string.IsNullOrEmpty(Item.CoverUrl))
-    {
-        <MudPopover Open="_popoverOpen"
-                    AnchorOrigin="Origin.CenterRight"
-                    TransformOrigin="Origin.CenterLeft"
-                    OverflowBehavior="OverflowBehavior.FlipNever"
-                    Class="aic-popover">
-            <img src="@Item.CoverUrl" alt="@Item.Title" class="aic-popover-img" />
-        </MudPopover>
-    }
 
     @* ── Main content ── *@
     <div class="aic-body">
@@ -67,7 +50,9 @@
             @if (ShowTriggerChip && !string.IsNullOrEmpty(Item.ReviewTrigger))
             {
                 var (trigLabel, trigColor, trigIcon) = RegistryHelpers.FormatReviewTrigger(Item.ReviewTrigger);
-                <span class="aic-trigger-chip" style="color: @trigColor; border-color: @(trigColor + "44");">
+                <span class="aic-trigger-chip"
+                      style="color: @trigColor; border-color: @(trigColor + "44");"
+                      title="@GetTriggerTooltip(Item.ReviewTrigger)">
                     <MudIcon Icon="@trigIcon" Style="@($"font-size: 0.6rem; color: {trigColor};")" />
                     @trigLabel
                 </span>
@@ -102,8 +87,6 @@
     [Parameter] public EventCallback<RegistryItemViewModel> OnSelect { get; set; }
     [Parameter] public EventCallback<Guid> OnUnreject { get; set; }
     [Parameter] public bool ShowTriggerChip { get; set; } = true;
-
-    private bool _popoverOpen;
 
     // ── Computed display values ────────────────────────────────────────────
 
@@ -164,16 +147,28 @@
 
     // ── Event handlers ─────────────────────────────────────────────────────
 
+    private static string GetTriggerTooltip(string trigger) => trigger switch
+    {
+        "MultipleQidMatches"    => "Pick the correct Wikidata entity",
+        "LowConfidence"         => "Below the confidence threshold",
+        "AuthorityMatchFailed"  => "No match found in Wikidata",
+        "ContentMatchFailed"    => "No cover art found",
+        "AmbiguousMediaType"    => "Unclear media type — needs classification",
+        "MissingQid"            => "Needs a manual match to Wikidata",
+        "PlaceholderTitle"      => "Missing title metadata",
+        "StagedUnidentifiable"  => "Cannot identify this file",
+        "ArtworkUnconfirmed"    => "Verify the cover art is correct",
+        "MetadataConflict"      => "Conflicting metadata from different sources",
+        "UserFixMatch"          => "User requested correction",
+        "ArbiterNeedsReview"    => "Review how this was grouped",
+        "LanguageMismatch"      => "Foreign language — may need different provider",
+        "UserReport"            => "Users flagged a problem with this item",
+        _                       => string.Empty
+    };
+
     private async Task HandleRowClick()
     {
-        _popoverOpen = false;
         await OnSelect.InvokeAsync(Item);
-    }
-
-    private void HandleThumbClick()
-    {
-        if (!string.IsNullOrEmpty(Item.CoverUrl))
-            _popoverOpen = !_popoverOpen;
     }
 
     private async Task HandleUnreject()
@@ -220,12 +215,6 @@
         overflow: hidden;
         background: rgba(20, 16, 42, 0.9);
         border: 1px solid rgba(140, 120, 180, 0.12);
-        cursor: pointer;
-        transition: border-color 0.12s ease;
-    }
-
-    .aic-thumb-wrap:hover {
-        border-color: rgba(140, 120, 180, 0.35);
     }
 
     .aic-thumb-img {
@@ -251,42 +240,6 @@
         width: 20px;
         height: 28px;
         flex-shrink: 0;
-    }
-
-    /* Zoom hint — shows on hover */
-    .aic-thumb-zoom-hint {
-        position: absolute;
-        inset: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: rgba(0, 0, 0, 0.50);
-        opacity: 0;
-        transition: opacity 0.12s ease;
-        pointer-events: none;
-    }
-
-    .aic-thumb-wrap:hover .aic-thumb-zoom-hint {
-        opacity: 1;
-    }
-
-    /* ── Popover ───────────────────────────────────────────────────────────── */
-    .aic-popover {
-        background: rgba(20, 16, 42, 0.96);
-        border: 1px solid rgba(140, 120, 180, 0.12);
-        border-radius: 6px;
-        padding: 6px;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7);
-        backdrop-filter: blur(8px);
-    }
-
-    .aic-popover-img {
-        width: 200px;
-        height: auto;
-        max-height: 300px;
-        object-fit: contain;
-        display: block;
-        border-radius: 3px;
     }
 
     /* ── Body ──────────────────────────────────────────────────────────────── */

@@ -1,204 +1,159 @@
 @using MediaEngine.Web.Models.ViewDTOs
 @using MudBlazor
 
-<div class="history-section">
-    <button class="history-header" @onclick="ToggleExpanded" type="button">
-        <span class="history-header-label">PROCESSING HISTORY</span>
-        <MudIcon Icon="@(_expanded ? Icons.Material.Outlined.ExpandLess : Icons.Material.Outlined.ExpandMore)"
-                 Size="Size.Small"
-                 Class="history-chevron" />
-    </button>
-
-    @if (_expanded)
+<div class="ihs-panel">
+    @if (Loading)
     {
-        <div class="history-body">
-            @if (Loading)
-            {
-                <div class="history-loading">
-                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="history-spinner" />
-                </div>
-            }
-            else if (History == null || History.Count == 0)
-            {
-                <p class="history-empty">No processing history available</p>
-            }
-            else
-            {
-                <div class="history-timeline">
-                    @for (int i = 0; i < History.Count; i++)
-                    {
-                        var entry = History[i];
-                        var isLast = i == History.Count - 1;
+        <div class="ihs-loading">
+            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="ihs-spinner" />
+        </div>
+    }
+    else if (History == null || History.Count == 0)
+    {
+        <div class="ihs-empty">No history available</div>
+    }
+    else
+    {
+        var displayed = History.Take(MaxEntries).ToList();
 
-                        <div class="timeline-entry">
-                            <div class="timeline-left">
-                                <div class="timeline-dot">
-                                    <MudIcon Icon="@GetEventIcon(entry.EventType)"
-                                             Style="font-size: 10px; color: rgba(201,146,46,0.85);" />
-                                </div>
-                                @if (!isLast)
-                                {
-                                    <div class="timeline-connector"></div>
-                                }
-                            </div>
-                            <div class="timeline-content @(isLast ? "timeline-content--last" : "")">
-                                <span class="timeline-label">@entry.Label</span>
-                                @if (!string.IsNullOrWhiteSpace(entry.Detail))
-                                {
-                                    <span class="timeline-detail">@entry.Detail</span>
-                                }
-                                <span class="timeline-time">@FormatRelativeTime(entry.OccurredAt)</span>
-                            </div>
+        <div class="ihs-timeline">
+            @for (int i = 0; i < displayed.Count; i++)
+            {
+                var entry = displayed[i];
+                var isLast = i == displayed.Count - 1;
+                var dotColor = GetDotColor(entry.EventType);
+
+                <div class="ihs-entry">
+                    <div class="ihs-track">
+                        <div class="ihs-dot" style="background: @dotColor;">
+                            <div class="ihs-dot-inner" style="background: @dotColor;"></div>
                         </div>
-                    }
+                        @if (!isLast)
+                        {
+                            <div class="ihs-connector"></div>
+                        }
+                    </div>
+                    <div class="ihs-content @(isLast ? "ihs-content--last" : "")">
+                        <span class="ihs-label">@entry.Label</span>
+                        @if (!string.IsNullOrWhiteSpace(entry.Detail))
+                        {
+                            <span class="ihs-detail">@entry.Detail</span>
+                        }
+                        <span class="ihs-time">@FormatTimestamp(entry.OccurredAt)</span>
+                    </div>
                 </div>
             }
         </div>
+
+        @if (History.Count > MaxEntries)
+        {
+            <button class="ihs-load-more" @onclick="() => OnLoadMore.InvokeAsync()" type="button">
+                Load more
+            </button>
+        }
     }
 </div>
 
 @code {
     [Parameter] public List<RegistryItemHistoryDto> History { get; set; } = [];
     [Parameter] public bool Loading { get; set; }
+    [Parameter] public int MaxEntries { get; set; } = 100;
+    [Parameter] public EventCallback OnLoadMore { get; set; }
 
-    private bool _expanded = false;
-
-    private void ToggleExpanded() => _expanded = !_expanded;
-
-    private static string FormatRelativeTime(DateTimeOffset time)
+    private static string FormatTimestamp(DateTimeOffset time)
     {
-        var diff = DateTimeOffset.Now - time;
-        return diff switch
-        {
-            { TotalMinutes: < 1 } => "just now",
-            { TotalMinutes: < 60 } => $"{(int)diff.TotalMinutes}m ago",
-            { TotalHours: < 24 } => $"{(int)diff.TotalHours}h ago",
-            { TotalDays: < 7 } => $"{(int)diff.TotalDays}d ago",
-            _ => time.ToLocalTime().ToString("MMM d"),
-        };
+        var local = time.ToLocalTime();
+        var today = DateTimeOffset.Now.ToLocalTime().Date;
+        if (local.Date == today)
+            return $"Today, {local:h:mm tt}";
+        return local.ToString("MMM d, h:mm tt");
     }
 
-    private static string GetEventIcon(string eventType) => eventType switch
+    private static string GetDotColor(string eventType) => eventType switch
     {
-        "FileIngested"       => Icons.Material.Outlined.FileUpload,
-        "MetadataHydrated"   => Icons.Material.Outlined.Cloud,
-        "MetadataHarvested"  => Icons.Material.Outlined.CloudDone,
-        "HashVerified"       => Icons.Material.Outlined.Fingerprint,
-        "PathUpdated"        => Icons.Material.Outlined.DriveFileMove,
-        "ReviewItemCreated"  => Icons.Material.Outlined.RateReview,
-        "ReviewItemResolved" => Icons.Material.Outlined.CheckCircle,
-        "PersonHydrated"     => Icons.Material.Outlined.Person,
-        _                    => Icons.Material.Outlined.Circle,
+        "ReviewItemCreated"  => "#EF9F27",
+        "ReviewItemResolved" => "#EF9F27",
+        "MetadataHydrated"   => "#85B7EB",
+        "MetadataHarvested"  => "#85B7EB",
+        "FileIngested"       => "#85B7EB",
+        _                    => "rgba(200,190,220,0.35)",
     };
 }
 
 <style>
-    .history-section {
+    .ihs-panel {
         font-family: 'Montserrat', sans-serif;
-        border-top: 1px solid rgba(255, 255, 255, 0.06);
-        padding-top: 12px;
-        margin-top: 4px;
+        padding: 14px;
+        padding-left: 28px;
     }
 
-    .history-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        width: 100%;
-        background: transparent;
-        border: none;
-        padding: 0 0 8px 0;
-        cursor: pointer;
-        gap: 8px;
-    }
-
-    .history-header:hover .history-header-label {
-        color: rgba(255, 255, 255, 0.7);
-    }
-
-    .history-header-label {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 11px;
-        font-weight: 600;
-        letter-spacing: 1px;
-        text-transform: uppercase;
-        color: rgba(255, 255, 255, 0.45);
-        transition: color 0.15s ease;
-        flex: 1;
-        text-align: left;
-    }
-
-    .history-chevron {
-        color: rgba(255, 255, 255, 0.35) !important;
-        font-size: 16px !important;
-        flex-shrink: 0;
-    }
-
-    .history-body {
-        padding-bottom: 4px;
-    }
-
-    .history-loading {
+    .ihs-loading {
         display: flex;
         justify-content: center;
-        padding: 16px 0;
+        padding: 24px 0;
     }
 
-    .history-spinner {
-        color: rgba(201, 146, 46, 0.7) !important;
+    .ihs-spinner {
+        color: rgba(200, 190, 220, 0.5) !important;
     }
 
-    .history-empty {
-        font-family: 'Montserrat', sans-serif;
+    .ihs-empty {
         font-size: 11px;
         font-weight: 400;
-        color: rgba(255, 255, 255, 0.3);
-        margin: 0;
-        padding: 8px 0 4px 0;
         font-style: italic;
+        color: rgba(200, 190, 220, 0.35);
+        text-align: center;
+        padding: 24px 0;
     }
 
-    .history-timeline {
+    .ihs-timeline {
         display: flex;
         flex-direction: column;
     }
 
-    .timeline-entry {
+    .ihs-entry {
         display: flex;
         gap: 10px;
         align-items: flex-start;
     }
 
-    .timeline-left {
+    .ihs-track {
         display: flex;
         flex-direction: column;
         align-items: center;
         flex-shrink: 0;
-        width: 20px;
+        width: 16px;
     }
 
-    .timeline-dot {
-        width: 20px;
-        height: 20px;
+    .ihs-dot {
+        width: 16px;
+        height: 16px;
         border-radius: 50%;
-        background: rgba(201, 146, 46, 0.08);
-        border: 1px solid rgba(201, 146, 46, 0.25);
         display: flex;
         align-items: center;
         justify-content: center;
         flex-shrink: 0;
+        opacity: 0.35;
         margin-top: 1px;
     }
 
-    .timeline-connector {
+    .ihs-dot-inner {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        opacity: 1;
+        filter: brightness(2.5);
+    }
+
+    .ihs-connector {
         width: 1px;
         flex: 1;
-        min-height: 10px;
-        background: rgba(255, 255, 255, 0.06);
+        min-height: 8px;
+        background: rgba(140, 120, 180, 0.1);
         margin: 2px 0;
     }
 
-    .timeline-content {
+    .ihs-content {
         display: flex;
         flex-direction: column;
         gap: 2px;
@@ -207,35 +162,54 @@
         min-width: 0;
     }
 
-    .timeline-content--last {
-        padding-bottom: 4px;
+    .ihs-content--last {
+        padding-bottom: 0;
     }
 
-    .timeline-label {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 13px;
+    .ihs-label {
+        font-size: 11px;
         font-weight: 500;
-        color: rgba(255, 255, 255, 0.80);
+        color: rgba(200, 190, 220, 0.7);
         line-height: 1.3;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
     }
 
-    .timeline-detail {
-        font-family: 'Montserrat', sans-serif;
+    .ihs-detail {
         font-size: 11px;
-        font-weight: 400;
-        color: rgba(255, 255, 255, 0.45);
+        font-weight: 300;
+        color: rgba(200, 190, 220, 0.3);
         line-height: 1.4;
         word-break: break-word;
     }
 
-    .timeline-time {
-        font-family: 'Montserrat', sans-serif;
+    .ihs-time {
         font-size: 11px;
         font-weight: 300;
-        color: rgba(255, 255, 255, 0.30);
+        color: rgba(200, 190, 220, 0.25);
         margin-top: 1px;
+    }
+
+    .ihs-load-more {
+        display: block;
+        width: 100%;
+        margin-top: 8px;
+        padding: 6px 0;
+        background: transparent;
+        border: 1px solid rgba(140, 120, 180, 0.15);
+        border-radius: 4px;
+        font-family: 'Montserrat', sans-serif;
+        font-size: 11px;
+        font-weight: 500;
+        color: rgba(200, 190, 220, 0.45);
+        cursor: pointer;
+        text-align: center;
+        transition: color 0.15s ease, border-color 0.15s ease;
+    }
+
+    .ihs-load-more:hover {
+        color: rgba(200, 190, 220, 0.75);
+        border-color: rgba(140, 120, 180, 0.35);
     }
 </style>

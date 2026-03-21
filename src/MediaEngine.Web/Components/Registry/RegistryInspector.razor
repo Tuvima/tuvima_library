@@ -19,137 +19,124 @@ else
 {
     <div class="inspector-panel">
 
-        <!-- Close button -->
+        <!-- Close button + Tabs (always at the very top) -->
         <div class="inspector-topbar">
             <button class="inspector-close" @onclick="OnClose" type="button" title="Close inspector">
                 <MudIcon Icon="@Icons.Material.Outlined.Close" Style="font-size: 16px;" />
             </button>
-        </div>
-
-        <!-- FROM YOUR FILE section -->
-        <div class="inspector-section">
-            <span class="inspector-section-label">FROM YOUR FILE</span>
-
-            <div class="inspector-file-row">
-                <!-- Cover thumbnail with hover-peek -->
-                <div class="inspector-cover-wrap">
-                    @if (!string.IsNullOrEmpty(Item.CoverUrl))
-                    {
-                        <img src="@Item.CoverUrl" alt="Cover" class="inspector-cover"
-                             onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='flex')" />
-                        <div class="inspector-cover inspector-cover--placeholder" style="display: none;">
-                            <MudIcon Icon="@Icons.Material.Outlined.Image"
-                                     Style="font-size: 18px; color: rgba(200,190,220,0.18);" />
-                        </div>
-                        <img src="@Item.CoverUrl" class="inspector-cover-peek" alt="" />
-                    }
-                    else
-                    {
-                        <div class="inspector-cover inspector-cover--placeholder">
-                            <MudIcon Icon="@Icons.Material.Outlined.Image"
-                                     Style="font-size: 18px; color: rgba(200,190,220,0.18);" />
-                        </div>
-                    }
-                </div>
-
-                <!-- Title, author, file meta -->
-                <div class="inspector-file-meta">
-                    <span class="inspector-title">@Item.Title</span>
-                    @if (!string.IsNullOrWhiteSpace(Item.Author))
-                    {
-                        <span class="inspector-author">@Item.Author</span>
-                    }
-                    <div class="inspector-type-row">
-                        <MudIcon Icon="@RegistryHelpers.GetMediaTypeIcon(Item.MediaType)"
-                                 Style="font-size: 13px; color: rgba(200,190,220,0.40);" />
-                        <span class="inspector-format-label">@RegistryHelpers.FormatMediaType(Item.MediaType)</span>
-                    </div>
-                </div>
+            <div class="inspector-tabs">
+                <button class="inspector-tab @(_inspectorTab == "resolve" ? "inspector-tab--active" : "")"
+                        @onclick='() => _inspectorTab = "resolve"'>Resolve</button>
+                <button class="inspector-tab @(_inspectorTab == "history" ? "inspector-tab--active" : "")"
+                        @onclick='() => _inspectorTab = "history"'>History</button>
+                <button class="inspector-tab @(_inspectorTab == "metadata" ? "inspector-tab--active" : "")"
+                        @onclick='() => _inspectorTab = "metadata"'>Metadata</button>
             </div>
-
-            <!-- State chip -->
-            @{
-                var state = ComputeState();
-                var stateColor = RegistryHelpers.GetStateColor(state);
-                var stateLabel = RegistryHelpers.GetStateLabel(state);
-                var stateIcon  = RegistryHelpers.GetStateIcon(state);
-            }
-            <div class="inspector-chips-row">
-                <div class="inspector-state-chip" style="border-color: @stateColor; color: @stateColor;">
-                    <MudIcon Icon="@stateIcon" Style="font-size: 11px;" />
-                    <span>@stateLabel</span>
-                </div>
-
-                <!-- Review trigger chip -->
-                @if (!string.IsNullOrEmpty(Item.ReviewTrigger))
-                {
-                    var (trigLabel, trigColor, trigIcon) = RegistryHelpers.FormatReviewTrigger(Item.ReviewTrigger);
-                    <div class="inspector-trigger-chip" style="background: @HexToRgba(trigColor, 0.12); color: @trigColor;">
-                        <MudIcon Icon="@trigIcon" Style="font-size: 11px;" />
-                        <span>@trigLabel</span>
-                    </div>
-                }
-            </div>
-        </div>
-
-        <!-- Confidence indicator -->
-        @{
-            var confColor = RegistryHelpers.GetConfidenceHexColor(Item.Confidence);
-            var confPct   = (int)(Item.Confidence * 100);
-        }
-        <div class="inspector-section inspector-section--conf">
-            <span class="inspector-section-label">CONFIDENCE</span>
-            <div class="inspector-conf-bar-wrap">
-                <div class="inspector-conf-bar" style="width: @(confPct)%; background: @confColor;"></div>
-            </div>
-            <span class="inspector-conf-pct" style="color: @confColor;">@(confPct)%</span>
-        </div>
-
-        <!-- Wikidata section (for registered items) -->
-        @if (!string.IsNullOrEmpty(Item.WikidataQid)
-             && !Item.WikidataQid.StartsWith("NF", StringComparison.OrdinalIgnoreCase))
-        {
-            <div class="inspector-section">
-                <span class="inspector-section-label">WIKIDATA IDENTITY</span>
-                <div class="inspector-qid-row">
-                    <MudIcon Icon="@Icons.Material.Outlined.Link"
-                             Style="font-size: 13px; color: rgba(201,146,46,0.7); flex-shrink: 0;" />
-                    <span class="inspector-qid-value">@Item.WikidataQid</span>
-                </div>
-                @if (!string.IsNullOrWhiteSpace(Item.MatchMethod))
-                {
-                    <span class="inspector-provenance">Matched via @Item.MatchMethod</span>
-                }
-            </div>
-
-            <!-- Wikipedia + Wikidata external links -->
-            <div class="inspector-ext-links">
-                <a href="https://www.wikidata.org/wiki/@Item.WikidataQid" target="_blank" rel="noopener"
-                   class="inspector-ext-link">
-                    <MudIcon Icon="@Icons.Material.Outlined.Launch" Style="font-size: 12px;" />
-                    Wikidata (@Item.WikidataQid)
-                </a>
-                <a href="https://en.wikipedia.org/wiki/Special:GoToLinkedPage/enwiki/@Item.WikidataQid" target="_blank" rel="noopener"
-                   class="inspector-ext-link">
-                    <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Style="font-size: 12px;" />
-                    Wikipedia
-                </a>
-            </div>
-        }
-
-        <!-- Inspector tab toggle -->
-        <div class="inspector-tabs">
-            <button class="inspector-tab @(_inspectorTab == "resolve" ? "inspector-tab--active" : "")"
-                    @onclick='() => _inspectorTab = "resolve"'>Resolve</button>
-            <button class="inspector-tab @(_inspectorTab == "history" ? "inspector-tab--active" : "")"
-                    @onclick='() => _inspectorTab = "history"'>History</button>
-            <button class="inspector-tab @(_inspectorTab == "metadata" ? "inspector-tab--active" : "")"
-                    @onclick='() => _inspectorTab = "metadata"'>Metadata</button>
         </div>
 
         <!-- Tab content -->
         @if (_inspectorTab == "resolve")
         {
+            <!-- FROM YOUR FILE section -->
+            <div class="inspector-section">
+                <span class="inspector-section-label">FROM YOUR FILE</span>
+
+                <div class="inspector-file-row">
+                    <!-- Cover thumbnail -->
+                    <div class="inspector-cover-wrap">
+                        @if (!string.IsNullOrEmpty(Item.CoverUrl))
+                        {
+                            <img src="@Item.CoverUrl" alt="Cover" class="inspector-cover"
+                                 onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='flex')" />
+                            <div class="inspector-cover inspector-cover--placeholder" style="display: none;">
+                                <MudIcon Icon="@Icons.Material.Outlined.Image"
+                                         Style="font-size: 18px; color: rgba(200,190,220,0.18);" />
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="inspector-cover inspector-cover--placeholder">
+                                <MudIcon Icon="@Icons.Material.Outlined.Image"
+                                         Style="font-size: 18px; color: rgba(200,190,220,0.18);" />
+                            </div>
+                        }
+                    </div>
+
+                    <!-- Title, author, file meta -->
+                    <div class="inspector-file-meta">
+                        <span class="inspector-title">@Item.Title</span>
+                        @if (!string.IsNullOrWhiteSpace(Item.Author))
+                        {
+                            <span class="inspector-author">@Item.Author</span>
+                        }
+                        <div class="inspector-type-row">
+                            <MudIcon Icon="@RegistryHelpers.GetMediaTypeIcon(Item.MediaType)"
+                                     Style="font-size: 13px; color: rgba(200,190,220,0.40);" />
+                            <span class="inspector-format-label">@RegistryHelpers.FormatMediaType(Item.MediaType)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- State chip -->
+                <div class="inspector-chips-row">
+                    <div class="inspector-state-chip" style="border-color: @StateColor; color: @StateColor;">
+                        <MudIcon Icon="@StateIcon" Style="font-size: 11px;" />
+                        <span>@StateLabel</span>
+                    </div>
+
+                    <!-- Review trigger chip -->
+                    @if (!string.IsNullOrEmpty(Item.ReviewTrigger))
+                    {
+                        var (trigLabel, trigColor, trigIcon) = RegistryHelpers.FormatReviewTrigger(Item.ReviewTrigger);
+                        <div class="inspector-trigger-chip" style="background: @HexToRgba(trigColor, 0.12); color: @trigColor;">
+                            <MudIcon Icon="@trigIcon" Style="font-size: 11px;" />
+                            <span>@trigLabel</span>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Confidence indicator -->
+            <div class="inspector-section inspector-section--conf">
+                <span class="inspector-section-label">CONFIDENCE</span>
+                <div class="inspector-conf-bar-wrap">
+                    <div class="inspector-conf-bar" style="width: @(ConfPct)%; background: @ConfColor;"></div>
+                </div>
+                <span class="inspector-conf-pct" style="color: @ConfColor;">@(ConfPct)%</span>
+            </div>
+
+            <!-- Wikidata section (for registered items) -->
+            @if (!string.IsNullOrEmpty(Item.WikidataQid)
+                 && !Item.WikidataQid.StartsWith("NF", StringComparison.OrdinalIgnoreCase))
+            {
+                <div class="inspector-section">
+                    <span class="inspector-section-label">WIKIDATA IDENTITY</span>
+                    <div class="inspector-qid-row">
+                        <MudIcon Icon="@Icons.Material.Outlined.Link"
+                                 Style="font-size: 13px; color: rgba(201,146,46,0.7); flex-shrink: 0;" />
+                        <span class="inspector-qid-value">@Item.WikidataQid</span>
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(Item.MatchMethod))
+                    {
+                        <span class="inspector-provenance">Matched via @Item.MatchMethod</span>
+                    }
+                </div>
+
+                <!-- Wikipedia + Wikidata external links -->
+                <div class="inspector-ext-links">
+                    <a href="https://www.wikidata.org/wiki/@Item.WikidataQid" target="_blank" rel="noopener"
+                       class="inspector-ext-link">
+                        <MudIcon Icon="@Icons.Material.Outlined.Launch" Style="font-size: 12px;" />
+                        Wikidata (@Item.WikidataQid)
+                    </a>
+                    <a href="https://en.wikipedia.org/wiki/Special:GoToLinkedPage/enwiki/@Item.WikidataQid" target="_blank" rel="noopener"
+                       class="inspector-ext-link">
+                        <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Style="font-size: 12px;" />
+                        Wikipedia
+                    </a>
+                </div>
+            }
+
             @if (_showProvisionalForm)
             {
                 <ProvisionalFormPanel Item="Item"
@@ -175,10 +162,22 @@ else
         }
         else if (_inspectorTab == "history")
         {
+            <!-- Compact header for History tab -->
+            <div class="inspector-tab-header">
+                <div class="inspector-tab-header-title">@Item.Title</div>
+                <div class="inspector-tab-header-sub">@Item.Author · @RegistryHelpers.FormatMediaType(Item.MediaType)</div>
+                <div class="inspector-tab-header-state" style="background: @HexToRgba(StateColor, 0.15); color: @StateColor;">@StateLabel</div>
+            </div>
             <InspectorHistorySection History="_history" Loading="_historyLoading" />
         }
         else if (_inspectorTab == "metadata")
         {
+            <!-- Compact header for Metadata tab -->
+            <div class="inspector-tab-header">
+                <div class="inspector-tab-header-title">@Item.Title</div>
+                <div class="inspector-tab-header-sub">@Item.Author · @RegistryHelpers.FormatMediaType(Item.MediaType)</div>
+                <div class="inspector-tab-header-state" style="background: @HexToRgba(StateColor, 0.15); color: @StateColor;">@StateLabel</div>
+            </div>
             <InspectorMetadataSection Fields="_fields" Loading="_fieldsLoading" />
         }
 
@@ -237,6 +236,14 @@ else
         if (Item.MissingUniverse) return "NoMatch";
         return "NoMatch";
     }
+
+    // Computed helpers used in markup (replaces former @{ } local variable block)
+    private string StateValue  => ComputeState();
+    private string StateColor  => RegistryHelpers.GetStateColor(StateValue);
+    private string StateLabel  => RegistryHelpers.GetStateLabel(StateValue);
+    private string StateIcon   => RegistryHelpers.GetStateIcon(StateValue);
+    private string ConfColor   => Item is not null ? RegistryHelpers.GetConfidenceHexColor(Item.Confidence) : "#888";
+    private int    ConfPct     => Item is not null ? (int)(Item.Confidence * 100) : 0;
 
     private async Task HandleRegistered()
     {
@@ -317,7 +324,7 @@ else
 <style>
     /* ── Panel container ── */
     .inspector-panel {
-        width: 350px;
+        width: 100%;
         height: 100%;
         background: rgba(12, 10, 20, 0.95);
         border-left: 1px solid rgba(140, 120, 180, 0.1);
@@ -330,7 +337,7 @@ else
 
     /* ── Empty state ── */
     .inspector-empty {
-        width: 350px;
+        width: 100%;
         height: 100%;
         background: rgba(12, 10, 20, 0.95);
         border-left: 1px solid rgba(140, 120, 180, 0.1);
@@ -349,11 +356,15 @@ else
         letter-spacing: 0.3px;
     }
 
-    /* ── Top bar with close button ── */
+    /* ── Top bar with close button + tabs ── */
     .inspector-topbar {
         display: flex;
-        justify-content: flex-end;
-        padding: 10px 12px 4px;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border-bottom: 1px solid rgba(140, 120, 180, 0.1);
+        background: #14102a;
+        flex-shrink: 0;
     }
 
     .inspector-close {
@@ -375,13 +386,11 @@ else
         border-color: rgba(140, 120, 180, 0.25);
     }
 
-    /* ── Tab toggle ── */
+    /* ── Tab toggle (now inside topbar) ── */
     .inspector-tabs {
-        padding: 8px 14px;
-        border-bottom: 1px solid rgba(140, 120, 180, 0.1);
         display: flex;
         gap: 2px;
-        background: #14102a;
+        flex: 1;
     }
 
     .inspector-tab {
@@ -450,24 +459,6 @@ else
         display: flex;
         align-items: center;
         justify-content: center;
-    }
-
-    /* ── Hover-peek enlarged thumbnail ── */
-    .inspector-cover-peek {
-        display: none;
-        position: absolute;
-        left: -220px;
-        top: 0;
-        width: 200px;
-        border-radius: 8px;
-        border: 1px solid rgba(140, 120, 180, 0.2);
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
-        z-index: 50;
-        object-fit: contain;
-    }
-
-    .inspector-cover-wrap:hover .inspector-cover-peek {
-        display: block;
     }
 
     .inspector-file-meta {

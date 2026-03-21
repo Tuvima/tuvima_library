@@ -216,7 +216,7 @@ else
         @* ── Search hint ── *@
         @if (!_hasSearched)
         {
-            <span class="isearch-hint">Press Enter to search</span>
+            <span class="isearch-hint">@(!string.IsNullOrWhiteSpace(_query) ? "Press Enter or click search to find matches" : "Enter a search query")</span>
         }
         else if (_candidates.Count > 0)
         {
@@ -386,9 +386,6 @@ else
             _resultMessage = null;
             _loadingCovers = [];
 
-            // Auto-search on load when query is populated
-            if (!string.IsNullOrWhiteSpace(_query))
-                _ = RunSearch();
         }
     }
 

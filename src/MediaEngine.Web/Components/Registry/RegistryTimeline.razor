@@ -51,7 +51,7 @@
                         @* ── Batch card ── *@
                         var batch = item.Batch!;
                         var reviewCount = batch.FilesReview + batch.FilesNoMatch + batch.FilesFailed;
-                        <div class="rtl-event">
+                        <div class="rtl-event rtl-event--clickable" @onclick="() => OnOpenInListView.InvokeAsync(batch.Id)">
                             <div class="rtl-event-rail">
                                 <div class="rtl-dot" style="background: #4A90D920; border-color: #4A90D955;">
                                     <MudIcon Icon="@Icons.Material.Outlined.Inventory2" Style="font-size: 10px; color: #4A90D9;" />
@@ -91,9 +91,9 @@
                                             <span class="rtl-batch-review-hint">
                                                 @reviewCount @(reviewCount == 1 ? "item" : "items") still @(reviewCount == 1 ? "needs" : "need") review
                                             </span>
-                                            <button class="rtl-link-btn" @onclick="() => OnOpenInListView.InvokeAsync(batch.Id)">
+                                            <span class="rtl-link-label">
                                                 View activity →
-                                            </button>
+                                            </span>
                                         </div>
                                     }
                                     else if (batch.CompletedAt is not null)
@@ -102,6 +102,9 @@
                                             <span class="rtl-batch-resolved">
                                                 <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Style="font-size: 11px; color: #5DCAA5;" />
                                                 All items resolved
+                                            </span>
+                                            <span class="rtl-link-label">
+                                                View details →
                                             </span>
                                         </div>
                                     }
@@ -741,24 +744,30 @@
         border-left: 2px solid rgba(255, 255, 255, 0.08);
     }
 
-    /* ── Link button ── */
-    .rtl-link-btn {
-        background: none;
-        border: 0.5px solid rgba(74, 144, 217, 0.35);
-        border-radius: 6px;
-        padding: 2px 8px;
+    /* ── Clickable event rows ── */
+    .rtl-event--clickable {
+        cursor: pointer;
+        transition: background 0.15s ease;
+        border-radius: 8px;
+        margin: -4px -8px;
+        padding: 4px 8px;
+    }
+
+    .rtl-event--clickable:hover {
+        background: rgba(74, 144, 217, 0.04);
+    }
+
+    .rtl-event--clickable:hover .rtl-link-label {
+        color: rgba(74, 144, 217, 0.90);
+    }
+
+    /* ── Link label (non-button text, part of clickable row) ── */
+    .rtl-link-label {
         font-family: 'Montserrat', sans-serif;
         font-size: 10px;
         font-weight: 500;
-        color: rgba(74, 144, 217, 0.80);
-        cursor: pointer;
+        color: rgba(74, 144, 217, 0.65);
         white-space: nowrap;
-        transition: background 0.15s ease, border-color 0.15s ease;
-        align-self: flex-start;
-    }
-
-    .rtl-link-btn:hover {
-        background: rgba(74, 144, 217, 0.08);
-        border-color: rgba(74, 144, 217, 0.55);
+        transition: color 0.15s ease;
     }
 </style>

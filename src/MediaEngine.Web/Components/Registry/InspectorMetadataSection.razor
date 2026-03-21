@@ -2,67 +2,52 @@
 @using MediaEngine.Web.Components.Registry
 @using MudBlazor
 
-<div class="ims-container">
-    <button class="ims-header" @onclick="ToggleExpanded" aria-expanded="@_expanded">
-        <span class="ims-header-label">METADATA DETAIL</span>
-        <MudIcon Icon="@(_expanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
-                 Class="ims-chevron" />
-    </button>
-
-    @if (_expanded)
+<div class="ims-panel">
+    @if (Loading)
     {
-        <div class="ims-body">
-            @if (Loading)
-            {
-                <div class="ims-loading">
-                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Color="Color.Default" />
-                </div>
-            }
-            else if (Fields == null || !Fields.Any(f => !string.IsNullOrEmpty(f.Value)))
-            {
-                <div class="ims-empty">No metadata available</div>
-            }
-            else
-            {
-                @foreach (var field in Fields.Where(f => !string.IsNullOrEmpty(f.Value)))
-                {
-                    <div class="ims-field">
-                        <div class="ims-field-header">
-                            <span class="ims-field-key">@FormatFieldKey(field.Key)</span>
-                            @if (field.IsUserLocked)
-                            {
-                                <MudIcon Icon="@Icons.Material.Outlined.Lock"
-                                         Style="font-size: 0.7rem; color: #C9922E;" />
-                            }
-                            @if (field.IsConflicted)
-                            {
-                                <MudIcon Icon="@Icons.Material.Outlined.Warning"
-                                         Style="font-size: 0.7rem; color: #EF9F27;" />
-                            }
-                            <span class="ims-field-conf"
-                                  style="color: @RegistryHelpers.GetConfidenceHexColor(field.Confidence);">
-                                @((int)(field.Confidence * 100))%
-                            </span>
-                        </div>
-                        <div class="ims-field-value">@field.Value</div>
-                        @if (!string.IsNullOrEmpty(field.ProviderName))
-                        {
-                            <span class="ims-field-provider">via @field.ProviderName</span>
-                        }
-                    </div>
-                }
-            }
+        <div class="ims-loading">
+            <MudProgressCircular Size="Size.Small" Indeterminate="true" Color="Color.Default" />
         </div>
+    }
+    else if (Fields == null || !Fields.Any(f => !string.IsNullOrEmpty(f.Value)))
+    {
+        <div class="ims-empty">No metadata available</div>
+    }
+    else
+    {
+        @foreach (var field in Fields.Where(f => !string.IsNullOrEmpty(f.Value)))
+        {
+            <div class="ims-field">
+                <div class="ims-field-header">
+                    <span class="ims-field-key">@FormatFieldKey(field.Key)</span>
+                    @if (field.IsUserLocked)
+                    {
+                        <MudIcon Icon="@Icons.Material.Outlined.Lock"
+                                 Style="font-size: 0.7rem; color: #C9922E;" />
+                    }
+                    @if (field.IsConflicted)
+                    {
+                        <MudIcon Icon="@Icons.Material.Outlined.Warning"
+                                 Style="font-size: 0.7rem; color: #EF9F27;" />
+                    }
+                    <span class="ims-field-conf"
+                          style="color: @RegistryHelpers.GetConfidenceHexColor(field.Confidence);">
+                        @((int)(field.Confidence * 100))%
+                    </span>
+                </div>
+                <div class="ims-field-value">@field.Value</div>
+                @if (!string.IsNullOrEmpty(field.ProviderName))
+                {
+                    <span class="ims-field-provider">via @field.ProviderName</span>
+                }
+            </div>
+        }
     }
 </div>
 
 @code {
     [Parameter] public List<CanonicalFieldViewModel> Fields { get; set; } = [];
     [Parameter] public bool Loading { get; set; }
-
-    private bool _expanded = false;
-
-    private void ToggleExpanded() => _expanded = !_expanded;
 
     private static string FormatFieldKey(string key) => key switch
     {
@@ -87,62 +72,29 @@
 }
 
 <style>
-    .ims-container {
+    .ims-panel {
         font-family: 'Montserrat', sans-serif;
-        border-top: 1px solid rgba(255, 255, 255, 0.06);
-    }
-
-    .ims-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        width: 100%;
-        padding: 10px 14px;
-        background: transparent;
-        border: none;
-        cursor: pointer;
-        color: rgba(255, 255, 255, 0.45);
-        transition: color 0.15s ease;
-    }
-
-    .ims-header:hover {
-        color: rgba(255, 255, 255, 0.70);
-    }
-
-    .ims-header-label {
-        font-size: 11px;
-        font-weight: 600;
-        letter-spacing: 1px;
-        text-transform: uppercase;
-    }
-
-    .ims-chevron {
-        font-size: 1rem !important;
-        color: inherit;
-        flex-shrink: 0;
-    }
-
-    .ims-body {
-        padding: 0 14px 12px;
+        padding: 14px;
     }
 
     .ims-loading {
         display: flex;
         justify-content: center;
-        padding: 16px 0;
+        padding: 24px 0;
     }
 
     .ims-empty {
-        font-size: 12px;
-        color: rgba(255, 255, 255, 0.30);
-        text-align: center;
-        padding: 12px 0;
+        font-size: 11px;
+        font-weight: 400;
         font-style: italic;
+        color: rgba(200, 190, 220, 0.35);
+        text-align: center;
+        padding: 24px 0;
     }
 
     .ims-field {
         padding: 8px 0;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        border-bottom: 1px solid rgba(140, 120, 180, 0.08);
     }
 
     .ims-field:last-child {
@@ -153,7 +105,7 @@
         display: flex;
         align-items: center;
         gap: 5px;
-        margin-bottom: 2px;
+        margin-bottom: 3px;
     }
 
     .ims-field-key {
@@ -161,7 +113,7 @@
         font-weight: 600;
         letter-spacing: 0.5px;
         text-transform: uppercase;
-        color: rgba(255, 255, 255, 0.40);
+        color: rgba(200, 190, 220, 0.40);
         flex: 1;
     }
 
@@ -175,7 +127,7 @@
     .ims-field-value {
         font-size: 12px;
         font-weight: 500;
-        color: rgba(255, 255, 255, 0.85);
+        color: rgba(200, 190, 220, 0.85);
         line-height: 1.4;
         word-break: break-word;
     }
@@ -183,8 +135,8 @@
     .ims-field-provider {
         display: block;
         font-size: 10px;
-        color: rgba(255, 255, 255, 0.28);
-        margin-top: 2px;
         font-style: italic;
+        color: rgba(200, 190, 220, 0.28);
+        margin-top: 2px;
     }
 </style>
