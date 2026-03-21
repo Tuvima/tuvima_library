@@ -130,7 +130,12 @@ public static class RegistryEndpoints
                 }
                 using (var cmd2 = conn.CreateCommand())
                 {
-                    cmd2.CommandText = "SELECT title FROM works WHERE id = @workId";
+                    cmd2.CommandText = @"
+                        SELECT cv.value FROM canonical_values cv
+                        INNER JOIN media_assets ma ON ma.id = cv.entity_id
+                        INNER JOIN editions e ON e.id = ma.edition_id
+                        WHERE e.work_id = @workId AND cv.key = 'title'
+                        LIMIT 1";
                     cmd2.Parameters.AddWithValue("@workId", entityId.ToString());
                     workTitle = cmd2.ExecuteScalar()?.ToString();
                 }
@@ -447,14 +452,25 @@ public static class RegistryEndpoints
                 // Get hub ID for cleanup check
                 using (var cmd2 = conn.CreateCommand())
                 {
-                    cmd2.CommandText = "SELECT hub_id, title FROM works WHERE id = @workId";
+                    cmd2.CommandText = "SELECT hub_id FROM works WHERE id = @workId";
                     cmd2.Parameters.AddWithValue("@workId", entityId.ToString());
                     using var reader2 = cmd2.ExecuteReader();
                     if (reader2.Read())
                     {
                         hubId = reader2.IsDBNull(0) ? null : reader2.GetString(0);
-                        workTitle = reader2.IsDBNull(1) ? null : reader2.GetString(1);
                     }
+                }
+
+                using (var cmd3 = conn.CreateCommand())
+                {
+                    cmd3.CommandText = @"
+                        SELECT cv.value FROM canonical_values cv
+                        INNER JOIN media_assets ma ON ma.id = cv.entity_id
+                        INNER JOIN editions e ON e.id = ma.edition_id
+                        WHERE e.work_id = @workId AND cv.key = 'title'
+                        LIMIT 1";
+                    cmd3.Parameters.AddWithValue("@workId", entityId.ToString());
+                    workTitle = cmd3.ExecuteScalar()?.ToString();
                 }
             }
 
@@ -587,14 +603,25 @@ public static class RegistryEndpoints
 
                 using (var cmd2 = conn.CreateCommand())
                 {
-                    cmd2.CommandText = "SELECT hub_id, title FROM works WHERE id = @workId";
+                    cmd2.CommandText = "SELECT hub_id FROM works WHERE id = @workId";
                     cmd2.Parameters.AddWithValue("@workId", entityId.ToString());
                     using var reader2 = cmd2.ExecuteReader();
                     if (reader2.Read())
                     {
-                        hubId      = reader2.IsDBNull(0) ? null : reader2.GetString(0);
-                        workTitle  = reader2.IsDBNull(1) ? null : reader2.GetString(1);
+                        hubId = reader2.IsDBNull(0) ? null : reader2.GetString(0);
                     }
+                }
+
+                using (var cmd3 = conn.CreateCommand())
+                {
+                    cmd3.CommandText = @"
+                        SELECT cv.value FROM canonical_values cv
+                        INNER JOIN media_assets ma ON ma.id = cv.entity_id
+                        INNER JOIN editions e ON e.id = ma.edition_id
+                        WHERE e.work_id = @workId AND cv.key = 'title'
+                        LIMIT 1";
+                    cmd3.Parameters.AddWithValue("@workId", entityId.ToString());
+                    workTitle = cmd3.ExecuteScalar()?.ToString();
                 }
             }
 
@@ -793,14 +820,25 @@ public static class RegistryEndpoints
 
                         using (var cmd2 = conn.CreateCommand())
                         {
-                            cmd2.CommandText = "SELECT hub_id, title FROM works WHERE id = @workId";
+                            cmd2.CommandText = "SELECT hub_id FROM works WHERE id = @workId";
                             cmd2.Parameters.AddWithValue("@workId", entityId.ToString());
                             using var reader2 = cmd2.ExecuteReader();
                             if (reader2.Read())
                             {
-                                hubId     = reader2.IsDBNull(0) ? null : reader2.GetString(0);
-                                workTitle = reader2.IsDBNull(1) ? null : reader2.GetString(1);
+                                hubId = reader2.IsDBNull(0) ? null : reader2.GetString(0);
                             }
+                        }
+
+                        using (var cmd3 = conn.CreateCommand())
+                        {
+                            cmd3.CommandText = @"
+                                SELECT cv.value FROM canonical_values cv
+                                INNER JOIN media_assets ma ON ma.id = cv.entity_id
+                                INNER JOIN editions e ON e.id = ma.edition_id
+                                WHERE e.work_id = @workId AND cv.key = 'title'
+                                LIMIT 1";
+                            cmd3.Parameters.AddWithValue("@workId", entityId.ToString());
+                            workTitle = cmd3.ExecuteScalar()?.ToString();
                         }
                     }
 
@@ -939,11 +977,14 @@ public static class RegistryEndpoints
 
                         using (var cmd2 = conn.CreateCommand())
                         {
-                            cmd2.CommandText = "SELECT title FROM works WHERE id = @workId";
+                            cmd2.CommandText = @"
+                                SELECT cv.value FROM canonical_values cv
+                                INNER JOIN media_assets ma ON ma.id = cv.entity_id
+                                INNER JOIN editions e ON e.id = ma.edition_id
+                                WHERE e.work_id = @workId AND cv.key = 'title'
+                                LIMIT 1";
                             cmd2.Parameters.AddWithValue("@workId", entityId.ToString());
-                            using var reader2 = cmd2.ExecuteReader();
-                            if (reader2.Read())
-                                workTitle = reader2.IsDBNull(0) ? null : reader2.GetString(0);
+                            workTitle = cmd2.ExecuteScalar()?.ToString();
                         }
                     }
 

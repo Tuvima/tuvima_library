@@ -4,7 +4,6 @@
 @using MudBlazor
 
 @inject UIOrchestratorService Orchestrator
-@inject IDialogService DialogService
 @inject UniverseStateContainer StateContainer
 
 @if (IsAlreadyMatched)
@@ -169,9 +168,11 @@
             </button>
         }
 
-        <button class="isearch-btn-unmatch" @onclick="HandleUnmatchClick" disabled="@_registering">
-            <MudIcon Icon="@Icons.Material.Outlined.LinkOff" Style="font-size: 14px;" />
-            <span>Unmatch</span>
+        <button class="isearch-btn-unmatch @(_confirmingUnmatch ? "isearch-btn-unmatch--confirming" : "")"
+                @onclick="HandleUnmatchClick" disabled="@_registering">
+            <MudIcon Icon="@(_confirmingUnmatch ? Icons.Material.Outlined.Warning : Icons.Material.Outlined.LinkOff)"
+                     Style="font-size: 14px;" />
+            <span>@(_confirmingUnmatch ? "Are you sure?" : "Unmatch")</span>
         </button>
 
         @* Registration result *@
@@ -324,17 +325,24 @@ else
     <div class="isearch-actions-section">
         @if (_selectedCandidate is not null)
         {
-            <button class="isearch-btn-register" @onclick="RegisterSelected" disabled="@_registering">
+            <button class="isearch-btn-register @(_confirmingRegister ? "isearch-btn-register--confirming" : "")"
+                    @onclick="HandleRegisterClick" disabled="@_registering">
                 @if (_registering)
                 {
                     <MudProgressCircular Size="Size.Small" Indeterminate="true"
                                          Style="width: 14px; height: 14px; color: rgba(93,202,165,0.7);" />
+                    <span>Registering...</span>
+                }
+                else if (_confirmingRegister)
+                {
+                    <MudIcon Icon="@Icons.Material.Outlined.Warning" Style="font-size: 14px;" />
+                    <span>Confirm register?</span>
                 }
                 else
                 {
                     <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Style="font-size: 14px;" />
+                    <span>Register as '@TruncateTitle(_selectedCandidate.Title)'</span>
                 }
-                <span>Register as '@TruncateTitle(_selectedCandidate.Title)'</span>
             </button>
         }
         else
@@ -350,9 +358,11 @@ else
                 <MudIcon Icon="@Icons.Material.Outlined.EditNote" Style="font-size: 14px;" />
                 <span>Mark provisional</span>
             </button>
-            <button class="isearch-btn-reject" @onclick="HandleRejectClick" disabled="@_registering">
-                <MudIcon Icon="@Icons.Material.Outlined.Block" Style="font-size: 14px;" />
-                <span>Reject</span>
+            <button class="isearch-btn-reject @(_confirmingReject ? "isearch-btn-reject--confirming" : "")"
+                    @onclick="HandleRejectClick" disabled="@_registering">
+                <MudIcon Icon="@(_confirmingReject ? Icons.Material.Outlined.Warning : Icons.Material.Outlined.Block)"
+                         Style="font-size: 14px;" />
+                <span>@(_confirmingReject ? "Are you sure?" : "Reject")</span>
             </button>
         </div>
 
@@ -385,6 +395,13 @@ else
     private string? _resultMessage;
     private bool _resultSuccess;
     private Guid? _lastItemId;
+
+    private bool _confirmingReject;
+    private bool _confirmingRegister;
+    private bool _confirmingUnmatch;
+    private System.Threading.Timer? _rejectTimer;
+    private System.Threading.Timer? _registerTimer;
+    private System.Threading.Timer? _unmatchTimer;
 
     private bool IsAlreadyMatched =>
         !string.IsNullOrEmpty(Item.WikidataQid) &&
@@ -543,24 +560,64 @@ else
         await OnMarkedProvisional.InvokeAsync();
     }
 
+    private async Task HandleRegisterClick()
+    {
+        if (_confirmingRegister)
+        {
+            _confirmingRegister = false;
+            _registerTimer?.Dispose();
+            _registerTimer = null;
+            await RegisterSelected();
+            return;
+        }
+        _confirmingRegister = true;
+        _registerTimer?.Dispose();
+        _registerTimer = new System.Threading.Timer(_ =>
+        {
+            _confirmingRegister = false;
+            _registerTimer = null;
+            InvokeAsync(StateHasChanged);
+        }, null, 3000, Timeout.Infinite);
+    }
+
     private async Task HandleRejectClick()
     {
-        var confirmed = await DialogService.ShowMessageBoxAsync(
-            "Reject this item?",
-            "The file will be moved to .staging/rejected/ and auto-purged after 14 days.",
-            yesText: "Reject", cancelText: "Cancel");
-        if (confirmed == true)
+        if (_confirmingReject)
+        {
+            _confirmingReject = false;
+            _rejectTimer?.Dispose();
+            _rejectTimer = null;
             await OnRejected.InvokeAsync();
+            return;
+        }
+        _confirmingReject = true;
+        _rejectTimer?.Dispose();
+        _rejectTimer = new System.Threading.Timer(_ =>
+        {
+            _confirmingReject = false;
+            _rejectTimer = null;
+            InvokeAsync(StateHasChanged);
+        }, null, 3000, Timeout.Infinite);
     }
 
     private async Task HandleUnmatchClick()
     {
-        var confirmed = await DialogService.ShowMessageBoxAsync(
-            "Unmatch this item?",
-            "The Wikidata identity will be removed. The item will return to unmatched state.",
-            yesText: "Unmatch", cancelText: "Cancel");
-        if (confirmed == true)
+        if (_confirmingUnmatch)
+        {
+            _confirmingUnmatch = false;
+            _unmatchTimer?.Dispose();
+            _unmatchTimer = null;
             await OnRejected.InvokeAsync();
+            return;
+        }
+        _confirmingUnmatch = true;
+        _unmatchTimer?.Dispose();
+        _unmatchTimer = new System.Threading.Timer(_ =>
+        {
+            _confirmingUnmatch = false;
+            _unmatchTimer = null;
+            InvokeAsync(StateHasChanged);
+        }, null, 3000, Timeout.Infinite);
     }
 
     private static string TruncateDescription(string desc)
@@ -1029,5 +1086,29 @@ else
     .isearch-result--err {
         background: rgba(239, 83, 80, 0.08);
         color: rgba(239, 83, 80, 0.85);
+    }
+
+    /* ── 2-click confirmation states ── */
+    .isearch-btn-reject--confirming {
+        background: rgba(211, 47, 47, 0.25) !important;
+        border-color: rgba(211, 47, 47, 0.5) !important;
+        animation: pulse-confirm 1s ease-in-out infinite;
+    }
+
+    .isearch-btn-register--confirming {
+        background: rgba(255, 183, 77, 0.20) !important;
+        border-color: rgba(255, 183, 77, 0.4) !important;
+        animation: pulse-confirm 1s ease-in-out infinite;
+    }
+
+    .isearch-btn-unmatch--confirming {
+        background: rgba(211, 47, 47, 0.20) !important;
+        border-color: rgba(211, 47, 47, 0.4) !important;
+        animation: pulse-confirm 1s ease-in-out infinite;
+    }
+
+    @@keyframes pulse-confirm {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.7; }
     }
 </style>
