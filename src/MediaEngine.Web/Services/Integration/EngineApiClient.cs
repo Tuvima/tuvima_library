@@ -31,8 +31,9 @@ public sealed class EngineApiClient : IEngineApiClient
             var raw = await _http.GetFromJsonAsync<StatusRaw>("/system/status", ct);
             return raw is null ? null : new SystemStatusViewModel
             {
-                Status  = raw.Status,
-                Version = raw.Version,
+                Status   = raw.Status,
+                Version  = raw.Version,
+                Language = raw.Language ?? "en",
             };
         }
         catch (OperationCanceledException) { return null; }
@@ -2578,8 +2579,9 @@ public sealed class EngineApiClient : IEngineApiClient
     // ── Raw response shapes (mirror API Dtos.cs) ──────────────────────────────
 
     private sealed record StatusRaw(
-        [property: JsonPropertyName("status")]  string Status,
-        [property: JsonPropertyName("version")] string Version);
+        [property: JsonPropertyName("status")]   string  Status,
+        [property: JsonPropertyName("version")]  string  Version,
+        [property: JsonPropertyName("language")] string? Language);
 
     private sealed record HubRaw(
         [property: JsonPropertyName("id")]              Guid           Id,

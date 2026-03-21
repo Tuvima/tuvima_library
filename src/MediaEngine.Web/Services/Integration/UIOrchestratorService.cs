@@ -86,8 +86,13 @@ public sealed class UIOrchestratorService : IAsyncDisposable
 
     // ── System status ─────────────────────────────────────────────────────────
 
-    public Task<SystemStatusViewModel?> GetSystemStatusAsync(CancellationToken ct = default)
-        => _api.GetSystemStatusAsync(ct);
+    public async Task<SystemStatusViewModel?> GetSystemStatusAsync(CancellationToken ct = default)
+    {
+        var status = await _api.GetSystemStatusAsync(ct);
+        if (status is not null)
+            _state.Language = status.Language;
+        return status;
+    }
 
     // ── Ingestion ─────────────────────────────────────────────────────────────
 

@@ -5,6 +5,7 @@
 
 @inject UIOrchestratorService Orchestrator
 @inject IDialogService DialogService
+@inject UniverseStateContainer StateContainer
 
 @if (IsAlreadyMatched)
 {
@@ -112,7 +113,7 @@
                                 @if (!string.IsNullOrWhiteSpace(c.Qid))
                                 {
                                     <span class="isearch-card-qid">@c.Qid</span>
-                                    <a href="https://www.wikidata.org/wiki/Special:GoToLinkedPage/enwiki/@c.Qid"
+                                    <a href="https://www.wikidata.org/wiki/Special:GoToLinkedPage/@(StateContainer.Language)wiki/@c.Qid"
                                        target="_blank" rel="noopener"
                                        class="isearch-card-wiki"
                                        title="View on Wikipedia"
@@ -287,7 +288,7 @@ else
                                 @if (!string.IsNullOrWhiteSpace(c.Qid))
                                 {
                                     <span class="isearch-card-qid">@c.Qid</span>
-                                    <a href="https://www.wikidata.org/wiki/Special:GoToLinkedPage/enwiki/@c.Qid"
+                                    <a href="https://www.wikidata.org/wiki/Special:GoToLinkedPage/@(StateContainer.Language)wiki/@c.Qid"
                                        target="_blank" rel="noopener"
                                        class="isearch-card-wiki"
                                        title="View on Wikipedia"

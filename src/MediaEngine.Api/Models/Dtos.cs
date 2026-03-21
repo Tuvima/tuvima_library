@@ -14,6 +14,9 @@ public sealed class SystemStatusResponse
 
     [JsonPropertyName("version")]
     public string Version { get; init; } = string.Empty;
+
+    [JsonPropertyName("language")]
+    public string Language { get; init; } = "en";
 }
 
 // ── /admin/api-keys ────────────────────────────────────────────────────────────

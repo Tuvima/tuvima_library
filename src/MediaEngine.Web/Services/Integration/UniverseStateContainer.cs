@@ -35,6 +35,13 @@ public sealed class UniverseStateContainer
     public HubViewModel?               Selected          => _selected;
 
     /// <summary>
+    /// Language code configured in the Engine (e.g. "en", "fr", "de").
+    /// Used to build localised Wikipedia links. Defaults to "en" until the
+    /// first successful status fetch.
+    /// </summary>
+    public string Language { get; set; } = "en";
+
+    /// <summary>
     /// Flattened cross-media-type view built by <see cref="UniverseMapper"/>.
     /// Null until the first successful hub load; components should guard with
     /// <c>@if (State.Universe is { } u)</c>.
