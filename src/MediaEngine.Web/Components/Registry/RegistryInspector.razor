@@ -31,9 +31,6 @@ else
 
         <!-- Close button + Tabs (always at the very top) -->
         <div class="inspector-topbar">
-            <button class="inspector-close" @onclick="OnClose" type="button" title="Close inspector">
-                <MudIcon Icon="@Icons.Material.Outlined.Close" Style="font-size: 16px;" />
-            </button>
             <div class="inspector-tabs">
                 <button class="inspector-tab @(_inspectorTab == "resolve" ? "inspector-tab--active" : "")"
                         @onclick='() => _inspectorTab = "resolve"'>Resolve</button>
@@ -42,6 +39,9 @@ else
                 <button class="inspector-tab @(_inspectorTab == "metadata" ? "inspector-tab--active" : "")"
                         @onclick='() => _inspectorTab = "metadata"'>Metadata</button>
             </div>
+            <button class="inspector-close" @onclick="OnClose" type="button" title="Close inspector">
+                <MudIcon Icon="@Icons.Material.Outlined.Close" Style="font-size: 16px;" />
+            </button>
         </div>
 
         <!-- Tab content -->
@@ -147,14 +147,17 @@ else
                 </div>
             }
 
-            @if (_showProvisionalForm)
-            {
-                <ProvisionalFormPanel Item="Item"
-                                      OnSaved="HandleProvisionalSaved"
-                                      OnCancelled="HandleProvisionalCancelled" />
-            }
-            else
-            {
+            <!-- Resolve tab content wrapper (relative anchor for provisional overlay) -->
+            <div class="inspector-resolve-content">
+                @if (_showProvisionalForm)
+                {
+                    <div class="inspector-provisional-overlay">
+                        <ProvisionalFormPanel Item="Item"
+                                              OnSaved="HandleProvisionalSaved"
+                                              OnCancelled="HandleProvisionalCancelled" />
+                    </div>
+                }
+
                 <!-- Wikidata search + candidates + actions -->
                 <InspectorSearchSection Item="Item"
                                         OnRegistered="HandleRegistered"
@@ -168,7 +171,7 @@ else
                                              OnResolve="HandleResolveReport"
                                              OnDismiss="HandleDismissReport" />
                 }
-            }
+            </div>
         }
         else if (_inspectorTab == "history")
         {
@@ -362,6 +365,7 @@ else
     .inspector-topbar {
         display: flex;
         align-items: center;
+        justify-content: space-between;
         gap: 8px;
         padding: 8px 12px;
         border-bottom: 1px solid rgba(140, 120, 180, 0.1);
@@ -423,6 +427,21 @@ else
 
     .inspector-section:first-of-type {
         border-top: none;
+    }
+
+    /* ── Provisional form overlay (covers From your file + Confidence) ── */
+    .inspector-resolve-content {
+        position: relative;
+    }
+
+    .inspector-provisional-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 10;
+        background: rgba(12, 10, 20, 0.97);
+        border-bottom: 1px solid rgba(140, 120, 180, 0.12);
     }
 
     .inspector-section-label {
