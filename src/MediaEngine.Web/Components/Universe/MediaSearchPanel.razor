@@ -1180,7 +1180,6 @@
             {
                 request = new ApplyMatchRequestDto
                 {
-                    Mode        = "Universe",
                     Qid         = intent != "image" ? uc.Qid : null,
                     Title       = intent != "image" ? uc.Label : null,
                     Year        = intent != "image" ? uc.Year  : null,
@@ -1194,7 +1193,6 @@
             {
                 request = new ApplyMatchRequestDto
                 {
-                    Mode        = "Retail",
                     Title       = intent != "image" ? rc.Title  : null,
                     Year        = intent != "image" ? rc.Year   : null,
                     Author      = intent != "image" ? rc.Author : null,

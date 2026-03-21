@@ -501,7 +501,7 @@ public interface IEngineApiClient
         string query, string mediaType, int maxCandidates = 5,
         CancellationToken ct = default);
 
-    /// <summary>POST /registry/items/{entityId}/apply-match — apply a Universe or Retail match.</summary>
+    /// <summary>POST /registry/items/{entityId}/apply-match — apply a match to a registry item.</summary>
     Task<ApplyMatchResponseDto?> ApplyRegistryMatchAsync(
         Guid entityId, ApplyMatchRequestDto request,
         CancellationToken ct = default);

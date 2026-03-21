@@ -143,10 +143,6 @@ public sealed class SearchRetailResponseDto
 /// <summary>Request sent to POST /registry/items/{entityId}/apply-match.</summary>
 public sealed class ApplyMatchRequestDto
 {
-    /// <summary>"Universe" or "Retail".</summary>
-    [JsonPropertyName("mode")]
-    public string Mode { get; set; } = "Universe";
-
     [JsonPropertyName("qid")]
     public string? Qid { get; set; }
 

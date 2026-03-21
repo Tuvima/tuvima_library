@@ -110,8 +110,6 @@ public static class RegistryEndpoints
             ISystemActivityRepository activityRepo,
             CancellationToken ct) =>
         {
-            if (string.IsNullOrWhiteSpace(request.Mode))
-                return Results.BadRequest("Mode is required ('Universe' or 'Retail').");
 
             // Resolve asset ID and work title from work ID
             string? assetIdStr = null;
@@ -178,10 +176,9 @@ public static class RegistryEndpoints
             bool hydrationTriggered = false;
             string wikidataStatus;
 
-            if (string.Equals(request.Mode, "Universe", StringComparison.OrdinalIgnoreCase)
-                && !string.IsNullOrWhiteSpace(request.Qid))
+            if (!string.IsNullOrWhiteSpace(request.Qid))
             {
-                // Universe match: lock the QID and trigger full hydration
+                // QID provided: lock the QID and trigger full hydration
                 AddClaim("wikidata_qid", request.Qid);
                 wikidataStatus = "confirmed";
 
@@ -256,12 +253,12 @@ public static class RegistryEndpoints
                     HubName    = displayTitle,
                     EntityId   = entityId,
                     EntityType = "Work",
-                    Detail     = $"Registered '{displayTitle}' — curator confirmed QID {request.Qid}.",
+                    Detail     = $"Registered '{displayTitle}' — QID {request.Qid} confirmed.",
                 }, ct);
             }
             else
             {
-                // Retail match: write metadata claims, mark as missing universe
+                // No QID: write metadata claims only, mark as missing
                 wikidataStatus = "missing";
 
                 if (claims.Count > 0)
@@ -301,12 +298,12 @@ public static class RegistryEndpoints
                 ClaimsWritten      = claims.Count,
                 HydrationTriggered = hydrationTriggered,
                 Message            = wikidataStatus == "confirmed"
-                    ? $"Registered. QID {request.Qid} confirmed by curator."
-                    : "Retail match applied. Item marked as Missing Universe.",
+                    ? $"Registered '{request.Title ?? workTitle ?? "item"}' with QID {request.Qid}."
+                    : "Match applied. Metadata claims written.",
             });
         })
         .WithName("ApplyRegistryMatch")
-        .WithSummary("Apply a selected Universe (Wikidata) or Retail provider match to a registry item.")
+        .WithSummary("Apply a selected match to a registry item. Provide a QID to register the item.")
         .Produces<ApplyMatchResponse>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status404NotFound)

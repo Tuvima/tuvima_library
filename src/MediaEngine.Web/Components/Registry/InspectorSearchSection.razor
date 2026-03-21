@@ -507,7 +507,6 @@ else
         {
             var request = new ApplyMatchRequestDto
             {
-                Mode = string.IsNullOrEmpty(_selectedCandidate.Qid) ? "Retail" : "Universe",
                 Qid = _selectedCandidate.Qid,
                 Title = _selectedCandidate.Title,
                 Year = _selectedCandidate.Year,

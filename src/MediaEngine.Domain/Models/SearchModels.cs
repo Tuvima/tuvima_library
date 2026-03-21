@@ -135,11 +135,7 @@ public sealed record SearchRetailResult(
 /// <summary>Request to apply a manually selected match to a registry item.</summary>
 public sealed class ApplyMatchRequest
 {
-    /// <summary>"Universe" or "Retail".</summary>
-    [JsonPropertyName("mode")]
-    public required string Mode { get; init; }
-
-    /// <summary>Wikidata QID when Mode = "Universe".</summary>
+    /// <summary>Wikidata QID for the media item. When provided, the item is registered with this identity.</summary>
     [JsonPropertyName("qid")]
     public string? Qid { get; init; }
 
