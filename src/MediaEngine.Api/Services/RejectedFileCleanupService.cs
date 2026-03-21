@@ -132,10 +132,11 @@ public sealed class RejectedFileCleanupService : BackgroundService
                        ma.file_path_root AS FilePath,
                        e.work_id     AS WorkId,
                        w.hub_id      AS HubId,
-                       w.title       AS WorkTitle
+                       cv.value      AS WorkTitle
                 FROM works w
                 INNER JOIN editions e ON e.work_id = w.id
                 INNER JOIN media_assets ma ON ma.edition_id = e.id
+                LEFT JOIN canonical_values cv ON cv.entity_id = ma.id AND cv.key = 'title'
                 WHERE w.curator_state = 'rejected'
                   AND w.rejected_at IS NOT NULL
                   AND w.rejected_at <= @cutoff

@@ -75,22 +75,19 @@ else
                     </div>
                 </div>
 
-                <!-- Status/trigger chips -->
-                <div class="inspector-chips-row">
-                    <div class="inspector-state-chip" style="border-color: @stateColor; color: @stateColor;">
-                        <MudIcon Icon="@stateIcon" Style="font-size: 11px;" />
-                        <span>@stateLabel</span>
-                    </div>
-
-                    @if (!string.IsNullOrEmpty(Item.ReviewTrigger))
-                    {
-                        var (trigLabel, trigColor, trigIcon) = RegistryHelpers.FormatReviewTrigger(Item.ReviewTrigger);
+                <!-- Trigger chip -->
+                @if (!string.IsNullOrEmpty(Item.ReviewTrigger))
+                {
+                    <div class="inspector-chips-row">
+                        @{
+                            var (trigLabel, trigColor, trigIcon) = RegistryHelpers.FormatReviewTrigger(Item.ReviewTrigger);
+                        }
                         <div class="inspector-trigger-chip" style="background: @HexToRgba(trigColor, 0.12); color: @trigColor;">
                             <MudIcon Icon="@trigIcon" Style="font-size: 11px;" />
                             <span>@trigLabel</span>
                         </div>
-                    }
-                </div>
+                    </div>
+                }
             </div>
 
             <!-- Resolve tab content wrapper (relative anchor for provisional overlay) -->
@@ -392,9 +389,11 @@ else
         top: 0;
         left: 0;
         right: 0;
+        bottom: 0;
         z-index: 10;
-        background: rgba(12, 10, 20, 0.97);
+        background: #0c0a14;
         border-bottom: 1px solid rgba(140, 120, 180, 0.12);
+        overflow-y: auto;
     }
 
     /* File row: cover + meta */

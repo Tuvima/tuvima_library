@@ -284,10 +284,14 @@ else
                                 @if (!string.IsNullOrWhiteSpace(c.Qid))
                                 {
                                     <span class="isearch-result-qid">@c.Qid</span>
-                                }
-                                @if (!string.IsNullOrWhiteSpace(c.ProviderName))
-                                {
-                                    <span class="isearch-result-provider">@c.ProviderName</span>
+                                    <a href="https://www.wikidata.org/wiki/Special:GoToLinkedPage/@(StateContainer.Language)wiki/@c.Qid"
+                                       target="_blank" rel="noopener"
+                                       class="isearch-result-wiki"
+                                       title="View on Wikipedia"
+                                       @onclick:stopPropagation="true">
+                                        <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Style="font-size: 11px;" />
+                                        <span>Wikipedia</span>
+                                    </a>
                                 }
                                 @if (!string.IsNullOrWhiteSpace(c.Year))
                                 {
@@ -309,7 +313,7 @@ else
                             <span class="isearch-signal @(authorMatch ? "isearch-signal--match" : "isearch-signal--miss")">
                                 <MudIcon Icon="@(authorMatch ? Icons.Material.Outlined.Check : Icons.Material.Outlined.Close)"
                                          Style="font-size: 12px;" />
-                                Author
+                                @CreatorLabel
                             </span>
                             <span class="isearch-signal @(yearMatch == "match" ? "isearch-signal--match" : yearMatch == "warn" ? "isearch-signal--warn" : "isearch-signal--miss")">
                                 <MudIcon Icon="@(yearMatch == "match" ? Icons.Material.Outlined.Check : yearMatch == "warn" ? Icons.Material.Outlined.Warning : Icons.Material.Outlined.Close)"
@@ -341,7 +345,7 @@ else
                         <span class="isearch-comparison-val">@(Item.Title ?? "—")</span>
                     </div>
                     <div class="isearch-comparison-field">
-                        <span class="isearch-comparison-key">Author</span>
+                        <span class="isearch-comparison-key">@CreatorLabel</span>
                         <span class="isearch-comparison-val">@(Item.Author ?? "—")</span>
                     </div>
                     <div class="isearch-comparison-field">
@@ -356,7 +360,7 @@ else
                         <span class="isearch-comparison-val">@(_selectedCandidate.Title ?? "—")</span>
                     </div>
                     <div class="isearch-comparison-field">
-                        <span class="isearch-comparison-key">Author</span>
+                        <span class="isearch-comparison-key">@CreatorLabel</span>
                         <span class="isearch-comparison-val">@(_selectedCandidate.Author ?? "—")</span>
                     </div>
                     <div class="isearch-comparison-field">
@@ -674,6 +678,15 @@ else
 
     private static string TruncateTitle(string title)
         => title.Length > 30 ? title[..27] + "…" : title;
+
+    /// <summary>Returns the context-aware label for the creator field based on media type.</summary>
+    private string CreatorLabel => (Item.MediaType ?? "") switch
+    {
+        "Movies" or "TV" => "Director",
+        "Music" => "Artist",
+        "Podcasts" => "Host",
+        _ => "Author"
+    };
 
     /// <summary>Compare candidate fields against file metadata to produce match signals.</summary>
     private (bool titleMatch, bool authorMatch, string yearMatch) ComputeMatchSignals(CandidateViewModel candidate)
@@ -1398,10 +1411,19 @@ else
         font-variant-numeric: tabular-nums;
     }
 
-    .isearch-result-provider {
+    .isearch-result-wiki {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
         font-size: 11px;
-        font-weight: 400;
-        color: rgba(200, 190, 220, 0.30);
+        font-weight: 500;
+        color: rgba(74, 144, 217, 0.75);
+        text-decoration: none;
+        transition: color 0.12s ease;
+    }
+
+    .isearch-result-wiki:hover {
+        color: rgba(74, 144, 217, 1);
     }
 
     .isearch-result-year {

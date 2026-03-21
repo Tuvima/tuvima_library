@@ -15,31 +15,45 @@
         <span class="registry-title">Registry</span>
     </div>
 
-    @* ── Stats Bar (3 clickable cards) ── *@
-    <div class="registry-stats-bar">
-        <button class="registry-stat-card registry-stat-card--registered"
-                @onclick='() => Nav.NavigateTo("/registry/activity?state=registered")'>
-            <span class="registry-stat-value" style="color: #5DCAA5;">@(_fourStateCounts?.Registered ?? 0)</span>
-            <span class="registry-stat-label">Registered</span>
-            @if ((_fourStateCounts?.Provisional ?? 0) > 0)
-            {
-                <span class="registry-stat-footnote">@(_fourStateCounts?.Provisional ?? 0) provisional</span>
-            }
-        </button>
-        <button class="registry-stat-card registry-stat-card--review"
-                @onclick='() => Nav.NavigateTo("/registry/activity?state=review")'>
-            <span class="registry-stat-value" style="color: #EF9F27;">@(_fourStateCounts?.InReview ?? 0)</span>
-            <span class="registry-stat-label">In Review</span>
-        </button>
-        <button class="registry-stat-card registry-stat-card--rejected"
-                @onclick='() => Nav.NavigateTo("/registry/activity?state=rejected")'>
-            <span class="registry-stat-value" style="color: #E24B4A;">@(_fourStateCounts?.Rejected ?? 0)</span>
-            <span class="registry-stat-label">Rejected</span>
-        </button>
+    @* ── Search Bar ── *@
+    <div class="registry-search-bar">
+        <MudIcon Icon="@Icons.Material.Outlined.Search" Style="font-size: 16px; color: rgba(255,255,255,0.30);" />
+        <input class="registry-search-input"
+               type="text"
+               placeholder="Search activity, titles, batches..."
+               @oninput="OnSearchInput"
+               @onkeydown="HandleSearchKeyDown" />
+    </div>
+
+    @* ── Inline Stats ── *@
+    <div class="registry-stats-inline">
+        <div class="registry-stats-row">
+            <button class="registry-stat-link registry-stat-link--warning" @onclick='() => Nav.NavigateTo("/registry/activity?state=review")'>
+                <MudIcon Icon="@Icons.Material.Outlined.Warning" Style="font-size: 12px;" />
+                <span>0 unresolved reports</span>@* TODO: wire up unresolved reports count *@
+            </button>
+            <span class="registry-stat-sep">•</span>
+            <button class="registry-stat-link registry-stat-link--amber" @onclick='() => Nav.NavigateTo("/registry/activity?state=review")'>
+                @(_fourStateCounts?.InReview ?? 0) in review
+            </button>
+            <span class="registry-stat-sep">•</span>
+            <button class="registry-stat-link registry-stat-link--red" @onclick='() => Nav.NavigateTo("/registry/activity?state=rejected")'>
+                @(_fourStateCounts?.Rejected ?? 0) rejected
+            </button>
+        </div>
+        <div class="registry-stats-row registry-stats-row--muted">
+            <span>@(_fourStateCounts?.All ?? 0) items</span>
+            <span class="registry-stat-sep">•</span>
+            <button class="registry-stat-link" @onclick='() => Nav.NavigateTo("/registry/activity?state=registered")'>
+                @(_fourStateCounts?.Registered ?? 0) registered
+            </button>
+            <span class="registry-stat-sep">•</span>
+            <span>@InPipelineCount in pipeline</span>
+        </div>
     </div>
 
     @* ── Timeline (always shown, full-width) ── *@
-    <RegistryTimeline OnOpenInListView="HandleTimelineNavigate" />
+    <RegistryTimeline OnOpenInListView="HandleTimelineNavigate" SearchTerm="@_debouncedSearchTerm" />
 
 </div>
 
@@ -79,59 +93,110 @@
         letter-spacing: 0.01em;
     }
 
-    /* ── Stats Bar ── */
-    .registry-stats-bar {
+    /* ── Search Bar ── */
+    .registry-search-bar {
         display: flex;
+        align-items: center;
         gap: 10px;
-        padding: 0 20px 12px 20px;
-        flex-shrink: 0;
+        margin: 0 20px 12px 20px;
+        padding: 10px 14px;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.03);
+        transition: border-color 0.15s ease, background 0.15s ease;
     }
 
-    .registry-stat-card {
+    .registry-search-bar:focus-within {
+        border-color: rgba(255, 255, 255, 0.15);
+        background: rgba(255, 255, 255, 0.05);
+    }
+
+    .registry-search-input {
         flex: 1;
+        background: transparent;
+        border: none;
+        outline: none;
+        color: rgba(255, 255, 255, 0.85);
+        font-family: 'Montserrat', sans-serif;
+        font-size: 13px;
+        font-weight: 400;
+    }
+
+    .registry-search-input::placeholder {
+        color: rgba(255, 255, 255, 0.25);
+    }
+
+    /* ── Inline Stats ── */
+    .registry-stats-inline {
         display: flex;
         flex-direction: column;
+        gap: 4px;
+        padding: 0 20px 16px 20px;
+    }
+
+    .registry-stats-row {
+        display: flex;
         align-items: center;
-        padding: 14px 12px 10px 12px;
-        border-radius: 10px;
-        border: 1px solid rgba(255, 255, 255, 0.06);
-        background: rgba(255, 255, 255, 0.02);
-        cursor: pointer;
-        transition: border-color 0.15s ease, background 0.15s ease;
+        gap: 6px;
+        flex-wrap: wrap;
         font-family: 'Montserrat', sans-serif;
-    }
-
-    .registry-stat-card:hover { background: rgba(255, 255, 255, 0.04); }
-
-    .registry-stat-card--registered:hover { border-color: #5DCAA5; }
-    .registry-stat-card--review:hover { border-color: #EF9F27; }
-    .registry-stat-card--rejected:hover { border-color: #E24B4A; }
-
-    .registry-stat-value {
-        font-size: 24px;
-        font-weight: 600;
-        font-variant-numeric: tabular-nums;
-    }
-
-    .registry-stat-label {
-        font-size: 11px;
-        font-weight: 500;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        color: rgba(255, 255, 255, 0.40);
-        margin-top: 2px;
-    }
-
-    .registry-stat-footnote {
-        font-size: 10px;
+        font-size: 12px;
         font-weight: 400;
-        color: rgba(255, 255, 255, 0.25);
-        margin-top: 4px;
+    }
+
+    .registry-stats-row--muted {
+        color: rgba(255, 255, 255, 0.30);
+    }
+
+    .registry-stat-link {
+        background: none;
+        border: none;
+        padding: 0;
+        margin: 0;
+        font-family: inherit;
+        font-size: inherit;
+        font-weight: inherit;
+        cursor: pointer;
+        transition: opacity 0.15s ease;
+        color: inherit;
+    }
+
+    .registry-stat-link:hover {
+        opacity: 0.80;
+        text-decoration: underline;
+        text-underline-offset: 2px;
+    }
+
+    .registry-stat-link--warning {
+        color: #EF9F27;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .registry-stat-link--amber {
+        color: #EF9F27;
+    }
+
+    .registry-stat-link--red {
+        color: #E24B4A;
+    }
+
+    .registry-stat-sep {
+        color: rgba(255, 255, 255, 0.12);
+        user-select: none;
     }
 </style>
 
 @code {
     private RegistryFourStateCountsDto? _fourStateCounts;
+
+    private string _searchTerm = "";
+    private string _debouncedSearchTerm = "";
+    private Timer? _debounceTimer;
+
+    private int InPipelineCount =>
+        (_fourStateCounts?.All ?? 0) - (_fourStateCounts?.Registered ?? 0) - (_fourStateCounts?.Rejected ?? 0);
 
     protected override async Task OnInitializedAsync()
     {
@@ -144,6 +209,30 @@
     private async Task LoadCountsAsync()
     {
         _fourStateCounts = await Orchestrator.GetRegistryFourStateCountsAsync();
+    }
+
+    private void OnSearchInput(ChangeEventArgs e)
+    {
+        _searchTerm = e.Value?.ToString() ?? "";
+        _debounceTimer?.Dispose();
+        _debounceTimer = new Timer(_ =>
+        {
+            InvokeAsync(() =>
+            {
+                _debouncedSearchTerm = _searchTerm;
+                StateHasChanged();
+            });
+        }, null, 300, Timeout.Infinite);
+    }
+
+    private void HandleSearchKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            _debounceTimer?.Dispose();
+            _debouncedSearchTerm = _searchTerm;
+            StateHasChanged();
+        }
     }
 
     private void HandleTimelineNavigate(Guid? batchId)
@@ -163,6 +252,7 @@
 
     public void Dispose()
     {
+        _debounceTimer?.Dispose();
         Orchestrator.OnActivityChanged -= HandleIntercomEvent;
         Orchestrator.OnReviewCountChanged -= HandleIntercomEvent;
     }

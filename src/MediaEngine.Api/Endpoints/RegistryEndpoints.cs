@@ -1169,13 +1169,11 @@ public static class RegistryEndpoints
             cmd.CommandText = """
                 UPDATE works
                 SET curator_state = 'provisional',
-                    provisional_metadata_json = @json,
-                    title = @title
+                    provisional_metadata_json = @json
                 WHERE id = @workId
                 """;
             cmd.Parameters.AddWithValue("@workId", entityId.ToString());
             cmd.Parameters.AddWithValue("@json",   metadataJson);
-            cmd.Parameters.AddWithValue("@title",  body.Title);
             var affected = cmd.ExecuteNonQuery();
 
             if (affected == 0)
