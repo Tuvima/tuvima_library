@@ -112,6 +112,14 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     // Lock order: folder → hash (see ConcurrencyGuard doc for full hierarchy).
     private readonly ConcurrencyGuard _concurrencyGuard = new();
 
+    // Sliding-window batch tracker for FSW-sourced file events.
+    // Groups rapid-fire FSW detections into a single ingestion batch so the
+    // Registry page can display them alongside ScanExistingFiles batches.
+    private Guid? _activeFswBatchId;
+    private int _activeFswBatchCount;
+    private DateTimeOffset _lastFswEventTime = DateTimeOffset.MinValue;
+    private readonly object _fswBatchLock = new();
+    private static readonly TimeSpan FswBatchWindow = TimeSpan.FromSeconds(30);
 
     public IngestionEngine(
         IFileWatcher              watcher,
@@ -175,7 +183,11 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     {
         // Always wire the event handler so hot-swap from PUT /settings/folders
         // works even if no directory was configured at startup.
-        _watcher.FileDetected += (_, evt) => _debounce.Enqueue(evt);
+        _watcher.FileDetected += (_, evt) =>
+        {
+            AssignFswBatch(evt);
+            _debounce.Enqueue(evt);
+        };
 
         // ── Step 1: Log server start (no paths — just the fact) ──────────
         _logger.LogInformation("IngestionEngine started");
@@ -501,6 +513,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                             "Could not delete duplicate file {Path}", candidate.Path);
                     }
 
+                    // Count duplicate toward batch as already-registered.
+                    await UpdateBatchCounterAsync(batchId, "registered", ct).ConfigureAwait(false);
                     return;
                 }
 
@@ -508,6 +522,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 // enriched since first scan).
                 await TryReorganizeExistingAsync(existing, candidate.Path, ct)
                     .ConfigureAwait(false);
+                // Count re-detection toward batch as already-registered.
+                await UpdateBatchCounterAsync(batchId, "registered", ct).ConfigureAwait(false);
                 return;
             }
         }
@@ -1625,12 +1641,14 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                     if (NonMediaExtensions.Contains(Path.GetExtension(filePath)))
                         continue;
 
-                    _debounce.Enqueue(new FileEvent
+                    var pollEvt = new FileEvent
                     {
                         Path      = filePath,
                         EventType = FileEventType.Created,
                         OccurredAt = DateTimeOffset.UtcNow,
-                    });
+                    };
+                    AssignFswBatch(pollEvt);
+                    _debounce.Enqueue(pollEvt);
                     enqueued++;
                 }
 
@@ -2420,6 +2438,66 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         catch (Exception ex)
         {
             _logger.LogDebug(ex, "Batch counter update failed for {BatchId}", batchId);
+        }
+    }
+
+    /// <summary>
+    /// Assigns an FSW-sourced or polling-sourced file event to a sliding-window batch.
+    /// If no batch is active or the window has expired (5 s since last event),
+    /// a new batch record is created.  Events that already carry a BatchId
+    /// (e.g. from <see cref="ScanExistingFiles"/>) are left untouched.
+    /// </summary>
+    private void AssignFswBatch(FileEvent evt)
+    {
+        // Only assign batches to events that don't already have one.
+        if (evt.BatchId is not null) return;
+
+        lock (_fswBatchLock)
+        {
+            var now = DateTimeOffset.UtcNow;
+            if (_activeFswBatchId is null || (now - _lastFswEventTime) > FswBatchWindow)
+            {
+                // Start a new batch.
+                _activeFswBatchId = Guid.NewGuid();
+                _activeFswBatchCount = 0;
+
+                try
+                {
+                    _batchRepo.CreateAsync(new Domain.Entities.IngestionBatch
+                    {
+                        Id         = _activeFswBatchId.Value,
+                        Status     = "running",
+                        SourcePath = Path.GetDirectoryName(evt.Path),
+                        FilesTotal = 0, // Will be incremented below.
+                    }).GetAwaiter().GetResult();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to create FSW batch record");
+                }
+            }
+
+            evt.BatchId = _activeFswBatchId;
+            _activeFswBatchCount++;
+            _lastFswEventTime = now;
+
+            // Update the batch total count.
+            try
+            {
+                _batchRepo.UpdateCountsAsync(
+                    _activeFswBatchId.Value,
+                    filesTotal: _activeFswBatchCount,
+                    filesProcessed: 0,
+                    filesRegistered: 0,
+                    filesReview: 0,
+                    filesNoMatch: 0,
+                    filesFailed: 0
+                ).GetAwaiter().GetResult();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Batch count update failed for {BatchId}", _activeFswBatchId);
+            }
         }
     }
 

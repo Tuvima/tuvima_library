@@ -29,5 +29,5 @@ public sealed class FileEvent
     /// Optional batch identifier linking this event to an ingestion batch.
     /// Populated when files are enqueued by <see cref="IngestionEngine.ScanExistingFiles"/>.
     /// </summary>
-    public Guid? BatchId { get; init; }
+    public Guid? BatchId { get; set; }
 }

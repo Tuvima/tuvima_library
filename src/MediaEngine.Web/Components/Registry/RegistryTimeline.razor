@@ -16,7 +16,7 @@
                     style="@(isActive ? $"background: {filter.Value.Color}20; border-color: {filter.Value.Color}55; color: {filter.Value.Color};" : "")"
                     @onclick="() => SetFilter(filter.Key)">
                 <MudIcon Icon="@filter.Value.Icon" Style="font-size: 12px;" />
-                <span>@filter.Value.Label</span>
+                <span>@filter.Value.Label (@filter.Value.Count)</span>
             </button>
         }
     </div>
@@ -43,44 +43,115 @@
             {
                 <div class="rtl-day-header">@dayGroup.Label</div>
 
-                @foreach (var evt in dayGroup.Events)
+                @foreach (var item in dayGroup.Items)
                 {
-                    var category = CategorizeEvent(evt);
-                    var catInfo = GetCategoryInfo(category);
+                    @if (item.IsBatchSummary)
+                    {
+                        @* ── Batch summary card ── *@
+                        var batchEvts = item.BatchEvents!;
+                        var mediaAdded = batchEvts.Where(e => e.ActionType == "MediaAdded").ToList();
+                        var reviewCreated = batchEvts.Count(e => e.ActionType == "ReviewItemCreated");
+                        var hydrated = batchEvts.Count(e => e.ActionType is "HydrationCompleted" or "MetadataHydrated");
+                        var firstEvt = batchEvts.First();
 
-                    <div class="rtl-event">
-                        @* ── Dot + connector line ── *@
-                        <div class="rtl-event-rail">
-                            <div class="rtl-dot" style="background: @catInfo.Color; border-color: @(catInfo.Color)40;">
-                                <MudIcon Icon="@catInfo.Icon" Style="font-size: 10px; color: #fff;" />
+                        <div class="rtl-event">
+                            <div class="rtl-event-rail">
+                                <div class="rtl-dot" style="background: #4A90D920; border-color: #4A90D955;">
+                                    <MudIcon Icon="@Icons.Material.Outlined.Inventory2" Style="font-size: 10px; color: #4A90D9;" />
+                                </div>
+                                <div class="rtl-connector"></div>
                             </div>
-                            <div class="rtl-connector"></div>
-                        </div>
-
-                        @* ── Event content ── *@
-                        <div class="rtl-event-content">
-                            <div class="rtl-event-header">
-                                <span class="rtl-event-title" style="color: @catInfo.Color;">@catInfo.Verb</span>
-                                <span class="rtl-event-time">@evt.RelativeTime</span>
+                            <div class="rtl-event-content">
+                                <div class="rtl-event-header">
+                                    <span class="rtl-event-title" style="color: #4A90D9;">Ingestion batch</span>
+                                    <span class="rtl-event-time">@firstEvt.RelativeTime</span>
+                                </div>
+                                <div class="rtl-batch-summary">
+                                    <div class="rtl-batch-counts">
+                                        <span class="rtl-batch-stat" style="color: #5DCAA5;">@mediaAdded.Count registered</span>
+                                        @if (reviewCreated > 0)
+                                        {
+                                            <span class="rtl-batch-stat" style="color: #EF9F27;">@reviewCreated need review</span>
+                                        }
+                                        @if (hydrated > 0)
+                                        {
+                                            <span class="rtl-batch-stat" style="color: #534AB7;">@hydrated enriched</span>
+                                        }
+                                    </div>
+                                    @* Show up to 4 cover thumbnails *@
+                                    <div class="rtl-batch-covers">
+                                        @foreach (var added in mediaAdded.Take(6))
+                                        {
+                                            var rd = added.RichData;
+                                            var coverSrc = rd?.CoverUrl ?? rd?.Cover;
+                                            @if (!string.IsNullOrEmpty(coverSrc))
+                                            {
+                                                <img src="@coverSrc" alt="" class="rtl-batch-thumb" loading="lazy"
+                                                     onerror="this.style.display='none'" />
+                                            }
+                                            else
+                                            {
+                                                <div class="rtl-batch-thumb rtl-batch-thumb--placeholder">
+                                                    <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Style="font-size: 12px; color: rgba(255,255,255,0.15);" />
+                                                </div>
+                                            }
+                                        }
+                                        @if (mediaAdded.Count > 6)
+                                        {
+                                            <span class="rtl-batch-more">+@(mediaAdded.Count - 6)</span>
+                                        }
+                                    </div>
+                                    @if (reviewCreated > 0)
+                                    {
+                                        <button class="rtl-link-btn" @onclick="() => OnOpenInListView.InvokeAsync(null)">
+                                            Open in list view
+                                        </button>
+                                    }
+                                </div>
                             </div>
-
-                            @switch (category)
-                            {
-                                case EventCategory.Ingestion:
-                                    @RenderIngestionEvent(evt)
-                                    break;
-                                case EventCategory.Enrichment:
-                                    @RenderEnrichmentEvent(evt)
-                                    break;
-                                case EventCategory.Report:
-                                    @RenderReportEvent(evt)
-                                    break;
-                                case EventCategory.Curator:
-                                    @RenderCuratorEvent(evt)
-                                    break;
-                            }
                         </div>
-                    </div>
+                    }
+                    else
+                    {
+                        @* ── Single event ── *@
+                        var evt = item.Event!;
+                        var category = CategorizeEvent(evt);
+                        var catInfo = GetEventInfo(evt);
+
+                        <div class="rtl-event">
+                            <div class="rtl-event-rail">
+                                <div class="rtl-dot" style="background: @(catInfo.Color)20; border-color: @(catInfo.Color)55;">
+                                    <MudIcon Icon="@catInfo.Icon" Style="@($"font-size: 10px; color: {catInfo.Color};")" />
+                                </div>
+                                <div class="rtl-connector"></div>
+                            </div>
+                            <div class="rtl-event-content">
+                                <div class="rtl-event-header">
+                                    <span class="rtl-event-title" style="color: @catInfo.Color;">@catInfo.Verb</span>
+                                    <span class="rtl-event-time">@evt.RelativeTime</span>
+                                </div>
+
+                                @switch (category)
+                                {
+                                    case EventCategory.Ingestion:
+                                        @RenderIngestionEvent(evt)
+                                        break;
+                                    case EventCategory.Enrichment:
+                                        @RenderEnrichmentEvent(evt)
+                                        break;
+                                    case EventCategory.Report:
+                                        @RenderReportEvent(evt)
+                                        break;
+                                    case EventCategory.System:
+                                        @RenderSystemEvent(evt)
+                                        break;
+                                    case EventCategory.Curator:
+                                        @RenderCuratorEvent(evt)
+                                        break;
+                                }
+                            </div>
+                        </div>
+                    }
                 }
             }
         </div>
@@ -95,13 +166,13 @@
     private List<ActivityEntryViewModel> _allEntries = [];
     private List<DayGroup> _dayGroups = [];
 
-    private readonly Dictionary<string, FilterOption> _filterOptions = new()
+    private Dictionary<string, FilterOption> _filterOptions = new()
     {
-        ["all"]         = new("All events",       Icons.Material.Outlined.Timeline,   "rgba(255,255,255,0.55)"),
-        ["ingestion"]   = new("Ingestion",        Icons.Material.Outlined.Upload,     "#4A90D9"),
-        ["enrichment"]  = new("Universe",         Icons.Material.Outlined.Public,     "#534AB7"),
-        ["reports"]     = new("Reports",          Icons.Material.Outlined.Warning,    "#EF5350"),
-        ["curator"]     = new("Curator actions",  Icons.Material.Outlined.Verified,   "#5DCAA5"),
+        ["all"]         = new("All events",       Icons.Material.Outlined.Timeline,   "rgba(255,255,255,0.55)", 0),
+        ["ingestion"]   = new("Ingestion",        Icons.Material.Outlined.Upload,     "#4A90D9", 0),
+        ["enrichment"]  = new("Universe",         Icons.Material.Outlined.Public,     "#534AB7", 0),
+        ["reports"]     = new("Reports",          Icons.Material.Outlined.Warning,    "#EF5350", 0),
+        ["curator"]     = new("Curator actions",  Icons.Material.Outlined.Verified,   "#5DCAA5", 0),
     };
 
     protected override async Task OnInitializedAsync()
@@ -111,10 +182,11 @@
 
         try
         {
-            _allEntries = await Orchestrator.GetRecentActivityAsync(200);
+            _allEntries = await Orchestrator.GetRecentActivityAsync(500);
         }
         catch { _allEntries = []; }
 
+        UpdateFilterCounts();
         RebuildDayGroups();
         _loading = false;
     }
@@ -126,6 +198,19 @@
         StateHasChanged();
     }
 
+    private void UpdateFilterCounts()
+    {
+        foreach (var key in _filterOptions.Keys.ToList())
+        {
+            var cat = ParseFilterCategory(key);
+            var count = key == "all"
+                ? _allEntries.Count
+                : _allEntries.Count(e => CategorizeEvent(e) == cat);
+            var existing = _filterOptions[key];
+            _filterOptions[key] = existing with { Count = count };
+        }
+    }
+
     private void RebuildDayGroups()
     {
         var filtered = _activeFilter == "all"
@@ -135,18 +220,72 @@
         var now = DateTimeOffset.Now;
         _dayGroups = filtered
             .Where(e => DateTimeOffset.TryParse(e.OccurredAt, out _))
-            .GroupBy(e =>
-            {
-                var dt = DateTimeOffset.Parse(e.OccurredAt).LocalDateTime.Date;
-                return dt;
-            })
+            .GroupBy(e => DateTimeOffset.Parse(e.OccurredAt).LocalDateTime.Date)
             .OrderByDescending(g => g.Key)
-            .Select(g => new DayGroup
-            {
-                Label = FormatDayLabel(g.Key, now.LocalDateTime.Date),
-                Events = g.OrderByDescending(e => e.OccurredAt).ToList()
-            })
+            .Select(g => BuildDayGroup(g.Key, g.OrderByDescending(e => e.OccurredAt).ToList(), now.LocalDateTime.Date))
             .ToList();
+    }
+
+    private DayGroup BuildDayGroup(DateTime date, List<ActivityEntryViewModel> events, DateTime today)
+    {
+        var items = new List<TimelineItem>();
+
+        // Group consecutive events by IngestionRunId for batch consolidation
+        var batchGroups = new Dictionary<string, List<ActivityEntryViewModel>>();
+        var standaloneEvents = new List<ActivityEntryViewModel>();
+
+        foreach (var evt in events)
+        {
+            if (!string.IsNullOrEmpty(evt.IngestionRunId))
+            {
+                if (!batchGroups.ContainsKey(evt.IngestionRunId))
+                    batchGroups[evt.IngestionRunId] = [];
+                batchGroups[evt.IngestionRunId].Add(evt);
+            }
+            else
+            {
+                standaloneEvents.Add(evt);
+            }
+        }
+
+        // Build timeline items: batch summaries for groups with 3+ events, individual otherwise
+        var batchSummaryTimes = new Dictionary<string, DateTimeOffset>();
+        foreach (var (batchId, batchEvents) in batchGroups)
+        {
+            if (batchEvents.Count >= 3)
+            {
+                // Consolidate into a summary card
+                items.Add(new TimelineItem
+                {
+                    IsBatchSummary = true,
+                    BatchEvents = batchEvents,
+                    SortTime = batchEvents.First().OccurredAt
+                });
+                batchSummaryTimes[batchId] = DateTimeOffset.TryParse(batchEvents.First().OccurredAt, out var ts)
+                    ? ts : DateTimeOffset.UtcNow;
+            }
+            else
+            {
+                // Too few to summarize — show individually
+                foreach (var evt in batchEvents)
+                    standaloneEvents.Add(evt);
+            }
+        }
+
+        // Add standalone events
+        foreach (var evt in standaloneEvents)
+        {
+            items.Add(new TimelineItem { Event = evt, SortTime = evt.OccurredAt });
+        }
+
+        // Sort by time descending
+        items.Sort((a, b) => string.Compare(b.SortTime, a.SortTime, StringComparison.Ordinal));
+
+        return new DayGroup
+        {
+            Label = FormatDayLabel(date, today),
+            Items = items
+        };
     }
 
     private static string FormatDayLabel(DateTime date, DateTime today)
@@ -159,7 +298,7 @@
 
     // ── Event categorization ──
 
-    private enum EventCategory { Ingestion, Enrichment, Report, Curator }
+    private enum EventCategory { Ingestion, Enrichment, Report, Curator, System }
 
     private static EventCategory CategorizeEvent(ActivityEntryViewModel evt) => evt.ActionType switch
     {
@@ -169,22 +308,32 @@
             or "EntityChainCreated" or "CoverArtSaved" or "HeroBannerGenerated"
             or "MovedToStaging" or "FileRejected" or "FileExpired"
             or "HydrationEnqueued" or "HydrationStage1Completed" or "HydrationStage2Completed"
-            or "MetadataHydrated"
+            or "MetadataHydrated" or "HydrationCompleted"
             => EventCategory.Ingestion,
 
         "CharacterEnriched" or "LocationEnriched" or "OrganizationEnriched"
             or "RelationshipDiscovered" or "PersonHydrated" or "NarrativeRootResolved"
             or "LoreDeltaChecked" or "CanonDiscrepancyDetected"
+            or "PersonEnriched" or "FictionalEntityEnriched"
             => EventCategory.Enrichment,
 
         "UserReportSubmitted" or "UserReportResolved" or "UserReportDismissed"
             => EventCategory.Report,
 
         "ReviewItemResolved" or "MetadataManualOverride" or "ReviewItemCreated"
-            or "ReconciliationCompleted" or "ActivityPruned"
+            or "ReconciliationCompleted"
             => EventCategory.Curator,
 
-        _ => EventCategory.Curator
+        "ServerStarted" or "ActivityPruned" or "SyncCompleted"
+            or "CrawlStarted" or "CrawlFinished" or "MetadataRefreshed"
+            => EventCategory.System,
+
+        // Default: categorize by heuristic rather than dumping into Curator
+        _ => evt.ActionType.Contains("Review") || evt.ActionType.Contains("Manual")
+             ? EventCategory.Curator
+             : evt.ActionType.Contains("Enrich") || evt.ActionType.Contains("Person") || evt.ActionType.Contains("Universe")
+               ? EventCategory.Enrichment
+               : EventCategory.System
     };
 
     private static EventCategory ParseFilterCategory(string filter) => filter switch
@@ -193,42 +342,80 @@
         "enrichment" => EventCategory.Enrichment,
         "reports"    => EventCategory.Report,
         "curator"    => EventCategory.Curator,
-        _            => EventCategory.Curator
+        _            => EventCategory.Ingestion // "all" never reaches here
     };
+
+    // ── Per-event info (verb + icon + color) — context-aware labels ──
 
     private record CategoryInfo(string Verb, string Icon, string Color);
 
-    private CategoryInfo GetCategoryInfo(EventCategory cat) => cat switch
+    private static CategoryInfo GetEventInfo(ActivityEntryViewModel evt) => evt.ActionType switch
     {
-        EventCategory.Ingestion  => new("Ingestion", Icons.Material.Outlined.Upload, "#4A90D9"),
-        EventCategory.Enrichment => new("Universe enrichment", Icons.Material.Outlined.Public, "#534AB7"),
-        EventCategory.Report     => new("Problem reported", Icons.Material.Outlined.Warning, "#EF5350"),
-        EventCategory.Curator    => new("Curator action", Icons.Material.Outlined.Verified, "#5DCAA5"),
-        _                        => new("Activity", Icons.Material.Outlined.Info, "rgba(255,255,255,0.5)")
+        "MediaAdded"               => new("File registered",             Icons.Material.Outlined.AddCircleOutline,  "#5DCAA5"),
+        "MediaFailed"              => new("File failed",                 Icons.Material.Outlined.ErrorOutline,      "#EF5350"),
+        "MediaRemoved"             => new("File removed",                Icons.Material.Outlined.RemoveCircle,      "#B4B2A9"),
+        "BatchCreated"             => new("Batch started",               Icons.Material.Outlined.Inventory2,        "#4A90D9"),
+        "BatchCompleted"           => new("Batch completed",             Icons.Material.Outlined.CheckCircle,       "#5DCAA5"),
+        "HydrationCompleted"       => new("Enrichment complete",         Icons.Material.Outlined.AutoAwesome,       "#534AB7"),
+        "MetadataHydrated"         => new("Metadata enriched",           Icons.Material.Outlined.AutoAwesome,       "#534AB7"),
+        "HydrationEnqueued"        => new("Queued for enrichment",       Icons.Material.Outlined.Queue,             "#4A90D9"),
+        "CoverArtSaved"            => new("Cover art saved",             Icons.Material.Outlined.Image,             "#4A90D9"),
+        "HeroBannerGenerated"      => new("Hero banner generated",       Icons.Material.Outlined.Panorama,          "#4A90D9"),
+        "MovedToStaging"           => new("Moved to staging",            Icons.Material.Outlined.MoveToInbox,       "#EF9F27"),
+        "ReviewItemCreated"        => new("Flagged for review",          Icons.Material.Outlined.RateReview,        "#EF9F27"),
+        "ReviewItemResolved"       => new("Review resolved",             Icons.Material.Outlined.CheckCircle,       "#5DCAA5"),
+        "PersonHydrated"           => new("Person enriched",             Icons.Material.Outlined.Person,            "#534AB7"),
+        "PersonEnriched"           => new("Person enriched",             Icons.Material.Outlined.Person,            "#534AB7"),
+        "NarrativeRootResolved"    => new("Universe identified",         Icons.Material.Outlined.AccountTree,       "#534AB7"),
+        "UserReportSubmitted"      => new("Problem reported",            Icons.Material.Outlined.Flag,              "#EF5350"),
+        "UserReportResolved"       => new("Report resolved",             Icons.Material.Outlined.CheckCircle,       "#5DCAA5"),
+        "UserReportDismissed"      => new("Report dismissed",            Icons.Material.Outlined.Close,             "#B4B2A9"),
+        "ServerStarted"            => new("Server started",              Icons.Material.Outlined.PowerSettingsNew,   "rgba(255,255,255,0.35)"),
+        "ActivityPruned"           => new("Activity pruned",             Icons.Material.Outlined.CleaningServices,  "rgba(255,255,255,0.35)"),
+        "ReconciliationCompleted"  => new("Library reconciled",          Icons.Material.Outlined.Sync,              "#5DCAA5"),
+        _                          => new(HumanizeActionType(evt.ActionType), Icons.Material.Outlined.Info,          "rgba(255,255,255,0.40)")
     };
+
+    private static string HumanizeActionType(string actionType)
+    {
+        // Convert "SomeActionType" → "Some action type"
+        var sb = new System.Text.StringBuilder();
+        foreach (var c in actionType)
+        {
+            if (char.IsUpper(c) && sb.Length > 0) sb.Append(' ');
+            sb.Append(sb.Length == 0 ? char.ToUpper(c) : char.ToLower(c));
+        }
+        return sb.ToString();
+    }
 
     // ── Render fragments ──
 
     private RenderFragment RenderIngestionEvent(ActivityEntryViewModel evt) => __builder =>
     {
         var rich = evt.RichData;
-        if (rich is not null)
+        if (rich is not null && !string.IsNullOrWhiteSpace(rich.Title))
         {
             <div class="rtl-card">
                 <div class="rtl-card-row">
                     @if (!string.IsNullOrEmpty(rich.CoverUrl ?? rich.Cover))
                     {
-                        <img src="@(rich.CoverUrl ?? rich.Cover)" alt="" class="rtl-card-thumb" loading="lazy" />
+                        <img src="@(rich.CoverUrl ?? rich.Cover)" alt="" class="rtl-card-thumb" loading="lazy"
+                             onerror="this.style.display='none';this.nextElementSibling&&this.nextElementSibling.classList.contains('rtl-card-placeholder')&&(this.nextElementSibling.style.display='flex')" />
+                        <div class="rtl-card-placeholder" style="display: none;">
+                            <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Style="font-size: 14px; color: rgba(255,255,255,0.12);" />
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="rtl-card-placeholder">
+                            <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Style="font-size: 14px; color: rgba(255,255,255,0.12);" />
+                        </div>
                     }
                     <div class="rtl-card-meta">
-                        <span class="rtl-card-title">@(rich.Title ?? evt.HubName ?? "Unknown")</span>
+                        <span class="rtl-card-title">@rich.Title</span>
                         @if (!string.IsNullOrWhiteSpace(rich.Author))
                         {
                             <span class="rtl-card-sub">@rich.Author</span>
-                        }
-                        @if (!string.IsNullOrWhiteSpace(rich.MatchMethodLabel))
-                        {
-                            <span class="rtl-card-hint">@rich.MatchMethodLabel</span>
                         }
                     </div>
                 </div>
@@ -237,19 +424,13 @@
                     <div class="rtl-card-alert">
                         <MudIcon Icon="@Icons.Material.Outlined.Warning" Style="font-size: 11px; color: #EF9F27;" />
                         <span>Needs review</span>
-                        @if (evt.IngestionRunId is not null && Guid.TryParse(evt.IngestionRunId, out var runId))
-                        {
-                            <button class="rtl-link-btn" @onclick="() => OnOpenInListView.InvokeAsync(runId)">
-                                Open in list view
-                            </button>
-                        }
                     </div>
                 }
             </div>
         }
         else
         {
-            <span class="rtl-event-detail">@(evt.Detail ?? evt.ActionType)</span>
+            <span class="rtl-event-detail">@(evt.Detail ?? HumanizeActionType(evt.ActionType))</span>
         }
     };
 
@@ -260,10 +441,6 @@
             @if (!string.IsNullOrWhiteSpace(evt.Detail))
             {
                 <span class="rtl-card-sub">@evt.Detail</span>
-            }
-            @if (!string.IsNullOrWhiteSpace(evt.EntityType))
-            {
-                <span class="rtl-card-hint">@evt.EntityType</span>
             }
         </div>
     };
@@ -276,7 +453,7 @@
             {
                 <span class="rtl-card-detail-quote">@evt.Detail</span>
             }
-            @if (evt.EntityId is not null && Guid.TryParse(evt.EntityId, out var eid))
+            @if (evt.EntityId is not null && Guid.TryParse(evt.EntityId, out _))
             {
                 <button class="rtl-link-btn" @onclick="() => OnOpenInListView.InvokeAsync(null)">
                     Fix match
@@ -294,7 +471,7 @@
                 <span class="rtl-card-title">@(review.Title ?? evt.HubName ?? "Review resolved")</span>
                 @if (!string.IsNullOrWhiteSpace(review.Action))
                 {
-                    <span class="rtl-card-sub">Action: @review.Action</span>
+                    <span class="rtl-card-sub">@review.Action</span>
                 }
                 @if (!string.IsNullOrWhiteSpace(review.Qid))
                 {
@@ -304,18 +481,37 @@
         }
         else
         {
-            <span class="rtl-event-detail">@(evt.Detail ?? evt.ActionType)</span>
+            <div class="rtl-card rtl-card--curator">
+                <span class="rtl-card-title">@(evt.HubName ?? HumanizeActionType(evt.ActionType))</span>
+                @if (!string.IsNullOrWhiteSpace(evt.Detail))
+                {
+                    <span class="rtl-card-sub">@evt.Detail</span>
+                }
+            </div>
         }
+    };
+
+    private RenderFragment RenderSystemEvent(ActivityEntryViewModel evt) => __builder =>
+    {
+        <span class="rtl-event-detail">@(evt.Detail ?? HumanizeActionType(evt.ActionType))</span>
     };
 
     // ── Data models ──
 
-    private record FilterOption(string Label, string Icon, string Color);
+    private record FilterOption(string Label, string Icon, string Color, int Count);
+
+    private sealed class TimelineItem
+    {
+        public bool IsBatchSummary { get; set; }
+        public ActivityEntryViewModel? Event { get; set; }
+        public List<ActivityEntryViewModel>? BatchEvents { get; set; }
+        public string SortTime { get; set; } = "";
+    }
 
     private sealed class DayGroup
     {
         public string Label { get; set; } = "";
-        public List<ActivityEntryViewModel> Events { get; set; } = [];
+        public List<TimelineItem> Items { get; set; } = [];
     }
 }
 
@@ -326,7 +522,7 @@
         padding: 16px 20px;
         font-family: 'Montserrat', sans-serif;
         max-width: 800px;
-        margin: 0 auto;
+        /* Left-aligned — no centering to avoid visual shift when filtering */
     }
 
     /* ── Filter chips ── */
@@ -366,16 +562,16 @@
     /* ── Loading / empty ── */
     .rtl-loading {
         display: flex;
-        justify-content: center;
-        padding: 48px;
+        justify-content: flex-start;
+        padding: 48px 0;
     }
 
     .rtl-empty {
         display: flex;
         flex-direction: column;
-        align-items: center;
+        align-items: flex-start;
         gap: 10px;
-        padding: 64px 24px;
+        padding: 64px 0;
     }
 
     .rtl-empty-text {
@@ -506,6 +702,18 @@
         flex-shrink: 0;
     }
 
+    .rtl-card-placeholder {
+        width: 32px;
+        height: 46px;
+        border-radius: 3px;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
     .rtl-card-meta {
         flex: 1;
         min-width: 0;
@@ -558,6 +766,57 @@
         margin-top: 4px;
     }
 
+    /* ── Batch summary ── */
+    .rtl-batch-summary {
+        background: rgba(10, 10, 18, 0.85);
+        border: 0.5px solid rgba(255, 255, 255, 0.06);
+        border-radius: 12px;
+        padding: 12px 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .rtl-batch-counts {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+
+    .rtl-batch-stat {
+        font-size: 12px;
+        font-weight: 500;
+    }
+
+    .rtl-batch-covers {
+        display: flex;
+        gap: 4px;
+        align-items: center;
+    }
+
+    .rtl-batch-thumb {
+        width: 28px;
+        height: 40px;
+        border-radius: 3px;
+        object-fit: cover;
+        flex-shrink: 0;
+    }
+
+    .rtl-batch-thumb--placeholder {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .rtl-batch-more {
+        font-size: 11px;
+        font-weight: 400;
+        color: rgba(255, 255, 255, 0.30);
+        margin-left: 4px;
+    }
+
     /* ── Link button ── */
     .rtl-link-btn {
         background: none;
@@ -571,7 +830,7 @@
         cursor: pointer;
         white-space: nowrap;
         transition: background 0.15s ease, border-color 0.15s ease;
-        margin-left: auto;
+        align-self: flex-start;
     }
 
     .rtl-link-btn:hover {

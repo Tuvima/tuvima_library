@@ -33,7 +33,12 @@ else
                 <div class="inspector-cover-wrap">
                     @if (!string.IsNullOrEmpty(Item.CoverUrl))
                     {
-                        <img src="@Item.CoverUrl" alt="Cover" class="inspector-cover" />
+                        <img src="@Item.CoverUrl" alt="Cover" class="inspector-cover"
+                             onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='flex')" />
+                        <div class="inspector-cover inspector-cover--placeholder" style="display: none;">
+                            <MudIcon Icon="@Icons.Material.Outlined.Image"
+                                     Style="font-size: 18px; color: rgba(255,255,255,0.18);" />
+                        </div>
                     }
                     else
                     {

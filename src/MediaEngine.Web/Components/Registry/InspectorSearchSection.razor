@@ -67,7 +67,8 @@
                     <div class="isearch-card-cover">
                         @if (!string.IsNullOrEmpty(c.CoverUrl))
                         {
-                            <img src="@c.CoverUrl" alt="" class="isearch-card-img" loading="lazy" />
+                            <img src="@c.CoverUrl" alt="" class="isearch-card-img" loading="lazy"
+                                 onerror="this.style.display='none'" />
                         }
                         else if (_loadingCovers.Contains(c))
                         {

@@ -167,12 +167,24 @@
 <style>
     @@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@@400;500;600&display=swap');
 
+    /* Override MudContainer max-width for full-bleed registry */
     .registry-layout {
         display: flex;
         flex-direction: column;
-        min-height: 100%;
+        min-height: calc(100vh - 64px);
         background: #000000;
         position: relative;
+        /* Break out of MudContainer padding */
+        margin: -24px -16px -24px -16px;
+        padding: 0;
+    }
+
+    @@media (min-width: 960px) {
+        .registry-layout {
+            /* Compensate for MudContainer padding + clear dock */
+            margin: -24px -32px -24px -32px;
+            padding-left: 52px;
+        }
     }
 
     /* ── Header ── */
