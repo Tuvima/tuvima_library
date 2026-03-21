@@ -184,7 +184,10 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                         candidates, MediaType.Books, ct).ConfigureAwait(false);
                 }
 
-                candidates = filtered.Count > 0 ? filtered : candidates;
+                // Strict filtering: only return candidates that positively match the
+                // expected instance_of classes. If nothing matches, return empty — the
+                // user gets 0 results, which is correct (no book match found).
+                candidates = filtered;
             }
 
             // For audiobook searches: discover audiobook editions via P747 for work-level results.
