@@ -87,6 +87,7 @@
                 "registered"   => ("Registered", (string?)null, "rgba(76,175,80,0.15)", "#66BB6A"),
                 "rejected"     => ("Rejected", (string?)null, "rgba(229,115,115,0.15)", "#E57373"),
                 "recovered"    => ("Recovered", (string?)null, "rgba(76,175,80,0.15)", "#66BB6A"),
+                "person_enriched" => ("Author enriched", SummarizePersonEnrichment(ordered), "rgba(140,120,180,0.15)", "#B39DDB"),
                 "manual_edit"  => ("Manually edited", (string?)null, "rgba(140,120,180,0.15)", "#B39DDB"),
                 _              => (entry.Label, (string?)null, "rgba(140,120,180,0.12)", "rgba(200,190,220,0.35)"),
             };
@@ -114,7 +115,7 @@
         "FileRejected"                                     => "rejected",
         "Recovered"                                        => "recovered",
         "MetadataManualOverride" or "MetadataWrittenToFile" => "manual_edit",
-        "PersonHydrated"                                   => null,  // skip — not user-facing
+        "PersonHydrated"                                   => "person_enriched",
         "DuplicateSkipped"                                 => null,  // skip
         _                                                  => null,
     };
@@ -154,6 +155,19 @@
             if (d.Length >= 3) return d;
         }
         return null;
+    }
+
+    private static string? SummarizePersonEnrichment(List<RegistryItemHistoryDto> ordered)
+    {
+        var personEvents = ordered.Where(e => e.EventType == "PersonHydrated").ToList();
+        if (personEvents.Count == 0) return null;
+        if (personEvents.Count == 1 && personEvents[0].Detail is not null)
+        {
+            var d = personEvents[0].Detail!.Trim();
+            if (d.Length > 60) d = d[..57] + "…";
+            return d.Length >= 3 ? d : null;
+        }
+        return $"{personEvents.Count} people enriched";
     }
 
     private static string FormatTimestamp(DateTimeOffset time)

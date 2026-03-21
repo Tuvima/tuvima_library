@@ -205,6 +205,44 @@
                             </div>
                         </div>
                     }
+                    else if (item.Type == TimelineItemType.PersonEnrichment)
+                    {
+                        @* ── Person enrichment batch ── *@
+                        var pg = item.PersonGroup!;
+                        <div class="rtl-event">
+                            <div class="rtl-event-rail">
+                                <div class="rtl-dot" style="background: #B39DDB20; border-color: #B39DDB55;">
+                                    <MudIcon Icon="@Icons.Material.Outlined.Person" Style="font-size: 10px; color: #B39DDB;" />
+                                </div>
+                                <div class="rtl-connector"></div>
+                            </div>
+                            <div class="rtl-event-content">
+                                <div class="rtl-event-header">
+                                    <span class="rtl-event-title" style="color: #B39DDB;">
+                                        @pg.Count @(pg.Count == 1 ? "person" : "people") enriched
+                                    </span>
+                                    <span class="rtl-event-time">
+                                        @RegistryHelpers.FormatBatchTimestamp(pg.EarliestAt)
+                                    </span>
+                                </div>
+                                @if (pg.Names.Count > 0)
+                                {
+                                    <div class="rtl-person-names">
+                                        @foreach (var name in pg.Names)
+                                        {
+                                            <span class="rtl-person-chip">@name</span>
+                                        }
+                                        @if (pg.Count > pg.Names.Count)
+                                        {
+                                            <span class="rtl-person-chip rtl-person-chip--more">
+                                                +@(pg.Count - pg.Names.Count) more
+                                            </span>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
                 }
             }
         </div>
@@ -221,13 +259,15 @@
     private List<IngestionBatchViewModel> _allBatches = [];
     private List<ActivityEntryViewModel> _allCuratorActions = [];
     private List<ActivityEntryViewModel> _allReports = [];
+    private List<ActivityEntryViewModel> _allPersonEnrichments = [];
 
     private readonly Dictionary<string, FilterOption> _filterOptions = new()
     {
-        ["all"]       = new("All events",      Icons.Material.Outlined.Timeline,  "rgba(255,255,255,0.55)"),
-        ["ingestion"] = new("Ingestion",       Icons.Material.Outlined.Upload,    "#4A90D9"),
-        ["reports"]   = new("Reports",         Icons.Material.Outlined.Warning,   "#EF5350"),
-        ["curator"]   = new("Curator actions", Icons.Material.Outlined.Verified,  "#5DCAA5"),
+        ["all"]         = new("All events",      Icons.Material.Outlined.Timeline,  "rgba(255,255,255,0.55)"),
+        ["ingestion"]   = new("Ingestion",       Icons.Material.Outlined.Upload,    "#4A90D9"),
+        ["enrichment"]  = new("Enrichment",      Icons.Material.Outlined.Person,    "#B39DDB"),
+        ["reports"]     = new("Reports",         Icons.Material.Outlined.Warning,   "#EF5350"),
+        ["curator"]     = new("Curator actions", Icons.Material.Outlined.Verified,  "#5DCAA5"),
     };
 
     protected override void OnParametersSet()
@@ -268,12 +308,16 @@
 
             var reportTypes = new[] { "UserReportSubmitted" };
             _allReports = await Orchestrator.GetActivityByTypesAsync(reportTypes, 200);
+
+            var personTypes = new[] { "PersonHydrated" };
+            _allPersonEnrichments = await Orchestrator.GetActivityByTypesAsync(personTypes, 200);
         }
         catch
         {
             _allBatches = [];
             _allCuratorActions = [];
             _allReports = [];
+            _allPersonEnrichments = [];
         }
 
         RebuildTimeline();
@@ -397,6 +441,48 @@
             }
         }
 
+        // ── Add person enrichment batches (grouped by hour) ──
+        if (_activeFilter is "all" or "enrichment")
+        {
+            // Group person enrichment events by hour so they appear as a single card
+            var personGroups = _allPersonEnrichments
+                .Where(a => DateTimeOffset.TryParse(a.OccurredAt, out _))
+                .GroupBy(a =>
+                {
+                    var ts = DateTimeOffset.Parse(a.OccurredAt).ToLocalTime();
+                    return new DateTime(ts.Year, ts.Month, ts.Day, ts.Hour, 0, 0);
+                })
+                .OrderByDescending(g => g.Key);
+
+            foreach (var group in personGroups)
+            {
+                var events = group.ToList();
+                var names = events
+                    .Select(e => e.HubName ?? e.Detail)
+                    .Where(n => !string.IsNullOrWhiteSpace(n))
+                    .Select(n => n!.Length > 40 ? n[..37] + "…" : n)
+                    .Distinct()
+                    .Take(5)
+                    .ToList();
+
+                var earliest = events
+                    .Select(e => DateTimeOffset.Parse(e.OccurredAt))
+                    .Min();
+
+                items.Add(new TimelineEntry
+                {
+                    SortTime = earliest,
+                    Type = TimelineItemType.PersonEnrichment,
+                    PersonGroup = new PersonEnrichmentGroup
+                    {
+                        Count = events.Count,
+                        Names = names,
+                        EarliestAt = earliest,
+                    },
+                });
+            }
+        }
+
         // ── Add curator actions (only shown in detail for last 7 days) ──
         if (_activeFilter is "all" or "curator")
         {
@@ -427,7 +513,7 @@
             {
                 Label = g.First().GroupLabel ?? FormatGroupLabel(g.Key, today),
                 Items = g.OrderByDescending(e => e.SortTime)
-                         .Select(e => new TimelineItem { Type = e.Type, Batch = e.Batch, Event = e.Event, Aggregation = e.Aggregation })
+                         .Select(e => new TimelineItem { Type = e.Type, Batch = e.Batch, Event = e.Event, Aggregation = e.Aggregation, PersonGroup = e.PersonGroup })
                          .ToList(),
             })
             .ToList();
@@ -469,7 +555,7 @@
 
     private record FilterOption(string Label, string Icon, string Color);
 
-    private enum TimelineItemType { Batch, AggregatedBatches, Report, CuratorAction }
+    private enum TimelineItemType { Batch, AggregatedBatches, Report, CuratorAction, PersonEnrichment }
 
     private sealed class TimelineEntry
     {
@@ -478,6 +564,7 @@
         public IngestionBatchViewModel? Batch { get; set; }
         public ActivityEntryViewModel? Event { get; set; }
         public BatchAggregation? Aggregation { get; set; }
+        public PersonEnrichmentGroup? PersonGroup { get; set; }
         public string? GroupLabel { get; set; }
     }
 
@@ -487,6 +574,7 @@
         public IngestionBatchViewModel? Batch { get; set; }
         public ActivityEntryViewModel? Event { get; set; }
         public BatchAggregation? Aggregation { get; set; }
+        public PersonEnrichmentGroup? PersonGroup { get; set; }
     }
 
     private sealed class TimelineGroup
@@ -503,6 +591,13 @@
         public int TotalReview { get; set; }
         public int TotalNoMatch { get; set; }
         public int TotalFailed { get; set; }
+    }
+
+    private sealed class PersonEnrichmentGroup
+    {
+        public int Count { get; set; }
+        public List<string> Names { get; set; } = [];
+        public DateTimeOffset EarliestAt { get; set; }
     }
 }
 
@@ -759,6 +854,32 @@
 
     .rtl-event--clickable:hover .rtl-link-label {
         color: rgba(74, 144, 217, 0.90);
+    }
+
+    /* ── Person enrichment ── */
+    .rtl-person-names {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        margin-top: 4px;
+    }
+
+    .rtl-person-chip {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 4px;
+        background: rgba(179, 157, 219, 0.08);
+        border: 1px solid rgba(179, 157, 219, 0.15);
+        font-size: 11px;
+        font-weight: 400;
+        color: rgba(179, 157, 219, 0.65);
+    }
+
+    .rtl-person-chip--more {
+        font-style: italic;
+        color: rgba(179, 157, 219, 0.40);
+        background: transparent;
+        border-color: rgba(179, 157, 219, 0.08);
     }
 
     /* ── Link label (non-button text, part of clickable row) ── */
