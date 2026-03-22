@@ -749,13 +749,16 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 $"Wikidata authority match failed for this {request.MediaType}",
                 result, ct, deferredReviewNotifications).ConfigureAwait(false);
 
-            if (!hydration.ContinuePipelineOnAuthorityFailure)
-            {
-                _logger.LogInformation(
-                    "Pipeline halted after Stage 1 failure for entity {Id} — ContinuePipelineOnAuthorityFailure is false",
-                    request.EntityId);
-                goto PostPipeline;
-            }
+            // Always skip Stage 2 when Stage 1 (authority) failed.
+            // Retail providers must not run title-based searches for
+            // unconfirmed identities — this would pull covers and metadata
+            // for potentially wrong matches.  Stage 2 will run later when
+            // the user resolves the review item (PreResolvedQid path).
+            _logger.LogInformation(
+                "Pipeline skipping Stage 2 after Stage 1 failure for entity {Id} — "
+                + "retail providers will run after identity is confirmed",
+                request.EntityId);
+            goto PostPipeline;
         }
         else
         {
