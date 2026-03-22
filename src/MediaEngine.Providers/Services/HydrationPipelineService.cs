@@ -71,6 +71,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     private readonly IWikibaseApiService _wikibaseApi;
     private readonly IFictionalEntityRepository _fictionalEntityRepo;
     private readonly IIngestionBatchRepository _batchRepo;
+    private readonly IMetadataHarvestingService _harvesting;
     private readonly ILogger<HydrationPipelineService> _logger;
 
     // ── Constructor ───────────────────────────────────────────────────────────
@@ -100,6 +101,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         IWikibaseApiService wikibaseApi,
         IFictionalEntityRepository fictionalEntityRepo,
         IIngestionBatchRepository batchRepo,
+        IMetadataHarvestingService harvesting,
         ILogger<HydrationPipelineService> logger)
     {
         ArgumentNullException.ThrowIfNull(providers);
@@ -125,6 +127,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         ArgumentNullException.ThrowIfNull(deferredRepo);
         ArgumentNullException.ThrowIfNull(wikibaseApi);
         ArgumentNullException.ThrowIfNull(batchRepo);
+        ArgumentNullException.ThrowIfNull(harvesting);
         ArgumentNullException.ThrowIfNull(fictionalEntityRepo);
         ArgumentNullException.ThrowIfNull(logger);
 
@@ -149,6 +152,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         _arrayRepo      = arrayRepo;
         _heroGenerator  = heroGenerator;
         _batchRepo           = batchRepo;
+        _harvesting          = harvesting;
         _deferredRepo        = deferredRepo;
         _wikibaseApi         = wikibaseApi;
         _fictionalEntityRepo = fictionalEntityRepo;
@@ -604,8 +608,27 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             {
                 try
                 {
-                    await _identity.EnrichAsync(request.EntityId, personRefs, ct)
+                    var personRequests = await _identity.EnrichAsync(request.EntityId, personRefs, ct)
                         .ConfigureAwait(false);
+
+                    // Process person enrichment synchronously so author data
+                    // (headshot, biography) is available immediately — not deferred
+                    // to the background queue.  Activity entries share the same
+                    // IngestionRunId so they appear as one batch in the registry.
+                    foreach (var personReq in personRequests)
+                    {
+                        try
+                        {
+                            await _harvesting.ProcessSynchronousAsync(personReq, ct)
+                                .ConfigureAwait(false);
+                        }
+                        catch (Exception ex) when (ex is not OperationCanceledException)
+                        {
+                            _logger.LogWarning(ex,
+                                "Synchronous person enrichment failed for person {Id}; continuing",
+                                personReq.EntityId);
+                        }
+                    }
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
@@ -2339,14 +2362,30 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 try
                 {
                     // 1. Find or create Person record for the actor.
-                    //    Use RecursiveIdentityService to create and enqueue enrichment.
+                    //    Use RecursiveIdentityService to create person and enrich synchronously.
                     var actorLabel = statement.ValueLabel ?? actorQid;
                     var personRefs = new List<PersonReference>
                     {
                         new("Cast Member", actorLabel, actorQid)
                     };
-                    await _identity.EnrichAsync(mediaAssetId, personRefs, ct)
+                    var actorRequests = await _identity.EnrichAsync(mediaAssetId, personRefs, ct)
                         .ConfigureAwait(false);
+
+                    // Process actor enrichment synchronously.
+                    foreach (var actorReq in actorRequests)
+                    {
+                        try
+                        {
+                            await _harvesting.ProcessSynchronousAsync(actorReq, ct)
+                                .ConfigureAwait(false);
+                        }
+                        catch (Exception ex) when (ex is not OperationCanceledException)
+                        {
+                            _logger.LogWarning(ex,
+                                "Synchronous actor enrichment failed for person {Id}; continuing",
+                                actorReq.EntityId);
+                        }
+                    }
 
                     // 2. Find the Person record we just created/found.
                     var person = await _personRepo.FindByQidAsync(actorQid, ct)

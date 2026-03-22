@@ -27,6 +27,15 @@ public interface IMetadataHarvestingService
     ValueTask EnqueueAsync(HarvestRequest request, CancellationToken ct = default);
 
     /// <summary>
+    /// Processes a single harvest request synchronously, bypassing the background
+    /// channel. Used when person enrichment must complete before the caller returns
+    /// (e.g. during review queue resolution).
+    /// </summary>
+    /// <param name="request">The harvest request to process immediately.</param>
+    /// <param name="ct">Cancellation token.</param>
+    Task ProcessSynchronousAsync(HarvestRequest request, CancellationToken ct = default);
+
+    /// <summary>
     /// The approximate number of harvest requests currently waiting to be processed.
     /// Useful for monitoring and diagnostics only; not guaranteed to be exact.
     /// </summary>

@@ -15,10 +15,10 @@ namespace MediaEngine.Providers.Services;
 /// For each author or narrator reference extracted from the file's metadata:
 ///  1. Looks up or creates a <see cref="Person"/> record.
 ///  2. Links the person to the ingested media asset.
-///  3. If the person has not yet been Wikidata-enriched, enqueues a
+///  3. If the person has not yet been Wikidata-enriched, returns a
 ///     <see cref="HarvestRequest"/> with <see cref="EntityType.Person"/>
-///     so the <see cref="MetadataHarvestingService"/> can dispatch it to
-///     <c>WikidataAdapter</c>.
+///     so the caller can decide whether to process it synchronously or
+///     enqueue it for background processing.
 ///  4. Creates the <c>.people/{QID}/</c> folder under the library root
 ///     immediately after the Person record is created, so downstream
 ///     services (headshot download, character images) have a guaranteed
@@ -27,14 +27,14 @@ namespace MediaEngine.Providers.Services;
 ///     and will be renamed by the enrichment service once the QID is resolved.
 ///
 /// This service is intentionally lightweight: all heavy I/O runs later,
-/// asynchronously, via the harvest queue.
+/// either synchronously (during review resolution) or asynchronously
+/// (via the harvest queue during normal ingestion).
 ///
 /// Spec: Phase 9 – Recursive Person Enrichment.
 /// </summary>
 public sealed class RecursiveIdentityService : IRecursiveIdentityService
 {
     private readonly IPersonRepository _personRepo;
-    private readonly IMetadataHarvestingService _harvesting;
     private readonly IConfigurationLoader _configLoader;
     private readonly ILogger<RecursiveIdentityService> _logger;
 
@@ -46,16 +46,13 @@ public sealed class RecursiveIdentityService : IRecursiveIdentityService
 
     public RecursiveIdentityService(
         IPersonRepository personRepo,
-        IMetadataHarvestingService harvesting,
         IConfigurationLoader configLoader,
         ILogger<RecursiveIdentityService> logger)
     {
         ArgumentNullException.ThrowIfNull(personRepo);
-        ArgumentNullException.ThrowIfNull(harvesting);
         ArgumentNullException.ThrowIfNull(configLoader);
         ArgumentNullException.ThrowIfNull(logger);
         _personRepo   = personRepo;
-        _harvesting   = harvesting;
         _configLoader = configLoader;
         _logger       = logger;
     }
@@ -68,10 +65,10 @@ public sealed class RecursiveIdentityService : IRecursiveIdentityService
         IReadOnlyList<PersonReference> persons,
         CancellationToken ct = default)
     {
-        var requests = new List<HarvestRequest>();
-
         if (persons.Count == 0)
-            return requests;
+            return Array.Empty<HarvestRequest>();
+
+        var pendingRequests = new List<HarvestRequest>();
 
         foreach (var reference in persons)
         {
@@ -82,7 +79,9 @@ public sealed class RecursiveIdentityService : IRecursiveIdentityService
 
             try
             {
-                await ProcessPersonAsync(mediaAssetId, reference, ct).ConfigureAwait(false);
+                var request = await ProcessPersonAsync(mediaAssetId, reference, ct).ConfigureAwait(false);
+                if (request is not null)
+                    pendingRequests.Add(request);
             }
             catch (OperationCanceledException)
             {
@@ -97,10 +96,10 @@ public sealed class RecursiveIdentityService : IRecursiveIdentityService
             }
         }
 
-        return requests;
+        return pendingRequests;
     }
 
-    private async Task ProcessPersonAsync(
+    private async Task<HarvestRequest?> ProcessPersonAsync(
         Guid mediaAssetId,
         PersonReference reference,
         CancellationToken ct)
@@ -167,26 +166,16 @@ public sealed class RecursiveIdentityService : IRecursiveIdentityService
             personLock.Release();
         }
 
-        if (person is null) return;
+        if (person is null) return null;
 
         // 2. Link person to the media asset (INSERT OR IGNORE — idempotent).
         await _personRepo.LinkToMediaAssetAsync(mediaAssetId, person.Id, reference.Role, ct)
             .ConfigureAwait(false);
 
         // 2a. Ensure the .people/ folder exists for this person.
-        //
-        // The folder name uses the Wikidata QID when available (e.g. ".people/Q378882/"),
-        // because QIDs are the stable, collision-free identity. When the QID is not yet
-        // known (enrichment is still pending), a temporary folder keyed by the database
-        // GUID is created (e.g. ".people/tmp-{Id}/"). The enrichment service is
-        // responsible for renaming the temporary folder to the QID once it is resolved.
-        //
-        // Failures here are non-fatal: the person record and harvest request are still
-        // committed regardless. A missing folder simply means headshots will be skipped
-        // until the folder is created on the next run.
         EnsurePersonFolder(person);
 
-        // 3. If not yet enriched, enqueue a Wikidata harvest request.
+        // 3. If not yet enriched, return a harvest request for the caller to handle.
         //    Collective pseudonyms (e.g. "James S. A. Corey" = Q6142591) are enriched
         //    normally — their QID is already resolved by Stage 1, so the harvest
         //    service will fetch the correct entity directly.
@@ -204,18 +193,22 @@ public sealed class RecursiveIdentityService : IRecursiveIdentityService
             if (!string.IsNullOrEmpty(reference.WikidataQid))
                 hints["wikidata_qid"] = reference.WikidataQid;
 
-            await _harvesting.EnqueueAsync(new HarvestRequest
+            var harvestRequest = new HarvestRequest
             {
                 EntityId   = person.Id,
                 EntityType = EntityType.Person,
                 MediaType  = MediaType.Unknown,
                 Hints      = hints,
-            }, ct).ConfigureAwait(false);
+            };
 
             _logger.LogDebug(
-                "Enqueued Wikidata enrichment for person '{Name}' ({Id})",
+                "Person '{Name}' ({Id}) needs enrichment — returning harvest request",
                 person.Name, person.Id);
+
+            return harvestRequest;
         }
+
+        return null;
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────

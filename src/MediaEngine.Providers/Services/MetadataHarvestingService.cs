@@ -149,6 +149,13 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
     /// <inheritdoc/>
     public int PendingCount => _channel.Reader.CanCount ? _channel.Reader.Count : -1;
 
+    /// <inheritdoc/>
+    public Task ProcessSynchronousAsync(HarvestRequest request, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        return ProcessOneAsync(request, ct);
+    }
+
     // ── Background loop ───────────────────────────────────────────────────────
 
     private async Task ProcessLoopAsync()

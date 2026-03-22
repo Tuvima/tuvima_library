@@ -8,7 +8,9 @@ namespace MediaEngine.Domain.Contracts;
 /// After a media asset is ingested, the ingestion engine passes the extracted
 /// author and narrator references to this service. It ensures each person has
 /// a <see cref="Entities.Person"/> record, links them to the media asset, and
-/// enqueues a Wikidata harvest request for any person not yet enriched.
+/// returns any pending <see cref="HarvestRequest"/> items for persons not yet
+/// enriched. The caller decides whether to enqueue them for background
+/// processing or process them synchronously.
 ///
 /// Implementations live in <c>MediaEngine.Providers</c>.
 /// Spec: Phase 9 – Recursive Person Enrichment.
@@ -22,7 +24,11 @@ public interface IRecursiveIdentityService
     /// 1. Looks up or creates a <see cref="Entities.Person"/> record.
     /// 2. Creates a <c>person_media_links</c> row linking the person to the asset.
     /// 3. If the person has not yet been enriched (<c>EnrichedAt</c> is <c>null</c>),
-    ///    enqueues a <see cref="HarvestRequest"/> with <c>EntityType.Person</c>.
+    ///    creates a <see cref="HarvestRequest"/> with <c>EntityType.Person</c>.
+    ///
+    /// Returns the list of pending person harvest requests. The caller is
+    /// responsible for either enqueuing them (background) or processing them
+    /// synchronously (e.g. during review resolution).
     /// </summary>
     /// <param name="mediaAssetId">The media asset the persons are associated with.</param>
     /// <param name="persons">
@@ -30,7 +36,11 @@ public interface IRecursiveIdentityService
     /// May be empty; no-op if so.
     /// </param>
     /// <param name="ct">Cancellation token.</param>
-    Task EnrichAsync(
+    /// <returns>
+    /// Harvest requests for persons that need enrichment. Empty if all
+    /// persons are already enriched or if the input list is empty.
+    /// </returns>
+    Task<IReadOnlyList<HarvestRequest>> EnrichAsync(
         Guid mediaAssetId,
         IReadOnlyList<PersonReference> persons,
         CancellationToken ct = default);
