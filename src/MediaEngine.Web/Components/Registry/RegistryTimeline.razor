@@ -105,7 +105,7 @@
                         @* ── Batch card ── *@
                         var batch = item.Batch!;
                         var reviewCount = batch.FilesReview + batch.FilesNoMatch + batch.FilesFailed;
-                        <div class="rtl-event rtl-event--clickable" @onclick="() => OnOpenInListView.InvokeAsync(batch.Id)">
+                        <div class="rtl-event">
                             <div class="rtl-event-rail">
                                 <div class="rtl-dot" style="background: #4A90D920; border-color: #4A90D955;">
                                     <MudIcon Icon="@Icons.Material.Outlined.Inventory2" Style="font-size: 10px; color: #4A90D9;" />
@@ -115,7 +115,7 @@
                             <div class="rtl-event-content">
                                 <div class="rtl-event-header">
                                     <span class="rtl-event-title" style="color: #4A90D9;">
-                                        Batch ingested — @batch.Category
+                                        Media Ingested — @batch.Category
                                     </span>
                                     <span class="rtl-event-time">
                                         @RegistryHelpers.FormatBatchTimestamp(batch.StartedAt)
@@ -126,19 +126,21 @@
                                     </span>
                                 </div>
                                 <div class="rtl-batch-card">
-                                    <div class="rtl-batch-summary">
-                                        <span class="rtl-batch-summary-total">@($"{batch.FilesTotal:N0}") items created</span>
-                                        <div class="rtl-batch-summary-breakdown">
-                                            <span style="color: #5DCAA5;">@batch.FilesRegistered auto-registered</span>
-                                            @if (reviewCount > 0)
-                                            {
-                                                <span class="registry-stat-sep">·</span>
-                                                <span style="color: #EF9F27;">@reviewCount sent to review</span>
-                                            }
+                                    <div class="rtl-batch-card-body">
+                                        <div class="rtl-batch-summary">
+                                            <span class="rtl-batch-summary-total">@($"{batch.FilesTotal:N0}") items created</span>
+                                            <div class="rtl-batch-summary-breakdown">
+                                                <span style="color: #5DCAA5;">@batch.FilesRegistered auto-registered</span>
+                                                @if (reviewCount > 0)
+                                                {
+                                                    <span class="registry-stat-sep">·</span>
+                                                    <span style="color: #EF9F27;">@reviewCount sent to review</span>
+                                                }
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div class="rtl-batch-footer">
-                                        <span class="rtl-link-label">View batch →</span>
+                                        <button class="rtl-view-btn" @onclick="() => OnOpenInListView.InvokeAsync(batch.Id)">
+                                            View batch
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -654,22 +656,17 @@
             });
         }
 
-        // ── Add curator actions (only shown in detail for last 7 days) ──
+        // ── Add curator actions ──
         foreach (var action in _allCuratorActions)
         {
             if (DateTimeOffset.TryParse(action.OccurredAt, out var ts))
             {
-                var actionDate = ts.ToLocalTime().Date;
-                if (actionDate >= sevenDaysAgo)
+                items.Add(new TimelineEntry
                 {
-                    items.Add(new TimelineEntry
-                    {
-                        SortTime = ts,
-                        Type = TimelineItemType.CuratorAction,
-                        Event = action,
-                    });
-                }
-                // Older curator actions are not shown (low-value historical noise)
+                    SortTime = ts,
+                    Type = TimelineItemType.CuratorAction,
+                    Event = action,
+                });
             }
         }
 
@@ -928,6 +925,35 @@
         gap: 10px;
         padding-top: 6px;
         border-top: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    /* ── Batch card body (flex row: summary left, button right) ── */
+    .rtl-batch-card-body {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+    }
+
+    /* ── View batch button ── */
+    .rtl-view-btn {
+        background: rgba(74, 144, 217, 0.08);
+        border: 1px solid rgba(74, 144, 217, 0.18);
+        color: rgba(74, 144, 217, 0.85);
+        font-family: 'Montserrat', sans-serif;
+        font-size: 11px;
+        font-weight: 500;
+        padding: 5px 14px;
+        border-radius: 6px;
+        cursor: pointer;
+        white-space: nowrap;
+        flex-shrink: 0;
+        transition: background 0.15s ease, border-color 0.15s ease;
+    }
+
+    .rtl-view-btn:hover {
+        background: rgba(74, 144, 217, 0.14);
+        border-color: rgba(74, 144, 217, 0.30);
     }
 
     /* ── Report card ── */

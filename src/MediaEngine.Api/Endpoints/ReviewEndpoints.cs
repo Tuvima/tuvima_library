@@ -181,6 +181,7 @@ public static class ReviewEndpoints
             resolvedLookup.TryGetValue("year",        out var rYear);
             resolvedLookup.TryGetValue("description", out var rDesc);
             resolvedLookup.TryGetValue("media_type",  out var rMediaType);
+            resolvedLookup.TryGetValue("cover",       out var rCover);
 
             await activityRepo.LogAsync(new SystemActivityEntry
             {
@@ -197,6 +198,7 @@ public static class ReviewEndpoints
                     action         = "resolved",
                     qid            = request.SelectedQid,
                     field_overrides = request.FieldOverrides?.Count ?? 0,
+                    cover_url      = rCover,
                 }),
                 Detail      = $"Review resolved — QID: {request.SelectedQid ?? "none"}, "
                             + $"{request.FieldOverrides?.Count ?? 0} field overrides.",
@@ -246,6 +248,7 @@ public static class ReviewEndpoints
             dismissLookup.TryGetValue("year",        out var dYear);
             dismissLookup.TryGetValue("description", out var dDesc);
             dismissLookup.TryGetValue("media_type",  out var dMediaType);
+            dismissLookup.TryGetValue("cover",       out var dCover);
 
             await activityRepo.LogAsync(new SystemActivityEntry
             {
@@ -260,6 +263,7 @@ public static class ReviewEndpoints
                     media_type  = dMediaType,
                     entity_id   = item.EntityId.ToString(),
                     action      = "dismissed",
+                    cover_url   = dCover,
                 }),
                 Detail      = "Review item dismissed by user.",
             }, ct);
@@ -312,6 +316,7 @@ public static class ReviewEndpoints
             skipLookup.TryGetValue("year",        out var sYear);
             skipLookup.TryGetValue("description", out var sDesc);
             skipLookup.TryGetValue("media_type",  out var sMediaType);
+            skipLookup.TryGetValue("cover",       out var sCover);
 
             // 3. Log activity.
             await activityRepo.LogAsync(new SystemActivityEntry
@@ -327,6 +332,7 @@ public static class ReviewEndpoints
                     media_type  = sMediaType,
                     entity_id   = item.EntityId.ToString(),
                     action      = "skipped",
+                    cover_url   = sCover,
                 }),
                 Detail      = "Universe matching skipped by user.",
             }, ct);
