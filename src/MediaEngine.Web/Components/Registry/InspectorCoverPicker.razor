@@ -78,7 +78,6 @@
     private bool _loading;
     private bool _hasMore;
     private string? _lastQuery;
-    private int _providerPage; // which provider batch we're on (0 = first provider)
     private List<RetailCandidateDto> _allRetailResults = [];
 
     protected override async Task OnParametersSetAsync()
@@ -90,7 +89,6 @@
         _covers = [];
         _selectedCover = null;
         _allRetailResults = [];
-        _providerPage = 0;
         _hasMore = false;
 
         if (string.IsNullOrWhiteSpace(CandidateTitle))

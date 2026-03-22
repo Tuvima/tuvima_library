@@ -165,7 +165,7 @@
     else
     {
         <div class="registry-library-wrapper">
-            <ActivityDetailPage EmbeddedMode="true" InitialTab="@_librarySubTab" />
+            <ActivityDetailPage EmbeddedMode="true" InitialTab="@_librarySubTab" OnCountsChanged="HandleCountsChanged" />
         </div>
     }
 
@@ -620,6 +620,12 @@
     private async Task LoadDataAsync()
     {
         _fourStateCounts = await Orchestrator.GetRegistryFourStateCountsAsync();
+    }
+
+    private async Task HandleCountsChanged()
+    {
+        await LoadDataAsync();
+        StateHasChanged();
     }
 
     private void OnSearchInput(ChangeEventArgs e)
