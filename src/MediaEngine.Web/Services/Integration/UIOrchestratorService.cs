@@ -544,6 +544,11 @@ public sealed class UIOrchestratorService : IAsyncDisposable
 
     // ── Persons ──────────────────────────────────────────────────────────
 
+    /// <summary>Returns persons as registry list items (for People filter in Registry Library view).</summary>
+    public Task<IReadOnlyList<PersonListItemDto>?> GetPersonsAsync(
+        string? role = null, int limit = 200, CancellationToken ct = default)
+        => _api.GetPersonsAsync(role, limit, ct);
+
     /// <summary>Returns all persons linked to works in a hub.</summary>
     public Task<List<PersonViewModel>> GetPersonsByHubAsync(
         Guid hubId, CancellationToken ct = default)

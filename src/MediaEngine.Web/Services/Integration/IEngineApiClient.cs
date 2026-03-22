@@ -297,6 +297,9 @@ public interface IEngineApiClient
 
     // ── Persons by Hub (/persons/by-hub) ────────────────────────────────
 
+    /// <summary>GET /persons?role={role}&amp;limit={limit} — list persons as PersonListItemDto (for registry view).</summary>
+    Task<IReadOnlyList<PersonListItemDto>?> GetPersonsAsync(string? role = null, int limit = 200, CancellationToken ct = default);
+
     /// <summary>GET /persons?role={role}&amp;limit={limit} â€” list persons filtered by role.</summary>
     Task<List<PersonViewModel>> GetPersonsByRoleAsync(
         string role, int limit = 50, CancellationToken ct = default);

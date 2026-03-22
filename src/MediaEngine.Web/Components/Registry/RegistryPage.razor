@@ -128,11 +128,12 @@
                 </div>
 
                 @* ── People count ── *@
-                <div class="registry-meta-card">
+                <button class="registry-meta-card registry-meta-card--clickable"
+                        @onclick='() => NavigateToFilter("Person", "all")'>
                     <MudIcon Icon="@Icons.Material.Outlined.People" Style="font-size: 20px; color: rgba(255,255,255,0.45);" />
                     <span class="registry-meta-number">@(_fourStateCounts?.PersonCount ?? 0)</span>
                     <span class="registry-meta-label">people</span>
-                </div>
+                </button>
 
                 @* ── Universes count ── *@
                 <div class="registry-meta-card">
@@ -165,7 +166,7 @@
     else
     {
         <div class="registry-library-wrapper">
-            <ActivityDetailPage EmbeddedMode="true" InitialTab="@_librarySubTab" OnCountsChanged="HandleCountsChanged" />
+            <ActivityDetailPage EmbeddedMode="true" InitialTab="@_librarySubTab" InitialTypeFilter="@_libraryTypeFilter" InitialDateFrom="@_libraryDateFrom" InitialDateTo="@_libraryDateTo" OnCountsChanged="HandleCountsChanged" />
         </div>
     }
 
@@ -491,6 +492,16 @@
         min-width: 110px;
     }
 
+    .registry-meta-card--clickable {
+        cursor: pointer;
+        transition: border-color 0.18s ease, background 0.18s ease;
+    }
+
+    .registry-meta-card--clickable:hover {
+        border-color: rgba(255, 255, 255, 0.15);
+        background: rgba(255, 255, 255, 0.05);
+    }
+
     .registry-meta-number {
         font-size: 18px;
         font-weight: 600;
@@ -557,6 +568,9 @@
 
     private string _activeTab = "activity";
     private string _librarySubTab = "review";
+    private string _libraryTypeFilter = "";
+    private string _libraryDateFrom = "";
+    private string _libraryDateTo = "";
     private string _searchTerm = "";
     private string _debouncedSearchTerm = "";
     private Timer? _debounceTimer;
@@ -601,6 +615,14 @@
         var state = query["state"];
         if (!string.IsNullOrEmpty(state))
             _librarySubTab = state.ToLowerInvariant();
+
+        // Pass ?type= to the embedded library view
+        var typeParam = query["type"];
+        _libraryTypeFilter = typeParam ?? "";
+
+        // Pass ?dateFrom= and ?dateTo= to the embedded library view (reset when absent)
+        _libraryDateFrom = query["dateFrom"] ?? "";
+        _libraryDateTo = query["dateTo"] ?? "";
     }
 
     private void SwitchTab(string tab)
@@ -615,6 +637,11 @@
     private void NavigateIfNonZero(int count, string route)
     {
         if (count > 0) Nav.NavigateTo(route);
+    }
+
+    private void NavigateToFilter(string type, string status)
+    {
+        Nav.NavigateTo($"/registry/library?state={status}&type={type}");
     }
 
     private async Task LoadDataAsync()
@@ -679,10 +706,12 @@
         Nav.NavigateTo(url, replace: true);
     }
 
-    private void HandleTimelineNavigate(Guid? batchId)
+    private void HandleTimelineNavigate(string? yearMonth)
     {
-        // Navigate to the library tab with batch source filter
-        var target = batchId.HasValue ? $"?source=batch-{batchId.Value}" : "";
+        // Navigate to the library tab, optionally pre-filtering by the group's month
+        var target = !string.IsNullOrEmpty(yearMonth)
+            ? $"?dateFrom={Uri.EscapeDataString(yearMonth)}&dateTo={Uri.EscapeDataString(yearMonth)}"
+            : "";
         Nav.NavigateTo($"/registry/library{target}");
     }
 

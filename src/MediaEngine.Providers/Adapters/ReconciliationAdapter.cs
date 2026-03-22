@@ -1716,8 +1716,12 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             // D{lang} returns the entity description in the user's language.
             if (pCode.Length == 3 && pCode[0] == 'L' && char.IsLower(pCode[1]))
             {
+                // Emit the Wikidata label as a title claim at lower confidence than the
+                // Reconciliation API label (0.93). The reconciliation label is typically the
+                // shorter, more natural title (e.g. "Frankenstein") while L{lang} can return
+                // the full formal title (e.g. "Frankenstein; or, The Modern Prometheus").
                 if (isWork && values.Count > 0 && !string.IsNullOrWhiteSpace(values[0].Str))
-                    yield return new ProviderClaim("title", values[0].Str!, 0.95);
+                    yield return new ProviderClaim("title", values[0].Str!, 0.88);
                 continue;
             }
 

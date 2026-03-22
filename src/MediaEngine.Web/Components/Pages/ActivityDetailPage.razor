@@ -57,13 +57,22 @@
         <div class="adp-filter-group">
             <span class="adp-filter-label">STATUS</span>
             <div class="adp-filter-select-wrap">
-                <select class="adp-filter-select" value="@_activeTab" @onchange="HandleStatusChange">
-                    <option value="all">All (@(_counts?.All ?? 0))</option>
-                    <option value="review">In Review (@(_counts?.InReview ?? 0))</option>
-                    <option value="registered">Registered (@(_counts?.Registered ?? 0))</option>
-                    <option value="provisional">Provisional (@(_counts?.Provisional ?? 0))</option>
-                    <option value="rejected">Rejected (@(_counts?.Rejected ?? 0))</option>
-                </select>
+                @if (IsEntityTypeFilter)
+                {
+                    <select class="adp-filter-select" disabled>
+                        <option value="all">All</option>
+                    </select>
+                }
+                else
+                {
+                    <select class="adp-filter-select" value="@_activeTab" @onchange="HandleStatusChange">
+                        <option value="all">All (@(_counts?.All ?? 0))</option>
+                        <option value="review">In Review (@(_counts?.InReview ?? 0))</option>
+                        <option value="registered">Registered (@(_counts?.Registered ?? 0))</option>
+                        <option value="provisional">Provisional (@(_counts?.Provisional ?? 0))</option>
+                        <option value="rejected">Rejected (@(_counts?.Rejected ?? 0))</option>
+                    </select>
+                }
             </div>
         </div>
         <div class="adp-filter-group">
@@ -190,12 +199,13 @@
                 <div class="adp-flat-list">
                     @foreach (var item in _items)
                     {
+                        var isEntity = item.MediaType is "Person" or "Universe";
                         <ActivityItemCard Item="@item"
                                           IsSelected="@(_selectedItem?.EntityId == item.EntityId)"
                                           OnSelect="HandleItemSelect"
-                                          OnUnreject="HandleUnreject"
-                                          OnQuickReject="HandleQuickReject"
-                                          ShowTriggerChip="true" />
+                                          OnUnreject="@(isEntity ? default : HandleUnreject)"
+                                          OnQuickReject="@(isEntity ? default : HandleQuickReject)"
+                                          ShowTriggerChip="@(!IsEntityTypeFilter)" />
                     }
                 </div>
             }
@@ -226,6 +236,9 @@
 
     [Parameter] public bool EmbeddedMode { get; set; }
     [Parameter] public string? InitialTab { get; set; }
+    [Parameter] public string? InitialTypeFilter { get; set; }
+    [Parameter] public string? InitialDateFrom { get; set; }
+    [Parameter] public string? InitialDateTo { get; set; }
     [Parameter] public EventCallback OnCountsChanged { get; set; }
 
     // ── State ─────────────────────────────────────────────────────────────────
@@ -238,6 +251,11 @@
     private string _dateFrom = "";
     private string _dateTo = "";
     private string _sortOrder = "";
+
+    /// <summary>True when the type filter is Person or Universe (non-media entity types).</summary>
+    private bool IsEntityTypeFilter =>
+        string.Equals(_mediaTypeFilter, "Person", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(_mediaTypeFilter, "Universe", StringComparison.OrdinalIgnoreCase);
 
     private List<RegistryItemViewModel> _items = [];
     private Dictionary<string, List<RegistryItemViewModel>> _groupedItems = [];
@@ -267,6 +285,24 @@
         _reasonFilter = query["reason"];
         _sourceFilter = query["source"];
         entityParam = EmbeddedMode ? null : query["entity"];
+
+        var typeParam = query["type"];
+        if (!string.IsNullOrEmpty(typeParam))
+            _mediaTypeFilter = typeParam;
+        else if (EmbeddedMode && !string.IsNullOrEmpty(InitialTypeFilter))
+            _mediaTypeFilter = InitialTypeFilter;
+
+        var dateFromParam = query["dateFrom"];
+        if (!string.IsNullOrEmpty(dateFromParam))
+            _dateFrom = dateFromParam;
+        else if (EmbeddedMode && !string.IsNullOrEmpty(InitialDateFrom))
+            _dateFrom = InitialDateFrom;
+
+        var dateToParam = query["dateTo"];
+        if (!string.IsNullOrEmpty(dateToParam))
+            _dateTo = dateToParam;
+        else if (EmbeddedMode && !string.IsNullOrEmpty(InitialDateTo))
+            _dateTo = InitialDateTo;
 
         // Subscribe to live review count changes
         Orchestrator.OnReviewCountChanged += HandleReviewCountChanged;
@@ -322,6 +358,12 @@
         {
             _previousTab = InitialTab;
             _activeTab = InitialTab;
+            if (!string.IsNullOrEmpty(InitialTypeFilter))
+                _mediaTypeFilter = InitialTypeFilter;
+            if (!string.IsNullOrEmpty(InitialDateFrom))
+                _dateFrom = InitialDateFrom;
+            if (!string.IsNullOrEmpty(InitialDateTo))
+                _dateTo = InitialDateTo;
             await LoadCountsAsync();
             await LoadItemsAsync();
             BuildGroupedItems();
@@ -368,8 +410,21 @@
                 _items = _items.Where(i => i.ReviewTrigger == _reasonFilter).ToList();
 
             // Apply media type filter
-            if (!string.IsNullOrEmpty(_mediaTypeFilter))
+            if (string.Equals(_mediaTypeFilter, "Person", StringComparison.OrdinalIgnoreCase))
+            {
+                // Person filter: replace works with person records from /persons
+                _items = await FetchPersonsAsRegistryItemsAsync();
+            }
+            else if (!string.IsNullOrEmpty(_mediaTypeFilter))
+            {
                 _items = _items.Where(i => string.Equals(i.MediaType, _mediaTypeFilter, StringComparison.OrdinalIgnoreCase)).ToList();
+            }
+            else if (_activeTab == "all")
+            {
+                // "All" type + "All" status: merge persons into the list
+                var persons = await FetchPersonsAsRegistryItemsAsync();
+                _items.AddRange(persons);
+            }
 
             // Apply date range filter
             if (!string.IsNullOrEmpty(_dateFrom) && DateTime.TryParse(_dateFrom + "-01", out var fromDate))
@@ -398,6 +453,33 @@
         finally
         {
             _loading = false;
+        }
+    }
+
+    private async Task<List<RegistryItemViewModel>> FetchPersonsAsRegistryItemsAsync()
+    {
+        try
+        {
+            var persons = await ApiClient.GetPersonsAsync();
+            if (persons is null) return [];
+
+            return persons.Select(p => new RegistryItemViewModel
+            {
+                EntityId    = p.Id,
+                Title       = p.Name,
+                MediaType   = "Person",
+                Status      = "Registered",
+                Confidence  = 1.0,
+                MatchSource = "wikidata",
+                WikidataQid = p.WikidataQid,
+                CoverUrl    = p.HeadshotUrl,  // Already absolute from EngineApiClient
+                Author      = p.Role,
+                CreatedAt   = DateTimeOffset.UtcNow,
+            }).ToList();
+        }
+        catch
+        {
+            return [];
         }
     }
 
@@ -472,6 +554,9 @@
     private async Task HandleMediaTypeChange(ChangeEventArgs e)
     {
         _mediaTypeFilter = e.Value?.ToString() ?? "";
+        // People and Universes don't have status states — force to "all"
+        if (IsEntityTypeFilter)
+            _activeTab = "all";
         await LoadItemsAsync();
     }
 

@@ -439,3 +439,31 @@ public sealed class ProvisionalMetadataRequestDto
     [JsonPropertyName("page_count")]
     public string? PageCount { get; set; }
 }
+
+/// <summary>Person list item from GET /persons endpoint.</summary>
+public sealed class PersonListItemDto
+{
+    [JsonPropertyName("id")]
+    public Guid Id { get; set; }
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = "";
+
+    [JsonPropertyName("role")]
+    public string Role { get; set; } = "";
+
+    [JsonPropertyName("wikidata_qid")]
+    public string? WikidataQid { get; set; }
+
+    [JsonPropertyName("headshot_url")]
+    public string? HeadshotUrl { get; set; }
+
+    [JsonPropertyName("has_local_headshot")]
+    public bool HasLocalHeadshot { get; set; }
+
+    [JsonPropertyName("biography")]
+    public string? Biography { get; set; }
+
+    [JsonPropertyName("occupation")]
+    public string? Occupation { get; set; }
+}

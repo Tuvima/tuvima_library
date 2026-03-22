@@ -1476,6 +1476,35 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    // ── GET /persons (registry list) ────────────────────────────────────
+
+    public async Task<IReadOnlyList<PersonListItemDto>?> GetPersonsAsync(
+        string? role = null, int limit = 200, CancellationToken ct = default)
+    {
+        try
+        {
+            var url = $"/persons?limit={limit}";
+            if (!string.IsNullOrEmpty(role))
+                url += $"&role={Uri.EscapeDataString(role)}";
+            var results = await _http.GetFromJsonAsync<List<PersonListItemDto>>(url, ct);
+            if (results is not null)
+            {
+                foreach (var p in results)
+                {
+                    // Build absolute headshot URL from the Engine base address
+                    if (p.HasLocalHeadshot || !string.IsNullOrEmpty(p.HeadshotUrl))
+                        p.HeadshotUrl = AbsoluteUrl($"/persons/{p.Id}/headshot");
+                }
+            }
+            return results;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /persons failed");
+            return null;
+        }
+    }
+
     // ── GET /persons/by-hub/{hubId} ─────────────────────────────────────
 
     public async Task<List<PersonViewModel>> GetPersonsByRoleAsync(

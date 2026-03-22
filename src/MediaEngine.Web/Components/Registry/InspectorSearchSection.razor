@@ -421,6 +421,9 @@ else
         if (Item.EntityId != _lastItemId)
         {
             _lastItemId = Item.EntityId;
+            // Uses canonical title (typically the Reconciliation API label — short form).
+            // For items processed before the label confidence fix, this may still be the
+            // full formal title from Wikidata Len label.
             _query = Item.Title ?? "";
             _mediaType = Item.MediaType ?? "";
             _candidates = [];
@@ -449,35 +452,29 @@ else
 
         try
         {
-            var mt = string.IsNullOrEmpty(_mediaType) ? null : _mediaType;
-            // Inspector searches Wikidata only — retail providers (Stage 2) run after a match is confirmed.
-            var response = await Orchestrator.SearchMetadataFanOutAsync(_query, mt, providerId: "b3000003-d000-4000-8000-000000000004");
-            if (response?.Results is not null)
+            var mt = string.IsNullOrEmpty(_mediaType) ? "Books" : _mediaType;
+            // Universe search: Wikidata reconciliation + retail cover art enrichment in one call.
+            var results = await Orchestrator.SearchUniverseAsync(_query, mt, maxCandidates: 10);
+            foreach (var c in results)
             {
-                foreach (var provider in response.Results)
+                _candidates.Add(new CandidateViewModel
                 {
-                    foreach (var item in provider.Items)
-                    {
-                        _candidates.Add(new CandidateViewModel
-                        {
-                            Title = item.Title ?? "",
-                            Author = item.Author,
-                            Description = item.Description,
-                            Year = item.Year,
-                            CoverUrl = item.ThumbnailUrl,
-                            Qid = item.RawFields.GetValueOrDefault("wikidata_qid") ?? item.ProviderItemId,
-                            Confidence = item.Confidence,
-                            ProviderName = provider.ProviderName,
-                            ProviderId = provider.ProviderId,
-                            ProviderItemId = item.ProviderItemId,
-                            RawFields = item.RawFields
-                        });
-                    }
-                }
-
-                // Sort by confidence descending
-                _candidates = _candidates.OrderByDescending(c => c.Confidence).ToList();
+                    Title = c.Label,
+                    Author = c.Author,
+                    Description = c.Description ?? c.WikipediaExtract,
+                    Year = c.Year,
+                    CoverUrl = c.CoverUrl,
+                    Qid = c.Qid,
+                    Confidence = c.Confidence,
+                    ProviderName = "Wikidata Reconciliation",
+                    ProviderId = "b3000003-d000-4000-8000-000000000004",
+                    ProviderItemId = c.Qid,
+                    RawFields = c.BridgeIds
+                });
             }
+
+            // Sort by confidence descending
+            _candidates = _candidates.OrderByDescending(c => c.Confidence).ToList();
         }
         catch
         {

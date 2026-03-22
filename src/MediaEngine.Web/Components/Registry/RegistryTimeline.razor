@@ -98,7 +98,7 @@
             {
                 <div class="rtl-day-header">
                     <span>@group.Label</span>
-                    <button class="rtl-view-btn rtl-view-btn--header" @onclick="() => OnOpenInListView.InvokeAsync(null)">
+                    <button class="rtl-view-btn rtl-view-btn--header" @onclick='() => OnOpenInListView.InvokeAsync(group.Date?.ToString("yyyy-MM"))'>
                         View
                     </button>
                 </div>
@@ -390,7 +390,7 @@
 </div>
 
 @code {
-    [Parameter] public EventCallback<Guid?> OnOpenInListView { get; set; }
+    [Parameter] public EventCallback<string?> OnOpenInListView { get; set; }
     [Parameter] public string? SearchTerm { get; set; }
 
     private bool _loading;
@@ -727,6 +727,7 @@
             .Select(g => new TimelineGroup
             {
                 Label = g.First().GroupLabel ?? FormatGroupLabel(g.Key, today),
+                Date = g.OrderByDescending(e => e.SortTime).First().SortTime.ToLocalTime().DateTime,
                 Items = g.OrderByDescending(e => e.SortTime)
                          .Select(e => new TimelineItem { Type = e.Type, Batch = e.Batch, Event = e.Event, Aggregation = e.Aggregation, PersonGroup = e.PersonGroup, GroupLabel = e.GroupLabel })
                          .ToList(),
@@ -818,6 +819,7 @@
     {
         public string Label { get; set; } = "";
         public List<TimelineItem> Items { get; set; } = [];
+        public DateTime? Date { get; set; }
     }
 
     private sealed class BatchAggregation
