@@ -102,60 +102,61 @@
                     var groupSelectedCount = group.Value.Count(i => _selectedIds.Contains(i.EntityId));
                     var hasSelection = groupSelectedCount > 0;
                     <div class="adp-group">
-                        @* ── Soft toolbar header ── *@
-                        <div class="adp-group-toolbar">
-                            <div class="adp-group-toolbar-left" @onclick="() => ToggleGroup(group.Key)">
-                                <MudIcon Icon="@(isCollapsed ? Icons.Material.Filled.ChevronRight : Icons.Material.Filled.ExpandMore)"
-                                         Style="font-size: 16px; color: rgba(200,190,220,0.35); flex-shrink: 0; cursor: pointer;" />
-                                <MudIcon Icon="@trigIcon"
-                                         Style="@($"font-size: 13px; color: {trigColor}; flex-shrink: 0;")" />
-                                <span class="adp-group-name" style="color: @trigColor;">@trigLabel</span>
-                                <span class="adp-group-count">@group.Value.Count</span>
-                            </div>
-
-                            @if (group.Value.Count > 0)
-                            {
-                                <div class="adp-group-toolbar-divider"></div>
-
-                                <div class="adp-group-toolbar-actions" @onclick:stopPropagation="true">
-                                    @if (hasSelection)
-                                    {
-                                        <button class="adp-toolbar-btn adp-toolbar-btn--approve"
-                                                @onclick="() => HandleBatchApprove(group.Value.Where(i => _selectedIds.Contains(i.EntityId)).ToList())"
-                                                title="Approve selected items">
-                                            <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Style="font-size: 12px;" />
-                                            <span>Approve Selected (@groupSelectedCount)</span>
-                                        </button>
-                                        <button class="adp-toolbar-btn adp-toolbar-btn--reject"
-                                                @onclick="() => HandleBatchReject(group.Value.Where(i => _selectedIds.Contains(i.EntityId)).ToList())"
-                                                title="Reject selected items">
-                                            <MudIcon Icon="@Icons.Material.Outlined.Block" Style="font-size: 12px;" />
-                                            <span>Reject Selected</span>
-                                        </button>
-                                        <button class="adp-toolbar-btn adp-toolbar-btn--clear"
-                                                @onclick="() => ClearGroupSelection(group.Value)"
-                                                title="Clear selection">
-                                            <MudIcon Icon="@Icons.Material.Outlined.Close" Style="font-size: 12px;" />
-                                        </button>
-                                    }
-                                    else
-                                    {
-                                        <button class="adp-toolbar-btn adp-toolbar-btn--approve"
-                                                @onclick="() => HandleBatchApprove(group.Value)"
-                                                title="Approve all in this group">
-                                            <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Style="font-size: 12px;" />
-                                            <span>Approve All</span>
-                                        </button>
-                                        <button class="adp-toolbar-btn adp-toolbar-btn--reject"
-                                                @onclick="() => HandleBatchReject(group.Value)"
-                                                title="Reject all in this group">
-                                            <MudIcon Icon="@Icons.Material.Outlined.Block" Style="font-size: 12px;" />
-                                            <span>Reject All</span>
-                                        </button>
-                                    }
-                                </div>
-                            }
+                        @* ── Group label row ── *@
+                        <div class="adp-group-label-row" @onclick="() => ToggleGroup(group.Key)">
+                            <MudIcon Icon="@(isCollapsed ? Icons.Material.Filled.ChevronRight : Icons.Material.Filled.ExpandMore)"
+                                     Style="font-size: 16px; color: rgba(200,190,220,0.35); flex-shrink: 0; cursor: pointer;" />
+                            <MudIcon Icon="@trigIcon"
+                                     Style="@($"font-size: 13px; color: {trigColor}; flex-shrink: 0;")" />
+                            <span class="adp-group-name" style="color: @trigColor;">@trigLabel</span>
+                            <span class="adp-group-count">@group.Value.Count</span>
                         </div>
+
+                        @* ── Separator ── *@
+                        <div class="adp-group-separator"></div>
+
+                        @* ── Action buttons row ── *@
+                        @if (group.Value.Count > 0 && !isCollapsed)
+                        {
+                            <div class="adp-group-action-row" @onclick:stopPropagation="true">
+                                @if (hasSelection)
+                                {
+                                    <button class="adp-toolbar-btn adp-toolbar-btn--approve"
+                                            @onclick="() => HandleBatchApprove(group.Value.Where(i => _selectedIds.Contains(i.EntityId)).ToList())"
+                                            title="Approve selected items">
+                                        <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Style="font-size: 13px;" />
+                                        <span>Approve Selected (@groupSelectedCount)</span>
+                                    </button>
+                                    <button class="adp-toolbar-btn adp-toolbar-btn--reject"
+                                            @onclick="() => HandleBatchReject(group.Value.Where(i => _selectedIds.Contains(i.EntityId)).ToList())"
+                                            title="Reject selected items">
+                                        <MudIcon Icon="@Icons.Material.Outlined.Block" Style="font-size: 13px;" />
+                                        <span>Reject Selected</span>
+                                    </button>
+                                    <button class="adp-toolbar-btn adp-toolbar-btn--clear"
+                                            @onclick="() => ClearGroupSelection(group.Value)"
+                                            title="Clear selection">
+                                        <MudIcon Icon="@Icons.Material.Outlined.Close" Style="font-size: 13px;" />
+                                        <span>Clear</span>
+                                    </button>
+                                }
+                                else
+                                {
+                                    <button class="adp-toolbar-btn adp-toolbar-btn--approve"
+                                            @onclick="() => HandleBatchApprove(group.Value)"
+                                            title="Approve all in this group">
+                                        <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Style="font-size: 13px;" />
+                                        <span>Approve All</span>
+                                    </button>
+                                    <button class="adp-toolbar-btn adp-toolbar-btn--reject"
+                                            @onclick="() => HandleBatchReject(group.Value)"
+                                            title="Reject all in this group">
+                                        <MudIcon Icon="@Icons.Material.Outlined.Block" Style="font-size: 13px;" />
+                                        <span>Reject All</span>
+                                    </button>
+                                }
+                            </div>
+                        }
 
                         @if (!isCollapsed)
                         {
@@ -930,30 +931,12 @@
         margin-top: 8px;
     }
 
-    .adp-group-toolbar {
-        display: flex;
-        align-items: center;
-        gap: 0;
-        margin-bottom: 10px;
-        padding: 6px 10px;
-        border-radius: 8px;
-        background: rgba(140, 120, 180, 0.04);
-        border: 1px solid rgba(140, 120, 180, 0.08);
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-        scrollbar-width: none;
-    }
-
-    .adp-group-toolbar::-webkit-scrollbar {
-        display: none;
-    }
-
-    .adp-group-toolbar-left {
+    .adp-group-label-row {
         display: flex;
         align-items: center;
         gap: 6px;
         cursor: pointer;
-        flex-shrink: 0;
+        padding: 2px 0;
     }
 
     .adp-group-name {
@@ -973,63 +956,65 @@
         border-radius: 8px;
     }
 
-    .adp-group-toolbar-divider {
-        width: 1px;
-        height: 20px;
-        background: rgba(140, 120, 180, 0.12);
-        margin: 0 10px;
-        flex-shrink: 0;
+    .adp-group-separator {
+        height: 1px;
+        background: rgba(140, 120, 180, 0.08);
+        margin: 6px 0;
     }
 
-    .adp-group-toolbar-actions {
+    .adp-group-action-row {
         display: flex;
-        gap: 6px;
-        margin-left: auto;
-        align-items: center;
-        flex-shrink: 0;
+        gap: 8px;
+        justify-content: center;
+        padding: 4px 0 8px 0;
     }
 
     .adp-toolbar-btn {
         display: inline-flex;
         align-items: center;
-        gap: 4px;
-        padding: 4px 10px;
+        gap: 5px;
+        padding: 6px 14px;
         border-radius: 6px;
         font-family: 'Montserrat', sans-serif;
-        font-size: 10px;
+        font-size: 11px;
         font-weight: 500;
         cursor: pointer;
-        transition: background 0.15s ease;
-        border: none;
+        transition: background 0.15s ease, border-color 0.15s ease;
+        border: 1px solid transparent;
         white-space: nowrap;
     }
 
     .adp-toolbar-btn--approve {
-        background: rgba(93, 202, 165, 0.10);
-        color: rgba(93, 202, 165, 0.75);
+        background: rgba(93, 202, 165, 0.08);
+        color: #5DCAA5;
+        border-color: rgba(93, 202, 165, 0.18);
     }
 
     .adp-toolbar-btn--approve:hover {
-        background: rgba(93, 202, 165, 0.18);
+        background: rgba(93, 202, 165, 0.16);
+        border-color: rgba(93, 202, 165, 0.30);
     }
 
     .adp-toolbar-btn--reject {
-        background: rgba(226, 75, 74, 0.08);
-        color: rgba(226, 75, 74, 0.65);
+        background: rgba(226, 75, 74, 0.06);
+        color: rgba(226, 75, 74, 0.75);
+        border-color: rgba(226, 75, 74, 0.15);
     }
 
     .adp-toolbar-btn--reject:hover {
-        background: rgba(226, 75, 74, 0.15);
+        background: rgba(226, 75, 74, 0.14);
+        border-color: rgba(226, 75, 74, 0.28);
     }
 
     .adp-toolbar-btn--clear {
-        background: rgba(200, 190, 220, 0.06);
-        color: rgba(200, 190, 220, 0.45);
-        padding: 4px 6px;
+        background: rgba(200, 190, 220, 0.05);
+        color: rgba(200, 190, 220, 0.50);
+        border-color: rgba(200, 190, 220, 0.10);
     }
 
     .adp-toolbar-btn--clear:hover {
-        background: rgba(200, 190, 220, 0.12);
+        background: rgba(200, 190, 220, 0.10);
+        border-color: rgba(200, 190, 220, 0.18);
     }
 
     /* ── Group items grid ── */

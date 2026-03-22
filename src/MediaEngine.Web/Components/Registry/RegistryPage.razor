@@ -53,21 +53,28 @@
     <div class="registry-library-row">
         <span class="registry-library-label">Library</span>
         <div class="registry-library-cards">
-            @* ── Total box with nested registered + provisional ── *@
-            <div class="registry-total-box">
-                <div class="registry-total-left">
-                    <span class="registry-total-number">@(_fourStateCounts?.All ?? 0)</span>
-                    <span class="registry-total-label">items</span>
+            @* ── Items box with heatmap bar ── *@
+            <div class="registry-items-box">
+                <div class="registry-items-header">
+                    <span class="registry-items-number">@(_fourStateCounts?.All ?? 0)</span>
+                    <span class="registry-items-label">items</span>
                 </div>
-                <div class="registry-total-breakdown">
-                    <button class="registry-breakdown-chip registry-breakdown-chip--green"
-                            @onclick='() => Nav.NavigateTo("/registry/activity?state=registered")'>
-                        <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Style="font-size: 12px; color: #5DCAA5;" />
+                <div class="registry-heatmap-bar">
+                    <div class="registry-heatmap-fill registry-heatmap-fill--green"
+                         style="width: @(RegisteredPercent)%;"></div>
+                    <div class="registry-heatmap-fill registry-heatmap-fill--gray"
+                         style="width: @(ProvisionalPercent)%;"></div>
+                </div>
+                <div class="registry-items-legend">
+                    <button class="registry-legend-item"
+                            @onclick='() => Nav.NavigateTo("/registry/library?state=registered")'>
+                        <span class="registry-legend-dot" style="background: #5DCAA5;"></span>
                         <span>@(_fourStateCounts?.Registered ?? 0) registered</span>
                     </button>
-                    <button class="registry-breakdown-chip registry-breakdown-chip--gray"
-                            @onclick='() => Nav.NavigateTo("/registry/activity?state=provisional")'>
-                        <MudIcon Icon="@Icons.Material.Outlined.EditNote" Style="font-size: 12px; color: #B4B2A9;" />
+                    <span class="registry-legend-sep">|</span>
+                    <button class="registry-legend-item"
+                            @onclick='() => Nav.NavigateTo("/registry/library?state=provisional")'>
+                        <span class="registry-legend-dot" style="background: #B4B2A9;"></span>
                         <span>@(_fourStateCounts?.Provisional ?? 0) provisional</span>
                     </button>
                 </div>
@@ -284,82 +291,101 @@
         flex-wrap: wrap;
     }
 
-    /* ── Total box (nested breakdown) ── */
-    .registry-total-box {
+    /* ── Items box with heatmap bar ── */
+    .registry-items-box {
         display: flex;
-        flex-direction: row;
-        align-items: center;
-        gap: 14px;
-        padding: 10px 14px;
+        flex-direction: column;
+        gap: 8px;
+        padding: 12px 16px;
         border-radius: 10px;
         background: rgba(255, 255, 255, 0.02);
         border: 1px solid rgba(255, 255, 255, 0.06);
         font-family: 'Montserrat', sans-serif;
+        min-width: 180px;
+        flex: 1;
     }
 
-    .registry-total-left {
+    .registry-items-header {
         display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 2px;
+        align-items: baseline;
+        gap: 6px;
     }
 
-    .registry-total-number {
-        font-size: 20px;
+    .registry-items-number {
+        font-size: 22px;
         font-weight: 600;
         color: rgba(255, 255, 255, 0.85);
         font-variant-numeric: tabular-nums;
         line-height: 1;
     }
 
-    .registry-total-label {
-        font-size: 11px;
+    .registry-items-label {
+        font-size: 12px;
         font-weight: 400;
-        color: rgba(255, 255, 255, 0.30);
+        color: rgba(255, 255, 255, 0.35);
     }
 
-    .registry-total-breakdown {
+    .registry-heatmap-bar {
         display: flex;
-        flex-direction: column;
-        gap: 4px;
+        height: 6px;
+        border-radius: 3px;
+        overflow: hidden;
+        background: rgba(255, 255, 255, 0.04);
     }
 
-    .registry-breakdown-chip {
+    .registry-heatmap-fill {
+        height: 100%;
+        transition: width 0.4s ease;
+    }
+
+    .registry-heatmap-fill--green {
+        background: #5DCAA5;
+        border-radius: 3px 0 0 3px;
+    }
+
+    .registry-heatmap-fill--gray {
+        background: rgba(180, 178, 169, 0.45);
+        border-radius: 0 3px 3px 0;
+    }
+
+    .registry-items-legend {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .registry-legend-item {
         display: inline-flex;
         align-items: center;
-        gap: 4px;
-        padding: 3px 8px;
-        border-radius: 6px;
+        gap: 5px;
+        background: none;
+        border: none;
+        padding: 0;
+        cursor: pointer;
         font-family: 'Montserrat', sans-serif;
         font-size: 11px;
         font-weight: 500;
-        background: none;
-        border: none;
-        cursor: pointer;
-        transition: background 0.15s ease;
+        color: rgba(255, 255, 255, 0.50);
+        transition: color 0.15s ease;
     }
 
-    .registry-breakdown-chip:hover {
+    .registry-legend-item:hover {
+        color: rgba(255, 255, 255, 0.75);
         text-decoration: underline;
         text-underline-offset: 2px;
     }
 
-    .registry-breakdown-chip--green {
-        color: #5DCAA5;
-        background: rgba(93, 202, 165, 0.08);
+    .registry-legend-dot {
+        display: inline-block;
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        flex-shrink: 0;
     }
 
-    .registry-breakdown-chip--green:hover {
-        background: rgba(93, 202, 165, 0.14);
-    }
-
-    .registry-breakdown-chip--gray {
-        color: #B4B2A9;
-        background: rgba(180, 178, 169, 0.08);
-    }
-
-    .registry-breakdown-chip--gray:hover {
-        background: rgba(180, 178, 169, 0.14);
+    .registry-legend-sep {
+        color: rgba(255, 255, 255, 0.12);
+        font-size: 11px;
     }
 
     /* ── People / Universes meta cards ── */
@@ -558,6 +584,26 @@
             await LoadDataAsync();
             StateHasChanged();
         });
+    }
+
+    private double RegisteredPercent
+    {
+        get
+        {
+            var total = _fourStateCounts?.All ?? 0;
+            if (total == 0) return 0;
+            return Math.Round((_fourStateCounts?.Registered ?? 0) * 100.0 / total, 1);
+        }
+    }
+
+    private double ProvisionalPercent
+    {
+        get
+        {
+            var total = _fourStateCounts?.All ?? 0;
+            if (total == 0) return 0;
+            return Math.Round((_fourStateCounts?.Provisional ?? 0) * 100.0 / total, 1);
+        }
     }
 
     public void Dispose()
