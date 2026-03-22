@@ -375,9 +375,14 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
     // ── Pass 2: Orphaned People Cleanup ─────────────────────────────────────
 
     /// <summary>
-    /// Scans .people/ subfolders. For each folder, reads person.xml to extract
-    /// the person ID. If no matching person exists in the DB, or the person has
-    /// zero media asset links, the folder is deleted.
+    /// Scans .people/ subfolders. Identifies each folder by parsing the
+    /// "Name (QID)" naming convention and looking up the QID in the database.
+    /// If no matching person exists in the DB, or the person has zero media
+    /// asset links, the folder is deleted.
+    ///
+    /// Note: person.xml sidecars are no longer written by the engine (the
+    /// database is the authoritative store). Validation uses the QID from
+    /// the folder name instead.
     /// </summary>
     private async Task<int> CleanOrphanedPeopleAsync(string libraryRoot, CancellationToken ct)
     {
@@ -391,41 +396,46 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
         {
             ct.ThrowIfCancellationRequested();
 
-            var personXml = Path.Combine(subDir, "person.xml");
-            if (!File.Exists(personXml))
-            {
-                // No person.xml → orphaned folder, safe to remove.
-                SafeDeleteDirectory(subDir);
-                cleaned++;
-                _logger.LogDebug("Removed orphan people folder (no person.xml): {Path}", subDir);
-                continue;
-            }
+            var folderName = Path.GetFileName(subDir);
 
-            // Read the person ID from person.xml (may be null for old-format XML).
-            var personId = ReadPersonIdFromXml(personXml);
+            // Parse QID from "Name (Qxxxxx)" folder naming convention.
+            var qid = ExtractQidFromFolderName(folderName);
 
-            // Try to find the person in the DB: by ID, or by name if no <id>.
             Person? person = null;
-            if (personId is not null)
+
+            if (!string.IsNullOrEmpty(qid))
             {
-                person = await _personRepo.FindByIdAsync(personId.Value, ct);
+                person = await _personRepo.FindByQidAsync(qid, ct);
             }
-            else
+
+            // Fallback: try legacy person.xml if it exists (migration path).
+            if (person is null)
             {
-                // Old-format person.xml without <id>. Try to match by name.
-                var xmlName = ReadPersonNameFromXml(personXml);
-                if (string.IsNullOrWhiteSpace(xmlName))
+                var personXml = Path.Combine(subDir, "person.xml");
+                if (File.Exists(personXml))
                 {
-                    _logger.LogDebug("Could not parse person.xml in: {Path}", subDir);
-                    continue;
+                    var personId = ReadPersonIdFromXml(personXml);
+                    if (personId is not null)
+                        person = await _personRepo.FindByIdAsync(personId.Value, ct);
+
+                    if (person is null)
+                    {
+                        var xmlName = ReadPersonNameFromXml(personXml);
+                        if (!string.IsNullOrWhiteSpace(xmlName))
+                        {
+                            person = await _personRepo.FindByNameAsync(xmlName, "Author", ct)
+                                  ?? await _personRepo.FindByNameAsync(xmlName, "Narrator", ct);
+                        }
+                    }
                 }
+            }
 
-                // Try common roles.
-                person = await _personRepo.FindByNameAsync(xmlName, "Author", ct)
-                      ?? await _personRepo.FindByNameAsync(xmlName, "Narrator", ct);
-
-                if (person is not null)
-                    personId = person.Id;
+            // Fallback: temporary folders use "tmp-{guid}" pattern.
+            if (person is null && folderName.StartsWith("tmp-", StringComparison.OrdinalIgnoreCase))
+            {
+                var guidPart = folderName[4..];
+                if (Guid.TryParse(guidPart, out var tmpId))
+                    person = await _personRepo.FindByIdAsync(tmpId, ct);
             }
 
             if (person is null)
@@ -452,6 +462,29 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
         // consolidated FolderCleaned entry after all passes complete.
 
         return cleaned;
+    }
+
+    /// <summary>
+    /// Extracts a Wikidata QID from a "Name (Qxxxxx)" folder name.
+    /// Returns <c>null</c> if no QID pattern is found.
+    /// </summary>
+    private static string? ExtractQidFromFolderName(string folderName)
+    {
+        // Match "(Qnnn)" at the end of the folder name.
+        var openParen = folderName.LastIndexOf('(');
+        var closeParen = folderName.LastIndexOf(')');
+        if (openParen < 0 || closeParen <= openParen + 1)
+            return null;
+
+        var candidate = folderName[(openParen + 1)..closeParen].Trim();
+        if (candidate.Length >= 2
+            && (candidate[0] == 'Q' || candidate[0] == 'q')
+            && candidate[1..].All(char.IsDigit))
+        {
+            return candidate.ToUpperInvariant();
+        }
+
+        return null;
     }
 
     // ── Pass 3: Stale GUID Folder Cleanup ───────────────────────────────────
