@@ -231,4 +231,17 @@ public sealed class MediaAssetRepository : IMediaAssetRepository
 
         return Task.FromResult(row is null ? null : (MediaAsset?)ToAsset(row));
     }
+
+    /// <inheritdoc/>
+    public Task<HashSet<string>> GetAllFilePathsAsync(CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        using var conn = _db.CreateConnection();
+        var paths = conn.Query<string>(
+            "SELECT file_path_root FROM media_assets;")
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        return Task.FromResult(paths);
+    }
 }

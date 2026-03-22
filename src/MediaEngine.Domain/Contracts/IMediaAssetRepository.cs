@@ -84,4 +84,14 @@ public interface IMediaAssetRepository
     /// Used by the EPUB reader to resolve a Work ID into a playable asset.
     /// </summary>
     Task<MediaAsset?> FindFirstByWorkIdAsync(Guid workId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns a set of all <c>file_path_root</c> values currently stored in
+    /// <c>media_assets</c>.
+    ///
+    /// Used by the startup scan to filter out files that are already tracked,
+    /// preventing spurious batch creation on restart.  The result is consumed
+    /// once and discarded — callers should not cache it.
+    /// </summary>
+    Task<HashSet<string>> GetAllFilePathsAsync(CancellationToken ct = default);
 }

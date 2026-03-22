@@ -1522,10 +1522,37 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             ? SearchOption.AllDirectories
             : SearchOption.TopDirectoryOnly;
 
+        // Fetch all known file paths from the database in a single query.
+        // Files whose path is already tracked are skipped without being
+        // enqueued, preventing a spurious batch from being created on restart
+        // for files that were processed in a previous session.
+        // Note: files that moved after processing (e.g. watch folder → staging)
+        // will not be caught by this path check, but the hash-based duplicate
+        // check inside ProcessCandidateAsync (step 5) serves as the safety net.
+        // Normalize all stored paths to full, canonical forms so the comparison
+        // below is robust against relative paths or casing differences (Windows).
+        HashSet<string> knownPaths;
+        try
+        {
+            var rawPaths = _assetRepo.GetAllFilePathsAsync().GetAwaiter().GetResult();
+            knownPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var p in rawPaths)
+            {
+                try { knownPaths.Add(Path.GetFullPath(p)); }
+                catch { /* malformed path — ignore */ }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not load known file paths from database — skipping pre-filter");
+            knownPaths = [];
+        }
+
         // Create an ingestion batch for this scan.
         var batchId = Guid.NewGuid();
 
         int count = 0;
+        int skipped = 0;
         try
         {
             foreach (var filePath in Directory.EnumerateFiles(directory, "*.*", searchOption))
@@ -1541,6 +1568,15 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 // that may appear in the watch folder alongside media files.
                 if (NonMediaExtensions.Contains(Path.GetExtension(filePath)))
                     continue;
+
+                // Skip files already tracked by the database (path-based pre-filter).
+                // The pipeline's hash check remains the authoritative duplicate guard
+                // for files whose path has changed since initial ingestion.
+                if (knownPaths.Contains(Path.GetFullPath(filePath)))
+                {
+                    skipped++;
+                    continue;
+                }
 
                 _debounce.Enqueue(new FileEvent
                 {
@@ -1558,6 +1594,11 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 "Initial scan of watch directory failed after {Count} files: {Dir}",
                 count, directory);
         }
+
+        if (skipped > 0)
+            _logger.LogInformation(
+                "Initial scan: skipped {Skipped} already-known file(s) from {Dir}",
+                skipped, directory);
 
         if (count > 0)
             _logger.LogInformation(
