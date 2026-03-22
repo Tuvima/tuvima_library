@@ -16,84 +16,96 @@
         <span class="registry-title">Registry</span>
     </div>
 
-    @* ── Search Bar ── *@
-    <div class="registry-search-bar">
-        <MudIcon Icon="@Icons.Material.Outlined.Search" Style="font-size: 16px; color: rgba(255,255,255,0.30);" />
-        <input class="registry-search-input"
-               type="text"
-               placeholder="Search activity, titles, batches..."
-               value="@_searchTerm"
-               @oninput="OnSearchInput"
-               @onkeydown="HandleSearchKeyDown" />
-    </div>
+    @* ── Constrained-width container for search + cards ── *@
+    <div class="registry-top-section">
 
-    @* ── Row 1: Action Stats ── *@
-    <div class="registry-stat-cards">
-        <button class="registry-stat-card registry-stat-card--blue"
-                @onclick='() => Nav.NavigateTo("/registry/activity?state=reports")'>
-            <MudIcon Icon="@Icons.Material.Outlined.Feedback" Style="font-size: 18px; color: #4A90D9;" />
-            <span class="registry-stat-number" style="color: #4A90D9;">0</span>
-            <span class="registry-stat-label">reports</span>
-        </button>
-        <button class="registry-stat-card registry-stat-card--amber"
-                @onclick='() => Nav.NavigateTo("/registry/activity?state=review")'>
-            <MudIcon Icon="@Icons.Material.Outlined.RateReview" Style="font-size: 18px; color: #EF9F27;" />
-            <span class="registry-stat-number" style="color: #EF9F27;">@(_fourStateCounts?.InReview ?? 0)</span>
-            <span class="registry-stat-label">in review</span>
-        </button>
-        <button class="registry-stat-card registry-stat-card--red"
-                @onclick='() => Nav.NavigateTo("/registry/activity?state=rejected")'>
-            <MudIcon Icon="@Icons.Material.Outlined.Close" Style="font-size: 18px; color: #E24B4A;" />
-            <span class="registry-stat-number" style="color: #E24B4A;">@(_fourStateCounts?.Rejected ?? 0)</span>
-            <span class="registry-stat-label">rejected</span>
-        </button>
-    </div>
+        @* ── Search Bar ── *@
+        <div class="registry-search-bar">
+            <MudIcon Icon="@Icons.Material.Outlined.Search" Style="font-size: 16px; color: rgba(255,255,255,0.30);" />
+            <input class="registry-search-input"
+                   type="text"
+                   placeholder="Search titles, authors, batches..."
+                   value="@_searchTerm"
+                   @oninput="OnSearchInput"
+                   @onkeydown="HandleSearchKeyDown" />
+        </div>
 
-    @* ── Row 2: Library Overview ── *@
-    <div class="registry-library-row">
-        <span class="registry-library-label">Library</span>
-        <div class="registry-library-cards">
-            @* ── Items box with heatmap bar ── *@
-            <div class="registry-items-box">
-                <div class="registry-items-header">
-                    <span class="registry-items-number">@(_fourStateCounts?.All ?? 0)</span>
-                    <span class="registry-items-label">items</span>
+        @* ── Row 1: Action Stats ── *@
+        <div class="registry-stat-cards">
+            @{ var reportsCount = 0; }
+            @{ var reviewCount = _fourStateCounts?.InReview ?? 0; }
+            @{ var rejectedCount = _fourStateCounts?.Rejected ?? 0; }
+
+            <button class="registry-stat-card registry-stat-card--blue @(reportsCount == 0 ? "registry-stat-card--disabled" : "")"
+                    @onclick='() => NavigateIfNonZero(reportsCount, "/registry/library?state=reports")'
+                    disabled="@(reportsCount == 0)">
+                <MudIcon Icon="@Icons.Material.Outlined.Feedback" Style="font-size: 18px; color: #4A90D9;" />
+                <span class="registry-stat-number" style="color: #4A90D9;">@reportsCount</span>
+                <span class="registry-stat-label">reports</span>
+            </button>
+            <button class="registry-stat-card registry-stat-card--amber @(reviewCount == 0 ? "registry-stat-card--disabled" : "")"
+                    @onclick='() => NavigateIfNonZero(reviewCount, "/registry/library?state=review")'
+                    disabled="@(reviewCount == 0)">
+                <MudIcon Icon="@Icons.Material.Outlined.RateReview" Style="font-size: 18px; color: #EF9F27;" />
+                <span class="registry-stat-number" style="color: #EF9F27;">@reviewCount</span>
+                <span class="registry-stat-label">in review</span>
+            </button>
+            <button class="registry-stat-card registry-stat-card--red @(rejectedCount == 0 ? "registry-stat-card--disabled" : "")"
+                    @onclick='() => NavigateIfNonZero(rejectedCount, "/registry/library?state=rejected")'
+                    disabled="@(rejectedCount == 0)">
+                <MudIcon Icon="@Icons.Material.Outlined.Close" Style="font-size: 18px; color: #E24B4A;" />
+                <span class="registry-stat-number" style="color: #E24B4A;">@rejectedCount</span>
+                <span class="registry-stat-label">rejected</span>
+            </button>
+        </div>
+
+        @* ── Row 2: Library Overview ── *@
+        <div class="registry-library-row">
+            <span class="registry-library-label">Library</span>
+            <div class="registry-library-cards">
+                @* ── Items box with heatmap bar ── *@
+                <div class="registry-items-box">
+                    <div class="registry-items-header">
+                        <span class="registry-items-number">@(_fourStateCounts?.All ?? 0)</span>
+                        <span class="registry-items-label">items</span>
+                    </div>
+                    <div class="registry-heatmap-bar">
+                        <div class="registry-heatmap-fill registry-heatmap-fill--green"
+                             style="width: @(RegisteredPercent)%;"></div>
+                        <div class="registry-heatmap-fill registry-heatmap-fill--gray"
+                             style="width: @(ProvisionalPercent)%;"></div>
+                    </div>
+                    <div class="registry-items-legend">
+                        <button class="registry-legend-item"
+                                @onclick='() => Nav.NavigateTo("/registry/library?state=registered")'>
+                            <span class="registry-legend-dot" style="background: #5DCAA5;"></span>
+                            <span>@(_fourStateCounts?.Registered ?? 0) registered</span>
+                        </button>
+                        <span class="registry-legend-sep">|</span>
+                        <button class="registry-legend-item"
+                                @onclick='() => Nav.NavigateTo("/registry/library?state=provisional")'>
+                            <span class="registry-legend-dot" style="background: #B4B2A9;"></span>
+                            <span>@(_fourStateCounts?.Provisional ?? 0) provisional</span>
+                        </button>
+                    </div>
                 </div>
-                <div class="registry-heatmap-bar">
-                    <div class="registry-heatmap-fill registry-heatmap-fill--green"
-                         style="width: @(RegisteredPercent)%;"></div>
-                    <div class="registry-heatmap-fill registry-heatmap-fill--gray"
-                         style="width: @(ProvisionalPercent)%;"></div>
-                </div>
-                <div class="registry-items-legend">
-                    <button class="registry-legend-item"
-                            @onclick='() => Nav.NavigateTo("/registry/library?state=registered")'>
-                        <span class="registry-legend-dot" style="background: #5DCAA5;"></span>
-                        <span>@(_fourStateCounts?.Registered ?? 0) registered</span>
-                    </button>
-                    <span class="registry-legend-sep">|</span>
-                    <button class="registry-legend-item"
-                            @onclick='() => Nav.NavigateTo("/registry/library?state=provisional")'>
-                        <span class="registry-legend-dot" style="background: #B4B2A9;"></span>
-                        <span>@(_fourStateCounts?.Provisional ?? 0) provisional</span>
-                    </button>
-                </div>
-            </div>
 
-            @* ── People count ── *@
-            <div class="registry-meta-card">
-                <MudIcon Icon="@Icons.Material.Outlined.People" Style="font-size: 20px; color: rgba(255,255,255,0.45);" />
-                <span class="registry-meta-number">@(_fourStateCounts?.PersonCount ?? 0)</span>
-                <span class="registry-meta-label">people</span>
-            </div>
+                @* ── People count ── *@
+                <div class="registry-meta-card">
+                    <MudIcon Icon="@Icons.Material.Outlined.People" Style="font-size: 20px; color: rgba(255,255,255,0.45);" />
+                    <span class="registry-meta-number">@(_fourStateCounts?.PersonCount ?? 0)</span>
+                    <span class="registry-meta-label">people</span>
+                </div>
 
-            @* ── Universes count ── *@
-            <div class="registry-meta-card">
-                <MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" Style="font-size: 20px; color: rgba(255,255,255,0.45);" />
-                <span class="registry-meta-number">@(_fourStateCounts?.HubCount ?? 0)</span>
-                <span class="registry-meta-label">universes</span>
+                @* ── Universes count ── *@
+                <div class="registry-meta-card">
+                    <MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" Style="font-size: 20px; color: rgba(255,255,255,0.45);" />
+                    <span class="registry-meta-number">@(_fourStateCounts?.HubCount ?? 0)</span>
+                    <span class="registry-meta-label">universes</span>
+                </div>
             </div>
         </div>
+
     </div>
 
     @* ── Tab Bar ── *@
@@ -158,17 +170,25 @@
         letter-spacing: 0.01em;
     }
 
+    /* ── Top section: constrains search + rows to same width ── */
+    .registry-top-section {
+        display: flex;
+        flex-direction: column;
+        padding: 0 20px;
+    }
+
     /* ── Search Bar ── */
     .registry-search-bar {
         display: flex;
         align-items: center;
         gap: 10px;
-        margin: 0 20px 12px 20px;
+        margin: 0 0 12px 0;
         padding: 10px 14px;
         border-radius: 10px;
         border: 1px solid rgba(255, 255, 255, 0.08);
         background: rgba(255, 255, 255, 0.03);
         transition: border-color 0.15s ease, background 0.15s ease;
+        max-width: 480px;
     }
 
     .registry-search-bar:focus-within {
@@ -195,7 +215,7 @@
     .registry-stat-cards {
         display: flex;
         gap: 10px;
-        padding: 0 20px 10px 20px;
+        padding: 0 0 10px 0;
         flex-wrap: wrap;
     }
 
@@ -214,8 +234,14 @@
         font-family: 'Montserrat', sans-serif;
     }
 
-    .registry-stat-card:hover {
+    .registry-stat-card:hover:not(:disabled) {
         background: rgba(255, 255, 255, 0.07);
+    }
+
+    .registry-stat-card--disabled {
+        opacity: 0.40;
+        cursor: default;
+        pointer-events: none;
     }
 
     .registry-stat-card--blue {
@@ -224,7 +250,7 @@
         box-shadow: 0 0 12px rgba(74, 144, 217, 0.08), inset 0 1px 0 rgba(74, 144, 217, 0.10);
     }
 
-    .registry-stat-card--blue:hover {
+    .registry-stat-card--blue:hover:not(:disabled) {
         border-color: rgba(74, 144, 217, 0.50);
         background: rgba(74, 144, 217, 0.10);
         box-shadow: 0 0 18px rgba(74, 144, 217, 0.12), inset 0 1px 0 rgba(74, 144, 217, 0.15);
@@ -236,7 +262,7 @@
         box-shadow: 0 0 12px rgba(239, 159, 39, 0.08), inset 0 1px 0 rgba(239, 159, 39, 0.10);
     }
 
-    .registry-stat-card--amber:hover {
+    .registry-stat-card--amber:hover:not(:disabled) {
         border-color: rgba(239, 159, 39, 0.50);
         background: rgba(239, 159, 39, 0.10);
         box-shadow: 0 0 18px rgba(239, 159, 39, 0.12), inset 0 1px 0 rgba(239, 159, 39, 0.15);
@@ -248,7 +274,7 @@
         box-shadow: 0 0 12px rgba(226, 75, 74, 0.08), inset 0 1px 0 rgba(226, 75, 74, 0.10);
     }
 
-    .registry-stat-card--red:hover {
+    .registry-stat-card--red:hover:not(:disabled) {
         border-color: rgba(226, 75, 74, 0.50);
         background: rgba(226, 75, 74, 0.10);
         box-shadow: 0 0 18px rgba(226, 75, 74, 0.12), inset 0 1px 0 rgba(226, 75, 74, 0.15);
@@ -272,7 +298,7 @@
         display: flex;
         flex-direction: column;
         gap: 8px;
-        padding: 0 20px 14px 20px;
+        padding: 0 0 14px 0;
     }
 
     .registry-library-label {
@@ -524,6 +550,11 @@
         Nav.NavigateTo(route);
     }
 
+    private void NavigateIfNonZero(int count, string route)
+    {
+        if (count > 0) Nav.NavigateTo(route);
+    }
+
     private async Task LoadDataAsync()
     {
         _fourStateCounts = await Orchestrator.GetRegistryFourStateCountsAsync();
@@ -538,7 +569,15 @@
             InvokeAsync(() =>
             {
                 _debouncedSearchTerm = _searchTerm;
-                UpdateUrlWithSearch();
+                // Auto-switch to library tab when searching
+                if (!string.IsNullOrEmpty(_debouncedSearchTerm) && _activeTab != "library")
+                {
+                    Nav.NavigateTo($"/registry/library?q={Uri.EscapeDataString(_debouncedSearchTerm)}");
+                }
+                else
+                {
+                    UpdateUrlWithSearch();
+                }
                 StateHasChanged();
             });
         }, null, 300, Timeout.Infinite);
@@ -550,7 +589,15 @@
         {
             _debounceTimer?.Dispose();
             _debouncedSearchTerm = _searchTerm;
-            UpdateUrlWithSearch();
+            // Auto-switch to library tab on Enter
+            if (!string.IsNullOrEmpty(_debouncedSearchTerm) && _activeTab != "library")
+            {
+                Nav.NavigateTo($"/registry/library?q={Uri.EscapeDataString(_debouncedSearchTerm)}");
+            }
+            else
+            {
+                UpdateUrlWithSearch();
+            }
             StateHasChanged();
         }
     }
