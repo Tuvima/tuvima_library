@@ -120,35 +120,91 @@ else
         </div>
     }
 
+    @* ── Search Bar ── *@
+    <div class="home-search-bar">
+        <MudIcon Icon="@Icons.Material.Outlined.Search" Style="font-size: 16px; color: rgba(255,255,255,0.30);" />
+        <input class="home-search-input"
+               type="text"
+               placeholder="Search your library..."
+               @oninput="OnSearchInput"
+               @onkeydown="HandleSearchKeyDown" />
+    </div>
+
     @* ── Mobile filter bar (library dropdown only — no filter chips on Home) ── *@
     <MobileFilterBar CurrentLane="null" />
 
-    @* ── Continue Your Journey — in-progress individual items ── *@
-    @if (_journeyItems.Count > 0)
+    @if (!string.IsNullOrWhiteSpace(_debouncedSearchTerm))
     {
-        <PosterSwimlane Title="Continue Your Journey"
-                        Items="@_journeyItems.Take(10).Select(PosterItemViewModel.FromJourney).ToList()"
-                        OnItemSelected="HandleItemSelected"
-                        CardWidth="@_cardWidth" />
+        @* ── Search results ── *@
+        @if (_homeSearchLoading)
+        {
+            <div style="padding: 32px 0;">
+                <MudProgressCircular Indeterminate="true" Size="MudBlazor.Size.Small"
+                                     Style="width: 20px; height: 20px; color: rgba(255,255,255,0.25);" />
+            </div>
+        }
+        else if (_homeSearchResults.Count == 0)
+        {
+            <div style="padding: 32px 0; display: flex; flex-direction: column; gap: 8px;">
+                <MudIcon Icon="@Icons.Material.Outlined.SearchOff" Style="font-size: 32px; color: rgba(255,255,255,0.12);" />
+                <span style="font-family: 'Montserrat', sans-serif; font-size: 13px; color: rgba(255,255,255,0.20);">No results for "@_debouncedSearchTerm"</span>
+            </div>
+        }
+        else
+        {
+            <div class="home-search-results">
+                <div class="home-search-results-header">
+                    @_homeSearchResults.Count result@(_homeSearchResults.Count == 1 ? "" : "s")
+                </div>
+                @foreach (var result in _homeSearchResults)
+                {
+                    var navUrl = "/book/" + result.WorkId;
+                    <div class="home-search-card" @onclick="() => Nav.NavigateTo(navUrl)">
+                        <div class="home-search-card-info">
+                            <span class="home-search-card-title">@result.Title</span>
+                            <span class="home-search-card-meta">
+                                @if (!string.IsNullOrWhiteSpace(result.Author))
+                                {
+                                    @result.Author<text> · </text>
+                                }
+                                @result.MediaType
+                            </span>
+                        </div>
+                        <MudIcon Icon="@Icons.Material.Outlined.ChevronRight" Style="font-size: 16px; color: rgba(255,255,255,0.15);" />
+                    </div>
+                }
+            </div>
+        }
     }
-
-    @* ── Recently Added — individual works, newest hub first ── *@
-    @if (_recentWorks.Count > 0)
+    else
     {
-        <PosterSwimlane Title="Recently Added"
-                        TotalCount="@_recentWorks.Count"
-                        Items="@_recentWorks.Take(12).ToList()"
-                        OnItemSelected="HandleItemSelected"
-                        CardWidth="@_cardWidth" />
-    }
+        @* ── Continue Your Journey — in-progress individual items ── *@
+        @if (_journeyItems.Count > 0)
+        {
+            <PosterSwimlane Title="Continue Your Journey"
+                            Items="@_journeyItems.Take(10).Select(PosterItemViewModel.FromJourney).ToList()"
+                            OnItemSelected="HandleItemSelected"
+                            CardWidth="@_cardWidth" />
+        }
 
-    @* ── Suggestions — by same authors/genres as recent activity, or broad library explore ── *@
-    @if (_suggestedWorks.Count > 0)
-    {
-        <PosterSwimlane Title="@_suggestionsTitle"
-                        Items="@_suggestedWorks"
-                        OnItemSelected="HandleItemSelected"
-                        CardWidth="@_cardWidth" />
+        @* ── Recently Added — individual works, newest hub first ── *@
+        @if (_recentWorks.Count > 0)
+        {
+            <PosterSwimlane Title="Recently Added"
+                            TotalCount="@_recentWorks.Count"
+                            Items="@_recentWorks.Take(12).ToList()"
+                            OnItemSelected="HandleItemSelected"
+                            CardWidth="@_cardWidth" />
+        }
+
+        @* ── Suggestions — by same authors/genres as recent activity, or broad library explore ── *@
+        @if (_suggestedWorks.Count > 0)
+        {
+            <PosterSwimlane Title="@_suggestionsTitle"
+                            Items="@_suggestedWorks"
+                            OnItemSelected="HandleItemSelected"
+                            CardWidth="@_cardWidth" />
+        }
     }
 }
 
@@ -180,6 +236,61 @@ else
 
     private string _suggestionsTitle =>
         _journeyItems.Count > 0 ? "You Might Like" : "Explore Your Library";
+
+    // ── Search state ────────────────────────────────────────────────────────
+    private string _searchTerm = "";
+    private string _debouncedSearchTerm = "";
+    private Timer? _debounceTimer;
+    private bool _homeSearchLoading;
+    private List<SearchResultViewModel> _homeSearchResults = [];
+
+    private void OnSearchInput(ChangeEventArgs e)
+    {
+        _searchTerm = e.Value?.ToString() ?? "";
+        _debounceTimer?.Dispose();
+        _debounceTimer = new Timer(_ =>
+        {
+            InvokeAsync(async () =>
+            {
+                _debouncedSearchTerm = _searchTerm;
+                if (!string.IsNullOrWhiteSpace(_debouncedSearchTerm))
+                    await RunHomeSearchAsync(_debouncedSearchTerm);
+                StateHasChanged();
+            });
+        }, null, 300, Timeout.Infinite);
+    }
+
+    private void HandleSearchKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            _debounceTimer?.Dispose();
+            _debouncedSearchTerm = _searchTerm;
+            if (!string.IsNullOrWhiteSpace(_debouncedSearchTerm))
+                _ = InvokeAsync(async () =>
+                {
+                    await RunHomeSearchAsync(_debouncedSearchTerm);
+                    StateHasChanged();
+                });
+            else
+                StateHasChanged();
+        }
+    }
+
+    private async Task RunHomeSearchAsync(string term)
+    {
+        _homeSearchLoading = true;
+        StateHasChanged();
+        try
+        {
+            _homeSearchResults = await Orchestrator.SearchWorksAsync(term);
+        }
+        catch
+        {
+            _homeSearchResults = [];
+        }
+        _homeSearchLoading = false;
+    }
 
     // ── Device-context helpers ────────────────────────────────────────────────
 
@@ -483,6 +594,7 @@ else
 
     public void Dispose()
     {
+        _debounceTimer?.Dispose();
         State.OnStateChanged -= OnStateChanged;
         _carouselCts.Cancel();
         _carouselCts.Dispose();
@@ -570,6 +682,94 @@ else
 
     .carousel-dot:hover:not(.active) {
         background: rgba(255, 255, 255, 0.65);
+    }
+
+    /* ── Home search bar ── */
+    .home-search-bar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 0 0 16px 0;
+        padding: 10px 14px;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.03);
+        transition: border-color 0.15s ease, background 0.15s ease;
+    }
+
+    .home-search-bar:focus-within {
+        border-color: rgba(255, 255, 255, 0.15);
+        background: rgba(255, 255, 255, 0.05);
+    }
+
+    .home-search-input {
+        flex: 1;
+        background: transparent;
+        border: none;
+        outline: none;
+        color: rgba(255, 255, 255, 0.85);
+        font-family: 'Montserrat', sans-serif;
+        font-size: 13px;
+        font-weight: 400;
+    }
+
+    .home-search-input::placeholder {
+        color: rgba(255, 255, 255, 0.25);
+    }
+
+    /* ── Home search results ── */
+    .home-search-results {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        padding: 0 0 32px 0;
+    }
+
+    .home-search-results-header {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 12px;
+        font-weight: 500;
+        color: rgba(255, 255, 255, 0.35);
+        padding: 0 0 12px 0;
+    }
+
+    .home-search-card {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 12px;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: background 0.15s ease;
+    }
+
+    .home-search-card:hover {
+        background: rgba(255, 255, 255, 0.04);
+    }
+
+    .home-search-card-info {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .home-search-card-title {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 13px;
+        font-weight: 500;
+        color: rgba(255, 255, 255, 0.80);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .home-search-card-meta {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 11px;
+        font-weight: 400;
+        color: rgba(255, 255, 255, 0.35);
     }
 
     /* ── Empty state ─────────────────────────────────────────────────── */

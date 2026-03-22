@@ -238,11 +238,20 @@
                                     </div>
                                     <div class="rtl-card rtl-card--review">
                                         <div class="rtl-review-info">
-                                            <span class="rtl-card-title">@resolvedTitle</span>
-                                            @if (!string.IsNullOrWhiteSpace(resolvedQid))
-                                            {
-                                                <span class="rtl-qid-badge">→ QID @resolvedQid</span>
+                                            @{
+                                                var coverUrl = evt.ReviewData?.CoverUrl;
                                             }
+                                            @if (!string.IsNullOrWhiteSpace(coverUrl))
+                                            {
+                                                <img class="rtl-review-thumb" src="@coverUrl" alt="" loading="lazy" />
+                                            }
+                                            <div class="rtl-review-text">
+                                                <span class="rtl-card-title">@resolvedTitle</span>
+                                                @if (!string.IsNullOrWhiteSpace(resolvedQid))
+                                                {
+                                                    <span class="rtl-qid-badge">→ QID @resolvedQid</span>
+                                                }
+                                            </div>
                                         </div>
                                         @if (rd is not null && rd.FieldOverrides > 0)
                                         {
@@ -939,6 +948,22 @@
     /* ── Review resolved card ── */
     .rtl-card--review {
         border-left: 3px solid rgba(93, 202, 165, 0.40);
+    }
+
+    .rtl-review-thumb {
+        width: 36px;
+        height: 52px;
+        border-radius: 4px;
+        object-fit: cover;
+        flex-shrink: 0;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .rtl-review-text {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        min-width: 0;
     }
 
     .rtl-review-info {

@@ -178,6 +178,9 @@ public sealed class ReviewRichData
 
     [JsonPropertyName("field_overrides")]
     public int FieldOverrides { get; set; }
+
+    [JsonPropertyName("cover_url")]
+    public string? CoverUrl { get; set; }
 }
 
 /// <summary>
