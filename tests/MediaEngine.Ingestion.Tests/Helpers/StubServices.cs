@@ -83,10 +83,10 @@ internal sealed class StubRecursiveIdentity : IRecursiveIdentityService
 {
     public List<(Guid AssetId, IReadOnlyList<PersonReference> Persons)> Calls { get; } = [];
 
-    public Task EnrichAsync(Guid mediaAssetId, IReadOnlyList<PersonReference> persons, CancellationToken ct = default)
+    public Task<IReadOnlyList<HarvestRequest>> EnrichAsync(Guid mediaAssetId, IReadOnlyList<PersonReference> persons, CancellationToken ct = default)
     {
         Calls.Add((mediaAssetId, persons));
-        return Task.CompletedTask;
+        return Task.FromResult<IReadOnlyList<HarvestRequest>>([]);
     }
 }
 

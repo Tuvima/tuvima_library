@@ -63,13 +63,15 @@ public sealed class RecursiveIdentityService : IRecursiveIdentityService
     // ── IRecursiveIdentityService ─────────────────────────────────────────────
 
     /// <inheritdoc />
-    public async Task EnrichAsync(
+    public async Task<IReadOnlyList<HarvestRequest>> EnrichAsync(
         Guid mediaAssetId,
         IReadOnlyList<PersonReference> persons,
         CancellationToken ct = default)
     {
+        var requests = new List<HarvestRequest>();
+
         if (persons.Count == 0)
-            return;
+            return requests;
 
         foreach (var reference in persons)
         {
@@ -94,6 +96,8 @@ public sealed class RecursiveIdentityService : IRecursiveIdentityService
                     reference.Name, reference.Role, mediaAssetId);
             }
         }
+
+        return requests;
     }
 
     private async Task ProcessPersonAsync(

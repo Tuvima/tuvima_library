@@ -939,7 +939,13 @@
         border-radius: 8px;
         background: rgba(140, 120, 180, 0.04);
         border: 1px solid rgba(140, 120, 180, 0.08);
-        flex-wrap: wrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+    }
+
+    .adp-group-toolbar::-webkit-scrollbar {
+        display: none;
     }
 
     .adp-group-toolbar-left {
