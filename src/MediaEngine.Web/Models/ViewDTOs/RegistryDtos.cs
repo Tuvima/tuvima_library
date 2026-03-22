@@ -335,6 +335,12 @@ public sealed class RegistryFourStateCountsDto
     [JsonPropertyName("rejected")]
     public int Rejected { get; set; }
 
+    [JsonPropertyName("person_count")]
+    public int PersonCount { get; set; }
+
+    [JsonPropertyName("hub_count")]
+    public int HubCount { get; set; }
+
     [JsonPropertyName("trigger_counts")]
     public Dictionary<string, int> TriggerCounts { get; set; } = [];
 

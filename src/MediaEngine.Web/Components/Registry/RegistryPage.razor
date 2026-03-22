@@ -21,39 +21,97 @@
         <input class="registry-search-input"
                type="text"
                placeholder="Search activity, titles, batches..."
+               value="@_searchTerm"
                @oninput="OnSearchInput"
                @onkeydown="HandleSearchKeyDown" />
     </div>
 
-    @* ── Inline Stats ── *@
-    <div class="registry-stats-inline">
-        <div class="registry-stats-row">
-            <button class="registry-stat-link registry-stat-link--warning" @onclick='() => Nav.NavigateTo("/registry/activity?state=review")'>
-                <MudIcon Icon="@Icons.Material.Outlined.Warning" Style="font-size: 12px;" />
-                <span>0 unresolved reports</span>@* TODO: wire up unresolved reports count *@
-            </button>
-            <span class="registry-stat-sep">•</span>
-            <button class="registry-stat-link registry-stat-link--amber" @onclick='() => Nav.NavigateTo("/registry/activity?state=review")'>
-                @(_fourStateCounts?.InReview ?? 0) in review
-            </button>
-            <span class="registry-stat-sep">•</span>
-            <button class="registry-stat-link registry-stat-link--red" @onclick='() => Nav.NavigateTo("/registry/activity?state=rejected")'>
-                @(_fourStateCounts?.Rejected ?? 0) rejected
-            </button>
-        </div>
-        <div class="registry-stats-row registry-stats-row--muted">
-            <span>@(_fourStateCounts?.All ?? 0) items</span>
-            <span class="registry-stat-sep">•</span>
-            <button class="registry-stat-link" @onclick='() => Nav.NavigateTo("/registry/activity?state=registered")'>
-                @(_fourStateCounts?.Registered ?? 0) registered
-            </button>
-            <span class="registry-stat-sep">•</span>
-            <span>@InPipelineCount in pipeline</span>
+    @* ── Row 1: Action Stats ── *@
+    <div class="registry-stat-cards">
+        <button class="registry-stat-card registry-stat-card--blue"
+                @onclick='() => Nav.NavigateTo("/registry/activity?state=reports")'>
+            <MudIcon Icon="@Icons.Material.Outlined.Feedback" Style="font-size: 18px; color: #4A90D9;" />
+            <span class="registry-stat-number" style="color: #4A90D9;">0</span>
+            <span class="registry-stat-label">reports</span>
+        </button>
+        <button class="registry-stat-card registry-stat-card--amber"
+                @onclick='() => Nav.NavigateTo("/registry/activity?state=review")'>
+            <MudIcon Icon="@Icons.Material.Outlined.RateReview" Style="font-size: 18px; color: #EF9F27;" />
+            <span class="registry-stat-number" style="color: #EF9F27;">@(_fourStateCounts?.InReview ?? 0)</span>
+            <span class="registry-stat-label">in review</span>
+        </button>
+        <button class="registry-stat-card registry-stat-card--red"
+                @onclick='() => Nav.NavigateTo("/registry/activity?state=rejected")'>
+            <MudIcon Icon="@Icons.Material.Outlined.Close" Style="font-size: 18px; color: #E24B4A;" />
+            <span class="registry-stat-number" style="color: #E24B4A;">@(_fourStateCounts?.Rejected ?? 0)</span>
+            <span class="registry-stat-label">rejected</span>
+        </button>
+    </div>
+
+    @* ── Row 2: Library Overview ── *@
+    <div class="registry-library-row">
+        <span class="registry-library-label">Library</span>
+        <div class="registry-library-cards">
+            @* ── Total box with nested registered + provisional ── *@
+            <div class="registry-total-box">
+                <span class="registry-total-number">@(_fourStateCounts?.All ?? 0)</span>
+                <span class="registry-total-label">items</span>
+                <div class="registry-total-breakdown">
+                    <button class="registry-breakdown-chip registry-breakdown-chip--green"
+                            @onclick='() => Nav.NavigateTo("/registry/activity?state=registered")'>
+                        <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Style="font-size: 12px; color: #5DCAA5;" />
+                        <span>@(_fourStateCounts?.Registered ?? 0) registered</span>
+                    </button>
+                    <button class="registry-breakdown-chip registry-breakdown-chip--gray"
+                            @onclick='() => Nav.NavigateTo("/registry/activity?state=provisional")'>
+                        <MudIcon Icon="@Icons.Material.Outlined.EditNote" Style="font-size: 12px; color: #B4B2A9;" />
+                        <span>@(_fourStateCounts?.Provisional ?? 0) provisional</span>
+                    </button>
+                </div>
+            </div>
+
+            @* ── People count ── *@
+            <div class="registry-meta-card">
+                <MudIcon Icon="@Icons.Material.Outlined.People" Style="font-size: 20px; color: rgba(255,255,255,0.45);" />
+                <span class="registry-meta-number">@(_fourStateCounts?.PersonCount ?? 0)</span>
+                <span class="registry-meta-label">people</span>
+            </div>
+
+            @* ── Universes count ── *@
+            <div class="registry-meta-card">
+                <MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" Style="font-size: 20px; color: rgba(255,255,255,0.45);" />
+                <span class="registry-meta-number">@(_fourStateCounts?.HubCount ?? 0)</span>
+                <span class="registry-meta-label">universes</span>
+            </div>
         </div>
     </div>
 
-    @* ── Timeline (always shown, full-width) ── *@
-    <RegistryTimeline OnOpenInListView="HandleTimelineNavigate" SearchTerm="@_debouncedSearchTerm" />
+    @* ── Tab Bar ── *@
+    <div class="registry-tab-bar">
+        <button class="registry-tab @(_activeTab == "activity" ? "registry-tab--active" : "")"
+                @onclick='() => SwitchTab("activity")'>
+            Activity
+        </button>
+        <button class="registry-tab @(_activeTab == "library" ? "registry-tab--active" : "")"
+                @onclick='() => SwitchTab("library")'>
+            Library
+        </button>
+    </div>
+
+    @* ── Tab Content ── *@
+    @if (_activeTab == "activity")
+    {
+        <RegistryTimeline OnOpenInListView="HandleTimelineNavigate" SearchTerm="@_debouncedSearchTerm" />
+    }
+    else
+    {
+        <div class="registry-batch-wrapper">
+            <RegistryBatchList Batches="@_batches"
+                               AttentionCount="@(_fourStateCounts?.InReview ?? 0)"
+                               OnBatchSelected="HandleBatchSelected"
+                               OnAttentionClicked="HandleAttentionClicked" />
+        </div>
+    }
 
 </div>
 
@@ -126,89 +184,300 @@
         color: rgba(255, 255, 255, 0.25);
     }
 
-    /* ── Inline Stats ── */
-    .registry-stats-inline {
+    /* ── Row 1: Action Stat Cards ── */
+    .registry-stat-cards {
         display: flex;
-        flex-direction: column;
-        gap: 4px;
-        padding: 0 20px 16px 20px;
+        gap: 10px;
+        padding: 0 20px 10px 20px;
     }
 
-    .registry-stats-row {
+    .registry-stat-card {
+        flex: 1;
         display: flex;
         align-items: center;
-        gap: 6px;
-        flex-wrap: wrap;
+        gap: 8px;
+        padding: 10px 14px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        cursor: pointer;
+        transition: border-color 0.18s ease, background 0.18s ease;
         font-family: 'Montserrat', sans-serif;
-        font-size: 12px;
-        font-weight: 400;
     }
 
-    .registry-stats-row--muted {
+    .registry-stat-card:hover {
+        background: rgba(255, 255, 255, 0.06);
+    }
+
+    .registry-stat-card--blue {
+        border-color: rgba(74, 144, 217, 0.25);
+    }
+
+    .registry-stat-card--blue:hover {
+        border-color: rgba(74, 144, 217, 0.45);
+        background: rgba(74, 144, 217, 0.06);
+    }
+
+    .registry-stat-card--amber {
+        border-color: rgba(239, 159, 39, 0.25);
+    }
+
+    .registry-stat-card--amber:hover {
+        border-color: rgba(239, 159, 39, 0.45);
+        background: rgba(239, 159, 39, 0.06);
+    }
+
+    .registry-stat-card--red {
+        border-color: rgba(226, 75, 74, 0.25);
+    }
+
+    .registry-stat-card--red:hover {
+        border-color: rgba(226, 75, 74, 0.45);
+        background: rgba(226, 75, 74, 0.06);
+    }
+
+    .registry-stat-number {
+        font-size: 18px;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+        line-height: 1;
+    }
+
+    .registry-stat-label {
+        font-size: 12px;
+        font-weight: 400;
+        color: rgba(255, 255, 255, 0.45);
+    }
+
+    /* ── Row 2: Library Overview ── */
+    .registry-library-row {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 0 20px 14px 20px;
+    }
+
+    .registry-library-label {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 11px;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.30);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+    }
+
+    .registry-library-cards {
+        display: flex;
+        gap: 10px;
+        align-items: stretch;
+    }
+
+    /* ── Total box (nested breakdown) ── */
+    .registry-total-box {
+        flex: 2;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding: 10px 14px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        font-family: 'Montserrat', sans-serif;
+    }
+
+    .registry-total-number {
+        font-size: 20px;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.85);
+        font-variant-numeric: tabular-nums;
+        line-height: 1;
+    }
+
+    .registry-total-label {
+        font-size: 11px;
+        font-weight: 400;
         color: rgba(255, 255, 255, 0.30);
     }
 
-    .registry-stat-link {
-        background: none;
-        border: none;
-        padding: 0;
-        margin: 0;
-        font-family: inherit;
-        font-size: inherit;
-        font-weight: inherit;
-        cursor: pointer;
-        transition: opacity 0.15s ease;
-        color: inherit;
+    .registry-total-breakdown {
+        display: flex;
+        gap: 8px;
+        margin-top: 2px;
     }
 
-    .registry-stat-link:hover {
-        opacity: 0.80;
+    .registry-breakdown-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 8px;
+        border-radius: 6px;
+        font-family: 'Montserrat', sans-serif;
+        font-size: 11px;
+        font-weight: 500;
+        background: none;
+        border: none;
+        cursor: pointer;
+        transition: background 0.15s ease;
+    }
+
+    .registry-breakdown-chip:hover {
         text-decoration: underline;
         text-underline-offset: 2px;
     }
 
-    .registry-stat-link--warning {
-        color: #EF9F27;
-        display: inline-flex;
+    .registry-breakdown-chip--green {
+        color: #5DCAA5;
+        background: rgba(93, 202, 165, 0.08);
+    }
+
+    .registry-breakdown-chip--green:hover {
+        background: rgba(93, 202, 165, 0.14);
+    }
+
+    .registry-breakdown-chip--gray {
+        color: #B4B2A9;
+        background: rgba(180, 178, 169, 0.08);
+    }
+
+    .registry-breakdown-chip--gray:hover {
+        background: rgba(180, 178, 169, 0.14);
+    }
+
+    /* ── People / Universes meta cards ── */
+    .registry-meta-card {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
         align-items: center;
+        justify-content: center;
         gap: 4px;
+        padding: 10px 14px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        font-family: 'Montserrat', sans-serif;
     }
 
-    .registry-stat-link--amber {
-        color: #EF9F27;
+    .registry-meta-number {
+        font-size: 18px;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.75);
+        font-variant-numeric: tabular-nums;
+        line-height: 1;
     }
 
-    .registry-stat-link--red {
-        color: #E24B4A;
+    .registry-meta-label {
+        font-size: 11px;
+        font-weight: 400;
+        color: rgba(255, 255, 255, 0.30);
     }
 
-    .registry-stat-sep {
-        color: rgba(255, 255, 255, 0.12);
-        user-select: none;
+    /* ── Tab Bar ── */
+    .registry-tab-bar {
+        display: flex;
+        gap: 0;
+        padding: 0 20px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        margin-bottom: 0;
+    }
+
+    .registry-tab {
+        position: relative;
+        background: none;
+        border: none;
+        padding: 10px 20px;
+        font-family: 'Montserrat', sans-serif;
+        font-size: 13px;
+        font-weight: 500;
+        color: rgba(255, 255, 255, 0.35);
+        cursor: pointer;
+        transition: color 0.15s ease;
+    }
+
+    .registry-tab:hover {
+        color: rgba(255, 255, 255, 0.55);
+    }
+
+    .registry-tab--active {
+        color: #C9922E;
+    }
+
+    .registry-tab--active::after {
+        content: '';
+        position: absolute;
+        bottom: -1px;
+        left: 20px;
+        right: 20px;
+        height: 2px;
+        background: #C9922E;
+        border-radius: 1px;
+    }
+
+    /* ── Batch list wrapper ── */
+    .registry-batch-wrapper {
+        padding: 16px 20px;
     }
 </style>
 
 @code {
     private RegistryFourStateCountsDto? _fourStateCounts;
+    private IReadOnlyList<IngestionBatchViewModel> _batches = [];
 
+    private string _activeTab = "activity";
     private string _searchTerm = "";
     private string _debouncedSearchTerm = "";
     private Timer? _debounceTimer;
-
-    private int InPipelineCount =>
-        (_fourStateCounts?.All ?? 0) - (_fourStateCounts?.Registered ?? 0) - (_fourStateCounts?.Rejected ?? 0);
 
     protected override async Task OnInitializedAsync()
     {
         Orchestrator.OnActivityChanged += HandleIntercomEvent;
         Orchestrator.OnReviewCountChanged += HandleIntercomEvent;
+        Nav.LocationChanged += OnLocationChanged;
 
-        await LoadCountsAsync();
+        SyncTabFromUrl();
+        await LoadDataAsync();
     }
 
-    private async Task LoadCountsAsync()
+    protected override void OnParametersSet()
+    {
+        SyncTabFromUrl();
+    }
+
+    private void SyncTabFromUrl()
+    {
+        var uri = new Uri(Nav.Uri);
+        var path = uri.AbsolutePath.TrimEnd('/').ToLowerInvariant();
+
+        _activeTab = path switch
+        {
+            "/registry/library" => "library",
+            _ => "activity",
+        };
+
+        // Parse ?q= query param for search
+        var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+        var q = query["q"];
+        if (!string.IsNullOrEmpty(q) && q != _searchTerm)
+        {
+            _searchTerm = q;
+            _debouncedSearchTerm = q;
+        }
+    }
+
+    private void SwitchTab(string tab)
+    {
+        if (tab == _activeTab) return;
+        var route = tab == "library" ? "/registry/library" : "/registry";
+        if (!string.IsNullOrEmpty(_debouncedSearchTerm))
+            route += $"?q={Uri.EscapeDataString(_debouncedSearchTerm)}";
+        Nav.NavigateTo(route);
+    }
+
+    private async Task LoadDataAsync()
     {
         _fourStateCounts = await Orchestrator.GetRegistryFourStateCountsAsync();
+        if (_activeTab == "library")
+            _batches = await Orchestrator.GetIngestionBatchesAsync();
     }
 
     private void OnSearchInput(ChangeEventArgs e)
@@ -220,6 +489,7 @@
             InvokeAsync(() =>
             {
                 _debouncedSearchTerm = _searchTerm;
+                UpdateUrlWithSearch();
                 StateHasChanged();
             });
         }, null, 300, Timeout.Infinite);
@@ -231,8 +501,18 @@
         {
             _debounceTimer?.Dispose();
             _debouncedSearchTerm = _searchTerm;
+            UpdateUrlWithSearch();
             StateHasChanged();
         }
+    }
+
+    private void UpdateUrlWithSearch()
+    {
+        var basePath = _activeTab == "library" ? "/registry/library" : "/registry";
+        var url = string.IsNullOrEmpty(_debouncedSearchTerm)
+            ? basePath
+            : $"{basePath}?q={Uri.EscapeDataString(_debouncedSearchTerm)}";
+        Nav.NavigateTo(url, replace: true);
     }
 
     private void HandleTimelineNavigate(Guid? batchId)
@@ -241,11 +521,33 @@
         Nav.NavigateTo($"/registry/activity{target}");
     }
 
+    private void HandleBatchSelected(Guid batchId)
+    {
+        Nav.NavigateTo($"/registry/activity?source=batch-{batchId}");
+    }
+
+    private void HandleAttentionClicked()
+    {
+        Nav.NavigateTo("/registry/activity?state=review");
+    }
+
+    private async void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        var previousTab = _activeTab;
+        SyncTabFromUrl();
+
+        // Load batches if switching to library tab
+        if (_activeTab == "library" && previousTab != "library")
+            _batches = await Orchestrator.GetIngestionBatchesAsync();
+
+        await InvokeAsync(StateHasChanged);
+    }
+
     private async void HandleIntercomEvent()
     {
         await InvokeAsync(async () =>
         {
-            await LoadCountsAsync();
+            await LoadDataAsync();
             StateHasChanged();
         });
     }
@@ -253,6 +555,7 @@
     public void Dispose()
     {
         _debounceTimer?.Dispose();
+        Nav.LocationChanged -= OnLocationChanged;
         Orchestrator.OnActivityChanged -= HandleIntercomEvent;
         Orchestrator.OnReviewCountChanged -= HandleIntercomEvent;
     }

@@ -614,6 +614,8 @@ public sealed class RegistryRepository : IRegistryRepository
                 batch.FilesReview + batch.FilesNoMatch + batch.FilesFailed,
                 0, // Provisional — not tracked per-batch
                 0, // Rejected — not tracked per-batch
+                0, // PersonCount — not tracked per-batch
+                0, // HubCount — not tracked per-batch
                 batchTriggers));
         }
 
@@ -649,10 +651,13 @@ public sealed class RegistryRepository : IRegistryRepository
                 (SELECT COUNT(*) FROM works WHERE curator_state = 'provisional') AS Provisional,
 
                 -- Rejected: curator_state = 'rejected'
-                (SELECT COUNT(*) FROM works WHERE curator_state = 'rejected') AS Rejected
+                (SELECT COUNT(*) FROM works WHERE curator_state = 'rejected') AS Rejected,
+
+                (SELECT COUNT(*) FROM persons) AS PersonCount,
+                (SELECT COUNT(DISTINCT id) FROM hubs) AS HubCount
             """;
 
-        int registered = 0, inReview = 0, provisional = 0, rejected = 0;
+        int registered = 0, inReview = 0, provisional = 0, rejected = 0, personCount = 0, hubCount = 0;
         using (var reader = cmd.ExecuteReader())
         {
             if (reader.Read())
@@ -661,6 +666,8 @@ public sealed class RegistryRepository : IRegistryRepository
                 inReview    = reader.GetInt32(1);
                 provisional = reader.GetInt32(2);
                 rejected    = reader.GetInt32(3);
+                personCount = reader.GetInt32(4);
+                hubCount    = reader.GetInt32(5);
             }
         }
 
@@ -680,7 +687,7 @@ public sealed class RegistryRepository : IRegistryRepository
             .ToDictionary(r => r.Trigger, r => r.Count);
 
         return Task.FromResult(new RegistryFourStateCounts(
-            registered, inReview, provisional, rejected, triggerCounts));
+            registered, inReview, provisional, rejected, personCount, hubCount, triggerCounts));
     }
 
     // ── Private helpers ──────────────────────────────────────────────────────

@@ -43,6 +43,8 @@ public sealed record RegistryFourStateCounts(
     [property: JsonPropertyName("in_review")]      int InReview,
     [property: JsonPropertyName("provisional")]    int Provisional,
     [property: JsonPropertyName("rejected")]       int Rejected,
+    [property: JsonPropertyName("person_count")]   int PersonCount,
+    [property: JsonPropertyName("hub_count")]      int HubCount,
     [property: JsonPropertyName("trigger_counts")] IReadOnlyDictionary<string, int> TriggerCounts);
 
 /// <summary>Counts for status tab badges.</summary>

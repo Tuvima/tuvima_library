@@ -16,7 +16,7 @@ public static class RegistryHelpers
         "MUSIC" => Icons.Material.Outlined.MusicNote,
         "COMICS" or "COMIC" => Icons.Material.Outlined.AutoStories,
         "PODCASTS" or "PODCAST" => Icons.Material.Outlined.Podcasts,
-        "UNIVERSE" => Icons.Material.Outlined.Hub,
+        "UNIVERSE" => Icons.Material.Outlined.AutoAwesome,
         _ => Icons.Material.Outlined.InsertDriveFile,
     };
 
