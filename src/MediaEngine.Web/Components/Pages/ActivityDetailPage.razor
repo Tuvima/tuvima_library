@@ -135,35 +135,19 @@
                         @if (group.Value.Count > 0 && !isCollapsed)
                         {
                             <div class="adp-group-action-row" @onclick:stopPropagation="true">
-                                <input type="checkbox"
-                                       checked="@IsGroupFullySelected(group.Key, group.Value)"
-                                       @onchange="(e) => ToggleSelectAll(group.Key, group.Value, (bool)(e.Value ?? false))"
-                                       title="Select all in this group"
-                                       style="cursor: pointer; accent-color: #C9922E; width: 14px; height: 14px; margin-right: 6px;" />
-                                @if (hasSelection)
-                                {
-                                    <button class="adp-toolbar-btn adp-toolbar-btn--reject"
-                                            @onclick="() => HandleBatchReject(group.Value.Where(i => _selectedIds.Contains(i.EntityId)).ToList())"
-                                            title="Reject selected items">
-                                        <MudIcon Icon="@Icons.Material.Outlined.Block" Style="font-size: 13px;" />
-                                        <span>Reject Selected (@groupSelectedCount)</span>
-                                    </button>
-                                    <button class="adp-toolbar-btn adp-toolbar-btn--clear"
-                                            @onclick="() => ClearGroupSelection(group.Value)"
-                                            title="Clear selection">
-                                        <MudIcon Icon="@Icons.Material.Outlined.Close" Style="font-size: 13px;" />
-                                        <span>Clear Selection</span>
-                                    </button>
-                                }
-                                else
-                                {
-                                    <button class="adp-toolbar-btn adp-toolbar-btn--reject"
-                                            @onclick="() => HandleBatchReject(group.Value)"
-                                            title="Reject all in this group">
-                                        <MudIcon Icon="@Icons.Material.Outlined.Block" Style="font-size: 13px;" />
-                                        <span>Reject All</span>
-                                    </button>
-                                }
+                                <div class="adp-select-all-checkbox" @onclick="() => ToggleSelectAll(group.Key, group.Value, !IsGroupFullySelected(group.Key, group.Value))"
+                                     title="Select all in this group">
+                                    <MudIcon Icon="@(IsGroupFullySelected(group.Key, group.Value) ? Icons.Material.Filled.CheckBox : Icons.Material.Outlined.CheckBoxOutlineBlank)"
+                                             Style="@($"font-size: 18px; color: {(IsGroupFullySelected(group.Key, group.Value) ? "#C9922E" : "rgba(200,190,220,0.25)")};")" />
+                                </div>
+                                <div class="adp-action-spacer"></div>
+                                <button class="adp-toolbar-btn adp-toolbar-btn--reject"
+                                        disabled="@(!hasSelection)"
+                                        @onclick="() => HandleBatchReject(group.Value.Where(i => _selectedIds.Contains(i.EntityId)).ToList())"
+                                        title="@(hasSelection ? $"Reject {groupSelectedCount} selected items" : "Select items to reject")">
+                                    <MudIcon Icon="@Icons.Material.Outlined.Block" Style="font-size: 13px;" />
+                                    <span>Reject@(hasSelection ? $" ({groupSelectedCount})" : "")</span>
+                                </button>
                             </div>
                         }
 
@@ -1018,9 +1002,28 @@
 
     .adp-group-action-row {
         display: flex;
+        align-items: center;
         gap: 8px;
-        justify-content: center;
         padding: 4px 0 8px 0;
+    }
+
+    .adp-select-all-checkbox {
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        padding: 2px;
+        border-radius: 4px;
+        transition: background 0.12s ease;
+    }
+
+    .adp-select-all-checkbox:hover {
+        background: rgba(201, 146, 46, 0.12);
+    }
+
+    .adp-action-spacer {
+        flex: 1;
     }
 
     .adp-toolbar-btn {
@@ -1038,37 +1041,20 @@
         white-space: nowrap;
     }
 
-    .adp-toolbar-btn--approve {
-        background: rgba(93, 202, 165, 0.08);
-        color: #5DCAA5;
-        border-color: rgba(93, 202, 165, 0.18);
-    }
-
-    .adp-toolbar-btn--approve:hover {
-        background: rgba(93, 202, 165, 0.16);
-        border-color: rgba(93, 202, 165, 0.30);
-    }
-
     .adp-toolbar-btn--reject {
         background: rgba(226, 75, 74, 0.06);
         color: rgba(226, 75, 74, 0.75);
         border-color: rgba(226, 75, 74, 0.15);
     }
 
-    .adp-toolbar-btn--reject:hover {
+    .adp-toolbar-btn--reject:hover:not(:disabled) {
         background: rgba(226, 75, 74, 0.14);
         border-color: rgba(226, 75, 74, 0.28);
     }
 
-    .adp-toolbar-btn--clear {
-        background: rgba(200, 190, 220, 0.05);
-        color: rgba(200, 190, 220, 0.50);
-        border-color: rgba(200, 190, 220, 0.10);
-    }
-
-    .adp-toolbar-btn--clear:hover {
-        background: rgba(200, 190, 220, 0.10);
-        border-color: rgba(200, 190, 220, 0.18);
+    .adp-toolbar-btn--reject:disabled {
+        opacity: 0.35;
+        cursor: default;
     }
 
     /* ── Group items grid ── */
