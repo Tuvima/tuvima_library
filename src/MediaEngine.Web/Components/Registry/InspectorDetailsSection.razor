@@ -1,0 +1,249 @@
+@using MediaEngine.Web.Models.ViewDTOs
+@using MediaEngine.Web.Components.Registry
+@using MudBlazor
+
+<div class="ids-panel">
+    @if (Loading)
+    {
+        <div class="ids-loading">
+            <MudProgressCircular Size="Size.Small" Indeterminate="true" Color="Color.Default" />
+        </div>
+    }
+    else if (IsPerson)
+    {
+        @* ── Person view ── *@
+        <div class="ids-row">
+            <span class="ids-key">Name</span>
+            <span class="ids-value">@Item.Title</span>
+        </div>
+        @if (!string.IsNullOrWhiteSpace(Item.WikidataQid) && !Item.WikidataQid.StartsWith("NF"))
+        {
+            <div class="ids-row">
+                <span class="ids-key">QID</span>
+                <a class="ids-qid-badge"
+                   href="https://en.wikipedia.org/wiki/Special:GoWikidata/@Item.WikidataQid"
+                   target="_blank"
+                   rel="noopener noreferrer">@Item.WikidataQid</a>
+            </div>
+        }
+        <div class="ids-row">
+            <span class="ids-key">Status</span>
+            <span class="ids-status-chip"
+                  style="background: @StatusBgColor; color: @StatusColor;">@StatusLabel</span>
+        </div>
+        <div class="ids-row">
+            <span class="ids-key">Occupation</span>
+            <span class="ids-value">@(string.IsNullOrWhiteSpace(Detail?.Description) ? "—" : Detail.Description)</span>
+        </div>
+        <div class="ids-row ids-row--last">
+            <span class="ids-key">Added</span>
+            <span class="ids-value">@Item.CreatedAt.ToLocalTime().ToString("MMMM d, yyyy")</span>
+        </div>
+    }
+    else if (IsUniverse)
+    {
+        @* ── Universe stub view ── *@
+        <div class="ids-row">
+            <span class="ids-key">Name</span>
+            <span class="ids-value">@Item.Title</span>
+        </div>
+        @if (!string.IsNullOrWhiteSpace(Item.WikidataQid) && !Item.WikidataQid.StartsWith("NF"))
+        {
+            <div class="ids-row">
+                <span class="ids-key">QID</span>
+                <a class="ids-qid-badge"
+                   href="https://en.wikipedia.org/wiki/Special:GoWikidata/@Item.WikidataQid"
+                   target="_blank"
+                   rel="noopener noreferrer">@Item.WikidataQid</a>
+            </div>
+        }
+        <div class="ids-row">
+            <span class="ids-key">Status</span>
+            <span class="ids-status-chip"
+                  style="background: @StatusBgColor; color: @StatusColor;">@StatusLabel</span>
+        </div>
+        <div class="ids-row ids-row--last">
+            <span class="ids-placeholder">Universe details will be available in a future update.</span>
+        </div>
+    }
+    else
+    {
+        @* ── Media file view ── *@
+        <div class="ids-row">
+            <span class="ids-key">Title</span>
+            <span class="ids-value">@Item.Title</span>
+        </div>
+        @if (!string.IsNullOrWhiteSpace(Item.Author))
+        {
+            <div class="ids-row">
+                <span class="ids-key">Author</span>
+                <span class="ids-value">@Item.Author</span>
+            </div>
+        }
+        @if (!string.IsNullOrWhiteSpace(Item.Year))
+        {
+            <div class="ids-row">
+                <span class="ids-key">Year</span>
+                <span class="ids-value">@Item.Year</span>
+            </div>
+        }
+        <div class="ids-row">
+            <span class="ids-key">Type</span>
+            <span class="ids-value">@RegistryHelpers.FormatMediaType(Item.MediaType)</span>
+        </div>
+        <div class="ids-row">
+            <span class="ids-key">Status</span>
+            <span class="ids-status-chip"
+                  style="background: @StatusBgColor; color: @StatusColor;">@StatusLabel</span>
+        </div>
+        @if (!string.IsNullOrWhiteSpace(Item.WikidataQid) && !Item.WikidataQid.StartsWith("NF"))
+        {
+            <div class="ids-row">
+                <span class="ids-key">QID</span>
+                <a class="ids-qid-badge"
+                   href="https://en.wikipedia.org/wiki/Special:GoWikidata/@Item.WikidataQid"
+                   target="_blank"
+                   rel="noopener noreferrer">@Item.WikidataQid</a>
+            </div>
+        }
+        @if (!string.IsNullOrWhiteSpace(Item.FileName))
+        {
+            <div class="ids-row">
+                <span class="ids-key">File</span>
+                <span class="ids-value ids-value--file">@Item.FileName</span>
+            </div>
+        }
+        @if (Item.FileSizeBytes is > 0)
+        {
+            <div class="ids-row">
+                <span class="ids-key">Size</span>
+                <span class="ids-value">@FormatFileSize(Item.FileSizeBytes)</span>
+            </div>
+        }
+        <div class="ids-row ids-row--last">
+            <span class="ids-key">Added</span>
+            <span class="ids-value">@Item.CreatedAt.ToLocalTime().ToString("MMMM d, yyyy")</span>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public RegistryItemViewModel Item { get; set; } = null!;
+    [Parameter] public RegistryItemDetailViewModel? Detail { get; set; }
+    [Parameter] public bool Loading { get; set; }
+
+    private bool IsPerson  => string.Equals(Item.MediaType, "Person",   StringComparison.OrdinalIgnoreCase);
+    private bool IsUniverse => string.Equals(Item.MediaType, "Universe", StringComparison.OrdinalIgnoreCase);
+
+    private string StatusColor   => RegistryHelpers.GetStatusColor(Item.Status);
+    private string StatusLabel   => RegistryHelpers.GetStatusLabel(Item.Status);
+    private string StatusBgColor => HexToRgba(StatusColor, 0.15);
+
+    private static string HexToRgba(string hex, double alpha)
+    {
+        hex = hex.TrimStart('#');
+        if (hex.Length < 6) return $"rgba(255,255,255,{alpha})";
+        var r = Convert.ToInt32(hex[..2], 16);
+        var g = Convert.ToInt32(hex[2..4], 16);
+        var b = Convert.ToInt32(hex[4..6], 16);
+        return $"rgba({r},{g},{b},{alpha})";
+    }
+
+    private static string FormatFileSize(long? bytes)
+    {
+        if (bytes is null or 0) return "—";
+        return bytes switch
+        {
+            < 1024 => $"{bytes} B",
+            < 1024 * 1024 => $"{bytes / 1024.0:F1} KB",
+            < 1024 * 1024 * 1024 => $"{bytes / (1024.0 * 1024):F1} MB",
+            _ => $"{bytes / (1024.0 * 1024 * 1024):F2} GB",
+        };
+    }
+}
+
+<style>
+    .ids-panel {
+        font-family: 'Montserrat', sans-serif;
+        padding: 18px 20px;
+    }
+
+    .ids-loading {
+        display: flex;
+        justify-content: center;
+        padding: 24px 0;
+    }
+
+    .ids-row {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        margin-bottom: 14px;
+    }
+
+    .ids-row--last {
+        margin-bottom: 0;
+    }
+
+    .ids-key {
+        flex-shrink: 0;
+        width: 68px;
+        font-size: 11px;
+        font-weight: 500;
+        color: rgba(200, 190, 220, 0.45);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        line-height: 1.4;
+    }
+
+    .ids-value {
+        font-size: 13px;
+        color: #e0dce8;
+        font-weight: 400;
+        line-height: 1.4;
+        word-break: break-word;
+        flex: 1;
+        min-width: 0;
+    }
+
+    .ids-value--file {
+        font-size: 11px;
+        color: rgba(224, 220, 232, 0.70);
+        word-break: break-all;
+    }
+
+    .ids-qid-badge {
+        display: inline-block;
+        background: rgba(140, 120, 180, 0.12);
+        color: #c0b8e0;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 11px;
+        cursor: pointer;
+        text-decoration: none;
+        transition: background 0.15s ease;
+    }
+
+    .ids-qid-badge:hover {
+        background: rgba(140, 120, 180, 0.22);
+        color: #d4cef0;
+        text-decoration: none;
+    }
+
+    .ids-status-chip {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 500;
+        line-height: 1.6;
+    }
+
+    .ids-placeholder {
+        font-size: 11px;
+        font-weight: 400;
+        font-style: italic;
+        color: rgba(200, 190, 220, 0.30);
+        line-height: 1.5;
+    }
+</style>

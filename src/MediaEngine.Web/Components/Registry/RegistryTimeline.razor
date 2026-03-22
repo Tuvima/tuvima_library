@@ -96,7 +96,12 @@
         <div class="rtl-timeline">
             @foreach (var group in _timelineGroups)
             {
-                <div class="rtl-day-header">@group.Label</div>
+                <div class="rtl-day-header">
+                    <span>@group.Label</span>
+                    <button class="rtl-view-btn rtl-view-btn--header" @onclick="() => OnOpenInListView.InvokeAsync(null)">
+                        View
+                    </button>
+                </div>
 
                 @foreach (var item in group.Items)
                 {
@@ -138,9 +143,6 @@
                                                 }
                                             </div>
                                         </div>
-                                        <button class="rtl-view-btn" @onclick="() => OnOpenInListView.InvokeAsync(batch.Id)">
-                                            View
-                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -276,12 +278,6 @@
                                             @{
                                                 var viewEntityId = rd?.EntityId ?? evt.EntityId;
                                             }
-                                            @if (!string.IsNullOrWhiteSpace(viewEntityId))
-                                            {
-                                                <button class="rtl-view-btn" @onclick='() => Nav.NavigateTo($"/registry/library?entity={viewEntityId}")'>
-                                                    View
-                                                </button>
-                                            }
                                         </div>
                                     </div>
                                 </div>
@@ -306,12 +302,6 @@
                                         <span class="rtl-event-detail">@FormatPlainEnglishDetail(evt)</span>
                                         @{
                                             var otherEntityId = evt.EntityId;
-                                        }
-                                        @if (!string.IsNullOrWhiteSpace(otherEntityId))
-                                        {
-                                            <button class="rtl-view-btn" @onclick='() => Nav.NavigateTo($"/registry/library?entity={otherEntityId}")'>
-                                                View
-                                            </button>
                                         }
                                     </div>
                                 </div>
@@ -896,11 +886,16 @@
     }
 
     .rtl-day-header {
-        font-size: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-size: 11px;
         font-weight: 600;
+        color: rgba(200, 190, 220, 0.30);
         letter-spacing: 1px;
-        color: rgba(255, 255, 255, 0.30);
-        margin: 20px 0 12px 38px;
+        padding: 16px 0 8px;
+        text-transform: uppercase;
+        margin: 0 0 0 38px;
     }
 
     .rtl-day-header:first-child {
@@ -1038,6 +1033,14 @@
     .rtl-view-btn:hover {
         background: rgba(74, 144, 217, 0.14);
         border-color: rgba(74, 144, 217, 0.30);
+    }
+
+    .rtl-view-btn--header {
+        font-size: 11px;
+        padding: 3px 10px;
+        letter-spacing: 0;
+        text-transform: none;
+        font-weight: 500;
     }
 
     /* ── Report card ── */

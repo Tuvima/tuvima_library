@@ -30,12 +30,35 @@ else
         <!-- Close button + Tabs (always at the very top) -->
         <div class="inspector-topbar">
             <div class="inspector-tabs">
-                <button class="inspector-tab @(_inspectorTab == "resolve" ? "inspector-tab--active" : "")"
-                        @onclick='() => _inspectorTab = "resolve"'>Resolve</button>
-                <button class="inspector-tab @(_inspectorTab == "history" ? "inspector-tab--active" : "")"
-                        @onclick='() => _inspectorTab = "history"'>History</button>
-                <button class="inspector-tab @(_inspectorTab == "metadata" ? "inspector-tab--active" : "")"
-                        @onclick='() => _inspectorTab = "metadata"'>Metadata</button>
+                @if (IsPersonOrUniverse)
+                {
+                    <button class="inspector-tab @(_inspectorTab == "details" ? "inspector-tab--active" : "")"
+                            @onclick='() => _inspectorTab = "details"'>Details</button>
+                    <button class="inspector-tab @(_inspectorTab == "history" ? "inspector-tab--active" : "")"
+                            @onclick='() => _inspectorTab = "history"'>History</button>
+                    <button class="inspector-tab @(_inspectorTab == "metadata" ? "inspector-tab--active" : "")"
+                            @onclick='() => _inspectorTab = "metadata"'>Metadata</button>
+                }
+                else if (IsInReview)
+                {
+                    <button class="inspector-tab @(_inspectorTab == "resolve" ? "inspector-tab--active" : "")"
+                            @onclick='() => _inspectorTab = "resolve"'>Resolve</button>
+                    <button class="inspector-tab @(_inspectorTab == "history" ? "inspector-tab--active" : "")"
+                            @onclick='() => _inspectorTab = "history"'>History</button>
+                    <button class="inspector-tab @(_inspectorTab == "metadata" ? "inspector-tab--active" : "")"
+                            @onclick='() => _inspectorTab = "metadata"'>Metadata</button>
+                }
+                else
+                {
+                    <button class="inspector-tab @(_inspectorTab == "details" ? "inspector-tab--active" : "")"
+                            @onclick='() => _inspectorTab = "details"'>Details</button>
+                    <button class="inspector-tab @(_inspectorTab == "resolve" ? "inspector-tab--active" : "")"
+                            @onclick='() => _inspectorTab = "resolve"'>Resolve</button>
+                    <button class="inspector-tab @(_inspectorTab == "history" ? "inspector-tab--active" : "")"
+                            @onclick='() => _inspectorTab = "history"'>History</button>
+                    <button class="inspector-tab @(_inspectorTab == "metadata" ? "inspector-tab--active" : "")"
+                            @onclick='() => _inspectorTab = "metadata"'>Metadata</button>
+                }
             </div>
             <button class="inspector-close" @onclick="OnClose" type="button" title="Close inspector">
                 <MudIcon Icon="@Icons.Material.Outlined.Close" Style="font-size: 16px;" />
@@ -43,7 +66,17 @@ else
         </div>
 
         <!-- Tab content -->
-        @if (_inspectorTab == "resolve")
+        @if (_inspectorTab == "details")
+        {
+            <!-- Compact header for Details tab -->
+            <div class="inspector-tab-header">
+                <div class="inspector-tab-header-title">@Item.Title</div>
+                <div class="inspector-tab-header-sub">@Item.Author &middot; @RegistryHelpers.FormatMediaType(Item.MediaType)</div>
+                <div class="inspector-tab-header-state" style="background: @HexToRgba(stateColor, 0.15); color: @stateColor;">@stateLabel</div>
+            </div>
+            <InspectorDetailsSection Item="Item" Detail="_detail" Loading="_detailLoading" />
+        }
+        else if (_inspectorTab == "resolve")
         {
             <!-- File context (flat, no container) -->
             <div class="inspector-file-context">
@@ -160,6 +193,8 @@ else
     private string?                       _selectedCandidateTitle;
     private string?                       _selectedCandidateAuthor;
     private string?                       _selectedCoverUrl;
+    private RegistryItemDetailViewModel?  _detail;
+    private bool                          _detailLoading;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -167,7 +202,9 @@ else
             return;
 
         _loadedEntityId = Item.EntityId;
-        _inspectorTab   = "resolve"; // Reset to resolve tab on new item
+        var isPerson = Item.MediaType is "Person" or "Universe";
+        var inReview = Item.Status == "InReview" || !string.IsNullOrEmpty(Item.ReviewTrigger);
+        _inspectorTab   = isPerson ? "details" : inReview ? "resolve" : "details";
         _showProvisionalForm = false;
         _selectedCandidateTitle = null;
         _selectedCandidateAuthor = null;
@@ -175,11 +212,13 @@ else
         _historyLoading = true;
         _fieldsLoading  = true;
         _reportsLoading = true;
+        _detailLoading  = true;
         StateHasChanged();
 
         var historyTask = ApiClient.GetItemHistoryAsync(Item.EntityId);
         var fieldsTask  = Orchestrator.GetCanonicalValuesAsync(Item.EntityId);
         var reportsTask = Orchestrator.GetReportsForEntityAsync(Item.EntityId);
+        var detailTask  = ApiClient.GetRegistryItemDetailAsync(Item.EntityId);
 
         try { _history = await historyTask; } catch { _history = []; }
         _historyLoading = false;
@@ -189,7 +228,13 @@ else
 
         try { _reports = await reportsTask; } catch { _reports = []; }
         _reportsLoading = false;
+
+        try { _detail = await detailTask; } catch { _detail = null; }
+        _detailLoading = false;
     }
+
+    private bool IsPersonOrUniverse => Item?.MediaType is "Person" or "Universe";
+    private bool IsInReview => Item?.Status == "InReview" || !string.IsNullOrEmpty(Item?.ReviewTrigger);
 
     private string ComputeState()
     {

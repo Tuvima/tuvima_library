@@ -17,6 +17,7 @@ public static class RegistryHelpers
         "COMICS" or "COMIC" => Icons.Material.Outlined.AutoStories,
         "PODCASTS" or "PODCAST" => Icons.Material.Outlined.Podcasts,
         "UNIVERSE" => Icons.Material.Outlined.AutoAwesome,
+        "PERSON" or "PEOPLE" => Icons.Material.Outlined.Person,
         _ => Icons.Material.Outlined.InsertDriveFile,
     };
 
@@ -29,6 +30,8 @@ public static class RegistryHelpers
         "MUSIC"                          => "Music",
         "COMICS" or "COMIC"              => "Comic",
         "PODCASTS" or "PODCAST"          => "Podcast",
+        "PERSON" or "PEOPLE"             => "Person",
+        "UNIVERSE" or "UNIVERSES"        => "Universe",
         _ => mediaType ?? "—",
     };
 
@@ -143,6 +146,7 @@ public static class RegistryHelpers
         "InReview"    => "#EF9F27",  // amber
         "Provisional" => "#B4B2A9",  // neutral gray
         "Rejected"    => "#E24B4A",  // red
+        "Known"       => "#B39DDB",  // soft purple — for people/universes
         // Legacy statuses (backward compat during migration)
         "Review"      => "#EF9F27",
         "Auto"        => "#5DCAA5",
@@ -175,6 +179,7 @@ public static class RegistryHelpers
         "InReview"    => "In Review",
         "Provisional" => "Provisional",
         "Rejected"    => "Rejected",
+        "Known"       => "Known",
         // Legacy
         "Review"      => "In Review",
         "Auto"        => "Registered",
@@ -194,6 +199,7 @@ public static class RegistryHelpers
             or "NeedsReview"        => "#EF9F27",
         "Provisional" or "NoMatch"  => "#B4B2A9",
         "Rejected" or "Failed"      => "#E24B4A",
+        "Known"                    => "#B39DDB",
         _ => "#B4B2A9",
     };
 
@@ -209,6 +215,7 @@ public static class RegistryHelpers
             or "NeedsReview"        => "In Review",
         "Provisional" or "NoMatch"  => "Provisional",
         "Rejected" or "Failed"      => "Rejected",
+        "Known"                    => "Known",
         _ => state,
     };
 
@@ -220,6 +227,7 @@ public static class RegistryHelpers
             or "NeedsReview"        => Icons.Material.Outlined.RateReview,
         "Provisional" or "NoMatch"  => Icons.Material.Outlined.HelpOutline,
         "Rejected" or "Failed"      => Icons.Material.Outlined.Error,
+        "Known"                    => Icons.Material.Outlined.Verified,
         _ => Icons.Material.Outlined.Circle,
     };
 
