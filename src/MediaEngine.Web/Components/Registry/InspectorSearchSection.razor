@@ -459,7 +459,7 @@ else
             {
                 _candidates.Add(new CandidateViewModel
                 {
-                    Title = c.Label,
+                    Title = ShortenLabel(c.Label),
                     Author = c.Author,
                     Description = c.Description ?? c.WikipediaExtract,
                     Year = c.Year,
@@ -606,6 +606,20 @@ else
 
     private static string TruncateTitle(string title)
         => title.Length > 30 ? title[..27] + "…" : title;
+
+    /// <summary>
+    /// Extracts a short display label from a full Wikidata entity name.
+    /// Wikidata stores formal titles like "Frankenstein; or, The Modern Prometheus"
+    /// — this returns "Frankenstein" for cleaner search result display.
+    /// </summary>
+    private static string ShortenLabel(string? label)
+    {
+        if (string.IsNullOrWhiteSpace(label)) return "";
+        // Truncate at semicolon (formal subtitle separator in Wikidata labels)
+        var semi = label.IndexOf(';');
+        if (semi > 0) return label[..semi].TrimEnd();
+        return label;
+    }
 
     /// <summary>Returns the context-aware label for the creator field based on media type.</summary>
     private string CreatorLabel => (Item.MediaType ?? "") switch
