@@ -60,6 +60,13 @@ public sealed class HarvestRequest
     public bool SuppressActivityEntry { get; init; }
 
     /// <summary>
+    /// When <c>true</c>, the pipeline will not create new review queue entries.
+    /// Used during user-triggered review resolution to prevent the pipeline from
+    /// re-creating review items for the same entity while the resolution is in progress.
+    /// </summary>
+    public bool SuppressReviewCreation { get; init; }
+
+    /// <summary>
     /// The ingestion run ID that originated this request.
     /// When set, the <c>MediaAdded</c> activity entry will carry this ID so the
     /// Dashboard can link all ingestion sub-steps to a single <c>MediaAdded</c> card.

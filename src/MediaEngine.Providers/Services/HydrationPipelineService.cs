@@ -1231,7 +1231,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 .Select(f => f.Key)
                 .ToList();
 
-            if (conflictedFields.Count > 0)
+            if (!request.SuppressReviewCreation && conflictedFields.Count > 0)
             {
                 await CreateMetadataConflictReviewItemAsync(
                     request.EntityId, scored.OverallConfidence, conflictedFields, ct, request.IngestionRunId,
@@ -1885,6 +1885,12 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         CancellationToken ct,
         List<Guid>? deferredReviewNotifications = null)
     {
+        // Suppress: during user-triggered review resolution, don't create new reviews.
+        if (request.SuppressReviewCreation)
+        {
+            return;
+        }
+
         // Dedup: skip if a pending review with the same trigger already exists.
         var existing = await _reviewRepo.GetByEntityAsync(request.EntityId, ct)
             .ConfigureAwait(false);

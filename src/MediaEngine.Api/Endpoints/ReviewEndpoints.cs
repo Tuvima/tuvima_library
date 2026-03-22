@@ -159,11 +159,12 @@ public static class ReviewEndpoints
 
                 await pipeline.RunSynchronousAsync(new HarvestRequest
                 {
-                    EntityId       = item.EntityId,
-                    EntityType     = EntityType.MediaAsset,
-                    MediaType      = Domain.Enums.MediaType.Unknown,
-                    Hints          = hints,
-                    PreResolvedQid = request.SelectedQid,
+                    EntityId               = item.EntityId,
+                    EntityType             = EntityType.MediaAsset,
+                    MediaType              = Domain.Enums.MediaType.Unknown,
+                    Hints                  = hints,
+                    PreResolvedQid         = request.SelectedQid,
+                    SuppressReviewCreation = true,
                 }, ct);
             }
 
