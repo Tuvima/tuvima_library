@@ -16,53 +16,11 @@
         <span class="registry-title">Registry</span>
     </div>
 
-    @* ── Constrained-width container for search + cards ── *@
+    @* ── Constrained-width container for cards ── *@
     <div class="registry-top-section">
 
-        @* ── Search Bar ── *@
-        <div class="registry-search-bar">
-            <MudIcon Icon="@Icons.Material.Outlined.Search" Style="font-size: 16px; color: rgba(255,255,255,0.30);" />
-            <input class="registry-search-input"
-                   type="text"
-                   placeholder="Search titles, people or universes..."
-                   value="@_searchTerm"
-                   @oninput="OnSearchInput"
-                   @onkeydown="HandleSearchKeyDown" />
-        </div>
-
-        @* ── Row 1: Action Stats ── *@
-        <div class="registry-stat-cards">
-            @{ var reportsCount = 0; }
-            @{ var reviewCount = _fourStateCounts?.InReview ?? 0; }
-            @{ var rejectedCount = _fourStateCounts?.Rejected ?? 0; }
-
-            <button class="registry-stat-card registry-stat-card--blue @(reportsCount == 0 ? "registry-stat-card--disabled" : "")"
-                    @onclick='() => NavigateIfNonZero(reportsCount, "/registry/library?state=reports")'
-                    disabled="@(reportsCount == 0)">
-                <MudIcon Icon="@Icons.Material.Outlined.Feedback" Style="font-size: 18px; color: #4A90D9;" />
-                <span class="registry-stat-number" style="color: #4A90D9;">@reportsCount</span>
-                <span class="registry-stat-label">reports</span>
-            </button>
-            <button class="registry-stat-card registry-stat-card--amber @(reviewCount == 0 ? "registry-stat-card--disabled" : "")"
-                    @onclick='() => NavigateIfNonZero(reviewCount, "/registry/library?state=review")'
-                    disabled="@(reviewCount == 0)">
-                <MudIcon Icon="@Icons.Material.Outlined.RateReview" Style="font-size: 18px; color: #EF9F27;" />
-                <span class="registry-stat-number" style="color: #EF9F27;">@reviewCount</span>
-                <span class="registry-stat-label">in review</span>
-            </button>
-            <button class="registry-stat-card registry-stat-card--red @(rejectedCount == 0 ? "registry-stat-card--disabled" : "")"
-                    @onclick='() => NavigateIfNonZero(rejectedCount, "/registry/library?state=rejected")'
-                    disabled="@(rejectedCount == 0)">
-                <MudIcon Icon="@Icons.Material.Outlined.Close" Style="font-size: 18px; color: #E24B4A;" />
-                <span class="registry-stat-number" style="color: #E24B4A;">@rejectedCount</span>
-                <span class="registry-stat-label">rejected</span>
-            </button>
-        </div>
-
-        @* ── Row 2: Library Overview ── *@
-        <div class="registry-library-row">
-            <span class="registry-library-label">Library</span>
-            <div class="registry-library-cards">
+        @* ── Library Overview ── *@
+        <div class="registry-library-cards">
                 @* ── Items box with heatmap bar ── *@
                 <div class="registry-items-box">
                     <div class="registry-items-header">
@@ -141,7 +99,35 @@
                     <span class="registry-meta-number">@(_fourStateCounts?.HubCount ?? 0)</span>
                     <span class="registry-meta-label">universes</span>
                 </div>
-            </div>
+        </div>
+
+        @* ── Action Stats ── *@
+        <div class="registry-stat-cards">
+            @{ var reportsCount = 0; }
+            @{ var reviewCount = _fourStateCounts?.InReview ?? 0; }
+            @{ var rejectedCount = _fourStateCounts?.Rejected ?? 0; }
+
+            <button class="registry-stat-card registry-stat-card--blue @(reportsCount == 0 ? "registry-stat-card--disabled" : "")"
+                    @onclick='() => NavigateIfNonZero(reportsCount, "/registry/library?state=reports")'
+                    disabled="@(reportsCount == 0)">
+                <MudIcon Icon="@Icons.Material.Outlined.Feedback" Style="font-size: 18px; color: #4A90D9;" />
+                <span class="registry-stat-number" style="color: #4A90D9;">@reportsCount</span>
+                <span class="registry-stat-label">reports</span>
+            </button>
+            <button class="registry-stat-card registry-stat-card--amber @(reviewCount == 0 ? "registry-stat-card--disabled" : "")"
+                    @onclick='() => NavigateIfNonZero(reviewCount, "/registry/library?state=review")'
+                    disabled="@(reviewCount == 0)">
+                <MudIcon Icon="@Icons.Material.Outlined.RateReview" Style="font-size: 18px; color: #EF9F27;" />
+                <span class="registry-stat-number" style="color: #EF9F27;">@reviewCount</span>
+                <span class="registry-stat-label">in review</span>
+            </button>
+            <button class="registry-stat-card registry-stat-card--red @(rejectedCount == 0 ? "registry-stat-card--disabled" : "")"
+                    @onclick='() => NavigateIfNonZero(rejectedCount, "/registry/library?state=rejected")'
+                    disabled="@(rejectedCount == 0)">
+                <MudIcon Icon="@Icons.Material.Outlined.Close" Style="font-size: 18px; color: #E24B4A;" />
+                <span class="registry-stat-number" style="color: #E24B4A;">@rejectedCount</span>
+                <span class="registry-stat-label">rejected</span>
+            </button>
         </div>
 
     </div>
@@ -166,7 +152,16 @@
     else
     {
         <div class="registry-library-wrapper">
-            <ActivityDetailPage EmbeddedMode="true" InitialTab="@_librarySubTab" InitialTypeFilter="@_libraryTypeFilter" InitialDateFrom="@_libraryDateFrom" InitialDateTo="@_libraryDateTo" OnCountsChanged="HandleCountsChanged" />
+            <div class="registry-search-bar">
+                <MudIcon Icon="@Icons.Material.Outlined.Search" Style="font-size: 16px; color: rgba(255,255,255,0.30);" />
+                <input class="registry-search-input"
+                       type="text"
+                       placeholder="Search titles, people or universes..."
+                       value="@_searchTerm"
+                       @oninput="OnSearchInput"
+                       @onkeydown="HandleSearchKeyDown" />
+            </div>
+            <ActivityDetailPage EmbeddedMode="true" InitialTab="@_librarySubTab" InitialTypeFilter="@_libraryTypeFilter" InitialDateFrom="@_libraryDateFrom" InitialDateTo="@_libraryDateTo" SearchTerm="@_debouncedSearchTerm" OnCountsChanged="HandleCountsChanged" />
         </div>
     }
 
@@ -226,7 +221,6 @@
         border: 1px solid rgba(255, 255, 255, 0.08);
         background: rgba(255, 255, 255, 0.03);
         transition: border-color 0.15s ease, background 0.15s ease;
-        max-width: 560px;
     }
 
     .registry-search-bar:focus-within {
@@ -333,23 +327,6 @@
         font-size: 12px;
         font-weight: 400;
         color: rgba(255, 255, 255, 0.45);
-    }
-
-    /* ── Row 2: Library Overview ── */
-    .registry-library-row {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        padding: 0 0 14px 0;
-    }
-
-    .registry-library-label {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 11px;
-        font-weight: 600;
-        color: rgba(255, 255, 255, 0.30);
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
     }
 
     .registry-library-cards {
@@ -664,15 +641,7 @@
             InvokeAsync(() =>
             {
                 _debouncedSearchTerm = _searchTerm;
-                // Auto-switch to library tab when searching
-                if (!string.IsNullOrEmpty(_debouncedSearchTerm) && _activeTab != "library")
-                {
-                    Nav.NavigateTo($"/registry/library?q={Uri.EscapeDataString(_debouncedSearchTerm)}");
-                }
-                else
-                {
-                    UpdateUrlWithSearch();
-                }
+                UpdateUrlWithSearch();
                 StateHasChanged();
             });
         }, null, 300, Timeout.Infinite);
@@ -684,15 +653,7 @@
         {
             _debounceTimer?.Dispose();
             _debouncedSearchTerm = _searchTerm;
-            // Auto-switch to library tab on Enter
-            if (!string.IsNullOrEmpty(_debouncedSearchTerm) && _activeTab != "library")
-            {
-                Nav.NavigateTo($"/registry/library?q={Uri.EscapeDataString(_debouncedSearchTerm)}");
-            }
-            else
-            {
-                UpdateUrlWithSearch();
-            }
+            UpdateUrlWithSearch();
             StateHasChanged();
         }
     }

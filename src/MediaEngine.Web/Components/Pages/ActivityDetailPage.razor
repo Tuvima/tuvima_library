@@ -80,15 +80,25 @@
             <div class="adp-filter-date-wrap">
                 <div class="adp-date-inputs">
                     <span class="adp-date-prefix">From</span>
-                    <input type="month" class="adp-date-input" value="@_dateFrom" @onchange="HandleDateFromChange" />
+                    <input type="date" class="adp-date-input" value="@_dateFrom" @onchange="HandleDateFromChange" />
                     <span class="adp-date-prefix">To</span>
-                    <input type="month" class="adp-date-input" value="@_dateTo" @onchange="HandleDateToChange" />
+                    <input type="date" class="adp-date-input" value="@_dateTo" @onchange="HandleDateToChange" />
                     @if (!string.IsNullOrEmpty(_dateFrom) || !string.IsNullOrEmpty(_dateTo))
                     {
                         <button class="adp-date-clear" @onclick="ClearDateFilter" type="button" title="Clear date filter">
                             <MudIcon Icon="@Icons.Material.Outlined.Close" Style="font-size: 14px;" />
                         </button>
                     }
+                </div>
+                <div class="adp-date-presets">
+                    <button class="adp-date-preset @(_datePreset == "today" ? "adp-date-preset--active" : "")"
+                            @onclick="() => ApplyDatePreset_Today()" type="button">Today</button>
+                    <button class="adp-date-preset @(_datePreset == "yesterday" ? "adp-date-preset--active" : "")"
+                            @onclick="() => ApplyDatePreset_Yesterday()" type="button">Yesterday</button>
+                    <button class="adp-date-preset @(_datePreset == "week" ? "adp-date-preset--active" : "")"
+                            @onclick="() => ApplyDatePreset_ThisWeek()" type="button">This Week</button>
+                    <button class="adp-date-preset @(_datePreset == "month" ? "adp-date-preset--active" : "")"
+                            @onclick="() => ApplyDatePreset_ThisMonth()" type="button">This Month</button>
                 </div>
             </div>
         </div>
@@ -239,6 +249,7 @@
     [Parameter] public string? InitialTypeFilter { get; set; }
     [Parameter] public string? InitialDateFrom { get; set; }
     [Parameter] public string? InitialDateTo { get; set; }
+    [Parameter] public string? SearchTerm { get; set; }
     [Parameter] public EventCallback OnCountsChanged { get; set; }
 
     // ── State ─────────────────────────────────────────────────────────────────
@@ -250,7 +261,9 @@
     private string _mediaTypeFilter = "";
     private string _dateFrom = "";
     private string _dateTo = "";
+    private string _datePreset = "";
     private string _sortOrder = "";
+    private string? _previousSearchTerm;
 
     /// <summary>True when the type filter is Person or Universe (non-media entity types).</summary>
     private bool IsEntityTypeFilter =>
@@ -354,16 +367,24 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        if (EmbeddedMode && !string.IsNullOrWhiteSpace(InitialTab) && InitialTab != _previousTab)
+        var tabChanged = EmbeddedMode && !string.IsNullOrWhiteSpace(InitialTab) && InitialTab != _previousTab;
+        var searchChanged = SearchTerm != _previousSearchTerm;
+
+        if (tabChanged)
         {
             _previousTab = InitialTab;
-            _activeTab = InitialTab;
+            _activeTab = InitialTab!;
             if (!string.IsNullOrEmpty(InitialTypeFilter))
                 _mediaTypeFilter = InitialTypeFilter;
             if (!string.IsNullOrEmpty(InitialDateFrom))
                 _dateFrom = InitialDateFrom;
             if (!string.IsNullOrEmpty(InitialDateTo))
                 _dateTo = InitialDateTo;
+        }
+
+        if (tabChanged || searchChanged)
+        {
+            _previousSearchTerm = SearchTerm;
             await LoadCountsAsync();
             await LoadItemsAsync();
             BuildGroupedItems();
@@ -426,13 +447,37 @@
                 _items.AddRange(persons);
             }
 
-            // Apply date range filter
-            if (!string.IsNullOrEmpty(_dateFrom) && DateTime.TryParse(_dateFrom + "-01", out var fromDate))
-                _items = _items.Where(i => i.CreatedAt >= new DateTimeOffset(fromDate, TimeSpan.Zero)).ToList();
-            if (!string.IsNullOrEmpty(_dateTo) && DateTime.TryParse(_dateTo + "-01", out var toDate))
+            // Apply date range filter (supports both yyyy-MM-dd and legacy yyyy-MM formats)
+            if (!string.IsNullOrEmpty(_dateFrom))
             {
-                var toEnd = toDate.AddMonths(1).AddDays(-1);
-                _items = _items.Where(i => i.CreatedAt <= new DateTimeOffset(toEnd, TimeSpan.Zero)).ToList();
+                if (DateTime.TryParse(_dateFrom, out var fromDate))
+                    _items = _items.Where(i => i.CreatedAt >= new DateTimeOffset(fromDate, TimeSpan.Zero)).ToList();
+                else if (DateTime.TryParse(_dateFrom + "-01", out var fromMonth))
+                    _items = _items.Where(i => i.CreatedAt >= new DateTimeOffset(fromMonth, TimeSpan.Zero)).ToList();
+            }
+            if (!string.IsNullOrEmpty(_dateTo))
+            {
+                if (DateTime.TryParse(_dateTo, out var toDate))
+                {
+                    var toEnd = toDate.AddDays(1).AddTicks(-1);
+                    _items = _items.Where(i => i.CreatedAt <= new DateTimeOffset(toEnd, TimeSpan.Zero)).ToList();
+                }
+                else if (DateTime.TryParse(_dateTo + "-01", out var toMonth))
+                {
+                    var toEnd = toMonth.AddMonths(1).AddTicks(-1);
+                    _items = _items.Where(i => i.CreatedAt <= new DateTimeOffset(toEnd, TimeSpan.Zero)).ToList();
+                }
+            }
+
+            // Apply search filter
+            if (!string.IsNullOrEmpty(SearchTerm))
+            {
+                var term = SearchTerm.Trim();
+                _items = _items.Where(i =>
+                    (i.Title?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                    (i.Author?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                    (i.WikidataQid?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
+                ).ToList();
             }
 
             // Apply sort order
@@ -569,12 +614,14 @@
     private async Task HandleDateFromChange(ChangeEventArgs e)
     {
         _dateFrom = e.Value?.ToString() ?? "";
+        _datePreset = "";
         await LoadItemsAsync();
     }
 
     private async Task HandleDateToChange(ChangeEventArgs e)
     {
         _dateTo = e.Value?.ToString() ?? "";
+        _datePreset = "";
         await LoadItemsAsync();
     }
 
@@ -582,7 +629,46 @@
     {
         _dateFrom = "";
         _dateTo = "";
+        _datePreset = "";
         InvokeAsync(async () => { await LoadItemsAsync(); StateHasChanged(); });
+    }
+
+    private async Task ApplyDatePreset_Today()
+    {
+        var today = DateTime.Today.ToString("yyyy-MM-dd");
+        _dateFrom = today;
+        _dateTo = today;
+        _datePreset = "today";
+        await LoadItemsAsync();
+    }
+
+    private async Task ApplyDatePreset_Yesterday()
+    {
+        var yesterday = DateTime.Today.AddDays(-1).ToString("yyyy-MM-dd");
+        _dateFrom = yesterday;
+        _dateTo = yesterday;
+        _datePreset = "yesterday";
+        await LoadItemsAsync();
+    }
+
+    private async Task ApplyDatePreset_ThisWeek()
+    {
+        var today = DateTime.Today;
+        var startOfWeek = today.AddDays(-(int)today.DayOfWeek);
+        _dateFrom = startOfWeek.ToString("yyyy-MM-dd");
+        _dateTo = today.ToString("yyyy-MM-dd");
+        _datePreset = "week";
+        await LoadItemsAsync();
+    }
+
+    private async Task ApplyDatePreset_ThisMonth()
+    {
+        var today = DateTime.Today;
+        var startOfMonth = new DateTime(today.Year, today.Month, 1);
+        _dateFrom = startOfMonth.ToString("yyyy-MM-dd");
+        _dateTo = today.ToString("yyyy-MM-dd");
+        _datePreset = "month";
+        await LoadItemsAsync();
     }
 
     private async Task HandleSortChange(ChangeEventArgs e)
@@ -967,7 +1053,7 @@
         font-family: 'Montserrat', sans-serif;
         font-size: 12px;
         font-weight: 500;
-        width: 100px;
+        width: 120px;
         cursor: pointer;
     }
 
@@ -992,6 +1078,42 @@
     .adp-date-clear:hover {
         color: rgba(255, 255, 255, 0.70);
         background: rgba(255, 255, 255, 0.08);
+    }
+
+    .adp-date-presets {
+        display: flex;
+        gap: 4px;
+        margin-top: 6px;
+    }
+
+    .adp-date-preset {
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 6px;
+        padding: 3px 10px;
+        font-family: 'Montserrat', sans-serif;
+        font-size: 11px;
+        font-weight: 500;
+        color: rgba(255, 255, 255, 0.45);
+        cursor: pointer;
+        transition: all 0.15s ease;
+    }
+
+    .adp-date-preset:hover {
+        background: rgba(255, 255, 255, 0.08);
+        color: rgba(255, 255, 255, 0.65);
+        border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .adp-date-preset--active {
+        background: rgba(201, 146, 46, 0.15);
+        border-color: rgba(201, 146, 46, 0.40);
+        color: #C9922E;
+    }
+
+    .adp-date-preset--active:hover {
+        background: rgba(201, 146, 46, 0.22);
+        border-color: rgba(201, 146, 46, 0.55);
     }
 
     /* ── Results header ── */
