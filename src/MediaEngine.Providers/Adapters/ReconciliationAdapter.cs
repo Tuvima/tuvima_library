@@ -190,6 +190,13 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 candidates = filtered;
             }
 
+            // Resolve display-friendly titles from Wikipedia sitelinks.
+            // The Reconciliation API returns the full Wikidata label (e.g.
+            // "Frankenstein; or, The Modern Prometheus") but the Wikipedia
+            // article title ("Frankenstein") is the common-usage display name.
+            candidates = await ResolveDisplayLabelsAsync(candidates, ct)
+                .ConfigureAwait(false);
+
             // For audiobook searches: discover audiobook editions via P747 for work-level results.
             // Edition results go first (they're more specific), work fallbacks come after.
             if (request.MediaType == MediaType.Audiobooks)
@@ -385,6 +392,56 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     }
 
     /// <summary>
+    /// Resolves display-friendly labels for reconciliation candidates by fetching
+    /// Wikipedia sitelink titles via the Wikibase API. The Reconciliation API's <c>name</c>
+    /// field contains the full Wikidata entity label (e.g. "Frankenstein; or, The Modern
+    /// Prometheus"), while the Wikipedia sitelink title is the common-usage display name
+    /// (e.g. "Frankenstein"). When a sitelink exists, the candidate's label is replaced.
+    /// </summary>
+    private async Task<IReadOnlyList<ReconciliationCandidate>> ResolveDisplayLabelsAsync(
+        IReadOnlyList<ReconciliationCandidate> candidates,
+        CancellationToken ct)
+    {
+        if (candidates.Count == 0 || _wikibaseApi is null)
+            return candidates;
+
+        try
+        {
+            var qids = candidates.Select(c => c.QID).Distinct().ToList();
+            var entities = await _wikibaseApi.GetEntitiesBatchAsync(qids, "en", ct)
+                .ConfigureAwait(false);
+
+            if (entities.Count == 0)
+                return candidates;
+
+            // Build QID → sitelink title lookup
+            var sitelinkMap = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var e in entities)
+            {
+                if (e.Sitelinks.TryGetValue("enwiki", out var siteTitle)
+                    && !string.IsNullOrWhiteSpace(siteTitle))
+                {
+                    sitelinkMap[e.Qid] = siteTitle;
+                }
+            }
+
+            if (sitelinkMap.Count == 0)
+                return candidates;
+
+            // Replace labels with shorter sitelink titles where available
+            return candidates.Select(c =>
+                sitelinkMap.TryGetValue(c.QID, out var displayTitle)
+                    ? c with { Label = displayTitle }
+                    : c
+            ).ToList();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "{Provider}: sitelink label resolution failed, using raw labels", Name);
+            return candidates;
+        }
+    }
+
     /// Filters reconciliation candidates by media type using P31 (instance_of) lookups.
     /// Walks P279 (subclass_of) up to 3 levels for unknown classes, caching learned mappings.
     /// Candidates with no P31 data that match any expected class are retained.
