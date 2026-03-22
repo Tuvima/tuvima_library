@@ -1,4 +1,5 @@
 @using MediaEngine.Web.Components.Registry
+@using MediaEngine.Web.Components.Pages
 @using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Components.Settings
 @inject UIOrchestratorService Orchestrator
@@ -107,11 +108,8 @@
     }
     else
     {
-        <div class="registry-batch-wrapper">
-            <RegistryBatchList Batches="@_batches"
-                               AttentionCount="@(_fourStateCounts?.InReview ?? 0)"
-                               OnBatchSelected="HandleBatchSelected"
-                               OnAttentionClicked="HandleAttentionClicked" />
+        <div class="registry-library-wrapper">
+            <ActivityDetailPage EmbeddedMode="true" InitialTab="@_librarySubTab" />
         </div>
     }
 
@@ -434,17 +432,17 @@
         border-radius: 1px;
     }
 
-    /* ── Batch list wrapper ── */
-    .registry-batch-wrapper {
-        padding: 16px 20px;
+    /* ── Library view wrapper ── */
+    .registry-library-wrapper {
+        padding: 0 20px;
     }
 </style>
 
 @code {
     private RegistryFourStateCountsDto? _fourStateCounts;
-    private IReadOnlyList<IngestionBatchViewModel> _batches = [];
 
     private string _activeTab = "activity";
+    private string _librarySubTab = "review";
     private string _searchTerm = "";
     private string _debouncedSearchTerm = "";
     private Timer? _debounceTimer;
@@ -475,14 +473,20 @@
             _ => "activity",
         };
 
-        // Parse ?q= query param for search
+        // Parse query params
         var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+
         var q = query["q"];
         if (!string.IsNullOrEmpty(q) && q != _searchTerm)
         {
             _searchTerm = q;
             _debouncedSearchTerm = q;
         }
+
+        // Pass ?state= to the embedded library view
+        var state = query["state"];
+        if (!string.IsNullOrEmpty(state))
+            _librarySubTab = state.ToLowerInvariant();
     }
 
     private void SwitchTab(string tab)
@@ -497,8 +501,6 @@
     private async Task LoadDataAsync()
     {
         _fourStateCounts = await Orchestrator.GetRegistryFourStateCountsAsync();
-        if (_activeTab == "library")
-            _batches = await Orchestrator.GetIngestionBatchesAsync();
     }
 
     private void OnSearchInput(ChangeEventArgs e)
@@ -538,29 +540,14 @@
 
     private void HandleTimelineNavigate(Guid? batchId)
     {
+        // Navigate to the library tab with batch source filter
         var target = batchId.HasValue ? $"?source=batch-{batchId.Value}" : "";
         Nav.NavigateTo($"/registry/activity{target}");
     }
 
-    private void HandleBatchSelected(Guid batchId)
-    {
-        Nav.NavigateTo($"/registry/activity?source=batch-{batchId}");
-    }
-
-    private void HandleAttentionClicked()
-    {
-        Nav.NavigateTo("/registry/activity?state=review");
-    }
-
     private async void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
     {
-        var previousTab = _activeTab;
         SyncTabFromUrl();
-
-        // Load batches if switching to library tab
-        if (_activeTab == "library" && previousTab != "library")
-            _batches = await Orchestrator.GetIngestionBatchesAsync();
-
         await InvokeAsync(StateHasChanged);
     }
 

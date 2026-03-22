@@ -12,22 +12,28 @@
 @inject IDialogService DialogService
 @implements IDisposable
 
-<PageTitle>Library Overview — Tuvima Library</PageTitle>
+@if (!EmbeddedMode)
+{
+    <PageTitle>Library Overview — Tuvima Library</PageTitle>
+}
 
-<div class="adp-root">
+<div class="adp-root @(EmbeddedMode ? "adp-root--embedded" : "")">
 
-    @* ── Back nav ── *@
-    <div class="adp-breadcrumb">
-        <button class="adp-back-btn" @onclick='() => Nav.NavigateTo("/registry")' type="button">
-            <MudIcon Icon="@Icons.Material.Outlined.ArrowBack" Style="font-size: 15px;" />
-            <span>Registry</span>
-        </button>
-        <span class="adp-breadcrumb-sep">/</span>
-        <span class="adp-breadcrumb-current">Library Overview</span>
-    </div>
+    @if (!EmbeddedMode)
+    {
+        @* ── Back nav ── *@
+        <div class="adp-breadcrumb">
+            <button class="adp-back-btn" @onclick='() => Nav.NavigateTo("/registry")' type="button">
+                <MudIcon Icon="@Icons.Material.Outlined.ArrowBack" Style="font-size: 15px;" />
+                <span>Registry</span>
+            </button>
+            <span class="adp-breadcrumb-sep">/</span>
+            <span class="adp-breadcrumb-current">Library Overview</span>
+        </div>
 
-    @* ── Page title ── *@
-    <h1 class="adp-page-title">Library Overview</h1>
+        @* ── Page title ── *@
+        <h1 class="adp-page-title">Library Overview</h1>
+    }
 
     @* ── Filter tabs ── *@
     <div class="adp-tab-row">
@@ -180,6 +186,11 @@
 </div>
 
 @code {
+    // ── Parameters ──────────────────────────────────────────────────────────
+
+    [Parameter] public bool EmbeddedMode { get; set; }
+    [Parameter] public string? InitialTab { get; set; }
+
     // ── Tab model ─────────────────────────────────────────────────────────────
 
     private sealed record TabDef(string Key, string Label, string Color, string Icon, int Count);
@@ -209,17 +220,25 @@
 
     protected override async Task OnInitializedAsync()
     {
-        // Parse query params
-        var uri = new Uri(Nav.Uri);
-        var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+        // Parse query params (only in standalone mode)
+        string? entityParam = null;
+        if (!EmbeddedMode)
+        {
+            var uri = new Uri(Nav.Uri);
+            var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
 
-        var stateParam = query["state"];
-        if (!string.IsNullOrEmpty(stateParam))
-            _activeTab = stateParam.ToLowerInvariant();
+            var stateParam = query["state"];
+            if (!string.IsNullOrEmpty(stateParam))
+                _activeTab = stateParam.ToLowerInvariant();
 
-        _reasonFilter = query["reason"];
-        _sourceFilter = query["source"];
-        var entityParam = query["entity"];
+            _reasonFilter = query["reason"];
+            _sourceFilter = query["source"];
+            entityParam = query["entity"];
+        }
+        else if (!string.IsNullOrEmpty(InitialTab))
+        {
+            _activeTab = InitialTab;
+        }
 
         // Subscribe to live review count changes
         Orchestrator.OnReviewCountChanged += HandleReviewCountChanged;
@@ -361,8 +380,16 @@
         _activeTab    = tab;
         _reasonFilter = null;  // clear reason filter on explicit tab switch
         _selectedItem = null;
-        var newUrl = $"/registry/activity?state={tab}";
-        Nav.NavigateTo(newUrl, forceLoad: false, replace: true);
+        if (!EmbeddedMode)
+        {
+            var newUrl = $"/registry/activity?state={tab}";
+            Nav.NavigateTo(newUrl, forceLoad: false, replace: true);
+        }
+        else
+        {
+            var newUrl = $"/registry/library?state={tab}";
+            Nav.NavigateTo(newUrl, forceLoad: false, replace: true);
+        }
         await LoadItemsAsync();
     }
 
@@ -610,9 +637,18 @@
         color: #e0dce8;
     }
 
+    .adp-root--embedded {
+        min-height: auto;
+        padding: 12px 0 0 0;
+    }
+
     @@media (max-width: 768px) {
         .adp-root {
             padding: 20px 16px 40px 16px;
+        }
+
+        .adp-root--embedded {
+            padding: 12px 0 0 0;
         }
     }
 
