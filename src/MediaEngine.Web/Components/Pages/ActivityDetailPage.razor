@@ -939,15 +939,15 @@
         border-radius: 8px;
         background: rgba(140, 120, 180, 0.04);
         border: 1px solid rgba(140, 120, 180, 0.08);
+        flex-wrap: wrap;
     }
 
     .adp-group-toolbar-left {
         display: flex;
         align-items: center;
         gap: 6px;
-        padding-bottom: 6px;
         cursor: pointer;
-        flex-wrap: wrap;
+        flex-shrink: 0;
     }
 
     .adp-group-name {
@@ -980,6 +980,7 @@
         gap: 6px;
         margin-left: auto;
         align-items: center;
+        flex-shrink: 0;
     }
 
     .adp-toolbar-btn {
@@ -994,6 +995,7 @@
         cursor: pointer;
         transition: background 0.15s ease;
         border: none;
+        white-space: nowrap;
     }
 
     .adp-toolbar-btn--approve {
