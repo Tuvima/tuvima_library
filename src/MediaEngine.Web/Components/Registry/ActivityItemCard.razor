@@ -1,9 +1,18 @@
 @using MediaEngine.Web.Models.ViewDTOs
 @using MudBlazor
 
-<div class="aic-row @(IsSelected ? "aic-row--selected" : "")"
+<div class="aic-row @(IsSelected ? "aic-row--selected" : "") @(IsChecked ? "aic-row--checked" : "")"
      style="border-left: 3px solid @RegistryHelpers.GetStatusColor(Item.Status);"
      @onclick="HandleRowClick">
+
+    @* ── Checkbox (when selection mode is active) ── *@
+    @if (ShowCheckbox)
+    {
+        <div class="aic-checkbox" @onclick="HandleCheckboxClick" @onclick:stopPropagation="true">
+            <MudIcon Icon="@(IsChecked ? Icons.Material.Filled.CheckBox : Icons.Material.Outlined.CheckBoxOutlineBlank)"
+                     Style="@($"font-size: 18px; color: {(IsChecked ? "#5DCAA5" : "rgba(200,190,220,0.25)")};")" />
+        </div>
+    }
 
     @* ── Cover thumbnail ── *@
     <div class="aic-thumb-wrap">
@@ -79,8 +88,11 @@
 @code {
     [Parameter, EditorRequired] public RegistryItemViewModel Item { get; set; } = default!;
     [Parameter] public bool IsSelected { get; set; }
+    [Parameter] public bool IsChecked { get; set; }
+    [Parameter] public bool ShowCheckbox { get; set; }
     [Parameter] public EventCallback<RegistryItemViewModel> OnSelect { get; set; }
     [Parameter] public EventCallback<Guid> OnUnreject { get; set; }
+    [Parameter] public EventCallback<Guid> OnCheckedChanged { get; set; }
     [Parameter] public bool ShowTriggerChip { get; set; } = true;
 
     // ── Computed display values ────────────────────────────────────────────
@@ -155,6 +167,11 @@
     {
         await OnUnreject.InvokeAsync(Item.EntityId);
     }
+
+    private async Task HandleCheckboxClick()
+    {
+        await OnCheckedChanged.InvokeAsync(Item.EntityId);
+    }
 }
 
 <style>
@@ -183,6 +200,26 @@
 
     .aic-row--selected:hover {
         background: rgba(140, 120, 180, 0.12);
+    }
+
+    .aic-row--checked {
+        background: rgba(93, 202, 165, 0.04);
+    }
+
+    /* ── Checkbox ─────────────────────────────────────────────────────────── */
+    .aic-checkbox {
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        padding: 2px;
+        border-radius: 4px;
+        transition: background 0.12s ease;
+    }
+
+    .aic-checkbox:hover {
+        background: rgba(93, 202, 165, 0.12);
     }
 
     /* ── Thumbnail ─────────────────────────────────────────────────────────── */

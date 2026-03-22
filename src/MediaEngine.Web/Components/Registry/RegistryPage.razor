@@ -542,7 +542,7 @@
     {
         // Navigate to the library tab with batch source filter
         var target = batchId.HasValue ? $"?source=batch-{batchId.Value}" : "";
-        Nav.NavigateTo($"/registry/activity{target}");
+        Nav.NavigateTo($"/registry/library{target}");
     }
 
     private async void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)

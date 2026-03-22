@@ -98,37 +98,61 @@
                 @foreach (var group in _groupedItems)
                 {
                     var (trigLabel, trigColor, trigIcon) = RegistryHelpers.FormatReviewTrigger(group.Key);
-                    var description = GetTriggerDescription(group.Key);
                     var isCollapsed = _collapsedGroups.Contains(group.Key);
+                    var groupSelectedCount = group.Value.Count(i => _selectedIds.Contains(i.EntityId));
+                    var hasSelection = groupSelectedCount > 0;
                     <div class="adp-group">
-                        <div class="adp-group-header" @onclick="() => ToggleGroup(group.Key)">
-                            <MudIcon Icon="@(isCollapsed ? Icons.Material.Filled.ChevronRight : Icons.Material.Filled.ExpandMore)"
-                                     Style="font-size: 16px; color: rgba(200,190,220,0.35); flex-shrink: 0; cursor: pointer;" />
-                            <MudIcon Icon="@trigIcon"
-                                     Style="@($"font-size: 13px; color: {trigColor}; flex-shrink: 0;")" />
-                            <span class="adp-group-name" style="color: @trigColor;">@trigLabel</span>
-                            <span class="adp-group-count">@group.Value.Count</span>
-                            @if (!string.IsNullOrEmpty(description))
-                            {
-                                <span class="adp-group-desc">— @description</span>
-                            }
+                        @* ── Soft toolbar header ── *@
+                        <div class="adp-group-toolbar">
+                            <div class="adp-group-toolbar-left" @onclick="() => ToggleGroup(group.Key)">
+                                <MudIcon Icon="@(isCollapsed ? Icons.Material.Filled.ChevronRight : Icons.Material.Filled.ExpandMore)"
+                                         Style="font-size: 16px; color: rgba(200,190,220,0.35); flex-shrink: 0; cursor: pointer;" />
+                                <MudIcon Icon="@trigIcon"
+                                         Style="@($"font-size: 13px; color: {trigColor}; flex-shrink: 0;")" />
+                                <span class="adp-group-name" style="color: @trigColor;">@trigLabel</span>
+                                <span class="adp-group-count">@group.Value.Count</span>
+                            </div>
 
-                            @* Batch actions *@
                             @if (group.Value.Count > 0)
                             {
-                                <div class="adp-group-actions" @onclick:stopPropagation="true">
-                                    <button class="adp-group-action adp-group-action--approve"
-                                            @onclick="() => HandleBatchApprove(group.Value)"
-                                            title="Approve all in this group">
-                                        <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Style="font-size: 12px;" />
-                                        <span>Approve All</span>
-                                    </button>
-                                    <button class="adp-group-action adp-group-action--reject"
-                                            @onclick="() => HandleBatchReject(group.Value)"
-                                            title="Reject all in this group">
-                                        <MudIcon Icon="@Icons.Material.Outlined.Block" Style="font-size: 12px;" />
-                                        <span>Reject All</span>
-                                    </button>
+                                <div class="adp-group-toolbar-divider"></div>
+
+                                <div class="adp-group-toolbar-actions" @onclick:stopPropagation="true">
+                                    @if (hasSelection)
+                                    {
+                                        <button class="adp-toolbar-btn adp-toolbar-btn--approve"
+                                                @onclick="() => HandleBatchApprove(group.Value.Where(i => _selectedIds.Contains(i.EntityId)).ToList())"
+                                                title="Approve selected items">
+                                            <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Style="font-size: 12px;" />
+                                            <span>Approve Selected (@groupSelectedCount)</span>
+                                        </button>
+                                        <button class="adp-toolbar-btn adp-toolbar-btn--reject"
+                                                @onclick="() => HandleBatchReject(group.Value.Where(i => _selectedIds.Contains(i.EntityId)).ToList())"
+                                                title="Reject selected items">
+                                            <MudIcon Icon="@Icons.Material.Outlined.Block" Style="font-size: 12px;" />
+                                            <span>Reject Selected</span>
+                                        </button>
+                                        <button class="adp-toolbar-btn adp-toolbar-btn--clear"
+                                                @onclick="() => ClearGroupSelection(group.Value)"
+                                                title="Clear selection">
+                                            <MudIcon Icon="@Icons.Material.Outlined.Close" Style="font-size: 12px;" />
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <button class="adp-toolbar-btn adp-toolbar-btn--approve"
+                                                @onclick="() => HandleBatchApprove(group.Value)"
+                                                title="Approve all in this group">
+                                            <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Style="font-size: 12px;" />
+                                            <span>Approve All</span>
+                                        </button>
+                                        <button class="adp-toolbar-btn adp-toolbar-btn--reject"
+                                                @onclick="() => HandleBatchReject(group.Value)"
+                                                title="Reject all in this group">
+                                            <MudIcon Icon="@Icons.Material.Outlined.Block" Style="font-size: 12px;" />
+                                            <span>Reject All</span>
+                                        </button>
+                                    }
                                 </div>
                             }
                         </div>
@@ -140,8 +164,11 @@
                                 {
                                     <ActivityItemCard Item="@item"
                                                       IsSelected="@(_selectedItem?.EntityId == item.EntityId)"
+                                                      IsChecked="@(_selectedIds.Contains(item.EntityId))"
+                                                      ShowCheckbox="@(_activeTab == "review")"
                                                       OnSelect="HandleItemSelect"
                                                       OnUnreject="HandleUnreject"
+                                                      OnCheckedChanged="HandleCheckToggle"
                                                       ShowTriggerChip="false" />
                                 }
                             </div>
@@ -211,6 +238,7 @@
     private int _bulkThreshold = 90;
     private bool _bulkProcessing;
     private HashSet<string> _collapsedGroups = [];
+    private HashSet<Guid> _selectedIds = [];
 
     // ── Tab definitions (computed after counts load) ───────────────────────────
 
@@ -220,25 +248,20 @@
 
     protected override async Task OnInitializedAsync()
     {
-        // Parse query params (only in standalone mode)
+        // Parse query params from current URL
         string? entityParam = null;
-        if (!EmbeddedMode)
-        {
-            var uri = new Uri(Nav.Uri);
-            var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+        var uri = new Uri(Nav.Uri);
+        var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
 
-            var stateParam = query["state"];
-            if (!string.IsNullOrEmpty(stateParam))
-                _activeTab = stateParam.ToLowerInvariant();
-
-            _reasonFilter = query["reason"];
-            _sourceFilter = query["source"];
-            entityParam = query["entity"];
-        }
-        else if (!string.IsNullOrEmpty(InitialTab))
-        {
+        var stateParam = query["state"];
+        if (!string.IsNullOrEmpty(stateParam))
+            _activeTab = stateParam.ToLowerInvariant();
+        else if (EmbeddedMode && !string.IsNullOrEmpty(InitialTab))
             _activeTab = InitialTab;
-        }
+
+        _reasonFilter = query["reason"];
+        _sourceFilter = query["source"];
+        entityParam = EmbeddedMode ? null : query["entity"];
 
         // Subscribe to live review count changes
         Orchestrator.OnReviewCountChanged += HandleReviewCountChanged;
@@ -380,6 +403,7 @@
         _activeTab    = tab;
         _reasonFilter = null;  // clear reason filter on explicit tab switch
         _selectedItem = null;
+        _selectedIds.Clear();
         if (!EmbeddedMode)
         {
             var newUrl = $"/registry/activity?state={tab}";
@@ -498,6 +522,18 @@
     {
         if (!_collapsedGroups.Remove(groupKey))
             _collapsedGroups.Add(groupKey);
+    }
+
+    private void HandleCheckToggle(Guid entityId)
+    {
+        if (!_selectedIds.Remove(entityId))
+            _selectedIds.Add(entityId);
+    }
+
+    private void ClearGroupSelection(List<RegistryItemViewModel> groupItems)
+    {
+        foreach (var item in groupItems)
+            _selectedIds.Remove(item.EntityId);
     }
 
     private async Task HandleBatchApprove(List<RegistryItemViewModel> items)
@@ -894,11 +930,21 @@
         margin-top: 8px;
     }
 
-    .adp-group-header {
+    .adp-group-toolbar {
+        display: flex;
+        align-items: center;
+        gap: 0;
+        margin-bottom: 10px;
+        padding: 6px 10px;
+        border-radius: 8px;
+        background: rgba(140, 120, 180, 0.04);
+        border: 1px solid rgba(140, 120, 180, 0.08);
+    }
+
+    .adp-group-toolbar-left {
         display: flex;
         align-items: center;
         gap: 6px;
-        margin-bottom: 14px;
         padding-bottom: 6px;
         cursor: pointer;
         flex-wrap: wrap;
@@ -921,25 +967,26 @@
         border-radius: 8px;
     }
 
-    .adp-group-desc {
-        font-size: 11px;
-        font-weight: 400;
-        color: rgba(200, 190, 220, 0.35);
-        font-style: italic;
-        display: none;
+    .adp-group-toolbar-divider {
+        width: 1px;
+        height: 20px;
+        background: rgba(140, 120, 180, 0.12);
+        margin: 0 10px;
+        flex-shrink: 0;
     }
 
-    .adp-group-actions {
+    .adp-group-toolbar-actions {
         display: flex;
         gap: 6px;
         margin-left: auto;
+        align-items: center;
     }
 
-    .adp-group-action {
+    .adp-toolbar-btn {
         display: inline-flex;
         align-items: center;
         gap: 4px;
-        padding: 5px 10px;
+        padding: 4px 10px;
         border-radius: 6px;
         font-family: 'Montserrat', sans-serif;
         font-size: 10px;
@@ -949,22 +996,32 @@
         border: none;
     }
 
-    .adp-group-action--approve {
+    .adp-toolbar-btn--approve {
         background: rgba(93, 202, 165, 0.10);
         color: rgba(93, 202, 165, 0.75);
     }
 
-    .adp-group-action--approve:hover {
+    .adp-toolbar-btn--approve:hover {
         background: rgba(93, 202, 165, 0.18);
     }
 
-    .adp-group-action--reject {
+    .adp-toolbar-btn--reject {
         background: rgba(226, 75, 74, 0.08);
         color: rgba(226, 75, 74, 0.65);
     }
 
-    .adp-group-action--reject:hover {
+    .adp-toolbar-btn--reject:hover {
         background: rgba(226, 75, 74, 0.15);
+    }
+
+    .adp-toolbar-btn--clear {
+        background: rgba(200, 190, 220, 0.06);
+        color: rgba(200, 190, 220, 0.45);
+        padding: 4px 6px;
+    }
+
+    .adp-toolbar-btn--clear:hover {
+        background: rgba(200, 190, 220, 0.12);
     }
 
     /* ── Group items grid ── */
