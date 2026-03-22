@@ -31,12 +31,6 @@ else
                     {
                         <div class="rg-section-actions" @onclick:stopPropagation="true">
                             <MudButton Variant="Variant.Text" Size="Size.Small"
-                                       StartIcon="@Icons.Material.Filled.Check"
-                                       OnClick="@(() => OnApproveGroup.InvokeAsync(group.Items.Select(i => i.EntityId).ToList()))"
-                                       Style="font-size: 0.68rem; color: #5A8A5E; padding: 2px 6px; min-width: 0; height: 22px;">
-                                Approve All
-                            </MudButton>
-                            <MudButton Variant="Variant.Text" Size="Size.Small"
                                        StartIcon="@Icons.Material.Filled.Block"
                                        OnClick="@(() => OnRejectGroup.InvokeAsync(group.Items.Select(i => i.EntityId).ToList()))"
                                        Style="font-size: 0.68rem; color: #A05050; padding: 2px 6px; min-width: 0; height: 22px;">
