@@ -219,6 +219,7 @@
 
         _reasonFilter = query["reason"];
         _sourceFilter = query["source"];
+        var entityParam = query["entity"];
 
         // Subscribe to live review count changes
         Orchestrator.OnReviewCountChanged += HandleReviewCountChanged;
@@ -226,6 +227,37 @@
         // Load counts then items
         await LoadCountsAsync();
         await LoadItemsAsync();
+
+        // Auto-select entity if specified in query params
+        if (Guid.TryParse(entityParam, out var entityId))
+        {
+            _selectedItem = _items.FirstOrDefault(i => i.EntityId == entityId);
+
+            // If not found in current tab, search across all tabs
+            if (_selectedItem is null)
+            {
+                foreach (var tab in new[] { "review", "registered", "rejected", "provisional" })
+                {
+                    if (tab == _activeTab) continue;
+                    try
+                    {
+                        var response = await Orchestrator.GetRegistryItemsAsync(
+                            offset: 0, limit: 200, status: MapTabToApiStatus(tab));
+                        var found = response?.Items?.FirstOrDefault(i => i.EntityId == entityId);
+                        if (found is not null)
+                        {
+                            _activeTab = tab;
+                            _items = response!.Items!;
+                            BuildGroupedItems();
+                            _selectedItem = found;
+                            RebuildTabs();
+                            break;
+                        }
+                    }
+                    catch { /* continue to next tab */ }
+                }
+            }
+        }
     }
 
     public void Dispose()
