@@ -640,6 +640,31 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
                 .ConfigureAwait(false);
         }
 
+        // Log PersonHydrated to the persistent activity ledger with headshot URL.
+        try
+        {
+            var changesJson = System.Text.Json.JsonSerializer.Serialize(new
+            {
+                name = personName,
+                qid,
+                headshot = headshotUrl,
+            });
+
+            await _activityRepo.LogAsync(new SystemActivityEntry
+            {
+                ActionType  = SystemActionType.PersonHydrated,
+                EntityId    = request.EntityId,
+                EntityType  = "Person",
+                HubName     = personName,
+                ChangesJson = changesJson,
+                Detail      = $"Person \"{personName}\" enriched from Wikidata",
+            }, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogDebug(ex, "Failed to log PersonHydrated activity for {PersonId}", request.EntityId);
+        }
+
         await _eventPublisher.PublishAsync(
             "PersonEnriched",
             new PersonEnrichedEvent(request.EntityId, personName, headshotUrl, qid),

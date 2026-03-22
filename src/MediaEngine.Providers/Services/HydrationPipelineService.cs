@@ -786,6 +786,18 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             .ToList();
         var bridgeHints = ExtractBridgeHints(canonicalsForS2, request.MediaType, stage2ProviderConfigs);
 
+        // Update title hint with canonical value from Stage 1 (the Reconciliation
+        // label is typically shorter/cleaner than the embedded P1476 formal title,
+        // e.g. "Frankenstein" rather than "Frankenstein; or, The Modern Prometheus").
+        // Use direct assignment so the canonical title overrides any embedded title
+        // already in bridgeHints or the original request hints.
+        var canonicalTitle = canonicalsForS2
+            .FirstOrDefault(cv => string.Equals(cv.Key, "title", StringComparison.OrdinalIgnoreCase));
+        if (canonicalTitle is not null && !string.IsNullOrWhiteSpace(canonicalTitle.Value))
+        {
+            bridgeHints["title"] = canonicalTitle.Value;
+        }
+
         // ── Bridge ID fallback from raw claims ────────────────────────────────
         // If Stage 1 failed or hasn't deposited canonical values yet, the
         // canonical_values table may be empty even though EpubProcessor (or
@@ -2238,8 +2250,11 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         var mergedHints = new Dictionary<string, string>(
             original.Hints, StringComparer.OrdinalIgnoreCase);
 
+        // Bridge hints come from canonical values resolved by Stage 1 — they are
+        // authoritative and must override any embedded metadata in the original hints.
+        // Use direct assignment (not TryAdd) so Stage 1 canonical values win.
         foreach (var (key, value) in bridgeHints)
-            mergedHints.TryAdd(key, value);
+            mergedHints[key] = value;
 
         return new HarvestRequest
         {

@@ -226,53 +226,63 @@
                             var rd = evt.ReviewData;
                             var resolvedTitle = rd?.Title ?? evt.HubName ?? "Resolved";
                             var resolvedQid = rd?.Qid ?? ExtractQid(evt.Detail);
+                            var isRegistered = string.Equals(rd?.Action, "resolved", StringComparison.OrdinalIgnoreCase);
+                            var isDismissed = string.Equals(rd?.Action, "dismissed", StringComparison.OrdinalIgnoreCase);
+                            var actionVerb = isRegistered ? "Registered" : isDismissed ? "Dismissed" : "Resolved";
+                            var actionColor = isRegistered ? "#5DCAA5" : isDismissed ? "rgba(200,190,220,0.55)" : "#5DCAA5";
+                            var dotBg = isRegistered ? "#5DCAA520" : isDismissed ? "rgba(200,190,220,0.08)" : "#5DCAA520";
+                            var dotBorder = isRegistered ? "#5DCAA555" : isDismissed ? "rgba(200,190,220,0.20)" : "#5DCAA555";
+                            var actionIcon = isRegistered ? Icons.Material.Outlined.Verified : isDismissed ? Icons.Material.Outlined.RemoveCircleOutline : Icons.Material.Outlined.Verified;
                             <div class="rtl-event">
                                 <div class="rtl-event-rail">
-                                    <div class="rtl-dot" style="background: #5DCAA520; border-color: #5DCAA555;">
-                                        <MudIcon Icon="@Icons.Material.Outlined.Verified" Style="font-size: 10px; color: #5DCAA5;" />
+                                    <div class="rtl-dot" style="background: @dotBg; border-color: @dotBorder;">
+                                        <MudIcon Icon="@actionIcon" Style="@($"font-size: 10px; color: {actionColor};")" />
                                     </div>
                                     <div class="rtl-connector"></div>
                                 </div>
                                 <div class="rtl-event-content">
                                     <div class="rtl-event-header">
-                                        <span class="rtl-event-title" style="color: #5DCAA5;">Curator Action</span>
+                                        <span class="rtl-event-title" style="color: @actionColor;">@actionVerb</span>
                                         <span class="rtl-event-time">@evt.RelativeTime</span>
                                     </div>
-                                    <div class="rtl-card rtl-card--review">
-                                        <div class="rtl-review-info">
-                                            @{
-                                                var coverUrl = evt.ReviewData?.CoverUrl;
-                                            }
-                                            @if (!string.IsNullOrWhiteSpace(coverUrl))
-                                            {
-                                                <div class="cover-hover-wrap">
-                                                    <img class="rtl-review-thumb" src="@coverUrl" alt="" loading="lazy" />
-                                                    <div class="cover-hover-popup">
-                                                        <img src="@coverUrl" class="cover-hover-img" alt="" />
-                                                    </div>
-                                                </div>
-                                            }
-                                            <div class="rtl-review-text">
-                                                <span class="rtl-card-title">@resolvedTitle</span>
-                                                @if (!string.IsNullOrWhiteSpace(resolvedQid))
+                                    <div class="rtl-card @(isRegistered ? "rtl-card--review" : "")">
+                                        <div class="rtl-card-row">
+                                            <div class="rtl-review-info">
+                                                @if (isRegistered)
                                                 {
-                                                    <span class="rtl-qid-badge">→ QID @resolvedQid</span>
+                                                    var coverUrl = evt.ReviewData?.CoverUrl;
+                                                    @if (!string.IsNullOrWhiteSpace(coverUrl))
+                                                    {
+                                                        <div class="cover-hover-wrap">
+                                                            <img class="rtl-review-thumb" src="@coverUrl" alt="" loading="lazy" />
+                                                            <div class="cover-hover-popup">
+                                                                <img src="@coverUrl" class="cover-hover-img" alt="" />
+                                                            </div>
+                                                        </div>
+                                                    }
                                                 }
+                                                <div class="rtl-review-text">
+                                                    <span class="rtl-card-title">@resolvedTitle</span>
+                                                    @if (!string.IsNullOrWhiteSpace(resolvedQid) && isRegistered)
+                                                    {
+                                                        <span class="rtl-qid-badge">→ QID @resolvedQid</span>
+                                                    }
+                                                    @if (rd is not null && rd.FieldOverrides > 0)
+                                                    {
+                                                        <span class="rtl-event-detail">@rd.FieldOverrides field@(rd.FieldOverrides == 1 ? "" : "s") updated</span>
+                                                    }
+                                                </div>
                                             </div>
+                                            @{
+                                                var viewEntityId = rd?.EntityId ?? evt.EntityId;
+                                            }
+                                            @if (!string.IsNullOrWhiteSpace(viewEntityId))
+                                            {
+                                                <button class="rtl-view-btn" @onclick='() => Nav.NavigateTo($"/registry/library?entity={viewEntityId}")'>
+                                                    View
+                                                </button>
+                                            }
                                         </div>
-                                        @if (rd is not null && rd.FieldOverrides > 0)
-                                        {
-                                            <span class="rtl-event-detail">@rd.FieldOverrides field@(rd.FieldOverrides == 1 ? "" : "s") updated</span>
-                                        }
-                                        @{
-                                            var viewEntityId = rd?.EntityId ?? evt.EntityId;
-                                        }
-                                        @if (!string.IsNullOrWhiteSpace(viewEntityId))
-                                        {
-                                            <button class="rtl-view-btn" @onclick='() => Nav.NavigateTo($"/registry/library?entity={viewEntityId}")'>
-                                                View
-                                            </button>
-                                        }
                                     </div>
                                 </div>
                             </div>
@@ -292,16 +302,18 @@
                                         <span class="rtl-event-title" style="color: #5DCAA5;">@FormatCuratorVerb(evt)</span>
                                         <span class="rtl-event-time">@evt.RelativeTime</span>
                                     </div>
-                                    <span class="rtl-event-detail">@(evt.Detail ?? evt.HubName ?? "Action completed")</span>
-                                    @{
-                                        var otherEntityId = evt.EntityId;
-                                    }
-                                    @if (!string.IsNullOrWhiteSpace(otherEntityId))
-                                    {
-                                        <button class="rtl-view-btn" @onclick='() => Nav.NavigateTo($"/registry/library?entity={otherEntityId}")'>
-                                            View
-                                        </button>
-                                    }
+                                    <div class="rtl-card-row">
+                                        <span class="rtl-event-detail">@FormatPlainEnglishDetail(evt)</span>
+                                        @{
+                                            var otherEntityId = evt.EntityId;
+                                        }
+                                        @if (!string.IsNullOrWhiteSpace(otherEntityId))
+                                        {
+                                            <button class="rtl-view-btn" @onclick='() => Nav.NavigateTo($"/registry/library?entity={otherEntityId}")'>
+                                                View
+                                            </button>
+                                        }
+                                    </div>
                                 </div>
                             </div>
                         }
@@ -331,9 +343,22 @@
                                     <div class="rtl-headshot-row">
                                         @foreach (var thumb in pg.Thumbs)
                                         {
-                                            <div class="rtl-person-avatar" title="@thumb.Name">
-                                                @(thumb.Name.Length > 0 ? thumb.Name[..1].ToUpperInvariant() : "?")
-                                            </div>
+                                            @if (!string.IsNullOrWhiteSpace(thumb.HeadshotUrl))
+                                            {
+                                                <div class="cover-hover-wrap">
+                                                    <img class="rtl-person-headshot" src="@thumb.HeadshotUrl" alt="@thumb.Name" title="@thumb.Name" loading="lazy" />
+                                                    <div class="cover-hover-popup">
+                                                        <img src="@thumb.HeadshotUrl" class="cover-hover-img" alt="@thumb.Name" style="width: 160px;" />
+                                                        <div style="padding: 4px 6px; font-size: 11px; color: rgba(255,255,255,0.7); text-align: center;">@thumb.Name</div>
+                                                    </div>
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <div class="rtl-person-avatar" title="@thumb.Name">
+                                                    @(thumb.Name.Length > 0 ? thumb.Name[..1].ToUpperInvariant() : "?")
+                                                </div>
+                                            }
                                         }
                                         @if (pg.Count > pg.Thumbs.Count)
                                         {
@@ -431,17 +456,14 @@
                 "ReviewItemResolved", "MetadataManualOverride",
                 "UserReportResolved", "UserReportDismissed"
             };
-            var rawCuratorActions = await Orchestrator.GetActivityByTypesAsync(curatorTypes, 200);
-            // Filter out auto-resolved events — only show genuinely manual curator actions
-            _allCuratorActions = rawCuratorActions
-                .Where(a => a.Detail is null || !a.Detail.StartsWith("Auto-resolved", StringComparison.OrdinalIgnoreCase))
-                .ToList();
+            _allCuratorActions = await Orchestrator.GetActivityByTypesAsync(curatorTypes, 200);
 
             var reportTypes = new[] { "UserReportSubmitted" };
             _allReports = await Orchestrator.GetActivityByTypesAsync(reportTypes, 200);
 
             var personTypes = new[] { "PersonHydrated" };
             _allPersonEnrichments = await Orchestrator.GetActivityByTypesAsync(personTypes, 200);
+
         }
         catch
         {
@@ -655,7 +677,22 @@
                 .ToList();
 
             var thumbs = events
-                .Select(e => new PersonThumb(e.HubName ?? e.Detail ?? "?"))
+                .Select(e =>
+                {
+                    var name = e.HubName ?? e.Detail ?? "?";
+                    string? headshot = null;
+                    if (!string.IsNullOrWhiteSpace(e.ChangesJson))
+                    {
+                        try
+                        {
+                            var doc = System.Text.Json.JsonDocument.Parse(e.ChangesJson);
+                            if (doc.RootElement.TryGetProperty("headshot", out var hp) && hp.ValueKind == System.Text.Json.JsonValueKind.String)
+                                headshot = hp.GetString();
+                        }
+                        catch { }
+                    }
+                    return new PersonThumb(name, headshot);
+                })
                 .Where(t => !string.IsNullOrWhiteSpace(t.Name))
                 .DistinctBy(t => t.Name)
                 .Take(5)
@@ -732,12 +769,35 @@
 
     private static string FormatCuratorVerb(ActivityEntryViewModel evt) => evt.ActionType switch
     {
-        "ReviewItemResolved" => "Curator Action",
-        "MetadataManualOverride" => "Curator Action",
-        "UserReportResolved" => "Curator Action",
-        "UserReportDismissed" => "Curator Action",
-        _ => "Curator Action",
+        "ReviewItemResolved" => "Review Resolved",
+        "ReviewItemCreated" => "Sent to Review",
+        "MetadataManualOverride" => "Metadata Updated",
+        "UserReportResolved" => "Report Resolved",
+        "UserReportDismissed" => "Report Dismissed",
+        _ => "Action Completed",
     };
+
+    private static string FormatPlainEnglishDetail(ActivityEntryViewModel evt)
+    {
+        // Prefer hub name as a human-readable anchor
+        var name = evt.HubName;
+
+        return evt.ActionType switch
+        {
+            "MetadataManualOverride" => !string.IsNullOrWhiteSpace(name)
+                ? $"Metadata for \"{name}\" was manually updated"
+                : "Metadata was manually updated",
+            "UserReportResolved" => !string.IsNullOrWhiteSpace(name)
+                ? $"Problem report for \"{name}\" resolved"
+                : "Problem report resolved",
+            "UserReportDismissed" => !string.IsNullOrWhiteSpace(name)
+                ? $"Problem report for \"{name}\" dismissed"
+                : "Problem report dismissed",
+            _ => !string.IsNullOrWhiteSpace(name)
+                ? name
+                : evt.Detail ?? "Action completed",
+        };
+    }
 
     // ── Data models ──
 
@@ -788,7 +848,8 @@
         public DateTimeOffset EarliestAt { get; set; }
     }
 
-    private sealed record PersonThumb(string Name);
+    private sealed record PersonThumb(string Name, string? HeadshotUrl);
+
 
     private static string? ExtractQid(string? text)
     {
@@ -994,6 +1055,14 @@
         border-left: 3px solid rgba(239, 83, 80, 0.40);
     }
 
+    /* ── Card row (flex: content left, View button right) ── */
+    .rtl-card-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+    }
+
     /* ── Review resolved card ── */
     .rtl-card--review {
         border-left: 3px solid rgba(93, 202, 165, 0.40);
@@ -1123,6 +1192,15 @@
         flex-shrink: 0;
     }
 
+    .rtl-person-headshot {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 1px solid rgba(179, 157, 219, 0.25);
+        flex-shrink: 0;
+    }
+
     .rtl-person-avatar--more {
         font-size: 9px;
         font-weight: 500;
@@ -1154,6 +1232,42 @@
         color: rgba(179, 157, 219, 0.40);
         background: transparent;
         border-color: rgba(179, 157, 219, 0.08);
+    }
+
+    .rtl-person-chip--amber {
+        background: rgba(239, 159, 39, 0.08);
+        border-color: rgba(239, 159, 39, 0.15);
+        color: rgba(239, 159, 39, 0.65);
+    }
+
+    /* ── Media ingestion cover row ── */
+    .rtl-cover-row {
+        display: flex;
+        gap: 4px;
+        flex-wrap: wrap;
+        margin-top: 4px;
+    }
+
+    .rtl-cover-thumb {
+        width: 28px;
+        height: 40px;
+        object-fit: cover;
+        border-radius: 3px;
+        border: 1px solid rgba(140, 120, 180, 0.15);
+    }
+
+    .rtl-cover-more {
+        width: 28px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 3px;
+        background: rgba(140, 120, 180, 0.08);
+        border: 1px solid rgba(140, 120, 180, 0.15);
+        font-size: 0.6rem;
+        color: rgba(200, 190, 220, 0.55);
+        font-family: 'Montserrat', sans-serif;
     }
 
     /* ── Link label (non-button text, part of clickable row) ── */

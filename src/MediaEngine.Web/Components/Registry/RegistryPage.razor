@@ -70,10 +70,26 @@
                         <span class="registry-items-label">items</span>
                     </div>
                     <div class="registry-heatmap-bar">
-                        <div class="registry-heatmap-fill registry-heatmap-fill--green"
-                             style="width: @(RegisteredPercent)%;"></div>
-                        <div class="registry-heatmap-fill registry-heatmap-fill--gray"
-                             style="width: @(ProvisionalPercent)%;"></div>
+                        @if (RegisteredPercent > 0)
+                        {
+                            <div class="registry-heatmap-fill registry-heatmap-fill--green"
+                                 style="width: @(RegisteredPercent)%;"></div>
+                        }
+                        @if (InReviewPercent > 0)
+                        {
+                            <div class="registry-heatmap-fill registry-heatmap-fill--amber"
+                                 style="width: @(InReviewPercent)%;"></div>
+                        }
+                        @if (ProvisionalPercent > 0)
+                        {
+                            <div class="registry-heatmap-fill registry-heatmap-fill--gray"
+                                 style="width: @(ProvisionalPercent)%;"></div>
+                        }
+                        @if (RejectedPercent > 0)
+                        {
+                            <div class="registry-heatmap-fill registry-heatmap-fill--red"
+                                 style="width: @(RejectedPercent)%;"></div>
+                        }
                     </div>
                     <div class="registry-items-legend">
                         <button class="registry-legend-item"
@@ -81,12 +97,33 @@
                             <span class="registry-legend-dot" style="background: #5DCAA5;"></span>
                             <span>@(_fourStateCounts?.Registered ?? 0) registered</span>
                         </button>
-                        <span class="registry-legend-sep">|</span>
-                        <button class="registry-legend-item"
-                                @onclick='() => Nav.NavigateTo("/registry/library?state=provisional")'>
-                            <span class="registry-legend-dot" style="background: #B4B2A9;"></span>
-                            <span>@(_fourStateCounts?.Provisional ?? 0) provisional</span>
-                        </button>
+                        @if ((_fourStateCounts?.InReview ?? 0) > 0)
+                        {
+                            <span class="registry-legend-sep">|</span>
+                            <button class="registry-legend-item"
+                                    @onclick='() => Nav.NavigateTo("/registry/library?state=review")'>
+                                <span class="registry-legend-dot" style="background: #EF9F27;"></span>
+                                <span>@(_fourStateCounts?.InReview ?? 0) in review</span>
+                            </button>
+                        }
+                        @if ((_fourStateCounts?.Provisional ?? 0) > 0)
+                        {
+                            <span class="registry-legend-sep">|</span>
+                            <button class="registry-legend-item"
+                                    @onclick='() => Nav.NavigateTo("/registry/library?state=provisional")'>
+                                <span class="registry-legend-dot" style="background: #B4B2A9;"></span>
+                                <span>@(_fourStateCounts?.Provisional ?? 0) provisional</span>
+                            </button>
+                        }
+                        @if ((_fourStateCounts?.Rejected ?? 0) > 0)
+                        {
+                            <span class="registry-legend-sep">|</span>
+                            <button class="registry-legend-item"
+                                    @onclick='() => Nav.NavigateTo("/registry/library?state=rejected")'>
+                                <span class="registry-legend-dot" style="background: #E24B4A;"></span>
+                                <span>@(_fourStateCounts?.Rejected ?? 0) rejected</span>
+                            </button>
+                        }
                     </div>
                 </div>
 
@@ -188,7 +225,7 @@
         border: 1px solid rgba(255, 255, 255, 0.08);
         background: rgba(255, 255, 255, 0.03);
         transition: border-color 0.15s ease, background 0.15s ease;
-        max-width: 480px;
+        max-width: 560px;
     }
 
     .registry-search-bar:focus-within {
@@ -214,16 +251,17 @@
     /* ── Row 1: Action Stat Cards ── */
     .registry-stat-cards {
         display: flex;
-        gap: 10px;
-        padding: 0 0 10px 0;
+        gap: 12px;
+        padding: 0 0 12px 0;
         flex-wrap: wrap;
+        max-width: 560px;
     }
 
     .registry-stat-card {
         display: flex;
         align-items: center;
-        gap: 8px;
-        padding: 10px 16px;
+        gap: 10px;
+        padding: 12px 20px;
         border-radius: 10px;
         background: rgba(255, 255, 255, 0.04);
         backdrop-filter: blur(12px);
@@ -232,6 +270,9 @@
         cursor: pointer;
         transition: border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
         font-family: 'Montserrat', sans-serif;
+        flex: 1;
+        min-width: 140px;
+        justify-content: center;
     }
 
     .registry-stat-card:hover:not(:disabled) {
@@ -311,10 +352,11 @@
     }
 
     .registry-library-cards {
-        display: inline-flex;
-        gap: 10px;
+        display: flex;
+        gap: 12px;
         align-items: stretch;
         flex-wrap: wrap;
+        max-width: 560px;
     }
 
     /* ── Items box with heatmap bar ── */
@@ -327,8 +369,8 @@
         background: rgba(255, 255, 255, 0.02);
         border: 1px solid rgba(255, 255, 255, 0.06);
         font-family: 'Montserrat', sans-serif;
-        min-width: 180px;
-        max-width: 220px;
+        flex: 2;
+        min-width: 240px;
     }
 
     .registry-items-header {
@@ -366,18 +408,37 @@
 
     .registry-heatmap-fill--green {
         background: #5DCAA5;
-        border-radius: 3px 0 0 3px;
+    }
+
+    .registry-heatmap-fill--amber {
+        background: #EF9F27;
     }
 
     .registry-heatmap-fill--gray {
         background: rgba(180, 178, 169, 0.45);
+    }
+
+    .registry-heatmap-fill--red {
+        background: #E24B4A;
+    }
+
+    .registry-heatmap-fill:first-child {
+        border-radius: 3px 0 0 3px;
+    }
+
+    .registry-heatmap-fill:last-child {
         border-radius: 0 3px 3px 0;
+    }
+
+    .registry-heatmap-fill:only-child {
+        border-radius: 3px;
     }
 
     .registry-items-legend {
         display: flex;
         align-items: center;
         gap: 8px;
+        flex-wrap: wrap;
     }
 
     .registry-legend-item {
@@ -421,12 +482,13 @@
         align-items: center;
         justify-content: center;
         gap: 4px;
-        padding: 10px 20px;
+        padding: 12px 20px;
         border-radius: 10px;
         background: rgba(255, 255, 255, 0.02);
         border: 1px solid rgba(255, 255, 255, 0.06);
         font-family: 'Montserrat', sans-serif;
-        min-width: 80px;
+        flex: 1;
+        min-width: 110px;
     }
 
     .registry-meta-number {
@@ -650,6 +712,26 @@
             var total = _fourStateCounts?.All ?? 0;
             if (total == 0) return 0;
             return Math.Round((_fourStateCounts?.Provisional ?? 0) * 100.0 / total, 1);
+        }
+    }
+
+    private double InReviewPercent
+    {
+        get
+        {
+            var total = _fourStateCounts?.All ?? 0;
+            if (total == 0) return 0;
+            return Math.Round((_fourStateCounts?.InReview ?? 0) * 100.0 / total, 1);
+        }
+    }
+
+    private double RejectedPercent
+    {
+        get
+        {
+            var total = _fourStateCounts?.All ?? 0;
+            if (total == 0) return 0;
+            return Math.Round((_fourStateCounts?.Rejected ?? 0) * 100.0 / total, 1);
         }
     }
 

@@ -394,10 +394,22 @@
             return;
         }
 
-        // Group by ReviewTrigger, sort groups by size descending
+        // Group by ReviewTrigger, sort groups by fixed priority order
+        var priorityOrder = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["AuthorityMatchFailed"] = 0,
+            ["LowConfidence"] = 1,
+            ["MultipleQidMatches"] = 2,
+            ["AmbiguousMediaType"] = 3,
+            ["LanguageMismatch"] = 4,
+            ["ArbiterNeedsReview"] = 5,
+            ["UserFixMatch"] = 6,
+            ["Unknown"] = 99,
+        };
+
         _groupedItems = _items
             .GroupBy(i => i.ReviewTrigger ?? "Unknown")
-            .OrderByDescending(g => g.Count())
+            .OrderBy(g => priorityOrder.GetValueOrDefault(g.Key, 50))
             .ToDictionary(g => g.Key, g => g.ToList());
     }
 
