@@ -72,28 +72,6 @@
                     <div class="isearch-card @(isSelected ? "isearch-card--selected" : "")"
                          @onclick="() => SelectCandidate(c)">
 
-                        <div class="isearch-card-cover">
-                            @if (!string.IsNullOrEmpty(c.CoverUrl))
-                            {
-                                <img src="@c.CoverUrl" alt="" class="isearch-card-img" loading="lazy"
-                                     onerror="this.style.display='none'" />
-                            }
-                            else if (_loadingCovers.Contains(c))
-                            {
-                                <div class="isearch-card-img isearch-card-img--loading">
-                                    <MudProgressCircular Size="Size.Small" Indeterminate="true"
-                                                         Style="width: 14px; height: 14px; color: rgba(200,190,220,0.3);" />
-                                </div>
-                            }
-                            else
-                            {
-                                <button class="isearch-load-cover" @onclick="() => LoadCover(c)" @onclick:stopPropagation="true">
-                                    <MudIcon Icon="@Icons.Material.Outlined.Image" Style="font-size: 12px;" />
-                                    <span>Load cover</span>
-                                </button>
-                            }
-                        </div>
-
                         <div class="isearch-card-body">
                             <span class="isearch-card-title">@c.Title</span>
                             @if (!string.IsNullOrWhiteSpace(c.Author))
@@ -249,29 +227,6 @@ else
                     var isSelected = _selectedCandidate == c;
                     <div class="isearch-result-item @(isSelected ? "isearch-result-item--selected" : "")"
                          @onclick="() => SelectCandidate(c)">
-
-                        @* Cover *@
-                        <div class="isearch-result-cover">
-                            @if (!string.IsNullOrEmpty(c.CoverUrl))
-                            {
-                                <img src="@c.CoverUrl" alt="" class="isearch-result-img" loading="lazy"
-                                     onerror="this.style.display='none'" />
-                            }
-                            else if (_loadingCovers.Contains(c))
-                            {
-                                <div class="isearch-result-img isearch-result-img--loading">
-                                    <MudProgressCircular Size="Size.Small" Indeterminate="true"
-                                                         Style="width: 14px; height: 14px; color: rgba(200,190,220,0.3);" />
-                                </div>
-                            }
-                            else
-                            {
-                                <button class="isearch-load-cover" @onclick="() => LoadCover(c)" @onclick:stopPropagation="true">
-                                    <MudIcon Icon="@Icons.Material.Outlined.Image" Style="font-size: 12px;" />
-                                    <span>Load</span>
-                                </button>
-                            }
-                        </div>
 
                         @* Text content *@
                         <div class="isearch-result-body">
@@ -433,9 +388,11 @@ else
 
 @code {
     [Parameter, EditorRequired] public RegistryItemViewModel Item { get; set; } = default!;
+    [Parameter] public string? SelectedCoverUrl { get; set; }
     [Parameter] public EventCallback OnRegistered { get; set; }
     [Parameter] public EventCallback OnMarkedProvisional { get; set; }
     [Parameter] public EventCallback OnRejected { get; set; }
+    [Parameter] public EventCallback<(string? title, string? author)> OnCandidateSelected { get; set; }
 
     private string _query = "";
     private string _mediaType = "";
@@ -443,7 +400,6 @@ else
     private bool _hasSearched;
     private bool _registering;
     private List<CandidateViewModel> _candidates = [];
-    private HashSet<CandidateViewModel> _loadingCovers = [];
     private CandidateViewModel? _selectedCandidate;
     private string? _resultMessage;
     private bool _resultSuccess;
@@ -471,7 +427,6 @@ else
             _selectedCandidate = null;
             _hasSearched = false;
             _resultMessage = null;
-            _loadingCovers = [];
 
         }
     }
@@ -533,37 +488,13 @@ else
         _hasSearched = true;
     }
 
-    private void SelectCandidate(CandidateViewModel candidate)
+    private async Task SelectCandidate(CandidateViewModel candidate)
     {
         _selectedCandidate = _selectedCandidate == candidate ? null : candidate;
         _resultMessage = null;
-    }
-
-    private async Task LoadCover(CandidateViewModel candidate)
-    {
-        if (_loadingCovers.Contains(candidate)) return;
-        _loadingCovers.Add(candidate);
-        StateHasChanged();
-
-        try
-        {
-            var searchQuery = candidate.Title;
-            if (!string.IsNullOrWhiteSpace(candidate.Author))
-                searchQuery += " " + candidate.Author;
-
-            var mt = string.IsNullOrEmpty(_mediaType) ? "Books" : _mediaType;
-            var result = await Orchestrator.SearchRetailAsync(searchQuery, mt, 1);
-            if (result.Count > 0 && !string.IsNullOrEmpty(result[0].CoverUrl))
-            {
-                candidate.CoverUrl = result[0].CoverUrl;
-            }
-        }
-        catch
-        {
-            // Silent fail
-        }
-
-        _loadingCovers.Remove(candidate);
+        await OnCandidateSelected.InvokeAsync(_selectedCandidate is not null
+            ? (_selectedCandidate.Title, _selectedCandidate.Author)
+            : (null, null));
     }
 
     private async Task RegisterSelected()
@@ -583,7 +514,7 @@ else
                 Year = _selectedCandidate.Year,
                 Author = _selectedCandidate.Author,
                 Description = _selectedCandidate.Description,
-                CoverUrl = _selectedCandidate.CoverUrl
+                CoverUrl = SelectedCoverUrl ?? _selectedCandidate.CoverUrl
             };
 
             var response = await Orchestrator.ApplyRegistryMatchAsync(Item.EntityId, request);
@@ -890,52 +821,6 @@ else
     }
 
     /* ── Card cover ── */
-    .isearch-card-cover {
-        flex-shrink: 0;
-        width: 44px;
-        height: 64px;
-    }
-
-    .isearch-card-img {
-        width: 44px;
-        height: 64px;
-        border-radius: 3px;
-        object-fit: cover;
-        display: block;
-    }
-
-    .isearch-card-img--loading {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: rgba(140, 120, 180, 0.06);
-        border: 1px dashed rgba(140, 120, 180, 0.15);
-    }
-
-    .isearch-load-cover {
-        width: 44px;
-        height: 64px;
-        border-radius: 3px;
-        border: 1px dashed rgba(140, 120, 180, 0.18);
-        background: rgba(140, 120, 180, 0.04);
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 3px;
-        cursor: pointer;
-        transition: border-color 0.15s ease;
-        color: rgba(200, 190, 220, 0.30);
-        font-family: 'Montserrat', sans-serif;
-        font-size: 8px;
-        font-weight: 500;
-    }
-
-    .isearch-load-cover:hover {
-        border-color: rgba(140, 120, 180, 0.35);
-        color: rgba(200, 190, 220, 0.50);
-    }
-
     /* ── Card body ── */
     .isearch-card-body {
         flex: 1;
@@ -1340,30 +1225,6 @@ else
 
     .isearch-result-item--selected:hover {
         background: rgba(74, 144, 217, 0.09);
-    }
-
-    /* ── Result cover ── */
-    .isearch-result-cover {
-        flex-shrink: 0;
-        width: 44px;
-        height: 64px;
-    }
-
-    .isearch-result-img {
-        width: 44px;
-        height: 64px;
-        border-radius: 3px;
-        object-fit: cover;
-        display: block;
-    }
-
-    .isearch-result-img--loading {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: rgba(140, 120, 180, 0.06);
-        border: 1px dashed rgba(140, 120, 180, 0.15);
-        border-radius: 3px;
     }
 
     /* ── Result body ── */

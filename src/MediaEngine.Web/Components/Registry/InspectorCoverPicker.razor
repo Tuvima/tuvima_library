@@ -1,0 +1,337 @@
+@using MediaEngine.Web.Models.ViewDTOs
+@using MediaEngine.Web.Services.Integration
+@using MudBlazor
+
+@inject UIOrchestratorService Orchestrator
+
+<div class="coverpicker">
+    @if (_covers.Count == 0 && !_loading)
+    {
+        <div class="coverpicker-empty">
+            <MudIcon Icon="@Icons.Material.Outlined.PhotoLibrary"
+                     Style="font-size: 20px; color: rgba(200,190,220,0.15);" />
+            <span class="coverpicker-empty-text">Select a candidate to load covers</span>
+        </div>
+    }
+    else
+    {
+        <div class="coverpicker-strip">
+            @foreach (var cover in _covers)
+            {
+                var isSelected = cover == _selectedCover;
+                <div class="coverpicker-thumb @(isSelected ? "coverpicker-thumb--selected" : "")"
+                     @onclick="() => SelectCover(cover)">
+                    <img src="@cover.Url" alt="" class="coverpicker-img" loading="lazy"
+                         onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='flex')" />
+                    <div class="coverpicker-img-fallback" style="display: none;">
+                        <MudIcon Icon="@Icons.Material.Outlined.BrokenImage"
+                                 Style="font-size: 14px; color: rgba(200,190,220,0.2);" />
+                    </div>
+                    @if (!string.IsNullOrEmpty(cover.Label))
+                    {
+                        <span class="coverpicker-label">@cover.Label</span>
+                    }
+                    @if (isSelected)
+                    {
+                        <span class="coverpicker-check">
+                            <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Style="font-size: 14px; color: #4A90D9;" />
+                        </span>
+                    }
+                </div>
+            }
+
+            @if (_loading)
+            {
+                <div class="coverpicker-thumb coverpicker-thumb--loading">
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true"
+                                         Style="width: 16px; height: 16px; color: rgba(200,190,220,0.35);" />
+                </div>
+            }
+
+            @if (!_loading && _hasMore)
+            {
+                <button class="coverpicker-more" @onclick="LoadMore">
+                    <MudIcon Icon="@Icons.Material.Outlined.Add" Style="font-size: 16px;" />
+                    <span>More</span>
+                </button>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public string? FileCoverUrl { get; set; }
+    [Parameter] public string? CandidateTitle { get; set; }
+    [Parameter] public string? CandidateAuthor { get; set; }
+    [Parameter] public string? MediaType { get; set; }
+    [Parameter] public EventCallback<string?> OnCoverSelected { get; set; }
+
+    private sealed class CoverOption
+    {
+        public string Url { get; init; } = "";
+        public string? Label { get; init; }
+        public string? ProviderName { get; init; }
+    }
+
+    private List<CoverOption> _covers = [];
+    private CoverOption? _selectedCover;
+    private bool _loading;
+    private bool _hasMore;
+    private string? _lastQuery;
+    private int _providerPage; // which provider batch we're on (0 = first provider)
+    private List<RetailCandidateDto> _allRetailResults = [];
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var query = BuildQuery();
+        if (query == _lastQuery) return;
+
+        _lastQuery = query;
+        _covers = [];
+        _selectedCover = null;
+        _allRetailResults = [];
+        _providerPage = 0;
+        _hasMore = false;
+
+        if (string.IsNullOrWhiteSpace(CandidateTitle))
+        {
+            // No candidate selected — show file cover only if present
+            if (!string.IsNullOrEmpty(FileCoverUrl))
+            {
+                var fileCover = new CoverOption { Url = FileCoverUrl, Label = "From File" };
+                _covers.Add(fileCover);
+                _selectedCover = fileCover;
+                await OnCoverSelected.InvokeAsync(fileCover.Url);
+            }
+            return;
+        }
+
+        // Add file cover first (always position 1 if available)
+        if (!string.IsNullOrEmpty(FileCoverUrl))
+        {
+            var fileCover = new CoverOption { Url = FileCoverUrl, Label = "From File" };
+            _covers.Add(fileCover);
+            _selectedCover = fileCover;
+            await OnCoverSelected.InvokeAsync(fileCover.Url);
+        }
+
+        // Load retail covers
+        await LoadRetailCovers();
+    }
+
+    private async Task LoadRetailCovers()
+    {
+        _loading = true;
+        StateHasChanged();
+
+        try
+        {
+            var searchQuery = CandidateTitle ?? "";
+            if (!string.IsNullOrWhiteSpace(CandidateAuthor))
+                searchQuery += " " + CandidateAuthor;
+
+            var mt = string.IsNullOrEmpty(MediaType) ? "Books" : MediaType;
+            // Request more than we need so we have stock for "Load More"
+            var result = await Orchestrator.SearchRetailAsync(searchQuery, mt, 20);
+            _allRetailResults = result;
+
+            AppendNextBatch();
+        }
+        catch
+        {
+            // Silent fail — covers are optional
+        }
+
+        _loading = false;
+
+        // If no covers were loaded and file cover didn't exist, nothing is selected
+        if (_selectedCover is null && _covers.Count > 0)
+        {
+            _selectedCover = _covers[0];
+            await OnCoverSelected.InvokeAsync(_selectedCover.Url);
+        }
+    }
+
+    private void AppendNextBatch()
+    {
+        // Take up to 4 (first load, to make total ~5 with file cover) or 5 (subsequent)
+        var existingRetailCount = _covers.Count(c => c.Label != "From File");
+        var batchSize = existingRetailCount == 0 ? 4 : 5;
+        var skip = existingRetailCount;
+
+        var batch = _allRetailResults
+            .Where(r => !string.IsNullOrEmpty(r.CoverUrl))
+            .Skip(skip)
+            .Take(batchSize)
+            .ToList();
+
+        foreach (var r in batch)
+        {
+            // Deduplicate by URL
+            if (_covers.Any(c => c.Url == r.CoverUrl)) continue;
+            _covers.Add(new CoverOption
+            {
+                Url = r.CoverUrl!,
+                Label = null, // no label for provider covers
+                ProviderName = r.ProviderName
+            });
+        }
+
+        var totalAvailable = _allRetailResults.Count(r => !string.IsNullOrEmpty(r.CoverUrl));
+        _hasMore = (skip + batchSize) < totalAvailable;
+    }
+
+    private async Task LoadMore()
+    {
+        AppendNextBatch();
+        StateHasChanged();
+        await Task.CompletedTask;
+    }
+
+    private async Task SelectCover(CoverOption cover)
+    {
+        _selectedCover = cover;
+        await OnCoverSelected.InvokeAsync(cover.Url);
+    }
+
+    private string? BuildQuery()
+    {
+        if (string.IsNullOrWhiteSpace(CandidateTitle)) return null;
+        return $"{CandidateTitle}|{CandidateAuthor}|{MediaType}";
+    }
+}
+
+<style>
+    .coverpicker {
+        padding: 0 16px 8px 16px;
+    }
+
+    .coverpicker-empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 16px 12px;
+        border-radius: 10px;
+        border: 1px dashed rgba(140, 120, 180, 0.12);
+        background: rgba(140, 120, 180, 0.03);
+    }
+
+    .coverpicker-empty-text {
+        font-size: 11px;
+        font-weight: 300;
+        color: rgba(200, 190, 220, 0.22);
+    }
+
+    .coverpicker-strip {
+        display: flex;
+        gap: 8px;
+        overflow-x: auto;
+        padding: 4px 0;
+        scrollbar-width: none;
+    }
+
+    .coverpicker-strip::-webkit-scrollbar {
+        display: none;
+    }
+
+    .coverpicker-thumb {
+        position: relative;
+        flex-shrink: 0;
+        width: 64px;
+        height: 96px;
+        border-radius: 6px;
+        border: 2px solid rgba(140, 120, 180, 0.12);
+        background: rgba(140, 120, 180, 0.04);
+        cursor: pointer;
+        overflow: hidden;
+        transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .coverpicker-thumb:hover {
+        border-color: rgba(140, 120, 180, 0.30);
+    }
+
+    .coverpicker-thumb--selected {
+        border-color: rgba(74, 144, 217, 0.70);
+        box-shadow: 0 0 0 1px rgba(74, 144, 217, 0.35);
+    }
+
+    .coverpicker-thumb--selected:hover {
+        border-color: rgba(74, 144, 217, 0.85);
+    }
+
+    .coverpicker-thumb--loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: default;
+        border-style: dashed;
+    }
+
+    .coverpicker-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    }
+
+    .coverpicker-img-fallback {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .coverpicker-label {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        padding: 2px 4px;
+        background: rgba(0, 0, 0, 0.65);
+        color: rgba(200, 190, 220, 0.80);
+        font-size: 8px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        text-align: center;
+        line-height: 1.3;
+    }
+
+    .coverpicker-check {
+        position: absolute;
+        top: 2px;
+        right: 2px;
+        display: flex;
+        filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+    }
+
+    .coverpicker-more {
+        flex-shrink: 0;
+        width: 64px;
+        height: 96px;
+        border-radius: 6px;
+        border: 1px dashed rgba(140, 120, 180, 0.18);
+        background: rgba(140, 120, 180, 0.04);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        cursor: pointer;
+        color: rgba(200, 190, 220, 0.35);
+        font-family: 'Montserrat', sans-serif;
+        font-size: 9px;
+        font-weight: 500;
+        transition: border-color 0.15s ease, color 0.15s ease;
+    }
+
+    .coverpicker-more:hover {
+        border-color: rgba(140, 120, 180, 0.35);
+        color: rgba(200, 190, 220, 0.55);
+        background: rgba(140, 120, 180, 0.08);
+    }
+</style>
