@@ -38,17 +38,19 @@
     @* ── Filter dropdowns ── *@
     <div class="adp-filter-row">
         <div class="adp-filter-group">
-            <span class="adp-filter-label">MEDIA TYPE</span>
+            <span class="adp-filter-label">TYPE</span>
             <div class="adp-filter-select-wrap">
                 <select class="adp-filter-select" value="@_mediaTypeFilter" @onchange="HandleMediaTypeChange">
                     <option value="">All</option>
-                    <option value="Books">Books (@GetMediaTypeCount("Books"))</option>
-                    <option value="Audiobooks">Audiobooks (@GetMediaTypeCount("Audiobooks"))</option>
-                    <option value="Movies">Movies (@GetMediaTypeCount("Movies"))</option>
-                    <option value="TV">TV (@GetMediaTypeCount("TV"))</option>
-                    <option value="Music">Music (@GetMediaTypeCount("Music"))</option>
-                    <option value="Comics">Comics (@GetMediaTypeCount("Comics"))</option>
-                    <option value="Podcasts">Podcasts (@GetMediaTypeCount("Podcasts"))</option>
+                    <option value="Books">Books</option>
+                    <option value="Audiobooks">Audiobooks</option>
+                    <option value="Movies">Movies</option>
+                    <option value="TV">TV</option>
+                    <option value="Music">Music</option>
+                    <option value="Comics">Comics</option>
+                    <option value="Podcasts">Podcasts</option>
+                    <option value="Person">People (@(_counts?.PersonCount ?? 0))</option>
+                    <option value="Universe">Universes (0)</option>
                 </select>
             </div>
         </div>
@@ -56,6 +58,7 @@
             <span class="adp-filter-label">STATUS</span>
             <div class="adp-filter-select-wrap">
                 <select class="adp-filter-select" value="@_activeTab" @onchange="HandleStatusChange">
+                    <option value="all">All (@(_counts?.All ?? 0))</option>
                     <option value="review">In Review (@(_counts?.InReview ?? 0))</option>
                     <option value="registered">Registered (@(_counts?.Registered ?? 0))</option>
                     <option value="provisional">Provisional (@(_counts?.Provisional ?? 0))</option>
@@ -78,6 +81,16 @@
                         </button>
                     }
                 </div>
+            </div>
+        </div>
+        <div class="adp-filter-group">
+            <span class="adp-filter-label">SORT</span>
+            <div class="adp-filter-select-wrap">
+                <select class="adp-filter-select" value="@_sortOrder" @onchange="HandleSortChange">
+                    <option value="">Default</option>
+                    <option value="az">A → Z</option>
+                    <option value="za">Z → A</option>
+                </select>
             </div>
         </div>
     </div>
@@ -224,6 +237,7 @@
     private string _mediaTypeFilter = "";
     private string _dateFrom = "";
     private string _dateTo = "";
+    private string _sortOrder = "";
 
     private List<RegistryItemViewModel> _items = [];
     private Dictionary<string, List<RegistryItemViewModel>> _groupedItems = [];
@@ -366,6 +380,12 @@
                 _items = _items.Where(i => i.CreatedAt <= new DateTimeOffset(toEnd, TimeSpan.Zero)).ToList();
             }
 
+            // Apply sort order
+            if (_sortOrder == "az")
+                _items = _items.OrderBy(i => i.Title, StringComparer.OrdinalIgnoreCase).ToList();
+            else if (_sortOrder == "za")
+                _items = _items.OrderByDescending(i => i.Title, StringComparer.OrdinalIgnoreCase).ToList();
+
             // Rebuild grouped view for In Review tab
             BuildGroupedItems();
         }
@@ -405,7 +425,15 @@
         _groupedItems = _items
             .GroupBy(i => i.ReviewTrigger ?? "Unknown")
             .OrderBy(g => priorityOrder.GetValueOrDefault(g.Key, 50))
-            .ToDictionary(g => g.Key, g => g.ToList());
+            .ToDictionary(g => g.Key, g =>
+            {
+                var list = g.ToList();
+                if (_sortOrder == "az")
+                    list = list.OrderBy(i => i.Title, StringComparer.OrdinalIgnoreCase).ToList();
+                else if (_sortOrder == "za")
+                    list = list.OrderByDescending(i => i.Title, StringComparer.OrdinalIgnoreCase).ToList();
+                return list;
+            });
     }
 
     // ── Tab helpers ───────────────────────────────────────────────────────────
@@ -416,6 +444,7 @@
         "rejected"    => "Rejected",
         "registered"  => "Registered",
         "provisional" => "Provisional",
+        "all"         => "",
         _             => "InReview",
     };
 
@@ -469,6 +498,12 @@
         _dateFrom = "";
         _dateTo = "";
         InvokeAsync(async () => { await LoadItemsAsync(); StateHasChanged(); });
+    }
+
+    private async Task HandleSortChange(ChangeEventArgs e)
+    {
+        _sortOrder = e.Value?.ToString() ?? "";
+        await LoadItemsAsync();
     }
 
     private int GetMediaTypeCount(string mediaType)
@@ -1003,8 +1038,9 @@
     .adp-group-action-row {
         display: flex;
         align-items: center;
-        gap: 8px;
-        padding: 4px 0 8px 0;
+        gap: 10px;
+        /* Match aic-row: 3px border-left + 8px left padding, 12px right padding */
+        padding: 4px 12px 8px 11px;
     }
 
     .adp-select-all-checkbox {
