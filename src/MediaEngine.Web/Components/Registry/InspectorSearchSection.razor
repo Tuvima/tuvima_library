@@ -72,6 +72,17 @@
                     <div class="isearch-card @(isSelected ? "isearch-card--selected" : "")"
                          @onclick="() => SelectCandidate(c)">
 
+                        @if (!string.IsNullOrWhiteSpace(c.CoverUrl))
+                        {
+                            <img src="@c.CoverUrl" alt="" class="isearch-card-cover" loading="lazy" />
+                        }
+                        else
+                        {
+                            <div class="isearch-card-cover isearch-card-cover--placeholder">
+                                <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Style="font-size: 20px; color: rgba(200,190,220,0.25);" />
+                            </div>
+                        }
+
                         <div class="isearch-card-body">
                             <span class="isearch-card-title">@c.Title</span>
                             @if (!string.IsNullOrWhiteSpace(c.Author))
@@ -90,13 +101,13 @@
                                 @if (!string.IsNullOrWhiteSpace(c.Qid))
                                 {
                                     <span class="isearch-card-qid">@c.Qid</span>
-                                    <a href="https://www.wikidata.org/wiki/Special:GoToLinkedPage/@(StateContainer.Language)wiki/@c.Qid"
+                                    <a href="https://www.wikidata.org/wiki/@c.Qid"
                                        target="_blank" rel="noopener"
                                        class="isearch-card-wiki"
-                                       title="View on Wikipedia"
+                                       title="View on Wikidata"
                                        @onclick:stopPropagation="true">
-                                        <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Style="font-size: 11px;" />
-                                        <span>Wikipedia</span>
+                                        <MudIcon Icon="@Icons.Material.Outlined.Public" Style="font-size: 11px;" />
+                                        <span>Wikidata</span>
                                     </a>
                                 }
                                 @if (c.Confidence > 0)
@@ -228,6 +239,17 @@ else
                     <div class="isearch-result-item @(isSelected ? "isearch-result-item--selected" : "")"
                          @onclick="() => SelectCandidate(c)">
 
+                        @if (!string.IsNullOrWhiteSpace(c.CoverUrl))
+                        {
+                            <img src="@c.CoverUrl" alt="" class="isearch-result-cover" loading="lazy" />
+                        }
+                        else
+                        {
+                            <div class="isearch-result-cover isearch-result-cover--placeholder">
+                                <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Style="font-size: 20px; color: rgba(200,190,220,0.25);" />
+                            </div>
+                        }
+
                         @* Text content *@
                         <div class="isearch-result-body">
                             <span class="isearch-result-title">@c.Title</span>
@@ -239,13 +261,13 @@ else
                                 @if (!string.IsNullOrWhiteSpace(c.Qid))
                                 {
                                     <span class="isearch-result-qid">@c.Qid</span>
-                                    <a href="https://www.wikidata.org/wiki/Special:GoToLinkedPage/@(StateContainer.Language)wiki/@c.Qid"
+                                    <a href="https://www.wikidata.org/wiki/@c.Qid"
                                        target="_blank" rel="noopener"
                                        class="isearch-result-wiki"
-                                       title="View on Wikipedia"
+                                       title="View on Wikidata"
                                        @onclick:stopPropagation="true">
-                                        <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Style="font-size: 11px;" />
-                                        <span>Wikipedia</span>
+                                        <MudIcon Icon="@Icons.Material.Outlined.Public" Style="font-size: 11px;" />
+                                        <span>Wikidata</span>
                                     </a>
                                 }
                                 @if (!string.IsNullOrWhiteSpace(c.Year))
@@ -818,6 +840,22 @@ else
     }
 
     /* ── Card cover ── */
+    .isearch-card-cover {
+        width: 48px;
+        height: 72px;
+        border-radius: 6px;
+        object-fit: cover;
+        flex-shrink: 0;
+    }
+
+    .isearch-card-cover--placeholder {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(140, 120, 180, 0.08);
+        border: 1px solid rgba(140, 120, 180, 0.10);
+    }
+
     /* ── Card body ── */
     .isearch-card-body {
         flex: 1;
@@ -1225,6 +1263,22 @@ else
     }
 
     /* ── Result body ── */
+    .isearch-result-cover {
+        width: 48px;
+        height: 72px;
+        border-radius: 6px;
+        object-fit: cover;
+        flex-shrink: 0;
+    }
+
+    .isearch-result-cover--placeholder {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(140, 120, 180, 0.08);
+        border: 1px solid rgba(140, 120, 180, 0.10);
+    }
+
     .isearch-result-body {
         flex: 1;
         min-width: 0;
