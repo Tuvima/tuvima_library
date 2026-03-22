@@ -52,8 +52,13 @@ else
                     <div class="inspector-cover-wrap">
                         @if (!string.IsNullOrEmpty(Item.CoverUrl))
                         {
-                            <img src="@Item.CoverUrl" alt="Cover" class="inspector-cover"
-                                 onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='flex')" />
+                            <div class="cover-hover-wrap">
+                                <img src="@Item.CoverUrl" alt="Cover" class="inspector-cover"
+                                     onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='flex')" />
+                                <div class="cover-hover-popup">
+                                    <img src="@Item.CoverUrl" class="cover-hover-img" alt="" />
+                                </div>
+                            </div>
                             <div class="inspector-cover inspector-cover--placeholder" style="display: none;">
                                 <MudIcon Icon="@Icons.Material.Outlined.Image"
                                          Style="font-size: 18px; color: rgba(200,190,220,0.18);" />
@@ -98,6 +103,23 @@ else
                         <ProvisionalFormPanel Item="Item"
                                               OnSaved="HandleProvisionalSaved"
                                               OnCancelled="HandleProvisionalCancelled" />
+                    </div>
+                }
+
+                @if (Item.Status == "Rejected")
+                {
+                    <div class="inspector-rejected-banner">
+                        <div class="inspector-rejected-info">
+                            <MudIcon Icon="@Icons.Material.Outlined.Block" Style="font-size: 16px; color: #E24B4A;" />
+                            <div class="inspector-rejected-text">
+                                <span class="inspector-rejected-label">This item has been rejected</span>
+                                <span class="inspector-rejected-sub">It will be purged after the retention period.</span>
+                            </div>
+                        </div>
+                        <button class="inspector-unreject-btn" @onclick="HandleUnreject">
+                            <MudIcon Icon="@Icons.Material.Outlined.Restore" Style="font-size: 16px;" />
+                            <span>Recover Item</span>
+                        </button>
                     </div>
                 }
 
@@ -234,6 +256,28 @@ else
             else
             {
                 Snackbar.Add("Could not reject item.", Severity.Warning);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task HandleUnreject()
+    {
+        if (Item is null) return;
+        try
+        {
+            var ok = await ApiClient.RecoverRegistryItemAsync(Item.EntityId);
+            if (ok)
+            {
+                Snackbar.Add("Item recovered and returned to review.", Severity.Success);
+                await OnItemChanged.InvokeAsync();
+            }
+            else
+            {
+                Snackbar.Add("Could not recover item.", Severity.Warning);
             }
         }
         catch (Exception ex)
@@ -409,6 +453,38 @@ else
         position: relative;
     }
 
+    /* ── Cover art hover popup ── */
+    .cover-hover-wrap {
+        position: relative;
+        flex-shrink: 0;
+    }
+
+    .cover-hover-popup {
+        display: none;
+        position: absolute;
+        z-index: 100;
+        left: 50%;
+        bottom: calc(100% + 8px);
+        transform: translateX(-50%);
+        padding: 4px;
+        background: rgba(10, 8, 20, 0.95);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 8px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+        pointer-events: none;
+    }
+
+    .cover-hover-wrap:hover .cover-hover-popup {
+        display: block;
+    }
+
+    .cover-hover-img {
+        width: 200px;
+        height: auto;
+        border-radius: 4px;
+        display: block;
+    }
+
     .inspector-cover {
         width: 52px;
         height: 76px;
@@ -518,5 +594,62 @@ else
         border-radius: 20px;
         margin-top: 2px;
         align-self: flex-start;
+    }
+
+    /* ── Rejected banner ── */
+    .inspector-rejected-banner {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 14px 16px;
+        margin: 8px 12px;
+        background: rgba(226, 75, 74, 0.08);
+        border: 1px solid rgba(226, 75, 74, 0.20);
+        border-radius: 8px;
+    }
+
+    .inspector-rejected-info {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .inspector-rejected-text {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .inspector-rejected-label {
+        font-size: 12px;
+        font-weight: 600;
+        color: #E24B4A;
+    }
+
+    .inspector-rejected-sub {
+        font-size: 11px;
+        color: rgba(226, 75, 74, 0.65);
+    }
+
+    .inspector-unreject-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 10px 16px;
+        background: rgba(140, 120, 180, 0.10);
+        border: 1px solid rgba(140, 120, 180, 0.25);
+        border-radius: 8px;
+        color: #e0dce8;
+        font-family: 'Montserrat', sans-serif;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.15s ease, border-color 0.15s ease;
+    }
+
+    .inspector-unreject-btn:hover {
+        background: rgba(140, 120, 180, 0.20);
+        border-color: rgba(140, 120, 180, 0.40);
     }
 </style>

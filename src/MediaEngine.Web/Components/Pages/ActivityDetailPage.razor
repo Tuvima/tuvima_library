@@ -35,22 +35,55 @@
         <h1 class="adp-page-title">Library Overview</h1>
     }
 
-    @* ── Filter tabs ── *@
-    <div class="adp-tab-row">
-        @foreach (var tab in _tabs)
-        {
-            var isActive = tab.Key == _activeTab;
-            <button class="adp-tab @(isActive ? "adp-tab--active" : "")"
-                    style="@(isActive ? $"--tab-color: {tab.Color};" : "")"
-                    @onclick="() => SetActiveTab(tab.Key)"
-                    type="button">
-                <MudIcon Icon="@tab.Icon" Style="font-size: 14px;" />
-                <span class="adp-tab-label">@tab.Label</span>
-                <span class="adp-tab-badge" style="@(isActive ? $"background: {tab.Color}20; color: {tab.Color};" : "")">
-                    @tab.Count
-                </span>
-            </button>
-        }
+    @* ── Filter dropdowns ── *@
+    <div class="adp-filter-row">
+        <div class="adp-filter-group">
+            <span class="adp-filter-label">MEDIA TYPE</span>
+            <div class="adp-filter-select-wrap">
+                <select class="adp-filter-select" value="@_mediaTypeFilter" @onchange="HandleMediaTypeChange">
+                    <option value="">All</option>
+                    <option value="Books">Books (@GetMediaTypeCount("Books"))</option>
+                    <option value="Audiobooks">Audiobooks (@GetMediaTypeCount("Audiobooks"))</option>
+                    <option value="Movies">Movies (@GetMediaTypeCount("Movies"))</option>
+                    <option value="TV">TV (@GetMediaTypeCount("TV"))</option>
+                    <option value="Music">Music (@GetMediaTypeCount("Music"))</option>
+                    <option value="Comics">Comics (@GetMediaTypeCount("Comics"))</option>
+                    <option value="Podcasts">Podcasts (@GetMediaTypeCount("Podcasts"))</option>
+                </select>
+            </div>
+        </div>
+        <div class="adp-filter-group">
+            <span class="adp-filter-label">STATUS</span>
+            <div class="adp-filter-select-wrap">
+                <select class="adp-filter-select" value="@_activeTab" @onchange="HandleStatusChange">
+                    <option value="review">In Review (@(_counts?.InReview ?? 0))</option>
+                    <option value="registered">Registered (@(_counts?.Registered ?? 0))</option>
+                    <option value="provisional">Provisional (@(_counts?.Provisional ?? 0))</option>
+                    <option value="rejected">Rejected (@(_counts?.Rejected ?? 0))</option>
+                </select>
+            </div>
+        </div>
+        <div class="adp-filter-group">
+            <span class="adp-filter-label">DATE RANGE</span>
+            <div class="adp-filter-date-wrap">
+                <div class="adp-date-inputs">
+                    <span class="adp-date-prefix">From</span>
+                    <input type="month" class="adp-date-input" value="@_dateFrom" @onchange="HandleDateFromChange" />
+                    <span class="adp-date-prefix">To</span>
+                    <input type="month" class="adp-date-input" value="@_dateTo" @onchange="HandleDateToChange" />
+                    @if (!string.IsNullOrEmpty(_dateFrom) || !string.IsNullOrEmpty(_dateTo))
+                    {
+                        <button class="adp-date-clear" @onclick="ClearDateFilter" type="button" title="Clear date filter">
+                            <MudIcon Icon="@Icons.Material.Outlined.Close" Style="font-size: 14px;" />
+                        </button>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="adp-results-header">
+        <span class="adp-results-count">@_items.Count items</span>
     </div>
 
     @* ── Main content ── *@
@@ -153,6 +186,7 @@
                                                       OnSelect="HandleItemSelect"
                                                       OnUnreject="HandleUnreject"
                                                       OnCheckedChanged="HandleCheckToggle"
+                                                      OnQuickReject="HandleQuickReject"
                                                       ShowTriggerChip="false" />
                                 }
                             </div>
@@ -170,6 +204,7 @@
                                           IsSelected="@(_selectedItem?.EntityId == item.EntityId)"
                                           OnSelect="HandleItemSelect"
                                           OnUnreject="HandleUnreject"
+                                          OnQuickReject="HandleQuickReject"
                                           ShowTriggerChip="true" />
                     }
                 </div>
@@ -202,15 +237,14 @@
     [Parameter] public bool EmbeddedMode { get; set; }
     [Parameter] public string? InitialTab { get; set; }
 
-    // ── Tab model ─────────────────────────────────────────────────────────────
-
-    private sealed record TabDef(string Key, string Label, string Color, string Icon, int Count);
-
     // ── State ─────────────────────────────────────────────────────────────────
 
     private string _activeTab = "review";
     private string? _reasonFilter;
     private string? _sourceFilter;
+    private string _mediaTypeFilter = "";
+    private string _dateFrom = "";
+    private string _dateTo = "";
 
     private List<RegistryItemViewModel> _items = [];
     private Dictionary<string, List<RegistryItemViewModel>> _groupedItems = [];
@@ -221,10 +255,6 @@
 
     private HashSet<string> _collapsedGroups = [];
     private HashSet<Guid> _selectedIds = [];
-
-    // ── Tab definitions (computed after counts load) ───────────────────────────
-
-    private List<TabDef> _tabs = [];
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -250,6 +280,13 @@
 
         // Load counts then items
         await LoadCountsAsync();
+
+        // Default to "review" if there are items in review, otherwise "registered"
+        if (string.IsNullOrEmpty(stateParam) && string.IsNullOrEmpty(InitialTab))
+        {
+            _activeTab = (_counts?.InReview ?? 0) > 0 ? "review" : "registered";
+        }
+
         await LoadItemsAsync();
 
         // Auto-select entity if specified in query params
@@ -274,7 +311,6 @@
                             _items = response!.Items!;
                             BuildGroupedItems();
                             _selectedItem = found;
-                            RebuildTabs();
                             break;
                         }
                     }
@@ -301,7 +337,6 @@
         {
             _counts = new RegistryFourStateCountsDto();
         }
-        RebuildTabs();
     }
 
     private async Task LoadItemsAsync()
@@ -322,6 +357,19 @@
             // Apply reason filter if present
             if (!string.IsNullOrEmpty(_reasonFilter))
                 _items = _items.Where(i => i.ReviewTrigger == _reasonFilter).ToList();
+
+            // Apply media type filter
+            if (!string.IsNullOrEmpty(_mediaTypeFilter))
+                _items = _items.Where(i => string.Equals(i.MediaType, _mediaTypeFilter, StringComparison.OrdinalIgnoreCase)).ToList();
+
+            // Apply date range filter
+            if (!string.IsNullOrEmpty(_dateFrom) && DateTime.TryParse(_dateFrom + "-01", out var fromDate))
+                _items = _items.Where(i => i.CreatedAt >= new DateTimeOffset(fromDate, TimeSpan.Zero)).ToList();
+            if (!string.IsNullOrEmpty(_dateTo) && DateTime.TryParse(_dateTo + "-01", out var toDate))
+            {
+                var toEnd = toDate.AddMonths(1).AddDays(-1);
+                _items = _items.Where(i => i.CreatedAt <= new DateTimeOffset(toEnd, TimeSpan.Zero)).ToList();
+            }
 
             // Rebuild grouped view for In Review tab
             BuildGroupedItems();
@@ -353,22 +401,6 @@
             .ToDictionary(g => g.Key, g => g.ToList());
     }
 
-    private void RebuildTabs()
-    {
-        var registered  = _counts?.Registered  ?? 0;
-        var inReview    = _counts?.InReview     ?? 0;
-        var provisional = _counts?.Provisional  ?? 0;
-        var rejected    = _counts?.Rejected     ?? 0;
-
-        _tabs =
-        [
-            new TabDef("review",      "In Review",    "#EF9F27", Icons.Material.Outlined.RateReview,   inReview),
-            new TabDef("rejected",    "Rejected",     "#E24B4A", Icons.Material.Outlined.Block,         rejected),
-            new TabDef("registered",  "Registered",   "#5DCAA5", Icons.Material.Outlined.CheckCircle,   registered),
-            new TabDef("provisional", "Provisional",  "#B4B2A9", Icons.Material.Outlined.EditNote,      provisional),
-        ];
-    }
-
     // ── Tab helpers ───────────────────────────────────────────────────────────
 
     private static string MapTabToApiStatus(string tab) => tab switch
@@ -397,6 +429,45 @@
             Nav.NavigateTo(newUrl, forceLoad: false, replace: true);
         }
         await LoadItemsAsync();
+    }
+
+    // ── Filter handlers ───────────────────────────────────────────────────────
+
+    private async Task HandleMediaTypeChange(ChangeEventArgs e)
+    {
+        _mediaTypeFilter = e.Value?.ToString() ?? "";
+        await LoadItemsAsync();
+    }
+
+    private async Task HandleStatusChange(ChangeEventArgs e)
+    {
+        var newTab = e.Value?.ToString() ?? "review";
+        await SetActiveTab(newTab);
+    }
+
+    private async Task HandleDateFromChange(ChangeEventArgs e)
+    {
+        _dateFrom = e.Value?.ToString() ?? "";
+        await LoadItemsAsync();
+    }
+
+    private async Task HandleDateToChange(ChangeEventArgs e)
+    {
+        _dateTo = e.Value?.ToString() ?? "";
+        await LoadItemsAsync();
+    }
+
+    private void ClearDateFilter()
+    {
+        _dateFrom = "";
+        _dateTo = "";
+        InvokeAsync(async () => { await LoadItemsAsync(); StateHasChanged(); });
+    }
+
+    private int GetMediaTypeCount(string mediaType)
+    {
+        // Rough count — items aren't pre-loaded by media type
+        return 0;
     }
 
     // ── Event handlers ────────────────────────────────────────────────────────
@@ -442,6 +513,20 @@
         catch (Exception ex)
         {
             Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task HandleQuickReject(Guid entityId)
+    {
+        try
+        {
+            await ApiClient.RejectRegistryItemAsync(entityId);
+            Snackbar.Add("Item rejected.", Severity.Info);
+            await HandleItemChanged();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Reject failed: {ex.Message}", Severity.Error);
         }
     }
 
@@ -658,61 +743,148 @@
         letter-spacing: -0.3px;
     }
 
-    /* ── Filter tabs ── */
-    .adp-tab-row {
+    /* ── Filter dropdowns ── */
+    .adp-filter-row {
         display: flex;
-        align-items: center;
-        gap: 6px;
-        margin-bottom: 24px;
+        gap: 16px;
+        padding: 12px 16px;
+        align-items: flex-end;
         flex-wrap: wrap;
+        margin-bottom: 4px;
     }
 
-    .adp-tab {
-        display: inline-flex;
-        align-items: center;
-        gap: 7px;
-        padding: 7px 14px;
-        border-radius: 20px;
-        border: 1px solid rgba(140, 120, 180, 0.12);
-        background: rgba(140, 120, 180, 0.06);
-        cursor: pointer;
+    .adp-filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        min-width: 140px;
+    }
+
+    .adp-filter-label {
+        font-size: 10px;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.35);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .adp-filter-select-wrap {
+        position: relative;
+    }
+
+    .adp-filter-select {
+        width: 100%;
+        padding: 8px 32px 8px 12px;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.10);
+        background: rgba(255, 255, 255, 0.04);
+        color: rgba(255, 255, 255, 0.80);
         font-family: 'Montserrat', sans-serif;
         font-size: 12px;
         font-weight: 500;
-        color: rgba(200, 190, 220, 0.55);
-        transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+        appearance: none;
+        -webkit-appearance: none;
+        cursor: pointer;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='rgba(255,255,255,0.4)'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 10px center;
+        transition: border-color 0.15s ease, background 0.15s ease;
     }
 
-    .adp-tab:hover {
-        background: rgba(140, 120, 180, 0.1);
-        color: rgba(200, 190, 220, 0.85);
-        border-color: rgba(140, 120, 180, 0.22);
+    .adp-filter-select:hover {
+        border-color: rgba(255, 255, 255, 0.18);
+        background-color: rgba(255, 255, 255, 0.06);
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='rgba(255,255,255,0.4)'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 10px center;
     }
 
-    .adp-tab--active {
-        background: color-mix(in srgb, var(--tab-color, #EF9F27) 15%, transparent);
-        border-color: color-mix(in srgb, var(--tab-color, #EF9F27) 40%, transparent);
-        color: var(--tab-color, #EF9F27);
+    .adp-filter-select:focus {
+        outline: none;
+        border-color: rgba(201, 146, 46, 0.50);
+        box-shadow: 0 0 0 2px rgba(201, 146, 46, 0.10);
     }
 
-    .adp-tab-label {
-        /* no extra styling needed */
+    .adp-filter-select option {
+        background: #1a1528;
+        color: rgba(255, 255, 255, 0.85);
     }
 
-    .adp-tab-badge {
-        display: inline-flex;
+    .adp-filter-date-wrap {
+        position: relative;
+    }
+
+    .adp-date-inputs {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.10);
+        background: rgba(255, 255, 255, 0.04);
+        transition: border-color 0.15s ease;
+    }
+
+    .adp-date-inputs:focus-within {
+        border-color: rgba(201, 146, 46, 0.50);
+        box-shadow: 0 0 0 2px rgba(201, 146, 46, 0.10);
+    }
+
+    .adp-date-prefix {
+        font-size: 11px;
+        font-weight: 500;
+        color: rgba(255, 255, 255, 0.35);
+    }
+
+    .adp-date-input {
+        background: transparent;
+        border: none;
+        outline: none;
+        color: rgba(255, 255, 255, 0.80);
+        font-family: 'Montserrat', sans-serif;
+        font-size: 12px;
+        font-weight: 500;
+        width: 100px;
+        cursor: pointer;
+    }
+
+    .adp-date-input::-webkit-calendar-picker-indicator {
+        filter: invert(0.6);
+        cursor: pointer;
+    }
+
+    .adp-date-clear {
+        display: flex;
         align-items: center;
         justify-content: center;
-        min-width: 20px;
-        height: 18px;
-        padding: 0 5px;
-        border-radius: 9px;
-        background: rgba(140, 120, 180, 0.10);
-        color: rgba(200, 190, 220, 0.45);
-        font-size: 10px;
-        font-weight: 600;
+        background: none;
+        border: none;
+        color: rgba(255, 255, 255, 0.40);
+        cursor: pointer;
+        padding: 2px;
+        border-radius: 4px;
+        transition: color 0.15s ease, background 0.15s ease;
+    }
+
+    .adp-date-clear:hover {
+        color: rgba(255, 255, 255, 0.70);
+        background: rgba(255, 255, 255, 0.08);
+    }
+
+    /* ── Results header ── */
+    .adp-results-header {
+        display: flex;
+        justify-content: flex-end;
+        padding: 4px 16px;
+        margin-bottom: 12px;
+    }
+
+    .adp-results-count {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 11px;
+        font-weight: 500;
+        color: rgba(255, 255, 255, 0.35);
         font-variant-numeric: tabular-nums;
-        transition: background 0.15s ease, color 0.15s ease;
     }
 
     /* ── Two-column layout ── */

@@ -235,7 +235,7 @@
                                 </div>
                                 <div class="rtl-event-content">
                                     <div class="rtl-event-header">
-                                        <span class="rtl-event-title" style="color: #5DCAA5;">Review resolved</span>
+                                        <span class="rtl-event-title" style="color: #5DCAA5;">Curator Action</span>
                                         <span class="rtl-event-time">@evt.RelativeTime</span>
                                     </div>
                                     <div class="rtl-card rtl-card--review">
@@ -245,7 +245,12 @@
                                             }
                                             @if (!string.IsNullOrWhiteSpace(coverUrl))
                                             {
-                                                <img class="rtl-review-thumb" src="@coverUrl" alt="" loading="lazy" />
+                                                <div class="cover-hover-wrap">
+                                                    <img class="rtl-review-thumb" src="@coverUrl" alt="" loading="lazy" />
+                                                    <div class="cover-hover-popup">
+                                                        <img src="@coverUrl" class="cover-hover-img" alt="" />
+                                                    </div>
+                                                </div>
                                             }
                                             <div class="rtl-review-text">
                                                 <span class="rtl-card-title">@resolvedTitle</span>
@@ -258,6 +263,15 @@
                                         @if (rd is not null && rd.FieldOverrides > 0)
                                         {
                                             <span class="rtl-event-detail">@rd.FieldOverrides field@(rd.FieldOverrides == 1 ? "" : "s") updated</span>
+                                        }
+                                        @{
+                                            var viewEntityId = rd?.EntityId ?? evt.EntityId;
+                                        }
+                                        @if (!string.IsNullOrWhiteSpace(viewEntityId))
+                                        {
+                                            <button class="rtl-view-btn" @onclick='() => Nav.NavigateTo($"/registry/library?entity={viewEntityId}")'>
+                                                View
+                                            </button>
                                         }
                                     </div>
                                 </div>
@@ -279,6 +293,15 @@
                                         <span class="rtl-event-time">@evt.RelativeTime</span>
                                     </div>
                                     <span class="rtl-event-detail">@(evt.Detail ?? evt.HubName ?? "Action completed")</span>
+                                    @{
+                                        var otherEntityId = evt.EntityId;
+                                    }
+                                    @if (!string.IsNullOrWhiteSpace(otherEntityId))
+                                    {
+                                        <button class="rtl-view-btn" @onclick='() => Nav.NavigateTo($"/registry/library?entity={otherEntityId}")'>
+                                            View
+                                        </button>
+                                    }
                                 </div>
                             </div>
                         }
@@ -709,11 +732,11 @@
 
     private static string FormatCuratorVerb(ActivityEntryViewModel evt) => evt.ActionType switch
     {
-        "ReviewItemResolved" => "Review resolved",
-        "MetadataManualOverride" => "Metadata updated",
-        "UserReportResolved" => "Report resolved",
-        "UserReportDismissed" => "Report dismissed",
-        _ => "Curator action",
+        "ReviewItemResolved" => "Curator Action",
+        "MetadataManualOverride" => "Curator Action",
+        "UserReportResolved" => "Curator Action",
+        "UserReportDismissed" => "Curator Action",
+        _ => "Curator Action",
     };
 
     // ── Data models ──
@@ -983,6 +1006,38 @@
         object-fit: cover;
         flex-shrink: 0;
         border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    /* ── Cover art hover popup (shared across timeline and inspector) ── */
+    .cover-hover-wrap {
+        position: relative;
+        flex-shrink: 0;
+    }
+
+    .cover-hover-popup {
+        display: none;
+        position: absolute;
+        z-index: 100;
+        left: 50%;
+        bottom: calc(100% + 8px);
+        transform: translateX(-50%);
+        padding: 4px;
+        background: rgba(10, 8, 20, 0.95);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 8px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+        pointer-events: none;
+    }
+
+    .cover-hover-wrap:hover .cover-hover-popup {
+        display: block;
+    }
+
+    .cover-hover-img {
+        width: 200px;
+        height: auto;
+        border-radius: 4px;
+        display: block;
     }
 
     .rtl-review-text {

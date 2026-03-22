@@ -18,7 +18,12 @@
     <div class="aic-thumb-wrap">
         @if (!string.IsNullOrEmpty(Item.CoverUrl))
         {
-            <img src="@Item.CoverUrl" alt="@Item.Title" class="aic-thumb-img" loading="lazy" />
+            <div class="cover-hover-wrap" style="width: 100%; height: 100%;">
+                <img src="@Item.CoverUrl" alt="@Item.Title" class="aic-thumb-img" loading="lazy" />
+                <div class="cover-hover-popup">
+                    <img src="@Item.CoverUrl" class="cover-hover-img" alt="" />
+                </div>
+            </div>
         }
         else
         {
@@ -74,7 +79,7 @@
                 <button class="aic-unreject-btn"
                         @onclick="HandleUnreject"
                         title="Un-reject this item">
-                    <MudIcon Icon="@Icons.Material.Outlined.Restore" Style="font-size: 0.65rem;" />
+                    <MudIcon Icon="@Icons.Material.Outlined.Restore" Style="font-size: 0.75rem;" />
                     Un-reject
                 </button>
             </div>
@@ -83,6 +88,29 @@
 
     @* ── Timestamp ── *@
     <div class="aic-timestamp">@RelativeTime</div>
+
+    @* ── Quick reject ── *@
+    @if (Item.Status != "Rejected" && OnQuickReject.HasDelegate)
+    {
+        <div class="aic-quick-reject" @onclick:stopPropagation="true">
+            @if (_confirmingReject)
+            {
+                <button class="aic-reject-confirm" @onclick="HandleConfirmReject" title="Confirm reject">
+                    <MudIcon Icon="@Icons.Material.Outlined.Check" Style="font-size: 13px;" />
+                    <span>Sure?</span>
+                </button>
+                <button class="aic-reject-cancel" @onclick="HandleCancelReject" title="Cancel">
+                    <MudIcon Icon="@Icons.Material.Outlined.Close" Style="font-size: 13px;" />
+                </button>
+            }
+            else
+            {
+                <button class="aic-reject-btn" @onclick="HandleRejectClick" title="Reject this item">
+                    <MudIcon Icon="@Icons.Material.Outlined.Close" Style="font-size: 15px;" />
+                </button>
+            }
+        </div>
+    }
 </div>
 
 @code {
@@ -94,6 +122,9 @@
     [Parameter] public EventCallback<Guid> OnUnreject { get; set; }
     [Parameter] public EventCallback<Guid> OnCheckedChanged { get; set; }
     [Parameter] public bool ShowTriggerChip { get; set; } = true;
+    [Parameter] public EventCallback<Guid> OnQuickReject { get; set; }
+
+    private bool _confirmingReject;
 
     // ── Computed display values ────────────────────────────────────────────
 
@@ -172,6 +203,22 @@
     {
         await OnCheckedChanged.InvokeAsync(Item.EntityId);
     }
+
+    private void HandleRejectClick()
+    {
+        _confirmingReject = true;
+    }
+
+    private async Task HandleConfirmReject()
+    {
+        _confirmingReject = false;
+        await OnQuickReject.InvokeAsync(Item.EntityId);
+    }
+
+    private void HandleCancelReject()
+    {
+        _confirmingReject = false;
+    }
 }
 
 <style>
@@ -229,7 +276,7 @@
         height: 46px;
         flex-shrink: 0;
         border-radius: 3px;
-        overflow: hidden;
+        /* overflow: visible so the hover popup can escape the container */
         background: rgba(20, 16, 42, 0.9);
         border: 1px solid rgba(140, 120, 180, 0.12);
     }
@@ -238,6 +285,38 @@
         width: 100%;
         height: 100%;
         object-fit: cover;
+        display: block;
+        border-radius: 3px;
+    }
+
+    /* ── Cover art hover popup ── */
+    .cover-hover-wrap {
+        position: relative;
+    }
+
+    .cover-hover-popup {
+        display: none;
+        position: absolute;
+        z-index: 200;
+        left: 50%;
+        bottom: calc(100% + 8px);
+        transform: translateX(-50%);
+        padding: 4px;
+        background: rgba(10, 8, 20, 0.95);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 8px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+        pointer-events: none;
+    }
+
+    .cover-hover-wrap:hover .cover-hover-popup {
+        display: block;
+    }
+
+    .cover-hover-img {
+        width: 200px;
+        height: auto;
+        border-radius: 4px;
         display: block;
     }
 
@@ -344,24 +423,24 @@
     .aic-unreject-btn {
         display: inline-flex;
         align-items: center;
-        gap: 3px;
-        font-size: 0.62rem;
+        gap: 4px;
+        font-size: 0.68rem;
         font-family: 'Montserrat', sans-serif;
-        font-weight: 500;
-        color: rgba(200, 190, 220, 0.75);
-        background: rgba(140, 120, 180, 0.06);
-        border: 1px solid rgba(140, 120, 180, 0.12);
-        border-radius: 4px;
-        padding: 1px 7px;
+        font-weight: 600;
+        color: rgba(200, 190, 220, 0.85);
+        background: rgba(140, 120, 180, 0.10);
+        border: 1px solid rgba(140, 120, 180, 0.20);
+        border-radius: 6px;
+        padding: 3px 10px;
         cursor: pointer;
         transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
         line-height: 1.5;
     }
 
     .aic-unreject-btn:hover {
-        background: rgba(140, 120, 180, 0.15);
-        color: #e0dce8;
-        border-color: rgba(140, 120, 180, 0.30);
+        background: rgba(93, 202, 165, 0.15);
+        color: #5DCAA5;
+        border-color: rgba(93, 202, 165, 0.35);
     }
 
     /* ── Timestamp ─────────────────────────────────────────────────────────── */
@@ -373,5 +452,74 @@
         font-family: 'Montserrat', sans-serif;
         align-self: flex-start;
         padding-top: 2px;
+    }
+
+    /* ── Quick reject ── */
+    .aic-quick-reject {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        flex-shrink: 0;
+        margin-left: auto;
+    }
+
+    .aic-reject-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: none;
+        border: none;
+        color: rgba(226, 75, 74, 0.35);
+        cursor: pointer;
+        padding: 4px;
+        border-radius: 4px;
+        transition: color 0.15s ease, background 0.15s ease;
+        opacity: 0;
+    }
+
+    .aic-row:hover .aic-reject-btn {
+        opacity: 1;
+    }
+
+    .aic-reject-btn:hover {
+        color: #E24B4A;
+        background: rgba(226, 75, 74, 0.12);
+    }
+
+    .aic-reject-confirm {
+        display: flex;
+        align-items: center;
+        gap: 3px;
+        background: rgba(226, 75, 74, 0.12);
+        border: 1px solid rgba(226, 75, 74, 0.30);
+        color: #E24B4A;
+        cursor: pointer;
+        padding: 3px 8px;
+        border-radius: 6px;
+        font-family: 'Montserrat', sans-serif;
+        font-size: 10px;
+        font-weight: 600;
+        transition: background 0.15s ease;
+    }
+
+    .aic-reject-confirm:hover {
+        background: rgba(226, 75, 74, 0.20);
+    }
+
+    .aic-reject-cancel {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: none;
+        border: 1px solid rgba(255, 255, 255, 0.10);
+        color: rgba(255, 255, 255, 0.50);
+        cursor: pointer;
+        padding: 3px;
+        border-radius: 6px;
+        transition: background 0.15s ease;
+    }
+
+    .aic-reject-cancel:hover {
+        background: rgba(255, 255, 255, 0.08);
     }
 </style>
