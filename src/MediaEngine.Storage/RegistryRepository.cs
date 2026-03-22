@@ -36,7 +36,7 @@ public sealed class RegistryRepository : IRegistryRepository
                     w.media_type,
                     w.wikidata_status,
                     MAX(CASE WHEN cv.key = 'title' THEN cv.value END) AS title,
-                    MAX(CASE WHEN cv.key = 'release_year' THEN cv.value END) AS year,
+                    MAX(CASE WHEN cv.key IN ('release_year', 'date', 'year') THEN cv.value END) AS year,
                     MAX(CASE WHEN cv.key = 'cover_url' THEN cv.value END) AS cover_url,
                     MAX(CASE WHEN cv.key = 'hero' THEN cv.value END) AS hero_url,
                     -- Multi-author display: "A & B" or "A & B + N more", falling back to
@@ -421,8 +421,14 @@ public sealed class RegistryRepository : IRegistryRepository
         string? wikidataStatus = workRow == default ? null : workRow.WikidataStatus;
         string  mediaType      = workRow == default ? "" : workRow.MediaType ?? "";
 
-        // Helper to get canonical value by key
-        string? cv(string key) => canonicalValues.FirstOrDefault(v => v.Key == key)?.Value;
+        // Helper to get canonical value by key (with year-key fallback aliases)
+        string? cv(string key)
+        {
+            var val = canonicalValues.FirstOrDefault(v => v.Key == key)?.Value;
+            if (val is null && key == "release_year")
+                val = canonicalValues.FirstOrDefault(v => v.Key == "date" || v.Key == "year")?.Value;
+            return val;
+        }
         var hasUserLocks = claims.Any(c => c.IsUserLocked);
         var titleProvider = canonicalValues.FirstOrDefault(v => v.Key == "title")?.WinningProviderId;
 

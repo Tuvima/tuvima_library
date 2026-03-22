@@ -830,16 +830,30 @@ public static class MetadataEndpoints
             Guid entityId,
             ICanonicalValueRepository canonicalRepo,
             IMetadataClaimRepository claimRepo,
+            IMediaAssetRepository assetRepo,
             IEnumerable<IExternalMetadataProvider> providers,
             CancellationToken ct) =>
         {
-            var canonicals = await canonicalRepo.GetByEntityAsync(entityId, ct);
+            // entityId may be a work ID (from the registry) — resolve to the
+            // underlying media asset ID where canonical values are stored.
+            var resolvedId = entityId;
+            var canonicals = await canonicalRepo.GetByEntityAsync(resolvedId, ct);
+            if (canonicals.Count == 0)
+            {
+                // Try resolving as a work ID → find the first media asset.
+                var asset = await assetRepo.FindFirstByWorkIdAsync(resolvedId, ct);
+                if (asset is not null)
+                {
+                    resolvedId = asset.Id;
+                    canonicals = await canonicalRepo.GetByEntityAsync(resolvedId, ct);
+                }
+            }
 
             if (canonicals.Count == 0)
                 return Results.NotFound($"No canonical values found for entity {entityId}.");
 
             // Load claims to determine user-lock and conflict status per field.
-            var allClaims = await claimRepo.GetByEntityAsync(entityId, ct);
+            var allClaims = await claimRepo.GetByEntityAsync(resolvedId, ct);
             var providerList = providers.ToList();
 
             var fields = canonicals.Select(cv =>
@@ -946,7 +960,7 @@ public static class MetadataEndpoints
                     new()
                     {
                         EntityId     = entityId,
-                        Key          = "cover",
+                        Key          = "cover_url",
                         Value        = $"/stream/{entityId}/cover",
                         LastScoredAt = DateTimeOffset.UtcNow,
                     },

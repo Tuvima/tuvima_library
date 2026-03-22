@@ -1187,7 +1187,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             result.Stage1ClaimsAdded, result.Stage2ClaimsAdded,
             result.TotalClaimsAdded);
 
-        if (result.TotalClaimsAdded > 0)
+        if (result.TotalClaimsAdded > 0 || !string.IsNullOrWhiteSpace(request.PreResolvedQid))
         {
             // Reload all claims and get current scoring result.
             var allClaims = await _claimRepo.GetByEntityAsync(request.EntityId, ct)

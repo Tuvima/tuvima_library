@@ -90,11 +90,12 @@ public sealed class HydrationStartupSweepService : BackgroundService
 
             var request = new HarvestRequest
             {
-                EntityId   = assetId,
-                EntityType = EntityType.MediaAsset,
-                MediaType  = mediaType,
-                Hints      = hints,
-                Pass       = HydrationPass.Quick,
+                EntityId               = assetId,
+                EntityType             = EntityType.MediaAsset,
+                MediaType              = mediaType,
+                Hints                  = hints,
+                Pass                   = HydrationPass.Quick,
+                SuppressReviewCreation = true,
             };
 
             await _pipeline.EnqueueAsync(request, ct).ConfigureAwait(false);
@@ -144,6 +145,12 @@ public sealed class HydrationStartupSweepService : BackgroundService
                 WHERE rq.entity_id = ma.id
                   AND rq.status = 'Pending'
                   AND rq.trigger IN ('LanguageMismatch')
+            )
+            AND NOT EXISTS (
+                SELECT 1 FROM review_queue rq2
+                WHERE rq2.entity_id = ma.id
+                  AND rq2.status IN ('Resolved', 'Dismissed')
+                  AND rq2.trigger IN ('AuthorityMatchFailed', 'MultipleQidMatches', 'MissingQid')
             )
             GROUP BY ma.id, w.media_type
             """;

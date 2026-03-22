@@ -50,7 +50,8 @@ public static class ReviewEndpoints
                     title = "Untitled";
 
                 lookup.TryGetValue("media_type", out var mediaType);
-                lookup.TryGetValue("cover", out var coverUrl);
+                if (!lookup.TryGetValue("cover_url", out var coverUrl))
+                    lookup.TryGetValue("cover", out coverUrl);
 
                 var bridgeIds = ExtractBridgeIdentifiers(lookup);
 
@@ -99,7 +100,8 @@ public static class ReviewEndpoints
                 title = "Untitled";
 
             lookup.TryGetValue("media_type", out var mediaType);
-            lookup.TryGetValue("cover", out var coverUrl);
+            if (!lookup.TryGetValue("cover_url", out var coverUrl))
+                lookup.TryGetValue("cover", out coverUrl);
 
             var bridgeIds = ExtractBridgeIdentifiers(lookup);
 
@@ -150,6 +152,35 @@ public static class ReviewEndpoints
                 }
             }
 
+            // 1b. Always persist the selected QID as a user-locked claim.
+            //     This guarantees the QID survives re-scoring and startup sweeps
+            //     regardless of whether the pipeline deposits its own QID claim.
+            if (!string.IsNullOrWhiteSpace(request.SelectedQid))
+            {
+                var qidClaim = new MetadataClaim
+                {
+                    Id           = Guid.NewGuid(),
+                    EntityId     = item.EntityId,
+                    ProviderId   = UserManualProviderId,
+                    ClaimKey     = "wikidata_qid",
+                    ClaimValue   = request.SelectedQid,
+                    Confidence   = 1.0,
+                    ClaimedAt    = DateTimeOffset.UtcNow,
+                    IsUserLocked = true,
+                };
+                await claimRepo.InsertBatchAsync([qidClaim], ct);
+
+                // Also upsert the canonical value immediately so it's visible
+                // even if the pipeline run adds zero claims.
+                await canonicalRepo.UpsertBatchAsync([new Domain.Entities.CanonicalValue
+                {
+                    EntityId     = item.EntityId,
+                    Key          = "wikidata_qid",
+                    Value        = request.SelectedQid,
+                    LastScoredAt = DateTimeOffset.UtcNow,
+                }], ct);
+            }
+
             // 2. If a QID was selected, re-run pipeline with PreResolvedQid.
             if (!string.IsNullOrWhiteSpace(request.SelectedQid))
             {
@@ -181,7 +212,8 @@ public static class ReviewEndpoints
             resolvedLookup.TryGetValue("year",        out var rYear);
             resolvedLookup.TryGetValue("description", out var rDesc);
             resolvedLookup.TryGetValue("media_type",  out var rMediaType);
-            resolvedLookup.TryGetValue("cover",       out var rCover);
+            if (!resolvedLookup.TryGetValue("cover_url", out var rCover))
+                resolvedLookup.TryGetValue("cover", out rCover);
 
             await activityRepo.LogAsync(new SystemActivityEntry
             {
@@ -248,7 +280,8 @@ public static class ReviewEndpoints
             dismissLookup.TryGetValue("year",        out var dYear);
             dismissLookup.TryGetValue("description", out var dDesc);
             dismissLookup.TryGetValue("media_type",  out var dMediaType);
-            dismissLookup.TryGetValue("cover",       out var dCover);
+            if (!dismissLookup.TryGetValue("cover_url", out var dCover))
+                dismissLookup.TryGetValue("cover", out dCover);
 
             await activityRepo.LogAsync(new SystemActivityEntry
             {
@@ -316,7 +349,8 @@ public static class ReviewEndpoints
             skipLookup.TryGetValue("year",        out var sYear);
             skipLookup.TryGetValue("description", out var sDesc);
             skipLookup.TryGetValue("media_type",  out var sMediaType);
-            skipLookup.TryGetValue("cover",       out var sCover);
+            if (!skipLookup.TryGetValue("cover_url", out var sCover))
+                skipLookup.TryGetValue("cover", out sCover);
 
             // 3. Log activity.
             await activityRepo.LogAsync(new SystemActivityEntry
