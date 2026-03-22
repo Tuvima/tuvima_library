@@ -54,8 +54,10 @@
         <div class="registry-library-cards">
             @* ── Total box with nested registered + provisional ── *@
             <div class="registry-total-box">
-                <span class="registry-total-number">@(_fourStateCounts?.All ?? 0)</span>
-                <span class="registry-total-label">items</span>
+                <div class="registry-total-left">
+                    <span class="registry-total-number">@(_fourStateCounts?.All ?? 0)</span>
+                    <span class="registry-total-label">items</span>
+                </div>
                 <div class="registry-total-breakdown">
                     <button class="registry-breakdown-chip registry-breakdown-chip--green"
                             @onclick='() => Nav.NavigateTo("/registry/activity?state=registered")'>
@@ -287,13 +289,21 @@
     /* ── Total box (nested breakdown) ── */
     .registry-total-box {
         display: flex;
-        flex-direction: column;
-        gap: 6px;
+        flex-direction: row;
+        align-items: center;
+        gap: 14px;
         padding: 10px 14px;
         border-radius: 10px;
         background: rgba(255, 255, 255, 0.02);
         border: 1px solid rgba(255, 255, 255, 0.06);
         font-family: 'Montserrat', sans-serif;
+    }
+
+    .registry-total-left {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
     }
 
     .registry-total-number {
@@ -312,8 +322,8 @@
 
     .registry-total-breakdown {
         display: flex;
-        gap: 8px;
-        margin-top: 2px;
+        flex-direction: column;
+        gap: 4px;
     }
 
     .registry-breakdown-chip {
