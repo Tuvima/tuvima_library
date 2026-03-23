@@ -15,39 +15,60 @@
     }
     else
     {
-        @foreach (var field in Fields.Where(f => !string.IsNullOrEmpty(f.Value)))
+        @* ── Sub-tab toggle: Matched / File ── *@
+        <div class="ims-subtabs">
+            <button class="ims-subtab @(_subtab == "matched" ? "ims-subtab--active" : "")"
+                    @onclick='() => _subtab = "matched"'>
+                Matched
+                @if (MatchedFields.Count > 0)
+                {
+                    <span class="ims-subtab-count">@MatchedFields.Count</span>
+                }
+            </button>
+            <button class="ims-subtab @(_subtab == "file" ? "ims-subtab--active" : "")"
+                    @onclick='() => _subtab = "file"'>
+                File
+                @if (FileFields.Count > 0)
+                {
+                    <span class="ims-subtab-count">@FileFields.Count</span>
+                }
+            </button>
+        </div>
+
+        @* ── Field list ── *@
+        @if (VisibleFields.Count == 0)
         {
-            <div class="ims-field">
-                <div class="ims-field-header">
-                    <span class="ims-field-key">@FormatFieldKey(field.Key)</span>
-                    @if (field.IsUserLocked)
+            <div class="ims-empty">No @(_subtab == "file" ? "file" : "matched") metadata</div>
+        }
+        else
+        {
+            @foreach (var field in VisibleFields)
+            {
+                <div class="ims-field">
+                    <div class="ims-field-header">
+                        <span class="ims-field-key">@FormatFieldKey(field.Key)</span>
+                        @if (field.IsUserLocked)
+                        {
+                            <MudIcon Icon="@Icons.Material.Outlined.Lock"
+                                     Style="font-size: 0.7rem; color: #C9922E;" />
+                        }
+                        @if (field.IsConflicted)
+                        {
+                            <MudIcon Icon="@Icons.Material.Outlined.Warning"
+                                     Style="font-size: 0.7rem; color: #EF9F27;" />
+                        }
+                    </div>
+                    @if (field.Key == "wikidata_qid" && !string.IsNullOrEmpty(field.Value))
                     {
-                        <MudIcon Icon="@Icons.Material.Outlined.Lock"
-                                 Style="font-size: 0.7rem; color: #C9922E;" />
+                        <a class="ims-qid-chip" href="https://www.wikidata.org/wiki/@field.Value"
+                           target="_blank" rel="noopener noreferrer">@field.Value</a>
                     }
-                    @if (field.IsConflicted)
+                    else
                     {
-                        <MudIcon Icon="@Icons.Material.Outlined.Warning"
-                                 Style="font-size: 0.7rem; color: #EF9F27;" />
+                        <div class="ims-field-value">@field.Value</div>
                     }
-                    <span class="ims-field-conf"
-                          style="color: @RegistryHelpers.GetConfidenceHexColor(field.Confidence);">
-                        @((int)(field.Confidence * 100))%
-                    </span>
                 </div>
-                @if (field.Key == "wikidata_qid" && !string.IsNullOrEmpty(field.Value))
-                {
-                    <span class="ims-qid-chip">@field.Value</span>
-                }
-                else
-                {
-                    <div class="ims-field-value">@field.Value</div>
-                }
-                @if (!string.IsNullOrEmpty(field.ProviderName))
-                {
-                    <span class="ims-field-provider">via @field.ProviderName</span>
-                }
-            </div>
+            }
         }
     }
 </div>
@@ -55,6 +76,42 @@
 @code {
     [Parameter] public List<CanonicalFieldViewModel> Fields { get; set; } = [];
     [Parameter] public bool Loading { get; set; }
+
+    private string _subtab = "matched";
+
+    /// <summary>Fields that are suppressed from the metadata view.</summary>
+    private static readonly HashSet<string> SuppressedKeys = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "cover", "cover_url", "headshot_url", "hero", "hero_url",
+    };
+
+    private static bool IsSuppressedField(string key) =>
+        SuppressedKeys.Contains(key) ||
+        (key.EndsWith("_qid", StringComparison.OrdinalIgnoreCase) &&
+         !string.Equals(key, "wikidata_qid", StringComparison.OrdinalIgnoreCase));
+
+    private static readonly HashSet<string> FileProviderNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Local Filesystem", "local_filesystem", "Embedded Metadata",
+    };
+
+    private static bool IsFileProvider(string? providerName) =>
+        !string.IsNullOrEmpty(providerName) && FileProviderNames.Contains(providerName);
+
+    private List<CanonicalFieldViewModel> VisibleFields =>
+        _subtab == "file" ? FileFields : MatchedFields;
+
+    private List<CanonicalFieldViewModel> MatchedFields => Fields
+        .Where(f => !string.IsNullOrEmpty(f.Value))
+        .Where(f => !IsSuppressedField(f.Key))
+        .Where(f => !IsFileProvider(f.ProviderName))
+        .ToList();
+
+    private List<CanonicalFieldViewModel> FileFields => Fields
+        .Where(f => !string.IsNullOrEmpty(f.Value))
+        .Where(f => !IsSuppressedField(f.Key))
+        .Where(f => IsFileProvider(f.ProviderName))
+        .ToList();
 
     private static string FormatFieldKey(string key) => key switch
     {
@@ -73,7 +130,10 @@
         "page_count"      => "Pages",
         "publisher"       => "Publisher",
         "cover"           => "Cover Art",
+        "cover_url"       => "Cover Art",
         "wikidata_qid"    => "Wikidata QID",
+        "release_year"    => "Year",
+        "media_type"      => "Media Type",
         _                 => RegistryHelpers.FormatBridgeKey(key),
     };
 }
@@ -99,6 +159,65 @@
         padding: 24px 0;
     }
 
+    /* ── Sub-tabs ── */
+    .ims-subtabs {
+        display: flex;
+        gap: 0;
+        margin-bottom: 12px;
+        border-bottom: 1px solid rgba(140, 120, 180, 0.10);
+    }
+
+    .ims-subtab {
+        position: relative;
+        background: none;
+        border: none;
+        padding: 8px 16px;
+        font-family: 'Montserrat', sans-serif;
+        font-size: 12px;
+        font-weight: 500;
+        color: rgba(200, 190, 220, 0.40);
+        cursor: pointer;
+        transition: color 0.15s ease;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .ims-subtab:hover {
+        color: rgba(200, 190, 220, 0.60);
+    }
+
+    .ims-subtab--active {
+        color: #C9922E;
+    }
+
+    .ims-subtab--active::after {
+        content: '';
+        position: absolute;
+        bottom: -1px;
+        left: 12px;
+        right: 12px;
+        height: 2px;
+        background: #C9922E;
+        border-radius: 1px;
+    }
+
+    .ims-subtab-count {
+        font-size: 10px;
+        font-weight: 600;
+        color: rgba(200, 190, 220, 0.30);
+        background: rgba(200, 190, 220, 0.06);
+        padding: 1px 6px;
+        border-radius: 8px;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .ims-subtab--active .ims-subtab-count {
+        color: rgba(201, 146, 46, 0.60);
+        background: rgba(201, 146, 46, 0.10);
+    }
+
+    /* ── Fields ── */
     .ims-field {
         padding: 8px 0;
         border-bottom: 1px solid rgba(140, 120, 180, 0.08);
@@ -124,27 +243,12 @@
         flex: 1;
     }
 
-    .ims-field-conf {
-        font-size: 10px;
-        font-weight: 600;
-        font-variant-numeric: tabular-nums;
-        margin-left: auto;
-    }
-
     .ims-field-value {
         font-size: 12px;
         font-weight: 500;
         color: rgba(200, 190, 220, 0.85);
         line-height: 1.4;
         word-break: break-word;
-    }
-
-    .ims-field-provider {
-        display: block;
-        font-size: 10px;
-        font-style: italic;
-        color: rgba(200, 190, 220, 0.28);
-        margin-top: 2px;
     }
 
     .ims-qid-chip {
@@ -158,5 +262,12 @@
         padding: 2px 8px;
         border-radius: 4px;
         letter-spacing: 0.02em;
+        text-decoration: none;
+        transition: background 0.15s ease, border-color 0.15s ease;
+    }
+
+    .ims-qid-chip:hover {
+        background: rgba(93, 202, 165, 0.18);
+        border-color: rgba(93, 202, 165, 0.35);
     }
 </style>

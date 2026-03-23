@@ -12,6 +12,12 @@
     else if (IsPerson)
     {
         @* ── Person view ── *@
+        @if (!string.IsNullOrEmpty(Item.CoverUrl))
+        {
+            <div class="ids-cover-row">
+                <img src="@Item.CoverUrl" alt="@Item.Title" class="ids-headshot" loading="lazy" />
+            </div>
+        }
         <div class="ids-row">
             <span class="ids-key">Name</span>
             <span class="ids-value">@Item.Title</span>
@@ -69,6 +75,12 @@
     else
     {
         @* ── Media file view ── *@
+        @if (!string.IsNullOrEmpty(Item.CoverUrl))
+        {
+            <div class="ids-cover-row">
+                <img src="@Item.CoverUrl" alt="@Item.Title" class="ids-cover" loading="lazy" />
+            </div>
+        }
         <div class="ids-row">
             <span class="ids-key">Title</span>
             <span class="ids-value">@Item.Title</span>
@@ -245,5 +257,29 @@
         font-style: italic;
         color: rgba(200, 190, 220, 0.30);
         line-height: 1.5;
+    }
+
+    /* ── Cover art / headshot in details ── */
+    .ids-cover-row {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 16px;
+    }
+
+    .ids-cover {
+        width: 120px;
+        height: auto;
+        border-radius: 6px;
+        border: 1px solid rgba(140, 120, 180, 0.12);
+        object-fit: cover;
+        aspect-ratio: 2 / 3;
+    }
+
+    .ids-headshot {
+        width: 90px;
+        height: 90px;
+        border-radius: 50%;
+        border: 2px solid rgba(140, 120, 180, 0.15);
+        object-fit: cover;
     }
 </style>
