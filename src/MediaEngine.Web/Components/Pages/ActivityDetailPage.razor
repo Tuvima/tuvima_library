@@ -122,7 +122,7 @@
                             <MudButton Size="MudBlazor.Size.Small" OnClick="ApplyPresetAll">All Time</MudButton>
                         </div>
                         <MudButton Color="Color.Primary" Size="MudBlazor.Size.Small" Variant="Variant.Filled"
-                                   OnClick="@(() => _dateRangePicker?.CloseAsync())">
+                                   OnClick="HandleDatePickerClose">
                             OK
                         </MudButton>
                     </div>
@@ -244,8 +244,8 @@
                                     <ActivityItemCard Item="@item"
                                                       IsSelected="@(_selectedItem?.EntityId == item.EntityId)"
                                                       OnSelect="HandleItemSelect"
-                                                      OnUnreject="@(isEntity ? default : HandleUnreject)"
-                                                      OnQuickReject="@(isEntity ? default : HandleQuickReject)"
+                                                      OnUnreject="HandleUnreject"
+                                                      OnQuickReject="HandleQuickReject"
                                                       ShowTriggerChip="@(_activeTypeChip == "Media")" />
                                 }
                             </div>
@@ -726,6 +726,12 @@
     {
         _dateRange = range;
         await LoadItemsAsync();
+    }
+
+    private async Task HandleDatePickerClose()
+    {
+        if (_dateRangePicker is not null)
+            await _dateRangePicker.CloseAsync();
     }
 
     private Task ApplyPresetToday() => ApplyDatePresetInternal("today");

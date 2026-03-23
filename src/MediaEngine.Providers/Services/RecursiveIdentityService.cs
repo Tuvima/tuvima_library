@@ -9,28 +9,31 @@ using MediaEngine.Storage.Contracts;
 namespace MediaEngine.Providers.Services;
 
 /// <summary>
-/// Recursive person enrichment service.
+/// QID-first person enrichment service.
 ///
-/// Triggered by the ingestion engine after a media asset is scored.
-/// For each author or narrator reference extracted from the file's metadata:
-///  1. Looks up or creates a <see cref="Person"/> record.
+/// Triggered by the hydration pipeline after Stage 1 (Reconciliation) resolves
+/// person QIDs from Wikidata Data Extension properties (P50 author, P57 director,
+/// P161 cast, P2093 narrator).
+///
+/// Only creates Person records for references that carry a confirmed Wikidata QID.
+/// References without a QID (e.g. from raw file metadata before Wikidata match)
+/// are silently skipped — no Person record is created until the media item has
+/// a confirmed Wikidata identity.
+///
+/// For each QID-backed person reference:
+///  1. Looks up or creates a <see cref="Person"/> record (QID-first lookup).
 ///  2. Links the person to the ingested media asset.
 ///  3. If the person has not yet been Wikidata-enriched, returns a
 ///     <see cref="HarvestRequest"/> with <see cref="EntityType.Person"/>
 ///     so the caller can decide whether to process it synchronously or
 ///     enqueue it for background processing.
-///  4. Creates the <c>.people/{QID}/</c> folder under the library root
-///     immediately after the Person record is created, so downstream
-///     services (headshot download, character images) have a guaranteed
-///     location to write to.  When the QID is not yet known (enrichment
-///     pending), a temporary folder keyed by the database ID is created
-///     and will be renamed by the enrichment service once the QID is resolved.
+///  4. Creates the <c>.people/{QID}/</c> folder under the library root.
 ///
 /// This service is intentionally lightweight: all heavy I/O runs later,
 /// either synchronously (during review resolution) or asynchronously
 /// (via the harvest queue during normal ingestion).
 ///
-/// Spec: Phase 9 – Recursive Person Enrichment.
+/// Spec: Phase 9 – Recursive Person Enrichment (QID-first).
 /// </summary>
 public sealed class RecursiveIdentityService : IRecursiveIdentityService
 {
@@ -77,6 +80,18 @@ public sealed class RecursiveIdentityService : IRecursiveIdentityService
             if (string.IsNullOrWhiteSpace(reference.Name))
                 continue;
 
+            // QID-first: only create Person records for references with a confirmed
+            // Wikidata QID.  Name-only references (from file metadata before Wikidata
+            // match) are skipped — the canonical value still shows the author name on
+            // the media card, but no Person entity is created until the QID is known.
+            if (string.IsNullOrWhiteSpace(reference.WikidataQid))
+            {
+                _logger.LogDebug(
+                    "Skipping person '{Name}' ({Role}) for asset {AssetId} — no QID",
+                    reference.Name, reference.Role, mediaAssetId);
+                continue;
+            }
+
             try
             {
                 var request = await ProcessPersonAsync(mediaAssetId, reference, ct).ConfigureAwait(false);
@@ -107,45 +122,18 @@ public sealed class RecursiveIdentityService : IRecursiveIdentityService
         // Normalize "Last, First" → "First Last" for consistent storage and search.
         var normalizedName = NormalizePersonName(reference.Name);
 
-        // 1. Find or create the person record.
-        //    Serialize on a per-identity key to prevent concurrent threads from
-        //    both missing FindByName → both calling CreateAsync → duplicate row.
-        //    Prefer a QID-based key when available so that pen names and alternate
-        //    name spellings all collapse to the same lock bucket.
-        var personKey = !string.IsNullOrEmpty(reference.WikidataQid)
-            ? $"QID:{reference.WikidataQid}"
-            : $"{normalizedName.ToUpperInvariant()}:{reference.Role}";
+        // QID is guaranteed non-null by EnrichAsync's guard above.
+        // Serialize on QID to prevent concurrent threads from both missing
+        // FindByQid → both calling CreateAsync → duplicate row.
+        var personKey = $"QID:{reference.WikidataQid}";
         var personLock = _personLocks.GetOrAdd(personKey, _ => new SemaphoreSlim(1, 1));
         await personLock.WaitAsync(ct).ConfigureAwait(false);
         Person? person;
         try
         {
-            // QID-first: if we already know who this person is, find by QID to
-            // avoid creating duplicates when the same person appears under different
-            // name spellings (e.g. pen names, transliterations).
-            if (!string.IsNullOrEmpty(reference.WikidataQid))
-            {
-                person = await _personRepo.FindByQidAsync(reference.WikidataQid, ct)
-                             .ConfigureAwait(false);
-            }
-            else
-            {
-                person = null;
-            }
-
-            // Fallback: name-based lookup (normalized first, then original for
-            // backward compatibility with records created before normalization).
-            if (person is null)
-            {
-                person = await _personRepo.FindByNameAsync(normalizedName, reference.Role, ct)
-                             .ConfigureAwait(false);
-            }
-
-            if (person is null && normalizedName != reference.Name)
-            {
-                person = await _personRepo.FindByNameAsync(reference.Name, reference.Role, ct)
-                             .ConfigureAwait(false);
-            }
+            // Primary lookup: find by QID (guaranteed present).
+            person = await _personRepo.FindByQidAsync(reference.WikidataQid!, ct)
+                         .ConfigureAwait(false);
 
             if (person is null)
             {
@@ -157,8 +145,8 @@ public sealed class RecursiveIdentityService : IRecursiveIdentityService
                 }, ct).ConfigureAwait(false);
 
                 _logger.LogDebug(
-                    "Created person record for '{Name}' ({Role}), id={Id}",
-                    person.Name, person.Role, person.Id);
+                    "Created person record for '{Name}' ({Role}, {Qid}), id={Id}",
+                    person.Name, person.Role, reference.WikidataQid, person.Id);
             }
         }
         finally
@@ -176,22 +164,16 @@ public sealed class RecursiveIdentityService : IRecursiveIdentityService
         EnsurePersonFolder(person);
 
         // 3. If not yet enriched, return a harvest request for the caller to handle.
-        //    Collective pseudonyms (e.g. "James S. A. Corey" = Q6142591) are enriched
-        //    normally — their QID is already resolved by Stage 1, so the harvest
-        //    service will fetch the correct entity directly.
+        //    QID is always present — the harvest service uses it directly for
+        //    Data Extension property fetching (no name-based search needed).
         if (person.EnrichedAt is null)
         {
             var hints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
                 ["name"] = normalizedName,
                 ["role"] = reference.Role,
+                ["wikidata_qid"] = reference.WikidataQid!,
             };
-
-            // When the caller already knows the person's Wikidata QID (e.g. from a
-            // prior SPARQL result for a multi-authored book), pass it as a hint so
-            // the WikidataAdapter can skip the name-based search entirely.
-            if (!string.IsNullOrEmpty(reference.WikidataQid))
-                hints["wikidata_qid"] = reference.WikidataQid;
 
             var harvestRequest = new HarvestRequest
             {

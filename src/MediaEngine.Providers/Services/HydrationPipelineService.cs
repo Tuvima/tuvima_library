@@ -2736,9 +2736,13 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             }
         }
 
-        // Deduplicate by (Role, QID or Name).
+        // QID-first: only emit references with a confirmed Wikidata QID.
+        // Name-only references (from processor metadata before Wikidata match)
+        // are dropped — Person records require a verified identity.
+        // Deduplicate by (Role, QID).
         return refs
-            .GroupBy(r => (r.Role, Key: r.WikidataQid ?? r.Name),
+            .Where(r => !string.IsNullOrEmpty(r.WikidataQid))
+            .GroupBy(r => (r.Role, Key: r.WikidataQid!),
                      new RoleKeyComparer())
             .Select(g => g.First())
             .ToList();
@@ -2841,9 +2845,11 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             }
         }
 
-        // Deduplicate by (Role, QID or Name) — e.g. same person as both narrator and performer.
+        // QID-first: only emit references with a confirmed Wikidata QID.
+        // Deduplicate by (Role, QID).
         return refs
-            .GroupBy(r => (r.Role, Key: r.WikidataQid ?? r.Name),
+            .Where(r => !string.IsNullOrEmpty(r.WikidataQid))
+            .GroupBy(r => (r.Role, Key: r.WikidataQid!),
                      new RoleKeyComparer())
             .Select(g => g.First())
             .ToList();
