@@ -450,7 +450,8 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     public async Task<IReadOnlyList<ReconciliationCandidate>> FilterByMediaTypeAsync(
         IReadOnlyList<ReconciliationCandidate> candidates,
         MediaType mediaType,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        string? authorHint = null)
     {
         if (candidates.Count == 0)
             return candidates;
@@ -478,14 +479,20 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
 
         var qids = candidates.Select(c => c.QID).ToList();
 
-        // Extend all candidates with P31.
-        var extensions = await ExtendAsync(qids, ["P31"], ct).ConfigureAwait(false);
-        var p31ByQid   = extensions.ToDictionary(e => e.QID, e => e.Properties, StringComparer.OrdinalIgnoreCase);
+        // Fetch P31 (instance_of) and P50 (author) in one batched call.
+        // P50 is used for author-based re-ranking when multiple candidates
+        // pass the type filter (e.g. "1984" matches both a novel and an album).
+        var fetchProps = new List<string> { "P31" };
+        if (!string.IsNullOrWhiteSpace(authorHint))
+            fetchProps.Add("P50");
+
+        var extensions = await ExtendAsync(qids, fetchProps, ct).ConfigureAwait(false);
+        var propsByQid = extensions.ToDictionary(e => e.QID, e => e.Properties, StringComparer.OrdinalIgnoreCase);
 
         var filtered = new List<ReconciliationCandidate>();
         foreach (var candidate in candidates)
         {
-            if (!p31ByQid.TryGetValue(candidate.QID, out var props)
+            if (!propsByQid.TryGetValue(candidate.QID, out var props)
                 || !props.TryGetValue("P31", out var p31Values)
                 || p31Values.Count == 0)
             {
@@ -525,6 +532,48 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                     Name, candidate.QID, candidate.Label,
                     string.Join(", ", instanceOfQids), mediaTypeKey);
             }
+        }
+
+        // Author-based re-ranking: when an author hint is available and multiple
+        // candidates pass the type filter, score each candidate by how well its
+        // P50 (author) matches the file's embedded author. This disambiguates
+        // same-titled works (e.g. "1984" the novel vs "1984" the album).
+        if (!string.IsNullOrWhiteSpace(authorHint) && filtered.Count > 1)
+        {
+            var scored = new List<(ReconciliationCandidate Candidate, double AuthorScore)>();
+            foreach (var candidate in filtered)
+            {
+                double authorScore = 0.0;
+                if (propsByQid.TryGetValue(candidate.QID, out var cProps)
+                    && cProps.TryGetValue("P50", out var p50Values)
+                    && p50Values.Count > 0)
+                {
+                    // Compare each P50 author label against the hint, take best match.
+                    foreach (var p50 in p50Values)
+                    {
+                        var label = p50.Label ?? p50.Str;
+                        if (!string.IsNullOrWhiteSpace(label))
+                        {
+                            var similarity = _fuzzy.ComputeTokenSetRatio(authorHint, label);
+                            if (similarity > authorScore)
+                                authorScore = similarity;
+                        }
+                    }
+                }
+                scored.Add((candidate, authorScore));
+            }
+
+            // Re-rank: candidates with author match come first, preserving
+            // original order within the same author score tier.
+            filtered = scored
+                .OrderByDescending(s => s.AuthorScore)
+                .Select(s => s.Candidate)
+                .ToList();
+
+            _logger.LogDebug(
+                "{Provider}: Author re-ranking for '{Author}': top={TopQid} '{TopLabel}' (author score {Score:F2})",
+                Name, authorHint, filtered[0].QID, filtered[0].Label,
+                scored.OrderByDescending(s => s.AuthorScore).First().AuthorScore);
         }
 
         _logger.LogDebug("{Provider}: FilterByMediaType({MediaType}) kept {Kept}/{Total} candidates",
@@ -821,8 +870,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 ? CleanAudiobookTitle(request.Title)
                 : request.Title;
 
-            var constraints = BuildTitleSearchConstraints(request);
-            var candidates  = await ReconcileAsync(searchTitle, constraints, ct).ConfigureAwait(false);
+            var candidates = await ReconcileAsync(searchTitle, null, ct).ConfigureAwait(false);
 
             if (candidates.Count == 0)
             {
@@ -831,11 +879,12 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 return [];
             }
 
-            // Filter by media type when known.
+            // Filter by media type and re-rank by author similarity when known.
             IReadOnlyList<ReconciliationCandidate> filtered = candidates;
             if (request.MediaType != MediaType.Unknown)
             {
-                filtered = await FilterByMediaTypeAsync(candidates, request.MediaType, ct)
+                filtered = await FilterByMediaTypeAsync(
+                    candidates, request.MediaType, ct, request.Author)
                     .ConfigureAwait(false);
                 if (filtered.Count == 0)
                     filtered = candidates; // Fall back to unfiltered if nothing passes
