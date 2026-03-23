@@ -82,10 +82,10 @@
         </div>
     }
 
-    @* ── Filter row: Status + Date Range (status only for Media) ── *@
-    <div class="adp-filter-row">
-        @if (_activeTypeChip == "Media")
-        {
+    @* ── Filter row: Status (Media only) ── *@
+    @if (_activeTypeChip == "Media")
+    {
+        <div class="adp-filter-row">
             <div class="adp-filter-group">
                 <span class="adp-filter-label">STATUS</span>
                 <div class="adp-filter-select-wrap">
@@ -98,38 +98,8 @@
                     </select>
                 </div>
             </div>
-        }
-        <div class="adp-filter-group">
-            <span class="adp-filter-label">DATE RANGE</span>
-            <MudDateRangePicker @ref="_dateRangePicker"
-                                DateRange="_dateRange"
-                                DateRangeChanged="HandleDateRangeChanged"
-                                AutoClose="true"
-                                Variant="Variant.Outlined"
-                                DateFormat="yyyy-MM-dd"
-                                Placeholder="All time"
-                                Clearable="true"
-                                Margin="Margin.Dense"
-                                Class="adp-date-range-picker">
-                <PickerActions>
-                    <div class="adp-picker-actions">
-                        <div class="adp-picker-presets">
-                            <MudButton Size="MudBlazor.Size.Small" OnClick="ApplyPresetToday">Today</MudButton>
-                            <MudButton Size="MudBlazor.Size.Small" OnClick="ApplyPresetYesterday">Yesterday</MudButton>
-                            <MudButton Size="MudBlazor.Size.Small" OnClick="ApplyPresetWeek">This Week</MudButton>
-                            <MudButton Size="MudBlazor.Size.Small" OnClick="ApplyPresetMonth">This Month</MudButton>
-                            <MudButton Size="MudBlazor.Size.Small" OnClick="ApplyPreset30Days">Last 30 Days</MudButton>
-                            <MudButton Size="MudBlazor.Size.Small" OnClick="ApplyPresetAll">All Time</MudButton>
-                        </div>
-                        <MudButton Color="Color.Primary" Size="MudBlazor.Size.Small" Variant="Variant.Filled"
-                                   OnClick="HandleDatePickerClose">
-                            OK
-                        </MudButton>
-                    </div>
-                </PickerActions>
-            </MudDateRangePicker>
         </div>
-    </div>
+    }
 
     <div class="adp-results-header">
         <span class="adp-results-count">@_items.Count items</span>
@@ -300,8 +270,7 @@
     /// <summary>Subcategories toggled OFF within Media view.</summary>
     private HashSet<string> _disabledSubcategories = [];
 
-    /// <summary>Date range for MudDateRangePicker.</summary>
-    private DateRange? _dateRange;
+
 
     /// <summary>All available media subcategories with icons.</summary>
     private static readonly SubcategoryDef[] _allSubcategories =
@@ -327,7 +296,6 @@
 
     private HashSet<string> _collapsedGroups = [];
     private HashSet<Guid> _selectedIds = [];
-    private MudDateRangePicker? _dateRangePicker;
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -367,17 +335,6 @@
                 _activeTypeChip = "Universes";
             else
                 _activeTypeChip = "Media";
-        }
-
-        // Parse date range from query params
-        var dateFromParam = query["dateFrom"] ?? (EmbeddedMode ? InitialDateFrom : null);
-        var dateToParam = query["dateTo"] ?? (EmbeddedMode ? InitialDateTo : null);
-        if (!string.IsNullOrEmpty(dateFromParam) || !string.IsNullOrEmpty(dateToParam))
-        {
-            DateTime? from = DateTime.TryParse(dateFromParam, out var f) ? f : null;
-            DateTime? to = DateTime.TryParse(dateToParam, out var t) ? t : null;
-            if (from is not null || to is not null)
-                _dateRange = new DateRange(from, to);
         }
 
         // Subscribe to live review count changes
@@ -451,13 +408,6 @@
                 else
                     _activeTypeChip = "Media";
             }
-            if (!string.IsNullOrEmpty(InitialDateFrom) || !string.IsNullOrEmpty(InitialDateTo))
-            {
-                DateTime? from = DateTime.TryParse(InitialDateFrom, out var f) ? f : null;
-                DateTime? to = DateTime.TryParse(InitialDateTo, out var t) ? t : null;
-                if (from is not null || to is not null)
-                    _dateRange = new DateRange(from, to);
-            }
         }
 
         if (tabChanged || searchChanged)
@@ -527,22 +477,6 @@
                         !_disabledSubcategories.Contains(i.MediaType)
                     ).ToList();
                 }
-            }
-
-            // Apply date range filter
-            // MudDateRangePicker returns DateTime with Kind=Local; convert to
-            // DateTimeOffset using the local offset so comparisons work correctly.
-            if (_dateRange?.Start is not null)
-            {
-                var startDt = _dateRange.Start.Value;
-                var fromDate = new DateTimeOffset(startDt, TimeZoneInfo.Local.GetUtcOffset(startDt));
-                _items = _items.Where(i => i.CreatedAt >= fromDate).ToList();
-            }
-            if (_dateRange?.End is not null)
-            {
-                var endDt = _dateRange.End.Value.AddDays(1).AddTicks(-1);
-                var toEnd = new DateTimeOffset(endDt, TimeZoneInfo.Local.GetUtcOffset(endDt));
-                _items = _items.Where(i => i.CreatedAt <= toEnd).ToList();
             }
 
             // Apply search filter
@@ -720,43 +654,6 @@
     {
         var newTab = e.Value?.ToString() ?? "review";
         await SetActiveTab(newTab);
-    }
-
-    private async Task HandleDateRangeChanged(DateRange? range)
-    {
-        _dateRange = range;
-        await LoadItemsAsync();
-    }
-
-    private async Task HandleDatePickerClose()
-    {
-        if (_dateRangePicker is not null)
-            await _dateRangePicker.CloseAsync();
-    }
-
-    private Task ApplyPresetToday() => ApplyDatePresetInternal("today");
-    private Task ApplyPresetYesterday() => ApplyDatePresetInternal("yesterday");
-    private Task ApplyPresetWeek() => ApplyDatePresetInternal("week");
-    private Task ApplyPresetMonth() => ApplyDatePresetInternal("month");
-    private Task ApplyPreset30Days() => ApplyDatePresetInternal("30days");
-    private Task ApplyPresetAll() => ApplyDatePresetInternal("all");
-
-    private async Task ApplyDatePresetInternal(string preset)
-    {
-        var today = DateTime.Today;
-        _dateRange = preset switch
-        {
-            "today"     => new DateRange(today, today),
-            "yesterday" => new DateRange(today.AddDays(-1), today.AddDays(-1)),
-            "week"      => new DateRange(today.AddDays(-(int)today.DayOfWeek), today),
-            "month"     => new DateRange(new DateTime(today.Year, today.Month, 1), today),
-            "30days"    => new DateRange(today.AddDays(-30), today),
-            "all"       => null,
-            _           => null,
-        };
-        if (_dateRangePicker is not null)
-            await _dateRangePicker.CloseAsync();
-        await LoadItemsAsync();
     }
 
     // ── Event handlers ────────────────────────────────────────────────────────
@@ -1194,48 +1091,6 @@
     .adp-filter-select option {
         background: #1a1528;
         color: rgba(255, 255, 255, 0.85);
-    }
-
-    /* ── MudDateRangePicker dark theme overrides ── */
-    .adp-date-range-picker {
-        max-width: 260px;
-    }
-
-    .adp-date-range-picker .mud-input-outlined .mud-input-outlined-border {
-        border-color: rgba(255, 255, 255, 0.10) !important;
-    }
-
-    .adp-date-range-picker .mud-input {
-        color: rgba(255, 255, 255, 0.80) !important;
-        font-family: 'Montserrat', sans-serif !important;
-        font-size: 12px !important;
-    }
-
-    /* ── Date picker preset buttons inside PickerActions ── */
-    .adp-picker-actions {
-        display: flex;
-        flex-direction: column;
-        align-items: stretch;
-        gap: 6px;
-        padding: 8px 12px;
-    }
-
-    .adp-picker-actions > .mud-button-root {
-        align-self: flex-end;
-    }
-
-    .adp-picker-presets {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 4px;
-        justify-content: center;
-    }
-
-    .adp-picker-presets .mud-button-root {
-        font-size: 11px !important;
-        text-transform: none !important;
-        min-width: auto !important;
-        padding: 4px 10px !important;
     }
 
     /* ── Results header ── */

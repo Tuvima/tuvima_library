@@ -6,16 +6,6 @@
 @inject UIOrchestratorService Orchestrator
 @inject UniverseStateContainer StateContainer
 
-@if (!string.IsNullOrWhiteSpace(_enlargedCoverUrl))
-{
-    <div class="isearch-lightbox" @onclick="() => _enlargedCoverUrl = null">
-        <img src="@_enlargedCoverUrl" alt="" class="isearch-lightbox-img" @onclick:stopPropagation="true" />
-        <button class="isearch-lightbox-close" @onclick="() => _enlargedCoverUrl = null">
-            <MudIcon Icon="@Icons.Material.Outlined.Close" Style="font-size: 20px;" />
-        </button>
-    </div>
-}
-
 @if (IsAlreadyMatched)
 {
     @* ── Already-matched state ── *@
@@ -84,11 +74,13 @@
 
                         @if (!string.IsNullOrWhiteSpace(c.CoverUrl))
                         {
-                            var coverUrl = c.CoverUrl;
-                            <img src="@c.CoverUrl" alt="" class="isearch-card-cover isearch-cover--zoomable"
-                                 loading="lazy"
-                                 @onclick="() => _enlargedCoverUrl = coverUrl"
-                                 @onclick:stopPropagation="true" />
+                            <div class="isearch-cover-hover-wrap">
+                                <img src="@c.CoverUrl" alt="" class="isearch-card-cover"
+                                     loading="lazy" />
+                                <div class="isearch-cover-hover-popup">
+                                    <img src="@c.CoverUrl" class="isearch-cover-hover-img" alt="" />
+                                </div>
+                            </div>
                         }
                         else
                         {
@@ -255,11 +247,13 @@ else
 
                         @if (!string.IsNullOrWhiteSpace(c.CoverUrl))
                         {
-                            var rCoverUrl = c.CoverUrl;
-                            <img src="@c.CoverUrl" alt="" class="isearch-result-cover isearch-cover--zoomable"
-                                 loading="lazy"
-                                 @onclick="() => _enlargedCoverUrl = rCoverUrl"
-                                 @onclick:stopPropagation="true" />
+                            <div class="isearch-cover-hover-wrap">
+                                <img src="@c.CoverUrl" alt="" class="isearch-result-cover"
+                                     loading="lazy" />
+                                <div class="isearch-cover-hover-popup">
+                                    <img src="@c.CoverUrl" class="isearch-cover-hover-img" alt="" />
+                                </div>
+                            </div>
                         }
                         else
                         {
@@ -445,7 +439,6 @@ else
     private bool _resultSuccess;
     private Guid? _lastItemId;
 
-    private string? _enlargedCoverUrl;
     private bool _confirmingReject;
     private bool _confirmingRegister;
     private bool _confirmingUnmatch;
@@ -1548,55 +1541,34 @@ else
         animation: pulse-confirm 1s ease-in-out infinite;
     }
 
-    /* ── Cover zoom ── */
-    .isearch-cover--zoomable {
-        cursor: zoom-in;
-        transition: opacity 0.15s ease;
+    /* ── Cover hover popup ── */
+    .isearch-cover-hover-wrap {
+        position: relative;
+        flex-shrink: 0;
     }
 
-    .isearch-cover--zoomable:hover {
-        opacity: 0.8;
-    }
-
-    /* ── Lightbox overlay ── */
-    .isearch-lightbox {
-        position: fixed;
-        inset: 0;
-        z-index: 9999;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: rgba(0, 0, 0, 0.85);
-        backdrop-filter: blur(6px);
-        cursor: zoom-out;
-    }
-
-    .isearch-lightbox-img {
-        max-width: 90vw;
-        max-height: 85vh;
+    .isearch-cover-hover-popup {
+        display: none;
+        position: absolute;
+        z-index: 200;
+        left: calc(100% + 8px);
+        top: 0;
+        padding: 4px;
+        background: rgba(10, 8, 20, 0.95);
+        border: 1px solid rgba(255, 255, 255, 0.12);
         border-radius: 8px;
         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
-        object-fit: contain;
+        pointer-events: none;
     }
 
-    .isearch-lightbox-close {
-        position: absolute;
-        top: 16px;
-        right: 16px;
-        width: 36px;
-        height: 36px;
-        border-radius: 50%;
-        border: none;
-        background: rgba(255, 255, 255, 0.12);
-        color: rgba(255, 255, 255, 0.7);
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: background 0.15s ease;
+    .isearch-cover-hover-wrap:hover .isearch-cover-hover-popup {
+        display: block;
     }
 
-    .isearch-lightbox-close:hover {
-        background: rgba(255, 255, 255, 0.25);
+    .isearch-cover-hover-img {
+        width: 240px;
+        height: auto;
+        border-radius: 4px;
+        display: block;
     }
 </style>

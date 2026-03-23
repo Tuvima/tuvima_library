@@ -98,9 +98,6 @@
             {
                 <div class="rtl-day-header">
                     <span>@group.Label</span>
-                    <button class="rtl-view-btn rtl-view-btn--header" @onclick='() => OnOpenInListView.InvokeAsync(group.Date?.ToString("yyyy-MM"))'>
-                        View
-                    </button>
                 </div>
 
                 @foreach (var item in group.Items)
@@ -1016,34 +1013,6 @@
         gap: 12px;
     }
 
-    /* ── View batch button ── */
-    .rtl-view-btn {
-        background: rgba(74, 144, 217, 0.08);
-        border: 1px solid rgba(74, 144, 217, 0.18);
-        color: rgba(74, 144, 217, 0.85);
-        font-family: 'Montserrat', sans-serif;
-        font-size: 11px;
-        font-weight: 500;
-        padding: 5px 14px;
-        border-radius: 6px;
-        cursor: pointer;
-        white-space: nowrap;
-        flex-shrink: 0;
-        transition: background 0.15s ease, border-color 0.15s ease;
-    }
-
-    .rtl-view-btn:hover {
-        background: rgba(74, 144, 217, 0.14);
-        border-color: rgba(74, 144, 217, 0.30);
-    }
-
-    .rtl-view-btn--header {
-        font-size: 11px;
-        padding: 3px 10px;
-        letter-spacing: 0;
-        text-transform: none;
-        font-weight: 500;
-    }
 
     /* ── Report card ── */
     .rtl-card {

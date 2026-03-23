@@ -15,7 +15,12 @@
         @if (!string.IsNullOrEmpty(Item.CoverUrl))
         {
             <div class="ids-cover-row">
-                <img src="@Item.CoverUrl" alt="@Item.Title" class="ids-headshot" loading="lazy" />
+                <div class="ids-hover-wrap">
+                    <img src="@Item.CoverUrl" alt="@Item.Title" class="ids-headshot" loading="lazy" />
+                    <div class="ids-hover-popup">
+                        <img src="@Item.CoverUrl" class="ids-hover-img" alt="" />
+                    </div>
+                </div>
             </div>
         }
         <div class="ids-row">
@@ -78,7 +83,12 @@
         @if (!string.IsNullOrEmpty(Item.CoverUrl))
         {
             <div class="ids-cover-row">
-                <img src="@Item.CoverUrl" alt="@Item.Title" class="ids-cover" loading="lazy" />
+                <div class="ids-hover-wrap">
+                    <img src="@Item.CoverUrl" alt="@Item.Title" class="ids-cover" loading="lazy" />
+                    <div class="ids-hover-popup">
+                        <img src="@Item.CoverUrl" class="ids-hover-img" alt="" />
+                    </div>
+                </div>
             </div>
         }
         <div class="ids-row">
@@ -262,7 +272,7 @@
     /* ── Cover art / headshot in details ── */
     .ids-cover-row {
         display: flex;
-        justify-content: center;
+        justify-content: flex-start;
         margin-bottom: 16px;
     }
 
@@ -281,5 +291,36 @@
         border-radius: 50%;
         border: 2px solid rgba(140, 120, 180, 0.15);
         object-fit: cover;
+    }
+
+    /* ── Hover popup for images ── */
+    .ids-hover-wrap {
+        position: relative;
+        display: inline-block;
+    }
+
+    .ids-hover-popup {
+        display: none;
+        position: absolute;
+        z-index: 200;
+        left: calc(100% + 12px);
+        top: 0;
+        padding: 4px;
+        background: rgba(10, 8, 20, 0.95);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 8px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+        pointer-events: none;
+    }
+
+    .ids-hover-wrap:hover .ids-hover-popup {
+        display: block;
+    }
+
+    .ids-hover-img {
+        width: 240px;
+        height: auto;
+        border-radius: 4px;
+        display: block;
     }
 </style>
