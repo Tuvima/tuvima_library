@@ -17,17 +17,6 @@
     <PageTitle>Library Overview — Tuvima Library</PageTitle>
 }
 
-@* ── Cover art lightbox ── *@
-@if (!string.IsNullOrWhiteSpace(_enlargedCoverUrl))
-{
-    <div class="adp-lightbox" @onclick="() => _enlargedCoverUrl = null">
-        <img src="@_enlargedCoverUrl" alt="" class="adp-lightbox-img" @onclick:stopPropagation="true" />
-        <button class="adp-lightbox-close" @onclick="() => _enlargedCoverUrl = null">
-            <MudIcon Icon="@Icons.Material.Outlined.Close" Style="font-size: 20px;" />
-        </button>
-    </div>
-}
-
 <div class="adp-root @(EmbeddedMode ? "adp-root--embedded" : "")">
 
     @if (!EmbeddedMode)
@@ -217,7 +206,7 @@
                                                       OnUnreject="HandleUnreject"
                                                       OnCheckedChanged="HandleCheckToggle"
                                                       OnQuickReject="HandleQuickReject"
-                                                      OnEnlargeCover="HandleEnlargeCover"
+
                                                       ShowTriggerChip="false" />
                                 }
                             </div>
@@ -249,7 +238,7 @@
                                                       OnSelect="HandleItemSelect"
                                                       OnUnreject="HandleUnreject"
                                                       OnQuickReject="HandleQuickReject"
-                                                      OnEnlargeCover="HandleEnlargeCover"
+
                                                       ShowTriggerChip="@(_activeTypeChip == "Media")" />
                                 }
                             </div>
@@ -331,7 +320,6 @@
 
     private HashSet<string> _collapsedGroups = [];
     private HashSet<Guid> _selectedIds = [];
-    private string? _enlargedCoverUrl;
     private MudDateRangePicker? _dateRangePicker;
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
@@ -759,11 +747,6 @@
     private void HandleItemSelect(RegistryItemViewModel item)
     {
         _selectedItem = _selectedItem?.EntityId == item.EntityId ? null : item;
-    }
-
-    private void HandleEnlargeCover(string coverUrl)
-    {
-        _enlargedCoverUrl = coverUrl;
     }
 
     private void HandleInspectorClose()
@@ -1442,53 +1425,4 @@
         }
     }
 
-    /* ── Cover lightbox overlay ── */
-    .adp-lightbox {
-        position: fixed;
-        inset: 0;
-        z-index: 9999;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: rgba(0, 0, 0, 0.85);
-        backdrop-filter: blur(8px);
-        cursor: zoom-out;
-        animation: adp-lightbox-fade 0.15s ease;
-    }
-
-    @@keyframes adp-lightbox-fade {
-        from { opacity: 0; }
-        to   { opacity: 1; }
-    }
-
-    .adp-lightbox-img {
-        max-width: 90vw;
-        max-height: 85vh;
-        object-fit: contain;
-        border-radius: 8px;
-        box-shadow: 0 16px 64px rgba(0, 0, 0, 0.6);
-        cursor: default;
-    }
-
-    .adp-lightbox-close {
-        position: absolute;
-        top: 20px;
-        right: 24px;
-        background: rgba(255, 255, 255, 0.10);
-        border: 1px solid rgba(255, 255, 255, 0.15);
-        border-radius: 50%;
-        width: 36px;
-        height: 36px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: rgba(255, 255, 255, 0.7);
-        cursor: pointer;
-        transition: background 0.15s ease, color 0.15s ease;
-    }
-
-    .adp-lightbox-close:hover {
-        background: rgba(255, 255, 255, 0.18);
-        color: #fff;
-    }
 </style>
