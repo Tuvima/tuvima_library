@@ -920,6 +920,38 @@ if ($lastCount -lt $expectedEvents) {
     Write-R " Ingestion complete in $([int]$IngDuration.TotalSeconds)s" -c "Green"
 }
 
+# -- 9b. Wait for hydration pipeline to complete ----------------------------
+# Items are invisible in the Registry until hydration assigns a QID.
+# Poll the Registry count until it stabilizes (no new items for 15s) or timeout.
+$HydrationStart = Get-Date
+$hydrationTimeout = 180  # max 3 minutes for hydration
+$hydrationDeadline = (Get-Date).AddSeconds($hydrationTimeout)
+$stableCount = 0
+$stableSince = Get-Date
+$stableThreshold = 15  # seconds with no new items = done
+
+Write-R " Waiting for hydration pipeline (QID assignment)..." -c "Gray"
+
+do {
+    Start-Sleep -Seconds 3
+    $regCheck = Invoke-Api "/registry/items?limit=1"
+    $currentCount = if ($regCheck -and $regCheck.total_count) { $regCheck.total_count } else { 0 }
+
+    if ($currentCount -ne $stableCount) {
+        $stableCount = $currentCount
+        $stableSince = Get-Date
+        Write-R "   ... $currentCount items identified" -c "DarkGray"
+    }
+
+    $stableFor = ((Get-Date) - $stableSince).TotalSeconds
+    if ($stableFor -ge $stableThreshold -and $stableCount -gt 0) {
+        break
+    }
+} while ((Get-Date) -lt $hydrationDeadline)
+
+$HydrationDuration = (Get-Date) - $HydrationStart
+Write-R " Hydration complete: $stableCount items identified in $([int]$HydrationDuration.TotalSeconds)s" -c "Green"
+
 # -- 10. Query results -------------------------------------------------------
 Start-Sleep -Seconds 2
 $registry    = Invoke-Api "/registry/items?limit=200"
@@ -1116,6 +1148,24 @@ foreach ($row in $summaryData) {
         Write-RL ""
     }
 }
+
+# -- Processing Timeline -----------------------------------------------------
+Write-S "PROCESSING TIMELINE"
+Write-RL "  File generation     : $([int](($DropStart - $RunStart).TotalSeconds))s"
+Write-RL "  File drop           : $([int](($DropStart - $RunStart).TotalSeconds))s - $((Get-Date $DropStart).ToString('HH:mm:ss'))"
+Write-RL "  Ingestion (hashing) : $([int]$IngDuration.TotalSeconds)s"
+Write-RL "  Hydration (QIDs)    : $([int]$HydrationDuration.TotalSeconds)s"
+Write-RL "  Total pipeline      : $([int]((Get-Date) - $DropStart).TotalSeconds)s"
+Write-RL ""
+
+# Rate analysis
+$uniqueFiles = @($droppedFiles | Where-Object { $_.Scenario -notin @("duplicate","corrupt") }).Count
+if ($HydrationDuration.TotalSeconds -gt 0 -and $stableCount -gt 0) {
+    $qidsPerSec = [Math]::Round($stableCount / $HydrationDuration.TotalSeconds, 2)
+    $avgSecsPerQid = [Math]::Round($HydrationDuration.TotalSeconds / $stableCount, 2)
+    Write-RL "  Hydration rate      : $qidsPerSec QIDs/sec ($avgSecsPerQid sec/QID)"
+}
+Write-RL "  Identified / Total  : $stableCount / $uniqueFiles ($([int](100.0 * $stableCount / [Math]::Max(1,$uniqueFiles)))%)"
 
 # -- 13. Review queue detail -------------------------------------------------
 if ($stats.Review -gt 0 -and $reviewItems) {
