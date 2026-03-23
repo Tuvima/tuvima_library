@@ -48,10 +48,17 @@ public sealed class WikibaseApiService : IWikibaseApiService
     private const string WikidataApiBase  = "https://www.wikidata.org/w/api.php";
     private const string HttpClientName   = "wikibase_api";
     private const string ProviderId       = "bc000010-0000-4000-8000-000000000020";
-    private const int    DefaultThrottleMs    = 200;
+    // Wikidata API rate limits (2026): unauthenticated with User-Agent = "low" tier,
+    // authenticated (OAuth 2.0) = 10,000 req/hr (~2.8/s). Best practices recommend
+    // max 3 concurrent requests. We target ~2 req/s serial to stay well within limits.
+    // See: https://www.mediawiki.org/wiki/Wikimedia_APIs/Rate_limits
+    //      https://www.mediawiki.org/wiki/API:Etiquette
+    private const int    DefaultThrottleMs    = 500;
     private const int    DefaultCacheTtlHours = 168; // 7 days
     private const int    DefaultMaxConcurrent = 3;
     private const int    BatchSize            = 50;  // Wikibase hard limit for wbgetentities
+    private const int    MaxlagSeconds        = 5;   // API:Etiquette: non-interactive bots should use maxlag=5
+    private const int    MaxRetryOn429        = 2;   // Retry up to 2 times on 429/503 with Retry-After
 
     // ── Fields ────────────────────────────────────────────────────────────────
 
@@ -519,39 +526,63 @@ public sealed class WikibaseApiService : IWikibaseApiService
     /// <summary>
     /// Performs a throttled HTTP GET, caches the result, and returns the response body.
     /// Returns <c>null</c> on network error or non-2xx response.
+    /// Respects Retry-After on 429/503 (up to <see cref="MaxRetryOn429"/> retries).
     /// </summary>
     private async Task<string?> GetAndCacheAsync(string url, string cacheKey, CancellationToken ct)
     {
         await _throttle.WaitAsync(ct).ConfigureAwait(false);
         try
         {
-            await ApplyThrottleDelayAsync(ct).ConfigureAwait(false);
+            // Append maxlag for non-interactive bot etiquette (API:Etiquette).
+            var requestUrl = url.Contains('?')
+                ? $"{url}&maxlag={MaxlagSeconds}"
+                : $"{url}?maxlag={MaxlagSeconds}";
 
-            using var client   = _httpFactory.CreateClient(HttpClientName);
-            using var response = await client.GetAsync(url, ct).ConfigureAwait(false);
-            _lastCallUtc = DateTime.UtcNow;
-
-            _logger.LogDebug("WikibaseApiService: GET {Url} → {StatusCode}",
-                url, (int)response.StatusCode);
-
-            if (!response.IsSuccessStatusCode)
+            for (int attempt = 0; attempt <= MaxRetryOn429; attempt++)
             {
-                _logger.LogWarning("WikibaseApiService: GET {Url} returned {StatusCode}",
-                    url, (int)response.StatusCode);
-                return null;
+                await ApplyThrottleDelayAsync(ct).ConfigureAwait(false);
+
+                using var client   = _httpFactory.CreateClient(HttpClientName);
+                using var response = await client.GetAsync(requestUrl, ct).ConfigureAwait(false);
+                _lastCallUtc = DateTime.UtcNow;
+
+                var statusCode = (int)response.StatusCode;
+                _logger.LogDebug("WikibaseApiService: GET {Url} → {StatusCode}",
+                    url, statusCode);
+
+                // Respect Retry-After on 429 (rate limited) or 503 (server overloaded/maxlag).
+                if (statusCode is 429 or 503 && attempt < MaxRetryOn429)
+                {
+                    var retryAfter = response.Headers.RetryAfter?.Delta
+                                     ?? TimeSpan.FromSeconds(5);
+                    _logger.LogInformation(
+                        "WikibaseApiService: {StatusCode} on {Url} — retrying after {Seconds}s (attempt {Attempt}/{Max})",
+                        statusCode, url, retryAfter.TotalSeconds, attempt + 1, MaxRetryOn429);
+                    await Task.Delay(retryAfter, ct).ConfigureAwait(false);
+                    continue;
+                }
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning("WikibaseApiService: GET {Url} returned {StatusCode}",
+                        url, statusCode);
+                    return null;
+                }
+
+                var body         = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+                var responseEtag = response.Headers.ETag?.Tag;
+
+                if (_responseCache is not null && !string.IsNullOrWhiteSpace(body))
+                {
+                    await _responseCache.UpsertAsync(
+                        cacheKey, ProviderId, ComputeSha256(url),
+                        body, responseEtag, _cacheTtlHours, ct).ConfigureAwait(false);
+                }
+
+                return body;
             }
 
-            var body         = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
-            var responseEtag = response.Headers.ETag?.Tag;
-
-            if (_responseCache is not null && !string.IsNullOrWhiteSpace(body))
-            {
-                await _responseCache.UpsertAsync(
-                    cacheKey, ProviderId, ComputeSha256(url),
-                    body, responseEtag, _cacheTtlHours, ct).ConfigureAwait(false);
-            }
-
-            return body;
+            return null; // All retries exhausted.
         }
         finally
         {
