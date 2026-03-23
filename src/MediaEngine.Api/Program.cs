@@ -426,7 +426,7 @@ builder.Services.AddSingleton<ICanonicalValueArrayRepository, CanonicalValueArra
                 sp.GetRequiredService<IFuzzyMatchingService>(),
                 sp.GetRequiredService<IProviderResponseCacheRepository>(),
                 sp.GetRequiredService<IConfigurationLoader>(),
-                sp.GetService<IWikibaseApiService>()));
+                sp.GetService<IWikibaseApiService>() as WikibaseApiService));
         builder.Services.AddSingleton<IExternalMetadataProvider>(
             sp => sp.GetRequiredService<ReconciliationAdapter>());
     }

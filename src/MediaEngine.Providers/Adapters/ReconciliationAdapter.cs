@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -12,24 +11,25 @@ using MediaEngine.Providers.Models;
 using MediaEngine.Storage.Contracts;
 using MediaEngine.Domain.Services;
 using MediaEngine.Storage.Models;
+using MediaEngine.Providers.Services;
 
 namespace MediaEngine.Providers.Adapters;
 
 /// <summary>
-/// Wikidata adapter using the OpenRefine Reconciliation API and Data Extension API.
+/// Wikidata adapter using the direct Wikidata API via <see cref="WikibaseApiService"/>.
 ///
 /// <para>
-/// This adapter replaces the SPARQL-based WikidataAdapter. Instead of custom SPARQL queries,
-/// it uses the standard OpenRefine reconciliation protocol supported by the Wikidata reconciliation
-/// service at wikidata.reconci.link. This approach is more maintainable and does not require
-/// a deep SPARQL implementation.
+/// This adapter replaces the SPARQL-based WikidataAdapter. Instead of custom SPARQL queries
+/// or proxied reconci.link calls, it uses the Wikibase REST API directly through
+/// <see cref="WikibaseApiService.SearchEntitiesAsync"/> for entity search and
+/// <see cref="WikibaseApiService.GetEntityPropertiesAsync"/> for property extension.
 /// </para>
 ///
 /// <para>
 /// Primary operations:
 /// <list type="bullet">
-///   <item>Reconcile entity names to Wikidata QIDs via the Reconciliation API.</item>
-///   <item>Extend QIDs with structured property values via the Data Extension API.</item>
+///   <item>Reconcile entity names to Wikidata QIDs via the Wikibase wbsearchentities API.</item>
+///   <item>Extend QIDs with structured property values via the Wikibase wbgetentities API.</item>
 ///   <item>Filter candidates by media type using P31 (instance_of) + P279 (subclass_of) walks.</item>
 ///   <item>Discover audiobook editions via P747 (has_edition_or_translation) + P31 filtering.</item>
 ///   <item>Download person headshots from Wikimedia Commons.</item>
@@ -46,11 +46,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     private readonly IProviderResponseCacheRepository? _responseCache;
     private readonly IConfigurationLoader? _configLoader;
     private readonly IFuzzyMatchingService _fuzzy;
-    private readonly IWikibaseApiService? _wikibaseApi;
-
-    // Throttle: per-instance semaphore + timestamp gap.
-    private readonly SemaphoreSlim _throttle;
-    private DateTime _lastCallUtc = DateTime.MinValue;
+    private readonly WikibaseApiService? _wikibaseApi;
 
     // Parsed once at construction.
     private readonly Guid _providerId;
@@ -71,7 +67,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         IFuzzyMatchingService fuzzy,
         IProviderResponseCacheRepository? responseCache = null,
         IConfigurationLoader? configLoader = null,
-        IWikibaseApiService? wikibaseApi = null)
+        WikibaseApiService? wikibaseApi = null)
     {
         ArgumentNullException.ThrowIfNull(config);
         ArgumentNullException.ThrowIfNull(httpFactory);
@@ -85,10 +81,6 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         _responseCache = responseCache;
         _configLoader  = configLoader;
         _wikibaseApi   = wikibaseApi;
-
-        _throttle = new SemaphoreSlim(
-            Math.Max(1, config.MaxConcurrency),
-            Math.Max(1, config.MaxConcurrency));
 
         _providerId = !string.IsNullOrEmpty(config.ProviderId)
             ? Guid.Parse(config.ProviderId)
@@ -351,44 +343,53 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         if (qids.Count == 0 || propertyCodes.Count == 0)
             return [];
 
-        var endpoint = _config.Endpoints.Reconciliation;
-        var extendPayload = BuildExtendPayload(qids, propertyCodes);
-        // Language must be part of the cache key: Wikidata returns language-specific
-        // label/description values (e.g. Len, Den) and the same QID+properties payload
-        // will yield different results for "en" vs "es". Without the language in the key,
-        // a cached response from a prior run with the wrong language is reused for all
-        // subsequent queries, causing foreign-language titles and Cyrillic names to persist.
-        var language = _configLoader?.LoadCore().Language ?? "en";
-        var cacheKey = BuildCacheKey($"extend:{language}:{extendPayload}");
+        if (_wikibaseApi is null)
+        {
+            _logger.LogWarning("{Provider}: WikibaseApiService not available — cannot extend", Name);
+            return [];
+        }
 
-        // Check cache.
+        var language = _configLoader?.LoadCore().Language ?? "en";
+
+        // Build a cache key from qids + properties + language.
+        var cacheInput = $"extend-direct:{language}:{string.Join(",", qids)}:{string.Join(",", propertyCodes)}";
+        var cacheKey = BuildCacheKey(cacheInput);
+
+        // Check cache first.
         if (_responseCache is not null)
         {
             var cached = await _responseCache.FindAsync(cacheKey, ct).ConfigureAwait(false);
             if (cached is not null)
             {
                 _logger.LogDebug("{Provider}: extend cache HIT", Name);
-                return ParseExtensionResponse(cached.ResponseJson, _config.DataExtension.PropertyLabels);
+                return JsonSerializer.Deserialize<List<ExtensionResult>>(cached.ResponseJson, JsonOpts) ?? [];
             }
         }
-        var responseBody = await PostFormAsync(
-            endpoint, $"extend={Uri.EscapeDataString(extendPayload)}&uselang={language}", ct)
-            .ConfigureAwait(false);
 
-        if (string.IsNullOrWhiteSpace(responseBody))
-            return [];
-
-        // Cache the response.
-        if (_responseCache is not null)
+        try
         {
-            var queryHash = ComputeSha256(extendPayload);
-            await _responseCache.UpsertAsync(
-                cacheKey, _providerId.ToString(), queryHash,
-                responseBody, null, _config.CacheTtlHours, ct)
-                .ConfigureAwait(false);
-        }
+            var results = await _wikibaseApi.GetEntityPropertiesAsync(
+                qids, propertyCodes, language, ct).ConfigureAwait(false);
 
-        return ParseExtensionResponse(responseBody, _config.DataExtension.PropertyLabels);
+            // Cache the results.
+            if (_responseCache is not null && results.Count > 0)
+            {
+                var json = JsonSerializer.Serialize(results, JsonOpts);
+                var queryHash = ComputeSha256(cacheInput);
+                await _responseCache.UpsertAsync(
+                    cacheKey, _providerId.ToString(), queryHash,
+                    json, null, _config.CacheTtlHours, ct).ConfigureAwait(false);
+            }
+
+            return results;
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "{Provider}: GetEntityPropertiesAsync failed for {Count} QIDs",
+                Name, qids.Count);
+            return [];
+        }
     }
 
     /// <summary>
@@ -1449,144 +1450,41 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         return filtered.Count > 0 ? filtered : editions;
     }
 
-    // ── Private: Reconciliation batch HTTP call ───────────────────────────────
+    // ── Private: Reconciliation batch via WikibaseApiService ─────────────────
 
     private async Task<Dictionary<string, IReadOnlyList<ReconciliationCandidate>>> ExecuteReconcileBatchAsync(
         IReadOnlyList<ReconcileRequest> batch,
         CancellationToken ct)
     {
-        var result  = new Dictionary<string, IReadOnlyList<ReconciliationCandidate>>(StringComparer.Ordinal);
-        var payload = BuildQueriesPayload(batch, _config.Reconciliation.MaxCandidates);
+        var result = new Dictionary<string, IReadOnlyList<ReconciliationCandidate>>(StringComparer.Ordinal);
 
-        // Language must be included in the cache key: reconci.link embeds the language
-        // in the endpoint URL path (e.g. /en/api vs /fr/api), so the same query payload
-        // will yield different label/description text for different language settings.
-        var language = _configLoader?.LoadCore().Language ?? "en";
-        var cacheKey = BuildCacheKey($"reconcile:{language}:{payload}");
-
-        if (_responseCache is not null)
+        if (_wikibaseApi is null)
         {
-            var cached = await _responseCache.FindAsync(cacheKey, ct).ConfigureAwait(false);
-            if (cached is not null)
-            {
-                _logger.LogDebug("{Provider}: reconcile cache HIT", Name);
-                return ParseReconcileResponse(cached.ResponseJson);
-            }
-        }
-
-        // The Wikidata reconci.link service embeds language in the URL path
-        // (https://wikidata.reconci.link/{lang}/api). Substitute the configured
-        // language so that changes to CoreConfiguration.Language are respected
-        // automatically, without needing to edit the endpoint URL in config.
-        var endpoint = SubstituteLanguageInEndpoint(_config.Endpoints.Reconciliation, language);
-        var formBody = $"queries={Uri.EscapeDataString(payload)}";
-        var responseBody = await PostFormAsync(endpoint, formBody, ct).ConfigureAwait(false);
-
-        if (string.IsNullOrWhiteSpace(responseBody))
+            _logger.LogWarning("{Provider}: WikibaseApiService not available — cannot search", Name);
             return result;
-
-        if (_responseCache is not null)
-        {
-            var queryHash = ComputeSha256(payload);
-            await _responseCache.UpsertAsync(
-                cacheKey, _providerId.ToString(), queryHash,
-                responseBody, null, _config.CacheTtlHours, ct)
-                .ConfigureAwait(false);
         }
 
-        return ParseReconcileResponse(responseBody);
-    }
+        var language = _configLoader?.LoadCore().Language ?? "en";
+        var maxCandidates = _config.Reconciliation.MaxCandidates;
 
-    // ── Private: HTTP POST with throttle ─────────────────────────────────────
-
-    private async Task<string?> PostFormAsync(
-        string endpoint,
-        string formBody,
-        CancellationToken ct)
-    {
-        await _throttle.WaitAsync(ct).ConfigureAwait(false);
-        try
+        foreach (var request in batch)
         {
-            if (_config.ThrottleMs > 0)
+            try
             {
-                var elapsed = (DateTime.UtcNow - _lastCallUtc).TotalMilliseconds;
-                if (elapsed < _config.ThrottleMs)
-                    await Task.Delay(
-                        TimeSpan.FromMilliseconds(_config.ThrottleMs - elapsed), ct)
-                        .ConfigureAwait(false);
+                var candidates = await _wikibaseApi.SearchEntitiesAsync(
+                    request.Query, language, maxCandidates, ct).ConfigureAwait(false);
+                result[request.QueryId] = candidates;
             }
-
-            using var client  = _httpFactory.CreateClient("wikidata_reconciliation");
-            using var content = new StringContent(formBody, Encoding.UTF8, "application/x-www-form-urlencoded");
-            using var response = await client.PostAsync(endpoint, content, ct).ConfigureAwait(false);
-            _lastCallUtc = DateTime.UtcNow;
-
-            _logger.LogDebug("{Provider}: POST {Endpoint} → {StatusCode}",
-                Name, endpoint, (int)response.StatusCode);
-
-            if (!response.IsSuccessStatusCode)
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex)
             {
-                _logger.LogWarning("{Provider}: POST {Endpoint} returned {StatusCode}",
-                    Name, endpoint, (int)response.StatusCode);
-                return null;
+                _logger.LogWarning(ex, "{Provider}: SearchEntitiesAsync failed for query '{Query}'",
+                    Name, request.Query);
+                result[request.QueryId] = [];
             }
-
-            return await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
         }
-        finally
-        {
-            _throttle.Release();
-        }
-    }
 
-    // ── Private: Payload builders ─────────────────────────────────────────────
-
-    private static string BuildQueriesPayload(
-        IReadOnlyList<ReconcileRequest> requests,
-        int limit)
-    {
-        var obj = new JsonObject();
-        foreach (var req in requests)
-        {
-            var queryObj = new JsonObject
-            {
-                ["query"] = req.Query,
-                ["limit"] = limit,
-            };
-
-            if (req.PropertyConstraints is { Count: > 0 })
-            {
-                var props = new JsonArray();
-                foreach (var (pid, val) in req.PropertyConstraints)
-                {
-                    props.Add(new JsonObject { ["pid"] = pid, ["v"] = val });
-                }
-                queryObj["properties"] = props;
-            }
-
-            obj[req.QueryId] = queryObj;
-        }
-        return obj.ToJsonString();
-    }
-
-    private static string BuildExtendPayload(
-        IReadOnlyList<string> qids,
-        IReadOnlyList<string> propertyCodes)
-    {
-        var idsArray  = new JsonArray();
-        foreach (var qid in qids)
-            idsArray.Add(qid);
-
-        var propsArray = new JsonArray();
-        foreach (var p in propertyCodes)
-            propsArray.Add(new JsonObject { ["id"] = p });
-
-        var obj = new JsonObject
-        {
-            ["ids"]        = idsArray,
-            ["properties"] = propsArray,
-        };
-        return obj.ToJsonString();
+        return result;
     }
 
     private static Dictionary<string, string>? BuildTitleSearchConstraints(ProviderLookupRequest request)
@@ -1616,131 +1514,6 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         }
 
         return c.Count > 0 ? c : null;
-    }
-
-    // ── Private: Response parsers ─────────────────────────────────────────────
-
-    private static Dictionary<string, IReadOnlyList<ReconciliationCandidate>> ParseReconcileResponse(
-        string json)
-    {
-        var result = new Dictionary<string, IReadOnlyList<ReconciliationCandidate>>(StringComparer.Ordinal);
-
-        try
-        {
-            var root = JsonNode.Parse(json);
-            if (root is not JsonObject rootObj)
-                return result;
-
-            foreach (var (queryId, queryNode) in rootObj)
-            {
-                if (queryNode is not JsonObject queryObj)
-                    continue;
-
-                var resultArr = queryObj["result"] as JsonArray;
-                if (resultArr is null)
-                    continue;
-
-                var candidates = new List<ReconciliationCandidate>();
-                foreach (var item in resultArr)
-                {
-                    if (item is not JsonObject itemObj)
-                        continue;
-
-                    var id    = itemObj["id"]?.GetValue<string>();
-                    var name  = itemObj["name"]?.GetValue<string>();
-                    var desc  = itemObj["description"]?.GetValue<string>();
-                    var score = itemObj["score"]?.GetValue<double>() ?? 0.0;
-                    var match = itemObj["match"]?.GetValue<bool>() ?? false;
-
-                    if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(name))
-                        continue;
-
-                    // Strip "http://www.wikidata.org/entity/" prefix if present.
-                    var qid = id.StartsWith("http", StringComparison.OrdinalIgnoreCase)
-                        ? id.Split('/').Last()
-                        : id;
-
-                    candidates.Add(new ReconciliationCandidate(qid, name, desc, score, match));
-                }
-
-                result[queryId] = candidates;
-            }
-        }
-        catch (JsonException ex)
-        {
-            // Return partial results on parse error.
-            _ = ex;
-        }
-
-        return result;
-    }
-
-    private static IReadOnlyList<ExtensionResult> ParseExtensionResponse(
-        string json,
-        Dictionary<string, string> propertyLabels)
-    {
-        var results = new List<ExtensionResult>();
-
-        try
-        {
-            var root = JsonNode.Parse(json);
-            if (root is not JsonObject rootObj)
-                return results;
-
-            var rowsNode = rootObj["rows"] as JsonObject;
-            if (rowsNode is null)
-                return results;
-
-            foreach (var (qid, rowNode) in rowsNode)
-            {
-                if (rowNode is not JsonObject rowObj)
-                    continue;
-
-                var properties = new Dictionary<string, List<ExtensionValue>>(StringComparer.OrdinalIgnoreCase);
-
-                foreach (var (pCode, valuesNode) in rowObj)
-                {
-                    if (valuesNode is not JsonArray valArr)
-                        continue;
-
-                    var values = new List<ExtensionValue>();
-                    foreach (var valItem in valArr)
-                    {
-                        if (valItem is not JsonObject valObj)
-                            continue;
-
-                        // Use SafeString() instead of GetValue<string>() — the Wikidata
-                        // Data Extension API can return numeric JSON values (e.g. for the
-                        // "float" field on quantity/duration properties).  GetValue<string>()
-                        // throws InvalidOperationException when the node kind is Number, which
-                        // propagates past the JsonException catch and crashes the entire pipeline.
-                        var str   = SafeNodeString(valObj["str"]);
-                        var id    = SafeNodeString(valObj["id"]);
-                        var label = SafeNodeString(valObj["text"]) // reconci.link uses "text" for labels
-                                 ?? SafeNodeString(valObj["name"]);
-                        var date  = SafeNodeString(valObj["date"]);
-                        var flt   = SafeNodeString(valObj["float"]);
-
-                        // Extract QID from full URI if present.
-                        if (id is not null && id.StartsWith("http", StringComparison.OrdinalIgnoreCase))
-                            id = id.Split('/').Last();
-
-                        values.Add(new ExtensionValue(str, id, label, date, flt));
-                    }
-
-                    if (values.Count > 0)
-                        properties[pCode] = values;
-                }
-
-                results.Add(new ExtensionResult(qid, properties));
-            }
-        }
-        catch (JsonException)
-        {
-            // Return partial results.
-        }
-
-        return results;
     }
 
     // ── Private: Extension → ProviderClaim conversion ─────────────────────────
@@ -2141,10 +1914,9 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         }
         else
         {
-            // No IWikibaseApiService available (test environments) — fall back to the
-            // reconci.link L{lang} pseudo-property approach.
+            // No WikibaseApiService available (test environments) — ExtendAsync will return empty.
             _logger.LogDebug(
-                "{Provider}: using reconci.link L{Lang} fallback (no IWikibaseApiService available)",
+                "{Provider}: WikibaseApiService not available — entity label resolution skipped for lang='{Lang}'",
                 Name, language);
 
             var extensions = await ExtendAsync(
@@ -2242,41 +2014,5 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         return result;
     }
 
-    // ── Private: Language substitution ───────────────────────────────────────
-
-    /// <summary>
-    /// Substitutes the language segment in a reconci.link reconciliation endpoint URL.
-    ///
-    /// The Wikidata reconciliation service at wikidata.reconci.link uses a language
-    /// code in the URL path: <c>https://wikidata.reconci.link/{lang}/api</c>.
-    /// This method replaces the language segment so that the configured
-    /// <see cref="CoreConfiguration.Language"/> is always used, regardless of
-    /// what language code is hardcoded in the config file's endpoint URL.
-    ///
-    /// If the URL does not match the expected reconci.link pattern, it is returned
-    /// unchanged (safe fallback — no accidental URL corruption for custom endpoints).
-    /// </summary>
-    /// <param name="endpointUrl">The endpoint URL from configuration (e.g. "https://wikidata.reconci.link/en/api").</param>
-    /// <param name="language">The two-letter BCP-47 language code to substitute (e.g. "en", "fr").</param>
-    /// <returns>The endpoint URL with the language segment replaced, or the original URL if not matched.</returns>
-    private static string SubstituteLanguageInEndpoint(string endpointUrl, string language)
-    {
-        // Pattern: https://wikidata.reconci.link/{lang}/api
-        // Replace the lang segment between the host and /api.
-        const string host   = "wikidata.reconci.link/";
-        const string suffix = "/api";
-
-        var hostIdx = endpointUrl.IndexOf(host, StringComparison.OrdinalIgnoreCase);
-        if (hostIdx < 0)
-            return endpointUrl; // Not a reconci.link URL — leave unchanged.
-
-        var afterHost = hostIdx + host.Length;
-        var apiIdx    = endpointUrl.IndexOf(suffix, afterHost, StringComparison.OrdinalIgnoreCase);
-        if (apiIdx < 0)
-            return endpointUrl; // Unexpected format — leave unchanged.
-
-        // Rebuild: everything before the lang segment + new lang + /api + anything after.
-        return endpointUrl[..afterHost] + language + endpointUrl[apiIdx..];
-    }
 
 }

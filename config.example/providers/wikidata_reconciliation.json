@@ -5,7 +5,7 @@
   "enabled": true,
   "hydration_stages": [1],
   "endpoints": {
-    "reconciliation": "https://wikidata.reconci.link/en/api",
+    "wikibase_api": "https://www.wikidata.org/w/api.php",
     "commons_file_path": "https://commons.wikimedia.org/wiki/Special:FilePath/"
   },
   "throttle_ms": 200,

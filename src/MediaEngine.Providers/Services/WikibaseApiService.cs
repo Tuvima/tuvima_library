@@ -4,6 +4,7 @@ using System.Text.Json.Nodes;
 using Microsoft.Extensions.Logging;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Models;
+using MediaEngine.Providers.Models;
 
 namespace MediaEngine.Providers.Services;
 
@@ -583,6 +584,300 @@ public sealed class WikibaseApiService : IWikibaseApiService
     {
         var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(input));
         return Convert.ToHexString(bytes).ToLowerInvariant();
+    }
+
+    // ── Public: Search + property fetch (Providers.Models return types) ──────
+
+    /// <summary>
+    /// Searches Wikidata for entities matching <paramref name="query"/> using
+    /// <c>wbsearchentities</c>. Returns candidates scored by position and match type.
+    /// </summary>
+    /// <param name="query">Free-text search term (e.g. an entity label).</param>
+    /// <param name="language">BCP-47 language code (default: "en").</param>
+    /// <param name="limit">Maximum number of results to return (default: 5).</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>Ranked candidates; empty on error or no results.</returns>
+    public async Task<IReadOnlyList<ReconciliationCandidate>> SearchEntitiesAsync(
+        string query,
+        string language = "en",
+        int limit = 5,
+        CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+            return [];
+
+        var lang = NormalizeLang(language);
+        var url  = $"{WikidataApiBase}?action=wbsearchentities" +
+                   $"&search={Uri.EscapeDataString(query)}" +
+                   $"&language={Uri.EscapeDataString(lang)}" +
+                   $"&limit={Math.Clamp(limit, 1, 50)}" +
+                   $"&format=json";
+
+        try
+        {
+            var responseJson = await GetCachedOrFetchAsync(url, ct).ConfigureAwait(false);
+            if (responseJson is null)
+                return [];
+
+            var root        = JsonNode.Parse(responseJson);
+            var searchArray = root?["search"] as JsonArray;
+            if (searchArray is null)
+                return [];
+
+            var candidates = new List<ReconciliationCandidate>(searchArray.Count);
+
+            for (var i = 0; i < searchArray.Count; i++)
+            {
+                var item = searchArray[i];
+                if (item is null)
+                    continue;
+
+                var qid         = item["id"]?.GetValue<string>();
+                var label       = item["label"]?.GetValue<string>();
+                var description = item["description"]?.GetValue<string>();
+                var matchType   = item["match"]?["type"]?.GetValue<string>();
+                var matchText   = item["match"]?["text"]?.GetValue<string>();
+
+                if (string.IsNullOrWhiteSpace(qid) || label is null)
+                    continue;
+
+                // Score: position-based baseline, adjusted by match type.
+                double score;
+                if (string.Equals(matchType, "label", StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(matchText, query, StringComparison.OrdinalIgnoreCase))
+                {
+                    score = 100.0;
+                }
+                else if (string.Equals(matchType, "alias", StringComparison.OrdinalIgnoreCase))
+                {
+                    score = 80.0;
+                }
+                else
+                {
+                    score = Math.Max(0.0, 100.0 - i * 3.0);
+                }
+
+                candidates.Add(new ReconciliationCandidate(
+                    QID:         qid,
+                    Label:       label,
+                    Description: description,
+                    Score:       score,
+                    Match:       score >= 95.0));
+            }
+
+            _logger.LogDebug(
+                "WikibaseApiService: SearchEntitiesAsync({Query}) → {Count} candidates",
+                query, candidates.Count);
+
+            return candidates;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "WikibaseApiService: SearchEntitiesAsync failed for query '{Query}'", query);
+            return [];
+        }
+    }
+
+    /// <summary>
+    /// Fetches structured property values for a list of QIDs using <c>wbgetentities</c>.
+    /// Automatically batches requests (max 50 QIDs per call). Entity-valued properties
+    /// have their labels resolved via a follow-up <c>GetEntitiesBatchAsync</c> call.
+    /// </summary>
+    /// <param name="qids">Wikidata QIDs to fetch (e.g. ["Q190159", "Q62"]).</param>
+    /// <param name="propertyIds">Property IDs to extract (e.g. ["P50", "P577"]).</param>
+    /// <param name="language">BCP-47 language code (default: "en").</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>One <see cref="ExtensionResult"/> per resolved QID; empty on error.</returns>
+    public async Task<IReadOnlyList<ExtensionResult>> GetEntityPropertiesAsync(
+        IReadOnlyList<string> qids,
+        IReadOnlyList<string> propertyIds,
+        string language = "en",
+        CancellationToken ct = default)
+    {
+        if (qids.Count == 0 || propertyIds.Count == 0)
+            return [];
+
+        var lang = NormalizeLang(language);
+
+        // Split into batches of BatchSize (Wikibase hard limit).
+        var chunks = qids
+            .Select((qid, idx) => (qid, idx))
+            .GroupBy(x => x.idx / BatchSize)
+            .Select(g => g.Select(x => x.qid).ToList())
+            .ToList();
+
+        var allResults = new List<ExtensionResult>(qids.Count);
+
+        foreach (var chunk in chunks)
+        {
+            var batchResults = await FetchEntityPropertiesBatchAsync(
+                chunk, propertyIds, lang, ct).ConfigureAwait(false);
+            allResults.AddRange(batchResults);
+        }
+
+        return allResults;
+    }
+
+    // ── Private: Property fetch batch ────────────────────────────────────────
+
+    private async Task<IReadOnlyList<ExtensionResult>> FetchEntityPropertiesBatchAsync(
+        IReadOnlyList<string> qids,
+        IReadOnlyList<string> propertyIds,
+        string lang,
+        CancellationToken ct)
+    {
+        var ids = string.Join("|", qids.Select(Uri.EscapeDataString));
+        var url = $"{WikidataApiBase}?action=wbgetentities" +
+                  $"&ids={ids}" +
+                  $"&props=claims|labels|descriptions" +
+                  $"&languages={Uri.EscapeDataString(lang)}" +
+                  $"&format=json";
+
+        try
+        {
+            var responseJson = await GetCachedOrFetchAsync(url, ct).ConfigureAwait(false);
+            if (responseJson is null)
+                return [];
+
+            var root         = JsonNode.Parse(responseJson);
+            var entitiesNode = root?["entities"]?.AsObject();
+            if (entitiesNode is null)
+                return [];
+
+            // First pass: build results and collect entity QIDs that need label resolution.
+            var results            = new List<ExtensionResult>(qids.Count);
+            var unresolvedEntityQids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            // Maps (resultIndex, propertyId, valueIndex) → the ExtensionValue awaiting a label.
+            // We'll use a mutable list approach: rebuild ExtensionValues after label resolution.
+            // Simpler: collect all entity-QID references, resolve labels, then rebuild.
+            var rawResults = new List<(string QID, Dictionary<string, List<(ExtensionValue Value, string? EntityQidForLabel)>> Props)>();
+
+            foreach (var entry in entitiesNode)
+            {
+                var entityQid  = entry.Key;
+                var entityData = entry.Value;
+
+                if (entityData is null || entityData["missing"] is not null)
+                    continue;
+
+                var props = new Dictionary<string, List<(ExtensionValue, string?)>>(StringComparer.OrdinalIgnoreCase);
+
+                foreach (var propId in propertyIds)
+                {
+                    var claimsArray = entityData["claims"]?[propId] as JsonArray;
+                    if (claimsArray is null)
+                        continue;
+
+                    var values = new List<(ExtensionValue, string?)>();
+
+                    foreach (var statement in claimsArray)
+                    {
+                        if (statement is null)
+                            continue;
+
+                        var mainSnak = statement["mainsnak"];
+                        var snakType = mainSnak?["snaktype"]?.GetValue<string>() ?? string.Empty;
+
+                        if (!string.Equals(snakType, "value", StringComparison.OrdinalIgnoreCase))
+                            continue;
+
+                        var datavalue = mainSnak?["datavalue"];
+                        var dvType    = datavalue?["type"]?.GetValue<string>() ?? string.Empty;
+                        var (entityRef, literal) = ExtractEntityOrLiteral(datavalue);
+
+                        ExtensionValue ev;
+                        string?        labelQid = null;
+
+                        if (entityRef is not null)
+                        {
+                            // Entity-valued: Id is the QID; Label resolved below.
+                            ev       = new ExtensionValue(Str: null, Id: entityRef, Label: null, Date: null, Float: null);
+                            labelQid = entityRef;
+                            unresolvedEntityQids.Add(entityRef);
+                        }
+                        else if (string.Equals(dvType, "quantity", StringComparison.OrdinalIgnoreCase))
+                        {
+                            ev = new ExtensionValue(Str: null, Id: null, Label: null, Date: null, Float: literal);
+                        }
+                        else if (literal is not null &&
+                                 literal.Length > 1 &&
+                                 (literal[0] == '+' || literal[0] == '-') &&
+                                 literal.Contains('T', StringComparison.Ordinal))
+                        {
+                            // ISO 8601 time literal (Wikibase time format).
+                            ev = new ExtensionValue(Str: null, Id: null, Label: null, Date: literal, Float: null);
+                        }
+                        else
+                        {
+                            ev = new ExtensionValue(Str: literal, Id: null, Label: null, Date: null, Float: null);
+                        }
+
+                        values.Add((ev, labelQid));
+                    }
+
+                    if (values.Count > 0)
+                        props[propId] = values;
+                }
+
+                rawResults.Add((entityQid, props));
+            }
+
+            // Second pass: resolve labels for entity-valued properties.
+            var labelMap = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+            if (unresolvedEntityQids.Count > 0)
+            {
+                var labelEntities = await GetEntitiesBatchAsync(
+                    unresolvedEntityQids.ToList(), lang, ct).ConfigureAwait(false);
+
+                foreach (var e in labelEntities)
+                    labelMap[e.Qid] = e.Label;
+            }
+
+            // Build final ExtensionResult list with resolved labels.
+            foreach (var (entityQid, props) in rawResults)
+            {
+                var finalProps = new Dictionary<string, List<ExtensionValue>>(
+                    StringComparer.OrdinalIgnoreCase);
+
+                foreach (var (propId, valueList) in props)
+                {
+                    var resolved = new List<ExtensionValue>(valueList.Count);
+                    foreach (var (ev, labelQid) in valueList)
+                    {
+                        if (labelQid is not null && labelMap.TryGetValue(labelQid, out var resolvedLabel))
+                            resolved.Add(ev with { Label = resolvedLabel });
+                        else
+                            resolved.Add(ev);
+                    }
+                    finalProps[propId] = resolved;
+                }
+
+                results.Add(new ExtensionResult(entityQid, finalProps));
+            }
+
+            _logger.LogDebug(
+                "WikibaseApiService: GetEntityPropertiesAsync → {Count} entities, {Unresolved} labels resolved",
+                results.Count, unresolvedEntityQids.Count);
+
+            return results;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "WikibaseApiService: FetchEntityPropertiesBatchAsync failed for {Count} QIDs ({First}…)",
+                qids.Count, qids.Count > 0 ? qids[0] : "?");
+            return [];
+        }
     }
 
     // ── Private: Language normalisation ──────────────────────────────────────
