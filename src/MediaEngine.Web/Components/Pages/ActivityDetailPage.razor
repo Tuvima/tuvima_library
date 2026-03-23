@@ -17,6 +17,17 @@
     <PageTitle>Library Overview — Tuvima Library</PageTitle>
 }
 
+@* ── Cover art lightbox ── *@
+@if (!string.IsNullOrWhiteSpace(_enlargedCoverUrl))
+{
+    <div class="adp-lightbox" @onclick="() => _enlargedCoverUrl = null">
+        <img src="@_enlargedCoverUrl" alt="" class="adp-lightbox-img" @onclick:stopPropagation="true" />
+        <button class="adp-lightbox-close" @onclick="() => _enlargedCoverUrl = null">
+            <MudIcon Icon="@Icons.Material.Outlined.Close" Style="font-size: 20px;" />
+        </button>
+    </div>
+}
+
 <div class="adp-root @(EmbeddedMode ? "adp-root--embedded" : "")">
 
     @if (!EmbeddedMode)
@@ -90,16 +101,6 @@
                         </button>
                     }
                 </div>
-                <div class="adp-date-presets">
-                    <button class="adp-date-preset @(_datePreset == "today" ? "adp-date-preset--active" : "")"
-                            @onclick="() => ApplyDatePreset_Today()" type="button">Today</button>
-                    <button class="adp-date-preset @(_datePreset == "yesterday" ? "adp-date-preset--active" : "")"
-                            @onclick="() => ApplyDatePreset_Yesterday()" type="button">Yesterday</button>
-                    <button class="adp-date-preset @(_datePreset == "week" ? "adp-date-preset--active" : "")"
-                            @onclick="() => ApplyDatePreset_ThisWeek()" type="button">This Week</button>
-                    <button class="adp-date-preset @(_datePreset == "month" ? "adp-date-preset--active" : "")"
-                            @onclick="() => ApplyDatePreset_ThisMonth()" type="button">This Month</button>
-                </div>
             </div>
         </div>
         <div class="adp-filter-group">
@@ -112,6 +113,16 @@
                 </select>
             </div>
         </div>
+    </div>
+    <div class="adp-date-presets">
+        <button class="adp-date-preset @(_datePreset == "today" ? "adp-date-preset--active" : "")"
+                @onclick="() => ApplyDatePreset_Today()" type="button">Today</button>
+        <button class="adp-date-preset @(_datePreset == "yesterday" ? "adp-date-preset--active" : "")"
+                @onclick="() => ApplyDatePreset_Yesterday()" type="button">Yesterday</button>
+        <button class="adp-date-preset @(_datePreset == "week" ? "adp-date-preset--active" : "")"
+                @onclick="() => ApplyDatePreset_ThisWeek()" type="button">This Week</button>
+        <button class="adp-date-preset @(_datePreset == "month" ? "adp-date-preset--active" : "")"
+                @onclick="() => ApplyDatePreset_ThisMonth()" type="button">This Month</button>
     </div>
 
     <div class="adp-results-header">
@@ -196,6 +207,7 @@
                                                       OnUnreject="HandleUnreject"
                                                       OnCheckedChanged="HandleCheckToggle"
                                                       OnQuickReject="HandleQuickReject"
+                                                      OnEnlargeCover="HandleEnlargeCover"
                                                       ShowTriggerChip="false" />
                                 }
                             </div>
@@ -215,6 +227,7 @@
                                           OnSelect="HandleItemSelect"
                                           OnUnreject="@(isEntity ? default : HandleUnreject)"
                                           OnQuickReject="@(isEntity ? default : HandleQuickReject)"
+                                          OnEnlargeCover="HandleEnlargeCover"
                                           ShowTriggerChip="@(!IsEntityTypeFilter)" />
                     }
                 </div>
@@ -279,6 +292,7 @@
 
     private HashSet<string> _collapsedGroups = [];
     private HashSet<Guid> _selectedIds = [];
+    private string? _enlargedCoverUrl;
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -690,6 +704,11 @@
         _selectedItem = _selectedItem?.EntityId == item.EntityId ? null : item;
     }
 
+    private void HandleEnlargeCover(string coverUrl)
+    {
+        _enlargedCoverUrl = coverUrl;
+    }
+
     private void HandleInspectorClose()
     {
         _selectedItem = null;
@@ -957,7 +976,7 @@
         display: flex;
         gap: 16px;
         padding: 12px 16px;
-        align-items: flex-end;
+        align-items: flex-start;
         flex-wrap: nowrap;
         margin-bottom: 4px;
     }
@@ -1083,7 +1102,7 @@
     .adp-date-presets {
         display: flex;
         gap: 4px;
-        margin-top: 6px;
+        padding: 0 16px 8px 16px;
     }
 
     .adp-date-preset {
@@ -1329,5 +1348,55 @@
             z-index: 100;
             /* Drawer content will be added in a future session */
         }
+    }
+
+    /* ── Cover lightbox overlay ── */
+    .adp-lightbox {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.85);
+        backdrop-filter: blur(8px);
+        cursor: zoom-out;
+        animation: adp-lightbox-fade 0.15s ease;
+    }
+
+    @@keyframes adp-lightbox-fade {
+        from { opacity: 0; }
+        to   { opacity: 1; }
+    }
+
+    .adp-lightbox-img {
+        max-width: 90vw;
+        max-height: 85vh;
+        object-fit: contain;
+        border-radius: 8px;
+        box-shadow: 0 16px 64px rgba(0, 0, 0, 0.6);
+        cursor: default;
+    }
+
+    .adp-lightbox-close {
+        position: absolute;
+        top: 20px;
+        right: 24px;
+        background: rgba(255, 255, 255, 0.10);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 50%;
+        width: 36px;
+        height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: rgba(255, 255, 255, 0.7);
+        cursor: pointer;
+        transition: background 0.15s ease, color 0.15s ease;
+    }
+
+    .adp-lightbox-close:hover {
+        background: rgba(255, 255, 255, 0.18);
+        color: #fff;
     }
 </style>

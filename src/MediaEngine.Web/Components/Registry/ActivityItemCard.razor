@@ -19,7 +19,10 @@
         @if (!string.IsNullOrEmpty(Item.CoverUrl))
         {
             <div class="cover-hover-wrap" style="width: 100%; height: 100%;">
-                <img src="@Item.CoverUrl" alt="@Item.Title" class="aic-thumb-img" loading="lazy" />
+                <img src="@Item.CoverUrl" alt="@Item.Title"
+                     class="aic-thumb-img @(OnEnlargeCover.HasDelegate ? "aic-thumb-img--zoomable" : "")"
+                     loading="lazy"
+                     @onclick="HandleCoverClick" @onclick:stopPropagation="true" />
                 <div class="cover-hover-popup">
                     <img src="@Item.CoverUrl" class="cover-hover-img" alt="" />
                 </div>
@@ -123,6 +126,7 @@
     [Parameter] public EventCallback<Guid> OnCheckedChanged { get; set; }
     [Parameter] public bool ShowTriggerChip { get; set; } = true;
     [Parameter] public EventCallback<Guid> OnQuickReject { get; set; }
+    [Parameter] public EventCallback<string> OnEnlargeCover { get; set; }
 
     private bool _confirmingReject;
 
@@ -192,6 +196,12 @@
     private async Task HandleRowClick()
     {
         await OnSelect.InvokeAsync(Item);
+    }
+
+    private async Task HandleCoverClick()
+    {
+        if (OnEnlargeCover.HasDelegate && !string.IsNullOrEmpty(Item.CoverUrl))
+            await OnEnlargeCover.InvokeAsync(Item.CoverUrl);
     }
 
     private async Task HandleUnreject()
@@ -287,6 +297,14 @@
         object-fit: cover;
         display: block;
         border-radius: 3px;
+    }
+
+    .aic-thumb-img--zoomable {
+        cursor: zoom-in;
+    }
+
+    .aic-thumb-img--zoomable:hover {
+        opacity: 0.85;
     }
 
     /* ── Cover art hover popup ── */
