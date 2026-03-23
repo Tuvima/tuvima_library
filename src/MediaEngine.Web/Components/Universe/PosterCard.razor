@@ -138,8 +138,9 @@
         transition: box-shadow 0.2s ease;
     }
 
-    /* ── Audiobook tile: transparent background — cover art bleeds to page bg ── */
+    /* ── Audiobook tile: square aspect ratio (1:1) + transparent background ── */
     .poster-card-artwork.audiobook-tile {
+        height: var(--card-width);
         background: transparent;
     }
 
