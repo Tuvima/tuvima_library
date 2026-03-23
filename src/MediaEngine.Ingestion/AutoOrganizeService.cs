@@ -136,6 +136,18 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
             return;
         }
 
+        // ── QID gate — nothing enters the library without a confirmed identity ──
+        var hasQid = metadata.TryGetValue("wikidata_qid", out var qidVal)
+            && !string.IsNullOrWhiteSpace(qidVal)
+            && !qidVal.StartsWith("NF", StringComparison.OrdinalIgnoreCase);
+        if (!hasQid)
+        {
+            _logger.LogInformation(
+                "Auto-organize blocked for {Id}: no confirmed Wikidata QID — file stays in staging",
+                assetId);
+            return;
+        }
+
         // ── Promote from staging to library ──────────────────────────────
 
         var synth = new IngestionCandidate

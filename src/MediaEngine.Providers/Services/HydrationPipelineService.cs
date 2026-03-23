@@ -1428,9 +1428,29 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                     review.Id, request.EntityId, confidence);
             }
 
-            // Always attempt to organize the file into the library when confidence
-            // is above the auto-link threshold, regardless of whether there were
-            // pending review items to resolve.
+            // Check if hydration assigned a QID. If not, create a MissingQid review
+            // so the user can manually identify the item. Nothing enters the library
+            // without a confirmed Wikidata identity.
+            if (request.EntityType == EntityType.MediaAsset)
+            {
+                var postCanonicals = await _canonicalRepo.GetByEntityAsync(request.EntityId, ct)
+                    .ConfigureAwait(false);
+                var qidCv = postCanonicals.FirstOrDefault(cv =>
+                    string.Equals(cv.Key, "wikidata_qid", StringComparison.OrdinalIgnoreCase));
+                var hasQid = qidCv is not null
+                    && !string.IsNullOrWhiteSpace(qidCv.Value)
+                    && !qidCv.Value.StartsWith("NF", StringComparison.OrdinalIgnoreCase);
+
+                if (!hasQid)
+                {
+                    await CreateReviewItemAsync(request, ReviewTrigger.MissingQid, 0.0,
+                        "Hydration completed but no Wikidata QID was resolved. Manual identification required.",
+                        new HydrationResult(), ct).ConfigureAwait(false);
+                }
+            }
+
+            // Attempt to organize the file into the library. AutoOrganizeService
+            // enforces the QID gate — files without a QID stay in staging.
             if (request.EntityType == EntityType.MediaAsset)
             {
                 await _autoOrganize.TryAutoOrganizeAsync(request.EntityId, ct, request.IngestionRunId)

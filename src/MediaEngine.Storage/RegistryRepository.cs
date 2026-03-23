@@ -195,6 +195,14 @@ public sealed class RegistryRepository : IRegistryRepository
                 LEFT JOIN review_data rd ON rd.entity_id = ad.asset_id
                 LEFT JOIN user_lock_data ul ON ul.entity_id = ad.asset_id
                 LEFT JOIN ingest_date_data idd ON idd.work_id = wd.entity_id
+                WHERE (
+                    -- Items are only visible in the Registry when they have a confirmed
+                    -- identity (QID), a pending review, or a curator-created provisional entry.
+                    -- Unidentified items awaiting hydration stay hidden.
+                    (wd.wikidata_qid IS NOT NULL AND wd.wikidata_qid != '' AND wd.wikidata_qid NOT LIKE 'NF%')
+                    OR rd.review_id IS NOT NULL
+                    OR wd.curator_state IS NOT NULL
+                )
             )
             """;
 
@@ -619,9 +627,18 @@ public sealed class RegistryRepository : IRegistryRepository
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             SELECT
-                -- Registered: no curator_state override, no pending review, has valid QID
+                -- Registered: has valid QID, no curator_state override, no pending review
                 (SELECT COUNT(*) FROM works w
                  WHERE (w.curator_state IS NULL OR w.curator_state = '')
+                 AND EXISTS (
+                     SELECT 1 FROM editions e3
+                     INNER JOIN media_assets ma3 ON ma3.edition_id = e3.id
+                     INNER JOIN canonical_values cv3 ON cv3.entity_id = ma3.id
+                     WHERE e3.work_id = w.id
+                       AND cv3.key = 'wikidata_qid'
+                       AND cv3.value IS NOT NULL AND cv3.value != ''
+                       AND cv3.value NOT LIKE 'NF%'
+                 )
                  AND NOT EXISTS (
                      SELECT 1 FROM editions e2
                      INNER JOIN media_assets ma2 ON ma2.edition_id = e2.id
