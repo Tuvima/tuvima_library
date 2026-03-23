@@ -190,27 +190,31 @@ public static class RegistryEndpoints
                 if (claims.Count > 0)
                     await claimRepo.InsertBatchAsync(claims, ct);
 
-                // Upsert cover_url into canonical_values so the hydration pipeline's
-                // PersistCoverFromUrlAsync can find it and download the cover image.
-                // Without this, the user-selected cover URL exists only in metadata_claims
-                // and PersistCoverFromUrlAsync (which reads canonical_values) never sees it.
-                if (!string.IsNullOrWhiteSpace(request.CoverUrl))
+                // Upsert all user-locked claims into canonical_values immediately.
+                // The hydration pipeline may re-score later, but if it fails silently
+                // we still need canonical_values populated for the Registry query to
+                // return the correct title, author, QID, cover art, etc.
+                if (claims.Count > 0)
                 {
                     using var cvConn = db.CreateConnection();
-                    using var cvCmd  = cvConn.CreateCommand();
-                    cvCmd.CommandText = """
-                        INSERT INTO canonical_values (entity_id, key, value, last_scored_at, is_conflicted, needs_review)
-                        VALUES (@entityId, 'cover_url', @value, @scoredAt, 0, 0)
-                        ON CONFLICT(entity_id, key) DO UPDATE SET
-                            value          = excluded.value,
-                            last_scored_at = excluded.last_scored_at,
-                            is_conflicted  = 0,
-                            needs_review   = 0;
-                        """;
-                    cvCmd.Parameters.AddWithValue("@entityId", assetIdStr);
-                    cvCmd.Parameters.AddWithValue("@value",    request.CoverUrl);
-                    cvCmd.Parameters.AddWithValue("@scoredAt", now.ToString("o"));
-                    cvCmd.ExecuteNonQuery();
+                    foreach (var claim in claims)
+                    {
+                        using var cvCmd = cvConn.CreateCommand();
+                        cvCmd.CommandText = """
+                            INSERT INTO canonical_values (entity_id, key, value, last_scored_at, is_conflicted, needs_review)
+                            VALUES (@entityId, @key, @value, @scoredAt, 0, 0)
+                            ON CONFLICT(entity_id, key) DO UPDATE SET
+                                value          = excluded.value,
+                                last_scored_at = excluded.last_scored_at,
+                                is_conflicted  = 0,
+                                needs_review   = 0;
+                            """;
+                        cvCmd.Parameters.AddWithValue("@entityId", assetIdStr);
+                        cvCmd.Parameters.AddWithValue("@key",      claim.ClaimKey);
+                        cvCmd.Parameters.AddWithValue("@value",    claim.ClaimValue);
+                        cvCmd.Parameters.AddWithValue("@scoredAt", now.ToString("o"));
+                        cvCmd.ExecuteNonQuery();
+                    }
                 }
 
                 // Update work's wikidata_status

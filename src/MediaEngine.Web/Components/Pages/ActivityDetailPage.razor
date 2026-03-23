@@ -46,36 +46,60 @@
         <h1 class="adp-page-title">Library Overview</h1>
     }
 
-    @* ── Filter dropdowns ── *@
-    <div class="adp-filter-row">
-        <div class="adp-filter-group">
-            <span class="adp-filter-label">TYPE</span>
-            <div class="adp-filter-select-wrap">
-                <select class="adp-filter-select" value="@_mediaTypeFilter" @onchange="HandleMediaTypeChange">
-                    <option value="">All</option>
-                    <option value="Books">Books</option>
-                    <option value="Audiobooks">Audiobooks</option>
-                    <option value="Movies">Movies</option>
-                    <option value="TV">TV</option>
-                    <option value="Music">Music</option>
-                    <option value="Comics">Comics</option>
-                    <option value="Podcasts">Podcasts</option>
-                    <option value="Person">People (@(_counts?.PersonCount ?? 0))</option>
-                    <option value="Universe">Universes (0)</option>
-                </select>
-            </div>
+    @* ── Type filter chips (mutually exclusive: Media / People / Universes) ── *@
+    <div class="adp-type-chips">
+        <button class="adp-type-chip @(_activeTypeChip == "Media" ? "adp-type-chip--active" : "") @(_activeTypeChip == "Media" && _disabledSubcategories.Count > 0 ? "adp-type-chip--partial" : "")"
+                @onclick="HandleMediaChipClick" type="button">
+            <MudIcon Icon="@Icons.Material.Outlined.VideoLibrary" Style="font-size: 14px;" />
+            <span>Media</span>
+            @if (_activeTypeChip == "Media")
+            {
+                <span class="adp-type-chip-count">@(_items.Count)</span>
+            }
+        </button>
+        <button class="adp-type-chip @(_activeTypeChip == "People" ? "adp-type-chip--active" : "")"
+                @onclick="HandlePeopleChipClick" type="button">
+            <MudIcon Icon="@Icons.Material.Outlined.Person" Style="font-size: 14px;" />
+            <span>People</span>
+            @if (_activeTypeChip == "People")
+            {
+                <span class="adp-type-chip-count">@(_items.Count)</span>
+            }
+        </button>
+        <button class="adp-type-chip @(_activeTypeChip == "Universes" ? "adp-type-chip--active" : "")"
+                @onclick="HandleUniversesChipClick" type="button">
+            <MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" Style="font-size: 14px;" />
+            <span>Universes</span>
+            @if (_activeTypeChip == "Universes")
+            {
+                <span class="adp-type-chip-count">@(_items.Count)</span>
+            }
+        </button>
+    </div>
+
+    @* ── Media subcategory chips (only when Media is active) ── *@
+    @if (_activeTypeChip == "Media")
+    {
+        <div class="adp-sub-chips">
+            @foreach (var sub in _allSubcategories)
+            {
+                var isOff = _disabledSubcategories.Contains(sub.Key);
+                <button class="adp-sub-chip @(isOff ? "" : "adp-sub-chip--active")"
+                        @onclick="() => ToggleSubcategory(sub.Key)" type="button">
+                    <MudIcon Icon="@sub.Icon" Style="font-size: 13px;" />
+                    <span>@sub.Label</span>
+                </button>
+            }
         </div>
-        <div class="adp-filter-group">
-            <span class="adp-filter-label">STATUS</span>
-            <div class="adp-filter-select-wrap">
-                @if (IsEntityTypeFilter)
-                {
-                    <select class="adp-filter-select" disabled>
-                        <option value="all">All</option>
-                    </select>
-                }
-                else
-                {
+    }
+
+    @* ── Filter row: Status + Date Range (status only for Media) ── *@
+    <div class="adp-filter-row">
+        @if (_activeTypeChip == "Media")
+        {
+            <div class="adp-filter-group">
+                <span class="adp-filter-label">STATUS</span>
+                <div class="adp-filter-select-wrap">
                     <select class="adp-filter-select" value="@_activeTab" @onchange="HandleStatusChange">
                         <option value="all">All (@(_counts?.All ?? 0))</option>
                         <option value="review">In Review (@(_counts?.InReview ?? 0))</option>
@@ -83,46 +107,32 @@
                         <option value="provisional">Provisional (@(_counts?.Provisional ?? 0))</option>
                         <option value="rejected">Rejected (@(_counts?.Rejected ?? 0))</option>
                     </select>
-                }
-            </div>
-        </div>
-        <div class="adp-filter-group">
-            <span class="adp-filter-label">DATE RANGE</span>
-            <div class="adp-filter-date-wrap">
-                <div class="adp-date-inputs">
-                    <span class="adp-date-prefix">From</span>
-                    <input type="date" class="adp-date-input" value="@_dateFrom" @onchange="HandleDateFromChange" />
-                    <span class="adp-date-prefix">To</span>
-                    <input type="date" class="adp-date-input" value="@_dateTo" @onchange="HandleDateToChange" />
-                    @if (!string.IsNullOrEmpty(_dateFrom) || !string.IsNullOrEmpty(_dateTo))
-                    {
-                        <button class="adp-date-clear" @onclick="ClearDateFilter" type="button" title="Clear date filter">
-                            <MudIcon Icon="@Icons.Material.Outlined.Close" Style="font-size: 14px;" />
-                        </button>
-                    }
                 </div>
             </div>
-        </div>
+        }
         <div class="adp-filter-group">
-            <span class="adp-filter-label">SORT</span>
-            <div class="adp-filter-select-wrap">
-                <select class="adp-filter-select" value="@_sortOrder" @onchange="HandleSortChange">
-                    <option value="">Default</option>
-                    <option value="az">A → Z</option>
-                    <option value="za">Z → A</option>
-                </select>
-            </div>
+            <span class="adp-filter-label">DATE RANGE</span>
+            <MudDateRangePicker @ref="_dateRangePicker"
+                                DateRange="_dateRange"
+                                DateRangeChanged="HandleDateRangeChanged"
+                                Variant="Variant.Outlined"
+                                DateFormat="yyyy-MM-dd"
+                                Placeholder="All time"
+                                Clearable="true"
+                                Margin="Margin.Dense"
+                                Class="adp-date-range-picker">
+                <PickerActions>
+                    <div class="adp-picker-presets">
+                        <MudButton Size="MudBlazor.Size.Small" OnClick="ApplyPresetToday">Today</MudButton>
+                        <MudButton Size="MudBlazor.Size.Small" OnClick="ApplyPresetYesterday">Yesterday</MudButton>
+                        <MudButton Size="MudBlazor.Size.Small" OnClick="ApplyPresetWeek">This Week</MudButton>
+                        <MudButton Size="MudBlazor.Size.Small" OnClick="ApplyPresetMonth">This Month</MudButton>
+                        <MudButton Size="MudBlazor.Size.Small" OnClick="ApplyPreset30Days">Last 30 Days</MudButton>
+                        <MudButton Size="MudBlazor.Size.Small" OnClick="ApplyPresetAll">All Time</MudButton>
+                    </div>
+                </PickerActions>
+            </MudDateRangePicker>
         </div>
-    </div>
-    <div class="adp-date-presets">
-        <button class="adp-date-preset @(_datePreset == "today" ? "adp-date-preset--active" : "")"
-                @onclick="() => ApplyDatePreset_Today()" type="button">Today</button>
-        <button class="adp-date-preset @(_datePreset == "yesterday" ? "adp-date-preset--active" : "")"
-                @onclick="() => ApplyDatePreset_Yesterday()" type="button">Yesterday</button>
-        <button class="adp-date-preset @(_datePreset == "week" ? "adp-date-preset--active" : "")"
-                @onclick="() => ApplyDatePreset_ThisWeek()" type="button">This Week</button>
-        <button class="adp-date-preset @(_datePreset == "month" ? "adp-date-preset--active" : "")"
-                @onclick="() => ApplyDatePreset_ThisMonth()" type="button">This Month</button>
     </div>
 
     <div class="adp-results-header">
@@ -151,9 +161,9 @@
                     <span class="adp-empty-sub">@GetEmptySubtitle()</span>
                 </div>
             }
-            else if (_activeTab == "review")
+            else if (_activeTab == "review" && _activeTypeChip == "Media")
             {
-                @* ── Grouped view for In Review tab ── *@
+                @* ── Trigger-grouped view for In Review (with A-Z within each trigger group) ── *@
                 @foreach (var group in _groupedItems)
                 {
                     var (trigLabel, trigColor, trigIcon) = RegistryHelpers.FormatReviewTrigger(group.Key);
@@ -202,7 +212,7 @@
                                     <ActivityItemCard Item="@item"
                                                       IsSelected="@(_selectedItem?.EntityId == item.EntityId)"
                                                       IsChecked="@(_selectedIds.Contains(item.EntityId))"
-                                                      ShowCheckbox="@(_activeTab == "review")"
+                                                      ShowCheckbox="true"
                                                       OnSelect="HandleItemSelect"
                                                       OnUnreject="HandleUnreject"
                                                       OnCheckedChanged="HandleCheckToggle"
@@ -217,20 +227,35 @@
             }
             else
             {
-                @* ── Flat list for other tabs ── *@
-                <div class="adp-flat-list">
-                    @foreach (var item in _items)
-                    {
-                        var isEntity = item.MediaType is "Person" or "Universe";
-                        <ActivityItemCard Item="@item"
-                                          IsSelected="@(_selectedItem?.EntityId == item.EntityId)"
-                                          OnSelect="HandleItemSelect"
-                                          OnUnreject="@(isEntity ? default : HandleUnreject)"
-                                          OnQuickReject="@(isEntity ? default : HandleQuickReject)"
-                                          OnEnlargeCover="HandleEnlargeCover"
-                                          ShowTriggerChip="@(!IsEntityTypeFilter)" />
-                    }
-                </div>
+                @* ── A-Z grouped view (default for all non-review views) ── *@
+                @foreach (var group in _letterGroups)
+                {
+                    var isCollapsed = _collapsedGroups.Contains(group.Key);
+                    <div class="adp-group">
+                        <div class="adp-group-label-row" @onclick="() => ToggleGroup(group.Key)">
+                            <MudIcon Icon="@(isCollapsed ? Icons.Material.Filled.ChevronRight : Icons.Material.Filled.ExpandMore)"
+                                     Style="font-size: 16px; color: rgba(200,190,220,0.35); flex-shrink: 0; cursor: pointer;" />
+                            <span class="adp-group-letter">@group.Key</span>
+                            <span class="adp-group-count">@group.Value.Count</span>
+                        </div>
+                        <div class="adp-group-separator"></div>
+                        @if (!isCollapsed)
+                        {
+                            <div class="adp-group-items">
+                                @foreach (var item in group.Value)
+                                {
+                                    <ActivityItemCard Item="@item"
+                                                      IsSelected="@(_selectedItem?.EntityId == item.EntityId)"
+                                                      OnSelect="HandleItemSelect"
+                                                      OnUnreject="HandleUnreject"
+                                                      OnQuickReject="HandleQuickReject"
+                                                      OnEnlargeCover="HandleEnlargeCover"
+                                                      ShowTriggerChip="@(_activeTypeChip == "Media")" />
+                                }
+                            </div>
+                        }
+                    </div>
+                }
             }
 
         </div>
@@ -271,20 +296,34 @@
     private string? _previousTab;
     private string? _reasonFilter;
     private string? _sourceFilter;
-    private string _mediaTypeFilter = "";
-    private string _dateFrom = "";
-    private string _dateTo = "";
-    private string _datePreset = "";
-    private string _sortOrder = "";
     private string? _previousSearchTerm;
 
-    /// <summary>True when the type filter is Person or Universe (non-media entity types).</summary>
-    private bool IsEntityTypeFilter =>
-        string.Equals(_mediaTypeFilter, "Person", StringComparison.OrdinalIgnoreCase) ||
-        string.Equals(_mediaTypeFilter, "Universe", StringComparison.OrdinalIgnoreCase);
+    /// <summary>Top-level type chip: Media, People, or Universes.</summary>
+    private string _activeTypeChip = "Media";
+
+    /// <summary>Subcategories toggled OFF within Media view.</summary>
+    private HashSet<string> _disabledSubcategories = [];
+
+    /// <summary>Date range for MudDateRangePicker.</summary>
+    private DateRange? _dateRange;
+
+    /// <summary>All available media subcategories with icons.</summary>
+    private static readonly SubcategoryDef[] _allSubcategories =
+    [
+        new("Books",      "Books",      Icons.Material.Outlined.MenuBook),
+        new("Audiobooks", "Audiobooks", Icons.Material.Outlined.Headphones),
+        new("Movies",     "Movies",     Icons.Material.Outlined.Movie),
+        new("TV",         "TV",         Icons.Material.Outlined.Tv),
+        new("Music",      "Music",      Icons.Material.Outlined.MusicNote),
+        new("Comics",     "Comics",     Icons.Material.Outlined.PhotoLibrary),
+        new("Podcasts",   "Podcasts",   Icons.Material.Outlined.Podcasts),
+    ];
+
+    private record SubcategoryDef(string Key, string Label, string Icon);
 
     private List<RegistryItemViewModel> _items = [];
     private Dictionary<string, List<RegistryItemViewModel>> _groupedItems = [];
+    private Dictionary<string, List<RegistryItemViewModel>> _letterGroups = [];
     private RegistryItemViewModel? _selectedItem;
 
     private RegistryFourStateCountsDto? _counts;
@@ -293,6 +332,7 @@
     private HashSet<string> _collapsedGroups = [];
     private HashSet<Guid> _selectedIds = [];
     private string? _enlargedCoverUrl;
+    private MudDateRangePicker? _dateRangePicker;
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -313,23 +353,37 @@
         _sourceFilter = query["source"];
         entityParam = EmbeddedMode ? null : query["entity"];
 
+        // Map legacy type param to new chip model
         var typeParam = query["type"];
         if (!string.IsNullOrEmpty(typeParam))
-            _mediaTypeFilter = typeParam;
+        {
+            if (string.Equals(typeParam, "Person", StringComparison.OrdinalIgnoreCase))
+                _activeTypeChip = "People";
+            else if (string.Equals(typeParam, "Universe", StringComparison.OrdinalIgnoreCase))
+                _activeTypeChip = "Universes";
+            else
+                _activeTypeChip = "Media";
+        }
         else if (EmbeddedMode && !string.IsNullOrEmpty(InitialTypeFilter))
-            _mediaTypeFilter = InitialTypeFilter;
+        {
+            if (string.Equals(InitialTypeFilter, "Person", StringComparison.OrdinalIgnoreCase))
+                _activeTypeChip = "People";
+            else if (string.Equals(InitialTypeFilter, "Universe", StringComparison.OrdinalIgnoreCase))
+                _activeTypeChip = "Universes";
+            else
+                _activeTypeChip = "Media";
+        }
 
-        var dateFromParam = query["dateFrom"];
-        if (!string.IsNullOrEmpty(dateFromParam))
-            _dateFrom = dateFromParam;
-        else if (EmbeddedMode && !string.IsNullOrEmpty(InitialDateFrom))
-            _dateFrom = InitialDateFrom;
-
-        var dateToParam = query["dateTo"];
-        if (!string.IsNullOrEmpty(dateToParam))
-            _dateTo = dateToParam;
-        else if (EmbeddedMode && !string.IsNullOrEmpty(InitialDateTo))
-            _dateTo = InitialDateTo;
+        // Parse date range from query params
+        var dateFromParam = query["dateFrom"] ?? (EmbeddedMode ? InitialDateFrom : null);
+        var dateToParam = query["dateTo"] ?? (EmbeddedMode ? InitialDateTo : null);
+        if (!string.IsNullOrEmpty(dateFromParam) || !string.IsNullOrEmpty(dateToParam))
+        {
+            DateTime? from = DateTime.TryParse(dateFromParam, out var f) ? f : null;
+            DateTime? to = DateTime.TryParse(dateToParam, out var t) ? t : null;
+            if (from is not null || to is not null)
+                _dateRange = new DateRange(from, to);
+        }
 
         // Subscribe to live review count changes
         Orchestrator.OnReviewCountChanged += HandleReviewCountChanged;
@@ -342,6 +396,10 @@
         {
             _activeTab = (_counts?.InReview ?? 0) > 0 ? "review" : "registered";
         }
+
+        // Non-media types always use "all" tab
+        if (_activeTypeChip != "Media")
+            _activeTab = "all";
 
         await LoadItemsAsync();
 
@@ -366,6 +424,7 @@
                             _activeTab = tab;
                             _items = response!.Items!;
                             BuildGroupedItems();
+                            BuildLetterGroups();
                             _selectedItem = found;
                             break;
                         }
@@ -389,11 +448,21 @@
             _previousTab = InitialTab;
             _activeTab = InitialTab!;
             if (!string.IsNullOrEmpty(InitialTypeFilter))
-                _mediaTypeFilter = InitialTypeFilter;
-            if (!string.IsNullOrEmpty(InitialDateFrom))
-                _dateFrom = InitialDateFrom;
-            if (!string.IsNullOrEmpty(InitialDateTo))
-                _dateTo = InitialDateTo;
+            {
+                if (string.Equals(InitialTypeFilter, "Person", StringComparison.OrdinalIgnoreCase))
+                    _activeTypeChip = "People";
+                else if (string.Equals(InitialTypeFilter, "Universe", StringComparison.OrdinalIgnoreCase))
+                    _activeTypeChip = "Universes";
+                else
+                    _activeTypeChip = "Media";
+            }
+            if (!string.IsNullOrEmpty(InitialDateFrom) || !string.IsNullOrEmpty(InitialDateTo))
+            {
+                DateTime? from = DateTime.TryParse(InitialDateFrom, out var f) ? f : null;
+                DateTime? to = DateTime.TryParse(InitialDateTo, out var t) ? t : null;
+                if (from is not null || to is not null)
+                    _dateRange = new DateRange(from, to);
+            }
         }
 
         if (tabChanged || searchChanged)
@@ -401,7 +470,6 @@
             _previousSearchTerm = SearchTerm;
             await LoadCountsAsync();
             await LoadItemsAsync();
-            BuildGroupedItems();
             StateHasChanged();
         }
     }
@@ -432,55 +500,50 @@
 
         try
         {
-            var apiStatus = MapTabToApiStatus(_activeTab);
-            var response  = await Orchestrator.GetRegistryItemsAsync(
-                offset: 0,
-                limit: 200,
-                status: apiStatus);
-
-            _items = response?.Items ?? [];
-
-            // Apply reason filter if present
-            if (!string.IsNullOrEmpty(_reasonFilter))
-                _items = _items.Where(i => i.ReviewTrigger == _reasonFilter).ToList();
-
-            // Apply media type filter
-            if (string.Equals(_mediaTypeFilter, "Person", StringComparison.OrdinalIgnoreCase))
+            if (_activeTypeChip == "People")
             {
-                // Person filter: replace works with person records from /persons
                 _items = await FetchPersonsAsRegistryItemsAsync();
             }
-            else if (!string.IsNullOrEmpty(_mediaTypeFilter))
+            else if (_activeTypeChip == "Universes")
             {
-                _items = _items.Where(i => string.Equals(i.MediaType, _mediaTypeFilter, StringComparison.OrdinalIgnoreCase)).ToList();
+                // Universes not yet implemented — empty list
+                _items = [];
             }
-            else if (_activeTab == "all")
+            else
             {
-                // "All" type + "All" status: merge persons into the list
-                var persons = await FetchPersonsAsRegistryItemsAsync();
-                _items.AddRange(persons);
+                // Media: load from registry with status filter
+                var apiStatus = MapTabToApiStatus(_activeTab);
+                var response  = await Orchestrator.GetRegistryItemsAsync(
+                    offset: 0,
+                    limit: 200,
+                    status: apiStatus);
+
+                _items = response?.Items ?? [];
+
+                // Apply reason filter if present
+                if (!string.IsNullOrEmpty(_reasonFilter))
+                    _items = _items.Where(i => i.ReviewTrigger == _reasonFilter).ToList();
+
+                // Apply subcategory filter (exclude disabled subcategories)
+                if (_disabledSubcategories.Count > 0)
+                {
+                    _items = _items.Where(i =>
+                        !string.IsNullOrEmpty(i.MediaType) &&
+                        !_disabledSubcategories.Contains(i.MediaType)
+                    ).ToList();
+                }
             }
 
-            // Apply date range filter (supports both yyyy-MM-dd and legacy yyyy-MM formats)
-            if (!string.IsNullOrEmpty(_dateFrom))
+            // Apply date range filter
+            if (_dateRange?.Start is not null)
             {
-                if (DateTime.TryParse(_dateFrom, out var fromDate))
-                    _items = _items.Where(i => i.CreatedAt >= new DateTimeOffset(fromDate, TimeSpan.Zero)).ToList();
-                else if (DateTime.TryParse(_dateFrom + "-01", out var fromMonth))
-                    _items = _items.Where(i => i.CreatedAt >= new DateTimeOffset(fromMonth, TimeSpan.Zero)).ToList();
+                var fromDate = new DateTimeOffset(_dateRange.Start.Value, TimeSpan.Zero);
+                _items = _items.Where(i => i.CreatedAt >= fromDate).ToList();
             }
-            if (!string.IsNullOrEmpty(_dateTo))
+            if (_dateRange?.End is not null)
             {
-                if (DateTime.TryParse(_dateTo, out var toDate))
-                {
-                    var toEnd = toDate.AddDays(1).AddTicks(-1);
-                    _items = _items.Where(i => i.CreatedAt <= new DateTimeOffset(toEnd, TimeSpan.Zero)).ToList();
-                }
-                else if (DateTime.TryParse(_dateTo + "-01", out var toMonth))
-                {
-                    var toEnd = toMonth.AddMonths(1).AddTicks(-1);
-                    _items = _items.Where(i => i.CreatedAt <= new DateTimeOffset(toEnd, TimeSpan.Zero)).ToList();
-                }
+                var toEnd = new DateTimeOffset(_dateRange.End.Value.AddDays(1).AddTicks(-1), TimeSpan.Zero);
+                _items = _items.Where(i => i.CreatedAt <= toEnd).ToList();
             }
 
             // Apply search filter
@@ -494,20 +557,19 @@
                 ).ToList();
             }
 
-            // Apply sort order
-            if (_sortOrder == "az")
-                _items = _items.OrderBy(i => i.Title, StringComparer.OrdinalIgnoreCase).ToList();
-            else if (_sortOrder == "za")
-                _items = _items.OrderByDescending(i => i.Title, StringComparer.OrdinalIgnoreCase).ToList();
+            // Always sort A-Z
+            _items = _items.OrderBy(i => i.Title, StringComparer.OrdinalIgnoreCase).ToList();
 
-            // Rebuild grouped view for In Review tab
+            // Build grouped views
             BuildGroupedItems();
+            BuildLetterGroups();
         }
         catch (Exception ex)
         {
             Snackbar.Add($"Could not load items: {ex.Message}", Severity.Warning);
             _items = [];
             _groupedItems = [];
+            _letterGroups = [];
         }
         finally
         {
@@ -544,13 +606,13 @@
 
     private void BuildGroupedItems()
     {
-        if (_activeTab != "review")
+        if (_activeTab != "review" || _activeTypeChip != "Media")
         {
             _groupedItems = [];
             return;
         }
 
-        // Group by ReviewTrigger, sort groups by fixed priority order
+        // Group by ReviewTrigger, sort groups by fixed priority order, A-Z within each group
         var priorityOrder = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
         {
             ["AuthorityMatchFailed"] = 0,
@@ -567,14 +629,22 @@
             .GroupBy(i => i.ReviewTrigger ?? "Unknown")
             .OrderBy(g => priorityOrder.GetValueOrDefault(g.Key, 50))
             .ToDictionary(g => g.Key, g =>
+                g.OrderBy(i => i.Title, StringComparer.OrdinalIgnoreCase).ToList());
+    }
+
+    private void BuildLetterGroups()
+    {
+        // A-Z letter grouping — used for all non-review views
+        _letterGroups = _items
+            .GroupBy(i =>
             {
-                var list = g.ToList();
-                if (_sortOrder == "az")
-                    list = list.OrderBy(i => i.Title, StringComparer.OrdinalIgnoreCase).ToList();
-                else if (_sortOrder == "za")
-                    list = list.OrderByDescending(i => i.Title, StringComparer.OrdinalIgnoreCase).ToList();
-                return list;
-            });
+                var first = i.Title?.TrimStart();
+                if (string.IsNullOrEmpty(first)) return "#";
+                var c = char.ToUpperInvariant(first[0]);
+                return char.IsLetter(c) ? c.ToString() : "#";
+            })
+            .OrderBy(g => g.Key == "#" ? "ZZZ" : g.Key) // # sorts last
+            .ToDictionary(g => g.Key, g => g.ToList());
     }
 
     // ── Tab helpers ───────────────────────────────────────────────────────────
@@ -608,16 +678,44 @@
         await LoadItemsAsync();
     }
 
-    // ── Filter handlers ───────────────────────────────────────────────────────
+    // ── Type chip handlers ──────────────────────────────────────────────────
 
-    private async Task HandleMediaTypeChange(ChangeEventArgs e)
+    private async Task HandleMediaChipClick()
     {
-        _mediaTypeFilter = e.Value?.ToString() ?? "";
-        // People and Universes don't have status states — force to "all"
-        if (IsEntityTypeFilter)
-            _activeTab = "all";
+        if (_activeTypeChip == "Media")
+        {
+            // Already active — toggle: nothing (stay on Media)
+            return;
+        }
+        _activeTypeChip = "Media";
+        _activeTab = (_counts?.InReview ?? 0) > 0 ? "review" : "registered";
+        _selectedItem = null;
+        _selectedIds.Clear();
+        _disabledSubcategories.Clear();
         await LoadItemsAsync();
     }
+
+    private Task HandlePeopleChipClick() => HandleTopLevelChipClick("People");
+    private Task HandleUniversesChipClick() => HandleTopLevelChipClick("Universes");
+
+    private async Task HandleTopLevelChipClick(string chip)
+    {
+        if (_activeTypeChip == chip) return;
+        _activeTypeChip = chip;
+        _activeTab = "all";
+        _selectedItem = null;
+        _selectedIds.Clear();
+        await LoadItemsAsync();
+    }
+
+    private async Task ToggleSubcategory(string key)
+    {
+        if (!_disabledSubcategories.Remove(key))
+            _disabledSubcategories.Add(key);
+        await LoadItemsAsync();
+    }
+
+    // ── Filter handlers ───────────────────────────────────────────────────────
 
     private async Task HandleStatusChange(ChangeEventArgs e)
     {
@@ -625,76 +723,35 @@
         await SetActiveTab(newTab);
     }
 
-    private async Task HandleDateFromChange(ChangeEventArgs e)
+    private async Task HandleDateRangeChanged(DateRange? range)
     {
-        _dateFrom = e.Value?.ToString() ?? "";
-        _datePreset = "";
+        _dateRange = range;
         await LoadItemsAsync();
     }
 
-    private async Task HandleDateToChange(ChangeEventArgs e)
-    {
-        _dateTo = e.Value?.ToString() ?? "";
-        _datePreset = "";
-        await LoadItemsAsync();
-    }
+    private Task ApplyPresetToday() => ApplyDatePresetInternal("today");
+    private Task ApplyPresetYesterday() => ApplyDatePresetInternal("yesterday");
+    private Task ApplyPresetWeek() => ApplyDatePresetInternal("week");
+    private Task ApplyPresetMonth() => ApplyDatePresetInternal("month");
+    private Task ApplyPreset30Days() => ApplyDatePresetInternal("30days");
+    private Task ApplyPresetAll() => ApplyDatePresetInternal("all");
 
-    private void ClearDateFilter()
-    {
-        _dateFrom = "";
-        _dateTo = "";
-        _datePreset = "";
-        InvokeAsync(async () => { await LoadItemsAsync(); StateHasChanged(); });
-    }
-
-    private async Task ApplyDatePreset_Today()
-    {
-        var today = DateTime.Today.ToString("yyyy-MM-dd");
-        _dateFrom = today;
-        _dateTo = today;
-        _datePreset = "today";
-        await LoadItemsAsync();
-    }
-
-    private async Task ApplyDatePreset_Yesterday()
-    {
-        var yesterday = DateTime.Today.AddDays(-1).ToString("yyyy-MM-dd");
-        _dateFrom = yesterday;
-        _dateTo = yesterday;
-        _datePreset = "yesterday";
-        await LoadItemsAsync();
-    }
-
-    private async Task ApplyDatePreset_ThisWeek()
+    private async Task ApplyDatePresetInternal(string preset)
     {
         var today = DateTime.Today;
-        var startOfWeek = today.AddDays(-(int)today.DayOfWeek);
-        _dateFrom = startOfWeek.ToString("yyyy-MM-dd");
-        _dateTo = today.ToString("yyyy-MM-dd");
-        _datePreset = "week";
+        _dateRange = preset switch
+        {
+            "today"     => new DateRange(today, today),
+            "yesterday" => new DateRange(today.AddDays(-1), today.AddDays(-1)),
+            "week"      => new DateRange(today.AddDays(-(int)today.DayOfWeek), today),
+            "month"     => new DateRange(new DateTime(today.Year, today.Month, 1), today),
+            "30days"    => new DateRange(today.AddDays(-30), today),
+            "all"       => null,
+            _           => null,
+        };
+        if (_dateRangePicker is not null)
+            await _dateRangePicker.CloseAsync();
         await LoadItemsAsync();
-    }
-
-    private async Task ApplyDatePreset_ThisMonth()
-    {
-        var today = DateTime.Today;
-        var startOfMonth = new DateTime(today.Year, today.Month, 1);
-        _dateFrom = startOfMonth.ToString("yyyy-MM-dd");
-        _dateTo = today.ToString("yyyy-MM-dd");
-        _datePreset = "month";
-        await LoadItemsAsync();
-    }
-
-    private async Task HandleSortChange(ChangeEventArgs e)
-    {
-        _sortOrder = e.Value?.ToString() ?? "";
-        await LoadItemsAsync();
-    }
-
-    private int GetMediaTypeCount(string mediaType)
-    {
-        // Rough count — items aren't pre-loaded by media type
-        return 0;
     }
 
     // ── Event handlers ────────────────────────────────────────────────────────
@@ -971,14 +1028,107 @@
         letter-spacing: -0.3px;
     }
 
-    /* ── Filter dropdowns ── */
+    /* ── Type filter chips ── */
+    .adp-type-chips {
+        display: flex;
+        gap: 8px;
+        padding: 0 16px 10px 16px;
+    }
+
+    .adp-type-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 7px 16px;
+        border-radius: 20px;
+        border: 1px solid rgba(255, 255, 255, 0.10);
+        background: rgba(255, 255, 255, 0.04);
+        color: rgba(255, 255, 255, 0.50);
+        font-family: 'Montserrat', sans-serif;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        white-space: nowrap;
+    }
+
+    .adp-type-chip:hover {
+        background: rgba(255, 255, 255, 0.08);
+        border-color: rgba(255, 255, 255, 0.18);
+        color: rgba(255, 255, 255, 0.70);
+    }
+
+    .adp-type-chip--active {
+        background: rgba(201, 146, 46, 0.15);
+        border-color: rgba(201, 146, 46, 0.50);
+        color: #C9922E;
+    }
+
+    .adp-type-chip--active:hover {
+        background: rgba(201, 146, 46, 0.22);
+        border-color: rgba(201, 146, 46, 0.60);
+    }
+
+    .adp-type-chip--partial {
+        border-style: dashed;
+    }
+
+    .adp-type-chip-count {
+        font-size: 10px;
+        font-weight: 700;
+        background: rgba(201, 146, 46, 0.20);
+        color: #C9922E;
+        padding: 1px 7px;
+        border-radius: 10px;
+        font-variant-numeric: tabular-nums;
+    }
+
+    /* ── Subcategory chips ── */
+    .adp-sub-chips {
+        display: flex;
+        gap: 6px;
+        padding: 0 16px 12px 16px;
+        flex-wrap: wrap;
+    }
+
+    .adp-sub-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 4px 12px;
+        border-radius: 14px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.03);
+        color: rgba(255, 255, 255, 0.35);
+        font-family: 'Montserrat', sans-serif;
+        font-size: 11px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.15s ease;
+    }
+
+    .adp-sub-chip:hover {
+        background: rgba(255, 255, 255, 0.06);
+        color: rgba(255, 255, 255, 0.55);
+    }
+
+    .adp-sub-chip--active {
+        background: rgba(201, 146, 46, 0.10);
+        border-color: rgba(201, 146, 46, 0.30);
+        color: rgba(201, 146, 46, 0.85);
+    }
+
+    .adp-sub-chip--active:hover {
+        background: rgba(201, 146, 46, 0.16);
+    }
+
+    /* ── Filter row (status + date) ── */
     .adp-filter-row {
         display: flex;
         gap: 16px;
-        padding: 12px 16px;
-        align-items: flex-start;
+        padding: 4px 16px 12px 16px;
+        align-items: flex-end;
         flex-wrap: nowrap;
-        margin-bottom: 4px;
     }
 
     .adp-filter-group {
@@ -994,6 +1144,14 @@
         color: rgba(255, 255, 255, 0.35);
         text-transform: uppercase;
         letter-spacing: 0.05em;
+    }
+
+    /* ── A-Z letter group header ── */
+    .adp-group-letter {
+        font-size: 14px;
+        font-weight: 700;
+        color: rgba(201, 146, 46, 0.80);
+        letter-spacing: 0.5px;
     }
 
     .adp-filter-select-wrap {
@@ -1038,101 +1196,35 @@
         color: rgba(255, 255, 255, 0.85);
     }
 
-    .adp-filter-date-wrap {
-        position: relative;
+    /* ── MudDateRangePicker dark theme overrides ── */
+    .adp-date-range-picker {
+        max-width: 260px;
     }
 
-    .adp-date-inputs {
+    .adp-date-range-picker .mud-input-outlined .mud-input-outlined-border {
+        border-color: rgba(255, 255, 255, 0.10) !important;
+    }
+
+    .adp-date-range-picker .mud-input {
+        color: rgba(255, 255, 255, 0.80) !important;
+        font-family: 'Montserrat', sans-serif !important;
+        font-size: 12px !important;
+    }
+
+    /* ── Date picker preset buttons inside PickerActions ── */
+    .adp-picker-presets {
         display: flex;
-        align-items: center;
-        gap: 6px;
-        padding: 6px 12px;
-        border-radius: 8px;
-        border: 1px solid rgba(255, 255, 255, 0.10);
-        background: rgba(255, 255, 255, 0.04);
-        transition: border-color 0.15s ease;
-    }
-
-    .adp-date-inputs:focus-within {
-        border-color: rgba(201, 146, 46, 0.50);
-        box-shadow: 0 0 0 2px rgba(201, 146, 46, 0.10);
-    }
-
-    .adp-date-prefix {
-        font-size: 11px;
-        font-weight: 500;
-        color: rgba(255, 255, 255, 0.35);
-    }
-
-    .adp-date-input {
-        background: transparent;
-        border: none;
-        outline: none;
-        color: rgba(255, 255, 255, 0.80);
-        font-family: 'Montserrat', sans-serif;
-        font-size: 12px;
-        font-weight: 500;
-        width: 120px;
-        cursor: pointer;
-    }
-
-    .adp-date-input::-webkit-calendar-picker-indicator {
-        filter: invert(0.6);
-        cursor: pointer;
-    }
-
-    .adp-date-clear {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: none;
-        border: none;
-        color: rgba(255, 255, 255, 0.40);
-        cursor: pointer;
-        padding: 2px;
-        border-radius: 4px;
-        transition: color 0.15s ease, background 0.15s ease;
-    }
-
-    .adp-date-clear:hover {
-        color: rgba(255, 255, 255, 0.70);
-        background: rgba(255, 255, 255, 0.08);
-    }
-
-    .adp-date-presets {
-        display: flex;
+        flex-wrap: wrap;
         gap: 4px;
-        padding: 0 16px 8px 16px;
+        padding: 8px 12px;
+        justify-content: center;
     }
 
-    .adp-date-preset {
-        background: rgba(255, 255, 255, 0.04);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 6px;
-        padding: 3px 10px;
-        font-family: 'Montserrat', sans-serif;
-        font-size: 11px;
-        font-weight: 500;
-        color: rgba(255, 255, 255, 0.45);
-        cursor: pointer;
-        transition: all 0.15s ease;
-    }
-
-    .adp-date-preset:hover {
-        background: rgba(255, 255, 255, 0.08);
-        color: rgba(255, 255, 255, 0.65);
-        border-color: rgba(255, 255, 255, 0.15);
-    }
-
-    .adp-date-preset--active {
-        background: rgba(201, 146, 46, 0.15);
-        border-color: rgba(201, 146, 46, 0.40);
-        color: #C9922E;
-    }
-
-    .adp-date-preset--active:hover {
-        background: rgba(201, 146, 46, 0.22);
-        border-color: rgba(201, 146, 46, 0.55);
+    .adp-picker-presets .mud-button-root {
+        font-size: 11px !important;
+        text-transform: none !important;
+        min-width: auto !important;
+        padding: 4px 10px !important;
     }
 
     /* ── Results header ── */
