@@ -23,6 +23,7 @@ public sealed class UniverseStateContainer
     private UniverseViewModel?         _universe;
     private bool                       _loaded;
     private IngestionProgressEvent?    _ingestionProgress;
+    private BatchProgressEvent?        _batchProgress;
     private WatchFolderActiveEvent?    _latestWatchFolderActivation;
     private string[]?                  _activeLaneMediaTypes;
     private readonly List<PersonEnrichedEvent> _personUpdates = [];
@@ -55,6 +56,14 @@ public sealed class UniverseStateContainer
     /// Null when no ingestion is in progress or the circuit is freshly created.
     /// </summary>
     public IngestionProgressEvent?          IngestionProgress           => _ingestionProgress;
+
+    /// <summary>
+    /// Latest batch progress snapshot pushed via SignalR.
+    /// Contains running counters, progress percentage, and estimated time remaining.
+    /// Null when no batch is active.
+    /// </summary>
+    public BatchProgressEvent?              BatchProgress               => _batchProgress;
+
     public IReadOnlyList<PersonEnrichedEvent> RecentPersonUpdates        => _personUpdates;
 
     /// <summary>
@@ -173,6 +182,16 @@ public sealed class UniverseStateContainer
                 "sync", summary));
         }
 
+        OnStateChanged?.Invoke();
+    }
+
+    /// <summary>
+    /// Called when a <c>"BatchProgress"</c> event arrives on the Intercom hub.
+    /// Updates batch progress state for live progress bars and time-remaining display.
+    /// </summary>
+    public void PushBatchProgress(BatchProgressEvent ev)
+    {
+        _batchProgress = ev.IsComplete ? null : ev;
         OnStateChanged?.Invoke();
     }
 

@@ -3,6 +3,7 @@
 @using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Components.Settings
 @inject UIOrchestratorService Orchestrator
+@inject UniverseStateContainer StateContainer
 @inject NavigationManager Nav
 @inject ISnackbar Snackbar
 @inject IJSRuntime JSRuntime
@@ -131,6 +132,17 @@
         </div>
 
     </div>
+
+    @* ── Active Batch Progress ── *@
+    @if (StateContainer.BatchProgress is { } bp)
+    {
+        <div class="registry-batch-progress">
+            <RegistryBatchList
+                Batches="@(new[] { new IngestionBatchViewModel { Id = bp.BatchId, FilesTotal = bp.FilesTotal, FilesProcessed = bp.FilesProcessed, FilesRegistered = bp.FilesRegistered, FilesReview = bp.FilesReview, FilesNoMatch = bp.FilesNoMatch, FilesFailed = bp.FilesFailed, StartedAt = DateTimeOffset.UtcNow } })"
+                AttentionCount="0"
+                ActiveProgress="bp" />
+        </div>
+    }
 
     @* ── Tab Bar ── *@
     <div class="registry-tab-bar">

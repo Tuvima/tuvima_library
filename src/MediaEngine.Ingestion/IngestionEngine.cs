@@ -2474,7 +2474,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 registered, review, noMatch, failed, ct).ConfigureAwait(false);
 
             // Check if batch is complete.
-            if (processed >= batch.FilesTotal)
+            var isComplete = processed >= batch.FilesTotal;
+            if (isComplete)
             {
                 await _batchRepo.CompleteAsync(batchId.Value, "completed", ct).ConfigureAwait(false);
                 await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
@@ -2494,6 +2495,35 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                     IngestionRunId = batchId,
                 }, ct).ConfigureAwait(false);
             }
+
+            // Broadcast live progress to the Dashboard.
+            var progressPercent = batch.FilesTotal > 0
+                ? (int)(100.0 * processed / batch.FilesTotal)
+                : 0;
+
+            // Estimate time remaining from elapsed throughput.
+            int? estimatedSecondsRemaining = null;
+            if (processed > 0 && !isComplete)
+            {
+                var elapsed = (DateTimeOffset.UtcNow - batch.StartedAt).TotalSeconds;
+                var secondsPerFile = elapsed / processed;
+                var remaining = batch.FilesTotal - processed;
+                estimatedSecondsRemaining = (int)Math.Ceiling(secondsPerFile * remaining);
+            }
+
+            await SafePublishAsync("BatchProgress", new
+            {
+                BatchId                   = batchId.Value,
+                FilesTotal                = batch.FilesTotal,
+                FilesProcessed            = processed,
+                FilesRegistered           = registered,
+                FilesReview               = review,
+                FilesNoMatch              = noMatch,
+                FilesFailed               = failed,
+                ProgressPercent           = progressPercent,
+                EstimatedSecondsRemaining = estimatedSecondsRemaining,
+                IsComplete                = isComplete,
+            }, ct).ConfigureAwait(false);
         }
         catch (Exception ex)
         {

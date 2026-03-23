@@ -131,6 +131,40 @@ public sealed record FolderHealthChangedEvent(
     bool           HasWrite,
     DateTimeOffset CheckedAt);
 
+// ── Batch Progress Events ────────────────────────────────────────────────────
+
+/// <summary>
+/// Payload broadcast each time a file in an ingestion batch reaches a terminal
+/// state (registered, review, no-match, or failed). Carries running counters
+/// and an estimated time remaining based on elapsed throughput.
+///
+/// SignalR method name: <c>"BatchProgress"</c>
+///
+/// The Dashboard uses this event to update the progress bar and time-remaining
+/// label on the active batch card in real-time.
+/// </summary>
+/// <param name="BatchId">The ingestion batch identifier.</param>
+/// <param name="FilesTotal">Total files in this batch.</param>
+/// <param name="FilesProcessed">Files that have reached a terminal state.</param>
+/// <param name="FilesRegistered">Successfully matched and registered.</param>
+/// <param name="FilesReview">Placed in review queue.</param>
+/// <param name="FilesNoMatch">No metadata match found.</param>
+/// <param name="FilesFailed">Processing error.</param>
+/// <param name="ProgressPercent">0–100 integer progress.</param>
+/// <param name="EstimatedSecondsRemaining">Estimated seconds until batch completes, or null if not calculable.</param>
+/// <param name="IsComplete">True when the batch has finished.</param>
+public sealed record BatchProgressEvent(
+    Guid   BatchId,
+    int    FilesTotal,
+    int    FilesProcessed,
+    int    FilesRegistered,
+    int    FilesReview,
+    int    FilesNoMatch,
+    int    FilesFailed,
+    int    ProgressPercent,
+    int?   EstimatedSecondsRemaining,
+    bool   IsComplete);
+
 // ── Hydration Pipeline Events ────────────────────────────────────────────────
 
 /// <summary>

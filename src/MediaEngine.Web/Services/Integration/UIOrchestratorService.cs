@@ -778,6 +778,17 @@ public sealed class UIOrchestratorService : IAsyncDisposable
             _state.PushIngestionProgress(ev);
         });
 
+        // ── "BatchProgress" ─────────────────────────────────────────────────
+        // Per-file progress tick during an ingestion batch — carries running
+        // counters and estimated time remaining for the active batch card.
+        _hubConnection.On<BatchProgressEvent>("BatchProgress", ev =>
+        {
+            _logger.LogDebug(
+                "Intercom ← BatchProgress: {Done}/{Total} ({Pct}%) ~{Eta}s remaining",
+                ev.FilesProcessed, ev.FilesTotal, ev.ProgressPercent, ev.EstimatedSecondsRemaining);
+            _state.PushBatchProgress(ev);
+        });
+
         // ── "MetadataHarvested" ───────────────────────────────────────────────
         // An external provider updated cover art / description / narrator etc.
         // Invalidate the state cache so cards re-render with the new data.

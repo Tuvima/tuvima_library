@@ -56,6 +56,29 @@
                     </span>
                 </div>
 
+                @* ── Progress bar (active batches only) ── *@
+                @if (isInProgress && ActiveProgress is not null && ActiveProgress.BatchId == batch.Id)
+                {
+                    <div class="rbl-progress-section">
+                        <div class="rbl-progress-bar-track">
+                            <div class="rbl-progress-bar-fill"
+                                 style="width: @(ActiveProgress.ProgressPercent)%;">
+                            </div>
+                        </div>
+                        <div class="rbl-progress-meta">
+                            <span class="rbl-progress-count">
+                                @ActiveProgress.FilesProcessed / @ActiveProgress.FilesTotal files
+                            </span>
+                            @if (ActiveProgress.EstimatedSecondsRemaining is { } eta)
+                            {
+                                <span class="rbl-progress-eta">
+                                    ~@FormatEta(eta) remaining
+                                </span>
+                            }
+                        </div>
+                    </div>
+                }
+
                 @* ── Four KPI chips ── *@
                 <div class="rbl-kpi-row">
                     <div class="rbl-kpi-chip">
@@ -97,8 +120,17 @@
 @code {
     [Parameter] public IReadOnlyList<IngestionBatchViewModel> Batches { get; set; } = [];
     [Parameter] public int AttentionCount { get; set; }
+    [Parameter] public BatchProgressEvent? ActiveProgress { get; set; }
     [Parameter] public EventCallback<Guid> OnBatchSelected { get; set; }
     [Parameter] public EventCallback OnAttentionClicked { get; set; }
+
+    private static string FormatEta(int totalSeconds)
+    {
+        if (totalSeconds < 60) return $"{totalSeconds}s";
+        var minutes = totalSeconds / 60;
+        var seconds = totalSeconds % 60;
+        return seconds > 0 ? $"{minutes}m {seconds}s" : $"{minutes}m";
+    }
 }
 
 <style>
@@ -267,6 +299,48 @@
     @@keyframes rbl-pulse {
         0%, 100% { opacity: 1; transform: scale(1); }
         50% { opacity: 0.4; transform: scale(0.75); }
+    }
+
+    /* ── Progress bar ── */
+    .rbl-progress-section {
+        margin-bottom: 12px;
+    }
+
+    .rbl-progress-bar-track {
+        width: 100%;
+        height: 4px;
+        border-radius: 2px;
+        background: rgba(255, 255, 255, 0.06);
+        overflow: hidden;
+        margin-bottom: 6px;
+    }
+
+    .rbl-progress-bar-fill {
+        height: 100%;
+        border-radius: 2px;
+        background: linear-gradient(90deg, #5DCAA5, #4CAF50);
+        transition: width 0.4s ease-out;
+        min-width: 2px;
+    }
+
+    .rbl-progress-meta {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .rbl-progress-count {
+        font-size: 11px;
+        font-weight: 500;
+        color: rgba(255, 255, 255, 0.5);
+        font-variant-numeric: tabular-nums;
+    }
+
+    .rbl-progress-eta {
+        font-size: 11px;
+        font-weight: 500;
+        color: rgba(93, 202, 165, 0.7);
+        font-variant-numeric: tabular-nums;
     }
 
     /* ── KPI chip row ── */
