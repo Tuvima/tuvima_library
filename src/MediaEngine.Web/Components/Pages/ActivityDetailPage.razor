@@ -104,6 +104,7 @@
             <MudDateRangePicker @ref="_dateRangePicker"
                                 DateRange="_dateRange"
                                 DateRangeChanged="HandleDateRangeChanged"
+                                AutoClose="true"
                                 Variant="Variant.Outlined"
                                 DateFormat="yyyy-MM-dd"
                                 Placeholder="All time"
@@ -111,13 +112,19 @@
                                 Margin="Margin.Dense"
                                 Class="adp-date-range-picker">
                 <PickerActions>
-                    <div class="adp-picker-presets">
-                        <MudButton Size="MudBlazor.Size.Small" OnClick="ApplyPresetToday">Today</MudButton>
-                        <MudButton Size="MudBlazor.Size.Small" OnClick="ApplyPresetYesterday">Yesterday</MudButton>
-                        <MudButton Size="MudBlazor.Size.Small" OnClick="ApplyPresetWeek">This Week</MudButton>
-                        <MudButton Size="MudBlazor.Size.Small" OnClick="ApplyPresetMonth">This Month</MudButton>
-                        <MudButton Size="MudBlazor.Size.Small" OnClick="ApplyPreset30Days">Last 30 Days</MudButton>
-                        <MudButton Size="MudBlazor.Size.Small" OnClick="ApplyPresetAll">All Time</MudButton>
+                    <div class="adp-picker-actions">
+                        <div class="adp-picker-presets">
+                            <MudButton Size="MudBlazor.Size.Small" OnClick="ApplyPresetToday">Today</MudButton>
+                            <MudButton Size="MudBlazor.Size.Small" OnClick="ApplyPresetYesterday">Yesterday</MudButton>
+                            <MudButton Size="MudBlazor.Size.Small" OnClick="ApplyPresetWeek">This Week</MudButton>
+                            <MudButton Size="MudBlazor.Size.Small" OnClick="ApplyPresetMonth">This Month</MudButton>
+                            <MudButton Size="MudBlazor.Size.Small" OnClick="ApplyPreset30Days">Last 30 Days</MudButton>
+                            <MudButton Size="MudBlazor.Size.Small" OnClick="ApplyPresetAll">All Time</MudButton>
+                        </div>
+                        <MudButton Color="Color.Primary" Size="MudBlazor.Size.Small" Variant="Variant.Filled"
+                                   OnClick="@(() => _dateRangePicker?.CloseAsync())">
+                            OK
+                        </MudButton>
                     </div>
                 </PickerActions>
             </MudDateRangePicker>
@@ -233,12 +240,12 @@
                             <div class="adp-group-items">
                                 @foreach (var item in group.Value)
                                 {
+                                    var isEntity = item.MediaType is "Person" or "Universe";
                                     <ActivityItemCard Item="@item"
                                                       IsSelected="@(_selectedItem?.EntityId == item.EntityId)"
                                                       OnSelect="HandleItemSelect"
-                                                      OnUnreject="HandleUnreject"
-                                                      OnQuickReject="HandleQuickReject"
-
+                                                      OnUnreject="@(isEntity ? default : HandleUnreject)"
+                                                      OnQuickReject="@(isEntity ? default : HandleQuickReject)"
                                                       ShowTriggerChip="@(_activeTypeChip == "Media")" />
                                 }
                             </div>
@@ -523,14 +530,18 @@
             }
 
             // Apply date range filter
+            // MudDateRangePicker returns DateTime with Kind=Local; convert to
+            // DateTimeOffset using the local offset so comparisons work correctly.
             if (_dateRange?.Start is not null)
             {
-                var fromDate = new DateTimeOffset(_dateRange.Start.Value, TimeSpan.Zero);
+                var startDt = _dateRange.Start.Value;
+                var fromDate = new DateTimeOffset(startDt, TimeZoneInfo.Local.GetUtcOffset(startDt));
                 _items = _items.Where(i => i.CreatedAt >= fromDate).ToList();
             }
             if (_dateRange?.End is not null)
             {
-                var toEnd = new DateTimeOffset(_dateRange.End.Value.AddDays(1).AddTicks(-1), TimeSpan.Zero);
+                var endDt = _dateRange.End.Value.AddDays(1).AddTicks(-1);
+                var toEnd = new DateTimeOffset(endDt, TimeZoneInfo.Local.GetUtcOffset(endDt));
                 _items = _items.Where(i => i.CreatedAt <= toEnd).ToList();
             }
 
@@ -1195,11 +1206,22 @@
     }
 
     /* ── Date picker preset buttons inside PickerActions ── */
+    .adp-picker-actions {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 6px;
+        padding: 8px 12px;
+    }
+
+    .adp-picker-actions > .mud-button-root {
+        align-self: flex-end;
+    }
+
     .adp-picker-presets {
         display: flex;
         flex-wrap: wrap;
         gap: 4px;
-        padding: 8px 12px;
         justify-content: center;
     }
 
