@@ -992,6 +992,42 @@ public sealed class DatabaseConnection : IDatabaseConnection
         MigrateAddColumnIfMissing(conn, "works", "provisional_metadata_json",
             "ALTER TABLE works ADD COLUMN provisional_metadata_json TEXT");
 
+        // ── M-053: FTS5 search index for works ────────────────────────────
+        // Replaces in-memory FuzzySharp re-ranking with native SQLite full-text
+        // search. Indexes title and author for prefix matching and BM25 ranking.
+        {
+            using var m053Check = conn.CreateCommand();
+            m053Check.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name='search_index'";
+            if (m053Check.ExecuteScalar() is null)
+            {
+                using var m053Create = conn.CreateCommand();
+                m053Create.CommandText = """
+                    CREATE VIRTUAL TABLE search_index USING fts5(
+                        work_id UNINDEXED, title, author, tokenize='unicode61'
+                    );
+                    """;
+                m053Create.ExecuteNonQuery();
+
+                // Populate from existing canonical values.
+                using var m053Pop = conn.CreateCommand();
+                m053Pop.CommandText = """
+                    INSERT INTO search_index (work_id, title, author)
+                    SELECT
+                        w.id,
+                        MAX(CASE WHEN cv.key = 'title' THEN cv.value END),
+                        MAX(CASE WHEN cv.key = 'author' THEN cv.value END)
+                    FROM works w
+                    LEFT JOIN editions e ON e.work_id = w.id
+                    LEFT JOIN media_assets ma ON ma.edition_id = e.id
+                    LEFT JOIN canonical_values cv ON cv.entity_id = ma.id
+                    WHERE cv.key IN ('title', 'author')
+                    GROUP BY w.id;
+                    """;
+                m053Pop.ExecuteNonQuery();
+                System.Diagnostics.Debug.WriteLine("M-053: Created FTS5 search_index table");
+            }
+        }
+
         // Seed S-001: provider_registry entries for all known providers.
         // metadata_claims.provider_id has a FK to provider_registry(id), so these
         // rows MUST exist before any claim is written.  INSERT OR IGNORE makes this

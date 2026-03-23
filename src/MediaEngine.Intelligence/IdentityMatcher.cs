@@ -26,6 +26,12 @@ namespace MediaEngine.Intelligence;
 ///  Weighted average is computed with "title" receiving 50 % of the total
 ///  weight and all other fields sharing the remaining 50 % equally.
 ///
+///  NOTE: With Wikidata as the sole identity authority, Pass 1 QID comparison
+///  is the primary identity mechanism. Once both works have a wikidata_qid,
+///  this fuzzy pass is bypassed entirely (hard-identifier short-circuit).
+///  Pass 2 is retained only as a fallback for the brief window between
+///  ingestion and Wikidata enrichment, when QIDs have not yet been assigned.
+///
 /// ──────────────────────────────────────────────────────────────────
 /// Disposition
 /// ──────────────────────────────────────────────────────────────────

@@ -500,6 +500,7 @@ builder.Services.AddSingleton<IHydrationPipelineService,     HydrationPipelineSe
 builder.Services.AddSingleton<IDeferredEnrichmentService,    DeferredEnrichmentService>();
 builder.Services.AddSingleton<IReviewQueueRepository,        ReviewQueueRepository>();
 builder.Services.AddSingleton<IRegistryRepository,           RegistryRepository>();
+builder.Services.AddSingleton<ISearchIndexRepository,        SearchIndexRepository>();
 builder.Services.AddSingleton<ISearchService,                SearchService>();
 builder.Services.AddSingleton<IImageCacheRepository,              ImageCacheRepository>();
 builder.Services.AddSingleton<IProviderResponseCacheRepository,  ProviderResponseCacheRepository>();

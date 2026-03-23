@@ -72,6 +72,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     private readonly IFictionalEntityRepository _fictionalEntityRepo;
     private readonly IIngestionBatchRepository _batchRepo;
     private readonly IMetadataHarvestingService _harvesting;
+    private readonly ISearchIndexRepository _searchIndex;
     private readonly ILogger<HydrationPipelineService> _logger;
 
     // ── Constructor ───────────────────────────────────────────────────────────
@@ -102,6 +103,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         IFictionalEntityRepository fictionalEntityRepo,
         IIngestionBatchRepository batchRepo,
         IMetadataHarvestingService harvesting,
+        ISearchIndexRepository searchIndex,
         ILogger<HydrationPipelineService> logger)
     {
         ArgumentNullException.ThrowIfNull(providers);
@@ -128,6 +130,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         ArgumentNullException.ThrowIfNull(wikibaseApi);
         ArgumentNullException.ThrowIfNull(batchRepo);
         ArgumentNullException.ThrowIfNull(harvesting);
+        ArgumentNullException.ThrowIfNull(searchIndex);
         ArgumentNullException.ThrowIfNull(fictionalEntityRepo);
         ArgumentNullException.ThrowIfNull(logger);
 
@@ -153,6 +156,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         _heroGenerator  = heroGenerator;
         _batchRepo           = batchRepo;
         _harvesting          = harvesting;
+        _searchIndex         = searchIndex;
         _deferredRepo        = deferredRepo;
         _wikibaseApi         = wikibaseApi;
         _fictionalEntityRepo = fictionalEntityRepo;
@@ -555,7 +559,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             await ScoringHelper.PersistClaimsAndScoreAsync(
                 request.EntityId, claimsForScoring, provider.ProviderId,
                 _claimRepo, _canonicalRepo, _scoringEngine, _configLoader,
-                _providers, ct, _arrayRepo, _logger).ConfigureAwait(false);
+                _providers, ct, _arrayRepo, _logger, _searchIndex).ConfigureAwait(false);
 
             stage1Claims += claimsForScoring.Count;
 
@@ -714,7 +718,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                                 await ScoringHelper.PersistClaimsAndScoreAsync(
                                     request.EntityId, editionClaims, reconAdapter.ProviderId,
                                     _claimRepo, _canonicalRepo, _scoringEngine, _configLoader,
-                                    _providers, ct, _arrayRepo, _logger).ConfigureAwait(false);
+                                    _providers, ct, _arrayRepo, _logger, _searchIndex).ConfigureAwait(false);
 
                                 result.Stage1ClaimsAdded += editionClaims.Count;
 
@@ -928,7 +932,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 await ScoringHelper.PersistClaimsAndScoreAsync(
                     request.EntityId, claims, provider.ProviderId,
                     _claimRepo, _canonicalRepo, _scoringEngine, _configLoader,
-                    _providers, ct, _arrayRepo, _logger).ConfigureAwait(false);
+                    _providers, ct, _arrayRepo, _logger, _searchIndex).ConfigureAwait(false);
 
                 stage2Claims += claims.Count;
                 lastSuccessfulProvider = provider;
@@ -976,7 +980,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 await ScoringHelper.PersistClaimsAndScoreAsync(
                     request.EntityId, wikipediaClaims, wikipediaProvider.ProviderId,
                     _claimRepo, _canonicalRepo, _scoringEngine, _configLoader,
-                    _providers, ct, _arrayRepo, _logger).ConfigureAwait(false);
+                    _providers, ct, _arrayRepo, _logger, _searchIndex).ConfigureAwait(false);
 
                 stage2Claims += wikipediaClaims.Count;
 
@@ -2595,7 +2599,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             await ScoringHelper.PersistClaimsAndScoreAsync(
                 entityId, pseudonymClaims, pseudonymProviderId,
                 _claimRepo, _canonicalRepo, _scoringEngine, _configLoader,
-                _providers, ct, _arrayRepo, _logger).ConfigureAwait(false);
+                _providers, ct, _arrayRepo, _logger, _searchIndex).ConfigureAwait(false);
 
             _logger.LogInformation(
                 "Protected pseudonym author \"{PseudonymName}\" for entity {EntityId}",

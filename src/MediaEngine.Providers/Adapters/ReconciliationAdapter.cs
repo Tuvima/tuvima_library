@@ -850,26 +850,10 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 return [];
             }
 
-            // Fuzzy title verification — prevent blind acceptance of wrong Wikidata entities.
-            // A high Wikidata reconciliation score does not guarantee the title matches.
-            // Audiobooks get a relaxed threshold (0.50) because file titles often contain
-            // extra text like narrator names, edition info, or subtitle variations.
-            if (!string.IsNullOrWhiteSpace(request.Title))
-            {
-                var compareTitle = request.MediaType == MediaType.Audiobooks
-                    ? CleanAudiobookTitle(request.Title)
-                    : request.Title;
-                var fuzzyThreshold = request.MediaType == MediaType.Audiobooks ? 0.50 : 0.60;
-                var titleMatch = _fuzzy.ComputeTokenSetRatio(compareTitle, top.Label);
-                if (titleMatch < fuzzyThreshold)
-                {
-                    _logger.LogDebug(
-                        "{Provider}: title mismatch for top candidate '{Label}' ({QID}) — " +
-                        "fuzzy score {Score:F2} < {Threshold:F2} against local title '{LocalTitle}'",
-                        Name, top.Label, top.QID, titleMatch, fuzzyThreshold, compareTitle);
-                    return [];
-                }
-            }
+            // Wikidata Reconciliation API is trusted as the sole identity authority.
+            // Its matching engine handles aliases, alternate spellings, and language
+            // variants (e.g. "1984" → "Nineteen Eighty-Four") internally.
+            // A score >= review_threshold is sufficient to accept the candidate.
 
             qid = top.QID;
             reconciliationLabel = top.Label;

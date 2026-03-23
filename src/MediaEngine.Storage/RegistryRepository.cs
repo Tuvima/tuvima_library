@@ -1,5 +1,4 @@
 using Dapper;
-using FuzzySharp;
 using Microsoft.Data.Sqlite;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Models;
@@ -160,8 +159,10 @@ public sealed class RegistryRepository : IRegistryRepository
                     rd.review_id,
                     rd.trigger AS review_trigger,
                     CASE
-                        WHEN rd.review_id IS NOT NULL THEN COALESCE(rd.confidence_score, 0.0)
-                        WHEN wd.wikidata_qid IS NOT NULL AND wd.wikidata_qid != '' THEN 0.95
+                        WHEN wd.wikidata_qid IS NOT NULL AND wd.wikidata_qid != ''
+                             AND wd.wikidata_qid NOT LIKE 'NF%' THEN 1.0
+                        WHEN rd.review_id IS NOT NULL THEN 0.5
+                        WHEN wd.curator_state = 'provisional' THEN 0.3
                         ELSE 0.0
                     END AS confidence,
                     COALESCE(ul.has_locks, 0) AS has_user_locks,
@@ -169,6 +170,8 @@ public sealed class RegistryRepository : IRegistryRepository
                         WHEN wd.curator_state = 'rejected' THEN 'Rejected'
                         WHEN wd.curator_state = 'provisional' THEN 'Provisional'
                         WHEN rd.review_id IS NOT NULL THEN 'InReview'
+                        WHEN wd.wikidata_qid IS NOT NULL AND wd.wikidata_qid != ''
+                             AND wd.wikidata_qid NOT LIKE 'NF%' THEN 'Identified'
                         ELSE 'Registered'
                     END AS status,
                     CASE WHEN ad.asset_status = 'Conflicted' THEN 1 ELSE 0 END AS has_duplicate,
@@ -200,7 +203,8 @@ public sealed class RegistryRepository : IRegistryRepository
         // parameter lists, and the WHERE clause itself changes shape at runtime.
         var conditions = new List<string>();
         if (!string.IsNullOrWhiteSpace(query.Search))
-            conditions.Add("(fd.title LIKE @search OR fd.file_name LIKE @search OR fd.author LIKE @search)");
+            conditions.Add(@"(wd.entity_id IN (SELECT si.work_id FROM search_index si
+                WHERE search_index MATCH @ftsQuery) OR fd.file_name LIKE @search)");
         if (!string.IsNullOrWhiteSpace(query.MediaType))
             conditions.Add("fd.media_type = @mediaType");
         if (!string.IsNullOrWhiteSpace(query.Status))
@@ -287,27 +291,8 @@ public sealed class RegistryRepository : IRegistryRepository
             });
         }
 
-        // Post-query fuzzy filter: when a search term is present, re-rank and
-        // filter items using FuzzySharp token-set ratio so that "dun" matches "Dune"
-        // and partial/misspelled queries still surface the right items.
-        if (!string.IsNullOrWhiteSpace(query.Search))
-        {
-            var searchTerm = query.Search.Trim();
-            items = items
-                .Select(item => new
-                {
-                    Item = item,
-                    Score = Math.Max(
-                        Fuzz.TokenSetRatio(searchTerm, item.Title ?? ""),
-                        Fuzz.TokenSetRatio(searchTerm, item.Author ?? ""))
-                })
-                .Where(x => x.Score >= 60)
-                .OrderByDescending(x => x.Score)
-                .Select(x => x.Item)
-                .ToList();
-            totalCount = items.Count;
-            items = items.Skip(query.Offset).Take(query.Limit).ToList();
-        }
+        // Search filtering is handled by FTS5 MATCH in the SQL query —
+        // no post-query re-ranking needed.
 
         return Task.FromResult(new RegistryPageResult(items, totalCount, query.Offset + items.Count < totalCount));
     }
@@ -701,7 +686,11 @@ public sealed class RegistryRepository : IRegistryRepository
     private static void AddParameters(SqliteCommand cmd, RegistryQuery query)
     {
         if (!string.IsNullOrWhiteSpace(query.Search))
+        {
             cmd.Parameters.AddWithValue("@search", $"%{query.Search}%");
+            var escaped = query.Search.Trim().Replace("\"", "\"\"");
+            cmd.Parameters.AddWithValue("@ftsQuery", $"\"{escaped}\"*");
+        }
         if (!string.IsNullOrWhiteSpace(query.MediaType))
             cmd.Parameters.AddWithValue("@mediaType", NormalizeMediaType(query.MediaType));
         if (!string.IsNullOrWhiteSpace(query.Status) && query.Status != "Approved")

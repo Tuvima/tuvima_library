@@ -51,7 +51,8 @@ internal static class ScoringHelper
         IEnumerable<IExternalMetadataProvider> allProviders,
         CancellationToken ct,
         ICanonicalValueArrayRepository? arrayRepo = null,
-        ILogger? logger = null)
+        ILogger? logger = null,
+        ISearchIndexRepository? searchIndex = null)
     {
         // Wrap provider claims as domain MetadataClaim rows.
         var domainClaims = claims
@@ -131,6 +132,18 @@ internal static class ScoringHelper
         }
 
         await canonicalRepo.UpsertBatchAsync(canonicals, ct).ConfigureAwait(false);
+
+        // Update FTS5 search index when title or author changes.
+        if (searchIndex is not null)
+        {
+            var titleVal = canonicals.FirstOrDefault(c => c.Key == "title")?.Value;
+            var authorVal = canonicals.FirstOrDefault(c => c.Key == "author")?.Value;
+            if (titleVal is not null || authorVal is not null)
+            {
+                await searchIndex.UpsertByEntityIdAsync(entityId, titleVal, authorVal, ct)
+                    .ConfigureAwait(false);
+            }
+        }
 
         // Decompose multi-valued fields into proper array rows.
         // Instead of splitting a single winning value on |||, collect ALL claims
