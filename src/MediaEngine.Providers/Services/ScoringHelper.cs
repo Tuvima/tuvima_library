@@ -163,9 +163,11 @@ internal static class ScoringHelper
                 try
                 {
                     // Collect ALL claims from the winning provider for this key.
+                    // Deduplicate by value (case-insensitive) to prevent "Author & Author" display.
                     var winningClaims = allClaims
                         .Where(c => c.ProviderId == fieldScore.WinningProviderId
                                  && c.ClaimKey.Equals(fieldScore.Key, StringComparison.OrdinalIgnoreCase))
+                        .DistinctBy(c => c.ClaimValue, StringComparer.OrdinalIgnoreCase)
                         .ToList();
 
                     if (winningClaims.Count == 0)
