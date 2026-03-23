@@ -192,7 +192,8 @@
         padding: 0;
     }
 
-    @@media (min-width: 960px) {
+    /* Dock is visible from 769px — add left padding to clear it */
+    @@media (min-width: 769px) {
         .registry-layout {
             margin: -24px -32px -24px -32px;
             padding-left: 84px;
