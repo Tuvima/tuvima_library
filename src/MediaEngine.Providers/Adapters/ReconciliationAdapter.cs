@@ -451,7 +451,9 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         IReadOnlyList<ReconciliationCandidate> candidates,
         MediaType mediaType,
         CancellationToken ct = default,
-        string? authorHint = null)
+        string? titleHint = null,
+        string? authorHint = null,
+        string? isbnHint = null)
     {
         if (candidates.Count == 0)
             return candidates;
@@ -467,8 +469,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
 
         var expectedSet = new HashSet<string>(expectedClasses, StringComparer.OrdinalIgnoreCase);
 
-        // Build the exclusion set — entity types that should never match for this media type
-        // (e.g. franchises, multimedia series) even if they walk up to an expected class via P279.
+        // Build the exclusion set — entity types that should never match for this media type.
         var excludedSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         if (_config.ExcludeClasses.TryGetValue(mediaTypeKey, out var excludedClasses)
             && excludedClasses.Count > 0)
@@ -479,27 +480,26 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
 
         var qids = candidates.Select(c => c.QID).ToList();
 
-        // Fetch P31 (instance_of) and P50 (author) in one batched call.
-        // P50 is used for author-based re-ranking when multiple candidates
-        // pass the type filter (e.g. "1984" matches both a novel and an album).
-        var fetchProps = new List<string> { "P31" };
-        if (!string.IsNullOrWhiteSpace(authorHint))
-            fetchProps.Add("P50");
-
+        // ── Wide-net property fetch ─────────────────────────────────────────
+        // Fetch P31 (type), P50 (author), P212 (ISBN-13), P957 (ISBN-10) in one
+        // batched call. These power the three-step scoring: type filter → property
+        // validation → weighted scoring with instant ISBN match.
+        var fetchProps = new List<string> { "P31", "P50", "P212", "P957" };
         var extensions = await ExtendAsync(qids, fetchProps, ct).ConfigureAwait(false);
-        var propsByQid = extensions.ToDictionary(e => e.QID, e => e.Properties, StringComparer.OrdinalIgnoreCase);
+        var propsByQid = extensions.ToDictionary(
+            e => e.QID, e => e.Properties, StringComparer.OrdinalIgnoreCase);
 
-        var filtered = new List<ReconciliationCandidate>();
+        // ── Step 1: Type filter (P31) ───────────────────────────────────────
+        var typeFiltered = new List<ReconciliationCandidate>();
         foreach (var candidate in candidates)
         {
             if (!propsByQid.TryGetValue(candidate.QID, out var props)
                 || !props.TryGetValue("P31", out var p31Values)
                 || p31Values.Count == 0)
             {
-                // No P31 data — cannot verify media type, skip candidate.
                 _logger.LogDebug(
-                    "{Provider}: candidate {QID} '{Label}' dropped — no P31 data for {MediaType} filtering",
-                    Name, candidate.QID, candidate.Label, mediaTypeKey);
+                    "{Provider}: candidate {QID} '{Label}' dropped — no P31 data",
+                    Name, candidate.QID, candidate.Label);
                 continue;
             }
 
@@ -508,78 +508,109 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 .Select(v => v.Id!)
                 .ToList();
 
-            // Reject candidates whose P31 directly matches an excluded class —
-            // these are franchises, multimedia series, and other meta-types that should
-            // never be returned as the canonical work even if they share a title.
             if (excludedSet.Count > 0 && instanceOfQids.Any(qid => excludedSet.Contains(qid)))
             {
                 _logger.LogDebug(
-                    "{Provider}: candidate {QID} '{Label}' excluded — P31 matches exclude_classes for {MediaType}",
-                    Name, candidate.QID, candidate.Label, mediaTypeKey);
+                    "{Provider}: candidate {QID} '{Label}' excluded — P31 in exclude_classes",
+                    Name, candidate.QID, candidate.Label);
                 continue;
             }
 
-            // Direct P31 match only — no P279 subclass walking, which is too
-            // permissive (operas walk up to "creative work" and match Books).
             if (instanceOfQids.Any(qid => expectedSet.Contains(qid)))
             {
-                filtered.Add(candidate);
+                typeFiltered.Add(candidate);
             }
             else
             {
                 _logger.LogDebug(
-                    "{Provider}: candidate {QID} '{Label}' dropped — P31 [{P31}] does not match {MediaType} classes",
+                    "{Provider}: candidate {QID} '{Label}' dropped — P31 [{P31}] not in {MediaType} classes",
                     Name, candidate.QID, candidate.Label,
                     string.Join(", ", instanceOfQids), mediaTypeKey);
             }
         }
 
-        // Author-based re-ranking: when an author hint is available and multiple
-        // candidates pass the type filter, score each candidate by how well its
-        // P50 (author) matches the file's embedded author. This disambiguates
-        // same-titled works (e.g. "1984" the novel vs "1984" the album).
-        if (!string.IsNullOrWhiteSpace(authorHint) && filtered.Count > 1)
+        // ── Step 2 & 3: Property validation + weighted scoring ──────────────
+        // Score each surviving candidate:
+        //   +100 (instant match) if ISBN matches
+        //   +50  if title fuzzy-matches the candidate label
+        //   +30  if author fuzzy-matches the candidate's P50 author
+        var scored = new List<(ReconciliationCandidate Candidate, double Score)>();
+        foreach (var candidate in typeFiltered)
         {
-            var scored = new List<(ReconciliationCandidate Candidate, double AuthorScore)>();
-            foreach (var candidate in filtered)
+            double score = 0.0;
+            propsByQid.TryGetValue(candidate.QID, out var cProps);
+
+            // ISBN match (+100 — instant confirmation)
+            if (!string.IsNullOrWhiteSpace(isbnHint) && cProps is not null)
             {
-                double authorScore = 0.0;
-                if (propsByQid.TryGetValue(candidate.QID, out var cProps)
-                    && cProps.TryGetValue("P50", out var p50Values)
-                    && p50Values.Count > 0)
+                var candidateIsbns = new List<string>();
+                if (cProps.TryGetValue("P212", out var p212))
+                    candidateIsbns.AddRange(p212.Where(v => v.Str is not null).Select(v => v.Str!));
+                if (cProps.TryGetValue("P957", out var p957))
+                    candidateIsbns.AddRange(p957.Where(v => v.Str is not null).Select(v => v.Str!));
+
+                var normalizedHint = isbnHint.Replace("-", "").Replace(" ", "");
+                if (candidateIsbns.Any(isbn =>
+                    string.Equals(isbn.Replace("-", "").Replace(" ", ""),
+                        normalizedHint, StringComparison.OrdinalIgnoreCase)))
                 {
-                    // Compare each P50 author label against the hint, take best match.
-                    foreach (var p50 in p50Values)
-                    {
-                        var label = p50.Label ?? p50.Str;
-                        if (!string.IsNullOrWhiteSpace(label))
-                        {
-                            var similarity = _fuzzy.ComputeTokenSetRatio(authorHint, label);
-                            if (similarity > authorScore)
-                                authorScore = similarity;
-                        }
-                    }
+                    score += 100.0;
+                    _logger.LogDebug(
+                        "{Provider}: candidate {QID} '{Label}' — ISBN match (+100)",
+                        Name, candidate.QID, candidate.Label);
                 }
-                scored.Add((candidate, authorScore));
             }
 
-            // Re-rank: candidates with author match come first, preserving
-            // original order within the same author score tier.
-            filtered = scored
-                .OrderByDescending(s => s.AuthorScore)
-                .Select(s => s.Candidate)
-                .ToList();
+            // Title match (+50 scaled by similarity)
+            if (!string.IsNullOrWhiteSpace(titleHint))
+            {
+                var titleSimilarity = _fuzzy.ComputeTokenSetRatio(titleHint, candidate.Label);
+                score += 50.0 * titleSimilarity;
+            }
 
-            _logger.LogDebug(
-                "{Provider}: Author re-ranking for '{Author}': top={TopQid} '{TopLabel}' (author score {Score:F2})",
-                Name, authorHint, filtered[0].QID, filtered[0].Label,
-                scored.OrderByDescending(s => s.AuthorScore).First().AuthorScore);
+            // Author match (+30 scaled by best P50 similarity)
+            if (!string.IsNullOrWhiteSpace(authorHint) && cProps is not null
+                && cProps.TryGetValue("P50", out var p50Values) && p50Values.Count > 0)
+            {
+                double bestAuthorMatch = 0.0;
+                foreach (var p50 in p50Values)
+                {
+                    var label = p50.Label ?? p50.Str;
+                    if (!string.IsNullOrWhiteSpace(label))
+                    {
+                        var similarity = _fuzzy.ComputeTokenSetRatio(authorHint, label);
+                        if (similarity > bestAuthorMatch)
+                            bestAuthorMatch = similarity;
+                    }
+                }
+                score += 30.0 * bestAuthorMatch;
+            }
+
+            scored.Add((candidate, score));
         }
 
-        _logger.LogDebug("{Provider}: FilterByMediaType({MediaType}) kept {Kept}/{Total} candidates",
-            Name, mediaTypeKey, filtered.Count, candidates.Count);
+        // Rank by composite score (highest first).
+        var result = scored
+            .OrderByDescending(s => s.Score)
+            .Select(s => s.Candidate)
+            .ToList();
 
-        return filtered;
+        if (result.Count > 0)
+        {
+            var topScore = scored.OrderByDescending(s => s.Score).First();
+            _logger.LogDebug(
+                "{Provider}: Scoring top={QID} '{Label}' (score {Score:F1}) — " +
+                "kept {Kept}/{Total} candidates for {MediaType}",
+                Name, topScore.Candidate.QID, topScore.Candidate.Label,
+                topScore.Score, result.Count, candidates.Count, mediaTypeKey);
+        }
+        else
+        {
+            _logger.LogDebug("{Provider}: FilterByMediaType({MediaType}) kept 0/{Total} candidates",
+                Name, mediaTypeKey, candidates.Count);
+        }
+
+        return result;
     }
 
     /// <summary>
@@ -879,12 +910,13 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 return [];
             }
 
-            // Filter by media type and re-rank by author similarity when known.
+            // Filter by media type, then score by title + author + ISBN similarity.
             IReadOnlyList<ReconciliationCandidate> filtered = candidates;
             if (request.MediaType != MediaType.Unknown)
             {
                 filtered = await FilterByMediaTypeAsync(
-                    candidates, request.MediaType, ct, request.Author)
+                    candidates, request.MediaType, ct,
+                    request.Title, request.Author, request.Isbn)
                     .ConfigureAwait(false);
                 if (filtered.Count == 0)
                     filtered = candidates; // Fall back to unfiltered if nothing passes

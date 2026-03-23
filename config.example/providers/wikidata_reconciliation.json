@@ -15,7 +15,7 @@
   "reconciliation": {
     "auto_accept_threshold": 95,
     "review_threshold": 70,
-    "max_candidates": 5,
+    "max_candidates": 15,
     "person_property_constraints": {
       "P800": "notable_work_title",
       "P106": "occupation"
