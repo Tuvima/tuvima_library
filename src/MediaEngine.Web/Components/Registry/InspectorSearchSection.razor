@@ -508,10 +508,7 @@ else
         {
             var mt = string.IsNullOrEmpty(_mediaType) ? "Books" : _mediaType;
             // Universe search: Wikidata reconciliation + retail cover art enrichment in one call.
-            // Pass the file's author as local context so Wikidata can use it as a P50 constraint
-            // for disambiguation (e.g. "Die Verwandlung" + "Kafka" → The Metamorphosis).
-            var results = await Orchestrator.SearchUniverseAsync(
-                _query, mt, maxCandidates: 10, localAuthor: Item.Author);
+            var results = await Orchestrator.SearchUniverseAsync(_query, mt, maxCandidates: 10);
             foreach (var c in results)
             {
                 _candidates.Add(new CandidateViewModel

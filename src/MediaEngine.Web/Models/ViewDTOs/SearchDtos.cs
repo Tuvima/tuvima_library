@@ -15,9 +15,6 @@ public sealed class SearchUniverseRequestDto
 
     [JsonPropertyName("max_candidates")]
     public int MaxCandidates { get; set; } = 5;
-
-    [JsonPropertyName("local_author")]
-    public string? LocalAuthor { get; set; }
 }
 
 /// <summary>A single enriched Wikidata candidate returned from universe search.</summary>

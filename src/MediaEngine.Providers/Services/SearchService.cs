@@ -104,26 +104,13 @@ public sealed class SearchService : ISearchService
 
         try
         {
-            // Search Wikidata via Reconciliation API.
-            // When local_author is provided, append it to the query for disambiguation.
-            // The Wikidata wbsearchentities API uses the full query string for matching —
-            // property constraints (P50) only filter/re-score results after the initial search,
-            // so "Die Verwandlung" alone won't find the Kafka novella, but
-            // "Die Verwandlung Franz Kafka" will.
-            var searchQuery = request.Query;
-            if (!string.IsNullOrWhiteSpace(request.LocalAuthor)
-                && !searchQuery.Contains(request.LocalAuthor, StringComparison.OrdinalIgnoreCase))
-            {
-                searchQuery = $"{searchQuery} {request.LocalAuthor}";
-            }
-
+            // Search Wikidata via Reconciliation API
             var providerRequest = new ProviderLookupRequest
             {
                 EntityId   = Guid.NewGuid(),
                 EntityType = EntityType.Work,
                 MediaType  = mediaType,
-                Title      = searchQuery,
-                Author     = request.LocalAuthor,
+                Title      = request.Query,
                 BaseUrl    = GetProviderBaseUrl(wikidataProvider.Name, endpointMap),
                 Language   = "en",
                 Country    = "us",
