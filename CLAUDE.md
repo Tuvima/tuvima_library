@@ -98,6 +98,7 @@ A single power user who wants complete, private control over a large media colle
 | Engine API documentation | Swashbuckle | Auto-generates an interactive, explorable menu of all the Engine's capabilities at `/swagger` |
 | Structured logging | Serilog | Writes rolling log files so the Engine's actions can be reviewed after the fact |
 | Resilient HTTP calls | Polly (Microsoft.Extensions.Http.Resilience) | Automatically retries failed external API calls with backoff and circuit-breaking |
+| Wikidata/Wikipedia API client | Tuvima.WikidataReconciliation | Unified client for Wikidata reconciliation, entity/property fetching, Wikipedia summaries, and image URLs — with built-in rate limiting, retry, and maxlag support |
 | Cron scheduling | Cronos | Runs background maintenance tasks at specific times (e.g. 3 AM) instead of fixed intervals |
 | Standard health probe | ASP.NET Core Health Checks | Exposes `/health` for Docker, monitoring tools, and container orchestrators |
 | Data access layer | Dapper | Lightweight data-access helper that maps database rows to C# objects by column name |
@@ -1721,6 +1722,8 @@ This project uses a two-tier model strategy to balance quality with speed:
 | Cytoscape.js | MIT | Chronicle Engine — Graph visualization for the Chronicle Explorer Dashboard (vendored, no NuGet) |
 | dotNetRDF | MIT | Stage 4c (Universe Graph) — Local in-memory SPARQL graph querying over SQLite data |
 | FuzzySharp | MIT | Fuzzy string matching — candidate re-ranking, title verification, narrator disambiguation, sequel-safe composite scoring |
+| Tuvima.WikidataReconciliation | MIT | Unified Wikidata/Wikipedia API client — reconciliation, entity fetching, property extraction, Wikipedia summaries, image URLs. Replaces WikibaseApiService and WikipediaAdapter HTTP transport. |
+| Tuvima.WikidataReconciliation.AspNetCore | MIT | DI registration extension for WikidataReconciler |
 | Serilog.AspNetCore | Apache 2.0 | Structured logging with rolling file output for headless Engine operation |
 | Serilog.Sinks.File | Apache 2.0 | Rolling file sink for Serilog — auto-deletes after configurable retention |
 | Microsoft.Extensions.Http.Resilience | MIT | Standard retry, circuit-breaker, and timeout policies for all external HTTP calls (Polly-based) |

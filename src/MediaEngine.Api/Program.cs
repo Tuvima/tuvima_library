@@ -31,6 +31,7 @@ using Microsoft.Extensions.Http.Resilience;
 using Serilog;
 using MediaEngine.Api.DevSupport;
 using MediaEngine.Api.Services.HealthChecks;
+using Tuvima.WikidataReconciliation.AspNetCore;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 ConfigurationManager config  = builder.Configuration;
@@ -410,6 +411,35 @@ builder.Services.AddSingleton<IQidLabelRepository,            QidLabelRepository
 builder.Services.AddSingleton<IQidLabelResolver,              QidLabelResolver>();
 builder.Services.AddSingleton<ICanonicalValueArrayRepository, CanonicalValueArrayRepository>();
 
+// ── WikidataReconciler — unified Wikidata/Wikipedia API client ────────────────
+// Replaces WikibaseApiService + WikipediaAdapter HTTP transport. Provides
+// reconciliation, entity fetching, property extraction, Wikipedia summaries,
+// and image URLs — all with built-in maxlag, retry, and concurrency control.
+// MIT license — Tuvima.WikidataReconciliation NuGet package.
+{
+    var coreConfig = configLoader.LoadCore();
+    var reconcilerOptions = new Tuvima.WikidataReconciliation.WikidataReconcilerOptions
+    {
+        UserAgent = "Tuvima Library/1.0 (https://github.com/Tuvima/tuvima_library)",
+        Language  = coreConfig.Language ?? "en",
+        // MaxLag defaults to 5 (Wikimedia bot etiquette) — no override needed.
+    };
+
+    builder.Services.AddHttpClient("WikidataReconciliation", client =>
+    {
+        client.Timeout = reconcilerOptions.Timeout;
+        client.DefaultRequestHeaders.UserAgent.ParseAdd(reconcilerOptions.UserAgent);
+    })
+    .AddStandardResilienceHandler();
+
+    builder.Services.AddSingleton(sp =>
+    {
+        var httpClient = sp.GetRequiredService<IHttpClientFactory>()
+            .CreateClient("WikidataReconciliation");
+        return new Tuvima.WikidataReconciliation.WikidataReconciler(httpClient, reconcilerOptions);
+    });
+}
+
 // ReconciliationAdapter — Wikidata Reconciliation API + Data Extension API.
 // Registered as both its concrete type and IExternalMetadataProvider so the
 // hydration pipeline can inject the concrete type for direct method calls.
@@ -426,7 +456,7 @@ builder.Services.AddSingleton<ICanonicalValueArrayRepository, CanonicalValueArra
                 sp.GetRequiredService<IFuzzyMatchingService>(),
                 sp.GetRequiredService<IProviderResponseCacheRepository>(),
                 sp.GetRequiredService<IConfigurationLoader>(),
-                sp.GetService<IWikibaseApiService>() as WikibaseApiService));
+                sp.GetService<Tuvima.WikidataReconciliation.WikidataReconciler>()));
         builder.Services.AddSingleton<IExternalMetadataProvider>(
             sp => sp.GetRequiredService<ReconciliationAdapter>());
     }
@@ -440,40 +470,23 @@ builder.Services.AddSingleton<ICanonicalValueArrayRepository, CanonicalValueArra
 
 // WikipediaAdapter — Wikipedia description fetcher using QID→sitelink resolution.
 // Registered as both its concrete type and IExternalMetadataProvider.
-// Reads its settings (throttle, concurrency, TTL) from config/providers/wikipedia.json if present;
+// Step 1 (sitelink resolution) uses WikidataReconciler.GetWikipediaUrlsAsync.
+// Step 2 (REST summary fetch) uses the named "wikipedia_api" HttpClient.
+// Reads its settings (TTL) from config/providers/wikipedia.json if present;
 // falls back to compiled defaults so the adapter is always registered.
 {
     var wikiConfig = configLoader.LoadConfig<MediaEngine.Storage.Models.ProviderConfiguration>(
         "providers", "wikipedia");
     builder.Services.AddSingleton<WikipediaAdapter>(sp =>
         new WikipediaAdapter(
+            sp.GetRequiredService<Tuvima.WikidataReconciliation.WikidataReconciler>(),
             sp.GetRequiredService<IHttpClientFactory>(),
             sp.GetRequiredService<ILogger<WikipediaAdapter>>(),
             sp.GetRequiredService<IProviderResponseCacheRepository>(),
-            throttleMs:     wikiConfig?.ThrottleMs     ?? 100,
-            cacheTtlHours:  wikiConfig?.CacheTtlHours  ?? 168,
-            maxConcurrency: wikiConfig?.MaxConcurrency  ?? 2));
+            cacheTtlHours: wikiConfig?.CacheTtlHours ?? 168));
     builder.Services.AddSingleton<IExternalMetadataProvider>(
         sp => sp.GetRequiredService<WikipediaAdapter>());
 }
-
-// ── Wikibase REST API service ─────────────────────────────────────────────────
-// Supplements ReconciliationAdapter with qualifier extraction (wbgetclaims) and
-// batch entity fetching (wbgetentities). Used by HydrationPipelineService and
-// RecursiveFictionalEntityService for actor→character mapping and entity enrichment.
-builder.Services.AddHttpClient("wikibase_api", c =>
-{
-    c.Timeout = TimeSpan.FromSeconds(30);
-    c.DefaultRequestHeaders.UserAgent.ParseAdd(
-        "Tuvima Library/1.0 (https://github.com/Tuvima/tuvima_library)");
-})
-.AddStandardResilienceHandler();
-
-builder.Services.AddSingleton<IWikibaseApiService>(sp =>
-    new WikibaseApiService(
-        sp.GetRequiredService<IHttpClientFactory>(),
-        sp.GetRequiredService<ILogger<WikibaseApiService>>(),
-        sp.GetRequiredService<IProviderResponseCacheRepository>()));
 
 builder.Services.AddSingleton<IMetadataHarvestingService, MetadataHarvestingService>();
 builder.Services.AddSingleton<IRecursiveIdentityService,  RecursiveIdentityService>();

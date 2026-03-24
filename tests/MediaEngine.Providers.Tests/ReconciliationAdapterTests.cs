@@ -7,6 +7,7 @@ using MediaEngine.Domain.Services;
 using MediaEngine.Providers.Adapters;
 using MediaEngine.Providers.Models;
 using MediaEngine.Storage.Models;
+using Tuvima.WikidataReconciliation;
 using Xunit.Abstractions;
 
 namespace MediaEngine.Providers.Tests;
@@ -52,7 +53,7 @@ public sealed class ReconciliationAdapterTests : IDisposable
         Assert.NotEmpty(results);
 
         var dune = results.FirstOrDefault(r =>
-            string.Equals(r.QID, "Q190159", StringComparison.OrdinalIgnoreCase));
+            string.Equals(r.Id, "Q190159", StringComparison.OrdinalIgnoreCase));
 
         Assert.NotNull(dune);
         Assert.True(dune.Score >= 90,
@@ -69,7 +70,7 @@ public sealed class ReconciliationAdapterTests : IDisposable
 
         Assert.NotEmpty(results);
         Assert.Contains(results, r =>
-            string.Equals(r.QID, "Q662029", StringComparison.OrdinalIgnoreCase));
+            string.Equals(r.Id, "Q662029", StringComparison.OrdinalIgnoreCase));
     }
 
     // ── Reconciliation: batch ─────────────────────────────────────────────────
@@ -78,21 +79,23 @@ public sealed class ReconciliationAdapterTests : IDisposable
     [Trait("Category", "Integration")]
     public async Task ReconcileBatch_MultipleQueries_ReturnsAllResults()
     {
-        var requests = new List<ReconcileRequest>
+        var requests = new List<(string QueryId, string Query, Dictionary<string, string>? PropertyConstraints)>
         {
-            new("q0", "Dune",        new Dictionary<string, string> { ["P50"] = "Frank Herbert" }),
-            new("q1", "Neuromancer", new Dictionary<string, string> { ["P50"] = "William Gibson" }),
-            new("q2", "Foundation",  new Dictionary<string, string> { ["P50"] = "Isaac Asimov" }),
+            ("q0", "Dune",        new Dictionary<string, string> { ["P50"] = "Frank Herbert" }),
+            ("q1", "Neuromancer", new Dictionary<string, string> { ["P50"] = "William Gibson" }),
+            ("q2", "Foundation",  new Dictionary<string, string> { ["P50"] = "Isaac Asimov" }),
         };
 
         var results = await _adapter.ReconcileBatchAsync(requests);
 
         _output.WriteLine($"Batch reconciliation: {results.Count} query keys returned.");
-        foreach (var (key, candidates) in results)
+        foreach (var kvp in results)
         {
+            var key = kvp.Key;
+            var candidates = kvp.Value;
             _output.WriteLine($"  [{key}]: {candidates.Count} candidates");
             foreach (var c in candidates.Take(3))
-                _output.WriteLine($"    {c.QID}  \"{c.Label}\"  score={c.Score:F1}");
+                _output.WriteLine($"    {c.Id}  \"{c.Name}\"  score={c.Score:F1}");
         }
 
         Assert.Equal(3, results.Count);
@@ -113,19 +116,18 @@ public sealed class ReconciliationAdapterTests : IDisposable
 
         Assert.NotEmpty(extensions);
 
-        var dune = extensions.FirstOrDefault(e =>
-            string.Equals(e.QID, "Q190159", StringComparison.OrdinalIgnoreCase));
+        Assert.True(extensions.TryGetValue("Q190159", out var duneProps),
+            "Q190159 not present in extension result");
 
-        Assert.NotNull(dune);
-        Assert.True(dune.Properties.ContainsKey("P50"),
+        Assert.True(duneProps.ContainsKey("P50"),
             "P50 (author) not present in extension result for Q190159");
 
-        var authorValues = dune.Properties["P50"];
+        var authorValues = duneProps["P50"];
         Assert.NotEmpty(authorValues);
 
         var frankHerbert = authorValues.FirstOrDefault(v =>
-            (v.Label is not null && v.Label.Contains("Frank Herbert", StringComparison.OrdinalIgnoreCase))
-            || (v.Id is not null && v.Id == "Q44413"));
+            (v.Value?.RawValue is not null && v.Value.RawValue.Contains("Frank Herbert", StringComparison.OrdinalIgnoreCase))
+            || (v.Value?.EntityId is not null && v.Value.EntityId == "Q44413"));
 
         Assert.NotNull(frankHerbert);
     }
@@ -141,18 +143,17 @@ public sealed class ReconciliationAdapterTests : IDisposable
 
         Assert.NotEmpty(extensions);
 
-        var herbert = extensions.FirstOrDefault(e =>
-            string.Equals(e.QID, "Q44413", StringComparison.OrdinalIgnoreCase));
+        Assert.True(extensions.TryGetValue("Q44413", out var herbertProps),
+            "Q44413 not present in extension result");
 
-        Assert.NotNull(herbert);
-        Assert.True(herbert.Properties.ContainsKey("P18"),
+        Assert.True(herbertProps.ContainsKey("P18"),
             "P18 (image) not present for Frank Herbert (Q44413)");
 
-        var imageValues = herbert.Properties["P18"];
+        var imageValues = herbertProps["P18"];
         Assert.NotEmpty(imageValues);
 
         // The raw value from the Data Extension API is a Wikimedia Commons filename string.
-        var filename = imageValues[0].Str;
+        var filename = imageValues[0].Value?.RawValue;
         Assert.False(string.IsNullOrWhiteSpace(filename),
             "Expected a non-empty Commons filename for P18");
 
@@ -170,20 +171,19 @@ public sealed class ReconciliationAdapterTests : IDisposable
 
         Assert.NotEmpty(extensions);
 
-        var corey = extensions.FirstOrDefault(e =>
-            string.Equals(e.QID, "Q6142591", StringComparison.OrdinalIgnoreCase));
+        Assert.True(extensions.TryGetValue("Q6142591", out var coreyProps),
+            "Q6142591 not present in extension result");
 
-        Assert.NotNull(corey);
-        Assert.True(corey.Properties.ContainsKey("P527"),
+        Assert.True(coreyProps.ContainsKey("P527"),
             "P527 (has_parts) not present for Q6142591");
 
-        var parts = corey.Properties["P527"];
+        var parts = coreyProps["P527"];
         Assert.True(parts.Count >= 2,
             $"Expected at least 2 parts (Daniel Abraham + Ty Franck) but got {parts.Count}");
 
         _output.WriteLine($"  Parts ({parts.Count}):");
         foreach (var p in parts)
-            _output.WriteLine($"    id={p.Id}  label={p.Label}");
+            _output.WriteLine($"    id={p.Value?.EntityId}  label={p.Value?.RawValue}");
     }
 
     // ── Data Extension: instance_of (media type filtering) ───────────────────
@@ -199,14 +199,13 @@ public sealed class ReconciliationAdapterTests : IDisposable
 
         Assert.NotEmpty(extensions);
 
-        var dune = extensions.FirstOrDefault(e =>
-            string.Equals(e.QID, "Q190159", StringComparison.OrdinalIgnoreCase));
+        Assert.True(extensions.TryGetValue("Q190159", out var duneProps),
+            "Q190159 not present in extension result");
 
-        Assert.NotNull(dune);
-        Assert.True(dune.Properties.ContainsKey("P31"),
+        Assert.True(duneProps.ContainsKey("P31"),
             "P31 (instance_of) not present for Q190159");
 
-        var classValues = dune.Properties["P31"];
+        var classValues = duneProps["P31"];
         Assert.NotEmpty(classValues);
 
         // Configured Books classes: Q7725634, Q571, Q8261, Q47461344, Q277759, Q1238720
@@ -215,8 +214,8 @@ public sealed class ReconciliationAdapterTests : IDisposable
             StringComparer.OrdinalIgnoreCase);
 
         var classQids = classValues
-            .Where(v => v.Id is not null)
-            .Select(v => v.Id!)
+            .Where(v => v.Value?.EntityId is not null)
+            .Select(v => v.Value!.EntityId!)
             .ToList();
 
         _output.WriteLine($"  instance_of QIDs: {string.Join(", ", classQids)}");
@@ -342,24 +341,30 @@ public sealed class ReconciliationAdapterTests : IDisposable
 
     // ── Log helpers ───────────────────────────────────────────────────────────
 
-    private void LogCandidates(string label, IReadOnlyList<ReconciliationCandidate> candidates)
+    private void LogCandidates(string label, IReadOnlyList<ReconciliationResult> candidates)
     {
         _output.WriteLine($"\n═══ {label} — {candidates.Count} candidate(s) ═══");
         foreach (var c in candidates)
-            _output.WriteLine($"  {c.QID}  \"{c.Label}\"  score={c.Score:F1}  match={c.Match}  desc={c.Description}");
+            _output.WriteLine($"  {c.Id}  \"{c.Name}\"  score={c.Score:F1}  match={c.Match}  desc={c.Description}");
         _output.WriteLine("");
     }
 
-    private void LogExtensions(string label, IReadOnlyList<ExtensionResult> extensions)
+    private void LogExtensions(string label, IReadOnlyDictionary<string, IReadOnlyDictionary<string, IReadOnlyList<WikidataClaim>>> extensions)
     {
         _output.WriteLine($"\n═══ {label} — {extensions.Count} entity result(s) ═══");
-        foreach (var ext in extensions)
+        foreach (var (qid, props) in extensions)
         {
-            _output.WriteLine($"  QID: {ext.QID}  properties: {ext.Properties.Count}");
-            foreach (var (pCode, values) in ext.Properties)
+            _output.WriteLine($"  QID: {qid}  properties: {props.Count}");
+            foreach (var (pCode, values) in props)
             {
                 foreach (var v in values)
-                    _output.WriteLine($"    [{pCode}]  str={v.Str}  id={v.Id}  label={v.Label}  date={v.Date}");
+                {
+                    var str       = v.Value?.Kind == WikidataValueKind.String ? v.Value.RawValue : null;
+                    var id        = v.Value?.EntityId;
+                    var monoLabel = v.Value?.Kind == WikidataValueKind.MonolingualText ? v.Value.RawValue : null;
+                    var date      = v.Value?.Kind == WikidataValueKind.Time ? v.Value.RawValue : null;
+                    _output.WriteLine($"    [{pCode}]  str={str}  id={id}  label={monoLabel}  date={date}");
+                }
             }
         }
         _output.WriteLine("");

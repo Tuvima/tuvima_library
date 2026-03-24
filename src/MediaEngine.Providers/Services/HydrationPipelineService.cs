@@ -13,6 +13,7 @@ using MediaEngine.Providers.Models;
 using MediaEngine.Domain.Aggregates;
 using MediaEngine.Storage.Contracts;
 using MediaEngine.Storage.Models;
+using Tuvima.WikidataReconciliation;
 
 namespace MediaEngine.Providers.Services;
 
@@ -68,7 +69,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     private readonly ICanonicalValueArrayRepository _arrayRepo;
     private readonly IHeroBannerGenerator _heroGenerator;
     private readonly IDeferredEnrichmentRepository _deferredRepo;
-    private readonly IWikibaseApiService _wikibaseApi;
+    private readonly WikidataReconciler? _reconciler;
     private readonly IFictionalEntityRepository _fictionalEntityRepo;
     private readonly IIngestionBatchRepository _batchRepo;
     private readonly IMetadataHarvestingService _harvesting;
@@ -99,12 +100,12 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         ICanonicalValueArrayRepository arrayRepo,
         IHeroBannerGenerator heroGenerator,
         IDeferredEnrichmentRepository deferredRepo,
-        IWikibaseApiService wikibaseApi,
         IFictionalEntityRepository fictionalEntityRepo,
         IIngestionBatchRepository batchRepo,
         IMetadataHarvestingService harvesting,
         ISearchIndexRepository searchIndex,
-        ILogger<HydrationPipelineService> logger)
+        ILogger<HydrationPipelineService> logger,
+        WikidataReconciler? reconciler = null)
     {
         ArgumentNullException.ThrowIfNull(providers);
         ArgumentNullException.ThrowIfNull(claimRepo);
@@ -127,7 +128,6 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         ArgumentNullException.ThrowIfNull(arrayRepo);
         ArgumentNullException.ThrowIfNull(heroGenerator);
         ArgumentNullException.ThrowIfNull(deferredRepo);
-        ArgumentNullException.ThrowIfNull(wikibaseApi);
         ArgumentNullException.ThrowIfNull(batchRepo);
         ArgumentNullException.ThrowIfNull(harvesting);
         ArgumentNullException.ThrowIfNull(searchIndex);
@@ -158,7 +158,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         _harvesting          = harvesting;
         _searchIndex         = searchIndex;
         _deferredRepo        = deferredRepo;
-        _wikibaseApi         = wikibaseApi;
+        _reconciler          = reconciler;
         _fictionalEntityRepo = fictionalEntityRepo;
         _logger              = logger;
 
@@ -2353,7 +2353,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     }
 
     /// <summary>
-    /// Uses the Wikibase API to fetch P161 (cast_member) statements with P453 (character)
+    /// Uses the WikidataReconciler to fetch P161 (cast_member) claims with P453 (character)
     /// qualifiers for a work. For each (actor, character) pair found:
     /// 1. Creates or finds a Person record for the actor.
     /// 2. Finds the FictionalEntity for the character.
@@ -2364,11 +2364,20 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         Guid mediaAssetId,
         CancellationToken ct)
     {
-        IReadOnlyList<QualifiedStatement> castStatements;
+        if (_reconciler is null)
+            return;
+
+        IReadOnlyList<WikidataClaim> castClaims;
         try
         {
-            castStatements = await _wikibaseApi.GetClaimsAsync(workQid, "P161", ct)
-                .ConfigureAwait(false);
+            var propsResult = await _reconciler.GetPropertiesAsync(
+                [workQid], ["P161"], "en", ct).ConfigureAwait(false);
+
+            if (!propsResult.TryGetValue(workQid, out var entityProps) ||
+                !entityProps.TryGetValue("P161", out var claims))
+                return;
+
+            castClaims = claims;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -2377,27 +2386,27 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             return;
         }
 
-        if (castStatements.Count == 0)
+        if (castClaims.Count == 0)
             return;
 
         var linkedCount = 0;
 
-        foreach (var statement in castStatements)
+        foreach (var claim in castClaims)
         {
             ct.ThrowIfCancellationRequested();
 
-            var actorQid = statement.ValueQid;
+            var actorQid = claim.Value?.EntityId;
             if (string.IsNullOrWhiteSpace(actorQid))
                 continue;
 
             // Look for P453 (character played in this work) qualifier.
-            if (!statement.Qualifiers.TryGetValue("P453", out var characterQualifiers) ||
+            if (!claim.Qualifiers.TryGetValue("P453", out var characterQualifiers) ||
                 characterQualifiers.Count == 0)
                 continue;
 
             foreach (var charQual in characterQualifiers)
             {
-                var characterQid = charQual.EntityQid;
+                var characterQid = charQual.EntityId;
                 if (string.IsNullOrWhiteSpace(characterQid))
                     continue;
 
@@ -2405,7 +2414,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 {
                     // 1. Find or create Person record for the actor.
                     //    Use RecursiveIdentityService to create person and enrich synchronously.
-                    var actorLabel = statement.ValueLabel ?? actorQid;
+                    var actorLabel = claim.Value?.RawValue ?? actorQid;
                     var personRefs = new List<PersonReference>
                     {
                         new("Cast Member", actorLabel, actorQid)

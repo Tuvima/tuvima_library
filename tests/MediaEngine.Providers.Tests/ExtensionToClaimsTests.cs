@@ -1,6 +1,7 @@
 using System.Reflection;
 using MediaEngine.Providers.Adapters;
 using MediaEngine.Providers.Models;
+using Tuvima.WikidataReconciliation;
 
 namespace MediaEngine.Providers.Tests;
 
@@ -10,8 +11,7 @@ namespace MediaEngine.Providers.Tests;
 ///
 /// Key fix verified here: companion <c>_qid</c> claims must carry a human-readable
 /// label (e.g. "Q44413::Frank Herbert"), not a bare QID repeated as both halves
-/// (e.g. "Q44413::Q44413").  This regression was introduced when the label fallback
-/// was erroneously set to <c>val.Id</c> rather than <c>val.Str ?? val.Id</c>.
+/// (e.g. "Q44413::Q44413").
 /// </summary>
 public sealed class ExtensionToClaimsTests
 {
@@ -21,14 +21,46 @@ public sealed class ExtensionToClaimsTests
                "ExtensionToClaims method not found on ReconciliationAdapter");
 
     /// <summary>
+    /// Helper: creates a WikidataClaim with an entity value (EntityId kind).
+    /// </summary>
+    private static WikidataClaim EntityClaim(string propertyId, string entityId, string? label = null) =>
+        new()
+        {
+            PropertyId = propertyId,
+            Rank = "normal",
+            Value = new WikidataValue
+            {
+                Kind = WikidataValueKind.EntityId,
+                RawValue = label ?? entityId,
+                EntityId = entityId,
+            }
+        };
+
+    /// <summary>
+    /// Helper: creates a WikidataClaim with a string value.
+    /// </summary>
+    private static WikidataClaim StringClaim(string propertyId, string value) =>
+        new()
+        {
+            PropertyId = propertyId,
+            Rank = "normal",
+            Value = new WikidataValue
+            {
+                Kind = WikidataValueKind.String,
+                RawValue = value,
+            }
+        };
+
+    /// <summary>
     /// Invokes <c>ExtensionToClaims</c> via reflection and materialises the result.
     /// </summary>
     private static List<ProviderClaim> ConvertToClaims(
-        ExtensionResult ext,
+        string entityQid,
+        IReadOnlyDictionary<string, IReadOnlyList<WikidataClaim>> properties,
         Dictionary<string, string> propertyLabels,
         bool isWork = true)
     {
-        var result = ExtensionToClaimsMethod.Invoke(null, [ext, propertyLabels, isWork]);
+        var result = ExtensionToClaimsMethod.Invoke(null, [entityQid, properties, propertyLabels, isWork]);
         return ((IEnumerable<ProviderClaim>)result!).ToList();
     }
 
@@ -37,15 +69,15 @@ public sealed class ExtensionToClaimsTests
     [Fact]
     public void CompanionQidClaims_UseHumanReadableLabel()
     {
-        // Arrange: entity value with both Id and Label set.
-        var ext = new ExtensionResult("Q190159", new Dictionary<string, List<ExtensionValue>>
+        // Arrange: entity value with both EntityId and label (RawValue).
+        var properties = new Dictionary<string, IReadOnlyList<WikidataClaim>>
         {
-            ["P50"] = [new ExtensionValue(null, "Q44413", "Frank Herbert", null, null)],
-        });
+            ["P50"] = [EntityClaim("P50", "Q44413", "Frank Herbert")],
+        };
         var labels = new Dictionary<string, string> { ["P50"] = "author" };
 
         // Act
-        var claims = ConvertToClaims(ext, labels);
+        var claims = ConvertToClaims("Q190159", properties, labels);
 
         // Assert: the author label claim carries the human-readable name.
         var authorClaim = claims.FirstOrDefault(c => c.Key == "author");
@@ -62,13 +94,13 @@ public sealed class ExtensionToClaimsTests
     public void CompanionQidClaim_DoesNotRepeatQidAsLabel()
     {
         // Regression guard: before the fix, fallback was val.Id, producing "Q44413::Q44413".
-        var ext = new ExtensionResult("Q190159", new Dictionary<string, List<ExtensionValue>>
+        var properties = new Dictionary<string, IReadOnlyList<WikidataClaim>>
         {
-            ["P50"] = [new ExtensionValue(null, "Q44413", "Frank Herbert", null, null)],
-        });
+            ["P50"] = [EntityClaim("P50", "Q44413", "Frank Herbert")],
+        };
         var labels = new Dictionary<string, string> { ["P50"] = "author" };
 
-        var claims = ConvertToClaims(ext, labels);
+        var claims = ConvertToClaims("Q190159", properties, labels);
 
         var qidClaim = claims.First(c => c.Key == "author_qid");
         Assert.NotEqual("Q44413::Q44413", qidClaim.Value);
@@ -79,14 +111,14 @@ public sealed class ExtensionToClaimsTests
     [Fact]
     public void CompanionQidClaim_FallsBackToQidWhenLabelIsNull()
     {
-        // When Label is null and Str is also null, the QID itself is used as the label.
-        var ext = new ExtensionResult("Q190159", new Dictionary<string, List<ExtensionValue>>
+        // When label (RawValue) matches the EntityId, the QID itself is used as the label.
+        var properties = new Dictionary<string, IReadOnlyList<WikidataClaim>>
         {
-            ["P50"] = [new ExtensionValue(null, "Q44413", null, null, null)],
-        });
+            ["P50"] = [EntityClaim("P50", "Q44413")],
+        };
         var labels = new Dictionary<string, string> { ["P50"] = "author" };
 
-        var claims = ConvertToClaims(ext, labels);
+        var claims = ConvertToClaims("Q190159", properties, labels);
 
         var qidClaim = claims.FirstOrDefault(c => c.Key == "author_qid");
         Assert.NotNull(qidClaim);
@@ -99,17 +131,17 @@ public sealed class ExtensionToClaimsTests
     [Fact]
     public void MultiValuedEntityProperty_EmitsOneClaimPerValue()
     {
-        var ext = new ExtensionResult("Q1234", new Dictionary<string, List<ExtensionValue>>
+        var properties = new Dictionary<string, IReadOnlyList<WikidataClaim>>
         {
             ["P50"] =
             [
-                new ExtensionValue(null, "Q46248",  "Terry Pratchett", null, null),
-                new ExtensionValue(null, "Q210112", "Neil Gaiman",     null, null),
+                EntityClaim("P50", "Q46248", "Terry Pratchett"),
+                EntityClaim("P50", "Q210112", "Neil Gaiman"),
             ],
-        });
+        };
         var labels = new Dictionary<string, string> { ["P50"] = "author" };
 
-        var claims = ConvertToClaims(ext, labels);
+        var claims = ConvertToClaims("Q1234", properties, labels);
 
         var authorClaims = claims.Where(c => c.Key == "author").ToList();
         Assert.Equal(2, authorClaims.Count);
@@ -120,17 +152,17 @@ public sealed class ExtensionToClaimsTests
     [Fact]
     public void MultiValuedEntityProperty_EmitsCompanionQidPerValue()
     {
-        var ext = new ExtensionResult("Q1234", new Dictionary<string, List<ExtensionValue>>
+        var properties = new Dictionary<string, IReadOnlyList<WikidataClaim>>
         {
             ["P50"] =
             [
-                new ExtensionValue(null, "Q46248",  "Terry Pratchett", null, null),
-                new ExtensionValue(null, "Q210112", "Neil Gaiman",     null, null),
+                EntityClaim("P50", "Q46248", "Terry Pratchett"),
+                EntityClaim("P50", "Q210112", "Neil Gaiman"),
             ],
-        });
+        };
         var labels = new Dictionary<string, string> { ["P50"] = "author" };
 
-        var claims = ConvertToClaims(ext, labels);
+        var claims = ConvertToClaims("Q1234", properties, labels);
 
         var qidClaims = claims.Where(c => c.Key == "author_qid").ToList();
         Assert.Equal(2, qidClaims.Count);
@@ -143,14 +175,14 @@ public sealed class ExtensionToClaimsTests
     [Fact]
     public void P18Image_SuppressedForWorkEntities()
     {
-        var ext = new ExtensionResult("Q190159", new Dictionary<string, List<ExtensionValue>>
+        var properties = new Dictionary<string, IReadOnlyList<WikidataClaim>>
         {
-            ["P18"] = [new ExtensionValue("Frank_Herbert.jpg", null, null, null, null)],
-        });
+            ["P18"] = [StringClaim("P18", "Frank_Herbert.jpg")],
+        };
         // Map P18 → headshot_url (as in the real provider config).
         var labels = new Dictionary<string, string> { ["P18"] = "headshot_url" };
 
-        var claims = ConvertToClaims(ext, labels, isWork: true);
+        var claims = ConvertToClaims("Q190159", properties, labels, isWork: true);
 
         // P18 is not emitted for Work entities.
         Assert.DoesNotContain(claims, c => c.Key == "headshot_url");
@@ -159,13 +191,13 @@ public sealed class ExtensionToClaimsTests
     [Fact]
     public void P18Image_EmittedForPersonEntities()
     {
-        var ext = new ExtensionResult("Q44413", new Dictionary<string, List<ExtensionValue>>
+        var properties = new Dictionary<string, IReadOnlyList<WikidataClaim>>
         {
-            ["P18"] = [new ExtensionValue("Frank_Herbert.jpg", null, null, null, null)],
-        });
+            ["P18"] = [StringClaim("P18", "Frank_Herbert.jpg")],
+        };
         var labels = new Dictionary<string, string> { ["P18"] = "headshot_url" };
 
-        var claims = ConvertToClaims(ext, labels, isWork: false);
+        var claims = ConvertToClaims("Q44413", properties, labels, isWork: false);
 
         // P18 is converted to a Wikimedia Commons URL for Person entities.
         var headshotClaim = claims.FirstOrDefault(c => c.Key == "headshot_url");
@@ -180,13 +212,13 @@ public sealed class ExtensionToClaimsTests
     public void UnknownPropertyCode_SkippedSilently()
     {
         // P999 is not in the labels dictionary.
-        var ext = new ExtensionResult("Q190159", new Dictionary<string, List<ExtensionValue>>
+        var properties = new Dictionary<string, IReadOnlyList<WikidataClaim>>
         {
-            ["P999"] = [new ExtensionValue("some value", null, null, null, null)],
-        });
+            ["P999"] = [StringClaim("P999", "some value")],
+        };
         var labels = new Dictionary<string, string>(); // empty — P999 unknown
 
-        var claims = ConvertToClaims(ext, labels);
+        var claims = ConvertToClaims("Q190159", properties, labels);
 
         Assert.Empty(claims);
     }

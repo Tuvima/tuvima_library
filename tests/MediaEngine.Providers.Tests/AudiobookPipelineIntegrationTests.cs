@@ -7,6 +7,7 @@ using MediaEngine.Domain.Services;
 using MediaEngine.Providers.Adapters;
 using MediaEngine.Providers.Models;
 using MediaEngine.Storage.Models;
+using Tuvima.WikidataReconciliation;
 using Xunit.Abstractions;
 
 namespace MediaEngine.Providers.Tests;
@@ -64,7 +65,7 @@ public sealed class AudiobookPipelineIntegrationTests : IDisposable
 
         // Q106852836 is the Wikidata QID for Project Hail Mary (the novel, 2021 Andy Weir).
         var match = results.FirstOrDefault(r =>
-            string.Equals(r.QID, "Q106852836", StringComparison.OrdinalIgnoreCase));
+            string.Equals(r.Id, "Q106852836", StringComparison.OrdinalIgnoreCase));
 
         Assert.NotNull(match);
         Assert.True(match.Score >= 70,
@@ -90,14 +91,14 @@ public sealed class AudiobookPipelineIntegrationTests : IDisposable
 
         // The clean title must resolve the canonical QID (Q106852836 = Project Hail Mary novel).
         var cleanMatch = cleanResults.FirstOrDefault(r =>
-            string.Equals(r.QID, "Q106852836", StringComparison.OrdinalIgnoreCase));
+            string.Equals(r.Id, "Q106852836", StringComparison.OrdinalIgnoreCase));
 
         Assert.NotNull(cleanMatch);
         _output.WriteLine($"  Clean title score for Q106852836: {cleanMatch.Score:F1}");
 
         // When the raw title also returns Q106852836, the clean title's score must be >= the raw score.
         var rawMatch = rawResults.FirstOrDefault(r =>
-            string.Equals(r.QID, "Q106852836", StringComparison.OrdinalIgnoreCase));
+            string.Equals(r.Id, "Q106852836", StringComparison.OrdinalIgnoreCase));
 
         if (rawMatch is not null)
         {
@@ -124,29 +125,29 @@ public sealed class AudiobookPipelineIntegrationTests : IDisposable
 
         Assert.NotEmpty(extensions);
 
-        var work = extensions.FirstOrDefault(e =>
-            string.Equals(e.QID, "Q106852836", StringComparison.OrdinalIgnoreCase));
-
-        Assert.NotNull(work);
+        Assert.True(extensions.TryGetValue("Q106852836", out var workProps),
+            "Q106852836 not present in extension result");
 
         // Author (P50) must be present and contain "Andy Weir".
-        Assert.True(work.Properties.ContainsKey("P50"),
+        Assert.True(workProps.ContainsKey("P50"),
             "P50 (author) not present for Q106852836");
-        var authorValues = work.Properties["P50"];
+        var authorValues = workProps["P50"];
         Assert.NotEmpty(authorValues);
         var andyWeir = authorValues.FirstOrDefault(v =>
-            (v.Label is not null && v.Label.Contains("Andy Weir", StringComparison.OrdinalIgnoreCase))
-            || v.Id is not null);
+            (v.Value?.RawValue is not null && v.Value.RawValue.Contains("Andy Weir", StringComparison.OrdinalIgnoreCase))
+            || v.Value?.EntityId is not null);
         Assert.NotNull(andyWeir);
-        _output.WriteLine($"  Author: id={andyWeir.Id}  label={andyWeir.Label}");
+        _output.WriteLine($"  Author: id={andyWeir.Value?.EntityId}  label={andyWeir.Value?.RawValue}");
 
         // Publication date (P577) must be present and contain "2021".
-        Assert.True(work.Properties.ContainsKey("P577"),
+        Assert.True(workProps.ContainsKey("P577"),
             "P577 (publication_date) not present for Q106852836");
-        var dateValues = work.Properties["P577"];
+        var dateValues = workProps["P577"];
         Assert.NotEmpty(dateValues);
         var dateValue = dateValues[0];
-        var yearStr   = dateValue.Date ?? dateValue.Str ?? string.Empty;
+        var yearStr   = dateValue.Value?.Kind == WikidataValueKind.Time
+            ? dateValue.Value.RawValue
+            : dateValue.Value?.RawValue ?? string.Empty;
         Assert.Contains("2021", yearStr, StringComparison.Ordinal);
         _output.WriteLine($"  Publication date: {yearStr}");
     }
@@ -262,36 +263,34 @@ public sealed class AudiobookPipelineIntegrationTests : IDisposable
                  c.Description.Contains("Gaiman", StringComparison.OrdinalIgnoreCase)))
             ?? candidates.OrderByDescending(c => c.Score).First();
 
-        _output.WriteLine($"  Using QID {topCandidate.QID}: \"{topCandidate.Label}\"  ({topCandidate.Description})");
+        _output.WriteLine($"  Using QID {topCandidate.Id}: \"{topCandidate.Name}\"  ({topCandidate.Description})");
 
         // Extend the resolved QID for P50.
         await Task.Delay(300);
-        var extensions = await _adapter.ExtendAsync([topCandidate.QID], ["P50"]);
-        LogExtensions($"Extend {topCandidate.QID} P50 (Good Omens authors)", extensions);
+        var extensions = await _adapter.ExtendAsync([topCandidate.Id], ["P50"]);
+        LogExtensions($"Extend {topCandidate.Id} P50 (Good Omens authors)", extensions);
 
         Assert.NotEmpty(extensions);
 
-        var goodOmens = extensions.FirstOrDefault(e =>
-            string.Equals(e.QID, topCandidate.QID, StringComparison.OrdinalIgnoreCase));
-
-        Assert.NotNull(goodOmens);
+        Assert.True(extensions.TryGetValue(topCandidate.Id, out var goodOmensProps),
+            $"QID {topCandidate.Id} not present in extension result");
 
         // P50 should return at least 2 authors (Terry Pratchett + Neil Gaiman).
         // If Data Extension returns 0 properties for this QID, that is a Wikidata coverage
         // gap — skip the multi-author assertion but still verify the call succeeded.
-        if (!goodOmens.Properties.ContainsKey("P50"))
+        if (!goodOmensProps.ContainsKey("P50"))
         {
-            _output.WriteLine($"  SKIP: P50 not in Data Extension response for {topCandidate.QID} — Wikidata coverage gap.");
+            _output.WriteLine($"  SKIP: P50 not in Data Extension response for {topCandidate.Id} — Wikidata coverage gap.");
             return;
         }
 
-        var authors = goodOmens.Properties["P50"];
+        var authors = goodOmensProps["P50"];
         Assert.True(authors.Count >= 2,
-            $"Expected at least 2 authors (Terry Pratchett + Neil Gaiman) for {topCandidate.QID} but got {authors.Count}");
+            $"Expected at least 2 authors (Terry Pratchett + Neil Gaiman) for {topCandidate.Id} but got {authors.Count}");
 
         _output.WriteLine($"  Authors ({authors.Count}):");
         foreach (var a in authors)
-            _output.WriteLine($"    id={a.Id}  label={a.Label}");
+            _output.WriteLine($"    id={a.Value?.EntityId}  label={a.Value?.RawValue}");
     }
 
     // ── 8. Pen name detection: The Expanse / James S.A. Corey ────────────────
@@ -310,7 +309,7 @@ public sealed class AudiobookPipelineIntegrationTests : IDisposable
 
         // Q6535598 = Leviathan Wakes (the novel by James S. A. Corey pen name).
         var match = results.FirstOrDefault(r =>
-            string.Equals(r.QID, "Q6535598", StringComparison.OrdinalIgnoreCase));
+            string.Equals(r.Id, "Q6535598", StringComparison.OrdinalIgnoreCase));
 
         Assert.NotNull(match);
         _output.WriteLine($"  Q6535598 score: {match.Score:F1}");
@@ -322,17 +321,16 @@ public sealed class AudiobookPipelineIntegrationTests : IDisposable
         LogExtensions("Extend Q6535598 P50 (Leviathan Wakes author)", extensions);
 
         Assert.NotEmpty(extensions);
-        var work = extensions.FirstOrDefault(e =>
-            string.Equals(e.QID, "Q6535598", StringComparison.OrdinalIgnoreCase));
+        Assert.True(extensions.TryGetValue("Q6535598", out var workProps),
+            "Q6535598 not present in extension result");
 
-        Assert.NotNull(work);
-        Assert.True(work.Properties.ContainsKey("P50"), "P50 (author) not present for Q6535598");
+        Assert.True(workProps.ContainsKey("P50"), "P50 (author) not present for Q6535598");
 
-        var authorValues = work.Properties["P50"];
+        var authorValues = workProps["P50"];
         Assert.NotEmpty(authorValues);
         _output.WriteLine($"  P50 values ({authorValues.Count}):");
         foreach (var a in authorValues)
-            _output.WriteLine($"    id={a.Id}  label={a.Label}");
+            _output.WriteLine($"    id={a.Value?.EntityId}  label={a.Value?.RawValue}");
     }
 
     // ── 9. FilterByMediaType: Dune novel passes Books and Audiobooks filters ──
@@ -344,9 +342,16 @@ public sealed class AudiobookPipelineIntegrationTests : IDisposable
         // Q190192 = Dune (novel). P31 = Q8261 (novel).
         // Both Books and Audiobooks instance_of class lists in the config include Q8261.
         // So a novel should pass the filter for both media types.
-        var candidates = new List<ReconciliationCandidate>
+        var candidates = new List<ReconciliationResult>
         {
-            new("Q190192", "Dune", "1965 science fiction novel by Frank Herbert", 100.0, false),
+            new ReconciliationResult
+            {
+                Id          = "Q190192",
+                Name        = "Dune",
+                Description = "1965 science fiction novel by Frank Herbert",
+                Score       = 100.0,
+                Match       = false,
+            },
         };
 
         var booksFiltered = await _adapter.FilterByMediaTypeAsync(candidates, MediaType.Books);
@@ -361,9 +366,9 @@ public sealed class AudiobookPipelineIntegrationTests : IDisposable
         Assert.NotEmpty(audiobookFiltered);
 
         Assert.Contains(booksFiltered, r =>
-            string.Equals(r.QID, "Q190192", StringComparison.OrdinalIgnoreCase));
+            string.Equals(r.Id, "Q190192", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(audiobookFiltered, r =>
-            string.Equals(r.QID, "Q190192", StringComparison.OrdinalIgnoreCase));
+            string.Equals(r.Id, "Q190192", StringComparison.OrdinalIgnoreCase));
     }
 
     // ── 10. Non-English title — Data Extension returns English labels ─────────
@@ -380,24 +385,22 @@ public sealed class AudiobookPipelineIntegrationTests : IDisposable
 
         Assert.NotEmpty(extensions);
 
-        var dune = extensions.FirstOrDefault(e =>
-            string.Equals(e.QID, "Q190192", StringComparison.OrdinalIgnoreCase));
-
-        Assert.NotNull(dune);
+        Assert.True(extensions.TryGetValue("Q190192", out var duneProps),
+            "Q190192 not present in extension result");
 
         // P1476 = title. The English title should contain "Dune".
-        if (dune.Properties.TryGetValue("P1476", out var titleValues) && titleValues.Count > 0)
+        if (duneProps.TryGetValue("P1476", out var titleValues) && titleValues.Count > 0)
         {
-            var titleStr = titleValues[0].Str ?? titleValues[0].Label ?? string.Empty;
+            var titleStr = titleValues[0].Value?.RawValue ?? string.Empty;
             _output.WriteLine($"  P1476 (title): \"{titleStr}\"");
             Assert.Contains("Dune", titleStr, StringComparison.OrdinalIgnoreCase);
         }
 
         // Len (English label via Data Extension meta-property) — may or may not be present
         // depending on the reconciliation endpoint version. Log for diagnostic purposes.
-        if (dune.Properties.TryGetValue("Len", out var lenValues) && lenValues.Count > 0)
+        if (duneProps.TryGetValue("Len", out var lenValues) && lenValues.Count > 0)
         {
-            var label = lenValues[0].Str ?? lenValues[0].Label ?? string.Empty;
+            var label = lenValues[0].Value?.RawValue ?? string.Empty;
             _output.WriteLine($"  Len (English label): \"{label}\"");
             Assert.Contains("Dune", label, StringComparison.OrdinalIgnoreCase);
         }
@@ -427,9 +430,9 @@ public sealed class AudiobookPipelineIntegrationTests : IDisposable
 
         // Both should resolve Q190192 (the canonical Wikidata item for the Dune novel).
         var booksMatch     = booksResults.FirstOrDefault(r =>
-            string.Equals(r.QID, "Q190192", StringComparison.OrdinalIgnoreCase));
+            string.Equals(r.Id, "Q190192", StringComparison.OrdinalIgnoreCase));
         var audiobooksMatch = audiobooksResults.FirstOrDefault(r =>
-            string.Equals(r.QID, "Q190192", StringComparison.OrdinalIgnoreCase));
+            string.Equals(r.Id, "Q190192", StringComparison.OrdinalIgnoreCase));
 
         Assert.NotNull(booksMatch);
         Assert.NotNull(audiobooksMatch);
@@ -507,7 +510,7 @@ public sealed class AudiobookPipelineIntegrationTests : IDisposable
 
         // Q3107329 is the 1979 novel by Douglas Adams. Score threshold is lenient (50).
         var hitchhikers = results.FirstOrDefault(r =>
-            string.Equals(r.QID, "Q3107329", StringComparison.OrdinalIgnoreCase));
+            string.Equals(r.Id, "Q3107329", StringComparison.OrdinalIgnoreCase));
 
         Assert.NotNull(hitchhikers);
         Assert.True(hitchhikers.Score >= 50,
@@ -625,23 +628,31 @@ public sealed class AudiobookPipelineIntegrationTests : IDisposable
 
     // ── Log helpers ───────────────────────────────────────────────────────────
 
-    private void LogCandidates(string label, IReadOnlyList<ReconciliationCandidate> candidates)
+    private void LogCandidates(string label, IReadOnlyList<ReconciliationResult> candidates)
     {
         _output.WriteLine($"\n═══ {label} — {candidates.Count} candidate(s) ═══");
         foreach (var c in candidates)
-            _output.WriteLine($"  {c.QID}  \"{c.Label}\"  score={c.Score:F1}  match={c.Match}  desc={c.Description}");
+            _output.WriteLine($"  {c.Id}  \"{c.Name}\"  score={c.Score:F1}  match={c.Match}  desc={c.Description}");
         _output.WriteLine("");
     }
 
-    private void LogExtensions(string label, IReadOnlyList<ExtensionResult> extensions)
+    private void LogExtensions(string label, IReadOnlyDictionary<string, IReadOnlyDictionary<string, IReadOnlyList<WikidataClaim>>> extensions)
     {
         _output.WriteLine($"\n═══ {label} — {extensions.Count} entity result(s) ═══");
-        foreach (var ext in extensions)
+        foreach (var (qid, props) in extensions)
         {
-            _output.WriteLine($"  QID: {ext.QID}  properties: {ext.Properties.Count}");
-            foreach (var (pCode, values) in ext.Properties)
+            _output.WriteLine($"  QID: {qid}  properties: {props.Count}");
+            foreach (var (pCode, values) in props)
+            {
                 foreach (var v in values)
-                    _output.WriteLine($"    [{pCode}]  str={v.Str}  id={v.Id}  label={v.Label}  date={v.Date}");
+                {
+                    var str       = v.Value?.Kind == WikidataValueKind.String ? v.Value.RawValue : null;
+                    var id        = v.Value?.EntityId;
+                    var monoLabel = v.Value?.Kind == WikidataValueKind.MonolingualText ? v.Value.RawValue : null;
+                    var date      = v.Value?.Kind == WikidataValueKind.Time ? v.Value.RawValue : null;
+                    _output.WriteLine($"    [{pCode}]  str={str}  id={id}  label={monoLabel}  date={date}");
+                }
+            }
         }
         _output.WriteLine("");
     }
