@@ -3,7 +3,7 @@
   "provider_id": "b3000003-d000-4000-8000-000000000004",
   "adapter_type": "reconciliation",
   "enabled": true,
-  "hydration_stages": [1],
+  "hydration_stages": [2],
   "endpoints": {
     "wikibase_api": "https://www.wikidata.org/w/api.php",
     "commons_file_path": "https://commons.wikimedia.org/wiki/Special:FilePath/"

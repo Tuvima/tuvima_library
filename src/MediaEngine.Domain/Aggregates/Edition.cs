@@ -31,6 +31,13 @@ public sealed class Edition
     /// </summary>
     public string? FormatLabel { get; set; }
 
+    /// <summary>
+    /// Wikidata QID for this specific edition (e.g. Q113799157 for "Blade Runner: The Final Cut").
+    /// Populated during Stage 2 (Wikidata Bridge Resolution) when the bridge ID resolves
+    /// to an edition entity (P629 present).
+    /// </summary>
+    public string? WikidataQid { get; set; }
+
     // -------------------------------------------------------------------------
     // Children
     // -------------------------------------------------------------------------

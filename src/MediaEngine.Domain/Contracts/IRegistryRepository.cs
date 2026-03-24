@@ -35,11 +35,11 @@ public interface IRegistryRepository
 }
 
 /// <summary>
-/// Four-state counts for the Registry: Registered, InReview, Provisional, Rejected.
+/// Four-state counts for the Registry: Identified, InReview, Provisional, Rejected.
 /// Includes per-trigger breakdown within InReview (e.g. "LowConfidence" → 25).
 /// </summary>
 public sealed record RegistryFourStateCounts(
-    [property: JsonPropertyName("registered")]     int Registered,
+    [property: JsonPropertyName("identified")]     int Identified,
     [property: JsonPropertyName("in_review")]      int InReview,
     [property: JsonPropertyName("provisional")]    int Provisional,
     [property: JsonPropertyName("rejected")]       int Rejected,

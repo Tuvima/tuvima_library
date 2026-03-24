@@ -1121,6 +1121,281 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         }
     }
 
+    /// <summary>
+    /// Resolves retail bridge IDs to Wikidata edition and/or work QIDs.
+    ///
+    /// <para>
+    /// Tries each bridge ID in priority order using a <c>haswbstatement</c> constraint
+    /// in the Reconciliation API. When a match is found, checks P629
+    /// (edition_or_translation_of) to determine if it's an edition, and resolves the
+    /// parent work QID.
+    /// </para>
+    ///
+    /// <para>
+    /// Collects all platform IDs from the entity via Data Extension for storage in the
+    /// bridge_ids table. This ensures that retail-sourced bridge IDs are cross-linked
+    /// back to any additional Wikidata-known identifiers for the same entity.
+    /// </para>
+    /// </summary>
+    /// <param name="bridgeIds">
+    /// Bridge IDs to try, keyed by type (e.g. <c>"isbn" → "978-..."</c>).
+    /// Tried in insertion order; resolution stops at the first match.
+    /// </param>
+    /// <param name="wikidataProperties">
+    /// Mapping from bridge ID type to Wikidata property code
+    /// (e.g. <c>"isbn" → "P212"</c>).
+    /// </param>
+    /// <param name="mediaType">Media type used for P31 (instance_of) filtering.</param>
+    /// <param name="isEditionAware">
+    /// When <c>true</c>, P629 (edition_or_translation_of) is checked to separate
+    /// edition QIDs from work QIDs.
+    /// </param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>
+    /// A <see cref="BridgeResolutionResult"/> with the resolved QIDs, extracted claims,
+    /// and all collected bridge IDs; or <see cref="BridgeResolutionResult.NotFound"/>
+    /// when no match is found.
+    /// </returns>
+    public async Task<BridgeResolutionResult> ResolveBridgeAsync(
+        IReadOnlyDictionary<string, string> bridgeIds,
+        IReadOnlyDictionary<string, string> wikidataProperties,
+        MediaType mediaType,
+        bool isEditionAware,
+        CancellationToken ct)
+    {
+        if (_reconciler is null)
+            return BridgeResolutionResult.NotFound;
+
+        if (bridgeIds.Count == 0)
+            return BridgeResolutionResult.NotFound;
+
+        var language = _configLoader?.LoadCore().Language ?? "en";
+
+        // ── Step 1: Try each bridge ID in insertion order ──────────────────────
+        string? resolvedQid = null;
+
+        foreach (var (idType, idValue) in bridgeIds)
+        {
+            if (string.IsNullOrWhiteSpace(idValue))
+                continue;
+
+            if (!wikidataProperties.TryGetValue(idType, out var pCode)
+                || string.IsNullOrWhiteSpace(pCode))
+            {
+                _logger.LogDebug(
+                    "{Provider}: ResolveBridgeAsync — no Wikidata property mapping for bridge type '{IdType}', skipping",
+                    Name, idType);
+                continue;
+            }
+
+            try
+            {
+                // Use haswbstatement constraint to resolve the bridge ID directly to a QID.
+                var constraints = new Dictionary<string, string>(StringComparer.Ordinal)
+                {
+                    [pCode] = idValue
+                };
+
+                var candidates = await ReconcileAsync(idValue, constraints, ct).ConfigureAwait(false);
+
+                if (candidates.Count == 0)
+                {
+                    _logger.LogDebug(
+                        "{Provider}: ResolveBridgeAsync — no candidates for {IdType}={IdValue}",
+                        Name, idType, idValue);
+                    continue;
+                }
+
+                // Filter by media type when applicable.
+                IReadOnlyList<ReconciliationResult> filtered = candidates;
+                if (mediaType != MediaType.Unknown)
+                {
+                    filtered = await FilterByMediaTypeAsync(candidates, mediaType, ct)
+                        .ConfigureAwait(false);
+
+                    if (filtered.Count == 0)
+                    {
+                        _logger.LogDebug(
+                            "{Provider}: ResolveBridgeAsync — all candidates for {IdType}={IdValue} " +
+                            "were filtered out by media type {MediaType}",
+                            Name, idType, idValue, mediaType);
+                        // Fall back to unfiltered candidates — bridge IDs are strong signals.
+                        filtered = candidates;
+                    }
+                }
+
+                // Accept the top candidate if it meets the threshold.
+                var top = filtered[0];
+                if (top.Match || top.Score >= 80)
+                {
+                    resolvedQid = top.Id;
+                    _logger.LogInformation(
+                        "{Provider}: ResolveBridgeAsync — resolved {IdType}={IdValue} to QID {QID} " +
+                        "(score {Score}, match {Match})",
+                        Name, idType, idValue, resolvedQid, top.Score, top.Match);
+                    break;
+                }
+
+                _logger.LogDebug(
+                    "{Provider}: ResolveBridgeAsync — top candidate for {IdType}={IdValue} " +
+                    "score {Score} below threshold 80",
+                    Name, idType, idValue, top.Score);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex,
+                    "{Provider}: ResolveBridgeAsync — reconciliation failed for {IdType}={IdValue}",
+                    Name, idType, idValue);
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(resolvedQid))
+            return BridgeResolutionResult.NotFound;
+
+        // ── Step 2: Check P629 to determine if the resolved entity is an edition ──
+        bool isEdition = false;
+        string? workQid = null;
+        string? editionQid = null;
+
+        if (isEditionAware)
+        {
+            try
+            {
+                var p629Extensions = await ExtendAsync([resolvedQid], ["P629"], ct).ConfigureAwait(false);
+                if (p629Extensions.TryGetValue(resolvedQid, out var p629Props)
+                    && p629Props.TryGetValue("P629", out var p629Values)
+                    && p629Values.Count > 0)
+                {
+                    var workEntityId = p629Values
+                        .Where(c => c.Value?.EntityId is not null)
+                        .Select(c => c.Value!.EntityId!)
+                        .FirstOrDefault();
+
+                    if (!string.IsNullOrWhiteSpace(workEntityId))
+                    {
+                        isEdition = true;
+                        editionQid = resolvedQid;
+                        workQid = workEntityId;
+
+                        _logger.LogDebug(
+                            "{Provider}: ResolveBridgeAsync — {QID} is an edition (P629 → work {WorkQID})",
+                            Name, resolvedQid, workQid);
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex,
+                    "{Provider}: ResolveBridgeAsync — P629 check failed for {QID}, treating as work",
+                    Name, resolvedQid);
+            }
+        }
+
+        if (!isEdition)
+        {
+            workQid = resolvedQid;
+            editionQid = null;
+        }
+
+        // ── Step 3: Collect all platform IDs via Data Extension ────────────────
+        var bridgePCodes = new List<string>
+        {
+            "P212",  // ISBN-13
+            "P5848", // Apple Books ID (ebook)
+            "P5749", // ASIN (Audible / Amazon)
+            "P4947", // TMDB movie ID
+            "P345",  // IMDb ID
+            "P9586", // Apple TV movie ID
+            "P9750", // Apple TV show ID
+            "P4857", // Apple Music ID
+            "P5849", // Apple Podcasts ID
+            "P434",  // MusicBrainz artist ID
+            "P436",  // MusicBrainz release ID
+            "P5905", // Comic Vine ID
+            "P2969", // Goodreads ID
+            "P1085", // LibraryThing ID
+        };
+
+        var collectedBridgeIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var claims = new List<ProviderClaim>();
+
+        try
+        {
+            var bridgeExtensions = await ExtendAsync([resolvedQid], bridgePCodes, ct).ConfigureAwait(false);
+
+            if (bridgeExtensions.TryGetValue(resolvedQid, out var resolvedProps))
+            {
+                // Extract collected bridge IDs into the dedicated dictionary.
+                foreach (var pCode in bridgePCodes)
+                {
+                    if (!resolvedProps.TryGetValue(pCode, out var pValues) || pValues.Count == 0)
+                        continue;
+
+                    var firstVal = pValues[0].Value;
+                    if (firstVal is null) continue;
+
+                    var rawVal = firstVal.RawValue ?? firstVal.EntityId;
+                    if (string.IsNullOrWhiteSpace(rawVal)) continue;
+
+                    var normalized = IdentifierNormalizationService.NormalizeRaw(pCode, rawVal);
+                    if (!string.IsNullOrWhiteSpace(normalized))
+                        collectedBridgeIds[pCode] = normalized;
+                }
+
+                // Convert all properties into ProviderClaims using the standard path.
+                claims.AddRange(ExtensionToClaims(
+                    resolvedQid,
+                    resolvedProps,
+                    _config.DataExtension.PropertyLabels,
+                    isWork: true));
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "{Provider}: ResolveBridgeAsync — bridge ID collection failed for {QID}",
+                Name, resolvedQid);
+        }
+
+        // Always emit the wikidata_qid for the work.
+        claims.Insert(0, new ProviderClaim("wikidata_qid", workQid!, 1.0));
+
+        // When an edition was found, also emit the edition QID.
+        if (isEdition && !string.IsNullOrWhiteSpace(editionQid))
+            claims.Add(new ProviderClaim("edition_qid", editionQid, 1.0));
+
+        // Fix entity reference labels to configured language.
+        claims = await ResolveEntityLabelsInLanguageAsync(claims, language, ct).ConfigureAwait(false);
+
+        _logger.LogInformation(
+            "{Provider}: ResolveBridgeAsync — resolved QID {QID} (isEdition={IsEdition}, " +
+            "workQid={WorkQid}, {ClaimCount} claims, {BridgeCount} bridge IDs collected)",
+            Name, resolvedQid, isEdition, workQid, claims.Count, collectedBridgeIds.Count);
+
+        return new BridgeResolutionResult
+        {
+            Found              = true,
+            Qid                = resolvedQid,
+            IsEdition          = isEdition,
+            WorkQid            = workQid,
+            EditionQid         = editionQid,
+            Claims             = claims,
+            CollectedBridgeIds = collectedBridgeIds,
+        };
+    }
+
     // ── Private: FetchWork / FetchPerson ─────────────────────────────────────
 
     private async Task<IReadOnlyList<ProviderClaim>> FetchWorkAsync(

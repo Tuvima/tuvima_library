@@ -5,39 +5,33 @@ namespace MediaEngine.Domain.Enums;
 ///
 /// The pipeline processes metadata enrichment in two stages:
 /// <list type="number">
-///   <item><see cref="Reconciliation"/> — resolves the work's identity via Wikidata
-///     reconciliation, deposits bridge IDs, and performs deep enrichment. This is the
-///     first stage and establishes the canonical identity of the media item.</item>
-///   <item><see cref="Enrichment"/> — post-confirmation parallel enrichment. Runs
-///     retail providers (Apple API, TMDB, etc.) and deep universe lookup after
-///     identity is confirmed. Uses bridge IDs from Reconciliation for precise lookups.</item>
+///   <item><see cref="RetailIdentification"/> — searches retail providers (Apple Books,
+///     TMDB, MusicBrainz) using file metadata to identify the work and select cover art.
+///     Runs per-file during ingestion. Deposits cover URL, description, bridge IDs.</item>
+///   <item><see cref="WikidataBridge"/> — uses bridge IDs from Stage 1 to resolve
+///     Wikidata edition and work QIDs. Runs as a deduplicated batch after all files
+///     in the ingestion batch complete Stage 1. Links editions to works, works to
+///     universes.</item>
 /// </list>
 ///
 /// Providers declare which stages they participate in via <c>hydration_stages</c>
 /// in their configuration file.
-///
-/// TODO: Phase 3 - Full pipeline stages will be expanded when ReconciliationAdapter
-/// (dotNetRDF-based SPARQL) is implemented.
 /// </summary>
 public enum HydrationStage
 {
     /// <summary>
-    /// Stage 1: Reconciliation.
-    /// Wikidata reconciliation resolves the work's identity via bridge IDs or title search,
-    /// then performs deep enrichment for structured properties. Hub Intelligence
-    /// and Person Enrichment run as sub-steps.
-    ///
-    /// Replaces former AuthorityMatch (1) + ContextMatch (2) stages.
+    /// Stage 1: Retail Identification.
+    /// Searches retail providers using file metadata (ISBN, ASIN, title+author).
+    /// Scores results against file metadata for auto-accept or review queue routing.
+    /// Deposits cover art, description, and bridge IDs (Apple Books ID, ISBN, etc.).
     /// </summary>
-    Reconciliation = 1,
+    RetailIdentification = 1,
 
     /// <summary>
-    /// Stage 2: Enrichment.
-    /// Post-confirmation parallel enrichment. Runs retail providers in waterfall
-    /// order (primary → secondary → tertiary). Uses bridge IDs from Reconciliation
-    /// for precise lookups. Falls back to title search if no bridge IDs available.
-    ///
-    /// Replaces former RetailMatch (3) stage.
+    /// Stage 2: Wikidata Bridge Resolution.
+    /// Uses bridge IDs from Stage 1 to resolve Wikidata edition QID (for edition-aware
+    /// media types) or work QID (for TV/Podcasts). Runs as a deduplicated batch.
+    /// Collects all platform IDs from the entity into the bridge_ids table.
     /// </summary>
-    Enrichment = 2,
+    WikidataBridge = 2,
 }

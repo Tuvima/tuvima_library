@@ -31,8 +31,8 @@ public sealed class IngestionBatch
     /// <summary>Number of files that have reached a terminal state (registered, review, no match, or failed).</summary>
     public int FilesProcessed { get; set; } = 0;
 
-    /// <summary>Number of files that were successfully auto-matched and registered in the library.</summary>
-    public int FilesRegistered { get; set; } = 0;
+    /// <summary>Number of files that were successfully auto-matched and identified in the library.</summary>
+    public int FilesIdentified { get; set; } = 0;
 
     /// <summary>Number of files placed in the review queue due to low confidence or ambiguous matches.</summary>
     public int FilesReview { get; set; } = 0;

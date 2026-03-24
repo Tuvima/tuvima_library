@@ -1,0 +1,69 @@
+namespace MediaEngine.Domain.Models;
+
+/// <summary>
+/// A scored retail provider candidate, ranked against file metadata.
+/// Produced by IRetailMatchScoringService during Stage 1 (Retail Identification).
+/// </summary>
+public sealed class RetailMatchResult
+{
+    /// <summary>Retail provider name (e.g. "apple_books", "tmdb").</summary>
+    public string ProviderName { get; init; } = "";
+
+    /// <summary>Provider-specific item identifier (e.g. Apple Books collectionId, TMDB movie ID).</summary>
+    public string? ProviderItemId { get; init; }
+
+    /// <summary>Resolved title from the retail result.</summary>
+    public string? Title { get; init; }
+
+    /// <summary>Author or creator name from the retail result.</summary>
+    public string? Author { get; init; }
+
+    /// <summary>Release year from the retail result.</summary>
+    public string? Year { get; init; }
+
+    /// <summary>Cover art URL from the retail result.</summary>
+    public string? CoverUrl { get; init; }
+
+    /// <summary>
+    /// Edition-specific description from the retail provider.
+    /// HTML-sanitized (basic formatting preserved: b, i, em, strong, p, br).
+    /// </summary>
+    public string? Description { get; init; }
+
+    /// <summary>
+    /// Bridge identifiers extracted from the retail result.
+    /// Keys are claim keys (e.g. "apple_books_id", "isbn", "tmdb_id").
+    /// Values are the identifier strings.
+    /// </summary>
+    public Dictionary<string, string> BridgeIds { get; init; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Per-field match scores against file metadata.</summary>
+    public FieldMatchScores Scores { get; init; } = new();
+
+    /// <summary>Composite confidence score (0.0–1.0). Weighted average of field scores.</summary>
+    public double Confidence { get; init; }
+
+    /// <summary>Whether this result was auto-accepted (confidence ≥ threshold).</summary>
+    public bool IsAutoAccepted { get; init; }
+}
+
+/// <summary>
+/// Per-field match scores comparing a retail result against file metadata.
+/// </summary>
+public sealed class FieldMatchScores
+{
+    /// <summary>Title similarity score (0.0–1.0).</summary>
+    public double TitleScore { get; init; }
+
+    /// <summary>Author/creator similarity score (0.0–1.0).</summary>
+    public double AuthorScore { get; init; }
+
+    /// <summary>Year match score (1.0 = exact, 0.8 = off by 1, 0.3 = off by 2+).</summary>
+    public double YearScore { get; init; }
+
+    /// <summary>Format/media type consistency score (1.0 = exact match).</summary>
+    public double FormatScore { get; init; }
+
+    /// <summary>Weighted composite of all field scores.</summary>
+    public double CompositeScore { get; init; }
+}

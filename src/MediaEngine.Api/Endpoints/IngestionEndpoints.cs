@@ -197,7 +197,7 @@ public static class IngestionEndpoints
                 Category        = b.Category,
                 FilesTotal      = b.FilesTotal,
                 FilesProcessed  = b.FilesProcessed,
-                FilesRegistered = b.FilesRegistered,
+                FilesIdentified = b.FilesIdentified,
                 FilesReview     = b.FilesReview,
                 FilesNoMatch    = b.FilesNoMatch,
                 FilesFailed     = b.FilesFailed,
@@ -238,7 +238,7 @@ public static class IngestionEndpoints
                 Category        = batch.Category,
                 FilesTotal      = batch.FilesTotal,
                 FilesProcessed  = batch.FilesProcessed,
-                FilesRegistered = batch.FilesRegistered,
+                FilesIdentified = batch.FilesIdentified,
                 FilesReview     = batch.FilesReview,
                 FilesNoMatch    = batch.FilesNoMatch,
                 FilesFailed     = batch.FilesFailed,
@@ -278,8 +278,8 @@ public sealed class IngestionBatchResponse
     [JsonPropertyName("files_processed")]
     public int FilesProcessed { get; init; }
 
-    [JsonPropertyName("files_registered")]
-    public int FilesRegistered { get; init; }
+    [JsonPropertyName("files_identified")]
+    public int FilesIdentified { get; init; }
 
     [JsonPropertyName("files_review")]
     public int FilesReview { get; init; }

@@ -102,4 +102,24 @@ public static class ReviewTrigger
 
     /// <summary>A user submitted a problem report flagging incorrect or missing metadata.</summary>
     public const string UserReport = "UserReport";
+
+    /// <summary>
+    /// Stage 1 (Retail Identification) returned no results from any configured provider.
+    /// The file's metadata did not match any retail catalogue entry.
+    /// </summary>
+    public const string RetailMatchFailed = "RetailMatchFailed";
+
+    /// <summary>
+    /// Stage 1 (Retail Identification) returned results but the top candidate's
+    /// confidence score fell between the ambiguous threshold (0.50) and the
+    /// auto-accept threshold (0.85). The user should verify the match.
+    /// </summary>
+    public const string RetailMatchAmbiguous = "RetailMatchAmbiguous";
+
+    /// <summary>
+    /// Stage 2 (Wikidata Bridge Resolution) could not find a Wikidata entity
+    /// matching the bridge IDs from Stage 1. The retail match is preserved but
+    /// the item lacks universe linkage. A periodic re-check will retry.
+    /// </summary>
+    public const string WikidataBridgeFailed = "WikidataBridgeFailed";
 }

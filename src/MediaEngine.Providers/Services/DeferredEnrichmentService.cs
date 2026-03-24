@@ -210,6 +210,22 @@ public sealed class DeferredEnrichmentService : IDeferredEnrichmentService, IAsy
             processed, batch.Count);
     }
 
+    /// <summary>
+    /// Re-checks items matched at "work" level for edition-aware media types.
+    /// Retries bridge resolution to see if a Wikidata edition entity has been created.
+    /// Called by the nightly sweep or weekly sync.
+    /// </summary>
+    private async Task RecheckEditionsAsync(CancellationToken ct)
+    {
+        // TODO: Query works WHERE match_level = 'work'
+        //   AND media_type IN (edition_aware_media_types from config)
+        //   AND wikidata_checked_at < DateTimeOffset.UtcNow.AddDays(-recheckInterval)
+        // For each: load bridge IDs, retry ResolveBridgeAsync
+        // If found: update match_level = 'edition', link edition QID
+        _logger.LogDebug("Edition re-check: stub — not yet implemented");
+        await Task.CompletedTask.ConfigureAwait(false);
+    }
+
     private async Task ProcessStaleAsync(HydrationSettings settings, CancellationToken ct)
     {
         var threshold = TimeSpan.FromHours(Math.Max(settings.Pass2StaleThresholdHours, 1));

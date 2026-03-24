@@ -29,7 +29,7 @@ public sealed record RegistryItem
     [JsonPropertyName("match_source")] public string? MatchSource { get; init; }
     [JsonPropertyName("match_method")] public string? MatchMethod { get; init; }
     [JsonPropertyName("confidence")]   public double Confidence { get; init; }
-    [JsonPropertyName("status")]       public string Status { get; init; } = "Registered";
+    [JsonPropertyName("status")]       public string Status { get; init; } = "Identified";
     [JsonPropertyName("has_duplicate")]  public bool HasDuplicate { get; init; }
     [JsonPropertyName("duplicate_of")]   public string? DuplicateOf { get; init; }
     [JsonPropertyName("review_item_id")] public Guid? ReviewItemId { get; init; }
@@ -76,7 +76,7 @@ public sealed record RegistryItemDetail
     [JsonPropertyName("cover_url")]      public string? CoverUrl { get; init; }
     [JsonPropertyName("hero_url")]       public string? HeroUrl { get; init; }
     [JsonPropertyName("confidence")]     public double Confidence { get; init; }
-    [JsonPropertyName("status")]         public string Status { get; init; } = "Registered";
+    [JsonPropertyName("status")]         public string Status { get; init; } = "Identified";
     [JsonPropertyName("match_source")]   public string? MatchSource { get; init; }
     [JsonPropertyName("match_method")]   public string? MatchMethod { get; init; }
 
@@ -112,6 +112,8 @@ public sealed record RegistryItemDetail
     [JsonPropertyName("review_detail")]   public string? ReviewDetail { get; init; }
     [JsonPropertyName("candidates_json")] public string? CandidatesJson { get; init; }
     [JsonPropertyName("has_user_locks")]  public bool HasUserLocks { get; init; }
+
+    [JsonPropertyName("match_level")]      public string MatchLevel { get; init; } = "work";
 
     [JsonPropertyName("canonical_values")] public IReadOnlyList<RegistryCanonicalValue> CanonicalValues { get; init; } = [];
     [JsonPropertyName("claim_history")]    public IReadOnlyList<RegistryClaimRecord> ClaimHistory { get; init; } = [];

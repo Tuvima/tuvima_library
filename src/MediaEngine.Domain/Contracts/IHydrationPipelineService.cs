@@ -3,26 +3,27 @@ using MediaEngine.Domain.Models;
 namespace MediaEngine.Domain.Contracts;
 
 /// <summary>
-/// Contract for the three-stage hydration pipeline.
+/// Contract for the two-stage hydration pipeline.
 ///
-/// Replaces the flat "first provider wins" approach with a sequential pipeline:
 /// <list type="number">
-///   <item><b>Stage 1 — Authority Match:</b> Wikidata QID resolution via bridge IDs
-///     (ISBN, ASIN, TMDB ID) or title search. SPARQL deep hydration fetches
-///     core properties. Hub intelligence + person enrichment run here.</item>
-///   <item><b>Stage 2 — Context Match:</b> Wikipedia article summary via QID
-///     sitelink lookup. Deposits description claim.</item>
-///   <item><b>Stage 3 — Retail Match:</b> Retail providers run in waterfall order
-///     from config/slots.json. Uses bridge IDs from Stage 1 for precise
-///     cover art and rating lookups.</item>
+///   <item><b>Stage 1 — Retail Identification:</b> Retail providers (Apple Books,
+///     TMDB, MusicBrainz) search using file metadata (ISBN, ASIN, title+author).
+///     Results are scored against file metadata for auto-accept or review queue
+///     routing. Deposits cover art, description, and bridge IDs.</item>
+///   <item><b>Stage 2 — Wikidata Bridge Resolution:</b> Uses bridge IDs from
+///     Stage 1 to resolve Wikidata edition and work QIDs via the Reconciliation
+///     API. Runs as a deduplicated batch after all files in the ingestion batch
+///     complete Stage 1. Links editions to works, works to universes.</item>
 /// </list>
 ///
-/// Two entry points:
+/// Three entry points:
 /// <list type="bullet">
 ///   <item><see cref="EnqueueAsync"/> — non-blocking, queues to an internal channel
 ///     for background processing (used by the ingestion pipeline).</item>
 ///   <item><see cref="RunSynchronousAsync"/> — blocking, bypasses the queue for
 ///     immediate results (used by user-triggered hydration and review resolution).</item>
+///   <item><see cref="RunBatchBridgeResolutionAsync"/> — runs Stage 2 for all files
+///     in an ingestion batch after Stage 1 completes.</item>
 /// </list>
 ///
 /// Implementations live in <c>MediaEngine.Providers</c>.
@@ -30,7 +31,7 @@ namespace MediaEngine.Domain.Contracts;
 public interface IHydrationPipelineService
 {
     /// <summary>
-    /// Enqueues a harvest request for asynchronous three-stage processing.
+    /// Enqueues a harvest request for asynchronous two-stage processing.
     /// Returns immediately — the caller does not wait for the pipeline to complete.
     ///
     /// The underlying channel is bounded (capacity 500, DropOldest policy) to
@@ -41,14 +42,14 @@ public interface IHydrationPipelineService
     ValueTask EnqueueAsync(HarvestRequest request, CancellationToken ct = default);
 
     /// <summary>
-    /// Runs the full three-stage hydration pipeline synchronously and returns
+    /// Runs the full two-stage hydration pipeline synchronously and returns
     /// the result. Bypasses the internal channel queue.
     ///
     /// Used for user-triggered hydration (Dashboard "Hydrate" button) and
     /// review resolution (user selects a QID candidate).
     ///
-    /// When <see cref="HarvestRequest.PreResolvedQid"/> is set, Stage 2 skips
-    /// QID resolution and goes straight to SPARQL deep hydration.
+    /// When <see cref="HarvestRequest.PreResolvedQid"/> is set, Stage 1 skips
+    /// retail search and uses the pre-resolved QID directly.
     /// </summary>
     /// <param name="request">The harvest request to process.</param>
     /// <param name="ct">Cancellation token.</param>
@@ -56,6 +57,15 @@ public interface IHydrationPipelineService
     Task<HydrationResult> RunSynchronousAsync(
         HarvestRequest request,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// Runs Stage 2 (Wikidata Bridge Resolution) for all files in an ingestion
+    /// batch. Called after all files complete Stage 1. Deduplicates shared
+    /// entities so each Wikidata QID is resolved only once per batch.
+    /// </summary>
+    /// <param name="batchId">The ingestion batch identifier.</param>
+    /// <param name="ct">Cancellation token.</param>
+    Task RunBatchBridgeResolutionAsync(Guid batchId, CancellationToken ct = default);
 
     /// <summary>
     /// The approximate number of harvest requests currently waiting in the

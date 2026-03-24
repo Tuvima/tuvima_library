@@ -146,24 +146,28 @@ public sealed record FolderHealthChangedEvent(
 /// <param name="BatchId">The ingestion batch identifier.</param>
 /// <param name="FilesTotal">Total files in this batch.</param>
 /// <param name="FilesProcessed">Files that have reached a terminal state.</param>
-/// <param name="FilesRegistered">Successfully matched and registered.</param>
+/// <param name="FilesIdentified">Successfully matched and identified.</param>
 /// <param name="FilesReview">Placed in review queue.</param>
 /// <param name="FilesNoMatch">No metadata match found.</param>
 /// <param name="FilesFailed">Processing error.</param>
 /// <param name="ProgressPercent">0–100 integer progress.</param>
 /// <param name="EstimatedSecondsRemaining">Estimated seconds until batch completes, or null if not calculable.</param>
 /// <param name="IsComplete">True when the batch has finished.</param>
+/// <param name="RecentTitles">Display titles of the most recently processed files, or null if not provided.</param>
+/// <param name="CurrentStage">Active pipeline stage name (e.g. "RetailIdentification", "UniverseLookup"), or null if not provided.</param>
 public sealed record BatchProgressEvent(
     Guid   BatchId,
     int    FilesTotal,
     int    FilesProcessed,
-    int    FilesRegistered,
+    int    FilesIdentified,
     int    FilesReview,
     int    FilesNoMatch,
     int    FilesFailed,
     int    ProgressPercent,
     int?   EstimatedSecondsRemaining,
-    bool   IsComplete);
+    bool   IsComplete,
+    IReadOnlyList<string>? RecentTitles = null,
+    string? CurrentStage = null);
 
 // ── Hydration Pipeline Events ────────────────────────────────────────────────
 

@@ -672,9 +672,9 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     /// <summary>POST /search/universe — Wikidata candidate search enriched with retail cover art.</summary>
     public async Task<List<UniverseCandidateDto>> SearchUniverseAsync(
         string query, string mediaType, int maxCandidates = 5,
-        CancellationToken ct = default)
+        string? localAuthor = null, CancellationToken ct = default)
     {
-        var result = await _api.SearchUniverseAsync(query, mediaType, maxCandidates, ct);
+        var result = await _api.SearchUniverseAsync(query, mediaType, maxCandidates, localAuthor, ct);
         return result?.Candidates ?? [];
     }
 
@@ -685,6 +685,30 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     {
         var result = await _api.SearchRetailAsync(query, mediaType, maxCandidates, ct);
         return result?.Candidates ?? [];
+    }
+
+    /// <summary>
+    /// GET /metadata/{qid}/aliases — fetches Wikidata aliases (alternative titles) for the given QID.
+    /// If <paramref name="canonicalTitle"/> is provided and is not already in the aliases list,
+    /// it is prepended so the canonical title is always the first/default choice.
+    /// Returns an empty list when the Engine returns no data or an error occurs.
+    /// </summary>
+    public async Task<List<string>> GetAliasesAsync(
+        string qid, string? canonicalTitle = null, CancellationToken ct = default)
+    {
+        var response = await _api.GetAliasesAsync(qid, ct);
+        if (response is null)
+            return [];
+
+        var aliases = response.Aliases ?? [];
+
+        if (!string.IsNullOrWhiteSpace(canonicalTitle) &&
+            !aliases.Contains(canonicalTitle, StringComparer.OrdinalIgnoreCase))
+        {
+            aliases = [canonicalTitle, .. aliases];
+        }
+
+        return aliases;
     }
 
     /// <summary>POST /registry/items/{entityId}/apply-match — apply a selected match.</summary>

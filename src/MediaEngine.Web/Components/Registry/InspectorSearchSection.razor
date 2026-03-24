@@ -434,7 +434,7 @@ else
     [Parameter] public EventCallback OnIdentified { get; set; }
     [Parameter] public EventCallback OnMarkedProvisional { get; set; }
     [Parameter] public EventCallback OnRejected { get; set; }
-    [Parameter] public EventCallback<(string? title, string? author)> OnCandidateSelected { get; set; }
+    [Parameter] public EventCallback<(string? title, string? author, string? qid)> OnCandidateSelected { get; set; }
 
     private string _query = "";
     private string _mediaType = "";
@@ -508,7 +508,10 @@ else
         {
             var mt = string.IsNullOrEmpty(_mediaType) ? "Books" : _mediaType;
             // Universe search: Wikidata reconciliation + retail cover art enrichment in one call.
-            var results = await Orchestrator.SearchUniverseAsync(_query, mt, maxCandidates: 10);
+            // Pass the file's author as local context so Wikidata can use it as a P50 constraint
+            // for disambiguation (e.g. "Die Verwandlung" + "Kafka" → The Metamorphosis).
+            var results = await Orchestrator.SearchUniverseAsync(
+                _query, mt, maxCandidates: 10, localAuthor: Item.Author);
             foreach (var c in results)
             {
                 _candidates.Add(new CandidateViewModel
@@ -544,8 +547,8 @@ else
         _selectedCandidate = _selectedCandidate == candidate ? null : candidate;
         _resultMessage = null;
         await OnCandidateSelected.InvokeAsync(_selectedCandidate is not null
-            ? (_selectedCandidate.Title, _selectedCandidate.Author)
-            : (null, null));
+            ? (_selectedCandidate.Title, _selectedCandidate.Author, _selectedCandidate.Qid)
+            : (null, null, null));
     }
 
     private async Task RegisterSelected()

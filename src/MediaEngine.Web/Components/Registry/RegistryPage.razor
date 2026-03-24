@@ -29,10 +29,10 @@
                         <span class="registry-items-label">items</span>
                     </div>
                     <div class="registry-heatmap-bar">
-                        @if (RegisteredPercent > 0)
+                        @if (IdentifiedPercent > 0)
                         {
                             <div class="registry-heatmap-fill registry-heatmap-fill--green"
-                                 style="width: @(RegisteredPercent)%;"></div>
+                                 style="width: @(IdentifiedPercent)%;"></div>
                         }
                         @if (InReviewPercent > 0)
                         {
@@ -52,9 +52,9 @@
                     </div>
                     <div class="registry-items-legend">
                         <button class="registry-legend-item"
-                                @onclick='() => Nav.NavigateTo("/registry/library?state=registered")'>
+                                @onclick='() => Nav.NavigateTo("/registry/library?state=identified")'>
                             <span class="registry-legend-dot" style="background: #5DCAA5;"></span>
-                            <span>@(_fourStateCounts?.Registered ?? 0) registered</span>
+                            <span>@(_fourStateCounts?.Identified ?? 0) identified</span>
                         </button>
                         @if ((_fourStateCounts?.InReview ?? 0) > 0)
                         {
@@ -138,7 +138,7 @@
     {
         <div class="registry-batch-progress">
             <RegistryBatchList
-                Batches="@(new[] { new IngestionBatchViewModel { Id = bp.BatchId, FilesTotal = bp.FilesTotal, FilesProcessed = bp.FilesProcessed, FilesRegistered = bp.FilesRegistered, FilesReview = bp.FilesReview, FilesNoMatch = bp.FilesNoMatch, FilesFailed = bp.FilesFailed, StartedAt = DateTimeOffset.UtcNow } })"
+                Batches="@(new[] { new IngestionBatchViewModel { Id = bp.BatchId, FilesTotal = bp.FilesTotal, FilesProcessed = bp.FilesProcessed, FilesIdentified = bp.FilesIdentified, FilesReview = bp.FilesReview, FilesNoMatch = bp.FilesNoMatch, FilesFailed = bp.FilesFailed, StartedAt = DateTimeOffset.UtcNow } })"
                 AttentionCount="0"
                 ActiveProgress="bp" />
         </div>
@@ -705,13 +705,13 @@
         });
     }
 
-    private double RegisteredPercent
+    private double IdentifiedPercent
     {
         get
         {
             var total = _fourStateCounts?.All ?? 0;
             if (total == 0) return 0;
-            return Math.Round((_fourStateCounts?.Registered ?? 0) * 100.0 / total, 1);
+            return Math.Round((_fourStateCounts?.Identified ?? 0) * 100.0 / total, 1);
         }
     }
 

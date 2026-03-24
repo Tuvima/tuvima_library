@@ -113,7 +113,7 @@ public static class RegistryHelpers
             return (label, $"background: {HexToRgba(color, 0.15)}; color: {color};");
         }
 
-        if (item.Status == "Registered" && !item.HasUserLocks)
+        if (item.Status == "Identified" && !item.HasUserLocks)
             return ("Awaiting Match", "background: rgba(176,137,64,0.15); color: #B08940;");
 
         if (string.IsNullOrEmpty(item.CoverUrl))
@@ -140,8 +140,7 @@ public static class RegistryHelpers
     /// <summary>Returns the hex color for the four-state registry model.</summary>
     public static string GetStatusColor(string status) => status switch
     {
-        "Identified"  => "#4CAF50",  // green — matched and confirmed by Wikidata
-        "Registered"  => "#5DCAA5",  // teal green
+        "Identified"  => "#5DCAA5",  // teal green — matched and confirmed
         "InReview"    => "#EF9F27",  // amber
         "Provisional" => "#B4B2A9",  // neutral gray
         "Rejected"    => "#E24B4A",  // red
@@ -158,8 +157,7 @@ public static class RegistryHelpers
     /// <summary>Returns the icon for a registry status badge.</summary>
     public static string GetStatusIcon(string status) => status switch
     {
-        "Identified"  => Icons.Material.Filled.Verified,
-        "Registered"  => Icons.Material.Filled.CheckCircle,
+        "Identified"  => Icons.Material.Filled.CheckCircle,
         "InReview"    => Icons.Material.Filled.RateReview,
         "Provisional" => Icons.Material.Filled.EditNote,
         "Rejected"    => Icons.Material.Filled.Block,
@@ -176,15 +174,14 @@ public static class RegistryHelpers
     public static string GetStatusLabel(string status) => status switch
     {
         "Identified"  => "Identified",
-        "Registered"  => "Registered",
         "InReview"    => "In Review",
         "Provisional" => "Provisional",
         "Rejected"    => "Rejected",
         "Known"       => "Known",
         // Legacy
         "Review"      => "In Review",
-        "Auto"        => "Registered",
-        "Edited"      => "Registered",
+        "Auto"        => "Identified",
+        "Edited"      => "Identified",
         "Staging"     => "In Review",
         "Duplicate"   => "In Review",
         _             => status,
@@ -192,11 +189,10 @@ public static class RegistryHelpers
 
     // ── Four-State Colors (Registry Overhaul spec) ────────────────────────
 
-    /// <summary>Returns the hex color for the four-state model: Registered (#5DCAA5), InReview (#EF9F27), Provisional (#B4B2A9), Rejected (#E24B4A).</summary>
+    /// <summary>Returns the hex color for the four-state model: Identified (#5DCAA5), InReview (#EF9F27), Provisional (#B4B2A9), Rejected (#E24B4A).</summary>
     public static string GetStateColor(string state) => state switch
     {
-        "Identified"               => "#4CAF50",
-        "Registered"                => "#5DCAA5",
+        "Identified"               => "#5DCAA5",
         "InReview" or "Review"
             or "NeedsReview"        => "#EF9F27",
         "Provisional" or "NoMatch"  => "#B4B2A9",
@@ -213,7 +209,6 @@ public static class RegistryHelpers
     public static string GetStateLabel(string state) => state switch
     {
         "Identified"               => "Identified",
-        "Registered"                => "Registered",
         "InReview" or "Review"
             or "NeedsReview"        => "In Review",
         "Provisional" or "NoMatch"  => "Provisional",
@@ -225,8 +220,7 @@ public static class RegistryHelpers
     /// <summary>Returns the icon for a four-state badge.</summary>
     public static string GetStateIcon(string state) => state switch
     {
-        "Identified"               => Icons.Material.Outlined.Verified,
-        "Registered"                => Icons.Material.Outlined.CheckCircle,
+        "Identified"               => Icons.Material.Outlined.CheckCircle,
         "InReview" or "Review"
             or "NeedsReview"        => Icons.Material.Outlined.RateReview,
         "Provisional" or "NoMatch"  => Icons.Material.Outlined.HelpOutline,

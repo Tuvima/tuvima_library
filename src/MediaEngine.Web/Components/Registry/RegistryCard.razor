@@ -7,7 +7,11 @@
      style="@CardStateStyle">
 
     @* ── Thumbnail ── *@
-    <div class="rc-thumb">
+    @{
+        var isAudiobookThumb = string.Equals(Item.MediaType, "Audiobook", StringComparison.OrdinalIgnoreCase)
+                               || string.Equals(Item.MediaType, "Audiobooks", StringComparison.OrdinalIgnoreCase);
+    }
+    <div class="rc-thumb @(isAudiobookThumb ? "rc-thumb--square" : "")">
         @if (!string.IsNullOrEmpty(Item.CoverUrl))
         {
             <img src="@Item.CoverUrl" alt="@Item.Title" class="rc-thumb-img" loading="lazy" />
@@ -78,13 +82,13 @@
         !string.IsNullOrEmpty(Item.ReviewTrigger) ||
         (Item.Confidence > 0 && Item.Confidence < 0.85 && !Item.HasUserLocks);
 
-    /// <summary>Four-state left border + registered dimming per Registry spec.</summary>
+    /// <summary>Four-state left border + identified dimming per Registry spec.</summary>
     private string CardStateStyle
     {
         get
         {
             // Determine the four-state classification
-            var isRegistered = !string.IsNullOrEmpty(Item.WikidataQid)
+            var isIdentified = !string.IsNullOrEmpty(Item.WikidataQid)
                 && !Item.WikidataQid.StartsWith("NF", StringComparison.OrdinalIgnoreCase)
                 && string.IsNullOrEmpty(Item.ReviewTrigger);
 
@@ -97,7 +101,7 @@
             if (Item.MissingUniverse && string.IsNullOrEmpty(Item.ReviewTrigger))
                 return "border-left: 3px solid #B4B2A9; border-radius: 0;";
 
-            if (isRegistered)
+            if (isIdentified)
                 return "border-left: 3px solid #5DCAA5; border-radius: 0; opacity: 0.55;";
 
             return "";
@@ -150,6 +154,11 @@
         background: #0D1230;
         border: 2px solid rgba(255,255,255,0.06);
         transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    /* Square variant for audiobooks — 1:1 instead of 2:3 */
+    .rc-thumb--square {
+        height: var(--rc-card-width, 80px);
     }
     .rc-wrap:hover .rc-thumb {
         box-shadow: 0 4px 12px rgba(0,0,0,0.5);

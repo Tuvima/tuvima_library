@@ -25,7 +25,7 @@
   },
   "throttle_ms": 200,
   "max_concurrency": 1,
-  "hydration_stages": [2],
+  "hydration_stages": [1],
   "cache_ttl_hours": 168,
   "preferred_bridge_ids": {
     "Books": ["isbn"]

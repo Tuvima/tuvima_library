@@ -405,14 +405,16 @@ public sealed class RegistryRepository : IRegistryRepository
         string? contentHash = maRow == default ? null : maRow.ContentHash;
         string? fileName    = filePath is not null ? Path.GetFileName(filePath) : null;
 
-        // Load wikidata_status and media_type from the work
-        var workRow = conn.QueryFirstOrDefault<(string? WikidataStatus, string? MediaType)>("""
-            SELECT wikidata_status AS WikidataStatus, media_type AS MediaType
+        // Load wikidata_status, media_type, and match_level from the work
+        var workRow = conn.QueryFirstOrDefault<(string? WikidataStatus, string? MediaType, string? MatchLevel)>("""
+            SELECT wikidata_status AS WikidataStatus, media_type AS MediaType,
+                   match_level AS MatchLevel
             FROM works WHERE id = @entityId
             """, new { entityId = entityId.ToString() });
 
         string? wikidataStatus = workRow == default ? null : workRow.WikidataStatus;
         string  mediaType      = workRow == default ? "" : workRow.MediaType ?? "";
+        string  matchLevel     = workRow == default ? "work" : workRow.MatchLevel ?? "work";
 
         // Helper to get canonical value by key (with year-key fallback aliases)
         string? cv(string key)
@@ -482,6 +484,7 @@ public sealed class RegistryRepository : IRegistryRepository
             ReviewDetail   = reviewDetail,
             CandidatesJson = candidatesJson,
             HasUserLocks   = hasUserLocks,
+            MatchLevel     = matchLevel,
             CanonicalValues = canonicalValues,
             ClaimHistory   = claims,
             BridgeIds      = bridgeIds,
@@ -582,9 +585,9 @@ public sealed class RegistryRepository : IRegistryRepository
         // ── Batch-scoped: read directly from ingestion_batches counters ──
         if (batchId.HasValue)
         {
-            var batch = conn.QueryFirstOrDefault<(int FilesRegistered, int FilesReview,
+            var batch = conn.QueryFirstOrDefault<(int FilesIdentified, int FilesReview,
                 int FilesNoMatch, int FilesFailed)>("""
-                SELECT files_registered AS FilesRegistered,
+                SELECT files_registered AS FilesIdentified,
                        files_review     AS FilesReview,
                        files_no_match   AS FilesNoMatch,
                        files_failed     AS FilesFailed
@@ -609,7 +612,7 @@ public sealed class RegistryRepository : IRegistryRepository
             // NoMatch + Failed → counted as InReview (items needing attention)
             // Provisional and Rejected are 0 for batch-scoped counts (batches don't track these)
             return Task.FromResult(new RegistryFourStateCounts(
-                batch.FilesRegistered,
+                batch.FilesIdentified,
                 batch.FilesReview + batch.FilesNoMatch + batch.FilesFailed,
                 0, // Provisional — not tracked per-batch
                 0, // Rejected — not tracked per-batch
@@ -644,7 +647,7 @@ public sealed class RegistryRepository : IRegistryRepository
                      INNER JOIN media_assets ma2 ON ma2.edition_id = e2.id
                      INNER JOIN review_queue rq ON rq.entity_id = ma2.id
                      WHERE e2.work_id = w.id AND rq.status = 'Pending'
-                 )) AS Registered,
+                 )) AS Identified,
 
                 -- InReview: has pending review_queue entry AND not provisional/rejected
                 (SELECT COUNT(DISTINCT e.work_id)
@@ -665,12 +668,12 @@ public sealed class RegistryRepository : IRegistryRepository
                 (SELECT COUNT(DISTINCT id) FROM hubs) AS HubCount
             """;
 
-        int registered = 0, inReview = 0, provisional = 0, rejected = 0, personCount = 0, hubCount = 0;
+        int identified = 0, inReview = 0, provisional = 0, rejected = 0, personCount = 0, hubCount = 0;
         using (var reader = cmd.ExecuteReader())
         {
             if (reader.Read())
             {
-                registered  = reader.GetInt32(0);
+                identified  = reader.GetInt32(0);
                 inReview    = reader.GetInt32(1);
                 provisional = reader.GetInt32(2);
                 rejected    = reader.GetInt32(3);
@@ -695,7 +698,7 @@ public sealed class RegistryRepository : IRegistryRepository
             .ToDictionary(r => r.Trigger, r => r.Count);
 
         return Task.FromResult(new RegistryFourStateCounts(
-            registered, inReview, provisional, rejected, personCount, hubCount, triggerCounts));
+            identified, inReview, provisional, rejected, personCount, hubCount, triggerCounts));
     }
 
     // ── Private helpers ──────────────────────────────────────────────────────

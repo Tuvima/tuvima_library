@@ -3,5 +3,6 @@
   "vacuum_interval_hours": 168,
   "sync_interval_hours": 24,
   "reconciliation_interval_hours": 24,
-  "rejected_retention_days": 30
+  "rejected_retention_days": 30,
+  "edition_recheck_interval_days": 7
 }

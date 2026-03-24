@@ -22,7 +22,7 @@ public interface IIngestionBatchRepository
         Guid id,
         int filesTotal,
         int filesProcessed,
-        int filesRegistered,
+        int filesIdentified,
         int filesReview,
         int filesNoMatch,
         int filesFailed,

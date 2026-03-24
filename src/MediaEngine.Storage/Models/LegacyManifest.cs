@@ -320,6 +320,14 @@ public sealed class MaintenanceSettings
     /// </summary>
     [JsonPropertyName("rejected_retention_days")]
     public int RejectedRetentionDays { get; set; } = 30;
+
+    /// <summary>
+    /// Interval in days between periodic edition re-checks. For items matched at
+    /// "work" level in edition-aware media types, the weekly sync retries bridge
+    /// resolution to see if a Wikidata edition entity has been created.
+    /// </summary>
+    [JsonPropertyName("edition_recheck_interval_days")]
+    public int EditionRecheckIntervalDays { get; set; } = 7;
 }
 
 /// <summary>

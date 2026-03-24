@@ -96,6 +96,7 @@ else
             <InspectorCoverPicker FileCoverUrl="@Item.CoverUrl"
                                   CandidateTitle="@_selectedCandidateTitle"
                                   CandidateAuthor="@_selectedCandidateAuthor"
+                                  CandidateQid="@_selectedCandidateQid"
                                   MediaType="@Item.MediaType"
                                   OnCoverSelected="HandleCoverSelected" />
 
@@ -130,7 +131,7 @@ else
                 <!-- Wikidata search + candidates + actions -->
                 <InspectorSearchSection Item="Item"
                                         SelectedCoverUrl="@_selectedCoverUrl"
-                                        OnRegistered="HandleRegistered"
+                                        OnIdentified="HandleIdentified"
                                         OnMarkedProvisional="HandleShowProvisionalForm"
                                         OnRejected="HandleRejected"
                                         OnCandidateSelected="HandleCandidateSelected" />
@@ -182,6 +183,7 @@ else
     private bool                          _showProvisionalForm;
     private string?                       _selectedCandidateTitle;
     private string?                       _selectedCandidateAuthor;
+    private string?                       _selectedCandidateQid;
     private string?                       _selectedCoverUrl;
     private RegistryItemDetailViewModel?  _detail;
     private bool                          _detailLoading;
@@ -198,6 +200,7 @@ else
         _showProvisionalForm = false;
         _selectedCandidateTitle = null;
         _selectedCandidateAuthor = null;
+        _selectedCandidateQid = null;
         _selectedCoverUrl = null;
         _historyLoading = true;
         _fieldsLoading  = true;
@@ -232,14 +235,14 @@ else
         if (!string.IsNullOrEmpty(Item.ReviewTrigger)) return "NeedsReview";
         if (!string.IsNullOrEmpty(Item.WikidataQid)
             && !Item.WikidataQid.StartsWith("NF", StringComparison.OrdinalIgnoreCase))
-            return "Registered";
+            return "Identified";
         if (Item.MissingUniverse) return "NoMatch";
         return "NoMatch";
     }
 
-    private async Task HandleRegistered()
+    private async Task HandleIdentified()
     {
-        // Reload data after registration
+        // Reload data after identification
         if (Item is not null)
         {
             _loadedEntityId = null; // Force reload
@@ -308,10 +311,11 @@ else
         }
     }
 
-    private void HandleCandidateSelected((string? title, string? author) candidate)
+    private void HandleCandidateSelected((string? title, string? author, string? qid) candidate)
     {
         _selectedCandidateTitle = candidate.title;
         _selectedCandidateAuthor = candidate.author;
+        _selectedCandidateQid = candidate.qid;
     }
 
     private void HandleCoverSelected(string? coverUrl)

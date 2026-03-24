@@ -228,6 +228,9 @@ public sealed class RegistryItemDetailViewModel
     [JsonPropertyName("has_user_locks")]
     public bool HasUserLocks { get; set; }
 
+    [JsonPropertyName("match_level")]
+    public string MatchLevel { get; set; } = "work";
+
     [JsonPropertyName("canonical_values")]
     public List<RegistryCanonicalValueDto> CanonicalValues { get; set; } = [];
 
@@ -320,11 +323,11 @@ public sealed class RegistryItemHistoryDto
     public string? Detail { get; set; }
 }
 
-/// <summary>Four-state counts for the Registry lifecycle: Registered, InReview, Provisional, Rejected.</summary>
+/// <summary>Four-state counts for the Registry lifecycle: Identified, InReview, Provisional, Rejected.</summary>
 public sealed class RegistryFourStateCountsDto
 {
-    [JsonPropertyName("registered")]
-    public int Registered { get; set; }
+    [JsonPropertyName("identified")]
+    public int Identified { get; set; }
 
     [JsonPropertyName("in_review")]
     public int InReview { get; set; }
@@ -345,7 +348,7 @@ public sealed class RegistryFourStateCountsDto
     public Dictionary<string, int> TriggerCounts { get; set; } = [];
 
     /// <summary>Convenience: total across all four states.</summary>
-    public int All => Registered + InReview + Provisional + Rejected;
+    public int All => Identified + InReview + Provisional + Rejected;
 }
 
 /// <summary>Dashboard view model for an ingestion batch.</summary>
@@ -369,8 +372,8 @@ public sealed class IngestionBatchViewModel
     [JsonPropertyName("files_processed")]
     public int FilesProcessed { get; set; }
 
-    [JsonPropertyName("files_registered")]
-    public int FilesRegistered { get; set; }
+    [JsonPropertyName("files_identified")]
+    public int FilesIdentified { get; set; }
 
     [JsonPropertyName("files_review")]
     public int FilesReview { get; set; }

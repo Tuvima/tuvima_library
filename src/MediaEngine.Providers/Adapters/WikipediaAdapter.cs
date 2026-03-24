@@ -165,7 +165,11 @@ public sealed class WikipediaAdapter : IExternalMetadataProvider
                 "{Provider}: Got description for {Qid} ('{Title}', {Lang}), {Len} chars",
                 Name, qid, articleTitle, resolvedLang, extract.Length);
 
-            return [new ProviderClaim("description", extract, 0.90)];
+            return
+            [
+                new ProviderClaim("description", extract, 0.90),
+                new ProviderClaim("wikipedia_url", articleUrl, 1.0),
+            ];
         }
         catch (OperationCanceledException)
         {

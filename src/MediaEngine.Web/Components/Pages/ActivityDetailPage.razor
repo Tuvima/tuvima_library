@@ -92,7 +92,7 @@
                     <select class="adp-filter-select" value="@_activeTab" @onchange="HandleStatusChange">
                         <option value="all">All (@(_counts?.All ?? 0))</option>
                         <option value="review">In Review (@(_counts?.InReview ?? 0))</option>
-                        <option value="registered">Registered (@(_counts?.Registered ?? 0))</option>
+                        <option value="identified">Identified (@(_counts?.Identified ?? 0))</option>
                         <option value="provisional">Provisional (@(_counts?.Provisional ?? 0))</option>
                         <option value="rejected">Rejected (@(_counts?.Rejected ?? 0))</option>
                     </select>
@@ -160,12 +160,16 @@
                                              Style="@($"font-size: 18px; color: {(IsGroupFullySelected(group.Key, group.Value) ? "#C9922E" : "rgba(200,190,220,0.25)")};")" />
                                 </div>
                                 <div class="adp-action-spacer"></div>
-                                <button class="adp-toolbar-btn adp-toolbar-btn--reject"
+                                @{
+                                    var pendingItems = group.Value.Where(i => _selectedIds.Contains(i.EntityId)).ToList();
+                                    var isConfirming = _pendingBatchReject is not null && _pendingBatchReject.SequenceEqual(pendingItems);
+                                }
+                                <button class="adp-toolbar-btn adp-toolbar-btn--reject @(isConfirming ? "adp-toolbar-btn--confirming" : "")"
                                         disabled="@(!hasSelection)"
-                                        @onclick="() => HandleBatchReject(group.Value.Where(i => _selectedIds.Contains(i.EntityId)).ToList())"
-                                        title="@(hasSelection ? $"Reject {groupSelectedCount} selected items" : "Select items to reject")">
-                                    <MudIcon Icon="@Icons.Material.Outlined.Block" Style="font-size: 13px;" />
-                                    <span>Reject@(hasSelection ? $" ({groupSelectedCount})" : "")</span>
+                                        @onclick="() => HandleBatchReject(pendingItems)"
+                                        title="@(isConfirming ? "Click again to confirm" : hasSelection ? $"Reject {groupSelectedCount} selected items" : "Select items to reject")">
+                                    <MudIcon Icon="@(isConfirming ? Icons.Material.Outlined.Warning : Icons.Material.Outlined.Block)" Style="font-size: 13px;" />
+                                    <span>@(isConfirming ? $"Sure? ({groupSelectedCount})" : $"Reject{(hasSelection ? $" ({groupSelectedCount})" : "")}")</span>
                                 </button>
                             </div>
                         }
@@ -343,10 +347,10 @@
         // Load counts then items
         await LoadCountsAsync();
 
-        // Default to "review" if there are items in review, otherwise "registered"
+        // Default to "review" if there are items in review, otherwise "identified"
         if (string.IsNullOrEmpty(stateParam) && string.IsNullOrEmpty(InitialTab))
         {
-            _activeTab = (_counts?.InReview ?? 0) > 0 ? "review" : "registered";
+            _activeTab = (_counts?.InReview ?? 0) > 0 ? "review" : "identified";
         }
 
         // Non-media types always use "all" tab
@@ -363,7 +367,7 @@
             // If not found in current tab, search across all tabs
             if (_selectedItem is null)
             {
-                foreach (var tab in new[] { "review", "registered", "rejected", "provisional" })
+                foreach (var tab in new[] { "review", "identified", "rejected", "provisional" })
                 {
                     if (tab == _activeTab) continue;
                     try
@@ -522,7 +526,7 @@
                 EntityId    = p.Id,
                 Title       = p.Name,
                 MediaType   = "Person",
-                Status      = "Registered",
+                Status      = "Identified",
                 Confidence  = 1.0,
                 MatchSource = "wikidata",
                 WikidataQid = p.WikidataQid,
@@ -586,7 +590,7 @@
     {
         "review"      => "InReview",
         "rejected"    => "Rejected",
-        "registered"  => "Registered",
+        "identified"  => "Identified",
         "provisional" => "Provisional",
         "all"         => "",
         _             => "InReview",
@@ -621,7 +625,7 @@
             return;
         }
         _activeTypeChip = "Media";
-        _activeTab = (_counts?.InReview ?? 0) > 0 ? "review" : "registered";
+        _activeTab = (_counts?.InReview ?? 0) > 0 ? "review" : "identified";
         _selectedItem = null;
         _selectedIds.Clear();
         _disabledSubcategories.Clear();
@@ -674,7 +678,7 @@
         await LoadCountsAsync();
         await LoadItemsAsync();
 
-        // Clear selection if the item is no longer in the current list (e.g. moved to Registered)
+        // Clear selection if the item is no longer in the current list (e.g. moved to Identified)
         if (_selectedItem is not null)
         {
             _selectedItem = _items.FirstOrDefault(i => i.EntityId == _selectedItem.EntityId);
@@ -736,7 +740,28 @@
             _selectedIds.Remove(item.EntityId);
     }
 
-    private async Task HandleBatchReject(List<RegistryItemViewModel> items)
+    private List<RegistryItemViewModel>? _pendingBatchReject;
+
+    private void HandleBatchReject(List<RegistryItemViewModel> items)
+    {
+        if (items.Count == 0) return;
+
+        // First click: show confirmation state on the button.
+        if (_pendingBatchReject is null || !_pendingBatchReject.SequenceEqual(items))
+        {
+            _pendingBatchReject = items;
+            // Auto-reset after 3 seconds if not confirmed.
+            _ = Task.Delay(3000).ContinueWith(_ =>
+                InvokeAsync(() => { _pendingBatchReject = null; StateHasChanged(); }));
+            return;
+        }
+
+        // Second click: confirmed — execute the rejection.
+        _pendingBatchReject = null;
+        _ = ExecuteBatchRejectAsync(items);
+    }
+
+    private async Task ExecuteBatchRejectAsync(List<RegistryItemViewModel> items)
     {
         try
         {
@@ -799,7 +824,7 @@
     {
         "review"      => Icons.Material.Outlined.RateReview,
         "rejected"    => Icons.Material.Outlined.Block,
-        "registered"  => Icons.Material.Outlined.CheckCircle,
+        "identified"  => Icons.Material.Outlined.CheckCircle,
         "provisional" => Icons.Material.Outlined.HelpOutline,
         _             => Icons.Material.Outlined.Inbox,
     };
@@ -808,16 +833,16 @@
     {
         "review"      => "Nothing needs review",
         "rejected"    => "No rejected items",
-        "registered"  => "No registered items",
+        "identified"  => "No identified items",
         "provisional" => "No provisional items",
         _             => "No items",
     };
 
     private string GetEmptySubtitle() => _activeTab switch
     {
-        "review"      => "All items are either registered or provisional.",
+        "review"      => "All items are either identified or provisional.",
         "rejected"    => "Items rejected here can be recovered at any time.",
-        "registered"  => "Items confirmed against a Wikidata identity will appear here.",
+        "identified"  => "Items confirmed against a Wikidata identity will appear here.",
         "provisional" => "Items awaiting better metadata appear here.",
         _             => "",
     };

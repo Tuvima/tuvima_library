@@ -1033,6 +1033,84 @@ public static class MetadataEndpoints
         .WithSummary("Batch-resolve Wikidata QIDs to display labels from the local cache.")
         .Produces<Dictionary<string, LabelResolveEntry>>(StatusCodes.Status200OK);
 
+        // ── GET /metadata/{qid}/aliases ───────────────────────────────────────
+        //
+        // Returns the Wikidata label and all aliases for a given QID.
+        // Useful for search disambiguation, alternate title lookup, and
+        // populating the Inspector's alias chips.
+
+        group.MapGet("/{qid}/aliases", async (
+            string qid,
+            Tuvima.WikidataReconciliation.WikidataReconciler? reconciler,
+            CancellationToken ct) =>
+        {
+            if (string.IsNullOrWhiteSpace(qid) || !qid.StartsWith("Q", StringComparison.OrdinalIgnoreCase))
+                return Results.BadRequest(new { error = "qid must be a valid Wikidata QID starting with 'Q'." });
+
+            if (reconciler is null)
+                return Results.Ok(new { qid, label = (string?)null, aliases = Array.Empty<string>() });
+
+            try
+            {
+                var entities = await reconciler.GetEntitiesAsync([qid], "en", ct);
+
+                if (!entities.TryGetValue(qid, out var entity))
+                    return Results.Ok(new { qid, label = (string?)null, aliases = Array.Empty<string>() });
+
+                var resultLabel = entity.Label;
+                var resultAliases = (IReadOnlyList<string>)(entity.Aliases ?? []);
+
+                // Edition detection: if this QID is an edition/translation (has P629),
+                // resolve the parent work and return the work's aliases instead.
+                // Edition entities have sparse aliases; work entities carry the popular
+                // names (e.g. "1984" is an alias on Q208460 the novel, not on the
+                // audiobook edition entity).
+                var props = await reconciler.GetPropertiesAsync(
+                    [qid], ["P629"], "en", ct);
+                if (props.TryGetValue(qid, out var qidProps)
+                    && qidProps.TryGetValue("P629", out var p629Values)
+                    && p629Values.Count > 0)
+                {
+                    // P629 value is an entity reference — extract the parent work QID.
+                    var p629Val = p629Values[0].Value;
+                    var workQid = p629Val?.EntityId ?? p629Val?.RawValue;
+                    if (workQid is not null)
+                    {
+                        // Strip entity URI prefix if present.
+                        var slashIdx = workQid.LastIndexOf('/');
+                        if (slashIdx >= 0) workQid = workQid[(slashIdx + 1)..];
+
+                        if (workQid.StartsWith("Q", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var workEntities = await reconciler.GetEntitiesAsync(
+                                [workQid], "en", ct);
+                            if (workEntities.TryGetValue(workQid, out var workEntity))
+                            {
+                                resultLabel = workEntity.Label;
+                                resultAliases = (IReadOnlyList<string>)(workEntity.Aliases ?? []);
+                            }
+                        }
+                    }
+                }
+
+                return Results.Ok(new
+                {
+                    qid,
+                    label   = resultLabel,
+                    aliases = resultAliases,
+                });
+            }
+            catch (Exception)
+            {
+                return Results.Ok(new { qid, label = (string?)null, aliases = Array.Empty<string>() });
+            }
+        })
+        .WithName("GetWikidataAliases")
+        .WithSummary("Returns the Wikidata label and all aliases for a given QID.")
+        .Produces(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
+        .RequireAnyRole();
+
         return app;
     }
 

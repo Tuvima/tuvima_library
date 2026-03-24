@@ -124,4 +124,13 @@ public interface IHubRepository
     /// Finds a Hub by its Wikidata QID. Returns null if no Hub has this QID.
     /// </summary>
     Task<Hub?> FindByQidAsync(string qid, CancellationToken ct = default);
+
+    /// <summary>Finds an Edition by its Wikidata QID. Returns null when no match exists.</summary>
+    Task<Edition?> FindEditionByQidAsync(string wikidataQid, CancellationToken ct = default);
+
+    /// <summary>Creates a new Edition under the given Work and returns the persisted entity.</summary>
+    Task<Edition> CreateEditionAsync(Guid workId, string? formatLabel, string? wikidataQid, CancellationToken ct = default);
+
+    /// <summary>Updates the <c>match_level</c> on a Work record.</summary>
+    Task UpdateMatchLevelAsync(Guid workId, string matchLevel, CancellationToken ct = default);
 }

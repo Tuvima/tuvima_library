@@ -76,14 +76,40 @@
                                 </span>
                             }
                         </div>
+                        @if (ActiveProgress?.RecentTitles is { Count: > 0 })
+                        {
+                            <div class="rbl-title-summary">
+                                @{
+                                    var titles = ActiveProgress.RecentTitles;
+                                    var displayTitles = string.Join(", ", titles.Take(3));
+                                    var moreCount = ActiveProgress.FilesTotal - titles.Count;
+                                }
+                                @displayTitles
+                                @if (moreCount > 0)
+                                {
+                                    <span class="rbl-more-count">and @moreCount more</span>
+                                }
+                            </div>
+                        }
+                        @if (!string.IsNullOrEmpty(ActiveProgress?.CurrentStage))
+                        {
+                            <div class="rbl-stage-indicator">
+                                @(ActiveProgress.CurrentStage switch
+                                {
+                                    "RetailIdentification" => "Identifying covers…",
+                                    "WikidataBridge" => "Resolving catalogue links…",
+                                    _ => ActiveProgress.CurrentStage
+                                })
+                            </div>
+                        }
                     </div>
                 }
 
                 @* ── Four KPI chips ── *@
                 <div class="rbl-kpi-row">
                     <div class="rbl-kpi-chip">
-                        <span class="rbl-kpi-number" style="color: #5DCAA5;">@batch.FilesRegistered</span>
-                        <span class="rbl-kpi-label">Registered</span>
+                        <span class="rbl-kpi-number" style="color: #5DCAA5;">@batch.FilesIdentified</span>
+                        <span class="rbl-kpi-label">Identified</span>
                     </div>
                     <div class="rbl-kpi-chip">
                         <span class="rbl-kpi-number" style="color: #EF9F27;">@batch.FilesReview</span>
@@ -341,6 +367,27 @@
         font-weight: 500;
         color: rgba(93, 202, 165, 0.7);
         font-variant-numeric: tabular-nums;
+    }
+
+    .rbl-title-summary {
+        font-size: 0.72rem;
+        color: rgba(255,255,255,0.5);
+        margin-top: 4px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .rbl-more-count {
+        color: rgba(255,255,255,0.3);
+        font-style: italic;
+    }
+
+    .rbl-stage-indicator {
+        font-size: 0.65rem;
+        color: rgba(201,146,46,0.7);
+        margin-top: 2px;
+        letter-spacing: 0.02em;
     }
 
     /* ── KPI chip row ── */

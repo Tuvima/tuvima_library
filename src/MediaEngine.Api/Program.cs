@@ -206,6 +206,8 @@ builder.Services.AddSingleton<IScoringStrategy, ExactMatchStrategy>();
 builder.Services.AddSingleton<IFuzzyMatchingService, FuzzyMatchingService>();
 
 builder.Services.AddSingleton<IScoringEngine, PriorityCascadeEngine>();
+builder.Services.AddSingleton<IRetailMatchScoringService, RetailMatchScoringService>();
+builder.Services.AddSingleton<ILocalMatchService, LocalMatchService>();
 
 builder.Services.AddSingleton<IIdentityMatcher>(sp =>
     new IdentityMatcher(sp.GetRequiredService<IFuzzyMatchingService>()));
@@ -511,6 +513,7 @@ builder.Services.AddSingleton<IAutoOrganizeService,          AutoOrganizeService
 builder.Services.AddSingleton<IDeferredEnrichmentRepository, DeferredEnrichmentRepository>();
 builder.Services.AddSingleton<IHydrationPipelineService,     HydrationPipelineService>();
 builder.Services.AddSingleton<IDeferredEnrichmentService,    DeferredEnrichmentService>();
+builder.Services.AddSingleton<IBridgeIdRepository,           BridgeIdRepository>();
 builder.Services.AddSingleton<IReviewQueueRepository,        ReviewQueueRepository>();
 builder.Services.AddSingleton<IRegistryRepository,           RegistryRepository>();
 builder.Services.AddSingleton<ISearchIndexRepository,        SearchIndexRepository>();

@@ -248,7 +248,7 @@ public static class RegistryEndpoints
                     hydrationTriggered = false;
                 }
 
-                // Set curator_state = 'registered' — the curator confirmed a QID match
+                // Set curator_state = 'registered' — the curator confirmed a QID match (internal DB token)
                 using (var conn = db.CreateConnection())
                 using (var cmd = conn.CreateCommand())
                 {

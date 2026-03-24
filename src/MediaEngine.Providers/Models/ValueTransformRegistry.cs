@@ -123,6 +123,31 @@ public static partial class ValueTransformRegistry
                     BlockTagRegex().Replace(raw, "\n"),
                     string.Empty).Trim()),
 
+            // Sanitize HTML by preserving a safe allow-list of tags and stripping the rest.
+            // Allowed tags: b, i, em, strong, p, br (mirrors HydrationSettings.PreserveHtmlTags defaults).
+            // HTML entities are decoded after stripping. <br> variants are normalised to <br />.
+            // TODO: Read the allow-list from HydrationSettings.PreserveHtmlTags at runtime once
+            //       ValueTransformRegistry can be made non-static and DI-injected.
+            ["sanitize_html"] = raw =>
+            {
+                if (string.IsNullOrWhiteSpace(raw)) return raw;
+
+                // Replace non-allowed tags with empty string; keep allowed ones intact.
+                var result = Regex.Replace(raw, @"</?[^>]+>", match =>
+                    Regex.IsMatch(match.Value, @"</?(?:b|i|em|strong|p|br)\s*/?>",
+                        RegexOptions.IgnoreCase)
+                        ? match.Value
+                        : string.Empty);
+
+                // Decode HTML entities (&amp; → &, &lt; → <, &#39; → ', etc.)
+                result = System.Net.WebUtility.HtmlDecode(result);
+
+                // Normalise <br> and <br/> → <br />
+                result = Regex.Replace(result, @"<br\s*/?>", "<br />", RegexOptions.IgnoreCase);
+
+                return result.Trim();
+            },
+
             // Join array elements with ", " (default). For JsonArray values, see Apply(name, raw, args).
             ["array_join"] = raw => raw,
         };

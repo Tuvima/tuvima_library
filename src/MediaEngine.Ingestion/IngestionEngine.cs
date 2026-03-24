@@ -526,7 +526,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                             "Could not delete duplicate file {Path}", candidate.Path);
                     }
 
-                    // Count duplicate toward batch as already-registered.
+                    // Count duplicate toward batch as already-identified.
                     await UpdateBatchCounterAsync(batchId, "registered", ct).ConfigureAwait(false);
                     return;
                 }
@@ -535,7 +535,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 // enriched since first scan).
                 await TryReorganizeExistingAsync(existing, candidate.Path, ct)
                     .ConfigureAwait(false);
-                // Count re-detection toward batch as already-registered.
+                // Count re-detection toward batch as already-identified.
                 await UpdateBatchCounterAsync(batchId, "registered", ct).ConfigureAwait(false);
                 return;
             }
@@ -1023,7 +1023,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             catch (Exception ex) { _logger.LogDebug(ex, "Ingestion log update failed — continuing"); }
         }
 
-        // Batch outcome: determine whether this file is "registered" or "review".
+        // Batch outcome: determine whether this file is "identified" or "review".
         // Corrupt and insert-failed paths keep batchOutcome = "failed" (the default set at the top).
         batchOutcome = gateResult.ReviewTrigger is not null ? "review" : "registered";
 
@@ -1359,7 +1359,9 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         }
 
         // Update batch counters with the final outcome.
-        await UpdateBatchCounterAsync(batchId, batchOutcome, ct).ConfigureAwait(false);
+        // Pass resolved title so the Dashboard progress bar can show recently processed titles.
+        var batchTitle = candidate.Metadata?.TryGetValue("title", out var t) == true ? t : null;
+        await UpdateBatchCounterAsync(batchId, batchOutcome, ct, recentTitle: batchTitle).ConfigureAwait(false);
 
         // end of ProcessCandidateCoreAsync
     }
@@ -2258,7 +2260,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
             await _reviewRepo.InsertAsync(entry, ct).ConfigureAwait(false);
 
-            // Adjust batch counter: move one file from "registered" to "review"
+            // Adjust batch counter: move one file from "identified" to "review"
             // so the batch KPIs reflect the current state of its files.
             // Only needed for post-ingestion review items (hydration callbacks) —
             // during ingestion, the batch outcome is set directly.
@@ -2453,8 +2455,14 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     /// Increments the appropriate counter on the ingestion batch and checks
     /// whether all files in the batch have been processed.
     /// </summary>
+    /// <param name="batchId">The batch to update, or null to skip.</param>
+    /// <param name="outcome">Terminal outcome: "registered", "review", "nomatch", or "failed".</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <param name="recentTitle">Display title of the file just processed, included in the BatchProgress event.</param>
+    /// <param name="currentStage">Active pipeline stage name broadcast to the Dashboard (e.g. "RetailIdentification").</param>
     private async Task UpdateBatchCounterAsync(
-        Guid? batchId, string outcome, CancellationToken ct)
+        Guid? batchId, string outcome, CancellationToken ct,
+        string? recentTitle = null, string? currentStage = null)
     {
         if (batchId is null) return;
         try
@@ -2463,15 +2471,15 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             if (batch is null) return;
 
             // Increment the appropriate counter based on outcome.
-            var registered = batch.FilesRegistered + (outcome == "registered" ? 1 : 0);
+            var identified = batch.FilesIdentified + (outcome == "registered" ? 1 : 0);
             var review     = batch.FilesReview     + (outcome == "review"     ? 1 : 0);
             var noMatch    = batch.FilesNoMatch    + (outcome == "nomatch"    ? 1 : 0);
             var failed     = batch.FilesFailed     + (outcome == "failed"     ? 1 : 0);
-            var processed  = registered + review + noMatch + failed;
+            var processed  = identified + review + noMatch + failed;
 
             await _batchRepo.UpdateCountsAsync(
                 batchId.Value, batch.FilesTotal, processed,
-                registered, review, noMatch, failed, ct).ConfigureAwait(false);
+                identified, review, noMatch, failed, ct).ConfigureAwait(false);
 
             // Check if batch is complete.
             var isComplete = processed >= batch.FilesTotal;
@@ -2483,11 +2491,11 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                     ActionType     = Domain.Enums.SystemActionType.BatchCompleted,
                     EntityType     = "Batch",
                     EntityId       = batchId,
-                    Detail         = $"Ingestion batch completed: {registered} registered, {review} review, {noMatch} no match, {failed} failed",
+                    Detail         = $"Ingestion batch completed: {identified} identified, {review} review, {noMatch} no match, {failed} failed",
                     ChangesJson    = System.Text.Json.JsonSerializer.Serialize(new
                     {
                         files_total      = batch.FilesTotal,
-                        files_registered = registered,
+                        files_identified = identified,
                         files_review     = review,
                         files_no_match   = noMatch,
                         files_failed     = failed,
@@ -2511,18 +2519,26 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 estimatedSecondsRemaining = (int)Math.Ceiling(secondsPerFile * remaining);
             }
 
+            // TODO: accumulate recentTitle into a rolling window (last 3) per batch
+            // rather than passing a single title once per file.
+            var recentTitles = recentTitle is not null
+                ? (IReadOnlyList<string>)new[] { recentTitle }
+                : null;
+
             await SafePublishAsync("BatchProgress", new
             {
                 BatchId                   = batchId.Value,
                 FilesTotal                = batch.FilesTotal,
                 FilesProcessed            = processed,
-                FilesRegistered           = registered,
+                FilesIdentified           = identified,
                 FilesReview               = review,
                 FilesNoMatch              = noMatch,
                 FilesFailed               = failed,
                 ProgressPercent           = progressPercent,
                 EstimatedSecondsRemaining = estimatedSecondsRemaining,
                 IsComplete                = isComplete,
+                RecentTitles              = recentTitles,
+                CurrentStage              = currentStage,
             }, ct).ConfigureAwait(false);
         }
         catch (Exception ex)
@@ -2533,7 +2549,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
     /// <summary>
     /// Adjusts batch counters when a review item is created post-ingestion
-    /// (e.g. during background hydration). Moves one file from "registered"
+    /// (e.g. during background hydration). Moves one file from "identified"
     /// to "review" so the batch KPIs reflect the current state.
     /// </summary>
     private async Task AdjustBatchForReviewAsync(Guid? batchId, CancellationToken ct)
@@ -2542,13 +2558,13 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         try
         {
             var batch = await _batchRepo.GetByIdAsync(batchId.Value, ct).ConfigureAwait(false);
-            if (batch is null || batch.FilesRegistered <= 0) return;
+            if (batch is null || batch.FilesIdentified <= 0) return;
 
             await _batchRepo.UpdateCountsAsync(
                 batchId.Value,
                 batch.FilesTotal,
                 batch.FilesProcessed,
-                batch.FilesRegistered - 1,
+                batch.FilesIdentified - 1,
                 batch.FilesReview + 1,
                 batch.FilesNoMatch,
                 batch.FilesFailed,

@@ -81,6 +81,24 @@ public sealed class Work
     /// </summary>
     public DateTimeOffset? WikidataCheckedAt { get; set; }
 
+    /// <summary>
+    /// Match resolution level — drives the status chip on the Details tab:
+    /// <list type="bullet">
+    ///   <item><c>"edition"</c> — <b>Fully Linked</b> (green). Matched to a specific
+    ///     Wikidata edition AND its parent work. Best case: edition-specific cover,
+    ///     narrator, format metadata, plus full universe linkage.</item>
+    ///   <item><c>"work"</c> — <b>Linked</b> (blue). Matched to the Wikidata work
+    ///     but no edition entity found. Universe, franchise, characters all work.
+    ///     For edition-aware media types, periodically re-checked.</item>
+    ///   <item><c>"retail_only"</c> — <b>Identified</b> (amber). Retail provider matched
+    ///     (cover + description + bridge IDs) but Wikidata has no entity for this item.
+    ///     Will be regularly re-checked. Fully usable but no universe linkage.</item>
+    ///   <item><c>"unlinked"</c> — <b>Unlinked</b> (grey). No external match found at all.
+    ///     File metadata only. Very rare edge case.</item>
+    /// </list>
+    /// </summary>
+    public string MatchLevel { get; set; } = "work";
+
     // -------------------------------------------------------------------------
     // Children
     // -------------------------------------------------------------------------

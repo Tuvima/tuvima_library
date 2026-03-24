@@ -132,7 +132,7 @@
                                         <div class="rtl-batch-summary">
                                             <span class="rtl-batch-summary-total">@($"{batch.FilesTotal:N0}") items created</span>
                                             <div class="rtl-batch-summary-breakdown">
-                                                <span style="color: #5DCAA5;">@batch.FilesRegistered auto-registered</span>
+                                                <span style="color: #5DCAA5;">@batch.FilesIdentified automatically identified</span>
                                                 @if (reviewCount > 0)
                                                 {
                                                     <span class="registry-stat-sep">·</span>
@@ -166,7 +166,7 @@
                                 </div>
                                 <div class="rtl-batch-card">
                                     <div class="rtl-batch-summary">
-                                        <span class="rtl-batch-summary-total">@($"{agg.TotalRegistered:N0}") auto-registered</span>
+                                        <span class="rtl-batch-summary-total">@($"{agg.TotalIdentified:N0}") automatically identified</span>
                                         <div class="rtl-batch-summary-breakdown">
                                             @if (aggReview > 0)
                                             {
@@ -573,7 +573,7 @@
                     {
                         BatchCount = batchList.Count,
                         TotalFiles = batchList.Sum(b => b.FilesTotal),
-                        TotalRegistered = batchList.Sum(b => b.FilesRegistered),
+                        TotalIdentified = batchList.Sum(b => b.FilesIdentified),
                         TotalReview = batchList.Sum(b => b.FilesReview),
                         TotalNoMatch = batchList.Sum(b => b.FilesNoMatch),
                         TotalFailed = batchList.Sum(b => b.FilesFailed),
@@ -618,7 +618,7 @@
                     {
                         BatchCount = batchList.Count,
                         TotalFiles = batchList.Sum(b => b.FilesTotal),
-                        TotalRegistered = batchList.Sum(b => b.FilesRegistered),
+                        TotalIdentified = batchList.Sum(b => b.FilesIdentified),
                         TotalReview = batchList.Sum(b => b.FilesReview),
                         TotalNoMatch = batchList.Sum(b => b.FilesNoMatch),
                         TotalFailed = batchList.Sum(b => b.FilesFailed),
@@ -823,7 +823,7 @@
     {
         public int BatchCount { get; set; }
         public int TotalFiles { get; set; }
-        public int TotalRegistered { get; set; }
+        public int TotalIdentified { get; set; }
         public int TotalReview { get; set; }
         public int TotalNoMatch { get; set; }
         public int TotalFailed { get; set; }

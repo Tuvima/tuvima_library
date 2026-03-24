@@ -1,16 +1,16 @@
 {
   "field_overrides": {
     "description": {
-      "priority": ["wikipedia", "apple_api", "wikidata_reconciliation"],
-      "note": "Rich Wikipedia summaries preferred over Wikidata one-liners"
+      "priority": ["apple_books", "google_books", "open_library", "tmdb", "wikipedia"],
+      "note": "Retail provider descriptions are edition-specific; Wikipedia is work-level fallback"
     },
     "biography": {
       "priority": ["wikipedia", "wikidata_reconciliation"],
       "note": "Rich Wikipedia bios for persons"
     },
     "cover": {
-      "priority": ["apple_api", "tmdb", "wikidata_reconciliation"],
-      "note": "Retail providers have high-res commercial art"
+      "priority": ["apple_books", "tmdb", "open_library", "google_books", "comic_vine", "musicbrainz"],
+      "note": "Retail providers have edition-specific high-res cover art"
     },
     "rating": {
       "priority": ["apple_api", "tmdb"],

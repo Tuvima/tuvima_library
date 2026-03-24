@@ -28,5 +28,19 @@
   "lineage_depth": 2,
   "lore_delta_check_on_explorer_open": true,
   "canon_discrepancy_detection": true,
-  "era_actor_resolution": true
+  "era_actor_resolution": true,
+
+  "retail_auto_accept_threshold": 0.85,
+  "retail_ambiguous_threshold": 0.50,
+  "edition_aware_media_types": ["Books", "Audiobooks", "Movies", "Comics", "Music"],
+  "fuzzy_match_weights": {
+    "title": 0.45,
+    "author": 0.35,
+    "year": 0.10,
+    "format": 0.10
+  },
+  "preserve_html_tags": ["b", "i", "em", "strong", "p", "br"],
+  "wikidata_batch_size": 50,
+  "local_match_enabled": true,
+  "local_match_fuzzy_threshold": 0.95
 }

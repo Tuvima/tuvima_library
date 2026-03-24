@@ -15,6 +15,9 @@ public sealed class SearchUniverseRequestDto
 
     [JsonPropertyName("max_candidates")]
     public int MaxCandidates { get; set; } = 5;
+
+    [JsonPropertyName("local_author")]
+    public string? LocalAuthor { get; set; }
 }
 
 /// <summary>A single enriched Wikidata candidate returned from universe search.</summary>
@@ -163,6 +166,22 @@ public sealed class ApplyMatchRequestDto
 
     [JsonPropertyName("cover_url")]
     public string? CoverUrl { get; set; }
+
+    /// <summary>Name of the retail provider that supplied this match (e.g. "apple_books").</summary>
+    [JsonPropertyName("retail_provider_name")]
+    public string? RetailProviderName { get; set; }
+
+    /// <summary>Provider-specific item ID from the retail match (e.g. Apple Books collectionId).</summary>
+    [JsonPropertyName("retail_provider_item_id")]
+    public string? RetailProviderItemId { get; set; }
+
+    /// <summary>Bridge IDs extracted from the retail result, keyed by type (e.g. "apple_books_id" → "12345").</summary>
+    [JsonPropertyName("retail_bridge_ids")]
+    public Dictionary<string, string>? RetailBridgeIds { get; set; }
+
+    /// <summary>Sanitized HTML description from the retail provider.</summary>
+    [JsonPropertyName("retail_description")]
+    public string? RetailDescription { get; set; }
 }
 
 /// <summary>Response from POST /registry/items/{entityId}/apply-match.</summary>
@@ -281,6 +300,21 @@ public sealed class SubmitReportResponseDto
 
     [JsonPropertyName("message")]
     public string Message { get; set; } = "";
+}
+
+// ── Wikidata Aliases ──────────────────────────────────────────────────────────
+
+/// <summary>Response from GET /metadata/{qid}/aliases.</summary>
+public sealed class AliasesResponseDto
+{
+    [JsonPropertyName("qid")]
+    public string Qid { get; set; } = "";
+
+    [JsonPropertyName("label")]
+    public string? Label { get; set; }
+
+    [JsonPropertyName("aliases")]
+    public List<string> Aliases { get; set; } = [];
 }
 
 /// <summary>A single problem report entry.</summary>

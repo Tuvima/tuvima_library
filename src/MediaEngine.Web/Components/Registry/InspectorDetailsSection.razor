@@ -91,6 +91,14 @@
                 </div>
             </div>
         }
+
+        @* ── Match Status chip ── *@
+        <div class="ids-match-status">
+            <MudTooltip Text="@GetMatchStatusDisplay().Tooltip" Arrow="true" Placement="Placement.Top">
+                <span class="ids-match-chip" style="background: @HexToRgba(GetMatchStatusDisplay().Color, 0.15); color: @GetMatchStatusDisplay().Color;">@GetMatchStatusDisplay().Label</span>
+            </MudTooltip>
+        </div>
+
         <div class="ids-row">
             <span class="ids-key">Title</span>
             <span class="ids-value">@Item.Title</span>
@@ -146,6 +154,49 @@
             <span class="ids-key">Added</span>
             <span class="ids-value">@Item.CreatedAt.ToLocalTime().ToString("MMMM d, yyyy")</span>
         </div>
+
+        @* ── Linked Data section ── *@
+        @if (HasLinkedData())
+        {
+            <div class="ids-linked-data">
+                <span class="ids-linked-data-label">Linked Data</span>
+                <div class="ids-linked-data-items">
+                    @if (IsValidQid(GetCanonicalValue("edition_qid")))
+                    {
+                        <a href="https://www.wikidata.org/wiki/@GetCanonicalValue("edition_qid")" target="_blank" rel="noopener noreferrer"
+                           class="ids-link-pill" title="Edition on Wikidata">
+                            <svg class="ids-link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 6.25278V19.2528M12 6.25278C10.8321 5.47686 9.24649 5 7.5 5C5.75351 5 4.16789 5.47686 3 6.25278V19.2528C4.16789 18.4769 5.75351 18 7.5 18C9.24649 18 10.8321 18.4769 12 19.2528M12 6.25278C13.1679 5.47686 14.7535 5 16.5 5C18.2465 5 19.8321 5.47686 21 6.25278V19.2528C19.8321 18.4769 18.2465 18 16.5 18C14.7535 18 13.1679 18.4769 12 19.2528"/></svg>
+                            @GetCanonicalValue("edition_qid")
+                        </a>
+                    }
+                    @if (IsValidQid(GetCanonicalValue("audiobook_edition_qid")))
+                    {
+                        <a href="https://www.wikidata.org/wiki/@GetCanonicalValue("audiobook_edition_qid")" target="_blank" rel="noopener noreferrer"
+                           class="ids-link-pill" title="Audiobook edition on Wikidata">
+                            <svg class="ids-link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"/></svg>
+                            @GetCanonicalValue("audiobook_edition_qid")
+                        </a>
+                    }
+                    @if (IsValidQid(GetWorkQid()))
+                    {
+                        <a href="https://www.wikidata.org/wiki/@GetWorkQid()" target="_blank" rel="noopener noreferrer"
+                           class="ids-link-pill" title="Work on Wikidata">
+                            <svg class="ids-link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                            @GetWorkQid()
+                        </a>
+                    }
+                    @{ var wikiUrl = GetCanonicalValue("wikipedia_url"); }
+                    @if (!string.IsNullOrEmpty(wikiUrl) && Uri.IsWellFormedUriString(wikiUrl, UriKind.Absolute))
+                    {
+                        <a href="@wikiUrl" target="_blank" rel="noopener noreferrer"
+                           class="ids-link-pill ids-link-pill--wiki" title="Wikipedia article">
+                            <svg class="ids-link-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+                            Wikipedia
+                        </a>
+                    }
+                </div>
+            </div>
+        }
     }
 </div>
 
@@ -181,6 +232,37 @@
             < 1024 * 1024 * 1024 => $"{bytes / (1024.0 * 1024):F1} MB",
             _ => $"{bytes / (1024.0 * 1024 * 1024):F2} GB",
         };
+    }
+
+    private (string Label, string Color, string Tooltip) GetMatchStatusDisplay()
+    {
+        var matchLevel = Detail?.MatchLevel ?? "work";
+        return matchLevel switch
+        {
+            "edition"     => ("Fully Linked", "#5DCAA5", "Matched to a specific edition and linked to the wider catalogue"),
+            "retail_only" => ("Identified",   "#C9922E", "Cover and metadata confirmed but not yet linked to the wider catalogue"),
+            "unlinked"    => ("Unlinked",     "#6B6B8A", "No external match found — metadata from file only"),
+            _             => ("Linked",       "#5C7A99", "Matched to the catalogue but edition-specific data is unavailable"),
+        };
+    }
+
+    private string? GetCanonicalValue(string key)
+        => Detail?.CanonicalValues.FirstOrDefault(v => string.Equals(v.Key, key, StringComparison.OrdinalIgnoreCase))?.Value;
+
+    private static bool IsValidQid(string? qid)
+        => !string.IsNullOrEmpty(qid) && System.Text.RegularExpressions.Regex.IsMatch(qid, @"^Q\d+$");
+
+    private string? GetWorkQid()
+        => Detail is not null ? GetCanonicalValue("wikidata_qid") : Item.WikidataQid;
+
+    private bool HasLinkedData()
+    {
+        var workQid = GetWorkQid();
+        var editionQid = GetCanonicalValue("edition_qid");
+        var audioEditionQid = GetCanonicalValue("audiobook_edition_qid");
+        var wikiUrl = GetCanonicalValue("wikipedia_url");
+        return IsValidQid(workQid) || IsValidQid(editionQid) || IsValidQid(audioEditionQid)
+            || (!string.IsNullOrEmpty(wikiUrl) && Uri.IsWellFormedUriString(wikiUrl, UriKind.Absolute));
     }
 }
 
@@ -322,5 +404,85 @@
         height: auto;
         border-radius: 4px;
         display: block;
+    }
+
+    /* ── Match status chip ── */
+    .ids-match-status {
+        margin-bottom: 14px;
+    }
+
+    .ids-match-chip {
+        display: inline-block;
+        padding: 2px 9px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 600;
+        line-height: 1.7;
+        letter-spacing: 0.02em;
+        cursor: default;
+    }
+
+    /* ── Linked Data section ── */
+    .ids-linked-data {
+        margin-top: 16px;
+        padding: 10px 12px;
+        background: rgba(255, 255, 255, 0.025);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 6px;
+    }
+
+    .ids-linked-data-label {
+        font-size: 10px;
+        font-weight: 600;
+        color: rgba(200, 190, 220, 0.35);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        display: block;
+        margin-bottom: 8px;
+    }
+
+    .ids-linked-data-items {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .ids-link-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 11px;
+        color: rgba(192, 184, 224, 0.65);
+        text-decoration: none;
+        padding: 3px 9px;
+        background: rgba(140, 120, 180, 0.08);
+        border: 1px solid rgba(140, 120, 180, 0.12);
+        border-radius: 4px;
+        transition: background 0.15s ease, color 0.15s ease;
+        font-family: 'Montserrat', sans-serif;
+    }
+
+    .ids-link-pill:hover {
+        background: rgba(140, 120, 180, 0.18);
+        color: rgba(212, 206, 240, 0.95);
+        text-decoration: none;
+    }
+
+    .ids-link-pill--wiki {
+        color: rgba(180, 200, 224, 0.65);
+        background: rgba(80, 120, 180, 0.08);
+        border-color: rgba(80, 120, 180, 0.12);
+    }
+
+    .ids-link-pill--wiki:hover {
+        background: rgba(80, 120, 180, 0.18);
+        color: rgba(180, 210, 240, 0.95);
+    }
+
+    .ids-link-icon {
+        width: 12px;
+        height: 12px;
+        flex-shrink: 0;
+        opacity: 0.7;
     }
 </style>

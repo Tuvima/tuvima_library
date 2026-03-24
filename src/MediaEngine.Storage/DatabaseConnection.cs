@@ -1028,6 +1028,72 @@ public sealed class DatabaseConnection : IDatabaseConnection
             }
         }
 
+        // ── M-054: Bridge IDs table ───────────────────────────────────────
+        // Dedicated table for cross-platform identifiers (ISBN, ASIN, TMDB ID, etc.)
+        // that link library entities to external catalogues and Wikidata.
+        // Stored separately from canonical_values for clean querying and
+        // self-documenting schema.  UNIQUE(entity_id, id_type) enforces one value
+        // per ID type per entity; upsert updates the value when it changes.
+        {
+            using var m054 = conn.CreateCommand();
+            m054.CommandText = """
+                CREATE TABLE IF NOT EXISTS bridge_ids (
+                    id                TEXT NOT NULL PRIMARY KEY,
+                    entity_id         TEXT NOT NULL,
+                    id_type           TEXT NOT NULL,
+                    id_value          TEXT NOT NULL,
+                    wikidata_property TEXT,
+                    provider_id       TEXT,
+                    created_at        TEXT NOT NULL DEFAULT (datetime('now')),
+                    UNIQUE(entity_id, id_type)
+                );
+                CREATE INDEX IF NOT EXISTS idx_bridge_ids_entity
+                    ON bridge_ids(entity_id);
+                CREATE INDEX IF NOT EXISTS idx_bridge_ids_type_value
+                    ON bridge_ids(id_type, id_value);
+                """;
+            m054.ExecuteNonQuery();
+
+            // Backfill from canonical_values where the key is a known bridge ID type.
+            // INSERT OR IGNORE so re-runs are safe.
+            using var m054Fill = conn.CreateCommand();
+            m054Fill.CommandText = """
+                INSERT OR IGNORE INTO bridge_ids (id, entity_id, id_type, id_value, created_at)
+                SELECT
+                    lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' ||
+                          substr(hex(randomblob(2)),2) || '-' ||
+                          substr('89ab', abs(random()) % 4 + 1, 1) ||
+                          substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6))),
+                    cv.entity_id,
+                    cv.key,
+                    cv.value,
+                    COALESCE(cv.last_scored_at, datetime('now'))
+                FROM canonical_values cv
+                WHERE cv.key IN (
+                    'isbn', 'isbn_13', 'isbn_10', 'asin',
+                    'apple_books_id', 'tmdb_id', 'imdb_id', 'audible_id',
+                    'goodreads_id', 'musicbrainz_id', 'comic_vine_id'
+                )
+                AND cv.value IS NOT NULL AND cv.value != '';
+                """;
+            m054Fill.ExecuteNonQuery();
+        }
+
+        // ── M-055: Add match_level column to works table ──────────────────
+        // Records whether a work was matched at the work level (default),
+        // edition level, or hub level during the hydration pipeline.
+        // Used by the Registry to surface match granularity to the curator.
+        MigrateAddColumnIfMissing(conn, "works", "match_level",
+            "ALTER TABLE works ADD COLUMN match_level TEXT DEFAULT 'work';");
+
+        // ── M-056: Add wikidata_qid column to editions table ──────────────
+        // Stores the Wikidata QID for a specific edition entity (e.g. Q113799157
+        // for "Blade Runner: The Final Cut").  Populated during Stage 2 (Wikidata
+        // Bridge Resolution) when a bridge ID resolves to an edition-level entity
+        // with P629 (edition or translation of) present.
+        MigrateAddColumnIfMissing(conn, "editions", "wikidata_qid",
+            "ALTER TABLE editions ADD COLUMN wikidata_qid TEXT;");
+
         // Seed S-001: provider_registry entries for all known providers.
         // metadata_claims.provider_id has a FK to provider_registry(id), so these
         // rows MUST exist before any claim is written.  INSERT OR IGNORE makes this

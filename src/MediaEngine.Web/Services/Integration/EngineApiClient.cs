@@ -2192,11 +2192,28 @@ public sealed class EngineApiClient : IEngineApiClient
         public int Count { get; set; }
     }
 
+    // ── Wikidata Aliases (/metadata/{qid}/aliases) ────────────────────────────
+
+    public async Task<AliasesResponseDto?> GetAliasesAsync(string qid, CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<AliasesResponseDto>($"metadata/{qid}/aliases", ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            LastError = ex.Message;
+            _logger.LogWarning(ex, "GET /metadata/{Qid}/aliases failed", qid);
+            return null;
+        }
+    }
+
     // ── Search (/search) ─────────────────────────────────────────────────────
 
     public async Task<SearchUniverseResponseDto?> SearchUniverseAsync(
         string query, string mediaType, int maxCandidates = 5,
-        CancellationToken ct = default)
+        string? localAuthor = null, CancellationToken ct = default)
     {
         try
         {
@@ -2205,6 +2222,7 @@ public sealed class EngineApiClient : IEngineApiClient
                 Query         = query,
                 MediaType     = mediaType,
                 MaxCandidates = maxCandidates,
+                LocalAuthor   = localAuthor,
             };
             var resp = await _http.PostAsJsonAsync("/search/universe", payload, ct);
             if (!resp.IsSuccessStatusCode)

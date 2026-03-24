@@ -649,4 +649,90 @@ public sealed class HubRepository : IHubRepository
 
         return Task.FromResult(hub is null ? null : (Hub?)NormalizeHub(hub));
     }
+
+    /// <inheritdoc/>
+    public Task<Edition?> FindEditionByQidAsync(string wikidataQid, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        using var conn = _db.CreateConnection();
+        using var cmd  = conn.CreateCommand();
+        cmd.CommandText = """
+            SELECT id, work_id, format_label, wikidata_qid
+            FROM   editions
+            WHERE  wikidata_qid = @qid
+            LIMIT  1;
+            """;
+        cmd.Parameters.AddWithValue("@qid", wikidataQid);
+
+        using var reader = cmd.ExecuteReader();
+        if (!reader.Read())
+            return Task.FromResult<Edition?>(null);
+
+        var edition = new Edition
+        {
+            Id          = Guid.Parse(reader.GetString(0)),
+            WorkId      = Guid.Parse(reader.GetString(1)),
+            FormatLabel = reader.IsDBNull(2) ? null : reader.GetString(2),
+            WikidataQid = reader.IsDBNull(3) ? null : reader.GetString(3),
+        };
+
+        return Task.FromResult<Edition?>(edition);
+    }
+
+    /// <inheritdoc/>
+    public async Task<Edition> CreateEditionAsync(Guid workId, string? formatLabel, string? wikidataQid, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        var edition = new Edition
+        {
+            Id          = Guid.NewGuid(),
+            WorkId      = workId,
+            FormatLabel = formatLabel,
+            WikidataQid = wikidataQid,
+        };
+
+        await _db.AcquireWriteLockAsync(ct);
+        try
+        {
+            using var conn = _db.CreateConnection();
+            conn.Execute("""
+                INSERT INTO editions (id, work_id, format_label, wikidata_qid)
+                VALUES (@id, @workId, @formatLabel, @wikidataQid);
+                """,
+                new
+                {
+                    id          = edition.Id.ToString(),
+                    workId      = edition.WorkId.ToString(),
+                    formatLabel = edition.FormatLabel,
+                    wikidataQid = edition.WikidataQid,
+                });
+        }
+        finally
+        {
+            _db.ReleaseWriteLock();
+        }
+
+        return edition;
+    }
+
+    /// <inheritdoc/>
+    public async Task UpdateMatchLevelAsync(Guid workId, string matchLevel, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        await _db.AcquireWriteLockAsync(ct);
+        try
+        {
+            using var conn = _db.CreateConnection();
+            conn.Execute(
+                "UPDATE works SET match_level = @matchLevel WHERE id = @workId;",
+                new { matchLevel, workId = workId.ToString() });
+        }
+        finally
+        {
+            _db.ReleaseWriteLock();
+        }
+    }
 }

@@ -75,6 +75,9 @@ internal sealed class StubHydrationPipeline : IHydrationPipelineService
 
     public Task<HydrationResult> RunSynchronousAsync(HarvestRequest request, CancellationToken ct = default)
         => Task.FromResult(new HydrationResult());
+
+    public Task RunBatchBridgeResolutionAsync(Guid batchId, CancellationToken ct = default)
+        => Task.CompletedTask;
 }
 
 // ── Recursive Identity Stub ───────────────────────────────────────────────────

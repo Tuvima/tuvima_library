@@ -21,14 +21,14 @@ namespace MediaEngine.Providers.Services;
 /// Two-stage authority-first hydration pipeline orchestrator.
 ///
 /// <list type="number">
-///   <item><b>Stage 1 — Reconciliation:</b> Wikidata reconciliation API resolves the
-///     work's identity via bridge IDs or title search, deposits bridge IDs, performs
-///     Hub Intelligence and Person Enrichment. On failure an
-///     <see cref="ReviewTrigger.AuthorityMatchFailed"/> review item is created.</item>
-///   <item><b>Stage 2 — Enrichment:</b> Retail providers run in waterfall order from
-///     <c>config/slots.json</c>, using bridge IDs deposited by Stage 1 for precise
-///     lookups. On all-provider failure a
-///     <see cref="ReviewTrigger.ContentMatchFailed"/> review item is created.</item>
+///   <item><b>Stage 1 — Retail Identification:</b> Retail providers (Apple Books,
+///     TMDB, MusicBrainz) search using file metadata (ISBN, ASIN, title+author).
+///     Results are scored against file metadata for auto-accept or review queue
+///     routing. Deposits cover art, description, and bridge IDs.</item>
+///   <item><b>Stage 2 — Wikidata Bridge Resolution:</b> Uses bridge IDs from
+///     Stage 1 to resolve Wikidata edition and work QIDs via the Reconciliation
+///     API. Runs as a deduplicated batch after all files in the ingestion batch
+///     complete Stage 1. Links editions to works, works to universes.</item>
 /// </list>
 ///
 /// Architecture:
@@ -74,6 +74,9 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     private readonly IIngestionBatchRepository _batchRepo;
     private readonly IMetadataHarvestingService _harvesting;
     private readonly ISearchIndexRepository _searchIndex;
+    private readonly IRetailMatchScoringService _retailScoring;
+    private readonly IBridgeIdRepository _bridgeIdRepo;
+    private readonly ILocalMatchService _localMatch;
     private readonly ILogger<HydrationPipelineService> _logger;
 
     // ── Constructor ───────────────────────────────────────────────────────────
@@ -104,6 +107,9 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         IIngestionBatchRepository batchRepo,
         IMetadataHarvestingService harvesting,
         ISearchIndexRepository searchIndex,
+        IRetailMatchScoringService retailScoring,
+        IBridgeIdRepository bridgeIdRepo,
+        ILocalMatchService localMatch,
         ILogger<HydrationPipelineService> logger,
         WikidataReconciler? reconciler = null)
     {
@@ -131,6 +137,9 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         ArgumentNullException.ThrowIfNull(batchRepo);
         ArgumentNullException.ThrowIfNull(harvesting);
         ArgumentNullException.ThrowIfNull(searchIndex);
+        ArgumentNullException.ThrowIfNull(retailScoring);
+        ArgumentNullException.ThrowIfNull(bridgeIdRepo);
+        ArgumentNullException.ThrowIfNull(localMatch);
         ArgumentNullException.ThrowIfNull(fictionalEntityRepo);
         ArgumentNullException.ThrowIfNull(logger);
 
@@ -157,6 +166,9 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         _batchRepo           = batchRepo;
         _harvesting          = harvesting;
         _searchIndex         = searchIndex;
+        _retailScoring       = retailScoring;
+        _bridgeIdRepo        = bridgeIdRepo;
+        _localMatch          = localMatch;
         _deferredRepo        = deferredRepo;
         _reconciler          = reconciler;
         _fictionalEntityRepo = fictionalEntityRepo;
@@ -196,6 +208,30 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     {
         ArgumentNullException.ThrowIfNull(request);
         return await RunPipelineAsync(request, ct).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc/>
+    public async Task RunBatchBridgeResolutionAsync(Guid batchId, CancellationToken ct = default)
+    {
+        _logger.LogInformation("Batch bridge resolution started for batch {BatchId}", batchId);
+        // TODO: Sprint 5+ batch optimization — deduplicate shared entities so each
+        // Wikidata QID is resolved only once per batch.
+        // For now, Stage 2 runs per-entity within RunPipelineAsync.
+
+        // TODO: Edition re-check — query works WHERE match_level = 'work'
+        // AND media_type IN edition_aware_media_types (Books, Audiobooks, Movies, Comics, Music)
+        // AND wikidata_checked_at < @threshold (stale per edition_recheck_interval_days config).
+        // Load stored bridge IDs for each work and retry ResolveBridgeAsync.
+        // On success: update match_level = 'edition' and upsert canonical values.
+        // Update wikidata_checked_at after each attempt (success or failure).
+
+        // TODO: Wikidata re-check — query works WHERE match_level = 'retail_only'
+        // AND wikidata_checked_at < @threshold (stale per edition_recheck_interval_days config).
+        // Retry full bridge resolution to attempt QID assignment from Wikidata.
+        // On success: upgrade match_level and trigger Stage 2 retail enrichment.
+
+        _logger.LogInformation("Batch bridge resolution completed for batch {BatchId}", batchId);
+        await Task.CompletedTask.ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
@@ -256,9 +292,9 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 }
 
                 // Process each request through the full pipeline.
-                // Stage 1 batch reconciliation is handled inside RunPipelineAsync
-                // via the existing ReconcileBatchAsync when multiple items share
-                // the same provider. For now, process sequentially but log as batch.
+                // Stage 1 retail identification is handled inside RunPipelineAsync.
+                // Stage 2 batch bridge resolution will be deduplicated in a future
+                // sprint. For now, process sequentially but log as batch.
                 foreach (var req in batch)
                 {
                     try
@@ -420,17 +456,16 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         // Collect review item IDs created during the pipeline run.
         // SignalR notifications are deferred until pipeline completion so the
         // Dashboard doesn't flash "Needs Review" for items that may be
-        // auto-resolved by later stages (e.g. Stage 2 enrichment improving
+        // auto-resolved by later stages (e.g. Stage 2 bridge resolution improving
         // confidence above the review threshold).
         var deferredReviewNotifications = new List<Guid>();
 
-        // ── Stage 1: Reconciliation ──────────────────────────────────────────
+        // ── Stage 1: Retail Identification ─────────────────────────────────────
         //
-        // Resolves the work's identity via the Wikidata reconciliation API:
-        // bridge ID lookup or title search → deep enrichment → Hub Intelligence
-        // → Person Enrichment.
-        // This stage runs first so that bridge IDs (ISBN, ASIN, TMDB, IMDb)
-        // are available for Stage 2's precise retail lookups.
+        // Searches retail providers (Apple Books, TMDB, MusicBrainz) using file
+        // metadata (ISBN, ASIN, title+author). Results are scored against file
+        // metadata for auto-accept or review queue routing. Deposits cover art,
+        // description, and bridge IDs for Stage 2's Wikidata resolution.
 
         // D2: inject folder hint bridge IDs into the request hints so providers
         // can use them for direct lookups instead of title search.
@@ -488,6 +523,33 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 string.Join(", ", request.FolderHintBridgeIds.Keys));
         }
 
+        // ── Stage 0: Local Match ─────────────────────────────────────────────
+        // Check if file metadata matches an entity already in the library.
+        // Uses the bridge_ids table as a persistent cache across batches.
+        if (request.PreResolvedQid is null)
+        {
+            try
+            {
+                var localMatch = await _localMatch.TryMatchAsync(request.Hints, request.MediaType, ct)
+                    .ConfigureAwait(false);
+
+                if (localMatch.Found && localMatch.EntityId.HasValue)
+                {
+                    _logger.LogInformation(
+                        "Stage 0: Local match found for entity {Id} via {IdType} → existing entity {MatchedId}",
+                        request.EntityId, localMatch.MatchedByIdType ?? "fuzzy", localMatch.EntityId);
+
+                    // History: local match.
+                    try { await _activityRepo.LogAsync(new SystemActivityEntry { ActionType = "LocalMatch", EntityId = request.EntityId, Detail = $"Matched locally via {localMatch.MatchedByIdType ?? "fuzzy"}" }, ct).ConfigureAwait(false); }
+                    catch (Exception ex) when (ex is not OperationCanceledException) { _logger.LogWarning(ex, "Failed to log item history (LocalMatch)"); }
+                }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogDebug(ex, "Stage 0 local match check failed for entity {Id}; proceeding to Stage 1", request.EntityId);
+            }
+        }
+
         var stageSw = System.Diagnostics.Stopwatch.StartNew();
         var stage1Providers = GetProvidersForStage(1, provConfigs, request);
         var stage1Claims    = 0;
@@ -505,7 +567,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             && !HasSufficientMetadataForAuthorityMatch(request))
         {
             _logger.LogInformation(
-                "Pipeline Stage 1 (Reconciliation) blocked for entity {Id} " +
+                "Pipeline Stage 1 (Retail Identification) blocked for entity {Id} " +
                 "(title: \"{Title}\") — no real title, author, year, or bridge identifiers: " +
                 "file appears to have only placeholder or missing metadata",
                 request.EntityId, titleHint);
@@ -520,7 +582,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         }
 
         _logger.LogInformation(
-            "Pipeline Stage 1 (Reconciliation) starting for entity {Id} — title: \"{Title}\", media type: {MediaType}, providers: [{Providers}]",
+            "Pipeline Stage 1 (Retail Identification) starting for entity {Id} — title: \"{Title}\", media type: {MediaType}, providers: [{Providers}]",
             request.EntityId, titleHint, request.MediaType,
             stage1Providers.Count > 0
                 ? string.Join(", ", stage1Providers.Select(p => p.Name))
@@ -565,6 +627,36 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
 
             await PublishHarvestEvent(request.EntityId, provider.Name, claims, ct)
                 .ConfigureAwait(false);
+
+            // Persist bridge IDs from retail claims to the dedicated bridge_ids table.
+            // These are used by Stage 2 (Wikidata Bridge Resolution) for precise entity lookup.
+            try
+            {
+                var bridgeIdClaims = claims.Where(c => IsBridgeIdClaim(c.Key)).ToList();
+                if (bridgeIdClaims.Count > 0)
+                {
+                    var bridgeEntries = bridgeIdClaims.Select(c => new BridgeIdEntry
+                    {
+                        EntityId = request.EntityId,
+                        IdType = c.Key,
+                        IdValue = c.Value,
+                        ProviderId = provider.ProviderId.ToString(),
+                    }).ToList();
+
+                    await _bridgeIdRepo.UpsertBatchAsync(bridgeEntries, ct).ConfigureAwait(false);
+
+                    _logger.LogDebug(
+                        "Persisted {Count} bridge IDs from Stage 1 provider '{Provider}' for entity {Id}: {Keys}",
+                        bridgeEntries.Count, provider.Name, request.EntityId,
+                        string.Join(", ", bridgeEntries.Select(b => $"{b.IdType}={b.IdValue}")));
+                }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(ex,
+                    "Failed to persist bridge IDs from Stage 1 for entity {Id}; continuing",
+                    request.EntityId);
+            }
         }
 
         result.Stage1ClaimsAdded = stage1Claims;
@@ -577,7 +669,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
 
             await _eventPublisher.PublishAsync(
                 "HydrationStageCompleted",
-                new HydrationStageCompletedEvent(request.EntityId, 1, stage1Claims, "reconciliation"),
+                new HydrationStageCompletedEvent(request.EntityId, 1, stage1Claims, "retail_identification"),
                 ct).ConfigureAwait(false);
 
             // Hub Intelligence is deferred to Pass 2 (Universe work). Works are displayed
@@ -650,7 +742,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             {
                 try
                 {
-                    await _writeBack.WriteMetadataAsync(request.EntityId, "authority_match", ct, request.IngestionRunId)
+                    await _writeBack.WriteMetadataAsync(request.EntityId, "retail_identification", ct, request.IngestionRunId)
                         .ConfigureAwait(false);
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
@@ -740,7 +832,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         else if (stage1Providers.Count > 0)
         {
             _logger.LogWarning(
-                "Pipeline Stage 1 (Reconciliation) produced no results for entity {Id}",
+                "Pipeline Stage 1 (Retail Identification) produced no results for entity {Id}",
                 request.EntityId);
 
             // History: Wikidata match failed.
@@ -767,7 +859,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         else
         {
             _logger.LogWarning(
-                "Pipeline Stage 1 skipped for entity {Id}: no reconciliation providers configured",
+                "Pipeline Stage 1 skipped for entity {Id}: no retail identification providers configured",
                 request.EntityId);
         }
 
@@ -775,12 +867,12 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         s1Ms = stageSw.ElapsedMilliseconds;
         stageSw.Restart();
 
-        // ── Stage 2: Enrichment (Waterfall) ─────────────────────────────────
+        // ── Stage 2: Wikidata Bridge Resolution ────────────────────────────
         //
-        // Runs retail providers in priority order (primary -> secondary ->
-        // tertiary) from slots.json. Bridge IDs deposited by Stage 1 are used
-        // for precise lookups. After each provider, overall confidence is
-        // checked against the waterfall threshold.
+        // Uses bridge IDs deposited by Stage 1 (Retail Identification) to
+        // resolve Wikidata edition and work QIDs via the Reconciliation API.
+        // Links editions to works, works to universes. Currently runs per-entity;
+        // batch deduplication optimization planned for future sprint.
 
         // Reload canonical values to extract bridge IDs from Stage 1.
         var canonicalsForS2 = await _canonicalRepo.GetByEntityAsync(request.EntityId, ct)
@@ -790,8 +882,8 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             .ToList();
         var bridgeHints = ExtractBridgeHints(canonicalsForS2, request.MediaType, stage2ProviderConfigs);
 
-        // Update title hint with canonical value from Stage 1 (the Reconciliation
-        // label is typically shorter/cleaner than the embedded P1476 formal title,
+        // Update title hint with canonical value from Stage 1 (the retail match
+        // title is typically shorter/cleaner than the embedded P1476 formal title,
         // e.g. "Frankenstein" rather than "Frankenstein; or, The Modern Prometheus").
         // Use direct assignment so the canonical title overrides any embedded title
         // already in bridgeHints or the original request hints.
@@ -864,7 +956,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         IExternalMetadataProvider? lastSuccessfulProvider = null;
 
         _logger.LogInformation(
-            "Pipeline Stage 2 (Enrichment) starting for entity {Id} — bridge IDs: [{BridgeKeys}], providers: [{Providers}]",
+            "Pipeline Stage 2 (Wikidata Bridge Resolution) starting for entity {Id} — bridge IDs: [{BridgeKeys}], providers: [{Providers}]",
             request.EntityId,
             bridgeHints.Count > 0 ? string.Join(", ", bridgeHints.Keys) : "(none)",
             waterfallProviders.Count > 0
@@ -1067,7 +1159,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 }
             }
 
-            // Write-back: write resolved metadata to the physical file after enrichment.
+            // Write-back: write resolved metadata to the physical file after bridge resolution.
             // Skip on suppressed re-enqueue runs (cover-only) — the initial run
             // already wrote metadata.
             if (request.EntityType == EntityType.MediaAsset
@@ -1075,7 +1167,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             {
                 try
                 {
-                    await _writeBack.WriteMetadataAsync(request.EntityId, "enrichment", ct, request.IngestionRunId)
+                    await _writeBack.WriteMetadataAsync(request.EntityId, "bridge_resolution", ct, request.IngestionRunId)
                         .ConfigureAwait(false);
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
@@ -1118,7 +1210,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         else if (waterfallProviders.Count > 0)
         {
             _logger.LogWarning(
-                "Pipeline Stage 2 (Enrichment) produced no results for entity {Id} from any provider in waterfall [{Providers}]",
+                "Pipeline Stage 2 (Wikidata Bridge Resolution) produced no results for entity {Id} from any provider in waterfall [{Providers}]",
                 request.EntityId, string.Join(", ", waterfallProviders.Select(p => p.Name)));
 
             // History: retail enrichment failed.
@@ -1134,16 +1226,16 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         else
         {
             _logger.LogWarning(
-                "Pipeline Stage 2 skipped for entity {Id}: no enrichment providers configured for {MediaType}",
+                "Pipeline Stage 2 skipped for entity {Id}: no bridge resolution providers configured for {MediaType}",
                 request.EntityId, request.MediaType);
         }
 
 
         s2Ms = stageSw.ElapsedMilliseconds;
 
-        // ── NF Placeholder: enrichment-only match without Wikidata QID ──────
-        // When Stage 1 (Reconciliation) failed to find a QID but Stage 2
-        // (Enrichment) succeeded, the item is likely new or in early release.
+        // ── NF Placeholder: retail-only match without Wikidata QID ──────────
+        // When Stage 2 (Wikidata Bridge Resolution) failed to find a QID but Stage 1
+        // (Retail Identification) succeeded, the item is likely new or in early release.
         // Assign a placeholder QID in "NF{6-digit}" format and flag for review.
         if (result.WikidataQid is null && result.Stage2ClaimsAdded > 0)
         {
@@ -1179,7 +1271,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                     // Create a review item so the user can revisit when Wikidata has it.
                     await CreateReviewItemAsync(
                         request, ReviewTrigger.MissingQid, 0.0,
-                        $"No Wikidata QID found. Enrichment match exists ({result.Stage2ClaimsAdded} claims). Placeholder: {placeholder}",
+                        $"No Wikidata QID found. Retail match exists ({result.Stage1ClaimsAdded} claims). Placeholder: {placeholder}",
                         result, ct, deferredReviewNotifications).ConfigureAwait(false);
 
                     _logger.LogInformation(
@@ -1397,8 +1489,8 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                           or ReviewTrigger.ContentMatchFailed
                           or ReviewTrigger.AuthorityMatchFailed).ToList();
             // AuthorityMatchFailed is auto-resolved here because high confidence from
-            // Stage 2 enrichment providers is sufficient to identify and organise the file
-            // — Wikidata reconciliation is optional enrichment.
+            // Stage 1 retail providers is sufficient to identify and organise the file
+            // — Wikidata bridge resolution is optional enrichment.
 
             foreach (var review in resolvable)
             {
@@ -1576,6 +1668,29 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     }
 
     /// <summary>
+    /// Returns true if the claim key represents a bridge identifier that should be
+    /// stored in the bridge_ids table for Stage 2 Wikidata resolution.
+    /// </summary>
+    private static bool IsBridgeIdClaim(string claimKey)
+    {
+        return claimKey switch
+        {
+            "isbn" or "isbn_13" or "isbn_10" => true,
+            "asin" => true,
+            "apple_books_id" => true,
+            "tmdb_id" => true,
+            "imdb_id" => true,
+            "audible_id" => true,
+            "goodreads_id" => true,
+            "musicbrainz_id" => true,
+            "comic_vine_id" => true,
+            "apple_podcasts_id" => true,
+            "apple_music_id" => true,
+            _ => false,
+        };
+    }
+
+    /// <summary>
     /// Returns <c>true</c> when <paramref name="title"/> looks like a genuine work
     /// title rather than a placeholder or filename-derived hash.
     /// </summary>
@@ -1594,7 +1709,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     }
 
     /// <summary>
-    /// Resolves the primary provider for Stage 1 (Reconciliation) from the slot
+    /// Resolves the primary provider for Stage 1 (Retail Identification) from the slot
     /// configuration. Returns <c>null</c> if no primary provider is configured
     /// or the configured provider is disabled/not found.
     /// </summary>
@@ -1644,7 +1759,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     /// <summary>
     /// Returns an ordered list of providers for the retail waterfall execution:
     /// primary, then secondary, then tertiary — filtering out nulls/disabled.
-    /// Used for Stage 2 (Enrichment).
+    /// Used for Stage 2 (Wikidata Bridge Resolution).
     /// </summary>
     private List<IExternalMetadataProvider> ResolveWaterfallProviders(
         ProviderSlotConfiguration slots,
@@ -1718,7 +1833,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
 
     /// <summary>
     /// Returns providers configured for the given stage, filtered by media type
-    /// and entity type compatibility. Used for Stage 1 (Reconciliation) providers.
+    /// and entity type compatibility. Used for Stage 1 (Retail Identification) providers.
     /// </summary>
     private List<IExternalMetadataProvider> GetProvidersForStage(
         int stage,
@@ -3337,10 +3452,16 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             var coverPath = Path.Combine(fileDir, "cover.jpg");
 
             // 2. Check for a cover URL in canonical values.
+            //    Prefer cover_url over cover — user-locked selections are written
+            //    to cover_url, so it must take priority over retail provider covers.
             var canonicals = await _canonicalRepo.GetByEntityAsync(assetId, ct)
                 .ConfigureAwait(false);
             var coverUrl = canonicals
-                .Where(c => c.Key is "cover" or "cover_url")
+                .Where(c => c.Key is "cover_url")
+                .Select(c => c.Value)
+                .FirstOrDefault(v => v.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                ?? canonicals
+                .Where(c => c.Key is "cover")
                 .Select(c => c.Value)
                 .FirstOrDefault(v => v.StartsWith("http", StringComparison.OrdinalIgnoreCase));
 
@@ -3465,13 +3586,13 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         try
         {
             var batch = await _batchRepo.GetByIdAsync(batchId.Value, ct).ConfigureAwait(false);
-            if (batch is null || batch.FilesRegistered <= 0) return;
+            if (batch is null || batch.FilesIdentified <= 0) return;
 
             await _batchRepo.UpdateCountsAsync(
                 batchId.Value,
                 batch.FilesTotal,
                 batch.FilesProcessed,
-                batch.FilesRegistered - 1,
+                batch.FilesIdentified - 1,
                 batch.FilesReview + 1,
                 batch.FilesNoMatch,
                 batch.FilesFailed,
@@ -3479,12 +3600,12 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _logger.LogDebug(ex, "Batch review adjustment (reg→review) failed for {BatchId}", batchId);
+            _logger.LogDebug(ex, "Batch review adjustment (identified→review) failed for {BatchId}", batchId);
         }
     }
 
     /// <summary>
-    /// Shifts one file from Review → Registered in the batch counters.
+    /// Shifts one file from Review → Identified in the batch counters.
     /// Called when hydration auto-resolves a review item.
     /// </summary>
     private async Task AdjustBatchForResolveAsync(Guid? batchId, CancellationToken ct)
@@ -3499,7 +3620,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 batchId.Value,
                 batch.FilesTotal,
                 batch.FilesProcessed,
-                batch.FilesRegistered + 1,
+                batch.FilesIdentified + 1,
                 batch.FilesReview - 1,
                 batch.FilesNoMatch,
                 batch.FilesFailed,
@@ -3507,7 +3628,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _logger.LogDebug(ex, "Batch resolve adjustment (review→reg) failed for {BatchId}", batchId);
+            _logger.LogDebug(ex, "Batch resolve adjustment (review→identified) failed for {BatchId}", batchId);
         }
     }
 

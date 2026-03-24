@@ -3,6 +3,7 @@
 @using MudBlazor
 
 @inject UIOrchestratorService Orchestrator
+@inject IJSRuntime JS
 
 <div class="coverpicker">
     @if (_covers.Count == 0 && !_loading)
@@ -15,20 +16,38 @@
     }
     else
     {
+        @* ── Alias dropdown (only when aliases are available) ── *@
+        @if (_aliases.Count > 1)
+        {
+            <div class="coverpicker-alias-row">
+                <MudIcon Icon="@Icons.Material.Outlined.TravelExplore"
+                         Style="font-size: 13px; color: rgba(200,190,220,0.35);" />
+                <select class="coverpicker-alias-select" @onchange="HandleAliasChanged">
+                    @foreach (var alias in _aliases)
+                    {
+                        <option value="@alias" selected="@(alias == _activeSearchTitle)">@alias</option>
+                    }
+                </select>
+            </div>
+        }
+
         <div class="coverpicker-strip">
             @foreach (var cover in _covers)
             {
                 var isSelected = cover == _selectedCover;
-                <div class="coverpicker-thumb @(isSelected ? "coverpicker-thumb--selected" : "")"
-                     @onclick="() => SelectCover(cover)">
-                    <img src="@cover.Url" alt="" class="coverpicker-img" loading="lazy"
-                         onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='flex')" />
-                    <div class="coverpicker-img-fallback" style="display: none;">
-                        <MudIcon Icon="@Icons.Material.Outlined.BrokenImage"
-                                 Style="font-size: 14px; color: rgba(200,190,220,0.2);" />
-                    </div>
-                    <div class="coverpicker-hover-popup">
-                        <img src="@cover.Url" alt="" class="coverpicker-hover-img" />
+                var isAudiobook = string.Equals(MediaType, "Audiobook", StringComparison.OrdinalIgnoreCase)
+                                  || string.Equals(MediaType, "Audiobooks", StringComparison.OrdinalIgnoreCase);
+                <div class="coverpicker-thumb @(isSelected ? "coverpicker-thumb--selected" : "") @(isAudiobook ? "coverpicker-thumb--square" : "")"
+                     @onclick="() => SelectCover(cover)"
+                     @onmouseenter="e => ShowCoverPopup(cover.Url, e)"
+                     @onmouseleave="HideCoverPopup">
+                    <div class="coverpicker-img-wrap">
+                        <img src="@cover.Url" alt="" class="coverpicker-img" loading="lazy"
+                             onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='flex')" />
+                        <div class="coverpicker-img-fallback" style="display: none;">
+                            <MudIcon Icon="@Icons.Material.Outlined.BrokenImage"
+                                     Style="font-size: 14px; color: rgba(200,190,220,0.2);" />
+                        </div>
                     </div>
                     @if (!string.IsNullOrEmpty(cover.Label))
                     {
@@ -53,7 +72,9 @@
 
             @if (!_loading && _hasMore)
             {
-                <button class="coverpicker-more" @onclick="LoadMore">
+                var isAudiobookMore = string.Equals(MediaType, "Audiobook", StringComparison.OrdinalIgnoreCase)
+                                      || string.Equals(MediaType, "Audiobooks", StringComparison.OrdinalIgnoreCase);
+                <button class="coverpicker-more @(isAudiobookMore ? "coverpicker-more--square" : "")" @onclick="LoadMore">
                     <MudIcon Icon="@Icons.Material.Outlined.Add" Style="font-size: 16px;" />
                     <span>More</span>
                 </button>
@@ -66,6 +87,7 @@
     [Parameter] public string? FileCoverUrl { get; set; }
     [Parameter] public string? CandidateTitle { get; set; }
     [Parameter] public string? CandidateAuthor { get; set; }
+    [Parameter] public string? CandidateQid { get; set; }
     [Parameter] public string? MediaType { get; set; }
     [Parameter] public EventCallback<string?> OnCoverSelected { get; set; }
 
@@ -77,11 +99,27 @@
     }
 
     private List<CoverOption> _covers = [];
+
+    private async Task ShowCoverPopup(string? url, MouseEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(url)) return;
+        await JS.InvokeVoidAsync("CoverPopup.show", url, e.ClientX, e.ClientY);
+    }
+
+    private async Task HideCoverPopup()
+    {
+        await JS.InvokeVoidAsync("CoverPopup.hide");
+    }
     private CoverOption? _selectedCover;
     private bool _loading;
     private bool _hasMore;
     private string? _lastQuery;
     private List<RetailCandidateDto> _allRetailResults = [];
+
+    // ── Alias dropdown state ─────────────────────────────────────────────────
+    private List<string> _aliases = [];
+    private string? _activeSearchTitle;
+    private string? _lastAliasQid;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -93,6 +131,19 @@
         _selectedCover = null;
         _allRetailResults = [];
         _hasMore = false;
+        _activeSearchTitle = CandidateTitle;
+
+        // Fetch aliases when QID changes
+        if (CandidateQid != _lastAliasQid)
+        {
+            _lastAliasQid = CandidateQid;
+            _aliases = [];
+            if (!string.IsNullOrWhiteSpace(CandidateQid))
+            {
+                // Fire-and-forget style: aliases load in background, covers load immediately
+                _ = LoadAliasesAsync(CandidateQid);
+            }
+        }
 
         if (string.IsNullOrWhiteSpace(CandidateTitle))
         {
@@ -120,6 +171,38 @@
         await LoadRetailCovers();
     }
 
+    private async Task LoadAliasesAsync(string qid)
+    {
+        try
+        {
+            // Orchestrator prepends canonicalTitle if not already present
+            _aliases = await Orchestrator.GetAliasesAsync(qid, CandidateTitle);
+            _activeSearchTitle = _aliases.Count > 0 ? _aliases[0] : CandidateTitle;
+            StateHasChanged();
+        }
+        catch
+        {
+            // Silent fail — alias dropdown is optional
+        }
+    }
+
+    private async Task HandleAliasChanged(ChangeEventArgs e)
+    {
+        var selected = e.Value?.ToString();
+        if (string.IsNullOrWhiteSpace(selected) || selected == _activeSearchTitle) return;
+
+        _activeSearchTitle = selected;
+
+        // Clear retail covers and re-search with the selected alias
+        _covers.RemoveAll(c => c.Label != "From File");
+        _allRetailResults = [];
+        _hasMore = false;
+        _selectedCover = _covers.FirstOrDefault(); // revert to file cover if present
+
+        await LoadRetailCovers();
+        StateHasChanged();
+    }
+
     private async Task LoadRetailCovers()
     {
         _loading = true;
@@ -127,7 +210,7 @@
 
         try
         {
-            var searchQuery = CandidateTitle ?? "";
+            var searchQuery = _activeSearchTitle ?? CandidateTitle ?? "";
             if (!string.IsNullOrWhiteSpace(CandidateAuthor))
                 searchQuery += " " + CandidateAuthor;
 
@@ -198,13 +281,14 @@
     private string? BuildQuery()
     {
         if (string.IsNullOrWhiteSpace(CandidateTitle)) return null;
-        return $"{CandidateTitle}|{CandidateAuthor}|{MediaType}";
+        return $"{CandidateTitle}|{CandidateAuthor}|{CandidateQid}|{MediaType}";
     }
 }
 
 <style>
     .coverpicker {
         padding: 0 16px 8px 16px;
+        overflow: visible;
     }
 
     .coverpicker-empty {
@@ -225,11 +309,49 @@
         color: rgba(200, 190, 220, 0.22);
     }
 
+    /* ── Alias dropdown row ── */
+    .coverpicker-alias-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 0 0 6px;
+    }
+
+    .coverpicker-alias-select {
+        flex: 1;
+        background: rgba(140, 120, 180, 0.06);
+        border: 1px solid rgba(140, 120, 180, 0.15);
+        border-radius: 6px;
+        color: rgba(200, 190, 220, 0.75);
+        font-family: 'Montserrat', sans-serif;
+        font-size: 11px;
+        font-weight: 400;
+        padding: 4px 8px;
+        cursor: pointer;
+        outline: none;
+        transition: border-color 0.15s ease;
+    }
+
+    .coverpicker-alias-select:hover {
+        border-color: rgba(140, 120, 180, 0.30);
+    }
+
+    .coverpicker-alias-select:focus {
+        border-color: rgba(74, 144, 217, 0.50);
+    }
+
+    .coverpicker-alias-select option {
+        background: #12162a;
+        color: rgba(200, 190, 220, 0.85);
+    }
+
     .coverpicker-strip {
         display: flex;
         gap: 8px;
         overflow-x: auto;
-        padding: 4px 0;
+        /* Extra top padding gives room for the hover popup that appears above thumbs */
+        padding: 260px 0 4px;
+        margin-top: -256px;
         scrollbar-width: none;
     }
 
@@ -246,8 +368,21 @@
         border: 2px solid rgba(140, 120, 180, 0.12);
         background: rgba(140, 120, 180, 0.04);
         cursor: pointer;
-        overflow: hidden;
+        /* overflow: hidden removed — popup must escape the thumb bounds */
         transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    /* Square variant for audiobooks */
+    .coverpicker-thumb--square {
+        height: 80px;
+    }
+
+    /* Inner wrapper clips the image content, leaving the thumb free to show the popup */
+    .coverpicker-img-wrap {
+        position: absolute;
+        inset: 0;
+        overflow: hidden;
+        border-radius: 4px;
     }
 
     .coverpicker-thumb:hover {
@@ -336,30 +471,9 @@
         background: rgba(140, 120, 180, 0.08);
     }
 
-    /* ── Cover hover popup ── */
-    .coverpicker-hover-popup {
-        display: none;
-        position: absolute;
-        z-index: 200;
-        left: 50%;
-        bottom: calc(100% + 8px);
-        transform: translateX(-50%);
-        padding: 4px;
-        background: rgba(10, 8, 20, 0.95);
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        border-radius: 8px;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
-        pointer-events: none;
+    .coverpicker-more--square {
+        height: 80px;
     }
 
-    .coverpicker-thumb:hover .coverpicker-hover-popup {
-        display: block;
-    }
-
-    .coverpicker-hover-img {
-        width: 240px;
-        height: auto;
-        border-radius: 4px;
-        display: block;
-    }
+    /* Cover hover popup rendered on document.body via JS interop (cover-popup.js). */
 </style>

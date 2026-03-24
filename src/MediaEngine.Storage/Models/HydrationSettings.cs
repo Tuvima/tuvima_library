@@ -220,6 +220,80 @@ public sealed class HydrationSettings
     [JsonPropertyName("batch_max_size")]
     public int BatchMaxSize { get; set; } = 50;
 
+    // ── Retail-First Pipeline ──────────────────────────────────────────
+
+    /// <summary>
+    /// When <c>true</c>, Stage 0 (Local Match) checks the bridge_ids table and
+    /// canonical_values for existing matches before making any external API calls.
+    /// Dramatically reduces external calls for episodic content (TV, music, podcasts).
+    /// </summary>
+    [JsonPropertyName("local_match_enabled")]
+    public bool LocalMatchEnabled { get; set; } = true;
+
+    /// <summary>
+    /// Minimum fuzzy match confidence for a title+author match against existing
+    /// canonical values. Very high threshold (0.95) to prevent false positives.
+    /// Only used when no exact ID match is found.
+    /// </summary>
+    [JsonPropertyName("local_match_fuzzy_threshold")]
+    public double LocalMatchFuzzyThreshold { get; set; } = 0.95;
+
+    /// <summary>
+    /// Minimum composite confidence for a retail match to be auto-accepted
+    /// during Stage 1 (Retail Identification). Below this threshold, the
+    /// match goes to review queue as <see cref="Domain.Enums.ReviewTrigger.RetailMatchAmbiguous"/>.
+    /// </summary>
+    [JsonPropertyName("retail_auto_accept_threshold")]
+    public double RetailAutoAcceptThreshold { get; set; } = 0.85;
+
+    /// <summary>
+    /// Below this threshold, a retail match is treated as too weak to accept
+    /// even provisionally. The item is flagged as <see cref="Domain.Enums.ReviewTrigger.RetailMatchFailed"/>.
+    /// Between this and <see cref="RetailAutoAcceptThreshold"/>, the match is
+    /// provisionally accepted and sent to review.
+    /// </summary>
+    [JsonPropertyName("retail_ambiguous_threshold")]
+    public double RetailAmbiguousThreshold { get; set; } = 0.50;
+
+    /// <summary>
+    /// Media types for which the pipeline resolves Wikidata edition entities
+    /// (via P629 edition_or_translation_of) in addition to work entities.
+    /// Media types NOT in this list resolve directly to work QIDs.
+    /// Configurable to allow adding/removing edition awareness without code changes.
+    /// </summary>
+    [JsonPropertyName("edition_aware_media_types")]
+    public List<string> EditionAwareMediaTypes { get; set; } =
+        ["Books", "Audiobooks", "Movies", "Comics", "Music"];
+
+    /// <summary>
+    /// Weights for fuzzy field matching during Stage 1 retail scoring.
+    /// Keys: "title", "author", "year", "format". Values: 0.0–1.0.
+    /// Must sum to 1.0. Read by <c>RetailMatchScoringService</c>.
+    /// </summary>
+    [JsonPropertyName("fuzzy_match_weights")]
+    public Dictionary<string, double> FuzzyMatchWeights { get; set; } = new()
+    {
+        ["title"] = 0.45,
+        ["author"] = 0.35,
+        ["year"] = 0.10,
+        ["format"] = 0.10,
+    };
+
+    /// <summary>
+    /// HTML tags to preserve when sanitizing retail provider descriptions.
+    /// All other tags are stripped. Used by the <c>sanitize_html</c> transform.
+    /// </summary>
+    [JsonPropertyName("preserve_html_tags")]
+    public List<string> PreserveHtmlTags { get; set; } =
+        ["b", "i", "em", "strong", "p", "br"];
+
+    /// <summary>
+    /// Maximum entities per Wikidata batch API call during Stage 2
+    /// (Wikidata Bridge Resolution). The Data Extension API supports up to 50.
+    /// </summary>
+    [JsonPropertyName("wikidata_batch_size")]
+    public int WikidataBatchSize { get; set; } = 50;
+
     // ── Chronicle Engine ──────────────────────────────────────────────
 
     /// <summary>
