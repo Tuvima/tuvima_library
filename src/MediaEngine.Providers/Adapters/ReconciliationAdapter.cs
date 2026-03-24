@@ -692,10 +692,11 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         var qids = candidates.Select(c => c.Id).ToList();
 
         // ── Wide-net property fetch ─────────────────────────────────────────
-        // Fetch P31 (type), P50 (author), P212 (ISBN-13), P957 (ISBN-10) in one
-        // batched call. These power the three-step scoring: type filter → property
-        // validation → weighted scoring with instant ISBN match.
-        var fetchProps = new List<string> { "P31", "P50", "P212", "P957" };
+        // Fetch P31 (type), P50 (author), P212 (ISBN-13), P957 (ISBN-10),
+        // P629 (edition_or_translation_of) in one batched call. These power the
+        // three-step scoring: type filter → property validation → weighted scoring.
+        // P629 is used to demote translations/editions in favour of original works.
+        var fetchProps = new List<string> { "P31", "P50", "P212", "P957", "P629" };
         var propsByQid = await ExtendAsync(qids, fetchProps, ct).ConfigureAwait(false);
 
         // ── Step 1: Type filter (P31) ───────────────────────────────────────
@@ -793,6 +794,19 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                     }
                 }
                 score += 30.0 * bestAuthorMatch;
+            }
+
+            // Translation/edition penalty (-40 if P629 is present).
+            // P629 (edition_or_translation_of) indicates this candidate is a derivative
+            // of another work — prefer the original. This breaks ties when the original
+            // and its translations both match the query equally.
+            if (cProps is not null
+                && cProps.TryGetValue("P629", out var p629Values) && p629Values.Count > 0)
+            {
+                score -= 40.0;
+                _logger.LogDebug(
+                    "{Provider}: candidate {QID} '{Label}' — translation/edition penalty (-40, P629 present)",
+                    Name, candidate.Id, candidate.Name);
             }
 
             scored.Add((candidate, score));
