@@ -427,14 +427,6 @@ else
     </div>
 }
 
-@* ── Fixed-position cover popup (rendered outside scroll containers) ── *@
-@if (_coverPopupUrl is not null)
-{
-    <div class="isearch-cover-hover-popup"
-         style="display: block; top: @(_coverPopupTop)px; left: @(_coverPopupLeft)px;">
-        <img src="@_coverPopupUrl" class="isearch-cover-hover-img" alt="" />
-    </div>
-}
 
 @code {
     [Parameter, EditorRequired] public RegistryItemViewModel Item { get; set; } = default!;
@@ -462,26 +454,16 @@ else
     private System.Threading.Timer? _registerTimer;
     private System.Threading.Timer? _unmatchTimer;
 
-    // Cover popup state (fixed position, escapes scroll containers)
-    private string? _coverPopupUrl;
-    private double _coverPopupTop;
-    private double _coverPopupLeft;
-
-    private void ShowCoverPopup(string? url, MouseEventArgs e)
+    // Cover popup — rendered on document.body via JS to escape backdrop-filter containment.
+    private async Task ShowCoverPopup(string? url, MouseEventArgs e)
     {
         if (string.IsNullOrWhiteSpace(url)) return;
-        _coverPopupUrl = url;
-        // Position to the left of the cursor, vertically centered
-        _coverPopupTop = e.ClientY - 120;
-        _coverPopupLeft = e.ClientX - 260;
-        // Clamp to viewport
-        if (_coverPopupTop < 8) _coverPopupTop = 8;
-        if (_coverPopupLeft < 8) _coverPopupLeft = 8;
+        await JS.InvokeVoidAsync("CoverPopup.show", url, e.ClientX, e.ClientY);
     }
 
-    private void HideCoverPopup()
+    private async Task HideCoverPopup()
     {
-        _coverPopupUrl = null;
+        await JS.InvokeVoidAsync("CoverPopup.hide");
     }
 
     private bool IsAlreadyMatched =>
@@ -1589,29 +1571,10 @@ else
         animation: pulse-confirm 1s ease-in-out infinite;
     }
 
-    /* ── Cover hover popup (fixed position, escapes all scroll containers) ── */
+    /* Cover hover wrap — the popup is rendered on document.body via JS interop. */
     .isearch-cover-hover-wrap {
-        position: static;
+        position: relative;
         flex-shrink: 0;
-    }
-
-    /* Hidden by default — visibility toggled via Blazor mouse events.
-       Positioned with fixed coordinates to escape scroll container clipping. */
-    .isearch-cover-hover-popup {
-        position: fixed;
-        z-index: 9999;
-        padding: 4px;
-        background: rgba(10, 8, 20, 0.97);
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        border-radius: 8px;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
-        pointer-events: none;
-    }
-
-    .isearch-cover-hover-img {
-        width: 240px;
-        height: auto;
-        border-radius: 4px;
-        display: block;
+        cursor: pointer;
     }
 </style>
