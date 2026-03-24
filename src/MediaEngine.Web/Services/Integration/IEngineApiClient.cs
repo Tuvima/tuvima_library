@@ -497,7 +497,7 @@ public interface IEngineApiClient
     /// <summary>POST /search/universe — search Wikidata for identity candidates, enriched with cover art.</summary>
     Task<SearchUniverseResponseDto?> SearchUniverseAsync(
         string query, string mediaType, int maxCandidates = 5,
-        CancellationToken ct = default);
+        string? localAuthor = null, CancellationToken ct = default);
 
     /// <summary>POST /search/retail — search retail providers for cover art and basic metadata.</summary>
     Task<SearchRetailResponseDto?> SearchRetailAsync(

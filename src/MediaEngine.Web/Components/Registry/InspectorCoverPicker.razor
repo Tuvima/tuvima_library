@@ -3,6 +3,7 @@
 @using MudBlazor
 
 @inject UIOrchestratorService Orchestrator
+@inject IJSRuntime JS
 
 <div class="coverpicker">
     @if (_covers.Count == 0 && !_loading)
@@ -19,16 +20,19 @@
             @foreach (var cover in _covers)
             {
                 var isSelected = cover == _selectedCover;
-                <div class="coverpicker-thumb @(isSelected ? "coverpicker-thumb--selected" : "")"
-                     @onclick="() => SelectCover(cover)">
-                    <img src="@cover.Url" alt="" class="coverpicker-img" loading="lazy"
-                         onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='flex')" />
-                    <div class="coverpicker-img-fallback" style="display: none;">
-                        <MudIcon Icon="@Icons.Material.Outlined.BrokenImage"
-                                 Style="font-size: 14px; color: rgba(200,190,220,0.2);" />
-                    </div>
-                    <div class="coverpicker-hover-popup">
-                        <img src="@cover.Url" alt="" class="coverpicker-hover-img" />
+                var isAudiobook = string.Equals(MediaType, "Audiobook", StringComparison.OrdinalIgnoreCase)
+                                  || string.Equals(MediaType, "Audiobooks", StringComparison.OrdinalIgnoreCase);
+                <div class="coverpicker-thumb @(isSelected ? "coverpicker-thumb--selected" : "") @(isAudiobook ? "coverpicker-thumb--square" : "")"
+                     @onclick="() => SelectCover(cover)"
+                     @onmouseenter="e => ShowCoverPopup(cover.Url, e)"
+                     @onmouseleave="HideCoverPopup">
+                    <div class="coverpicker-img-wrap">
+                        <img src="@cover.Url" alt="" class="coverpicker-img" loading="lazy"
+                             onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='flex')" />
+                        <div class="coverpicker-img-fallback" style="display: none;">
+                            <MudIcon Icon="@Icons.Material.Outlined.BrokenImage"
+                                     Style="font-size: 14px; color: rgba(200,190,220,0.2);" />
+                        </div>
                     </div>
                     @if (!string.IsNullOrEmpty(cover.Label))
                     {
@@ -53,7 +57,9 @@
 
             @if (!_loading && _hasMore)
             {
-                <button class="coverpicker-more" @onclick="LoadMore">
+                var isAudiobookMore = string.Equals(MediaType, "Audiobook", StringComparison.OrdinalIgnoreCase)
+                                      || string.Equals(MediaType, "Audiobooks", StringComparison.OrdinalIgnoreCase);
+                <button class="coverpicker-more @(isAudiobookMore ? "coverpicker-more--square" : "")" @onclick="LoadMore">
                     <MudIcon Icon="@Icons.Material.Outlined.Add" Style="font-size: 16px;" />
                     <span>More</span>
                 </button>
@@ -77,6 +83,17 @@
     }
 
     private List<CoverOption> _covers = [];
+
+    private async Task ShowCoverPopup(string? url, MouseEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(url)) return;
+        await JS.InvokeVoidAsync("CoverPopup.show", url, e.ClientX, e.ClientY);
+    }
+
+    private async Task HideCoverPopup()
+    {
+        await JS.InvokeVoidAsync("CoverPopup.hide");
+    }
     private CoverOption? _selectedCover;
     private bool _loading;
     private bool _hasMore;
@@ -205,6 +222,7 @@
 <style>
     .coverpicker {
         padding: 0 16px 8px 16px;
+        overflow: visible;
     }
 
     .coverpicker-empty {
@@ -229,7 +247,9 @@
         display: flex;
         gap: 8px;
         overflow-x: auto;
-        padding: 4px 0;
+        /* Extra top padding gives room for the hover popup that appears above thumbs */
+        padding: 260px 0 4px;
+        margin-top: -256px;
         scrollbar-width: none;
     }
 
@@ -246,8 +266,21 @@
         border: 2px solid rgba(140, 120, 180, 0.12);
         background: rgba(140, 120, 180, 0.04);
         cursor: pointer;
-        overflow: hidden;
+        /* overflow: hidden removed — popup must escape the thumb bounds */
         transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    /* Square variant for audiobooks */
+    .coverpicker-thumb--square {
+        height: 80px;
+    }
+
+    /* Inner wrapper clips the image content, leaving the thumb free to show the popup */
+    .coverpicker-img-wrap {
+        position: absolute;
+        inset: 0;
+        overflow: hidden;
+        border-radius: 4px;
     }
 
     .coverpicker-thumb:hover {
@@ -336,30 +369,10 @@
         background: rgba(140, 120, 180, 0.08);
     }
 
-    /* ── Cover hover popup ── */
-    .coverpicker-hover-popup {
-        display: none;
-        position: absolute;
-        z-index: 200;
-        left: 50%;
-        bottom: calc(100% + 8px);
-        transform: translateX(-50%);
-        padding: 4px;
-        background: rgba(10, 8, 20, 0.95);
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        border-radius: 8px;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
-        pointer-events: none;
+    .coverpicker-more--square {
+        height: 80px;
     }
 
-    .coverpicker-thumb:hover .coverpicker-hover-popup {
-        display: block;
-    }
-
-    .coverpicker-hover-img {
-        width: 240px;
-        height: auto;
-        border-radius: 4px;
-        display: block;
+    /* Cover hover popup rendered on document.body via JS interop (cover-popup.js). */
     }
 </style>

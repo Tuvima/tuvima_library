@@ -2196,7 +2196,7 @@ public sealed class EngineApiClient : IEngineApiClient
 
     public async Task<SearchUniverseResponseDto?> SearchUniverseAsync(
         string query, string mediaType, int maxCandidates = 5,
-        CancellationToken ct = default)
+        string? localAuthor = null, CancellationToken ct = default)
     {
         try
         {
@@ -2205,6 +2205,7 @@ public sealed class EngineApiClient : IEngineApiClient
                 Query         = query,
                 MediaType     = mediaType,
                 MaxCandidates = maxCandidates,
+                LocalAuthor   = localAuthor,
             };
             var resp = await _http.PostAsJsonAsync("/search/universe", payload, ct);
             if (!resp.IsSuccessStatusCode)

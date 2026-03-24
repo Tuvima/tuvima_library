@@ -672,9 +672,9 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     /// <summary>POST /search/universe — Wikidata candidate search enriched with retail cover art.</summary>
     public async Task<List<UniverseCandidateDto>> SearchUniverseAsync(
         string query, string mediaType, int maxCandidates = 5,
-        CancellationToken ct = default)
+        string? localAuthor = null, CancellationToken ct = default)
     {
-        var result = await _api.SearchUniverseAsync(query, mediaType, maxCandidates, ct);
+        var result = await _api.SearchUniverseAsync(query, mediaType, maxCandidates, localAuthor, ct);
         return result?.Candidates ?? [];
     }
 
