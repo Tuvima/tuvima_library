@@ -5,6 +5,7 @@
 
 @inject UIOrchestratorService Orchestrator
 @inject UniverseStateContainer StateContainer
+@inject IJSRuntime JS
 
 @if (IsAlreadyMatched)
 {
@@ -72,19 +73,22 @@
                     <div class="isearch-card @(isSelected ? "isearch-card--selected" : "")"
                          @onclick="() => SelectCandidate(c)">
 
+                        @{
+                            var isAudiobookCard = string.Equals(Item.MediaType, "Audiobook", StringComparison.OrdinalIgnoreCase)
+                                                  || string.Equals(Item.MediaType, "Audiobooks", StringComparison.OrdinalIgnoreCase);
+                        }
                         @if (!string.IsNullOrWhiteSpace(c.CoverUrl))
                         {
-                            <div class="isearch-cover-hover-wrap">
-                                <img src="@c.CoverUrl" alt="" class="isearch-card-cover"
+                            <div class="isearch-cover-hover-wrap"
+                                 @onmouseenter="e => ShowCoverPopup(c.CoverUrl, e)"
+                                 @onmouseleave="HideCoverPopup">
+                                <img src="@c.CoverUrl" alt="" class="isearch-card-cover @(isAudiobookCard ? "isearch-card-cover--square" : "")"
                                      loading="lazy" />
-                                <div class="isearch-cover-hover-popup">
-                                    <img src="@c.CoverUrl" class="isearch-cover-hover-img" alt="" />
-                                </div>
                             </div>
                         }
                         else
                         {
-                            <div class="isearch-card-cover isearch-card-cover--placeholder">
+                            <div class="isearch-card-cover isearch-card-cover--placeholder @(isAudiobookCard ? "isearch-card-cover--square" : "")">
                                 <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Style="font-size: 20px; color: rgba(200,190,220,0.25);" />
                             </div>
                         }
@@ -245,19 +249,22 @@ else
                     <div class="isearch-result-item @(isSelected ? "isearch-result-item--selected" : "")"
                          @onclick="() => SelectCandidate(c)">
 
+                        @{
+                            var isAudiobookResult = string.Equals(Item.MediaType, "Audiobook", StringComparison.OrdinalIgnoreCase)
+                                                    || string.Equals(Item.MediaType, "Audiobooks", StringComparison.OrdinalIgnoreCase);
+                        }
                         @if (!string.IsNullOrWhiteSpace(c.CoverUrl))
                         {
-                            <div class="isearch-cover-hover-wrap">
-                                <img src="@c.CoverUrl" alt="" class="isearch-result-cover"
+                            <div class="isearch-cover-hover-wrap"
+                                 @onmouseenter="e => ShowCoverPopup(c.CoverUrl, e)"
+                                 @onmouseleave="HideCoverPopup">
+                                <img src="@c.CoverUrl" alt="" class="isearch-result-cover @(isAudiobookResult ? "isearch-result-cover--square" : "")"
                                      loading="lazy" />
-                                <div class="isearch-cover-hover-popup">
-                                    <img src="@c.CoverUrl" class="isearch-cover-hover-img" alt="" />
-                                </div>
                             </div>
                         }
                         else
                         {
-                            <div class="isearch-result-cover isearch-result-cover--placeholder">
+                            <div class="isearch-result-cover isearch-result-cover--placeholder @(isAudiobookResult ? "isearch-result-cover--square" : "")">
                                 <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Style="font-size: 20px; color: rgba(200,190,220,0.25);" />
                             </div>
                         }
@@ -420,10 +427,19 @@ else
     </div>
 }
 
+@* ── Fixed-position cover popup (rendered outside scroll containers) ── *@
+@if (_coverPopupUrl is not null)
+{
+    <div class="isearch-cover-hover-popup"
+         style="display: block; top: @(_coverPopupTop)px; left: @(_coverPopupLeft)px;">
+        <img src="@_coverPopupUrl" class="isearch-cover-hover-img" alt="" />
+    </div>
+}
+
 @code {
     [Parameter, EditorRequired] public RegistryItemViewModel Item { get; set; } = default!;
     [Parameter] public string? SelectedCoverUrl { get; set; }
-    [Parameter] public EventCallback OnRegistered { get; set; }
+    [Parameter] public EventCallback OnIdentified { get; set; }
     [Parameter] public EventCallback OnMarkedProvisional { get; set; }
     [Parameter] public EventCallback OnRejected { get; set; }
     [Parameter] public EventCallback<(string? title, string? author)> OnCandidateSelected { get; set; }
@@ -445,6 +461,28 @@ else
     private System.Threading.Timer? _rejectTimer;
     private System.Threading.Timer? _registerTimer;
     private System.Threading.Timer? _unmatchTimer;
+
+    // Cover popup state (fixed position, escapes scroll containers)
+    private string? _coverPopupUrl;
+    private double _coverPopupTop;
+    private double _coverPopupLeft;
+
+    private void ShowCoverPopup(string? url, MouseEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(url)) return;
+        _coverPopupUrl = url;
+        // Position to the left of the cursor, vertically centered
+        _coverPopupTop = e.ClientY - 120;
+        _coverPopupLeft = e.ClientX - 260;
+        // Clamp to viewport
+        if (_coverPopupTop < 8) _coverPopupTop = 8;
+        if (_coverPopupLeft < 8) _coverPopupLeft = 8;
+    }
+
+    private void HideCoverPopup()
+    {
+        _coverPopupUrl = null;
+    }
 
     private bool IsAlreadyMatched =>
         !string.IsNullOrEmpty(Item.WikidataQid) &&
@@ -551,13 +589,13 @@ else
             var response = await Orchestrator.ApplyRegistryMatchAsync(Item.EntityId, request);
             if (response is not null)
             {
-                _resultMessage = response.Message ?? $"Registered — {response.ClaimsWritten} claims written";
+                _resultMessage = response.Message ?? $"Identified — {response.ClaimsWritten} claims written";
                 _resultSuccess = true;
-                await OnRegistered.InvokeAsync();
+                await OnIdentified.InvokeAsync();
             }
             else
             {
-                _resultMessage = "Registration failed — no response from engine";
+                _resultMessage = "Identification failed — no response from engine";
                 _resultSuccess = false;
             }
         }
@@ -821,8 +859,8 @@ else
         display: flex;
         flex-direction: column;
         gap: 6px;
-        max-height: 320px;
-        overflow-y: auto;
+        /* No max-height / overflow-y here — the parent inspector panel scrolls.
+           Constraining height here would clip the cover hover popup. */
     }
 
     .isearch-card {
@@ -858,6 +896,11 @@ else
         border-radius: 6px;
         object-fit: cover;
         flex-shrink: 0;
+    }
+
+    /* Square variant for audiobooks */
+    .isearch-card-cover--square {
+        height: 48px;
     }
 
     .isearch-card-cover--placeholder {
@@ -1247,8 +1290,8 @@ else
         display: flex;
         flex-direction: column;
         gap: 4px;
-        max-height: 400px;
-        overflow-y: auto;
+        /* No max-height / overflow-y here — the parent inspector panel scrolls.
+           Constraining height here would clip the cover hover popup. */
     }
 
     .isearch-result-item {
@@ -1281,6 +1324,11 @@ else
         border-radius: 6px;
         object-fit: cover;
         flex-shrink: 0;
+    }
+
+    /* Square variant for audiobooks */
+    .isearch-result-cover--square {
+        height: 48px;
     }
 
     .isearch-result-cover--placeholder {
@@ -1541,28 +1589,23 @@ else
         animation: pulse-confirm 1s ease-in-out infinite;
     }
 
-    /* ── Cover hover popup ── */
+    /* ── Cover hover popup (fixed position, escapes all scroll containers) ── */
     .isearch-cover-hover-wrap {
-        position: relative;
+        position: static;
         flex-shrink: 0;
     }
 
+    /* Hidden by default — visibility toggled via Blazor mouse events.
+       Positioned with fixed coordinates to escape scroll container clipping. */
     .isearch-cover-hover-popup {
-        display: none;
-        position: absolute;
-        z-index: 200;
-        left: calc(100% + 8px);
-        top: 0;
+        position: fixed;
+        z-index: 9999;
         padding: 4px;
-        background: rgba(10, 8, 20, 0.95);
+        background: rgba(10, 8, 20, 0.97);
         border: 1px solid rgba(255, 255, 255, 0.12);
         border-radius: 8px;
         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
         pointer-events: none;
-    }
-
-    .isearch-cover-hover-wrap:hover .isearch-cover-hover-popup {
-        display: block;
     }
 
     .isearch-cover-hover-img {

@@ -155,14 +155,20 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             var candidates  = await ReconcileAsync(
                 request.Title, constraints, ct).ConfigureAwait(false);
 
+            _logger.LogInformation(
+                "{Provider}: SearchAsync '{Query}' ({MediaType}) — {Count} reconciliation candidate(s)",
+                Name, request.Title, request.MediaType, candidates.Count);
+
             if (candidates.Count == 0)
                 return [];
 
-            // Optionally filter by media type using P31.
+            // Optionally filter by media type using P31, with title/author/ISBN hints
+            // for composite scoring (boosts candidates with matching metadata).
             if (request.MediaType != MediaType.Unknown)
             {
                 var filtered = await FilterByMediaTypeAsync(
-                    candidates, request.MediaType, ct).ConfigureAwait(false);
+                    candidates, request.MediaType, ct,
+                    request.Title, request.Author, request.Isbn).ConfigureAwait(false);
 
                 // For audiobooks: if audiobook-specific filtering eliminates everything,
                 // fall back to Books classes (an audiobook is a format of a literary work).
@@ -171,20 +177,23 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                     _logger.LogDebug("{Provider}: audiobook filter returned 0 results, falling back to Books classes",
                         Name);
                     filtered = await FilterByMediaTypeAsync(
-                        candidates, MediaType.Books, ct).ConfigureAwait(false);
+                        candidates, MediaType.Books, ct,
+                        request.Title, request.Author, request.Isbn).ConfigureAwait(false);
                 }
 
                 // Strict filtering: only return candidates that positively match the
                 // expected instance_of classes. If nothing matches, return empty — the
                 // user gets 0 results, which is correct (no book match found).
+                _logger.LogInformation(
+                    "{Provider}: SearchAsync type filter ({MediaType}) — {Kept}/{Total} candidates survived",
+                    Name, request.MediaType, filtered.Count, candidates.Count);
                 candidates = filtered;
             }
 
-            // Resolve display-friendly titles from Wikipedia sitelinks.
-            // The Reconciliation API returns the full Wikidata label (e.g.
-            // "Frankenstein; or, The Modern Prometheus") but the Wikipedia
-            // article title ("Frankenstein") is the common-usage display name.
-            candidates = await ResolveDisplayLabelsAsync(candidates, ct)
+            // Resolve display-friendly titles: prefer matching Wikidata alias (e.g. "1984"
+            // for "Nineteen Eighty-Four"), then fall back to Wikipedia sitelink title
+            // (e.g. "Frankenstein" for "Frankenstein; or, The Modern Prometheus").
+            candidates = await ResolveDisplayLabelsAsync(candidates, request.Title, ct)
                 .ConfigureAwait(false);
 
             // For audiobook searches: discover audiobook editions via P747 for work-level results.
@@ -419,6 +428,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     /// </summary>
     private async Task<IReadOnlyList<ReconciliationResult>> ResolveDisplayLabelsAsync(
         IReadOnlyList<ReconciliationResult> candidates,
+        string? originalQuery,
         CancellationToken ct)
     {
         if (candidates.Count == 0 || _reconciler is null)
@@ -427,21 +437,56 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         try
         {
             var qids = candidates.Select(c => c.Id).Distinct().ToList();
+            var language = _configLoader?.LoadCore().Language ?? "en";
 
-            // GetWikipediaUrlsAsync returns QID → Wikipedia URL (e.g. "https://en.wikipedia.org/wiki/Frankenstein")
-            var wikiUrls = await _reconciler.GetWikipediaUrlsAsync(qids, "en", ct)
+            // Step 1: Resolve common names from aliases (e.g. "1984" for "Nineteen Eighty-Four").
+            // Aliases are checked first because they represent the most natural/common name
+            // when the original query matches an alias exactly.
+            var aliasMap = new Dictionary<string, string>(StringComparer.Ordinal);
+            if (!string.IsNullOrWhiteSpace(originalQuery))
+            {
+                try
+                {
+                    var entities = await _reconciler.GetEntitiesAsync(qids, language, ct)
+                        .ConfigureAwait(false);
+
+                    foreach (var (qid, entity) in entities)
+                    {
+                        if (entity.Aliases is null || entity.Aliases.Count == 0)
+                            continue;
+
+                        // If the label already matches the query, no alias substitution needed.
+                        if (string.Equals(entity.Label, originalQuery, StringComparison.OrdinalIgnoreCase))
+                            continue;
+
+                        var matchingAlias = entity.Aliases.FirstOrDefault(a =>
+                            string.Equals(a, originalQuery, StringComparison.OrdinalIgnoreCase));
+
+                        if (matchingAlias is not null)
+                            aliasMap[qid] = matchingAlias;
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    // Propagate cancellation — don't swallow timeouts.
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex,
+                        "{Provider}: alias resolution in display labels failed", Name);
+                }
+            }
+
+            // Step 2: Resolve Wikipedia sitelink titles as fallback display names.
+            var sitelinkMap = new Dictionary<string, string>(StringComparer.Ordinal);
+            var wikiUrls = await _reconciler.GetWikipediaUrlsAsync(qids, language, ct)
                 .ConfigureAwait(false);
 
-            if (wikiUrls.Count == 0)
-                return candidates;
-
-            // Build QID → article title from Wikipedia URL path segment.
-            var sitelinkMap = new Dictionary<string, string>(StringComparer.Ordinal);
             foreach (var (qid, url) in wikiUrls)
             {
                 if (!string.IsNullOrWhiteSpace(url))
                 {
-                    // Extract article title from URL: last path segment, URL-decoded.
                     var lastSlash = url.LastIndexOf('/');
                     if (lastSlash >= 0 && lastSlash < url.Length - 1)
                     {
@@ -452,12 +497,16 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 }
             }
 
-            if (sitelinkMap.Count == 0)
-                return candidates;
-
-            // Replace names with shorter sitelink titles where available.
+            // Step 3: Build final display names. Alias match wins over sitelink title.
             return candidates.Select(c =>
-                sitelinkMap.TryGetValue(c.Id, out var displayTitle)
+            {
+                string? displayTitle = null;
+                if (aliasMap.TryGetValue(c.Id, out var alias))
+                    displayTitle = alias;
+                else if (sitelinkMap.TryGetValue(c.Id, out var sitelink))
+                    displayTitle = sitelink;
+
+                return displayTitle is not null
                     ? new ReconciliationResult
                       {
                           Id          = c.Id,
@@ -467,12 +516,140 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                           Match       = c.Match,
                           Types       = c.Types,
                       }
-                    : c
-            ).ToList();
+                    : c;
+            }).ToList();
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "{Provider}: sitelink label resolution failed, using raw labels", Name);
+            _logger.LogDebug(ex, "{Provider}: display label resolution failed, using raw labels", Name);
+            return candidates;
+        }
+    }
+
+    /// <summary>
+    /// Resolves the common name for a Wikidata entity by checking its aliases against the
+    /// original search query. When the query matches an alias that differs from the primary
+    /// label, the alias IS the common name (e.g. "1984" is a Wikidata alias for Q208460,
+    /// whose primary English label is "Nineteen Eighty-Four").
+    /// </summary>
+    /// <param name="qid">The resolved Wikidata QID.</param>
+    /// <param name="originalQuery">The original search query (from embedded metadata).</param>
+    /// <param name="language">BCP-47 language code for label resolution.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The common name alias if found, or <c>null</c> to fall back to the label.</returns>
+    private async Task<string?> ResolveCommonNameAsync(
+        string qid,
+        string originalQuery,
+        string language,
+        CancellationToken ct)
+    {
+        if (_reconciler is null || string.IsNullOrWhiteSpace(originalQuery))
+            return null;
+
+        try
+        {
+            var entities = await _reconciler.GetEntitiesAsync([qid], language, ct)
+                .ConfigureAwait(false);
+
+            if (!entities.TryGetValue(qid, out var entity))
+                return null;
+
+            var label = entity.Label;
+            var aliases = entity.Aliases;
+
+            if (aliases is null || aliases.Count == 0)
+                return null;
+
+            // If the primary label already matches the query, no alias needed.
+            if (string.Equals(label, originalQuery, StringComparison.OrdinalIgnoreCase))
+                return null;
+
+            // Check aliases for an exact case-insensitive match against the original query.
+            var matchingAlias = aliases.FirstOrDefault(a =>
+                string.Equals(a, originalQuery, StringComparison.OrdinalIgnoreCase));
+
+            if (matchingAlias is not null)
+            {
+                _logger.LogDebug(
+                    "{Provider}: common name alias '{Alias}' matches query '{Query}' for {QID} " +
+                    "(primary label: '{Label}')",
+                    Name, matchingAlias, originalQuery, qid, label);
+                return matchingAlias;
+            }
+
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex,
+                "{Provider}: common name alias resolution failed for {QID}, using label",
+                Name, qid);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Resolves common names for multiple reconciliation candidates by checking Wikidata
+    /// aliases against the original search query. Updates candidate Names in-place when
+    /// a matching alias is found.
+    /// </summary>
+    private async Task<IReadOnlyList<ReconciliationResult>> ResolveCommonNamesAsync(
+        IReadOnlyList<ReconciliationResult> candidates,
+        string originalQuery,
+        string language,
+        CancellationToken ct)
+    {
+        if (_reconciler is null || candidates.Count == 0 || string.IsNullOrWhiteSpace(originalQuery))
+            return candidates;
+
+        try
+        {
+            var qids = candidates.Select(c => c.Id).Distinct().ToList();
+            var entities = await _reconciler.GetEntitiesAsync(qids, language, ct)
+                .ConfigureAwait(false);
+
+            if (entities.Count == 0)
+                return candidates;
+
+            return candidates.Select(c =>
+            {
+                if (!entities.TryGetValue(c.Id, out var entity))
+                    return c;
+
+                var aliases = entity.Aliases;
+                if (aliases is null || aliases.Count == 0)
+                    return c;
+
+                // If the label already matches the query, keep it.
+                if (string.Equals(entity.Label, originalQuery, StringComparison.OrdinalIgnoreCase))
+                    return c;
+
+                // Check for an alias that exactly matches the query.
+                var matchingAlias = aliases.FirstOrDefault(a =>
+                    string.Equals(a, originalQuery, StringComparison.OrdinalIgnoreCase));
+
+                if (matchingAlias is null)
+                    return c;
+
+                _logger.LogDebug(
+                    "{Provider}: display alias '{Alias}' for candidate {QID} (label: '{Label}')",
+                    Name, matchingAlias, c.Id, entity.Label);
+
+                return new ReconciliationResult
+                {
+                    Id          = c.Id,
+                    Name        = matchingAlias,
+                    Description = c.Description,
+                    Score       = c.Score,
+                    Match       = c.Match,
+                    Types       = c.Types,
+                };
+            }).ToList();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex,
+                "{Provider}: batch common name resolution failed, using original labels", Name);
             return candidates;
         }
     }
@@ -622,19 +799,38 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         }
 
         // Rank by composite score (highest first).
+        // Persist the composite score into ReconciliationResult.Score so that callers
+        // (FetchWorkAsync threshold check, SearchAsync confidence display) use the
+        // enriched score rather than the stale API label-only score.
+        var maxComposite = scored.Count > 0 ? scored.Max(s => s.Score) : 1.0;
+        var normFactor = maxComposite > 0 ? 100.0 / Math.Max(maxComposite, 80.0) : 1.0;
+
         var result = scored
             .OrderByDescending(s => s.Score)
-            .Select(s => s.Candidate)
+            .Select(s =>
+            {
+                var compositeNorm = Math.Min(100.0, s.Score * normFactor);
+                var blended = Math.Max(s.Candidate.Score, compositeNorm);
+                return new ReconciliationResult
+                {
+                    Id          = s.Candidate.Id,
+                    Name        = s.Candidate.Name,
+                    Description = s.Candidate.Description,
+                    Score       = blended,
+                    Match       = s.Candidate.Match,
+                    Types       = s.Candidate.Types,
+                };
+            })
             .ToList();
 
         if (result.Count > 0)
         {
-            var topScore = scored.OrderByDescending(s => s.Score).First();
+            var topEntry = scored.OrderByDescending(s => s.Score).First();
             _logger.LogDebug(
-                "{Provider}: Scoring top={QID} '{Label}' (score {Score:F1}) — " +
+                "{Provider}: Scoring top={QID} '{Label}' (composite {Composite:F1}, blended {Blended:F1}) — " +
                 "kept {Kept}/{Total} candidates for {MediaType}",
-                Name, topScore.Candidate.Id, topScore.Candidate.Name,
-                topScore.Score, result.Count, candidates.Count, mediaTypeKey);
+                Name, topEntry.Candidate.Id, topEntry.Candidate.Name,
+                topEntry.Score, result[0].Score, result.Count, candidates.Count, mediaTypeKey);
         }
         else
         {
@@ -969,6 +1165,15 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
 
             qid = top.Id;
             reconciliationLabel = top.Name;
+
+            // Resolve the common name from Wikidata aliases. When the query matches an
+            // alias that differs from the primary label (e.g. "1984" is an alias for
+            // "Nineteen Eighty-Four"), prefer the alias as the display and search title.
+            var lang = _configLoader?.LoadCore().Language ?? "en";
+            var commonName = await ResolveCommonNameAsync(qid, searchTitle, lang, ct)
+                .ConfigureAwait(false);
+            if (commonName is not null)
+                reconciliationLabel = commonName;
         }
 
         // ── Step 2 & 3: Audiobook Edition Pivot ──────────────────────────────────
