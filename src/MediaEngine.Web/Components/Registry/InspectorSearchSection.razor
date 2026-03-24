@@ -189,7 +189,7 @@ else
 {
     @* ── Search workspace ── *@
     <div class="isearch-workspace">
-        <h3 class="isearch-heading">Search Wikidata</h3>
+        <h3 class="isearch-heading">Find Match</h3>
 
         @* ── Search input row (promoted, larger) ── *@
         <div class="isearch-search-row">
@@ -227,7 +227,7 @@ else
         <span class="isearch-search-hint">
             @if (!_hasSearched)
             {
-                @("Try removing the year, original language, or alternate titles")
+                @("Search by title, author, ISBN, or narrator")
             }
             else if (_candidates.Count > 0)
             {
@@ -507,27 +507,52 @@ else
         try
         {
             var mt = string.IsNullOrEmpty(_mediaType) ? "Books" : _mediaType;
-            // Universe search: Wikidata reconciliation + retail cover art enrichment in one call.
-            // Pass the file's author as local context so Wikidata can use it as a P50 constraint
-            // for disambiguation (e.g. "Die Verwandlung" + "Kafka" → The Metamorphosis).
-            var results = await Orchestrator.SearchUniverseAsync(
-                _query, mt, maxCandidates: 10, localAuthor: Item.Author);
-            foreach (var c in results)
+
+            // Retail-first search: query retail providers (Apple Books, TMDB, etc.)
+            // for edition-specific cover art and metadata.
+            var retailResults = await Orchestrator.SearchRetailAsync(
+                _query, mt, maxCandidates: 10);
+
+            if (retailResults.Count > 0)
             {
-                _candidates.Add(new CandidateViewModel
+                foreach (var c in retailResults)
                 {
-                    Title = c.Label,
-                    Author = c.Author,
-                    Description = c.Description ?? c.WikipediaExtract,
-                    Year = c.Year,
-                    CoverUrl = c.CoverUrl,
-                    Qid = c.Qid,
-                    Confidence = c.Confidence,
-                    ProviderName = "Wikidata Reconciliation",
-                    ProviderId = "b3000003-d000-4000-8000-000000000004",
-                    ProviderItemId = c.Qid,
-                    RawFields = c.BridgeIds
-                });
+                    _candidates.Add(new CandidateViewModel
+                    {
+                        Title = c.Title,
+                        Author = c.Author ?? c.Director,
+                        Description = c.Description,
+                        Year = c.Year,
+                        CoverUrl = c.CoverUrl,
+                        Confidence = c.Confidence,
+                        ProviderName = c.ProviderName,
+                        ProviderId = c.ProviderId,
+                        ProviderItemId = c.ProviderItemId,
+                    });
+                }
+            }
+            else
+            {
+                // Fallback: if retail returns nothing, try Wikidata universe search.
+                var wikiResults = await Orchestrator.SearchUniverseAsync(
+                    _query, mt, maxCandidates: 10, localAuthor: Item.Author);
+                foreach (var c in wikiResults)
+                {
+                    _candidates.Add(new CandidateViewModel
+                    {
+                        Title = c.Label,
+                        Author = c.Author,
+                        Description = c.Description ?? c.WikipediaExtract,
+                        Year = c.Year,
+                        CoverUrl = c.CoverUrl,
+                        Qid = c.Qid,
+                        Confidence = c.Confidence,
+                        ProviderName = "Wikidata",
+                        ProviderId = "b3000003-d000-4000-8000-000000000004",
+                        ProviderItemId = c.Qid,
+                        RawFields = c.BridgeIds
+                    });
+                }
             }
 
             // Sort by confidence descending
