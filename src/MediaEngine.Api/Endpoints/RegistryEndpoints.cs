@@ -263,20 +263,6 @@ public static class RegistryEndpoints
                     cmd.ExecuteNonQuery();
                 }
 
-                // Dismiss any pending review items for this asset
-                using (var conn = db.CreateConnection())
-                using (var cmd = conn.CreateCommand())
-                {
-                    cmd.CommandText = """
-                        UPDATE review_queue
-                        SET status = 'Resolved', resolved_at = @now, resolved_by = 'user:curator'
-                        WHERE entity_id = @assetId AND status = 'Pending'
-                        """;
-                    cmd.Parameters.AddWithValue("@assetId", assetIdStr);
-                    cmd.Parameters.AddWithValue("@now",     now.ToString("o"));
-                    cmd.ExecuteNonQuery();
-                }
-
                 // Use the request title if provided, fall back to DB title
                 var displayTitle = request.Title ?? workTitle ?? "unknown";
 
@@ -324,6 +310,33 @@ public static class RegistryEndpoints
                         cmd.ExecuteNonQuery();
                     }
                 }
+
+                // Log retail-only approval to the activity ledger
+                var retailTitle = request.Title ?? workTitle ?? "unknown";
+                await activityRepo.LogAsync(new SystemActivityEntry
+                {
+                    OccurredAt = DateTimeOffset.UtcNow,
+                    ActionType = SystemActionType.ReviewItemResolved,
+                    HubName    = retailTitle,
+                    EntityId   = entityId,
+                    EntityType = "Work",
+                    Detail     = $"Match applied for '{retailTitle}' — retail metadata only (no Wikidata QID).",
+                }, ct);
+            }
+
+            // Dismiss any pending review items for this asset — runs for both QID and
+            // no-QID paths because the user explicitly approved the item in both cases.
+            using (var conn = db.CreateConnection())
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = """
+                    UPDATE review_queue
+                    SET status = 'Resolved', resolved_at = @now, resolved_by = 'user:curator'
+                    WHERE entity_id = @assetId AND status = 'Pending'
+                    """;
+                cmd.Parameters.AddWithValue("@assetId", assetIdStr);
+                cmd.Parameters.AddWithValue("@now",     now.ToString("o"));
+                cmd.ExecuteNonQuery();
             }
 
             return Results.Ok(new ApplyMatchResponse
