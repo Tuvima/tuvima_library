@@ -115,30 +115,18 @@
                             }
                             @if (!string.IsNullOrWhiteSpace(c.Description))
                             {
-                                var descId = $"desc-{c.ProviderItemId}";
-                                var isExpanded = _expandedDescriptions.Contains(descId);
-                                if (isExpanded)
-                                {
-                                    <div class="isearch-card-desc isearch-card-desc--full"
-                                         @onclick:stopPropagation="true">
-                                        @((MarkupString)SanitizeDescription(c.Description))
-                                    </div>
-                                    <button class="isearch-card-desc-toggle" @onclick:stopPropagation="true"
-                                            @onclick="() => ToggleDescription(descId)">
-                                        <span>Show less</span>
-                                    </button>
-                                }
-                                else
-                                {
+                                <div class="isearch-card-desc-row">
                                     <span class="isearch-card-desc">@TruncateDescription(c.Description)</span>
                                     @if (c.Description.Length > 120)
                                     {
-                                        <button class="isearch-card-desc-toggle" @onclick:stopPropagation="true"
-                                                @onclick="() => ToggleDescription(descId)">
-                                            <span>More</span>
-                                        </button>
+                                        <MudTooltip Text="@StripHtml(c.Description)" Placement="Placement.Left"
+                                                    Style="max-width: 360px; white-space: pre-wrap; font-size: 12px;">
+                                            <MudIcon Icon="@Icons.Material.Outlined.Info"
+                                                     Style="font-size: 14px; color: rgba(200,190,220,0.45); cursor: help; flex-shrink: 0;"
+                                                     @onclick:stopPropagation="true" />
+                                        </MudTooltip>
                                     }
-                                }
+                                </div>
                             }
                             @* ── Field match breakdown ── *@
                             @if (c.DescriptionFieldMatches is { Count: > 0 })
@@ -355,30 +343,18 @@ else
                             <span class="isearch-result-title">@c.Title</span>
                             @if (!string.IsNullOrWhiteSpace(c.Description))
                             {
-                                var resultDescId = $"result-desc-{c.ProviderItemId}";
-                                var isResultExpanded = _expandedDescriptions.Contains(resultDescId);
-                                if (isResultExpanded)
-                                {
-                                    <div class="isearch-result-desc isearch-card-desc--full"
-                                         @onclick:stopPropagation="true">
-                                        @((MarkupString)SanitizeDescription(c.Description))
-                                    </div>
-                                    <button class="isearch-card-desc-toggle" @onclick:stopPropagation="true"
-                                            @onclick="() => ToggleDescription(resultDescId)">
-                                        <span>Show less</span>
-                                    </button>
-                                }
-                                else
-                                {
+                                <div class="isearch-card-desc-row">
                                     <span class="isearch-result-desc">@TruncateDescription(c.Description)</span>
                                     @if (c.Description.Length > 120)
                                     {
-                                        <button class="isearch-card-desc-toggle" @onclick:stopPropagation="true"
-                                                @onclick="() => ToggleDescription(resultDescId)">
-                                            <span>More</span>
-                                        </button>
+                                        <MudTooltip Text="@StripHtml(c.Description)" Placement="Placement.Left"
+                                                    Style="max-width: 360px; white-space: pre-wrap; font-size: 12px;">
+                                            <MudIcon Icon="@Icons.Material.Outlined.Info"
+                                                     Style="font-size: 14px; color: rgba(200,190,220,0.45); cursor: help; flex-shrink: 0;"
+                                                     @onclick:stopPropagation="true" />
+                                        </MudTooltip>
                                     }
-                                }
+                                </div>
                             }
                             <div class="isearch-result-meta">
                                 @if (!string.IsNullOrWhiteSpace(c.Qid))
@@ -740,6 +716,11 @@ else
             {
                 _resultMessage = response.Message ?? $"Identified — {response.ClaimsWritten} claims written";
                 _resultSuccess = true;
+                // Clear search state — registration succeeded, UI should show completion state
+                _candidates = [];
+                _selectedCandidate = null;
+                _hasSearched = false;
+                _query = "";
                 await OnIdentified.InvokeAsync();
             }
             else
@@ -861,6 +842,16 @@ else
         });
 
         return result;
+    }
+
+    /// <summary>Strips all HTML tags and normalizes whitespace for plain-text tooltip display.</summary>
+    private static string StripHtml(string html)
+    {
+        var plain = System.Text.RegularExpressions.Regex.Replace(html, "<[^>]+>", " ");
+        plain = System.Text.RegularExpressions.Regex.Replace(plain, @"\s+", " ").Trim();
+        // Replace literal \n sequences with actual newlines for tooltip rendering
+        plain = plain.Replace("\\n", "\n");
+        return plain;
     }
 
     /// <summary>Returns the context-aware label for the creator field based on media type.</summary>
@@ -1243,6 +1234,12 @@ else
 
     .isearch-card-desc-toggle:hover {
         color: rgba(74, 144, 217, 1.0);
+    }
+
+    .isearch-card-desc-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 4px;
     }
 
     .isearch-card-footer {
