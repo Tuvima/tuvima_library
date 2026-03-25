@@ -110,7 +110,7 @@
                 <span class="ids-value">@Item.Author</span>
             </div>
         }
-        @if (string.Equals(Item.MediaType, "Audiobook", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(GetCanonicalValue("narrator")))
+        @if (string.Equals(Item.MediaType, "Audiobooks", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(GetCanonicalValue("narrator")))
         {
             <div class="ids-row">
                 <span class="ids-key">Narrator</span>
