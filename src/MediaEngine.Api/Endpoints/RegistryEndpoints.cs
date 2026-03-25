@@ -279,8 +279,21 @@ public static class RegistryEndpoints
             }
             else
             {
-                // No QID: write metadata claims only, mark as missing
+                // No QID: write metadata claims only, mark as retail-confirmed.
+                // Set curator_state so the item stays visible in the registry
+                // (the visibility filter requires QID OR review OR curator_state).
                 wikidataStatus = "missing";
+
+                using (var conn = db.CreateConnection())
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = """
+                        UPDATE works SET curator_state = 'registered', rejected_at = NULL
+                        WHERE id = @workId
+                        """;
+                    cmd.Parameters.AddWithValue("@workId", entityId.ToString());
+                    cmd.ExecuteNonQuery();
+                }
 
                 if (claims.Count > 0)
                     await claimRepo.InsertBatchAsync(claims, ct);
