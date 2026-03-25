@@ -678,13 +678,15 @@
         await LoadCountsAsync();
         await LoadItemsAsync();
 
-        // Clear selection if the item is no longer in the current list (e.g. moved to Identified)
+        // Re-select the same item from the refreshed list so the inspector
+        // updates with the latest data (e.g. new cover, status, QID).
         if (_selectedItem is not null)
         {
             _selectedItem = _items.FirstOrDefault(i => i.EntityId == _selectedItem.EntityId);
         }
 
         await OnCountsChanged.InvokeAsync();
+        StateHasChanged();
     }
 
     private async Task HandleUnreject(Guid entityId)
