@@ -482,6 +482,16 @@ else
                     <MudIcon Icon="@Icons.Material.Outlined.Warning" Style="font-size: 14px;" />
                     <span>Confirm register?</span>
                 }
+                else if (_resultSuccess && _awaitingStage2)
+                {
+                    <MudIcon Icon="@Icons.Material.Outlined.HourglassTop" Style="font-size: 14px; color: #7F77DD;" />
+                    <span>Awaiting Wikidata</span>
+                }
+                else if (_resultSuccess && !string.IsNullOrEmpty(_resultMessage))
+                {
+                    <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Style="font-size: 14px; color: #5DCAA5;" />
+                    <span>Identified</span>
+                }
                 else
                 {
                     <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Style="font-size: 14px;" />
@@ -511,9 +521,9 @@ else
 
         @if (!string.IsNullOrEmpty(_resultMessage))
         {
-            <div class="isearch-result @(_resultSuccess ? "isearch-result--ok" : "isearch-result--err")">
-                <MudIcon Icon="@(_resultSuccess ? Icons.Material.Outlined.CheckCircle : Icons.Material.Outlined.Error)"
-                         Style="font-size: 13px;" />
+            <div class="isearch-result @(_resultSuccess ? (_awaitingStage2 ? "isearch-result--pending" : "isearch-result--ok") : "isearch-result--err")">
+                <MudIcon Icon="@(_resultSuccess ? (_awaitingStage2 ? Icons.Material.Outlined.HourglassTop : Icons.Material.Outlined.CheckCircle) : Icons.Material.Outlined.Error)"
+                         Style="@(_awaitingStage2 ? "font-size: 13px; color: #7F77DD;" : "font-size: 13px;")" />
                 <span>@_resultMessage</span>
             </div>
         }
@@ -544,6 +554,7 @@ else
     private CandidateViewModel? _selectedCandidate;
     private string? _resultMessage;
     private bool _resultSuccess;
+    private bool _awaitingStage2;
     private Guid? _lastItemId;
     private List<KeyValuePair<string, string>> _fileHintsForDisplay = [];
 
@@ -585,6 +596,7 @@ else
             _selectedCandidate = null;
             _hasSearched = false;
             _resultMessage = null;
+            _awaitingStage2 = false;
 
         }
     }
@@ -714,7 +726,10 @@ else
             var response = await Orchestrator.ApplyRegistryMatchAsync(Item.EntityId, request);
             if (response is not null)
             {
-                _resultMessage = response.Message ?? $"Identified — {response.ClaimsWritten} claims written";
+                _awaitingStage2 = response.HydrationTriggered;
+                _resultMessage = _awaitingStage2
+                    ? (response.Message ?? $"Match accepted — Wikidata lookup in progress")
+                    : (response.Message ?? $"Identified — {response.ClaimsWritten} claims written");
                 _resultSuccess = true;
                 // Clear search state — registration succeeded, UI should show completion state
                 _candidates = [];
@@ -725,6 +740,7 @@ else
             }
             else
             {
+                _awaitingStage2 = false;
                 _resultMessage = "Identification failed — no response from engine";
                 _resultSuccess = false;
             }

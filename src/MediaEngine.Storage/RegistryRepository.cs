@@ -170,6 +170,10 @@ public sealed class RegistryRepository : IRegistryRepository
                         WHEN wd.curator_state = 'rejected' THEN 'Rejected'
                         WHEN wd.curator_state = 'provisional' THEN 'Provisional'
                         WHEN rd.review_id IS NOT NULL THEN 'InReview'
+                        WHEN rd.review_id IS NULL
+                             AND (wd.wikidata_qid IS NULL OR wd.wikidata_qid = '' OR wd.wikidata_qid LIKE 'NF%')
+                             AND wd.cover_url IS NOT NULL AND wd.cover_url != ''
+                             THEN 'AwaitingStage2'
                         WHEN wd.wikidata_qid IS NOT NULL AND wd.wikidata_qid != ''
                              AND wd.wikidata_qid NOT LIKE 'NF%' THEN 'Identified'
                         ELSE 'Registered'
@@ -435,6 +439,9 @@ public sealed class RegistryRepository : IRegistryRepository
             "rejected"    => "Rejected",
             "provisional" => "Provisional",
             _ => reviewItemId.HasValue ? "InReview"
+               : (!string.IsNullOrEmpty(cv("cover_url"))
+                    && (string.IsNullOrEmpty(wikidataQid) || wikidataQid.StartsWith("NF", StringComparison.OrdinalIgnoreCase)))
+                   ? "AwaitingStage2"
                : (!string.IsNullOrEmpty(wikidataQid) && !wikidataQid.StartsWith("NF", StringComparison.OrdinalIgnoreCase))
                    ? "Identified"
                : hasUserLocks ? "Edited"

@@ -83,6 +83,7 @@ public static class RegistryHelpers
         "ArbiterNeedsReview"    => ("Review Grouping",        "#B08940", Icons.Material.Outlined.Gavel),
         "LanguageMismatch"      => ("Foreign Language",       "#B08940", Icons.Material.Filled.Translate),
         "UserReport"            => ("User Report",            "#C9922E", Icons.Material.Filled.Flag),
+        "WikidataBridgeFailed"  => ("Wikidata Match Failed",  "#A05050", Icons.Material.Outlined.CloudOff),
         _ => ("Needs Review", "#6B6B6B", Icons.Material.Outlined.RateReview),
     };
 
@@ -140,11 +141,12 @@ public static class RegistryHelpers
     /// <summary>Returns the hex color for the four-state registry model.</summary>
     public static string GetStatusColor(string status) => status switch
     {
-        "Identified"  => "#5DCAA5",  // teal green — matched and confirmed
-        "InReview"    => "#EF9F27",  // amber
-        "Provisional" => "#B4B2A9",  // neutral gray
-        "Rejected"    => "#E24B4A",  // red
-        "Known"       => "#B39DDB",  // soft purple — for people/universes
+        "Identified"     => "#5DCAA5",  // teal green — matched and confirmed
+        "InReview"       => "#EF9F27",  // amber
+        "Provisional"    => "#B4B2A9",  // neutral gray
+        "Rejected"       => "#E24B4A",  // red
+        "Known"          => "#B39DDB",  // soft purple — for people/universes
+        "AwaitingStage2" => "#7F77DD",  // purple — Stage 1 done, awaiting Wikidata
         // Legacy statuses (backward compat during migration)
         "Review"      => "#EF9F27",
         "Auto"        => "#5DCAA5",
@@ -157,10 +159,11 @@ public static class RegistryHelpers
     /// <summary>Returns the icon for a registry status badge.</summary>
     public static string GetStatusIcon(string status) => status switch
     {
-        "Identified"  => Icons.Material.Filled.CheckCircle,
-        "InReview"    => Icons.Material.Filled.RateReview,
-        "Provisional" => Icons.Material.Filled.EditNote,
-        "Rejected"    => Icons.Material.Filled.Block,
+        "Identified"     => Icons.Material.Filled.CheckCircle,
+        "InReview"       => Icons.Material.Filled.RateReview,
+        "Provisional"    => Icons.Material.Filled.EditNote,
+        "Rejected"       => Icons.Material.Filled.Block,
+        "AwaitingStage2" => Icons.Material.Filled.HourglassTop,
         // Legacy
         "Review"      => Icons.Material.Filled.RateReview,
         "Auto"        => Icons.Material.Filled.CheckCircle,
@@ -173,11 +176,12 @@ public static class RegistryHelpers
     /// <summary>Returns the display label for a registry status.</summary>
     public static string GetStatusLabel(string status) => status switch
     {
-        "Identified"  => "Identified",
-        "InReview"    => "In Review",
-        "Provisional" => "Provisional",
-        "Rejected"    => "Rejected",
-        "Known"       => "Known",
+        "Identified"     => "Identified",
+        "InReview"       => "In Review",
+        "Provisional"    => "Provisional",
+        "Rejected"       => "Rejected",
+        "Known"          => "Known",
+        "AwaitingStage2" => "Awaiting Wikidata",
         // Legacy
         "Review"      => "In Review",
         "Auto"        => "Identified",
