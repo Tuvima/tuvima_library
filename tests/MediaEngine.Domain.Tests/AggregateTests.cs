@@ -206,7 +206,7 @@ public class AggregateTests
     [InlineData(MediaType.Movies)]
     [InlineData(MediaType.Books)]
     [InlineData(MediaType.Audiobooks)]
-    [InlineData(MediaType.Comic)]
+    [InlineData(MediaType.Comics)]
     [InlineData(MediaType.TV)]
     [InlineData(MediaType.Podcasts)]
     [InlineData(MediaType.Music)]

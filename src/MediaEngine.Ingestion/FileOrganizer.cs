@@ -358,7 +358,7 @@ public sealed class FileOrganizer : IFileOrganizer
     private static string ResolveCategoryFromMediaType(MediaType? mt) => mt switch
     {
         MediaType.Books      => "Books",
-        MediaType.Comic      => "Comics",
+        MediaType.Comics     => "Comics",
         MediaType.Movies     => "Movies",
         MediaType.TV         => "TV",
         MediaType.Audiobooks => "Books",

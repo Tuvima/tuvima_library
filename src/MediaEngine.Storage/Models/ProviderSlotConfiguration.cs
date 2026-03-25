@@ -83,7 +83,7 @@ public sealed class ProviderSlotConfiguration
     {
         Domain.Enums.MediaType.Books      => "Books",
         Domain.Enums.MediaType.Audiobooks => "Audiobooks",
-        Domain.Enums.MediaType.Comic      => "Comics",
+        Domain.Enums.MediaType.Comics     => "Comics",
         Domain.Enums.MediaType.Movies     => "Movies",
         Domain.Enums.MediaType.TV         => "TV Shows",
         Domain.Enums.MediaType.Music     => "Music",

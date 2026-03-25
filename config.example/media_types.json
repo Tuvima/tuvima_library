@@ -14,7 +14,7 @@
       "display_name": "Audiobooks",
       "icon": "Headphones",
       "extensions": [".m4b", ".mp3", ".m4a"],
-      "category_folder": "Audio",
+      "category_folder": "Books",
       "built_in": true
     },
     {
@@ -34,7 +34,7 @@
       "built_in": true
     },
     {
-      "key": "tv_shows",
+      "key": "TV",
       "display_name": "TV Shows",
       "icon": "Tv",
       "extensions": [".mp4", ".mkv"],

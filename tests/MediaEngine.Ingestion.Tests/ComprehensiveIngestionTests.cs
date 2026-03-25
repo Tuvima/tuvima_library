@@ -229,7 +229,7 @@ public sealed class ComprehensiveIngestionTests : IDisposable
         _processors.SetNextResult(new ProcessorResult
         {
             FilePath = filePath,
-            DetectedType = MediaType.Comic,
+            DetectedType = MediaType.Comics,
             Claims =
             [
                 new ExtractedClaim { Key = "title", Value = "Batman Year One", Confidence = 0.95 },

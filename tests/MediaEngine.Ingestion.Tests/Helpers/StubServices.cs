@@ -121,7 +121,7 @@ internal sealed class StubFileOrganizer : IFileOrganizer
             MediaType.Books => "Books",
             MediaType.Audiobooks => "Audio",
             MediaType.Movies => "Movies",
-            MediaType.Comic => "Comics",
+            MediaType.Comics => "Comics",
             _ => "Other",
         };
         var title = metadata?.GetValueOrDefault("title") ?? "Unknown";

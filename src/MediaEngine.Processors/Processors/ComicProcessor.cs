@@ -57,7 +57,7 @@ public sealed class ComicProcessor : IMediaProcessor
     private enum ComicContainer { Unknown, Cbz, Cbr }
 
     /// <inheritdoc/>
-    public MediaType SupportedType => MediaType.Comic;
+    public MediaType SupportedType => MediaType.Comics;
 
     /// <inheritdoc/>
     /// <remarks>
@@ -108,7 +108,7 @@ public sealed class ComicProcessor : IMediaProcessor
         return Task.FromResult(new ProcessorResult
         {
             FilePath     = filePath,
-            DetectedType = MediaType.Comic,
+            DetectedType = MediaType.Comics,
             Claims       = claims,
         });
     }
@@ -209,7 +209,7 @@ public sealed class ComicProcessor : IMediaProcessor
     private static ProcessorResult Corrupt(string filePath, string reason) => new()
     {
         FilePath      = filePath,
-        DetectedType  = MediaType.Comic,
+        DetectedType  = MediaType.Comics,
         IsCorrupt     = true,
         CorruptReason = reason,
     };

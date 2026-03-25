@@ -24,13 +24,13 @@ public static class ContentLanes
     public static readonly LaneDefinition Books = new(
         "books", "Books",
         Icons.Material.Filled.MenuBook,
-        ["Epub", "Audiobook", "Book", "M4B"],
+        ["Books", "Audiobooks"],
         ["All", "Reading Lists", "Authors", "Series"]);
 
     public static readonly LaneDefinition Video = new(
         "video", "Video",
         Icons.Material.Filled.Movie,
-        ["Movie", "TV", "Video"],
+        ["Movies", "TV"],
         ["All", "Watchlists", "Directors", "Genres"]);
 
     public static readonly LaneDefinition Music = new(
@@ -42,13 +42,13 @@ public static class ContentLanes
     public static readonly LaneDefinition Podcasts = new(
         "podcasts", "Podcasts",
         Icons.Material.Filled.Podcasts,
-        ["Podcast"],
+        ["Podcasts"],
         ["All", "Subscriptions", "Episodes"]);
 
     public static readonly LaneDefinition Comics = new(
         "comics", "Comics",
         Icons.Material.Filled.AutoStories,
-        ["Comic"],
+        ["Comics"],
         ["All", "Reading Lists", "Series", "Publishers"]);
 
     /// <summary>All navigation lanes in dock display order.</summary>

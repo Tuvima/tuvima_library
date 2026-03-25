@@ -670,7 +670,7 @@ static MediaEngine.Domain.Enums.MediaType ParseMediaTypeFromConfig(string config
         "epub"      => MediaEngine.Domain.Enums.MediaType.Books,
         "ebook"     => MediaEngine.Domain.Enums.MediaType.Books,
         "audiobook" => MediaEngine.Domain.Enums.MediaType.Audiobooks,
-        "comics"    => MediaEngine.Domain.Enums.MediaType.Comic,
+        "comics"    => MediaEngine.Domain.Enums.MediaType.Comics,
         "podcast"   => MediaEngine.Domain.Enums.MediaType.Podcasts,
         "movie"     => MediaEngine.Domain.Enums.MediaType.Movies,
         _           => MediaEngine.Domain.Enums.MediaType.Unknown,

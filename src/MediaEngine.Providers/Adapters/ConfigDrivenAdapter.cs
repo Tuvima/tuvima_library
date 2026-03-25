@@ -67,10 +67,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             : Guid.NewGuid();
 
         // Parse can_handle filters into enum sets for fast lookup.
-        // Normalize legacy media type names (Epub → Books, Audiobook → Audiobooks).
-        var normalizedMediaTypes = config.CanHandle?.MediaTypes?
-            .Select(NormalizeMediaType).ToList();
-        _mediaTypes = ParseEnumSet<MediaType>(normalizedMediaTypes);
+        _mediaTypes = ParseEnumSet<MediaType>(config.CanHandle?.MediaTypes);
         _entityTypes = ParseEnumSet<EntityType>(config.CanHandle?.EntityTypes);
     }
 
@@ -1042,13 +1039,11 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         if (mediaType == MediaType.Unknown)
             return strategies;
 
-        // Normalize the incoming media type string so legacy enum names (e.g. "Epub")
-        // compare correctly against config values that use current names (e.g. "Books").
-        var mediaTypeStr = NormalizeMediaType(mediaType.ToString());
+        var mediaTypeStr = mediaType.ToString();
         return strategies
             .Where(s => s.MediaTypes is null or { Count: 0 }
                      || s.MediaTypes.Any(mt =>
-                            string.Equals(NormalizeMediaType(mt), mediaTypeStr, StringComparison.OrdinalIgnoreCase)))
+                            string.Equals(mt, mediaTypeStr, StringComparison.OrdinalIgnoreCase)))
             .ToList();
     }
 
@@ -1067,32 +1062,13 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         if (mediaType == MediaType.Unknown)
             return mappings;
 
-        // Normalize the incoming media type string so legacy enum names (e.g. "Epub")
-        // compare correctly against config values that use current names (e.g. "Books").
-        var mediaTypeStr = NormalizeMediaType(mediaType.ToString());
+        var mediaTypeStr = mediaType.ToString();
         return mappings
             .Where(m => m.MediaTypes is null or { Count: 0 }
                      || m.MediaTypes.Any(mt =>
-                            string.Equals(NormalizeMediaType(mt), mediaTypeStr, StringComparison.OrdinalIgnoreCase)))
+                            string.Equals(mt, mediaTypeStr, StringComparison.OrdinalIgnoreCase)))
             .ToList();
     }
-
-    // ── Legacy media type normalization ─────────────────────────────────────
-
-    /// <summary>
-    /// Maps pre-rename media type names to their current enum equivalents.
-    /// Configs written before the enum rename used "Epub"/"Audiobook"; the
-    /// current enum has "Books"/"Audiobooks".
-    /// </summary>
-    private static readonly Dictionary<string, string> LegacyMediaTypeMap =
-        new(StringComparer.OrdinalIgnoreCase)
-        {
-            ["Epub"]      = "Books",
-            ["Audiobook"] = "Audiobooks",
-        };
-
-    private static string NormalizeMediaType(string value)
-        => LegacyMediaTypeMap.TryGetValue(value, out var normalized) ? normalized : value;
 
     // ── Helpers ──────────────────────────────────────────────────────────────
 

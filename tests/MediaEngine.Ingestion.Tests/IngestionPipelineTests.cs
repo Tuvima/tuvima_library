@@ -68,7 +68,7 @@ public class IngestionPipelineTests
     [Theory]
     [InlineData(MediaType.Books, "Books")]
     [InlineData(MediaType.Audiobooks, "Books")]
-    [InlineData(MediaType.Comic, "Comics")]
+    [InlineData(MediaType.Comics, "Comics")]
     [InlineData(MediaType.Movies, "Movies")]
     public void FileOrganizer_MapsMediaType_ToExpectedCategory(
         MediaType mediaType, string expectedPrefix)

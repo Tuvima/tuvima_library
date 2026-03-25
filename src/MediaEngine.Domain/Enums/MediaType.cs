@@ -24,7 +24,7 @@ public enum MediaType
     Audiobooks,
 
     /// <summary>Sequential-art publication (CBZ, CBR, PDF comic).</summary>
-    Comic,
+    Comics,
 
     /// <summary>Episodic television or web series.</summary>
     TV,
