@@ -229,16 +229,19 @@ public static class RegistryEndpoints
                 if (!string.IsNullOrWhiteSpace(request.Year))    hints["release_year"] = request.Year;
                 if (!string.IsNullOrWhiteSpace(request.Author))  hints["author"]       = request.Author;
 
-                // Trigger full hydration (synchronous, Universe pass)
+                // Trigger full hydration (synchronous, Universe pass).
+                // SuppressReviewCreation = true — the curator just approved this item;
+                // the pipeline must not bounce it back into review (e.g. language mismatch).
                 try
                 {
                     await pipeline.RunSynchronousAsync(new HarvestRequest
                     {
-                        EntityId   = assetId,
-                        EntityType = EntityType.MediaAsset,
-                        MediaType  = MediaType.Unknown,
-                        Hints      = hints,
-                        Pass       = HydrationPass.Universe,
+                        EntityId               = assetId,
+                        EntityType             = EntityType.MediaAsset,
+                        MediaType              = MediaType.Unknown,
+                        Hints                  = hints,
+                        Pass                   = HydrationPass.Universe,
+                        SuppressReviewCreation = true,
                     }, ct);
                     hydrationTriggered = true;
                 }

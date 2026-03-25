@@ -406,11 +406,23 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         try { await _activityRepo.LogAsync(new SystemActivityEntry { ActionType = "HydrationStarted", EntityId = request.EntityId, Detail = "Background enrichment started" }, ct).ConfigureAwait(false); }
         catch (Exception ex) when (ex is not OperationCanceledException) { _logger.LogWarning(ex, "Failed to log item history (HydrationStarted)"); }
 
-        // ── Language mismatch guard (before Stage 1) ────────────────────────
+        var result       = new HydrationResult();
+
+        // Collect review item IDs created during the pipeline run.
+        // SignalR notifications are deferred until pipeline completion so the
+        // Dashboard doesn't flash "Needs Review" for items that may be
+        // auto-resolved by later stages (e.g. Stage 2 bridge resolution improving
+        // confidence above the review threshold).
+        var deferredReviewNotifications = new List<Guid>();
+
+        // ── Language mismatch detection (Stage 1 concern) ─────────────────
         // If the file declares a language that differs from the configured app
-        // language, block the entire pipeline immediately — no Wikidata call is
-        // made, saving the API call for items that should never be hydrated.
-        if (request.EntityType == EntityType.MediaAsset)
+        // language, create a review item so the user can confirm or reject.
+        // Stage 1 (retail) still runs so the item gets cover art for the review
+        // UI. Only Stage 2 (Wikidata) is blocked until the curator approves.
+        // Curator-approved items (SuppressReviewCreation) bypass this gate entirely.
+        bool languageMismatchDetected = false;
+        if (request.EntityType == EntityType.MediaAsset && !request.SuppressReviewCreation)
         {
             try
             {
@@ -431,41 +443,17 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                         && !string.Equals(fileLang, configuredLang, StringComparison.OrdinalIgnoreCase))
                     {
                         _logger.LogInformation(
-                            "[HYDRATION] Skipping pipeline for entity {Id} — language '{Lang}' does not match configured '{ConfigLang}'",
+                            "[HYDRATION] Language mismatch for entity {Id} — '{Lang}' vs configured '{ConfigLang}'. " +
+                            "Stage 1 (retail) will still run; Stage 2 (Wikidata) blocked until curator approval.",
                             request.EntityId, fileLang, configuredLang);
 
-                        var langResult               = new HydrationResult();
-                        var langDeferredNotifications = new List<Guid>();
+                        languageMismatchDetected = true;
 
                         await CreateReviewItemAsync(
                             request, ReviewTrigger.LanguageMismatch, 0.0,
                             $"File language '{langCanonical.Value}' does not match the configured library language '{appLanguage}'. " +
                             "This may be a foreign edition or incorrectly tagged file.",
-                            langResult, ct, langDeferredNotifications).ConfigureAwait(false);
-
-                        // Publish deferred SignalR notifications (same pattern as end-of-pipeline flush).
-                        foreach (var rid in langDeferredNotifications)
-                        {
-                            try
-                            {
-                                var review = await _reviewRepo.GetByIdAsync(rid, ct).ConfigureAwait(false);
-                                if (review?.Status == ReviewStatus.Pending)
-                                {
-                                    await _eventPublisher.PublishAsync(
-                                        "ReviewItemCreated",
-                                        new ReviewItemCreatedEvent(
-                                            review.Id, review.EntityId, review.Trigger, null),
-                                        ct).ConfigureAwait(false);
-                                }
-                            }
-                            catch (Exception evEx) when (evEx is not OperationCanceledException)
-                            {
-                                _logger.LogWarning(evEx,
-                                    "Failed to publish language-mismatch ReviewItemCreated event for review {ReviewId}", rid);
-                            }
-                        }
-
-                        return langResult;
+                            result, ct, deferredReviewNotifications).ConfigureAwait(false);
                     }
                 }
             }
@@ -477,7 +465,6 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             }
         }
 
-        var result       = new HydrationResult();
         var hydration    = _configLoader.LoadHydration();
         var provConfigs  = _configLoader.LoadAllProviders();
         var slots        = _configLoader.LoadSlots();
@@ -507,13 +494,6 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
 
         var pipelineSw = System.Diagnostics.Stopwatch.StartNew();
         long s1Ms = 0, s2Ms = 0;
-
-        // Collect review item IDs created during the pipeline run.
-        // SignalR notifications are deferred until pipeline completion so the
-        // Dashboard doesn't flash "Needs Review" for items that may be
-        // auto-resolved by later stages (e.g. Stage 2 bridge resolution improving
-        // confidence above the review threshold).
-        var deferredReviewNotifications = new List<Guid>();
 
         // ── Stage 1: Retail Identification ─────────────────────────────────────
         //
@@ -931,6 +911,19 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
 
         s1Ms = stageSw.ElapsedMilliseconds;
         stageSw.Restart();
+
+        // ── Language mismatch: skip Stage 2 ──────────────────────────────
+        // Language check is a Stage 1 concern. If a mismatch was detected,
+        // Stage 1 (retail) has already run for cover art, but Stage 2 (Wikidata)
+        // is blocked until the curator approves the item.
+        if (languageMismatchDetected)
+        {
+            _logger.LogInformation(
+                "Pipeline skipping Stage 2 for entity {Id} — language mismatch detected in Stage 1. " +
+                "Item needs curator approval before Wikidata resolution.",
+                request.EntityId);
+            goto PostPipeline;
+        }
 
         // ── Stage 2: Wikidata Bridge Resolution ────────────────────────────
         //
