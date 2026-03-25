@@ -192,25 +192,44 @@ public sealed partial class AudioProcessor : IMediaProcessor
         }
 
         // Author / Narrator — Audible M4B files often store the narrator in AlbumArtist
-        // and the author in the Comment field as "By: Author Name" or "Written by: Author Name".
-        // Check for Audible-specific patterns first, then fall back to standard tag mapping.
+        // (TPE2) and the author in the Comment field or Performer (TPE1). The priority:
+        //   1. Comment field "By: Author Name" (highest confidence — explicit)
+        //   2. TXXX:AUTHOR custom frame (explicit author tag)
+        //   3. FirstPerformer (TPE1) — when narrator is detected separately, TPE1 is
+        //      almost always the author (Audible/audiobook convention)
+        //   4. FirstAlbumArtist (TPE2) — only as last resort when no narrator detected,
+        //      since TPE2 is the narrator for most audiobook files
         var narrator = ExtractNarrator(tagFile);
         var commentAuthor = ExtractAuthorFromComment(tagFile);
-        var tagArtist = tagFile?.Tag.FirstAlbumArtist ?? tagFile?.Tag.FirstPerformer;
+        var txxxAuthor = ExtractTxxxValue(tagFile, "AUTHOR");
 
         string? author;
         if (!string.IsNullOrWhiteSpace(commentAuthor))
         {
-            // Comment field has explicit author — use it. This overrides AlbumArtist
-            // which may be the narrator for Audible files.
+            // Comment field has explicit author — highest priority.
             author = commentAuthor;
+        }
+        else if (!string.IsNullOrWhiteSpace(txxxAuthor))
+        {
+            // Custom TXXX:AUTHOR frame — explicit author tag.
+            author = txxxAuthor;
+        }
+        else if (!string.IsNullOrWhiteSpace(narrator))
+        {
+            // Narrator detected — TPE1 (FirstPerformer) is the author, NOT TPE2
+            // (FirstAlbumArtist) which is the narrator in audiobook convention.
+            // Fall back to AlbumArtist only if Performer is empty.
+            author = tagFile?.Tag.FirstPerformer ?? tagFile?.Tag.FirstAlbumArtist;
 
-            // If AlbumArtist matches the narrator (common Audible pattern), don't also
-            // emit it as author — it's been correctly identified as narrator already.
+            // If the resolved author matches the narrator, the file probably only
+            // has one person tagged everywhere — clear it so we don't duplicate.
+            if (string.Equals(author, narrator, StringComparison.OrdinalIgnoreCase))
+                author = null;
         }
         else
         {
-            author = tagArtist;
+            // No narrator detected — standard fallback: AlbumArtist then Performer.
+            author = tagFile?.Tag.FirstAlbumArtist ?? tagFile?.Tag.FirstPerformer;
         }
 
         if (!string.IsNullOrWhiteSpace(author))
@@ -561,6 +580,32 @@ public sealed partial class AudioProcessor : IMediaProcessor
         @"(?:^|[,;]\s*)(?:[Bb]y|[Ww]ritten\s+[Bb]y|[Aa]uthor)[:\s]+(.+)",
         System.Text.RegularExpressions.RegexOptions.Singleline)]
     private static partial System.Text.RegularExpressions.Regex AuthorByRegex();
+
+    // ── TXXX value extraction ────────────────────────────────────────
+
+    /// <summary>
+    /// Reads a custom TXXX (user text) frame value from an ID3v2 tag.
+    /// Returns null when the frame is not found or the file has no ID3v2 tag.
+    /// </summary>
+    private static string? ExtractTxxxValue(TagLib.File? tagFile, string description)
+    {
+        if (tagFile is null) return null;
+
+        var id3 = tagFile.GetTag(TagLib.TagTypes.Id3v2) as TagLib.Id3v2.Tag;
+        if (id3 is null) return null;
+
+        foreach (var frame in id3.GetFrames<TagLib.Id3v2.UserTextInformationFrame>())
+        {
+            if (string.Equals(frame.Description, description, StringComparison.OrdinalIgnoreCase)
+                && frame.Text?.Length > 0
+                && !string.IsNullOrWhiteSpace(frame.Text[0]))
+            {
+                return frame.Text[0].Trim();
+            }
+        }
+
+        return null;
+    }
 
     // ── ASIN extraction ──────────────────────────────────────────────
 

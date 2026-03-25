@@ -42,8 +42,15 @@ public static class Mp3Builder
 
         if (narrator is not null)
         {
+            // Audiobook convention: TPE2 (AlbumArtist) = narrator
             WriteTextFrame(frames, "TPE2", narrator);
             WriteTxxxFrame(frames, "NARRATOR", narrator);
+
+            // Write author explicitly so AudioProcessor can reliably distinguish
+            // author (TPE1) from narrator (TPE2). Also write TXXX:AUTHOR and
+            // a comment pattern as redundant signals.
+            WriteTxxxFrame(frames, "AUTHOR", artist);
+            WriteCommentFrame(frames, $"By: {artist}, Narrated by: {narrator}");
         }
 
         if (asin is not null)
@@ -116,6 +123,26 @@ public static class Mp3Builder
         stream.Write(descBytes);
         stream.WriteByte(0); // Null separator
         stream.Write(valBytes);
+    }
+
+    /// <summary>
+    /// Writes an ID3v2.3 COMM (comment) frame with empty language and description.
+    /// Frame: [COMM][size][flags][0x00 encoding][3-byte lang][description\0][text]
+    /// </summary>
+    private static void WriteCommentFrame(Stream stream, string text)
+    {
+        byte[] textBytes = Latin1.GetBytes(text);
+        // encoding(1) + lang(3) + description null terminator(1) + text
+        int dataSize = 1 + 3 + 1 + textBytes.Length;
+
+        stream.Write("COMM"u8);
+        WriteBigEndianInt(stream, dataSize);
+        stream.WriteByte(0); // Flags high
+        stream.WriteByte(0); // Flags low
+        stream.WriteByte(0); // Encoding: ISO-8859-1
+        stream.Write("eng"u8); // Language
+        stream.WriteByte(0); // Empty description + null terminator
+        stream.Write(textBytes);
     }
 
     private static void WriteBigEndianInt(Stream stream, int value)
