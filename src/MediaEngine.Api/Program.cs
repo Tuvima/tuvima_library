@@ -208,6 +208,7 @@ builder.Services.AddSingleton<IFuzzyMatchingService, FuzzyMatchingService>();
 builder.Services.AddSingleton<IScoringEngine, PriorityCascadeEngine>();
 builder.Services.AddSingleton<IRetailMatchScoringService, RetailMatchScoringService>();
 builder.Services.AddSingleton<ILocalMatchService, LocalMatchService>();
+builder.Services.AddSingleton<IDescriptionMatchService, DescriptionMatchService>();
 
 builder.Services.AddSingleton<IIdentityMatcher>(sp =>
     new IdentityMatcher(sp.GetRequiredService<IFuzzyMatchingService>()));
@@ -548,6 +549,7 @@ builder.Services.AddHostedService<ActivityPruningService>();
 builder.Services.AddHostedService<RejectedFileCleanupService>();
 builder.Services.AddHostedService<MissingUniverseSweepService>();
 builder.Services.AddHostedService<HydrationStartupSweepService>();
+builder.Services.AddHostedService<EditionRecheckService>();
 
 // ── Library Reconciliation: periodic scan for missing files ──────────────────
 builder.Services.AddSingleton<LibraryReconciliationService>();
