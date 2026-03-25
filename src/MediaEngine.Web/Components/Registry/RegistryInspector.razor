@@ -235,10 +235,11 @@ else
 
     private async Task HandleIdentified()
     {
-        // Reload data after identification
+        // Reload data after identification — switch to Details tab
         if (Item is not null)
         {
             _loadedEntityId = null; // Force reload
+            _inspectorTab = "details";
             await OnParametersSetAsync();
         }
         await OnItemChanged.InvokeAsync();
