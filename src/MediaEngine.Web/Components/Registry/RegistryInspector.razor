@@ -221,10 +221,12 @@ else
 
     private bool IsPersonOrUniverse => Item?.MediaType is "Person" or "Universe";
     private bool IsInReview => Item?.Status == "InReview" || !string.IsNullOrEmpty(Item?.ReviewTrigger);
+    private bool IsConfirmed => Item?.Status == "Confirmed";
 
     private string ComputeState()
     {
         if (Item is null) return "NoMatch";
+        if (Item.Status == "Confirmed") return "Confirmed";
         if (!string.IsNullOrEmpty(Item.ReviewTrigger)) return "NeedsReview";
         if (!string.IsNullOrEmpty(Item.WikidataQid)
             && !Item.WikidataQid.StartsWith("NF", StringComparison.OrdinalIgnoreCase))

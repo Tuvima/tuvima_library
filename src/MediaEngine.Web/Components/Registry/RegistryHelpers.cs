@@ -141,7 +141,8 @@ public static class RegistryHelpers
     /// <summary>Returns the hex color for the four-state registry model.</summary>
     public static string GetStatusColor(string status) => status switch
     {
-        "Identified"     => "#5DCAA5",  // teal green — matched and confirmed
+        "Identified"     => "#5DCAA5",  // teal green — matched and confirmed via Wikidata
+        "Confirmed"      => "#5C9FCA",  // blue — curator confirmed, no Wikidata QID
         "InReview"       => "#EF9F27",  // amber
         "Provisional"    => "#B4B2A9",  // neutral gray
         "Rejected"       => "#E24B4A",  // red
@@ -160,6 +161,7 @@ public static class RegistryHelpers
     public static string GetStatusIcon(string status) => status switch
     {
         "Identified"     => Icons.Material.Filled.CheckCircle,
+        "Confirmed"      => Icons.Material.Filled.VerifiedUser,
         "InReview"       => Icons.Material.Filled.RateReview,
         "Provisional"    => Icons.Material.Filled.EditNote,
         "Rejected"       => Icons.Material.Filled.Block,
@@ -177,6 +179,7 @@ public static class RegistryHelpers
     public static string GetStatusLabel(string status) => status switch
     {
         "Identified"     => "Identified",
+        "Confirmed"      => "Confirmed",
         "InReview"       => "In Review",
         "Provisional"    => "Provisional",
         "Rejected"       => "Rejected",

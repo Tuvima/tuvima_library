@@ -169,6 +169,12 @@ public sealed class RegistryRepository : IRegistryRepository
                     CASE
                         WHEN wd.curator_state = 'rejected' THEN 'Rejected'
                         WHEN wd.curator_state = 'provisional' THEN 'Provisional'
+                        WHEN wd.curator_state = 'registered'
+                             AND wd.wikidata_qid IS NOT NULL AND wd.wikidata_qid != ''
+                             AND wd.wikidata_qid NOT LIKE 'NF%' THEN 'Identified'
+                        WHEN wd.curator_state = 'registered'
+                             AND (wd.wikidata_qid IS NULL OR wd.wikidata_qid = '' OR wd.wikidata_qid LIKE 'NF%')
+                             THEN 'Confirmed'
                         WHEN rd.review_id IS NOT NULL THEN 'InReview'
                         WHEN rd.review_id IS NULL
                              AND (wd.wikidata_qid IS NULL OR wd.wikidata_qid = '' OR wd.wikidata_qid LIKE 'NF%')
@@ -434,15 +440,17 @@ public sealed class RegistryRepository : IRegistryRepository
         var wikidataQid = cv("wikidata_qid");
 
         // Status logic mirrors GetPageAsync: curator_state overrides, then review, then QID check
+        bool hasValidQid = !string.IsNullOrEmpty(wikidataQid)
+                        && !wikidataQid.StartsWith("NF", StringComparison.OrdinalIgnoreCase);
         var status = curatorState switch
         {
             "rejected"    => "Rejected",
             "provisional" => "Provisional",
+            "registered"  => hasValidQid ? "Identified" : "Confirmed",
             _ => reviewItemId.HasValue ? "InReview"
-               : (!string.IsNullOrEmpty(cv("cover_url"))
-                    && (string.IsNullOrEmpty(wikidataQid) || wikidataQid.StartsWith("NF", StringComparison.OrdinalIgnoreCase)))
+               : (!string.IsNullOrEmpty(cv("cover_url")) && !hasValidQid)
                    ? "AwaitingStage2"
-               : (!string.IsNullOrEmpty(wikidataQid) && !wikidataQid.StartsWith("NF", StringComparison.OrdinalIgnoreCase))
+               : hasValidQid
                    ? "Identified"
                : hasUserLocks ? "Edited"
                : "Auto",
