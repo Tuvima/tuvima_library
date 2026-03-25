@@ -1,5 +1,5 @@
 {
-  "name": "apple_books",
+  "name": "apple_api",
   "version": "2.0",
   "enabled": true,
   "weight": 0.7,
@@ -22,7 +22,7 @@
   "cache_ttl_hours": null,
   "adapter_type": "config_driven",
   "provider_id": "b1000001-e000-4000-8000-000000000001",
-  "display_name": "Apple Books",
+  "display_name": "Apple API",
   "http_client": {
     "timeout_seconds": 10,
     "user_agent": null,

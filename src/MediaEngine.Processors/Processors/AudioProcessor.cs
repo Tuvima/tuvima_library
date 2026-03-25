@@ -191,15 +191,31 @@ public sealed partial class AudioProcessor : IMediaProcessor
             }
         }
 
-        // Author / Artist — AlbumArtist is the author for audiobooks.
-        var artist = tagFile?.Tag.FirstAlbumArtist ?? tagFile?.Tag.FirstPerformer;
-        if (!string.IsNullOrWhiteSpace(artist))
-            claims.Add(Claim("author", artist, 0.7));
-
-        // Narrator — for audiobooks, the narrator may be in a TXXX:NARRATOR frame,
-        // the Composers tag, the Comment field ("Narrated by ..."), or the Performers
-        // tag (when AlbumArtist was used for the author above).
+        // Author / Narrator — Audible M4B files often store the narrator in AlbumArtist
+        // and the author in the Comment field as "By: Author Name" or "Written by: Author Name".
+        // Check for Audible-specific patterns first, then fall back to standard tag mapping.
         var narrator = ExtractNarrator(tagFile);
+        var commentAuthor = ExtractAuthorFromComment(tagFile);
+        var tagArtist = tagFile?.Tag.FirstAlbumArtist ?? tagFile?.Tag.FirstPerformer;
+
+        string? author;
+        if (!string.IsNullOrWhiteSpace(commentAuthor))
+        {
+            // Comment field has explicit author — use it. This overrides AlbumArtist
+            // which may be the narrator for Audible files.
+            author = commentAuthor;
+
+            // If AlbumArtist matches the narrator (common Audible pattern), don't also
+            // emit it as author — it's been correctly identified as narrator already.
+        }
+        else
+        {
+            author = tagArtist;
+        }
+
+        if (!string.IsNullOrWhiteSpace(author))
+            claims.Add(Claim("author", author, 0.7));
+
         if (!string.IsNullOrWhiteSpace(narrator))
             claims.Add(Claim("narrator", narrator, 0.7));
 
@@ -509,6 +525,42 @@ public sealed partial class AudioProcessor : IMediaProcessor
         @"[Nn]arrat(?:ed|or)\s+(?:by\s+)?(.+)",
         System.Text.RegularExpressions.RegexOptions.Singleline)]
     private static partial System.Text.RegularExpressions.Regex NarratedByRegex();
+
+    // ── Author extraction from Comment field ──────────────────────────
+
+    /// <summary>
+    /// Attempts to extract an author name from the Comment tag field.
+    /// Audible audiobooks commonly embed "By: Author Name" or
+    /// "Written by: Author Name" in the comment, while using AlbumArtist
+    /// for the narrator. Also handles the combined format:
+    /// "By: Author Name, Narrated by: Narrator Name".
+    /// </summary>
+    private static string? ExtractAuthorFromComment(TagLib.File? tagFile)
+    {
+        if (tagFile is null) return null;
+
+        var comment = tagFile.Tag.Comment;
+        if (string.IsNullOrWhiteSpace(comment)) return null;
+
+        var match = AuthorByRegex().Match(comment);
+        if (match.Success)
+        {
+            var name = match.Groups[1].Value.Trim();
+            // Strip trailing commas or "Narrated by" continuation.
+            var commaIdx = name.IndexOf(',');
+            if (commaIdx > 0)
+                name = name[..commaIdx].Trim();
+            if (!string.IsNullOrWhiteSpace(name))
+                return name;
+        }
+
+        return null;
+    }
+
+    [System.Text.RegularExpressions.GeneratedRegex(
+        @"(?:^|[,;]\s*)(?:[Bb]y|[Ww]ritten\s+[Bb]y|[Aa]uthor)[:\s]+(.+)",
+        System.Text.RegularExpressions.RegexOptions.Singleline)]
+    private static partial System.Text.RegularExpressions.Regex AuthorByRegex();
 
     // ── ASIN extraction ──────────────────────────────────────────────
 

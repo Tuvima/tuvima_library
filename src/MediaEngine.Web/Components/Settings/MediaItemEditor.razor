@@ -343,7 +343,7 @@
 
     private static readonly Dictionary<string, int> ProviderPriority = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["apple_api"] = 100, ["apple_books"] = 100,
+        ["apple_api"] = 100,
         ["tmdb"] = 90, ["google_books"] = 70, ["open_library"] = 60,
     };
 
@@ -842,7 +842,7 @@
 
     private static string FormatProviderName(string name) => name switch
     {
-        "apple_api" => "Apple", "apple_books" => "Apple",
+        "apple_api" => "Apple",
         "open_library" => "Open Library", "google_books" => "Google Books",
         "tmdb" => "TMDB",
         _ => System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(name.Replace('_', ' ')),

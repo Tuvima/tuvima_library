@@ -452,7 +452,7 @@ public sealed class SearchService : ISearchService
         if (endpointMap.TryGetValue($"{providerName}_api", out var apiUrl)) return apiUrl;
         // Apple Books uses the iTunes Search API
         if (providerName.Contains("apple", StringComparison.OrdinalIgnoreCase))
-            return endpointMap.TryGetValue("apple_books", out var ab) ? ab : "https://itunes.apple.com";
+            return endpointMap.TryGetValue("apple_api", out var ab) ? ab : "https://itunes.apple.com";
         return string.Empty;
     }
 

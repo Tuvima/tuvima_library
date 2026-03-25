@@ -93,10 +93,21 @@
     private static readonly HashSet<string> FileProviderNames = new(StringComparer.OrdinalIgnoreCase)
     {
         "Local Filesystem", "local_filesystem", "Embedded Metadata",
+        "embedded_metadata",
+        "epub_processor",
+        "audio_processor",
+        "video_processor",
+        "comic_processor",
+        "generic_processor",
     };
 
+    private static readonly System.Text.RegularExpressions.Regex GuidPattern =
+        new(@"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled);
+
     private static bool IsFileProvider(string? providerName) =>
-        !string.IsNullOrEmpty(providerName) && FileProviderNames.Contains(providerName);
+        !string.IsNullOrEmpty(providerName) &&
+        (FileProviderNames.Contains(providerName) || GuidPattern.IsMatch(providerName));
 
     private List<CanonicalFieldViewModel> VisibleFields =>
         _subtab == "file" ? FileFields : MatchedFields;

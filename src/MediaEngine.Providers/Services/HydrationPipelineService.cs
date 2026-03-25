@@ -320,22 +320,36 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
 
                 if (batch.Count == 0) continue;
 
-                if (batch.Count >= hydration.BatchMinSize)
-                {
-                    _logger.LogInformation(
-                        "Batch hydration: processing {Count} requests in a single batch",
-                        batch.Count);
-                }
+                var batchId = Guid.NewGuid().ToString("N")[..8];
+                var batchSw = System.Diagnostics.Stopwatch.StartNew();
+                var promoted = 0;
+                var staged = 0;
+                var review = 0;
+
+                _logger.LogInformation(
+                    "[BATCH] Pipeline batch started: {BatchSize} files, BatchId={BatchId}, EntityIds=[{EntityIds}]",
+                    batch.Count, batchId,
+                    string.Join(", ", batch.Select(r => r.EntityId.ToString("N")[..8])));
 
                 // Process each request through the full pipeline.
-                // Stage 1 retail identification is handled inside RunPipelineAsync.
-                // Stage 2 batch bridge resolution will be deduplicated in a future
-                // sprint. For now, process sequentially but log as batch.
+                // Stage 1 (retail) and Stage 2 (Wikidata bridge) run per-entity.
+                // Person enrichment runs after Stage 2 inside RunPipelineAsync.
+                // The response cache (§3.21) deduplicates shared bridge IDs at the
+                // HTTP level; batch-level bridge deduplication is planned for a
+                // future sprint.
                 foreach (var req in batch)
                 {
                     try
                     {
-                        await RunPipelineAsync(req, ct).ConfigureAwait(false);
+                        var pipelineResult = await RunPipelineAsync(req, ct).ConfigureAwait(false);
+
+                        // Track batch-level outcomes for summary logging.
+                        if (pipelineResult.NeedsReview)
+                            review++;
+                        else if (pipelineResult.WikidataQid is not null)
+                            promoted++;
+                        else
+                            staged++;
                     }
                     catch (OperationCanceledException)
                     {
@@ -364,6 +378,11 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                         }
                     }
                 }
+
+                batchSw.Stop();
+                _logger.LogInformation(
+                    "[BATCH] Pipeline batch complete: BatchId={BatchId}, {Promoted} promoted, {Staged} staged, {Review} to review, elapsed={ElapsedMs}ms",
+                    batchId, promoted, staged, review, batchSw.ElapsedMilliseconds);
             }
         }
         catch (OperationCanceledException) { /* Graceful shutdown */ }
@@ -661,6 +680,11 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
 
             stage1Claims += claimsForScoring.Count;
 
+            _logger.LogInformation(
+                "[STAGE1] Provider '{Provider}' returned {ClaimCount} claims for {EntityId}: [{ClaimKeys}]",
+                provider.Name, claimsForScoring.Count, request.EntityId,
+                string.Join(", ", claimsForScoring.Select(c => c.Key).Distinct()));
+
             await PublishHarvestEvent(request.EntityId, provider.Name, claims, ct)
                 .ConfigureAwait(false);
 
@@ -697,6 +721,10 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         }
 
         result.Stage1ClaimsAdded = stage1Claims;
+
+        _logger.LogInformation(
+            "[STAGE1] Complete for {EntityId}: {ClaimCount} claims, confidence prior to Stage 2",
+            request.EntityId, stage1Claims);
 
         if (stage1Claims > 0)
         {
@@ -1108,6 +1136,54 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                     _logger.LogInformation(
                         "Stage 2: Wikidata bridge resolved for entity {Id} — QID: {Qid}, edition: {IsEdition}, claims: {Claims}",
                         request.EntityId, bridgeResult.WorkQid ?? bridgeResult.Qid, bridgeResult.IsEdition, stage2Claims);
+
+                    // ── Person enrichment from Stage 2 claims ────────────────────
+                    // Stage 2 (Wikidata Data Extension) deposits author_qid and
+                    // narrator_qid claims via P50/P2093. Extract person references
+                    // from these claims and run synchronous person enrichment so
+                    // headshots and biographies are available immediately.
+                    var stage2PersonRefs = ExtractPersonReferencesFromRawClaims(
+                        qidClaims.Select(c => new ProviderClaim(c.Key, c.Value, c.Confidence)).ToList());
+
+                    if (stage2PersonRefs.Count > 0)
+                    {
+                        _logger.LogInformation(
+                            "[PERSON] Stage 2 person enrichment for entity {EntityId}: {PersonCount} persons [{Names}], QIDs=[{Qids}]",
+                            request.EntityId, stage2PersonRefs.Count,
+                            string.Join(", ", stage2PersonRefs.Select(p => p.Name)),
+                            string.Join(", ", stage2PersonRefs.Where(p => p.WikidataQid is not null).Select(p => p.WikidataQid)));
+
+                        try
+                        {
+                            var personRequests = await _identity.EnrichAsync(request.EntityId, stage2PersonRefs, ct)
+                                .ConfigureAwait(false);
+
+                            foreach (var personReq in personRequests)
+                            {
+                                try
+                                {
+                                    await _harvesting.ProcessSynchronousAsync(personReq, ct)
+                                        .ConfigureAwait(false);
+                                }
+                                catch (Exception ex) when (ex is not OperationCanceledException)
+                                {
+                                    _logger.LogWarning(ex,
+                                        "Synchronous person enrichment (Stage 2) failed for person {Id}; continuing",
+                                        personReq.EntityId);
+                                }
+                            }
+
+                            _logger.LogInformation(
+                                "[PERSON] Stage 2 person enrichment complete for entity {EntityId}: {Enriched} persons enriched",
+                                request.EntityId, personRequests.Count);
+                        }
+                        catch (Exception ex) when (ex is not OperationCanceledException)
+                        {
+                            _logger.LogWarning(ex,
+                                "Stage 2 person enrichment failed for entity {Id}; continuing",
+                                request.EntityId);
+                        }
+                    }
                 }
                 else
                 {
@@ -1562,6 +1638,15 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             // enforces the QID gate — files without a QID stay in staging.
             if (request.EntityType == EntityType.MediaAsset)
             {
+                // Check remaining reviews for diagnostic logging.
+                var remainingReviews = await _reviewRepo.GetByEntityAsync(request.EntityId, ct)
+                    .ConfigureAwait(false);
+                var pendingCount = remainingReviews.Count(r => r.Status == ReviewStatus.Pending);
+
+                _logger.LogInformation(
+                    "[ORGANIZE] Auto-organize decision for {EntityId}: confidence={Confidence:P0}, pendingReviews={ReviewCount}",
+                    request.EntityId, confidence, pendingCount);
+
                 await _autoOrganize.TryAutoOrganizeAsync(request.EntityId, ct, request.IngestionRunId)
                     .ConfigureAwait(false);
 

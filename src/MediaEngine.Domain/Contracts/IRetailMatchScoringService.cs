@@ -18,6 +18,7 @@ public interface IRetailMatchScoringService
     /// <param name="candidateYear">Year from the retail result.</param>
     /// <param name="mediaType">Media type of the file being scored.</param>
     /// <param name="matchTiers">Optional tier config from the provider. When null, uses fuzzy match only.</param>
+    /// <param name="extendedMetadata">Optional extended metadata (description, publisher, duration, genres) for cross-field scoring.</param>
     /// <returns>Composite confidence score (0.0–1.0) and per-field breakdown.</returns>
     FieldMatchScores ScoreCandidate(
         IReadOnlyDictionary<string, string> fileHints,
@@ -25,7 +26,8 @@ public interface IRetailMatchScoringService
         string? candidateAuthor,
         string? candidateYear,
         MediaType mediaType,
-        MatchTierConfig? matchTiers = null);
+        MatchTierConfig? matchTiers = null,
+        CandidateExtendedMetadata? extendedMetadata = null);
 }
 
 /// <summary>

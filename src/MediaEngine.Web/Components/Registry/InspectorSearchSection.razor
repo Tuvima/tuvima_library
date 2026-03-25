@@ -361,7 +361,30 @@ else
                             <span class="isearch-result-title">@c.Title</span>
                             @if (!string.IsNullOrWhiteSpace(c.Description))
                             {
-                                <span class="isearch-result-desc">@TruncateDescription(c.Description)</span>
+                                var resultDescId = $"result-desc-{c.ProviderItemId}";
+                                var isResultExpanded = _expandedDescriptions.Contains(resultDescId);
+                                if (isResultExpanded)
+                                {
+                                    <div class="isearch-result-desc isearch-card-desc--full"
+                                         @onclick:stopPropagation="true">
+                                        @((MarkupString)SanitizeDescription(c.Description))
+                                    </div>
+                                    <button class="isearch-card-desc-toggle" @onclick:stopPropagation="true"
+                                            @onclick="() => ToggleDescription(resultDescId)">
+                                        <span>Show less</span>
+                                    </button>
+                                }
+                                else
+                                {
+                                    <span class="isearch-result-desc">@TruncateDescription(c.Description)</span>
+                                    @if (c.Description.Length > 120)
+                                    {
+                                        <button class="isearch-card-desc-toggle" @onclick:stopPropagation="true"
+                                                @onclick="() => ToggleDescription(resultDescId)">
+                                            <span>More</span>
+                                        </button>
+                                    }
+                                }
                             }
                             <div class="isearch-result-meta">
                                 @if (!string.IsNullOrWhiteSpace(c.Qid))
@@ -1627,8 +1650,8 @@ else
         display: flex;
         flex-direction: column;
         gap: 4px;
-        /* No max-height / overflow-y here — the parent inspector panel scrolls.
-           Constraining height here would clip the cover hover popup. */
+        max-height: 60vh;
+        overflow-y: auto;
     }
 
     .isearch-result-item {

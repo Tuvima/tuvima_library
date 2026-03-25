@@ -17,7 +17,7 @@ namespace MediaEngine.Storage;
 ///   maintenance.json          ← MaintenanceSettings
 ///   providers/                ← Per-provider ProviderConfiguration
 ///     local_filesystem.json
-///     apple_books.json
+///     apple_api.json
 ///     wikidata.json
 ///     …
 ///   universe/                 ← Universe knowledge models
@@ -82,7 +82,7 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
     /// </summary>
     private static readonly Dictionary<string, string[]> EndpointToProviders = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["apple_books"]     = ["apple_books"],
+        ["apple_api"]       = ["apple_api"],
         ["audnexus"]        = ["audnexus"],
         ["wikidata_api"]    = ["wikidata"],
         ["wikidata_sparql"] = ["wikidata"],
@@ -336,11 +336,11 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
 
     /// <summary>
     /// If old split Apple Books configs (apple_books_ebook.json, apple_books_audiobook.json) exist
-    /// but the merged apple_books.json does not, creates the merged config and renames old files.
+    /// but the merged apple_api.json does not, creates the merged config and renames old files.
     /// </summary>
     private static void MigrateAppleBooksIfNeeded(string providerDir)
     {
-        var mergedPath   = Path.Combine(providerDir, "apple_books.json");
+        var mergedPath   = Path.Combine(providerDir, "apple_api.json");
         var ebookPath    = Path.Combine(providerDir, "apple_books_ebook.json");
         var audiobookPath = Path.Combine(providerDir, "apple_books_audiobook.json");
 
@@ -353,12 +353,12 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
         // Write the merged config with media-type-scoped strategies.
         var merged = new ProviderConfiguration
         {
-            Name           = "apple_books",
+            Name           = "apple_api",
             Version        = "2.0",
             Enabled        = true,
             Weight         = 0.7,
             Domain         = ProviderDomain.Universal,
-            DisplayName    = "Apple Books",
+            DisplayName    = "Apple API",
             AdapterType    = "config_driven",
             ProviderId     = "b1000001-e000-4000-8000-000000000001",
             CapabilityTags = ["cover", "title", "author", "description", "genre"],
@@ -620,7 +620,7 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
 
         SaveProvider(new ProviderConfiguration
         {
-            Name           = "apple_books",
+            Name           = "apple_api",
             Enabled        = true,
             Weight         = 0.7,
             Domain         = ProviderDomain.Universal,
@@ -897,7 +897,7 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
     /// </summary>
     private static int GetDefaultThrottleMs(string providerName) => providerName switch
     {
-        "apple_books"           => 300,
+        "apple_api"             => 300,
         "wikidata"              => 1100,  // Wikidata 1 req/sec policy
         _                      => 0,     // No throttle by default
     };

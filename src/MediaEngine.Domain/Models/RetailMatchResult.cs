@@ -64,6 +64,34 @@ public sealed class FieldMatchScores
     /// <summary>Format/media type consistency score (1.0 = exact match).</summary>
     public double FormatScore { get; init; }
 
-    /// <summary>Weighted composite of all field scores.</summary>
+    /// <summary>Cross-field boost/penalty from secondary signals (narrator-in-description, etc.).</summary>
+    public double CrossFieldBoost { get; init; }
+
+    /// <summary>Weighted composite of all field scores including cross-field signals.</summary>
     public double CompositeScore { get; init; }
+}
+
+/// <summary>
+/// Extended candidate metadata for cross-field scoring.
+/// Passed alongside the basic title/author/year to enable richer signal matching.
+/// </summary>
+public sealed class CandidateExtendedMetadata
+{
+    /// <summary>Description text from the retail result.</summary>
+    public string? Description { get; init; }
+
+    /// <summary>Publisher name from the retail result.</summary>
+    public string? Publisher { get; init; }
+
+    /// <summary>Page count from the retail result (books).</summary>
+    public int? PageCount { get; init; }
+
+    /// <summary>Duration in seconds from the retail result (audiobooks, music).</summary>
+    public double? DurationSeconds { get; init; }
+
+    /// <summary>Genres from the retail result.</summary>
+    public IReadOnlyList<string>? Genres { get; init; }
+
+    /// <summary>Language code from the retail result.</summary>
+    public string? Language { get; init; }
 }

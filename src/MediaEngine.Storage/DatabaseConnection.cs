@@ -1115,7 +1115,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
         [
             ("a1b2c3d4-e5f6-4700-8900-0a1b2c3d4e5f", "local_processor",      "1.0"),
             ("c9d8e7f6-a5b4-4321-fedc-0102030405c9",  "library_scanner",      "1.0"),
-            ("b1000001-e000-4000-8000-000000000001",   "apple_books",          "2.0"),
+            ("b1000001-e000-4000-8000-000000000001",   "apple_api",            "2.0"),
             ("b2000002-a000-4000-8000-000000000003",   "audnexus",            "1.0"),
             ("b3000003-d000-4000-8000-000000000004",   "wikidata",            "1.0"),
             ("b4000004-d000-4000-8000-000000000005",   "wikipedia",           "1.0"),

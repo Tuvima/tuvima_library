@@ -105,7 +105,7 @@ public sealed class ManifestParser : IStorageManifest
             },
             new ProviderBootstrap
             {
-                Name           = "apple_books",
+                Name           = "apple_api",
                 Enabled        = true,
                 Weight         = 0.7,
                 Domain         = ProviderDomain.Universal,
@@ -142,7 +142,7 @@ public sealed class ManifestParser : IStorageManifest
         ],
         ProviderEndpoints = new()
         {
-            ["apple_books"]    = "https://itunes.apple.com",
+            ["apple_api"]      = "https://itunes.apple.com",
             ["audnexus"]       = "https://api.audnexus.com",
             ["wikidata_api"]   = "https://www.wikidata.org/w/api.php",
             ["wikidata_sparql"] = "https://query.wikidata.org/sparql",

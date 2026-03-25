@@ -114,25 +114,16 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         }
 
         // ── Blocking review check ──────────────────────────────────────────
-        // Certain review triggers must block promotion. If a pending review with
-        // a blocking trigger exists, the file stays in staging until the user resolves it.
+        // ANY pending review item blocks promotion. The file stays in staging
+        // until the user resolves all review items.
         var pendingReviews = await _reviewRepo.GetPendingByEntityAsync(assetId, ct)
             .ConfigureAwait(false);
 
-        var blockingTriggers = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            ReviewTrigger.LanguageMismatch,
-            ReviewTrigger.AuthorityMatchFailed,
-            ReviewTrigger.MissingQid,
-            ReviewTrigger.StagedUnidentifiable,
-        };
-
-        var blockingReview = pendingReviews.FirstOrDefault(r => blockingTriggers.Contains(r.Trigger));
-        if (blockingReview is not null)
+        if (pendingReviews.Any())
         {
             _logger.LogInformation(
                 "Auto-organize blocked for {Id}: pending review '{Trigger}' must be resolved first",
-                assetId, blockingReview.Trigger);
+                assetId, pendingReviews[0].Trigger);
             return;
         }
 
@@ -248,10 +239,9 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
             _logger.LogDebug(ex, "Activity log failed for auto-organize — continuing");
         }
 
-        // Only resolve non-blocking review items after successful promotion.
-        // Blocking reviews (LanguageMismatch, AuthorityMatchFailed, MissingQid, etc.)
-        // would have prevented reaching this point, so only LowConfidence,
-        // ArtworkUnconfirmed, and ContentMatchFailed remain.
+        // All pending review items were cleared before reaching this point
+        // (any pending review blocks promotion). Resolve any that may have
+        // been created concurrently during promotion.
         try
         {
             var resolved = await _reviewRepo.ResolveAllByEntityAsync(assetId, "system:auto-organize", ct)

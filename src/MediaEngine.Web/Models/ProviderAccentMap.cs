@@ -20,7 +20,6 @@ public static class ProviderAccentMap
     {
         var (color, defaultIcon) = providerKey switch
         {
-            "apple_books"           => ("#FF2D55", Icons.Material.Filled.MenuBook),
             "apple_api"             => ("#FF2D55", Icons.Material.Filled.MenuBook),
             // audnexus removed - config file deleted as part of SPARQL cleanup
             "open_library"          => ("#4CAF50", Icons.Material.Filled.LocalLibrary),
@@ -117,7 +116,6 @@ public static class ProviderAccentMap
     /// <summary>Returns a deduplicated display name for the UI (e.g. "Apple Books" instead of "apple_books").</summary>
     public static string GetDisplayName(string providerKey) => providerKey switch
     {
-        "apple_books"           => "Apple API",
         "apple_api"             => "Apple API",
         // audnexus removed - config file deleted as part of SPARQL cleanup
         "open_library"          => "Open Library",
