@@ -507,17 +507,20 @@ else
             </button>
         }
 
-        <button class="isearch-action-provisional" @onclick="HandleProvisionalClick" disabled="@_registering">
-            <MudIcon Icon="@Icons.Material.Outlined.EditNote" Style="font-size: 14px;" />
-            <span>Mark Provisional</span>
-        </button>
+        @if (!_resultSuccess)
+        {
+            <button class="isearch-action-provisional" @onclick="HandleProvisionalClick" disabled="@_registering">
+                <MudIcon Icon="@Icons.Material.Outlined.EditNote" Style="font-size: 14px;" />
+                <span>Mark Provisional</span>
+            </button>
 
-        <button class="isearch-action-reject @(_confirmingReject ? "isearch-action--confirming" : "")"
-                @onclick="HandleRejectClick" disabled="@_registering">
-            <MudIcon Icon="@(_confirmingReject ? Icons.Material.Outlined.Warning : Icons.Material.Outlined.Block)"
-                     Style="font-size: 14px;" />
-            <span>@(_confirmingReject ? "Are you sure?" : "Reject")</span>
-        </button>
+            <button class="isearch-action-reject @(_confirmingReject ? "isearch-action--confirming" : "")"
+                    @onclick="HandleRejectClick" disabled="@_registering">
+                <MudIcon Icon="@(_confirmingReject ? Icons.Material.Outlined.Warning : Icons.Material.Outlined.Block)"
+                         Style="font-size: 14px;" />
+                <span>@(_confirmingReject ? "Are you sure?" : "Reject")</span>
+            </button>
+        }
 
         @if (!string.IsNullOrEmpty(_resultMessage))
         {

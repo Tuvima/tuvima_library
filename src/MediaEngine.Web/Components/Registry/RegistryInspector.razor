@@ -235,12 +235,25 @@ else
 
     private async Task HandleIdentified()
     {
-        // Reload data after identification — switch to Details tab
+        // Reload data after identification — switch to Details tab.
+        // We force-refresh the detail from the API and use its status
+        // to determine the correct tab, because the list-level Item
+        // still carries the stale ReviewTrigger/Status until the list
+        // itself refreshes.
         if (Item is not null)
         {
-            _loadedEntityId = null; // Force reload
-            _inspectorTab = "details";
-            await OnParametersSetAsync();
+            _detailLoading = true;
+            StateHasChanged();
+
+            try { _detail = await ApiClient.GetRegistryItemDetailAsync(Item.EntityId); }
+            catch { _detail = null; }
+            _detailLoading = false;
+
+            // Use the fresh detail status (not the stale list Item) to pick tab
+            var freshStatus = _detail?.Status ?? "";
+            var stillInReview = freshStatus is "InReview" or "Review";
+            _inspectorTab = stillInReview ? "resolve" : "details";
+            _loadedEntityId = Item.EntityId; // prevent OnParametersSetAsync re-run
         }
         await OnItemChanged.InvokeAsync();
     }
