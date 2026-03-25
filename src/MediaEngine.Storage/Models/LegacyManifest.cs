@@ -98,23 +98,17 @@ public sealed class LegacyManifest
 
     /// <summary>
     /// Base URLs for external metadata provider APIs.
-    /// Keys match adapter names used in named <c>HttpClient</c> registrations:
-    /// <c>apple_books</c>, <c>audnexus</c>, <c>wikidata_api</c>,
-    /// <c>wikidata_sparql</c>.
-    ///
-    /// Keeping URLs here (not hard-coded in adapters) means a provider endpoint
-    /// change requires only a config file edit — no recompile.
-    /// Spec: Phase 9 – External Metadata Adapters § URL Management.
+    /// Kept for backward compatibility during legacy manifest migration.
+    /// Current provider endpoints are configured per-provider in <c>config/providers/</c>.
     /// </summary>
     [JsonPropertyName("provider_endpoints")]
     public Dictionary<string, string> ProviderEndpoints { get; set; } = [];
 
     /// <summary>
-    /// Per-property overrides for the Wikidata SPARQL property map.
+    /// Per-property overrides for the Wikidata property map.
     /// Each entry targets a P-code and may override the claim key, confidence,
     /// or enabled state of a default property — or define an entirely new one.
-    /// Defaults are compiled into <c>WikidataSparqlPropertyMap.DefaultMap</c>;
-    /// these overrides are merged on top at runtime.
+    /// Kept for backward compatibility during legacy manifest migration.
     /// </summary>
     [JsonPropertyName("wikidata_property_map")]
     public List<WikidataPropertyMapOverride> WikidataPropertyMap { get; set; } = [];
@@ -126,7 +120,7 @@ public sealed class LegacyManifest
 
 /// <summary>
 /// A user-defined override for a single Wikidata property from the legacy manifest.
-/// Only non-null fields replace the compiled default in <c>WikidataSparqlPropertyMap</c>.
+/// Only non-null fields replace the current default value for that property.
 /// </summary>
 public sealed class WikidataPropertyMapOverride
 {

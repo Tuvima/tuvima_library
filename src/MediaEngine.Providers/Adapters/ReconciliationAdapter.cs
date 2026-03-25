@@ -1951,6 +1951,13 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             "{Provider}: fetched {Count} work claims for {QID} (audiobook edition pivot: {Pivoted})",
             Name, claims.Count, masterWorkQid, audiobookEditionQid is not null);
 
+        // ── Wikipedia description ─────────────────────────────────────────────
+        // Fetch a rich Wikipedia description for this work using the resolved QID.
+        // Failures never block — an empty list is returned and execution continues.
+        var wikiWorkClaims = await FetchWikipediaDescriptionAsync(masterWorkQid, language, ct)
+            .ConfigureAwait(false);
+        claims.AddRange(wikiWorkClaims);
+
         return claims;
     }
 
@@ -2011,10 +2018,113 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         // Fix entity reference labels that may be in wrong language.
         claims = await ResolveEntityLabelsInLanguageAsync(claims, language, ct).ConfigureAwait(false);
 
+        // ── Wikipedia description ─────────────────────────────────────────────
+        // Fetch a rich Wikipedia description for this person using the resolved QID.
+        // Failures never block — an empty list is returned and execution continues.
+        var wikiPersonClaims = await FetchWikipediaDescriptionAsync(qid, language, ct)
+            .ConfigureAwait(false);
+        claims.AddRange(wikiPersonClaims);
+
         _logger.LogInformation("{Provider}: fetched {Count} person claims for QID {QID}",
             Name, claims.Count, qid);
 
         return claims;
+    }
+
+    // ── Private: Wikipedia description ───────────────────────────────────────────
+
+    /// <summary>
+    /// Fetches a rich Wikipedia description for the given Wikidata QID.
+    /// Returns up to two claims: "description" (confidence 0.90) and "wikipedia_url" (1.0).
+    /// Attempts the requested language first; falls back to English if no sitelink exists.
+    /// Always returns an empty list on failure — never throws.
+    /// </summary>
+    private async Task<IReadOnlyList<ProviderClaim>> FetchWikipediaDescriptionAsync(
+        string qid,
+        string language,
+        CancellationToken ct)
+    {
+        if (_reconciler is null || string.IsNullOrWhiteSpace(qid))
+            return [];
+
+        try
+        {
+            var lang = NormalizeLang(language);
+
+            // Resolve the Wikipedia article URL for the given QID via WikidataReconciler.
+            var urls = await _reconciler.GetWikipediaUrlsAsync([qid], lang, ct).ConfigureAwait(false);
+
+            string? articleUrl  = null;
+            string  resolvedLang = lang;
+
+            if (urls.TryGetValue(qid, out var url) && !string.IsNullOrWhiteSpace(url))
+            {
+                articleUrl = url;
+            }
+            else if (!string.Equals(lang, "en", StringComparison.OrdinalIgnoreCase))
+            {
+                // Fall back to English if no sitelink exists for the requested language.
+                _logger.LogDebug("{Provider}: no {Lang}wiki sitelink for {Qid}, trying enwiki",
+                    Name, lang, qid);
+                var enUrls = await _reconciler.GetWikipediaUrlsAsync([qid], "en", ct).ConfigureAwait(false);
+                if (enUrls.TryGetValue(qid, out var enUrl) && !string.IsNullOrWhiteSpace(enUrl))
+                {
+                    articleUrl   = enUrl;
+                    resolvedLang = "en";
+                }
+            }
+
+            if (articleUrl is null)
+            {
+                _logger.LogDebug("{Provider}: no Wikipedia sitelink found for {Qid}", Name, qid);
+                return [];
+            }
+
+            // GetWikipediaSummariesAsync resolves the article title from the URL
+            // internally and fetches the extract. Returns a list of WikipediaSummary.
+            var summaries = await _reconciler.GetWikipediaSummariesAsync([qid], resolvedLang, ct)
+                .ConfigureAwait(false);
+
+            var summary = summaries?.FirstOrDefault();
+            if (summary is null || string.IsNullOrWhiteSpace(summary.Extract))
+            {
+                _logger.LogDebug("{Provider}: Wikipedia summary empty for {Qid} ({Lang})", Name, qid, resolvedLang);
+                return [];
+            }
+
+            _logger.LogInformation(
+                "{Provider}: Wikipedia description for {Qid} ({Lang}): {Len} chars",
+                Name, qid, resolvedLang, summary.Extract.Length);
+
+            return
+            [
+                new ProviderClaim("description",   summary.Extract,     0.90),
+                new ProviderClaim("wikipedia_url", articleUrl,          1.0),
+            ];
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "{Provider}: Wikipedia description fetch failed for {Qid}; continuing without description",
+                Name, qid);
+            return [];
+        }
+    }
+
+    /// <summary>
+    /// Normalises a BCP-47 language tag to its primary subtag (e.g. "en-US" → "en").
+    /// Returns "en" when the input is null or empty.
+    /// </summary>
+    private static string NormalizeLang(string? lang)
+    {
+        if (string.IsNullOrWhiteSpace(lang))
+            return "en";
+        var primary = lang.Split('-', StringSplitOptions.RemoveEmptyEntries)[0];
+        return primary.ToLowerInvariant();
     }
 
     /// <summary>

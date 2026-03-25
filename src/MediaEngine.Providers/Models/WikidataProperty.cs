@@ -3,12 +3,10 @@ namespace MediaEngine.Providers.Models;
 /// <summary>
 /// Describes a single Wikidata property and how it maps to a claim key.
 ///
-/// Each entry in the <see cref="WikidataSparqlPropertyMap"/> carries one of these.
 /// The property map is the single source of truth for which Wikidata P-codes
 /// the Engine tracks, at what confidence, and whether the property represents
 /// an external bridge identifier or a descriptive metadata field.
 ///
-/// Defaults are compiled into <see cref="WikidataSparqlPropertyMap.DefaultMap"/>.
 /// Per-instance overrides live in the universe config (<c>config/universe/wikidata.json</c>).
 /// </summary>
 public sealed record WikidataProperty
@@ -51,7 +49,7 @@ public sealed record WikidataProperty
     public bool IsBridge { get; init; }
 
     /// <summary>
-    /// When <c>false</c>, this property is excluded from SPARQL queries.
+    /// When <c>false</c>, this property is excluded from Data Extension requests.
     /// Allows users to disable specific properties via configuration overrides
     /// without removing them from the default map.
     /// </summary>
@@ -59,13 +57,12 @@ public sealed record WikidataProperty
 
     /// <summary>
     /// When <c>true</c>, the Wikidata value for this property is a Q-item (entity)
-    /// that requires <c>rdfs:label</c> fetching to resolve a human-readable name.
-    /// Used by the SPARQL query builder to emit label variables and FILTER clauses.
+    /// that requires label fetching to resolve a human-readable name.
     /// </summary>
     public bool IsEntityValued { get; init; }
 
     /// <summary>
-    /// Name of the value transform to apply after extracting the raw SPARQL value.
+    /// Name of the value transform to apply after extracting the raw value.
     /// <c>null</c> means no transform — pass the raw value through.
     /// Valid names: <c>"year_from_iso"</c>, <c>"numeric_portion"</c>,
     /// <c>"strip_entity_uri"</c>, <c>"commons_url"</c>.
@@ -75,18 +72,16 @@ public sealed record WikidataProperty
     public string? ValueTransform { get; init; }
 
     /// <summary>
-    /// When <c>true</c>, the SPARQL query uses <c>GROUP_CONCAT</c> to collect
-    /// all values for this property. The adapter splits the result on <c>"|||"</c>
-    /// and emits one <see cref="Domain.Models.ProviderClaim"/> per value.
+    /// When <c>true</c>, the Data Extension API returns an array of values for this property.
+    /// The adapter emits one <see cref="Domain.Models.ProviderClaim"/> per value.
     /// Multi-valued properties include genre, characters, cast_member, narrative_location, etc.
     /// </summary>
     public bool IsMultiValued { get; init; }
 
     /// <summary>
     /// When <c>true</c>, this property holds monolingual text (language-tagged literals)
-    /// on Wikidata. The SPARQL query builder adds a <c>FILTER(LANG(...))</c> clause
-    /// to select only the preferred language. Falls back to any language if the
-    /// preferred language is unavailable.
+    /// on Wikidata. Only the preferred language is selected; falls back to any language
+    /// if the preferred language is unavailable.
     /// Examples: P1476 (title), P1813 (short name).
     /// </summary>
     public bool IsMonolingualText { get; init; }

@@ -169,8 +169,6 @@ var    configLoader  = new ConfigurationDirectoryLoader(configDir, manifestPath)
 builder.Services.AddSingleton<IStorageManifest>(configLoader);
 builder.Services.AddSingleton<IConfigurationLoader>(configLoader);
 
-// TODO: Phase 3 - Universe config bootstrap will be handled by ReconciliationAdapter
-// (WikidataSparqlPropertyMap was removed as part of SPARQL infrastructure cleanup)
 builder.Services.AddSingleton<ITransactionJournal, TransactionJournal>();
 builder.Services.AddSingleton<IMediaAssetRepository, MediaAssetRepository>();
 builder.Services.AddSingleton<IHubRepository, HubRepository>();
@@ -332,17 +330,6 @@ builder.Services.AddHttpClient("settings_probe", c =>
 })
 .AddStandardResilienceHandler();
 
-// Named HttpClient for the WikipediaAdapter (Wikidata sitelink API + Wikipedia REST Summary API).
-// Both endpoints are called via this single named client; the adapter substitutes the correct
-// base URL per call.  15-second timeout to handle occasional slow Wikipedia responses.
-builder.Services.AddHttpClient("wikipedia_api", c =>
-{
-    c.Timeout = TimeSpan.FromSeconds(15);
-    c.DefaultRequestHeaders.UserAgent.ParseAdd(
-        "Tuvima Library/1.0 (https://github.com/Tuvima/tuvima_library)");
-})
-.AddStandardResilienceHandler();
-
 // Named HttpClient for the ReconciliationAdapter (wikidata.reconci.link + Wikimedia Commons).
 // 30-second timeout to accommodate batch SPARQL-style data extension queries.
 builder.Services.AddHttpClient("wikidata_reconciliation", c =>
@@ -415,8 +402,7 @@ builder.Services.AddSingleton<IQidLabelResolver,              QidLabelResolver>(
 builder.Services.AddSingleton<ICanonicalValueArrayRepository, CanonicalValueArrayRepository>();
 
 // ── WikidataReconciler — unified Wikidata/Wikipedia API client ────────────────
-// Replaces WikibaseApiService + WikipediaAdapter HTTP transport. Provides
-// reconciliation, entity fetching, property extraction, Wikipedia summaries,
+// Provides reconciliation, entity fetching, property extraction, Wikipedia summaries,
 // and image URLs — all with built-in maxlag, retry, and concurrency control.
 // MIT license — Tuvima.WikidataReconciliation NuGet package.
 {
@@ -471,26 +457,6 @@ builder.Services.AddSingleton<ICanonicalValueArrayRepository, CanonicalValueArra
     }
 }
 
-// WikipediaAdapter — Wikipedia description fetcher using QID→sitelink resolution.
-// Registered as both its concrete type and IExternalMetadataProvider.
-// Step 1 (sitelink resolution) uses WikidataReconciler.GetWikipediaUrlsAsync.
-// Step 2 (REST summary fetch) uses the named "wikipedia_api" HttpClient.
-// Reads its settings (TTL) from config/providers/wikipedia.json if present;
-// falls back to compiled defaults so the adapter is always registered.
-{
-    var wikiConfig = configLoader.LoadConfig<MediaEngine.Storage.Models.ProviderConfiguration>(
-        "providers", "wikipedia");
-    builder.Services.AddSingleton<WikipediaAdapter>(sp =>
-        new WikipediaAdapter(
-            sp.GetRequiredService<Tuvima.WikidataReconciliation.WikidataReconciler>(),
-            sp.GetRequiredService<IHttpClientFactory>(),
-            sp.GetRequiredService<ILogger<WikipediaAdapter>>(),
-            sp.GetRequiredService<IProviderResponseCacheRepository>(),
-            cacheTtlHours: wikiConfig?.CacheTtlHours ?? 168));
-    builder.Services.AddSingleton<IExternalMetadataProvider>(
-        sp => sp.GetRequiredService<WikipediaAdapter>());
-}
-
 builder.Services.AddSingleton<IMetadataHarvestingService, MetadataHarvestingService>();
 builder.Services.AddSingleton<IRecursiveIdentityService,  RecursiveIdentityService>();
 builder.Services.AddSingleton<ICanonDiscrepancyService,   CanonDiscrepancyService>();
@@ -502,7 +468,6 @@ builder.Services.AddSingleton<INarrativeRootRepository,         NarrativeRootRep
 builder.Services.AddSingleton<INarrativeRootResolver,           NarrativeRootResolver>();
 builder.Services.AddSingleton<IRecursiveFictionalEntityService, RecursiveFictionalEntityService>();
 builder.Services.AddSingleton<IRelationshipPopulationService,   RelationshipPopulationService>();
-builder.Services.AddSingleton<IUniverseSidecarWriter,           UniverseSidecarWriter>();
 builder.Services.AddSingleton<IUniverseGraphWriterService,      UniverseGraphWriterService>();
 builder.Services.AddSingleton<IUniverseGraphQueryService,       UniverseGraphQueryService>();
 builder.Services.AddSingleton<ILoreDeltaService,                LoreDeltaService>();

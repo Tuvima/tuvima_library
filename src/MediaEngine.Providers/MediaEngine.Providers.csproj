@@ -12,8 +12,7 @@
     -->
     <PackageReference Include="dotNetRdf" />
     <PackageReference Include="Microsoft.Extensions.Http" />
-    <!-- Tuvima.WikidataReconciliation: unified Wikidata/Wikipedia API client replacing
-         WikibaseApiService + WikipediaAdapter manual HTTP calls.
+    <!-- Tuvima.WikidataReconciliation: unified Wikidata/Wikipedia API client.
          MIT license — approved for AGPLv3 compatibility (see CLAUDE.md §5.1). -->
     <PackageReference Include="Tuvima.WikidataReconciliation" />
   </ItemGroup>

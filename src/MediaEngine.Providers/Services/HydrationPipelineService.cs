@@ -512,7 +512,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             }
 
             // If hint provides a wikidata_qid, set it as PreResolvedQid so the
-            // WikidataAdapter skips bridge lookup and goes straight to deep hydration.
+            // ReconciliationAdapter skips reconciliation and goes straight to deep hydration.
             if (request.PreResolvedQid is null
                 && request.FolderHintBridgeIds.TryGetValue("wikidata_qid", out var hintQid)
                 && !string.IsNullOrWhiteSpace(hintQid))
@@ -987,56 +987,9 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             request.EntityId,
             bridgeHints.Count > 0 ? string.Join(", ", bridgeHints.Keys) : "(none)");
 
-        // ── Wikipedia: runs in parallel with Stage 2 bridge resolution ────────
-        // Wikipedia only needs the QID resolved by Stage 1 — it has no dependency
-        // on bridge resolution. Starting it now lets it fetch rich descriptions
-        // concurrently while bridge resolution runs.
-        var wikipediaProvider = _providers.FirstOrDefault(p =>
-            p.Name.Contains("Wikipedia", StringComparison.OrdinalIgnoreCase));
-
-        Task<IReadOnlyList<ProviderClaim>> wikipediaTask;
-        if (wikipediaProvider is not null && result.WikidataQid is not null)
-        {
-            var wikiRequest = new HarvestRequest
-            {
-                EntityId              = request.EntityId,
-                EntityType            = request.EntityType,
-                MediaType             = request.MediaType,
-                Hints                 = request.Hints,
-                PreResolvedQid        = result.WikidataQid,
-                SuppressActivityEntry = request.SuppressActivityEntry,
-                IngestionRunId        = request.IngestionRunId,
-                FolderHintBridgeIds   = request.FolderHintBridgeIds,
-                HintedHubId           = request.HintedHubId,
-                Pass                  = request.Pass,
-            };
-            _logger.LogInformation(
-                "Wikipedia fetch started in parallel with Stage 2 for entity {Id} (QID: {Qid})",
-                request.EntityId, result.WikidataQid);
-            wikipediaTask = Task.Run(
-                () => FetchFromProviderAsync(
-                    wikipediaProvider, wikiRequest, endpointMap, lang, country, ct, effectivePass),
-                ct);
-        }
-        else
-        {
-            // Log at Information level so missing Wikipedia descriptions are visible in normal logs.
-            if (wikipediaProvider is null)
-            {
-                _logger.LogWarning(
-                    "Wikipedia provider not found in registered providers for entity {Id} — " +
-                    "no rich description will be fetched. Check that WikipediaAdapter is registered as IExternalMetadataProvider.",
-                    request.EntityId);
-            }
-            else
-            {
-                _logger.LogInformation(
-                    "Wikipedia fetch skipped for entity {Id}: Stage 1 did not resolve a Wikidata QID. " +
-                    "No QID means no Wikipedia sitelink lookup is possible.",
-                    request.EntityId);
-            }
-            wikipediaTask = Task.FromResult<IReadOnlyList<ProviderClaim>>([]);
-        }
+        // Note: Wikipedia description fetching is handled by ReconciliationAdapter.FetchAsync
+        // as part of the work/person fetch path. Description claims are returned and persisted
+        // during Stage 1 — no separate parallel task needed here.
 
         // ── Wikidata Bridge Resolution ─────────────────────────────────────────
         // Load bridge IDs deposited by Stage 1 retail providers, then resolve
@@ -1171,48 +1124,6 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         {
             _logger.LogWarning(
                 "Stage 2 skipped for entity {Id}: ReconciliationAdapter not available",
-                request.EntityId);
-        }
-
-        // ── Merge Wikipedia results (parallel task started before waterfall) ─
-        try
-        {
-            var wikipediaClaims = await wikipediaTask.ConfigureAwait(false);
-            if (wikipediaClaims.Count > 0 && wikipediaProvider is not null)
-            {
-                await ScoringHelper.PersistClaimsAndScoreAsync(
-                    request.EntityId, wikipediaClaims, wikipediaProvider.ProviderId,
-                    _claimRepo, _canonicalRepo, _scoringEngine, _configLoader,
-                    _providers, ct, _arrayRepo, _logger, _searchIndex).ConfigureAwait(false);
-
-                stage2Claims += wikipediaClaims.Count;
-
-                await PublishHarvestEvent(request.EntityId, wikipediaProvider.Name, wikipediaClaims, ct)
-                    .ConfigureAwait(false);
-
-                _logger.LogInformation(
-                    "Wikipedia returned {Claims} claims for entity {Id} (fields: {Fields})",
-                    wikipediaClaims.Count, request.EntityId,
-                    string.Join(", ", wikipediaClaims.Select(c => c.Key).Distinct()));
-            }
-            else if (wikipediaProvider is not null && result.WikidataQid is not null)
-            {
-                // Wikipedia was attempted but returned nothing (no sitelink, empty extract, or HTTP error).
-                // This is logged at Information so operators can see when Wikipedia descriptions are missing.
-                _logger.LogInformation(
-                    "Wikipedia returned 0 claims for entity {Id} (QID: {Qid}). " +
-                    "Possible causes: no Wikipedia article for this QID, Wikipedia API unreachable, or language '{Lang}' has no sitelink.",
-                    request.EntityId, result.WikidataQid, lang);
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex,
-                "Wikipedia parallel fetch failed for entity {Id}; continuing without Wikipedia claims",
                 request.EntityId);
         }
 
