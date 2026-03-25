@@ -80,11 +80,12 @@
                 "picked_up"    => ("File picked up", (string?)null, "rgba(55,138,221,0.15)", "#85B7EB"),
                 "extracted"    => ("Metadata extracted", SummarizeExtraction(ordered), "rgba(55,138,221,0.15)", "#85B7EB"),
                 "searched"     => ("Searched for match", (string?)null, "rgba(55,138,221,0.15)", "#85B7EB"),
-                "matched"      => ("Matched", SummarizeMatch(ordered), "rgba(76,175,80,0.15)", "#66BB6A"),
+                "retail_match" => ("Retail match identified", SummarizeRetailMatch(ordered), "rgba(55,138,221,0.15)", "#85B7EB"),
+                "matched"      => ("Wikidata match", SummarizeMatch(ordered), "rgba(76,175,80,0.15)", "#66BB6A"),
                 "no_match"     => ("No match found", (string?)null, "rgba(239,159,39,0.15)", "#EF9F27"),
                 "review"       => ("Sent for review", SummarizeReview(ordered), "rgba(239,159,39,0.15)", "#EF9F27"),
                 "cover_art"    => ("Cover art downloaded", (string?)null, "rgba(55,138,221,0.15)", "#85B7EB"),
-                "identified"   => ("Identified", (string?)null, "rgba(76,175,80,0.15)", "#66BB6A"),
+                "identified"   => ("Moved to Identified", SummarizeResolved(ordered), "rgba(76,175,80,0.15)", "#66BB6A"),
                 "rejected"     => ("Rejected", (string?)null, "rgba(229,115,115,0.15)", "#E57373"),
                 "recovered"    => ("Recovered", (string?)null, "rgba(76,175,80,0.15)", "#66BB6A"),
                 "person_enriched" => ("Author enriched", SummarizePersonEnrichment(ordered), "rgba(140,120,180,0.15)", "#B39DDB"),
@@ -105,13 +106,13 @@
         "MetadataExtracted" or "ConfidenceScored" or
             "EntityChainCreated" or "MovedToStaging"       => "extracted",
         "HydrationStarted" or "HydrationEnqueued"         => "searched",
+        "RetailEnriched"                                   => "retail_match",
         "WikidataMatched" or "HubAssigned" or
             "HubCreated" or "HydrationCompleted"           => "matched",
         "WikidataMatchFailed"                              => "no_match",
         "ReviewItemCreated"                                => "review",
         "ReviewItemResolved" or "Promoted"                 => "identified",
-        "RetailEnriched" or "CoverArtSaved" or
-            "HeroBannerGenerated"                          => "cover_art",
+        "CoverArtSaved" or "HeroBannerGenerated"           => "cover_art",
         "FileRejected"                                     => "rejected",
         "Recovered"                                        => "recovered",
         "MetadataManualOverride" or "MetadataWrittenToFile" => "manual_edit",
@@ -119,6 +120,33 @@
         "DuplicateSkipped"                                 => null,  // skip
         _                                                  => null,
     };
+
+    private static string? SummarizeRetailMatch(List<RegistryItemHistoryDto> ordered)
+    {
+        var match = ordered.FirstOrDefault(e => e.EventType == "RetailEnriched");
+        if (match?.Detail is not null)
+        {
+            var d = match.Detail.Trim();
+            if (d.Length > 60) d = d[..57] + "…";
+            if (d.Length >= 3) return d;
+        }
+        return null;
+    }
+
+    private static string? SummarizeResolved(List<RegistryItemHistoryDto> ordered)
+    {
+        // Show the detail from the ReviewItemResolved or Promoted event so users can
+        // see WHAT was resolved — title, QID, or confirmation method.
+        var resolved = ordered.LastOrDefault(e =>
+            e.EventType == "ReviewItemResolved" || e.EventType == "Promoted");
+        if (resolved?.Detail is not null)
+        {
+            var d = resolved.Detail.Trim();
+            if (d.Length > 60) d = d[..57] + "…";
+            if (d.Length >= 3) return d;
+        }
+        return null;
+    }
 
     private static string? SummarizeExtraction(List<RegistryItemHistoryDto> ordered)
     {

@@ -708,9 +708,16 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
 
         if (stage1Claims > 0)
         {
-            // History: Wikidata matched.
-            try { await _activityRepo.LogAsync(new SystemActivityEntry { ActionType = "WikidataMatched", EntityId = request.EntityId, Detail = result.WikidataQid is not null ? $"Identified on Wikidata — QID: {result.WikidataQid}" : "Identified on Wikidata" }, ct).ConfigureAwait(false); }
-            catch (Exception ex) when (ex is not OperationCanceledException) { _logger.LogWarning(ex, "Failed to log item history (WikidataMatched)"); }
+            // History: retail match found.
+            var retailProviderNames = stage1Providers.Count > 0
+                ? string.Join(", ", stage1Providers.Select(p => p.Name).Distinct())
+                : "retail providers";
+            var retailTitle = request.Hints.GetValueOrDefault("title", "");
+            var retailDetail = string.IsNullOrWhiteSpace(retailTitle)
+                ? $"Retail match identified via {retailProviderNames}"
+                : $"Retail match identified: \"{retailTitle}\" via {retailProviderNames}";
+            try { await _activityRepo.LogAsync(new SystemActivityEntry { ActionType = "RetailEnriched", EntityId = request.EntityId, Detail = retailDetail }, ct).ConfigureAwait(false); }
+            catch (Exception ex) when (ex is not OperationCanceledException) { _logger.LogWarning(ex, "Failed to log item history (RetailEnriched)"); }
 
             await _eventPublisher.PublishAsync(
                 "HydrationStageCompleted",
@@ -880,9 +887,9 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 "Pipeline Stage 1 (Retail Identification) produced no results for entity {Id}",
                 request.EntityId);
 
-            // History: Wikidata match failed.
-            try { await _activityRepo.LogAsync(new SystemActivityEntry { ActionType = "WikidataMatchFailed", EntityId = request.EntityId, Detail = "No Wikidata match found" }, ct).ConfigureAwait(false); }
-            catch (Exception ex) when (ex is not OperationCanceledException) { _logger.LogWarning(ex, "Failed to log item history (WikidataMatchFailed)"); }
+            // History: retail match failed — no results from retail providers.
+            try { await _activityRepo.LogAsync(new SystemActivityEntry { ActionType = "WikidataMatchFailed", EntityId = request.EntityId, Detail = "No retail match found — item sent for review" }, ct).ConfigureAwait(false); }
+            catch (Exception ex) when (ex is not OperationCanceledException) { _logger.LogWarning(ex, "Failed to log item history (RetailMatchFailed)"); }
 
             // Authority match failed — create review item.
             await CreateReviewItemAsync(
@@ -1217,9 +1224,12 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
 
         if (stage2Claims > 0)
         {
-            // History: retail enrichment succeeded.
-            try { await _activityRepo.LogAsync(new SystemActivityEntry { ActionType = "RetailEnriched", EntityId = request.EntityId, Detail = "Additional metadata retrieved" }, ct).ConfigureAwait(false); }
-            catch (Exception ex) when (ex is not OperationCanceledException) { _logger.LogWarning(ex, "Failed to log item history (RetailEnriched)"); }
+            // History: Wikidata bridge resolution succeeded.
+            var wikidataDetail = result.WikidataQid is not null
+                ? $"Wikidata match confirmed — QID: {result.WikidataQid}"
+                : "Wikidata match confirmed";
+            try { await _activityRepo.LogAsync(new SystemActivityEntry { ActionType = "WikidataMatched", EntityId = request.EntityId, Detail = wikidataDetail }, ct).ConfigureAwait(false); }
+            catch (Exception ex) when (ex is not OperationCanceledException) { _logger.LogWarning(ex, "Failed to log item history (WikidataMatched)"); }
             // Post-hydration auto-resolve: if Stage 2 returned 3+ claims and this
             // entity has a pending AmbiguousMediaType review item, the provider match
             // confirms the media type — auto-resolve the review item.
