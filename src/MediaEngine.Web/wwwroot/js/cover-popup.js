@@ -17,12 +17,12 @@ window.CoverPopup = {
             border-radius: 8px;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
             pointer-events: none;
-            max-width: 260px;
-            max-height: 80vh;
+            max-width: 420px;
+            max-height: 85vh;
         `;
 
         const img = el.querySelector('img');
-        img.style.cssText = 'width: 240px; height: auto; border-radius: 4px; display: block;';
+        img.style.cssText = 'max-width: 400px; max-height: 80vh; width: auto; height: auto; border-radius: 6px; display: block;';
 
         document.body.appendChild(el);
         this._el = el;

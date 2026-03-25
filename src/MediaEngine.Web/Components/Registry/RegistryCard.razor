@@ -64,7 +64,11 @@
     </div>
 
     @* ── Title (below thumbnail, always visible) ── *@
-    <div class="rc-title">@Item.Title</div>
+    <div class="rc-title">
+        <span class="rc-type-icon" title="@Item.MediaType">
+            <MudIcon Icon="@RegistryHelpers.GetMediaTypeIcon(Item.MediaType)"
+                     Style="font-size: 0.65rem; opacity: 0.4;" />
+        </span>@Item.Title</div>
 </div>
 
 @code {
@@ -183,6 +187,12 @@
     }
 
     /* ── Title ── */
+    .rc-type-icon {
+        display: inline-flex;
+        align-items: center;
+        margin-right: 4px;
+        vertical-align: middle;
+    }
     .rc-title {
         font-size: 0.65rem;
         color: rgba(255,255,255,0.6);

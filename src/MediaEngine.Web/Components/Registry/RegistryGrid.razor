@@ -173,7 +173,8 @@ else
         {
             var grpItems = Items
                 .Where(i => triggers.Any(t => string.Equals(i.ReviewTrigger, t, StringComparison.OrdinalIgnoreCase)))
-                .OrderByDescending(i => i.CreatedAt)
+                .OrderBy(i => i.Title != null && i.Title.Length > 0 && char.IsDigit(i.Title[0]) ? 0 : 1)
+                .ThenBy(i => i.Title, StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
             if (grpItems.Count == 0) continue;
@@ -186,7 +187,8 @@ else
         // Catch-all for items with unrecognised or null trigger
         var remaining = Items
             .Where(i => !allKnownTriggers.Contains(i.ReviewTrigger ?? ""))
-            .OrderByDescending(i => i.CreatedAt)
+            .OrderBy(i => i.Title != null && i.Title.Length > 0 && char.IsDigit(i.Title[0]) ? 0 : 1)
+            .ThenBy(i => i.Title, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
         if (remaining.Count > 0)

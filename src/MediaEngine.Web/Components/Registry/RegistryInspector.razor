@@ -92,14 +92,6 @@ else
                 }
             </div>
 
-            <!-- Cover picker carousel -->
-            <InspectorCoverPicker FileCoverUrl="@Item.CoverUrl"
-                                  CandidateTitle="@_selectedCandidateTitle"
-                                  CandidateAuthor="@_selectedCandidateAuthor"
-                                  CandidateQid="@_selectedCandidateQid"
-                                  MediaType="@Item.MediaType"
-                                  OnCoverSelected="HandleCoverSelected" />
-
             <!-- Resolve tab content wrapper (relative anchor for provisional overlay) -->
             <div class="inspector-resolve-content">
                 @if (_showProvisionalForm)

@@ -101,7 +101,30 @@
                             }
                             @if (!string.IsNullOrWhiteSpace(c.Description))
                             {
-                                <span class="isearch-card-desc">@TruncateDescription(c.Description)</span>
+                                var descId = $"desc-{c.ProviderItemId}";
+                                var isExpanded = _expandedDescriptions.Contains(descId);
+                                if (isExpanded)
+                                {
+                                    <div class="isearch-card-desc isearch-card-desc--full"
+                                         @onclick:stopPropagation="true">
+                                        @((MarkupString)SanitizeDescription(c.Description))
+                                    </div>
+                                    <button class="isearch-card-desc-toggle" @onclick:stopPropagation="true"
+                                            @onclick="() => ToggleDescription(descId)">
+                                        <span>Show less</span>
+                                    </button>
+                                }
+                                else
+                                {
+                                    <span class="isearch-card-desc">@TruncateDescription(c.Description)</span>
+                                    @if (c.Description.Length > 120)
+                                    {
+                                        <button class="isearch-card-desc-toggle" @onclick:stopPropagation="true"
+                                                @onclick="() => ToggleDescription(descId)">
+                                            <span>More</span>
+                                        </button>
+                                    }
+                                }
                             }
                             <div class="isearch-card-footer">
                                 @if (!string.IsNullOrWhiteSpace(c.Year))
@@ -497,6 +520,7 @@ else
     private bool _confirmingReject;
     private bool _confirmingRegister;
     private bool _confirmingUnmatch;
+    private readonly HashSet<string> _expandedDescriptions = new();
     private System.Threading.Timer? _rejectTimer;
     private System.Threading.Timer? _registerTimer;
     private System.Threading.Timer? _unmatchTimer;
@@ -593,27 +617,7 @@ else
             }
             else
             {
-                // Fallback: if retail returns nothing, try Wikidata universe search.
-                var wikiResults = await Orchestrator.SearchUniverseAsync(
-                    _query, mt, maxCandidates: 10, localAuthor: Item.Author);
-                foreach (var c in wikiResults)
-                {
-                    _candidates.Add(new CandidateViewModel
-                    {
-                        Title = c.Label,
-                        Author = c.Author,
-                        Description = c.Description ?? c.WikipediaExtract,
-                        Year = c.Year,
-                        CoverUrl = c.CoverUrl,
-                        Qid = c.Qid,
-                        Confidence = c.Confidence,
-                        CompositeScore = c.Confidence,
-                        ProviderName = "Wikidata",
-                        ProviderId = "b3000003-d000-4000-8000-000000000004",
-                        ProviderItemId = c.Qid,
-                        RawFields = c.BridgeIds
-                    });
-                }
+                // No retail results — show empty state (no Wikidata fallback in retail-first mode)
             }
 
             // Sort by composite score (includes description match bonus when hints were provided)
@@ -745,10 +749,45 @@ else
     }
 
     private static string TruncateDescription(string desc)
-        => desc.Length > 120 ? desc[..117] + "…" : desc;
+    {
+        // Strip HTML tags for the truncated preview
+        var plain = System.Text.RegularExpressions.Regex.Replace(desc, "<[^>]+>", " ");
+        plain = System.Text.RegularExpressions.Regex.Replace(plain, @"\s+", " ").Trim();
+        return plain.Length > 120 ? plain[..117] + "…" : plain;
+    }
 
     private static string TruncateTitle(string title)
         => title.Length > 30 ? title[..27] + "…" : title;
+
+    private void ToggleDescription(string descId)
+    {
+        if (!_expandedDescriptions.Remove(descId))
+            _expandedDescriptions.Add(descId);
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Sanitizes description HTML for safe rendering. Preserves allowed tags
+    /// (b, i, em, strong, p, br) and converts newlines to &lt;br&gt;.
+    /// Strips all other tags to prevent XSS.
+    /// </summary>
+    private static string SanitizeDescription(string html)
+    {
+        // Convert \n to <br> first
+        var result = html.Replace("\n", "<br />");
+
+        // Allow only safe tags — strip everything else
+        var allowedTags = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            { "b", "i", "em", "strong", "p", "br", "br /" };
+
+        result = System.Text.RegularExpressions.Regex.Replace(result, @"</?(\w+)[^>]*>", match =>
+        {
+            var tag = match.Groups[1].Value;
+            return allowedTags.Contains(tag) ? match.Value : "";
+        });
+
+        return result;
+    }
 
     /// <summary>Returns the context-aware label for the creator field based on media type.</summary>
     private string CreatorLabel => (Item.MediaType ?? "") switch
@@ -1092,6 +1131,43 @@ else
         display: -webkit-box;
         -webkit-line-clamp: 2;
         -webkit-box-orient: vertical;
+    }
+
+    .isearch-card-desc--full {
+        font-size: 11px;
+        font-weight: 400;
+        color: rgba(200, 190, 220, 0.45);
+        line-height: 1.5;
+        max-height: 200px;
+        overflow-y: auto;
+        padding-right: 4px;
+    }
+
+    .isearch-card-desc--full :deep(p) {
+        margin: 0 0 6px 0;
+    }
+
+    .isearch-card-desc--full :deep(br) {
+        display: block;
+        content: "";
+        margin-top: 4px;
+    }
+
+    .isearch-card-desc-toggle {
+        background: none;
+        border: none;
+        padding: 0;
+        margin: 2px 0 0 0;
+        cursor: pointer;
+        font-size: 10px;
+        font-weight: 500;
+        color: rgba(74, 144, 217, 0.7);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+
+    .isearch-card-desc-toggle:hover {
+        color: rgba(74, 144, 217, 1.0);
     }
 
     .isearch-card-footer {

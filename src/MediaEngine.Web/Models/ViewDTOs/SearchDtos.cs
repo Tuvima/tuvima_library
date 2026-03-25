@@ -400,16 +400,16 @@ public sealed class FieldMatchScoresDto
     public double CompositeScore { get; set; }
 
     [JsonPropertyName("title_verdict")]
-    public string TitleVerdict { get; set; } = "";
+    public int TitleVerdict { get; set; }
 
     [JsonPropertyName("author_verdict")]
-    public string AuthorVerdict { get; set; } = "";
+    public int AuthorVerdict { get; set; }
 
     [JsonPropertyName("year_verdict")]
-    public string YearVerdict { get; set; } = "";
+    public int YearVerdict { get; set; }
 
     [JsonPropertyName("format_verdict")]
-    public string FormatVerdict { get; set; } = "";
+    public int FormatVerdict { get; set; }
 }
 
 /// <summary>Request to submit a user problem report.</summary>
