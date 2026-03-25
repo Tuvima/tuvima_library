@@ -31,8 +31,7 @@
             @foreach (var cover in _covers)
             {
                 var isSelected = cover == _selectedCover;
-                var isAudiobook = string.Equals(MediaType, "Audiobook", StringComparison.OrdinalIgnoreCase)
-                                  || string.Equals(MediaType, "Audiobooks", StringComparison.OrdinalIgnoreCase);
+                var isAudiobook = string.Equals(MediaType, "Audiobooks", StringComparison.OrdinalIgnoreCase);
                 <div class="coverpicker-thumb @(isSelected ? "coverpicker-thumb--selected" : "") @(isAudiobook ? "coverpicker-thumb--square" : "")"
                      @onclick="() => SelectCover(cover)"
                      @onmouseenter="e => ShowCoverPopup(cover.Url, e)"

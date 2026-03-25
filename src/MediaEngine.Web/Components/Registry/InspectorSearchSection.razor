@@ -89,8 +89,7 @@
                          @onclick="() => SelectCandidate(c)">
 
                         @{
-                            var isAudiobookCard = string.Equals(Item.MediaType, "Audiobook", StringComparison.OrdinalIgnoreCase)
-                                                  || string.Equals(Item.MediaType, "Audiobooks", StringComparison.OrdinalIgnoreCase);
+                            var isAudiobookCard = string.Equals(Item.MediaType, "Audiobooks", StringComparison.OrdinalIgnoreCase);
                         }
                         @if (!string.IsNullOrWhiteSpace(c.CoverUrl))
                         {
@@ -163,10 +162,6 @@
                                 @if (!string.IsNullOrWhiteSpace(c.Year))
                                 {
                                     <span class="isearch-card-year">@c.Year</span>
-                                }
-                                @if (!string.IsNullOrWhiteSpace(c.ProviderName))
-                                {
-                                    <span class="isearch-card-provider">@c.ProviderName</span>
                                 }
                                 @if (!string.IsNullOrWhiteSpace(c.Qid))
                                 {
@@ -337,8 +332,7 @@ else
                          @onclick="() => SelectCandidate(c)">
 
                         @{
-                            var isAudiobookResult = string.Equals(Item.MediaType, "Audiobook", StringComparison.OrdinalIgnoreCase)
-                                                    || string.Equals(Item.MediaType, "Audiobooks", StringComparison.OrdinalIgnoreCase);
+                            var isAudiobookResult = string.Equals(Item.MediaType, "Audiobooks", StringComparison.OrdinalIgnoreCase);
                         }
                         @if (!string.IsNullOrWhiteSpace(c.CoverUrl))
                         {
@@ -1234,6 +1228,7 @@ else
     }
 
     .isearch-card-desc-toggle {
+        display: block;
         background: none;
         border: none;
         padding: 0;
@@ -1650,7 +1645,7 @@ else
         display: flex;
         flex-direction: column;
         gap: 4px;
-        max-height: 60vh;
+        max-height: 260px;
         overflow-y: auto;
     }
 
@@ -1784,15 +1779,15 @@ else
     }
 
     .isearch-signal--match {
-        color: rgba(93, 202, 165, 0.80);
+        color: #5DCAA5;
     }
 
     .isearch-signal--warn {
-        color: rgba(239, 159, 39, 0.80);
+        color: #EF9F27;
     }
 
     .isearch-signal--miss {
-        color: rgba(200, 190, 220, 0.25);
+        color: rgba(239, 83, 80, 0.6);
     }
 
     .isearch-result-select-btn {

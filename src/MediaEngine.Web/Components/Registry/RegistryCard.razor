@@ -8,8 +8,7 @@
 
     @* ── Thumbnail ── *@
     @{
-        var isAudiobookThumb = string.Equals(Item.MediaType, "Audiobook", StringComparison.OrdinalIgnoreCase)
-                               || string.Equals(Item.MediaType, "Audiobooks", StringComparison.OrdinalIgnoreCase);
+        var isAudiobookThumb = string.Equals(Item.MediaType, "Audiobooks", StringComparison.OrdinalIgnoreCase);
     }
     <div class="rc-thumb @(isAudiobookThumb ? "rc-thumb--square" : "")">
         @if (!string.IsNullOrEmpty(Item.CoverUrl))
