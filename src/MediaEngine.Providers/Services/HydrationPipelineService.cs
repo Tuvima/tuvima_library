@@ -1023,9 +1023,17 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 }
 
                 // Also add any bridge IDs from canonical values that weren't in bridge_ids table.
+                // These come from file processors (e.g. EPUB ISBN) which don't go through
+                // the Stage 1 bridge persistence path. Add both the value AND its P-code.
                 foreach (var kvp in bridgeHints)
                 {
                     bridgeDict.TryAdd(kvp.Key, kvp.Value);
+                    if (!wikidataProps.ContainsKey(kvp.Key))
+                    {
+                        var pCode = GetPCodeForClaimKey(kvp.Key);
+                        if (!string.IsNullOrWhiteSpace(pCode))
+                            wikidataProps.TryAdd(kvp.Key, pCode);
+                    }
                 }
 
                 // Check if this media type is edition-aware.
