@@ -163,7 +163,7 @@
                         <a href="https://www.wikidata.org/wiki/@GetCanonicalValue("edition_qid")" target="_blank" rel="noopener noreferrer"
                            class="ids-link-pill" title="Edition on Wikidata">
                             <svg class="ids-link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 6.25278V19.2528M12 6.25278C10.8321 5.47686 9.24649 5 7.5 5C5.75351 5 4.16789 5.47686 3 6.25278V19.2528C4.16789 18.4769 5.75351 18 7.5 18C9.24649 18 10.8321 18.4769 12 19.2528M12 6.25278C13.1679 5.47686 14.7535 5 16.5 5C18.2465 5 19.8321 5.47686 21 6.25278V19.2528C19.8321 18.4769 18.2465 18 16.5 18C14.7535 18 13.1679 18.4769 12 19.2528"/></svg>
-                            @GetCanonicalValue("edition_qid")
+                            <span class="ids-link-type">Edition</span> @GetCanonicalValue("edition_qid")
                         </a>
                     }
                     @if (IsValidQid(GetCanonicalValue("audiobook_edition_qid")))
@@ -171,7 +171,7 @@
                         <a href="https://www.wikidata.org/wiki/@GetCanonicalValue("audiobook_edition_qid")" target="_blank" rel="noopener noreferrer"
                            class="ids-link-pill" title="Audiobook edition on Wikidata">
                             <svg class="ids-link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"/></svg>
-                            @GetCanonicalValue("audiobook_edition_qid")
+                            <span class="ids-link-type">Audio Edition</span> @GetCanonicalValue("audiobook_edition_qid")
                         </a>
                     }
                     @if (IsValidQid(GetWorkQid()))
@@ -179,7 +179,7 @@
                         <a href="https://www.wikidata.org/wiki/@GetWorkQid()" target="_blank" rel="noopener noreferrer"
                            class="ids-link-pill" title="Work on Wikidata">
                             <svg class="ids-link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-                            @GetWorkQid()
+                            <span class="ids-link-type">Work</span> @GetWorkQid()
                         </a>
                     }
                     @{ var wikiUrl = GetCanonicalValue("wikipedia_url"); }
@@ -474,6 +474,14 @@
     .ids-link-pill--wiki:hover {
         background: rgba(80, 120, 180, 0.18);
         color: rgba(180, 210, 240, 0.95);
+    }
+
+    .ids-link-type {
+        font-weight: 600;
+        font-size: 9px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: rgba(201, 146, 46, 0.70);
     }
 
     .ids-link-icon {

@@ -406,15 +406,16 @@ public sealed class RegistryRepository : IRegistryRepository
         string? fileName    = filePath is not null ? Path.GetFileName(filePath) : null;
 
         // Load wikidata_status, media_type, and match_level from the work
-        var workRow = conn.QueryFirstOrDefault<(string? WikidataStatus, string? MediaType, string? MatchLevel)>("""
+        var workRow = conn.QueryFirstOrDefault<(string? WikidataStatus, string? MediaType, string? MatchLevel, string? CuratorState)>("""
             SELECT wikidata_status AS WikidataStatus, media_type AS MediaType,
-                   match_level AS MatchLevel
+                   match_level AS MatchLevel, curator_state AS CuratorState
             FROM works WHERE id = @entityId
             """, new { entityId = entityId.ToString() });
 
         string? wikidataStatus = workRow == default ? null : workRow.WikidataStatus;
         string  mediaType      = workRow == default ? "" : workRow.MediaType ?? "";
         string  matchLevel     = workRow == default ? "work" : workRow.MatchLevel ?? "work";
+        string? curatorState   = workRow == default ? null : workRow.CuratorState;
 
         // Helper to get canonical value by key (with year-key fallback aliases)
         string? cv(string key)
@@ -426,10 +427,19 @@ public sealed class RegistryRepository : IRegistryRepository
         }
         var hasUserLocks = claims.Any(c => c.IsUserLocked);
         var titleProvider = canonicalValues.FirstOrDefault(v => v.Key == "title")?.WinningProviderId;
+        var wikidataQid = cv("wikidata_qid");
 
-        var status = reviewItemId.HasValue ? "Review"
-            : hasUserLocks ? "Edited"
-            : "Auto";
+        // Status logic mirrors GetPageAsync: curator_state overrides, then review, then QID check
+        var status = curatorState switch
+        {
+            "rejected"    => "Rejected",
+            "provisional" => "Provisional",
+            _ => reviewItemId.HasValue ? "InReview"
+               : (!string.IsNullOrEmpty(wikidataQid) && !wikidataQid.StartsWith("NF", StringComparison.OrdinalIgnoreCase))
+                   ? "Identified"
+               : hasUserLocks ? "Edited"
+               : "Auto",
+        };
 
         // Collect bridge identifiers from canonical values
         var bridgeKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
@@ -444,7 +454,6 @@ public sealed class RegistryRepository : IRegistryRepository
             if (bridgeKeys.Contains(cvEntry.Key) && !string.IsNullOrWhiteSpace(cvEntry.Value))
                 bridgeIds[cvEntry.Key] = cvEntry.Value;
         }
-        var wikidataQid = cv("wikidata_qid");
         if (!string.IsNullOrEmpty(wikidataQid) && !bridgeIds.ContainsKey("wikidata_qid"))
             bridgeIds["wikidata_qid"] = wikidataQid;
 
