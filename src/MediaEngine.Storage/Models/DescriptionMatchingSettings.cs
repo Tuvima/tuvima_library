@@ -75,6 +75,14 @@ public sealed class DescriptionMatchField
     [JsonPropertyName("pattern")]
     public string? Pattern { get; set; }
 
+    /// <summary>
+    /// For "extract_then_compare" match type: regex patterns with a named capture group
+    /// &lt;name&gt; to extract person names from the target text. The extracted name is then
+    /// compared to the file hint value using FuzzySharp for precise name-to-name scoring.
+    /// </summary>
+    [JsonPropertyName("extraction_patterns")]
+    public List<string>? ExtractionPatterns { get; set; }
+
     /// <summary>Weight of this field in the composite score (0.0-1.0).</summary>
     [JsonPropertyName("weight")]
     public double Weight { get; set; }

@@ -13,9 +13,13 @@
       "fields": [
         {
           "file_hint_key": "narrator",
-          "match_type": "partial_ratio",
+          "match_type": "extract_then_compare",
+          "extraction_patterns": [
+            "(?i)(?:read|narrated|performed|voiced)\\s+by\\s+(?<name>[A-Z][\\w\\s.'-]+?)(?:\\s*[,;.(]|\\s+and\\s|\\.|$)",
+            "(?i)narrator:?\\s+(?<name>[A-Z][\\w\\s.'-]+?)(?:\\s*[,;.(]|$)"
+          ],
           "weight": 0.35,
-          "description": "Narrator name fuzzy matched against description text"
+          "description": "Narrator name extracted from description, compared name-to-name against file hint"
         },
         {
           "file_hint_key": "publisher",
@@ -61,9 +65,12 @@
         },
         {
           "file_hint_key": "translator",
-          "match_type": "partial_ratio",
+          "match_type": "extract_then_compare",
+          "extraction_patterns": [
+            "(?i)translated\\s+by\\s+(?<name>[A-Z][\\w\\s.'-]+?)(?:\\s*[,;.(]|\\s+and\\s|$)"
+          ],
           "weight": 0.30,
-          "description": "Translator name matched against description"
+          "description": "Translator name extracted from description, compared name-to-name against file hint"
         },
         {
           "file_hint_key": "language",
@@ -77,15 +84,21 @@
       "fields": [
         {
           "file_hint_key": "director",
-          "match_type": "partial_ratio",
+          "match_type": "extract_then_compare",
+          "extraction_patterns": [
+            "(?i)directed\\s+by\\s+(?<name>[A-Z][\\w\\s.'-]+?)(?:\\s*[,;.(]|$)"
+          ],
           "weight": 0.30,
-          "description": "Director name matched against description"
+          "description": "Director name extracted from description, compared name-to-name against file hint"
         },
         {
           "file_hint_key": "cast",
-          "match_type": "partial_ratio",
+          "match_type": "extract_then_compare",
+          "extraction_patterns": [
+            "(?i)(?:starring|featuring)\\s+(?<name>[A-Z][\\w\\s.'-]+?)(?:\\s*[,;.(]|\\s+and\\s|$)"
+          ],
           "weight": 0.25,
-          "description": "Cast member names matched against description"
+          "description": "Cast member names extracted from description, compared name-to-name against file hint"
         },
         {
           "file_hint_key": "edition_type",
@@ -129,9 +142,12 @@
         },
         {
           "file_hint_key": "cast",
-          "match_type": "partial_ratio",
+          "match_type": "extract_then_compare",
+          "extraction_patterns": [
+            "(?i)(?:starring|featuring)\\s+(?<name>[A-Z][\\w\\s.'-]+?)(?:\\s*[,;.(]|\\s+and\\s|$)"
+          ],
           "weight": 0.10,
-          "description": "Cast members matched against description"
+          "description": "Cast member names extracted from description, compared name-to-name against file hint"
         }
       ]
     },
@@ -177,9 +193,12 @@
         },
         {
           "file_hint_key": "writer",
-          "match_type": "partial_ratio",
+          "match_type": "extract_then_compare",
+          "extraction_patterns": [
+            "(?i)(?:written|story)\\s+by\\s+(?<name>[A-Z][\\w\\s.'-]+?)(?:\\s*[,;.(]|\\s+and\\s|$)"
+          ],
           "weight": 0.30,
-          "description": "Writer name matched against description"
+          "description": "Writer name extracted from description, compared name-to-name against file hint"
         },
         {
           "file_hint_key": "artist",
@@ -201,9 +220,12 @@
       "fields": [
         {
           "file_hint_key": "host",
-          "match_type": "partial_ratio",
+          "match_type": "extract_then_compare",
+          "extraction_patterns": [
+            "(?i)(?:hosted|presented)\\s+by\\s+(?<name>[A-Z][\\w\\s.'-]+?)(?:\\s*[,;.(]|\\s+and\\s|$)"
+          ],
           "weight": 0.35,
-          "description": "Host name matched against description"
+          "description": "Host name extracted from description, compared name-to-name against file hint"
         },
         {
           "file_hint_key": "network",

@@ -171,11 +171,12 @@ public sealed partial class DescriptionMatchService : IDescriptionMatchService
     {
         return field.MatchType.ToLowerInvariant() switch
         {
-            "partial_ratio"   => ScorePartialRatio(fileValue, targetText, caseSensitive),
-            "token_set_ratio" => ScoreTokenSetRatio(fileValue, targetText, caseSensitive),
-            "contains"        => ScoreContains(fileValue, targetText, field.MatchTerms, caseSensitive),
-            "regex"           => ScoreRegex(fileValue, targetText, field.Pattern),
-            _                 => 0,
+            "partial_ratio"        => ScorePartialRatio(fileValue, targetText, caseSensitive),
+            "token_set_ratio"      => ScoreTokenSetRatio(fileValue, targetText, caseSensitive),
+            "contains"             => ScoreContains(fileValue, targetText, field.MatchTerms, caseSensitive),
+            "regex"                => ScoreRegex(fileValue, targetText, field.Pattern),
+            "extract_then_compare" => ScoreExtractThenCompare(fileValue, targetText, field.ExtractionPatterns, caseSensitive),
+            _                      => 0,
         };
     }
 
@@ -223,6 +224,57 @@ public sealed partial class DescriptionMatchService : IDescriptionMatchService
         }
 
         return 0;
+    }
+
+    /// <summary>
+    /// Extracts person names from the target text using regex patterns with named capture
+    /// groups, then compares each extracted name to the file hint value using FuzzySharp.
+    /// Returns a much more discriminating score than fuzzy-matching name-to-paragraph.
+    /// </summary>
+    private int ScoreExtractThenCompare(
+        string fileValue,
+        string text,
+        List<string>? patterns,
+        bool caseSensitive)
+    {
+        if (patterns is null || patterns.Count == 0)
+            return ScorePartialRatio(fileValue, text, caseSensitive); // fallback
+
+        var bestScore = 0;
+
+        foreach (var pattern in patterns)
+        {
+            try
+            {
+                var matches = Regex.Matches(text, pattern,
+                    RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
+                    TimeSpan.FromMilliseconds(200));
+
+                foreach (Match match in matches)
+                {
+                    var nameGroup = match.Groups["name"];
+                    if (!nameGroup.Success) continue;
+
+                    var extractedName = nameGroup.Value.Trim();
+                    if (string.IsNullOrWhiteSpace(extractedName)) continue;
+
+                    // Compare extracted name to file hint name-to-name
+                    var a = caseSensitive ? fileValue      : fileValue.ToLowerInvariant();
+                    var b = caseSensitive ? extractedName   : extractedName.ToLowerInvariant();
+                    var score = (int)Math.Round(_fuzzy.ComputePartialRatio(a, b) * 100.0);
+
+                    if (score > bestScore)
+                        bestScore = score;
+                }
+            }
+            catch (RegexMatchTimeoutException) { }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "extract_then_compare: regex error for pattern '{Pattern}'", pattern);
+            }
+        }
+
+        return bestScore;
     }
 
     private static int ScoreRegex(string fileValue, string text, string? pattern)
