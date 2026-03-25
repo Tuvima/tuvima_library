@@ -305,42 +305,10 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                 "{Provider}/{Strategy}: search returned {Count} items",
                 Name, strategy.Name, items.Count);
 
-            // Trust the provider's own relevance ordering.
-            //
-            // Providers (Apple API, Open Library, Google Books) return results in their
-            // own relevance order. The first result is almost always the right one.
-            // We should not let a marginally higher word-overlap score on a later result
-            // (e.g. a study guide whose title coincidentally matches our query words better)
-            // override the provider's own top pick.
-            //
-            // Rule 1: If the first result has a title-match score ≥ 0.60 (TokenSetRatio ≥ 60),
-            //         return only that result — provider ordering wins.
-            // Rule 2: Even if the first result scores < 0.60, if it is within 0.15 of the
-            //         best score across all results, return only the first result to preserve
-            //         provider ordering rather than letting a minor score delta override it.
-            if (items.Count > 0)
-            {
-                var firstScore = items[0].Confidence;
-                var bestScore  = items.Max(r => r.Confidence);
-
-                if (firstScore >= 0.60)
-                {
-                    _logger.LogDebug(
-                        "{Provider}/{Strategy}: first result score {Score:P0} ≥ 60 % — using provider ordering",
-                        Name, strategy.Name, firstScore);
-                    return [items[0]];
-                }
-
-                if (bestScore - firstScore <= 0.15)
-                {
-                    _logger.LogDebug(
-                        "{Provider}/{Strategy}: first result score {FirstScore:P0} within 15 pts of best " +
-                        "{BestScore:P0} — preferring provider index 0",
-                        Name, strategy.Name, firstScore, bestScore);
-                    return [items[0]];
-                }
-            }
-
+            // Return all items — the caller (SearchService or HydrationPipeline)
+            // handles ranking and selection. For the resolve tab, users need to
+            // see multiple editions with different covers, narrators, and years.
+            // For automated pipelines, the scoring service picks the best match.
             return items;
         }
         finally
