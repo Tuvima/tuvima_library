@@ -11,7 +11,7 @@
     "Audiobooks": "{Category}/{Title} ({Qid})/{Format}/{Title}{Ext}",
     "Movies":     "{Category}/{Title} ({Qid})/{Format}/{Title}{Ext}",
     "TV":         "{Category}/{Title} ({Qid})/{Format}/S({Season})E({Episode}) - {Title}{Ext}",
-    "Comic":      "{Category}/{Title} ({Qid})/{Format}/{Title}{Ext}",
+    "Comics":     "{Category}/{Title} ({Qid})/{Format}/{Title}{Ext}",
     "Music":      "{Category}/{Artist}/{Album} ({Qid})/{Format}/({TrackNumber}) - {Title}{Ext}",
     "Podcasts":   "{Category}/{Title} ({Qid})/{Format}/{Title}{Ext}"
   },

@@ -300,15 +300,24 @@ public static class DevSeedEndpoints
 
     private static async Task<IResult> SeedLibraryAsync(
         IOptions<IngestionOptions> options,
+        Storage.Contracts.IConfigurationLoader configLoader,
         ILogger<Program> logger)
     {
-        string? watchDir = options.Value.WatchDirectory;
+        // Prefer the first library folder's source_path from libraries.json,
+        // falling back to the legacy WatchDirectory from core.json.
+        string? watchDir = null;
+        var libConfig = configLoader.LoadLibraries();
+        if (libConfig.Libraries.Count > 0)
+        {
+            watchDir = libConfig.Libraries[0].SourcePath;
+        }
+        watchDir ??= options.Value.WatchDirectory;
 
         if (string.IsNullOrWhiteSpace(watchDir))
         {
             return Results.BadRequest(new
             {
-                error = "Watch Folder is not configured. Set it via PUT /settings/folders first."
+                error = "No library folder or Watch Folder configured. Set it via PUT /settings/folders first."
             });
         }
 
@@ -317,13 +326,13 @@ public static class DevSeedEndpoints
             try
             {
                 Directory.CreateDirectory(watchDir);
-                logger.LogInformation("Created Watch Folder at {Path}", watchDir);
+                logger.LogInformation("Created seed target folder at {Path}", watchDir);
             }
             catch (Exception ex)
             {
                 return Results.BadRequest(new
                 {
-                    error = $"Cannot create Watch Folder: {ex.Message}"
+                    error = $"Cannot create seed target folder: {ex.Message}"
                 });
             }
         }
@@ -408,6 +417,7 @@ public static class DevSeedEndpoints
     private static async Task<IResult> WipeAsync(
         IDatabaseConnection db,
         IOptions<IngestionOptions> options,
+        Storage.Contracts.IConfigurationLoader configLoader,
         IIngestionEngine ingestionEngine,
         ILogger<Program> logger)
     {
@@ -444,7 +454,25 @@ public static class DevSeedEndpoints
             wiped.Add("Library root: not configured or does not exist — skipped");
         }
 
-        // 3. Wipe the watch folder.
+        // 3. Wipe library source paths from libraries.json + legacy watch folder.
+        var libConfig = configLoader.LoadLibraries();
+        foreach (var lib in libConfig.Libraries)
+        {
+            if (!string.IsNullOrWhiteSpace(lib.SourcePath) && Directory.Exists(lib.SourcePath))
+            {
+                try
+                {
+                    int count = WipeDirectoryContents(lib.SourcePath, logger);
+                    wiped.Add($"Library source ({lib.SourcePath}): {count} items deleted");
+                }
+                catch (Exception ex)
+                {
+                    wiped.Add($"Library source ({lib.SourcePath}): FAILED — {ex.Message}");
+                    logger.LogError(ex, "[Wipe] Failed to wipe library source {Path}", lib.SourcePath);
+                }
+            }
+        }
+
         string? watchDir = options.Value.WatchDirectory;
         if (!string.IsNullOrWhiteSpace(watchDir) && Directory.Exists(watchDir))
         {
@@ -458,10 +486,6 @@ public static class DevSeedEndpoints
                 wiped.Add($"Watch folder ({watchDir}): FAILED — {ex.Message}");
                 logger.LogError(ex, "[Wipe] Failed to wipe watch folder");
             }
-        }
-        else
-        {
-            wiped.Add("Watch folder: not configured or does not exist — skipped");
         }
 
         // 4. Wipe database by dropping all tables and re-creating the schema.
@@ -563,25 +587,37 @@ public static class DevSeedEndpoints
     private static async Task<IResult> FullTestAsync(
         IDatabaseConnection db,
         IOptions<IngestionOptions> options,
+        Storage.Contracts.IConfigurationLoader configLoader,
         IIngestionEngine ingestionEngine,
         ILogger<Program> logger)
     {
         logger.LogInformation("[FullTest] Starting full ingestion test: wipe → seed → scan");
 
         // Step 1: Wipe
-        var wipeResult = await WipeAsync(db, options, ingestionEngine, logger);
+        var wipeResult = await WipeAsync(db, options, configLoader, ingestionEngine, logger);
 
         // Step 2: Seed
-        var seedResult = await SeedLibraryAsync(options, logger);
+        var seedResult = await SeedLibraryAsync(options, configLoader, logger);
 
         // Step 3: Trigger a directory scan so the file watcher picks up the seeded files.
         //         FSW only detects NEW events; files already present when the watcher
         //         started require an explicit scan to generate synthetic "Created" events.
+        //         Scan each library source path + legacy watch folder.
+        var libConfig = configLoader.LoadLibraries();
+        foreach (var lib in libConfig.Libraries)
+        {
+            if (!string.IsNullOrWhiteSpace(lib.SourcePath) && Directory.Exists(lib.SourcePath))
+            {
+                ingestionEngine.ScanDirectory(lib.SourcePath, lib.IncludeSubdirectories);
+                logger.LogInformation("[FullTest] ScanDirectory triggered for {Path}", lib.SourcePath);
+            }
+        }
+
         string? watchDir = options.Value.WatchDirectory;
         if (!string.IsNullOrWhiteSpace(watchDir) && Directory.Exists(watchDir))
         {
             ingestionEngine.ScanDirectory(watchDir);
-            logger.LogInformation("[FullTest] ScanDirectory triggered for {Path}", watchDir);
+            logger.LogInformation("[FullTest] ScanDirectory triggered for legacy watch folder {Path}", watchDir);
         }
 
         return Results.Ok(new
