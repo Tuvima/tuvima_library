@@ -94,8 +94,6 @@ var host = Host.CreateDefaultBuilder(args)
             }
         });
 
-        // TODO: Phase 3 - Universe config bootstrap removed (WikidataSparqlPropertyMap deleted)
-
         services.AddSingleton<ITransactionJournal, TransactionJournal>();
         services.AddSingleton<IMediaAssetRepository, MediaAssetRepository>();
 
@@ -192,8 +190,6 @@ var host = Host.CreateDefaultBuilder(args)
                     sp.GetRequiredService<ILogger<ConfigDrivenAdapter>>(),
                     sp.GetService<IProviderResponseCacheRepository>()));
         }
-
-        // TODO: Phase 3 - WikidataAdapter removed (SPARQL infrastructure cleanup)
 
         // ── Metadata harvesting & person enrichment (Phase 9) ──
         services.AddSingleton<IMetadataHarvestingService, MetadataHarvestingService>();

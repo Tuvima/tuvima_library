@@ -609,9 +609,8 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         await ResolvePseudonymsAsync(request.EntityId, claims, isPseudonym, ct)
             .ConfigureAwait(false);
 
-        // Fetch Wikipedia description for richer biography (Stage 2 for Persons).
-        await FetchWikipediaForPersonAsync(request.EntityId, qid, ct)
-            .ConfigureAwait(false);
+        // Wikipedia description is now fetched by ReconciliationAdapter.FetchPersonAsync
+        // (folded in as part of Task 1 cleanup). No separate call needed here.
 
         // Look up the person for event payload and people storage.
         var person = await _personRepo.FindByIdAsync(request.EntityId, ct)
@@ -796,57 +795,6 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
             MediaType = MediaType.Unknown,
             PreResolvedQid = missingQid
         }, ct).ConfigureAwait(false);
-    }
-
-    /// <summary>
-    /// Calls the Wikipedia adapter to fetch a richer biography description for a
-    /// Person entity, replacing the short Wikidata description.
-    /// </summary>
-    private async Task FetchWikipediaForPersonAsync(
-        Guid personId, string? qid, CancellationToken ct)
-    {
-        if (string.IsNullOrWhiteSpace(qid))
-            return;
-
-        try
-        {
-            var wikipediaAdapter = _providers
-                .FirstOrDefault(p => string.Equals(p.Name, "wikipedia", StringComparison.OrdinalIgnoreCase));
-
-            if (wikipediaAdapter is null || !wikipediaAdapter.CanHandle(EntityType.Person))
-                return;
-
-            var lookupRequest = new ProviderLookupRequest
-            {
-                EntityId      = personId,
-                EntityType    = EntityType.Person,
-                MediaType     = MediaType.Unknown,
-                PreResolvedQid = qid,
-            };
-
-            var wikiClaims = await wikipediaAdapter.FetchAsync(lookupRequest, ct)
-                .ConfigureAwait(false);
-
-            var description = wikiClaims
-                .FirstOrDefault(c => c.Key == "description")?.Value;
-
-            if (!string.IsNullOrWhiteSpace(description))
-            {
-                // Update the person's biography with the richer Wikipedia description.
-                var person = await _personRepo.FindByIdAsync(personId, ct).ConfigureAwait(false);
-                if (person is not null)
-                {
-                    await _personRepo.UpdateEnrichmentAsync(
-                        personId, person.WikidataQid, person.HeadshotUrl, description, ct)
-                        .ConfigureAwait(false);
-                }
-            }
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            _logger.LogWarning(ex,
-                "Wikipedia fetch for person {Id} failed; continuing", personId);
-        }
     }
 
     /// <summary>

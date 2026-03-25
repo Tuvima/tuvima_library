@@ -383,7 +383,7 @@ Three official SVG logo files exist. **Never replace logo placements with hand-w
 
 **Why secondary sources exist:** New releases take time to catalogue. Cover art and promotional imagery are copyright-restricted on Wikimedia. Secondary retail providers (Apple API, TMDB, etc.) fill these gaps: commercial identifiers, cover art, ratings, and metadata for recent releases.
 
-**Plain English:** After a file lands in the library, the Engine quietly reaches out to Wikidata first (as the primary authority via the Reconciliation API), then to retail providers — Apple API, Open Library, Google Books — solely for cover art and promotional images. Wikidata and Wikipedia are the sole sources for structured data (titles, authors, descriptions, relationships). Retail providers never supply structured metadata. This happens entirely in the background; the file appears on the Dashboard immediately, and the richer information pops in moments later without any page refresh.
+**Plain English:** After a file lands in the library, the Engine runs retail providers first (Apple API, Open Library, Google Books) to gather cover art, ratings, and bridge IDs — then uses those bridge IDs to look up the Wikidata identity precisely. Wikipedia descriptions are fetched via the Wikidata Reconciliation client as part of the Wikidata stage. This happens entirely in the background; the file appears on the Dashboard immediately, and the richer information pops in moments later without any page refresh.
 
 **The zero-key providers (no accounts, no API keys required):**
 
@@ -393,8 +393,7 @@ Three official SVG logo files exist. **Never replace logo placements with hand-w
 | **Open Library** | Title, author, year, cover art, ISBN, series | title 0.75, author 0.8, year 0.85, cover 0.7, isbn 0.9 |
 | **Google Books** | Title, author, year, cover art, ISBN, description, page count, publisher | title 0.75, author 0.8, year 0.85, cover 0.7, isbn 0.9 |
 | **Wikidata** | Person headshot (Wikimedia Commons), biography, Q-identifier | qid/headshot/biography 1.0 |
-| **Wikidata Reconciliation** | QID resolution, core properties, bridge IDs, person data, pen names, audiobook editions | All properties via OpenRefine Reconciliation API + Data Extension API |
-| **Wikipedia** | Rich descriptions (2-3 paragraph summaries) via REST API with QID→sitelink resolution | description 0.90 |
+| **Wikidata Reconciliation** | QID resolution, core properties, bridge IDs, person data, pen names, audiobook editions, Wikipedia descriptions (via `GetWikipediaSummariesAsync`) | All properties via OpenRefine Reconciliation API + Data Extension API; description 0.90 |
 
 **How it works (the harvest pipeline):**
 
@@ -826,16 +825,16 @@ Example files in `config.example/ui/`. Live files in `config/ui/` gitignored.
 
 ### 3.13 — Two-Stage Hydration Pipeline & Review Queue
 
-**Philosophy:** Wikidata is the sole identity authority (see §3.6). Every media item is identified by its Wikidata Q-identifier; all other providers supply media assets only. The two-stage pipeline reflects this: Stage 1 resolves identity via the Wikidata Reconciliation API and deposits bridge IDs; Stage 2 fills asset gaps (cover art, ratings) from retail providers. Person and human data is always sourced from Wikidata. Secondary retail providers exist to fill gaps — new releases, and copyright-safe cover art that Wikimedia cannot host.
+**Philosophy:** Wikidata is the sole identity authority (see §3.6). Every media item is identified by its Wikidata Q-identifier; all other providers supply media assets only. The two-stage pipeline runs retail providers first to gather cover art and deposit bridge IDs, then uses those bridge IDs for precise Wikidata identity resolution. Person and human data is always sourced from Wikidata. Secondary retail providers exist to fill gaps — new releases, and copyright-safe cover art that Wikimedia cannot host.
 
-**Plain English:** When a file arrives in the library, the Engine runs a two-stage authority-first enrichment pipeline. Stage 1 (Reconciliation) establishes the work's identity and deposits bridge IDs. Stage 2 (Retail providers) uses bridge IDs for precise cover art and rating lookups. Ambiguous matches are surfaced via a dedicated review queue.
+**Plain English:** When a file arrives in the library, the Engine runs a two-stage enrichment pipeline. Stage 1 (RetailIdentification) runs retail providers to gather cover art, descriptions, ratings, and bridge IDs. Stage 2 (WikidataBridge) uses those bridge IDs for precise Wikidata QID resolution and fetches core properties. Ambiguous matches are surfaced via a dedicated review queue.
 
 **The two stages:**
 
 | Stage | Name | What it does | Who runs |
 |---|---|---|---|
-| **Stage 1** | Reconciliation | Wikidata QID resolution via Reconciliation API. Bridge ID cross-reference, title search with media type filtering (P31 + P279). Single QID → Data Extension for core + bridge properties. Hub Intelligence + Person Enrichment. On failure: `AuthorityMatchFailed` review item created, pipeline continues if `continue_pipeline_on_authority_failure` is true. | ReconciliationAdapter — any provider declaring `hydration_stages: [1]` |
-| **Stage 2** | Enrichment | Retail providers run in waterfall order from `config/slots.json`. Uses bridge IDs from Stage 1 (ISBN, ASIN, TMDB ID) for precise lookups; falls back to title search if no bridge IDs. Deposits cover art, ratings. | Apple API, Open Library, Google Books — any provider declaring `hydration_stages: [2]` |
+| **Stage 1** | RetailIdentification | Retail providers run in waterfall order from `config/slots.json`. Use file metadata (title, author) to search, score results, and deposit cover art, descriptions, ratings, and bridge IDs (ISBN, ASIN, TMDB ID). | Apple API, Open Library, Google Books, TMDB, MusicBrainz, Comic Vine — any provider declaring `hydration_stages: [1]` |
+| **Stage 2** | WikidataBridge | Wikidata Reconciliation runs second. Uses bridge IDs from Stage 1 for edition-first QID resolution (work fallback). Single QID → Data Extension for core + bridge properties. Wikipedia descriptions fetched via `GetWikipediaSummariesAsync`. Hub Intelligence + Person Enrichment. On failure: `AuthorityMatchFailed` review item created, pipeline continues if `continue_pipeline_on_authority_failure` is true. | ReconciliationAdapter — any provider declaring `hydration_stages: [2]` |
 
 **Post-pipeline confidence check:** After both stages complete, the pipeline reloads canonical values and computes overall confidence. If below `auto_review_confidence_threshold` (default: 0.60), a review queue entry is created.
 
@@ -850,14 +849,14 @@ Each provider config carries a `hydration_stages` array declaring which stages i
 }
 ```
 
-Wikidata Reconciliation declares `[1]` (Reconciliation). All retail REST providers declare `[2]` (Enrichment).
+All retail REST providers (Apple API, Open Library, Google Books, TMDB, etc.) declare `[1]` (RetailIdentification). Wikidata Reconciliation declares `[2]` (WikidataBridge).
 
 **Review Queue:**
 
 The `review_queue` table stores items that need human attention:
-- **AuthorityMatchFailed** — Stage 1 (Wikidata) failed to resolve a QID for the work
+- **AuthorityMatchFailed** — Stage 2 (Wikidata) failed to resolve a QID for the work
 - **LowConfidence** — pipeline completed but overall confidence is below threshold
-- **MultipleQidMatches** — Stage 1 found multiple Wikidata QID candidates; user must pick one
+- **MultipleQidMatches** — Stage 2 found multiple Wikidata QID candidates; user must pick one
 - **UserFixMatch** — user-triggered re-review
 - **ArbiterNeedsReview** — the Hub Arbiter flagged an uncertain assignment
 
@@ -869,7 +868,7 @@ Each review item carries: entity reference, trigger reason, confidence score, op
 3. For disambiguation: picks a QID candidate from a card grid
 4. Clicks Resolve → `POST /review/{id}/resolve` fires
 5. Engine creates user-locked claims for any field overrides
-6. If a QID was selected → `RunSynchronousAsync` with `PreResolvedQid` triggers Stage 2 (Enrichment)
+6. If a QID was selected → `RunSynchronousAsync` with `PreResolvedQid` triggers Stage 2 (WikidataBridge)
 7. Activity ledger records `ReviewItemResolved`
 8. SignalR broadcasts `ReviewItemResolved` → badge count decrements
 
@@ -892,7 +891,7 @@ Cover art and provider thumbnails are tracked by content hash (SHA-256) in the `
 }
 ```
 
-**Dual-path architecture:** The existing `MetadataHarvestingService` is preserved for `Person`-type requests from `RecursiveIdentityService`. The new `HydrationPipelineService` handles `MediaAsset`-type hydration using `ReconciliationAdapter` for Stage 1 instead of the former `WikidataAdapter`. Both paths are safe to run concurrently — person creation is idempotent.
+**Dual-path architecture:** The existing `MetadataHarvestingService` is preserved for `Person`-type requests from `RecursiveIdentityService`. The new `HydrationPipelineService` handles `MediaAsset`-type hydration using retail providers (Stage 1) followed by `ReconciliationAdapter` (Stage 2). Both paths are safe to run concurrently — person creation is idempotent.
 
 **`ScoringHelper`:** The duplicated claim-persist-score-upsert pattern (previously inlined in `MetadataHarvestingService` and `MetadataEndpoints`) is extracted into a shared static helper used by both services.
 
@@ -937,7 +936,7 @@ Absorbed/removed tabs:
 **Mobile constraints:** `property_mapper`, `matching_pipeline`, and `universe_schema_editing` are added to `features_disabled` on mobile devices. Only Needs Review and Connection Vault (status view) are visible in the Metadata group on mobile.
 
 **Key types:**
-- `HydrationStage` (`MediaEngine.Domain.Enums`) — `Reconciliation = 1, Enrichment = 2`
+- `HydrationStage` (`MediaEngine.Domain.Enums`) — `RetailIdentification = 1, WikidataBridge = 2`
 - `ReviewTrigger`, `ReviewStatus` (`MediaEngine.Domain.Enums`) — trigger/status enums
 - `ReviewQueueEntry` (`MediaEngine.Domain.Entities`) — domain entity
 - `HydrationResult` (`MediaEngine.Domain.Models`) — pipeline result with per-stage claim counts
@@ -955,7 +954,7 @@ Absorbed/removed tabs:
 **Why this matters to the business:**
 - **Reliability** — Ambiguous matches are surfaced to the user instead of being silently dropped. The review queue ensures no metadata decision is made without confidence.
 - **Extensibility** — Adding a new provider to any stage is a one-line JSON change (`hydration_stages: [1, 2]`). The pipeline handles routing automatically.
-- **Performance** — Stage 1 runs all providers concurrently. The bounded channel queue (500 items) prevents memory pressure. Image hash caching eliminates redundant downloads.
+- **Performance** — Stage 1 retail providers run concurrently. The bounded channel queue (500 items) prevents memory pressure. Image hash caching eliminates redundant downloads.
 - **Maintenance** — Pipeline configuration (timeouts, thresholds, concurrency) lives in `config/hydration.json` — zero code changes to tune behaviour. The dual-path architecture preserves backward compatibility with the existing person enrichment flow.
 - **Privacy** — Only titles, ISBNs, ASINs, and bridge IDs leave the machine. All review decisions and hydrated data live locally.
 
@@ -1249,11 +1248,11 @@ Thresholds and all heuristic parameters (duration bands, bitrate thresholds, pat
 
 ### 3.21 — Cross-Media Metadata Strategy & Provider Response Caching
 
-**Plain English:** The two-stage hydration pipeline (§3.13) works identically for all seven media types — Books, Audiobooks, Movies, TV Shows, Comics, Music, and Podcasts. Only the provider in Stage 1 changes; the pipeline architecture itself is media-type-agnostic. A new response cache eliminates redundant API calls when bulk-importing large collections.
+**Plain English:** The two-stage hydration pipeline (§3.13) works identically for all seven media types — Books, Audiobooks, Movies, TV Shows, Comics, Music, and Podcasts. Stage 1 runs retail providers to gather cover art and bridge IDs; Stage 2 runs Wikidata Reconciliation using those bridge IDs. The pipeline architecture itself is media-type-agnostic. A new response cache eliminates redundant API calls when bulk-importing large collections.
 
-**Stage 2 retail provider slot assignments per media type:**
+**Stage 1 retail provider slot assignments per media type:**
 
-Wikidata Reconciliation (Stage 1) is the universal authority source for all media types. The table below shows Stage 2 retail provider assignments — these fill gaps that Wikidata cannot cover (cover art, ratings, new releases).
+Wikidata Reconciliation (Stage 2) is the universal authority source for all media types. The table below shows Stage 1 retail provider assignments — these gather cover art, ratings, and bridge IDs that Wikidata uses for precise identity resolution.
 
 | Media Type | Retail Primary | Retail Secondary | Retail Tertiary | Bridge to Wikidata |
 |-----------|-------------------|-----------|----------|-------------------|
@@ -1339,17 +1338,17 @@ Per-provider TTL defaults: Apple API 168h (7d), TMDB 168h, Open Library 336h (14
 When multiple files arrive in the same source folder (e.g. a TV season with 22 episodes, or an album with 12 tracks), the Engine uses **Ingestion Hinting** to avoid redundant external lookups. After the first file in a folder is fully hydrated, its resolved metadata becomes a "hint prior" for sibling files in the same directory.
 
 How it works:
-1. **First file in folder** — processed normally through the full two-stage pipeline. On successful hydration, the Engine caches a `FolderHint` record keyed by the source folder path, containing: resolved Hub ID, QID, series name, author/artist, and all bridge IDs deposited by Stage 1.
-2. **Subsequent siblings** — when the next file from the same folder enters ingestion, the Engine checks for an existing `FolderHint`. If found, the hint's bridge IDs and Hub ID are injected as high-confidence priors (0.80) into the scoring pipeline *before* Stage 1 runs. This allows:
-   - **Stage 1 skip for bridge-matched siblings:** If the sibling's embedded metadata (e.g. same series name, sequential episode number) is consistent with the hint, Stage 1 can resolve the QID instantly from the cached bridge IDs instead of running a fresh Reconciliation lookup.
+1. **First file in folder** — processed normally through the full two-stage pipeline. On successful hydration, the Engine caches a `FolderHint` record keyed by the source folder path, containing: resolved Hub ID, QID, series name, author/artist, and all bridge IDs deposited by Stage 1 (retail providers) and resolved by Stage 2 (Wikidata).
+2. **Subsequent siblings** — when the next file from the same folder enters ingestion, the Engine checks for an existing `FolderHint`. If found, the hint's bridge IDs and Hub ID are injected as high-confidence priors (0.80) into the scoring pipeline *before* Stage 2 runs. This allows:
+   - **Stage 2 skip for bridge-matched siblings:** If the sibling's embedded metadata (e.g. same series name, sequential episode number) is consistent with the hint, Stage 2 can resolve the QID instantly from the cached bridge IDs instead of running a fresh Reconciliation lookup.
    - **Hub pre-assignment:** The sibling is tentatively assigned to the same Hub, skipping the Arbiter's full matching cycle. The Arbiter still validates the assignment (and rejects if metadata diverges significantly), but the common case — 22 episodes of the same show — resolves in milliseconds.
 3. **Hint expiry** — `FolderHint` records expire after 24 hours or when the source folder is no longer being actively monitored. They are stored in-memory (`ConcurrentDictionary<string, FolderHint>`) and not persisted to the database — they are a performance optimisation, not a source of truth.
 4. **Divergence detection** — if a sibling file's embedded metadata disagrees with the hint (different series name, different author), the hint is ignored for that file and it proceeds through the full pipeline. This prevents a single misplaced file from corrupting an entire folder's metadata.
 
-**Performance impact:** For a 22-episode TV season, Ingestion Hinting reduces Stage 1 Reconciliation calls from 22 to 1 (95% reduction). For a 12-track album, MusicBrainz lookups drop from 12 to 1. The provider response cache (above) handles Stage 2 deduplication; Ingestion Hinting handles Stage 1 + Hub assignment deduplication.
+**Performance impact:** For a 22-episode TV season, Ingestion Hinting reduces Stage 2 Reconciliation calls from 22 to 1 (95% reduction). For a 12-track album, MusicBrainz lookups drop from 12 to 1. The provider response cache (above) handles Stage 1 deduplication; Ingestion Hinting handles Stage 2 + Hub assignment deduplication.
 
 **Why this matters to the business:**
-- **Performance** — Response caching cuts API calls by 3–5x for bulk imports of related content. A 5,000-episode TV library takes ~5 minutes instead of ~42 minutes. Ingestion Hinting further reduces Stage 1 lookups by up to 95% for folder-grouped content.
+- **Performance** — Response caching cuts API calls by 3–5x for bulk imports of related content. A 5,000-episode TV library takes ~5 minutes instead of ~42 minutes. Ingestion Hinting further reduces Stage 2 Wikidata lookups by up to 95% for folder-grouped content.
 - **Reliability** — Each provider's rate limits are respected. Cache prevents quota exhaustion during large imports. Hinting ensures sibling files land in the correct Hub consistently.
 - **Extensibility** — Adding a new media type requires only a provider config file and a slot assignment — zero code changes. Podcasts were added this way.
 - **Maintenance** — All provider configs, slot assignments, and cache TTLs are JSON-editable. No recompilation needed.
@@ -1357,7 +1356,7 @@ How it works:
 
 ### 3.22 — Universe Graph Data Capture
 
-**Plain English:** The Library builds a visual relationship graph connecting characters, locations, factions, and works across all media. When a work is enriched via Wikidata, the Engine discovers its fictional universe, extracts characters, locations, and organizations, enriches each entity with its own SPARQL query, and populates graph edges (father, mother, member_of, residence, etc.). The entire graph is served as Cytoscape.js-ready JSON and persisted as `universe.xml` sidecars for filesystem-first recovery.
+**Plain English:** The Library builds a visual relationship graph connecting characters, locations, factions, and works across all media. When a work is enriched via Wikidata, the Engine discovers its fictional universe, extracts characters, locations, and organizations, enriches each entity with its own Data Extension query, and populates graph edges (father, mother, member_of, residence, etc.). The entire graph is served as Cytoscape.js-ready JSON and stored in SQLite.
 
 **Key components:**
 
@@ -1395,7 +1394,7 @@ How it works:
 
 **Pseudonym resolution:** After Wikidata enrichment, P1773 (attributed_to) links pen names to real people, P742 (pseudonym) links real people to their pen names. Both directions stored in `person_aliases` table.
 
-**Wikipedia for Persons:** After Wikidata enrichment, the `WikipediaAdapter` (coded adapter) fetches rich Wikipedia descriptions via QID→Wikidata sitelink→Wikipedia REST API (`/api/rest_v1/page/summary/{title}`). Language-aware: reads `CoreConfiguration.Language`. Confidence 0.90. Runs at Stage 2.
+**Wikipedia for Persons:** After Wikidata enrichment, the `ReconciliationAdapter` fetches rich Wikipedia descriptions via `_reconciler.GetWikipediaSummariesAsync` (QID→Wikidata sitelink→Wikipedia REST API). Language-aware: reads `CoreConfiguration.Language`. Confidence 0.90. Runs at Stage 2 (WikidataBridge).
 
 **Actor-character mapping:** `HydrationPipelineService.ResolveActorCharacterMappingsAsync` uses `WikibaseApiService.GetClaimsAsync(workQid, "P161")` to fetch cast member statements with P453 (character) qualifiers. For each (actor QID, character QID) pair: creates Person record for the actor, finds FictionalEntity for the character, links via `character_performer_links`. Actor is a real Person (e.g. Timothée Chalamet) with standard Wikipedia headshot — not a character-specific image.
 
@@ -1417,9 +1416,8 @@ How it works:
 
 Pass 1 runs as part of the normal two-stage hydration pipeline (§3.13) but fetches only core properties:
 
-- **Stage 1 (Reconciliation — core subset):** Bridge ID lookup (ISBN, ASIN) or title search → resolve QID. Fetch **core properties only**: title, author/artist, year, genre, series, series_position. Skip the full 50+ property Data Extension deep hydration.
-- **Stage 2 (Retail providers):** Cover art, ratings (unchanged).
-- **Wikipedia descriptions:** `WikipediaAdapter` runs at Stage 2 for both works and persons. QID→sitelink→REST API. Confidence 0.90.
+- **Stage 1 (RetailIdentification — core subset):** Retail providers run to gather cover art, ratings, and bridge IDs (ISBN, ASIN, TMDB ID). Falls back to title search when no bridge IDs are available.
+- **Stage 2 (WikidataBridge — core subset):** Uses bridge IDs from Stage 1 to resolve QID. Fetch **core properties only**: title, author/artist, year, genre, series, series_position. Skip the full 50+ property Data Extension deep hydration. Wikipedia descriptions fetched via `GetWikipediaSummariesAsync`. Confidence 0.90.
 - **Basic person creation:** Find/create Person records for author, narrator, director. Fetch name + headshot + occupation from Wikidata. Skip deep social links and biographical enrichment.
 
 Result: the file appears on the Dashboard within seconds with title, author, cover art, and author photo.
@@ -1434,7 +1432,7 @@ Pass 2 handles everything that makes the library *intelligent* — the deep conn
 - **Relationship population** — father, spouse, member_of, performer links (depth limit 1)
 - **Deep person enrichment** — social links (Instagram, TikTok, Mastodon), biographical details (birth/death dates, nationality), pseudonym resolution (P1773/P742)
 - **Character-performer links** — actor who played the character from the book
-- **Universe graph writing** — `universe.xml` sidecar generation
+- **Universe graph population** — fictional entities, relationships, and narrative roots written to SQLite (sidecar writing removed)
 
 **Recursive person enrichment in Pass 2:** When Pass 2 discovers a link — an author's pen name, an actor who played a character from a book, a director's other works — it enriches those people too. This recursive chain only runs in Pass 2 to avoid heavy load during initial ingestion. Pass 1 creates the person records; Pass 2 follows the web of connections.
 
@@ -1722,7 +1720,7 @@ This project uses a two-tier model strategy to balance quality with speed:
 | Cytoscape.js | MIT | Chronicle Engine — Graph visualization for the Chronicle Explorer Dashboard (vendored, no NuGet) |
 | dotNetRDF | MIT | Stage 4c (Universe Graph) — Local in-memory SPARQL graph querying over SQLite data |
 | FuzzySharp | MIT | Fuzzy string matching — candidate re-ranking, title verification, narrator disambiguation, sequel-safe composite scoring |
-| Tuvima.WikidataReconciliation | MIT | Unified Wikidata/Wikipedia API client — reconciliation, entity fetching, property extraction, Wikipedia summaries, image URLs. Replaces WikibaseApiService and WikipediaAdapter HTTP transport. |
+| Tuvima.WikidataReconciliation | MIT | Unified Wikidata/Wikipedia API client — reconciliation, entity fetching, property extraction, Wikipedia summaries, image URLs. Replaces WikibaseApiService and WikipediaAdapter. |
 | Tuvima.WikidataReconciliation.AspNetCore | MIT | DI registration extension for WikidataReconciler |
 | Serilog.AspNetCore | Apache 2.0 | Structured logging with rolling file output for headless Engine operation |
 | Serilog.Sinks.File | Apache 2.0 | Rolling file sink for Serilog — auto-deletes after configurable retention |

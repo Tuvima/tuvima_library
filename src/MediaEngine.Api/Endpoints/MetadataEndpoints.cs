@@ -655,11 +655,9 @@ public static class MetadataEndpoints
                 }
             }
 
-            // TODO: Phase 3 - ISBN bridge lookup via SPARQL is temporarily unavailable
-            // (WikidataSparqlPropertyMap.BuildBridgeLookupQuery removed as part of SPARQL cleanup)
             if (!string.IsNullOrWhiteSpace(isbn))
             {
-                results["isbn_error"] = "ISBN SPARQL bridge lookup temporarily unavailable (Phase 3 rebuild pending)";
+                results["isbn_note"] = "ISBN bridge lookup is handled by the ReconciliationAdapter via Wikidata bridge resolution.";
             }
 
             return Results.Ok(results);

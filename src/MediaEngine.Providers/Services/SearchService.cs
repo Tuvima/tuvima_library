@@ -15,16 +15,11 @@ namespace MediaEngine.Providers.Services;
 ///
 /// Universe search: calls retail providers to fetch cover art for QID candidates.
 ///
-/// TODO: Phase 3 - WikidataAdapter.ResolveCandidatesAsync will be replaced with
-/// ReconciliationAdapter when dotNetRDF SPARQL infrastructure is in place.
-///
 /// Retail search: calls the relevant retail providers (filtered by media type) via
 /// SearchAsync to return title/cover matches without requiring a Wikidata QID.
 /// </summary>
 public sealed class SearchService : ISearchService
 {
-    // TODO: Phase 3 - Replace with IReconciliationAdapter when available
-    // private readonly IReconciliationAdapter _reconciliationAdapter;
     private readonly IReadOnlyList<IExternalMetadataProvider> _providers;
     private readonly IConfigurationLoader _configLoader;
     private readonly IFuzzyMatchingService _fuzzy;
@@ -67,9 +62,6 @@ public sealed class SearchService : ISearchService
         ArgumentNullException.ThrowIfNull(logger);
 
         var providerList = providers.ToList();
-
-        // TODO: Phase 3 - WikidataAdapter resolved here for ResolveCandidatesAsync;
-        // will be replaced with ReconciliationAdapter injection
 
         _providers        = providerList;
         _configLoader     = configLoader;

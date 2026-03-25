@@ -54,7 +54,7 @@ public sealed class CoreConfiguration
 
     /// <summary>
     /// Per-media-type organisation templates.  Keys are media type names
-    /// (e.g. "Epub", "Audiobook", "Movie", "TV", "Comic", "Music", "Podcast")
+    /// (e.g. "Books", "Audiobooks", "Movies", "TV", "Comics", "Music", "Podcasts")
     /// or "default".  Values are tokenised path templates.
     /// Fallback chain: media-type-specific → "default" → <see cref="OrganizationTemplate"/>
     /// → hardcoded <c>{Category}/{Title}/{Title}{Ext}</c>.

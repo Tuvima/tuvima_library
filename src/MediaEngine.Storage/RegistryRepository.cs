@@ -731,8 +731,8 @@ public sealed class RegistryRepository : IRegistryRepository
         "EPUB" or "BOOK" or "EBOOK"         => "Books",
         "AUDIOBOOK"                          => "Audiobooks",
         "MOVIE"                              => "Movies",
-        "COMICS"                             => "Comic",
+        "COMIC"                              => "Comics",
         "PODCAST"                            => "Podcasts",
-        _ => raw, // Already matches enum name (Books, Audiobooks, Movies, TV, Comic, Podcasts, Music)
+        _ => raw, // Already matches enum name (Books, Audiobooks, Movies, TV, Comics, Podcasts, Music)
     };
 }
