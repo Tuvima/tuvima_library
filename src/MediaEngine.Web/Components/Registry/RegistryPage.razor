@@ -164,16 +164,7 @@
     else
     {
         <div class="registry-library-wrapper">
-            <div class="registry-search-bar">
-                <MudIcon Icon="@Icons.Material.Outlined.Search" Style="font-size: 16px; color: rgba(255,255,255,0.30);" />
-                <input class="registry-search-input"
-                       type="text"
-                       placeholder="Search titles, people or universes..."
-                       value="@_searchTerm"
-                       @oninput="OnSearchInput"
-                       @onkeydown="HandleSearchKeyDown" />
-            </div>
-            <ActivityDetailPage EmbeddedMode="true" InitialTab="@_librarySubTab" InitialTypeFilter="@_libraryTypeFilter" InitialDateFrom="@_libraryDateFrom" InitialDateTo="@_libraryDateTo" SearchTerm="@_debouncedSearchTerm" OnCountsChanged="HandleCountsChanged" />
+            <ActivityDetailPage EmbeddedMode="true" InitialTab="@_librarySubTab" InitialTypeFilter="@_libraryTypeFilter" InitialDateFrom="@_libraryDateFrom" InitialDateTo="@_libraryDateTo" SearchTerm="@_debouncedSearchTerm" SearchTermChanged="HandleEmbeddedSearch" OnCountsChanged="HandleCountsChanged" />
         </div>
     }
 
@@ -679,6 +670,21 @@
             ? basePath
             : $"{basePath}?q={Uri.EscapeDataString(_debouncedSearchTerm)}";
         Nav.NavigateTo(url, replace: true);
+    }
+
+    private void HandleEmbeddedSearch(string term)
+    {
+        _searchTerm = term;
+        _debounceTimer?.Dispose();
+        _debounceTimer = new Timer(_ =>
+        {
+            InvokeAsync(() =>
+            {
+                _debouncedSearchTerm = _searchTerm;
+                UpdateUrlWithSearch();
+                StateHasChanged();
+            });
+        }, null, 250, Timeout.Infinite);
     }
 
     private void HandleTimelineNavigate(string? yearMonth)

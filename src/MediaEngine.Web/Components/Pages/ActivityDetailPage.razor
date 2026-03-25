@@ -35,81 +35,94 @@
         <h1 class="adp-page-title">Library Overview</h1>
     }
 
-    @* ── Type filter chips (mutually exclusive: Media / People / Universes) ── *@
-    <div class="adp-type-chips">
-        <button class="adp-type-chip @(_activeTypeChip == "Media" ? "adp-type-chip--active" : "") @(_activeTypeChip == "Media" && _disabledSubcategories.Count > 0 ? "adp-type-chip--partial" : "")"
-                @onclick="HandleMediaChipClick" type="button">
-            <MudIcon Icon="@Icons.Material.Outlined.VideoLibrary" Style="font-size: 14px;" />
-            <span>Media</span>
-            @if (_activeTypeChip == "Media")
-            {
-                <span class="adp-type-chip-count">@(_items.Count)</span>
-            }
-        </button>
-        <button class="adp-type-chip @(_activeTypeChip == "People" ? "adp-type-chip--active" : "")"
-                @onclick="HandlePeopleChipClick" type="button">
-            <MudIcon Icon="@Icons.Material.Outlined.Person" Style="font-size: 14px;" />
-            <span>People</span>
-            @if (_activeTypeChip == "People")
-            {
-                <span class="adp-type-chip-count">@(_items.Count)</span>
-            }
-        </button>
-        <button class="adp-type-chip @(_activeTypeChip == "Universes" ? "adp-type-chip--active" : "")"
-                @onclick="HandleUniversesChipClick" type="button">
-            <MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" Style="font-size: 14px;" />
-            <span>Universes</span>
-            @if (_activeTypeChip == "Universes")
-            {
-                <span class="adp-type-chip-count">@(_items.Count)</span>
-            }
-        </button>
-    </div>
-
-    @* ── Media subcategory chips (only when Media is active) ── *@
-    @if (_activeTypeChip == "Media")
-    {
-        <div class="adp-sub-chips">
-            @foreach (var sub in _allSubcategories)
-            {
-                var isOff = _disabledSubcategories.Contains(sub.Key);
-                <button class="adp-sub-chip @(isOff ? "" : "adp-sub-chip--active")"
-                        @onclick="() => ToggleSubcategory(sub.Key)" type="button">
-                    <MudIcon Icon="@sub.Icon" Style="font-size: 13px;" />
-                    <span>@sub.Label</span>
-                </button>
-            }
-        </div>
-    }
-
-    @* ── Filter row: Status (Media only) ── *@
-    @if (_activeTypeChip == "Media")
-    {
-        <div class="adp-filter-row">
-            <div class="adp-filter-group">
-                <span class="adp-filter-label">STATUS</span>
-                <div class="adp-filter-select-wrap">
-                    <select class="adp-filter-select" value="@_activeTab" @onchange="HandleStatusChange">
-                        <option value="all">All (@(_counts?.All ?? 0))</option>
-                        <option value="review">In Review (@(_counts?.InReview ?? 0))</option>
-                        <option value="identified">Identified (@(_counts?.Identified ?? 0))</option>
-                        <option value="provisional">Provisional (@(_counts?.Provisional ?? 0))</option>
-                        <option value="rejected">Rejected (@(_counts?.Rejected ?? 0))</option>
-                    </select>
-                </div>
-            </div>
-        </div>
-    }
-
-    <div class="adp-results-header">
-        <span class="adp-results-count">@_items.Count items</span>
-    </div>
-
-    @* ── Main content ── *@
+    @* ── Main content (two-column — filters inside left panel) ── *@
     <div class="adp-content">
 
-        @* ── Left panel: item list ── *@
+        @* ── Left panel: search + filters + item list ── *@
         <div class="adp-left-panel" style="@(_selectedItem is not null ? "" : "flex: 1;")">
+
+            @* ── Inline search (embedded mode) ── *@
+            @if (EmbeddedMode)
+            {
+                <div class="adp-inline-search">
+                    <MudIcon Icon="@Icons.Material.Outlined.Search" Style="font-size: 14px; color: rgba(255,255,255,0.30);" />
+                    <input class="adp-inline-search-input"
+                           type="text"
+                           placeholder="Filter items..."
+                           value="@SearchTerm"
+                           @oninput="HandleInlineSearch" />
+                </div>
+            }
+
+            @* ── Type filter chips (mutually exclusive: Media / People / Universes) ── *@
+            <div class="adp-type-chips">
+                <button class="adp-type-chip @(_activeTypeChip == "Media" ? "adp-type-chip--active" : "") @(_activeTypeChip == "Media" && _disabledSubcategories.Count > 0 ? "adp-type-chip--partial" : "")"
+                        @onclick="HandleMediaChipClick" type="button">
+                    <MudIcon Icon="@Icons.Material.Outlined.VideoLibrary" Style="font-size: 14px;" />
+                    <span>Media</span>
+                    @if (_activeTypeChip == "Media")
+                    {
+                        <span class="adp-type-chip-count">@(_items.Count)</span>
+                    }
+                </button>
+                <button class="adp-type-chip @(_activeTypeChip == "People" ? "adp-type-chip--active" : "")"
+                        @onclick="HandlePeopleChipClick" type="button">
+                    <MudIcon Icon="@Icons.Material.Outlined.Person" Style="font-size: 14px;" />
+                    <span>People</span>
+                    @if (_activeTypeChip == "People")
+                    {
+                        <span class="adp-type-chip-count">@(_items.Count)</span>
+                    }
+                </button>
+                <button class="adp-type-chip @(_activeTypeChip == "Universes" ? "adp-type-chip--active" : "")"
+                        @onclick="HandleUniversesChipClick" type="button">
+                    <MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" Style="font-size: 14px;" />
+                    <span>Universes</span>
+                    @if (_activeTypeChip == "Universes")
+                    {
+                        <span class="adp-type-chip-count">@(_items.Count)</span>
+                    }
+                </button>
+            </div>
+
+            @* ── Media subcategory chips (only when Media is active) ── *@
+            @if (_activeTypeChip == "Media")
+            {
+                <div class="adp-sub-chips">
+                    @foreach (var sub in _allSubcategories)
+                    {
+                        var isOff = _disabledSubcategories.Contains(sub.Key);
+                        <button class="adp-sub-chip @(isOff ? "" : "adp-sub-chip--active")"
+                                @onclick="() => ToggleSubcategory(sub.Key)" type="button">
+                            <MudIcon Icon="@sub.Icon" Style="font-size: 13px;" />
+                            <span>@sub.Label</span>
+                        </button>
+                    }
+                </div>
+            }
+
+            @* ── Filter row: Status (Media only) ── *@
+            @if (_activeTypeChip == "Media")
+            {
+                <div class="adp-filter-row">
+                    <div class="adp-filter-group">
+                        <span class="adp-filter-label">STATUS</span>
+                        <div class="adp-filter-select-wrap">
+                            <select class="adp-filter-select" value="@_activeTab" @onchange="HandleStatusChange">
+                                <option value="all">All (@(_counts?.All ?? 0))</option>
+                                <option value="review">In Review (@(_counts?.InReview ?? 0))</option>
+                                <option value="identified">Identified (@(_counts?.Identified ?? 0))</option>
+                                <option value="provisional">Provisional (@(_counts?.Provisional ?? 0))</option>
+                                <option value="rejected">Rejected (@(_counts?.Rejected ?? 0))</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            <div class="adp-results-header">
+                <span class="adp-results-count">@_items.Count items</span>
+            </div>
 
             @if (_loading)
             {
@@ -259,6 +272,7 @@
     [Parameter] public string? InitialDateTo { get; set; }
     [Parameter] public string? SearchTerm { get; set; }
     [Parameter] public EventCallback OnCountsChanged { get; set; }
+    [Parameter] public EventCallback<string> SearchTermChanged { get; set; }
 
     // ── State ─────────────────────────────────────────────────────────────────
 
@@ -660,6 +674,12 @@
         await SetActiveTab(newTab);
     }
 
+    private async Task HandleInlineSearch(ChangeEventArgs e)
+    {
+        var term = e.Value?.ToString() ?? "";
+        await SearchTermChanged.InvokeAsync(term);
+    }
+
     // ── Event handlers ────────────────────────────────────────────────────────
 
     private void HandleItemSelect(RegistryItemViewModel item)
@@ -956,7 +976,7 @@
     .adp-type-chips {
         display: flex;
         gap: 8px;
-        padding: 0 16px 10px 16px;
+        padding: 0 0 10px 0;
     }
 
     .adp-type-chip {
@@ -1011,7 +1031,7 @@
     .adp-sub-chips {
         display: flex;
         gap: 6px;
-        padding: 0 16px 12px 16px;
+        padding: 0 0 12px 0;
         flex-wrap: wrap;
     }
 
@@ -1050,7 +1070,7 @@
     .adp-filter-row {
         display: flex;
         gap: 16px;
-        padding: 4px 16px 12px 16px;
+        padding: 4px 0 12px 0;
         align-items: flex-end;
         flex-wrap: nowrap;
     }
@@ -1124,7 +1144,7 @@
     .adp-results-header {
         display: flex;
         justify-content: flex-end;
-        padding: 4px 16px;
+        padding: 4px 0;
         margin-bottom: 12px;
     }
 
@@ -1134,6 +1154,39 @@
         font-weight: 500;
         color: rgba(255, 255, 255, 0.35);
         font-variant-numeric: tabular-nums;
+    }
+
+    /* ── Inline search (inside left panel, embedded mode) ── */
+    .adp-inline-search {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        margin-bottom: 12px;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.03);
+        transition: border-color 0.15s ease, background 0.15s ease;
+    }
+
+    .adp-inline-search:focus-within {
+        border-color: rgba(255, 255, 255, 0.15);
+        background: rgba(255, 255, 255, 0.05);
+    }
+
+    .adp-inline-search-input {
+        flex: 1;
+        background: transparent;
+        border: none;
+        outline: none;
+        color: rgba(255, 255, 255, 0.85);
+        font-family: 'Montserrat', sans-serif;
+        font-size: 12px;
+        font-weight: 400;
+    }
+
+    .adp-inline-search-input::placeholder {
+        color: rgba(255, 255, 255, 0.25);
     }
 
     /* ── Two-column layout ── */
