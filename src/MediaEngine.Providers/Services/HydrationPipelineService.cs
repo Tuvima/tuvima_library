@@ -79,6 +79,11 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     private readonly ILocalMatchService _localMatch;
     private readonly ILogger<HydrationPipelineService> _logger;
 
+    // Reverse lookup: claim key → Wikidata P-code (e.g. "isbn_13" → "P212").
+    // Built lazily from the wikidata_reconciliation provider config on first use.
+    private Dictionary<string, string>? _claimKeyToPCode;
+    private readonly object _claimKeyToPCodeLock = new();
+
     // ── Constructor ───────────────────────────────────────────────────────────
 
     public HydrationPipelineService(
@@ -668,10 +673,11 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 {
                     var bridgeEntries = bridgeIdClaims.Select(c => new BridgeIdEntry
                     {
-                        EntityId = request.EntityId,
-                        IdType = c.Key,
-                        IdValue = c.Value,
-                        ProviderId = provider.ProviderId.ToString(),
+                        EntityId         = request.EntityId,
+                        IdType           = c.Key,
+                        IdValue          = c.Value,
+                        ProviderId       = provider.ProviderId.ToString(),
+                        WikidataProperty = GetPCodeForClaimKey(c.Key),
                     }).ToList();
 
                     await _bridgeIdRepo.UpsertBatchAsync(bridgeEntries, ct).ConfigureAwait(false);
@@ -1064,15 +1070,18 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                     }
 
                     // Persist all collected bridge IDs from Wikidata (all platform IDs it knows).
+                    // CollectedBridgeIds uses P-codes as keys (e.g. "P212") — map them to
+                    // claim keys for IdType and store the P-code in WikidataProperty.
                     if (bridgeResult.CollectedBridgeIds.Count > 0)
                     {
                         var collectedEntries = bridgeResult.CollectedBridgeIds
                             .Select(kvp => new BridgeIdEntry
                             {
-                                EntityId   = request.EntityId,
-                                IdType     = kvp.Key,
-                                IdValue    = kvp.Value,
-                                ProviderId = stage2ReconAdapter.ProviderId.ToString(),
+                                EntityId         = request.EntityId,
+                                IdType           = GetClaimKeyForPCode(kvp.Key),
+                                IdValue          = kvp.Value,
+                                ProviderId       = stage2ReconAdapter.ProviderId.ToString(),
+                                WikidataProperty = kvp.Key,
                             }).ToList();
 
                         await _bridgeIdRepo.UpsertBatchAsync(collectedEntries, ct).ConfigureAwait(false);
@@ -1665,6 +1674,77 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         if (!string.IsNullOrWhiteSpace(title) && IsRealTitle(title)) return true;
 
         return false;
+    }
+
+    /// <summary>
+    /// Returns the Wikidata P-code for a given claim key (e.g. "isbn_13" → "P212"),
+    /// or <c>null</c> if no mapping is found.
+    /// Built lazily by inverting the <c>property_labels</c> section of the
+    /// wikidata_reconciliation provider config (P-code → claim key).
+    /// </summary>
+    private string? GetPCodeForClaimKey(string claimKey)
+    {
+        EnsureClaimKeyToPCodeMap();
+        return _claimKeyToPCode!.TryGetValue(claimKey, out var pCode) ? pCode : null;
+    }
+
+    /// <summary>
+    /// Returns the claim key for a given Wikidata P-code (e.g. "P212" → "isbn_13"),
+    /// or the P-code itself if no mapping is found (preserves the value rather than losing it).
+    /// Reads directly from <c>data_extension.property_labels</c> in the wikidata_reconciliation config.
+    /// </summary>
+    private string GetClaimKeyForPCode(string pCode)
+    {
+        EnsureClaimKeyToPCodeMap();
+
+        // property_labels is P-code → claim key, so we need a forward lookup.
+        // Re-read from the config rather than building a second map — this is
+        // only called in the Stage 2 collected-bridge-ids path (not a hot path).
+        var reconConfig = _configLoader
+            .LoadConfig<MediaEngine.Storage.Models.ReconciliationProviderConfig>(
+                "providers", "wikidata_reconciliation");
+
+        if (reconConfig?.DataExtension?.PropertyLabels is not null &&
+            reconConfig.DataExtension.PropertyLabels.TryGetValue(pCode, out var claimKey))
+            return claimKey;
+
+        // Fall back to the P-code itself so no data is lost.
+        return pCode;
+    }
+
+    private void EnsureClaimKeyToPCodeMap()
+    {
+        if (_claimKeyToPCode is null)
+        {
+            lock (_claimKeyToPCodeLock)
+            {
+                if (_claimKeyToPCode is null)
+                {
+                    var reconConfig = _configLoader
+                        .LoadConfig<MediaEngine.Storage.Models.ReconciliationProviderConfig>(
+                            "providers", "wikidata_reconciliation");
+
+                    // Invert data_extension.property_labels: P-code → claim_key becomes
+                    // claim_key → P-code. When multiple P-codes map to the same claim key,
+                    // last one wins (acceptable — they are aliases like isbn_13 / isbn).
+                    var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                    if (reconConfig?.DataExtension?.PropertyLabels is not null)
+                    {
+                        foreach (var kvp in reconConfig.DataExtension.PropertyLabels)
+                        {
+                            map[kvp.Value] = kvp.Key;
+                        }
+                    }
+
+                    // Also handle the "isbn" alias that IsBridgeIdClaim recognises but
+                    // may not have its own entry (isbn_13 is the canonical Wikidata form).
+                    if (!map.ContainsKey("isbn") && map.TryGetValue("isbn_13", out var isbn13PCode))
+                        map["isbn"] = isbn13PCode;
+
+                    _claimKeyToPCode = map;
+                }
+            }
+        }
     }
 
     /// <summary>

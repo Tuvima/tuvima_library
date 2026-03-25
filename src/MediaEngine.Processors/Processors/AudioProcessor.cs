@@ -196,9 +196,9 @@ public sealed partial class AudioProcessor : IMediaProcessor
         if (!string.IsNullOrWhiteSpace(artist))
             claims.Add(Claim("author", artist, 0.7));
 
-        // Narrator — for audiobooks, the narrator is often in the Composers tag,
-        // the Comment field ("Narrated by ..."), or the Performers tag (when
-        // AlbumArtist was used for the author above).
+        // Narrator — for audiobooks, the narrator may be in a TXXX:NARRATOR frame,
+        // the Composers tag, the Comment field ("Narrated by ..."), or the Performers
+        // tag (when AlbumArtist was used for the author above).
         var narrator = ExtractNarrator(tagFile);
         if (!string.IsNullOrWhiteSpace(narrator))
             claims.Add(Claim("narrator", narrator, 0.7));
@@ -444,15 +444,31 @@ public sealed partial class AudioProcessor : IMediaProcessor
     /// <summary>
     /// Attempts to extract a narrator name from audio tags, checking multiple
     /// tag fields in priority order:
-    /// 1. Composers (common for M4B — "narrator" tagged as composer)
-    /// 2. Comment field with "Narrated by ..." pattern
-    /// 3. Performers (when AlbumArtist holds the author, Performers can hold the narrator)
+    /// 1. TXXX:NARRATOR custom ID3v2 frame (written by Mp3Builder and some tools)
+    /// 2. Composers (common for M4B — "narrator" tagged as composer)
+    /// 3. Comment field with "Narrated by ..." pattern
+    /// 4. Performers (when AlbumArtist holds the author, Performers can hold the narrator)
     /// </summary>
     private static string? ExtractNarrator(TagLib.File? tagFile)
     {
         if (tagFile is null) return null;
 
-        // 1. Composers tag — common convention in M4B audiobooks.
+        // 1. ID3v2 TXXX:NARRATOR user text frame (MP3 files written by Mp3Builder).
+        if (tagFile.GetTag(TagLib.TagTypes.Id3v2) is TagLib.Id3v2.Tag id3Tag)
+        {
+            foreach (var frame in id3Tag.GetFrames<TagLib.Id3v2.UserTextInformationFrame>())
+            {
+                if (string.Equals(frame.Description, "NARRATOR", StringComparison.OrdinalIgnoreCase) &&
+                    frame.Text.Length > 0)
+                {
+                    var value = frame.Text[0]?.Trim();
+                    if (!string.IsNullOrWhiteSpace(value))
+                        return value;
+                }
+            }
+        }
+
+        // 2. Composers tag — common convention in M4B audiobooks.
         var composers = tagFile.Tag.Composers;
         if (composers is { Length: > 0 })
         {
