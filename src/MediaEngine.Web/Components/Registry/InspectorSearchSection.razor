@@ -63,6 +63,21 @@
             <span class="isearch-hint isearch-hint--empty">No results found · Try a different query</span>
         }
 
+        @* ── File metadata comparison banner ── *@
+        @if (_candidates.Count > 0 && _fileHintsForDisplay.Count > 0)
+        {
+            <div class="isearch-file-hints">
+                <span class="isearch-file-hints-label">Your file:</span>
+                @foreach (var hint in _fileHintsForDisplay)
+                {
+                    <span class="isearch-file-hint-pill">
+                        <span class="isearch-file-hint-key">@hint.Key</span>
+                        <span class="isearch-file-hint-val">@hint.Value</span>
+                    </span>
+                }
+            </div>
+        }
+
         @* Candidate cards *@
         @if (_candidates.Count > 0)
         {
@@ -126,28 +141,49 @@
                                     }
                                 }
                             }
+                            @* ── Field match breakdown ── *@
+                            @if (c.DescriptionFieldMatches is { Count: > 0 })
+                            {
+                                <div class="isearch-card-matches">
+                                    @foreach (var fm in c.DescriptionFieldMatches)
+                                    {
+                                        var matchColor = fm.Matched ? "#5DCAA5" : "rgba(200,190,220,0.3)";
+                                        <span class="isearch-card-match-pill" style="border-color: @matchColor; color: @matchColor;"
+                                              title="@(fm.Matched ? $"{fm.FieldKey}: \"{fm.FileValue}\" found (score: {fm.RawScore:P0})" : $"{fm.FieldKey}: \"{fm.FileValue}\" not found")">
+                                            @if (fm.Matched)
+                                            {
+                                                <MudIcon Icon="@Icons.Material.Outlined.Check" Style="font-size: 10px;" />
+                                            }
+                                            @fm.FieldKey
+                                        </span>
+                                    }
+                                </div>
+                            }
                             <div class="isearch-card-footer">
                                 @if (!string.IsNullOrWhiteSpace(c.Year))
                                 {
                                     <span class="isearch-card-year">@c.Year</span>
                                 }
+                                @if (!string.IsNullOrWhiteSpace(c.ProviderName))
+                                {
+                                    <span class="isearch-card-provider">@c.ProviderName</span>
+                                }
                                 @if (!string.IsNullOrWhiteSpace(c.Qid))
                                 {
-                                    <span class="isearch-card-qid">@c.Qid</span>
                                     <a href="https://www.wikidata.org/wiki/@c.Qid"
                                        target="_blank" rel="noopener"
                                        class="isearch-card-wiki"
                                        title="View on Wikidata"
                                        @onclick:stopPropagation="true">
                                         <MudIcon Icon="@Icons.Material.Outlined.Public" Style="font-size: 11px;" />
-                                        <span>Wikidata</span>
+                                        <span>@c.Qid</span>
                                     </a>
                                 }
-                                @if (c.Confidence > 0)
+                                @if (c.CompositeScore > 0)
                                 {
-                                    var confColor = RegistryHelpers.GetConfidenceHexColor(c.Confidence);
+                                    var confColor = RegistryHelpers.GetConfidenceHexColor(c.CompositeScore);
                                     <span class="isearch-card-conf" style="color: @confColor;">
-                                        @((int)(c.Confidence * 100))%
+                                        @((int)(c.CompositeScore * 100))%
                                     </span>
                                 }
                             </div>
@@ -516,6 +552,7 @@ else
     private string? _resultMessage;
     private bool _resultSuccess;
     private Guid? _lastItemId;
+    private List<KeyValuePair<string, string>> _fileHintsForDisplay = [];
 
     private bool _confirmingReject;
     private bool _confirmingRegister;
@@ -584,6 +621,26 @@ else
             // retail candidate descriptions mention the narrator, series, etc.
             var fileHints = BuildFileHints(mt);
             var hasHints = fileHints.Count > 0;
+
+            // Build display-friendly hints for the comparison banner
+            _fileHintsForDisplay = fileHints
+                .Where(kv => !string.IsNullOrWhiteSpace(kv.Value))
+                .Select(kv => new KeyValuePair<string, string>(
+                    kv.Key switch
+                    {
+                        "narrator"  => "Narrator",
+                        "series"    => "Series",
+                        "publisher" => "Publisher",
+                        "director"  => "Director",
+                        "cast"      => "Cast",
+                        "language"  => "Language",
+                        "genre"     => "Genre",
+                        "album"     => "Album",
+                        "label"     => "Label",
+                        _           => kv.Key,
+                    },
+                    kv.Value))
+                .ToList();
 
             // Retail-first search: query retail providers (Apple Books, TMDB, etc.)
             // for edition-specific cover art and metadata.
@@ -1211,10 +1268,71 @@ else
         font-variant-numeric: tabular-nums;
     }
 
+    .isearch-card-provider {
+        font-size: 10px;
+        color: rgba(200, 190, 220, 0.4);
+        text-transform: capitalize;
+    }
+
+    .isearch-card-matches {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        margin-top: 4px;
+    }
+
+    .isearch-card-match-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 2px;
+        font-size: 10px;
+        padding: 1px 6px;
+        border: 1px solid;
+        border-radius: 8px;
+        text-transform: capitalize;
+    }
+
     .isearch-card-check {
         position: absolute;
         top: 6px;
         right: 6px;
+    }
+
+    /* ── File hints comparison banner ── */
+    .isearch-file-hints {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 6px;
+        padding: 8px 12px;
+        margin: 0 4px 8px;
+        background: rgba(74, 144, 217, 0.08);
+        border: 1px solid rgba(74, 144, 217, 0.15);
+        border-radius: 6px;
+    }
+
+    .isearch-file-hints-label {
+        font-size: 11px;
+        color: rgba(200, 190, 220, 0.6);
+        font-weight: 500;
+    }
+
+    .isearch-file-hint-pill {
+        display: inline-flex;
+        gap: 4px;
+        font-size: 11px;
+        padding: 2px 8px;
+        background: rgba(74, 144, 217, 0.12);
+        border-radius: 10px;
+    }
+
+    .isearch-file-hint-key {
+        color: rgba(200, 190, 220, 0.5);
+    }
+
+    .isearch-file-hint-val {
+        color: rgba(200, 190, 220, 0.9);
+        font-weight: 500;
     }
 
     /* ── Actions section ── */
