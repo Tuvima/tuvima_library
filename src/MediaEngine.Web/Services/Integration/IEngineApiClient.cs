@@ -505,6 +505,8 @@ public interface IEngineApiClient
     /// <summary>POST /search/retail — search retail providers for cover art and basic metadata.</summary>
     Task<SearchRetailResponseDto?> SearchRetailAsync(
         string query, string mediaType, int maxCandidates = 5,
+        string? localTitle = null, string? localAuthor = null, string? localYear = null,
+        Dictionary<string, string>? fileHints = null,
         CancellationToken ct = default);
 
     /// <summary>POST /registry/items/{entityId}/apply-match — apply a match to a registry item.</summary>

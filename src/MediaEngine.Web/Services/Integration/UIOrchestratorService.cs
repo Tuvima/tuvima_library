@@ -678,12 +678,17 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         return result?.Candidates ?? [];
     }
 
-    /// <summary>POST /search/retail — retail provider candidate search.</summary>
+    /// <summary>POST /search/retail — retail provider candidate search with optional file hints for description scoring.</summary>
     public async Task<List<RetailCandidateDto>> SearchRetailAsync(
         string query, string mediaType, int maxCandidates = 5,
+        string? localTitle = null, string? localAuthor = null, string? localYear = null,
+        Dictionary<string, string>? fileHints = null,
         CancellationToken ct = default)
     {
-        var result = await _api.SearchRetailAsync(query, mediaType, maxCandidates, ct);
+        var result = await _api.SearchRetailAsync(
+            query, mediaType, maxCandidates,
+            localTitle, localAuthor, localYear,
+            fileHints, ct);
         return result?.Candidates ?? [];
     }
 

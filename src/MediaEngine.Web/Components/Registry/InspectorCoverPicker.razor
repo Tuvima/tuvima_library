@@ -8,11 +8,7 @@
 <div class="coverpicker">
     @if (_covers.Count == 0 && !_loading)
     {
-        <div class="coverpicker-empty">
-            <MudIcon Icon="@Icons.Material.Outlined.PhotoLibrary"
-                     Style="font-size: 20px; color: rgba(200,190,220,0.15);" />
-            <span class="coverpicker-empty-text">Select a candidate to load covers</span>
-        </div>
+        @* Empty state — no message needed, covers load automatically on candidate selection *@
     }
     else
     {

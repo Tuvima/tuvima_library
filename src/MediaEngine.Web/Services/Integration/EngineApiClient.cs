@@ -2243,6 +2243,8 @@ public sealed class EngineApiClient : IEngineApiClient
 
     public async Task<SearchRetailResponseDto?> SearchRetailAsync(
         string query, string mediaType, int maxCandidates = 5,
+        string? localTitle = null, string? localAuthor = null, string? localYear = null,
+        Dictionary<string, string>? fileHints = null,
         CancellationToken ct = default)
     {
         try
@@ -2252,6 +2254,10 @@ public sealed class EngineApiClient : IEngineApiClient
                 Query         = query,
                 MediaType     = mediaType,
                 MaxCandidates = maxCandidates,
+                LocalTitle    = localTitle,
+                LocalAuthor   = localAuthor,
+                LocalYear     = localYear,
+                FileHints     = fileHints,
             };
             var resp = await _http.PostAsJsonAsync("/search/retail", payload, ct);
             if (!resp.IsSuccessStatusCode)

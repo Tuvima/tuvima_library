@@ -1,0 +1,225 @@
+{
+  "$schema": "description_matching",
+  "version": "1.0",
+
+  "global_settings": {
+    "min_fuzzy_score": 70,
+    "description_max_chars": 2000,
+    "case_sensitive": false
+  },
+
+  "categories": {
+    "Audiobooks": {
+      "fields": [
+        {
+          "file_hint_key": "narrator",
+          "match_type": "partial_ratio",
+          "weight": 0.35,
+          "description": "Narrator name fuzzy matched against description text"
+        },
+        {
+          "file_hint_key": "publisher",
+          "match_type": "partial_ratio",
+          "match_against": ["description", "copyright"],
+          "weight": 0.15,
+          "description": "Publisher matched against description and copyright field"
+        },
+        {
+          "file_hint_key": "series",
+          "match_type": "partial_ratio",
+          "weight": 0.20,
+          "description": "Series name matched against description"
+        },
+        {
+          "file_hint_key": "abridged",
+          "match_type": "contains",
+          "match_terms": ["unabridged", "abridged"],
+          "weight": 0.15,
+          "description": "Abridged/unabridged flag matched against title and description"
+        },
+        {
+          "file_hint_key": "duration_hint",
+          "match_type": "none",
+          "weight": 0.15,
+          "description": "Reserved for future duration-based matching"
+        }
+      ]
+    },
+    "Books": {
+      "fields": [
+        {
+          "file_hint_key": "publisher",
+          "match_type": "partial_ratio",
+          "weight": 0.20,
+          "description": "Publisher matched against description"
+        },
+        {
+          "file_hint_key": "series",
+          "match_type": "partial_ratio",
+          "weight": 0.30,
+          "description": "Series name matched against description"
+        },
+        {
+          "file_hint_key": "translator",
+          "match_type": "partial_ratio",
+          "weight": 0.30,
+          "description": "Translator name matched against description"
+        },
+        {
+          "file_hint_key": "language",
+          "match_type": "contains",
+          "weight": 0.20,
+          "description": "Language cross-check against description"
+        }
+      ]
+    },
+    "Movies": {
+      "fields": [
+        {
+          "file_hint_key": "director",
+          "match_type": "partial_ratio",
+          "weight": 0.30,
+          "description": "Director name matched against description"
+        },
+        {
+          "file_hint_key": "cast",
+          "match_type": "partial_ratio",
+          "weight": 0.25,
+          "description": "Cast member names matched against description"
+        },
+        {
+          "file_hint_key": "edition_type",
+          "match_type": "contains",
+          "match_terms": ["director's cut", "directors cut", "extended", "remaster", "remastered", "final cut", "anniversary", "special edition", "theatrical", "unrated", "4k", "imax"],
+          "match_against": ["title", "description"],
+          "weight": 0.35,
+          "description": "Edition keywords matched against title and description"
+        },
+        {
+          "file_hint_key": "studio",
+          "match_type": "partial_ratio",
+          "match_against": ["description", "copyright"],
+          "weight": 0.10,
+          "description": "Studio name matched against description and copyright"
+        }
+      ]
+    },
+    "TV": {
+      "fields": [
+        {
+          "file_hint_key": "show_name",
+          "match_type": "token_set_ratio",
+          "match_against": ["title"],
+          "weight": 0.40,
+          "description": "Show name matched against collection title"
+        },
+        {
+          "file_hint_key": "season_episode",
+          "match_type": "regex",
+          "pattern": "(?i)(?:season\\s*(\\d+)|s(\\d{1,2}))[\\s,]*(?:episode\\s*(\\d+)|e(\\d{1,2}))?",
+          "match_against": ["title", "description"],
+          "weight": 0.40,
+          "description": "Season/episode numbers extracted and matched"
+        },
+        {
+          "file_hint_key": "network",
+          "match_type": "partial_ratio",
+          "weight": 0.10,
+          "description": "Network name matched against description"
+        },
+        {
+          "file_hint_key": "cast",
+          "match_type": "partial_ratio",
+          "weight": 0.10,
+          "description": "Cast members matched against description"
+        }
+      ]
+    },
+    "Music": {
+      "fields": [
+        {
+          "file_hint_key": "album",
+          "match_type": "token_set_ratio",
+          "match_against": ["title"],
+          "weight": 0.30,
+          "description": "Album name matched against collection title"
+        },
+        {
+          "file_hint_key": "label",
+          "match_type": "partial_ratio",
+          "match_against": ["description", "copyright"],
+          "weight": 0.20,
+          "description": "Record label matched against copyright"
+        },
+        {
+          "file_hint_key": "edition_type",
+          "match_type": "contains",
+          "match_terms": ["deluxe", "remaster", "remastered", "live", "anniversary", "expanded", "bonus"],
+          "match_against": ["title", "description"],
+          "weight": 0.30,
+          "description": "Edition keywords matched against title and description"
+        },
+        {
+          "file_hint_key": "genre",
+          "match_type": "partial_ratio",
+          "weight": 0.20,
+          "description": "Genre cross-check against description"
+        }
+      ]
+    },
+    "Comics": {
+      "fields": [
+        {
+          "file_hint_key": "publisher",
+          "match_type": "partial_ratio",
+          "weight": 0.25,
+          "description": "Publisher (Marvel, DC, etc.) matched against description"
+        },
+        {
+          "file_hint_key": "writer",
+          "match_type": "partial_ratio",
+          "weight": 0.30,
+          "description": "Writer name matched against description"
+        },
+        {
+          "file_hint_key": "artist",
+          "match_type": "partial_ratio",
+          "weight": 0.20,
+          "description": "Artist name matched against description"
+        },
+        {
+          "file_hint_key": "volume_issue",
+          "match_type": "regex",
+          "pattern": "(?i)(?:vol(?:ume)?\\.?\\s*(\\d+)|issue\\s*#?(\\d+)|#(\\d+))",
+          "match_against": ["title", "description"],
+          "weight": 0.25,
+          "description": "Volume/issue number extraction and matching"
+        }
+      ]
+    },
+    "Podcasts": {
+      "fields": [
+        {
+          "file_hint_key": "host",
+          "match_type": "partial_ratio",
+          "weight": 0.35,
+          "description": "Host name matched against description"
+        },
+        {
+          "file_hint_key": "network",
+          "match_type": "partial_ratio",
+          "match_against": ["description", "copyright"],
+          "weight": 0.25,
+          "description": "Podcast network matched against description and copyright"
+        },
+        {
+          "file_hint_key": "episode_title",
+          "match_type": "token_set_ratio",
+          "match_against": ["title", "description"],
+          "weight": 0.40,
+          "description": "Episode title matched against title and description"
+        }
+      ]
+    }
+  }
+}

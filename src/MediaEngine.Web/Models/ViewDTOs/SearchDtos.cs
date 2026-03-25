@@ -89,6 +89,22 @@ public sealed class SearchRetailRequestDto
 
     [JsonPropertyName("max_candidates")]
     public int MaxCandidates { get; set; } = 5;
+
+    [JsonPropertyName("local_title")]
+    public string? LocalTitle { get; set; }
+
+    [JsonPropertyName("local_author")]
+    public string? LocalAuthor { get; set; }
+
+    [JsonPropertyName("local_year")]
+    public string? LocalYear { get; set; }
+
+    /// <summary>
+    /// File-embedded metadata hints for description matching (narrator, series, publisher, etc.).
+    /// Sent alongside the search query so the Engine can score description text and re-rank results.
+    /// </summary>
+    [JsonPropertyName("file_hints")]
+    public Dictionary<string, string>? FileHints { get; set; }
 }
 
 /// <summary>A single retail provider candidate.</summary>
@@ -126,6 +142,37 @@ public sealed class RetailCandidateDto
 
     [JsonPropertyName("match_scores")]
     public FieldMatchScoresDto? MatchScores { get; set; }
+
+    /// <summary>Description-based bonus score (0.0–1.0). Populated when file hints were sent.</summary>
+    [JsonPropertyName("description_match_score")]
+    public double DescriptionMatchScore { get; set; }
+
+    /// <summary>Per-field description match details for rendering match signal badges.</summary>
+    [JsonPropertyName("description_field_matches")]
+    public List<DescriptionFieldMatchDto>? DescriptionFieldMatches { get; set; }
+
+    /// <summary>Composite ranking score (fuzzy 60% + description 40%). Used for display ordering.</summary>
+    [JsonPropertyName("composite_score")]
+    public double CompositeScore { get; set; }
+}
+
+/// <summary>A single field's description match result for UI badge rendering.</summary>
+public sealed class DescriptionFieldMatchDto
+{
+    [JsonPropertyName("field_key")]
+    public string FieldKey { get; set; } = "";
+
+    [JsonPropertyName("file_value")]
+    public string FileValue { get; set; } = "";
+
+    [JsonPropertyName("matched")]
+    public bool Matched { get; set; }
+
+    [JsonPropertyName("raw_score")]
+    public int RawScore { get; set; }
+
+    [JsonPropertyName("weight")]
+    public double Weight { get; set; }
 }
 
 /// <summary>Response from POST /search/retail.</summary>

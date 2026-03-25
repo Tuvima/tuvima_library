@@ -239,6 +239,34 @@ else
             }
         </span>
 
+        @* ── File metadata banner — helps the user compare at a glance ── *@
+        @if (_hasSearched && _candidates.Count > 0)
+        {
+            <div class="isearch-file-banner">
+                <MudIcon Icon="@Icons.Material.Outlined.InsertDriveFile" Style="font-size: 12px; color: rgba(200,190,220,0.40); flex-shrink: 0;" />
+                <span class="isearch-file-banner-label">Your file:</span>
+                <span class="isearch-file-banner-val">@(Item.Title ?? "—")</span>
+                @if (!string.IsNullOrWhiteSpace(Item.Author))
+                {
+                    <span class="isearch-file-banner-sep">·</span>
+                    <span class="isearch-file-banner-val">@Item.Author</span>
+                }
+                @{
+                    var narratorHint = Detail?.Narrator;
+                }
+                @if (!string.IsNullOrWhiteSpace(narratorHint))
+                {
+                    <span class="isearch-file-banner-sep">·</span>
+                    <span class="isearch-file-banner-narrator">Narrated by @narratorHint</span>
+                }
+                @if (!string.IsNullOrWhiteSpace(Item.Year))
+                {
+                    <span class="isearch-file-banner-sep">·</span>
+                    <span class="isearch-file-banner-val">@Item.Year</span>
+                }
+            </div>
+        }
+
         @* ── Results list ── *@
         @if (_candidates.Count > 0)
         {
@@ -316,6 +344,19 @@ else
                                          Style="font-size: 12px;" />
                                 Year
                             </span>
+                            @* Description match badges — only shown when file hints were available *@
+                            @if (c.DescriptionFieldMatches is { Count: > 0 })
+                            {
+                                @foreach (var fm in c.DescriptionFieldMatches)
+                                {
+                                    <span class="isearch-signal @(fm.Matched ? "isearch-signal--match" : "isearch-signal--miss")"
+                                          title="@(fm.Matched ? $"{DescriptionFieldLabel(fm.FieldKey)} found in description (score {fm.RawScore})" : $"{DescriptionFieldLabel(fm.FieldKey)} not found in description")">
+                                        <MudIcon Icon="@(fm.Matched ? Icons.Material.Outlined.Check : Icons.Material.Outlined.Close)"
+                                                 Style="font-size: 12px;" />
+                                        @DescriptionFieldLabel(fm.FieldKey)
+                                    </span>
+                                }
+                            }
                         </div>
 
                         @if (isSelected)
@@ -430,6 +471,12 @@ else
 
 @code {
     [Parameter, EditorRequired] public RegistryItemViewModel Item { get; set; } = default!;
+    /// <summary>
+    /// Full item detail — provides narrator, series, and other embedded metadata
+    /// used to build file hints for description-based candidate scoring.
+    /// Optional: description scoring is skipped when null.
+    /// </summary>
+    [Parameter] public RegistryItemDetailViewModel? Detail { get; set; }
     [Parameter] public string? SelectedCoverUrl { get; set; }
     [Parameter] public EventCallback OnIdentified { get; set; }
     [Parameter] public EventCallback OnMarkedProvisional { get; set; }
@@ -508,10 +555,20 @@ else
         {
             var mt = string.IsNullOrEmpty(_mediaType) ? "Books" : _mediaType;
 
+            // Build file hints from the item's embedded metadata for description scoring.
+            // These are passed to the Engine so DescriptionMatchService can check whether
+            // retail candidate descriptions mention the narrator, series, etc.
+            var fileHints = BuildFileHints(mt);
+            var hasHints = fileHints.Count > 0;
+
             // Retail-first search: query retail providers (Apple Books, TMDB, etc.)
             // for edition-specific cover art and metadata.
             var retailResults = await Orchestrator.SearchRetailAsync(
-                _query, mt, maxCandidates: 10);
+                _query, mt, maxCandidates: 10,
+                localTitle: Item.Title,
+                localAuthor: Item.Author,
+                localYear: Item.Year,
+                fileHints: hasHints ? fileHints : null);
 
             if (retailResults.Count > 0)
             {
@@ -525,6 +582,9 @@ else
                         Year = c.Year,
                         CoverUrl = c.CoverUrl,
                         Confidence = c.Confidence,
+                        CompositeScore = c.CompositeScore > 0 ? c.CompositeScore : c.Confidence,
+                        DescriptionMatchScore = c.DescriptionMatchScore,
+                        DescriptionFieldMatches = c.DescriptionFieldMatches,
                         ProviderName = c.ProviderName,
                         ProviderId = c.ProviderId,
                         ProviderItemId = c.ProviderItemId,
@@ -547,6 +607,7 @@ else
                         CoverUrl = c.CoverUrl,
                         Qid = c.Qid,
                         Confidence = c.Confidence,
+                        CompositeScore = c.Confidence,
                         ProviderName = "Wikidata",
                         ProviderId = "b3000003-d000-4000-8000-000000000004",
                         ProviderItemId = c.Qid,
@@ -555,8 +616,8 @@ else
                 }
             }
 
-            // Sort by confidence descending
-            _candidates = _candidates.OrderByDescending(c => c.Confidence).ToList();
+            // Sort by composite score (includes description match bonus when hints were provided)
+            _candidates = _candidates.OrderByDescending(c => c.CompositeScore).ToList();
         }
         catch
         {
@@ -722,6 +783,72 @@ else
         return (titleMatch, authorMatch, yearMatch);
     }
 
+    /// <summary>
+    /// Builds a dictionary of file hint key→value pairs from the item's embedded metadata.
+    /// These hints are sent to the Engine for DescriptionMatchService scoring.
+    /// The Engine's config-driven field definitions determine which keys are relevant
+    /// for each media type, so we include all available hints here.
+    /// </summary>
+    private Dictionary<string, string> BuildFileHints(string mediaType)
+    {
+        var hints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        // Narrator — audiobooks
+        var narrator = Detail?.Narrator ?? "";
+        if (!string.IsNullOrWhiteSpace(narrator))
+            hints["narrator"] = narrator;
+
+        // Series — books, audiobooks
+        var series = Detail?.Series ?? "";
+        if (!string.IsNullOrWhiteSpace(series))
+            hints["series"] = series;
+
+        // Director — movies and TV (director is a person field, comes from Item.Author in movies)
+        var director = Detail?.Director ?? "";
+        if (!string.IsNullOrWhiteSpace(director))
+            hints["director"] = director;
+
+        // Cast — movies and TV
+        var cast = Detail?.Cast ?? "";
+        if (!string.IsNullOrWhiteSpace(cast))
+            hints["cast"] = cast;
+
+        // Language — books
+        var language = Detail?.Language ?? "";
+        if (!string.IsNullOrWhiteSpace(language))
+            hints["language"] = language;
+
+        // Genre — music and others
+        var genre = Detail?.Genre ?? "";
+        if (!string.IsNullOrWhiteSpace(genre))
+            hints["genre"] = genre;
+
+        return hints;
+    }
+
+    /// <summary>Returns the human-readable label for a description match field key.</summary>
+    private static string DescriptionFieldLabel(string fieldKey) => fieldKey switch
+    {
+        "narrator"     => "Narrator",
+        "series"       => "Series",
+        "publisher"    => "Publisher",
+        "director"     => "Director",
+        "cast"         => "Cast",
+        "translator"   => "Translator",
+        "language"     => "Language",
+        "genre"        => "Genre",
+        "studio"       => "Studio",
+        "host"         => "Host",
+        "network"      => "Network",
+        "label"        => "Label",
+        "edition_type" => "Edition",
+        "show_name"    => "Show",
+        "album"        => "Album",
+        "writer"       => "Writer",
+        "artist"       => "Artist",
+        _              => System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(fieldKey.Replace("_", " "))
+    };
+
     /// <summary>Local view model flattening provider results into a single list.</summary>
     private sealed class CandidateViewModel
     {
@@ -732,6 +859,12 @@ else
         public string? CoverUrl { get; set; }
         public string? Qid { get; set; }
         public double Confidence { get; set; }
+        /// <summary>Composite score combining fuzzy + description match. Used for ranking.</summary>
+        public double CompositeScore { get; set; }
+        /// <summary>Description-based bonus score (0.0–1.0).</summary>
+        public double DescriptionMatchScore { get; set; }
+        /// <summary>Per-field description match details for badge rendering.</summary>
+        public List<DescriptionFieldMatchDto>? DescriptionFieldMatches { get; set; }
         public string ProviderName { get; set; } = "";
         public string ProviderId { get; set; } = "";
         public string? ProviderItemId { get; set; }
@@ -1604,5 +1737,40 @@ else
         position: relative;
         flex-shrink: 0;
         cursor: pointer;
+    }
+
+    /* ── File metadata banner ── */
+    .isearch-file-banner {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 4px;
+        padding: 6px 10px;
+        margin-bottom: 8px;
+        border-radius: 6px;
+        background: rgba(140, 120, 180, 0.06);
+        border: 1px solid rgba(140, 120, 180, 0.12);
+        font-size: 11px;
+        line-height: 1.4;
+    }
+
+    .isearch-file-banner-label {
+        font-weight: 600;
+        color: rgba(200, 190, 220, 0.45);
+        letter-spacing: 0.3px;
+        margin-right: 2px;
+    }
+
+    .isearch-file-banner-val {
+        color: rgba(200, 190, 220, 0.75);
+    }
+
+    .isearch-file-banner-narrator {
+        color: rgba(180, 160, 220, 0.70);
+        font-style: italic;
+    }
+
+    .isearch-file-banner-sep {
+        color: rgba(200, 190, 220, 0.25);
     }
 </style>

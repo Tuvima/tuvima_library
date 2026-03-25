@@ -619,7 +619,7 @@
         try
         {
             // Primary search: use the Wikidata label (formal title)
-            var primaryTask = Orchestrator.SearchRetailAsync(wikidataLabel, _selectedMediaType, 5, ct);
+            var primaryTask = Orchestrator.SearchRetailAsync(wikidataLabel, _selectedMediaType, 5, ct: ct);
 
             // Secondary search: use the user's original query if it differs from the label
             // (catches popular aliases like "1984" vs "Nineteen Eighty-Four")
@@ -628,7 +628,7 @@
             var labelsMatch = string.Equals(userQuery, wikidataLabel, StringComparison.OrdinalIgnoreCase);
 
             if (!string.IsNullOrWhiteSpace(userQuery) && !labelsMatch)
-                secondaryTask = Orchestrator.SearchRetailAsync(userQuery, _selectedMediaType, 5, ct);
+                secondaryTask = Orchestrator.SearchRetailAsync(userQuery, _selectedMediaType, 5, ct: ct);
             else
                 secondaryTask = Task.FromResult(new List<RetailCandidateDto>());
 

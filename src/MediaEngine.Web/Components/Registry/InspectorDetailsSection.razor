@@ -110,6 +110,13 @@
                 <span class="ids-value">@Item.Author</span>
             </div>
         }
+        @if (string.Equals(Item.MediaType, "Audiobook", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(GetCanonicalValue("narrator")))
+        {
+            <div class="ids-row">
+                <span class="ids-key">Narrator</span>
+                <span class="ids-value">@GetCanonicalValue("narrator")</span>
+            </div>
+        }
         @if (!string.IsNullOrWhiteSpace(Item.Year))
         {
             <div class="ids-row">
@@ -126,16 +133,6 @@
             <span class="ids-status-chip"
                   style="background: @StatusBgColor; color: @StatusColor;">@StatusLabel</span>
         </div>
-        @if (!string.IsNullOrWhiteSpace(Item.WikidataQid) && !Item.WikidataQid.StartsWith("NF"))
-        {
-            <div class="ids-row">
-                <span class="ids-key">QID</span>
-                <a class="ids-qid-badge"
-                   href="https://en.wikipedia.org/wiki/Special:GoWikidata/@Item.WikidataQid"
-                   target="_blank"
-                   rel="noopener noreferrer">@Item.WikidataQid</a>
-            </div>
-        }
         @if (!string.IsNullOrWhiteSpace(Item.FileName))
         {
             <div class="ids-row">
@@ -359,12 +356,12 @@
     }
 
     .ids-cover {
-        width: 120px;
+        max-width: 120px;
+        max-height: 180px;
         height: auto;
         border-radius: 6px;
         border: 1px solid rgba(140, 120, 180, 0.12);
-        object-fit: cover;
-        aspect-ratio: 2 / 3;
+        object-fit: contain;
     }
 
     .ids-headshot {
