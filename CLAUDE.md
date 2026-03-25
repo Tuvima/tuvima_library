@@ -1568,6 +1568,80 @@ Route: `/universe/{Qid}/explore`. Features:
 - **Performance** — Reconciliation response caching and batch queries reduce API calls by 3-5x. 2-hop depth is configurable.
 - **Maintenance** — All thresholds and feature flags live in `config/hydration.json`. Zero code changes to tune.
 
+### 3.27 — Description Signal Extraction Pipeline
+
+**Plain English:** When a file's metadata doesn't include the narrator, translator, or illustrator — or when Wikidata resolves to the work level instead of a specific edition — the Engine mines retail provider descriptions for person names. "Read by Scott Brick" in an Apple API description is extracted via regex, verified against Wikidata (is this a real person who works as a narrator?), and linked to the work with a headshot and biography.
+
+**Two purposes:**
+
+1. **Candidate ranking improvement** — during Stage 1 retail search, person names are extracted from each candidate's description and compared name-to-name against file metadata hints. If the file says `narrator: "Scott Brick"` but a candidate's description says "Read by Stephen Fry", that mismatch penalises the candidate. A matching candidate gets boosted. This is more precise than fuzzy-matching the name against the full description paragraph.
+
+2. **Person record creation** — after Stage 1 selects a winning candidate, the Engine extracts all person names from the description, validates them (min 2 words, uppercase start, not in stop list), and records them as pending signals. A background worker batch-verifies all pending signals against Wikidata: searches for each unique name, fetches P31 (is human?) + P106 (occupation), and confirms the person works in the right field for the extracted role.
+
+**Config-driven extraction rules** (`config/signal_extraction.json`):
+
+Each media type has extraction rules with regex patterns, role assignments, and Wikidata occupation classes for verification:
+
+| Media Type | Extracted Roles | Example Patterns |
+|-----------|----------------|-----------------|
+| Audiobooks | Narrator | "Read by", "Narrated by", "Performed by" |
+| Books | Translator, Editor, Illustrator, Author (foreword) | "Translated by", "Edited by", "Illustrated by", "Foreword by" |
+| Movies | Director, Cast Member, Producer | "Directed by", "Starring", "Produced by" |
+| TV | Director, Cast Member | "Directed by", "Starring" |
+| Comics | Author, Illustrator | "Written by", "Art by", "Pencils by" |
+| Podcasts | Host | "Hosted by", "Presented by" |
+| Music | Producer, Featured Artist | "Produced by", "feat." |
+
+**Role-based occupation verification:**
+
+Each extraction rule carries Wikidata occupation class Q-identifiers. After finding a person on Wikidata, the Engine checks P106 (occupation) for overlap:
+
+| Role | Wikidata Occupation Classes |
+|------|---------------------------|
+| Narrator | Q1622272 (narrator), Q33999 (actor), Q2405480 (voice actor) |
+| Translator | Q333634 (translator), Q14467526 (literary translator) |
+| Director | Q2526255 (film director), Q3455803 (television director) |
+| Illustrator | Q644687 (illustrator), Q1028181 (painter) |
+
+**Confidence tiers:**
+
+| Verification result | Confidence |
+|--------------------|-----------|
+| Extracted from description, unverified | 0.60 |
+| Extracted from file metadata, unverified | 0.75 |
+| QID found + occupation matches role | 0.85 |
+| QID found + human but no matching occupation | 0.65 |
+| QID found but not human, or no match | Discarded |
+
+**Batch processing architecture:**
+
+Inline extraction runs during hydration with zero API calls — pure regex + validation. All Wikidata verification is deferred to a background worker (`PersonSignalVerificationWorker`) that polls every 5 minutes, deduplicates names across entities, and batch-verifies in a single `wbgetentities` call. For 500 audiobooks sharing 30 unique narrators: 30 search calls + 1 batch properties call.
+
+**Enhanced candidate ranking** (`extract_then_compare` match type):
+
+`DescriptionMatchService` gains a new match type that extracts person names from candidate descriptions via regex before comparing name-to-name. This replaces the previous `partial_ratio` fuzzy match for person-role fields (narrator, translator, director, cast, writer, host) in `config/description_matching.json`.
+
+**Database migration M-057:**
+- `pending_person_signals` table (id, entity_id, name, role, source, pattern, media_type, created_at)
+- `persons` table role CHECK expanded: added `Translator`, `Editor`, `Host`, `Producer`
+
+**Key types:**
+- `IDescriptionSignalExtractor` (`MediaEngine.Domain.Contracts`) — inline extraction contract
+- `IPersonSignalVerificationService` (`MediaEngine.Domain.Contracts`) — batch verification contract
+- `IPendingPersonSignalRepository` (`MediaEngine.Domain.Contracts`) — pending signals CRUD
+- `ExtractedPersonSignal`, `PendingPersonSignal` (`MediaEngine.Domain.Models`) — domain models
+- `SignalExtractionSettings` (`MediaEngine.Storage.Models`) — typed config model
+- `DescriptionSignalExtractor` (`MediaEngine.Providers.Services`) — inline regex extraction
+- `PersonSignalVerificationService` (`MediaEngine.Providers.Services`) — batch Wikidata verification
+- `PersonSignalVerificationWorker` (`MediaEngine.Api.Services`) — background polling service
+
+**Why this matters to the business:**
+- **Reliability** — Recovers edition-level people lost when Wikidata resolves to the work level. Role-based occupation verification sidesteps the edition-matching problem entirely.
+- **Extensibility** — All patterns live in `config/signal_extraction.json`. Adding new phrases or roles is a config edit, zero code changes.
+- **Performance** — Inline extraction is pure regex (no API calls). Batch verification deduplicates names and uses a single `wbgetentities` call. Provider response cache prevents re-verification of known names.
+- **Privacy** — Only extracted names are sent to Wikidata for verification. No new external services.
+- **Maintenance** — Zero new NuGet dependencies. All thresholds, patterns, and occupation classes are config-driven.
+
 ---
 
 ## 4. Product Owner Communication Rules

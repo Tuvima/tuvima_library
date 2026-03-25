@@ -481,6 +481,10 @@ builder.Services.AddSingleton<IHydrationPipelineService,     HydrationPipelineSe
 builder.Services.AddSingleton<IDeferredEnrichmentService,    DeferredEnrichmentService>();
 builder.Services.AddSingleton<IBridgeIdRepository,           BridgeIdRepository>();
 builder.Services.AddSingleton<IReviewQueueRepository,        ReviewQueueRepository>();
+builder.Services.AddSingleton<IPendingPersonSignalRepository, PendingPersonSignalRepository>();
+builder.Services.AddSingleton<IDescriptionSignalExtractor,   DescriptionSignalExtractor>();
+builder.Services.AddSingleton<IPersonSignalVerificationService, PersonSignalVerificationService>();
+builder.Services.AddHostedService<PersonSignalVerificationWorker>();
 builder.Services.AddSingleton<IRegistryRepository,           RegistryRepository>();
 builder.Services.AddSingleton<ISearchIndexRepository,        SearchIndexRepository>();
 builder.Services.AddSingleton<ISearchService,                SearchService>();

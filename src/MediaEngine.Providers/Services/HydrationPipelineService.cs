@@ -77,6 +77,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     private readonly IRetailMatchScoringService _retailScoring;
     private readonly IBridgeIdRepository _bridgeIdRepo;
     private readonly ILocalMatchService _localMatch;
+    private readonly IDescriptionSignalExtractor _signalExtractor;
     private readonly ILogger<HydrationPipelineService> _logger;
 
     // Reverse lookup: claim key → Wikidata P-code (e.g. "isbn_13" → "P212").
@@ -115,6 +116,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         IRetailMatchScoringService retailScoring,
         IBridgeIdRepository bridgeIdRepo,
         ILocalMatchService localMatch,
+        IDescriptionSignalExtractor signalExtractor,
         ILogger<HydrationPipelineService> logger,
         WikidataReconciler? reconciler = null)
     {
@@ -145,6 +147,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         ArgumentNullException.ThrowIfNull(retailScoring);
         ArgumentNullException.ThrowIfNull(bridgeIdRepo);
         ArgumentNullException.ThrowIfNull(localMatch);
+        ArgumentNullException.ThrowIfNull(signalExtractor);
         ArgumentNullException.ThrowIfNull(fictionalEntityRepo);
         ArgumentNullException.ThrowIfNull(logger);
 
@@ -174,6 +177,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         _retailScoring       = retailScoring;
         _bridgeIdRepo        = bridgeIdRepo;
         _localMatch          = localMatch;
+        _signalExtractor     = signalExtractor;
         _deferredRepo        = deferredRepo;
         _reconciler          = reconciler;
         _fictionalEntityRepo = fictionalEntityRepo;
@@ -742,6 +746,21 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             // person-record-based fallback for known pen names like Richard Bachman.
             await ProtectPseudonymAuthorAsync(request.EntityId, canonicalsAfterS1, ct)
                 .ConfigureAwait(false);
+
+            // ── Signal extraction: extract person names from descriptions ────────
+            // Runs inline with zero API calls. Extracts names via regex, validates,
+            // deposits pending signals for batch verification after ingestion.
+            try
+            {
+                await _signalExtractor.ExtractAndDepositAsync(
+                    request.EntityId, request.MediaType.ToString(),
+                    Array.Empty<MediaEngine.Domain.Entities.MetadataClaim>(), canonicalsAfterS1, request.Hints, ct)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(ex, "Signal extraction failed for entity {EntityId} — continuing", request.EntityId);
+            }
 
             // Person enrichment: use Stage-1 raw claims when available so that
             // multi-valued author_qid values from Wikidata SPARQL are captured in

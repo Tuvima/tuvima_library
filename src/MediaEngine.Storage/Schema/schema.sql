@@ -208,7 +208,8 @@ CREATE TABLE IF NOT EXISTS persons (
     role         TEXT NOT NULL CHECK (role IN (
                      'Author', 'Narrator', 'Director',
                      'Illustrator', 'Cast Member', 'Voice Actor',
-                     'Screenwriter', 'Composer')),
+                     'Screenwriter', 'Composer',
+                     'Translator', 'Editor', 'Host', 'Producer')),
     wikidata_qid TEXT,                       -- e.g. Q42
     headshot_url TEXT,                       -- Wikimedia Commons image URL
     biography    TEXT,                       -- Wikidata entity description
@@ -231,6 +232,20 @@ CREATE TABLE IF NOT EXISTS person_media_links (
     person_id       TEXT NOT NULL REFERENCES persons(id)       ON DELETE CASCADE,
     role            TEXT NOT NULL,
     PRIMARY KEY (media_asset_id, person_id, role)
+);
+
+-- M-057: Pending person signals.
+-- Stores unverified person names extracted during ingestion, between inline
+-- extraction and deferred batch Wikidata verification.
+CREATE TABLE IF NOT EXISTS pending_person_signals (
+    id          TEXT NOT NULL PRIMARY KEY,
+    entity_id   TEXT NOT NULL,
+    name        TEXT NOT NULL,
+    role        TEXT NOT NULL,
+    source      TEXT NOT NULL,
+    pattern     TEXT,
+    media_type  TEXT NOT NULL,
+    created_at  TEXT NOT NULL
 );
 
 
@@ -256,3 +271,6 @@ CREATE INDEX IF NOT EXISTS idx_persons_name
 
 CREATE INDEX IF NOT EXISTS idx_person_media_links_asset
     ON person_media_links (media_asset_id);
+
+CREATE INDEX IF NOT EXISTS idx_pending_person_signals_name_role
+    ON pending_person_signals (name, role);

@@ -1094,6 +1094,31 @@ public sealed class DatabaseConnection : IDatabaseConnection
         MigrateAddColumnIfMissing(conn, "editions", "wikidata_qid",
             "ALTER TABLE editions ADD COLUMN wikidata_qid TEXT;");
 
+        // ── M-057: Pending person signals + expanded person roles ──────────
+        // pending_person_signals stores unverified person names extracted during
+        // ingestion, between inline extraction and deferred batch Wikidata
+        // verification.  The expanded person role CHECK adds: Translator, Editor,
+        // Host, Producer.
+        MigrateExpandPersonRolesV2(conn);
+        {
+            using var m057 = conn.CreateCommand();
+            m057.CommandText = """
+                CREATE TABLE IF NOT EXISTS pending_person_signals (
+                    id          TEXT NOT NULL PRIMARY KEY,
+                    entity_id   TEXT NOT NULL,
+                    name        TEXT NOT NULL,
+                    role        TEXT NOT NULL,
+                    source      TEXT NOT NULL,
+                    pattern     TEXT,
+                    media_type  TEXT NOT NULL,
+                    created_at  TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_pending_person_signals_name_role
+                    ON pending_person_signals (name, role);
+                """;
+            m057.ExecuteNonQuery();
+        }
+
         // Seed S-001: provider_registry entries for all known providers.
         // metadata_claims.provider_id has a FK to provider_registry(id), so these
         // rows MUST exist before any claim is written.  INSERT OR IGNORE makes this
@@ -1303,6 +1328,90 @@ public sealed class DatabaseConnection : IDatabaseConnection
             INSERT INTO persons_new (id, name, role, wikidata_qid, headshot_url, biography, created_at, enriched_at)
                 SELECT id, name, role, wikidata_qid, headshot_url, biography, created_at, enriched_at
                 FROM persons;
+
+            DROP TABLE persons;
+
+            ALTER TABLE persons_new RENAME TO persons;
+
+            CREATE INDEX IF NOT EXISTS idx_persons_name ON persons (name);
+
+            PRAGMA foreign_keys=ON;
+            """;
+        cmd.ExecuteNonQuery();
+    }
+
+    /// <summary>
+    /// Migration M-057 (role expansion): Recreate the <c>persons</c> table with four
+    /// additional roles: Translator, Editor, Host, Producer.
+    ///
+    /// Idempotent: checks for 'Translator' in the current CHECK constraint before running.
+    /// Uses the same SQLite table-recreation pattern as M-009: disable foreign keys →
+    /// create new table → copy rows → drop old → rename → recreate indices → re-enable FKs.
+    /// All columns that exist by the time this migration runs are preserved.
+    /// </summary>
+    private static void MigrateExpandPersonRolesV2(SqliteConnection conn)
+    {
+        // Check if 'Translator' is already in the CHECK constraint.
+        // If so, the migration has already been applied (or this is a fresh install
+        // whose schema.sql already includes the expanded list).
+        bool alreadyExpanded = false;
+        using (var sqlCmd = conn.CreateCommand())
+        {
+            sqlCmd.CommandText =
+                "SELECT sql FROM sqlite_master WHERE type='table' AND name='persons';";
+            var sql = sqlCmd.ExecuteScalar() as string;
+            if (sql is null || sql.Contains("Translator", StringComparison.OrdinalIgnoreCase))
+                alreadyExpanded = true;
+        }
+
+        if (alreadyExpanded)
+            return;
+
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            PRAGMA foreign_keys=OFF;
+
+            CREATE TABLE persons_new (
+                id                TEXT NOT NULL PRIMARY KEY,
+                name              TEXT NOT NULL,
+                role              TEXT NOT NULL CHECK (role IN (
+                    'Author','Narrator','Director',
+                    'Illustrator','Cast Member','Voice Actor',
+                    'Screenwriter','Composer',
+                    'Translator','Editor','Host','Producer')),
+                wikidata_qid      TEXT,
+                headshot_url      TEXT,
+                biography         TEXT,
+                occupation        TEXT,
+                instagram         TEXT,
+                twitter           TEXT,
+                tiktok            TEXT,
+                mastodon          TEXT,
+                website           TEXT,
+                local_headshot_path TEXT,
+                date_of_birth     TEXT,
+                date_of_death     TEXT,
+                place_of_birth    TEXT,
+                place_of_death    TEXT,
+                nationality       TEXT,
+                is_pseudonym      INTEGER NOT NULL DEFAULT 0,
+                created_at        TEXT NOT NULL,
+                enriched_at       TEXT
+            );
+
+            INSERT INTO persons_new
+                (id, name, role, wikidata_qid, headshot_url, biography,
+                 occupation, instagram, twitter, tiktok, mastodon, website,
+                 local_headshot_path,
+                 date_of_birth, date_of_death, place_of_birth, place_of_death,
+                 nationality, is_pseudonym, created_at, enriched_at)
+            SELECT
+                id, name, role, wikidata_qid, headshot_url, biography,
+                occupation, instagram, twitter, tiktok, mastodon, website,
+                local_headshot_path,
+                date_of_birth, date_of_death, place_of_birth, place_of_death,
+                nationality, is_pseudonym, created_at, enriched_at
+            FROM persons;
 
             DROP TABLE persons;
 
