@@ -39,6 +39,15 @@
                 </svg>
             </div>
         }
+
+        @* ── Media type badge (bottom-right of thumbnail) ── *@
+        @if (!string.IsNullOrEmpty(Item.MediaType))
+        {
+            <span class="aic-type-badge" title="@RegistryHelpers.FormatMediaType(Item.MediaType)">
+                <MudIcon Icon="@RegistryHelpers.GetMediaTypeIcon(Item.MediaType)"
+                         Style="font-size: 0.6rem; color: rgba(255,255,255,0.85);" />
+            </span>
+        }
     </div>
 
     @* ── Main content ── *@
@@ -336,6 +345,23 @@
         width: 20px;
         height: 28px;
         flex-shrink: 0;
+    }
+
+    /* ── Media type badge (bottom-right of thumbnail) ── */
+    .aic-type-badge {
+        position: absolute;
+        bottom: 2px;
+        right: 2px;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: rgba(0, 0, 0, 0.72);
+        border: 1px solid rgba(255, 255, 255, 0.10);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
+        z-index: 2;
     }
 
     /* ── Body ──────────────────────────────────────────────────────────────── */

@@ -120,7 +120,8 @@
                                     @if (c.Description.Length > 120)
                                     {
                                         <MudTooltip Text="@StripHtml(c.Description)" Placement="Placement.Left"
-                                                    Style="max-width: 360px; white-space: pre-wrap; font-size: 12px;">
+                                                    RootStyle="max-width: 400px;"
+                                                    Style="white-space: pre-line; overflow-wrap: break-word; font-size: 12px; max-width: 400px; word-break: break-word;">
                                             <MudIcon Icon="@Icons.Material.Outlined.Info"
                                                      Style="font-size: 14px; color: rgba(200,190,220,0.45); cursor: help; flex-shrink: 0;"
                                                      @onclick:stopPropagation="true" />
@@ -348,7 +349,8 @@ else
                                     @if (c.Description.Length > 120)
                                     {
                                         <MudTooltip Text="@StripHtml(c.Description)" Placement="Placement.Left"
-                                                    Style="max-width: 360px; white-space: pre-wrap; font-size: 12px;">
+                                                    RootStyle="max-width: 400px;"
+                                                    Style="white-space: pre-line; overflow-wrap: break-word; font-size: 12px; max-width: 400px; word-break: break-word;">
                                             <MudIcon Icon="@Icons.Material.Outlined.Info"
                                                      Style="font-size: 14px; color: rgba(200,190,220,0.45); cursor: help; flex-shrink: 0;"
                                                      @onclick:stopPropagation="true" />
