@@ -692,6 +692,16 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         return result?.Candidates ?? [];
     }
 
+    /// <summary>POST /search/resolve — unified resolve search with retail identification and description-based scoring.</summary>
+    public async Task<List<ResolveCandidateDto>> SearchResolveAsync(
+        string query, string mediaType, int maxCandidates = 5,
+        Dictionary<string, string>? fileHints = null,
+        CancellationToken ct = default)
+    {
+        var result = await _api.SearchResolveAsync(query, mediaType, maxCandidates, fileHints, ct);
+        return result?.Candidates ?? [];
+    }
+
     /// <summary>
     /// GET /metadata/{qid}/aliases — fetches Wikidata aliases (alternative titles) for the given QID.
     /// If <paramref name="canonicalTitle"/> is provided and is not already in the aliases list,

@@ -188,6 +188,98 @@ public sealed class SearchRetailResponseDto
     public string MediaType { get; set; } = "";
 }
 
+// ── Resolve Search ────────────────────────────────────────────────────────────
+
+/// <summary>Request sent to POST /search/resolve.</summary>
+public sealed class SearchResolveRequestDto
+{
+    [JsonPropertyName("query")]
+    public string Query { get; set; } = "";
+
+    [JsonPropertyName("media_type")]
+    public string MediaType { get; set; } = "";
+
+    [JsonPropertyName("max_candidates")]
+    public int MaxCandidates { get; set; } = 5;
+
+    /// <summary>
+    /// File-embedded metadata hints for description matching and scoring
+    /// (e.g. title, author, narrator, year, series, publisher, isbn, asin).
+    /// </summary>
+    [JsonPropertyName("file_hints")]
+    public Dictionary<string, string>? FileHints { get; set; }
+}
+
+/// <summary>A single resolve candidate returned from POST /search/resolve.</summary>
+public sealed class ResolveCandidateDto
+{
+    [JsonPropertyName("provider_name")]
+    public string ProviderName { get; set; } = "";
+
+    [JsonPropertyName("provider_item_id")]
+    public string ProviderItemId { get; set; } = "";
+
+    [JsonPropertyName("title")]
+    public string Title { get; set; } = "";
+
+    [JsonPropertyName("author")]
+    public string? Author { get; set; }
+
+    [JsonPropertyName("year")]
+    public string? Year { get; set; }
+
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
+
+    [JsonPropertyName("cover_url")]
+    public string? CoverUrl { get; set; }
+
+    [JsonPropertyName("rating")]
+    public double? Rating { get; set; }
+
+    [JsonPropertyName("retail_score")]
+    public double RetailScore { get; set; }
+
+    [JsonPropertyName("description_score")]
+    public double DescriptionScore { get; set; }
+
+    [JsonPropertyName("composite_score")]
+    public double CompositeScore { get; set; }
+
+    [JsonPropertyName("bridge_ids")]
+    public Dictionary<string, string> BridgeIds { get; set; } = [];
+
+    // ── Wikidata bridge resolution (populated client-side after selection) ──
+
+    [JsonPropertyName("wikidata_resolved")]
+    public bool WikidataResolved { get; set; }
+
+    [JsonPropertyName("work_qid")]
+    public string? WorkQid { get; set; }
+
+    [JsonPropertyName("edition_qid")]
+    public string? EditionQid { get; set; }
+
+    [JsonPropertyName("is_edition")]
+    public bool IsEdition { get; set; }
+
+    [JsonPropertyName("wikidata_narrator")]
+    public string? WikidataNarrator { get; set; }
+
+    [JsonPropertyName("wikipedia_url")]
+    public string? WikipediaUrl { get; set; }
+
+    [JsonPropertyName("field_matches")]
+    public List<DescriptionFieldMatchDto>? FieldMatches { get; set; }
+}
+
+/// <summary>Response from POST /search/resolve.</summary>
+public sealed class SearchResolveResponseDto
+{
+    [JsonPropertyName("candidates")]
+    public List<ResolveCandidateDto> Candidates { get; set; } = [];
+}
+
 // ── Apply Match ───────────────────────────────────────────────────────────────
 
 /// <summary>Request sent to POST /registry/items/{entityId}/apply-match.</summary>

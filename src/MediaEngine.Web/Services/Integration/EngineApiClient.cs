@@ -2276,6 +2276,36 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    public async Task<SearchResolveResponseDto?> SearchResolveAsync(
+        string query, string mediaType, int maxCandidates,
+        Dictionary<string, string>? fileHints, CancellationToken ct = default)
+    {
+        try
+        {
+            var payload = new SearchResolveRequestDto
+            {
+                Query         = query,
+                MediaType     = mediaType,
+                MaxCandidates = maxCandidates,
+                FileHints     = fileHints,
+            };
+            var resp = await _http.PostAsJsonAsync("/search/resolve", payload, ct);
+            if (!resp.IsSuccessStatusCode)
+            {
+                LastError = $"POST /search/resolve failed: {resp.StatusCode}";
+                return null;
+            }
+            return await resp.Content.ReadFromJsonAsync<SearchResolveResponseDto>(ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            LastError = ex.Message;
+            _logger.LogWarning(ex, "POST /search/resolve failed");
+            return null;
+        }
+    }
+
     public async Task<ApplyMatchResponseDto?> ApplyRegistryMatchAsync(
         Guid entityId, ApplyMatchRequestDto request,
         CancellationToken ct = default)

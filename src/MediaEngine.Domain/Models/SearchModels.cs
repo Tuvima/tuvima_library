@@ -229,6 +229,144 @@ public sealed class ApplyMatchResponse
     public string? Message { get; init; }
 }
 
+// ── Resolve Search ────────────────────────────────────────────────────────────
+
+/// <summary>
+/// Request for the unified resolve search that runs retail identification + Wikidata
+/// bridge resolution for each candidate. Used by the resolve tab to show fully
+/// enriched results ranked by composite score.
+/// </summary>
+public sealed record ResolveSearchRequest
+{
+    /// <summary>Search query (title, ISBN, or other identifier).</summary>
+    [JsonPropertyName("query")]
+    public string Query { get; init; } = "";
+
+    /// <summary>Media type for scoping results.</summary>
+    [JsonPropertyName("media_type")]
+    public string MediaType { get; init; } = "";
+
+    /// <summary>Maximum candidates to return.</summary>
+    [JsonPropertyName("max_candidates")]
+    public int MaxCandidates { get; init; } = 5;
+
+    /// <summary>
+    /// File's embedded metadata for scoring and comparison.
+    /// Keys: title, author, narrator, year, series, publisher, isbn, asin, etc.
+    /// </summary>
+    [JsonPropertyName("file_hints")]
+    public Dictionary<string, string> FileHints { get; init; } = new(StringComparer.OrdinalIgnoreCase);
+}
+
+/// <summary>Result from the resolve search endpoint.</summary>
+public sealed class ResolveSearchResponse
+{
+    /// <summary>Ranked candidates with retail + Wikidata data.</summary>
+    [JsonPropertyName("candidates")]
+    public List<ResolveCandidate> Candidates { get; set; } = [];
+}
+
+/// <summary>A single resolve candidate with retail match + Wikidata bridge result.</summary>
+public sealed class ResolveCandidate
+{
+    /// <summary>Retail provider name (e.g. "apple_books", "tmdb").</summary>
+    [JsonPropertyName("provider_name")]
+    public string ProviderName { get; set; } = "";
+
+    /// <summary>Provider's item ID for this candidate.</summary>
+    [JsonPropertyName("provider_item_id")]
+    public string ProviderItemId { get; set; } = "";
+
+    /// <summary>Candidate title.</summary>
+    [JsonPropertyName("title")]
+    public string Title { get; set; } = "";
+
+    /// <summary>Candidate author/artist.</summary>
+    [JsonPropertyName("author")]
+    public string? Author { get; set; }
+
+    /// <summary>Year of publication/release.</summary>
+    [JsonPropertyName("year")]
+    public string? Year { get; set; }
+
+    /// <summary>Description text (may contain basic HTML).</summary>
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
+
+    /// <summary>Cover art URL.</summary>
+    [JsonPropertyName("cover_url")]
+    public string? CoverUrl { get; set; }
+
+    /// <summary>Rating (if available).</summary>
+    [JsonPropertyName("rating")]
+    public double? Rating { get; set; }
+
+    /// <summary>Retail match confidence (0.0-1.0).</summary>
+    [JsonPropertyName("retail_score")]
+    public double RetailScore { get; set; }
+
+    /// <summary>Description match score (0.0-1.0).</summary>
+    [JsonPropertyName("description_score")]
+    public double DescriptionScore { get; set; }
+
+    /// <summary>Composite score combining all signals.</summary>
+    [JsonPropertyName("composite_score")]
+    public double CompositeScore { get; set; }
+
+    /// <summary>Bridge IDs extracted from the retail result.</summary>
+    [JsonPropertyName("bridge_ids")]
+    public Dictionary<string, string> BridgeIds { get; set; } = new();
+
+    // ── Wikidata bridge resolution results ──
+
+    /// <summary>Whether Wikidata bridge resolution succeeded.</summary>
+    [JsonPropertyName("wikidata_resolved")]
+    public bool WikidataResolved { get; set; }
+
+    /// <summary>Work QID (if resolved).</summary>
+    [JsonPropertyName("work_qid")]
+    public string? WorkQid { get; set; }
+
+    /// <summary>Edition QID (if resolved to an edition).</summary>
+    [JsonPropertyName("edition_qid")]
+    public string? EditionQid { get; set; }
+
+    /// <summary>Whether this is an edition match (vs work-level).</summary>
+    [JsonPropertyName("is_edition")]
+    public bool IsEdition { get; set; }
+
+    /// <summary>Narrator from Wikidata (P175, if available).</summary>
+    [JsonPropertyName("wikidata_narrator")]
+    public string? WikidataNarrator { get; set; }
+
+    /// <summary>Wikipedia URL (if available).</summary>
+    [JsonPropertyName("wikipedia_url")]
+    public string? WikipediaUrl { get; set; }
+
+    /// <summary>Per-field match details for UI display.</summary>
+    [JsonPropertyName("field_matches")]
+    public List<FieldMatchDetail>? FieldMatches { get; set; }
+}
+
+/// <summary>A single field's match result for display in the resolve tab.</summary>
+public sealed class FieldMatchDetail
+{
+    [JsonPropertyName("field_key")]
+    public string FieldKey { get; set; } = "";
+
+    [JsonPropertyName("file_value")]
+    public string FileValue { get; set; } = "";
+
+    [JsonPropertyName("matched")]
+    public bool Matched { get; set; }
+
+    [JsonPropertyName("raw_score")]
+    public int RawScore { get; set; }
+
+    [JsonPropertyName("weight")]
+    public double Weight { get; set; }
+}
+
 // ── Create Manual Entry ───────────────────────────────────────────────────────
 
 /// <summary>Request to manually create metadata for a registry item with no provider match.</summary>

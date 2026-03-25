@@ -509,6 +509,11 @@ public interface IEngineApiClient
         Dictionary<string, string>? fileHints = null,
         CancellationToken ct = default);
 
+    /// <summary>Unified resolve search with retail + description scoring.</summary>
+    Task<SearchResolveResponseDto?> SearchResolveAsync(
+        string query, string mediaType, int maxCandidates,
+        Dictionary<string, string>? fileHints, CancellationToken ct = default);
+
     /// <summary>POST /registry/items/{entityId}/apply-match — apply a match to a registry item.</summary>
     Task<ApplyMatchResponseDto?> ApplyRegistryMatchAsync(
         Guid entityId, ApplyMatchRequestDto request,
