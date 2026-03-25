@@ -1,5 +1,7 @@
 using System.Text;
+using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.Models;
+using MediaEngine.Storage.Contracts;
 using Microsoft.Extensions.Options;
 
 namespace MediaEngine.Api.DevSupport;
@@ -7,12 +9,15 @@ namespace MediaEngine.Api.DevSupport;
 /// <summary>
 /// Development-only endpoints for seeding the library with test data.
 /// Registered conditionally when <c>ASPNETCORE_ENVIRONMENT == "Development"</c>.
+///
+/// Endpoints:
+///   POST /dev/seed-library  — Drop 37 test files (EPUBs + MP3s) into the Watch Folder
+///   POST /dev/wipe           — Wipe DB, library root, watch folder, and reinitialize
+///   POST /dev/full-test      — Wipe → Seed → return summary
 /// </summary>
 public static class DevSeedEndpoints
 {
-    /// <summary>
-    /// A single seed book definition with all metadata fields needed by EpubBuilder.
-    /// </summary>
+    /// <summary>A seed EPUB definition.</summary>
     private sealed record SeedBook(
         string Title,
         string Author,
@@ -26,9 +31,20 @@ public static class DevSeedEndpoints
         int? SeriesPosition = null,
         string? TestCategory = null);
 
-    // ── Seed definitions ───────────────────────────────────────────────────
-    // Organised by test category. Real ISBNs so the hydration pipeline can
-    // fetch real cover art and metadata from Apple API, Google Books, etc.
+    /// <summary>A seed MP3 audiobook definition.</summary>
+    private sealed record SeedAudiobook(
+        string Title,
+        string Artist,
+        string Narrator,
+        int Year,
+        string Language = "eng",
+        string? Series = null,
+        int? SeriesPosition = null,
+        string? Asin = null,
+        string? TestCategory = null);
+
+    // ── EPUB Seed definitions ────────────────────────────────────────────────
+    // Real ISBNs so the hydration pipeline can fetch real cover art and metadata.
 
     private static readonly SeedBook[] SeedBooks =
     [
@@ -57,7 +73,7 @@ public static class DevSeedEndpoints
         new("Leviathan Wakes",
             "James S. A. Corey",
             "9780316129084", 2011,
-            "Humanity has colonized the solar system. Jim Holden is XO of an pointice hauler that makes a horrifying discovery in the asteroid belt.",
+            "Humanity has colonized the solar system. Jim Holden is XO of an ice hauler that makes a horrifying discovery in the asteroid belt.",
             Series: "The Expanse", SeriesPosition: 1,
             TestCategory: "PenName — collaborative (Daniel Abraham + Ty Franck)"),
 
@@ -181,7 +197,7 @@ public static class DevSeedEndpoints
             "A father and his son walk alone through burned America, heading through the ravaged landscape to the coast.",
             TestCategory: "Edge — standalone, no series (single-work Hub)"),
 
-        // ── Category 8: Publisher Metadata ──────────────────────────────────
+        // ── Category 7: Publisher Metadata ──────────────────────────────────
 
         new("Frankenstein",
             "Mary Shelley",
@@ -189,7 +205,81 @@ public static class DevSeedEndpoints
             "Obsessed with creating life itself, Victor Frankenstein plunders graveyards for the material to fashion a new being.",
             Publisher: "Lackington, Hughes, Harding, Mavor & Jones",
             TestCategory: "Publisher — very old book, long publisher name with special chars"),
+
+        // ── Category 8: Standalone classics (audiobook pairing targets) ─────
+
+        new("Neuromancer",
+            "William Gibson",
+            "9780441569595", 1984,
+            "The sky above the port was the color of television, tuned to a dead channel.",
+            TestCategory: "Standalone — cyberpunk classic, audiobook pair target"),
     ];
+
+    // ── MP3 Audiobook Seed definitions ───────────────────────────────────────
+    // Paired with EPUBs above to test cross-format Hub grouping and Stage 2
+    // bridge resolution. Genre tag set to "Audiobook" for disambiguation.
+
+    private static readonly SeedAudiobook[] SeedAudiobooks =
+    [
+        // ── Paired with EPUB counterparts ─────────────────────────────────────
+
+        new("Dune", "Frank Herbert", "Simon Vance", 1965,
+            Series: "Dune Chronicles", SeriesPosition: 1,
+            TestCategory: "Audiobook pair — Dune (Simon Vance narrator)"),
+
+        new("Project Hail Mary", "Andy Weir", "Ray Porter", 2021,
+            TestCategory: "Audiobook pair — standalone, popular narrator"),
+
+        new("The Hobbit", "J.R.R. Tolkien", "Andy Serkis", 1937,
+            TestCategory: "Audiobook pair — celebrity narrator"),
+
+        new("Good Omens", "Terry Pratchett and Neil Gaiman", "Martin Jarvis", 1990,
+            TestCategory: "Audiobook pair — multi-author work"),
+
+        new("1Q84", "Haruki Murakami", "Allison Hiroto", 2009,
+            TestCategory: "Audiobook pair — numeric-starting title"),
+
+        new("The Shining", "Stephen King", "Campbell Scott", 1977,
+            TestCategory: "Audiobook pair — pen name author (King/Bachman)"),
+
+        new("Le Petit Prince", "Antoine de Saint-Exupery", "Bernard Giraudeau", 1943,
+            Language: "fra",
+            TestCategory: "Audiobook pair — foreign language (French)"),
+
+        new("Harry Potter and the Philosopher's Stone", "J.K. Rowling", "Stephen Fry", 1997,
+            Series: "Harry Potter", SeriesPosition: 1,
+            TestCategory: "Audiobook pair — series book with famous narrator"),
+
+        new("The Name of the Wind", "Patrick Rothfuss", "Nick Podehl", 2007,
+            Series: "The Kingkiller Chronicle", SeriesPosition: 1,
+            TestCategory: "Audiobook pair — series (no EPUB counterpart in series list)"),
+
+        new("Leviathan Wakes", "James S. A. Corey", "Jefferson Mays", 2011,
+            Series: "The Expanse", SeriesPosition: 1,
+            TestCategory: "Audiobook pair — pen name series"),
+
+        new("Foundation", "Isaac Asimov", "Scott Brick", 1951,
+            Series: "Foundation", SeriesPosition: 1,
+            TestCategory: "Audiobook pair — classic series (no EPUB counterpart)"),
+
+        new("The Fellowship of the Ring", "J.R.R. Tolkien", "Rob Inglis", 1954,
+            Series: "The Lord of the Rings", SeriesPosition: 1,
+            TestCategory: "Audiobook pair — classic series with iconic narrator"),
+
+        new("Neuromancer", "William Gibson", "Robertson Dean", 1984,
+            TestCategory: "Audiobook pair — standalone classic"),
+
+        new("The Road", "Cormac McCarthy", "Tom Stechschulte", 2006,
+            TestCategory: "Audiobook pair — standalone"),
+
+        // ── Multiple editions test (same work, different narrator) ──────────
+
+        new("Dune", "Frank Herbert", "Scott Brick", 1965,
+            Series: "Dune Chronicles", SeriesPosition: 1,
+            TestCategory: "Multiple editions — Dune with alternate narrator"),
+    ];
+
+    // ── Endpoint registration ────────────────────────────────────────────────
 
     public static void MapDevSeedEndpoints(this WebApplication app)
     {
@@ -197,8 +287,16 @@ public static class DevSeedEndpoints
             .WithTags("Development");
 
         group.MapPost("/seed-library", SeedLibraryAsync)
-            .WithSummary("Drop 22 test EPUBs into the Watch Folder for ingestion testing");
+            .WithSummary($"Drop {SeedBooks.Length} EPUBs + {SeedAudiobooks.Length} MP3 audiobooks into the Watch Folder");
+
+        group.MapPost("/wipe", WipeAsync)
+            .WithSummary("Wipe database, library root, and watch folder — then reinitialize a fresh DB");
+
+        group.MapPost("/full-test", FullTestAsync)
+            .WithSummary("Wipe everything → seed 37 test files → return summary");
     }
+
+    // ── POST /dev/seed-library ───────────────────────────────────────────────
 
     private static async Task<IResult> SeedLibraryAsync(
         IOptions<IngestionOptions> options,
@@ -233,12 +331,12 @@ public static class DevSeedEndpoints
         var created = new List<string>();
         int skipped = 0;
 
+        // ── Seed EPUBs ──────────────────────────────────────────────────────
         foreach (SeedBook book in SeedBooks)
         {
             string fileName = $"{SanitizeFileName(book.Title)}.epub";
             string filePath = Path.Combine(watchDir, fileName);
 
-            // Skip if file already exists (idempotent).
             if (File.Exists(filePath))
             {
                 skipped++;
@@ -259,19 +357,294 @@ public static class DevSeedEndpoints
                 filePath, epub.Length, book.TestCategory ?? "Uncategorised");
         }
 
+        // ── Seed MP3 Audiobooks ─────────────────────────────────────────────
+        foreach (SeedAudiobook ab in SeedAudiobooks)
+        {
+            // Use narrator in filename to distinguish multiple editions of the same title.
+            string fileName = $"{SanitizeFileName(ab.Title)} - {SanitizeFileName(ab.Narrator)}.mp3";
+            string filePath = Path.Combine(watchDir, fileName);
+
+            if (File.Exists(filePath))
+            {
+                skipped++;
+                logger.LogDebug("Seed file already exists, skipping: {Path}", filePath);
+                continue;
+            }
+
+            byte[] mp3 = Mp3Builder.Create(
+                ab.Title, ab.Artist, narrator: ab.Narrator,
+                year: ab.Year, language: ab.Language,
+                series: ab.Series, seriesPosition: ab.SeriesPosition,
+                asin: ab.Asin);
+
+            await File.WriteAllBytesAsync(filePath, mp3);
+
+            created.Add(fileName);
+            logger.LogInformation(
+                "Seed MP3 created: {Path} ({Size} bytes) [{Category}]",
+                filePath, mp3.Length, ab.TestCategory ?? "Uncategorised");
+        }
+
+        int totalSeed = SeedBooks.Length + SeedAudiobooks.Length;
         string message = created.Count > 0
-            ? $"{created.Count} books dropped into Watch Folder. Ingestion will begin automatically."
-            : "All seed books already exist in the Watch Folder.";
+            ? $"{created.Count} files dropped into Watch Folder. Ingestion will begin automatically."
+            : "All seed files already exist in the Watch Folder.";
 
         return Results.Ok(new
         {
             files_created = created.Count,
             files_skipped = skipped,
-            total_seed_books = SeedBooks.Length,
+            epubs_total = SeedBooks.Length,
+            audiobooks_total = SeedAudiobooks.Length,
+            total_seed_files = totalSeed,
             watch_directory = watchDir,
             files = created,
             message
         });
+    }
+
+    // ── POST /dev/wipe ──────────────────────────────────────────────────────
+
+    private static async Task<IResult> WipeAsync(
+        IDatabaseConnection db,
+        IOptions<IngestionOptions> options,
+        IIngestionEngine ingestionEngine,
+        ILogger<Program> logger)
+    {
+        var wiped = new List<string>();
+
+        // 1. Stop the ingestion engine so it doesn't try to process files during wipe.
+        try
+        {
+            await ingestionEngine.StopAsync(CancellationToken.None);
+            logger.LogInformation("[Wipe] Ingestion engine stopped");
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "[Wipe] Failed to stop ingestion engine — continuing");
+        }
+
+        // 2. Wipe the library root (organized files + .staging/).
+        string? libraryRoot = options.Value.LibraryRoot;
+        if (!string.IsNullOrWhiteSpace(libraryRoot) && Directory.Exists(libraryRoot))
+        {
+            try
+            {
+                int count = WipeDirectoryContents(libraryRoot, logger);
+                wiped.Add($"Library root ({libraryRoot}): {count} items deleted");
+            }
+            catch (Exception ex)
+            {
+                wiped.Add($"Library root ({libraryRoot}): FAILED — {ex.Message}");
+                logger.LogError(ex, "[Wipe] Failed to wipe library root");
+            }
+        }
+        else
+        {
+            wiped.Add("Library root: not configured or does not exist — skipped");
+        }
+
+        // 3. Wipe the watch folder.
+        string? watchDir = options.Value.WatchDirectory;
+        if (!string.IsNullOrWhiteSpace(watchDir) && Directory.Exists(watchDir))
+        {
+            try
+            {
+                int count = WipeDirectoryContents(watchDir, logger);
+                wiped.Add($"Watch folder ({watchDir}): {count} items deleted");
+            }
+            catch (Exception ex)
+            {
+                wiped.Add($"Watch folder ({watchDir}): FAILED — {ex.Message}");
+                logger.LogError(ex, "[Wipe] Failed to wipe watch folder");
+            }
+        }
+        else
+        {
+            wiped.Add("Watch folder: not configured or does not exist — skipped");
+        }
+
+        // 4. Wipe database by dropping all tables and re-creating the schema.
+        //    File deletion doesn't work because multiple services hold SQLite connections.
+        //    SQL-level drop + recreate works with active connections.
+        try
+        {
+            await db.AcquireWriteLockAsync();
+            try
+            {
+                var conn = db.Open();
+
+                // Disable foreign keys temporarily so we can drop tables in any order.
+                using (var fkOff = conn.CreateCommand())
+                {
+                    fkOff.CommandText = "PRAGMA foreign_keys = OFF;";
+                    fkOff.ExecuteNonQuery();
+                }
+
+                // Discover all user tables and drop them.
+                var tables = new List<string>();
+                using (var listCmd = conn.CreateCommand())
+                {
+                    listCmd.CommandText =
+                        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';";
+                    using var reader = listCmd.ExecuteReader();
+                    while (reader.Read())
+                        tables.Add(reader.GetString(0));
+                }
+
+                foreach (string table in tables)
+                {
+                    using var dropCmd = conn.CreateCommand();
+                    dropCmd.CommandText = $"DROP TABLE IF EXISTS [{table}];";
+                    dropCmd.ExecuteNonQuery();
+                }
+
+                // Also drop FTS virtual tables (sqlite_master type='table' doesn't always list them).
+                using (var ftsCmd = conn.CreateCommand())
+                {
+                    ftsCmd.CommandText = "DROP TABLE IF EXISTS search_index;";
+                    ftsCmd.ExecuteNonQuery();
+                }
+
+                // Re-enable foreign keys.
+                using (var fkOn = conn.CreateCommand())
+                {
+                    fkOn.CommandText = "PRAGMA foreign_keys = ON;";
+                    fkOn.ExecuteNonQuery();
+                }
+
+                // Vacuum to reclaim space from dropped tables.
+                using (var vacuumCmd = conn.CreateCommand())
+                {
+                    vacuumCmd.CommandText = "VACUUM;";
+                    vacuumCmd.ExecuteNonQuery();
+                }
+
+                // Re-create all tables and run migrations.
+                db.InitializeSchema();
+                db.RunStartupChecks();
+
+                wiped.Add($"Database: dropped {tables.Count} tables and reinitialized schema");
+                logger.LogInformation("[Wipe] Database wiped: dropped {Count} tables, schema reinitialized", tables.Count);
+            }
+            finally
+            {
+                db.ReleaseWriteLock();
+            }
+        }
+        catch (Exception ex)
+        {
+            wiped.Add($"Database: FAILED — {ex.Message}");
+            logger.LogError(ex, "[Wipe] Failed to wipe database");
+        }
+
+        // 5. Restart the ingestion engine.
+        try
+        {
+            ingestionEngine.Start();
+            logger.LogInformation("[Wipe] Ingestion engine restarted");
+            wiped.Add("Ingestion engine: restarted");
+        }
+        catch (Exception ex)
+        {
+            wiped.Add($"Ingestion engine restart: FAILED — {ex.Message}");
+            logger.LogWarning(ex, "[Wipe] Failed to restart ingestion engine");
+        }
+
+        return Results.Ok(new
+        {
+            message = "Wipe complete. Database reinitialized. Ready for seeding.",
+            details = wiped
+        });
+    }
+
+    // ── POST /dev/full-test ─────────────────────────────────────────────────
+
+    private static async Task<IResult> FullTestAsync(
+        IDatabaseConnection db,
+        IOptions<IngestionOptions> options,
+        IIngestionEngine ingestionEngine,
+        ILogger<Program> logger)
+    {
+        logger.LogInformation("[FullTest] Starting full ingestion test: wipe → seed → scan");
+
+        // Step 1: Wipe
+        var wipeResult = await WipeAsync(db, options, ingestionEngine, logger);
+
+        // Step 2: Seed
+        var seedResult = await SeedLibraryAsync(options, logger);
+
+        // Step 3: Trigger a directory scan so the file watcher picks up the seeded files.
+        //         FSW only detects NEW events; files already present when the watcher
+        //         started require an explicit scan to generate synthetic "Created" events.
+        string? watchDir = options.Value.WatchDirectory;
+        if (!string.IsNullOrWhiteSpace(watchDir) && Directory.Exists(watchDir))
+        {
+            ingestionEngine.ScanDirectory(watchDir);
+            logger.LogInformation("[FullTest] ScanDirectory triggered for {Path}", watchDir);
+        }
+
+        return Results.Ok(new
+        {
+            message = "Full test initiated: database wiped, library cleared, seed files dropped, " +
+                      "directory scan triggered. Ingestion pipeline will process files automatically. " +
+                      "Monitor via GET /ingestion/batches and SignalR intercom.",
+            wipe = wipeResult,
+            seed = seedResult,
+            total_test_files = SeedBooks.Length + SeedAudiobooks.Length,
+            epubs = SeedBooks.Length,
+            audiobooks = SeedAudiobooks.Length,
+            next_steps = new[]
+            {
+                "Watch ingestion progress: GET /ingestion/batches",
+                "Check registry: GET /registry/items?page=1&pageSize=50",
+                "Check review queue: GET /review/pending",
+                "Check activity: GET /activity/recent",
+                "Monitor SignalR events: MediaAdded, MetadataHarvested, ReviewItemCreated"
+            }
+        });
+    }
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Deletes all files and subdirectories inside a directory, preserving the directory itself.
+    /// Returns the number of items deleted.
+    /// </summary>
+    private static int WipeDirectoryContents(string dirPath, ILogger logger)
+    {
+        int count = 0;
+        var dir = new DirectoryInfo(dirPath);
+
+        foreach (FileInfo file in dir.GetFiles("*", SearchOption.AllDirectories))
+        {
+            try
+            {
+                file.Attributes = FileAttributes.Normal; // Clear read-only
+                file.Delete();
+                count++;
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "[Wipe] Could not delete file: {Path}", file.FullName);
+            }
+        }
+
+        foreach (DirectoryInfo sub in dir.GetDirectories())
+        {
+            try
+            {
+                sub.Delete(recursive: true);
+                count++;
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "[Wipe] Could not delete directory: {Path}", sub.FullName);
+            }
+        }
+
+        logger.LogInformation("[Wipe] Wiped {Count} items from {Path}", count, dirPath);
+        return count;
     }
 
     /// <summary>
