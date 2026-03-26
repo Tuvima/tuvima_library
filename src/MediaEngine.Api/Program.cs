@@ -480,6 +480,7 @@ builder.Services.AddSingleton<IHydrationPipelineService,     HydrationPipelineSe
 builder.Services.AddSingleton<IDeferredEnrichmentService,    DeferredEnrichmentService>();
 builder.Services.AddSingleton<IBridgeIdRepository,           BridgeIdRepository>();
 builder.Services.AddSingleton<IReviewQueueRepository,        ReviewQueueRepository>();
+builder.Services.AddSingleton<IIngestionBatchRepository,     IngestionBatchRepository>();
 builder.Services.AddSingleton<IPendingPersonSignalRepository, PendingPersonSignalRepository>();
 builder.Services.AddSingleton<IRegistryRepository,           RegistryRepository>();
 builder.Services.AddSingleton<ISearchIndexRepository,        SearchIndexRepository>();
