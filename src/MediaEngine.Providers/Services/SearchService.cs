@@ -23,7 +23,6 @@ public sealed class SearchService : ISearchService
     private readonly IReadOnlyList<IExternalMetadataProvider> _providers;
     private readonly IConfigurationLoader _configLoader;
     private readonly IFuzzyMatchingService _fuzzy;
-    private readonly IDescriptionMatchService _descriptionMatch;
     private readonly ILogger<SearchService> _logger;
 
     // Providers that should not be used for retail search
@@ -52,22 +51,19 @@ public sealed class SearchService : ISearchService
         IEnumerable<IExternalMetadataProvider> providers,
         IConfigurationLoader configLoader,
         IFuzzyMatchingService fuzzy,
-        IDescriptionMatchService descriptionMatch,
         ILogger<SearchService> logger)
     {
         ArgumentNullException.ThrowIfNull(providers);
         ArgumentNullException.ThrowIfNull(configLoader);
         ArgumentNullException.ThrowIfNull(fuzzy);
-        ArgumentNullException.ThrowIfNull(descriptionMatch);
         ArgumentNullException.ThrowIfNull(logger);
 
         var providerList = providers.ToList();
 
-        _providers        = providerList;
-        _configLoader     = configLoader;
-        _fuzzy            = fuzzy;
-        _descriptionMatch = descriptionMatch;
-        _logger           = logger;
+        _providers    = providerList;
+        _configLoader = configLoader;
+        _fuzzy        = fuzzy;
+        _logger       = logger;
     }
 
     /// <inheritdoc/>
@@ -220,50 +216,17 @@ public sealed class SearchService : ISearchService
             }
         }
 
-        // ── Description match scoring ─────────────────────────────────────────
-        // When the caller supplies file hints (narrator, series, publisher, etc.),
-        // run DescriptionMatchService and blend the result into a composite score.
-        var hasHints = request.FileHints is { Count: > 0 };
-        if (hasHints)
+        // ── Composite score and ranking ───────────────────────────────────────
+        if (!string.IsNullOrWhiteSpace(request.LocalTitle))
         {
-            foreach (var c in candidates)
-            {
-                var descResult = _descriptionMatch.Score(
-                    request.FileHints!,
-                    c.Title,
-                    c.Description,
-                    candidateCopyright: null,
-                    request.MediaType);
-
-                c.DescriptionMatchScore    = descResult.CompositeScore;
-                c.DescriptionFieldMatches  = descResult.FieldMatches
-                    .Select(fm => new DescriptionFieldMatchEntry
-                    {
-                        FieldKey   = fm.FieldKey,
-                        FileValue  = fm.FileValue,
-                        Matched    = fm.Matched,
-                        RawScore   = fm.RawScore,
-                        Weight     = fm.Weight,
-                    })
-                    .ToList();
-
-                // Composite = 60% fuzzy + 40% description (description is a bonus signal)
-                var fuzzyScore = c.MatchScores?.CompositeScore ?? c.Confidence;
-                c.CompositeScore = (fuzzyScore * 0.6) + (c.DescriptionMatchScore * 0.4);
-            }
-
-            candidates = candidates.OrderByDescending(c => c.CompositeScore).ToList();
-        }
-        else if (!string.IsNullOrWhiteSpace(request.LocalTitle))
-        {
-            // No hints — rank by fuzzy match only
+            // Rank by fuzzy match score
             foreach (var c in candidates)
                 c.CompositeScore = c.MatchScores?.CompositeScore ?? c.Confidence;
             candidates = candidates.OrderByDescending(c => c.CompositeScore).ToList();
         }
         else
         {
-            // No local context at all — composite equals provider confidence
+            // No local context — composite equals provider confidence
             foreach (var c in candidates)
                 c.CompositeScore = c.Confidence;
         }
