@@ -3,6 +3,7 @@ using MediaEngine.AI.Infrastructure;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using Microsoft.Extensions.Logging;
+using Whisper.net;
 
 namespace MediaEngine.AI.Whisper;
 
@@ -41,14 +42,43 @@ public sealed class WhisperInferenceService
         if (!loaded)
             throw new InvalidOperationException("Failed to load Whisper model");
 
-        var modelPath = _inventory.GetModelPath(AiModelRole.Audio);
-        _logger.LogInformation("Transcribing: {Path}", wavFilePath);
+        if (!File.Exists(wavFilePath))
+        {
+            _logger.LogWarning("WAV file not found for transcription: {Path}", wavFilePath);
+            return [];
+        }
 
-        // Whisper.net integration will load the model and process audio.
-        // Full implementation requires Whisper.net WhisperFactory + WhisperProcessor.
-        // Placeholder returns empty — Sprint 5 will wire the actual Whisper.net calls.
-        _logger.LogWarning("Whisper transcription not yet wired — awaiting Sprint 5 full implementation");
-        return [];
+        var modelPath = _inventory.GetModelPath(AiModelRole.Audio);
+        var audioDefinition = _settings.Models.Audio;
+        var language = string.IsNullOrWhiteSpace(audioDefinition.Language) ? "auto" : audioDefinition.Language;
+
+        _logger.LogInformation("Transcribing: {Path} (language={Language})", wavFilePath, language);
+
+        var segments = new List<TranscriptionSegment>();
+
+        using var factory = WhisperFactory.FromPath(modelPath);
+        var builder = factory.CreateBuilder()
+            .WithLanguage(language);
+
+        if (audioDefinition.Translate)
+            builder = builder.WithTranslate();
+
+        using var processor = builder.Build();
+
+        await using var wavStream = File.OpenRead(wavFilePath);
+        await foreach (var segment in processor.ProcessAsync(wavStream, ct))
+        {
+            segments.Add(new TranscriptionSegment
+            {
+                StartMs = (long)segment.Start.TotalMilliseconds,
+                EndMs = (long)segment.End.TotalMilliseconds,
+                Text = segment.Text.Trim(),
+                Confidence = segment.Probability,
+            });
+        }
+
+        _logger.LogInformation("Transcription complete: {Count} segments from {Path}", segments.Count, wavFilePath);
+        return segments;
     }
 
     /// <summary>
@@ -63,11 +93,41 @@ public sealed class WhisperInferenceService
         if (!loaded)
             return ("en", 0.0);
 
+        if (!File.Exists(wavFilePath))
+        {
+            _logger.LogWarning("WAV file not found for language detection: {Path}", wavFilePath);
+            return ("en", 0.0);
+        }
+
+        var modelPath = _inventory.GetModelPath(AiModelRole.Audio);
         _logger.LogInformation("Detecting language: {Path}", wavFilePath);
 
-        // Whisper.net language detection — placeholder.
-        _logger.LogWarning("Whisper language detection not yet wired — defaulting to 'en'");
-        return ("en", 0.5);
+        using var factory = WhisperFactory.FromPath(modelPath);
+        using var processor = factory.CreateBuilder()
+            .WithLanguageDetection()
+            .Build();
+
+        await using var wavStream = File.OpenRead(wavFilePath);
+
+        // Process segments; the first segment carries the detected language code.
+        string detectedLanguage = "en";
+        double confidence = 0.0;
+
+        await foreach (var segment in processor.ProcessAsync(wavStream, ct))
+        {
+            if (!string.IsNullOrWhiteSpace(segment.Language))
+            {
+                detectedLanguage = segment.Language;
+                confidence = segment.Probability;
+            }
+            // Only need the first segment for language detection.
+            break;
+        }
+
+        _logger.LogInformation("Detected language: {Language} (confidence={Confidence:F2}) for {Path}",
+            detectedLanguage, confidence, wavFilePath);
+
+        return (detectedLanguage, confidence);
     }
 }
 
