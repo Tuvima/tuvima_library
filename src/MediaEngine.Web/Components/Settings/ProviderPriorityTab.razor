@@ -1,15 +1,104 @@
 @namespace MediaEngine.Web.Components.Settings
 
-@* Providers — priority chain design.
-   Each media type tab shows assigned providers as horizontal connected cards.
+@* Providers — full-width priority chain design.
+   Icon-above-label category selector. Provider cards flow responsively.
    Clicking a card opens a slide-in config overlay from the right.
    "+ Add" opens a dialog to pick from the available provider catalogue.
    Reorder with chevron buttons; remove via the config overlay. *@
 
-<MudPaper Elevation="0" Style="@GlassStyle">
+<style>
+    .provider-page { width: 100%; padding: 24px; box-sizing: border-box; }
+
+    /* ── Category selector ── */
+    .category-strip {
+        display: flex; gap: 0; overflow-x: auto; -webkit-overflow-scrolling: touch;
+        margin-bottom: 32px; border-bottom: 1px solid var(--app-glass-inner-border, rgba(255,255,255,0.08));
+    }
+    .category-item {
+        display: flex; flex-direction: column; align-items: center; gap: 4px;
+        padding: 12px 20px 10px; cursor: pointer; border: none; background: none;
+        color: var(--mud-palette-text-secondary); transition: color 0.15s;
+        border-bottom: 2px solid transparent; flex-shrink: 0; min-width: 64px;
+    }
+    .category-item:hover { color: var(--mud-palette-text-primary); }
+    .category-item.active {
+        color: var(--mud-palette-primary);
+        border-bottom-color: var(--mud-palette-primary);
+    }
+    .category-item .cat-icon { font-size: 1.5rem; line-height: 1; }
+    .category-item .cat-label { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; white-space: nowrap; }
+
+    /* ── Priority chain ── */
+    .chain-container {
+        display: flex; flex-wrap: wrap; align-items: center; gap: 16px; margin-bottom: 24px;
+    }
+    .chain-card {
+        position: relative; background: var(--app-glass-inner-bg, rgba(255,255,255,0.04));
+        border: 1px solid var(--app-glass-inner-border, rgba(255,255,255,0.08));
+        border-radius: 10px; padding: 14px 16px 10px; cursor: pointer;
+        transition: border-color 0.15s, box-shadow 0.15s;
+        display: flex; flex-direction: column; align-items: flex-start;
+        flex: 1 1 200px; min-width: 180px; max-width: 320px;
+    }
+    .chain-card:hover {
+        border-color: var(--mud-palette-primary);
+        box-shadow: 0 0 20px rgba(201, 146, 46, 0.08);
+    }
+    .chain-connector {
+        width: 28px; height: 1px; flex-shrink: 0;
+        background: linear-gradient(to right, rgba(255,255,255,0.18), rgba(255,255,255,0.05));
+    }
+    .chain-add-btn {
+        min-width: 100px; height: 40px; flex-shrink: 0;
+    }
+
+    /* ── Mobile: stack vertically ── */
+    @@media (max-width: 600px) {
+        .provider-page { padding: 12px; }
+        .category-item { padding: 10px 12px 8px; min-width: 48px; }
+        .category-item .cat-label { font-size: 0.62rem; }
+        .chain-container { flex-direction: column; align-items: stretch; gap: 8px; }
+        .chain-card { max-width: none; flex: 1 1 auto; }
+        .chain-connector { width: 1px; height: 20px; align-self: center;
+            background: linear-gradient(to bottom, rgba(255,255,255,0.18), rgba(255,255,255,0.05)); }
+        .drawer-panel { width: 100% !important; }
+    }
+
+    /* ── Tablet: 2-col cards ── */
+    @@media (min-width: 601px) and (max-width: 960px) {
+        .chain-card { max-width: none; flex: 1 1 calc(50% - 24px); }
+    }
+
+    /* ── Small chip ── */
+    .provider-chip {
+        display: inline-block; font-size: 0.66rem; padding: 1px 6px;
+        border-radius: 10px; border: 1px solid var(--app-glass-inner-border, rgba(255,255,255,0.08));
+        color: var(--mud-palette-text-secondary); line-height: 1.6;
+    }
+
+    /* ── Drawer ── */
+    .drawer-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 1200; }
+    .drawer-panel {
+        position: fixed; top: 0; right: 0; bottom: 0; width: 340px;
+        background: var(--app-glass-bg, rgba(10,14,30,0.92));
+        border-left: 1px solid var(--app-glass-border, rgba(255,255,255,0.06));
+        backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+        z-index: 1201; padding: 24px 20px; overflow-y: auto;
+        display: flex; flex-direction: column;
+    }
+
+    /* ── Save bar ── */
+    .save-bar {
+        display: flex; justify-content: flex-end; gap: 12px; align-items: center;
+        padding-top: 16px; margin-top: 24px;
+        border-top: 1px solid var(--app-glass-inner-border, rgba(255,255,255,0.08));
+    }
+</style>
+
+<div class="provider-page">
 
     @* ── Header ──────────────────────────────────────────────────────────── *@
-    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-1">
         <MudIcon Icon="@Icons.Material.Outlined.Hub" Color="Color.Default" Class="mr-2" />
         <MudText Typo="Typo.h6">Providers</MudText>
     </MudStack>
@@ -18,138 +107,131 @@
         stopping when one returns a result.
     </MudText>
 
-    @* ── Media type tabs ─────────────────────────────────────────────────── *@
-    <MudTabs Elevation="0"
-             Rounded="true"
-             ApplyEffectsToContainer="true"
-             Style="background: transparent;">
-
-        @foreach (var mediaType in _mediaTypes)
+    @* ── Category selector (icons on top) ────────────────────────────────── *@
+    <div class="category-strip">
+        @foreach (var mt in _mediaTypes)
         {
-            <MudTabPanel Text="@mediaType" Icon="@GetMediaTypeIcon(mediaType)">
+            var mediaType = mt;
+            <button class="category-item @(mediaType == _activeTab ? "active" : "")"
+                    @onclick="@(() => _activeTab = mediaType)">
+                <MudIcon Icon="@GetMediaTypeIcon(mediaType)" Class="cat-icon" />
+                <span class="cat-label">@mediaType</span>
+            </button>
+        }
+    </div>
 
-                <div class="pt-5">
+    @* ── Priority chain for active tab ───────────────────────────────────── *@
+    @{
+        var chain = GetChain(_activeTab);
+    }
 
-                    @* ── Priority chain ──────────────────────────────────── *@
-                    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 0; margin-bottom: 24px;">
+    <div class="chain-container">
+        @for (int i = 0; i < chain.Count; i++)
+        {
+            var idx        = i;
+            var assignment = chain[idx];
+            var info       = GetProviderInfo(assignment.Name);
+            var posLabel   = idx == 0 ? "Primary" : idx == 1 ? "Secondary" : "Fallback";
+            var enabledDot = assignment.Enabled ? "#4caf50" : "#f44336";
 
-                        @{
-                            var chain = GetChain(mediaType);
-                        }
+            @* ── Provider card ── *@
+            <div class="chain-card"
+                 @onclick="@(() => OpenDrawer(_activeTab, idx))"
+                 role="button"
+                 tabindex="0">
 
-                        @for (int i = 0; i < chain.Count; i++)
-                        {
-                            var idx        = i;
-                            var assignment = chain[idx];
-                            var info       = GetProviderInfo(assignment.Name);
-                            var posLabel   = idx == 0 ? "Primary" : idx == 1 ? "Secondary" : "Fallback";
-                            var enabledDot = assignment.Enabled ? "#4caf50" : "#f44336";
+                @* Status dot — top right *@
+                <div style="position: absolute; top: 10px; right: 10px;
+                            width: 9px; height: 9px; border-radius: 50%;
+                            background: @enabledDot;" />
 
-                            @* ── Provider card ── *@
-                            <div style="@ProviderChainCardStyle"
-                                 @onclick="@(() => OpenDrawer(mediaType, idx))"
-                                 role="button"
-                                 tabindex="0">
+                @* Provider icon *@
+                <MudIcon Icon="@GetProviderIcon(assignment.Name)"
+                         Size="Size.Medium"
+                         Style="color: var(--mud-palette-primary); margin-bottom: 6px;" />
 
-                                @* Status dot — top right *@
-                                <div style="position: absolute; top: 10px; right: 10px;
-                                            width: 9px; height: 9px; border-radius: 50%;
-                                            background: @enabledDot; flex-shrink: 0;" />
+                @* Name + position *@
+                <MudText Typo="Typo.body2"
+                         Style="font-weight: 700; line-height: 1.2; margin-bottom: 2px;">
+                    @assignment.Name
+                </MudText>
+                <MudText Typo="Typo.caption"
+                         Style="color: var(--mud-palette-text-secondary); margin-bottom: 6px; display: block;">
+                    @posLabel
+                </MudText>
 
-                                @* Provider icon *@
-                                <MudIcon Icon="@GetProviderIcon(assignment.Name)"
-                                         Size="Size.Medium"
-                                         Style="color: var(--mud-palette-primary); margin-bottom: 6px;" />
-
-                                @* Name + position *@
-                                <MudText Typo="Typo.body2"
-                                         Style="font-weight: 700; line-height: 1.2; margin-bottom: 2px;">
-                                    @assignment.Name
-                                </MudText>
-                                <MudText Typo="Typo.caption"
-                                         Style="color: var(--mud-palette-text-secondary); margin-bottom: 6px; display: block;">
-                                    @posLabel
-                                </MudText>
-
-                                @* Media type chips *@
-                                <div style="display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px;">
-                                    @foreach (var mt in GetProviderMediaTypes(assignment.Name))
-                                    {
-                                        <span style="@SmallChipStyle">@mt</span>
-                                    }
-                                </div>
-
-                                @* Stats *@
-                                @if (info is not null)
-                                {
-                                    <MudText Typo="Typo.caption"
-                                             Style="color: var(--mud-palette-text-secondary); display: block; line-height: 1.6;">
-                                        @info.LatencyMs ms · @((info.SuccessRate * 100).ToString("F0"))% success
-                                    </MudText>
-                                }
-
-                                @* Reorder buttons *@
-                                <div style="display: flex; justify-content: center; gap: 2px; margin-top: 8px;"
-                                     @onclick:stopPropagation="true">
-                                    <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft"
-                                                   Size="Size.Small"
-                                                   Disabled="@(idx == 0)"
-                                                   OnClick="@(() => MoveLeft(mediaType, idx))"
-                                                   Style="padding: 2px;" />
-                                    <MudIconButton Icon="@Icons.Material.Filled.ChevronRight"
-                                                   Size="Size.Small"
-                                                   Disabled="@(idx == chain.Count - 1)"
-                                                   OnClick="@(() => MoveRight(mediaType, idx))"
-                                                   Style="padding: 2px;" />
-                                </div>
-
-                            </div>
-
-                            @* ── Connector line between cards ── *@
-                            @if (idx < chain.Count - 1)
-                            {
-                                <div style="@ConnectorLineStyle" />
-                            }
-                        }
-
-                        @* ── + Add button ── *@
-                        @if (chain.Count > 0)
-                        {
-                            <div style="@ConnectorLineStyle" />
-                        }
-
-                        <MudButton Variant="Variant.Outlined"
-                                   Color="Color.Default"
-                                   StartIcon="@Icons.Material.Filled.Add"
-                                   Size="Size.Small"
-                                   Style="min-width: 100px; height: 40px; border-radius: 8px;
-                                          border: 1px dashed var(--app-glass-inner-border);
-                                          color: var(--mud-palette-text-secondary);"
-                                   OnClick="@(() => OpenAddDialog(mediaType))">
-                            Add
-                        </MudButton>
-
-                    </div>
-
-                    @* ── Empty state ── *@
-                    @if (chain.Count == 0)
+                @* Media type chips *@
+                <div style="display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px;">
+                    @foreach (var mt in GetProviderMediaTypes(assignment.Name))
                     {
-                        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-4"
-                                 Style="display: block;">
-                            No providers assigned. Click Add to build a priority chain.
-                        </MudText>
+                        <span class="provider-chip">@mt</span>
                     }
-
                 </div>
 
-            </MudTabPanel>
+                @* Stats *@
+                @if (info is not null)
+                {
+                    <MudText Typo="Typo.caption"
+                             Style="color: var(--mud-palette-text-secondary); display: block; line-height: 1.6;">
+                        @info.LatencyMs ms · @((info.SuccessRate * 100).ToString("F0"))% success
+                    </MudText>
+                }
+
+                @* Reorder buttons *@
+                <div style="display: flex; justify-content: center; gap: 2px; margin-top: 8px; width: 100%;"
+                     @onclick:stopPropagation="true">
+                    <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft"
+                                   Size="Size.Small"
+                                   Disabled="@(idx == 0)"
+                                   OnClick="@(() => MoveLeft(_activeTab, idx))"
+                                   Style="padding: 2px;" />
+                    <MudIconButton Icon="@Icons.Material.Filled.ChevronRight"
+                                   Size="Size.Small"
+                                   Disabled="@(idx == chain.Count - 1)"
+                                   OnClick="@(() => MoveRight(_activeTab, idx))"
+                                   Style="padding: 2px;" />
+                </div>
+
+            </div>
+
+            @* ── Connector line between cards ── *@
+            @if (idx < chain.Count - 1)
+            {
+                <div class="chain-connector" />
+            }
         }
 
-    </MudTabs>
+        @* ── + Add button ── *@
+        @if (chain.Count > 0)
+        {
+            <div class="chain-connector" />
+        }
 
-    @* ── Save row ─────────────────────────────────────────────────────────── *@
-    <MudDivider Class="mt-6 mb-4" />
-    <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2">
+        <MudButton Variant="Variant.Outlined"
+                   Color="Color.Default"
+                   StartIcon="@Icons.Material.Filled.Add"
+                   Size="Size.Small"
+                   Class="chain-add-btn"
+                   Style="border-radius: 8px;
+                          border: 1px dashed var(--app-glass-inner-border);
+                          color: var(--mud-palette-text-secondary);"
+                   OnClick="@(() => OpenAddDialog(_activeTab))">
+            Add
+        </MudButton>
+
+    </div>
+
+    @* ── Empty state ── *@
+    @if (chain.Count == 0)
+    {
+        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-4"
+                 Style="display: block;">
+            No providers assigned. Click Add to build a priority chain.
+        </MudText>
+    }
+
+    @* ── Save bar ────────────────────────────────────────────────────────── *@
+    <div class="save-bar">
         <MudButton Variant="Variant.Text"
                    Color="Color.Default"
                    Size="Size.Small"
@@ -173,9 +255,9 @@
                 @:Save
             }
         </MudButton>
-    </MudStack>
+    </div>
 
-</MudPaper>
+</div>
 
 @* ════════════════════════════════════════════════════════════════════════════
    Config Drawer — slide-in overlay from the right
@@ -184,11 +266,10 @@
 @if (_drawerOpen)
 {
     @* Backdrop *@
-    <div style="position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 1200;"
-         @onclick="CloseDrawer" />
+    <div class="drawer-backdrop" @onclick="CloseDrawer" />
 
     @* Panel *@
-    <div style="@DrawerPanelStyle">
+    <div class="drawer-panel">
 
         @* Header *@
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-1">
@@ -323,7 +404,9 @@
             @foreach (var p in filtered)
             {
                 var pCapture = p;
-                <div style="@AddProviderRowStyle"
+                <div style="display: flex; align-items: center; gap: 12px;
+                            padding: 10px 8px; border-radius: 8px; cursor: pointer;
+                            transition: background 0.12s; margin-bottom: 4px;"
                      @onclick="@(() => AddProviderToChain(pCapture.Name))"
                      role="button"
                      tabindex="0">
@@ -419,6 +502,8 @@
 
     private readonly string[] _mediaTypes =
         ["Books", "Audiobooks", "Movies", "TV", "Music", "Comics", "Podcasts"];
+
+    private string _activeTab = "Books";
 
     // Working copy: mediaType → ordered list of assignments
     private Dictionary<string, List<ProviderAssignment>> _assignments = new();
@@ -577,59 +662,4 @@
 
     private static string[] GetProviderMediaTypes(string provider) =>
         ProviderMediaTypes.TryGetValue(provider, out var types) ? types : ["All"];
-
-    // ── Styles ───────────────────────────────────────────────────────────────────
-
-    private const string GlassStyle =
-        "background: var(--app-glass-bg); " +
-        "border: 1px solid var(--app-glass-border); " +
-        "backdrop-filter: blur(10px); " +
-        "-webkit-backdrop-filter: blur(10px); " +
-        "border-radius: 12px; " +
-        "padding: 32px;";
-
-    private const string ProviderChainCardStyle =
-        "position: relative; " +
-        "background: var(--app-glass-inner-bg); " +
-        "border: 1px solid var(--app-glass-inner-border); " +
-        "border-radius: 10px; " +
-        "padding: 14px 16px 10px 16px; " +
-        "min-width: 200px; " +
-        "max-width: 240px; " +
-        "cursor: pointer; " +
-        "transition: border-color 0.15s, box-shadow 0.15s; " +
-        "display: flex; flex-direction: column; align-items: flex-start;";
-
-    private const string ConnectorLineStyle =
-        "height: 1px; width: 28px; flex-shrink: 0; " +
-        "background: linear-gradient(to right, rgba(255,255,255,0.18), rgba(255,255,255,0.05));";
-
-    private const string SmallChipStyle =
-        "display: inline-block; " +
-        "font-size: 0.66rem; " +
-        "padding: 1px 6px; " +
-        "border-radius: 10px; " +
-        "border: 1px solid var(--app-glass-inner-border); " +
-        "color: var(--mud-palette-text-secondary); " +
-        "line-height: 1.6;";
-
-    private const string DrawerPanelStyle =
-        "position: fixed; top: 0; right: 0; bottom: 0; " +
-        "width: 340px; " +
-        "background: var(--app-glass-bg); " +
-        "border-left: 1px solid var(--app-glass-border); " +
-        "backdrop-filter: blur(16px); " +
-        "-webkit-backdrop-filter: blur(16px); " +
-        "z-index: 1201; " +
-        "padding: 24px 20px; " +
-        "overflow-y: auto; " +
-        "display: flex; flex-direction: column;";
-
-    private const string AddProviderRowStyle =
-        "display: flex; align-items: center; gap: 12px; " +
-        "padding: 10px 8px; " +
-        "border-radius: 8px; " +
-        "cursor: pointer; " +
-        "transition: background 0.12s; " +
-        "margin-bottom: 4px;";
 }
