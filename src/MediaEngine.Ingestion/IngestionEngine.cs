@@ -107,6 +107,10 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     // Ingestion batch repository — tracks batches of files through the pipeline.
     private readonly IIngestionBatchRepository _batchRepo;
 
+    // AI-powered filename cleaning and media type classification (Sprint 2).
+    private readonly ISmartLabeler _smartLabeler;
+    private readonly IMediaTypeAdvisor _typeAdvisor;
+
     // Centralized concurrency guard (Principle 5: formalized lock hierarchy).
     // Replaces inline ConcurrentDictionary<string, SemaphoreSlim> instances.
     // Lock order: folder → hash (see ConcurrencyGuard doc for full hierarchy).
@@ -145,7 +149,9 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         IIngestionHintCache        hintCache,
         IOrganizationGate          gate,
         IIngestionLogRepository    ingestionLog,
-        IIngestionBatchRepository  batchRepo)
+        IIngestionBatchRepository  batchRepo,
+        ISmartLabeler             smartLabeler,
+        IMediaTypeAdvisor         typeAdvisor)
     {
         _watcher        = watcher;
         _debounce       = debounce;
@@ -172,6 +178,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         _gate           = gate;
         _ingestionLog   = ingestionLog;
         _batchRepo      = batchRepo;
+        _smartLabeler   = smartLabeler;
+        _typeAdvisor    = typeAdvisor;
     }
 
     // =========================================================================
@@ -562,6 +570,84 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             IngestionRunId = ingestionRunId,
         }, ct).ConfigureAwait(false);
 
+        // Step 6b: AI Smart Labeling — enhance title claim using LLM.
+        // The SmartLabeler understands context that regex cannot:
+        // "2001 A Space Odyssey" keeps the year, "Frank Herbert - Dune" extracts the author.
+        {
+            var rawTitle = result.Claims.FirstOrDefault(c =>
+                c.Key.Equals("title", StringComparison.OrdinalIgnoreCase));
+
+            if (rawTitle is not null)
+            {
+                try
+                {
+                    var cleaned = await _smartLabeler.CleanAsync(
+                        Path.GetFileNameWithoutExtension(candidate.Path), ct).ConfigureAwait(false);
+
+                    if (!string.IsNullOrWhiteSpace(cleaned.Title) && cleaned.Confidence > 0.5)
+                    {
+                        // Replace the title claim with the AI-cleaned version at higher confidence.
+                        var updatedClaims = result.Claims
+                            .Where(c => !c.Key.Equals("title", StringComparison.OrdinalIgnoreCase))
+                            .ToList();
+
+                        updatedClaims.Add(new Processors.Models.ExtractedClaim
+                        {
+                            Key = "title",
+                            Value = cleaned.Title,
+                            Confidence = Math.Max(rawTitle.Confidence, cleaned.Confidence),
+                        });
+
+                        // Add author if extracted and not already present.
+                        if (!string.IsNullOrWhiteSpace(cleaned.Author)
+                            && !result.Claims.Any(c => c.Key.Equals("author", StringComparison.OrdinalIgnoreCase)))
+                        {
+                            updatedClaims.Add(new Processors.Models.ExtractedClaim
+                            {
+                                Key = "author",
+                                Value = cleaned.Author,
+                                Confidence = cleaned.Confidence * 0.9,
+                            });
+                        }
+
+                        // Add year if extracted and not already present.
+                        if (cleaned.Year.HasValue
+                            && !result.Claims.Any(c => c.Key.Equals("year", StringComparison.OrdinalIgnoreCase)
+                                                    || c.Key.Equals("release_year", StringComparison.OrdinalIgnoreCase)))
+                        {
+                            updatedClaims.Add(new Processors.Models.ExtractedClaim
+                            {
+                                Key = "release_year",
+                                Value = cleaned.Year.Value.ToString(),
+                                Confidence = cleaned.Confidence * 0.85,
+                            });
+                        }
+
+                        result = new Processors.Models.ProcessorResult
+                        {
+                            FilePath           = result.FilePath,
+                            DetectedType       = result.DetectedType,
+                            Claims             = updatedClaims,
+                            CoverImage         = result.CoverImage,
+                            CoverImageMimeType = result.CoverImageMimeType,
+                            IsCorrupt          = result.IsCorrupt,
+                            CorruptReason      = result.CorruptReason,
+                            MediaTypeCandidates = result.MediaTypeCandidates,
+                        };
+
+                        _logger.LogInformation(
+                            "SmartLabeler enhanced title: \"{OldTitle}\" → \"{NewTitle}\" (confidence: {Conf:F2})",
+                            rawTitle.Value, cleaned.Title, cleaned.Confidence);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // SmartLabeler failure is non-fatal — processor claims stand.
+                    _logger.LogWarning(ex, "SmartLabeler failed for {Path} — using processor title", candidate.Path);
+                }
+            }
+        }
+
         // Step 7: quarantine corrupt files.
         if (result.IsCorrupt)
         {
@@ -759,6 +845,53 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                         "Library folder prior: processor top {ProcessorTop} not in folder types [{Types}] for {Path} — no override applied",
                         candidateList[0].Type, string.Join(", ", folderTypes), candidate.Path);
                 }
+            }
+        }
+
+        // Step 6a-AI: If processor heuristics produced candidates but confidence is low,
+        // ask the AI MediaTypeAdvisor for a classification.
+        if (candidateList.Count > 0 && candidateList[0].Confidence < _options.MediaTypeAutoAssignThreshold)
+        {
+            try
+            {
+                var titleClaim = result.Claims.FirstOrDefault(c =>
+                    c.Key.Equals("title", StringComparison.OrdinalIgnoreCase));
+                var genreClaim = result.Claims.FirstOrDefault(c =>
+                    c.Key.Equals("genre", StringComparison.OrdinalIgnoreCase));
+                var durationClaim = result.Claims.FirstOrDefault(c =>
+                    c.Key.Equals("duration_sec", StringComparison.OrdinalIgnoreCase));
+                var bitrateClaim = result.Claims.FirstOrDefault(c =>
+                    c.Key.Equals("audio_bitrate", StringComparison.OrdinalIgnoreCase));
+                var containerClaim = result.Claims.FirstOrDefault(c =>
+                    c.Key.Equals("container", StringComparison.OrdinalIgnoreCase));
+
+                double? duration = durationClaim is not null && double.TryParse(durationClaim.Value, out var d) ? d : null;
+                int? bitrate = bitrateClaim is not null && int.TryParse(bitrateClaim.Value, out var b) ? b : null;
+
+                var aiCandidate = await _typeAdvisor.ClassifyAsync(
+                    Path.GetFileName(candidate.Path),
+                    containerClaim?.Value,
+                    duration,
+                    bitrate,
+                    genreClaim?.Value,
+                    result.Claims.Any(c => c.Key.Equals("chapter_count", StringComparison.OrdinalIgnoreCase)),
+                    Path.GetDirectoryName(candidate.Path),
+                    ct).ConfigureAwait(false);
+
+                if (aiCandidate.Type != MediaType.Unknown && aiCandidate.Confidence > candidateList[0].Confidence)
+                {
+                    // AI classification is more confident — insert at the top.
+                    candidateList.Insert(0, aiCandidate);
+                    _logger.LogInformation(
+                        "MediaTypeAdvisor classified {Path} as {Type} ({Conf:F2}), overriding processor top {OldType} ({OldConf:F2})",
+                        candidate.Path, aiCandidate.Type, aiCandidate.Confidence,
+                        candidateList[1].Type, candidateList[1].Confidence);
+                }
+            }
+            catch (Exception ex)
+            {
+                // AI classification failure is non-fatal — processor candidates stand.
+                _logger.LogWarning(ex, "MediaTypeAdvisor failed for {Path} — using processor classification", candidate.Path);
             }
         }
 

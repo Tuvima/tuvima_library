@@ -240,3 +240,44 @@ internal sealed class StubConfigurationLoader : IConfigurationLoader
     public T? LoadAi<T>() where T : class => default;
     public void SaveAi<T>(T settings) where T : class { }
 }
+
+// ── SmartLabeler Stub ─────────────────────────────────────────────────────────
+
+/// <summary>
+/// No-op SmartLabeler for tests — returns the input unchanged so existing
+/// test expectations about processor-derived titles are unaffected.
+/// </summary>
+internal sealed class StubSmartLabeler : ISmartLabeler
+{
+    public Task<CleanedSearchQuery> CleanAsync(string rawFilename, CancellationToken ct = default)
+        => Task.FromResult(new CleanedSearchQuery
+        {
+            Title      = rawFilename,
+            Confidence = 0.0, // Below the 0.5 threshold — ingestion will ignore this result.
+        });
+}
+
+// ── MediaTypeAdvisor Stub ─────────────────────────────────────────────────────
+
+/// <summary>
+/// No-op MediaTypeAdvisor for tests — returns Unknown so the existing
+/// processor-based media type logic is unaffected.
+/// </summary>
+internal sealed class StubMediaTypeAdvisor : IMediaTypeAdvisor
+{
+    public Task<MediaTypeCandidate> ClassifyAsync(
+        string filename,
+        string? container,
+        double? durationSeconds,
+        int? bitrate,
+        string? genre,
+        bool hasChapters,
+        string? folderPath,
+        CancellationToken ct = default)
+        => Task.FromResult(new MediaTypeCandidate
+        {
+            Type       = MediaType.Unknown,
+            Confidence = 0.0,
+            Reason     = "Stub — no AI classification in tests",
+        });
+}

@@ -138,7 +138,9 @@ public sealed class ComprehensiveIngestionTests : IDisposable
             new MediaEngine.Ingestion.Services.IngestionHintCache(),
             new MediaEngine.Ingestion.OrganizationGate(),
             _ingestionLog,
-            _batchRepo);
+            _batchRepo,
+            new MediaEngine.Ingestion.Tests.Helpers.StubSmartLabeler(),
+            new MediaEngine.Ingestion.Tests.Helpers.StubMediaTypeAdvisor());
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
 

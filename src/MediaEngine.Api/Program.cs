@@ -550,6 +550,12 @@ builder.Services.AddSingleton<IModelDownloadManager, MediaEngine.AI.Infrastructu
 builder.Services.AddSingleton<IModelLifecycleManager, MediaEngine.AI.Infrastructure.ModelLifecycleManager>();
 builder.Services.AddHostedService<MediaEngine.Api.Services.ModelAutoDownloadService>();
 
+// AI inference and feature services.
+builder.Services.AddSingleton<MediaEngine.AI.Llama.LlamaInferenceService>();
+builder.Services.AddSingleton<ISmartLabeler, MediaEngine.AI.Features.SmartLabeler>();
+builder.Services.AddSingleton<IMediaTypeAdvisor, MediaEngine.AI.Features.MediaTypeAdvisor>();
+builder.Services.AddSingleton<IBatchManifestBuilder, MediaEngine.AI.Features.BatchManifestBuilder>();
+
 // ── Health Checks ────────────────────────────────────────────────────────────
 // Standard /health endpoint for Docker HEALTHCHECK, monitoring tools, etc.
 builder.Services.AddHealthChecks()
