@@ -79,12 +79,41 @@
     /* ── Drawer ── */
     .drawer-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 1200; }
     .drawer-panel {
-        position: fixed; top: 0; right: 0; bottom: 0; width: 340px;
-        background: var(--app-glass-bg, rgba(10,14,30,0.92));
+        position: fixed; top: 0; right: 0; bottom: 0; width: 380px;
+        background: var(--app-glass-bg, rgba(10,14,30,0.95));
         border-left: 1px solid var(--app-glass-border, rgba(255,255,255,0.06));
         backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-        z-index: 1201; padding: 24px 20px; overflow-y: auto;
+        z-index: 1201; padding: 0; overflow-y: auto;
         display: flex; flex-direction: column;
+    }
+    .drawer-header {
+        padding: 24px 24px 16px; border-bottom: 1px solid var(--app-glass-inner-border, rgba(255,255,255,0.08));
+    }
+    .drawer-icon-circle {
+        width: 44px; height: 44px; border-radius: 10px;
+        background: var(--mud-palette-primary); display: flex;
+        align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .drawer-stats-row {
+        display: flex; gap: 16px; margin-top: 14px; padding: 10px 12px;
+        background: var(--app-glass-inner-bg, rgba(255,255,255,0.03));
+        border: 1px solid var(--app-glass-inner-border, rgba(255,255,255,0.06));
+        border-radius: 8px;
+    }
+    .drawer-stat {
+        display: flex; align-items: center; gap: 6px;
+        font-size: 0.78rem; color: var(--mud-palette-text-secondary);
+    }
+    .drawer-section {
+        padding: 20px 24px 0;
+    }
+    .drawer-section-label {
+        display: block; font-size: 0.68rem; font-weight: 700;
+        letter-spacing: 0.1em; text-transform: uppercase;
+        color: var(--mud-palette-text-secondary); margin-bottom: 14px;
+    }
+    .drawer-field-row {
+        display: flex; align-items: center; margin-bottom: 4px;
     }
 
     /* ── Save bar ── */
@@ -271,95 +300,164 @@
     @* Panel *@
     <div class="drawer-panel">
 
-        @* Header *@
-        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-1">
-            <MudIcon Icon="@GetProviderIcon(_drawerAssignment?.Name ?? "")"
-                     Size="Size.Medium"
-                     Style="color: var(--mud-palette-primary);" />
-            <MudText Typo="Typo.h6" Style="flex: 1; font-weight: 700;">
-                @(_drawerAssignment?.Name ?? "")
-            </MudText>
-            <MudIconButton Icon="@Icons.Material.Filled.Close"
-                           Size="Size.Small"
-                           OnClick="CloseDrawer" />
-        </MudStack>
-
         @{
             var drawerInfo = GetProviderInfo(_drawerAssignment?.Name ?? "");
+            var positionLabel = _drawerIndex == 0 ? "Primary" : _drawerIndex == 1 ? "Secondary" : "Fallback";
         }
-        @if (drawerInfo is not null && _drawerAssignment is not null)
-        {
-            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-4" Style="display: block;">
-                @drawerInfo.LatencyMs ms avg · @((drawerInfo.SuccessRate * 100).ToString("F0"))% success rate
-            </MudText>
 
-            <MudDivider Class="mb-4" />
+        @* ── Header section ── *@
+        <div class="drawer-header">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 4px;">
+                <div class="drawer-icon-circle">
+                    <MudIcon Icon="@GetProviderIcon(_drawerAssignment?.Name ?? "")"
+                             Size="Size.Medium" Style="color: white;" />
+                </div>
+                <div style="flex: 1; min-width: 0;">
+                    <MudText Typo="Typo.h6" Style="font-weight: 700; line-height: 1.2; margin: 0;">
+                        @(_drawerAssignment?.Name ?? "")
+                    </MudText>
+                    <MudText Typo="Typo.caption"
+                             Style="color: var(--mud-palette-text-secondary); display: block; margin-top: 2px;">
+                        @(drawerInfo?.Type ?? "") provider · @positionLabel
+                    </MudText>
+                </div>
+                <MudIconButton Icon="@Icons.Material.Filled.Close"
+                               Size="Size.Small"
+                               OnClick="CloseDrawer"
+                               Style="align-self: flex-start;" />
+            </div>
 
-            @* Enabled toggle *@
-            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
-                <MudText Typo="Typo.body2">Enabled</MudText>
-                <MudSwitch T="bool"
-                           Value="@_drawerAssignment.Enabled"
-                           ValueChanged="@(v => _drawerAssignment.Enabled = v)"
-                           Color="Color.Success" />
-            </MudStack>
-
-            @* API Key (only if needed) *@
-            @if (drawerInfo.RequiresKey)
+            @* Stats row *@
+            @if (drawerInfo is not null)
             {
-                <MudTextField T="string"
-                              @bind-Value="_drawerAssignment.ApiKey"
-                              Label="API Key"
-                              InputType="InputType.Password"
-                              Variant="Variant.Outlined"
-                              Margin="Margin.Dense"
-                              FullWidth="true"
-                              Adornment="Adornment.End"
-                              AdornmentIcon="@Icons.Material.Outlined.VpnKey"
-                              AdornmentColor="Color.Default"
-                              Class="mb-3" />
+                <div class="drawer-stats-row">
+                    <div class="drawer-stat">
+                        <MudIcon Icon="@Icons.Material.Outlined.Speed" Size="Size.Small"
+                                 Style="color: var(--mud-palette-text-secondary);" />
+                        <span>@drawerInfo.LatencyMs ms</span>
+                    </div>
+                    <div class="drawer-stat">
+                        <MudIcon Icon="@Icons.Material.Outlined.CheckCircleOutline" Size="Size.Small"
+                                 Style="color: #4caf50;" />
+                        <span>@((drawerInfo.SuccessRate * 100).ToString("F0"))%</span>
+                    </div>
+                    <div class="drawer-stat">
+                        <MudIcon Icon="@Icons.Material.Outlined.VpnKey" Size="Size.Small"
+                                 Style="color: var(--mud-palette-text-secondary);" />
+                        <span>@(drawerInfo.RequiresKey ? "Key required" : "No key")</span>
+                    </div>
+                </div>
             }
+        </div>
 
-            @* Timeout *@
-            <MudNumericField T="int"
-                             @bind-Value="_drawerAssignment.TimeoutMs"
-                             Label="Timeout (ms)"
-                             Variant="Variant.Outlined"
-                             Margin="Margin.Dense"
-                             FullWidth="true"
-                             Min="500"
-                             Max="60000"
-                             Class="mb-3" />
+        @if (_drawerAssignment is not null)
+        {
+            @* ── Status section ── *@
+            <div class="drawer-section">
+                <span class="drawer-section-label">STATUS</span>
+                <div class="drawer-field-row">
+                    <MudText Typo="Typo.body2" Style="flex: 1;">Enabled</MudText>
+                    <MudSwitch T="bool"
+                               Value="@_drawerAssignment.Enabled"
+                               ValueChanged="@(v => _drawerAssignment.Enabled = v)"
+                               Color="Color.Success" />
+                </div>
+                <div class="drawer-field-row" style="gap: 8px;">
+                    <MudIcon Icon="@Icons.Material.Outlined.FiberManualRecord"
+                             Size="Size.Small"
+                             Style="@($"color: {(_drawerAssignment.Enabled ? "#4caf50" : "#f44336")}; flex-shrink: 0;")" />
+                    <MudText Typo="Typo.caption" Style="color: var(--mud-palette-text-secondary);">
+                        @(_drawerAssignment.Enabled ? "Provider is active and will be queried" : "Provider is disabled and will be skipped")
+                    </MudText>
+                </div>
+            </div>
 
-            @* Retries *@
-            <MudNumericField T="int"
-                             @bind-Value="_drawerAssignment.Retries"
-                             Label="Retries"
-                             Variant="Variant.Outlined"
-                             Margin="Margin.Dense"
-                             FullWidth="true"
-                             Min="0"
-                             Max="5"
-                             Class="mb-4" />
+            @* ── Connection section ── *@
+            <div class="drawer-section">
+                <span class="drawer-section-label">CONNECTION</span>
 
-            @* Test Connection *@
-            <MudButton Variant="Variant.Text"
-                       Color="Color.Info"
-                       StartIcon="@Icons.Material.Outlined.NetworkCheck"
-                       FullWidth="true"
-                       OnClick="@TestConnectionAsync"
-                       Class="mb-2">
-                Test Connection
-            </MudButton>
+                @if (drawerInfo?.RequiresKey == true)
+                {
+                    <MudTextField T="string"
+                                  @bind-Value="_drawerAssignment.ApiKey"
+                                  Label="API Key"
+                                  InputType="InputType.Password"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense"
+                                  FullWidth="true"
+                                  Adornment="Adornment.End"
+                                  AdornmentIcon="@Icons.Material.Outlined.VpnKey"
+                                  AdornmentColor="Color.Default"
+                                  Style="margin-bottom: 16px;" />
+                }
 
-            @* Remove from chain *@
-            <MudButton Variant="Variant.Text"
-                       Color="Color.Error"
-                       StartIcon="@Icons.Material.Outlined.RemoveCircleOutline"
-                       FullWidth="true"
-                       OnClick="RemoveFromChain">
-                Remove from Priority
-            </MudButton>
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Info"
+                           StartIcon="@Icons.Material.Outlined.NetworkCheck"
+                           FullWidth="true"
+                           Size="Size.Small"
+                           OnClick="@TestConnectionAsync"
+                           Style="border-radius: 8px;">
+                    Test Connection
+                </MudButton>
+                <MudText Typo="Typo.caption"
+                         Style="color: var(--mud-palette-text-secondary); display: block; margin-top: 8px;">
+                    Last tested: —
+                </MudText>
+            </div>
+
+            @* ── Behaviour section ── *@
+            <div class="drawer-section">
+                <span class="drawer-section-label">BEHAVIOUR</span>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <MudNumericField T="int"
+                                     @bind-Value="_drawerAssignment.TimeoutMs"
+                                     Label="Timeout (ms)"
+                                     Variant="Variant.Outlined"
+                                     Margin="Margin.Dense"
+                                     FullWidth="true"
+                                     Min="500"
+                                     Max="60000" />
+                    <MudNumericField T="int"
+                                     @bind-Value="_drawerAssignment.Retries"
+                                     Label="Retries"
+                                     Variant="Variant.Outlined"
+                                     Margin="Margin.Dense"
+                                     FullWidth="true"
+                                     Min="0"
+                                     Max="5" />
+                </div>
+                <MudText Typo="Typo.caption"
+                         Style="color: var(--mud-palette-text-secondary); display: block; margin-top: 8px;">
+                    Failed requests will retry up to @(_drawerAssignment.Retries) time@(_drawerAssignment.Retries == 1 ? "" : "s")
+                    before moving to the next provider.
+                </MudText>
+            </div>
+
+            @* ── Media types section ── *@
+            <div class="drawer-section">
+                <span class="drawer-section-label">SUPPORTED MEDIA</span>
+                <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                    @foreach (var mt in GetProviderMediaTypes(_drawerAssignment.Name))
+                    {
+                        <span class="provider-chip" style="font-size: 0.72rem; padding: 3px 10px;">@mt</span>
+                    }
+                </div>
+            </div>
+
+            @* ── Danger zone ── *@
+            <div style="margin-top: auto; padding-top: 20px; border-top: 1px solid rgba(244,67,54,0.2);">
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Error"
+                           StartIcon="@Icons.Material.Outlined.RemoveCircleOutline"
+                           FullWidth="true"
+                           Size="Size.Small"
+                           OnClick="RemoveFromChain"
+                           Style="border-radius: 8px;">
+                    Remove from Priority Chain
+                </MudButton>
+            </div>
         }
 
     </div>
