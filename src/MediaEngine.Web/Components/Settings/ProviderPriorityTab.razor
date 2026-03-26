@@ -1,10 +1,10 @@
 @namespace MediaEngine.Web.Components.Settings
 
-@* Providers — unified screen combining priority slot assignment and connection settings.
-   Three numbered slots (Primary/Secondary/Tertiary) are shown per media type.
-   Below the slots, every provider is shown as an expandable card where connection
-   settings (API key, endpoint, timeout, cache TTL) can be configured.
-   State is local with hardcoded defaults; no Engine API calls in this version. *@
+@* Providers — priority chain design.
+   Each media type tab shows assigned providers as horizontal connected cards.
+   Clicking a card opens a slide-in config overlay from the right.
+   "+ Add" opens a dialog to pick from the available provider catalogue.
+   Reorder with chevron buttons; remove via the config overlay. *@
 
 <MudPaper Elevation="0" Style="@GlassStyle">
 
@@ -14,7 +14,8 @@
         <MudText Typo="Typo.h6">Providers</MudText>
     </MudStack>
     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-5">
-        Manage provider connections and choose which ones the Engine tries first for each media type.
+        Build a priority chain for each media type. The Engine tries providers left to right,
+        stopping when one returns a result.
     </MudText>
 
     @* ── Media type tabs ─────────────────────────────────────────────────── *@
@@ -27,246 +28,117 @@
         {
             <MudTabPanel Text="@mediaType" Icon="@GetMediaTypeIcon(mediaType)">
 
-                <div class="pt-4">
-                <MudGrid Spacing="3">
+                <div class="pt-5">
 
-                    @* ── Priority slots ──────────────────────────────────── *@
-                    @for (int i = 0; i < 3; i++)
-                    {
-                        var slotIndex = i;
-                        var label = slotIndex switch { 0 => "Primary", 1 => "Secondary", _ => "Tertiary" };
-                        var description = slotIndex switch
-                        {
-                            0 => "Tried first. Best result wins.",
-                            1 => "Tried when Primary returns nothing.",
-                            _ => "Last resort before leaving the field empty.",
-                        };
+                    @* ── Priority chain ──────────────────────────────────── *@
+                    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 0; margin-bottom: 24px;">
 
-                        <MudItem xs="12" sm="4">
-                            <div style="@SlotCardStyle">
-                                @* Slot number badge *@
-                                <MudStack Row="true" AlignItems="AlignItems.Center"
-                                          Spacing="1" Class="mb-2">
-                                    <div style="@SlotBadgeStyle">@(slotIndex + 1)</div>
-                                    <MudText Typo="Typo.subtitle2"
-                                             Style="font-weight: 600;">
-                                        @label
-                                    </MudText>
-                                </MudStack>
-
-                                <MudText Typo="Typo.caption" Color="Color.Secondary"
-                                         Class="mb-3" Style="display: block;">
-                                    @description
-                                </MudText>
-
-                                @* Provider selector *@
-                                <MudSelect T="string"
-                                           Value="@GetSlot(mediaType, slotIndex)"
-                                           ValueChanged="@(v => SetSlot(mediaType, slotIndex, v))"
-                                           Label="Provider"
-                                           Variant="Variant.Outlined"
-                                           Margin="Margin.Dense"
-                                           FullWidth="true"
-                                           Dense="true"
-                                           Clearable="true"
-                                           AnchorOrigin="Origin.BottomLeft">
-                                    <MudSelectItem T="string" Value='@("")'>
-                                        <MudText Color="Color.Secondary">— None —</MudText>
-                                    </MudSelectItem>
-                                    @foreach (var p in _allProviders)
-                                    {
-                                        <MudSelectItem T="string" Value="@p">
-                                            <MudStack Row="true" AlignItems="AlignItems.Center"
-                                                      Spacing="1">
-                                                <div style="@GetStatusDotStyle(p)"></div>
-                                                @p
-                                            </MudStack>
-                                        </MudSelectItem>
-                                    }
-                                </MudSelect>
-
-                                @* Status indicator for the currently assigned provider *@
-                                @{
-                                    var assigned = GetSlot(mediaType, slotIndex);
-                                }
-                                @if (!string.IsNullOrEmpty(assigned))
-                                {
-                                    <MudStack Row="true" AlignItems="AlignItems.Center"
-                                              Spacing="1" Class="mt-2">
-                                        <div style="@GetStatusDotStyle(assigned)"></div>
-                                        <MudText Typo="Typo.caption" Color="Color.Secondary">
-                                            @GetProviderMeta(assigned)
-                                        </MudText>
-                                    </MudStack>
-                                }
-                            </div>
-                        </MudItem>
-                    }
-
-                </MudGrid>
-
-                @* ── All Providers section ────────────────────────────── *@
-                <MudDivider Class="my-4" />
-
-                <MudText Typo="Typo.overline" Color="Color.Default" Class="mb-1"
-                         Style="letter-spacing: 0.08em; display: block;">
-                    ALL PROVIDERS
-                </MudText>
-                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3"
-                         Style="display: block;">
-                    All providers can be assigned to any slot. Expand a card to configure connection settings.
-                </MudText>
-
-                @foreach (var p in _allProviders)
-                {
-                    var providerName = p;
-                    var isAssigned   = IsAssignedInTab(mediaType, providerName);
-                    var isExpanded   = _expandedProviders.Contains(providerName);
-                    var config       = GetProviderConfig(providerName);
-                    var mediaLabels  = GetProviderMediaTypes(providerName);
-                    var needsKey     = ProvidersNeedingKey.Contains(providerName);
-
-                    <div style="@ProviderCardStyle">
-
-                        @* ── Collapsed header (always visible) ─────── *@
-                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-
-                            @* Status dot *@
-                            <div style="@GetStatusDotStyle(providerName)"></div>
-
-                            @* Name + type label *@
-                            <MudStack Spacing="0" Style="flex: 1; min-width: 0;">
-                                <MudText Typo="Typo.body2" Style="font-weight: 600; line-height: 1.2;">
-                                    @providerName
-                                </MudText>
-                                <MudText Typo="Typo.caption" Color="Color.Secondary">
-                                    @GetProviderMeta(providerName)
-                                </MudText>
-                            </MudStack>
-
-                            @* Media type chips *@
-                            <MudStack Row="true" Spacing="1" Style="flex-wrap: wrap; flex: 1;">
-                                @foreach (var mt in mediaLabels)
-                                {
-                                    <MudChip T="string"
-                                             Size="Size.Small"
-                                             Variant="Variant.Outlined"
-                                             Color="Color.Default"
-                                             Style="font-size: 0.68rem; height: 20px; padding: 0 6px;">
-                                        @mt
-                                    </MudChip>
-                                }
-                            </MudStack>
-
-                            @* Enabled toggle *@
-                            <MudSwitch T="bool"
-                                       Value="@config.Enabled"
-                                       ValueChanged="@(v => config.Enabled = v)"
-                                       Color="Color.Success"
-                                       Size="Size.Small" />
-
-                            @* Assignment checkmark *@
-                            @if (isAssigned)
-                            {
-                                <MudIcon Icon="@Icons.Material.Filled.CheckCircle"
-                                         Size="Size.Small"
-                                         Color="Color.Success"
-                                         Style="flex-shrink: 0;" />
-                            }
-                            else
-                            {
-                                @* Placeholder to keep layout stable *@
-                                <div style="width: 20px; flex-shrink: 0;"></div>
-                            }
-
-                            @* Expand/collapse chevron *@
-                            <MudIconButton Icon="@(isExpanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
-                                           Size="Size.Small"
-                                           OnClick="@(() => ToggleExpand(providerName))"
-                                           Style="flex-shrink: 0;" />
-
-                        </MudStack>
-
-                        @* ── Expanded connection settings ────────────── *@
-                        @if (isExpanded)
-                        {
-                            <div style="@ExpandedSectionStyle">
-
-                                <MudGrid Spacing="2">
-
-                                    @if (needsKey)
-                                    {
-                                        <MudItem xs="12" sm="6">
-                                            <MudTextField T="string"
-                                                          Value="@config.ApiKey"
-                                                          ValueChanged="@(v => config.ApiKey = v)"
-                                                          Label="API Key"
-                                                          InputType="InputType.Password"
-                                                          Variant="Variant.Outlined"
-                                                          Margin="Margin.Dense"
-                                                          FullWidth="true"
-                                                          Adornment="Adornment.End"
-                                                          AdornmentIcon="@Icons.Material.Outlined.VpnKey"
-                                                          AdornmentColor="Color.Default" />
-                                        </MudItem>
-                                    }
-
-                                    <MudItem xs="12" sm="@(needsKey ? 6 : 12)">
-                                        <MudTextField T="string"
-                                                      Value="@config.Endpoint"
-                                                      ValueChanged="@(v => config.Endpoint = v)"
-                                                      Label="Endpoint URL"
-                                                      Variant="Variant.Outlined"
-                                                      Margin="Margin.Dense"
-                                                      FullWidth="true"
-                                                      Adornment="Adornment.End"
-                                                      AdornmentIcon="@Icons.Material.Outlined.Link"
-                                                      AdornmentColor="Color.Default" />
-                                    </MudItem>
-
-                                    <MudItem xs="12" sm="6">
-                                        <MudNumericField T="int"
-                                                         Value="@config.TimeoutSeconds"
-                                                         ValueChanged="@(v => config.TimeoutSeconds = v)"
-                                                         Label="Request Timeout (seconds)"
-                                                         Variant="Variant.Outlined"
-                                                         Margin="Margin.Dense"
-                                                         FullWidth="true"
-                                                         Min="5" Max="120" />
-                                    </MudItem>
-
-                                    <MudItem xs="12" sm="6">
-                                        <MudNumericField T="int"
-                                                         Value="@config.CacheTtlHours"
-                                                         ValueChanged="@(v => config.CacheTtlHours = v)"
-                                                         Label="Cache TTL (hours)"
-                                                         Variant="Variant.Outlined"
-                                                         Margin="Margin.Dense"
-                                                         FullWidth="true"
-                                                         Min="1" Max="720" />
-                                    </MudItem>
-
-                                </MudGrid>
-
-                                <MudStack Row="true" AlignItems="AlignItems.Center"
-                                          Justify="Justify.SpaceBetween" Class="mt-3">
-                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
-                                        Last successful call: —
-                                    </MudText>
-                                    <MudButton Variant="Variant.Outlined"
-                                               Size="Size.Small"
-                                               Color="Color.Primary"
-                                               StartIcon="@Icons.Material.Outlined.NetworkCheck"
-                                               OnClick="@(() => TestConnectionAsync(providerName))">
-                                        Test Connection
-                                    </MudButton>
-                                </MudStack>
-
-                            </div>
+                        @{
+                            var chain = GetChain(mediaType);
                         }
 
+                        @for (int i = 0; i < chain.Count; i++)
+                        {
+                            var idx        = i;
+                            var assignment = chain[idx];
+                            var info       = GetProviderInfo(assignment.Name);
+                            var posLabel   = idx == 0 ? "Primary" : idx == 1 ? "Secondary" : "Fallback";
+                            var enabledDot = assignment.Enabled ? "#4caf50" : "#f44336";
+
+                            @* ── Provider card ── *@
+                            <div style="@ProviderChainCardStyle"
+                                 @onclick="@(() => OpenDrawer(mediaType, idx))"
+                                 role="button"
+                                 tabindex="0">
+
+                                @* Status dot — top right *@
+                                <div style="position: absolute; top: 10px; right: 10px;
+                                            width: 9px; height: 9px; border-radius: 50%;
+                                            background: @enabledDot; flex-shrink: 0;" />
+
+                                @* Provider icon *@
+                                <MudIcon Icon="@GetProviderIcon(assignment.Name)"
+                                         Size="Size.Medium"
+                                         Style="color: var(--mud-palette-primary); margin-bottom: 6px;" />
+
+                                @* Name + position *@
+                                <MudText Typo="Typo.body2"
+                                         Style="font-weight: 700; line-height: 1.2; margin-bottom: 2px;">
+                                    @assignment.Name
+                                </MudText>
+                                <MudText Typo="Typo.caption"
+                                         Style="color: var(--mud-palette-text-secondary); margin-bottom: 6px; display: block;">
+                                    @posLabel
+                                </MudText>
+
+                                @* Media type chips *@
+                                <div style="display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px;">
+                                    @foreach (var mt in GetProviderMediaTypes(assignment.Name))
+                                    {
+                                        <span style="@SmallChipStyle">@mt</span>
+                                    }
+                                </div>
+
+                                @* Stats *@
+                                @if (info is not null)
+                                {
+                                    <MudText Typo="Typo.caption"
+                                             Style="color: var(--mud-palette-text-secondary); display: block; line-height: 1.6;">
+                                        @info.LatencyMs ms · @((info.SuccessRate * 100).ToString("F0"))% success
+                                    </MudText>
+                                }
+
+                                @* Reorder buttons *@
+                                <div style="display: flex; justify-content: center; gap: 2px; margin-top: 8px;"
+                                     @onclick:stopPropagation="true">
+                                    <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft"
+                                                   Size="Size.Small"
+                                                   Disabled="@(idx == 0)"
+                                                   OnClick="@(() => MoveLeft(mediaType, idx))"
+                                                   Style="padding: 2px;" />
+                                    <MudIconButton Icon="@Icons.Material.Filled.ChevronRight"
+                                                   Size="Size.Small"
+                                                   Disabled="@(idx == chain.Count - 1)"
+                                                   OnClick="@(() => MoveRight(mediaType, idx))"
+                                                   Style="padding: 2px;" />
+                                </div>
+
+                            </div>
+
+                            @* ── Connector line between cards ── *@
+                            @if (idx < chain.Count - 1)
+                            {
+                                <div style="@ConnectorLineStyle" />
+                            }
+                        }
+
+                        @* ── + Add button ── *@
+                        @if (chain.Count > 0)
+                        {
+                            <div style="@ConnectorLineStyle" />
+                        }
+
+                        <MudButton Variant="Variant.Outlined"
+                                   Color="Color.Default"
+                                   StartIcon="@Icons.Material.Filled.Add"
+                                   Size="Size.Small"
+                                   Style="min-width: 100px; height: 40px; border-radius: 8px;
+                                          border: 1px dashed var(--app-glass-inner-border);
+                                          color: var(--mud-palette-text-secondary);"
+                                   OnClick="@(() => OpenAddDialog(mediaType))">
+                            Add
+                        </MudButton>
+
                     </div>
-                }
+
+                    @* ── Empty state ── *@
+                    @if (chain.Count == 0)
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-4"
+                                 Style="display: block;">
+                            No providers assigned. Click Add to build a priority chain.
+                        </MudText>
+                    }
 
                 </div>
 
@@ -305,47 +177,229 @@
 
 </MudPaper>
 
+@* ════════════════════════════════════════════════════════════════════════════
+   Config Drawer — slide-in overlay from the right
+   ════════════════════════════════════════════════════════════════════════════ *@
+
+@if (_drawerOpen)
+{
+    @* Backdrop *@
+    <div style="position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 1200;"
+         @onclick="CloseDrawer" />
+
+    @* Panel *@
+    <div style="@DrawerPanelStyle">
+
+        @* Header *@
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-1">
+            <MudIcon Icon="@GetProviderIcon(_drawerAssignment?.Name ?? "")"
+                     Size="Size.Medium"
+                     Style="color: var(--mud-palette-primary);" />
+            <MudText Typo="Typo.h6" Style="flex: 1; font-weight: 700;">
+                @(_drawerAssignment?.Name ?? "")
+            </MudText>
+            <MudIconButton Icon="@Icons.Material.Filled.Close"
+                           Size="Size.Small"
+                           OnClick="CloseDrawer" />
+        </MudStack>
+
+        @{
+            var drawerInfo = GetProviderInfo(_drawerAssignment?.Name ?? "");
+        }
+        @if (drawerInfo is not null && _drawerAssignment is not null)
+        {
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-4" Style="display: block;">
+                @drawerInfo.LatencyMs ms avg · @((drawerInfo.SuccessRate * 100).ToString("F0"))% success rate
+            </MudText>
+
+            <MudDivider Class="mb-4" />
+
+            @* Enabled toggle *@
+            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
+                <MudText Typo="Typo.body2">Enabled</MudText>
+                <MudSwitch T="bool"
+                           Value="@_drawerAssignment.Enabled"
+                           ValueChanged="@(v => _drawerAssignment.Enabled = v)"
+                           Color="Color.Success" />
+            </MudStack>
+
+            @* API Key (only if needed) *@
+            @if (drawerInfo.RequiresKey)
+            {
+                <MudTextField T="string"
+                              @bind-Value="_drawerAssignment.ApiKey"
+                              Label="API Key"
+                              InputType="InputType.Password"
+                              Variant="Variant.Outlined"
+                              Margin="Margin.Dense"
+                              FullWidth="true"
+                              Adornment="Adornment.End"
+                              AdornmentIcon="@Icons.Material.Outlined.VpnKey"
+                              AdornmentColor="Color.Default"
+                              Class="mb-3" />
+            }
+
+            @* Timeout *@
+            <MudNumericField T="int"
+                             @bind-Value="_drawerAssignment.TimeoutMs"
+                             Label="Timeout (ms)"
+                             Variant="Variant.Outlined"
+                             Margin="Margin.Dense"
+                             FullWidth="true"
+                             Min="500"
+                             Max="60000"
+                             Class="mb-3" />
+
+            @* Retries *@
+            <MudNumericField T="int"
+                             @bind-Value="_drawerAssignment.Retries"
+                             Label="Retries"
+                             Variant="Variant.Outlined"
+                             Margin="Margin.Dense"
+                             FullWidth="true"
+                             Min="0"
+                             Max="5"
+                             Class="mb-4" />
+
+            @* Test Connection *@
+            <MudButton Variant="Variant.Text"
+                       Color="Color.Info"
+                       StartIcon="@Icons.Material.Outlined.NetworkCheck"
+                       FullWidth="true"
+                       OnClick="@TestConnectionAsync"
+                       Class="mb-2">
+                Test Connection
+            </MudButton>
+
+            @* Remove from chain *@
+            <MudButton Variant="Variant.Text"
+                       Color="Color.Error"
+                       StartIcon="@Icons.Material.Outlined.RemoveCircleOutline"
+                       FullWidth="true"
+                       OnClick="RemoveFromChain">
+                Remove from Priority
+            </MudButton>
+        }
+
+    </div>
+}
+
+@* ════════════════════════════════════════════════════════════════════════════
+   Add Provider Dialog
+   ════════════════════════════════════════════════════════════════════════════ *@
+
+<MudDialog @bind-Visible="_addDialogOpen"
+           Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true })">
+    <TitleContent>
+        <MudText Typo="Typo.h6">Add Provider — @_addDialogMediaType</MudText>
+    </TitleContent>
+    <DialogContent>
+
+        <MudTextField T="string"
+                      @bind-Value="_addDialogSearch"
+                      Placeholder="Search providers…"
+                      Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Outlined.Search"
+                      Variant="Variant.Outlined"
+                      Margin="Margin.Dense"
+                      FullWidth="true"
+                      Class="mb-3" />
+
+        @{
+            var available = GetAvailableProviders(_addDialogMediaType);
+            var filtered  = string.IsNullOrWhiteSpace(_addDialogSearch)
+                ? available
+                : available.Where(p => p.Name.Contains(_addDialogSearch, StringComparison.OrdinalIgnoreCase)).ToList();
+        }
+
+        @if (!filtered.Any())
+        {
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-2">
+                No providers available for this media type.
+            </MudText>
+        }
+        else
+        {
+            @foreach (var p in filtered)
+            {
+                var pCapture = p;
+                <div style="@AddProviderRowStyle"
+                     @onclick="@(() => AddProviderToChain(pCapture.Name))"
+                     role="button"
+                     tabindex="0">
+
+                    <MudIcon Icon="@GetProviderIcon(pCapture.Name)"
+                             Size="Size.Small"
+                             Style="color: var(--mud-palette-primary); flex-shrink: 0;" />
+
+                    <MudStack Spacing="0" Style="flex: 1; min-width: 0;">
+                        <MudText Typo="Typo.body2" Style="font-weight: 600; line-height: 1.2;">
+                            @pCapture.Name
+                        </MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                            @pCapture.Type · @(pCapture.RequiresKey ? "Requires key" : "Zero-key")
+                        </MudText>
+                    </MudStack>
+
+                    <MudText Typo="Typo.caption" Color="Color.Secondary" Style="flex-shrink: 0;">
+                        @((pCapture.SuccessRate * 100).ToString("F0"))%
+                    </MudText>
+
+                </div>
+            }
+        }
+
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => _addDialogOpen = false)">Cancel</MudButton>
+    </DialogActions>
+</MudDialog>
+
 @code {
-
-    // ── Default slot assignments ─────────────────────────────────────────────────
-
-    private static readonly Dictionary<string, string[]> DefaultSlots = new()
-    {
-        ["Books"]      = ["Apple API", "Google Books", "Open Library"],
-        ["Audiobooks"] = ["Apple API", "Google Books", ""],
-        ["Movies"]     = ["TMDB", "", ""],
-        ["TV"]         = ["TMDB", "", ""],
-        ["Music"]      = ["MusicBrainz", "", ""],
-        ["Comics"]     = ["Comic Vine", "", ""],
-        ["Podcasts"]   = ["Apple Podcasts", "Podcast Index", ""],
-    };
 
     // ── Provider catalogue ────────────────────────────────────────────────────────
 
-    private static readonly string[] _allProviders =
+    private sealed record ProviderInfo(
+        string Name,
+        string Type,
+        bool   RequiresKey,
+        string[] Supports,
+        int    LatencyMs,
+        double SuccessRate);
+
+    private static readonly ProviderInfo[] AllProviderCatalogue =
     [
-        "Apple API",
-        "Google Books",
-        "Open Library",
-        "TMDB",
-        "MusicBrainz",
-        "Comic Vine",
-        "Apple Podcasts",
-        "Podcast Index",
-        "Wikidata",
+        new("Apple API",      "Retail", false, ["Books", "Audiobooks"],                          120, 0.94),
+        new("Google Books",   "Retail", true,  ["Books", "Audiobooks"],                          180, 0.91),
+        new("Open Library",   "Open",   false, ["Books"],                                        240, 0.87),
+        new("TMDB",           "Retail", true,  ["Movies", "TV"],                                 110, 0.96),
+        new("MusicBrainz",    "Open",   false, ["Music"],                                        210, 0.89),
+        new("Comic Vine",     "Retail", true,  ["Comics"],                                       160, 0.92),
+        new("Apple Podcasts", "Retail", false, ["Podcasts"],                                     130, 0.93),
+        new("Podcast Index",  "Open",   false, ["Podcasts"],                                     200, 0.88),
+        new("Wikidata",       "Open",   false, ["Books","Movies","TV","Music","Comics","Audiobooks","Podcasts"], 300, 0.85),
     ];
 
-    private static readonly Dictionary<string, string> ProviderMeta = new()
+    // ── Per-media-type provider assignment ────────────────────────────────────────
+
+    private sealed class ProviderAssignment
     {
-        ["Apple API"]      = "Zero-key · Retail",
-        ["Google Books"]   = "API key · Retail",
-        ["Open Library"]   = "Zero-key · Retail",
-        ["TMDB"]           = "Free key · Retail",
-        ["MusicBrainz"]    = "Zero-key · Retail",
-        ["Comic Vine"]     = "Free key · Retail",
-        ["Apple Podcasts"] = "Zero-key · Retail",
-        ["Podcast Index"]  = "Free key · Retail",
-        ["Wikidata"]       = "Zero-key · Universe",
+        public string Name      { get; set; } = "";
+        public int    TimeoutMs { get; set; } = 3000;
+        public string ApiKey    { get; set; } = "";
+        public bool   Enabled   { get; set; } = true;
+        public int    Retries   { get; set; } = 1;
+    }
+
+    private static readonly Dictionary<string, List<ProviderAssignment>> DefaultAssignments = new()
+    {
+        ["Books"]      = [new() { Name = "Apple API" }, new() { Name = "Google Books" }],
+        ["Audiobooks"] = [new() { Name = "Apple API" }],
+        ["Movies"]     = [new() { Name = "TMDB" }],
+        ["TV"]         = [new() { Name = "TMDB" }],
+        ["Music"]      = [new() { Name = "MusicBrainz" }],
+        ["Comics"]     = [new() { Name = "Comic Vine" }],
+        ["Podcasts"]   = [new() { Name = "Apple Podcasts" }, new() { Name = "Podcast Index" }],
     };
 
     private static readonly Dictionary<string, string[]> ProviderMediaTypes = new()
@@ -361,136 +415,126 @@
         ["Wikidata"]       = ["All"],
     };
 
-    private static readonly HashSet<string> ProvidersNeedingKey = new()
-    {
-        "Google Books", "TMDB", "Comic Vine", "Podcast Index"
-    };
-
-    // ── Default endpoints ────────────────────────────────────────────────────────
-
-    private static readonly Dictionary<string, string> DefaultEndpoints = new()
-    {
-        ["Apple API"]      = "https://itunes.apple.com/search",
-        ["Google Books"]   = "https://www.googleapis.com/books/v1/volumes",
-        ["Open Library"]   = "https://openlibrary.org/search.json",
-        ["TMDB"]           = "https://api.themoviedb.org/3",
-        ["MusicBrainz"]    = "https://musicbrainz.org/ws/2",
-        ["Comic Vine"]     = "https://comicvine.gamespot.com/api",
-        ["Apple Podcasts"] = "https://itunes.apple.com/search",
-        ["Podcast Index"]  = "https://api.podcastindex.org/api/1.0",
-        ["Wikidata"]       = "https://www.wikidata.org/w/api.php",
-    };
-
     // ── State ────────────────────────────────────────────────────────────────────
 
     private readonly string[] _mediaTypes =
         ["Books", "Audiobooks", "Movies", "TV", "Music", "Comics", "Podcasts"];
 
-    // Working copy: [mediaType][slotIndex] → provider name (empty string = unset)
-    private Dictionary<string, string[]> _slots = new();
+    // Working copy: mediaType → ordered list of assignments
+    private Dictionary<string, List<ProviderAssignment>> _assignments = new();
 
-    // Per-provider expanded state
-    private readonly HashSet<string> _expandedProviders = new();
+    // Drawer state
+    private bool               _drawerOpen        = false;
+    private string             _drawerMediaType   = "";
+    private int                _drawerIndex       = -1;
+    private ProviderAssignment? _drawerAssignment  = null;
 
-    // Per-provider config state (local defaults, keyed by provider name)
-    private readonly Dictionary<string, ProviderConfig> _providerConfigs = new();
+    // Add dialog state
+    private bool   _addDialogOpen      = false;
+    private string _addDialogMediaType = "";
+    private string _addDialogSearch    = "";
 
-    private bool _saving;
-
-    // ── Provider config record ────────────────────────────────────────────────────
-
-    private sealed class ProviderConfig
-    {
-        public string ApiKey        { get; set; } = "";
-        public string Endpoint      { get; set; } = "";
-        public int    TimeoutSeconds { get; set; } = 30;
-        public int    CacheTtlHours  { get; set; } = 168;
-        public bool   Enabled        { get; set; } = true;
-    }
+    private bool _saving = false;
 
     // ── Lifecycle ────────────────────────────────────────────────────────────────
 
-    protected override void OnInitialized()
-    {
-        ResetToDefaults();
+    protected override void OnInitialized() => ResetToDefaults();
 
-        // Initialise per-provider configs with default endpoints.
-        foreach (var p in _allProviders)
+    // ── Chain helpers ────────────────────────────────────────────────────────────
+
+    private List<ProviderAssignment> GetChain(string mediaType)
+    {
+        if (!_assignments.TryGetValue(mediaType, out var list))
         {
-            _providerConfigs[p] = new ProviderConfig
-            {
-                Endpoint     = DefaultEndpoints.TryGetValue(p, out var ep) ? ep : "",
-                CacheTtlHours = GetDefaultCacheTtl(p),
-            };
+            list = [];
+            _assignments[mediaType] = list;
         }
+        return list;
     }
 
-    // ── Slot access helpers ──────────────────────────────────────────────────────
-
-    private string GetSlot(string mediaType, int index)
+    private void MoveLeft(string mediaType, int idx)
     {
-        if (_slots.TryGetValue(mediaType, out var arr) && index < arr.Length)
-            return arr[index];
-        return string.Empty;
+        if (idx <= 0) return;
+        var chain = GetChain(mediaType);
+        (chain[idx - 1], chain[idx]) = (chain[idx], chain[idx - 1]);
     }
 
-    private void SetSlot(string mediaType, int index, string value)
+    private void MoveRight(string mediaType, int idx)
     {
-        if (!_slots.ContainsKey(mediaType))
-            _slots[mediaType] = ["", "", ""];
-
-        _slots[mediaType][index] = value ?? string.Empty;
+        var chain = GetChain(mediaType);
+        if (idx >= chain.Count - 1) return;
+        (chain[idx], chain[idx + 1]) = (chain[idx + 1], chain[idx]);
     }
 
-    private bool IsAssignedInTab(string mediaType, string provider)
+    // ── Drawer ───────────────────────────────────────────────────────────────────
+
+    private void OpenDrawer(string mediaType, int idx)
     {
-        if (!_slots.TryGetValue(mediaType, out var arr))
-            return false;
-        return arr.Any(s => s == provider);
+        _drawerMediaType  = mediaType;
+        _drawerIndex      = idx;
+        _drawerAssignment = GetChain(mediaType)[idx];
+        _drawerOpen       = true;
     }
 
-    // ── Provider config helpers ───────────────────────────────────────────────────
-
-    private ProviderConfig GetProviderConfig(string provider)
+    private void CloseDrawer()
     {
-        if (!_providerConfigs.TryGetValue(provider, out var cfg))
-        {
-            cfg = new ProviderConfig
-            {
-                Endpoint = DefaultEndpoints.TryGetValue(provider, out var ep) ? ep : ""
-            };
-            _providerConfigs[provider] = cfg;
-        }
-        return cfg;
+        _drawerOpen       = false;
+        _drawerAssignment = null;
     }
 
-    private static string[] GetProviderMediaTypes(string provider) =>
-        ProviderMediaTypes.TryGetValue(provider, out var types) ? types : ["All"];
-
-    private static int GetDefaultCacheTtl(string provider) => provider switch
+    private void RemoveFromChain()
     {
-        "Open Library" or "MusicBrainz" => 336,   // 14 days
-        "Comic Vine"                    => 720,   // 30 days
-        _                               => 168,   // 7 days (default)
-    };
+        if (_drawerIndex >= 0)
+            GetChain(_drawerMediaType).RemoveAt(_drawerIndex);
+        CloseDrawer();
+    }
 
-    // ── Expand/collapse ───────────────────────────────────────────────────────────
-
-    private void ToggleExpand(string provider)
+    private async Task TestConnectionAsync()
     {
-        if (_expandedProviders.Contains(provider))
-            _expandedProviders.Remove(provider);
-        else
-            _expandedProviders.Add(provider);
+        // Simulated connection test — no Engine API yet.
+        await Task.Delay(600);
+    }
+
+    // ── Add dialog ───────────────────────────────────────────────────────────────
+
+    private void OpenAddDialog(string mediaType)
+    {
+        _addDialogMediaType = mediaType;
+        _addDialogSearch    = "";
+        _addDialogOpen      = true;
+    }
+
+    private List<ProviderInfo> GetAvailableProviders(string mediaType)
+    {
+        var chain   = GetChain(mediaType);
+        var inChain = chain.Select(a => a.Name).ToHashSet();
+
+        return AllProviderCatalogue
+            .Where(p => !inChain.Contains(p.Name) &&
+                        (p.Supports.Contains(mediaType) || p.Name == "Wikidata"))
+            .ToList();
+    }
+
+    private void AddProviderToChain(string name)
+    {
+        GetChain(_addDialogMediaType).Add(new ProviderAssignment { Name = name });
+        _addDialogOpen = false;
     }
 
     // ── Actions ──────────────────────────────────────────────────────────────────
 
     private void ResetToDefaults()
     {
-        _slots = DefaultSlots.ToDictionary(
+        _assignments = DefaultAssignments.ToDictionary(
             kv => kv.Key,
-            kv => (string[])kv.Value.Clone());
+            kv => kv.Value.Select(a => new ProviderAssignment
+            {
+                Name      = a.Name,
+                TimeoutMs = a.TimeoutMs,
+                ApiKey    = a.ApiKey,
+                Enabled   = a.Enabled,
+                Retries   = a.Retries,
+            }).ToList());
     }
 
     private async Task SaveAsync()
@@ -499,12 +543,6 @@
         // No Engine API yet — simulate a brief save operation.
         await Task.Delay(400);
         _saving = false;
-    }
-
-    private async Task TestConnectionAsync(string provider)
-    {
-        // Simulated connection test — no Engine API yet.
-        await Task.Delay(600);
     }
 
     // ── Display helpers ──────────────────────────────────────────────────────────
@@ -521,13 +559,24 @@
         _            => Icons.Material.Outlined.Category,
     };
 
-    private static string GetProviderMeta(string provider) =>
-        ProviderMeta.TryGetValue(provider, out var meta) ? meta : string.Empty;
+    private static string GetProviderIcon(string provider) => provider switch
+    {
+        "Apple API" or "Apple Podcasts" => Icons.Material.Outlined.PhoneIphone,
+        "Google Books"                  => Icons.Material.Outlined.Book,
+        "Open Library"                  => Icons.Material.Outlined.LocalLibrary,
+        "TMDB"                          => Icons.Material.Outlined.Movie,
+        "MusicBrainz"                   => Icons.Material.Outlined.MusicNote,
+        "Comic Vine"                    => Icons.Material.Outlined.AutoStories,
+        "Podcast Index"                 => Icons.Material.Outlined.Podcasts,
+        "Wikidata"                      => Icons.Material.Outlined.Public,
+        _                               => Icons.Material.Outlined.Storage,
+    };
 
-    // All providers treated as online for now; extend when Engine status API is wired.
-    private static string GetStatusDotStyle(string _) =>
-        "width: 8px; height: 8px; border-radius: 50%; " +
-        "background: #4caf50; flex-shrink: 0;";
+    private static ProviderInfo? GetProviderInfo(string name) =>
+        AllProviderCatalogue.FirstOrDefault(p => p.Name == name);
+
+    private static string[] GetProviderMediaTypes(string provider) =>
+        ProviderMediaTypes.TryGetValue(provider, out var types) ? types : ["All"];
 
     // ── Styles ───────────────────────────────────────────────────────────────────
 
@@ -539,29 +588,48 @@
         "border-radius: 12px; " +
         "padding: 32px;";
 
-    private const string SlotCardStyle =
+    private const string ProviderChainCardStyle =
+        "position: relative; " +
         "background: var(--app-glass-inner-bg); " +
         "border: 1px solid var(--app-glass-inner-border); " +
-        "border-radius: 8px; " +
-        "padding: 16px; " +
-        "height: 100%;";
+        "border-radius: 10px; " +
+        "padding: 14px 16px 10px 16px; " +
+        "min-width: 200px; " +
+        "max-width: 240px; " +
+        "cursor: pointer; " +
+        "transition: border-color 0.15s, box-shadow 0.15s; " +
+        "display: flex; flex-direction: column; align-items: flex-start;";
 
-    private const string SlotBadgeStyle =
-        "width: 22px; height: 22px; border-radius: 50%; " +
-        "background: var(--mud-palette-primary); " +
-        "color: white; font-size: 0.7rem; font-weight: 700; " +
-        "display: flex; align-items: center; justify-content: center; " +
-        "flex-shrink: 0;";
+    private const string ConnectorLineStyle =
+        "height: 1px; width: 28px; flex-shrink: 0; " +
+        "background: linear-gradient(to right, rgba(255,255,255,0.18), rgba(255,255,255,0.05));";
 
-    private const string ProviderCardStyle =
-        "background: var(--app-glass-inner-bg); " +
+    private const string SmallChipStyle =
+        "display: inline-block; " +
+        "font-size: 0.66rem; " +
+        "padding: 1px 6px; " +
+        "border-radius: 10px; " +
         "border: 1px solid var(--app-glass-inner-border); " +
-        "border-radius: 8px; " +
-        "padding: 12px 16px; " +
-        "margin-bottom: 8px;";
+        "color: var(--mud-palette-text-secondary); " +
+        "line-height: 1.6;";
 
-    private const string ExpandedSectionStyle =
-        "margin-top: 12px; " +
-        "padding-top: 12px; " +
-        "border-top: 1px solid var(--app-glass-inner-border);";
+    private const string DrawerPanelStyle =
+        "position: fixed; top: 0; right: 0; bottom: 0; " +
+        "width: 340px; " +
+        "background: var(--app-glass-bg); " +
+        "border-left: 1px solid var(--app-glass-border); " +
+        "backdrop-filter: blur(16px); " +
+        "-webkit-backdrop-filter: blur(16px); " +
+        "z-index: 1201; " +
+        "padding: 24px 20px; " +
+        "overflow-y: auto; " +
+        "display: flex; flex-direction: column;";
+
+    private const string AddProviderRowStyle =
+        "display: flex; align-items: center; gap: 12px; " +
+        "padding: 10px 8px; " +
+        "border-radius: 8px; " +
+        "cursor: pointer; " +
+        "transition: background 0.12s; " +
+        "margin-bottom: 4px;";
 }
