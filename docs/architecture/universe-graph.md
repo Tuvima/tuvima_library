@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The Universe Graph connects fictional characters, locations, organizations, and events across all media in the library. When a book, film, audiobook, and comic all belong to the same creative universe, the graph captures the relationships that bind them — characters who are siblings, locations that exist within other locations, actors who played specific roles across adaptations.
+The Universe Graph connects fictional characters, locations, organizations, and events across all media in the Library. When a book, film, audiobook, and comic all belong to the same creative universe, the graph captures the relationships that bind them — characters who are siblings, locations that exist within other locations, actors who played specific roles across adaptations.
 
 The graph is populated automatically during hydration using Wikidata as the data source. It is stored in SQLite and loaded into an in-memory dotNetRDF graph for SPARQL queries and pathfinding.
 

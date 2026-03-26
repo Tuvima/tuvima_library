@@ -1,9 +1,10 @@
 @namespace MediaEngine.Web.Components.Settings
+@inject UIOrchestratorService Orchestrator
 
 @* AiFeaturesTab — AI feature toggles grouped by trigger type.
    Four expansion panels: Ingestion (automatic), Enrichment (background),
    On Demand (user-triggered), and Scheduled (cron-based).
-   All toggle state is local. No Engine calls in this stub. *@
+   Tier-aware: shows why a feature is limited by the current hardware profile. *@
 
 <div style="width: 100%; padding: 24px; box-sizing: border-box;">
 
@@ -49,33 +50,41 @@
                 @foreach (var f in _ingestionFeatures)
                 {
                     var feature = f;
-                    <div style="@FeatureRowStyle">
-                        <div style="flex: 1; min-width: 0;">
-                            <MudText Typo="Typo.body1" Style="font-weight: 600; margin-bottom: 2px;">
-                                @feature.Name
-                            </MudText>
-                            <MudText Typo="Typo.body2" Color="Color.Secondary">
-                                @feature.Description
-                            </MudText>
+                    <div>
+                        <div style="@FeatureRowStyle">
+                            <div style="flex: 1; min-width: 0;">
+                                <MudText Typo="Typo.body1" Style="font-weight: 600; margin-bottom: 2px;">
+                                    @feature.Name
+                                </MudText>
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                    @feature.Description
+                                </MudText>
+                            </div>
+                            @if (!string.IsNullOrEmpty(feature.ModelRole))
+                            {
+                                <MudChip T="string" Size="Size.Small"
+                                         Color="@ModelRoleColor(feature.ModelRole)"
+                                         Style="font-family: monospace; font-size: 0.7rem; flex-shrink: 0;">
+                                    @feature.ModelRole
+                                </MudChip>
+                            }
+                            else
+                            {
+                                <MudChip T="string" Size="Size.Small" Color="Color.Default"
+                                         Style="font-family: monospace; font-size: 0.7rem; flex-shrink: 0; opacity: 0.5;">
+                                    built-in
+                                </MudChip>
+                            }
+                            <MudSwitch @bind-Value="feature.Enabled"
+                                       Color="Color.Primary"
+                                       Style="flex-shrink: 0;" />
                         </div>
-                        @if (!string.IsNullOrEmpty(feature.ModelRole))
+                        @if (!IsFeatureAvailable(feature.Key))
                         {
-                            <MudChip T="string" Size="Size.Small"
-                                     Color="@ModelRoleColor(feature.ModelRole)"
-                                     Style="font-family: monospace; font-size: 0.7rem; flex-shrink: 0;">
-                                @feature.ModelRole
-                            </MudChip>
+                            <MudText Typo="Typo.caption" Style="color: rgba(255,150,50,0.7); padding-bottom: 6px;">
+                                Requires @GetRequiredTier(feature.Key) tier — @GetUpgradeHint(feature.Key)
+                            </MudText>
                         }
-                        else
-                        {
-                            <MudChip T="string" Size="Size.Small" Color="Color.Default"
-                                     Style="font-family: monospace; font-size: 0.7rem; flex-shrink: 0; opacity: 0.5;">
-                                built-in
-                            </MudChip>
-                        }
-                        <MudSwitch @bind-Value="feature.Enabled"
-                                   Color="Color.Primary"
-                                   Style="flex-shrink: 0;" />
                     </div>
                 }
             </ChildContent>
@@ -110,33 +119,41 @@
                 @foreach (var f in _enrichmentFeatures)
                 {
                     var feature = f;
-                    <div style="@FeatureRowStyle">
-                        <div style="flex: 1; min-width: 0;">
-                            <MudText Typo="Typo.body1" Style="font-weight: 600; margin-bottom: 2px;">
-                                @feature.Name
-                            </MudText>
-                            <MudText Typo="Typo.body2" Color="Color.Secondary">
-                                @feature.Description
-                            </MudText>
+                    <div>
+                        <div style="@FeatureRowStyle">
+                            <div style="flex: 1; min-width: 0;">
+                                <MudText Typo="Typo.body1" Style="font-weight: 600; margin-bottom: 2px;">
+                                    @feature.Name
+                                </MudText>
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                    @feature.Description
+                                </MudText>
+                            </div>
+                            @if (!string.IsNullOrEmpty(feature.ModelRole))
+                            {
+                                <MudChip T="string" Size="Size.Small"
+                                         Color="@ModelRoleColor(feature.ModelRole)"
+                                         Style="font-family: monospace; font-size: 0.7rem; flex-shrink: 0;">
+                                    @feature.ModelRole
+                                </MudChip>
+                            }
+                            else
+                            {
+                                <MudChip T="string" Size="Size.Small" Color="Color.Default"
+                                         Style="font-family: monospace; font-size: 0.7rem; flex-shrink: 0; opacity: 0.5;">
+                                    built-in
+                                </MudChip>
+                            }
+                            <MudSwitch @bind-Value="feature.Enabled"
+                                       Color="Color.Primary"
+                                       Style="flex-shrink: 0;" />
                         </div>
-                        @if (!string.IsNullOrEmpty(feature.ModelRole))
+                        @if (!IsFeatureAvailable(feature.Key))
                         {
-                            <MudChip T="string" Size="Size.Small"
-                                     Color="@ModelRoleColor(feature.ModelRole)"
-                                     Style="font-family: monospace; font-size: 0.7rem; flex-shrink: 0;">
-                                @feature.ModelRole
-                            </MudChip>
+                            <MudText Typo="Typo.caption" Style="color: rgba(255,150,50,0.7); padding-bottom: 6px;">
+                                Requires @GetRequiredTier(feature.Key) tier — @GetUpgradeHint(feature.Key)
+                            </MudText>
                         }
-                        else
-                        {
-                            <MudChip T="string" Size="Size.Small" Color="Color.Default"
-                                     Style="font-family: monospace; font-size: 0.7rem; flex-shrink: 0; opacity: 0.5;">
-                                built-in
-                            </MudChip>
-                        }
-                        <MudSwitch @bind-Value="feature.Enabled"
-                                   Color="Color.Primary"
-                                   Style="flex-shrink: 0;" />
                     </div>
                 }
             </ChildContent>
@@ -171,33 +188,41 @@
                 @foreach (var f in _onDemandFeatures)
                 {
                     var feature = f;
-                    <div style="@FeatureRowStyle">
-                        <div style="flex: 1; min-width: 0;">
-                            <MudText Typo="Typo.body1" Style="font-weight: 600; margin-bottom: 2px;">
-                                @feature.Name
-                            </MudText>
-                            <MudText Typo="Typo.body2" Color="Color.Secondary">
-                                @feature.Description
-                            </MudText>
+                    <div>
+                        <div style="@FeatureRowStyle">
+                            <div style="flex: 1; min-width: 0;">
+                                <MudText Typo="Typo.body1" Style="font-weight: 600; margin-bottom: 2px;">
+                                    @feature.Name
+                                </MudText>
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                    @feature.Description
+                                </MudText>
+                            </div>
+                            @if (!string.IsNullOrEmpty(feature.ModelRole))
+                            {
+                                <MudChip T="string" Size="Size.Small"
+                                         Color="@ModelRoleColor(feature.ModelRole)"
+                                         Style="font-family: monospace; font-size: 0.7rem; flex-shrink: 0;">
+                                    @feature.ModelRole
+                                </MudChip>
+                            }
+                            else
+                            {
+                                <MudChip T="string" Size="Size.Small" Color="Color.Default"
+                                         Style="font-family: monospace; font-size: 0.7rem; flex-shrink: 0; opacity: 0.5;">
+                                    built-in
+                                </MudChip>
+                            }
+                            <MudSwitch @bind-Value="feature.Enabled"
+                                       Color="Color.Primary"
+                                       Style="flex-shrink: 0;" />
                         </div>
-                        @if (!string.IsNullOrEmpty(feature.ModelRole))
+                        @if (!IsFeatureAvailable(feature.Key))
                         {
-                            <MudChip T="string" Size="Size.Small"
-                                     Color="@ModelRoleColor(feature.ModelRole)"
-                                     Style="font-family: monospace; font-size: 0.7rem; flex-shrink: 0;">
-                                @feature.ModelRole
-                            </MudChip>
+                            <MudText Typo="Typo.caption" Style="color: rgba(255,150,50,0.7); padding-bottom: 6px;">
+                                Requires @GetRequiredTier(feature.Key) tier — @GetUpgradeHint(feature.Key)
+                            </MudText>
                         }
-                        else
-                        {
-                            <MudChip T="string" Size="Size.Small" Color="Color.Default"
-                                     Style="font-family: monospace; font-size: 0.7rem; flex-shrink: 0; opacity: 0.5;">
-                                built-in
-                            </MudChip>
-                        }
-                        <MudSwitch @bind-Value="feature.Enabled"
-                                   Color="Color.Primary"
-                                   Style="flex-shrink: 0;" />
                     </div>
                 }
             </ChildContent>
@@ -232,33 +257,41 @@
                 @foreach (var f in _scheduledFeatures)
                 {
                     var feature = f;
-                    <div style="@FeatureRowStyle">
-                        <div style="flex: 1; min-width: 0;">
-                            <MudText Typo="Typo.body1" Style="font-weight: 600; margin-bottom: 2px;">
-                                @feature.Name
-                            </MudText>
-                            <MudText Typo="Typo.body2" Color="Color.Secondary">
-                                @feature.Description
-                            </MudText>
+                    <div>
+                        <div style="@FeatureRowStyle">
+                            <div style="flex: 1; min-width: 0;">
+                                <MudText Typo="Typo.body1" Style="font-weight: 600; margin-bottom: 2px;">
+                                    @feature.Name
+                                </MudText>
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                    @feature.Description
+                                </MudText>
+                            </div>
+                            @if (!string.IsNullOrEmpty(feature.ModelRole))
+                            {
+                                <MudChip T="string" Size="Size.Small"
+                                         Color="@ModelRoleColor(feature.ModelRole)"
+                                         Style="font-family: monospace; font-size: 0.7rem; flex-shrink: 0;">
+                                    @feature.ModelRole
+                                </MudChip>
+                            }
+                            else
+                            {
+                                <MudChip T="string" Size="Size.Small" Color="Color.Default"
+                                         Style="font-family: monospace; font-size: 0.7rem; flex-shrink: 0; opacity: 0.5;">
+                                    built-in
+                                </MudChip>
+                            }
+                            <MudSwitch @bind-Value="feature.Enabled"
+                                       Color="Color.Primary"
+                                       Style="flex-shrink: 0;" />
                         </div>
-                        @if (!string.IsNullOrEmpty(feature.ModelRole))
+                        @if (!IsFeatureAvailable(feature.Key))
                         {
-                            <MudChip T="string" Size="Size.Small"
-                                     Color="@ModelRoleColor(feature.ModelRole)"
-                                     Style="font-family: monospace; font-size: 0.7rem; flex-shrink: 0;">
-                                @feature.ModelRole
-                            </MudChip>
+                            <MudText Typo="Typo.caption" Style="color: rgba(255,150,50,0.7); padding-bottom: 6px;">
+                                Requires @GetRequiredTier(feature.Key) tier — @GetUpgradeHint(feature.Key)
+                            </MudText>
                         }
-                        else
-                        {
-                            <MudChip T="string" Size="Size.Small" Color="Color.Default"
-                                     Style="font-family: monospace; font-size: 0.7rem; flex-shrink: 0; opacity: 0.5;">
-                                built-in
-                            </MudChip>
-                        }
-                        <MudSwitch @bind-Value="feature.Enabled"
-                                   Color="Color.Primary"
-                                   Style="flex-shrink: 0;" />
                     </div>
                 }
             </ChildContent>
@@ -290,10 +323,44 @@
     private bool _panel3Open = true;
     private bool _panel4Open = true;
 
+    // ── Hardware profile (for tier awareness) ────────────────────────────────────
+
+    private HardwareProfileDto? _profile;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        _profile = await Orchestrator.GetAiProfileAsync();
+    }
+
+    private string GetTier() => _profile?.Tier ?? "unknown";
+
+    private bool IsFeatureAvailable(string key) => GetTier().ToLowerInvariant() switch
+    {
+        "high"   => true,
+        "medium" => key is not "whisper_sync",
+        "low"    => key is "smart_labeling" or "media_type_classification",
+        _        => false,
+    };
+
+    private static string GetRequiredTier(string key) => key switch
+    {
+        "smart_labeling" or "media_type_classification" => "Low",
+        "whisper_sync"                                  => "High",
+        _                                               => "Medium",
+    };
+
+    private static string GetUpgradeHint(string key) => key switch
+    {
+        "smart_labeling" or "media_type_classification" => "add more RAM or a GPU",
+        _                                               => "a GPU will significantly improve performance",
+    };
+
     // ── Feature descriptor ────────────────────────────────────────────────────────
 
     private sealed class AiFeature
     {
+        public string Key         { get; init; } = string.Empty;   // machine-readable key for tier checks
         public string Name        { get; init; } = string.Empty;
         public string Description { get; init; } = string.Empty;
         public string ModelRole   { get; init; } = string.Empty;   // "text_quality" | "text_fast" | "audio" | ""
@@ -306,6 +373,7 @@
     [
         new()
         {
+            Key         = "smart_labeling",
             Name        = "Smart Labeling",
             Description = "AI cleans filenames and extracts metadata from messy names",
             ModelRole   = "text_quality",
@@ -313,6 +381,7 @@
         },
         new()
         {
+            Key         = "media_type_classification",
             Name        = "Media Type Classification",
             Description = "Determines if an MP3 is music, an audiobook, or a podcast",
             ModelRole   = "text_quality",
@@ -320,6 +389,7 @@
         },
         new()
         {
+            Key         = "batch_manifest",
             Name        = "Batch Manifest",
             Description = "Analyses entire folder contents to reduce external API calls by up to 95%",
             ModelRole   = "text_quality",
@@ -327,6 +397,7 @@
         },
         new()
         {
+            Key         = "audio_language_detection",
             Name        = "Audio Language Detection",
             Description = "Detects the spoken language in audiobooks and podcasts",
             ModelRole   = "audio",
@@ -338,6 +409,7 @@
     [
         new()
         {
+            Key         = "vibe_tags",
             Name        = "Vibe Tags",
             Description = "Mood and atmosphere tags derived from metadata and descriptions",
             ModelRole   = "text_quality",
@@ -345,6 +417,7 @@
         },
         new()
         {
+            Key         = "tldr",
             Name        = "TL;DR Descriptions",
             Description = "Short one-sentence summaries generated from full descriptions",
             ModelRole   = "text_fast",
@@ -352,6 +425,7 @@
         },
         new()
         {
+            Key         = "cover_art_validation",
             Name        = "Cover Art Validation",
             Description = "Checks whether the cover image matches the content of the file",
             ModelRole   = "text_quality",
@@ -359,6 +433,7 @@
         },
         new()
         {
+            Key         = "audio_similarity",
             Name        = "Audio Similarity",
             Description = "Chromaprint fingerprint matching to detect duplicate audio files",
             ModelRole   = "",
@@ -366,6 +441,7 @@
         },
         new()
         {
+            Key         = "qid_disambiguation",
             Name        = "QID Disambiguation",
             Description = "Picks the best Wikidata match when multiple candidates exist",
             ModelRole   = "text_quality",
@@ -373,6 +449,7 @@
         },
         new()
         {
+            Key         = "series_alignment",
             Name        = "Series Alignment",
             Description = "Detects reading/watching order across multi-volume series",
             ModelRole   = "text_quality",
@@ -384,6 +461,7 @@
     [
         new()
         {
+            Key         = "intent_search",
             Name        = "Intent Search",
             Description = "Converts natural language queries into structured library filters",
             ModelRole   = "text_fast",
@@ -391,6 +469,7 @@
         },
         new()
         {
+            Key         = "watching_order",
             Name        = "Watching Order",
             Description = "Suggests cross-media consumption order for a franchise or universe",
             ModelRole   = "text_fast",
@@ -398,6 +477,7 @@
         },
         new()
         {
+            Key         = "why_factor",
             Name        = "\"Why\" Factor",
             Description = "Explains in plain English why a title was recommended to you",
             ModelRole   = "text_fast",
@@ -405,6 +485,7 @@
         },
         new()
         {
+            Key         = "url_paste",
             Name        = "URL Paste",
             Description = "Extracts and imports metadata from a URL pasted by the user",
             ModelRole   = "text_quality",
@@ -416,6 +497,7 @@
     [
         new()
         {
+            Key         = "taste_profiling",
             Name        = "Taste Profiling",
             Description = "Builds a personal preference model from your play history",
             ModelRole   = "text_quality",
@@ -423,6 +505,7 @@
         },
         new()
         {
+            Key         = "whisper_sync",
             Name        = "Subtitle Sync",
             Description = "Aligns subtitle timing to the audio track in video files",
             ModelRole   = "audio",

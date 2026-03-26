@@ -31,6 +31,12 @@ public sealed class FieldMatchResult
 
     [JsonPropertyName("format_verdict")]
     public FieldMatchVerdict FormatVerdict { get; init; }
+
+    [JsonPropertyName("cover_score")]
+    public double CoverScore { get; set; }
+
+    [JsonPropertyName("cover_verdict")]
+    public FieldMatchVerdict CoverVerdict { get; set; }
 }
 
 /// <summary>How well a field matched.</summary>
@@ -50,4 +56,8 @@ public enum FieldMatchVerdict
 public sealed record LocalMetadata(string Title, string? Author, string? Year, string? MediaType);
 
 /// <summary>Candidate metadata for fuzzy comparison.</summary>
-public sealed record CandidateMetadata(string Title, string? Author, string? Year, string? MediaType);
+public sealed record CandidateMetadata(string Title, string? Author, string? Year, string? MediaType)
+{
+    /// <summary>Perceptual hash similarity of cover art (0.0–1.0), or -1.0 if not available.</summary>
+    public double CoverSimilarity { get; init; } = -1.0;
+}

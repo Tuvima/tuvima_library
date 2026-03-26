@@ -2795,6 +2795,59 @@ public sealed class EngineApiClient : IEngineApiClient
         [property: JsonPropertyName("website")]            string?         Website,
         [property: JsonPropertyName("created_at")]         DateTimeOffset  CreatedAt,
         [property: JsonPropertyName("enriched_at")]        DateTimeOffset? EnrichedAt);
+
+    // ── GET /ai/profile ───────────────────────────────────────────────────────
+
+    public async Task<HardwareProfileDto?> GetAiProfileAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<HardwareProfileDto>("/ai/profile", ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /ai/profile failed");
+            LastError = ex.Message;
+            return null;
+        }
+    }
+
+    // ── POST /ai/benchmark ────────────────────────────────────────────────────
+
+    public async Task<HardwareProfileDto?> RunBenchmarkAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            var response = await _http.PostAsync("/ai/benchmark", null, ct);
+            if (!response.IsSuccessStatusCode) return null;
+            return await response.Content.ReadFromJsonAsync<HardwareProfileDto>(cancellationToken: ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /ai/benchmark failed");
+            LastError = ex.Message;
+            return null;
+        }
+    }
+
+    // ── GET /ai/enrichment/progress ───────────────────────────────────────────
+
+    public async Task<EnrichmentProgressDto?> GetEnrichmentProgressAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<EnrichmentProgressDto>("/ai/enrichment/progress", ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /ai/enrichment/progress failed");
+            LastError = ex.Message;
+            return null;
+        }
+    }
 }
 
 

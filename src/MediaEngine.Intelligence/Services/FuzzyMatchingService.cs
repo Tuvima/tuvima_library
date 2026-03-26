@@ -14,10 +14,11 @@ namespace MediaEngine.Intelligence.Services;
 public sealed partial class FuzzyMatchingService : IFuzzyMatchingService
 {
     // ── Composite scoring weights ────────────────────────────────────────────
-    private const double TitleWeight  = 0.50;
-    private const double AuthorWeight = 0.30;
-    private const double YearWeight   = 0.15;
+    private const double TitleWeight  = 0.45;
+    private const double AuthorWeight = 0.25;
+    private const double YearWeight   = 0.10;
     private const double FormatWeight = 0.05;
+    private const double CoverWeight  = 0.15;
 
     // ── Verdict thresholds ───────────────────────────────────────────────────
     private const double ExactThreshold = 0.95;
@@ -49,8 +50,9 @@ public sealed partial class FuzzyMatchingService : IFuzzyMatchingService
         var authorScore = ScoreOptionalField(local.Author, candidate.Author);
         var yearScore   = ScoreYear(local.Year, candidate.Year);
         var formatScore = ScoreFormat(local.MediaType, candidate.MediaType);
+        var coverScore  = candidate.CoverSimilarity; // -1.0 if not available
 
-        var compositeScore = ComputeComposite(titleScore, authorScore, yearScore, formatScore);
+        var compositeScore = ComputeComposite(titleScore, authorScore, yearScore, formatScore, coverScore);
 
         return new FieldMatchResult
         {
@@ -63,6 +65,8 @@ public sealed partial class FuzzyMatchingService : IFuzzyMatchingService
             AuthorVerdict  = ToVerdict(authorScore),
             YearVerdict    = ToVerdict(yearScore),
             FormatVerdict  = ToVerdict(formatScore),
+            CoverScore     = coverScore,
+            CoverVerdict   = ToVerdict(coverScore),
         };
     }
 
@@ -156,7 +160,7 @@ public sealed partial class FuzzyMatchingService : IFuzzyMatchingService
     // ── Composite scoring ────────────────────────────────────────────────────
 
     private static double ComputeComposite(
-        double titleScore, double authorScore, double yearScore, double formatScore)
+        double titleScore, double authorScore, double yearScore, double formatScore, double coverScore)
     {
         double weightSum = 0.0;
         double scoreSum  = 0.0;
@@ -181,6 +185,12 @@ public sealed partial class FuzzyMatchingService : IFuzzyMatchingService
         {
             weightSum += FormatWeight;
             scoreSum  += FormatWeight * formatScore;
+        }
+
+        if (coverScore >= 0.0)
+        {
+            weightSum += CoverWeight;
+            scoreSum  += CoverWeight * coverScore;
         }
 
         return weightSum > 0 ? scoreSum / weightSum : 0.0;

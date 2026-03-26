@@ -1,8 +1,10 @@
 @namespace MediaEngine.Web.Components.Settings
+@inject UIOrchestratorService Orchestrator
 
 @* AI Schedule — Background job cron schedule editor.
    Lets the user view and adjust when each background AI job runs,
-   enable or disable individual jobs, and see their last/next run times. *@
+   enable or disable individual jobs, and see their last/next run times.
+   Includes live enrichment progress section. *@
 
 <div style="width: 100%; padding: 24px; box-sizing: border-box;">
 
@@ -14,6 +16,46 @@
     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
         Configure when each background AI job runs. Changes take effect after the Engine restarts.
     </MudText>
+
+    @* ── Enrichment Progress ─────────────────────────────────────────────── *@
+    <MudPaper Class="pa-4 mb-4" Style="background: rgba(255,255,255,0.03); border: 1px solid rgba(201,146,46,0.15); border-radius: 12px;">
+        <MudText Typo="Typo.h6" Class="mb-3" Style="color: #C9922E;">Enrichment Progress</MudText>
+
+        @if (_enrichmentProgress is not null && _enrichmentProgress.Total > 0)
+        {
+            var pct = _enrichmentProgress.Total > 0
+                ? (double)_enrichmentProgress.CompletedCount / _enrichmentProgress.Total * 100
+                : 0;
+
+            <div class="d-flex align-center gap-4 mb-2">
+                <MudText Typo="Typo.body1" Style="min-width: 200px;">
+                    <strong>@_enrichmentProgress.CompletedCount</strong> / @_enrichmentProgress.Total items enriched
+                </MudText>
+                <MudProgressLinear Value="@pct" Color="Color.Warning" Rounded="true" Size="Size.Large"
+                                  Style="flex: 1;" />
+                <MudText Typo="Typo.body2" Style="opacity: 0.6;">@pct.ToString("F0")%</MudText>
+            </div>
+
+            @if (_enrichmentProgress.PendingCount > 0)
+            {
+                <MudText Typo="Typo.caption" Style="opacity: 0.5;">
+                    @_enrichmentProgress.PendingCount items pending — processed in background batches
+                </MudText>
+            }
+            else
+            {
+                <MudText Typo="Typo.caption" Style="color: rgba(100,200,100,0.8);">
+                    All items enriched
+                </MudText>
+            }
+        }
+        else
+        {
+            <MudText Typo="Typo.body2" Style="opacity: 0.5;">
+                No items in the enrichment queue yet. Add media to your library to begin.
+            </MudText>
+        }
+    </MudPaper>
 
     @* ── Schedule table ──────────────────────────────────────────────────── *@
     <MudSimpleTable Dense="true" Hover="true" Style="background: transparent;">
@@ -104,6 +146,16 @@
 </div>
 
 @code {
+
+    // ── Enrichment Progress ───────────────────────────────────────────────────────
+
+    private EnrichmentProgressDto? _enrichmentProgress;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        _enrichmentProgress = await Orchestrator.GetEnrichmentProgressAsync();
+    }
 
     // ── Job model ────────────────────────────────────────────────────────────────
 

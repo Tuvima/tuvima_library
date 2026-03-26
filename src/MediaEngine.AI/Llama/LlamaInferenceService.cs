@@ -218,10 +218,15 @@ public sealed class LlamaInferenceService
 
             _logger.LogInformation("Loading LLamaSharp model for {Role}: {Path}", role, modelPath);
 
+            // Determine GPU layer count: hardware tier policy takes priority over the
+            // per-model config value, so the benchmark result automatically governs
+            // how many layers are offloaded to the GPU.
+            int gpuLayers = ResolveGpuLayerCount(definition.GpuLayers);
+
             var modelParams = new ModelParams(modelPath)
             {
-                ContextSize = (uint)definition.ContextLength,
-                GpuLayerCount = definition.GpuLayers,
+                ContextSize   = (uint)definition.ContextLength,
+                GpuLayerCount = gpuLayers,
             };
 
             var weights = LLamaWeights.LoadFromFile(modelParams);
@@ -235,6 +240,35 @@ public sealed class LlamaInferenceService
         {
             _loadLock.Release();
         }
+    }
+
+    /// <summary>
+    /// Resolve the number of GPU layers to offload, merging the hardware tier policy
+    /// with the per-model config default.
+    /// Priority: benchmarked hardware tier → per-model config value → 0 (CPU-only).
+    /// -1 in the tier policy means "all layers" and is translated to 999 for LLamaSharp.
+    /// </summary>
+    private int ResolveGpuLayerCount(int configuredLayers)
+    {
+        var profile = _settings.HardwareProfile;
+
+        // If the hardware benchmark has run and the backend is a GPU, use the tier policy.
+        if (profile.BenchmarkedAt.HasValue
+            && !string.Equals(profile.Backend, "cpu", StringComparison.OrdinalIgnoreCase)
+            && !string.IsNullOrEmpty(profile.Tier))
+        {
+            var features = HardwareTierPolicy.GetFeatures(profile.Tier);
+            if (features.MaxGpuLayers == -1)
+                return 999; // All layers on GPU.
+            if (features.MaxGpuLayers > 0)
+                return features.MaxGpuLayers;
+
+            // MaxGpuLayers == 0 means CPU-only for this tier even with a GPU backend.
+            return 0;
+        }
+
+        // No benchmark yet — fall back to the per-model config value.
+        return configuredLayers;
     }
 
     /// <summary>

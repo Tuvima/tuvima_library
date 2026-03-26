@@ -143,6 +143,69 @@ internal static class AiEndpoints
         .Produces(StatusCodes.Status200OK)
         .RequireAdmin();
 
+        // ── GET /ai/profile ──────────────────────────────────────────────────
+        group.MapGet("/profile", (AiSettings settings) =>
+        {
+            var p = settings.HardwareProfile;
+            return Results.Ok(new
+            {
+                tier               = p.Tier,
+                backend            = p.Backend,
+                gpu_name           = p.GpuName,
+                tokens_per_second  = p.TokensPerSecond,
+                available_ram_mb   = p.AvailableRamMb,
+                benchmarked_at     = p.BenchmarkedAt,
+            });
+        })
+        .WithName("GetAiHardwareProfile")
+        .WithSummary("Returns the cached hardware profile and performance tier.")
+        .Produces(StatusCodes.Status200OK)
+        .RequireAdmin();
+
+        // ── POST /ai/benchmark ───────────────────────────────────────────────
+        group.MapPost("/benchmark", async (
+            MediaEngine.AI.Infrastructure.HardwareBenchmarkService benchmark,
+            CancellationToken ct) =>
+        {
+            var profile = await benchmark.BenchmarkAsync(ct);
+            return Results.Ok(new
+            {
+                tier               = profile.Tier,
+                backend            = profile.Backend,
+                gpu_name           = profile.GpuName,
+                tokens_per_second  = profile.TokensPerSecond,
+                available_ram_mb   = profile.AvailableRamMb,
+                benchmarked_at     = profile.BenchmarkedAt,
+            });
+        })
+        .WithName("RunAiHardwareBenchmark")
+        .WithSummary("Re-runs the hardware benchmark and returns the updated profile.")
+        .Produces(StatusCodes.Status200OK)
+        .RequireAdmin();
+
+        // ── GET /ai/enrichment/progress ──────────────────────────────────────
+        group.MapGet("/enrichment/progress", async (
+            ICanonicalValueRepository canonicals,
+            CancellationToken ct) =>
+        {
+            // Items that have a description but not yet themes → pending enrichment.
+            var pending   = await canonicals.GetEntitiesNeedingEnrichmentAsync("description", "themes", 10000, ct);
+            // Items that already have themes → completed enrichment.
+            var completed = await canonicals.GetEntitiesNeedingEnrichmentAsync("themes", "__nonexistent__", 10000, ct);
+            int pendingCount   = pending.Count;
+            int completedCount = completed.Count;
+            return Results.Ok(new
+            {
+                pending_count   = pendingCount,
+                completed_count = completedCount,
+                total           = pendingCount + completedCount,
+            });
+        })
+        .WithName("GetAiEnrichmentProgress")
+        .WithSummary("Returns pending and completed AI enrichment counts.")
+        .Produces(StatusCodes.Status200OK)
+        .RequireAdmin();
+
         return group;
     }
 }

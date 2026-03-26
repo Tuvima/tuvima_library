@@ -38,6 +38,7 @@
       "translate": false
     }
   },
+  "enrichment_batch_size": 10,
   "features": {
     "smart_labeling": true,
     "type_logic": true,
@@ -59,27 +60,39 @@
   },
   "vibe_vocabulary": {
     "books": [
-      "page-turner", "dense-prose", "lyrical", "philosophical", "cozy",
-      "atmospheric", "haunting", "cerebral", "whimsical", "epic",
-      "intimate", "slow-burn", "provocative", "heartwarming", "dark"
+      "page-turner", "slow-burn", "fast-paced", "meditative", "dense-prose",
+      "dark", "uplifting", "haunting", "heartwarming", "melancholic", "tragic", "nostalgic",
+      "atmospheric", "cozy", "gritty", "ethereal", "unsettling",
+      "lyrical", "philosophical", "whimsical", "satirical", "witty", "provocative", "earnest",
+      "epic", "intimate", "cerebral", "raw", "gentle"
     ],
     "movies_tv": [
-      "visually-stunning", "slow-paced", "action-packed", "suspenseful", "atmospheric",
-      "gritty", "dreamlike", "tense", "humorous", "nostalgic",
-      "visceral", "epic", "intimate", "dark", "uplifting"
+      "slow-paced", "action-packed", "frenetic", "meditative",
+      "dark", "uplifting", "haunting", "heartwarming", "melancholic", "tense", "nostalgic",
+      "atmospheric", "gritty", "dreamlike", "stylized", "unsettling", "visually-stunning",
+      "humorous", "quirky", "whimsical", "satirical", "provocative", "earnest",
+      "epic", "intimate", "cerebral", "visceral", "raw", "gentle"
     ],
     "music": [
-      "mellow", "heavy", "groovy", "upbeat", "melancholic",
-      "ambient", "energetic", "dreamy", "aggressive", "soulful",
-      "minimalist", "lush", "raw", "hypnotic", "anthemic"
+      "driving", "mellow", "energetic", "hypnotic", "frenetic",
+      "dark", "uplifting", "melancholic", "bittersweet", "nostalgic", "triumphant", "haunting",
+      "ambient", "lush", "ethereal", "cinematic", "sparse", "warm",
+      "playful", "aggressive", "soulful", "groovy", "anthemic", "dreamy",
+      "heavy", "intimate", "raw", "gentle", "minimalist", "chaotic"
     ],
     "comics": [
-      "gritty", "colorful", "noir", "whimsical", "epic",
-      "dark", "action-packed", "intimate", "surreal", "classic"
+      "action-packed", "frenetic", "meditative",
+      "dark", "uplifting", "haunting", "melancholic", "nostalgic",
+      "atmospheric", "gritty", "noir", "surreal", "psychedelic", "dreamlike", "colorful",
+      "whimsical", "humorous", "satirical", "provocative", "lyrical",
+      "epic", "intimate", "visceral", "raw", "gentle", "minimalist"
     ],
     "podcasts": [
-      "conversational", "investigative", "educational", "comedic", "narrative",
-      "thought-provoking", "casual", "deep-dive", "interview", "storytelling"
+      "fast-paced", "slow-burn", "deep-dive",
+      "dark", "uplifting", "haunting", "nostalgic", "suspenseful", "inspiring",
+      "immersive", "cozy", "intimate", "intense",
+      "conversational", "humorous", "irreverent", "earnest", "provocative", "witty", "analytical",
+      "cerebral", "gentle", "dramatic", "raw", "narrative", "storytelling", "meditative"
     ]
   },
   "scheduling": {
@@ -87,6 +100,15 @@
     "series_check_cron": "0 3 * * *",
     "whisper_bake_cron": "0 2 * * *",
     "whisper_bake_window_hours": 4,
-    "taste_profile_update_cron": "0 5 * * 0"
+    "taste_profile_update_cron": "0 5 * * 0",
+    "description_intelligence": "*/15 * * * *"
+  },
+  "hardware_profile": {
+    "tier": "auto",
+    "backend": "auto",
+    "gpu_name": null,
+    "tokens_per_second": 0,
+    "available_ram_mb": 0,
+    "benchmarked_at": null
   }
 }

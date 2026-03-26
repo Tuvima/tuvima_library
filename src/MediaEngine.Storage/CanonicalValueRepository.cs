@@ -224,6 +224,41 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository
         return Task.FromResult<IReadOnlyList<CanonicalValue>>(rows.ConvertAll(MapRow));
     }
 
+    /// <inheritdoc/>
+    public Task<IReadOnlyList<Guid>> GetEntitiesNeedingEnrichmentAsync(
+        string hasField,
+        string missingField,
+        int limit,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        ArgumentException.ThrowIfNullOrWhiteSpace(hasField);
+        ArgumentException.ThrowIfNullOrWhiteSpace(missingField);
+
+        using var conn = _db.CreateConnection();
+        var ids = conn.Query<string>("""
+            SELECT DISTINCT cv1.entity_id
+            FROM   canonical_values cv1
+            WHERE  cv1.key IN (@HasField1, @HasField2)
+              AND  cv1.entity_id NOT IN (
+                       SELECT entity_id
+                       FROM   canonical_values
+                       WHERE  key = @MissingField
+                   )
+            LIMIT  @Limit;
+            """, new
+            {
+                HasField1    = hasField,
+                HasField2    = "plot_summary",
+                MissingField = missingField,
+                Limit        = limit,
+            })
+            .Select(Guid.Parse)
+            .ToList();
+
+        return Task.FromResult<IReadOnlyList<Guid>>(ids);
+    }
+
     // -------------------------------------------------------------------------
     // Private intermediate row type and mapper
     // -------------------------------------------------------------------------

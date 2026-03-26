@@ -1,6 +1,6 @@
 # Antigravity ↔ Claude Code — Sync Map
 
-> **Last synced:** 2026-03-07
+> **Last synced:** 2026-03-26
 >
 > **Canonical source of truth:** `CLAUDE.md` (repo root)
 >
@@ -29,7 +29,7 @@
 | `features/LIBRARY-DASHBOARD.md` | §3.4 (Dashboard UI) | Bento grid, hero tile, home page |
 | `features/SETTINGS-OVERVIEW.md` | §3.8 (Activity Ledger), §3.12 (Device Profiles) | Settings pages, activity timeline, device cascade |
 | `features/REALTIME-INTERCOM.md` | §3.4 (Dashboard UI — Real-time updates) | SignalR events, live dashboard updates |
-| `features/HUB-SYSTEM.md` | §1 (Hub Concept) | Hub/Work/Edition/MediaAsset hierarchy |
+| `features/HUB-SYSTEM.md` | §1 (Grouping Model) | Library/Universe/Series/Work/Edition/MediaAsset hierarchy. User-facing: Universe (franchise), Series (collection). Internal: ParentHub, Hub |
 | `skills/DASHBOARD-UI.md` | §6 (Feature-Sliced Layout) | File locations, component placement, CSS properties |
 | `skills/METADATA-SCORING.md` | §3.2 (Weighted Voter) | Scoring engine operations, claim persistence |
 | `skills/INGESTION-PIPELINE.md` | §3.1 (Watch Folder), §3.7 (Library Organization) | File watcher operations, sidecar system |

@@ -538,6 +538,17 @@ public interface IEngineApiClient
 
     /// <summary>Dismiss a problem report.</summary>
     Task<bool> DismissReportAsync(long activityId, CancellationToken ct = default);
+
+    // ── AI Hardware Profile (/ai/profile, /ai/benchmark) ────────────────────
+
+    /// <summary>GET /ai/profile — returns the cached hardware profile and performance tier.</summary>
+    Task<HardwareProfileDto?> GetAiProfileAsync(CancellationToken ct = default);
+
+    /// <summary>POST /ai/benchmark — re-runs the hardware benchmark and returns the updated profile.</summary>
+    Task<HardwareProfileDto?> RunBenchmarkAsync(CancellationToken ct = default);
+
+    /// <summary>GET /ai/enrichment/progress — pending and completed AI enrichment counts.</summary>
+    Task<EnrichmentProgressDto?> GetEnrichmentProgressAsync(CancellationToken ct = default);
 }
 
 

@@ -550,6 +550,7 @@ builder.Services.AddHostedService<MediaEngine.Api.Services.ModelAutoDownloadServ
 builder.Services.AddHostedService<MediaEngine.Api.Services.VibeBatchService>();
 builder.Services.AddHostedService<MediaEngine.Api.Services.SeriesAlignmentBackgroundService>();
 builder.Services.AddHostedService<MediaEngine.Api.Services.TasteProfileBackgroundService>();
+builder.Services.AddHostedService<MediaEngine.Api.Services.DescriptionIntelligenceBatchService>();
 
 // AI inference and feature services.
 builder.Services.AddSingleton<MediaEngine.AI.Llama.LlamaInferenceService>();
@@ -571,6 +572,7 @@ builder.Services.AddSingleton<IVibeTagger, MediaEngine.AI.Features.VibeTagger>()
 builder.Services.AddSingleton<ITldrGenerator, MediaEngine.AI.Features.TldrGenerator>();
 builder.Services.AddSingleton<ICoverArtValidator, MediaEngine.AI.Features.CoverArtValidator>();
 builder.Services.AddSingleton<IAudioSimilarityService, MediaEngine.AI.Features.AudioSimilarityService>();
+builder.Services.AddSingleton<ICoverArtHashService, MediaEngine.AI.Features.CoverArtHashService>();
 
 // Sprint 6: Personalization features.
 builder.Services.AddSingleton<ITasteProfiler, MediaEngine.AI.Features.TasteProfiler>();
@@ -584,6 +586,13 @@ builder.Services.AddSingleton<IUrlMetadataExtractor, MediaEngine.AI.Features.Url
 
 // Sprint 9: Description Intelligence.
 builder.Services.AddSingleton<IDescriptionIntelligenceService, MediaEngine.AI.Features.DescriptionIntelligenceService>();
+
+// Sprint 3: GPU backend detection (Vulkan → CUDA → CPU probe chain).
+builder.Services.AddSingleton<MediaEngine.AI.Infrastructure.GpuBackendDetector>();
+
+// Sprint 2: Hardware auto-profiling.
+builder.Services.AddSingleton<MediaEngine.AI.Infrastructure.HardwareBenchmarkService>();
+builder.Services.AddHostedService<MediaEngine.Api.Services.HardwareBenchmarkBackgroundService>();
 
 // ── Health Checks ────────────────────────────────────────────────────────────
 // Standard /health endpoint for Docker HEALTHCHECK, monitoring tools, etc.

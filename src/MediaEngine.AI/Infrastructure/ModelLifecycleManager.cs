@@ -138,14 +138,18 @@ public sealed class ModelLifecycleManager : IModelLifecycleManager, IDisposable
 
     public AiHealthStatus GetHealthStatus()
     {
+        var profile = _settings.HardwareProfile;
+        bool gpuAvailable = profile.BenchmarkedAt.HasValue
+            && !string.Equals(profile.Backend, "cpu", StringComparison.OrdinalIgnoreCase);
+
         return new AiHealthStatus
         {
-            Models = _inventory.GetAllStatuses(),
-            MemoryUsedMB = _currentMemoryMB,
+            Models        = _inventory.GetAllStatuses(),
+            MemoryUsedMB  = _currentMemoryMB,
             MemoryLimitMB = 3000, // TODO: read from memory profile config
-            GpuAvailable = false, // TODO: Vulkan detection in future sprint
+            GpuAvailable  = gpuAvailable,
             MemoryProfile = "conservative", // TODO: read from config
-            IsReady = _inventory.AreAllReady(),
+            IsReady       = _inventory.AreAllReady(),
         };
     }
 

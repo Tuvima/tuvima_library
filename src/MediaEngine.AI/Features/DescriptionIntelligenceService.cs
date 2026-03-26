@@ -68,14 +68,15 @@ public sealed class DescriptionIntelligenceService : IDescriptionIntelligenceSer
 
             // Build combined description text with source labels.
             // Priority: Wikipedia plot (richest) → Description (Apple API/Wikipedia extract)
-            // Truncate per source, cap total at 3000 chars.
+            // Truncate per source, cap total at 2000 chars to stay within the 3B model's
+            // context window (4096 tokens) and allow enough room for the ~400-token output.
             var parts = new List<string>();
-            int remaining = 3000;
+            int remaining = 2000;
 
             foreach (var (label, text) in descriptions.OrderByDescending(d =>
                 d.Key.Contains("Plot", StringComparison.OrdinalIgnoreCase) ? 2 : 1))
             {
-                var maxLen = label.Contains("Plot", StringComparison.OrdinalIgnoreCase) ? 1500 : 800;
+                var maxLen = label.Contains("Plot", StringComparison.OrdinalIgnoreCase) ? 1200 : 600;
                 var truncated = text.Length > maxLen ? text[..maxLen] + "..." : text;
                 if (truncated.Length > remaining) truncated = truncated[..remaining];
                 if (truncated.Length > 0)

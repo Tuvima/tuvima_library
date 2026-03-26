@@ -63,7 +63,7 @@ Full-width banner used on the Home page and lane pages.
 2. CSS-blurred cover art fallback: `filter: blur(24px)` with a dark vignette overlay.
 3. Gradient fallback when no cover art is available.
 
-The banner displays metadata badges (year, media type), Hub title, and author name.
+The banner displays metadata badges (year, media type), Series title, and author name.
 
 ---
 
@@ -116,7 +116,7 @@ Example files live in `config.example/ui/`. Live files in `config/ui/` are gitig
 | `web` | Standard | None — fully unconstrained |
 | `mobile` | 48px | View toggle disabled, compact appbar, icon-only logo, stacked layouts, 1-column grid |
 | `television` | 64px | 8 features disabled, server settings page disabled, no text input, focus-navigable tabs, 2-column large tiles |
-| `automotive` | 80px | Same as television plus forced dark mode, minimal appbar, 2 dock items (Hubs + Listen), audio-only tiles |
+| `automotive` | 80px | Same as television plus forced dark mode, minimal appbar, 2 dock items (Series + Listen), audio-only tiles |
 
 ### Device Detection
 

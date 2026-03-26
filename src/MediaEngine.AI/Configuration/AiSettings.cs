@@ -21,7 +21,7 @@ public sealed class AiSettings
 
     /// <summary>Maximum seconds to wait for an inference call before timeout.</summary>
     [JsonPropertyName("inference_timeout_seconds")]
-    public int InferenceTimeoutSeconds { get; set; } = 10;
+    public int InferenceTimeoutSeconds { get; set; } = 60;
 
     /// <summary>Model definitions by role.</summary>
     [JsonPropertyName("models")]
@@ -38,6 +38,14 @@ public sealed class AiSettings
     /// <summary>Cron schedules for background AI tasks.</summary>
     [JsonPropertyName("scheduling")]
     public AiScheduling Scheduling { get; set; } = new();
+
+    /// <summary>Number of entities to process per batch run in background enrichment services.</summary>
+    [JsonPropertyName("enrichment_batch_size")]
+    public int EnrichmentBatchSize { get; set; } = 10;
+
+    /// <summary>Hardware profiling result — populated once at startup by HardwareBenchmarkService.</summary>
+    [JsonPropertyName("hardware_profile")]
+    public HardwareProfile HardwareProfile { get; set; } = new();
 }
 
 /// <summary>Model definitions by role (text_fast, text_quality, audio).</summary>
@@ -251,4 +259,7 @@ public sealed class AiScheduling
 
     [JsonPropertyName("taste_profile_update_cron")]
     public string TasteProfileUpdateCron { get; set; } = "0 5 * * 0";
+
+    [JsonPropertyName("description_intelligence")]
+    public string DescriptionIntelligenceCron { get; set; } = "*/15 * * * *";
 }

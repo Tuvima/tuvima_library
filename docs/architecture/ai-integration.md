@@ -61,7 +61,7 @@ All LLM calls use GBNF grammar constraints — llama.cpp forces the model to pro
 
 | Feature | Model | What it does |
 |---|---|---|
-| Vibe Tags | text_quality | Generates mood and atmosphere tags using per-category vocabularies defined in `config/ai.json`. Background service (4 AM daily). |
+| Vibe Tags | text_quality | Generates mood and atmosphere tags (3–5 per work) using per-category controlled vocabularies defined in `config/ai.json`. 25–30 tags per media type, organised by dimension: pacing, mood, atmosphere, tone, intensity. Vibes describe *how something feels*, not *what it is* — genre handles categorisation (from Wikidata/retail), vibes handle the emotional/atmospheric space. Background service (4 AM daily). |
 | TL;DR | text_fast | Generates a 2–3 sentence plain-language summary of a work's description. On-demand. |
 | Cover Art Validation | text_fast | Verifies that a downloaded cover image matches the expected work (catches mismatched covers from retail providers). |
 | Audio Similarity | — | Chromaprint-based acoustic fingerprinting to detect duplicate audio files across formats. No LLM required. |
@@ -107,6 +107,29 @@ AI does not replace the Priority Cascade Engine. Wikidata remains the sole autho
 | BatchManifestBuilder | Reduces the number of API calls, but does not change claim weights or cascade logic |
 
 The cascade evaluates all claims — including those produced by AI features — using the same tier system.
+
+---
+
+## Genre vs Vibe — Discovery Model
+
+Genres and vibes serve different purposes and come from different sources. Together they power the discovery and smart playlist features.
+
+| Layer | Source | Example | Answers |
+|---|---|---|---|
+| **Genre** | Wikidata (P136) / retail providers | Science Fiction, Mystery, Biography | "What is it?" — categorical |
+| **Vibe** | AI (VibeTagger, text_quality model) | atmospheric, slow-burn, haunting | "How does it feel?" — emotional/atmospheric |
+| **Taste Profile** | AI (TasteProfileBackgroundService) | User prefers cerebral + atmospheric sci-fi | "What do I like?" — personalised |
+| **Intent Search** | AI (text_fast model) | "something scary set in space" → genre:horror + genre:sci-fi + vibe:tense | "What am I in the mood for?" — natural language |
+
+**Intent Search** is the bridge — it translates natural language into a structured query that combines genres, vibes, media types, and other metadata. The **"Why" Factor** then explains recommendations in plain language.
+
+### Vibe vocabulary design principles
+
+- Vibes must not overlap with genres. "Science Fiction" is a genre; "cerebral" and "futuristic-feeling" are vibes.
+- Vibes are organised by dimension: **pacing** (page-turner, slow-burn), **mood** (dark, uplifting), **atmosphere** (atmospheric, gritty), **tone** (satirical, whimsical), **intensity** (epic, intimate).
+- Cross-media tags (atmospheric, dark, intimate, haunting, raw, gentle) appear across most media types because those vibes are universal. Media-specific tags stay where they make sense (visually-stunning for film, driving for music, noir for comics).
+- 25–30 tags per media type. The LLM selects 3–5 per work, so the larger vocabulary gives range without diluting results.
+- Vocabularies are editable by the user in Settings > Intelligence > Vibe Vocabulary.
 
 ---
 

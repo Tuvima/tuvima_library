@@ -36,6 +36,12 @@
     <!-- LLamaSharp CPU backend for cross-platform inference.
          MIT license — approved for AGPLv3 compatibility (see CLAUDE.md §5.1). -->
     <PackageVersion Include="LLamaSharp.Backend.Cpu" Version="0.21.0" />
+    <!-- LLamaSharp Vulkan GPU backend: covers AMD, Intel Arc, and NVIDIA on Windows/Linux.
+         MIT license — approved for AGPLv3 compatibility (see CLAUDE.md §5.1). -->
+    <PackageVersion Include="LLamaSharp.Backend.Vulkan" Version="0.21.0" />
+    <!-- LLamaSharp CUDA 12 GPU backend: NVIDIA-optimised, higher throughput than Vulkan.
+         MIT license — approved for AGPLv3 compatibility (see CLAUDE.md §5.1). -->
+    <PackageVersion Include="LLamaSharp.Backend.Cuda12" Version="0.21.0" />
     <!-- Whisper.net: .NET native whisper.cpp binding for audio transcription.
          MIT license — approved for AGPLv3 compatibility (see CLAUDE.md §5.1). -->
     <PackageVersion Include="Whisper.net" Version="1.8.0" />
@@ -57,8 +63,8 @@
     <PackageVersion Include="MudBlazor" Version="9.0.0" />
     <!-- Tuvima.WikidataReconciliation: unified Wikidata/Wikipedia API client.
          MIT license — approved for AGPLv3 compatibility (see CLAUDE.md §5.1). -->
-    <PackageVersion Include="Tuvima.WikidataReconciliation" Version="0.4.0" />
-    <PackageVersion Include="Tuvima.WikidataReconciliation.AspNetCore" Version="0.4.0" />
+    <PackageVersion Include="Tuvima.WikidataReconciliation" Version="0.5.0" />
+    <PackageVersion Include="Tuvima.WikidataReconciliation.AspNetCore" Version="0.5.0" />
   </ItemGroup>
   <ItemGroup Label="Test">
     <PackageVersion Include="coverlet.collector" Version="6.0.4" />

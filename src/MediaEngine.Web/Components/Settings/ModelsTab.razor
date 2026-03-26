@@ -1,10 +1,10 @@
 @namespace MediaEngine.Web.Components.Settings
+@inject UIOrchestratorService Orchestrator
 
 @* ModelsTab — AI model management dashboard.
-   Displays three model cards (text_fast, text_quality, audio) with
-   status indicators, RAM/size info, and download/load/unload/delete actions.
-   Also shows models directory config and idle-unload settings.
-   All state is local — no Engine calls in this stub. *@
+   Displays hardware profile card, then three model cards (text_fast, text_quality, audio)
+   with status indicators, RAM/size info, and download/load/unload/delete actions.
+   Also shows models directory config and idle-unload settings. *@
 
 <div style="width: 100%; padding: 24px; box-sizing: border-box;">
 
@@ -17,6 +17,70 @@
         Download, load, and manage the local AI models that power intelligent features.
         Models run entirely on your machine — no data leaves.
     </MudText>
+
+    @* ── Hardware Profile ─────────────────────────────────────────────── *@
+    <MudPaper Class="pa-4 mb-4" Style="background: rgba(255,255,255,0.03); border: 1px solid rgba(201,146,46,0.2); border-radius: 12px;">
+        <div class="d-flex align-center justify-space-between mb-3">
+            <MudText Typo="Typo.h6" Style="color: #C9922E;">Hardware Profile</MudText>
+            <MudButton Variant="Variant.Outlined" Color="Color.Warning" Size="Size.Small"
+                       OnClick="RunBenchmark" Disabled="@_benchmarking">
+                @if (_benchmarking)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                }
+                Re-run Benchmark
+            </MudButton>
+        </div>
+
+        @if (_profile is not null)
+        {
+            <div class="d-flex gap-6 flex-wrap">
+                @* Tier Badge *@
+                <div>
+                    <MudText Typo="Typo.caption" Style="opacity: 0.5;">PERFORMANCE TIER</MudText>
+                    <MudChip T="string" Color="@GetTierColor(_profile.Tier)" Size="Size.Large"
+                             Style="font-weight: 600; font-size: 1.1rem; text-transform: uppercase;">
+                        @_profile.Tier
+                    </MudChip>
+                </div>
+
+                @* Backend *@
+                <div>
+                    <MudText Typo="Typo.caption" Style="opacity: 0.5;">COMPUTE BACKEND</MudText>
+                    <MudText Typo="Typo.body1">
+                        @(_profile.GpuName ?? (_profile.Backend == "cpu" ? "CPU Only" : _profile.Backend.ToUpper()))
+                    </MudText>
+                </div>
+
+                @* Speed *@
+                <div>
+                    <MudText Typo="Typo.caption" Style="opacity: 0.5;">INFERENCE SPEED</MudText>
+                    <MudText Typo="Typo.body1">@_profile.TokensPerSecond.ToString("F1") tok/s</MudText>
+                </div>
+
+                @* RAM *@
+                <div>
+                    <MudText Typo="Typo.caption" Style="opacity: 0.5;">AVAILABLE MEMORY</MudText>
+                    <MudText Typo="Typo.body1">@FormatRam(_profile.AvailableRamMb)</MudText>
+                </div>
+
+                @* Last Benchmark *@
+                @if (_profile.BenchmarkedAt.HasValue)
+                {
+                    <div>
+                        <MudText Typo="Typo.caption" Style="opacity: 0.5;">LAST BENCHMARK</MudText>
+                        <MudText Typo="Typo.body1">@_profile.BenchmarkedAt.Value.ToLocalTime().ToString("g")</MudText>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <MudText Typo="Typo.body2" Style="opacity: 0.5;">
+                No benchmark data yet — the Engine will benchmark automatically on first startup.
+            </MudText>
+        }
+    </MudPaper>
 
     @* ── Model Cards Grid ───────────────────────────────────────────────── *@
     <MudGrid Spacing="3" Class="mb-6">
@@ -186,6 +250,37 @@
 </div>
 
 @code {
+
+    // ── Hardware Profile ──────────────────────────────────────────────────────────
+
+    private HardwareProfileDto? _profile;
+    private bool                _benchmarking;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        _profile = await Orchestrator.GetAiProfileAsync();
+    }
+
+    private async Task RunBenchmark()
+    {
+        _benchmarking = true;
+        StateHasChanged();
+        _profile      = await Orchestrator.RunBenchmarkAsync();
+        _benchmarking = false;
+        StateHasChanged();
+    }
+
+    private static Color GetTierColor(string tier) => tier.ToLowerInvariant() switch
+    {
+        "high"   => Color.Success,
+        "medium" => Color.Warning,
+        "low"    => Color.Error,
+        _        => Color.Default,
+    };
+
+    private static string FormatRam(long mb) =>
+        mb >= 1024 ? $"{mb / 1024.0:F1} GB" : $"{mb} MB";
 
     // ── Styles ────────────────────────────────────────────────────────────────────
 

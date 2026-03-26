@@ -116,4 +116,39 @@ public sealed class ImageCacheRepository : IImageCacheRepository
 
         return Task.CompletedTask;
     }
+
+    /// <inheritdoc/>
+    public Task SetPerceptualHashAsync(string contentHash, ulong phash, CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(contentHash);
+
+        // SQLite stores INTEGER as 64-bit signed; cast ulong → long for storage.
+        long storedValue = (long)phash;
+
+        using var conn = _db.CreateConnection();
+        conn.Execute("""
+            UPDATE image_cache
+            SET    phash = @phash
+            WHERE  content_hash = @contentHash;
+            """,
+            new { phash = storedValue, contentHash });
+
+        return Task.CompletedTask;
+    }
+
+    /// <inheritdoc/>
+    public Task<ulong?> GetPerceptualHashAsync(string contentHash, CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(contentHash);
+
+        using var conn = _db.CreateConnection();
+        var result = conn.ExecuteScalar<long?>("""
+            SELECT phash
+            FROM   image_cache
+            WHERE  content_hash = @contentHash;
+            """, new { contentHash });
+
+        // Cast long → ulong on read; null if no hash stored.
+        return Task.FromResult(result.HasValue ? (ulong?)((ulong)result.Value) : null);
+    }
 }

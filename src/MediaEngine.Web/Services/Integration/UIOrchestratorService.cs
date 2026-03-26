@@ -1004,5 +1004,16 @@ public sealed class UIOrchestratorService : IAsyncDisposable
 
     public Task<bool> DismissReportAsync(long activityId, CancellationToken ct = default)
         => _api.DismissReportAsync(activityId, ct);
+
+    // ── AI Hardware Profile ───────────────────────────────────────────────────
+
+    public Task<HardwareProfileDto?> GetAiProfileAsync(CancellationToken ct = default)
+        => _api.GetAiProfileAsync(ct);
+
+    public Task<HardwareProfileDto?> RunBenchmarkAsync(CancellationToken ct = default)
+        => _api.RunBenchmarkAsync(ct);
+
+    public Task<EnrichmentProgressDto?> GetEnrichmentProgressAsync(CancellationToken ct = default)
+        => _api.GetEnrichmentProgressAsync(ct);
 }
 

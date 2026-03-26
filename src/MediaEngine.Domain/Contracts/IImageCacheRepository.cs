@@ -59,4 +59,10 @@ public interface IImageCacheRepository
     /// User-override images are never replaced by automated provider downloads.
     /// </summary>
     Task SetUserOverrideAsync(string contentHash, bool isOverride, CancellationToken ct = default);
+
+    /// <summary>Store a perceptual hash for a cached image.</summary>
+    Task SetPerceptualHashAsync(string contentHash, ulong phash, CancellationToken ct = default);
+
+    /// <summary>Get the perceptual hash for a cached image by content hash.</summary>
+    Task<ulong?> GetPerceptualHashAsync(string contentHash, CancellationToken ct = default);
 }

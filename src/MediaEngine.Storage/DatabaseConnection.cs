@@ -1148,6 +1148,24 @@ public sealed class DatabaseConnection : IDatabaseConnection
                 );
                 """);
 
+        // ── M-060: Perceptual hash column on image_cache ──────────────────
+        // Stores a 64-bit average hash (pHash) of each cached image so the
+        // Stage 1 matching pipeline can compare embedded cover art against
+        // provider thumbnails without re-downloading images.
+        // SQLite stores this as INTEGER (64-bit signed); the repository layer
+        // casts between long and ulong when reading and writing.
+        MigrateAddColumnIfMissing(conn, "image_cache", "phash",
+            "ALTER TABLE image_cache ADD COLUMN phash INTEGER;");
+
+        {
+            using var m060Idx = conn.CreateCommand();
+            m060Idx.CommandText = """
+                CREATE INDEX IF NOT EXISTS idx_image_cache_phash
+                    ON image_cache(phash) WHERE phash IS NOT NULL;
+                """;
+            m060Idx.ExecuteNonQuery();
+        }
+
         // Seed S-001: provider_registry entries for all known providers.
         // metadata_claims.provider_id has a FK to provider_registry(id), so these
         // rows MUST exist before any claim is written.  INSERT OR IGNORE makes this

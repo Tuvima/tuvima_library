@@ -23,7 +23,7 @@ Tuvima Library does not create a library. It **presents** one. The stories alrea
 
 Every feature exists in service of that word:
 - The **Intelligence Engine** works invisibly so the library is already whole when you look at it.
-- The **Hub** is the act of presentation made structural — the book, film, and audiobook of the same story brought forward as one.
+- The **Universe** is the act of presentation made structural — the book, film, and audiobook of the same story brought forward as one.
 - The **Cinematic Dashboard** is the presentation layer made visible — the interface where the Engine's understanding reaches the screen.
 
 > **All future sessions must preserve this creative context.** When writing copy, naming features, or explaining the product, the Presentation philosophy should be the frame.
@@ -37,45 +37,58 @@ Its core job is to bring order to a large, messy media collection spread across 
 1. **Watches** your folders for new files — books, audiobooks, comics, TV shows, movies, music, and podcasts.
 2. **Fingerprints** each file with a unique identifier (like a barcode), so it can track files even if you rename or move them.
 3. **Reads the embedded information** inside each file — title, author, year, cover art, series name — and uses a *Priority Cascade* to determine the most trustworthy version of each piece of information.
-4. **Groups everything into Hubs** — a single, intelligent home for all versions of the same story.
+4. **Groups everything into Universes and Series** — intelligent groupings that link all versions of the same story across media types.
 5. **Serves a visual dashboard** in your browser for browsing, searching, and managing the library.
 6. **Broadcasts instant updates** to your dashboard the moment a new file is detected, with no page refresh.
 
-### The Hub Concept
+### The Grouping Model — Universes and Series
 
-The central idea in Tuvima Library is the **Hub**.
+Tuvima Library organises media into **Universes** and **Series** — virtual containers that link multiple media forms through shared contextual metadata.
 
-A Hub is a **virtual container** — not a folder on disk, not a single title, but an intelligent grouping that links multiple media forms through their shared contextual metadata. A Hub represents a creative universe: the books, films, audiobooks, comics, and podcasts that belong together because their metadata says so.
+A **Universe** is a creative world — the books, films, audiobooks, comics, and podcasts that belong together because their metadata says so. A **Series** is a sub-grouping within a Universe — a specific sequence or collection of related works.
 
-The matching is automatic. When the Engine discovers that a novel, its film adaptation, and a podcast discussion share the same author, franchise identifiers, or Wikidata Q-identifier, it groups them into a single Hub. You browse by universe, not by file type.
+The matching is automatic. When the Engine discovers that a novel, its film adaptation, and a podcast discussion share the same author, franchise identifiers, or Wikidata Q-identifier, it groups them into the same Universe. You browse by creative world, not by file type.
 
 This can be as simple as grouping books by the same author, or as rich as following a story from an ebook into its movie adaptation, or linking a podcast that covers the same topic.
 
-> *Example: The "Dune" Hub might contain:*
-> - *Frank Herbert's novels (EPUB ebooks)*
-> - *The Denis Villeneuve film adaptations (MP4 videos)*
+> *Example: The "Dune" Universe might contain:*
+> - *The "Dune Novels" Series — Frank Herbert's novels (EPUB ebooks)*
+> - *The "Dune Films" Series — Denis Villeneuve film adaptations (MP4 videos)*
 > - *The audiobook narrations (M4B)*
 > - *The graphic novel adaptations (CBZ comics)*
 > - *A related podcast series discussing the Dune universe*
 >
-> *These are linked not because they share a filename, but because their metadata — author, franchise QID, series identifiers — connects them to the same creative universe.*
+> *These are linked not because they share a filename, but because their metadata — author, franchise QID, series identifiers — connects them to the same creative world.*
 
-**A Hub is not limited to a series.** While a Hub often represents a book series or film franchise, it is a flexible virtual container for *any* creative grouping — film adaptations of a novel, spin-off works, thematic collections, or cross-media narrative links. What defines a Hub is shared contextual metadata, not a shared format or filesystem location.
+**A Series is not limited to a numbered sequence.** While a Series often represents a book series or film franchise, it is a flexible virtual container for *any* creative grouping — film adaptations of a novel, spin-off works, thematic collections, or cross-media narrative links. What defines a Series is shared contextual metadata, not a shared format or filesystem location.
 
-The Hub hierarchy works like this:
+#### Terminology — User-Facing vs Internal
+
+| Level | User-facing name | Internal code name | Example |
+|---|---|---|---|
+| Entire library | **Library** | Library | Everything you own |
+| Franchise grouping | **Universe** | ParentHub | Dune, Marvel, Tolkien |
+| Series / collection | **Series** | Hub | Dune Novels, Dune Films |
+| Single title | **Work** | Work | Dune Part One |
+| Specific version | **Edition** | Edition | 4K HDR Blu-ray Remux |
+| File on disk | **Media Asset** | MediaAsset | the .mkv file |
+
+> **Rule:** Anything the user sees — UI labels, column headers, tab names, documentation prose — uses the **user-facing name**. Internal code names (ParentHub, Hub) stay in the domain/engine layer only.
+
+The hierarchy:
 
 ```
-Universe  (your entire library — all Hubs)
-  └── Parent Hub  (franchise/universe — e.g. "Dune" — groups related Series Hubs)
-        └── Hub  (series or thematic collection — e.g. "Dune Novels" or "Dune Films")
-              └── Work  (one title — e.g. "Dune Part One")
-                    └── Edition  (one physical version — e.g. "4K HDR Blu-ray Remux")
-                          └── Media Asset  (one file on disk)
+Library   (your entire collection)
+  └── Universe   (franchise/creative world — e.g. "Dune")
+        └── Series   (sub-grouping — e.g. "Dune Novels" or "Dune Films")
+              └── Work   (one title — e.g. "Dune Part One")
+                    └── Edition   (one physical version — e.g. "4K HDR Blu-ray Remux")
+                          └── Media Asset   (one file on disk)
 ```
 
-**Parent Hubs** are optional. A Hub that belongs to no larger franchise sits directly under the Universe. When the Engine discovers franchise-level relationships (Wikidata P8345 franchise, P179 series, or shared narrative roots), it can promote a group of related Hubs under a common Parent Hub.
+**Universes** are optional. A Series that belongs to no larger franchise sits directly under the Library. When the Engine discovers franchise-level relationships (Wikidata P8345 franchise, P179 series, or shared narrative roots), it can promote a group of related Series under a common Universe.
 
-**Important:** Both Hubs and Parent Hubs are resolved at metadata-scoring time by the Intelligence Engine. They have no presence on the filesystem — files are organized by category and title, not by Hub.
+**Important:** Both Universes and Series are resolved at metadata-scoring time by the Intelligence Engine. They have no presence on the filesystem — files are organised by category and title, not by Universe or Series.
 
 ### Who is it for?
 
@@ -188,7 +201,7 @@ Builds a relationship graph connecting characters, locations, factions, and work
 ### 3.9 — Local AI Intelligence Layer
 **Detail:** [`docs/architecture/ai-integration.md`](docs/architecture/ai-integration.md)
 
-AI is a core function, not an add-on. Three model roles: text_fast (1B, on-demand), text_quality (3B, batch), audio (Whisper, transcription). 16 features across 7 categories: Ingestion (Smart Labeling, Media Type Classification, Batch Manifest), Alignment (QID Disambiguation, Series Alignment), Enrichment (Vibe Tags, TL;DR, Audio Similarity), Syncing (Immersive Bake, Subtitle Sync), Personalization (Taste Profiling, "Why" Factor), Discovery (Intent Search), Advanced (URL Paste). GBNF grammar constraints force valid JSON output. AI improves matching; Priority Cascade determines canonical values. Config: `config/ai.json`.
+AI is a core function, not an add-on. Three model roles: text_fast (1B, on-demand), text_quality (3B, batch), audio (Whisper, transcription). 16 features across 7 categories: Ingestion (Smart Labeling, Media Type Classification, Batch Manifest), Alignment (QID Disambiguation, Series Alignment), Enrichment (Vibe Tags, TL;DR, Audio Similarity), Syncing (Immersive Bake, Subtitle Sync), Personalization (Taste Profiling, "Why" Factor), Discovery (Intent Search), Advanced (URL Paste). GBNF grammar constraints force valid JSON output. AI improves matching; Priority Cascade determines canonical values. **Genre vs Vibe distinction:** genres (from Wikidata/retail) describe *what something is*; vibes (AI-generated, 25–30 per media type) describe *how it feels*. Intent Search combines both for natural language discovery ("something scary set in space" → genre:horror + vibe:tense). Config: `config/ai.json`.
 
 ### 3.10 — Settings Architecture & Screen Hierarchy
 **Detail:** [`docs/architecture/settings-and-vault.md`](docs/architecture/settings-and-vault.md)
@@ -198,12 +211,12 @@ Settings are organised by what the user is thinking about. Three design rules: b
 ### 3.11 — Library Vault (`/vault`)
 **Detail:** [`docs/architecture/settings-and-vault.md`](docs/architecture/settings-and-vault.md)
 
-The command centre for managing everything in the library. Three tabs: Media, People, Universes. Pipeline header with live batch progress. Alert banners for items needing review (amber) or quarantined (red). Toolbar with search/sort/group/filters. VaultResolutionOverlay for Wikidata disambiguation. Per-item: confidence segments, VaultStatus (Verified/NeedsReview/Failed/Quarantined), three pipeline StageGate indicators (Retail/Wikidata/Universe). Live SignalR updates. Replaces the former review queue, staging queue, and conflict resolution screens.
+The command centre for managing everything in the library. Three tabs: Media, People, Universes. Pipeline header with live batch progress. Alert banners for items needing review (amber) or quarantined (red). Toolbar with search/sort/group/filters; media type count bar doubles as filters. **Media list view:** each row shows thumbnail, title+creator, Universe link, pipeline dots (mouseover for detail), status pill (Verified/Provisional/Needs Review/Quarantined/Pending). Problem rows get an extra line explaining why. **Detail drawer** slides in from right with pinned header (cover, title, status, Universe link), scrollable collapsible sections (Sync, Enrichment, Pipeline, File, Claims), and pinned action bar (Identify, Sync Now, Purge). Pipeline section includes inline resolution panels for both Retail and Wikidata stages — pick candidates, search manually, or Add Provisional (pre-populated from file metadata, user corrects fields). **Provisional status** for items the engine couldn't match — file metadata is the authority, user corrections improve future Identify runs. **30-day refresh cycle** re-runs enrichment to catch updated provider/Wikidata data. **Sync writeback** (on by default) writes resolved metadata back to file tags. **People tab:** always Wikidata-sourced, no status column needed. List shows photo, name+description, role chips, library presence counts. Detail drawer: Library Presence (works grouped by role/media type), Linked Identities (pseudonym merges), and Assets. No manual actions — enrichment via 30-day refresh cycle. Auto-cleaned when associated media removed. **Universes tab:** franchise-level groupings, always Wikidata-sourced. Stats bar shows Universe count, total Series, Orphaned Series count. List shows name+description, Series count, media breakdown, people count. Detail drawer: Series list (clickable → filters Media tab), People, Orphaned Works, and Assets. No manual actions — 30-day refresh, auto-cleaned when child Series empty. **Shared Assets section** across all three tabs: five uniform asset types (Cover Art, Headshot, Banner, Logo, Backdrop) available on every entity for uniformity — same slots everywhere, providers fill what they can, user uploads the rest. TMDB auto-categorises images by type; book/audio providers return Cover Art only; Wikidata provides Headshots for People. Grouped by type, with preferred selection, user upload, and source labelling. Embedded original artwork always preserved. AI artwork matching uses embedded cover art as a visual signal during retail identification. Live SignalR updates throughout.
 
 ### 3.12 — Target State Features
 **Detail:** [`docs/architecture/target-state.md`](docs/architecture/target-state.md)
 
-**Not yet implemented:** Playback (EPUB Reader, Comic Viewer, Audiobook Player, Video Player with HLS), Authentication & Multi-User (profiles, PIN/password, parental controls), Transcoding Pipeline (FFmpeg, Shadow Transcoder), Music Domain Model (MusicBrainz, MusicProcessor), Interoperability (OPDS 1.2, Audiobookshelf API, webhooks, import wizard, PWA), Browse & Discovery Pages (HubDetail, WorkDetail, PersonDetail, Statistics).
+**Not yet implemented:** Playback (EPUB Reader, Comic Viewer, Audiobook Player, Video Player with HLS), Authentication & Multi-User (profiles, PIN/password, parental controls), Transcoding Pipeline (FFmpeg, Shadow Transcoder), Music Domain Model (MusicBrainz, MusicProcessor), Interoperability (OPDS 1.2, Audiobookshelf API, webhooks, import wizard, PWA), Browse & Discovery Pages (UniverseDetail, WorkDetail, PersonDetail, Statistics).
 
 ### 3.13 — Supported Library Types
 
@@ -243,6 +256,8 @@ Always use the plain-English term. Never use the technical term in conversation.
 | Pull request / Branch | Proposed change / Parallel work stream |
 | csproj / props file | Project configuration file |
 | namespace / class | Code module / Blueprint |
+| Hub (internal) | Series |
+| ParentHub (internal) | Universe |
 
 ### 4.2 — Always explain the "Why" in business terms
 
@@ -462,7 +477,7 @@ src/MediaEngine.Web/
 │       └── DeviceContextService.cs     Per-circuit device class + resolved UI settings
 │
 ├── Components/
-│   ├── Universe/             ← Hub-related visual components
+│   ├── Universe/             ← Universe/Series-related visual components
 │   │   ├── HubHero.razor               Cinematic hero: blurred cover art + vignette + badges
 │   │   ├── MetadataChips.razor          Multi-valued fields as MudChip elements
 │   │   ├── PosterCard.razor            Poster art tile: cover, title, badges
@@ -524,7 +539,7 @@ src/MediaEngine.Web/
 │       ├── Vault.razor                 Library Vault: unified management
 │       ├── Settings.razor              Unified settings: 16 screens in 5 groups
 │       ├── ChronicleExplorer.razor     Universe graph explorer
-│       ├── HubDetail.razor             (TARGET STATE) Hub detail
+│       ├── UniverseDetail.razor         (TARGET STATE) Universe detail
 │       ├── WorkDetail.razor            (TARGET STATE) Work detail
 │       ├── PersonDetail.razor          (TARGET STATE) Person detail
 │       ├── Statistics.razor            (TARGET STATE) Library stats

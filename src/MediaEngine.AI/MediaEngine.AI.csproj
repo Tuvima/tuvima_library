@@ -9,8 +9,12 @@
     <!-- LLamaSharp: .NET native llama.cpp binding for local LLM inference.
          MIT license — approved for AGPLv3 compatibility (see CLAUDE.md §5.1). -->
     <PackageReference Include="LLamaSharp" />
-    <!-- LLamaSharp CPU backend. Future: add LLamaSharp.Backend.Vulkan for GPU. -->
+    <!-- LLamaSharp CPU backend: always included as the universal fallback. -->
     <PackageReference Include="LLamaSharp.Backend.Cpu" />
+    <!-- LLamaSharp Vulkan GPU backend: covers AMD, Intel Arc, and NVIDIA. -->
+    <PackageReference Include="LLamaSharp.Backend.Vulkan" />
+    <!-- LLamaSharp CUDA 12 GPU backend: NVIDIA-optimised higher-throughput path. -->
+    <PackageReference Include="LLamaSharp.Backend.Cuda12" />
     <!-- Whisper.net: .NET native whisper.cpp binding for audio transcription.
          MIT license — approved for AGPLv3 compatibility (see CLAUDE.md §5.1). -->
     <PackageReference Include="Whisper.net" />
@@ -20,6 +24,9 @@
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
     <!-- HTTP client factory for model downloads. -->
     <PackageReference Include="Microsoft.Extensions.Http" />
+    <!-- SkiaSharp: image decoding and resizing for perceptual cover art hashing. -->
+    <PackageReference Include="SkiaSharp" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux" />
   </ItemGroup>
 
   <ItemGroup>

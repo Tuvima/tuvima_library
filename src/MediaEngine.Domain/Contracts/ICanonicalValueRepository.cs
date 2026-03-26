@@ -80,4 +80,20 @@ public interface ICanonicalValueRepository
         string key,
         string prefix,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns entity IDs that have at least one canonical value matching
+    /// <paramref name="hasField"/> but do NOT yet have a canonical value
+    /// matching <paramref name="missingField"/>.
+    /// Used by background enrichment services to find un-processed entities.
+    /// </summary>
+    /// <param name="hasField">A field key the entity must already have (e.g. "description").</param>
+    /// <param name="missingField">A field key the entity must NOT have yet (e.g. "themes").</param>
+    /// <param name="limit">Maximum number of entity IDs to return.</param>
+    /// <param name="ct">Cancellation token.</param>
+    Task<IReadOnlyList<Guid>> GetEntitiesNeedingEnrichmentAsync(
+        string hasField,
+        string missingField,
+        int limit,
+        CancellationToken ct = default);
 }
