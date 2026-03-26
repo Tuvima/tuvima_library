@@ -78,6 +78,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     private readonly IBridgeIdRepository _bridgeIdRepo;
     private readonly ILocalMatchService _localMatch;
     private readonly IDescriptionSignalExtractor _signalExtractor;
+    private readonly IQidDisambiguator? _disambiguator;
     private readonly ILogger<HydrationPipelineService> _logger;
 
     // Reverse lookup: claim key → Wikidata P-code (e.g. "isbn_13" → "P212").
@@ -118,7 +119,8 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         ILocalMatchService localMatch,
         IDescriptionSignalExtractor signalExtractor,
         ILogger<HydrationPipelineService> logger,
-        WikidataReconciler? reconciler = null)
+        WikidataReconciler? reconciler = null,
+        IQidDisambiguator? disambiguator = null)
     {
         ArgumentNullException.ThrowIfNull(providers);
         ArgumentNullException.ThrowIfNull(claimRepo);
@@ -180,6 +182,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         _signalExtractor     = signalExtractor;
         _deferredRepo        = deferredRepo;
         _reconciler          = reconciler;
+        _disambiguator       = disambiguator;
         _fictionalEntityRepo = fictionalEntityRepo;
         _logger              = logger;
 
@@ -910,6 +913,61 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             try { await _activityRepo.LogAsync(new SystemActivityEntry { ActionType = "WikidataMatchFailed", EntityId = request.EntityId, Detail = "No retail match found — item sent for review" }, ct).ConfigureAwait(false); }
             catch (Exception ex) when (ex is not OperationCanceledException) { _logger.LogWarning(ex, "Failed to log item history (RetailMatchFailed)"); }
 
+            // AI QID Disambiguation: attempt to resolve before creating review item.
+            // When disambiguation candidates are available, the LLM may be able to
+            // pick the best match without human intervention.
+            if (_disambiguator is not null && result.DisambiguationCandidates is { Count: > 1 })
+            {
+                try
+                {
+                    var fileMetadata = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                    if (!string.IsNullOrWhiteSpace(titleHint))
+                        fileMetadata["title"] = titleHint;
+
+                    var authorHint = request.Hints.GetValueOrDefault("author");
+                    if (!string.IsNullOrWhiteSpace(authorHint))
+                        fileMetadata["author"] = authorHint;
+
+                    var yearHint = request.Hints.GetValueOrDefault("year");
+                    if (!string.IsNullOrWhiteSpace(yearHint))
+                        fileMetadata["year"] = yearHint;
+
+                    var disambResult = await _disambiguator.DisambiguateAsync(
+                        fileMetadata, result.DisambiguationCandidates, ct).ConfigureAwait(false);
+
+                    if (disambResult.SelectedQid is not null && disambResult.Confidence >= 0.80)
+                    {
+                        _logger.LogInformation(
+                            "AI QidDisambiguator resolved entity {Id} to {Qid} (confidence: {Conf:F2}): {Reasoning}",
+                            request.EntityId, disambResult.SelectedQid, disambResult.Confidence,
+                            disambResult.Reasoning);
+
+                        // Re-enqueue with the AI-resolved QID so Stage 2 runs directly.
+                        // PreResolvedQid is init-only, so we create a new request object.
+                        await EnqueueAsync(new HarvestRequest
+                        {
+                            EntityId            = request.EntityId,
+                            EntityType          = request.EntityType,
+                            MediaType           = request.MediaType,
+                            Hints               = request.Hints,
+                            PreResolvedQid      = disambResult.SelectedQid,
+                            SuppressActivityEntry = request.SuppressActivityEntry,
+                            SuppressReviewCreation = true,
+                            IngestionRunId      = request.IngestionRunId,
+                            Pass                = request.Pass,
+                        }, ct).ConfigureAwait(false);
+
+                        goto PostPipeline;
+                    }
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _logger.LogWarning(ex,
+                        "AI QidDisambiguator failed for entity {Id} — falling through to review",
+                        request.EntityId);
+                }
+            }
+
             // Authority match failed — create review item.
             await CreateReviewItemAsync(
                 request, ReviewTrigger.AuthorityMatchFailed, 0.0,
@@ -1209,6 +1267,56 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                     _logger.LogInformation(
                         "Stage 2: No Wikidata entity found for bridge IDs of entity {Id} — marking as retail_only",
                         request.EntityId);
+
+                    // AI QID Disambiguation: attempt to resolve before creating review item.
+                    if (_disambiguator is not null && result.DisambiguationCandidates is { Count: > 1 })
+                    {
+                        try
+                        {
+                            var s2FileMetadata = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                            var s2TitleHint = request.Hints.GetValueOrDefault("title", "(unknown)");
+                            if (!string.IsNullOrWhiteSpace(s2TitleHint))
+                                s2FileMetadata["title"] = s2TitleHint;
+
+                            var s2AuthorHint = request.Hints.GetValueOrDefault("author");
+                            if (!string.IsNullOrWhiteSpace(s2AuthorHint))
+                                s2FileMetadata["author"] = s2AuthorHint;
+
+                            var s2DisambResult = await _disambiguator.DisambiguateAsync(
+                                s2FileMetadata, result.DisambiguationCandidates, ct).ConfigureAwait(false);
+
+                            if (s2DisambResult.SelectedQid is not null && s2DisambResult.Confidence >= 0.80)
+                            {
+                                _logger.LogInformation(
+                                    "AI QidDisambiguator (Stage 2) resolved entity {Id} to {Qid} " +
+                                    "(confidence: {Conf:F2}): {Reasoning}",
+                                    request.EntityId, s2DisambResult.SelectedQid,
+                                    s2DisambResult.Confidence, s2DisambResult.Reasoning);
+
+                                await EnqueueAsync(new HarvestRequest
+                                {
+                                    EntityId               = request.EntityId,
+                                    EntityType             = request.EntityType,
+                                    MediaType              = request.MediaType,
+                                    Hints                  = request.Hints,
+                                    PreResolvedQid         = s2DisambResult.SelectedQid,
+                                    SuppressActivityEntry  = request.SuppressActivityEntry,
+                                    SuppressReviewCreation = true,
+                                    IngestionRunId         = request.IngestionRunId,
+                                    Pass                   = request.Pass,
+                                }, ct).ConfigureAwait(false);
+
+                                // Skip the review item — AI resolved it.
+                                goto PostPipeline;
+                            }
+                        }
+                        catch (Exception ex) when (ex is not OperationCanceledException)
+                        {
+                            _logger.LogWarning(ex,
+                                "AI QidDisambiguator (Stage 2) failed for entity {Id} — falling through to review",
+                                request.EntityId);
+                        }
+                    }
 
                     // No Wikidata match — file stays at "retail_only" match level.
                     // Create a review item so the user knows, but don't block.

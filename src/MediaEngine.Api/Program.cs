@@ -550,6 +550,11 @@ builder.Services.AddSingleton<IModelDownloadManager, MediaEngine.AI.Infrastructu
 builder.Services.AddSingleton<IModelLifecycleManager, MediaEngine.AI.Infrastructure.ModelLifecycleManager>();
 builder.Services.AddHostedService<MediaEngine.Api.Services.ModelAutoDownloadService>();
 
+// AI background services.
+builder.Services.AddHostedService<MediaEngine.Api.Services.VibeBatchService>();
+builder.Services.AddHostedService<MediaEngine.Api.Services.SeriesAlignmentBackgroundService>();
+builder.Services.AddHostedService<MediaEngine.Api.Services.TasteProfileBackgroundService>();
+
 // AI inference and feature services.
 builder.Services.AddSingleton<MediaEngine.AI.Llama.LlamaInferenceService>();
 builder.Services.AddSingleton<MediaEngine.AI.Whisper.WhisperInferenceService>();
@@ -659,6 +664,7 @@ app.MapSearchEndpoints();
 app.MapReportEndpoints();
 app.MapDebugEndpoints();
 app.MapAiEndpoints();
+app.MapAiEnrichmentEndpoints();
 
 // ── Development-only seed endpoints ──────────────────────────────────────────
 if (app.Environment.IsDevelopment())
