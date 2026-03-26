@@ -129,6 +129,7 @@ A single power user who wants complete, private control over a large media colle
 | `src/MediaEngine.Processors` | The Scanner | Opens each file type (EPUB, video, comic) and extracts its embedded information. |
 | `src/MediaEngine.Providers` | The Research Team | Fetches enriched metadata from external sources (Apple API, Wikidata Reconciliation, TMDB, Open Library, Google Books). Runs non-blocking on a background channel. |
 | `src/MediaEngine.Ingestion` | The Mail Room | Monitors Library Folders (watch and import modes). Queues new files. Manages the safe move or copy of files into the organised library. |
+| `src/MediaEngine.AI` | The Brain | Local AI inference (LLamaSharp + Whisper.net). Smart Labeling, media type classification, QID disambiguation, vibe tagging, intent search, and all 16 AI features. |
 | `src/MediaEngine.Api` | The Reception Desk | The Engine's public interface. Exposes all features over HTTP. Hosts the real-time intercom. |
 | `src/MediaEngine.Web` | The Showroom | The browser Dashboard. Uses the Feature-Sliced layout (see Section 6). |
 | `tests/` | The Quality Inspector | Automated checks for every module. |
@@ -1642,6 +1643,74 @@ Inline extraction runs during hydration with zero API calls — pure regex + val
 - **Privacy** — Only extracted names are sent to Wikidata for verification. No new external services.
 - **Maintenance** — Zero new NuGet dependencies. All thresholds, patterns, and occupation classes are config-driven.
 
+### 3.28 — Local AI Intelligence Layer (The Library Vault)
+
+**Plain English:** The Library has an AI brain that runs entirely on your machine. It downloads two types of models on first run: text models (for understanding filenames, resolving Wikidata matches, generating mood tags, and powering natural language search) and an audio model (for speech-to-text, language detection, and audio-text synchronization). All inference is local — no cloud, no subscription, no data leaving the NAS.
+
+**AI is a core function of Tuvima Library, not an add-on.** It replaces the brittle regex and heuristic code that previously handled filename cleaning, media type disambiguation, and metadata scoring. The Engine requires AI models to be present and will not begin ingestion until they are downloaded.
+
+**New project: `MediaEngine.AI`** — sits alongside Providers in the dependency chain. References Domain (for contracts) and Storage (for configuration). All AI implementations live here.
+
+**NuGet dependencies:**
+- `LLamaSharp` + `LLamaSharp.Backend.Cpu` (MIT) — .NET native llama.cpp binding for text inference with GBNF grammar constraints
+- `Whisper.net` + `Whisper.net.Runtime` (MIT) — .NET native whisper.cpp binding for audio transcription
+
+**Model roles (configured in `config/ai.json`):**
+
+| Role | Default Model | RAM Loaded | Purpose |
+|------|--------------|-----------|---------|
+| `text_fast` | Llama 3.2 1B Q4_K_M | ~750MB | On-demand tasks: search parsing, TL;DR, recommendation explanations |
+| `text_quality` | Llama 3.2 3B Q4_K_M | ~2GB | Batch tasks: ingestion manifest, vibe tags, QID disambiguation |
+| `audio` | Whisper Medium | ~1.5GB | Audio tasks: transcription, language detection, sync maps |
+
+Only one model is loaded at a time (mutual exclusion via `SemaphoreSlim`). Auto-unloads after configurable idle timeout. Models download automatically on first run to `/models` Docker volume.
+
+**Structured output reliability:** All LLM calls use GBNF grammar constraints — llama.cpp forces the model to produce valid JSON at the token level. This is model-agnostic (works with Llama, Mistral, Phi, Gemma, Qwen). JSON schema validation + retry logic as safety net.
+
+**16 AI features across 7 categories:**
+
+| Category | Features | Model | Trigger |
+|----------|----------|-------|---------|
+| **Ingestion** | Smart Labeling, Media Type Classification, Batch Manifest | text_quality | Automatic |
+| **Alignment** | QID Disambiguation, Series Alignment, Watching Order | text_quality / text_fast | Automatic / On-demand |
+| **Enrichment** | Vibe Tags (per-category vocabulary), TL;DR, Cover Art Validation, Audio Similarity (Chromaprint) | text_quality / text_fast | Background / On-demand |
+| **Syncing** | Immersive Bake, Subtitle Sync, Cross-Media Scene Mapping | audio + text_quality | Scheduled / On-demand |
+| **Personalization** | Local Taste Profiling, "Why" Factor | text_quality / text_fast | Background / On-demand |
+| **Discovery** | Intent Search (NL → structured filters) | text_fast | User input |
+| **Advanced** | User-Assisted URL Paste | text_quality | Manual |
+
+**Code replaced by AI:**
+- `TitleNormalizer.cs` — deleted, replaced by SmartLabeler
+- AudioProcessor/VideoProcessor disambiguation heuristics — deleted, replaced by MediaTypeAdvisor
+- `IngestionHintCache` — superseded by BatchManifestBuilder
+- Priority Cascade Engine Tiers B-D — replaced by LLM per-field confidence scores
+
+**Configuration:** `config/ai.json` — model definitions by role, per-feature enable flags, per-category vibe vocabularies, cron schedules for background services.
+
+**API endpoints:** `/ai/status`, `/ai/models`, `/ai/models/{role}/download|load|unload`, `/ai/config`, `/ai/enrich/tldr/{entityId}`, `/ai/enrich/vibes/{entityId}`, `/ai/enrich/search/intent`, `/ai/enrich/extract-url`.
+
+**Background services:** VibeBatchService (4 AM daily), SeriesAlignmentBackgroundService (3 AM daily), TasteProfileBackgroundService (Sunday 5 AM), ModelAutoDownloadService (startup).
+
+**Database migrations:** M-058 (`user_taste_profiles`), M-059 (`audio_fingerprints`).
+
+**Docker:** `/models` volume mount for AI model storage. `TUVIMA_MODELS_DIR` environment variable.
+
+**Key types:**
+- `LlamaInferenceService` (`MediaEngine.AI.Llama`) — core LLM wrapper with GBNF grammar, timeout, JSON parsing
+- `WhisperInferenceService` (`MediaEngine.AI.Whisper`) — Whisper.net wrapper for transcription and language detection
+- `AudioPreprocessor` (`MediaEngine.AI.Whisper`) — FFmpeg 16kHz mono WAV conversion
+- `ModelDownloadManager` (`MediaEngine.AI.Infrastructure`) — HTTP download with SHA-256 validation and SignalR progress
+- `ModelLifecycleManager` (`MediaEngine.AI.Infrastructure`) — mutual exclusion, idle auto-unload, memory profiling
+- `SmartLabeler`, `MediaTypeAdvisor`, `BatchManifestBuilder`, `QidDisambiguator`, `SeriesAligner`, `VibeTagger`, `TldrGenerator`, `IntentSearchParser`, `UrlMetadataExtractor` (`MediaEngine.AI.Features`) — feature implementations
+- `AiSettings` (`MediaEngine.AI.Configuration`) — typed config model for `config/ai.json`
+
+**Why this matters to the business:**
+- **Reliability** — AI replaces brittle heuristic code, dramatically reducing review queue items and misclassifications.
+- **Performance** — Batch manifest analysis reduces retail API calls by 80-95% for bulk imports. Models load on demand and unload when idle.
+- **Extensibility** — Model swapping is a config change (any GGUF model works). New features use the same LlamaInferenceService + GBNF pattern.
+- **Privacy** — All inference runs locally. Models and data never leave the NAS.
+- **Maintenance** — All AI config lives in `config/ai.json`. Feature flags, vibe vocabularies, cron schedules — zero code changes to tune.
+
 ---
 
 ## 4. Product Owner Communication Rules
@@ -1801,6 +1870,10 @@ This project uses a two-tier model strategy to balance quality with speed:
 | Microsoft.Extensions.Http.Resilience | MIT | Standard retry, circuit-breaker, and timeout policies for all external HTTP calls (Polly-based) |
 | Cronos | MIT | Lightweight cron expression parser for configurable background task scheduling |
 | Dapper | Apache 2.0 | Micro-ORM for type-safe SQLite data access with named column mapping |
+| LLamaSharp | MIT | Local LLM inference — .NET native llama.cpp binding with GBNF grammar constraints for structured JSON output |
+| LLamaSharp.Backend.Cpu | MIT | CPU backend for LLamaSharp — cross-platform inference. Future: LLamaSharp.Backend.Vulkan for GPU |
+| Whisper.net | MIT | Local audio inference — .NET native whisper.cpp binding for speech-to-text and language detection |
+| Whisper.net.Runtime | MIT | CPU runtime for Whisper.net — cross-platform. Future: Whisper.net.Runtime.Vulkan for GPU |
 
 ### 5.2 — Mandatory Workflow
 

@@ -1119,6 +1119,35 @@ public sealed class DatabaseConnection : IDatabaseConnection
             m057.ExecuteNonQuery();
         }
 
+        // ── M-058: User taste profiles for AI personalization ──────────────
+        MigrateCreateTableIfMissing(
+            conn,
+            probeTable:  "user_taste_profiles",
+            probeColumn: "user_id",
+            ddl: """
+                CREATE TABLE IF NOT EXISTS user_taste_profiles (
+                    user_id       TEXT NOT NULL PRIMARY KEY,
+                    profile_json  TEXT NOT NULL DEFAULT '{}',
+                    summary       TEXT,
+                    updated_at    TEXT NOT NULL DEFAULT (datetime('now'))
+                );
+                """);
+
+        // ── M-059: Audio fingerprints for Chromaprint music similarity ─────
+        MigrateCreateTableIfMissing(
+            conn,
+            probeTable:  "audio_fingerprints",
+            probeColumn: "asset_id",
+            ddl: """
+                CREATE TABLE IF NOT EXISTS audio_fingerprints (
+                    asset_id      TEXT NOT NULL PRIMARY KEY,
+                    fingerprint   BLOB NOT NULL,
+                    duration_sec  REAL NOT NULL DEFAULT 0,
+                    created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+                    FOREIGN KEY (asset_id) REFERENCES media_assets(id)
+                );
+                """);
+
         // Seed S-001: provider_registry entries for all known providers.
         // metadata_claims.provider_id has a FK to provider_registry(id), so these
         // rows MUST exist before any claim is written.  INSERT OR IGNORE makes this
