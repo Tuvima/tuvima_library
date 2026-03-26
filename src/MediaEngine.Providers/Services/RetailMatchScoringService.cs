@@ -17,13 +17,16 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
 {
     private readonly IFuzzyMatchingService _fuzzy;
     private readonly IConfigurationLoader _configLoader;
+    private readonly ICoverArtHashService? _coverArtHash;
 
     public RetailMatchScoringService(
         IFuzzyMatchingService fuzzy,
-        IConfigurationLoader configLoader)
+        IConfigurationLoader configLoader,
+        ICoverArtHashService? coverArtHash = null)
     {
         _fuzzy = fuzzy;
         _configLoader = configLoader;
+        _coverArtHash = coverArtHash;
     }
 
     public FieldMatchScores ScoreCandidate(
@@ -74,6 +77,16 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
         // ── Cross-field signals ──────────────────────────────────────────
         double crossFieldBoost = ComputeCrossFieldBoost(fileHints, mediaType, extendedMetadata);
 
+        // ── Cover art similarity ─────────────────────────────────────────
+        double coverBoost = 0.0;
+        if (_coverArtHash is not null)
+        {
+            if (extendedMetadata?.CoverArtSimilarity is > 0.8)
+                coverBoost = 0.10; // Strong visual match — same cover, likely same edition
+            else if (extendedMetadata?.CoverArtSimilarity is > 0.6)
+                coverBoost = 0.05; // Moderate visual match — probably same work
+        }
+
         // ── Weighted composite ───────────────────────────────────────────
         var titleWeight  = weights.GetValueOrDefault("title",  0.45);
         var authorWeight = weights.GetValueOrDefault("author", 0.35);
@@ -84,7 +97,8 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
                       + (authorScore * authorWeight)
                       + (yearScore   * yearWeight)
                       + (formatScore * formatWeight)
-                      + crossFieldBoost;
+                      + crossFieldBoost
+                      + coverBoost;
 
         return new FieldMatchScores
         {
@@ -93,6 +107,7 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
             YearScore       = yearScore,
             FormatScore     = formatScore,
             CrossFieldBoost = crossFieldBoost,
+            CoverArtScore   = coverBoost,
             CompositeScore  = Math.Clamp(composite, 0.0, 1.0),
         };
     }

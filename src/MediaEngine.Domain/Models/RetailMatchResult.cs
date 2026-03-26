@@ -67,6 +67,9 @@ public sealed class FieldMatchScores
     /// <summary>Cross-field boost/penalty from secondary signals (narrator-in-description, etc.).</summary>
     public double CrossFieldBoost { get; init; }
 
+    /// <summary>Cover art perceptual hash similarity boost (0.0, 0.05, or 0.10).</summary>
+    public double CoverArtScore { get; init; }
+
     /// <summary>Weighted composite of all field scores including cross-field signals.</summary>
     public double CompositeScore { get; init; }
 }
@@ -94,4 +97,10 @@ public sealed class CandidateExtendedMetadata
 
     /// <summary>Language code from the retail result.</summary>
     public string? Language { get; init; }
+
+    /// <summary>
+    /// Cover art perceptual hash similarity against the file's embedded cover art (0.0–1.0),
+    /// or <c>null</c> if not computed (no embedded cover, no candidate cover URL, or hash unavailable).
+    /// </summary>
+    public double? CoverArtSimilarity { get; init; }
 }

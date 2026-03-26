@@ -78,6 +78,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     private readonly IBridgeIdRepository _bridgeIdRepo;
     private readonly ILocalMatchService _localMatch;
     private readonly IQidDisambiguator? _disambiguator;
+    private readonly ICoverArtHashService? _coverArtHash;
     private readonly ILogger<HydrationPipelineService> _logger;
 
     // Reverse lookup: claim key → Wikidata P-code (e.g. "isbn_13" → "P212").
@@ -118,7 +119,8 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         ILocalMatchService localMatch,
         ILogger<HydrationPipelineService> logger,
         WikidataReconciler? reconciler = null,
-        IQidDisambiguator? disambiguator = null)
+        IQidDisambiguator? disambiguator = null,
+        ICoverArtHashService? coverArtHash = null)
     {
         ArgumentNullException.ThrowIfNull(providers);
         ArgumentNullException.ThrowIfNull(claimRepo);
@@ -179,6 +181,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         _deferredRepo        = deferredRepo;
         _reconciler               = reconciler;
         _disambiguator            = disambiguator;
+        _coverArtHash             = coverArtHash;
         _fictionalEntityRepo      = fictionalEntityRepo;
         _logger                   = logger;
 
@@ -586,6 +589,16 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             {
                 _logger.LogDebug(ex, "Stage 0 local match check failed for entity {Id}; proceeding to Stage 1", request.EntityId);
             }
+        }
+
+        // ── Embedded cover pHash — compute before Stage 1 ────────────────────
+        // If the asset already has a cover.jpg on disk (from the file processor),
+        // compute and store its perceptual hash so Stage 1 candidate scoring can
+        // compare it against provider thumbnail hashes.  Fire-and-forget in a
+        // best-effort try/catch; never blocks the pipeline.
+        if (_coverArtHash is not null && request.EntityType == EntityType.MediaAsset)
+        {
+            await ComputeEmbeddedCoverHashAsync(request.EntityId, ct).ConfigureAwait(false);
         }
 
         var stageSw = System.Diagnostics.Stopwatch.StartNew();
@@ -3753,6 +3766,58 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     // ── Cover art download ───────────────────────────────────────────────────
 
     /// <summary>
+    /// Reads the asset's existing <c>cover.jpg</c> from disk (if present), computes its
+    /// SHA-256 content hash, inserts a cache entry if missing, and stores the perceptual
+    /// hash so Stage 1 candidate scoring can compare embedded art against provider thumbnails.
+    /// Best-effort — never throws.
+    /// </summary>
+    private async Task ComputeEmbeddedCoverHashAsync(Guid assetId, CancellationToken ct)
+    {
+        if (_coverArtHash is null) return;
+
+        try
+        {
+            var asset = await _assetRepo.FindByIdAsync(assetId, ct).ConfigureAwait(false);
+            if (asset is null) return;
+
+            var fileDir = Path.GetDirectoryName(asset.FilePathRoot);
+            if (string.IsNullOrEmpty(fileDir)) return;
+
+            var coverPath = Path.Combine(fileDir, "cover.jpg");
+            if (!File.Exists(coverPath)) return;
+
+            var bytes = await File.ReadAllBytesAsync(coverPath, ct).ConfigureAwait(false);
+            if (bytes.Length < 100) return;
+
+            var contentHash = Convert.ToHexStringLower(SHA256.HashData(bytes));
+
+            // Ensure the image cache has an entry for this embedded cover.
+            var existing = await _imageCache.FindByHashAsync(contentHash, ct).ConfigureAwait(false);
+            if (existing is null)
+            {
+                await _imageCache.InsertAsync(contentHash, coverPath, sourceUrl: null, ct).ConfigureAwait(false);
+            }
+
+            // Only compute pHash if not already stored (idempotent).
+            var existingPhash = await _imageCache.GetPerceptualHashAsync(contentHash, ct).ConfigureAwait(false);
+            if (existingPhash.HasValue) return;
+
+            var phash = await _coverArtHash.ComputeHashAsync(bytes, ct).ConfigureAwait(false);
+            if (phash.HasValue)
+            {
+                await _imageCache.SetPerceptualHashAsync(contentHash, phash.Value, ct).ConfigureAwait(false);
+                _logger.LogDebug(
+                    "Embedded cover pHash stored for asset {Id} (content hash {Hash})",
+                    assetId, contentHash[..8]);
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogDebug(ex, "Failed to compute embedded cover pHash for asset {Id}; continuing", assetId);
+        }
+    }
+
+    /// <summary>
     /// Downloads cover art from a provider-supplied URL and saves it as
     /// <c>cover.jpg</c> in the media file's directory.  Always overwrites
     /// an existing cover (e.g. EPUB-embedded) with the provider image,
@@ -3803,7 +3868,29 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
 
             if (string.IsNullOrEmpty(coverUrl)) return;
 
-            // 3. Download the image.
+            // 3a. Capture the embedded cover's pHash before overwriting cover.jpg.
+            //     This allows us to measure how similar the provider cover is to the
+            //     file's original embedded art (useful for confirmation logging and
+            //     future confidence adjustment).
+            ulong? embeddedPhash = null;
+            if (_coverArtHash is not null && File.Exists(coverPath))
+            {
+                try
+                {
+                    var existingBytes = await File.ReadAllBytesAsync(coverPath, ct).ConfigureAwait(false);
+                    if (existingBytes.Length > 100)
+                    {
+                        var existingHash = Convert.ToHexStringLower(SHA256.HashData(existingBytes));
+                        embeddedPhash = await _imageCache.GetPerceptualHashAsync(existingHash, ct).ConfigureAwait(false);
+                    }
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _logger.LogDebug(ex, "Failed to read embedded cover pHash for asset {Id}; continuing", assetId);
+                }
+            }
+
+            // 3b. Download the provider image.
             using var client = _httpFactory.CreateClient("cover_download");
             var bytes = await client.GetByteArrayAsync(coverUrl, ct).ConfigureAwait(false);
             if (bytes.Length == 0) return;
@@ -3820,6 +3907,41 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             {
                 await File.WriteAllBytesAsync(coverPath, bytes, ct).ConfigureAwait(false);
                 await _imageCache.InsertAsync(hash, coverPath, coverUrl, ct).ConfigureAwait(false);
+            }
+
+            // 5. Compute and store perceptual hash for the downloaded provider cover.
+            //    Also compare against the embedded cover's pHash (if available) and log
+            //    the similarity so future confidence tuning has an observable signal.
+            if (_coverArtHash is not null && bytes.Length > 100)
+            {
+                try
+                {
+                    var phash = await _coverArtHash.ComputeHashAsync(bytes, ct).ConfigureAwait(false);
+                    if (phash.HasValue)
+                    {
+                        await _imageCache.SetPerceptualHashAsync(hash, phash.Value, ct).ConfigureAwait(false);
+                        _logger.LogDebug(
+                            "Perceptual hash stored for asset {Id} provider cover (content hash {Hash})",
+                            assetId, hash[..8]);
+
+                        // Compare provider cover against embedded cover (if we captured it above).
+                        if (embeddedPhash.HasValue)
+                        {
+                            var similarity = _coverArtHash.ComputeSimilarity(embeddedPhash.Value, phash.Value);
+                            _logger.LogInformation(
+                                "Cover art similarity for asset {Id}: {Similarity:P0} " +
+                                "(embedded vs provider — {Verdict})",
+                                assetId, similarity,
+                                similarity > 0.8 ? "strong match — same edition likely"
+                                    : similarity > 0.6 ? "moderate match — same work, different edition"
+                                    : "weak match — verify provider result");
+                        }
+                    }
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _logger.LogDebug(ex, "Failed to compute perceptual hash for asset {Id} provider cover; continuing", assetId);
+                }
             }
 
             _logger.LogInformation(

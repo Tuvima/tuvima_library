@@ -96,51 +96,72 @@ public sealed class DescriptionIntelligenceService : IDescriptionIntelligenceSer
             // Get mood vocabulary for this media category.
             var moodVocab = _settings.VibeVocabulary.GetForCategory(mediaCategory);
 
-            // Build prompt and run inference.
-            var prompt = PromptTemplates.DescriptionIntelligencePrompt(
-                title, mediaCategory, moodVocab, combinedDescriptions);
-
             _logger.LogInformation(
                 "[DESCRIPTION-INTEL] Analyzing {Title} ({Category}) — {DescLen} chars of descriptions",
                 title, mediaCategory, combinedDescriptions.Length);
 
-            var result = await _llama.InferJsonAsync<DescriptionIntelligenceResponse>(
+            // ── Pass 1: Vocabulary extraction (themes, mood, setting, etc.) ──
+            var vocabPrompt = PromptTemplates.DescriptionIntelligencePrompt(
+                title, mediaCategory, moodVocab, combinedDescriptions);
+
+            var vocabResult = await _llama.InferJsonAsync<VocabularyResponse>(
                 AiModelRole.TextQuality,
-                prompt,
+                vocabPrompt,
                 PromptTemplates.DescriptionIntelligenceGrammar,
                 ct);
 
-            if (result is null)
+            if (vocabResult is null)
             {
-                _logger.LogWarning("[DESCRIPTION-INTEL] LLM returned null for {Title}", title);
+                _logger.LogWarning("[DESCRIPTION-INTEL] Pass 1 (vocabulary) returned null for {Title}", title);
                 return null;
             }
 
-            // Validate and filter results.
-            var validMood = (result.Mood ?? [])
+            // ── Pass 2: People extraction (separate, simpler grammar) ────────
+            var validPeople = new List<ExtractedPersonRef>();
+            try
+            {
+                var peoplePrompt = PromptTemplates.DescriptionIntelligencePeoplePrompt(
+                    title, combinedDescriptions);
+
+                var peopleResult = await _llama.InferJsonAsync<PeopleResponse>(
+                    AiModelRole.TextQuality,
+                    peoplePrompt,
+                    PromptTemplates.DescriptionIntelligencePeopleGrammar,
+                    ct);
+
+                if (peopleResult?.People is not null)
+                {
+                    validPeople = peopleResult.People
+                        .Where(p => !string.IsNullOrWhiteSpace(p.Name) && p.Name.Contains(' '))
+                        .Select(p => new ExtractedPersonRef(
+                            p.Name.Trim(),
+                            NormalizeRole(p.Role),
+                            0.70))
+                        .ToList();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "[DESCRIPTION-INTEL] Pass 2 (people) failed for {Title} — continuing without", title);
+            }
+
+            // ── Validate and build result ────────────────────────────────────
+            var validMood = (vocabResult.Mood ?? [])
                 .Where(m => moodVocab.Contains(m, StringComparer.OrdinalIgnoreCase))
                 .Take(3)
-                .ToList();
-
-            var validPeople = (result.People ?? [])
-                .Where(p => !string.IsNullOrWhiteSpace(p.Name) && p.Name.Contains(' '))
-                .Select(p => new ExtractedPersonRef(
-                    p.Name.Trim(),
-                    NormalizeRole(p.Role),
-                    Math.Clamp(p.Confidence, 0.0, 1.0)))
                 .ToList();
 
             var intelligence = new DescriptionIntelligenceResult
             {
                 People = validPeople,
-                Themes = (result.Themes ?? []).Take(5).ToList(),
+                Themes = (vocabResult.Themes ?? []).Take(5).ToList(),
                 Mood = validMood,
-                Setting = string.IsNullOrWhiteSpace(result.Setting) ? null : result.Setting.Trim(),
-                TimePeriod = string.IsNullOrWhiteSpace(result.TimePeriod) ? null : result.TimePeriod.Trim(),
-                Audience = string.IsNullOrWhiteSpace(result.Audience) ? null : result.Audience.Trim(),
-                ContentWarnings = (result.ContentWarnings ?? []).Take(5).ToList(),
-                Pace = string.IsNullOrWhiteSpace(result.Pace) ? null : result.Pace.Trim(),
-                Tldr = string.IsNullOrWhiteSpace(result.Tldr) ? null : result.Tldr.Trim(),
+                Setting = string.IsNullOrWhiteSpace(vocabResult.Setting) ? null : vocabResult.Setting.Trim(),
+                TimePeriod = string.IsNullOrWhiteSpace(vocabResult.TimePeriod) ? null : vocabResult.TimePeriod.Trim(),
+                Audience = string.IsNullOrWhiteSpace(vocabResult.Audience) ? null : vocabResult.Audience.Trim(),
+                ContentWarnings = (vocabResult.ContentWarnings ?? []).Take(5).ToList(),
+                Pace = string.IsNullOrWhiteSpace(vocabResult.Pace) ? null : vocabResult.Pace.Trim(),
+                Tldr = string.IsNullOrWhiteSpace(vocabResult.Tldr) ? null : vocabResult.Tldr.Trim(),
             };
 
             _logger.LogInformation(
@@ -171,10 +192,9 @@ public sealed class DescriptionIntelligenceService : IDescriptionIntelligenceSer
         _            => "Author",
     };
 
-    /// <summary>Internal DTO matching the GBNF grammar output.</summary>
-    private sealed class DescriptionIntelligenceResponse
+    /// <summary>Pass 1 DTO: vocabulary fields (no people).</summary>
+    private sealed class VocabularyResponse
     {
-        public List<PersonDto>? People { get; set; }
         public List<string>? Themes { get; set; }
         public List<string>? Mood { get; set; }
         public string? Setting { get; set; }
@@ -185,10 +205,15 @@ public sealed class DescriptionIntelligenceService : IDescriptionIntelligenceSer
         public string? Tldr { get; set; }
     }
 
+    /// <summary>Pass 2 DTO: people extraction.</summary>
+    private sealed class PeopleResponse
+    {
+        public List<PersonDto>? People { get; set; }
+    }
+
     private sealed class PersonDto
     {
         public string Name { get; set; } = "";
         public string? Role { get; set; }
-        public double Confidence { get; set; }
     }
 }

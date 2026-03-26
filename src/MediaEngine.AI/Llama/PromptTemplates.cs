@@ -200,16 +200,22 @@ public static class PromptTemplates
 
     // ── Description Intelligence ──────────────────────────────────────────────
 
-    /// <summary>GBNF grammar for Description Intelligence structured output.</summary>
+    /// <summary>GBNF grammar for Description Intelligence Pass 1: vocabulary extraction (no people).</summary>
     public const string DescriptionIntelligenceGrammar = """
-        root ::= "{" ws "\"people\"" ws ":" ws people ws "," ws "\"themes\"" ws ":" ws sarr ws "," ws "\"mood\"" ws ":" ws sarr ws "," ws "\"setting\"" ws ":" ws nstr ws "," ws "\"time_period\"" ws ":" ws nstr ws "," ws "\"audience\"" ws ":" ws nstr ws "," ws "\"content_warnings\"" ws ":" ws sarr ws "," ws "\"pace\"" ws ":" ws nstr ws "," ws "\"tldr\"" ws ":" ws str ws "}"
-        people ::= "[" ws (person ("," ws person)*)? ws "]"
-        person ::= "{" ws "\"name\"" ws ":" ws str ws "," ws "\"role\"" ws ":" ws role ws "," ws "\"confidence\"" ws ":" ws num ws "}"
-        role ::= "\"narrator\"" | "\"translator\"" | "\"editor\"" | "\"illustrator\"" | "\"director\"" | "\"cast\"" | "\"host\"" | "\"producer\"" | "\"author\""
+        root ::= "{" ws "\"themes\"" ws ":" ws sarr ws "," ws "\"mood\"" ws ":" ws sarr ws "," ws "\"setting\"" ws ":" ws nstr ws "," ws "\"time_period\"" ws ":" ws nstr ws "," ws "\"audience\"" ws ":" ws nstr ws "," ws "\"content_warnings\"" ws ":" ws sarr ws "," ws "\"pace\"" ws ":" ws nstr ws "," ws "\"tldr\"" ws ":" ws str ws "}"
         sarr ::= "[" ws (str ("," ws str)*)? ws "]"
         nstr ::= str | "null"
         str ::= "\"" ([^"\\] | "\\" .)* "\""
-        num ::= [0-9]+ ("." [0-9]+)?
+        ws ::= [ \t\n]*
+        """;
+
+    /// <summary>GBNF grammar for Description Intelligence Pass 2: people extraction.</summary>
+    public const string DescriptionIntelligencePeopleGrammar = """
+        root ::= "{" ws "\"people\"" ws ":" ws people ws "}"
+        people ::= "[" ws (person ("," ws person)*)? ws "]"
+        person ::= "{" ws "\"name\"" ws ":" ws str ws "," ws "\"role\"" ws ":" ws role ws "}"
+        role ::= "\"narrator\"" | "\"translator\"" | "\"editor\"" | "\"illustrator\"" | "\"director\"" | "\"cast\"" | "\"host\"" | "\"producer\"" | "\"author\""
+        str ::= "\"" ([^"\\] | "\\" .)* "\""
         ws ::= [ \t\n]*
         """;
 
@@ -222,22 +228,32 @@ public static class PromptTemplates
     {
         var moodList = string.Join(", ", moodVocabulary);
         return $"""
-            You analyze media descriptions to extract structured intelligence.
-            Given descriptions of "{title}" ({mediaCategory}), extract:
+            Analyze "{title}" ({mediaCategory}). Extract:
+            - themes: 3-5 key themes (e.g. "survival", "identity", "ecology")
+            - mood: 2-3 from ONLY: [{moodList}]
+            - setting: primary location/world (null if unclear)
+            - time_period: when it takes place (null if unclear)
+            - audience: adult, young-adult, children, all-ages, or null
+            - content_warnings: [] if none
+            - pace: slow-burn, fast-paced, moderate, varied, or null
+            - tldr: one punchy sentence, no spoilers
 
-            1. PEOPLE: Real person names with roles (narrator, translator, editor, illustrator, director, cast, host, producer, author). Only extract real people names (minimum 2 words, capitalized). Common patterns: "Read by X", "Narrated by X", "Translated by X", "Directed by X", "Starring X", "Written by X".
-            2. THEMES: 3-5 key themes (e.g. "survival", "colonialism", "ecology", "redemption", "identity")
-            3. MOOD: 2-3 tags from ONLY this vocabulary: [{moodList}]
-            4. SETTING: Primary setting location or world (null if unclear)
-            5. TIME_PERIOD: When the story takes place (null if unclear)
-            6. AUDIENCE: Target audience (adult, young-adult, children, all-ages, or null)
-            7. CONTENT_WARNINGS: Content warnings like violence, substance abuse, etc. (empty array if none)
-            8. PACE: Story pacing (slow-burn, fast-paced, moderate, varied, or null)
-            9. TLDR: One punchy sentence summary, no spoilers
+            JSON only. No text outside JSON.
 
-            Return ONLY valid JSON. Do not include any text outside the JSON object.
+            {combinedDescriptions}
+            """;
+    }
 
-            Descriptions:
+    /// <summary>Build the Description Intelligence Pass 2 prompt (people extraction).</summary>
+    public static string DescriptionIntelligencePeoplePrompt(
+        string title,
+        string combinedDescriptions)
+    {
+        return $"""
+            Extract real person names from this description of "{title}".
+            Look for: "Read by X", "Narrated by X", "Translated by X", "Written by X", "Directed by X", "Starring X".
+            Only include real people (first + last name). Return JSON only.
+
             {combinedDescriptions}
             """;
     }
