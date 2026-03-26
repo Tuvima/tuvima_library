@@ -171,7 +171,8 @@
 
             // ── Providers ────────────────────────────────────────────────
             case SettingsSection.ProviderConnections:
-                <ConnectionVaultTab CurrentRole="@_currentRole" />
+                // Absorbed into ProviderPriority — redirect
+                Nav.NavigateTo(SettingsNav.RouteFor(SettingsSection.ProviderPriority), replace: true);
                 break;
             case SettingsSection.ProviderPriority:
                 <ProviderPriorityTab />

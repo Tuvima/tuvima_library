@@ -60,9 +60,8 @@ public static class SettingsNav
         new("Providers", "Providers",
             Icons.Material.Outlined.Share, true,
         [
-            new(SettingsSection.ProviderConnections, Icons.Material.Outlined.Hub,       "Connections", true, null),
-            new(SettingsSection.ProviderPriority,    Icons.Material.Outlined.Sort,      "Priority",    true, null),
-            new(SettingsSection.WikidataConfig,      Icons.Material.Outlined.Public,    "Wikidata",    true, null),
+            new(SettingsSection.ProviderPriority, Icons.Material.Outlined.Hub,    "Providers", true, null),
+            new(SettingsSection.WikidataConfig,   Icons.Material.Outlined.Public, "Wikidata",  true, null),
         ]),
 
         new("Intelligence", "Intelligence",
@@ -133,20 +132,22 @@ public static class SettingsNav
         // Legacy route mappings — old routes redirect to new sections.
         return normalized.ToLowerInvariant() switch
         {
-            "general"          => SettingsSection.Profile,
-            "connectionvault"  => SettingsSection.ProviderConnections,
-            "providers"        => SettingsSection.ProviderConnections,
-            "propertymapper"   => SettingsSection.ProviderConnections,
-            "universe"         => SettingsSection.WikidataConfig,
-            "matchingpipeline" => SettingsSection.ProviderConnections,
-            "apikeys"          => SettingsSection.Security,
-            "library"          => SettingsSection.LibraryFolders,
-            "servergeneral"    => SettingsSection.StatusDashboard,
-            "connectivity"     => SettingsSection.StatusDashboard,
-            "navigation"       => SettingsSection.Profile,
-            "needsreview"      => SettingsSection.StatusDashboard,
-            "conflicts"        => SettingsSection.StatusDashboard,
-            _                  => null,
+            "general"             => SettingsSection.Profile,
+            "connectionvault"     => SettingsSection.ProviderPriority,
+            "connections"         => SettingsSection.ProviderPriority,
+            "providers"           => SettingsSection.ProviderPriority,
+            "propertymapper"      => SettingsSection.ProviderPriority,
+            "universe"            => SettingsSection.WikidataConfig,
+            "matchingpipeline"    => SettingsSection.ProviderPriority,
+            "providerconnections" => SettingsSection.ProviderPriority,
+            "apikeys"             => SettingsSection.Security,
+            "library"             => SettingsSection.LibraryFolders,
+            "servergeneral"       => SettingsSection.StatusDashboard,
+            "connectivity"        => SettingsSection.StatusDashboard,
+            "navigation"          => SettingsSection.Profile,
+            "needsreview"         => SettingsSection.StatusDashboard,
+            "conflicts"           => SettingsSection.StatusDashboard,
+            _                     => null,
         };
     }
 

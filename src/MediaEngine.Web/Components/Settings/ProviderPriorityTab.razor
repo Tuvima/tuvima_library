@@ -1,21 +1,20 @@
 @namespace MediaEngine.Web.Components.Settings
 
-@* Provider Priority — assign providers to priority slots per media type.
-   Three numbered slots (Primary, Secondary, Tertiary) are shown per media type.
-   Selections are independent — changes to one tab do not affect others.
-   No Engine calls in this version; state is local with hardcoded defaults. *@
+@* Providers — unified screen combining priority slot assignment and connection settings.
+   Three numbered slots (Primary/Secondary/Tertiary) are shown per media type.
+   Below the slots, every provider is shown as an expandable card where connection
+   settings (API key, endpoint, timeout, cache TTL) can be configured.
+   State is local with hardcoded defaults; no Engine API calls in this version. *@
 
 <MudPaper Elevation="0" Style="@GlassStyle">
 
     @* ── Header ──────────────────────────────────────────────────────────── *@
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
-        <MudIcon Icon="@Icons.Material.Outlined.SwapVert" Color="Color.Default" Class="mr-2" />
-        <MudText Typo="Typo.h6">Provider Priority</MudText>
+        <MudIcon Icon="@Icons.Material.Outlined.Hub" Color="Color.Default" Class="mr-2" />
+        <MudText Typo="Typo.h6">Providers</MudText>
     </MudStack>
     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-5">
-        Choose which metadata providers the Engine tries first for each media type.
-        The Primary slot is tried first; Secondary and Tertiary are fallbacks when
-        the higher-priority provider returns no result.
+        Manage provider connections and choose which ones the Engine tries first for each media type.
     </MudText>
 
     @* ── Media type tabs ─────────────────────────────────────────────────── *@
@@ -106,40 +105,169 @@
 
                 </MudGrid>
 
-                @* ── Available providers pool ─────────────────────────── *@
+                @* ── All Providers section ────────────────────────────── *@
                 <MudDivider Class="my-4" />
 
-                <MudText Typo="Typo.overline" Color="Color.Default" Class="mb-2"
+                <MudText Typo="Typo.overline" Color="Color.Default" Class="mb-1"
                          Style="letter-spacing: 0.08em; display: block;">
                     ALL PROVIDERS
                 </MudText>
                 <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3"
                          Style="display: block;">
-                    All providers can be assigned to any slot regardless of media type.
+                    All providers can be assigned to any slot. Expand a card to configure connection settings.
                 </MudText>
 
-                <MudStack Row="true" Spacing="2" Style="flex-wrap: wrap;">
-                    @foreach (var p in _allProviders)
-                    {
-                        var isAssigned = IsAssignedInTab(mediaType, p);
-                        <div style="@GetProviderChipStyle(isAssigned)">
-                            <MudStack Row="true" AlignItems="AlignItems.Center"
-                                      Spacing="1">
-                                <div style="@GetStatusDotStyle(p)"></div>
-                                <MudText Typo="Typo.body2"
-                                         Style="@(isAssigned ? "opacity: 0.5;" : "")">
-                                    @p
+                @foreach (var p in _allProviders)
+                {
+                    var providerName = p;
+                    var isAssigned   = IsAssignedInTab(mediaType, providerName);
+                    var isExpanded   = _expandedProviders.Contains(providerName);
+                    var config       = GetProviderConfig(providerName);
+                    var mediaLabels  = GetProviderMediaTypes(providerName);
+                    var needsKey     = ProvidersNeedingKey.Contains(providerName);
+
+                    <div style="@ProviderCardStyle">
+
+                        @* ── Collapsed header (always visible) ─────── *@
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+
+                            @* Status dot *@
+                            <div style="@GetStatusDotStyle(providerName)"></div>
+
+                            @* Name + type label *@
+                            <MudStack Spacing="0" Style="flex: 1; min-width: 0;">
+                                <MudText Typo="Typo.body2" Style="font-weight: 600; line-height: 1.2;">
+                                    @providerName
                                 </MudText>
-                                @if (isAssigned)
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                    @GetProviderMeta(providerName)
+                                </MudText>
+                            </MudStack>
+
+                            @* Media type chips *@
+                            <MudStack Row="true" Spacing="1" Style="flex-wrap: wrap; flex: 1;">
+                                @foreach (var mt in mediaLabels)
                                 {
-                                    <MudIcon Icon="@Icons.Material.Filled.CheckCircle"
+                                    <MudChip T="string"
                                              Size="Size.Small"
-                                             Color="Color.Success" />
+                                             Variant="Variant.Outlined"
+                                             Color="Color.Default"
+                                             Style="font-size: 0.68rem; height: 20px; padding: 0 6px;">
+                                        @mt
+                                    </MudChip>
                                 }
                             </MudStack>
-                        </div>
-                    }
-                </MudStack>
+
+                            @* Enabled toggle *@
+                            <MudSwitch T="bool"
+                                       Value="@config.Enabled"
+                                       ValueChanged="@(v => config.Enabled = v)"
+                                       Color="Color.Success"
+                                       Size="Size.Small" />
+
+                            @* Assignment checkmark *@
+                            @if (isAssigned)
+                            {
+                                <MudIcon Icon="@Icons.Material.Filled.CheckCircle"
+                                         Size="Size.Small"
+                                         Color="Color.Success"
+                                         Style="flex-shrink: 0;" />
+                            }
+                            else
+                            {
+                                @* Placeholder to keep layout stable *@
+                                <div style="width: 20px; flex-shrink: 0;"></div>
+                            }
+
+                            @* Expand/collapse chevron *@
+                            <MudIconButton Icon="@(isExpanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
+                                           Size="Size.Small"
+                                           OnClick="@(() => ToggleExpand(providerName))"
+                                           Style="flex-shrink: 0;" />
+
+                        </MudStack>
+
+                        @* ── Expanded connection settings ────────────── *@
+                        @if (isExpanded)
+                        {
+                            <div style="@ExpandedSectionStyle">
+
+                                <MudGrid Spacing="2">
+
+                                    @if (needsKey)
+                                    {
+                                        <MudItem xs="12" sm="6">
+                                            <MudTextField T="string"
+                                                          Value="@config.ApiKey"
+                                                          ValueChanged="@(v => config.ApiKey = v)"
+                                                          Label="API Key"
+                                                          InputType="InputType.Password"
+                                                          Variant="Variant.Outlined"
+                                                          Margin="Margin.Dense"
+                                                          FullWidth="true"
+                                                          Adornment="Adornment.End"
+                                                          AdornmentIcon="@Icons.Material.Outlined.VpnKey"
+                                                          AdornmentColor="Color.Default" />
+                                        </MudItem>
+                                    }
+
+                                    <MudItem xs="12" sm="@(needsKey ? 6 : 12)">
+                                        <MudTextField T="string"
+                                                      Value="@config.Endpoint"
+                                                      ValueChanged="@(v => config.Endpoint = v)"
+                                                      Label="Endpoint URL"
+                                                      Variant="Variant.Outlined"
+                                                      Margin="Margin.Dense"
+                                                      FullWidth="true"
+                                                      Adornment="Adornment.End"
+                                                      AdornmentIcon="@Icons.Material.Outlined.Link"
+                                                      AdornmentColor="Color.Default" />
+                                    </MudItem>
+
+                                    <MudItem xs="12" sm="6">
+                                        <MudNumericField T="int"
+                                                         Value="@config.TimeoutSeconds"
+                                                         ValueChanged="@(v => config.TimeoutSeconds = v)"
+                                                         Label="Request Timeout (seconds)"
+                                                         Variant="Variant.Outlined"
+                                                         Margin="Margin.Dense"
+                                                         FullWidth="true"
+                                                         Min="5" Max="120" />
+                                    </MudItem>
+
+                                    <MudItem xs="12" sm="6">
+                                        <MudNumericField T="int"
+                                                         Value="@config.CacheTtlHours"
+                                                         ValueChanged="@(v => config.CacheTtlHours = v)"
+                                                         Label="Cache TTL (hours)"
+                                                         Variant="Variant.Outlined"
+                                                         Margin="Margin.Dense"
+                                                         FullWidth="true"
+                                                         Min="1" Max="720" />
+                                    </MudItem>
+
+                                </MudGrid>
+
+                                <MudStack Row="true" AlignItems="AlignItems.Center"
+                                          Justify="Justify.SpaceBetween" Class="mt-3">
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                        Last successful call: —
+                                    </MudText>
+                                    <MudButton Variant="Variant.Outlined"
+                                               Size="Size.Small"
+                                               Color="Color.Primary"
+                                               StartIcon="@Icons.Material.Outlined.NetworkCheck"
+                                               OnClick="@(() => TestConnectionAsync(providerName))">
+                                        Test Connection
+                                    </MudButton>
+                                </MudStack>
+
+                            </div>
+                        }
+
+                    </div>
+                }
+
                 </div>
 
             </MudTabPanel>
@@ -170,7 +298,7 @@
             }
             else
             {
-                @:Save Priority Order
+                @:Save
             }
         </MudButton>
     </MudStack>
@@ -220,6 +348,39 @@
         ["Wikidata"]       = "Zero-key · Universe",
     };
 
+    private static readonly Dictionary<string, string[]> ProviderMediaTypes = new()
+    {
+        ["Apple API"]      = ["Books", "Audiobooks"],
+        ["Google Books"]   = ["Books", "Audiobooks"],
+        ["Open Library"]   = ["Books"],
+        ["TMDB"]           = ["Movies", "TV"],
+        ["MusicBrainz"]    = ["Music"],
+        ["Comic Vine"]     = ["Comics"],
+        ["Apple Podcasts"] = ["Podcasts"],
+        ["Podcast Index"]  = ["Podcasts"],
+        ["Wikidata"]       = ["All"],
+    };
+
+    private static readonly HashSet<string> ProvidersNeedingKey = new()
+    {
+        "Google Books", "TMDB", "Comic Vine", "Podcast Index"
+    };
+
+    // ── Default endpoints ────────────────────────────────────────────────────────
+
+    private static readonly Dictionary<string, string> DefaultEndpoints = new()
+    {
+        ["Apple API"]      = "https://itunes.apple.com/search",
+        ["Google Books"]   = "https://www.googleapis.com/books/v1/volumes",
+        ["Open Library"]   = "https://openlibrary.org/search.json",
+        ["TMDB"]           = "https://api.themoviedb.org/3",
+        ["MusicBrainz"]    = "https://musicbrainz.org/ws/2",
+        ["Comic Vine"]     = "https://comicvine.gamespot.com/api",
+        ["Apple Podcasts"] = "https://itunes.apple.com/search",
+        ["Podcast Index"]  = "https://api.podcastindex.org/api/1.0",
+        ["Wikidata"]       = "https://www.wikidata.org/w/api.php",
+    };
+
     // ── State ────────────────────────────────────────────────────────────────────
 
     private readonly string[] _mediaTypes =
@@ -228,13 +389,40 @@
     // Working copy: [mediaType][slotIndex] → provider name (empty string = unset)
     private Dictionary<string, string[]> _slots = new();
 
+    // Per-provider expanded state
+    private readonly HashSet<string> _expandedProviders = new();
+
+    // Per-provider config state (local defaults, keyed by provider name)
+    private readonly Dictionary<string, ProviderConfig> _providerConfigs = new();
+
     private bool _saving;
+
+    // ── Provider config record ────────────────────────────────────────────────────
+
+    private sealed class ProviderConfig
+    {
+        public string ApiKey        { get; set; } = "";
+        public string Endpoint      { get; set; } = "";
+        public int    TimeoutSeconds { get; set; } = 30;
+        public int    CacheTtlHours  { get; set; } = 168;
+        public bool   Enabled        { get; set; } = true;
+    }
 
     // ── Lifecycle ────────────────────────────────────────────────────────────────
 
     protected override void OnInitialized()
     {
         ResetToDefaults();
+
+        // Initialise per-provider configs with default endpoints.
+        foreach (var p in _allProviders)
+        {
+            _providerConfigs[p] = new ProviderConfig
+            {
+                Endpoint     = DefaultEndpoints.TryGetValue(p, out var ep) ? ep : "",
+                CacheTtlHours = GetDefaultCacheTtl(p),
+            };
+        }
     }
 
     // ── Slot access helpers ──────────────────────────────────────────────────────
@@ -261,6 +449,41 @@
         return arr.Any(s => s == provider);
     }
 
+    // ── Provider config helpers ───────────────────────────────────────────────────
+
+    private ProviderConfig GetProviderConfig(string provider)
+    {
+        if (!_providerConfigs.TryGetValue(provider, out var cfg))
+        {
+            cfg = new ProviderConfig
+            {
+                Endpoint = DefaultEndpoints.TryGetValue(provider, out var ep) ? ep : ""
+            };
+            _providerConfigs[provider] = cfg;
+        }
+        return cfg;
+    }
+
+    private static string[] GetProviderMediaTypes(string provider) =>
+        ProviderMediaTypes.TryGetValue(provider, out var types) ? types : ["All"];
+
+    private static int GetDefaultCacheTtl(string provider) => provider switch
+    {
+        "Open Library" or "MusicBrainz" => 336,   // 14 days
+        "Comic Vine"                    => 720,   // 30 days
+        _                               => 168,   // 7 days (default)
+    };
+
+    // ── Expand/collapse ───────────────────────────────────────────────────────────
+
+    private void ToggleExpand(string provider)
+    {
+        if (_expandedProviders.Contains(provider))
+            _expandedProviders.Remove(provider);
+        else
+            _expandedProviders.Add(provider);
+    }
+
     // ── Actions ──────────────────────────────────────────────────────────────────
 
     private void ResetToDefaults()
@@ -276,6 +499,12 @@
         // No Engine API yet — simulate a brief save operation.
         await Task.Delay(400);
         _saving = false;
+    }
+
+    private async Task TestConnectionAsync(string provider)
+    {
+        // Simulated connection test — no Engine API yet.
+        await Task.Delay(600);
     }
 
     // ── Display helpers ──────────────────────────────────────────────────────────
@@ -300,13 +529,6 @@
         "width: 8px; height: 8px; border-radius: 50%; " +
         "background: #4caf50; flex-shrink: 0;";
 
-    private static string GetProviderChipStyle(bool isAssigned) =>
-        "padding: 6px 12px; border-radius: 20px; " +
-        "border: 1px solid var(--app-glass-border); " +
-        "background: var(--app-glass-inner-bg); " +
-        $"opacity: {(isAssigned ? "0.65" : "1")}; " +
-        "display: flex; align-items: center;";
-
     // ── Styles ───────────────────────────────────────────────────────────────────
 
     private const string GlassStyle =
@@ -330,4 +552,16 @@
         "color: white; font-size: 0.7rem; font-weight: 700; " +
         "display: flex; align-items: center; justify-content: center; " +
         "flex-shrink: 0;";
+
+    private const string ProviderCardStyle =
+        "background: var(--app-glass-inner-bg); " +
+        "border: 1px solid var(--app-glass-inner-border); " +
+        "border-radius: 8px; " +
+        "padding: 12px 16px; " +
+        "margin-bottom: 8px;";
+
+    private const string ExpandedSectionStyle =
+        "margin-top: 12px; " +
+        "padding-top: 12px; " +
+        "border-top: 1px solid var(--app-glass-inner-border);";
 }
