@@ -16,17 +16,17 @@
     var showProfile  = !DeviceContext.IsFeatureDisabled("profile_section") && layout != "theme-only";
     var showColorPicker = !DeviceContext.IsFeatureDisabled("color_picker") && layout != "theme-only";
     var showLocale   = !DeviceContext.IsFeatureDisabled("locale_section") && layout != "theme-only";
+
+    var initials = _displayName.Length > 0 ? _displayName[0].ToString().ToUpper() : "?";
 }
 
 <MudPaper Elevation="0" Style="@GlassStyle">
 
-    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
-        <MudIcon Icon="@Icons.Material.Outlined.Person" Color="Color.Default" Class="mr-2" />
-        <MudText Typo="Typo.h6">Profile</MudText>
+    @* ── Section header: Account Identity ───────────────────────────────── *@
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-6" Spacing="2">
+        <MudIcon Icon="@Icons.Material.Outlined.Fingerprint" Color="Color.Default" Class="mr-1" />
+        <MudText Typo="Typo.h6">Account Identity</MudText>
     </MudStack>
-    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
-        @(layout == "theme-only" ? "Visual preferences." : "Your identity, visual preferences, and display settings.")
-    </MudText>
 
     @if (_loading)
     {
@@ -38,36 +38,64 @@
 
         @if (showProfile)
         {
-            @* Avatar preview *@
-            <MudStack AlignItems="AlignItems.Center" Class="mb-6">
-                <MudAvatar Size="Size.Large"
-                           Style="@($"background: {_avatarColor}; width: 80px; height: 80px; font-size: 2rem;")">
-                    @(_displayName.Length > 0 ? _displayName[0].ToString().ToUpper() : "?")
-                </MudAvatar>
-            </MudStack>
+            @* Avatar + fields row *@
+            <div style="display: flex; flex-direction: row; align-items: flex-start; gap: 2rem; margin-bottom: 1.5rem;">
 
-            @* Display name — hidden when text input is disallowed (TV/automotive) *@
-            @if (DeviceContext.Settings.Constraints.AllowTextInput)
-            {
-                <MudTextField @bind-Value="_displayName"
-                              Label="Display Name"
-                              Variant="Variant.Outlined"
-                              FullWidth="true"
-                              Immediate="true"
-                              MaxLength="50"
-                              Class="mb-4" />
-            }
+                @* Large avatar with camera overlay *@
+                <div style="position: relative; flex-shrink: 0;">
+                    <MudAvatar Style="@($"background: {_avatarColor}; width: 128px; height: 128px; font-size: 2.5rem; border-radius: 2.5rem;")">
+                        @initials
+                    </MudAvatar>
+                    @* Camera icon overlay — bottom-right corner, future avatar upload *@
+                    <div style="position: absolute; bottom: 0; right: 0;
+                                width: 32px; height: 32px; border-radius: 50%;
+                                background: rgba(17,20,25,0.9); border: 1px solid rgba(51,65,85,0.6);
+                                display: flex; align-items: center; justify-content: center;
+                                cursor: pointer;"
+                         title="Upload avatar (coming soon)">
+                        <MudIcon Icon="@Icons.Material.Outlined.CameraAlt"
+                                 Style="font-size: 1rem; color: var(--mud-palette-text-secondary);" />
+                    </div>
+                </div>
 
-            @* Role (read-only) *@
-            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-6" Spacing="2">
-                <MudText Typo="Typo.subtitle2">Role:</MudText>
-                <MudChip T="string" Size="Size.Small"
-                         Color="@(_role == "Administrator" ? Color.Primary : _role == "Curator" ? Color.Info : Color.Default)">
-                    @_role
-                </MudChip>
-            </MudStack>
+                @* Display Name + Role — 2-column grid *@
+                <div style="flex: 1; min-width: 0;">
+                    <MudGrid Spacing="3">
+                        @* Display Name *@
+                        <MudItem xs="12" sm="6">
+                            @if (DeviceContext.Settings.Constraints.AllowTextInput)
+                            {
+                                <MudTextField @bind-Value="_displayName"
+                                              Label="Display Name"
+                                              Variant="Variant.Outlined"
+                                              FullWidth="true"
+                                              Immediate="true"
+                                              MaxLength="50" />
+                            }
+                            else
+                            {
+                                <MudText Typo="Typo.subtitle2" Color="Color.Secondary">Display Name</MudText>
+                                <MudText Typo="Typo.body1">@_displayName</MudText>
+                            }
+                        </MudItem>
 
-            @* Avatar colour — hidden when color_picker is disabled *@
+                        @* Role — read-only *@
+                        <MudItem xs="12" sm="6">
+                            <div style="border: 1px solid rgba(255,255,255,0.23); border-radius: 4px; padding: 16.5px 14px; cursor: not-allowed; opacity: 0.7;">
+                                <div style="font-size: 0.75rem; color: var(--mud-palette-text-secondary); margin-bottom: 4px; line-height: 1;">
+                                    Role
+                                </div>
+                                <div style="font-size: 1rem; color: var(--mud-palette-text-secondary);">
+                                    @_role
+                                </div>
+                            </div>
+                        </MudItem>
+                    </MudGrid>
+                </div>
+
+            </div>
+
+            @* Avatar colour swatches *@
             @if (showColorPicker)
             {
                 <MudText Typo="Typo.subtitle2" Class="mb-1">Avatar Colour</MudText>
@@ -147,12 +175,12 @@
 @code {
 
     private const string GlassStyle =
-        "background: var(--app-glass-bg); " +
-        "border: 1px solid var(--app-glass-border); " +
+        "background: rgba(17, 20, 25, 1); " +
+        "border: 1px solid rgba(51, 65, 85, 0.5); " +
         "backdrop-filter: blur(10px); " +
         "-webkit-backdrop-filter: blur(10px); " +
-        "border-radius: 12px; " +
-        "padding: 32px;";
+        "border-radius: 1.5rem; " +
+        "padding: 2.5rem;";
 
     // ── Avatar colour presets ────────────────────────────────────────────────────
 
