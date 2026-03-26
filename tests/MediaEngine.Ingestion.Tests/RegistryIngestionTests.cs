@@ -138,7 +138,8 @@ public sealed class RegistryIngestionTests : IDisposable
             _ingestionLog,
             _batchRepo,
             new MediaEngine.Ingestion.Tests.Helpers.StubSmartLabeler(),
-            new MediaEngine.Ingestion.Tests.Helpers.StubMediaTypeAdvisor());
+            new MediaEngine.Ingestion.Tests.Helpers.StubMediaTypeAdvisor(),
+            new MediaEngine.Ingestion.Tests.Helpers.StubBatchManifestBuilder());
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
 
