@@ -61,7 +61,7 @@
         .chain-card { max-width: none; flex: 1 1 auto; }
         .chain-connector { width: 1px; height: 20px; align-self: center;
             background: linear-gradient(to bottom, rgba(255,255,255,0.18), rgba(255,255,255,0.05)); }
-        .drawer-panel { width: 100% !important; }
+        .drawer-panel { width: 100% !important; top: 48px !important; }
     }
 
     /* ── Tablet: 2-col cards ── */
@@ -79,7 +79,7 @@
     /* ── Drawer ── */
     .drawer-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 1200; }
     .drawer-panel {
-        position: fixed; top: 0; right: 0; bottom: 0; width: 380px;
+        position: fixed; top: 64px; right: 0; bottom: 0; width: 380px;
         background: var(--app-glass-bg, rgba(10,14,30,0.95));
         border-left: 1px solid var(--app-glass-border, rgba(255,255,255,0.06));
         backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
