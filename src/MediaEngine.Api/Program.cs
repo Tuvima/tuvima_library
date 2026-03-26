@@ -172,6 +172,7 @@ builder.Services.AddSingleton<IConfigurationLoader>(configLoader);
 builder.Services.AddSingleton<ITransactionJournal, TransactionJournal>();
 builder.Services.AddSingleton<IMediaAssetRepository, MediaAssetRepository>();
 builder.Services.AddSingleton<IHubRepository, HubRepository>();
+builder.Services.AddSingleton<IAudioFingerprintRepository, MediaEngine.Storage.AudioFingerprintRepository>();
 builder.Services.AddSingleton<IProviderConfigurationRepository, ProviderConfigurationRepository>();
 builder.Services.AddSingleton<IApiKeyRepository, ApiKeyRepository>();
 builder.Services.AddSingleton<ApiKeyService>();
