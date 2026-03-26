@@ -41,7 +41,7 @@
 
     // ── Active section state ────────────────────────────────────────────────
 
-    private SettingsSection _activeSection = SettingsSection.General;
+    private SettingsSection _activeSection = SettingsSection.Profile;
 
     // Default to Administrator until profile session management is wired.
     private string _currentRole = "Administrator";
@@ -161,46 +161,62 @@
     {
         switch (_activeSection)
         {
-            case SettingsSection.General:
-                <GeneralTab />
+            // ── Preferences ──────────────────────────────────────────────
+            case SettingsSection.Profile:
+                <ProfileTab />
                 break;
             case SettingsSection.Playback:
                 <PlaybackTab />
                 break;
-            // ── Metadata group ────────────────────────────────────────────
-            case SettingsSection.Navigation:        // legacy redirect
-            case SettingsSection.ConnectionVault:
-            case SettingsSection.Providers:          // legacy redirect
-            case SettingsSection.PropertyMapper:     // deprecated → absorbed
-            case SettingsSection.Universe:            // absorbed into vault
-            case SettingsSection.MatchingPipeline:    // absorbed into vault
+
+            // ── Providers ────────────────────────────────────────────────
+            case SettingsSection.ProviderConnections:
                 <ConnectionVaultTab CurrentRole="@_currentRole" />
                 break;
-            case SettingsSection.NeedsReview:
-                Nav.NavigateTo("/registry/review", replace: true);
+            case SettingsSection.ProviderPriority:
+                <ProviderPriorityTab />
                 break;
-            case SettingsSection.Activity:
-            case SettingsSection.Conflicts:
-                Nav.NavigateTo("/registry", replace: true);
+            case SettingsSection.WikidataConfig:
+                <WikidataConfigTab />
                 break;
-            // ── Server group ──────────────────────────────────────────────
-            case SettingsSection.ServerGeneral:
-                <ServerGeneralTab />
+
+            // ── Intelligence ─────────────────────────────────────────────
+            case SettingsSection.AiModels:
+                <ModelsTab />
                 break;
-            case SettingsSection.Library:
+            case SettingsSection.AiFeatures:
+                <AiFeaturesTab />
+                break;
+            case SettingsSection.VibeVocabulary:
+                <VibeVocabularyTab />
+                break;
+            case SettingsSection.AiSchedule:
+                <AiScheduleTab />
+                break;
+
+            // ── Library ──────────────────────────────────────────────────
+            case SettingsSection.LibraryFolders:
                 <LibrariesTab />
                 break;
-            case SettingsSection.Connectivity:
-                <ConnectivityTab />
+
+            // ── Server ───────────────────────────────────────────────────
+            case SettingsSection.StatusDashboard:
+                <StatusDashboardTab />
                 break;
-            case SettingsSection.ApiKeys:
-                <ApiKeysTab />
+            case SettingsSection.Security:
+                <SecurityTab />
                 break;
             case SettingsSection.Users:
                 <UsersTab />
                 break;
+            case SettingsSection.Activity:
+                <ActivityTab />
+                break;
             case SettingsSection.Maintenance:
                 <MaintenanceTab />
+                break;
+            case SettingsSection.Setup:
+                <SetupTab />
                 break;
         }
     };
@@ -213,7 +229,7 @@
     /* matching the swimlane content alignment.                            */
     @@media (min-width: 769px) {
         .settings-page-outer {
-            padding-left: 88px;
+            padding-left: 16px;
         }
     }
 

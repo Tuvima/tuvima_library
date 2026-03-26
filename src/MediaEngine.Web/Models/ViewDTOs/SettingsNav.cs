@@ -3,25 +3,32 @@ using MudBlazor;
 namespace MediaEngine.Web.Models.ViewDTOs;
 
 /// <summary>
-/// Settings page section identifiers.
-/// Moved from SettingsSidebar to be shared across LeftDock, MobileNavDrawer, and Settings page.
+/// Settings page section identifiers — 5 groups, 16 screens.
+/// Shared across Sidebar, MobileNavDrawer, and Settings page.
 /// </summary>
 public enum SettingsSection
 {
-    // Preferences
-    General, Playback, Navigation,
-    // Metadata
-    ConnectionVault, PropertyMapper, Universe, MatchingPipeline, NeedsReview, Activity,
-    // Server
-    ServerGeneral, Library, Connectivity, ApiKeys, Conflicts, Users, Maintenance,
-    // Legacy alias — kept so existing deep links to /settings/providers redirect correctly.
-    Providers
+    // ── Preferences (all users) ──
+    Profile, Playback,
+
+    // ── Providers (admin) ──
+    ProviderConnections, ProviderPriority, WikidataConfig,
+
+    // ── Intelligence (admin) ──
+    AiModels, AiFeatures, VibeVocabulary, AiSchedule,
+
+    // ── Library (admin) ──
+    LibraryFolders,
+
+    // ── Server (admin) ──
+    StatusDashboard, Security, Users, Activity, Maintenance, Setup
 }
 
-/// <summary>A group of settings items (e.g. "Preferences", "Metadata", "Server").</summary>
+/// <summary>A group of settings items (e.g. "Preferences", "Providers", "Server").</summary>
 public sealed record SettingsGroupDef(
     string Key,
     string Label,
+    string Icon,
     bool AdminOnly,
     SettingsItemDef[] Items);
 
@@ -36,32 +43,52 @@ public sealed record SettingsItemDef(
 /// <summary>
 /// Static registry of all settings navigation groups and items.
 /// Follows the <see cref="ContentLanes"/> pattern: a static data source
-/// referenced by multiple navigation components (LeftDock, MobileNavDrawer, Settings page).
+/// referenced by multiple navigation components (Sidebar, MobileNavDrawer, Settings page).
 /// </summary>
 public static class SettingsNav
 {
     /// <summary>All settings groups in display order.</summary>
     public static readonly SettingsGroupDef[] AllGroups =
     [
-        new("Preferences", "Preferences", false,
+        new("Preferences", "Preferences",
+            Icons.Material.Outlined.Person, false,
         [
-            new(SettingsSection.General,    Icons.Material.Outlined.Tune,      "General",    false, null),
-            new(SettingsSection.Playback,   Icons.Material.Outlined.PlayArrow, "Playback",   false, null),
+            new(SettingsSection.Profile,  Icons.Material.Outlined.Person,   "Profile",  false, null),
+            new(SettingsSection.Playback, Icons.Material.Outlined.PlayArrow, "Playback", false, null),
         ]),
 
-        new("Metadata", "Metadata", true,
+        new("Providers", "Providers",
+            Icons.Material.Outlined.Share, true,
         [
-            new(SettingsSection.ConnectionVault, Icons.Material.Outlined.Hub, "Metadata", true, null),
+            new(SettingsSection.ProviderConnections, Icons.Material.Outlined.Hub,       "Connections", true, null),
+            new(SettingsSection.ProviderPriority,    Icons.Material.Outlined.Sort,      "Priority",    true, null),
+            new(SettingsSection.WikidataConfig,      Icons.Material.Outlined.Public,    "Wikidata",    true, null),
         ]),
 
-        new("Server", "Server", true,
+        new("Intelligence", "Intelligence",
+            Icons.Material.Outlined.Psychology, true,
         [
-            new(SettingsSection.ServerGeneral, Icons.Material.Outlined.Dns,        "General",      true, null),
-            new(SettingsSection.Library,       Icons.Material.Outlined.FolderOpen, "Library",      true, null),
-            new(SettingsSection.Connectivity,  Icons.Material.Outlined.Wifi,       "Connectivity", true, null),
-            new(SettingsSection.ApiKeys,       Icons.Material.Outlined.VpnKey,     "API Keys",     true, null),
-            new(SettingsSection.Users,         Icons.Material.Outlined.Group,      "Users",        true, null),
-            new(SettingsSection.Maintenance,   Icons.Material.Outlined.Build,      "Maintenance",  true, null),
+            new(SettingsSection.AiModels,       Icons.Material.Outlined.Memory,     "Models",     true, null),
+            new(SettingsSection.AiFeatures,     Icons.Material.Outlined.ToggleOn,   "Features",   true, null),
+            new(SettingsSection.VibeVocabulary,  Icons.Material.Outlined.Style,      "Vocabulary", true, null),
+            new(SettingsSection.AiSchedule,     Icons.Material.Outlined.Schedule,   "Schedule",   true, null),
+        ]),
+
+        new("Library", "Library",
+            Icons.Material.Outlined.Folder, true,
+        [
+            new(SettingsSection.LibraryFolders, Icons.Material.Outlined.FolderOpen, "Folders", true, null),
+        ]),
+
+        new("Server", "Server",
+            Icons.Material.Outlined.Dns, true,
+        [
+            new(SettingsSection.StatusDashboard, Icons.Material.Outlined.Dashboard,  "Dashboard",   true, null),
+            new(SettingsSection.Security,        Icons.Material.Outlined.VpnKey,     "Security",    true, null),
+            new(SettingsSection.Users,           Icons.Material.Outlined.Group,      "Users",       true, null),
+            new(SettingsSection.Activity,        Icons.Material.Outlined.Timeline,   "Activity",    true, null),
+            new(SettingsSection.Maintenance,     Icons.Material.Outlined.Build,      "Maintenance", true, null),
+            new(SettingsSection.Setup,           Icons.Material.Outlined.RocketLaunch, "Setup",     true, null),
         ]),
     ];
 
@@ -80,12 +107,17 @@ public static class SettingsNav
     }
 
     /// <summary>Returns the URL route for a settings section.</summary>
-    public static string RouteFor(SettingsSection section) =>
-        $"/settings/{section.ToString().ToLowerInvariant()}";
+    public static string RouteFor(SettingsSection section)
+    {
+        // Convert PascalCase to kebab-case for URLs.
+        var name = section.ToString();
+        var kebab = System.Text.RegularExpressions.Regex.Replace(name, "(?<!^)([A-Z])", "-$1").ToLowerInvariant();
+        return $"/settings/{kebab}";
+    }
 
     /// <summary>
     /// Parses a URL segment into a <see cref="SettingsSection"/>.
-    /// Handles kebab-case (e.g. "apikeys" → ApiKeys) and legacy redirects.
+    /// Handles kebab-case (e.g. "provider-connections" → ProviderConnections) and legacy redirects.
     /// Returns null if the segment is not recognised.
     /// </summary>
     public static SettingsSection? ParseFromRoute(string? segment)
@@ -95,14 +127,27 @@ public static class SettingsNav
 
         var normalized = segment.Replace("-", "");
 
-        if (!Enum.TryParse<SettingsSection>(normalized, ignoreCase: true, out var parsed))
-            return null;
+        if (Enum.TryParse<SettingsSection>(normalized, ignoreCase: true, out var parsed))
+            return parsed;
 
-        // Redirect legacy routes.
-        if (parsed == SettingsSection.Providers)
-            parsed = SettingsSection.ConnectionVault;
-
-        return parsed;
+        // Legacy route mappings — old routes redirect to new sections.
+        return normalized.ToLowerInvariant() switch
+        {
+            "general"          => SettingsSection.Profile,
+            "connectionvault"  => SettingsSection.ProviderConnections,
+            "providers"        => SettingsSection.ProviderConnections,
+            "propertymapper"   => SettingsSection.ProviderConnections,
+            "universe"         => SettingsSection.WikidataConfig,
+            "matchingpipeline" => SettingsSection.ProviderConnections,
+            "apikeys"          => SettingsSection.Security,
+            "library"          => SettingsSection.LibraryFolders,
+            "servergeneral"    => SettingsSection.StatusDashboard,
+            "connectivity"     => SettingsSection.StatusDashboard,
+            "navigation"       => SettingsSection.Profile,
+            "needsreview"      => SettingsSection.StatusDashboard,
+            "conflicts"        => SettingsSection.StatusDashboard,
+            _                  => null,
+        };
     }
 
     private static bool IsAdminRole(string role) =>

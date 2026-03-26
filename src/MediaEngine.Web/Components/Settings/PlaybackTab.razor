@@ -1,21 +1,203 @@
 @namespace MediaEngine.Web.Components.Settings
+@inject ISnackbar Snackbar
 
-@* Playback — placeholder for future playback preferences. *@
+@* PlaybackTab — Default playback preferences for all built-in players.
+   State is local (UI-ready placeholders with sensible defaults).
+   No Engine API calls are made yet — these settings will be persisted
+   via the profile API in a future sprint. *@
 
 <MudPaper Elevation="0" Style="@GlassStyle">
-    <MudStack AlignItems="AlignItems.Center" Spacing="4" Class="pa-8">
-        <MudIcon Icon="@Icons.Material.Filled.PlayArrow"
-                 Size="Size.Large"
-                 Color="Color.Secondary"
-                 Style="font-size: 4rem; opacity: 0.4;" />
-        <MudText Typo="Typo.h6" Color="Color.Secondary">Playback</MudText>
-        <MudText Typo="Typo.body2" Color="Color.Secondary" Align="Align.Center">
-            Feature in Development — Playback preferences will appear here in a future update.
-        </MudText>
+
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+        <MudIcon Icon="@Icons.Material.Outlined.PlayArrow" Color="Color.Default" Class="mr-2" />
+        <MudText Typo="Typo.h6">Playback</MudText>
     </MudStack>
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
+        Default playback settings applied to all built-in media players.
+    </MudText>
+
+    @* ── General ─────────────────────────────────────────────────────────── *@
+
+    <MudText Typo="Typo.overline" Color="Color.Secondary" Class="mb-4"
+             Style="letter-spacing: 0.08em;">
+        General
+    </MudText>
+
+    @* Playback speed *@
+    <MudText Typo="Typo.subtitle2" Class="mb-1">Playback Speed</MudText>
+    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2">
+        Default speed for audio and video players. &nbsp;Current: <strong>@_playbackSpeed.ToString("0.##")×</strong>
+    </MudText>
+    <MudSlider @bind-Value="_playbackSpeed"
+               Min="0.5" Max="3.0" Step="0.25"
+               Color="Color.Primary"
+               Class="mb-6">
+        <MudStack Row="true" Justify="Justify.SpaceBetween">
+            <MudText Typo="Typo.caption">0.5×</MudText>
+            <MudText Typo="Typo.caption">1×</MudText>
+            <MudText Typo="Typo.caption">1.5×</MudText>
+            <MudText Typo="Typo.caption">2×</MudText>
+            <MudText Typo="Typo.caption">3×</MudText>
+        </MudStack>
+    </MudSlider>
+
+    @* Resume behaviour *@
+    <MudText Typo="Typo.subtitle2" Class="mb-2">When Resuming</MudText>
+    <MudRadioGroup @bind-Value="_resumeBehaviour" Class="mb-6">
+        <MudStack Spacing="1">
+            <MudRadio T="string" Value="@("resume")" Color="Color.Primary">
+                Resume from last position
+            </MudRadio>
+            <MudRadio T="string" Value="@("ask")" Color="Color.Primary">
+                Ask each time
+            </MudRadio>
+            <MudRadio T="string" Value="@("start")" Color="Color.Primary">
+                Always start from beginning
+            </MudRadio>
+        </MudStack>
+    </MudRadioGroup>
+
+    <MudDivider Class="my-6" />
+
+    @* ── Skip Intervals ───────────────────────────────────────────────────── *@
+
+    <MudText Typo="Typo.overline" Color="Color.Secondary" Class="mb-4"
+             Style="letter-spacing: 0.08em;">
+        Skip Intervals
+    </MudText>
+
+    <MudGrid Spacing="4" Class="mb-6">
+        <MudItem xs="12" sm="6">
+            <MudText Typo="Typo.subtitle2" Class="mb-2">Skip Forward</MudText>
+            <MudToggleGroup T="int" @bind-Value="_skipForwardSeconds"
+                            SelectionMode="SelectionMode.SingleSelection"
+                            Color="Color.Primary"
+                            Outlined="true">
+                <MudToggleItem T="int" Value="15">15 s</MudToggleItem>
+                <MudToggleItem T="int" Value="30">30 s</MudToggleItem>
+                <MudToggleItem T="int" Value="60">60 s</MudToggleItem>
+            </MudToggleGroup>
+        </MudItem>
+        <MudItem xs="12" sm="6">
+            <MudText Typo="Typo.subtitle2" Class="mb-2">Skip Backward</MudText>
+            <MudToggleGroup T="int" @bind-Value="_skipBackwardSeconds"
+                            SelectionMode="SelectionMode.SingleSelection"
+                            Color="Color.Primary"
+                            Outlined="true">
+                <MudToggleItem T="int" Value="15">15 s</MudToggleItem>
+                <MudToggleItem T="int" Value="30">30 s</MudToggleItem>
+                <MudToggleItem T="int" Value="60">60 s</MudToggleItem>
+            </MudToggleGroup>
+        </MudItem>
+    </MudGrid>
+
+    <MudDivider Class="my-6" />
+
+    @* ── Sleep Timer ─────────────────────────────────────────────────────── *@
+
+    <MudText Typo="Typo.overline" Color="Color.Secondary" Class="mb-4"
+             Style="letter-spacing: 0.08em;">
+        Sleep Timer
+    </MudText>
+
+    <MudSelect T="string"
+               @bind-Value="_sleepTimer"
+               Label="Default Sleep Timer"
+               Variant="Variant.Outlined"
+               FullWidth="true"
+               AnchorOrigin="Origin.BottomLeft"
+               Class="mb-6">
+        <MudSelectItem T="string" Value="@("off")">Off</MudSelectItem>
+        <MudSelectItem T="string" Value="@("15")">15 minutes</MudSelectItem>
+        <MudSelectItem T="string" Value="@("30")">30 minutes</MudSelectItem>
+        <MudSelectItem T="string" Value="@("45")">45 minutes</MudSelectItem>
+        <MudSelectItem T="string" Value="@("60")">60 minutes</MudSelectItem>
+    </MudSelect>
+
+    <MudDivider Class="my-6" />
+
+    @* ── Video ────────────────────────────────────────────────────────────── *@
+
+    <MudText Typo="Typo.overline" Color="Color.Secondary" Class="mb-4"
+             Style="letter-spacing: 0.08em;">
+        Video
+    </MudText>
+
+    @* Auto-watched threshold *@
+    <MudText Typo="Typo.subtitle2" Class="mb-1">Mark as Watched After</MudText>
+    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2">
+        Mark a video as watched when you reach this point. &nbsp;Current: <strong>@_watchedThreshold %</strong>
+    </MudText>
+    <MudSlider @bind-Value="_watchedThreshold"
+               Min="50" Max="100" Step="5"
+               Color="Color.Primary"
+               Class="mb-6">
+        <MudStack Row="true" Justify="Justify.SpaceBetween">
+            <MudText Typo="Typo.caption">50%</MudText>
+            <MudText Typo="Typo.caption">75%</MudText>
+            <MudText Typo="Typo.caption">100%</MudText>
+        </MudStack>
+    </MudSlider>
+
+    <MudDivider Class="my-6" />
+
+    @* ── Subtitles ────────────────────────────────────────────────────────── *@
+
+    <MudText Typo="Typo.overline" Color="Color.Secondary" Class="mb-4"
+             Style="letter-spacing: 0.08em;">
+        Subtitles
+    </MudText>
+
+    @* Font size *@
+    <MudText Typo="Typo.subtitle2" Class="mb-1">Subtitle Size</MudText>
+    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2">
+        Relative subtitle font size. &nbsp;Current: <strong>@_subtitleSize %</strong>
+    </MudText>
+    <MudSlider @bind-Value="_subtitleSize"
+               Min="75" Max="200" Step="25"
+               Color="Color.Primary"
+               Class="mb-6">
+        <MudStack Row="true" Justify="Justify.SpaceBetween">
+            <MudText Typo="Typo.caption">75%</MudText>
+            <MudText Typo="Typo.caption">100%</MudText>
+            <MudText Typo="Typo.caption">150%</MudText>
+            <MudText Typo="Typo.caption">200%</MudText>
+        </MudStack>
+    </MudSlider>
+
+    @* Subtitle position *@
+    <MudText Typo="Typo.subtitle2" Class="mb-2">Subtitle Position</MudText>
+    <MudToggleGroup T="string" @bind-Value="_subtitlePosition"
+                    SelectionMode="SelectionMode.SingleSelection"
+                    Color="Color.Primary"
+                    Outlined="true"
+                    Class="mb-6">
+        <MudToggleItem T="string" Value="@("bottom")">
+            <MudIcon Icon="@Icons.Material.Outlined.VerticalAlignBottom" Size="Size.Small" Class="mr-1" />
+            Bottom
+        </MudToggleItem>
+        <MudToggleItem T="string" Value="@("top")">
+            <MudIcon Icon="@Icons.Material.Outlined.VerticalAlignTop" Size="Size.Small" Class="mr-1" />
+            Top
+        </MudToggleItem>
+    </MudToggleGroup>
+
+    <MudDivider Class="my-6" />
+
+    @* ── Save ────────────────────────────────────────────────────────────── *@
+
+    <MudButton Variant="Variant.Filled"
+               Color="Color.Primary"
+               FullWidth="true"
+               OnClick="@SaveAsync"
+               Disabled="@_saving">
+        @(_saving ? "Saving..." : "Save Playback Settings")
+    </MudButton>
+
 </MudPaper>
 
 @code {
+
     private const string GlassStyle =
         "background: var(--app-glass-bg); " +
         "border: 1px solid var(--app-glass-border); " +
@@ -23,4 +205,37 @@
         "-webkit-backdrop-filter: blur(10px); " +
         "border-radius: 12px; " +
         "padding: 32px;";
+
+    // ── State ────────────────────────────────────────────────────────────────────
+
+    private bool   _saving;
+
+    // General
+    private double _playbackSpeed    = 1.0;
+    private string _resumeBehaviour  = "resume";
+
+    // Skip intervals (seconds)
+    private int    _skipForwardSeconds  = 30;
+    private int    _skipBackwardSeconds = 15;
+
+    // Sleep timer
+    private string _sleepTimer = "off";
+
+    // Video
+    private int    _watchedThreshold = 90;   // percent
+
+    // Subtitles
+    private int    _subtitleSize     = 100;  // percent
+    private string _subtitlePosition = "bottom";
+
+    // ── Persist ──────────────────────────────────────────────────────────────────
+
+    private async Task SaveAsync()
+    {
+        _saving = true;
+        // TODO: persist via Orchestrator.SavePlaybackSettingsAsync() in a future sprint.
+        await Task.Delay(400);   // simulate a brief save round-trip
+        Snackbar.Add("Playback settings saved", Severity.Success);
+        _saving = false;
+    }
 }

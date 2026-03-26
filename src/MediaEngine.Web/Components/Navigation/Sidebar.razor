@@ -1,0 +1,692 @@
+@namespace MediaEngine.Web.Components.Navigation
+@inject NavigationManager Nav
+@inject DeviceContextService DeviceContext
+@implements IDisposable
+
+@using MediaEngine.Web.Models.ViewDTOs
+@using System.Threading
+
+@* Sidebar — Full-height fixed navigation panel.
+   Replaces the floating LeftDock with a straight, flush sidebar.
+   Toggled between expanded (256px + labels) and collapsed (64px icon-only)
+   via a hamburger button — no hover behaviour.
+   Hidden on mobile; MobileNavDrawer handles small screens. *@
+
+<div class="sidebar @(Collapsed ? "sidebar-collapsed" : "sidebar-expanded")">
+
+    @* ── Logo header ───────────────────────────────────────────────── *@
+    <div class="sidebar-logo-header">
+        @if (!Collapsed)
+        {
+            <div class="sidebar-logo-link" @onclick="@(() => Nav.NavigateTo("/"))">
+                <img src="/images/tuvima-icon.svg"
+                     alt="Tuvima icon"
+                     class="sidebar-logo-icon" />
+                <span class="sidebar-logo-wordmark">TUVIMA</span>
+            </div>
+        }
+        else
+        {
+            <div class="sidebar-logo-link sidebar-logo-link-collapsed"
+                 @onclick="@(() => Nav.NavigateTo("/"))">
+                <img src="/images/tuvima-icon.svg"
+                     alt="Tuvima icon"
+                     class="sidebar-logo-icon" />
+            </div>
+        }
+
+        <button class="sidebar-hamburger"
+                @onclick="@(async () => await CollapsedChanged.InvokeAsync(!Collapsed))"
+                aria-label="@(Collapsed ? "Expand navigation" : "Collapse navigation")"
+                title="@(Collapsed ? "Expand" : "Collapse")">
+            <MudIcon Icon="@(Collapsed ? Icons.Material.Filled.Menu : Icons.Material.Filled.MenuOpen)"
+                     Size="Size.Medium" />
+        </button>
+    </div>
+
+    @* ── Navigation area ──────────────────────────────────────────── *@
+    <nav class="sidebar-nav">
+
+        @* ── Content-type lanes ── *@
+        @foreach (var lane in ContentLanes.All)
+        {
+            var route = lane.Key == "home" ? "/" : $"/{lane.Key}";
+            var isHome = lane.Key == "home";
+            var isActive = IsActive(route, lane.Key);
+            var activeClass = isActive
+                ? (isHome ? "sidebar-item-active sidebar-item-home-active" : "sidebar-item-active")
+                : (isHome ? "sidebar-item-home" : "");
+
+            <div class="sidebar-item @activeClass"
+                 @onclick="@(() => Nav.NavigateTo(route))"
+                 title="@(Collapsed ? lane.Label : null)">
+                <MudIcon Icon="@lane.Icon" Size="Size.Medium" Class="sidebar-item-icon" />
+                @if (!Collapsed)
+                {
+                    <span class="sidebar-label">@lane.Label</span>
+                }
+            </div>
+        }
+
+        @* ── Divider ── *@
+        <div class="sidebar-divider"></div>
+
+        @* ── Vault ── *@
+        <div class="sidebar-item @(IsActive("/vault", "vault") ? "sidebar-item-active" : "")"
+             @onclick="@(() => Nav.NavigateTo("/vault"))"
+             title="@(Collapsed ? (ReviewCount > 0 ? $"Vault ({ReviewCount} pending)" : "Vault") : null)">
+            @if (ReviewCount > 0)
+            {
+                <MudBadge Content="@ReviewCount" Color="Color.Warning" Overlap="true" Visible="true">
+                    <MudIcon Icon="@Icons.Material.Outlined.Shield" Size="Size.Medium" Class="sidebar-item-icon" />
+                </MudBadge>
+            }
+            else
+            {
+                <MudIcon Icon="@Icons.Material.Outlined.Shield" Size="Size.Medium" Class="sidebar-item-icon" />
+            }
+            @if (!Collapsed)
+            {
+                <span class="sidebar-label" style="flex: 1;">Vault</span>
+                @if (ReviewCount > 0)
+                {
+                    <MudChip T="string"
+                             Size="Size.Small"
+                             Color="Color.Warning"
+                             Variant="Variant.Filled"
+                             Style="height: 18px; font-size: 0.65rem; min-width: 0; padding: 0 6px; flex-shrink: 0;">
+                        @ReviewCount
+                    </MudChip>
+                }
+            }
+        </div>
+
+        @* ── Divider above Settings ── *@
+        <div class="sidebar-divider"></div>
+
+        @* ── Settings tree toggle ── *@
+        <div class="sidebar-item sidebar-settings-toggle @(_isOnSettingsPage ? "sidebar-item-active" : "")"
+             @onclick="ToggleSettings"
+             title="@(Collapsed ? "Settings" : null)">
+            <MudIcon Icon="@Icons.Material.Outlined.Settings" Size="Size.Medium" Class="sidebar-item-icon" />
+            @if (!Collapsed)
+            {
+                <span class="sidebar-label" style="flex: 1;">Settings</span>
+                <MudIcon Icon="@(_settingsExpanded
+                                ? Icons.Material.Filled.ExpandMore
+                                : Icons.Material.Filled.ChevronRight)"
+                         Size="Size.Small"
+                         Style="color: var(--app-dock-text-muted); flex-shrink: 0;" />
+            }
+        </div>
+
+        @* ── Settings sub-items ── *@
+        @if (_settingsExpanded)
+        {
+            @foreach (var group in SettingsNav.FilteredGroups(CurrentRole))
+            {
+                var items = SettingsNav.FilteredItems(group, CurrentRole);
+                if (items.Count == 0) continue;
+
+                @* Group label / rule *@
+                @if (!Collapsed)
+                {
+                    <div class="sidebar-group-label">@group.Label</div>
+                }
+                else
+                {
+                    <div class="sidebar-group-rule"></div>
+                }
+
+                @* Sub-items *@
+                @foreach (var item in items)
+                {
+                    var isItemActive = _activeSettingsSection == item.Value;
+                    var badgeCount = GetBadgeCount(item.BadgeKey);
+
+                    <div class="sidebar-item sidebar-settings-sub @(isItemActive ? "sidebar-item-active" : "")"
+                         @onclick="@(() => Nav.NavigateTo(SettingsNav.RouteFor(item.Value)))"
+                         title="@(Collapsed ? item.Label : null)">
+                        @if (badgeCount > 0)
+                        {
+                            <MudBadge Content="@badgeCount.ToString()"
+                                      Color="Color.Error"
+                                      Overlap="true"
+                                      Dot="true"
+                                      Visible="true">
+                                <MudIcon Icon="@item.Icon" Size="Size.Small" Class="sidebar-item-icon" />
+                            </MudBadge>
+                        }
+                        else
+                        {
+                            <MudIcon Icon="@item.Icon" Size="Size.Small" Class="sidebar-item-icon" />
+                        }
+                        @if (!Collapsed)
+                        {
+                            <span class="sidebar-label">@item.Label</span>
+                            @if (badgeCount > 0)
+                            {
+                                <MudChip T="string"
+                                         Size="Size.Small"
+                                         Color="Color.Warning"
+                                         Variant="Variant.Filled"
+                                         Style="height: 18px; font-size: 0.65rem; min-width: 0; padding: 0 6px;">
+                                    @badgeCount
+                                </MudChip>
+                            }
+                        }
+                    </div>
+                }
+            }
+        }
+
+    </nav>
+
+    @* ── Bottom section ───────────────────────────────────────────── *@
+    <div class="sidebar-bottom">
+
+        @* ── Provisioning card (placeholder — will be wired to SignalR) ── *@
+        @if (!Collapsed)
+        {
+            <div class="sidebar-provisioning-card">
+                <div class="sidebar-provisioning-label">Provisioning</div>
+                <div class="sidebar-provisioning-task">Waiting for tasks…</div>
+                <div class="sidebar-provisioning-bar">
+                    <div class="sidebar-provisioning-fill" style="width: 0%;"></div>
+                </div>
+            </div>
+        }
+
+        @* ── Profile avatar ── *@
+        <div class="sidebar-item sidebar-item-avatar"
+             @onclick="@(() => Nav.NavigateTo("/switch-profile"))"
+             title="@(Collapsed ? DisplayName : null)">
+            <MudAvatar Style="@($"background: {AvatarColor}; width: 36px; height: 36px; font-size: 0.9rem; flex-shrink: 0;")"
+                       Size="Size.Small">
+                @AvatarInitial
+            </MudAvatar>
+            @if (!Collapsed)
+            {
+                <span class="sidebar-label">@DisplayName</span>
+            }
+        </div>
+
+        @* ── Clock ── *@
+        <div class="sidebar-clock" title="@_clockDate">
+            <span class="sidebar-clock-time">@(Collapsed ? _clockTimeNarrow : _clockTime)</span>
+            @if (!Collapsed)
+            {
+                <span class="sidebar-clock-date">@_clockDate</span>
+            }
+            else
+            {
+                <span class="sidebar-clock-date-narrow">@_clockDateNarrow</span>
+            }
+        </div>
+
+    </div>
+</div>
+
+@code {
+    [Parameter] public string AvatarColor { get; set; } = "#C9922E";
+    [Parameter] public string AvatarInitial { get; set; } = "?";
+    [Parameter] public string DisplayName { get; set; } = "User";
+    [Parameter] public int ReviewCount { get; set; }
+    [Parameter] public string CurrentRole { get; set; } = "Administrator";
+    [Parameter] public bool Collapsed { get; set; }
+    [Parameter] public EventCallback<bool> CollapsedChanged { get; set; }
+
+    private bool _settingsExpanded;
+    private bool _isOnSettingsPage;
+    private SettingsSection? _activeSettingsSection;
+
+    // Clock state
+    private string _clockTime = string.Empty;
+    private string _clockTimeNarrow = string.Empty;
+    private string _clockDate = string.Empty;
+    private string _clockDateNarrow = string.Empty;
+    private Timer? _clockTimer;
+
+    protected override void OnInitialized()
+    {
+        DeviceContext.OnChanged += OnDeviceChanged;
+        Nav.LocationChanged += OnLocationChanged;
+        UpdateClock();
+        UpdateSettingsContext();
+        _clockTimer = new Timer(_ =>
+        {
+            UpdateClock();
+            InvokeAsync(StateHasChanged);
+        }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+    }
+
+    private void UpdateClock()
+    {
+        var now = DateTime.Now;
+        _clockTime = now.ToString("t");
+        var is24Hour = System.Globalization.CultureInfo.CurrentCulture
+                           .DateTimeFormat.ShortTimePattern.Contains('H');
+        _clockTimeNarrow = now.ToString(is24Hour ? "H:mm" : "h:mm");
+        _clockDate = now.ToString("ddd, MMM d");
+        _clockDateNarrow = now.ToString("ddd");
+    }
+
+    private void OnDeviceChanged() => InvokeAsync(StateHasChanged);
+
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        UpdateSettingsContext();
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void UpdateSettingsContext()
+    {
+        var uri = Nav.ToBaseRelativePath(Nav.Uri);
+        _isOnSettingsPage = uri.StartsWith("settings", StringComparison.OrdinalIgnoreCase);
+
+        if (_isOnSettingsPage)
+        {
+            _settingsExpanded = true;
+            var segments = uri.Split('/', StringSplitOptions.RemoveEmptyEntries);
+            var sectionSegment = segments.Length > 1 ? segments[1] : null;
+            _activeSettingsSection = SettingsNav.ParseFromRoute(sectionSegment)
+                                     ?? SettingsSection.Profile;
+        }
+        else
+        {
+            _activeSettingsSection = null;
+            _settingsExpanded = false;
+        }
+    }
+
+    private void ToggleSettings()
+    {
+        if (_settingsExpanded)
+        {
+            _settingsExpanded = false;
+        }
+        else
+        {
+            _settingsExpanded = true;
+            if (!_isOnSettingsPage)
+                Nav.NavigateTo("/settings");
+        }
+    }
+
+    private int GetBadgeCount(string? badgeKey) =>
+        badgeKey switch
+        {
+            "review" => ReviewCount,
+            _        => 0,
+        };
+
+    private bool IsActive(string path, string key)
+    {
+        var uri = Nav.ToBaseRelativePath(Nav.Uri);
+        if (key == "home")
+            return string.IsNullOrEmpty(uri) || uri == "/";
+        return uri.StartsWith(key, StringComparison.OrdinalIgnoreCase);
+    }
+
+    public void Dispose()
+    {
+        DeviceContext.OnChanged -= OnDeviceChanged;
+        Nav.LocationChanged -= OnLocationChanged;
+        _clockTimer?.Dispose();
+    }
+}
+
+<style>
+    /* ── Sidebar: full-height fixed panel ─────────────────────────── */
+    .sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        z-index: 1200;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+
+        background: var(--app-dock-bg);
+        backdrop-filter: blur(24px);
+        -webkit-backdrop-filter: blur(24px);
+        border-right: 1px solid var(--app-dock-border);
+
+        transition: width 0.2s ease;
+    }
+
+    .sidebar-expanded {
+        width: 256px;
+    }
+
+    .sidebar-collapsed {
+        width: 64px;
+    }
+
+    /* ── Logo header ─────────────────────────────────────────────── */
+    .sidebar-logo-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 64px;
+        padding: 0 12px;
+        flex-shrink: 0;
+        border-bottom: 1px solid var(--app-dock-border);
+        gap: 8px;
+        overflow: hidden;
+    }
+
+    .sidebar-collapsed .sidebar-logo-header {
+        justify-content: center;
+        padding: 0 8px;
+    }
+
+    .sidebar-logo-link {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        cursor: pointer;
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-decoration: none;
+    }
+
+    .sidebar-logo-link-collapsed {
+        flex: unset;
+        justify-content: center;
+    }
+
+    .sidebar-logo-icon {
+        width: 28px;
+        height: 28px;
+        flex-shrink: 0;
+    }
+
+    .sidebar-logo-wordmark {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 1rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        color: rgba(248, 248, 248, 0.92);
+        white-space: nowrap;
+        overflow: hidden;
+    }
+
+    /* ── Hamburger toggle ─────────────────────────────────────────── */
+    .sidebar-hamburger {
+        background: none;
+        border: none;
+        padding: 6px;
+        margin: 0;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        flex-shrink: 0;
+        color: var(--app-dock-text);
+        transition: background 0.15s ease, color 0.15s ease;
+    }
+
+    .sidebar-hamburger:hover {
+        background: var(--app-dock-hover);
+        color: rgba(248, 248, 248, 0.95);
+    }
+
+    .sidebar-collapsed .sidebar-hamburger {
+        /* In collapsed mode the logo link shrinks away; center the hamburger */
+    }
+
+    /* ── Navigation area ──────────────────────────────────────────── */
+    .sidebar-nav {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        overflow-y: auto;
+        overflow-x: hidden;
+        scrollbar-width: none;
+        padding: 8px 8px 0;
+    }
+
+    .sidebar-nav::-webkit-scrollbar { display: none; }
+
+    /* ── Nav item (shared) ────────────────────────────────────────── */
+    .sidebar-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 12px;
+        border-radius: 8px;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: background 0.15s ease, color 0.15s ease;
+        min-height: 44px;
+        color: var(--app-dock-text);
+        position: relative;
+    }
+
+    .sidebar-collapsed .sidebar-item {
+        justify-content: center;
+        padding: 10px 0;
+    }
+
+    .sidebar-item:hover {
+        background: var(--app-dock-hover);
+    }
+
+    .sidebar-item-icon {
+        flex-shrink: 0;
+    }
+
+    /* Active: white icon + label, amber left-edge line */
+    .sidebar-item-active {
+        background: transparent;
+        color: #F8F8F8;
+    }
+
+    .sidebar-item-active::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 25%;
+        height: 50%;
+        width: 3px;
+        background: #EAB308;
+        border-radius: 0 4px 4px 0;
+    }
+
+    .sidebar-item-active:hover {
+        background: transparent;
+    }
+
+    /* Home button: soft amber highlight when active */
+    .sidebar-item-home-active {
+        background: rgba(234, 179, 8, 0.10) !important;
+        color: #EAB308 !important;
+    }
+
+    .sidebar-item-home-active:hover {
+        background: rgba(234, 179, 8, 0.15) !important;
+    }
+
+    .sidebar-item-home-active::before {
+        background: #EAB308 !important;
+    }
+
+    /* ── Label (only visible when expanded) ─────────────────────── */
+    .sidebar-label {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.88rem;
+        font-weight: 500;
+        color: inherit;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .sidebar-item-active .sidebar-label {
+        font-weight: 700;
+    }
+
+    /* ── Dividers ─────────────────────────────────────────────────── */
+    .sidebar-divider {
+        height: 1px;
+        background: rgba(255, 255, 255, 0.06);
+        margin: 6px 4px;
+        flex-shrink: 0;
+    }
+
+    /* ── Settings tree ────────────────────────────────────────────── */
+    .sidebar-settings-toggle {
+        /* Inherits sidebar-item */
+    }
+
+    .sidebar-settings-sub {
+        min-height: 36px;
+        padding: 6px 8px;
+        gap: 10px;
+    }
+
+    .sidebar-collapsed .sidebar-settings-sub {
+        padding: 6px 0;
+    }
+
+    .sidebar-expanded .sidebar-settings-sub {
+        padding-left: 24px;
+    }
+
+    .sidebar-settings-sub .sidebar-label {
+        font-size: 0.8rem;
+    }
+
+    .sidebar-group-label {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.6rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--app-dock-text-muted, rgba(248, 248, 248, 0.35));
+        padding: 8px 24px 2px;
+        white-space: nowrap;
+        overflow: hidden;
+    }
+
+    .sidebar-group-rule {
+        height: 1px;
+        background: rgba(255, 255, 255, 0.04);
+        margin: 4px 8px;
+        flex-shrink: 0;
+    }
+
+    /* ── Bottom section ───────────────────────────────────────────── */
+    .sidebar-bottom {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        flex-shrink: 0;
+        padding: 8px 8px 12px;
+        border-top: 1px solid rgba(255, 255, 255, 0.06);
+        margin-top: 6px;
+    }
+
+    /* ── Provisioning card ────────────────────────────────────────── */
+    .sidebar-provisioning-card {
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.07);
+        border-radius: 8px;
+        padding: 10px 12px;
+        margin-bottom: 4px;
+        overflow: hidden;
+    }
+
+    .sidebar-provisioning-label {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.6rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--app-dock-text-muted, rgba(248, 248, 248, 0.35));
+        margin-bottom: 3px;
+    }
+
+    .sidebar-provisioning-task {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.78rem;
+        font-weight: 500;
+        color: rgba(248, 248, 248, 0.65);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin-bottom: 6px;
+    }
+
+    .sidebar-provisioning-bar {
+        height: 3px;
+        background: rgba(255, 255, 255, 0.08);
+        border-radius: 2px;
+        overflow: hidden;
+    }
+
+    .sidebar-provisioning-fill {
+        height: 100%;
+        background: #EAB308;
+        border-radius: 2px;
+        transition: width 0.4s ease;
+    }
+
+    /* ── Avatar item ─────────────────────────────────────────────── */
+    .sidebar-item-avatar {
+        min-height: 44px;
+    }
+
+    /* ── Clock ────────────────────────────────────────────────────── */
+    .sidebar-clock {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 6px 0 2px;
+        gap: 2px;
+        cursor: default;
+        overflow: hidden;
+    }
+
+    .sidebar-expanded .sidebar-clock {
+        align-items: flex-start;
+        padding-left: 12px;
+    }
+
+    .sidebar-clock-time {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.88rem;
+        font-weight: 600;
+        color: rgba(248, 248, 248, 0.80);
+        line-height: 1.2;
+        white-space: nowrap;
+    }
+
+    .sidebar-clock-date {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.72rem;
+        font-weight: 400;
+        color: var(--app-dock-text-muted);
+        white-space: nowrap;
+    }
+
+    .sidebar-clock-date-narrow {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.65rem;
+        font-weight: 400;
+        color: var(--app-dock-text-muted);
+        white-space: nowrap;
+        text-align: center;
+    }
+
+    /* ── Hide on mobile ───────────────────────────────────────────── */
+    @@media (max-width: 768px) {
+        .sidebar {
+            display: none;
+        }
+    }
+</style>

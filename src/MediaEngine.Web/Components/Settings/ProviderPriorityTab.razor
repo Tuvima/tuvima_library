@@ -1,0 +1,333 @@
+@namespace MediaEngine.Web.Components.Settings
+
+@* Provider Priority — assign providers to priority slots per media type.
+   Three numbered slots (Primary, Secondary, Tertiary) are shown per media type.
+   Selections are independent — changes to one tab do not affect others.
+   No Engine calls in this version; state is local with hardcoded defaults. *@
+
+<MudPaper Elevation="0" Style="@GlassStyle">
+
+    @* ── Header ──────────────────────────────────────────────────────────── *@
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+        <MudIcon Icon="@Icons.Material.Outlined.SwapVert" Color="Color.Default" Class="mr-2" />
+        <MudText Typo="Typo.h6">Provider Priority</MudText>
+    </MudStack>
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-5">
+        Choose which metadata providers the Engine tries first for each media type.
+        The Primary slot is tried first; Secondary and Tertiary are fallbacks when
+        the higher-priority provider returns no result.
+    </MudText>
+
+    @* ── Media type tabs ─────────────────────────────────────────────────── *@
+    <MudTabs Elevation="0"
+             Rounded="true"
+             ApplyEffectsToContainer="true"
+             Style="background: transparent;">
+
+        @foreach (var mediaType in _mediaTypes)
+        {
+            <MudTabPanel Text="@mediaType" Icon="@GetMediaTypeIcon(mediaType)">
+
+                <div class="pt-4">
+                <MudGrid Spacing="3">
+
+                    @* ── Priority slots ──────────────────────────────────── *@
+                    @for (int i = 0; i < 3; i++)
+                    {
+                        var slotIndex = i;
+                        var label = slotIndex switch { 0 => "Primary", 1 => "Secondary", _ => "Tertiary" };
+                        var description = slotIndex switch
+                        {
+                            0 => "Tried first. Best result wins.",
+                            1 => "Tried when Primary returns nothing.",
+                            _ => "Last resort before leaving the field empty.",
+                        };
+
+                        <MudItem xs="12" sm="4">
+                            <div style="@SlotCardStyle">
+                                @* Slot number badge *@
+                                <MudStack Row="true" AlignItems="AlignItems.Center"
+                                          Spacing="1" Class="mb-2">
+                                    <div style="@SlotBadgeStyle">@(slotIndex + 1)</div>
+                                    <MudText Typo="Typo.subtitle2"
+                                             Style="font-weight: 600;">
+                                        @label
+                                    </MudText>
+                                </MudStack>
+
+                                <MudText Typo="Typo.caption" Color="Color.Secondary"
+                                         Class="mb-3" Style="display: block;">
+                                    @description
+                                </MudText>
+
+                                @* Provider selector *@
+                                <MudSelect T="string"
+                                           Value="@GetSlot(mediaType, slotIndex)"
+                                           ValueChanged="@(v => SetSlot(mediaType, slotIndex, v))"
+                                           Label="Provider"
+                                           Variant="Variant.Outlined"
+                                           Margin="Margin.Dense"
+                                           FullWidth="true"
+                                           Dense="true"
+                                           Clearable="true"
+                                           AnchorOrigin="Origin.BottomLeft">
+                                    <MudSelectItem T="string" Value='@("")'>
+                                        <MudText Color="Color.Secondary">— None —</MudText>
+                                    </MudSelectItem>
+                                    @foreach (var p in _allProviders)
+                                    {
+                                        <MudSelectItem T="string" Value="@p">
+                                            <MudStack Row="true" AlignItems="AlignItems.Center"
+                                                      Spacing="1">
+                                                <div style="@GetStatusDotStyle(p)"></div>
+                                                @p
+                                            </MudStack>
+                                        </MudSelectItem>
+                                    }
+                                </MudSelect>
+
+                                @* Status indicator for the currently assigned provider *@
+                                @{
+                                    var assigned = GetSlot(mediaType, slotIndex);
+                                }
+                                @if (!string.IsNullOrEmpty(assigned))
+                                {
+                                    <MudStack Row="true" AlignItems="AlignItems.Center"
+                                              Spacing="1" Class="mt-2">
+                                        <div style="@GetStatusDotStyle(assigned)"></div>
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                            @GetProviderMeta(assigned)
+                                        </MudText>
+                                    </MudStack>
+                                }
+                            </div>
+                        </MudItem>
+                    }
+
+                </MudGrid>
+
+                @* ── Available providers pool ─────────────────────────── *@
+                <MudDivider Class="my-4" />
+
+                <MudText Typo="Typo.overline" Color="Color.Default" Class="mb-2"
+                         Style="letter-spacing: 0.08em; display: block;">
+                    ALL PROVIDERS
+                </MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3"
+                         Style="display: block;">
+                    All providers can be assigned to any slot regardless of media type.
+                </MudText>
+
+                <MudStack Row="true" Spacing="2" Style="flex-wrap: wrap;">
+                    @foreach (var p in _allProviders)
+                    {
+                        var isAssigned = IsAssignedInTab(mediaType, p);
+                        <div style="@GetProviderChipStyle(isAssigned)">
+                            <MudStack Row="true" AlignItems="AlignItems.Center"
+                                      Spacing="1">
+                                <div style="@GetStatusDotStyle(p)"></div>
+                                <MudText Typo="Typo.body2"
+                                         Style="@(isAssigned ? "opacity: 0.5;" : "")">
+                                    @p
+                                </MudText>
+                                @if (isAssigned)
+                                {
+                                    <MudIcon Icon="@Icons.Material.Filled.CheckCircle"
+                                             Size="Size.Small"
+                                             Color="Color.Success" />
+                                }
+                            </MudStack>
+                        </div>
+                    }
+                </MudStack>
+                </div>
+
+            </MudTabPanel>
+        }
+
+    </MudTabs>
+
+    @* ── Save row ─────────────────────────────────────────────────────────── *@
+    <MudDivider Class="mt-6 mb-4" />
+    <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2">
+        <MudButton Variant="Variant.Text"
+                   Color="Color.Default"
+                   Size="Size.Small"
+                   StartIcon="@Icons.Material.Outlined.RestartAlt"
+                   OnClick="@ResetToDefaults">
+            Reset to Defaults
+        </MudButton>
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   Size="Size.Small"
+                   StartIcon="@Icons.Material.Filled.Save"
+                   OnClick="@SaveAsync"
+                   Disabled="@_saving">
+            @if (_saving)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
+                @:Saving…
+            }
+            else
+            {
+                @:Save Priority Order
+            }
+        </MudButton>
+    </MudStack>
+
+</MudPaper>
+
+@code {
+
+    // ── Default slot assignments ─────────────────────────────────────────────────
+
+    private static readonly Dictionary<string, string[]> DefaultSlots = new()
+    {
+        ["Books"]      = ["Apple API", "Google Books", "Open Library"],
+        ["Audiobooks"] = ["Apple API", "Google Books", ""],
+        ["Movies"]     = ["TMDB", "", ""],
+        ["TV"]         = ["TMDB", "", ""],
+        ["Music"]      = ["MusicBrainz", "", ""],
+        ["Comics"]     = ["Comic Vine", "", ""],
+        ["Podcasts"]   = ["Apple Podcasts", "Podcast Index", ""],
+    };
+
+    // ── Provider catalogue ────────────────────────────────────────────────────────
+
+    private static readonly string[] _allProviders =
+    [
+        "Apple API",
+        "Google Books",
+        "Open Library",
+        "TMDB",
+        "MusicBrainz",
+        "Comic Vine",
+        "Apple Podcasts",
+        "Podcast Index",
+        "Wikidata",
+    ];
+
+    private static readonly Dictionary<string, string> ProviderMeta = new()
+    {
+        ["Apple API"]      = "Zero-key · Retail",
+        ["Google Books"]   = "API key · Retail",
+        ["Open Library"]   = "Zero-key · Retail",
+        ["TMDB"]           = "Free key · Retail",
+        ["MusicBrainz"]    = "Zero-key · Retail",
+        ["Comic Vine"]     = "Free key · Retail",
+        ["Apple Podcasts"] = "Zero-key · Retail",
+        ["Podcast Index"]  = "Free key · Retail",
+        ["Wikidata"]       = "Zero-key · Universe",
+    };
+
+    // ── State ────────────────────────────────────────────────────────────────────
+
+    private readonly string[] _mediaTypes =
+        ["Books", "Audiobooks", "Movies", "TV", "Music", "Comics", "Podcasts"];
+
+    // Working copy: [mediaType][slotIndex] → provider name (empty string = unset)
+    private Dictionary<string, string[]> _slots = new();
+
+    private bool _saving;
+
+    // ── Lifecycle ────────────────────────────────────────────────────────────────
+
+    protected override void OnInitialized()
+    {
+        ResetToDefaults();
+    }
+
+    // ── Slot access helpers ──────────────────────────────────────────────────────
+
+    private string GetSlot(string mediaType, int index)
+    {
+        if (_slots.TryGetValue(mediaType, out var arr) && index < arr.Length)
+            return arr[index];
+        return string.Empty;
+    }
+
+    private void SetSlot(string mediaType, int index, string value)
+    {
+        if (!_slots.ContainsKey(mediaType))
+            _slots[mediaType] = ["", "", ""];
+
+        _slots[mediaType][index] = value ?? string.Empty;
+    }
+
+    private bool IsAssignedInTab(string mediaType, string provider)
+    {
+        if (!_slots.TryGetValue(mediaType, out var arr))
+            return false;
+        return arr.Any(s => s == provider);
+    }
+
+    // ── Actions ──────────────────────────────────────────────────────────────────
+
+    private void ResetToDefaults()
+    {
+        _slots = DefaultSlots.ToDictionary(
+            kv => kv.Key,
+            kv => (string[])kv.Value.Clone());
+    }
+
+    private async Task SaveAsync()
+    {
+        _saving = true;
+        // No Engine API yet — simulate a brief save operation.
+        await Task.Delay(400);
+        _saving = false;
+    }
+
+    // ── Display helpers ──────────────────────────────────────────────────────────
+
+    private static string GetMediaTypeIcon(string mediaType) => mediaType switch
+    {
+        "Books"      => Icons.Material.Outlined.MenuBook,
+        "Audiobooks" => Icons.Material.Outlined.Headphones,
+        "Movies"     => Icons.Material.Outlined.Movie,
+        "TV"         => Icons.Material.Outlined.Tv,
+        "Music"      => Icons.Material.Outlined.MusicNote,
+        "Comics"     => Icons.Material.Outlined.AutoStories,
+        "Podcasts"   => Icons.Material.Outlined.Podcasts,
+        _            => Icons.Material.Outlined.Category,
+    };
+
+    private static string GetProviderMeta(string provider) =>
+        ProviderMeta.TryGetValue(provider, out var meta) ? meta : string.Empty;
+
+    // All providers treated as online for now; extend when Engine status API is wired.
+    private static string GetStatusDotStyle(string _) =>
+        "width: 8px; height: 8px; border-radius: 50%; " +
+        "background: #4caf50; flex-shrink: 0;";
+
+    private static string GetProviderChipStyle(bool isAssigned) =>
+        "padding: 6px 12px; border-radius: 20px; " +
+        "border: 1px solid var(--app-glass-border); " +
+        "background: var(--app-glass-inner-bg); " +
+        $"opacity: {(isAssigned ? "0.65" : "1")}; " +
+        "display: flex; align-items: center;";
+
+    // ── Styles ───────────────────────────────────────────────────────────────────
+
+    private const string GlassStyle =
+        "background: var(--app-glass-bg); " +
+        "border: 1px solid var(--app-glass-border); " +
+        "backdrop-filter: blur(10px); " +
+        "-webkit-backdrop-filter: blur(10px); " +
+        "border-radius: 12px; " +
+        "padding: 32px;";
+
+    private const string SlotCardStyle =
+        "background: var(--app-glass-inner-bg); " +
+        "border: 1px solid var(--app-glass-inner-border); " +
+        "border-radius: 8px; " +
+        "padding: 16px; " +
+        "height: 100%;";
+
+    private const string SlotBadgeStyle =
+        "width: 22px; height: 22px; border-radius: 50%; " +
+        "background: var(--mud-palette-primary); " +
+        "color: white; font-size: 0.7rem; font-weight: 700; " +
+        "display: flex; align-items: center; justify-content: center; " +
+        "flex-shrink: 0;";
+}

@@ -24,7 +24,7 @@
     @* ── Top Navigation Bar ── *@
     <TopBar Variant="@TopBarVariant"
             OnSearchRequested="@(() => _palette?.Toggle())"
-            OnHamburgerClick="@(() => _mobileDrawerOpen = !_mobileDrawerOpen)"
+            OnHamburgerClick="@OnHamburgerClick"
             ReviewCount="@_reviewCount"
             AvatarColor="@_avatarColor"
             AvatarInitial="@_avatarInitial"
@@ -38,14 +38,16 @@
                      ReviewCount="@_reviewCount"
                      CurrentRole="Administrator" />
 
-    @* ── Left Navigation Dock (when config says visible) ── *@
+    @* ── Left Navigation Sidebar (when config says visible) ── *@
     @if (ShowDock)
     {
-        <LeftDock AvatarColor="@_avatarColor"
-                  AvatarInitial="@_avatarInitial"
-                  DisplayName="@_displayName"
-                  ReviewCount="@_reviewCount"
-                  CurrentRole="Administrator" />
+        <Sidebar AvatarColor="@_avatarColor"
+                 AvatarInitial="@_avatarInitial"
+                 DisplayName="@_displayName"
+                 ReviewCount="@_reviewCount"
+                 CurrentRole="Administrator"
+                 Collapsed="@_sidebarCollapsed"
+                 CollapsedChanged="@OnSidebarCollapsedChanged" />
     }
 
     @* Full-width main content — top padding clears top bar, left clears dock *@
@@ -59,6 +61,7 @@
 @code {
     private CommandPalette? _palette;
     private bool _mobileDrawerOpen;
+    private bool _sidebarCollapsed;
 
     // Profile state for the top bar and dock.
     private string _avatarColor = "#C9922E";
@@ -81,7 +84,8 @@
         get
         {
             var classes = "main-content-with-topbar";
-            if (ShowDock) classes += " main-content-with-dock";
+            if (ShowDock)
+                classes += _sidebarCollapsed ? " main-content-sidebar-collapsed" : " main-content-sidebar-expanded";
             classes += $" {DeviceContext.Settings.ContentPadding}";
             return classes;
         }
@@ -185,6 +189,20 @@
         InvokeAsync(LoadActiveProfileAsync);
     }
 
+    private async Task OnSidebarCollapsedChanged(bool collapsed)
+    {
+        _sidebarCollapsed = collapsed;
+        StateHasChanged();
+    }
+
+    private void OnHamburgerClick()
+    {
+        if (DeviceContext.IsMobile)
+            _mobileDrawerOpen = !_mobileDrawerOpen;
+        else
+            _ = OnSidebarCollapsedChanged(!_sidebarCollapsed);
+    }
+
     public void Dispose()
     {
         DeviceContext.OnChanged            -= OnDeviceContextChanged;
@@ -196,9 +214,22 @@
 }
 
 <style>
-    /* Dock is floating — no left padding offset needed */
-    .main-content-with-dock {
-        /* intentionally empty — floating dock does not push content */
+    /* Content area shifts right to accommodate the sidebar */
+    .main-content-sidebar-expanded {
+        margin-left: 256px !important;
+        transition: margin-left 0.2s ease;
+    }
+
+    .main-content-sidebar-collapsed {
+        margin-left: 64px !important;
+        transition: margin-left 0.2s ease;
+    }
+
+    @@media (max-width: 768px) {
+        .main-content-sidebar-expanded,
+        .main-content-sidebar-collapsed {
+            margin-left: 0 !important;
+        }
     }
 
     /* Content area clears the fixed 64px top bar */

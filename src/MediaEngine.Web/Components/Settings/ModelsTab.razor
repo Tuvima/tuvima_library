@@ -1,0 +1,323 @@
+@namespace MediaEngine.Web.Components.Settings
+
+@* ModelsTab — AI model management dashboard.
+   Displays three model cards (text_fast, text_quality, audio) with
+   status indicators, RAM/size info, and download/load/unload/delete actions.
+   Also shows models directory config and idle-unload settings.
+   All state is local — no Engine calls in this stub. *@
+
+<MudPaper Elevation="0" Style="@GlassStyle">
+
+    @* ── Header ────────────────────────────────────────────────────────── *@
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+        <MudIcon Icon="@Icons.Material.Outlined.Memory" Color="Color.Default" Class="mr-2" />
+        <MudText Typo="Typo.h6">AI Models</MudText>
+    </MudStack>
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
+        Download, load, and manage the local AI models that power intelligent features.
+        Models run entirely on your machine — no data leaves.
+    </MudText>
+
+    @* ── Model Cards Grid ───────────────────────────────────────────────── *@
+    <MudGrid Spacing="3" Class="mb-6">
+        @foreach (var model in _models)
+        {
+            var m = model; @* capture for lambda *@
+            <MudItem xs="12" md="4">
+                <div style="@ModelCardStyle">
+
+                    @* Role badge *@
+                    <MudChip T="string"
+                             Size="Size.Small"
+                             Color="@RoleBadgeColor(m.Role)"
+                             Style="margin-bottom: 12px; font-family: monospace; font-size: 0.75rem;">
+                        @m.Role
+                    </MudChip>
+
+                    @* Model name *@
+                    <MudText Typo="Typo.subtitle1"
+                             Style="font-weight: 700; margin-bottom: 4px;">
+                        @m.ModelName
+                    </MudText>
+
+                    @* Purpose *@
+                    <MudText Typo="Typo.body2"
+                             Color="Color.Secondary"
+                             Style="margin-bottom: 16px; min-height: 38px;">
+                        @m.Purpose
+                    </MudText>
+
+                    @* Status indicator *@
+                    <MudStack Row="true" AlignItems="AlignItems.Center"
+                              Spacing="2" Style="margin-bottom: 12px;">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Status</MudText>
+                        <MudChip T="string"
+                                 Size="Size.Small"
+                                 Color="@StatusChipColor(m.Status)">
+                            @m.Status
+                        </MudChip>
+                    </MudStack>
+
+                    @* Metrics row *@
+                    <MudStack Row="true" Spacing="4" Style="margin-bottom: 16px;">
+                        <MudStack Spacing="0">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">RAM</MudText>
+                            <MudText Typo="Typo.body2" Style="font-weight: 600;">@m.RamUsage</MudText>
+                        </MudStack>
+                        <MudStack Spacing="0">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Size</MudText>
+                            <MudText Typo="Typo.body2" Style="font-weight: 600;">@m.FileSize</MudText>
+                        </MudStack>
+                    </MudStack>
+
+                    @* Download progress bar (shown only when downloading) *@
+                    @if (m.Status == ModelStatus.Downloading)
+                    {
+                        <MudProgressLinear Value="@m.DownloadProgress"
+                                           Color="Color.Primary"
+                                           Rounded="true"
+                                           Size="Size.Small"
+                                           Style="margin-bottom: 12px;" />
+                        <MudText Typo="Typo.caption" Color="Color.Secondary"
+                                 Style="margin-bottom: 12px;">
+                            Downloading… @m.DownloadProgress%
+                        </MudText>
+                    }
+
+                    @* Action buttons *@
+                    <MudStack Row="true" AlignItems="AlignItems.Center"
+                              Spacing="1" Style="flex-wrap: wrap; gap: 4px;">
+
+                        @* Download — only when not downloaded *@
+                        @if (m.Status == ModelStatus.NotDownloaded)
+                        {
+                            <MudButton Size="Size.Small"
+                                       Variant="Variant.Filled"
+                                       Color="Color.Primary"
+                                       StartIcon="@Icons.Material.Outlined.Download"
+                                       OnClick="@(() => SimulateDownload(m))">
+                                Download
+                            </MudButton>
+                        }
+
+                        @* Load — when downloaded but not loaded *@
+                        @if (m.Status == ModelStatus.Downloaded)
+                        {
+                            <MudButton Size="Size.Small"
+                                       Variant="Variant.Outlined"
+                                       Color="Color.Info"
+                                       StartIcon="@Icons.Material.Outlined.PlayCircleOutline"
+                                       OnClick="@(() => ChangeStatus(m, ModelStatus.Loaded))">
+                                Load
+                            </MudButton>
+                        }
+
+                        @* Unload — when currently loaded or active *@
+                        @if (m.Status is ModelStatus.Loaded or ModelStatus.Active)
+                        {
+                            <MudButton Size="Size.Small"
+                                       Variant="Variant.Outlined"
+                                       Color="Color.Warning"
+                                       StartIcon="@Icons.Material.Outlined.PauseCircleOutline"
+                                       OnClick="@(() => ChangeStatus(m, ModelStatus.Downloaded))">
+                                Unload
+                            </MudButton>
+                        }
+
+                        @* Spacer *@
+                        <MudSpacer />
+
+                        @* Delete — only when downloaded (and not currently active) *@
+                        @if (m.Status is ModelStatus.Downloaded or ModelStatus.Loaded)
+                        {
+                            <MudTooltip Text="Delete model files from disk">
+                                <MudIconButton Icon="@Icons.Material.Outlined.DeleteOutline"
+                                               Size="Size.Small"
+                                               Color="Color.Error"
+                                               OnClick="@(() => ChangeStatus(m, ModelStatus.NotDownloaded))" />
+                            </MudTooltip>
+                        }
+
+                    </MudStack>
+
+                </div>
+            </MudItem>
+        }
+    </MudGrid>
+
+    @* ── Configuration card ─────────────────────────────────────────────── *@
+    <div style="@ModelCardStyle">
+
+        <MudText Typo="Typo.subtitle2" Style="font-weight: 600; margin-bottom: 16px;">
+            Storage &amp; Runtime Settings
+        </MudText>
+
+        <MudTextField Value="@_modelsDirectory"
+                      Label="Models Directory"
+                      Variant="Variant.Outlined"
+                      ReadOnly="true"
+                      FullWidth="true"
+                      Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Outlined.FolderOpen"
+                      Class="mb-4" />
+
+        <MudNumericField @bind-Value="_idleTimeoutSeconds"
+                         Label="Idle auto-unload timeout (seconds)"
+                         Variant="Variant.Outlined"
+                         FullWidth="true"
+                         Min="60"
+                         Max="3600"
+                         Step="60"
+                         HelperText="Unload model from RAM after this many seconds of inactivity."
+                         Class="mb-4" />
+
+        <MudTooltip Text="Vulkan GPU acceleration is planned for a future release.">
+            <MudSwitch @bind-Value="_gpuEnabled"
+                       Label="GPU Acceleration (Vulkan)"
+                       Color="Color.Primary"
+                       Disabled="true" />
+        </MudTooltip>
+        <MudText Typo="Typo.caption" Color="Color.Secondary" Style="margin-top: 4px;">
+            Coming soon — CPU inference is active.
+        </MudText>
+
+    </div>
+
+</MudPaper>
+
+@code {
+
+    // ── Styles ────────────────────────────────────────────────────────────────────
+
+    private const string GlassStyle =
+        "background: var(--app-glass-bg); " +
+        "border: 1px solid var(--app-glass-border); " +
+        "backdrop-filter: blur(10px); " +
+        "-webkit-backdrop-filter: blur(10px); " +
+        "border-radius: 12px; " +
+        "padding: 32px;";
+
+    private const string ModelCardStyle =
+        "background: rgba(255,255,255,0.04); " +
+        "border: 1px solid rgba(255,255,255,0.08); " +
+        "border-radius: 10px; " +
+        "padding: 20px; " +
+        "height: 100%;";
+
+    // ── Model status enum ─────────────────────────────────────────────────────────
+
+    private enum ModelStatus
+    {
+        NotDownloaded,
+        Downloading,
+        Downloaded,
+        Loaded,
+        Active
+    }
+
+    // ── Model descriptor ──────────────────────────────────────────────────────────
+
+    private sealed class ModelInfo
+    {
+        public string      Role             { get; init; } = string.Empty;
+        public string      ModelName        { get; init; } = string.Empty;
+        public string      Purpose          { get; init; } = string.Empty;
+        public ModelStatus Status           { get; set; }
+        public string      RamUsage         { get; init; } = string.Empty;
+        public string      FileSize         { get; init; } = string.Empty;
+        public int         DownloadProgress { get; set; }
+    }
+
+    // ── State ─────────────────────────────────────────────────────────────────────
+
+    private readonly List<ModelInfo> _models =
+    [
+        new()
+        {
+            Role      = "text_fast",
+            ModelName = "Llama 3.2 1B Q4_K_M",
+            Purpose   = "Powers search and quick tasks",
+            Status    = ModelStatus.Active,
+            RamUsage  = "~750MB",
+            FileSize  = "~750MB",
+        },
+        new()
+        {
+            Role      = "text_quality",
+            ModelName = "Llama 3.2 3B Q4_K_M",
+            Purpose   = "Powers ingestion and metadata",
+            Status    = ModelStatus.Loaded,
+            RamUsage  = "~2.4GB",
+            FileSize  = "~2GB",
+        },
+        new()
+        {
+            Role      = "audio",
+            ModelName = "Whisper Medium",
+            Purpose   = "Transcription and language detection",
+            Status    = ModelStatus.Downloaded,
+            RamUsage  = "~1.5GB",
+            FileSize  = "~1.5GB",
+        },
+    ];
+
+    private string _modelsDirectory    = "/models";
+    private int    _idleTimeoutSeconds = 300;
+    private bool   _gpuEnabled;
+
+    // ── Helpers ───────────────────────────────────────────────────────────────────
+
+    private static Color RoleBadgeColor(string role) => role switch
+    {
+        "text_fast"    => Color.Info,
+        "text_quality" => Color.Primary,
+        "audio"        => Color.Secondary,
+        _              => Color.Default,
+    };
+
+    private static Color StatusChipColor(ModelStatus status) => status switch
+    {
+        ModelStatus.Active        => Color.Success,
+        ModelStatus.Loaded        => Color.Info,
+        ModelStatus.Downloaded    => Color.Default,
+        ModelStatus.Downloading   => Color.Warning,
+        ModelStatus.NotDownloaded => Color.Warning,
+        _                         => Color.Default,
+    };
+
+    private static string StatusLabel(ModelStatus status) => status switch
+    {
+        ModelStatus.Active        => "Active",
+        ModelStatus.Loaded        => "Loaded",
+        ModelStatus.Downloaded    => "Downloaded",
+        ModelStatus.Downloading   => "Downloading",
+        ModelStatus.NotDownloaded => "Not Downloaded",
+        _                         => "Unknown",
+    };
+
+    // ── Actions ───────────────────────────────────────────────────────────────────
+
+    private void ChangeStatus(ModelInfo model, ModelStatus newStatus)
+    {
+        model.Status = newStatus;
+        StateHasChanged();
+    }
+
+    private async Task SimulateDownload(ModelInfo model)
+    {
+        model.Status = ModelStatus.Downloading;
+        model.DownloadProgress = 0;
+        StateHasChanged();
+
+        // Simulate progress in increments
+        while (model.DownloadProgress < 100)
+        {
+            await Task.Delay(80);
+            model.DownloadProgress = Math.Min(100, model.DownloadProgress + 10);
+            StateHasChanged();
+        }
+
+        model.Status = ModelStatus.Downloaded;
+        StateHasChanged();
+    }
+}

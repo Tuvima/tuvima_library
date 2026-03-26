@@ -1,0 +1,233 @@
+@namespace MediaEngine.Web.Components.Settings
+@inject UIOrchestratorService Orchestrator
+@inject DeviceContextService DeviceContext
+@inject ISnackbar Snackbar
+@implements IDisposable
+
+@* ProfileTab — Profile identity, visual preferences, and locale settings.
+   Layout driven by device context:
+     "full"       → Web: all sections visible (profile + avatar colour + locale)
+     "stacked"    → Mobile: compact profile, fewer swatches
+     "theme-only" → Television / Automotive: minimal display *@
+
+@{
+    var layout       = DeviceContext.Settings.Pages.Preferences.GeneralTabLayout;
+    var swatchCount  = DeviceContext.Settings.Pages.Preferences.ColorSwatchCount;
+    var showProfile  = !DeviceContext.IsFeatureDisabled("profile_section") && layout != "theme-only";
+    var showColorPicker = !DeviceContext.IsFeatureDisabled("color_picker") && layout != "theme-only";
+    var showLocale   = !DeviceContext.IsFeatureDisabled("locale_section") && layout != "theme-only";
+}
+
+<MudPaper Elevation="0" Style="@GlassStyle">
+
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+        <MudIcon Icon="@Icons.Material.Outlined.Person" Color="Color.Default" Class="mr-2" />
+        <MudText Typo="Typo.h6">Profile</MudText>
+    </MudStack>
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
+        @(layout == "theme-only" ? "Visual preferences." : "Your identity, visual preferences, and display settings.")
+    </MudText>
+
+    @if (_loading)
+    {
+        <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4" />
+    }
+    else
+    {
+        @* ── Profile section (hidden on TV/automotive) ─────────────────── *@
+
+        @if (showProfile)
+        {
+            @* Avatar preview *@
+            <MudStack AlignItems="AlignItems.Center" Class="mb-6">
+                <MudAvatar Size="Size.Large"
+                           Style="@($"background: {_avatarColor}; width: 80px; height: 80px; font-size: 2rem;")">
+                    @(_displayName.Length > 0 ? _displayName[0].ToString().ToUpper() : "?")
+                </MudAvatar>
+            </MudStack>
+
+            @* Display name — hidden when text input is disallowed (TV/automotive) *@
+            @if (DeviceContext.Settings.Constraints.AllowTextInput)
+            {
+                <MudTextField @bind-Value="_displayName"
+                              Label="Display Name"
+                              Variant="Variant.Outlined"
+                              FullWidth="true"
+                              Immediate="true"
+                              MaxLength="50"
+                              Class="mb-4" />
+            }
+
+            @* Role (read-only) *@
+            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-6" Spacing="2">
+                <MudText Typo="Typo.subtitle2">Role:</MudText>
+                <MudChip T="string" Size="Size.Small"
+                         Color="@(_role == "Administrator" ? Color.Primary : _role == "Curator" ? Color.Info : Color.Default)">
+                    @_role
+                </MudChip>
+            </MudStack>
+
+            @* Avatar colour — hidden when color_picker is disabled *@
+            @if (showColorPicker)
+            {
+                <MudText Typo="Typo.subtitle2" Class="mb-1">Avatar Colour</MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3">
+                    Choose a colour for your avatar circle.
+                </MudText>
+
+                <MudStack Row="true" Spacing="2" Style="flex-wrap: wrap;" Class="mb-6">
+                    @foreach (var hex in _avatarPresets.Take(swatchCount))
+                    {
+                        <MudAvatar Size="Size.Medium"
+                                   Style="@AvatarSwatchStyle(hex)"
+                                   @onclick="@(() => { _avatarColor = hex; })" />
+                    }
+                </MudStack>
+            }
+
+            <MudDivider Class="my-6" />
+        }
+
+        @* ── Locale section ──────────────────────────────────────────────── *@
+
+        @if (showLocale && DeviceContext.Settings.Constraints.AllowTextInput)
+        {
+            <MudText Typo="Typo.overline" Color="Color.Secondary" Class="mb-4"
+                     Style="letter-spacing: 0.08em;">
+                Display &amp; Locale
+            </MudText>
+
+            <MudGrid Spacing="3" Class="mb-6">
+                <MudItem xs="12" sm="6">
+                    <MudSelect T="string"
+                               @bind-Value="_dateFormat"
+                               Label="Date Format"
+                               Variant="Variant.Outlined"
+                               FullWidth="true"
+                               AnchorOrigin="Origin.BottomLeft">
+                        <MudSelectItem T="string" Value="@("System")">System Default</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("DD/MM/YYYY")">DD/MM/YYYY</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("MM/DD/YYYY")">MM/DD/YYYY</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("YYYY-MM-DD")">YYYY-MM-DD</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudSelect T="string"
+                               @bind-Value="_timeFormat"
+                               Label="Time Format"
+                               Variant="Variant.Outlined"
+                               FullWidth="true"
+                               AnchorOrigin="Origin.BottomLeft">
+                        <MudSelectItem T="string" Value="@("System")">System Default</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("12-hour")">12-hour (AM/PM)</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("24-hour")">24-hour</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+            </MudGrid>
+
+            <MudDivider Class="my-6" />
+        }
+
+        @* ── Save button (only when profile section is visible) ──────── *@
+
+        @if (showProfile)
+        {
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       FullWidth="true"
+                       OnClick="@SaveProfileAsync"
+                       Disabled="@(_saving || string.IsNullOrWhiteSpace(_displayName))">
+                @(_saving ? "Saving..." : "Save Profile")
+            </MudButton>
+        }
+    }
+
+</MudPaper>
+
+@code {
+
+    private const string GlassStyle =
+        "background: var(--app-glass-bg); " +
+        "border: 1px solid var(--app-glass-border); " +
+        "backdrop-filter: blur(10px); " +
+        "-webkit-backdrop-filter: blur(10px); " +
+        "border-radius: 12px; " +
+        "padding: 32px;";
+
+    // ── Avatar colour presets ────────────────────────────────────────────────────
+
+    private static readonly string[] _avatarPresets =
+    [
+        "#7C4DFF", "#00BFA5", "#FF8F00", "#E91E63",
+        "#2196F3", "#4CAF50", "#FF5722", "#9C27B0",
+    ];
+
+    // ── State ────────────────────────────────────────────────────────────────────
+
+    private bool   _loading     = true;
+    private bool   _saving;
+    private Guid   _profileId;
+    private string _displayName = string.Empty;
+    private string _avatarColor = "#7C4DFF";
+    private string _role        = "Administrator";
+
+    // Locale preferences — stored locally, no API round-trip yet
+    private string _dateFormat  = "System";
+    private string _timeFormat  = "System";
+
+    // ── Lifecycle ────────────────────────────────────────────────────────────────
+
+    protected override async Task OnInitializedAsync()
+    {
+        DeviceContext.OnChanged += OnDeviceChanged;
+        await LoadProfileAsync();
+    }
+
+    public void Dispose()
+    {
+        DeviceContext.OnChanged -= OnDeviceChanged;
+    }
+
+    private void OnDeviceChanged() => InvokeAsync(StateHasChanged);
+
+    // ── Profile ──────────────────────────────────────────────────────────────────
+
+    private async Task LoadProfileAsync()
+    {
+        _loading = true;
+        var profiles = await Orchestrator.GetProfilesAsync();
+        if (profiles is { Count: > 0 })
+        {
+            var active    = profiles[0];
+            _profileId    = active.Id;
+            _displayName  = active.DisplayName;
+            _avatarColor  = active.AvatarColor;
+            _role         = active.Role;
+        }
+        _loading = false;
+    }
+
+    private async Task SaveProfileAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_displayName)) return;
+        _saving = true;
+
+        var ok = await Orchestrator.UpdateProfileAsync(_profileId, _displayName.Trim(), _avatarColor, _role);
+        if (ok)
+            Snackbar.Add("Profile updated", Severity.Success);
+        else
+            Snackbar.Add("Could not save profile — is the Engine running?", Severity.Error);
+
+        _saving = false;
+    }
+
+    // ── Swatch styles ────────────────────────────────────────────────────────────
+
+    private string AvatarSwatchStyle(string hex)
+    {
+        bool isActive = _avatarColor.Equals(hex, StringComparison.OrdinalIgnoreCase);
+        return $"background: {hex}; cursor: pointer; " +
+               $"border: 3px solid {(isActive ? "var(--app-swatch-active)" : "var(--app-swatch-border)")}; " +
+               "transition: border 0.2s ease;";
+    }
+}

@@ -1,0 +1,91 @@
+@using MediaEngine.Web.Models.ViewDTOs
+
+<div class="vault-status-pill">
+    <div class="vault-status-badge" style="color: @_color; background: @_bgColor; border-color: @_borderColor;">
+        <MudIcon Icon="@_icon" Style="font-size: 12px;" />
+        <span>@_label</span>
+    </div>
+    @if (Status == VaultStatus.Quarantined && QuarantineDays.HasValue)
+    {
+        <span class="vault-quarantine-timer">Deletes in @(QuarantineDays)d</span>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public VaultStatus Status { get; set; }
+    [Parameter] public int? QuarantineDays { get; set; }
+
+    private string _color => Status switch
+    {
+        VaultStatus.Verified => "#5DCAA5",
+        VaultStatus.NeedsReview => "#EF9F27",
+        VaultStatus.Failed => "#A05050",
+        VaultStatus.Quarantined => "rgba(255,255,255,0.5)",
+        _ => "rgba(255,255,255,0.3)",
+    };
+
+    private string _bgColor => Status switch
+    {
+        VaultStatus.Verified => "rgba(93,202,165,0.05)",
+        VaultStatus.NeedsReview => "rgba(239,159,39,0.05)",
+        VaultStatus.Failed => "rgba(160,80,80,0.05)",
+        VaultStatus.Quarantined => "rgba(255,255,255,0.03)",
+        _ => "rgba(255,255,255,0.02)",
+    };
+
+    private string _borderColor => Status switch
+    {
+        VaultStatus.Verified => "rgba(93,202,165,0.2)",
+        VaultStatus.NeedsReview => "rgba(239,159,39,0.2)",
+        VaultStatus.Failed => "rgba(160,80,80,0.2)",
+        VaultStatus.Quarantined => "rgba(255,255,255,0.1)",
+        _ => "rgba(255,255,255,0.05)",
+    };
+
+    private string _icon => Status switch
+    {
+        VaultStatus.Verified => Icons.Material.Filled.Check,
+        VaultStatus.NeedsReview => Icons.Material.Filled.Warning,
+        VaultStatus.Failed => Icons.Material.Filled.Close,
+        VaultStatus.Quarantined => Icons.Material.Filled.Close,
+        _ => Icons.Material.Filled.HelpOutline,
+    };
+
+    private string _label => Status switch
+    {
+        VaultStatus.Verified => "VERIFIED",
+        VaultStatus.NeedsReview => "NEEDS REVIEW",
+        VaultStatus.Failed => "FAILED",
+        VaultStatus.Quarantined => "QUARANTINED",
+        _ => "UNKNOWN",
+    };
+}
+
+<style>
+    .vault-status-pill {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .vault-status-badge {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 10px;
+        font-weight: 800;
+        padding: 4px 8px;
+        border-radius: 6px;
+        border: 1px solid;
+        white-space: nowrap;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+    }
+
+    .vault-quarantine-timer {
+        font-size: 9px;
+        font-weight: 700;
+        color: rgba(226, 75, 74, 0.7);
+    }
+</style>

@@ -35,8 +35,7 @@
     else
     {
         @* Desktop (full): logo left, inline search center, bell + avatar right *@
-        @* Hamburger: hidden on desktop, shown on mobile via CSS *@
-        <button class="top-bar-hamburger-btn top-bar-hamburger-responsive"
+        <button class="top-bar-hamburger-btn"
                 @onclick="@OnHamburgerClick"
                 aria-label="Open navigation">
             <MudIcon Icon="@Icons.Material.Filled.Menu"
@@ -386,14 +385,7 @@
         background: rgba(255, 255, 255, 0.08);
     }
 
-    /* Responsive hamburger: hidden on desktop, shown on mobile */
-    .top-bar-hamburger-responsive {
-        display: none;
-        flex-shrink: 0;
-    }
-
     @@media (max-width: 768px) {
-        .top-bar-hamburger-responsive { display: flex; }
         .top-bar-full .top-bar-search-wrapper { display: none !important; }
         .top-bar-full .top-bar-logo {
             position: absolute;

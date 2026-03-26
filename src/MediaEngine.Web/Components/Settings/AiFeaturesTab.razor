@@ -1,0 +1,453 @@
+@namespace MediaEngine.Web.Components.Settings
+
+@* AiFeaturesTab — AI feature toggles grouped by trigger type.
+   Four expansion panels: Ingestion (automatic), Enrichment (background),
+   On Demand (user-triggered), and Scheduled (cron-based).
+   All toggle state is local. No Engine calls in this stub. *@
+
+<MudPaper Elevation="0" Style="@GlassStyle">
+
+    @* ── Header ────────────────────────────────────────────────────────── *@
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+        <MudIcon Icon="@Icons.Material.Outlined.ToggleOn" Color="Color.Default" Class="mr-2" />
+        <MudText Typo="Typo.h6">AI Features</MudText>
+    </MudStack>
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
+        Enable or disable individual AI-powered features. Changes take effect immediately
+        for future operations — they do not reprocess already-ingested files.
+    </MudText>
+
+    @* ── Expansion panels ───────────────────────────────────────────────── *@
+    <MudExpansionPanels MultiExpansion="true">
+
+        @* ── 1. Ingestion (Automatic) ─────────────────────────────────── *@
+        <MudExpansionPanel @bind-Expanded="_panel1Open"
+                           Style="@PanelStyle">
+            <TitleContent>
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Outlined.Input"
+                             Size="Size.Small" Color="Color.Primary" />
+                    <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">
+                        Ingestion
+                    </MudText>
+                    <MudChip T="string" Size="Size.Small" Color="Color.Default"
+                             Style="font-size: 0.7rem;">
+                        Automatic
+                    </MudChip>
+                    <MudChip T="string" Size="Size.Small" Color="Color.Primary"
+                             Style="font-size: 0.7rem;">
+                        @EnabledCount(_ingestionFeatures) / @_ingestionFeatures.Count on
+                    </MudChip>
+                </MudStack>
+            </TitleContent>
+            <ChildContent>
+                <MudText Typo="Typo.body2" Color="Color.Secondary"
+                         Style="margin-bottom: 16px; margin-top: 4px;">
+                    Runs automatically during file ingestion. Every new file benefits
+                    from these features without any user action.
+                </MudText>
+                @foreach (var f in _ingestionFeatures)
+                {
+                    var feature = f;
+                    <div style="@FeatureRowStyle">
+                        <div style="flex: 1; min-width: 0;">
+                            <MudText Typo="Typo.body1" Style="font-weight: 600; margin-bottom: 2px;">
+                                @feature.Name
+                            </MudText>
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                @feature.Description
+                            </MudText>
+                        </div>
+                        @if (!string.IsNullOrEmpty(feature.ModelRole))
+                        {
+                            <MudChip T="string" Size="Size.Small"
+                                     Color="@ModelRoleColor(feature.ModelRole)"
+                                     Style="font-family: monospace; font-size: 0.7rem; flex-shrink: 0;">
+                                @feature.ModelRole
+                            </MudChip>
+                        }
+                        else
+                        {
+                            <MudChip T="string" Size="Size.Small" Color="Color.Default"
+                                     Style="font-family: monospace; font-size: 0.7rem; flex-shrink: 0; opacity: 0.5;">
+                                built-in
+                            </MudChip>
+                        }
+                        <MudSwitch @bind-Value="feature.Enabled"
+                                   Color="Color.Primary"
+                                   Style="flex-shrink: 0;" />
+                    </div>
+                }
+            </ChildContent>
+        </MudExpansionPanel>
+
+        @* ── 2. Enrichment (Background) ──────────────────────────────── *@
+        <MudExpansionPanel @bind-Expanded="_panel2Open"
+                           Style="@PanelStyle">
+            <TitleContent>
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Outlined.AutoAwesome"
+                             Size="Size.Small" Color="Color.Info" />
+                    <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">
+                        Enrichment
+                    </MudText>
+                    <MudChip T="string" Size="Size.Small" Color="Color.Default"
+                             Style="font-size: 0.7rem;">
+                        Background
+                    </MudChip>
+                    <MudChip T="string" Size="Size.Small" Color="Color.Info"
+                             Style="font-size: 0.7rem;">
+                        @EnabledCount(_enrichmentFeatures) / @_enrichmentFeatures.Count on
+                    </MudChip>
+                </MudStack>
+            </TitleContent>
+            <ChildContent>
+                <MudText Typo="Typo.body2" Color="Color.Secondary"
+                         Style="margin-bottom: 16px; margin-top: 4px;">
+                    Runs in the background after ingestion, when the Engine is idle.
+                    Adds depth and personality to your library without blocking other work.
+                </MudText>
+                @foreach (var f in _enrichmentFeatures)
+                {
+                    var feature = f;
+                    <div style="@FeatureRowStyle">
+                        <div style="flex: 1; min-width: 0;">
+                            <MudText Typo="Typo.body1" Style="font-weight: 600; margin-bottom: 2px;">
+                                @feature.Name
+                            </MudText>
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                @feature.Description
+                            </MudText>
+                        </div>
+                        @if (!string.IsNullOrEmpty(feature.ModelRole))
+                        {
+                            <MudChip T="string" Size="Size.Small"
+                                     Color="@ModelRoleColor(feature.ModelRole)"
+                                     Style="font-family: monospace; font-size: 0.7rem; flex-shrink: 0;">
+                                @feature.ModelRole
+                            </MudChip>
+                        }
+                        else
+                        {
+                            <MudChip T="string" Size="Size.Small" Color="Color.Default"
+                                     Style="font-family: monospace; font-size: 0.7rem; flex-shrink: 0; opacity: 0.5;">
+                                built-in
+                            </MudChip>
+                        }
+                        <MudSwitch @bind-Value="feature.Enabled"
+                                   Color="Color.Primary"
+                                   Style="flex-shrink: 0;" />
+                    </div>
+                }
+            </ChildContent>
+        </MudExpansionPanel>
+
+        @* ── 3. On Demand (User-Triggered) ──────────────────────────── *@
+        <MudExpansionPanel @bind-Expanded="_panel3Open"
+                           Style="@PanelStyle">
+            <TitleContent>
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Outlined.TouchApp"
+                             Size="Size.Small" Color="Color.Warning" />
+                    <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">
+                        On Demand
+                    </MudText>
+                    <MudChip T="string" Size="Size.Small" Color="Color.Default"
+                             Style="font-size: 0.7rem;">
+                        User-Triggered
+                    </MudChip>
+                    <MudChip T="string" Size="Size.Small" Color="Color.Warning"
+                             Style="font-size: 0.7rem;">
+                        @EnabledCount(_onDemandFeatures) / @_onDemandFeatures.Count on
+                    </MudChip>
+                </MudStack>
+            </TitleContent>
+            <ChildContent>
+                <MudText Typo="Typo.body2" Color="Color.Secondary"
+                         Style="margin-bottom: 16px; margin-top: 4px;">
+                    Activated by user actions — a search query, a button click, or
+                    browsing a work's detail page. Fast responses expected.
+                </MudText>
+                @foreach (var f in _onDemandFeatures)
+                {
+                    var feature = f;
+                    <div style="@FeatureRowStyle">
+                        <div style="flex: 1; min-width: 0;">
+                            <MudText Typo="Typo.body1" Style="font-weight: 600; margin-bottom: 2px;">
+                                @feature.Name
+                            </MudText>
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                @feature.Description
+                            </MudText>
+                        </div>
+                        @if (!string.IsNullOrEmpty(feature.ModelRole))
+                        {
+                            <MudChip T="string" Size="Size.Small"
+                                     Color="@ModelRoleColor(feature.ModelRole)"
+                                     Style="font-family: monospace; font-size: 0.7rem; flex-shrink: 0;">
+                                @feature.ModelRole
+                            </MudChip>
+                        }
+                        else
+                        {
+                            <MudChip T="string" Size="Size.Small" Color="Color.Default"
+                                     Style="font-family: monospace; font-size: 0.7rem; flex-shrink: 0; opacity: 0.5;">
+                                built-in
+                            </MudChip>
+                        }
+                        <MudSwitch @bind-Value="feature.Enabled"
+                                   Color="Color.Primary"
+                                   Style="flex-shrink: 0;" />
+                    </div>
+                }
+            </ChildContent>
+        </MudExpansionPanel>
+
+        @* ── 4. Scheduled (Background Cron) ─────────────────────────── *@
+        <MudExpansionPanel @bind-Expanded="_panel4Open"
+                           Style="@PanelStyle">
+            <TitleContent>
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Outlined.Schedule"
+                             Size="Size.Small" Color="Color.Secondary" />
+                    <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">
+                        Scheduled
+                    </MudText>
+                    <MudChip T="string" Size="Size.Small" Color="Color.Default"
+                             Style="font-size: 0.7rem;">
+                        Background
+                    </MudChip>
+                    <MudChip T="string" Size="Size.Small" Color="Color.Secondary"
+                             Style="font-size: 0.7rem;">
+                        @EnabledCount(_scheduledFeatures) / @_scheduledFeatures.Count on
+                    </MudChip>
+                </MudStack>
+            </TitleContent>
+            <ChildContent>
+                <MudText Typo="Typo.body2" Color="Color.Secondary"
+                         Style="margin-bottom: 16px; margin-top: 4px;">
+                    Runs on a nightly or weekly cron schedule. These features are
+                    long-running and are designed to run while you sleep.
+                </MudText>
+                @foreach (var f in _scheduledFeatures)
+                {
+                    var feature = f;
+                    <div style="@FeatureRowStyle">
+                        <div style="flex: 1; min-width: 0;">
+                            <MudText Typo="Typo.body1" Style="font-weight: 600; margin-bottom: 2px;">
+                                @feature.Name
+                            </MudText>
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                @feature.Description
+                            </MudText>
+                        </div>
+                        @if (!string.IsNullOrEmpty(feature.ModelRole))
+                        {
+                            <MudChip T="string" Size="Size.Small"
+                                     Color="@ModelRoleColor(feature.ModelRole)"
+                                     Style="font-family: monospace; font-size: 0.7rem; flex-shrink: 0;">
+                                @feature.ModelRole
+                            </MudChip>
+                        }
+                        else
+                        {
+                            <MudChip T="string" Size="Size.Small" Color="Color.Default"
+                                     Style="font-family: monospace; font-size: 0.7rem; flex-shrink: 0; opacity: 0.5;">
+                                built-in
+                            </MudChip>
+                        }
+                        <MudSwitch @bind-Value="feature.Enabled"
+                                   Color="Color.Primary"
+                                   Style="flex-shrink: 0;" />
+                    </div>
+                }
+            </ChildContent>
+        </MudExpansionPanel>
+
+    </MudExpansionPanels>
+
+</MudPaper>
+
+@code {
+
+    // ── Styles ────────────────────────────────────────────────────────────────────
+
+    private const string GlassStyle =
+        "background: var(--app-glass-bg); " +
+        "border: 1px solid var(--app-glass-border); " +
+        "backdrop-filter: blur(10px); " +
+        "-webkit-backdrop-filter: blur(10px); " +
+        "border-radius: 12px; " +
+        "padding: 32px;";
+
+    private const string PanelStyle =
+        "background: rgba(255,255,255,0.03); " +
+        "border: 1px solid rgba(255,255,255,0.07); " +
+        "border-radius: 10px; " +
+        "margin-bottom: 12px;";
+
+    // Each feature row: flex row with name+desc, role chip, and toggle
+    private const string FeatureRowStyle =
+        "display: flex; align-items: center; gap: 12px; " +
+        "padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05);";
+
+    // ── Panel open state (all initially open) ─────────────────────────────────────
+
+    private bool _panel1Open = true;
+    private bool _panel2Open = true;
+    private bool _panel3Open = true;
+    private bool _panel4Open = true;
+
+    // ── Feature descriptor ────────────────────────────────────────────────────────
+
+    private sealed class AiFeature
+    {
+        public string Name        { get; init; } = string.Empty;
+        public string Description { get; init; } = string.Empty;
+        public string ModelRole   { get; init; } = string.Empty;   // "text_quality" | "text_fast" | "audio" | ""
+        public bool   Enabled     { get; set; }
+    }
+
+    // ── Feature data ─────────────────────────────────────────────────────────────
+
+    private readonly List<AiFeature> _ingestionFeatures =
+    [
+        new()
+        {
+            Name        = "Smart Labeling",
+            Description = "AI cleans filenames and extracts metadata from messy names",
+            ModelRole   = "text_quality",
+            Enabled     = true,
+        },
+        new()
+        {
+            Name        = "Media Type Classification",
+            Description = "Determines if an MP3 is music, an audiobook, or a podcast",
+            ModelRole   = "text_quality",
+            Enabled     = true,
+        },
+        new()
+        {
+            Name        = "Batch Manifest",
+            Description = "Analyses entire folder contents to reduce external API calls by up to 95%",
+            ModelRole   = "text_quality",
+            Enabled     = true,
+        },
+        new()
+        {
+            Name        = "Audio Language Detection",
+            Description = "Detects the spoken language in audiobooks and podcasts",
+            ModelRole   = "audio",
+            Enabled     = true,
+        },
+    ];
+
+    private readonly List<AiFeature> _enrichmentFeatures =
+    [
+        new()
+        {
+            Name        = "Vibe Tags",
+            Description = "Mood and atmosphere tags derived from metadata and descriptions",
+            ModelRole   = "text_quality",
+            Enabled     = true,
+        },
+        new()
+        {
+            Name        = "TL;DR Descriptions",
+            Description = "Short one-sentence summaries generated from full descriptions",
+            ModelRole   = "text_fast",
+            Enabled     = true,
+        },
+        new()
+        {
+            Name        = "Cover Art Validation",
+            Description = "Checks whether the cover image matches the content of the file",
+            ModelRole   = "text_quality",
+            Enabled     = false,
+        },
+        new()
+        {
+            Name        = "Audio Similarity",
+            Description = "Chromaprint fingerprint matching to detect duplicate audio files",
+            ModelRole   = "",
+            Enabled     = true,
+        },
+        new()
+        {
+            Name        = "QID Disambiguation",
+            Description = "Picks the best Wikidata match when multiple candidates exist",
+            ModelRole   = "text_quality",
+            Enabled     = true,
+        },
+        new()
+        {
+            Name        = "Series Alignment",
+            Description = "Detects reading/watching order across multi-volume series",
+            ModelRole   = "text_quality",
+            Enabled     = true,
+        },
+    ];
+
+    private readonly List<AiFeature> _onDemandFeatures =
+    [
+        new()
+        {
+            Name        = "Intent Search",
+            Description = "Converts natural language queries into structured library filters",
+            ModelRole   = "text_fast",
+            Enabled     = true,
+        },
+        new()
+        {
+            Name        = "Watching Order",
+            Description = "Suggests cross-media consumption order for a franchise or universe",
+            ModelRole   = "text_fast",
+            Enabled     = true,
+        },
+        new()
+        {
+            Name        = "\"Why\" Factor",
+            Description = "Explains in plain English why a title was recommended to you",
+            ModelRole   = "text_fast",
+            Enabled     = true,
+        },
+        new()
+        {
+            Name        = "URL Paste",
+            Description = "Extracts and imports metadata from a URL pasted by the user",
+            ModelRole   = "text_quality",
+            Enabled     = true,
+        },
+    ];
+
+    private readonly List<AiFeature> _scheduledFeatures =
+    [
+        new()
+        {
+            Name        = "Taste Profiling",
+            Description = "Builds a personal preference model from your play history",
+            ModelRole   = "text_quality",
+            Enabled     = true,
+        },
+        new()
+        {
+            Name        = "Subtitle Sync",
+            Description = "Aligns subtitle timing to the audio track in video files",
+            ModelRole   = "audio",
+            Enabled     = false,
+        },
+    ];
+
+    // ── Helpers ───────────────────────────────────────────────────────────────────
+
+    private static int EnabledCount(List<AiFeature> features) =>
+        features.Count(f => f.Enabled);
+
+    private static Color ModelRoleColor(string role) => role switch
+    {
+        "text_quality" => Color.Primary,
+        "text_fast"    => Color.Info,
+        "audio"        => Color.Secondary,
+        _              => Color.Default,
+    };
+}

@@ -1,0 +1,73 @@
+@using MediaEngine.Web.Models.ViewDTOs
+
+@if (Items.Count == 0 && !Loading)
+{
+    <div class="vmg-empty">
+        <MudIcon Icon="@Icons.Material.Outlined.Inbox" Style="font-size: 3rem; opacity: 0.15; margin-bottom: 12px;" />
+        <p style="color: rgba(255,255,255,0.25); font-size: 0.85rem;">No items match your filters.</p>
+    </div>
+}
+else
+{
+    <div class="vmg-grid">
+        @foreach (var item in Items)
+        {
+            <VaultMediaCard Item="@item"
+                            OnCardClicked="OnCardClicked"
+                            OnDeleteClicked="OnDeleteClicked" />
+        }
+    </div>
+
+    @if (Loading)
+    {
+        <div class="vmg-loading">
+            <MudProgressCircular Indeterminate="true" Size="Size.Small"
+                                 Style="color: rgba(255,255,255,0.15);" />
+        </div>
+    }
+}
+
+@code {
+    [Parameter] public List<VaultItemViewModel> Items { get; set; } = [];
+    [Parameter] public bool Loading { get; set; }
+    [Parameter] public EventCallback<Guid> OnCardClicked { get; set; }
+    [Parameter] public EventCallback<Guid> OnDeleteClicked { get; set; }
+}
+
+<style>
+    .vmg-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 24px;
+        padding: 0;
+    }
+
+    .vmg-empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 80px 20px;
+        text-align: center;
+    }
+
+    .vmg-loading {
+        display: flex;
+        justify-content: center;
+        padding: 24px;
+    }
+
+    /* ── Responsive ── */
+    @@media (max-width: 768px) {
+        .vmg-grid {
+            grid-template-columns: 1fr;
+            gap: 16px;
+        }
+    }
+
+    @@media (min-width: 769px) and (max-width: 1024px) {
+        .vmg-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+</style>

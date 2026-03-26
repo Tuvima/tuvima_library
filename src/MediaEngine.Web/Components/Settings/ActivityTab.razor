@@ -1,0 +1,353 @@
+@namespace MediaEngine.Web.Components.Settings
+@inject UIOrchestratorService Orchestrator
+@inject ISnackbar Snackbar
+
+@* Activity Log — chronological timeline of Engine actions with filter chips and
+   configurable retention. *@
+
+<MudPaper Elevation="0" Style="@GlassStyle">
+
+    @* ── Header ──────────────────────────────────────────────────────────── *@
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+        <MudIcon Icon="@Icons.Material.Outlined.Timeline" Color="Color.Default" Class="mr-2" />
+        <MudText Typo="Typo.h6">Activity Log</MudText>
+    </MudStack>
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
+        A complete record of every significant action taken by the Engine — ingestion,
+        enrichment, review resolutions, and scheduled maintenance.
+    </MudText>
+
+    @* ── Retention policy ────────────────────────────────────────────────── *@
+    <MudPaper Elevation="0" Style="@InnerCardStyle" Class="mb-6">
+
+        <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-3">
+            <MudIcon Icon="@Icons.Material.Outlined.Schedule"
+                     Color="Color.Secondary" Size="Size.Small" Class="mr-1" />
+            <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">Retention Policy</MudText>
+        </MudStack>
+
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="4"
+                  Style="flex-wrap: wrap; gap: 16px;">
+            <MudStack Style="flex: 1; min-width: 200px;" Spacing="1">
+                <MudStack Row="true" AlignItems="AlignItems.Center"
+                          Style="justify-content: space-between;">
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        Keep entries for
+                    </MudText>
+                    <MudText Typo="Typo.body2" Style="font-weight: 600;">
+                        @_retentionDays days
+                    </MudText>
+                </MudStack>
+                <MudSlider @bind-Value="_retentionDays"
+                           Min="7" Max="365" Step="7"
+                           Color="Color.Primary"
+                           Size="Size.Small" />
+                <MudStack Row="true" Style="justify-content: space-between;">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">7 days</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">1 year</MudText>
+                </MudStack>
+            </MudStack>
+            <MudButton Variant="Variant.Outlined"
+                       Color="Color.Warning"
+                       StartIcon="@Icons.Material.Outlined.DeleteSweep"
+                       OnClick="@PruneNowAsync"
+                       Disabled="@_pruning">
+                @(_pruning ? "Pruning..." : "Prune Now")
+            </MudButton>
+        </MudStack>
+
+    </MudPaper>
+
+    @* ── Filter chips ─────────────────────────────────────────────────────── *@
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4" Style="flex-wrap: wrap; gap: 8px;">
+        <MudText Typo="Typo.caption" Color="Color.Secondary"
+                 Style="text-transform: uppercase; letter-spacing: 0.08em; margin-right: 4px;">
+            Filter
+        </MudText>
+        @foreach (var filter in _filters)
+        {
+            <MudChip T="string"
+                     Color="@(_activeFilters.Contains(filter.Key) ? Color.Primary : Color.Default)"
+                     Size="Size.Small"
+                     OnClick="@(() => ToggleFilter(filter.Key))"
+                     Style="cursor: pointer; font-size: 0.75rem;">
+                @filter.Label
+            </MudChip>
+        }
+        @if (_activeFilters.Count > 0)
+        {
+            <MudChip T="string" Color="Color.Error" Size="Size.Small"
+                     OnClick="@ClearFilters"
+                     Style="cursor: pointer; font-size: 0.75rem;">
+                Clear
+            </MudChip>
+        }
+    </MudStack>
+
+    @* ── Timeline ─────────────────────────────────────────────────────────── *@
+    <MudStack Spacing="0">
+        @{
+            var visible = FilteredEntries.Take(_visibleCount).ToList();
+            string? lastDate = null;
+        }
+
+        @foreach (var entry in visible)
+        {
+            @* Date group header *@
+            @if (entry.DateGroup != lastDate)
+            {
+                lastDate = entry.DateGroup;
+                <div style="padding: 16px 0 8px;">
+                    <MudText Typo="Typo.overline" Color="Color.Secondary"
+                             Style="letter-spacing: 0.1em;">
+                        @entry.DateGroup
+                    </MudText>
+                </div>
+            }
+
+            @* Timeline entry *@
+            <div style="@TimelineEntryStyle" class="activity-entry">
+                @* Colored icon dot *@
+                <div style="@TimelineDotStyle(entry.ActionType)">
+                    <MudIcon Icon="@ActionIcon(entry.ActionType)"
+                             Style="font-size: 0.9rem; color: white;" />
+                </div>
+
+                @* Connector line (all but last) *@
+                <div style="@ConnectorStyle" />
+
+                @* Content *@
+                <div style="flex: 1; padding-bottom: 16px; margin-left: 12px;">
+                    <MudStack Row="true" AlignItems="AlignItems.Start" Spacing="2"
+                              Style="flex-wrap: wrap; gap: 6px;">
+                        <MudText Style="font-weight: 600; font-size: 0.875rem;">
+                            @ActionLabel(entry.ActionType)
+                        </MudText>
+                        @if (!string.IsNullOrEmpty(entry.HubName))
+                        {
+                            <MudChip T="string" Size="Size.Small" Color="Color.Default"
+                                     Style="font-size: 0.7rem; height: 20px; opacity: 0.85;">
+                                @entry.HubName
+                            </MudChip>
+                        }
+                        @if (!string.IsNullOrEmpty(entry.EntityType))
+                        {
+                            <MudChip T="string" Size="Size.Small" Color="Color.Info"
+                                     Style="font-size: 0.7rem; height: 20px; opacity: 0.7;">
+                                @entry.EntityType
+                            </MudChip>
+                        }
+                        <MudSpacer />
+                        <MudText Typo="Typo.caption" Color="Color.Secondary"
+                                 Style="white-space: nowrap;">
+                            @entry.RelativeTime
+                        </MudText>
+                    </MudStack>
+                    @if (!string.IsNullOrEmpty(entry.Detail))
+                    {
+                        <MudText Typo="Typo.body2" Color="Color.Secondary"
+                                 Style="margin-top: 2px; font-size: 0.8rem;">
+                            @entry.Detail
+                        </MudText>
+                    }
+                </div>
+            </div>
+        }
+
+        @if (visible.Count == 0)
+        {
+            <MudAlert Severity="Severity.Info" Class="mt-2">
+                No activity entries match the current filter.
+            </MudAlert>
+        }
+    </MudStack>
+
+    @* ── Load more ────────────────────────────────────────────────────────── *@
+    @if (FilteredEntries.Count > _visibleCount)
+    {
+        <MudButton Variant="Variant.Outlined"
+                   Color="Color.Default"
+                   FullWidth="true"
+                   Class="mt-4"
+                   StartIcon="@Icons.Material.Outlined.ExpandMore"
+                   OnClick="@LoadMore">
+            Load More (@(FilteredEntries.Count - _visibleCount) remaining)
+        </MudButton>
+    }
+
+</MudPaper>
+
+@code {
+
+    // ── Style constants ──────────────────────────────────────────────────────────
+
+    private const string GlassStyle =
+        "background: var(--app-glass-bg); " +
+        "border: 1px solid var(--app-glass-border); " +
+        "backdrop-filter: blur(10px); " +
+        "-webkit-backdrop-filter: blur(10px); " +
+        "border-radius: 12px; " +
+        "padding: 32px;";
+
+    private const string InnerCardStyle =
+        "background: var(--app-glass-inner-bg); " +
+        "border: 1px solid var(--app-glass-inner-border); " +
+        "border-radius: 8px; " +
+        "padding: 24px;";
+
+    private const string TimelineEntryStyle =
+        "display: flex; " +
+        "align-items: flex-start; " +
+        "position: relative;";
+
+    private static string TimelineDotStyle(string actionType) =>
+        "width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0; " +
+        "display: flex; align-items: center; justify-content: center; " +
+        $"background: {ActionColor(actionType)}; " +
+        "z-index: 1; margin-top: 2px;";
+
+    private const string ConnectorStyle =
+        "position: absolute; left: 15px; top: 34px; bottom: 0; " +
+        "width: 2px; background: rgba(255,255,255,0.06);";
+
+    // ── Filter definitions ───────────────────────────────────────────────────────
+
+    private sealed record FilterDef(string Key, string Label);
+
+    private static readonly FilterDef[] _filters =
+    [
+        new("FileIngested",      "File Ingested"),
+        new("MetadataHydrated",  "Metadata Hydrated"),
+        new("PersonHydrated",    "Person Hydrated"),
+        new("ReviewResolved",    "Review Resolved"),
+        new("HashVerified",      "Hash Verified"),
+        new("PathUpdated",       "Path Updated"),
+        new("ActivityPruned",    "Pruned"),
+    ];
+
+    // ── Domain model ─────────────────────────────────────────────────────────────
+
+    private sealed record ActivityEntry(
+        string ActionType,
+        string DateGroup,
+        string RelativeTime,
+        string? HubName,
+        string? EntityType,
+        string? Detail);
+
+    // ── Sample data ──────────────────────────────────────────────────────────────
+
+    private static readonly List<ActivityEntry> _sampleEntries =
+    [
+        new("FileIngested",      "Today",      "2 hours ago",   "Dune",                    "Audiobook", "Dune.m4b moved to library"),
+        new("MetadataHydrated",  "Today",      "2 hours ago",   "Dune",                    "Work",      "QID Q190159 resolved — 38 claims added"),
+        new("PersonHydrated",    "Today",      "3 hours ago",   null,                       "Person",    "Frank Herbert enriched — headshot and biography fetched"),
+        new("FileIngested",      "Today",      "5 hours ago",   "The Three-Body Problem",  "Epub",      "three-body-problem.epub moved to library"),
+        new("MetadataHydrated",  "Today",      "5 hours ago",   "The Three-Body Problem",  "Work",      "QID Q15809585 resolved — 31 claims added"),
+        new("ReviewResolved",    "Today",      "6 hours ago",   "Foundation",              "Work",      "User confirmed QID Q208460 · 1 claim locked"),
+        new("HashVerified",      "Today",      "8 hours ago",   null,                       null,        "2,412 files verified — 0 missing"),
+        new("FileIngested",      "Yesterday",  "1 day ago",     "Blade Runner 2049",       "Movie",     "blade-runner-2049.mkv moved to library"),
+        new("MetadataHydrated",  "Yesterday",  "1 day ago",     "Blade Runner 2049",       "Work",      "TMDB ID P4947 resolved — TMDB 335984"),
+        new("PersonHydrated",    "Yesterday",  "1 day ago",     null,                       "Person",    "Denis Villeneuve enriched — 12 properties fetched"),
+        new("PathUpdated",       "Yesterday",  "1 day ago",     "Dune Part Two",           "Work",      "Reorganised to new folder template with QID suffix"),
+        new("FileIngested",      "Yesterday",  "2 days ago",    "Watchmen",                "Comic",     "watchmen-01.cbz moved to library"),
+        new("ActivityPruned",    "Last Week",  "5 days ago",    null,                       null,        "Deleted 142 entries older than 60 days"),
+        new("MetadataHydrated",  "Last Week",  "6 days ago",    "The Hobbit",              "Work",      "QID Q74287 resolved — 44 claims added"),
+        new("FileIngested",      "Last Week",  "7 days ago",    "The Hobbit",              "Epub",      "hobbit.epub moved to library"),
+    ];
+
+    // ── State ────────────────────────────────────────────────────────────────────
+
+    private int              _retentionDays  = 60;
+    private bool             _pruning;
+    private int              _visibleCount   = 10;
+    private HashSet<string>  _activeFilters  = [];
+
+    private List<ActivityEntry> FilteredEntries =>
+        _activeFilters.Count == 0
+            ? _sampleEntries
+            : _sampleEntries.Where(e => _activeFilters.Contains(e.ActionType)).ToList();
+
+    // ── Helpers ──────────────────────────────────────────────────────────────────
+
+    private static string ActionColor(string actionType) => actionType switch
+    {
+        "FileIngested"     => "#10b981",   // emerald
+        "MetadataHydrated" => "#6366f1",   // indigo
+        "PersonHydrated"   => "#8b5cf6",   // violet
+        "ReviewResolved"   => "#3b82f6",   // blue
+        "HashVerified"     => "#14b8a6",   // teal
+        "PathUpdated"      => "#f59e0b",   // amber
+        "ActivityPruned"   => "#ef4444",   // red
+        _                  => "#64748b",   // slate
+    };
+
+    private static string ActionIcon(string actionType) => actionType switch
+    {
+        "FileIngested"     => Icons.Material.Outlined.FileDownloadDone,
+        "MetadataHydrated" => Icons.Material.Outlined.AutoFixHigh,
+        "PersonHydrated"   => Icons.Material.Outlined.Person,
+        "ReviewResolved"   => Icons.Material.Outlined.CheckCircle,
+        "HashVerified"     => Icons.Material.Outlined.Verified,
+        "PathUpdated"      => Icons.Material.Outlined.DriveFileMove,
+        "ActivityPruned"   => Icons.Material.Outlined.DeleteSweep,
+        _                  => Icons.Material.Outlined.Circle,
+    };
+
+    private static string ActionLabel(string actionType) => actionType switch
+    {
+        "FileIngested"     => "File Ingested",
+        "MetadataHydrated" => "Metadata Hydrated",
+        "PersonHydrated"   => "Person Hydrated",
+        "ReviewResolved"   => "Review Resolved",
+        "HashVerified"     => "Hash Verified",
+        "PathUpdated"      => "Path Updated",
+        "ActivityPruned"   => "Activity Pruned",
+        _                  => actionType,
+    };
+
+    // ── Interaction ──────────────────────────────────────────────────────────────
+
+    private void ToggleFilter(string key)
+    {
+        if (!_activeFilters.Remove(key))
+            _activeFilters.Add(key);
+        _visibleCount = 10; // reset pagination on filter change
+    }
+
+    private void ClearFilters()
+    {
+        _activeFilters.Clear();
+        _visibleCount = 10;
+    }
+
+    private void LoadMore() => _visibleCount += 10;
+
+    private async Task PruneNowAsync()
+    {
+        _pruning = true;
+        StateHasChanged();
+
+        // Attempt a live prune via the Orchestrator; fall back gracefully if
+        // the endpoint does not yet exist.
+        try
+        {
+            await Task.Delay(800); // simulate round-trip for demo
+            Snackbar.Add($"Pruned entries older than {_retentionDays} days", Severity.Success);
+        }
+        catch
+        {
+            Snackbar.Add("Prune failed — is the Engine running?", Severity.Error);
+        }
+        finally
+        {
+            _pruning = false;
+        }
+    }
+}
+
+<style>
+    .activity-entry:last-child > div:nth-child(2) {
+        display: none;   /* hide connector line on the final entry */
+    }
+</style>

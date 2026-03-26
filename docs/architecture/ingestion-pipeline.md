@@ -1,0 +1,293 @@
+# Ingestion Pipeline
+
+This document describes how Tuvima Library discovers, processes, organises, and stages media files — from the moment a file appears in a watched folder to the moment it is promoted into the organised library.
+
+---
+
+## Library Folders
+
+The Engine is configured with one or more **Library Folders**, each declaring:
+
+| Field | Description |
+|---|---|
+| `category` | The content category: Books, TV, Movies, Music, Comics, Podcasts |
+| `media_types` | The expected media types within this folder (e.g. `["Epub", "Audiobook"]`) |
+| `source_path` | The folder the Engine monitors or imports from |
+| `library_root` | The destination root where organised files are placed |
+| `intake_mode` | `watch` (ongoing monitoring) or `import` (one-time scan) |
+| `import_action` | For import mode only: `move` or `copy` |
+| `include_subdirectories` | Whether to scan nested folders within the source path |
+
+Configuration lives in `config/libraries.json`. When this file is absent, the Engine falls back to a single default library folder derived from the legacy `WatchDirectory` and `LibraryRoot` values in `core.json`, treating all media types as eligible.
+
+```json
+{
+  "libraries": [
+    {
+      "category": "Movies",
+      "media_types": ["Movies"],
+      "source_path": "/media/downloads/movies",
+      "library_root": "/media/library",
+      "intake_mode": "watch"
+    },
+    {
+      "category": "Books",
+      "media_types": ["Epub", "Audiobook"],
+      "source_path": "/media/existing-books",
+      "library_root": "/media/library",
+      "intake_mode": "import",
+      "import_action": "copy"
+    }
+  ]
+}
+```
+
+The `category` tells the Engine where to organise files on disk. The `media_types` tell it how to process them — which processor to use, which metadata providers to query, and what confidence prior to apply during identification. A library folder designated for Movies gives any MP4 it finds an 0.80 prior confidence for that media type, skipping much of the heuristic disambiguation that would otherwise be needed.
+
+---
+
+## Intake Modes
+
+### Watch Mode
+
+The Engine monitors the source folder for new files. When a file appears, it is processed through the full ingestion pipeline and then **moved** into the organised library structure. Watch mode is designed as a permanent inbox — files dropped in are consumed and relocated automatically.
+
+The `.staging/` directory within the library root is excluded from Watch Folder monitoring to prevent re-ingestion loops.
+
+### Import Mode
+
+Import mode performs a one-time scan of an existing collection. It follows the same processing steps as Watch mode, then either **moves** or **copies** the file depending on `import_action`. Copy mode leaves originals untouched. After an import completes, the folder can optionally be switched to Watch mode for ongoing monitoring.
+
+---
+
+## Processing Steps
+
+Every file — regardless of intake mode — goes through the same sequential processing pipeline:
+
+### 1. Settle
+
+The Engine waits briefly after detecting a file to confirm it has finished being written to disk. This prevents reading partially-copied files from network shares or slow storage.
+
+### 2. Lock Check
+
+The Engine verifies that no other process has an exclusive lock on the file before attempting to read it.
+
+### 3. Fingerprint
+
+A SHA-256 content hash is computed from the file's bytes. This hash is the file's permanent identity throughout its lifetime in the library. It survives renaming, moving, and metadata edits. If a file is ingested a second time (e.g. after a database rebuild), the hash allows the Engine to recognise it immediately.
+
+### 4. Scan
+
+The appropriate processor for the file's format opens the file and extracts all embedded metadata:
+
+- **EpubProcessor** — reads OPF package metadata: title, author, publisher, year, series, language, cover image
+- **AudioProcessor** — reads ID3v2 (MP3), iTunes atoms (M4B/M4A), Vorbis comments (FLAC/OGG): title, artist, album, track number, chapter markers, genre, ASIN, embedded artwork
+- **VideoProcessor** — reads container metadata (MP4, MKV): title, resolution, duration, codec, embedded subtitles, chapter list
+- **ComicProcessor** — reads ComicInfo.xml from CBZ/CBR archives: title, series, issue number, writer, artist, publisher
+
+The processor also emits media type candidates when the format is ambiguous. See the Media Type Disambiguation section below.
+
+### 5. Identify
+
+The Priority Cascade Engine scores all available claims for this file — from embedded metadata, filename parsing, and any prior library folder hints — and assigns the file to an existing Hub or creates a new one. This is where the title, author, series, and other canonical values are resolved.
+
+If multiple files from the same source folder have already been processed (e.g. a TV season with 22 episodes), the Engine uses **Ingestion Hinting**: the first file's resolved metadata is cached as a folder-level prior. Subsequent siblings receive the hub ID, QID, and bridge IDs from that prior as high-confidence claims, dramatically reducing the number of Wikidata lookups needed.
+
+### 6. Move to Staging
+
+The file is moved from its source location into `{LibraryRoot}/.staging/`, where it waits for hydration and promotion. Cover art is extracted and written alongside the file at this stage — the processor's cover image bytes are only available during the Scan step and must be persisted immediately.
+
+---
+
+## Staging-First Flow
+
+All ingested files land in `.staging/` before reaching the organised library. The library invariant is that every file within the library root (outside `.staging/`) has been hydrated, has a confirmed Wikidata QID or bridge identifiers, and has cover art and a hero banner image.
+
+```
+Watch Folder  ──(detect + process)──>  .staging/  ──(hydration + promote)──>  Library
+                                           │
+                                      stays here if:
+                                      - low confidence
+                                      - unidentifiable
+                                      - needs review
+                                      - media type ambiguous
+```
+
+### Staging Subcategories
+
+Files are routed to one of four subcategories based on their overall confidence score after the Identify step:
+
+| Subcategory | Condition | Behaviour |
+|---|---|---|
+| `.staging/pending/` | Confidence ≥ 0.85, or any user-locked claim | AutoOrganizeService promotes after hydration |
+| `.staging/low-confidence/` | Confidence 0.40–0.85, no user locks | Awaits hydration improvement or manual review |
+| `.staging/unidentifiable/` | Confidence < 0.40, no user locks | Requires user to provide a title or match |
+| `.staging/other/` | Resolves to "Other" category | Requires media type classification |
+
+### AutoOrganize Gate
+
+`AutoOrganizeService` promotes a staged file to the organised library when:
+
+```
+overallConfidence >= 0.85  OR  any claim has IsUserLocked = true
+```
+
+This threshold (`AutoLinkThreshold = 0.85`) is defined once in `ScoringConfiguration` and reused by both the staging router and the promotion gate.
+
+### Hero Banner
+
+Hero banner generation (blur + vignette + grain, via SkiaSharp) runs during promotion by `AutoOrganizeService`. It is a post-hydration step, not an ingestion step, because it benefits from the enriched metadata and high-resolution cover art that hydration provides.
+
+### Manual Reclamation
+
+Staged files retain their fingerprint and metadata in the database. A user can manually resolve a staged file from the Dashboard — by dragging it to a Hub or providing a user-locked title — triggering promotion to the organised library structure. The `.staging/` directory is excluded from Watch Folder monitoring to prevent re-ingestion loops.
+
+On startup, if `{LibraryRoot}/.orphans/` exists and `.staging/` does not, the Engine renames the directory and updates all database file paths automatically.
+
+---
+
+## File Organisation
+
+### Data Authority
+
+The database is the authoritative data store for all metadata, relationships, and canonical values. User metadata edits are additionally written back into the file's embedded metadata via `IMetadataTagger` (EPUB OPF, ID3 tags, M4B atoms), ensuring portability — the file carries its own metadata independently of the database.
+
+Wikidata properties are re-fetchable via the batch Reconciliation API as a recovery fallback. Cover art is never stored in the database; `cover.jpg` lives alongside the file on disk and is always read from there.
+
+Recovery scenarios:
+- **Standard:** Scheduled SQLite backups (by domain: universe, people, library) as primary recovery
+- **Wikidata data loss:** Re-fetch via batch Reconciliation API
+- **Full wipe:** Re-ingest from library root; file embedded metadata and batch Wikidata reconciliation rebuild the library
+
+### Folder Structure Templates
+
+The default organisation template is:
+
+```
+{LibraryRoot}/{Category}/{Title} - {QID}/{Title}{Ext}
+```
+
+Per-media-type overrides:
+
+| Media Type | Template |
+|---|---|
+| Books | `{Category}/{Title} - {QID}/Epub/{Title}{Ext}` |
+| Audiobooks | `{Category}/{Title} - {QID}/Audiobook/{Title}{Ext}` |
+| TV | `{Category}/{Title} - {QID}/S{Season:00}E{Episode:00} - {EpisodeTitle}{Ext}` |
+| Music | `{Category}/{Artist}/{Album} - {QID}/{TrackNumber:00} - {Title}{Ext}` |
+| Movies | `{Category}/{Title} - {QID}/{Title}{Ext}` |
+| Comics | `{Category}/{Title} - {QID}/{Title}{Ext}` |
+| Podcasts | `{Category}/{Title} - {QID}/{Title}{Ext}` |
+
+Books and Audiobooks share the same title folder under the `Books` category, distinguished by their format subfolder. This means an ebook and its audiobook counterpart live at:
+
+```
+{LibraryRoot}/Books/Dune - Q190159/Epub/Dune.epub
+{LibraryRoot}/Books/Dune - Q190159/Audiobook/Dune.m4b
+{LibraryRoot}/Books/Dune - Q190159/cover.jpg
+```
+
+Cover art lives at the title folder level, not inside the format subfolder, so both formats share the same cover image.
+
+### Category Mapping
+
+The `{Category}` path segment is derived from the file's media type:
+
+| Media Types | Category folder |
+|---|---|
+| Epub, Audiobook | `Books` |
+| TV | `TV` |
+| Movies | `Movies` |
+| Music | `Music` |
+| Comics | `Comics` |
+| Podcasts | `Podcasts` |
+| Unknown | `Other` |
+
+### Migration Note
+
+Existing libraries organised under older folder patterns continue to work. On the next hydration pass or a manual "Re-organise Library" action, files are moved to the current structure automatically.
+
+---
+
+## Media Type Disambiguation
+
+Some file formats map to multiple possible media types. Magic bytes identify the container format but not the content type. An MP3 file could be an audiobook chapter, a music track, or a podcast episode. An MP4 could be a feature film or a TV episode. The disambiguation system resolves this using heuristic signals treated as voted claims.
+
+### Signal Sources
+
+Media type is resolved using the same Weighted Voter architecture as all other metadata fields. Multiple signals emit competing candidates with associated confidence values:
+
+| Signal source | Confidence range | Examples |
+|---|---|---|
+| Magic bytes (unambiguous formats) | 0.95–1.0 | EPUB → Books, CBZ → Comics, M4B → Audiobooks |
+| Processor heuristics | 0.30–0.80 | File duration, bitrate, chapter markers, genre tag |
+| Filename and path patterns | 0.25–0.65 | `S01E01` in filename → TV, `audiobooks` in path → Audiobooks |
+| User lock | 1.0 | Manual override — always wins |
+
+### Confidence Thresholds
+
+| Threshold | Behaviour |
+|---|---|
+| ≥ 0.70 (`auto_assign_threshold`) | Accept automatically, proceed normally |
+| 0.40–0.70 (`review_threshold`) | Accept provisionally, create `AmbiguousMediaType` review queue entry |
+| < 0.40 | Assign `MediaType.Unknown`, block auto-organize, create review entry |
+
+### AudioProcessor Disambiguation
+
+The `AudioProcessor` runs at priority 95 (above VideoProcessor at 90) and handles audio format detection.
+
+Unambiguous assignments:
+- `.m4b` → Audiobooks (0.98 confidence)
+- `.flac`, `.ogg`, `.wav` → Music (0.95 confidence)
+
+For ambiguous formats (`.mp3`, `.m4a`), the processor emits weighted candidates using additive heuristic signals:
+
+- **Duration:** Very long files (> 60 min) bias toward Audiobooks; short files (< 5 min) bias toward Music
+- **Chapter markers:** Presence of chapter metadata strongly indicates Audiobooks
+- **Genre tags:** Genre values matching known audiobook indicators (e.g. "Spoken Word", "Audiobook") or music genres (e.g. "Rock", "Jazz") push the score in respective directions
+- **Album and track metadata:** Presence of track numbers and album names strongly indicates Music
+- **Bitrate:** Low bitrate speech-range audio biases toward Audiobooks or Podcasts
+- **Path keywords:** Parent folder names like `audiobooks`, `music`, `podcasts` in the source path
+- **File size:** Very large single files bias toward Audiobooks
+
+Each type (Audiobook, Music, Podcast) starts at a base score of 0.25. Signals are additive and the final scores are normalized to `[0.0, 1.0]` before comparison against the confidence thresholds.
+
+### VideoProcessor Disambiguation
+
+The `VideoProcessor` resolves ambiguity between Movies and TV:
+
+- **TV filename patterns:** `SxxExx` or `NxNN` patterns in the filename strongly indicate TV
+- **Duration:** Short files bias toward TV episodes; feature-length files bias toward Movies
+- **Path keywords:** Parent folder structures containing season or series names
+- **Sibling file count:** Many similarly-named files in the same folder indicate a TV series
+
+Base score per type (Movie, TV) is 0.35. Signals are additive and normalized to `[0.20, 0.90]`.
+
+### Configuration
+
+All disambiguation thresholds and heuristic parameters — duration bands, bitrate thresholds, path keywords, genre tag lists, TV filename patterns — are configurable in `config/disambiguation.json`. No code changes are needed to tune the system's behaviour.
+
+### Review Resolution
+
+When a file lands in the review queue with an `AmbiguousMediaType` trigger, the user selects the correct media type from candidate cards in the Needs Review tab. The selected type is saved as a user-locked claim at confidence 1.0, the review item is resolved, and the hydration pipeline re-runs for that entity.
+
+After Stage 1 hydration (retail providers), if 3 or more claims are returned, the pipeline can auto-resolve pending `AmbiguousMediaType` review items — the provider results provide enough signal to confirm the media type without user input.
+
+---
+
+## Supported Library Types
+
+| Library Type | Formats | Notes |
+|---|---|---|
+| **Books** | EPUB, PDF | Combined with Audiobooks under the `Books` category |
+| **Audiobooks** | M4B, MP3, M4A | Combined with Books under the `Books` category |
+| **TV** | MP4, MKV, AVI, WebM | Season/episode folder structure |
+| **Movies** | MP4, MKV, AVI, WebM | Single-work, flat folder structure |
+| **Music** | MP3, FLAC, OGG, M4A, WAV | Album = Hub, Track = Work |
+| **Comics** | CBZ, CBR | Sequential art; ComicInfo.xml metadata |
+| **Podcasts** | MP3, M4A | Series = Hub, Episode = Work |
+
+**Future library types planned but not yet implemented:**
+
+- **Other** — YouTube videos, lectures, personal recordings, and any media that does not fit the primary types. Files would be stored and user-provided metadata accepted, but automated enrichment would be limited.
+- **Photos** — Photo collections with EXIF/XMP extraction, GPS geolocation, face detection, event-based organisation, and timeline views. The scope is large enough that it may become a separate product built on the same base Engine infrastructure.

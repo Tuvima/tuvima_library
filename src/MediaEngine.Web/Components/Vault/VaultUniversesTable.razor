@@ -1,0 +1,211 @@
+@using MediaEngine.Web.Models.ViewDTOs
+
+@if (Universes.Count == 0 && !Loading)
+{
+    <div class="vut-empty">
+        <MudIcon Icon="@Icons.Material.Outlined.Public" Style="font-size: 3rem; opacity: 0.15; margin-bottom: 12px;" />
+        <p style="color: rgba(255,255,255,0.25); font-size: 0.85rem;">No universes found.</p>
+    </div>
+}
+else
+{
+    <div class="vut-table-wrap">
+        <table class="vut-table">
+            <thead>
+                <tr class="vut-thead-row">
+                    <th class="vut-th" style="width: 30%; padding-left: 24px;">Item Name</th>
+                    <th class="vut-th vut-th--center" style="width: 12%;">Confidence</th>
+                    <th class="vut-th" style="width: 20%;">Type / Role</th>
+                    <th class="vut-th vut-th--center" style="width: 15%;">Status</th>
+                    <th class="vut-th vut-th--right" style="width: 13%; padding-right: 24px;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var universe in Universes)
+                {
+                    <tr class="vut-row">
+                        <td class="vut-td" style="padding-left: 24px;">
+                            <div class="vut-name-cell">
+                                <div class="vut-avatar">
+                                    @if (!string.IsNullOrEmpty(universe.CoverUrl))
+                                    {
+                                        <img src="@universe.CoverUrl" alt="@universe.DisplayName" class="vut-avatar-img" loading="lazy" />
+                                    }
+                                    else
+                                    {
+                                        <MudIcon Icon="@Icons.Material.Outlined.AutoAwesome"
+                                                 Style="font-size: 16px; opacity: 0.35;" />
+                                    }
+                                </div>
+                                <span class="vut-name">@universe.DisplayName</span>
+                            </div>
+                        </td>
+                        <td class="vut-td">
+                            <div class="vut-center">
+                                <ConfidenceBar Confidence="0.88" />
+                            </div>
+                        </td>
+                        <td class="vut-td">
+                            <span class="vut-type">@universe.MediaTypes</span>
+                        </td>
+                        <td class="vut-td">
+                            <div class="vut-center">
+                                <StatusPill Status="VaultStatus.Verified" />
+                            </div>
+                        </td>
+                        <td class="vut-td vut-td--actions" style="padding-right: 24px;">
+                            <button class="vut-icon-btn" @onclick="() => OnMoreClicked.InvokeAsync(universe.Id)">
+                                <MudIcon Icon="@Icons.Material.Outlined.MoreHoriz" Style="font-size: 16px;" />
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    @if (Loading)
+    {
+        <div class="vut-loading">
+            <MudProgressCircular Indeterminate="true" Size="Size.Small"
+                                 Style="color: rgba(255,255,255,0.15);" />
+        </div>
+    }
+}
+
+@code {
+    [Parameter] public List<HubViewModel> Universes { get; set; } = [];
+    [Parameter] public bool Loading { get; set; }
+    [Parameter] public EventCallback<Guid> OnMoreClicked { get; set; }
+}
+
+<style>
+    .vut-table-wrap {
+        background: rgba(255, 255, 255, 0.01);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 16px;
+        overflow: hidden;
+    }
+
+    .vut-table {
+        width: 100%;
+        text-align: left;
+        border-collapse: collapse;
+        table-layout: fixed;
+    }
+
+    .vut-thead-row {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        background: rgba(255, 255, 255, 0.015);
+    }
+
+    .vut-th {
+        padding: 16px;
+        font-size: 10px;
+        font-weight: 800;
+        color: rgba(255, 255, 255, 0.25);
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+    }
+
+    .vut-th--center { text-align: center; }
+    .vut-th--right { text-align: right; }
+
+    .vut-row {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.025);
+        transition: background 0.15s;
+    }
+
+    .vut-row:last-child { border-bottom: none; }
+    .vut-row:hover { background: rgba(96, 165, 250, 0.02); }
+
+    .vut-td {
+        padding: 16px;
+        vertical-align: middle;
+    }
+
+    .vut-td--actions { text-align: right; }
+    .vut-center { display: flex; justify-content: center; }
+
+    .vut-name-cell {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .vut-avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.03);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .vut-avatar-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .vut-name {
+        font-size: 14px;
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.85);
+    }
+
+    .vut-type {
+        font-size: 12px;
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.35);
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+    }
+
+    .vut-icon-btn {
+        padding: 8px;
+        border-radius: 8px;
+        background: transparent;
+        border: none;
+        color: rgba(255, 255, 255, 0.2);
+        cursor: pointer;
+        transition: color 0.12s;
+    }
+
+    .vut-icon-btn:hover {
+        color: rgba(255, 255, 255, 0.7);
+    }
+
+    .vut-empty, .vut-loading {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 80px 20px;
+        text-align: center;
+    }
+
+    .vut-loading { padding: 24px; }
+
+    @@media (max-width: 768px) {
+        .vut-thead-row { display: none; }
+
+        .vut-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            padding: 12px 16px;
+            gap: 8px;
+        }
+
+        .vut-td { padding: 0; }
+        .vut-td:nth-child(1) { flex: 1; min-width: 0; }
+        .vut-td:nth-child(2), .vut-td:nth-child(3) { display: none; }
+        .vut-td:nth-child(4) { flex-shrink: 0; }
+        .vut-td:nth-child(5) { flex-shrink: 0; }
+    }
+</style>

@@ -1,0 +1,208 @@
+@namespace MediaEngine.Web.Components.Settings
+
+@* Setup Wizard — Re-run the setup wizard or inspect the current server configuration.
+   All values are read-only summary fields; editing happens in the dedicated tabs. *@
+
+<MudPaper Elevation="0" Style="@GlassStyle">
+
+    @* ── Section Header ──────────────────────────────────────────────────── *@
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+        <MudIcon Icon="@Icons.Material.Outlined.RocketLaunch" Color="Color.Default" Class="mr-2" />
+        <MudText Typo="Typo.h6">Setup Wizard</MudText>
+    </MudStack>
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
+        Revisit the initial setup steps or review your current server configuration at a glance.
+    </MudText>
+
+    @* ── Re-run wizard card ──────────────────────────────────────────────── *@
+    <MudPaper Elevation="0" Style="@InnerCardStyle" Class="mb-6">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+            <MudIcon Icon="@Icons.Material.Outlined.AutoFixHigh"
+                     Color="Color.Primary" Style="font-size: 2rem;" />
+            <MudStack Spacing="1" Style="flex: 1;">
+                <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">Re-run Setup Wizard</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                    Walk through library path selection, provider configuration, and AI model
+                    download again. Your existing library data is never touched.
+                </MudText>
+            </MudStack>
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       Size="Size.Large"
+                       StartIcon="@Icons.Material.Outlined.PlayArrow">
+                Run Wizard
+            </MudButton>
+        </MudStack>
+    </MudPaper>
+
+    <MudDivider Class="my-6" />
+
+    @* ── Current configuration ───────────────────────────────────────────── *@
+    <MudText Typo="Typo.subtitle1" Style="font-weight: 600;" Class="mb-4">
+        Current Configuration
+    </MudText>
+
+    @* Server name *@
+    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3" Class="mb-4">
+        <MudIcon Icon="@Icons.Material.Outlined.Dns"
+                 Color="Color.Secondary" Style="min-width: 24px;" />
+        <MudStack Spacing="0" Style="flex: 1;">
+            <MudText Typo="Typo.caption" Color="Color.Secondary">Server Name</MudText>
+            <MudTextField Value="@_serverName"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          ReadOnly="true"
+                          FullWidth="true" />
+        </MudStack>
+        <MudButton Variant="Variant.Text" Size="Size.Small"
+                   StartIcon="@Icons.Material.Outlined.Edit"
+                   Href="/settings/server">
+            Reconfigure
+        </MudButton>
+    </MudStack>
+
+    @* Language *@
+    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3" Class="mb-4">
+        <MudIcon Icon="@Icons.Material.Outlined.Language"
+                 Color="Color.Secondary" Style="min-width: 24px;" />
+        <MudStack Spacing="0" Style="flex: 1;">
+            <MudText Typo="Typo.caption" Color="Color.Secondary">Language</MudText>
+            <MudTextField Value="@_language"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          ReadOnly="true"
+                          FullWidth="true" />
+        </MudStack>
+        <MudButton Variant="Variant.Text" Size="Size.Small"
+                   StartIcon="@Icons.Material.Outlined.Edit"
+                   Href="/settings/general">
+            Reconfigure
+        </MudButton>
+    </MudStack>
+
+    @* Library Root *@
+    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3" Class="mb-4">
+        <MudIcon Icon="@Icons.Material.Outlined.Folder"
+                 Color="Color.Secondary" Style="min-width: 24px;" />
+        <MudStack Spacing="0" Style="flex: 1;">
+            <MudText Typo="Typo.caption" Color="Color.Secondary">Library Root</MudText>
+            <MudTextField Value="@_libraryRoot"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          ReadOnly="true"
+                          FullWidth="true"
+                          Style="font-family: monospace; font-size: 0.825rem;" />
+        </MudStack>
+        <MudButton Variant="Variant.Text" Size="Size.Small"
+                   StartIcon="@Icons.Material.Outlined.Edit"
+                   Href="/settings/libraries">
+            Reconfigure
+        </MudButton>
+    </MudStack>
+
+    @* Configured providers *@
+    <MudStack Row="true" AlignItems="AlignItems.Start" Spacing="3" Class="mb-4">
+        <MudIcon Icon="@Icons.Material.Outlined.Hub"
+                 Color="Color.Secondary" Style="min-width: 24px; margin-top: 20px;" />
+        <MudStack Spacing="1" Style="flex: 1;">
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-1">
+                Configured Providers
+            </MudText>
+            <MudStack Row="true" Style="flex-wrap: wrap; gap: 6px;">
+                @foreach (var provider in _configuredProviders)
+                {
+                    <MudChip T="string"
+                             Variant="Variant.Outlined"
+                             Size="Size.Small"
+                             Color="Color.Default"
+                             Style="margin: 0;">
+                        @provider
+                    </MudChip>
+                }
+            </MudStack>
+        </MudStack>
+        <MudButton Variant="Variant.Text" Size="Size.Small"
+                   StartIcon="@Icons.Material.Outlined.Edit"
+                   Href="/settings/vault"
+                   Style="margin-top: 16px;">
+            Reconfigure
+        </MudButton>
+    </MudStack>
+
+    @* AI Models *@
+    <MudStack Row="true" AlignItems="AlignItems.Start" Spacing="3" Class="mb-2">
+        <MudIcon Icon="@Icons.Material.Outlined.Psychology"
+                 Color="Color.Secondary" Style="min-width: 24px; margin-top: 20px;" />
+        <MudStack Spacing="1" Style="flex: 1;">
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-1">AI Models</MudText>
+            @foreach (var model in _aiModels)
+            {
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@(model.Downloaded ? Icons.Material.Filled.CheckCircle : Icons.Material.Outlined.RadioButtonUnchecked)"
+                             Color="@(model.Downloaded ? Color.Success : Color.Default)"
+                             Style="font-size: 1rem;" />
+                    <MudText Typo="Typo.body2">@model.Role</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">@model.Label</MudText>
+                    @if (!model.Downloaded)
+                    {
+                        <MudChip T="string" Size="Size.Small" Color="Color.Warning"
+                                 Style="margin: 0;">Not downloaded</MudChip>
+                    }
+                </MudStack>
+            }
+        </MudStack>
+        <MudButton Variant="Variant.Text" Size="Size.Small"
+                   StartIcon="@Icons.Material.Outlined.Edit"
+                   Href="/settings/ai"
+                   Style="margin-top: 16px;">
+            Reconfigure
+        </MudButton>
+    </MudStack>
+
+</MudPaper>
+
+@code {
+
+    // ── Style constants ──────────────────────────────────────────────────────────
+
+    private const string GlassStyle =
+        "background: var(--app-glass-bg); " +
+        "border: 1px solid var(--app-glass-border); " +
+        "backdrop-filter: blur(10px); " +
+        "-webkit-backdrop-filter: blur(10px); " +
+        "border-radius: 12px; " +
+        "padding: 32px;";
+
+    private const string InnerCardStyle =
+        "background: var(--app-glass-inner-bg); " +
+        "border: 1px solid var(--app-glass-inner-border); " +
+        "border-radius: 8px; " +
+        "padding: 24px;";
+
+    // ── AI model summary model ───────────────────────────────────────────────────
+
+    private sealed record AiModelSummary(string Role, string Label, bool Downloaded);
+
+    // ── State (placeholder data) ─────────────────────────────────────────────────
+
+    private readonly string _serverName  = "Tuvima Library";
+    private readonly string _language    = "English";
+    private readonly string _libraryRoot = "/media/library";
+
+    private readonly string[] _configuredProviders =
+    [
+        "Wikidata Reconciliation",
+        "Apple API",
+        "Open Library",
+        "Google Books",
+        "TMDB",
+        "MusicBrainz",
+    ];
+
+    private readonly AiModelSummary[] _aiModels =
+    [
+        new AiModelSummary("Fast (text)",    "Llama 3.2 1B Q4_K_M · ~750 MB",  Downloaded: true),
+        new AiModelSummary("Quality (text)", "Llama 3.2 3B Q4_K_M · ~2 GB",    Downloaded: true),
+        new AiModelSummary("Audio",          "Whisper Medium · ~1.5 GB",        Downloaded: false),
+    ];
+}

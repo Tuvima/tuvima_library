@@ -1,0 +1,430 @@
+@namespace MediaEngine.Web.Components.Settings
+
+@* Wikidata Configuration — Stage 2 (Identity & Core Data) and Stage 3 (Universe Data) settings.
+   Wikidata is the sole identity authority: every media item is identified by its Q-identifier.
+   Stage 2 runs during ingestion hydration. Stage 3 runs deferred in the background.
+   All state is local; no Engine API calls are made yet. *@
+
+<MudPaper Elevation="0" Style="@GlassStyle">
+
+    @* ── Header ──────────────────────────────────────────────────────────── *@
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+        <MudIcon Icon="@Icons.Material.Outlined.Public" Color="Color.Default" Class="mr-2" />
+        <MudText Typo="Typo.h6">Wikidata Configuration</MudText>
+    </MudStack>
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
+        Wikidata is the sole identity authority for your library. Every book, film, person,
+        and franchise is identified by a Wikidata Q-identifier. Stage 2 resolves identity
+        during ingestion; Stage 3 enriches your library's universe in the background.
+    </MudText>
+
+    @* ════════════════════════════════════════════════════════════════════
+       Stage 2 — Identity & Core Data
+       ════════════════════════════════════════════════════════════════════ *@
+
+    <MudPaper Elevation="0" Class="pa-5 mb-4" Style="@SectionCardStyle">
+
+        @* Section label *@
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-1">
+            <MudIcon Icon="@Icons.Material.Outlined.VerifiedUser"
+                     Size="Size.Small" Color="Color.Default" />
+            <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">
+                Stage 2 — Identity &amp; Core Data
+            </MudText>
+            <MudChip T="string" Size="Size.Small" Color="Color.Default"
+                     Variant="Variant.Outlined"
+                     Style="font-size: 0.65rem; height: 20px;">
+                Ingestion
+            </MudChip>
+        </MudStack>
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+            Runs immediately after retail providers (Stage 1) deposit bridge IDs.
+            Resolves the Q-identifier and fetches core properties via the
+            Data Extension API.
+        </MudText>
+
+        @* ── Properties pulled (read-only) ───────────────────────────── *@
+        <MudText Typo="Typo.overline" Color="Color.Default" Class="mb-2"
+                 Style="letter-spacing: 0.08em; display: block;">
+            PROPERTIES FETCHED
+        </MudText>
+        <MudStack Row="true" Spacing="1" Style="flex-wrap: wrap;" Class="mb-5">
+            @foreach (var prop in _stage2Properties)
+            {
+                <MudChip T="string"
+                         Size="Size.Small"
+                         Color="Color.Default"
+                         Variant="Variant.Outlined"
+                         Icon="@Icons.Material.Filled.CheckCircle"
+                         Style="font-size: 0.75rem;">
+                    @prop
+                </MudChip>
+            }
+        </MudStack>
+
+        @* ── QID matching thresholds ──────────────────────────────────── *@
+        <MudText Typo="Typo.overline" Color="Color.Default" Class="mb-3"
+                 Style="letter-spacing: 0.08em; display: block;">
+            MATCHING THRESHOLDS
+        </MudText>
+
+        <MudGrid Spacing="4" Class="mb-2">
+
+            <MudItem xs="12" sm="6">
+                <MudText Typo="Typo.subtitle2" Class="mb-1">
+                    Auto-accept threshold
+                </MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2"
+                         Style="display: block;">
+                    Reconciliation score at which a QID match is accepted automatically.
+                    Scores below this go to the review queue.
+                </MudText>
+                <MudSlider T="int"
+                           @bind-Value="_autoAcceptThreshold"
+                           Min="50" Max="100" Step="1"
+                           Color="Color.Primary"
+                           Immediate="true">
+                    <MudStack Row="true" Justify="Justify.SpaceBetween">
+                        <MudText Typo="Typo.caption">50</MudText>
+                        <MudText Typo="Typo.body2" Style="font-weight: 600;">
+                            @_autoAcceptThreshold
+                        </MudText>
+                        <MudText Typo="Typo.caption">100</MudText>
+                    </MudStack>
+                </MudSlider>
+            </MudItem>
+
+            <MudItem xs="12" sm="6">
+                <MudText Typo="Typo.subtitle2" Class="mb-1">
+                    Review threshold
+                </MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2"
+                         Style="display: block;">
+                    Minimum score for a match to appear in the review queue at all.
+                    Matches below this are discarded.
+                </MudText>
+                <MudSlider T="int"
+                           @bind-Value="_reviewThreshold"
+                           Min="30" Max="90" Step="1"
+                           Color="Color.Secondary"
+                           Immediate="true">
+                    <MudStack Row="true" Justify="Justify.SpaceBetween">
+                        <MudText Typo="Typo.caption">30</MudText>
+                        <MudText Typo="Typo.body2" Style="font-weight: 600;">
+                            @_reviewThreshold
+                        </MudText>
+                        <MudText Typo="Typo.caption">90</MudText>
+                    </MudStack>
+                </MudSlider>
+            </MudItem>
+
+        </MudGrid>
+
+        <MudDivider Class="my-4" />
+
+        @* ── Pipeline options ─────────────────────────────────────────── *@
+        <MudText Typo="Typo.overline" Color="Color.Default" Class="mb-3"
+                 Style="letter-spacing: 0.08em; display: block;">
+            PIPELINE OPTIONS
+        </MudText>
+
+        <MudGrid Spacing="3">
+
+            <MudItem xs="12" sm="6" Class="d-flex align-center">
+                <MudSwitch T="bool"
+                           @bind-Value="_continueOnFailure"
+                           Color="Color.Primary"
+                           Label="Continue pipeline if Wikidata fails" />
+            </MudItem>
+
+            <MudItem xs="12" sm="6">
+                <MudNumericField T="int"
+                                 @bind-Value="_maxQidCandidates"
+                                 Label="Max QID candidates in review"
+                                 Min="1" Max="20"
+                                 Variant="Variant.Outlined"
+                                 Margin="Margin.Dense"
+                                 FullWidth="true"
+                                 HelperText="How many Wikidata candidates are shown in the review queue for manual selection." />
+            </MudItem>
+
+            <MudItem xs="12" sm="6">
+                <MudNumericField T="int"
+                                 @bind-Value="_wikipediaMaxChars"
+                                 Label="Wikipedia description max chars"
+                                 Min="100" Max="5000" Step="100"
+                                 Variant="Variant.Outlined"
+                                 Margin="Margin.Dense"
+                                 FullWidth="true"
+                                 HelperText="Long descriptions are truncated to this length before being stored as a metadata claim." />
+            </MudItem>
+
+        </MudGrid>
+
+    </MudPaper>
+
+    @* ════════════════════════════════════════════════════════════════════
+       Stage 3 — Universe Data
+       ════════════════════════════════════════════════════════════════════ *@
+
+    <MudPaper Elevation="0" Class="pa-5 mb-4" Style="@SectionCardStyle">
+
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-1">
+            <MudIcon Icon="@Icons.Material.Outlined.AccountTree"
+                     Size="Size.Small" Color="Color.Default" />
+            <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">
+                Stage 3 — Universe Data
+            </MudText>
+            <MudChip T="string" Size="Size.Small" Color="Color.Default"
+                     Variant="Variant.Outlined"
+                     Style="font-size: 0.65rem; height: 20px;">
+                Background
+            </MudChip>
+        </MudStack>
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+            Runs in the background after Stage 2 completes, or during the nightly sweep.
+            Populates the Chronicle Explorer with deep universe relationships.
+        </MudText>
+
+        @* ── Data groups ──────────────────────────────────────────────── *@
+        <MudText Typo="Typo.overline" Color="Color.Default" Class="mb-3"
+                 Style="letter-spacing: 0.08em; display: block;">
+            DATA GROUPS
+        </MudText>
+
+        <MudPaper Elevation="0" Class="pa-3 mb-2" Style="@ToggleRowStyle">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudIcon Icon="@Icons.Material.Outlined.Person"
+                         Size="Size.Small" Color="Color.Default" />
+                <div style="flex: 1;">
+                    <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">People</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                        Headshots, biographies, social links, pseudonyms
+                    </MudText>
+                </div>
+                <MudSwitch T="bool"
+                           @bind-Value="_enrichPeople"
+                           Color="Color.Primary" />
+            </MudStack>
+        </MudPaper>
+
+        <MudPaper Elevation="0" Class="pa-3 mb-2" Style="@ToggleRowStyle">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudIcon Icon="@Icons.Material.Outlined.Hub"
+                         Size="Size.Small" Color="Color.Default" />
+                <div style="flex: 1;">
+                    <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">Universe / Lore</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                        Characters, locations, organizations, relationships
+                    </MudText>
+                </div>
+                <MudSwitch T="bool"
+                           @bind-Value="_enrichLore"
+                           Color="Color.Primary" />
+            </MudStack>
+        </MudPaper>
+
+        <MudPaper Elevation="0" Class="pa-3 mb-4" Style="@ToggleRowStyle">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudIcon Icon="@Icons.Material.Outlined.DeviceHub"
+                         Size="Size.Small" Color="Color.Default" />
+                <div style="flex: 1;">
+                    <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">Cross-Media Links</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                        Adaptations, sequels, shared universes
+                    </MudText>
+                </div>
+                <MudSwitch T="bool"
+                           @bind-Value="_enrichCrossMedia"
+                           Color="Color.Primary" />
+            </MudStack>
+        </MudPaper>
+
+        <MudDivider Class="my-4" />
+
+        @* ── Scheduling & depth ───────────────────────────────────────── *@
+        <MudText Typo="Typo.overline" Color="Color.Default" Class="mb-3"
+                 Style="letter-spacing: 0.08em; display: block;">
+            SCHEDULING &amp; DEPTH
+        </MudText>
+
+        <MudGrid Spacing="3">
+
+            <MudItem xs="12" sm="6">
+                <MudNumericField T="int"
+                                 @bind-Value="_backgroundIdleDelay"
+                                 Label="Background idle delay (seconds)"
+                                 Min="1" Max="300"
+                                 Variant="Variant.Outlined"
+                                 Margin="Margin.Dense"
+                                 FullWidth="true"
+                                 HelperText="How long the Engine waits after the ingestion queue empties before starting Stage 3 processing." />
+            </MudItem>
+
+            <MudItem xs="12" sm="6">
+                <MudTextField @bind-Value="_nightlySweepCron"
+                              Label="Nightly sweep schedule (cron)"
+                              Variant="Variant.Outlined"
+                              Margin="Margin.Dense"
+                              FullWidth="true"
+                              HelperText="Standard 5-field cron expression in your local timezone. Default: 2 AM daily."
+                              Adornment="Adornment.End"
+                              AdornmentIcon="@Icons.Material.Outlined.Schedule" />
+            </MudItem>
+
+            <MudItem xs="12" sm="6">
+                <MudText Typo="Typo.subtitle2" Class="mb-1">
+                    Relationship depth
+                </MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2"
+                         Style="display: block;">
+                    How many hops the Engine follows when building the universe graph.
+                    Depth 1 = direct relationships only. Depth 3 = grandparents, sub-factions.
+                </MudText>
+                <MudSlider T="int"
+                           @bind-Value="_lineageDepth"
+                           Min="1" Max="3" Step="1"
+                           Color="Color.Primary"
+                           Immediate="true">
+                    <MudStack Row="true" Justify="Justify.SpaceBetween">
+                        <MudText Typo="Typo.caption">1</MudText>
+                        <MudText Typo="Typo.body2" Style="font-weight: 600;">
+                            @_lineageDepth
+                        </MudText>
+                        <MudText Typo="Typo.caption">3</MudText>
+                    </MudStack>
+                </MudSlider>
+            </MudItem>
+
+            <MudItem xs="12" sm="6" Class="d-flex align-center">
+                <div>
+                    <MudSwitch T="bool"
+                               @bind-Value="_loreDeltaOnExplorerOpen"
+                               Color="Color.Primary"
+                               Label="Auto-check Lore Delta on Chronicle Explorer open" />
+                    <MudText Typo="Typo.caption" Color="Color.Secondary"
+                             Style="display: block; margin-left: 52px; margin-top: -4px;">
+                        Detects when Wikidata has updated information about your universe
+                        since the last enrichment pass.
+                    </MudText>
+                </div>
+            </MudItem>
+
+        </MudGrid>
+
+    </MudPaper>
+
+    @* ── Save row ─────────────────────────────────────────────────────────── *@
+    <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2">
+        <MudButton Variant="Variant.Text"
+                   Color="Color.Default"
+                   Size="Size.Small"
+                   StartIcon="@Icons.Material.Outlined.RestartAlt"
+                   OnClick="@ResetToDefaults">
+            Reset to Defaults
+        </MudButton>
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   Size="Size.Small"
+                   StartIcon="@Icons.Material.Filled.Save"
+                   OnClick="@SaveAsync"
+                   Disabled="@_saving">
+            @if (_saving)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
+                @:Saving…
+            }
+            else
+            {
+                @:Save Configuration
+            }
+        </MudButton>
+    </MudStack>
+
+</MudPaper>
+
+@code {
+
+    // ── Stage 2 — properties pulled (display only) ───────────────────────────────
+
+    private static readonly string[] _stage2Properties =
+    [
+        "Title",
+        "Author / Director / Artist",
+        "Year",
+        "Genre",
+        "Series",
+        "Series Position",
+        "Bridge IDs",
+        "Wikipedia Description",
+    ];
+
+    // ── State — Stage 2 ──────────────────────────────────────────────────────────
+
+    private int  _autoAcceptThreshold = 95;
+    private int  _reviewThreshold     = 70;
+    private bool _continueOnFailure   = true;
+    private int  _maxQidCandidates    = 5;
+    private int  _wikipediaMaxChars   = 1000;
+
+    // ── State — Stage 3 ──────────────────────────────────────────────────────────
+
+    private bool   _enrichPeople          = true;
+    private bool   _enrichLore            = true;
+    private bool   _enrichCrossMedia      = true;
+    private int    _backgroundIdleDelay   = 10;
+    private string _nightlySweepCron      = "0 2 * * *";
+    private int    _lineageDepth          = 2;
+    private bool   _loreDeltaOnExplorerOpen = true;
+
+    // ── Shared ───────────────────────────────────────────────────────────────────
+
+    private bool _saving;
+
+    // ── Actions ──────────────────────────────────────────────────────────────────
+
+    private void ResetToDefaults()
+    {
+        _autoAcceptThreshold    = 95;
+        _reviewThreshold        = 70;
+        _continueOnFailure      = true;
+        _maxQidCandidates       = 5;
+        _wikipediaMaxChars      = 1000;
+
+        _enrichPeople           = true;
+        _enrichLore             = true;
+        _enrichCrossMedia       = true;
+        _backgroundIdleDelay    = 10;
+        _nightlySweepCron       = "0 2 * * *";
+        _lineageDepth           = 2;
+        _loreDeltaOnExplorerOpen = true;
+    }
+
+    private async Task SaveAsync()
+    {
+        _saving = true;
+        // No Engine API yet — simulate a brief save operation.
+        await Task.Delay(400);
+        _saving = false;
+    }
+
+    // ── Styles ───────────────────────────────────────────────────────────────────
+
+    private const string GlassStyle =
+        "background: var(--app-glass-bg); " +
+        "border: 1px solid var(--app-glass-border); " +
+        "backdrop-filter: blur(10px); " +
+        "-webkit-backdrop-filter: blur(10px); " +
+        "border-radius: 12px; " +
+        "padding: 32px;";
+
+    private const string SectionCardStyle =
+        "background: var(--app-glass-inner-bg); " +
+        "border: 1px solid var(--app-glass-inner-border); " +
+        "border-radius: 8px;";
+
+    private const string ToggleRowStyle =
+        "background: var(--app-glass-bg); " +
+        "border: 1px solid var(--app-glass-border); " +
+        "border-radius: 8px;";
+}

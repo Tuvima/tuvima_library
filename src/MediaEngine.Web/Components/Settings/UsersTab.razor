@@ -6,20 +6,20 @@
 
 <MudPaper Elevation="0" Style="@GlassStyle">
 
-    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
+    @* ── Header ──────────────────────────────────────────────────────────── *@
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
         <MudIcon Icon="@Icons.Material.Outlined.Group" Color="Color.Default" Class="mr-2" />
-        <MudText Typo="Typo.h6">Users</MudText>
+        <MudText Typo="Typo.h6">Users &amp; Profiles</MudText>
         <MudSpacer />
         <MudButton Variant="Variant.Filled"
                    Color="Color.Primary"
                    StartIcon="@Icons.Material.Filled.PersonAdd"
                    OnClick="@OpenCreateDialog"
                    Disabled="@_loading">
-            Create Profile
+            New Profile
         </MudButton>
     </MudStack>
-
-    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
         Manage the profiles that have access to this Tuvima Library instance.
         The seed profile (Owner) cannot be deleted.
     </MudText>
@@ -28,7 +28,7 @@
     {
         <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-2" />
     }
-    else if (_profiles.Count == 0)
+    else if (_allRows.Count == 0)
     {
         <MudAlert Severity="Severity.Info" Class="mt-2">
             No profiles found. Create one to get started.
@@ -36,49 +36,73 @@
     }
     else
     {
-        <MudTable Items="@_profiles" Dense="true" Hover="true" Breakpoint="Breakpoint.Sm"
-                  Style="background: transparent;">
-            <HeaderContent>
-                <MudTh>Avatar</MudTh>
-                <MudTh>Display Name</MudTh>
-                <MudTh>Role</MudTh>
-                <MudTh>Created</MudTh>
-                <MudTh Style="text-align:right">Actions</MudTh>
-            </HeaderContent>
-            <RowTemplate>
-                <MudTd>
-                    <MudAvatar Size="Size.Small"
-                               Style="@($"background: {context.AvatarColor}; font-size: 0.75rem;")">
-                        @(context.DisplayName.Length > 0 ? context.DisplayName[0].ToString().ToUpper() : "?")
-                    </MudAvatar>
-                </MudTd>
-                <MudTd>
-                    <MudText>@context.DisplayName</MudText>
-                </MudTd>
-                <MudTd>
-                    <MudChip T="string" Size="Size.Small"
-                             Color="@(context.Role == "Administrator" ? Color.Primary
-                                      : context.Role == "Curator" ? Color.Info
-                                      : Color.Default)">
-                        @context.Role
-                    </MudChip>
-                </MudTd>
-                <MudTd>
-                    <MudText Typo="Typo.body2" Color="Color.Secondary">
-                        @context.CreatedAt.LocalDateTime.ToString("MMM d, yyyy")
-                    </MudText>
-                </MudTd>
-                <MudTd Style="text-align:right">
-                    <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline"
-                                   Color="Color.Error"
-                                   Size="Size.Medium"
-                                   title="Delete profile"
-                                   Disabled="@context.IsSeed"
-                                   OnClick="@(() => DeleteProfileAsync(context))" />
-                </MudTd>
-            </RowTemplate>
-        </MudTable>
+        <MudSimpleTable Dense="true" Hover="true" Striped="false"
+                        Style="background: transparent;">
+            <thead>
+                <tr>
+                    <th style="@ThStyle">Avatar</th>
+                    <th style="@ThStyle">Name</th>
+                    <th style="@ThStyle">Role</th>
+                    <th style="@ThStyle">Last Active</th>
+                    <th style="@ThStyle">Status</th>
+                    <th style="@ThStyle text-align:right">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var row in _allRows)
+                {
+                    <tr>
+                        @* Avatar *@
+                        <td style="@TdStyle">
+                            <MudAvatar Size="Size.Small"
+                                       Style="@($"background: {row.AvatarColor}; font-size: 0.75rem;")">
+                                @(row.Initials)
+                            </MudAvatar>
+                        </td>
+
+                        @* Name *@
+                        <td style="@TdStyle">
+                            <MudText Style="font-weight: 500;">@row.DisplayName</MudText>
+                        </td>
+
+                        @* Role badge *@
+                        <td style="@TdStyle">
+                            <MudChip T="string" Size="Size.Small"
+                                     Color="@RoleColor(row.Role)"
+                                     Style="font-size: 0.75rem;">
+                                @row.Role
+                            </MudChip>
+                        </td>
+
+                        @* Last Active *@
+                        <td style="@TdStyle">
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                @row.LastActive
+                            </MudText>
+                        </td>
+
+                        @* Status pill *@
+                        <td style="@TdStyle">
+                            <div style="@StatusPillStyle(row.Status)">
+                                @row.Status
+                            </div>
+                        </td>
+
+                        @* Actions *@
+                        <td style="@TdStyle text-align:right">
+                            <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline"
+                                           Color="Color.Error"
+                                           Size="Size.Medium"
+                                           title="Delete profile"
+                                           Disabled="@row.IsSeed"
+                                           OnClick="@(() => DeleteProfileAsync(row))" />
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </MudSimpleTable>
     }
+
 </MudPaper>
 
 @* ── Create Profile dialog ────────────────────────────────────────────────── *@
@@ -149,16 +173,41 @@
         "border-radius: 12px; " +
         "padding: 32px;";
 
+    private const string ThStyle =
+        "padding: 12px 16px; " +
+        "font-size: 0.75rem; " +
+        "text-transform: uppercase; " +
+        "letter-spacing: 0.08em; " +
+        "color: var(--mud-palette-text-secondary); " +
+        "border-bottom: 1px solid var(--app-glass-border);";
+
+    private const string TdStyle =
+        "padding: 14px 16px; " +
+        "border-bottom: 1px solid rgba(255,255,255,0.04); " +
+        "vertical-align: middle;";
+
     private static readonly string[] _avatarPresets =
     [
         "#7C4DFF", "#00BFA5", "#FF8F00", "#E91E63",
         "#2196F3", "#4CAF50", "#FF5722", "#9C27B0",
     ];
 
+    // ── View model used in the table ─────────────────────────────────────────────
+
+    private sealed record UserRow(
+        Guid   Id,
+        string DisplayName,
+        string Initials,
+        string AvatarColor,
+        string Role,
+        string LastActive,
+        string Status,
+        bool   IsSeed);
+
     // ── State ────────────────────────────────────────────────────────────────────
 
-    private bool                    _loading  = true;
-    private List<ProfileViewModel>  _profiles = [];
+    private bool           _loading  = true;
+    private List<UserRow>  _allRows  = [];
 
     // Create dialog state
     private bool   _createOpen;
@@ -181,14 +230,80 @@
         await RefreshProfilesAsync();
     }
 
-    // ── Handlers ─────────────────────────────────────────────────────────────────
+    // ── Helpers ──────────────────────────────────────────────────────────────────
+
+    private static Color RoleColor(string role) => role switch
+    {
+        "Administrator" => Color.Primary,
+        "Curator"       => Color.Info,
+        "Consumer"      => Color.Default,
+        "Viewer"        => Color.Default,
+        "Reviewer"      => Color.Warning,
+        _               => Color.Default,
+    };
+
+    private static string StatusPillStyle(string status)
+    {
+        var (bg, color) = status switch
+        {
+            "Active"  => ("rgba(16,185,129,0.15)", "#10b981"),
+            "Pending" => ("rgba(245,158,11,0.15)",  "#f59e0b"),
+            _         => ("rgba(148,163,184,0.15)", "#94a3b8"),
+        };
+        return $"display: inline-block; padding: 2px 10px; border-radius: 9999px; " +
+               $"background: {bg}; color: {color}; font-size: 0.75rem; font-weight: 500;";
+    }
+
+    private static string GetInitials(string displayName)
+    {
+        var parts = displayName.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length switch
+        {
+            0 => "?",
+            1 => parts[0][0].ToString().ToUpper(),
+            _ => $"{parts[0][0]}{parts[^1][0]}".ToUpper(),
+        };
+    }
+
+    // ── Data ─────────────────────────────────────────────────────────────────────
 
     private async Task RefreshProfilesAsync()
     {
-        _loading  = true;
-        _profiles = await Orchestrator.GetProfilesAsync();
-        _loading  = false;
+        _loading = true;
+
+        var profiles = await Orchestrator.GetProfilesAsync();
+
+        // Map API profiles to display rows. Supplement with stub preview rows
+        // when no profiles exist yet (e.g. fresh install) to demonstrate layout.
+        if (profiles.Count > 0)
+        {
+            _allRows = profiles
+                .Select(p => new UserRow(
+                    p.Id,
+                    p.DisplayName,
+                    GetInitials(p.DisplayName),
+                    p.AvatarColor,
+                    p.Role,
+                    p.CreatedAt.LocalDateTime.ToString("MMM d, yyyy"),
+                    "Active",
+                    p.IsSeed))
+                .ToList();
+        }
+        else
+        {
+            // Placeholder rows shown until real profiles are created.
+            _allRows =
+            [
+                new(Guid.Empty, "Bob Smith",    "BS", "#7C4DFF", "Administrator", "Now",        "Active",  true),
+                new(Guid.Empty, "Alice Chen",   "AC", "#00BFA5", "Viewer",         "2 days ago", "Active",  false),
+                new(Guid.Empty, "Charlie Dave", "CD", "#FF8F00", "Reviewer",       "1 week ago", "Pending", false),
+            ];
+        }
+
+        _loading = false;
     }
+
+    // ── Handlers ─────────────────────────────────────────────────────────────────
 
     private void OpenCreateDialog()
     {
@@ -226,14 +341,14 @@
         }
     }
 
-    private async Task DeleteProfileAsync(ProfileViewModel profile)
+    private async Task DeleteProfileAsync(UserRow row)
     {
-        if (profile.IsSeed) return;
+        if (row.IsSeed || row.Id == Guid.Empty) return;
 
-        var ok = await Orchestrator.DeleteProfileAsync(profile.Id);
+        var ok = await Orchestrator.DeleteProfileAsync(row.Id);
         if (ok)
         {
-            Snackbar.Add($"Profile \"{profile.DisplayName}\" deleted", Severity.Info);
+            Snackbar.Add($"Profile \"{row.DisplayName}\" deleted", Severity.Info);
             await RefreshProfilesAsync();
         }
         else

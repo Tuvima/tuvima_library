@@ -1,0 +1,188 @@
+@namespace MediaEngine.Web.Components.Settings
+
+@* Vibe Vocabulary — Editable mood and atmosphere tag lists per media type.
+   The AI uses these lists as preferred candidates when generating vibe tags
+   during enrichment, but is not constrained to them. *@
+
+<MudPaper Elevation="0" Style="@GlassStyle">
+
+    @* ── Section Header ──────────────────────────────────────────────────── *@
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+        <MudIcon Icon="@Icons.Material.Outlined.Style" Color="Color.Default" Class="mr-2" />
+        <MudText Typo="Typo.h6">Vibe Vocabulary</MudText>
+    </MudStack>
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">
+        Mood and atmosphere tags the AI draws from when enriching your library.
+    </MudText>
+    <MudAlert Severity="Severity.Info" Variant="Variant.Text" Dense="true" Class="mb-6">
+        The AI can generate tags outside this list but prefers these. Edit freely — changes
+        take effect on the next enrichment run.
+    </MudAlert>
+
+    @* ── Expansion Panels ────────────────────────────────────────────────── *@
+    <MudExpansionPanels MultiExpansion="true">
+
+        @foreach (var category in _vocabulary.Keys)
+        {
+            var tags      = _vocabulary[category];
+            var tagCount  = tags.Count;
+            var key       = category; // capture for closures
+
+            <MudExpansionPanel>
+                <TitleContent>
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">@key</MudText>
+                        <MudChip T="string" Size="Size.Small" Color="Color.Default"
+                                 Style="opacity: 0.75;">
+                            @tagCount @(tagCount == 1 ? "tag" : "tags")
+                        </MudChip>
+                    </MudStack>
+                </TitleContent>
+                <ChildContent>
+                    @* Current tags rendered as closeable chips *@
+                    <MudStack Row="true" Style="flex-wrap: wrap; gap: 8px;" Class="mb-4">
+                        @foreach (var tag in tags.ToList())
+                        {
+                            var capturedTag = tag;
+                            <MudChip T="string"
+                                     Variant="Variant.Outlined"
+                                     Size="Size.Small"
+                                     OnClose="@(() => RemoveTag(key, capturedTag))"
+                                     Style="margin: 0;">
+                                @capturedTag
+                            </MudChip>
+                        }
+                        @if (tags.Count == 0)
+                        {
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                No tags — add one below.
+                            </MudText>
+                        }
+                    </MudStack>
+
+                    @* Add new tag row *@
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        <MudTextField @bind-Value="_newTagInputs[key]"
+                                      Placeholder="New tag…"
+                                      Variant="Variant.Outlined"
+                                      Margin="Margin.Dense"
+                                      MaxLength="40"
+                                      Style="max-width: 260px;"
+                                      OnKeyDown="@(e => OnTagInputKeyDown(e, key))"
+                                      Immediate="true" />
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   Size="Size.Small"
+                                   OnClick="@(() => AddTag(key))"
+                                   Disabled="@string.IsNullOrWhiteSpace(_newTagInputs[key])">
+                            Add
+                        </MudButton>
+                    </MudStack>
+                </ChildContent>
+            </MudExpansionPanel>
+        }
+
+    </MudExpansionPanels>
+
+    @* ── Reset footer ─────────────────────────────────────────────────────── *@
+    <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-6">
+        <MudButton Variant="Variant.Text"
+                   Color="Color.Default"
+                   Size="Size.Small"
+                   OnClick="@ResetToDefaults">
+            Reset to Defaults
+        </MudButton>
+    </MudStack>
+
+</MudPaper>
+
+@code {
+
+    // ── Style constants ──────────────────────────────────────────────────────────
+
+    private const string GlassStyle =
+        "background: var(--app-glass-bg); " +
+        "border: 1px solid var(--app-glass-border); " +
+        "backdrop-filter: blur(10px); " +
+        "-webkit-backdrop-filter: blur(10px); " +
+        "border-radius: 12px; " +
+        "padding: 32px;";
+
+    // ── Default vocabulary ───────────────────────────────────────────────────────
+
+    private static Dictionary<string, List<string>> BuildDefaults() => new()
+    {
+        ["Books"] =
+        [
+            "atmospheric", "page-turner", "philosophical", "lyrical",
+            "haunting", "whimsical", "dense", "accessible", "experimental", "cozy"
+        ],
+        ["Movies & TV"] =
+        [
+            "cinematic", "slow-burn", "ensemble", "gritty", "stylized", "dialogue-driven"
+        ],
+        ["Music"] =
+        [
+            "ambient", "energetic", "melancholic", "groovy", "ethereal", "raw"
+        ],
+        ["Comics"] =
+        [
+            "noir", "dynamic", "minimalist", "splash-heavy"
+        ],
+        ["Podcasts"] =
+        [
+            "conversational", "investigative", "narrative", "interview"
+        ],
+    };
+
+    // ── State ────────────────────────────────────────────────────────────────────
+
+    private Dictionary<string, List<string>> _vocabulary = BuildDefaults();
+
+    // One input buffer per category
+    private Dictionary<string, string> _newTagInputs = [];
+
+    // ── Lifecycle ────────────────────────────────────────────────────────────────
+
+    protected override void OnInitialized()
+    {
+        // Initialise one input buffer per category
+        foreach (var key in _vocabulary.Keys)
+            _newTagInputs[key] = string.Empty;
+    }
+
+    // ── Tag operations ───────────────────────────────────────────────────────────
+
+    private void AddTag(string category)
+    {
+        var raw = _newTagInputs[category]?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(raw)) return;
+
+        var tag = raw.ToLowerInvariant();
+        if (!_vocabulary[category].Contains(tag, StringComparer.OrdinalIgnoreCase))
+            _vocabulary[category].Add(tag);
+
+        _newTagInputs[category] = string.Empty;
+    }
+
+    private void RemoveTag(string category, string tag)
+    {
+        _vocabulary[category].RemoveAll(t =>
+            t.Equals(tag, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private async Task OnTagInputKeyDown(KeyboardEventArgs e, string category)
+    {
+        if (e.Key == "Enter")
+        {
+            AddTag(category);
+            await Task.CompletedTask;
+        }
+    }
+
+    private void ResetToDefaults()
+    {
+        _vocabulary    = BuildDefaults();
+        _newTagInputs  = _vocabulary.Keys.ToDictionary(k => k, _ => string.Empty);
+    }
+}

@@ -1,0 +1,215 @@
+@namespace MediaEngine.Web.Components.Settings
+
+@* AI Schedule — Background job cron schedule editor.
+   Lets the user view and adjust when each background AI job runs,
+   enable or disable individual jobs, and see their last/next run times. *@
+
+<MudPaper Elevation="0" Style="@GlassStyle">
+
+    @* ── Section Header ──────────────────────────────────────────────────── *@
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+        <MudIcon Icon="@Icons.Material.Outlined.Schedule" Color="Color.Default" Class="mr-2" />
+        <MudText Typo="Typo.h6">AI Schedule</MudText>
+    </MudStack>
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
+        Configure when each background AI job runs. Changes take effect after the Engine restarts.
+    </MudText>
+
+    @* ── Schedule table ──────────────────────────────────────────────────── *@
+    <MudSimpleTable Dense="true" Hover="true" Style="background: transparent;">
+        <thead>
+            <tr>
+                <th style="padding: 10px 16px; text-align: left;">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Job</MudText>
+                </th>
+                <th style="padding: 10px 16px; text-align: left; min-width: 170px;">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Cron Expression</MudText>
+                </th>
+                <th style="padding: 10px 16px; text-align: left; min-width: 160px;">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Schedule</MudText>
+                </th>
+                <th style="padding: 10px 16px; text-align: left;">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Last Run</MudText>
+                </th>
+                <th style="padding: 10px 16px; text-align: left;">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Next Run</MudText>
+                </th>
+                <th style="padding: 10px 16px; text-align: center;">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Enabled</MudText>
+                </th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var job in _jobs)
+            {
+                <tr>
+                    @* Job name + description *@
+                    <td style="padding: 12px 16px; vertical-align: top;">
+                        <MudText Typo="Typo.body2" Style="font-weight: 600;">@job.Name</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">@job.Description</MudText>
+                    </td>
+
+                    @* Cron expression — compact editable field *@
+                    <td style="padding: 12px 16px; vertical-align: top;">
+                        <MudTextField @bind-Value="@job.CronExpression"
+                                      Variant="Variant.Outlined"
+                                      Margin="Margin.Dense"
+                                      Style="font-family: monospace; font-size: 0.825rem; max-width: 150px;"
+                                      Immediate="true"
+                                      OnBlur="@StateHasChanged" />
+                    </td>
+
+                    @* Human-readable cron preview *@
+                    <td style="padding: 12px 16px; vertical-align: top;">
+                        <MudText Typo="Typo.caption" Color="Color.Default">
+                            @CronToHuman(job.CronExpression)
+                        </MudText>
+                    </td>
+
+                    @* Last run (placeholder) *@
+                    <td style="padding: 12px 16px; vertical-align: top;">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">@job.LastRun</MudText>
+                    </td>
+
+                    @* Next run (placeholder) *@
+                    <td style="padding: 12px 16px; vertical-align: top;">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">@job.NextRun</MudText>
+                    </td>
+
+                    @* Enabled toggle *@
+                    <td style="padding: 12px 16px; vertical-align: top; text-align: center;">
+                        <MudSwitch @bind-Value="@job.Enabled"
+                                   Color="Color.Primary"
+                                   Size="Size.Small" />
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </MudSimpleTable>
+
+    @* ── Save footer ──────────────────────────────────────────────────────── *@
+    <MudStack Row="true" Justify="Justify.FlexEnd" AlignItems="AlignItems.Center"
+              Spacing="2" Class="mt-6">
+        <MudText Typo="Typo.caption" Color="Color.Secondary">
+            Changes require an Engine restart to take effect.
+        </MudText>
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   Size="Size.Small"
+                   OnClick="@SaveSchedules">
+            Save Schedules
+        </MudButton>
+    </MudStack>
+
+</MudPaper>
+
+@code {
+
+    // ── Style constants ──────────────────────────────────────────────────────────
+
+    private const string GlassStyle =
+        "background: var(--app-glass-bg); " +
+        "border: 1px solid var(--app-glass-border); " +
+        "backdrop-filter: blur(10px); " +
+        "-webkit-backdrop-filter: blur(10px); " +
+        "border-radius: 12px; " +
+        "padding: 32px;";
+
+    // ── Job model ────────────────────────────────────────────────────────────────
+
+    private sealed class AiJob
+    {
+        public string Name           { get; init; } = string.Empty;
+        public string Description    { get; init; } = string.Empty;
+        public string CronExpression { get; set;  } = string.Empty;
+        public string LastRun        { get; init; } = "Never";
+        public string NextRun        { get; init; } = "—";
+        public bool   Enabled        { get; set;  } = true;
+    }
+
+    // ── State ────────────────────────────────────────────────────────────────────
+
+    private readonly List<AiJob> _jobs =
+    [
+        new AiJob
+        {
+            Name           = "Vibe Tag Batch",
+            Description    = "Generate vibe tags for untagged items",
+            CronExpression = "0 4 * * *",
+            LastRun        = "Yesterday, 04:00",
+            NextRun        = "Tomorrow, 04:00",
+            Enabled        = true,
+        },
+        new AiJob
+        {
+            Name           = "Series Alignment",
+            Description    = "Verify series groupings and ordering",
+            CronExpression = "0 3 * * *",
+            LastRun        = "Yesterday, 03:00",
+            NextRun        = "Tomorrow, 03:00",
+            Enabled        = true,
+        },
+        new AiJob
+        {
+            Name           = "Taste Profile Rebuild",
+            Description    = "Rebuild personal preference model",
+            CronExpression = "0 5 * * 0",
+            LastRun        = "Last Sunday, 05:00",
+            NextRun        = "Next Sunday, 05:00",
+            Enabled        = false,
+        },
+        new AiJob
+        {
+            Name           = "Deep Enrichment Sweep",
+            Description    = "Process remaining Stage 2 items",
+            CronExpression = "0 2 * * *",
+            LastRun        = "Yesterday, 02:00",
+            NextRun        = "Tomorrow, 02:00",
+            Enabled        = true,
+        },
+    ];
+
+    // ── Cron → human-readable preview ───────────────────────────────────────────
+
+    private static string CronToHuman(string cron)
+    {
+        return cron.Trim() switch
+        {
+            "0 4 * * *" => "Daily at 4:00 AM",
+            "0 3 * * *" => "Daily at 3:00 AM",
+            "0 2 * * *" => "Daily at 2:00 AM",
+            "0 5 * * *" => "Daily at 5:00 AM",
+            "0 0 * * *" => "Daily at midnight",
+            "0 5 * * 0" => "Sundays at 5:00 AM",
+            "0 5 * * 1" => "Mondays at 5:00 AM",
+            "*/5 * * * *" => "Every 5 minutes",
+            "0 * * * *"  => "Every hour",
+            "0 0 * * 1"  => "Mondays at midnight",
+            "0 0 1 * *"  => "1st of each month",
+            _ => ParseCronFallback(cron),
+        };
+    }
+
+    private static string ParseCronFallback(string cron)
+    {
+        // Minimal fallback: if the minute and hour fields are numeric, render them.
+        var parts = cron.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length < 2) return cron;
+
+        if (int.TryParse(parts[0], out var min) && int.TryParse(parts[1], out var hour))
+        {
+            var dow = parts.Length >= 5 ? parts[4] : "*";
+            var prefix = dow == "*" ? "Daily" : $"Day {dow}";
+            return $"{prefix} at {hour:D2}:{min:D2}";
+        }
+
+        return cron; // unrecognised — show raw expression
+    }
+
+    // ── Actions ──────────────────────────────────────────────────────────────────
+
+    private void SaveSchedules()
+    {
+        // Placeholder — in production this would call Orchestrator.SaveAiSchedulesAsync(_jobs)
+    }
+}

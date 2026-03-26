@@ -1,0 +1,164 @@
+@namespace MediaEngine.Web.Components.Settings
+
+@* Status Dashboard — server health overview with stat cards and engine info. *@
+
+<MudPaper Elevation="0" Style="@GlassStyle">
+
+    @* ── Header ──────────────────────────────────────────────────────────── *@
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+        <MudIcon Icon="@Icons.Material.Outlined.SpaceDashboard" Color="Color.Default" Class="mr-2" />
+        <MudText Typo="Typo.h6">Status Dashboard</MudText>
+    </MudStack>
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
+        A live overview of Engine health, library size, and storage usage.
+    </MudText>
+
+    @* ── Stat Cards ───────────────────────────────────────────────────────── *@
+    <MudGrid Spacing="3" Class="mb-6">
+
+        @* Card 1 — Uptime *@
+        <MudItem xs="12" sm="6" md="3">
+            <div style="@GlassStyle background: var(--app-glass-inner-bg); padding: 24px;">
+                <MudStack Spacing="1">
+                    <MudIcon Icon="@Icons.Material.Outlined.RadioButtonChecked"
+                             Style="color: #10b981; font-size: 2rem;" />
+                    <MudText Typo="Typo.h5" Style="font-weight: 700; margin-top: 12px;">
+                        12d 4h 32m
+                    </MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Server Uptime</MudText>
+                </MudStack>
+            </div>
+        </MudItem>
+
+        @* Card 2 — Indexed Assets *@
+        <MudItem xs="12" sm="6" md="3">
+            <div style="@GlassStyle background: var(--app-glass-inner-bg); padding: 24px;">
+                <MudStack Spacing="1">
+                    <MudIcon Icon="@Icons.Material.Outlined.Storage"
+                             Style="color: #6366f1; font-size: 2rem;" />
+                    <MudText Typo="Typo.h5" Style="font-weight: 700; margin-top: 12px;">
+                        2,412
+                    </MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Total Assets</MudText>
+                </MudStack>
+            </div>
+        </MudItem>
+
+        @* Card 3 — Database Size *@
+        <MudItem xs="12" sm="6" md="3">
+            <div style="@GlassStyle background: var(--app-glass-inner-bg); padding: 24px;">
+                <MudStack Spacing="1">
+                    <MudIcon Icon="@Icons.Material.Outlined.SdStorage"
+                             Style="color: #f59e0b; font-size: 2rem;" />
+                    <MudText Typo="Typo.h5" Style="font-weight: 700; margin-top: 12px;">
+                        245 MB
+                    </MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Database</MudText>
+                </MudStack>
+            </div>
+        </MudItem>
+
+        @* Card 4 — Cache *@
+        <MudItem xs="12" sm="6" md="3">
+            <div style="@GlassStyle background: var(--app-glass-inner-bg); padding: 24px;">
+                <MudStack Spacing="1">
+                    <MudIcon Icon="@Icons.Material.Outlined.Layers"
+                             Style="color: #3b82f6; font-size: 2rem;" />
+                    <MudText Typo="Typo.h5" Style="font-weight: 700; margin-top: 12px;">
+                        1.2 TB
+                    </MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">
+                        Global Cache
+                    </MudText>
+                    <MudProgressLinear Value="62"
+                                       Color="Color.Info"
+                                       Rounded="true"
+                                       Size="Size.Small"
+                                       Style="opacity: 0.8;" />
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">62% used</MudText>
+                </MudStack>
+            </div>
+        </MudItem>
+
+    </MudGrid>
+
+    @* ── Engine Info ──────────────────────────────────────────────────────── *@
+    <MudPaper Elevation="0" Style="@InnerCardStyle">
+
+        <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
+            <MudIcon Icon="@Icons.Material.Outlined.Info" Color="Color.Default" Class="mr-2" />
+            <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">Engine Information</MudText>
+        </MudStack>
+
+        <MudGrid Spacing="2">
+            <MudItem xs="12" sm="6">
+                <MudStack Spacing="0">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary" Style="text-transform: uppercase; letter-spacing: 0.08em;">
+                        Server Name
+                    </MudText>
+                    <MudText Typo="Typo.body1">Tuvima Library</MudText>
+                </MudStack>
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudStack Spacing="0">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary" Style="text-transform: uppercase; letter-spacing: 0.08em;">
+                        Engine URL
+                    </MudText>
+                    <code style="font-family: monospace; font-size: 0.875rem;
+                                  background: rgba(0,0,0,0.25); padding: 2px 8px;
+                                  border-radius: 4px;">
+                        http://localhost:61495
+                    </code>
+                </MudStack>
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudStack Spacing="0">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary" Style="text-transform: uppercase; letter-spacing: 0.08em;">
+                        Version
+                    </MudText>
+                    <MudText Typo="Typo.body1">0.1.0-dev</MudText>
+                </MudStack>
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudStack Spacing="0">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary" Style="text-transform: uppercase; letter-spacing: 0.08em;">
+                        AI Models
+                    </MudText>
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Style="flex-wrap: wrap;">
+                        <MudChip T="string" Size="Size.Small" Color="Color.Success"
+                                 Style="font-size: 0.75rem;">
+                            text_quality · Active
+                        </MudChip>
+                        <MudChip T="string" Size="Size.Small" Color="Color.Info"
+                                 Style="font-size: 0.75rem;">
+                            text_fast · Loaded
+                        </MudChip>
+                        <MudChip T="string" Size="Size.Small" Color="Color.Default"
+                                 Style="font-size: 0.75rem; opacity: 0.6;">
+                            audio · Not Downloaded
+                        </MudChip>
+                    </MudStack>
+                </MudStack>
+            </MudItem>
+        </MudGrid>
+
+    </MudPaper>
+
+</MudPaper>
+
+@code {
+
+    private const string GlassStyle =
+        "background: var(--app-glass-bg); " +
+        "border: 1px solid var(--app-glass-border); " +
+        "backdrop-filter: blur(10px); " +
+        "-webkit-backdrop-filter: blur(10px); " +
+        "border-radius: 12px; " +
+        "padding: 32px;";
+
+    private const string InnerCardStyle =
+        "background: var(--app-glass-inner-bg); " +
+        "border: 1px solid var(--app-glass-inner-border); " +
+        "border-radius: 8px; " +
+        "padding: 24px;";
+}

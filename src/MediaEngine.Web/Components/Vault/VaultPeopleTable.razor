@@ -1,0 +1,227 @@
+@using MediaEngine.Web.Models.ViewDTOs
+
+@if (People.Count == 0 && !Loading)
+{
+    <div class="vpt-empty">
+        <MudIcon Icon="@Icons.Material.Outlined.People" Style="font-size: 3rem; opacity: 0.15; margin-bottom: 12px;" />
+        <p style="color: rgba(255,255,255,0.25); font-size: 0.85rem;">No people found.</p>
+    </div>
+}
+else
+{
+    <div class="vpt-table-wrap">
+        <table class="vpt-table">
+            <thead>
+                <tr class="vpt-thead-row">
+                    <th class="vpt-th" style="width: 30%; padding-left: 24px;">Item Name</th>
+                    <th class="vpt-th vpt-th--center" style="width: 12%;">Confidence</th>
+                    <th class="vpt-th" style="width: 20%;">Type / Role</th>
+                    <th class="vpt-th vpt-th--center" style="width: 15%;">Status</th>
+                    <th class="vpt-th vpt-th--right" style="width: 13%; padding-right: 24px;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var person in People)
+                {
+                    var initials = GetInitials(person.Name);
+                    var isLinked = !string.IsNullOrEmpty(person.WikidataQid);
+                    var status = isLinked ? VaultStatus.Verified : VaultStatus.NeedsReview;
+                    var confidence = isLinked ? 1.0 : 0.6;
+                    <tr class="vpt-row">
+                        <td class="vpt-td" style="padding-left: 24px;">
+                            <div class="vpt-name-cell">
+                                <div class="vpt-avatar">
+                                    @if (!string.IsNullOrEmpty(person.HeadshotUrl))
+                                    {
+                                        <img src="@person.HeadshotUrl" alt="@person.Name" class="vpt-avatar-img" loading="lazy" />
+                                    }
+                                    else
+                                    {
+                                        <span class="vpt-initials">@initials</span>
+                                    }
+                                </div>
+                                <span class="vpt-name">@person.Name</span>
+                            </div>
+                        </td>
+                        <td class="vpt-td">
+                            <div class="vpt-center">
+                                <ConfidenceBar Confidence="@confidence" />
+                            </div>
+                        </td>
+                        <td class="vpt-td">
+                            <span class="vpt-role">@person.Role</span>
+                        </td>
+                        <td class="vpt-td">
+                            <div class="vpt-center">
+                                <StatusPill Status="@status" />
+                            </div>
+                        </td>
+                        <td class="vpt-td vpt-td--actions" style="padding-right: 24px;">
+                            <button class="vpt-icon-btn" @onclick="() => OnMoreClicked.InvokeAsync(person.Id)">
+                                <MudIcon Icon="@Icons.Material.Outlined.MoreHoriz" Style="font-size: 16px;" />
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    @if (Loading)
+    {
+        <div class="vpt-loading">
+            <MudProgressCircular Indeterminate="true" Size="Size.Small"
+                                 Style="color: rgba(255,255,255,0.15);" />
+        </div>
+    }
+}
+
+@code {
+    [Parameter] public List<PersonListItemDto> People { get; set; } = [];
+    [Parameter] public bool Loading { get; set; }
+    [Parameter] public EventCallback<Guid> OnMoreClicked { get; set; }
+
+    private static string GetInitials(string name)
+    {
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return string.Join("", parts.Select(p => p[0])).ToUpperInvariant();
+    }
+}
+
+<style>
+    .vpt-table-wrap {
+        background: rgba(255, 255, 255, 0.01);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 16px;
+        overflow: hidden;
+    }
+
+    .vpt-table {
+        width: 100%;
+        text-align: left;
+        border-collapse: collapse;
+        table-layout: fixed;
+    }
+
+    .vpt-thead-row {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        background: rgba(255, 255, 255, 0.015);
+    }
+
+    .vpt-th {
+        padding: 16px;
+        font-size: 10px;
+        font-weight: 800;
+        color: rgba(255, 255, 255, 0.25);
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+    }
+
+    .vpt-th--center { text-align: center; }
+    .vpt-th--right { text-align: right; }
+
+    .vpt-row {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.025);
+        transition: background 0.15s;
+    }
+
+    .vpt-row:last-child { border-bottom: none; }
+    .vpt-row:hover { background: rgba(96, 165, 250, 0.02); }
+
+    .vpt-td {
+        padding: 16px;
+        vertical-align: middle;
+    }
+
+    .vpt-td--actions { text-align: right; }
+    .vpt-center { display: flex; justify-content: center; }
+
+    /* ── Name cell ── */
+    .vpt-name-cell {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .vpt-avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.03);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .vpt-avatar-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .vpt-initials {
+        font-size: 12px;
+        font-weight: 800;
+        color: rgba(255, 255, 255, 0.35);
+    }
+
+    .vpt-name {
+        font-size: 14px;
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.85);
+    }
+
+    .vpt-role {
+        font-size: 12px;
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.35);
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+    }
+
+    .vpt-icon-btn {
+        padding: 8px;
+        border-radius: 8px;
+        background: transparent;
+        border: none;
+        color: rgba(255, 255, 255, 0.2);
+        cursor: pointer;
+        transition: color 0.12s;
+    }
+
+    .vpt-icon-btn:hover {
+        color: rgba(255, 255, 255, 0.7);
+    }
+
+    .vpt-empty, .vpt-loading {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 80px 20px;
+        text-align: center;
+    }
+
+    .vpt-loading { padding: 24px; }
+
+    @@media (max-width: 768px) {
+        .vpt-thead-row { display: none; }
+
+        .vpt-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            padding: 12px 16px;
+            gap: 8px;
+        }
+
+        .vpt-td { padding: 0; }
+        .vpt-td:nth-child(1) { flex: 1; min-width: 0; }
+        .vpt-td:nth-child(2), .vpt-td:nth-child(3) { display: none; }
+        .vpt-td:nth-child(4) { flex-shrink: 0; }
+        .vpt-td:nth-child(5) { flex-shrink: 0; }
+    }
+</style>

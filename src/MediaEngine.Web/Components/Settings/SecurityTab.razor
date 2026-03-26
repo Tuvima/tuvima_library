@@ -1,0 +1,152 @@
+@namespace MediaEngine.Web.Components.Settings
+
+@* Security — connection security toggles, rate limit display, and API key management. *@
+
+<MudStack Spacing="4">
+
+    @* ── Header ──────────────────────────────────────────────────────────── *@
+    <MudPaper Elevation="0" Style="@GlassStyle">
+
+        <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+            <MudIcon Icon="@Icons.Material.Filled.VpnKey" Color="Color.Default" Class="mr-2" />
+            <MudText Typo="Typo.h6">Security</MudText>
+        </MudStack>
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
+            Control how the Engine accepts connections and enforces authentication.
+        </MudText>
+
+        @* ── Security Settings ────────────────────────────────────────────── *@
+        <MudPaper Elevation="0" Style="@InnerCardStyle" Class="mb-4">
+
+            <MudText Typo="Typo.subtitle1" Style="font-weight: 600;" Class="mb-4">
+                Connection Settings
+            </MudText>
+
+            @* Localhost Bypass toggle *@
+            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4"
+                      Style="gap: 16px;">
+                <MudStack Spacing="0" Style="flex: 1;">
+                    <MudText Typo="Typo.body1" Style="font-weight: 500;">
+                        Localhost Bypass
+                    </MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        Allow unauthenticated requests from this machine
+                    </MudText>
+                </MudStack>
+                <MudSwitch @bind-Value="_localhostBypass"
+                           Color="Color.Primary"
+                           T="bool" />
+            </MudStack>
+
+            <MudDivider Class="mb-4" />
+
+            @* Require HTTPS toggle *@
+            <MudStack Row="true" AlignItems="AlignItems.Center"
+                      Style="gap: 16px;">
+                <MudStack Spacing="0" Style="flex: 1;">
+                    <MudText Typo="Typo.body1" Style="font-weight: 500;">
+                        Require HTTPS for Remote Connections
+                    </MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        Reject non-HTTPS requests from other devices on the network
+                    </MudText>
+                </MudStack>
+                <MudSwitch @bind-Value="_requireHttpsRemote"
+                           Color="Color.Primary"
+                           T="bool" />
+            </MudStack>
+
+        </MudPaper>
+
+        @* ── Rate Limits (read-only) ──────────────────────────────────────── *@
+        <MudPaper Elevation="0" Style="@InnerCardStyle">
+
+            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-3">
+                <MudIcon Icon="@Icons.Material.Outlined.Speed"
+                         Color="Color.Secondary" Size="Size.Small" Class="mr-1" />
+                <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">
+                    Rate Limits
+                </MudText>
+                <MudSpacer />
+                <MudChip T="string" Size="Size.Small" Color="Color.Default"
+                         Style="opacity: 0.6; font-size: 0.7rem;">
+                    Read-only
+                </MudChip>
+            </MudStack>
+
+            <MudStack Spacing="2">
+
+                <MudStack Row="true" AlignItems="AlignItems.Center"
+                          Style="justify-content: space-between;">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                        <MudIcon Icon="@Icons.Material.Outlined.Key"
+                                 Size="Size.Small" Color="Color.Secondary" />
+                        <MudText Typo="Typo.body2">Key Generation</MudText>
+                    </MudStack>
+                    <code style="font-family: monospace; font-size: 0.8rem;
+                                  background: rgba(0,0,0,0.25); padding: 2px 8px;
+                                  border-radius: 4px; color: var(--mud-palette-text-secondary);">
+                        5 req / min
+                    </code>
+                </MudStack>
+
+                <MudStack Row="true" AlignItems="AlignItems.Center"
+                          Style="justify-content: space-between;">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                        <MudIcon Icon="@Icons.Material.Outlined.PlayCircle"
+                                 Size="Size.Small" Color="Color.Secondary" />
+                        <MudText Typo="Typo.body2">File Streaming</MudText>
+                    </MudStack>
+                    <code style="font-family: monospace; font-size: 0.8rem;
+                                  background: rgba(0,0,0,0.25); padding: 2px 8px;
+                                  border-radius: 4px; color: var(--mud-palette-text-secondary);">
+                        100 req / min
+                    </code>
+                </MudStack>
+
+                <MudStack Row="true" AlignItems="AlignItems.Center"
+                          Style="justify-content: space-between;">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                        <MudIcon Icon="@Icons.Material.Outlined.Api"
+                                 Size="Size.Small" Color="Color.Secondary" />
+                        <MudText Typo="Typo.body2">General API</MudText>
+                    </MudStack>
+                    <code style="font-family: monospace; font-size: 0.8rem;
+                                  background: rgba(0,0,0,0.25); padding: 2px 8px;
+                                  border-radius: 4px; color: var(--mud-palette-text-secondary);">
+                        60 req / min
+                    </code>
+                </MudStack>
+
+            </MudStack>
+
+        </MudPaper>
+
+    </MudPaper>
+
+    @* ── API Keys section — embed the existing component ─────────────────── *@
+    <ApiKeysTab />
+
+</MudStack>
+
+@code {
+
+    private const string GlassStyle =
+        "background: var(--app-glass-bg); " +
+        "border: 1px solid var(--app-glass-border); " +
+        "backdrop-filter: blur(10px); " +
+        "-webkit-backdrop-filter: blur(10px); " +
+        "border-radius: 12px; " +
+        "padding: 32px;";
+
+    private const string InnerCardStyle =
+        "background: var(--app-glass-inner-bg); " +
+        "border: 1px solid var(--app-glass-inner-border); " +
+        "border-radius: 8px; " +
+        "padding: 24px;";
+
+    // ── Local toggle state ────────────────────────────────────────────────────
+
+    private bool _localhostBypass    = true;
+    private bool _requireHttpsRemote = false;
+}

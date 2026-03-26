@@ -1,0 +1,119 @@
+using MediaEngine.Web.Components.Registry;
+using MediaEngine.Web.Models.ViewDTOs;
+using MudBlazor;
+
+namespace MediaEngine.Web.Components.Vault;
+
+/// <summary>Static display helpers for Vault components.</summary>
+public static class VaultHelpers
+{
+    /// <summary>Returns the hex color for a VaultStatus.</summary>
+    public static string GetVaultStatusColor(VaultStatus status) => status switch
+    {
+        VaultStatus.Verified => "#5DCAA5",
+        VaultStatus.NeedsReview => "#EF9F27",
+        VaultStatus.Failed => "#A05050",
+        VaultStatus.Quarantined => "#E24B4A",
+        _ => "rgba(255,255,255,0.3)",
+    };
+
+    /// <summary>Returns the display label for a VaultStatus.</summary>
+    public static string GetVaultStatusLabel(VaultStatus status) => status switch
+    {
+        VaultStatus.Verified => "Verified",
+        VaultStatus.NeedsReview => "Needs Review",
+        VaultStatus.Failed => "Failed",
+        VaultStatus.Quarantined => "Quarantined",
+        _ => "Unknown",
+    };
+
+    /// <summary>Returns the icon for a VaultStatus.</summary>
+    public static string GetVaultStatusIcon(VaultStatus status) => status switch
+    {
+        VaultStatus.Verified => Icons.Material.Filled.CheckCircle,
+        VaultStatus.NeedsReview => Icons.Material.Filled.Warning,
+        VaultStatus.Failed => Icons.Material.Filled.Cancel,
+        VaultStatus.Quarantined => Icons.Material.Filled.Block,
+        _ => Icons.Material.Filled.HelpOutline,
+    };
+
+    /// <summary>Returns the hex color for a pipeline stage state.</summary>
+    public static string GetStageColor(VaultStageState state) => state switch
+    {
+        VaultStageState.Completed => "#5DCAA5",
+        VaultStageState.Warning => "#EF9F27",
+        VaultStageState.Failed => "#A05050",
+        VaultStageState.Pending => "rgba(255,255,255,0.15)",
+        _ => "rgba(255,255,255,0.15)",
+    };
+
+    /// <summary>Returns the CSS shadow glow for a pipeline stage state.</summary>
+    public static string GetStageShadow(VaultStageState state) => state switch
+    {
+        VaultStageState.Completed => "0 0 8px rgba(93,202,165,0.3)",
+        VaultStageState.Warning => "0 0 8px rgba(239,159,39,0.3)",
+        VaultStageState.Failed => "0 0 8px rgba(160,80,80,0.3)",
+        _ => "none",
+    };
+
+    /// <summary>Returns the confidence bar fill color based on score.</summary>
+    public static string GetConfidenceColor(double confidence) => confidence switch
+    {
+        >= 0.80 => "#5DCAA5",
+        >= 0.60 => "#EF9F27",
+        _ => "#A05050",
+    };
+
+    /// <summary>Delegates to RegistryHelpers for media type icon.</summary>
+    public static string GetMediaTypeIcon(string? mediaType) =>
+        RegistryHelpers.GetMediaTypeIcon(mediaType);
+
+    /// <summary>Delegates to RegistryHelpers for media type label.</summary>
+    public static string FormatMediaType(string? mediaType) =>
+        RegistryHelpers.FormatMediaType(mediaType);
+
+    /// <summary>Converts hex color to rgba string.</summary>
+    public static string HexToRgba(string hex, double alpha)
+    {
+        hex = hex.TrimStart('#');
+        if (hex.Length < 6) return $"rgba(255,255,255,{alpha})";
+        var r = Convert.ToInt32(hex[..2], 16);
+        var g = Convert.ToInt32(hex[2..4], 16);
+        var b = Convert.ToInt32(hex[4..6], 16);
+        return $"rgba({r},{g},{b},{alpha})";
+    }
+
+    /// <summary>Formats file size in human-readable form.</summary>
+    public static string FormatFileSize(long? bytes)
+    {
+        if (bytes is null or 0) return "—";
+        return bytes.Value switch
+        {
+            < 1024 => $"{bytes} B",
+            < 1024 * 1024 => $"{bytes.Value / 1024.0:F1} KB",
+            < 1024 * 1024 * 1024 => $"{bytes.Value / (1024.0 * 1024.0):F1} MB",
+            _ => $"{bytes.Value / (1024.0 * 1024.0 * 1024.0):F2} GB",
+        };
+    }
+
+    /// <summary>Returns provider lookup buttons based on media type.</summary>
+    public static string[] GetProviderButtons(string? mediaType) => mediaType?.ToUpperInvariant() switch
+    {
+        "MOVIE" or "MOVIES" => ["TMDB", "IMDb"],
+        "TV" => ["TMDB", "IMDb"],
+        "BOOK" or "BOOKS" or "EPUB" => ["Open Library", "Apple Books"],
+        "AUDIOBOOK" or "AUDIOBOOKS" => ["Audible", "Apple Books"],
+        "MUSIC" => ["MusicBrainz", "Spotify"],
+        "COMICS" or "COMIC" => ["Comic Vine"],
+        "PODCASTS" or "PODCAST" => ["Apple Podcasts"],
+        _ => ["Global Search", "MusicBrainz", "Audible"],
+    };
+
+    /// <summary>Returns the sort parameter string for the API.</summary>
+    public static string GetSortParam(string sortBy) => sortBy switch
+    {
+        "oldest" => "oldest",
+        "confidence" => "confidence",
+        _ => "newest",
+    };
+}

@@ -36,9 +36,9 @@
             </MudNavLink>
         }
 
-        <MudNavLink Href="/registry" Icon="@Icons.Material.Outlined.FactCheck"
+        <MudNavLink Href="/vault" Icon="@Icons.Material.Outlined.Shield"
                     Match="NavLinkMatch.Prefix" OnClick="@CloseDrawer">
-            Registry
+            Vault
             @if (ReviewCount > 0)
             {
                 <MudChip T="string" Size="Size.Small" Color="Color.Warning" Variant="Variant.Filled"
@@ -46,6 +46,11 @@
                     @ReviewCount
                 </MudChip>
             }
+        </MudNavLink>
+
+        <MudNavLink Href="/universes" Icon="@Icons.Material.Outlined.Public"
+                    Match="NavLinkMatch.Prefix" OnClick="@CloseDrawer">
+            Universes
         </MudNavLink>
 
         <MudDivider Class="my-2" Style="border-color: rgba(255,255,255,0.06);" />
