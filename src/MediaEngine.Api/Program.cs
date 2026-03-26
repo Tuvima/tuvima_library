@@ -247,7 +247,7 @@ builder.Services.PostConfigure<IngestionOptions>(opts =>
     {
         CoreConfiguration core = configLoader.LoadCore();
         if (!string.IsNullOrWhiteSpace(core.WatchDirectory))       { opts.WatchDirectory       = core.WatchDirectory; }
-        if (!string.IsNullOrWhiteSpace(core.LibraryRoot))          { opts.LibraryRoot          = core.LibraryRoot; }
+        if (!string.IsNullOrWhiteSpace(core.LibraryRoot))          { opts.LibraryRoot          = core.LibraryRoot; opts.AutoOrganize = true; }
         if (!string.IsNullOrWhiteSpace(core.OrganizationTemplate)) { opts.OrganizationTemplate = core.OrganizationTemplate; }
         if (core.OrganizationTemplates.Count > 0) { opts.OrganizationTemplates = new Dictionary<string, string>(core.OrganizationTemplates, StringComparer.OrdinalIgnoreCase); }
         if (!string.IsNullOrWhiteSpace(core.Language))             { opts.ConfiguredLanguage   = core.Language; }
