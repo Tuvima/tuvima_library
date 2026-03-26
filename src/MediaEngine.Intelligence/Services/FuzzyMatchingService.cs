@@ -1,15 +1,15 @@
 using System.Text.RegularExpressions;
-using FuzzySharp;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
 
 namespace MediaEngine.Intelligence.Services;
 
 /// <summary>
-/// FuzzySharp-backed fuzzy string matching service.
+/// Native fuzzy string matching service.
 /// Provides token-set-ratio comparison (word-order insensitive),
 /// partial ratio (substring matching), and composite field-by-field
 /// scoring with sequel-safe numeric extraction.
+/// No third-party dependencies — implemented using Levenshtein distance.
 /// </summary>
 public sealed partial class FuzzyMatchingService : IFuzzyMatchingService
 {
@@ -28,7 +28,7 @@ public sealed partial class FuzzyMatchingService : IFuzzyMatchingService
     {
         if (string.IsNullOrWhiteSpace(a) || string.IsNullOrWhiteSpace(b))
             return 0.0;
-        return Fuzz.TokenSetRatio(a.Trim(), b.Trim()) / 100.0;
+        return NativeTokenSetRatio(a.Trim(), b.Trim());
     }
 
     /// <inheritdoc/>
@@ -36,7 +36,7 @@ public sealed partial class FuzzyMatchingService : IFuzzyMatchingService
     {
         if (string.IsNullOrWhiteSpace(a) || string.IsNullOrWhiteSpace(b))
             return 0.0;
-        return Fuzz.PartialRatio(a.Trim(), b.Trim()) / 100.0;
+        return NativePartialRatio(a.Trim(), b.Trim());
     }
 
     /// <inheritdoc/>
@@ -73,7 +73,7 @@ public sealed partial class FuzzyMatchingService : IFuzzyMatchingService
     /// and penalises mismatches so "Harry Potter 1" vs "Harry Potter 2" scores
     /// ~0.60 instead of ~0.96.
     /// </summary>
-    private double ComputeTitleScore(string localTitle, string candidateTitle)
+    private static double ComputeTitleScore(string localTitle, string candidateTitle)
     {
         if (string.IsNullOrWhiteSpace(localTitle) || string.IsNullOrWhiteSpace(candidateTitle))
             return 0.0;
@@ -84,9 +84,9 @@ public sealed partial class FuzzyMatchingService : IFuzzyMatchingService
         var localBase     = NumbersRegex().Replace(localTitle, "").Trim();
         var candidateBase = NumbersRegex().Replace(candidateTitle, "").Trim();
 
-        double baseScore = Fuzz.TokenSetRatio(
+        double baseScore = NativeTokenSetRatio(
             string.IsNullOrWhiteSpace(localBase) ? localTitle : localBase,
-            string.IsNullOrWhiteSpace(candidateBase) ? candidateTitle : candidateBase) / 100.0;
+            string.IsNullOrWhiteSpace(candidateBase) ? candidateTitle : candidateBase);
 
         // If both titles contain numbers, penalise number mismatches.
         if (localNums.Count > 0 && candidateNums.Count > 0)
@@ -100,12 +100,12 @@ public sealed partial class FuzzyMatchingService : IFuzzyMatchingService
 
     // ── Optional field scoring ───────────────────────────────────────────────
 
-    private double ScoreOptionalField(string? localValue, string? candidateValue)
+    private static double ScoreOptionalField(string? localValue, string? candidateValue)
     {
         if (string.IsNullOrWhiteSpace(localValue) || string.IsNullOrWhiteSpace(candidateValue))
             return -1.0; // Not available
 
-        return Fuzz.TokenSetRatio(localValue.Trim(), candidateValue.Trim()) / 100.0;
+        return NativeTokenSetRatio(localValue.Trim(), candidateValue.Trim());
     }
 
     // ── Year scoring ─────────────────────────────────────────────────────────
@@ -206,4 +206,122 @@ public sealed partial class FuzzyMatchingService : IFuzzyMatchingService
 
     [GeneratedRegex(@"\d+", RegexOptions.Compiled)]
     private static partial Regex NumbersRegex();
+
+    // ── Native fuzzy matching algorithms ────────────────────────────────────
+
+    /// <summary>
+    /// Token-set ratio: tokenizes both strings, computes Levenshtein ratio between
+    /// sorted intersection, intersection+remainderA, and intersection+remainderB.
+    /// Word-order insensitive — "Frank Herbert" vs "Herbert, Frank" scores ~1.0.
+    /// Returns a value in [0.0, 1.0].
+    /// </summary>
+    private static double NativeTokenSetRatio(string a, string b)
+    {
+        var tokensA = Tokenize(a);
+        var tokensB = Tokenize(b);
+
+        if (tokensA.Count == 0 || tokensB.Count == 0)
+            return 0.0;
+
+        // Intersection and remainders
+        var intersection = tokensA.Intersect(tokensB, StringComparer.OrdinalIgnoreCase)
+                                  .OrderBy(t => t, StringComparer.OrdinalIgnoreCase)
+                                  .ToList();
+        var remainderA = tokensA.Except(intersection, StringComparer.OrdinalIgnoreCase)
+                                .OrderBy(t => t, StringComparer.OrdinalIgnoreCase)
+                                .ToList();
+        var remainderB = tokensB.Except(intersection, StringComparer.OrdinalIgnoreCase)
+                                .OrderBy(t => t, StringComparer.OrdinalIgnoreCase)
+                                .ToList();
+
+        var sorted  = string.Join(" ", intersection);
+        var sortedA = string.Join(" ", intersection.Concat(remainderA));
+        var sortedB = string.Join(" ", intersection.Concat(remainderB));
+
+        // Best ratio among the three pairwise comparisons
+        var r1 = LevenshteinRatio(sorted, sortedA);
+        var r2 = LevenshteinRatio(sorted, sortedB);
+        var r3 = LevenshteinRatio(sortedA, sortedB);
+
+        return Math.Max(r1, Math.Max(r2, r3));
+    }
+
+    /// <summary>
+    /// Partial ratio: slides the shorter string across the longer string and
+    /// returns the best Levenshtein ratio over all substring positions.
+    /// "Dune" vs "Dune: Part One" scores high because "Dune" is a perfect substring.
+    /// Returns a value in [0.0, 1.0].
+    /// </summary>
+    private static double NativePartialRatio(string a, string b)
+    {
+        if (a.Length == 0 || b.Length == 0) return 0.0;
+
+        // Ensure 'shorter' is the shorter string
+        var shorter = a.Length <= b.Length ? a : b;
+        var longer  = a.Length > b.Length  ? a : b;
+
+        double bestRatio = 0.0;
+        for (int i = 0; i <= longer.Length - shorter.Length; i++)
+        {
+            var substring = longer.Substring(i, shorter.Length);
+            var ratio = LevenshteinRatio(shorter, substring);
+            if (ratio > bestRatio)
+                bestRatio = ratio;
+            if (bestRatio >= 1.0) break; // Perfect match found — no need to continue
+        }
+        return bestRatio;
+    }
+
+    /// <summary>
+    /// Computes the normalised Levenshtein similarity ratio in [0.0, 1.0].
+    /// Both strings are lowercased before comparison.
+    /// </summary>
+    private static double LevenshteinRatio(string a, string b)
+    {
+        if (a.Length == 0 && b.Length == 0) return 1.0;
+        if (a.Length == 0 || b.Length == 0) return 0.0;
+
+        var aLower = a.ToLowerInvariant();
+        var bLower = b.ToLowerInvariant();
+
+        int distance = LevenshteinDistance(aLower, bLower);
+        int maxLen   = Math.Max(aLower.Length, bLower.Length);
+        return 1.0 - (double)distance / maxLen;
+    }
+
+    /// <summary>
+    /// Standard Levenshtein edit distance (insert / delete / substitute).
+    /// </summary>
+    private static int LevenshteinDistance(string a, string b)
+    {
+        var matrix = new int[a.Length + 1, b.Length + 1];
+
+        for (int i = 0; i <= a.Length; i++) matrix[i, 0] = i;
+        for (int j = 0; j <= b.Length; j++) matrix[0, j] = j;
+
+        for (int i = 1; i <= a.Length; i++)
+        {
+            for (int j = 1; j <= b.Length; j++)
+            {
+                int cost = a[i - 1] == b[j - 1] ? 0 : 1;
+                matrix[i, j] = Math.Min(
+                    Math.Min(matrix[i - 1, j] + 1, matrix[i, j - 1] + 1),
+                    matrix[i - 1, j - 1] + cost);
+            }
+        }
+
+        return matrix[a.Length, b.Length];
+    }
+
+    /// <summary>
+    /// Tokenizes a string into lowercase words, splitting on whitespace and common punctuation.
+    /// </summary>
+    private static List<string> Tokenize(string text)
+    {
+        return text.ToLowerInvariant()
+            .Split([' ', '\t', ',', '.', ';', ':', '-', '_', '(', ')', '[', ']'],
+                   StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(t => t.Length > 0)
+            .ToList();
+    }
 }

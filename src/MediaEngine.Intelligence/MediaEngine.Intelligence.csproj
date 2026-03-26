@@ -10,8 +10,6 @@
   <ItemGroup>
     <!-- ILogger<T> for ParentHubResolver and other logging consumers -->
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
-    <!-- Fuzzy string matching for candidate scoring (MIT license) -->
-    <PackageReference Include="FuzzySharp" />
   </ItemGroup>
 
 </Project>

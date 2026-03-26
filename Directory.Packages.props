@@ -11,9 +11,6 @@
          Apache 2.0 license — approved for AGPLv3 compatibility (see CLAUDE.md §5.1). -->
     <PackageVersion Include="Dapper" Version="2.1.66" />
     <PackageVersion Include="dotNetRdf" Version="3.5.1" />
-    <!-- FuzzySharp: fuzzy string matching for candidate scoring.
-         MIT license — approved for AGPLv3 compatibility (see CLAUDE.md §5.1). -->
-    <PackageVersion Include="FuzzySharp" Version="2.0.2" />
     <PackageVersion Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.3" />
     <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.3" />
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.3" />
