@@ -60,19 +60,29 @@ public sealed class HardwareBenchmarkService
         profile.GpuName = gpuName;
 
         // Run token generation benchmark.
+        // Generate enough text to get a stable measurement (~50 tokens).
         double tokPerSec = 0;
         try
         {
-            const string testPrompt = "List three colors:";
+            const string testPrompt = "Write a detailed paragraph about the history of libraries, including at least five key facts:";
             var sw     = Stopwatch.StartNew();
             var result = await _llama.InferAsync(AiModelRole.TextFast, testPrompt, ct: ct);
             sw.Stop();
 
             if (!string.IsNullOrEmpty(result))
             {
-                // Rough estimate: ~4 chars per token for English text.
-                int estimatedTokens = result.Length / 4;
+                // LLaMA tokenizer averages ~3.5 chars per token for English prose.
+                // Use 3.5 for a more accurate estimate than 4.
+                int estimatedTokens = Math.Max(1, (int)(result.Length / 3.5));
                 tokPerSec = estimatedTokens / Math.Max(sw.Elapsed.TotalSeconds, 0.1);
+
+                _logger.LogInformation(
+                    "Benchmark inference: {Chars} chars ≈ {Tokens} tokens in {Elapsed:F1}s → {TokPerSec:F1} tok/s",
+                    result.Length, estimatedTokens, sw.Elapsed.TotalSeconds, tokPerSec);
+            }
+            else
+            {
+                _logger.LogWarning("Benchmark inference returned empty result");
             }
         }
         catch (Exception ex)

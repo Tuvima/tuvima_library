@@ -18,11 +18,28 @@ public sealed class GpuBackendDetector
 
     /// <summary>
     /// Detect the best available backend.
-    /// Returns (backendName, gpuName) — e.g. ("vulkan", "Vulkan-compatible GPU") or ("cpu", null).
+    /// Probe order: CUDA first (fastest for NVIDIA) → Vulkan (broad coverage) → CPU.
+    /// Returns (backendName, gpuName) — e.g. ("cuda", "NVIDIA GeForce RTX 5080") or ("cpu", null).
     /// </summary>
     public (string Backend, string? GpuName) Detect()
     {
-        // Try Vulkan first (covers AMD, Intel Arc, Intel integrated, NVIDIA).
+        // Try CUDA first — fastest backend for NVIDIA GPUs.
+        try
+        {
+            if (TryDetectCuda(out var cudaGpu))
+            {
+                // Try to get the real GPU name from nvidia-smi.
+                var realName = QueryNvidiaSmi() ?? cudaGpu;
+                _logger.LogInformation("GPU detected via CUDA: {GpuName}", realName);
+                return ("cuda", realName);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "CUDA detection failed");
+        }
+
+        // Try Vulkan (covers AMD, Intel Arc, Intel integrated, and NVIDIA without CUDA).
         try
         {
             if (TryDetectVulkan(out var vulkanGpu))
@@ -36,22 +53,36 @@ public sealed class GpuBackendDetector
             _logger.LogDebug(ex, "Vulkan detection failed");
         }
 
-        // Try CUDA 12 (NVIDIA-specific, higher performance when available).
-        try
-        {
-            if (TryDetectCuda(out var cudaGpu))
-            {
-                _logger.LogInformation("GPU detected via CUDA: {GpuName}", cudaGpu);
-                return ("cuda", cudaGpu);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "CUDA detection failed");
-        }
-
         _logger.LogInformation("No GPU detected — using CPU backend");
         return ("cpu", null);
+    }
+
+    /// <summary>
+    /// Query nvidia-smi for the real GPU name. Returns null if unavailable.
+    /// </summary>
+    private string? QueryNvidiaSmi()
+    {
+        try
+        {
+            var psi = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "nvidia-smi",
+                Arguments = "--query-gpu=name --format=csv,noheader,nounits",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            };
+            using var proc = System.Diagnostics.Process.Start(psi);
+            if (proc is null) return null;
+            var output = proc.StandardOutput.ReadToEnd().Trim();
+            proc.WaitForExit(5000);
+            return string.IsNullOrWhiteSpace(output) ? null : output.Split('\n')[0].Trim();
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     /// <summary>

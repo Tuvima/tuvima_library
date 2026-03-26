@@ -15,7 +15,13 @@ public static class HardwareTierPolicy
     /// </summary>
     public static string ClassifyTier(double tokensPerSecond, long availableRamMb, bool gpuDetected)
     {
-        if (tokensPerSecond >= 60 && gpuDetected && availableRamMb >= 8192)
+        // GPU detected + sufficient RAM = High tier.
+        // The benchmark may run on CPU before GPU layers are applied,
+        // so tok/s alone underestimates GPU systems. A detected GPU with
+        // ≥8GB RAM and any reasonable tok/s (≥15) qualifies as High.
+        if (gpuDetected && availableRamMb >= 8192 && tokensPerSecond >= 15)
+            return TierHigh;
+        if (tokensPerSecond >= 60 && availableRamMb >= 8192)
             return TierHigh;
         if (tokensPerSecond >= 15 && availableRamMb >= 4096)
             return TierMedium;
