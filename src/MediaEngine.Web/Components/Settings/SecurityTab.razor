@@ -5,7 +5,7 @@
 <MudStack Spacing="4">
 
     @* ── Header ──────────────────────────────────────────────────────────── *@
-    <MudPaper Elevation="0" Style="@GlassStyle">
+    <div style="width: 100%; padding: 24px; box-sizing: border-box;">
 
         <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
             <MudIcon Icon="@Icons.Material.Filled.VpnKey" Color="Color.Default" Class="mr-2" />
@@ -122,7 +122,7 @@
 
         </MudPaper>
 
-    </MudPaper>
+    </div>
 
     @* ── API Keys section — embed the existing component ─────────────────── *@
     <ApiKeysTab />
@@ -130,14 +130,6 @@
 </MudStack>
 
 @code {
-
-    private const string GlassStyle =
-        "background: var(--app-glass-bg); " +
-        "border: 1px solid var(--app-glass-border); " +
-        "backdrop-filter: blur(10px); " +
-        "-webkit-backdrop-filter: blur(10px); " +
-        "border-radius: 12px; " +
-        "padding: 32px;";
 
     private const string InnerCardStyle =
         "background: var(--app-glass-inner-bg); " +

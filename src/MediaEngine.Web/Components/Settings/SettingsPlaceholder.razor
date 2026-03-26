@@ -2,7 +2,7 @@
 
 @* Temporary placeholder for settings screens not yet implemented. *@
 
-<div style="@GlassStyle">
+<div style="width: 100%; padding: 24px; box-sizing: border-box;">
     <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 4rem 2rem; text-align: center;">
         <MudIcon Icon="@Icons.Material.Outlined.Construction"
                  Size="Size.Large"
@@ -20,11 +20,4 @@
     [Parameter] public string Title { get; set; } = "Coming Soon";
     [Parameter] public string Description { get; set; } = "This settings screen is under construction.";
 
-    private const string GlassStyle =
-        "background: var(--app-glass-bg); " +
-        "border: 1px solid var(--app-glass-border); " +
-        "backdrop-filter: blur(10px); " +
-        "-webkit-backdrop-filter: blur(10px); " +
-        "border-radius: 12px; " +
-        "padding: 0;";
 }

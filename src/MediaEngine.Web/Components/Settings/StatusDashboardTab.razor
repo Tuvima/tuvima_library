@@ -2,7 +2,7 @@
 
 @* Status Dashboard — server health overview with stat cards and engine info. *@
 
-<MudPaper Elevation="0" Style="@GlassStyle">
+<div style="width: 100%; padding: 24px; box-sizing: border-box;">
 
     @* ── Header ──────────────────────────────────────────────────────────── *@
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
@@ -18,7 +18,7 @@
 
         @* Card 1 — Uptime *@
         <MudItem xs="12" sm="6" md="3">
-            <div style="@GlassStyle background: var(--app-glass-inner-bg); padding: 24px;">
+            <div style="background: var(--app-glass-inner-bg); border: 1px solid var(--app-glass-inner-border); border-radius: 12px; padding: 24px;">
                 <MudStack Spacing="1">
                     <MudIcon Icon="@Icons.Material.Outlined.RadioButtonChecked"
                              Style="color: #10b981; font-size: 2rem;" />
@@ -32,7 +32,7 @@
 
         @* Card 2 — Indexed Assets *@
         <MudItem xs="12" sm="6" md="3">
-            <div style="@GlassStyle background: var(--app-glass-inner-bg); padding: 24px;">
+            <div style="background: var(--app-glass-inner-bg); border: 1px solid var(--app-glass-inner-border); border-radius: 12px; padding: 24px;">
                 <MudStack Spacing="1">
                     <MudIcon Icon="@Icons.Material.Outlined.Storage"
                              Style="color: #6366f1; font-size: 2rem;" />
@@ -46,7 +46,7 @@
 
         @* Card 3 — Database Size *@
         <MudItem xs="12" sm="6" md="3">
-            <div style="@GlassStyle background: var(--app-glass-inner-bg); padding: 24px;">
+            <div style="background: var(--app-glass-inner-bg); border: 1px solid var(--app-glass-inner-border); border-radius: 12px; padding: 24px;">
                 <MudStack Spacing="1">
                     <MudIcon Icon="@Icons.Material.Outlined.SdStorage"
                              Style="color: #f59e0b; font-size: 2rem;" />
@@ -60,7 +60,7 @@
 
         @* Card 4 — Cache *@
         <MudItem xs="12" sm="6" md="3">
-            <div style="@GlassStyle background: var(--app-glass-inner-bg); padding: 24px;">
+            <div style="background: var(--app-glass-inner-bg); border: 1px solid var(--app-glass-inner-border); border-radius: 12px; padding: 24px;">
                 <MudStack Spacing="1">
                     <MudIcon Icon="@Icons.Material.Outlined.Layers"
                              Style="color: #3b82f6; font-size: 2rem;" />
@@ -144,17 +144,9 @@
 
     </MudPaper>
 
-</MudPaper>
+</div>
 
 @code {
-
-    private const string GlassStyle =
-        "background: var(--app-glass-bg); " +
-        "border: 1px solid var(--app-glass-border); " +
-        "backdrop-filter: blur(10px); " +
-        "-webkit-backdrop-filter: blur(10px); " +
-        "border-radius: 12px; " +
-        "padding: 32px;";
 
     private const string InnerCardStyle =
         "background: var(--app-glass-inner-bg); " +

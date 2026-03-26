@@ -5,7 +5,7 @@
 @* Activity Log — chronological timeline of Engine actions with filter chips and
    configurable retention. *@
 
-<MudPaper Elevation="0" Style="@GlassStyle">
+<div style="width: 100%; padding: 24px; box-sizing: border-box;">
 
     @* ── Header ──────────────────────────────────────────────────────────── *@
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
@@ -175,19 +175,11 @@
         </MudButton>
     }
 
-</MudPaper>
+</div>
 
 @code {
 
     // ── Style constants ──────────────────────────────────────────────────────────
-
-    private const string GlassStyle =
-        "background: var(--app-glass-bg); " +
-        "border: 1px solid var(--app-glass-border); " +
-        "backdrop-filter: blur(10px); " +
-        "-webkit-backdrop-filter: blur(10px); " +
-        "border-radius: 12px; " +
-        "padding: 32px;";
 
     private const string InnerCardStyle =
         "background: var(--app-glass-inner-bg); " +

@@ -2,7 +2,7 @@
 
 @* Connectivity — placeholder for future network and sync settings. *@
 
-<MudPaper Elevation="0" Style="@GlassStyle">
+<div style="width: 100%; padding: 24px; box-sizing: border-box;">
     <MudStack AlignItems="AlignItems.Center" Spacing="4" Class="pa-8">
         <MudIcon Icon="@Icons.Material.Filled.Wifi"
                  Size="Size.Large"
@@ -13,14 +13,7 @@
             Feature in Development — Network and sync settings will appear here in a future update.
         </MudText>
     </MudStack>
-</MudPaper>
+</div>
 
 @code {
-    private const string GlassStyle =
-        "background: var(--app-glass-bg); " +
-        "border: 1px solid var(--app-glass-border); " +
-        "backdrop-filter: blur(10px); " +
-        "-webkit-backdrop-filter: blur(10px); " +
-        "border-radius: 12px; " +
-        "padding: 32px;";
 }

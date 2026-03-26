@@ -3,7 +3,7 @@
 @* Setup Wizard — Re-run the setup wizard or inspect the current server configuration.
    All values are read-only summary fields; editing happens in the dedicated tabs. *@
 
-<MudPaper Elevation="0" Style="@GlassStyle">
+<div style="width: 100%; padding: 24px; box-sizing: border-box;">
 
     @* ── Section Header ──────────────────────────────────────────────────── *@
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
@@ -159,19 +159,11 @@
         </MudButton>
     </MudStack>
 
-</MudPaper>
+</div>
 
 @code {
 
     // ── Style constants ──────────────────────────────────────────────────────────
-
-    private const string GlassStyle =
-        "background: var(--app-glass-bg); " +
-        "border: 1px solid var(--app-glass-border); " +
-        "backdrop-filter: blur(10px); " +
-        "-webkit-backdrop-filter: blur(10px); " +
-        "border-radius: 12px; " +
-        "padding: 32px;";
 
     private const string InnerCardStyle =
         "background: var(--app-glass-inner-bg); " +

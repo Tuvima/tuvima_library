@@ -5,7 +5,7 @@
    Stage 2 runs during ingestion hydration. Stage 3 runs deferred in the background.
    All state is local; no Engine API calls are made yet. *@
 
-<MudPaper Elevation="0" Style="@GlassStyle">
+<div style="width: 100%; padding: 24px; box-sizing: border-box;">
 
     @* ── Header ──────────────────────────────────────────────────────────── *@
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
@@ -341,7 +341,7 @@
         </MudButton>
     </MudStack>
 
-</MudPaper>
+</div>
 
 @code {
 
@@ -409,14 +409,6 @@
     }
 
     // ── Styles ───────────────────────────────────────────────────────────────────
-
-    private const string GlassStyle =
-        "background: var(--app-glass-bg); " +
-        "border: 1px solid var(--app-glass-border); " +
-        "backdrop-filter: blur(10px); " +
-        "-webkit-backdrop-filter: blur(10px); " +
-        "border-radius: 12px; " +
-        "padding: 32px;";
 
     private const string SectionCardStyle =
         "background: var(--app-glass-inner-bg); " +

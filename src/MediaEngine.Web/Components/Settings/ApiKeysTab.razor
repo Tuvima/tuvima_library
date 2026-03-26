@@ -5,7 +5,7 @@
 
 @* Guest API Keys — generate, view, copy, reveal prefix, and revoke access keys. *@
 
-<MudPaper Elevation="0" Style="@GlassStyle">
+<div style="width: 100%; padding: 24px; box-sizing: border-box;">
 
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
         <MudIcon Icon="@Icons.Material.Filled.VpnKey" Color="Color.Default" Class="mr-2" />
@@ -94,7 +94,7 @@
             Revoke All Keys
         </MudButton>
     }
-</MudPaper>
+</div>
 
 @* ── Generate Key dialog ─────────────────────────────────────────────────── *@
 <MudDialog @bind-Visible="_generateOpen" Options="_dialogOptions">
@@ -188,14 +188,6 @@
 </MudDialog>
 
 @code {
-
-    private const string GlassStyle =
-        "background: var(--app-glass-bg); " +
-        "border: 1px solid var(--app-glass-border); " +
-        "backdrop-filter: blur(10px); " +
-        "-webkit-backdrop-filter: blur(10px); " +
-        "border-radius: 12px; " +
-        "padding: 32px;";
 
     // ── State ────────────────────────────────────────────────────────────────────
 

@@ -13,7 +13,7 @@
    enrichment data via SPARQL. Endpoints, throttle, and concurrency are
    editable; the property map and bridge identifiers are read-only. *@
 
-<MudPaper Elevation="0" Style="@GlassStyle">
+<div style="width: 100%; padding: 24px; box-sizing: border-box;">
 
     @* ── Header ────────────────────────────────────────────────────────────── *@
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
@@ -261,7 +261,7 @@
             </ChildContent>
         </MudExpansionPanel>
     </MudExpansionPanels>
-</MudPaper>
+</div>
 
 @code {
     // ── State ────────────────────────────────────────────────────────────
@@ -362,14 +362,6 @@
         WikidataPropertyDefaults.GetTargetProvider(pCode);
 
     // ── Styles ───────────────────────────────────────────────────────────
-
-    private const string GlassStyle =
-        "background: var(--app-glass-bg); " +
-        "border: 1px solid var(--app-glass-border); " +
-        "backdrop-filter: blur(20px); " +
-        "-webkit-backdrop-filter: blur(20px); " +
-        "border-radius: 12px; " +
-        "padding: 24px;";
 
     private const string InfoCardStyle =
         "background: var(--app-glass-bg); " +

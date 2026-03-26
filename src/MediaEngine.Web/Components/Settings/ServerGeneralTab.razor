@@ -8,7 +8,7 @@
 <MudStack Spacing="4">
 
     @* ── Server Identity ─────────────────────────────────────────────── *@
-    <MudPaper Elevation="0" Style="@GlassStyle" Class="pa-5">
+    <div style="width: 100%; padding: 24px; box-sizing: border-box;">
         <MudStack Spacing="3">
             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                 <MudIcon Icon="@Icons.Material.Outlined.Dns" Color="Color.Primary" />
@@ -27,10 +27,10 @@
                           Immediate="true"
                           Disabled="@_saving" />
         </MudStack>
-    </MudPaper>
+    </div>
 
     @* ── Regional Settings ───────────────────────────────────────────── *@
-    <MudPaper Elevation="0" Style="@GlassStyle" Class="pa-5">
+    <div style="width: 100%; padding: 24px; box-sizing: border-box;">
         <MudStack Spacing="3">
             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                 <MudIcon Icon="@Icons.Material.Outlined.Language" Color="Color.Primary" />
@@ -99,7 +99,7 @@
                 </MudAlert>
             }
         </MudStack>
-    </MudPaper>
+    </div>
 
     @* ── Save button ─────────────────────────────────────────────────── *@
     <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2">
@@ -231,12 +231,6 @@
     private string SystemTimeExample  => _now.ToString("t");
     private string TwelveHourExample  => _now.ToString("h:mm tt");
     private string TwentyFourHourExample => _now.ToString("HH:mm");
-
-    // ── Glass style ──────────────────────────────────────────────────────────
-
-    private static string GlassStyle =>
-        "background: var(--app-glass-bg); border: 1px solid var(--app-glass-border); " +
-        "backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-radius: 12px;";
 
     // ── Static data — curated language and country lists ─────────────────────
 

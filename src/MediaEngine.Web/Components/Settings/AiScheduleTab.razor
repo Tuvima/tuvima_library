@@ -4,7 +4,7 @@
    Lets the user view and adjust when each background AI job runs,
    enable or disable individual jobs, and see their last/next run times. *@
 
-<MudPaper Elevation="0" Style="@GlassStyle">
+<div style="width: 100%; padding: 24px; box-sizing: border-box;">
 
     @* ── Section Header ──────────────────────────────────────────────────── *@
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
@@ -101,19 +101,9 @@
         </MudButton>
     </MudStack>
 
-</MudPaper>
+</div>
 
 @code {
-
-    // ── Style constants ──────────────────────────────────────────────────────────
-
-    private const string GlassStyle =
-        "background: var(--app-glass-bg); " +
-        "border: 1px solid var(--app-glass-border); " +
-        "backdrop-filter: blur(10px); " +
-        "-webkit-backdrop-filter: blur(10px); " +
-        "border-radius: 12px; " +
-        "padding: 32px;";
 
     // ── Job model ────────────────────────────────────────────────────────────────
 

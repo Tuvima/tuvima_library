@@ -20,7 +20,7 @@
     var initials = _displayName.Length > 0 ? _displayName[0].ToString().ToUpper() : "?";
 }
 
-<MudPaper Elevation="0" Style="@GlassStyle">
+<div style="width: 100%; padding: 24px; box-sizing: border-box;">
 
     @* ── Section header: Account Identity ───────────────────────────────── *@
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-6" Spacing="2">
@@ -170,17 +170,9 @@
         }
     }
 
-</MudPaper>
+</div>
 
 @code {
-
-    private const string GlassStyle =
-        "background: rgba(17, 20, 25, 1); " +
-        "border: 1px solid rgba(51, 65, 85, 0.5); " +
-        "backdrop-filter: blur(10px); " +
-        "-webkit-backdrop-filter: blur(10px); " +
-        "border-radius: 1.5rem; " +
-        "padding: 2.5rem;";
 
     // ── Avatar colour presets ────────────────────────────────────────────────────
 

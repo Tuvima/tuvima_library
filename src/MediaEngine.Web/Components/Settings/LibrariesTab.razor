@@ -15,7 +15,7 @@
 
 @if (unavailable)
 {
-    <MudPaper Elevation="0" Style="@GlassStyle">
+    <div style="width: 100%; padding: 24px; box-sizing: border-box;">
         <MudStack AlignItems="AlignItems.Center" Spacing="3" Class="py-8">
             <MudIcon Icon="@Icons.Material.Outlined.DesktopAccessDisabled"
                      Color="Color.Secondary"
@@ -26,11 +26,11 @@
                 Please use the web or mobile interface to configure your library.
             </MudText>
         </MudStack>
-    </MudPaper>
+    </div>
 }
 else
 {
-<MudPaper Elevation="0" Style="@GlassStyle">
+<div style="width: 100%; padding: 24px; box-sizing: border-box;">
 
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-6">
         <MudText Typo="Typo.h6">Library Paths</MudText>
@@ -196,7 +196,7 @@ else
         </MudStack>
     }
 
-</MudPaper>
+</div>
 }
 
 <style>
@@ -308,14 +308,6 @@ else
         ["{Edition}"]   = "First Edition",
         ["{Ext}"]       = ".epub",
     };
-
-    private const string GlassStyle =
-        "background: var(--app-glass-bg); " +
-        "border: 1px solid var(--app-glass-border); " +
-        "backdrop-filter: blur(10px); " +
-        "-webkit-backdrop-filter: blur(10px); " +
-        "border-radius: 12px; " +
-        "padding: 32px;";
 
     private const string PreviewStyle =
         "background: var(--app-glass-inner-bg); " +
