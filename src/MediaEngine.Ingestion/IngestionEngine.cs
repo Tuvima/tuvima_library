@@ -311,6 +311,15 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         // BackgroundService is started by the host; this satisfies the interface
         // for callers that hold an IIngestionEngine reference.
         _watcher.Start();
+
+        // Re-scan the watch directory for files that were already present before
+        // the watcher started.  This covers the post-wipe restart scenario where
+        // files are seeded into the watch folder and then the engine is restarted.
+        if (!string.IsNullOrWhiteSpace(_options.WatchDirectory)
+            && Directory.Exists(_options.WatchDirectory))
+        {
+            ScanExistingFiles(_options.WatchDirectory, _options.IncludeSubdirectories);
+        }
     }
 
     /// <inheritdoc/>
