@@ -123,4 +123,78 @@ public static class PromptTemplates
 
         return sb.ToString();
     }
+
+    // ── QID Disambiguation (Feature 5) ────────────────────────────────────
+
+    public const string QidDisambiguationSystem = """
+        You are selecting the correct Wikidata entity from multiple candidates.
+        Compare the file's metadata against each candidate's description.
+        Consider: title similarity, year match, author/creator match, format/type match.
+        Select the best match. If no candidate is clearly correct, set selected_qid to null.
+        Return ONLY valid JSON matching the grammar.
+        """;
+
+    public const string QidDisambiguationGrammar = """
+        root   ::= "{" ws "\"selected_qid\"" ws ":" ws (string | "null") ws "," ws "\"confidence\"" ws ":" ws number ws "," ws "\"reasoning\"" ws ":" ws string ws "}"
+        string ::= "\"" ([^"\\] | "\\" .)* "\""
+        number ::= [0-9]+ ("." [0-9]+)?
+        ws     ::= [ \t\n]*
+        """;
+
+    public static string QidDisambiguationPrompt(
+        IReadOnlyDictionary<string, string> fileMetadata,
+        IReadOnlyList<Domain.Models.QidCandidate> candidates)
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine(QidDisambiguationSystem);
+        sb.AppendLine();
+        sb.AppendLine("File metadata:");
+        foreach (var (key, value) in fileMetadata)
+            sb.AppendLine($"  {key}: {value}");
+        sb.AppendLine();
+        sb.AppendLine("Wikidata candidates:");
+        for (int i = 0; i < candidates.Count; i++)
+        {
+            var c = candidates[i];
+            sb.AppendLine($"  {i + 1}. QID: {c.Qid} — {c.Label}");
+            if (!string.IsNullOrWhiteSpace(c.Description))
+                sb.AppendLine($"     Description: {c.Description}");
+        }
+        return sb.ToString();
+    }
+
+    // ── Series Position (Feature 6) ───────────────────────────────────────
+
+    public const string SeriesPositionSystem = """
+        You determine a work's position within a series.
+        Given the work title, series name, and sibling titles already in the series,
+        determine what position number this work should have (1-based).
+        If you cannot determine the position, set position to null.
+        Return ONLY valid JSON matching the grammar.
+        """;
+
+    public const string SeriesPositionGrammar = """
+        root   ::= "{" ws "\"position\"" ws ":" ws (number | "null") ws "," ws "\"confidence\"" ws ":" ws number ws "}"
+        number ::= [0-9]+
+        ws     ::= [ \t\n]*
+        """;
+
+    public static string SeriesPositionPrompt(
+        string workTitle,
+        string seriesName,
+        IReadOnlyList<string> siblingTitles)
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine(SeriesPositionSystem);
+        sb.AppendLine();
+        sb.AppendLine($"Series: {seriesName}");
+        sb.AppendLine($"Work to position: {workTitle}");
+        if (siblingTitles.Count > 0)
+        {
+            sb.AppendLine("Existing titles in series:");
+            for (int i = 0; i < siblingTitles.Count; i++)
+                sb.AppendLine($"  {i + 1}. {siblingTitles[i]}");
+        }
+        return sb.ToString();
+    }
 }

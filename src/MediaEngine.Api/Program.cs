@@ -552,9 +552,34 @@ builder.Services.AddHostedService<MediaEngine.Api.Services.ModelAutoDownloadServ
 
 // AI inference and feature services.
 builder.Services.AddSingleton<MediaEngine.AI.Llama.LlamaInferenceService>();
+builder.Services.AddSingleton<MediaEngine.AI.Whisper.WhisperInferenceService>();
+builder.Services.AddSingleton<MediaEngine.AI.Whisper.AudioPreprocessor>();
+
+// Sprint 2: Ingestion features.
 builder.Services.AddSingleton<ISmartLabeler, MediaEngine.AI.Features.SmartLabeler>();
 builder.Services.AddSingleton<IMediaTypeAdvisor, MediaEngine.AI.Features.MediaTypeAdvisor>();
 builder.Services.AddSingleton<IBatchManifestBuilder, MediaEngine.AI.Features.BatchManifestBuilder>();
+
+// Sprint 3: Alignment features.
+builder.Services.AddSingleton<IQidDisambiguator, MediaEngine.AI.Features.QidDisambiguator>();
+builder.Services.AddSingleton<ISeriesAligner, MediaEngine.AI.Features.SeriesAligner>();
+builder.Services.AddSingleton<IWatchingOrderAdvisor, MediaEngine.AI.Features.WatchingOrderAdvisor>();
+
+// Sprint 4: Enrichment features.
+builder.Services.AddSingleton<IVibeTagger, MediaEngine.AI.Features.VibeTagger>();
+builder.Services.AddSingleton<ITldrGenerator, MediaEngine.AI.Features.TldrGenerator>();
+builder.Services.AddSingleton<ICoverArtValidator, MediaEngine.AI.Features.CoverArtValidator>();
+builder.Services.AddSingleton<IAudioSimilarityService, MediaEngine.AI.Features.AudioSimilarityService>();
+
+// Sprint 6: Personalization features.
+builder.Services.AddSingleton<ITasteProfiler, MediaEngine.AI.Features.TasteProfiler>();
+builder.Services.AddSingleton<IWhyExplainer, MediaEngine.AI.Features.WhyExplainer>();
+
+// Sprint 7: Discovery features.
+builder.Services.AddSingleton<IIntentSearchParser, MediaEngine.AI.Features.IntentSearchParser>();
+
+// Sprint 8: Advanced features.
+builder.Services.AddSingleton<IUrlMetadataExtractor, MediaEngine.AI.Features.UrlMetadataExtractor>();
 
 // ── Health Checks ────────────────────────────────────────────────────────────
 // Standard /health endpoint for Docker HEALTHCHECK, monitoring tools, etc.
