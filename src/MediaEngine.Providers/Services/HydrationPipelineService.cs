@@ -755,6 +755,12 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 ? ExtractPersonReferencesFromRawClaims(stage1RawClaims)
                 : ExtractPersonReferences(canonicalsAfterS1);
 
+            _logger.LogInformation(
+                "[PERSON] Stage 1 person extraction for entity {EntityId}: {Count} person ref(s) from {Source} [{Names}]",
+                request.EntityId, personRefs.Count,
+                stage1RawClaims.Count > 0 ? "raw claims" : "canonicals",
+                string.Join(", ", personRefs.Select(p => $"{p.Name}({p.Role})")));
+
             if (personRefs.Count > 0)
             {
                 try
@@ -1145,10 +1151,51 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                     if (bridgeResult.IsEdition && !string.IsNullOrWhiteSpace(bridgeResult.EditionQid))
                         qidClaims.Add(new ProviderClaim("edition_qid", bridgeResult.EditionQid, 1.0));
 
-                    // Add any claims from the bridge resolution (properties fetched via Data Extension).
+                    // Add any claims from the bridge resolution (minimal properties from candidate scoring).
                     foreach (var claim in bridgeResult.Claims)
                     {
                         qidClaims.Add(claim);
+                    }
+
+                    // ── Full Data Extension: fetch all configured work properties ──
+                    // ResolveBridgeAsync only fetches P31/P50/P212/P957/P629 for candidate scoring.
+                    // Run the full Data Extension to get author, year, genre, series, and all bridge IDs.
+                    try
+                    {
+                        var fullClaims = await stage2ReconAdapter.FetchAsync(
+                            new ProviderLookupRequest
+                            {
+                                EntityId = request.EntityId,
+                                EntityType = EntityType.MediaAsset,
+                                MediaType = request.MediaType,
+                                Title = request.Hints?.GetValueOrDefault("title"),
+                                PreResolvedQid = bridgeResult.WorkQid,
+                                Hints = request.Hints,
+                            }, ct).ConfigureAwait(false);
+
+                        // Add any new claims not already in the QID claims list.
+                        var existingKeys = new HashSet<string>(
+                            qidClaims.Select(c => $"{c.Key}:{c.Value}"),
+                            StringComparer.OrdinalIgnoreCase);
+
+                        foreach (var fc in fullClaims)
+                        {
+                            if (!existingKeys.Contains($"{fc.Key}:{fc.Value}"))
+                            {
+                                qidClaims.Add(fc);
+                                existingKeys.Add($"{fc.Key}:{fc.Value}");
+                            }
+                        }
+
+                        _logger.LogInformation(
+                            "Stage 2: Full Data Extension for entity {Id} — {NewClaims} additional claims from FetchAsync",
+                            request.EntityId, fullClaims.Count);
+                    }
+                    catch (Exception ex) when (ex is not OperationCanceledException)
+                    {
+                        _logger.LogWarning(ex,
+                            "Stage 2: Full Data Extension failed for entity {Id} — continuing with bridge-only claims",
+                            request.EntityId);
                     }
 
                     if (qidClaims.Count > 0)

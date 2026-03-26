@@ -1571,11 +1571,27 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             if (allProps.Count == 0)
                 return [new ProviderClaim("wikidata_qid", masterWorkQid, 1.0)];
 
+            _logger.LogInformation(
+                "{Provider}: Data Extension for {QID} — requesting {Count} properties: [{Props}]",
+                Name, qid, allProps.Count, string.Join(", ", allProps));
+
             var extensions = await ExtendAsync([qid], allProps, ct).ConfigureAwait(false);
             extensions.TryGetValue(qid, out extProps);
 
             if (extProps is not null)
+            {
+                _logger.LogInformation(
+                    "{Provider}: Data Extension returned {PropCount} properties for {QID}: [{Keys}]",
+                    Name, extProps.Count, qid,
+                    string.Join(", ", extProps.Keys));
                 claims.AddRange(ExtensionToClaims(qid, extProps, _config.DataExtension.PropertyLabels, isWork: true));
+            }
+            else
+            {
+                _logger.LogWarning(
+                    "{Provider}: Data Extension returned NO properties for {QID} (extensions had {Count} entities)",
+                    Name, qid, extensions.Count);
+            }
         }
 
         // Fix entity reference labels that may be in wrong language.
