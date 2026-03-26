@@ -5,29 +5,33 @@ namespace MediaEngine.AI.Infrastructure;
 /// </summary>
 public static class HardwareTierPolicy
 {
-    public const string TierHigh    = "high";
-    public const string TierMedium  = "medium";
-    public const string TierLow     = "low";
-    public const string TierMinimal = "minimal";
+    public const string TierHigh   = "high";
+    public const string TierMedium = "medium";
+    public const string TierLow    = "low";
 
     /// <summary>
     /// Classify hardware into a tier based on benchmark results.
     /// </summary>
-    public static string ClassifyTier(double tokensPerSecond, long availableRamMb, bool gpuDetected)
+    /// <param name="tokensPerSecond">Measured inference speed from benchmark.</param>
+    /// <param name="availableRamMb">System RAM available (MB).</param>
+    /// <param name="hasDedicatedGpu">True when a dedicated GPU was detected (not integrated). Intel iGPUs do not qualify.</param>
+    /// <param name="gpuVramMb">GPU VRAM in MB (0 if unknown or no GPU).</param>
+    public static string ClassifyTier(double tokensPerSecond, long availableRamMb, bool hasDedicatedGpu, long gpuVramMb = 0)
     {
-        // GPU detected + sufficient RAM = High tier.
-        // The benchmark may run on CPU before GPU layers are applied,
-        // so tok/s alone underestimates GPU systems. A detected GPU with
-        // ≥8GB RAM and any reasonable tok/s (≥15) qualifies as High.
-        if (gpuDetected && availableRamMb >= 8192 && tokensPerSecond >= 15)
+        // High: dedicated GPU with ≥8GB VRAM, or dedicated GPU + ≥16GB RAM + decent tok/s.
+        if (hasDedicatedGpu && (gpuVramMb >= 8192 || availableRamMb >= 16384) && tokensPerSecond >= 15)
             return TierHigh;
-        if (tokensPerSecond >= 60 && availableRamMb >= 8192)
+
+        // High: no GPU but very fast CPU with lots of RAM.
+        if (tokensPerSecond >= 60 && availableRamMb >= 16384)
             return TierHigh;
-        if (tokensPerSecond >= 15 && availableRamMb >= 4096)
+
+        // Medium: decent CPU + sufficient RAM (or dedicated GPU with less VRAM).
+        if (tokensPerSecond >= 10 && availableRamMb >= 8192)
             return TierMedium;
-        if (tokensPerSecond >= 5 && availableRamMb >= 2048)
-            return TierLow;
-        return TierMinimal;
+
+        // Low: everything else that can at least run the 1B model.
+        return TierLow;
     }
 
     /// <summary>
@@ -44,8 +48,12 @@ public static class HardwareTierPolicy
             QidDisambiguationEnabled       = true,
             WhisperEnabled                 = true,
             EnrichmentMode                 = EnrichmentMode.Continuous,
-            PreferredTextModel             = "text_quality",
+            PreferredTextModel             = "text_scholar",
+            IngestionModel                 = "text_quality",
+            InstantModel                   = "text_fast",
+            EnrichmentModel                = "text_scholar",
             MaxGpuLayers                   = -1, // All layers
+            ScholarAvailable               = true,
         },
         TierMedium => new FeatureTierResult
         {
@@ -57,9 +65,29 @@ public static class HardwareTierPolicy
             WhisperEnabled                 = true,
             EnrichmentMode                 = EnrichmentMode.Scheduled,
             PreferredTextModel             = "text_quality",
+            IngestionModel                 = "text_quality",
+            InstantModel                   = "text_fast",
+            EnrichmentModel                = "text_quality",
             MaxGpuLayers                   = 16,
+            ScholarAvailable               = true, // CPU overnight only
         },
         TierLow => new FeatureTierResult
+        {
+            SmartLabelerEnabled            = true,
+            MediaTypeAdvisorEnabled        = true,
+            DescriptionIntelligenceEnabled = true,
+            VibeTagsEnabled                = false,
+            QidDisambiguationEnabled       = false,
+            WhisperEnabled                 = false,
+            EnrichmentMode                 = EnrichmentMode.Overnight,
+            PreferredTextModel             = "text_quality",
+            IngestionModel                 = "text_fast",
+            InstantModel                   = "text_fast",
+            EnrichmentModel                = "text_quality",
+            MaxGpuLayers                   = 0,
+            ScholarAvailable               = false, // Not enough RAM for 8B
+        },
+        _ => new FeatureTierResult // Unknown / auto fallback — treat as Low
         {
             SmartLabelerEnabled            = true,
             MediaTypeAdvisorEnabled        = true,
@@ -69,19 +97,11 @@ public static class HardwareTierPolicy
             WhisperEnabled                 = false,
             EnrichmentMode                 = EnrichmentMode.Overnight,
             PreferredTextModel             = "text_fast",
+            IngestionModel                 = "text_fast",
+            InstantModel                   = "text_fast",
+            EnrichmentModel                = "text_fast",
             MaxGpuLayers                   = 0,
-        },
-        _ => new FeatureTierResult // Minimal
-        {
-            SmartLabelerEnabled            = false,
-            MediaTypeAdvisorEnabled        = false,
-            DescriptionIntelligenceEnabled = false,
-            VibeTagsEnabled                = false,
-            QidDisambiguationEnabled       = false,
-            WhisperEnabled                 = false,
-            EnrichmentMode                 = EnrichmentMode.Disabled,
-            PreferredTextModel             = "none",
-            MaxGpuLayers                   = 0,
+            ScholarAvailable               = false,
         },
     };
 }
@@ -104,5 +124,9 @@ public sealed class FeatureTierResult
     public bool           WhisperEnabled                 { get; set; }
     public EnrichmentMode EnrichmentMode                 { get; set; }
     public string         PreferredTextModel             { get; set; } = "text_quality";
+    public string         InstantModel                   { get; set; } = "text_fast";
+    public string         IngestionModel                 { get; set; } = "text_quality";
+    public string         EnrichmentModel                { get; set; } = "text_quality";
     public int            MaxGpuLayers                   { get; set; }
+    public bool           ScholarAvailable               { get; set; }
 }

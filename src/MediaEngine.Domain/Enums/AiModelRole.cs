@@ -15,4 +15,7 @@ public enum AiModelRole
 
     /// <summary>Audio model for Whisper tasks (transcription, language detection, sync maps).</summary>
     Audio = 3,
+
+    /// <summary>Scholar text model for deep enrichment (description intelligence, complex analysis). Scheduled/overnight.</summary>
+    TextScholar = 4,
 }

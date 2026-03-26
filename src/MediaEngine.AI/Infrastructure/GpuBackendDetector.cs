@@ -17,9 +17,17 @@ public sealed class GpuBackendDetector
     }
 
     /// <summary>
+    /// Whether a dedicated GPU was detected (not just integrated).
+    /// Integrated GPUs (Intel UHD/Iris/HD) should not be used for AI inference — only for transcoding.
+    /// Set after calling <see cref="Detect"/>.
+    /// </summary>
+    public bool HasDedicatedGpu { get; private set; }
+
+    /// <summary>
     /// Detect the best available backend.
     /// Probe order: CUDA first (fastest for NVIDIA) → Vulkan (broad coverage) → CPU.
     /// Returns (backendName, gpuName) — e.g. ("cuda", "NVIDIA GeForce RTX 5080") or ("cpu", null).
+    /// Also sets <see cref="HasDedicatedGpu"/> — false for integrated GPUs and no-GPU systems.
     /// </summary>
     public (string Backend, string? GpuName) Detect()
     {
@@ -30,7 +38,8 @@ public sealed class GpuBackendDetector
             {
                 // Try to get the real GPU name from nvidia-smi.
                 var realName = QueryNvidiaSmi() ?? cudaGpu;
-                _logger.LogInformation("GPU detected via CUDA: {GpuName}", realName);
+                _logger.LogInformation("GPU detected via CUDA: {GpuName} (dedicated)", realName);
+                HasDedicatedGpu = true;
                 return ("cuda", realName);
             }
         }
@@ -44,7 +53,22 @@ public sealed class GpuBackendDetector
         {
             if (TryDetectVulkan(out var vulkanGpu))
             {
-                _logger.LogInformation("GPU detected via Vulkan: {GpuName}", vulkanGpu);
+                // Check if the Vulkan GPU is Intel integrated — iGPUs should not be used for AI.
+                bool isIntelIntegrated = vulkanGpu is not null && (
+                    vulkanGpu.Contains("Intel",       StringComparison.OrdinalIgnoreCase) ||
+                    vulkanGpu.Contains("UHD",         StringComparison.OrdinalIgnoreCase) ||
+                    vulkanGpu.Contains("Iris",        StringComparison.OrdinalIgnoreCase) ||
+                    vulkanGpu.Contains("HD Graphics", StringComparison.OrdinalIgnoreCase));
+
+                HasDedicatedGpu = !isIntelIntegrated;
+
+                if (isIntelIntegrated)
+                    _logger.LogInformation(
+                        "GPU detected via Vulkan: {GpuName} (integrated — will use CPU for AI inference)",
+                        vulkanGpu);
+                else
+                    _logger.LogInformation("GPU detected via Vulkan: {GpuName} (dedicated)", vulkanGpu);
+
                 return ("vulkan", vulkanGpu);
             }
         }
@@ -53,8 +77,38 @@ public sealed class GpuBackendDetector
             _logger.LogDebug(ex, "Vulkan detection failed");
         }
 
+        HasDedicatedGpu = false;
         _logger.LogInformation("No GPU detected — using CPU backend");
         return ("cpu", null);
+    }
+
+    /// <summary>
+    /// Detect if the system only has an integrated GPU (no dedicated).
+    /// Integrated GPUs should not be used for AI — only for transcoding.
+    /// </summary>
+    public bool IsIntegratedGpuOnly()
+    {
+        // If CUDA is available, it's a dedicated NVIDIA GPU.
+        if (TryDetectCuda(out _)) return false;
+
+        // Check nvidia-smi — if it works, dedicated NVIDIA present.
+        if (QueryNvidiaSmi() is not null) return false;
+
+        // If only Vulkan detected, check if it's Intel integrated.
+        if (TryDetectVulkan(out var name))
+        {
+            if (name is not null && (
+                name.Contains("Intel",       StringComparison.OrdinalIgnoreCase) ||
+                name.Contains("UHD",         StringComparison.OrdinalIgnoreCase) ||
+                name.Contains("Iris",        StringComparison.OrdinalIgnoreCase) ||
+                name.Contains("HD Graphics", StringComparison.OrdinalIgnoreCase)))
+                return true;
+
+            // Non-Intel Vulkan GPU — treat as dedicated.
+            return false;
+        }
+
+        return true; // No GPU detected at all.
     }
 
     /// <summary>

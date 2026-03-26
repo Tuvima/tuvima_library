@@ -1,4 +1,5 @@
 using MediaEngine.AI.Configuration;
+using MediaEngine.AI.Infrastructure;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
@@ -68,6 +69,26 @@ public sealed class DescriptionIntelligenceBatchService : BackgroundService
         }
 
         using var scope = _scopeFactory.CreateScope();
+
+        // Check hardware tier and select the best model available right now.
+        var features = HardwareTierPolicy.GetFeatures(_settings.HardwareProfile.Tier);
+
+        // Check if resources allow enrichment right now.
+        var resourceMonitor = scope.ServiceProvider.GetRequiredService<ResourceMonitorService>();
+        var modelSize = features.ScholarAvailable
+            ? _settings.Models.TextScholar.SizeMB
+            : _settings.Models.TextQuality.SizeMB;
+        var recommendation = resourceMonitor.CanLoadModel(modelSize);
+        if (!recommendation.CanLoad)
+        {
+            _logger.LogInformation("[DESCRIPTION-INTEL-BATCH] Deferring: {Reason}", recommendation.Reason);
+            return;
+        }
+
+        _logger.LogDebug(
+            "[DESCRIPTION-INTEL-BATCH] Using {Model} for enrichment (ScholarAvailable={Scholar})",
+            features.ScholarAvailable ? "text_scholar (8B)" : "text_quality (3B)",
+            features.ScholarAvailable);
         var canonicalRepo  = scope.ServiceProvider.GetRequiredService<ICanonicalValueRepository>();
         var descIntel      = scope.ServiceProvider.GetRequiredService<IDescriptionIntelligenceService>();
 

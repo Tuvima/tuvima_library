@@ -590,6 +590,9 @@ builder.Services.AddSingleton<IDescriptionIntelligenceService, MediaEngine.AI.Fe
 // Sprint 3: GPU backend detection (Vulkan → CUDA → CPU probe chain).
 builder.Services.AddSingleton<MediaEngine.AI.Infrastructure.GpuBackendDetector>();
 
+// Resource monitor — checks RAM, CPU pressure, and transcoding activity before loading models.
+builder.Services.AddSingleton<MediaEngine.AI.Infrastructure.ResourceMonitorService>();
+
 // Sprint 2: Hardware auto-profiling.
 builder.Services.AddSingleton<MediaEngine.AI.Infrastructure.HardwareBenchmarkService>();
 builder.Services.AddHostedService<MediaEngine.Api.Services.HardwareBenchmarkBackgroundService>();

@@ -75,6 +75,18 @@ public sealed class AiModelDefinitions
         Temperature = 0.1,
     };
 
+    [JsonPropertyName("text_scholar")]
+    public AiModelDefinition TextScholar { get; set; } = new()
+    {
+        Description = "Deep enrichment (description intelligence, complex analysis) — scheduled/overnight",
+        File = "Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf",
+        DownloadUrl = "https://huggingface.co/bartowski/Meta-Llama-3.1-8B-Instruct-GGUF/resolve/main/Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf",
+        SizeMB = 4920,
+        ContextLength = 8192,
+        MaxTokens = 1024,
+        Temperature = 0.1,
+    };
+
     [JsonPropertyName("audio")]
     public AiModelDefinition Audio { get; set; } = new()
     {
@@ -89,6 +101,7 @@ public sealed class AiModelDefinitions
     {
         Domain.Enums.AiModelRole.TextFast => TextFast,
         Domain.Enums.AiModelRole.TextQuality => TextQuality,
+        Domain.Enums.AiModelRole.TextScholar => TextScholar,
         Domain.Enums.AiModelRole.Audio => Audio,
         _ => throw new ArgumentOutOfRangeException(nameof(role)),
     };

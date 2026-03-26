@@ -1,4 +1,5 @@
 using MediaEngine.AI.Configuration;
+using MediaEngine.AI.Infrastructure;
 using MediaEngine.Api.Security;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
@@ -180,6 +181,24 @@ internal static class AiEndpoints
         })
         .WithName("RunAiHardwareBenchmark")
         .WithSummary("Re-runs the hardware benchmark and returns the updated profile.")
+        .Produces(StatusCodes.Status200OK)
+        .RequireAdmin();
+
+        // ── GET /ai/resources ────────────────────────────────────────────────
+        group.MapGet("/resources", (ResourceMonitorService monitor) =>
+        {
+            var snapshot = monitor.GetSnapshot();
+            return Results.Ok(new
+            {
+                total_ram_mb       = snapshot.TotalRamMb,
+                free_ram_mb        = snapshot.FreeRamMb,
+                engine_ram_mb      = snapshot.EngineRamMb,
+                cpu_pressure       = snapshot.CpuPressure,
+                transcoding_active = snapshot.TranscodingActive,
+            });
+        })
+        .WithName("GetAiResourceSnapshot")
+        .WithSummary("Returns current system resource usage (RAM, CPU pressure, transcoding status).")
         .Produces(StatusCodes.Status200OK)
         .RequireAdmin();
 

@@ -59,6 +59,11 @@ public sealed class HardwareBenchmarkService
         profile.Backend = backend;
         profile.GpuName = gpuName;
 
+        bool hasDedicatedGpu = _gpuDetector.HasDedicatedGpu;
+        _logger.LogInformation(
+            "GPU detection result: backend={Backend}, name={GpuName}, dedicated={Dedicated}",
+            backend, gpuName ?? "none", hasDedicatedGpu);
+
         // Run token generation benchmark.
         // Generate enough text to get a stable measurement (~50 tokens).
         double tokPerSec = 0;
@@ -93,9 +98,8 @@ public sealed class HardwareBenchmarkService
 
         profile.TokensPerSecond = tokPerSec;
 
-        // Classify tier.
-        bool gpuDetected = !string.Equals(backend, "cpu", StringComparison.OrdinalIgnoreCase);
-        profile.Tier         = HardwareTierPolicy.ClassifyTier(tokPerSec, availableRam, gpuDetected);
+        // Classify tier using dedicated GPU flag (integrated GPUs do not qualify for AI acceleration).
+        profile.Tier          = HardwareTierPolicy.ClassifyTier(tokPerSec, availableRam, hasDedicatedGpu);
         profile.BenchmarkedAt = DateTime.UtcNow;
 
         var features = HardwareTierPolicy.GetFeatures(profile.Tier);
