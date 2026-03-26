@@ -26,6 +26,7 @@ COPY src/MediaEngine.Ingestion/MediaEngine.Ingestion.csproj       src/MediaEngin
 COPY src/MediaEngine.Identity/MediaEngine.Identity.csproj         src/MediaEngine.Identity/
 COPY src/MediaEngine.Api/MediaEngine.Api.csproj                   src/MediaEngine.Api/
 COPY src/MediaEngine.Web/MediaEngine.Web.csproj                   src/MediaEngine.Web/
+COPY src/MediaEngine.AI/MediaEngine.AI.csproj                 src/MediaEngine.AI/
 
 # Restore (cached until any .csproj changes).
 RUN dotnet restore src/MediaEngine.Api/MediaEngine.Api.csproj
@@ -62,7 +63,7 @@ COPY --from=build /app/dashboard ./dashboard
 COPY --from=build /src/config.example/ ./engine/config.example/
 
 # Create named mount points so docker-compose volume declarations work.
-RUN mkdir -p /watch /library /config /db
+RUN mkdir -p /watch /library /config /db /models
 
 # Startup script that launches both processes.
 COPY docker-entrypoint.sh /entrypoint.sh

@@ -21,6 +21,7 @@ export TUVIMA_CONFIG_DIR="${TUVIMA_CONFIG_DIR:-/config}"
 export TUVIMA_DB_PATH="${TUVIMA_DB_PATH:-/db/library.db}"
 export TUVIMA_WATCH_FOLDER="${TUVIMA_WATCH_FOLDER:-/watch}"
 export TUVIMA_LIBRARY_ROOT="${TUVIMA_LIBRARY_ROOT:-/library}"
+export TUVIMA_MODELS_DIR="${TUVIMA_MODELS_DIR:-/models}"
 
 # Dashboard → Engine address.  Inside one container both are on localhost.
 # If running Engine and Dashboard as separate containers (advanced), set this
@@ -40,6 +41,7 @@ echo " Config  : $TUVIMA_CONFIG_DIR"
 echo " Database: $TUVIMA_DB_PATH"
 echo " Watch   : $TUVIMA_WATCH_FOLDER"
 echo " Library : $TUVIMA_LIBRARY_ROOT"
+echo " Models  : $TUVIMA_MODELS_DIR"
 echo "============================================================"
 
 # ── Start Engine ──────────────────────────────────────────────────────────────

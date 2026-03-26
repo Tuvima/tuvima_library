@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>MediaEngine.AI</RootNamespace>
+    <AssemblyName>MediaEngine.AI</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- LLamaSharp: .NET native llama.cpp binding for local LLM inference.
+         MIT license — approved for AGPLv3 compatibility (see CLAUDE.md §5.1). -->
+    <PackageReference Include="LLamaSharp" />
+    <!-- LLamaSharp CPU backend. Future: add LLamaSharp.Backend.Vulkan for GPU. -->
+    <PackageReference Include="LLamaSharp.Backend.Cpu" />
+    <!-- Whisper.net: .NET native whisper.cpp binding for audio transcription.
+         MIT license — approved for AGPLv3 compatibility (see CLAUDE.md §5.1). -->
+    <PackageReference Include="Whisper.net" />
+    <!-- Whisper.net CPU runtime. Future: add Whisper.net.Runtime.Vulkan for GPU. -->
+    <PackageReference Include="Whisper.net.Runtime" />
+    <!-- Logging abstractions for ILogger<T> injection. -->
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <!-- HTTP client factory for model downloads. -->
+    <PackageReference Include="Microsoft.Extensions.Http" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Domain provides all AI contract interfaces and model types. -->
+    <ProjectReference Include="..\MediaEngine.Domain\MediaEngine.Domain.csproj" />
+    <!-- Storage provides IConfigurationLoader for reading config/ai.json. -->
+    <ProjectReference Include="..\MediaEngine.Storage\MediaEngine.Storage.csproj" />
+  </ItemGroup>
+
+</Project>

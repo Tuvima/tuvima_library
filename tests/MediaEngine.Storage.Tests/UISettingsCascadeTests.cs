@@ -299,4 +299,6 @@ file sealed class StubConfigLoader : IConfigurationLoader
     }
 
     public void SaveConfig<T>(string subdirectory, string name, T config) where T : class { }
+    public T? LoadAi<T>() where T : class => default;
+    public void SaveAi<T>(T settings) where T : class { }
 }

@@ -32,6 +32,8 @@ services:
       - /mnt/user/appdata/tuvima/config:/config
       # Database: the SQLite catalogue (survives container image updates).
       - /mnt/user/appdata/tuvima/db:/db
+      # Models: AI model files (downloaded on first run, ~4GB).
+      - /mnt/user/appdata/tuvima/models:/models
 
     environment:
       # These are pre-wired to the volume mount points above.
@@ -40,6 +42,7 @@ services:
       TUVIMA_LIBRARY_ROOT: /library
       TUVIMA_CONFIG_DIR: /config
       TUVIMA_DB_PATH: /db/library.db
+      TUVIMA_MODELS_DIR: /models
 
       # Replace with your server's actual LAN IP so external devices can
       # reach the Dashboard.  localhost works only from the same machine.

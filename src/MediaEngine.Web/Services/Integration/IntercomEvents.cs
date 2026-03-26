@@ -237,3 +237,21 @@ public sealed record HydrationStageCompletedEvent(
 public sealed record LoreDeltaDiscoveredEvent(
     string UniverseQid,
     int    ChangedCount);
+
+// ── AI Events ────────────────────────────────────────────────────────────────
+
+/// <summary>AI model download progress.</summary>
+public sealed record ModelDownloadProgressEvent(
+    string Role,
+    int    Percent,
+    long   BytesDownloaded,
+    long   TotalBytes);
+
+/// <summary>AI model state change (loaded, unloaded, ready, error).</summary>
+public sealed record ModelStateChangedEvent(
+    string Role,
+    string OldState,
+    string NewState);
+
+/// <summary>All AI models are downloaded and ready for inference.</summary>
+public sealed record AiReadyEvent(DateTimeOffset ReadyAt);

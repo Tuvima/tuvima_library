@@ -117,6 +117,14 @@ public interface IConfigurationLoader
     /// </summary>
     IReadOnlyList<ProviderConfiguration> LoadAllProviders();
 
+    // ── AI Settings ──────────────────────────────────────────────────────────
+
+    /// <summary>Load AI settings (models, features, scheduling) from <c>config/ai.json</c>.</summary>
+    T? LoadAi<T>() where T : class;
+
+    /// <summary>Persist AI settings to <c>config/ai.json</c>.</summary>
+    void SaveAi<T>(T settings) where T : class;
+
     // ── Generic (universe, etc.) ─────────────────────────────────────────────
 
     /// <summary>

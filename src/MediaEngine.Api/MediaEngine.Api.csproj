@@ -31,6 +31,7 @@
     <ProjectReference Include="..\MediaEngine.Storage\MediaEngine.Storage.csproj" />
     <ProjectReference Include="..\MediaEngine.Providers\MediaEngine.Providers.csproj" />
     <ProjectReference Include="..\MediaEngine.Identity\MediaEngine.Identity.csproj" />
+    <ProjectReference Include="..\MediaEngine.AI\MediaEngine.AI.csproj" />
   </ItemGroup>
 
 </Project>

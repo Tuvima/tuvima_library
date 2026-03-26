@@ -534,6 +534,22 @@ builder.Services.AddSingleton<IUserStateStore, UserStateRepository>();
 builder.Services.AddSingleton<UISettingsCascadeResolver>();
 builder.Services.AddSingleton<UISettingsCacheRepository>();
 
+// ── AI Services ──────────────────────────────────────────────────────────────
+// Load AI settings from config/ai.json (uses the generic loader to avoid circular refs).
+var aiSettings = configLoader.LoadAi<MediaEngine.AI.Configuration.AiSettings>()
+    ?? new MediaEngine.AI.Configuration.AiSettings();
+
+// Resolve the models directory from environment variable or config default.
+var modelsDir = Environment.GetEnvironmentVariable("TUVIMA_MODELS_DIR");
+if (!string.IsNullOrEmpty(modelsDir))
+    aiSettings.ModelsDirectory = modelsDir;
+
+builder.Services.AddSingleton(aiSettings);
+builder.Services.AddSingleton<MediaEngine.AI.Infrastructure.ModelInventory>();
+builder.Services.AddSingleton<IModelDownloadManager, MediaEngine.AI.Infrastructure.ModelDownloadManager>();
+builder.Services.AddSingleton<IModelLifecycleManager, MediaEngine.AI.Infrastructure.ModelLifecycleManager>();
+builder.Services.AddHostedService<MediaEngine.Api.Services.ModelAutoDownloadService>();
+
 // ── Health Checks ────────────────────────────────────────────────────────────
 // Standard /health endpoint for Docker HEALTHCHECK, monitoring tools, etc.
 builder.Services.AddHealthChecks()
@@ -611,6 +627,7 @@ app.MapRegistryEndpoints();
 app.MapSearchEndpoints();
 app.MapReportEndpoints();
 app.MapDebugEndpoints();
+app.MapAiEndpoints();
 
 // ── Development-only seed endpoints ──────────────────────────────────────────
 if (app.Environment.IsDevelopment())

@@ -33,6 +33,18 @@
     <!-- Xabe.FFmpeg: fluent FFmpeg wrapper for media probing and transcoding; MIT license.
          Approved for AGPLv3 compatibility (see CLAUDE.md §5.1). -->
     <PackageVersion Include="Xabe.FFmpeg" Version="5.2.6" />
+    <!-- LLamaSharp: .NET native llama.cpp binding for local LLM inference.
+         MIT license — approved for AGPLv3 compatibility (see CLAUDE.md §5.1). -->
+    <PackageVersion Include="LLamaSharp" Version="0.21.0" />
+    <!-- LLamaSharp CPU backend for cross-platform inference.
+         MIT license — approved for AGPLv3 compatibility (see CLAUDE.md §5.1). -->
+    <PackageVersion Include="LLamaSharp.Backend.Cpu" Version="0.21.0" />
+    <!-- Whisper.net: .NET native whisper.cpp binding for audio transcription.
+         MIT license — approved for AGPLv3 compatibility (see CLAUDE.md §5.1). -->
+    <PackageVersion Include="Whisper.net" Version="1.8.0" />
+    <!-- Whisper.net CPU runtime for cross-platform inference.
+         MIT license — approved for AGPLv3 compatibility (see CLAUDE.md §5.1). -->
+    <PackageVersion Include="Whisper.net.Runtime" Version="1.8.0" />
     <!-- Windows Service hosting: integrates with Service Control Manager for .exe installer.
          MIT license — no-op on Linux/macOS/Docker; safe to include unconditionally. -->
     <PackageVersion Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.3" />

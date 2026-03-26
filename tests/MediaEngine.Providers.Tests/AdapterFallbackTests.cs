@@ -194,6 +194,8 @@ file sealed class StubConfigurationLoader : IConfigurationLoader
     public IReadOnlyList<ProviderConfiguration> LoadAllProviders() => [];
     public T? LoadConfig<T>(string subdirectory, string name) where T : class => null;
     public void SaveConfig<T>(string subdirectory, string name, T config) where T : class { }
+    public T? LoadAi<T>() where T : class => default;
+    public void SaveAi<T>(T settings) where T : class { }
 }
 
 /// <summary>No-op QID label repository for adapter tests.</summary>

@@ -259,6 +259,21 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
     public void SaveFieldPriorities(FieldPriorityConfiguration config) =>
         SaveFile(FieldPrioritiesFileName, config);
 
+    // ── AI Settings ──────────────────────────────────────────────────────────
+
+    private const string AiFileName = "ai.json";
+
+    /// <inheritdoc/>
+    public T? LoadAi<T>() where T : class =>
+        LoadFile<T>(AiFileName);
+
+    /// <inheritdoc/>
+    public void SaveAi<T>(T settings) where T : class
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+        SaveFile(AiFileName, settings);
+    }
+
     // ── Libraries ────────────────────────────────────────────────────────────
 
     private const string LibrariesFileName = "libraries.json";
