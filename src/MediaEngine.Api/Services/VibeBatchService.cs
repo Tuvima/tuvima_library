@@ -1,5 +1,7 @@
 using MediaEngine.AI.Configuration;
 using MediaEngine.Domain.Contracts;
+using MediaEngine.Domain.Entities;
+using MediaEngine.Domain.Models;
 
 namespace MediaEngine.Api.Services;
 
@@ -57,16 +59,80 @@ public sealed class VibeBatchService : BackgroundService
     private async Task RunBatchAsync(CancellationToken ct)
     {
         using var scope = _scopeFactory.CreateScope();
-        var tagger       = scope.ServiceProvider.GetRequiredService<IVibeTagger>();
+        var tagger        = scope.ServiceProvider.GetRequiredService<IVibeTagger>();
         var canonicalRepo = scope.ServiceProvider.GetRequiredService<ICanonicalValueRepository>();
+        var registryRepo  = scope.ServiceProvider.GetRequiredService<IRegistryRepository>();
 
-        _logger.LogInformation("VibeBatchService: starting vibe tag generation batch");
+        _logger.LogInformation("VibeBatchService: scanning for entities needing vibe tags");
 
-        // Query entities that have a description but no vibe tags.
-        // Full implementation would query the database for untagged entities.
-        // For now, log that the batch ran.
-        _logger.LogInformation("VibeBatchService: batch complete (full query wiring pending)");
+        // Page through the registry to find entities (up to 200 candidates per batch).
+        // We load a larger set then filter in-memory for those missing vibe tags.
+        var page = await registryRepo.GetPageAsync(
+            new RegistryQuery(Offset: 0, Limit: 200, Sort: "newest"), ct);
 
-        await Task.CompletedTask;
+        int tagged = 0;
+
+        foreach (var item in page.Items)
+        {
+            if (ct.IsCancellationRequested) break;
+            if (tagged >= 50) break; // Batch cap.
+
+            var canonicals = await canonicalRepo.GetByEntityAsync(item.EntityId, ct);
+
+            // Skip if already has vibe tags.
+            if (canonicals.Any(c => string.Equals(c.Key, "vibe", StringComparison.OrdinalIgnoreCase)))
+                continue;
+
+            // Need a description to generate vibes.
+            var description = canonicals.FirstOrDefault(c =>
+                string.Equals(c.Key, "description", StringComparison.OrdinalIgnoreCase));
+            if (description is null) continue;
+
+            var genres = canonicals
+                .Where(c => string.Equals(c.Key, "genre", StringComparison.OrdinalIgnoreCase))
+                .Select(c => c.Value)
+                .ToList();
+
+            var mediaType = canonicals.FirstOrDefault(c =>
+                string.Equals(c.Key, "media_type", StringComparison.OrdinalIgnoreCase));
+
+            var title = canonicals.FirstOrDefault(c =>
+                string.Equals(c.Key, "title", StringComparison.OrdinalIgnoreCase));
+
+            try
+            {
+                var tags = await tagger.TagAsync(
+                    title?.Value ?? "Unknown",
+                    description.Value,
+                    genres,
+                    mediaType?.Value ?? "books",
+                    ct);
+
+                if (tags.Count > 0)
+                {
+                    // Store each tag as a separate vibe canonical value.
+                    var vibeValues = tags.Select(tag => new CanonicalValue
+                    {
+                        EntityId     = item.EntityId,
+                        Key          = "vibe",
+                        Value        = tag,
+                        LastScoredAt = DateTimeOffset.UtcNow,
+                    }).ToList();
+
+                    await canonicalRepo.UpsertBatchAsync(vibeValues, ct);
+                    tagged++;
+
+                    _logger.LogDebug(
+                        "VibeBatchService: tagged entity {EntityId} with {Count} vibe tag(s)",
+                        item.EntityId, tags.Count);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "VibeBatchService: failed to tag entity {Id}", item.EntityId);
+            }
+        }
+
+        _logger.LogInformation("VibeBatchService: tagged {Count} entities", tagged);
     }
 }

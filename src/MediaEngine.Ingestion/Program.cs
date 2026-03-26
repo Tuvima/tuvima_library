@@ -105,9 +105,6 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<IMediaEntityChainFactory, MediaEntityChainFactory>();
         services.AddSingleton<ISystemActivityRepository, SystemActivityRepository>();
 
-        // ── Ingestion hint cache (sibling-aware priming) ───────
-        services.AddSingleton<MediaEngine.Ingestion.Services.IIngestionHintCache, MediaEngine.Ingestion.Services.IngestionHintCache>();
-
         // ── File watching / debounce ───────────────────────────
         services.AddSingleton<IFileWatcher, FileWatcher>();
         services.AddSingleton<DebounceQueue>();

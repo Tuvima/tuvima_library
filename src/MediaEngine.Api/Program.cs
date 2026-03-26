@@ -296,7 +296,6 @@ builder.Services.PostConfigure<IngestionOptions>(opts =>
 });
 
 builder.Services.AddSingleton<IAssetHasher, AssetHasher>();
-builder.Services.AddSingleton<MediaEngine.Ingestion.Services.IIngestionHintCache, MediaEngine.Ingestion.Services.IngestionHintCache>();
 builder.Services.AddSingleton<IFileWatcher, FileWatcher>();
 builder.Services.AddSingleton<DebounceQueue>();
 builder.Services.AddSingleton<IFileOrganizer, FileOrganizer>();
@@ -484,7 +483,6 @@ builder.Services.AddSingleton<IReviewQueueRepository,        ReviewQueueReposito
 builder.Services.AddSingleton<IPendingPersonSignalRepository, PendingPersonSignalRepository>();
 builder.Services.AddSingleton<IDescriptionSignalExtractor,   DescriptionSignalExtractor>();
 builder.Services.AddSingleton<IPersonSignalVerificationService, PersonSignalVerificationService>();
-builder.Services.AddHostedService<PersonSignalVerificationWorker>();
 builder.Services.AddSingleton<IRegistryRepository,           RegistryRepository>();
 builder.Services.AddSingleton<ISearchIndexRepository,        SearchIndexRepository>();
 builder.Services.AddSingleton<ISearchService,                SearchService>();
@@ -512,7 +510,6 @@ builder.Services.AddHostedService<WhisperSyncBackgroundService>();
 // ── Phase 1 (Activity Log): System activity ledger + daily pruning ───────────
 builder.Services.AddSingleton<ISystemActivityRepository, SystemActivityRepository>();
 builder.Services.AddSingleton<IIngestionLogRepository, IngestionLogRepository>();
-builder.Services.AddSingleton<IIngestionBatchRepository, IngestionBatchRepository>();
 builder.Services.AddSingleton<IResolverCacheRepository, ResolverCacheRepository>();
 builder.Services.AddHostedService<ActivityPruningService>();
 builder.Services.AddHostedService<RejectedFileCleanupService>();

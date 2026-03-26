@@ -95,17 +95,11 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     // Hero banner generation — creates cinematic hero.jpg from cover art.
     private readonly IHeroBannerGenerator _heroGenerator;
 
-    // Folder hint cache — sibling-aware ingestion priming (D1/D2).
-    private readonly IIngestionHintCache _hintCache;
-
     // Centralized organization gate — single source of truth for promotion eligibility.
     private readonly IOrganizationGate _gate;
 
     // Per-file ingestion lifecycle log — tracks each file from detection to completion.
     private readonly IIngestionLogRepository _ingestionLog;
-
-    // Ingestion batch repository — tracks batches of files through the pipeline.
-    private readonly IIngestionBatchRepository _batchRepo;
 
     // AI-powered filename cleaning and media type classification (Sprint 2).
     private readonly ISmartLabeler _smartLabeler;
@@ -152,10 +146,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         ISystemActivityRepository  activityRepo,
         IReconciliationService     reconciliation,
         IHeroBannerGenerator       heroGenerator,
-        IIngestionHintCache        hintCache,
         IOrganizationGate          gate,
         IIngestionLogRepository    ingestionLog,
-        IIngestionBatchRepository  batchRepo,
         ISmartLabeler             smartLabeler,
         IMediaTypeAdvisor         typeAdvisor,
         IBatchManifestBuilder     manifestBuilder)
@@ -181,10 +173,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         _activityRepo   = activityRepo;
         _reconciliation = reconciliation;
         _heroGenerator  = heroGenerator;
-        _hintCache      = hintCache;
         _gate           = gate;
         _ingestionLog   = ingestionLog;
-        _batchRepo      = batchRepo;
         _smartLabeler    = smartLabeler;
         _typeAdvisor     = typeAdvisor;
         _manifestBuilder = manifestBuilder;
@@ -211,21 +201,6 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             EntityType = "Server",
             Detail     = "Server started",
         }, stoppingToken).ConfigureAwait(false);
-
-        // ── Step 1b: Abandon stale batches ─────────────────────────────────
-        // Any batches still "running" from the previous Engine session were
-        // interrupted by shutdown. Mark them as abandoned so they don't appear
-        // as active in the Dashboard.
-        try
-        {
-            var abandoned = await _batchRepo.AbandonRunningAsync(stoppingToken).ConfigureAwait(false);
-            if (abandoned > 0)
-                _logger.LogInformation("Marked {Count} stale batch(es) as abandoned", abandoned);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            _logger.LogWarning(ex, "Failed to abandon stale batches — continuing");
-        }
 
         // ── Step 2: Reconcile BEFORE scanning ────────────────────────────
         // Clean orphaned DB records so the initial scan sees files as fresh
@@ -404,10 +379,6 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         // for files in the same batch share one correlation ID.
         var ingestionRunId = candidate.BatchId ?? Guid.NewGuid();
 
-        // Batch tracking: propagate batch ID and track the final outcome.
-        var batchId      = candidate.BatchId;
-        var batchOutcome = "failed"; // assume worst — overridden on success paths
-
         // Step 2: skip failed probe candidates.
         if (candidate.IsFailed)
         {
@@ -542,8 +513,6 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                             "Could not delete duplicate file {Path}", candidate.Path);
                     }
 
-                    // Count duplicate toward batch as already-identified.
-                    await UpdateBatchCounterAsync(batchId, "registered", ct).ConfigureAwait(false);
                     return;
                 }
 
@@ -551,8 +520,6 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 // enriched since first scan).
                 await TryReorganizeExistingAsync(existing, candidate.Path, ct)
                     .ConfigureAwait(false);
-                // Count re-detection toward batch as already-identified.
-                await UpdateBatchCounterAsync(batchId, "registered", ct).ConfigureAwait(false);
                 return;
             }
         }
@@ -682,7 +649,6 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 candidate.Path,
                 $"Corrupt: {result.CorruptReason}",
                 DateTimeOffset.UtcNow), ct).ConfigureAwait(false);
-            await UpdateBatchCounterAsync(batchId, "failed", ct).ConfigureAwait(false);
             return;
         }
 
@@ -1180,83 +1146,12 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             catch (Exception ex) { _logger.LogDebug(ex, "Ingestion log update failed — continuing"); }
         }
 
-        // Batch outcome: determine whether this file is "identified" or "review".
-        // Corrupt and insert-failed paths keep batchOutcome = "failed" (the default set at the top).
-        batchOutcome = gateResult.ReviewTrigger is not null ? "review" : "registered";
-
         // Phase 9→Pipeline: enqueue non-blocking three-stage hydration pipeline.
         // IMPORTANT: placed AFTER the organization gate so that any LowConfidence review
         // item created above already exists in the database before the hydration pipeline's
         // TryAutoResolveAndOrganizeAsync runs. This prevents a race condition where the
         // hydration pipeline resolves before the review item is even written, leaving a
         // stale review item in the queue for a file that was successfully organized.
-
-        // D2: consume folder hint — if a sibling file was already hydrated, use its
-        // bridge IDs and Hub ID to accelerate Stage 1 for this file.
-        var sourceFolder = Path.GetDirectoryName(candidate.Path);
-        Dictionary<string, string>? hintBridgeIds = null;
-        Guid? hintedHubId = null;
-
-        if (!string.IsNullOrEmpty(sourceFolder)
-            && _hintCache.TryGetHint(sourceFolder, out var folderHint)
-            && folderHint is not null)
-        {
-            // Divergence gate: a file with no embedded author, series, or year
-            // cannot be verified as belonging to the same collection as the hint
-            // provider.  Accepting the hint would inject bridge IDs that bypass
-            // the Stage 1 false-positive guard (HasSufficientMetadataForAuthorityMatch),
-            // allowing a title-only file (e.g. "Unknown") to inherit a sibling's
-            // ISBN/ASIN and receive a spurious Wikidata match.
-            var meta = candidate.Metadata;
-            bool hasCorroboratingMetadata =
-                meta is not null && (
-                    !string.IsNullOrWhiteSpace(meta.GetValueOrDefault("author")) ||
-                    !string.IsNullOrWhiteSpace(meta.GetValueOrDefault("series")) ||
-                    !string.IsNullOrWhiteSpace(meta.GetValueOrDefault("year")));
-
-            if (!hasCorroboratingMetadata)
-            {
-                _logger.LogInformation(
-                    "Folder hint skipped for {Path}: file has no embedded author, series, or year " +
-                    "to corroborate sibling hint (HubId={HubId}). Hint bridge IDs will not be injected.",
-                    candidate.Path, folderHint.HubId.ToString()[..8]);
-            }
-            else
-            {
-                // Title divergence gate: if the incoming file has a clearly different
-                // title from the hint's first file, the hint is for a different work
-                // (e.g. different books by the same author in the same folder).
-                var incomingTitle = meta?.GetValueOrDefault("title")?.Trim();
-                var hintTitle = folderHint.Title?.Trim();
-
-                bool titleDiverges = !string.IsNullOrWhiteSpace(incomingTitle)
-                    && !string.IsNullOrWhiteSpace(hintTitle)
-                    && !string.Equals(incomingTitle, hintTitle, StringComparison.OrdinalIgnoreCase)
-                    && !incomingTitle.Contains(hintTitle, StringComparison.OrdinalIgnoreCase)
-                    && !hintTitle.Contains(incomingTitle, StringComparison.OrdinalIgnoreCase);
-
-                if (titleDiverges)
-                {
-                    _logger.LogInformation(
-                        "Folder hint skipped for {Path}: title \"{IncomingTitle}\" diverges from hint title \"{HintTitle}\" " +
-                        "(HubId={HubId}). Hint bridge IDs will not be injected.",
-                        candidate.Path, incomingTitle, hintTitle, folderHint.HubId.ToString()[..8]);
-                }
-                else
-                {
-                    hintBridgeIds = folderHint.BridgeIds.Count > 0
-                        ? new Dictionary<string, string>(folderHint.BridgeIds, StringComparer.OrdinalIgnoreCase)
-                        : null;
-                    hintedHubId = folderHint.HubId != Guid.Empty ? folderHint.HubId : null;
-
-                    _logger.LogDebug(
-                        "Folder hint consumed for {Path}: HubId={HubId}, BridgeIds={Count}",
-                        candidate.Path, folderHint.HubId.ToString()[..8],
-                        folderHint.BridgeIds.Count);
-                }
-            }
-        }
-
         await _pipeline.EnqueueAsync(new HarvestRequest
         {
             EntityId            = assetId,
@@ -1264,8 +1159,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             MediaType           = resolvedMediaType,
             Hints               = BuildHints(candidate.Metadata),
             IngestionRunId      = ingestionRunId,
-            FolderHintBridgeIds = hintBridgeIds,
-            HintedHubId         = hintedHubId,
+            FolderHintBridgeIds = null,
+            HintedHubId         = null,
             Pass                = HydrationPass.Quick,
         }, ct).ConfigureAwait(false);
 
@@ -1286,48 +1181,6 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         // a co-author's bio before the pipeline can detect it as a collective pseudonym.
         // HydrationPipelineService.ExtractPersonReferencesFromRawClaims handles person
         // creation, linking, and enrichment after pen name detection has run.
-
-        // D2: populate folder hint for sibling files.
-        // Only set for the first file in the folder — subsequent siblings consume it.
-        // Hub ID is Guid.Empty at this stage because Hub assignment happens during
-        // Stage 1 of the hydration pipeline. Bridge IDs from embedded metadata
-        // (ISBN, ASIN) are the primary value for sibling acceleration.
-        if (!string.IsNullOrEmpty(sourceFolder) && !_hintCache.TryGetHint(sourceFolder, out _))
-        {
-            var hintBridges = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            var meta = candidate.Metadata
-                       ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-
-            foreach (var key in new[]
-            {
-                "isbn", "asin", "tmdb_id", "imdb_id", "wikidata_qid",
-                "apple_books_id", "audible_id", "goodreads_id",
-            })
-            {
-                if (meta.TryGetValue(key, out var val) && !string.IsNullOrWhiteSpace(val))
-                    hintBridges[key] = val;
-            }
-
-            if (hintBridges.Count > 0)
-            {
-                _hintCache.SetHint(sourceFolder, new FolderHint
-                {
-                    HubId               = Guid.Empty,  // resolved later during hydration
-                    QualifiedIdentityId = meta.GetValueOrDefault("wikidata_qid"),
-                    SeriesName          = meta.GetValueOrDefault("series"),
-                    AuthorOrArtist      = meta.GetValueOrDefault("author"),
-                    Title               = meta.GetValueOrDefault("title"),
-                    BridgeIds           = hintBridges,
-                    CreatedAtUtc        = DateTime.UtcNow,
-                    SourceFolderPath    = sourceFolder,
-                    MediaTypeCategory   = resolvedMediaType.ToString(),
-                });
-
-                _logger.LogDebug(
-                    "Folder hint populated for {Folder}: {Count} bridge IDs",
-                    sourceFolder, hintBridges.Count);
-            }
-        }
 
         // Update stored path when the file was moved (organized or staged).
         if (!string.Equals(currentPath, candidate.Path, StringComparison.Ordinal))
@@ -1514,11 +1367,6 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             hashLock.Release();
             _concurrencyGuard.ReleaseHashLock(hash.Hex);
         }
-
-        // Update batch counters with the final outcome.
-        // Pass resolved title so the Dashboard progress bar can show recently processed titles.
-        var batchTitle = candidate.Metadata?.TryGetValue("title", out var t) == true ? t : null;
-        await UpdateBatchCounterAsync(batchId, batchOutcome, ct, recentTitle: batchTitle).ConfigureAwait(false);
 
         // end of ProcessCandidateCoreAsync
     }
@@ -1764,35 +1612,6 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 "Initial scan: enqueued {Count} existing file(s) from {Dir}",
                 count, directory);
 
-        if (count > 0)
-        {
-            try
-            {
-                _batchRepo.CreateAsync(new Domain.Entities.IngestionBatch
-                {
-                    Id         = batchId,
-                    Status     = "running",
-                    SourcePath = directory,
-                    FilesTotal = count,
-                }).GetAwaiter().GetResult(); // Sync context — ScanExistingFiles is void
-
-                _activityRepo.LogAsync(new Domain.Entities.SystemActivityEntry
-                {
-                    ActionType     = Domain.Enums.SystemActionType.BatchCreated,
-                    EntityType     = "Batch",
-                    EntityId       = batchId,
-                    Detail         = $"Ingestion batch created: {count} file(s) from {Path.GetFileName(directory)}",
-                    ChangesJson    = System.Text.Json.JsonSerializer.Serialize(new
-                    {
-                        files_total = count,
-                        source_path = directory,
-                        source_name = Path.GetFileName(directory),
-                    }),
-                    IngestionRunId = batchId,
-                }).GetAwaiter().GetResult();
-            }
-            catch (Exception ex) { _logger.LogWarning(ex, "Failed to create ingestion batch record"); }
-        }
     }
 
     // =========================================================================
@@ -2385,8 +2204,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         double confidence,
         string detail,
         CancellationToken ct,
-        Guid? ingestionRunId = null,
-        bool adjustBatchCounter = false)
+        Guid? ingestionRunId = null)
     {
         try
         {
@@ -2416,13 +2234,6 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             };
 
             await _reviewRepo.InsertAsync(entry, ct).ConfigureAwait(false);
-
-            // Adjust batch counter: move one file from "identified" to "review"
-            // so the batch KPIs reflect the current state of its files.
-            // Only needed for post-ingestion review items (hydration callbacks) —
-            // during ingestion, the batch outcome is set directly.
-            if (adjustBatchCounter)
-                await AdjustBatchForReviewAsync(ingestionRunId, ct).ConfigureAwait(false);
 
             // Activity: review item created.
             await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
@@ -2609,131 +2420,6 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     }
 
     /// <summary>
-    /// Increments the appropriate counter on the ingestion batch and checks
-    /// whether all files in the batch have been processed.
-    /// </summary>
-    /// <param name="batchId">The batch to update, or null to skip.</param>
-    /// <param name="outcome">Terminal outcome: "registered", "review", "nomatch", or "failed".</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <param name="recentTitle">Display title of the file just processed, included in the BatchProgress event.</param>
-    /// <param name="currentStage">Active pipeline stage name broadcast to the Dashboard (e.g. "RetailIdentification").</param>
-    private async Task UpdateBatchCounterAsync(
-        Guid? batchId, string outcome, CancellationToken ct,
-        string? recentTitle = null, string? currentStage = null)
-    {
-        if (batchId is null) return;
-        try
-        {
-            var batch = await _batchRepo.GetByIdAsync(batchId.Value, ct).ConfigureAwait(false);
-            if (batch is null) return;
-
-            // Increment the appropriate counter based on outcome.
-            var identified = batch.FilesIdentified + (outcome == "registered" ? 1 : 0);
-            var review     = batch.FilesReview     + (outcome == "review"     ? 1 : 0);
-            var noMatch    = batch.FilesNoMatch    + (outcome == "nomatch"    ? 1 : 0);
-            var failed     = batch.FilesFailed     + (outcome == "failed"     ? 1 : 0);
-            var processed  = identified + review + noMatch + failed;
-
-            await _batchRepo.UpdateCountsAsync(
-                batchId.Value, batch.FilesTotal, processed,
-                identified, review, noMatch, failed, ct).ConfigureAwait(false);
-
-            // Check if batch is complete.
-            var isComplete = processed >= batch.FilesTotal;
-            if (isComplete)
-            {
-                await _batchRepo.CompleteAsync(batchId.Value, "completed", ct).ConfigureAwait(false);
-                await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
-                {
-                    ActionType     = Domain.Enums.SystemActionType.BatchCompleted,
-                    EntityType     = "Batch",
-                    EntityId       = batchId,
-                    Detail         = $"Ingestion batch completed: {identified} identified, {review} review, {noMatch} no match, {failed} failed",
-                    ChangesJson    = System.Text.Json.JsonSerializer.Serialize(new
-                    {
-                        files_total      = batch.FilesTotal,
-                        files_identified = identified,
-                        files_review     = review,
-                        files_no_match   = noMatch,
-                        files_failed     = failed,
-                    }),
-                    IngestionRunId = batchId,
-                }, ct).ConfigureAwait(false);
-            }
-
-            // Broadcast live progress to the Dashboard.
-            var progressPercent = batch.FilesTotal > 0
-                ? (int)(100.0 * processed / batch.FilesTotal)
-                : 0;
-
-            // Estimate time remaining from elapsed throughput.
-            int? estimatedSecondsRemaining = null;
-            if (processed > 0 && !isComplete)
-            {
-                var elapsed = (DateTimeOffset.UtcNow - batch.StartedAt).TotalSeconds;
-                var secondsPerFile = elapsed / processed;
-                var remaining = batch.FilesTotal - processed;
-                estimatedSecondsRemaining = (int)Math.Ceiling(secondsPerFile * remaining);
-            }
-
-            // TODO: accumulate recentTitle into a rolling window (last 3) per batch
-            // rather than passing a single title once per file.
-            var recentTitles = recentTitle is not null
-                ? (IReadOnlyList<string>)new[] { recentTitle }
-                : null;
-
-            await SafePublishAsync("BatchProgress", new
-            {
-                BatchId                   = batchId.Value,
-                FilesTotal                = batch.FilesTotal,
-                FilesProcessed            = processed,
-                FilesIdentified           = identified,
-                FilesReview               = review,
-                FilesNoMatch              = noMatch,
-                FilesFailed               = failed,
-                ProgressPercent           = progressPercent,
-                EstimatedSecondsRemaining = estimatedSecondsRemaining,
-                IsComplete                = isComplete,
-                RecentTitles              = recentTitles,
-                CurrentStage              = currentStage,
-            }, ct).ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "Batch counter update failed for {BatchId}", batchId);
-        }
-    }
-
-    /// <summary>
-    /// Adjusts batch counters when a review item is created post-ingestion
-    /// (e.g. during background hydration). Moves one file from "identified"
-    /// to "review" so the batch KPIs reflect the current state.
-    /// </summary>
-    private async Task AdjustBatchForReviewAsync(Guid? batchId, CancellationToken ct)
-    {
-        if (batchId is null) return;
-        try
-        {
-            var batch = await _batchRepo.GetByIdAsync(batchId.Value, ct).ConfigureAwait(false);
-            if (batch is null || batch.FilesIdentified <= 0) return;
-
-            await _batchRepo.UpdateCountsAsync(
-                batchId.Value,
-                batch.FilesTotal,
-                batch.FilesProcessed,
-                batch.FilesIdentified - 1,
-                batch.FilesReview + 1,
-                batch.FilesNoMatch,
-                batch.FilesFailed,
-                ct).ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "Batch review adjustment failed for {BatchId}", batchId);
-        }
-    }
-
-    /// <summary>
     /// Adds an FSW/poll-sourced file event to the collection buffer.
     /// Resets the quiet-period timer. Events that already carry a BatchId
     /// (e.g. from <see cref="ScanExistingFiles"/>) are passed directly to
@@ -2788,40 +2474,6 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
         var batchId = Guid.NewGuid();
         var count = snapshot.Count;
-
-        // Create the batch record with the exact total.
-        try
-        {
-            _batchRepo.CreateAsync(new Domain.Entities.IngestionBatch
-            {
-                Id         = batchId,
-                Status     = "running",
-                SourcePath = Path.GetDirectoryName(snapshot[0].Path),
-                FilesTotal = count,
-            }).GetAwaiter().GetResult();
-
-            _activityRepo.LogAsync(new Domain.Entities.SystemActivityEntry
-            {
-                ActionType     = Domain.Enums.SystemActionType.BatchCreated,
-                EntityType     = "Batch",
-                EntityId       = batchId,
-                Detail         = $"Ingestion batch created: {count} file(s)",
-                ChangesJson    = System.Text.Json.JsonSerializer.Serialize(new
-                {
-                    files_total = count,
-                    source_path = Path.GetDirectoryName(snapshot[0].Path),
-                }),
-                IngestionRunId = batchId,
-            }).GetAwaiter().GetResult();
-
-            _logger.LogInformation(
-                "FSW batch created: {BatchId} with {Count} file(s)",
-                batchId, count);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to create FSW batch record");
-        }
 
         // Batch manifest analysis — groups files by series/album/work before individual processing.
         // Best-effort: a failure must never block ingestion.
