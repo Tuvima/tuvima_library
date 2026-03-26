@@ -54,7 +54,8 @@
     "taste_profiling": true,
     "why_factor": true,
     "intent_search": true,
-    "url_paste": true
+    "url_paste": true,
+    "description_intelligence": true
   },
   "vibe_vocabulary": {
     "books": [

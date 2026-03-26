@@ -78,6 +78,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     private readonly IBridgeIdRepository _bridgeIdRepo;
     private readonly ILocalMatchService _localMatch;
     private readonly IQidDisambiguator? _disambiguator;
+    private readonly IDescriptionIntelligenceService? _descriptionIntelligence;
     private readonly ILogger<HydrationPipelineService> _logger;
 
     // Reverse lookup: claim key → Wikidata P-code (e.g. "isbn_13" → "P212").
@@ -118,7 +119,8 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         ILocalMatchService localMatch,
         ILogger<HydrationPipelineService> logger,
         WikidataReconciler? reconciler = null,
-        IQidDisambiguator? disambiguator = null)
+        IQidDisambiguator? disambiguator = null,
+        IDescriptionIntelligenceService? descriptionIntelligence = null)
     {
         ArgumentNullException.ThrowIfNull(providers);
         ArgumentNullException.ThrowIfNull(claimRepo);
@@ -177,10 +179,11 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         _bridgeIdRepo        = bridgeIdRepo;
         _localMatch          = localMatch;
         _deferredRepo        = deferredRepo;
-        _reconciler          = reconciler;
-        _disambiguator       = disambiguator;
-        _fictionalEntityRepo = fictionalEntityRepo;
-        _logger              = logger;
+        _reconciler               = reconciler;
+        _disambiguator            = disambiguator;
+        _descriptionIntelligence  = descriptionIntelligence;
+        _fictionalEntityRepo      = fictionalEntityRepo;
+        _logger                   = logger;
 
         _channel = Channel.CreateBounded<HarvestRequest>(new BoundedChannelOptions(500)
         {
@@ -1376,6 +1379,111 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         }
 
         result.Stage2ClaimsAdded = stage2Claims;
+
+        // ── Description Intelligence (post-Stage-2 LLM analysis) ────────────────
+        // Runs after both stages complete, reading all available descriptions
+        // (Apple API + Wikipedia + plot section + embedded) and extracting
+        // structured vocabulary + person references in a single LLM pass.
+        if (_descriptionIntelligence is not null
+            && request.EntityType == EntityType.MediaAsset)
+        {
+            try
+            {
+                // Determine media category string for vocabulary selection.
+                var mediaCategory = request.MediaType.ToString();
+
+                var diResult = await _descriptionIntelligence.AnalyzeAsync(
+                    request.EntityId, mediaCategory, ct).ConfigureAwait(false);
+
+                if (diResult is not null)
+                {
+                    // Persist vocabulary claims.
+                    var aiClaims = new List<ProviderClaim>();
+
+                    if (!string.IsNullOrWhiteSpace(diResult.Tldr))
+                        aiClaims.Add(new ProviderClaim("tldr", diResult.Tldr, 0.75));
+
+                    foreach (var theme in diResult.Themes)
+                        aiClaims.Add(new ProviderClaim("themes", theme, 0.70));
+
+                    foreach (var mood in diResult.Mood)
+                        aiClaims.Add(new ProviderClaim("mood", mood, 0.70));
+
+                    if (!string.IsNullOrWhiteSpace(diResult.Setting))
+                        aiClaims.Add(new ProviderClaim("setting", diResult.Setting, 0.65));
+
+                    if (!string.IsNullOrWhiteSpace(diResult.TimePeriod))
+                        aiClaims.Add(new ProviderClaim("time_period", diResult.TimePeriod, 0.65));
+
+                    if (!string.IsNullOrWhiteSpace(diResult.Audience))
+                        aiClaims.Add(new ProviderClaim("audience", diResult.Audience, 0.70));
+
+                    foreach (var warning in diResult.ContentWarnings)
+                        aiClaims.Add(new ProviderClaim("content_warnings", warning, 0.60));
+
+                    if (!string.IsNullOrWhiteSpace(diResult.Pace))
+                        aiClaims.Add(new ProviderClaim("pace", diResult.Pace, 0.65));
+
+                    if (aiClaims.Count > 0)
+                    {
+                        await ScoringHelper.PersistClaimsAndScoreAsync(
+                            request.EntityId, aiClaims,
+                            MediaEngine.Domain.MetadataFieldConstants.AiProviderId,
+                            _claimRepo, _canonicalRepo, _scoringEngine, _configLoader,
+                            _providers, ct, _arrayRepo, _logger, _searchIndex).ConfigureAwait(false);
+
+                        _logger.LogInformation(
+                            "[DESCRIPTION-INTEL] Persisted {Count} AI claims for entity {Id}",
+                            aiClaims.Count, request.EntityId);
+                    }
+
+                    // Feed extracted people to RecursiveIdentityService.
+                    if (diResult.People.Count > 0)
+                    {
+                        var personRefs = diResult.People
+                            .Select(p => new PersonReference(p.Role, p.Name))
+                            .ToList();
+
+                        _logger.LogInformation(
+                            "[DESCRIPTION-INTEL] Extracted {Count} person ref(s) from descriptions: [{Names}]",
+                            personRefs.Count, string.Join(", ", personRefs.Select(p => $"{p.Name}({p.Role})")));
+
+                        try
+                        {
+                            var personRequests = await _identity.EnrichAsync(
+                                request.EntityId, personRefs, ct).ConfigureAwait(false);
+
+                            foreach (var pr in personRequests)
+                            {
+                                try
+                                {
+                                    await _harvesting.ProcessSynchronousAsync(pr, ct)
+                                        .ConfigureAwait(false);
+                                }
+                                catch (Exception ex2) when (ex2 is not OperationCanceledException)
+                                {
+                                    _logger.LogWarning(ex2,
+                                        "[DESCRIPTION-INTEL] Person enrichment failed for {Name}; continuing",
+                                        pr.EntityId);
+                                }
+                            }
+                        }
+                        catch (Exception ex2) when (ex2 is not OperationCanceledException)
+                        {
+                            _logger.LogWarning(ex2,
+                                "[DESCRIPTION-INTEL] Person enrichment batch failed for entity {Id}; continuing",
+                                request.EntityId);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(ex,
+                    "[DESCRIPTION-INTEL] Analysis failed for entity {Id} — continuing pipeline",
+                    request.EntityId);
+            }
+        }
 
         if (stage2Claims > 0)
         {

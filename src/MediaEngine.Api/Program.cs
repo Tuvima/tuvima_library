@@ -582,6 +582,9 @@ builder.Services.AddSingleton<IIntentSearchParser, MediaEngine.AI.Features.Inten
 // Sprint 8: Advanced features.
 builder.Services.AddSingleton<IUrlMetadataExtractor, MediaEngine.AI.Features.UrlMetadataExtractor>();
 
+// Sprint 9: Description Intelligence.
+builder.Services.AddSingleton<IDescriptionIntelligenceService, MediaEngine.AI.Features.DescriptionIntelligenceService>();
+
 // ── Health Checks ────────────────────────────────────────────────────────────
 // Standard /health endpoint for Docker HEALTHCHECK, monitoring tools, etc.
 builder.Services.AddHealthChecks()

@@ -176,6 +176,9 @@ public sealed class AiFeatureFlags
 
     [JsonPropertyName("url_paste")]
     public bool UrlPaste { get; set; } = true;
+
+    [JsonPropertyName("description_intelligence")]
+    public bool DescriptionIntelligence { get; set; } = true;
 }
 
 /// <summary>Per-category controlled vocabulary for vibe tagging.</summary>

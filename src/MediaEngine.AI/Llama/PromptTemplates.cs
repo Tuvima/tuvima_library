@@ -197,4 +197,48 @@ public static class PromptTemplates
         }
         return sb.ToString();
     }
+
+    // ── Description Intelligence ──────────────────────────────────────────────
+
+    /// <summary>GBNF grammar for Description Intelligence structured output.</summary>
+    public const string DescriptionIntelligenceGrammar = """
+        root ::= "{" ws "\"people\"" ws ":" ws people ws "," ws "\"themes\"" ws ":" ws sarr ws "," ws "\"mood\"" ws ":" ws sarr ws "," ws "\"setting\"" ws ":" ws nstr ws "," ws "\"time_period\"" ws ":" ws nstr ws "," ws "\"audience\"" ws ":" ws nstr ws "," ws "\"content_warnings\"" ws ":" ws sarr ws "," ws "\"pace\"" ws ":" ws nstr ws "," ws "\"tldr\"" ws ":" ws str ws "}"
+        people ::= "[" ws (person ("," ws person)*)? ws "]"
+        person ::= "{" ws "\"name\"" ws ":" ws str ws "," ws "\"role\"" ws ":" ws role ws "," ws "\"confidence\"" ws ":" ws num ws "}"
+        role ::= "\"narrator\"" | "\"translator\"" | "\"editor\"" | "\"illustrator\"" | "\"director\"" | "\"cast\"" | "\"host\"" | "\"producer\"" | "\"author\""
+        sarr ::= "[" ws (str ("," ws str)*)? ws "]"
+        nstr ::= str | "null"
+        str ::= "\"" ([^"\\] | "\\" .)* "\""
+        num ::= [0-9]+ ("." [0-9]+)?
+        ws ::= [ \t\n]*
+        """;
+
+    /// <summary>Build the Description Intelligence prompt.</summary>
+    public static string DescriptionIntelligencePrompt(
+        string title,
+        string mediaCategory,
+        IReadOnlyList<string> moodVocabulary,
+        string combinedDescriptions)
+    {
+        var moodList = string.Join(", ", moodVocabulary);
+        return $"""
+            You analyze media descriptions to extract structured intelligence.
+            Given descriptions of "{title}" ({mediaCategory}), extract:
+
+            1. PEOPLE: Real person names with roles (narrator, translator, editor, illustrator, director, cast, host, producer, author). Only extract real people names (minimum 2 words, capitalized). Common patterns: "Read by X", "Narrated by X", "Translated by X", "Directed by X", "Starring X", "Written by X".
+            2. THEMES: 3-5 key themes (e.g. "survival", "colonialism", "ecology", "redemption", "identity")
+            3. MOOD: 2-3 tags from ONLY this vocabulary: [{moodList}]
+            4. SETTING: Primary setting location or world (null if unclear)
+            5. TIME_PERIOD: When the story takes place (null if unclear)
+            6. AUDIENCE: Target audience (adult, young-adult, children, all-ages, or null)
+            7. CONTENT_WARNINGS: Content warnings like violence, substance abuse, etc. (empty array if none)
+            8. PACE: Story pacing (slow-burn, fast-paced, moderate, varied, or null)
+            9. TLDR: One punchy sentence summary, no spoilers
+
+            Return ONLY valid JSON. Do not include any text outside the JSON object.
+
+            Descriptions:
+            {combinedDescriptions}
+            """;
+    }
 }

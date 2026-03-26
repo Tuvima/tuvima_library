@@ -20,6 +20,9 @@ public static class MetadataFieldConstants
     public static readonly Guid WikidataProviderId =
         Guid.Parse("b3000003-d000-4000-8000-000000000004");
 
+    /// <summary>Stable GUID for AI-generated claims (Description Intelligence, TL;DR, etc.).</summary>
+    public static readonly Guid AiProviderId = Guid.Parse("bb00000b-0000-4000-8000-000000000012");
+
     /// <summary>
     /// Multi-valued field keys that may contain multiple values from Wikidata
     /// or other providers. These keys are decomposed into individual
@@ -48,6 +51,11 @@ public static class MetadataFieldConstants
         "based_on",
         "fictional_universe",
         "first_appearance",
+
+        // AI-generated vocabulary fields
+        "themes",
+        "mood",
+        "content_warnings",
 
         // Companion QID keys (paired with above)
         "genre_qid",

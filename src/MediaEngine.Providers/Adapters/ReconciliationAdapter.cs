@@ -2112,11 +2112,46 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 "{Provider}: Wikipedia description for {Qid} ({Lang}): {Len} chars",
                 Name, qid, resolvedLang, summary.Extract.Length);
 
-            return
-            [
-                new ProviderClaim("description",   summary.Extract,     0.90),
-                new ProviderClaim("wikipedia_url", articleUrl,          1.0),
-            ];
+            var resultClaims = new List<ProviderClaim>
+            {
+                new("description",   summary.Extract, 0.90),
+                new("wikipedia_url", articleUrl,      1.0),
+            };
+
+            // Fetch Wikipedia Plot/Synopsis section for richer LLM analysis.
+            try
+            {
+                var sections = await _reconciler.GetWikipediaSectionsAsync([qid], resolvedLang, ct)
+                    .ConfigureAwait(false);
+
+                if (sections is not null && sections.TryGetValue(qid, out var toc) && toc is not null)
+                {
+                    // Find the plot/synopsis section (try multiple common names).
+                    var plotSectionNames = new[] { "Plot", "Synopsis", "Plot summary", "Summary", "Premise", "Overview" };
+                    var plotSection = toc.FirstOrDefault(s =>
+                        plotSectionNames.Any(name => string.Equals(s.Title, name, StringComparison.OrdinalIgnoreCase)));
+
+                    if (plotSection is not null)
+                    {
+                        var plotContent = await _reconciler.GetWikipediaSectionContentAsync(
+                            qid, plotSection.Index, resolvedLang, ct).ConfigureAwait(false);
+
+                        if (!string.IsNullOrWhiteSpace(plotContent))
+                        {
+                            resultClaims.Add(new ProviderClaim("plot_summary", plotContent, 0.88));
+                            _logger.LogInformation(
+                                "{Provider}: Wikipedia plot section '{Section}' for {Qid}: {Len} chars",
+                                Name, plotSection.Title, qid, plotContent.Length);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogDebug(ex, "{Provider}: Wikipedia plot section fetch failed for {Qid} — continuing", Name, qid);
+            }
+
+            return resultClaims;
         }
         catch (OperationCanceledException)
         {
