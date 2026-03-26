@@ -848,14 +848,19 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             }
         }
 
-        // Step 6a-AI: If processor heuristics produced candidates but confidence is low,
-        // ask the AI MediaTypeAdvisor for a classification.
-        if (candidateList.Count > 0 && candidateList[0].Confidence < _options.MediaTypeAutoAssignThreshold)
+        // Step 6a-AI: Call the AI MediaTypeAdvisor when the processor could not determine
+        // the media type. This covers two cases:
+        //   1. Processor returned Unknown + empty candidates (ambiguous format like MP3, MP4,
+        //      M4A, MKV, AVI — the processor no longer runs heuristics for these).
+        //   2. Processor returned candidates but top confidence is below the auto-assign
+        //      threshold (legacy path — shouldn't occur after heuristic removal, kept for safety).
+        bool advisorNeeded = result.DetectedType == MediaType.Unknown && candidateList.Count == 0;
+        bool advisorLowConfidence = candidateList.Count > 0 && candidateList[0].Confidence < _options.MediaTypeAutoAssignThreshold;
+
+        if (advisorNeeded || advisorLowConfidence)
         {
             try
             {
-                var titleClaim = result.Claims.FirstOrDefault(c =>
-                    c.Key.Equals("title", StringComparison.OrdinalIgnoreCase));
                 var genreClaim = result.Claims.FirstOrDefault(c =>
                     c.Key.Equals("genre", StringComparison.OrdinalIgnoreCase));
                 var durationClaim = result.Claims.FirstOrDefault(c =>
@@ -878,19 +883,30 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                     Path.GetDirectoryName(candidate.Path),
                     ct).ConfigureAwait(false);
 
-                if (aiCandidate.Type != MediaType.Unknown && aiCandidate.Confidence > candidateList[0].Confidence)
+                if (aiCandidate.Type != MediaType.Unknown)
                 {
-                    // AI classification is more confident — insert at the top.
-                    candidateList.Insert(0, aiCandidate);
-                    _logger.LogInformation(
-                        "MediaTypeAdvisor classified {Path} as {Type} ({Conf:F2}), overriding processor top {OldType} ({OldConf:F2})",
-                        candidate.Path, aiCandidate.Type, aiCandidate.Confidence,
-                        candidateList[1].Type, candidateList[1].Confidence);
+                    if (advisorNeeded)
+                    {
+                        // No processor candidates at all — AI result is the only classification.
+                        candidateList.Insert(0, aiCandidate);
+                        _logger.LogInformation(
+                            "MediaTypeAdvisor classified {Path} as {Type} ({Conf:F2}) (processor returned Unknown)",
+                            candidate.Path, aiCandidate.Type, aiCandidate.Confidence);
+                    }
+                    else if (aiCandidate.Confidence > candidateList[0].Confidence)
+                    {
+                        // AI is more confident than the processor's top candidate — promote it.
+                        candidateList.Insert(0, aiCandidate);
+                        _logger.LogInformation(
+                            "MediaTypeAdvisor classified {Path} as {Type} ({Conf:F2}), overriding processor top {OldType} ({OldConf:F2})",
+                            candidate.Path, aiCandidate.Type, aiCandidate.Confidence,
+                            candidateList[1].Type, candidateList[1].Confidence);
+                    }
                 }
             }
             catch (Exception ex)
             {
-                // AI classification failure is non-fatal — processor candidates stand.
+                // AI classification failure is non-fatal — processor candidates stand (or remain empty).
                 _logger.LogWarning(ex, "MediaTypeAdvisor failed for {Path} — using processor classification", candidate.Path);
             }
         }

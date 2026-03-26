@@ -22,12 +22,11 @@ namespace MediaEngine.Processors.Processors;
 /// Disambiguation
 /// ──────────────────────────────────────────────────────────────────
 ///  For unambiguous formats (FLAC, OGG, WAV → Music; M4B → Audiobooks),
-///  a single high-confidence candidate is returned.
+///  a single high-confidence candidate is returned and DetectedType is set.
 ///
-///  For ambiguous formats (MP3, M4A), heuristic analysis produces
-///  multiple <see cref="MediaTypeCandidate"/> entries with confidence
-///  scores based on duration, bitrate, genre tag, chapter markers,
-///  filename/path patterns, and file size.
+///  For ambiguous formats (MP3, M4A), DetectedType is set to Unknown and
+///  MediaTypeCandidates is empty. The IngestionEngine will call the AI
+///  MediaTypeAdvisor to classify these files.
 /// </summary>
 public sealed partial class AudioProcessor : IMediaProcessor
 {
@@ -77,8 +76,8 @@ public sealed partial class AudioProcessor : IMediaProcessor
         try
         {
             var claims = BuildClaims(filePath, container, tagFile);
-            var candidates = BuildMediaTypeCandidates(filePath, container, tagFile);
-            var topType = candidates.Count > 0 ? candidates[0].Type : MediaType.Audiobooks;
+            var candidates = BuildMediaTypeCandidates(container);
+            var topType = candidates.Count > 0 ? candidates[0].Type : MediaType.Unknown;
 
             // Extract cover art if available.
             byte[]? coverImage = null;
@@ -183,11 +182,10 @@ public sealed partial class AudioProcessor : IMediaProcessor
             var stem = Path.GetFileNameWithoutExtension(filePath);
             if (!string.IsNullOrWhiteSpace(stem))
             {
-                var normalized = TitleNormalizer.Normalize(stem);
-                if (!string.IsNullOrWhiteSpace(normalized.CleanTitle))
-                    claims.Add(Claim("title", normalized.CleanTitle, 0.65));
-                if (normalized.Year.HasValue)
-                    claims.Add(Claim("release_year", normalized.Year.Value.ToString(), 0.60));
+                // Basic filename cleanup — SmartLabeler (Step 6b) handles intelligent parsing.
+                var basicTitle = stem.Replace('.', ' ').Replace('_', ' ').Trim();
+                if (!string.IsNullOrWhiteSpace(basicTitle))
+                    claims.Add(Claim("title", basicTitle, 0.50));
             }
         }
 
@@ -285,193 +283,24 @@ public sealed partial class AudioProcessor : IMediaProcessor
 
     // ── Media type disambiguation ────────────────────────────────────────
 
-    private static List<MediaTypeCandidate> BuildMediaTypeCandidates(
-        string filePath, AudioContainer container, TagLib.File? tagFile)
+    /// <summary>
+    /// Returns a single high-confidence candidate for unambiguous audio containers.
+    /// For ambiguous formats (MP3, M4A), returns an empty list — the IngestionEngine
+    /// will call the AI MediaTypeAdvisor to classify these files.
+    /// </summary>
+    private static List<MediaTypeCandidate> BuildMediaTypeCandidates(AudioContainer container)
     {
-        // Unambiguous containers → single candidate, no disambiguation needed.
-        switch (container)
+        return container switch
         {
-            case AudioContainer.M4b:
-                return [new() { Type = MediaType.Audiobooks, Confidence = 0.98, Reason = "M4B container (chapter markers)" }];
-            case AudioContainer.Flac:
-                return [new() { Type = MediaType.Music, Confidence = 0.95, Reason = "FLAC format (lossless music)" }];
-            case AudioContainer.Ogg:
-                return [new() { Type = MediaType.Music, Confidence = 0.95, Reason = "OGG format (music)" }];
-            case AudioContainer.Wav:
-                return [new() { Type = MediaType.Music, Confidence = 0.95, Reason = "WAV format (uncompressed audio)" }];
-        }
+            AudioContainer.M4b  => [new() { Type = MediaType.Audiobooks, Confidence = 0.98, Reason = "M4B container (chapter markers)" }],
+            AudioContainer.Flac => [new() { Type = MediaType.Music,      Confidence = 0.95, Reason = "FLAC format (lossless music)" }],
+            AudioContainer.Ogg  => [new() { Type = MediaType.Music,      Confidence = 0.95, Reason = "OGG format (music)" }],
+            AudioContainer.Wav  => [new() { Type = MediaType.Music,      Confidence = 0.95, Reason = "WAV format (uncompressed audio)" }],
 
-        // Ambiguous: MP3 or M4A — run heuristic analysis.
-        const double baseScore = 0.25;
-        double audiobookScore = baseScore;
-        double musicScore     = baseScore;
-        double podcastScore   = baseScore;
-
-        var reasons = new List<string>();
-
-        // --- Duration ---
-        var duration = tagFile?.Properties.Duration;
-        if (duration is { TotalMinutes: > 0 })
-        {
-            double minutes = duration.Value.TotalMinutes;
-            if (minutes > 60)
-            {
-                audiobookScore += 0.25;
-                musicScore     -= 0.10;
-                podcastScore   += 0.15;
-                reasons.Add($"Duration {minutes:F0}min (long)");
-            }
-            else if (minutes >= 20)
-            {
-                audiobookScore += 0.10;
-                musicScore     -= 0.05;
-                podcastScore   += 0.20;
-                reasons.Add($"Duration {minutes:F0}min (medium)");
-            }
-            else if (minutes < 7)
-            {
-                audiobookScore -= 0.15;
-                musicScore     += 0.25;
-                podcastScore   -= 0.10;
-                reasons.Add($"Duration {minutes:F0}min (short)");
-            }
-        }
-
-        // --- Chapter markers ---
-        // TagLibSharp does not expose chapters directly, but M4A with chapters
-        // is typically flagged via the container detection (M4B).
-        // For MP3/M4A, check if the tag has chapter-like properties.
-
-        // --- Genre tag ---
-        var genre = tagFile?.Tag.FirstGenre?.Trim();
-        if (!string.IsNullOrWhiteSpace(genre))
-        {
-            var genreLower = genre.ToLowerInvariant();
-            if (IsAudiobookGenre(genreLower))
-            {
-                audiobookScore += 0.35;
-                musicScore     -= 0.20;
-                podcastScore   += 0.05;
-                reasons.Add($"Genre \"{genre}\" (audiobook)");
-            }
-            else if (IsPodcastGenre(genreLower))
-            {
-                audiobookScore -= 0.15;
-                musicScore     -= 0.15;
-                podcastScore   += 0.40;
-                reasons.Add($"Genre \"{genre}\" (podcast)");
-            }
-            else
-            {
-                // Assume music genre
-                audiobookScore -= 0.20;
-                musicScore     += 0.30;
-                podcastScore   -= 0.10;
-                reasons.Add($"Genre \"{genre}\" (music)");
-            }
-        }
-
-        // --- Album + track number ---
-        bool hasAlbum = !string.IsNullOrWhiteSpace(tagFile?.Tag.Album);
-        bool hasTrack = tagFile?.Tag.Track > 0;
-        if (hasAlbum && hasTrack)
-        {
-            audiobookScore -= 0.10;
-            musicScore     += 0.20;
-            podcastScore   -= 0.10;
-            reasons.Add("Has album + track number");
-        }
-
-        // --- Bitrate ---
-        int bitrate = tagFile?.Properties.AudioBitrate ?? 0;
-        if (bitrate > 0)
-        {
-            if (bitrate <= 96)
-            {
-                audiobookScore += 0.10;
-                musicScore     -= 0.05;
-                podcastScore   += 0.10;
-                reasons.Add($"Bitrate {bitrate}kbps (low)");
-            }
-            else if (bitrate >= 192)
-            {
-                audiobookScore -= 0.05;
-                musicScore     += 0.15;
-                podcastScore   -= 0.05;
-                reasons.Add($"Bitrate {bitrate}kbps (high)");
-            }
-        }
-
-        // --- Path keywords ---
-        var pathLower = filePath.Replace('\\', '/').ToLowerInvariant();
-        if (ContainsAny(pathLower, "audiobook", "audiobooks", "narrated"))
-        {
-            audiobookScore += 0.30;
-            musicScore     -= 0.20;
-            podcastScore   -= 0.10;
-            reasons.Add("Path contains audiobook keyword");
-        }
-        else if (ContainsAny(pathLower, "music", "songs", "albums", "tracks"))
-        {
-            audiobookScore -= 0.20;
-            musicScore     += 0.30;
-            podcastScore   -= 0.10;
-            reasons.Add("Path contains music keyword");
-        }
-        else if (ContainsAny(pathLower, "podcast", "podcasts", "episodes"))
-        {
-            audiobookScore -= 0.15;
-            musicScore     -= 0.15;
-            podcastScore   += 0.35;
-            reasons.Add("Path contains podcast keyword");
-        }
-
-        // --- File size ---
-        try
-        {
-            var fileSize = new FileInfo(filePath).Length;
-            if (fileSize > 100 * 1024 * 1024) // > 100MB
-            {
-                audiobookScore += 0.15;
-                musicScore     -= 0.05;
-                podcastScore   -= 0.05;
-                reasons.Add($"File size {fileSize / (1024 * 1024)}MB (large)");
-            }
-        }
-        catch { /* ignore file access errors */ }
-
-        // Normalize scores to [0.0, 1.0]
-        var candidates = new List<(MediaType type, double score, string label)>
-        {
-            (MediaType.Audiobooks, audiobookScore, "Audiobooks"),
-            (MediaType.Music,      musicScore,     "Music"),
-            (MediaType.Podcasts,   podcastScore,   "Podcasts"),
+            // MP3 and M4A are ambiguous (could be audiobook, music, or podcast).
+            // Return empty — IngestionEngine will call MediaTypeAdvisor.
+            _ => [],
         };
-
-        double maxScore = candidates.Max(c => c.score);
-        double minScore = candidates.Min(c => c.score);
-        double range    = maxScore - minScore;
-
-        var reasonStr = string.Join("; ", reasons);
-        var result = new List<MediaTypeCandidate>();
-
-        foreach (var (type, score, label) in candidates.OrderByDescending(c => c.score))
-        {
-            // Normalize: if all scores are equal, each gets 0.33.
-            // Otherwise, scale to [0.15, 0.95] range.
-            double normalized = range > 0
-                ? 0.15 + 0.80 * (score - minScore) / range
-                : 0.33;
-
-            result.Add(new MediaTypeCandidate
-            {
-                Type       = type,
-                Confidence = Math.Round(Math.Clamp(normalized, 0.05, 0.95), 2),
-                Reason     = $"{label}: {reasonStr}",
-            });
-        }
-
-        return result;
     }
 
     // ── Narrator extraction ────────────────────────────────────────────
@@ -701,26 +530,6 @@ public sealed partial class AudioProcessor : IMediaProcessor
     private static partial System.Text.RegularExpressions.Regex AsinRegex();
 
     // ── Helpers ──────────────────────────────────────────────────────────
-
-    private static readonly HashSet<string> AudiobookGenres =
-        new(StringComparer.OrdinalIgnoreCase) { "audiobook", "speech", "spoken word", "narration" };
-
-    private static readonly HashSet<string> PodcastGenres =
-        new(StringComparer.OrdinalIgnoreCase) { "podcast" };
-
-    private static bool IsAudiobookGenre(string genre) =>
-        AudiobookGenres.Any(g => genre.Contains(g, StringComparison.OrdinalIgnoreCase));
-
-    private static bool IsPodcastGenre(string genre) =>
-        PodcastGenres.Any(g => genre.Contains(g, StringComparison.OrdinalIgnoreCase));
-
-    private static bool ContainsAny(string text, params string[] keywords)
-    {
-        foreach (var kw in keywords)
-            if (text.Contains(kw, StringComparison.OrdinalIgnoreCase))
-                return true;
-        return false;
-    }
 
     private static ExtractedClaim Claim(string key, string value, double confidence) => new()
     {

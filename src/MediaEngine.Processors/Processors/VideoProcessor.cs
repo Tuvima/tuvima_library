@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
 using MediaEngine.Processors.Contracts;
@@ -23,10 +22,10 @@ namespace MediaEngine.Processors.Processors;
 /// ──────────────────────────────────────────────────────────────────
 /// Disambiguation (Movie vs TV)
 /// ──────────────────────────────────────────────────────────────────
-///  All video containers are ambiguous between Movie and TV. Heuristic
-///  signals (filename patterns, duration, path keywords, file size)
-///  produce <see cref="MediaTypeCandidate"/> entries with confidence
-///  scores. The top candidate becomes <see cref="ProcessorResult.DetectedType"/>.
+///  All video containers are ambiguous between Movie and TV.
+///  DetectedType is set to Unknown and MediaTypeCandidates is empty.
+///  The IngestionEngine will call the AI MediaTypeAdvisor to classify
+///  these files using filename, path, duration, and other signals.
 ///
 /// ──────────────────────────────────────────────────────────────────
 /// Metadata extraction (spec: Phase 5 – Content Extraction; FFmpeg stub)
@@ -59,9 +58,10 @@ public sealed class VideoProcessor : IMediaProcessor
 
     /// <inheritdoc/>
     /// <remarks>
-    /// Defaults to <see cref="MediaType.Movies"/>; when disambiguation
-    /// produces a top candidate of <see cref="MediaType.TV"/>, that type
-    /// is used instead.
+    /// SupportedType is Movies for CanProcess routing purposes.
+    /// ProcessAsync sets DetectedType to Unknown for all video files —
+    /// the IngestionEngine will call the AI MediaTypeAdvisor to distinguish
+    /// Movies from TV.
     /// </remarks>
     public MediaType SupportedType => MediaType.Movies;
 
@@ -105,15 +105,15 @@ public sealed class VideoProcessor : IMediaProcessor
         ct.ThrowIfCancellationRequested();
 
         var claims = BuildClaims(filePath, container, meta);
-        var candidates = BuildMediaTypeCandidates(filePath, meta);
-        var topType = candidates.Count > 0 ? candidates[0].Type : MediaType.Movies;
 
+        // All video formats are ambiguous between Movie and TV.
+        // Return empty candidates and Unknown type — IngestionEngine calls MediaTypeAdvisor.
         return new ProcessorResult
         {
             FilePath            = filePath,
-            DetectedType        = topType,
+            DetectedType        = MediaType.Unknown,
             Claims              = claims,
-            MediaTypeCandidates = candidates,
+            MediaTypeCandidates = [],
         };
     }
 
@@ -169,19 +169,15 @@ public sealed class VideoProcessor : IMediaProcessor
     {
         var claims = new List<ExtractedClaim>();
 
-        // Title — best-effort from filename stem, normalized to strip quality tags.
+        // Title — best-effort from filename stem.
+        // SmartLabeler (Step 6b) handles intelligent parsing of year, season, episode, and quality tags.
         var stem = Path.GetFileNameWithoutExtension(filePath);
         if (!string.IsNullOrWhiteSpace(stem))
         {
-            var normalized = TitleNormalizer.Normalize(stem);
-            if (!string.IsNullOrWhiteSpace(normalized.CleanTitle))
-                claims.Add(Claim("title", normalized.CleanTitle, 0.65));
-            if (normalized.Year.HasValue)
-                claims.Add(Claim("release_year", normalized.Year.Value.ToString(), 0.60));
-            if (normalized.Season.HasValue)
-                claims.Add(Claim("season_number", normalized.Season.Value.ToString(), 0.70));
-            if (normalized.Episode.HasValue)
-                claims.Add(Claim("episode_number", normalized.Episode.Value.ToString(), 0.70));
+            // Basic filename cleanup — SmartLabeler (Step 6b) handles intelligent parsing.
+            var basicTitle = stem.Replace('.', ' ').Replace('_', ' ').Trim();
+            if (!string.IsNullOrWhiteSpace(basicTitle))
+                claims.Add(Claim("title", basicTitle, 0.50));
         }
 
         // Container format — authoritative from magic bytes.
@@ -219,160 +215,8 @@ public sealed class VideoProcessor : IMediaProcessor
     }
 
     // -------------------------------------------------------------------------
-    // Media type disambiguation (Movie vs TV)
-    // -------------------------------------------------------------------------
-
-    /// <summary>Default TV filename patterns (SxxExx, 1x01, etc.).</summary>
-    private static readonly Regex[] TvFilenamePatterns =
-    [
-        new(@"S\d{2}E\d{2}", RegexOptions.IgnoreCase | RegexOptions.Compiled),
-        new(@"\d{1,2}x\d{2}", RegexOptions.Compiled),
-    ];
-
-    private static List<MediaTypeCandidate> BuildMediaTypeCandidates(
-        string filePath, VideoMetadata? meta)
-    {
-        const double baseScore = 0.35;
-        double movieScore = baseScore;
-        double tvScore    = baseScore;
-
-        var reasons = new List<string>();
-
-        var filename = Path.GetFileNameWithoutExtension(filePath) ?? "";
-
-        // --- Filename pattern: SxxExx or NxNN ---
-        bool hasTvPattern = false;
-        foreach (var pattern in TvFilenamePatterns)
-        {
-            if (pattern.IsMatch(filename))
-            {
-                hasTvPattern = true;
-                break;
-            }
-        }
-
-        if (hasTvPattern)
-        {
-            movieScore -= 0.30;
-            tvScore    += 0.35;
-            reasons.Add("Filename matches TV pattern (SxxExx)");
-        }
-
-        // --- Duration ---
-        if (meta?.Duration is { TotalMinutes: > 0 } dur)
-        {
-            double minutes = dur.TotalMinutes;
-            if (minutes > 60)
-            {
-                movieScore += 0.20;
-                tvScore    -= 0.05;
-                reasons.Add($"Duration {minutes:F0}min (long, typical movie)");
-            }
-            else if (minutes is >= 15 and <= 45)
-            {
-                movieScore -= 0.10;
-                tvScore    += 0.20;
-                reasons.Add($"Duration {minutes:F0}min (typical TV episode)");
-            }
-        }
-
-        // --- Path keywords ---
-        var pathLower = filePath.Replace('\\', '/').ToLowerInvariant();
-        if (ContainsAny(pathLower, "season", "series", "tv", "show", "shows"))
-        {
-            movieScore -= 0.25;
-            tvScore    += 0.30;
-            reasons.Add("Path contains TV keyword");
-        }
-        else if (ContainsAny(pathLower, "movie", "movies", "film", "films"))
-        {
-            movieScore += 0.25;
-            tvScore    -= 0.20;
-            reasons.Add("Path contains movie keyword");
-        }
-
-        // --- File size ---
-        try
-        {
-            var fileSizeBytes = new FileInfo(filePath).Length;
-            double fileSizeGb = fileSizeBytes / (1024.0 * 1024 * 1024);
-            if (fileSizeGb > 4)
-            {
-                movieScore += 0.15;
-                tvScore    -= 0.05;
-                reasons.Add($"File size {fileSizeGb:F1}GB (large, typical movie)");
-            }
-        }
-        catch { /* ignore file access errors */ }
-
-        // --- Multiple similarly-named files in folder (episode batch) ---
-        try
-        {
-            var dir = Path.GetDirectoryName(filePath);
-            if (dir is not null)
-            {
-                var ext = Path.GetExtension(filePath);
-                var siblings = Directory.GetFiles(dir, $"*{ext}")
-                    .Where(f => !string.Equals(f, filePath, StringComparison.OrdinalIgnoreCase))
-                    .ToArray();
-
-                if (siblings.Length >= 3)
-                {
-                    movieScore -= 0.10;
-                    tvScore    += 0.20;
-                    reasons.Add($"{siblings.Length + 1} video files in folder (episode batch)");
-                }
-            }
-        }
-        catch { /* ignore directory access errors */ }
-
-        // Normalize scores to [0.0, 1.0]
-        var candidates = new List<(MediaType type, double score, string label)>
-        {
-            (MediaType.Movies, movieScore, "Movie"),
-            (MediaType.TV,     tvScore,    "TV"),
-        };
-
-        double maxScore = candidates.Max(c => c.score);
-        double minScore = candidates.Min(c => c.score);
-        double range    = maxScore - minScore;
-
-        var reasonStr = reasons.Count > 0
-            ? string.Join("; ", reasons)
-            : "No strong signals";
-
-        var result = new List<MediaTypeCandidate>();
-
-        foreach (var (type, score, label) in candidates.OrderByDescending(c => c.score))
-        {
-            // Normalize: if scores are equal, each gets 0.50.
-            // Otherwise, scale to [0.20, 0.90] range.
-            double normalized = range > 0
-                ? 0.20 + 0.70 * (score - minScore) / range
-                : 0.50;
-
-            result.Add(new MediaTypeCandidate
-            {
-                Type       = type,
-                Confidence = Math.Round(Math.Clamp(normalized, 0.10, 0.95), 2),
-                Reason     = $"{label}: {reasonStr}",
-            });
-        }
-
-        return result;
-    }
-
-    // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
-
-    private static bool ContainsAny(string text, params string[] keywords)
-    {
-        foreach (var kw in keywords)
-            if (text.Contains(kw, StringComparison.OrdinalIgnoreCase))
-                return true;
-        return false;
-    }
 
     private static ExtractedClaim Claim(string key, string value, double confidence) => new()
     {
