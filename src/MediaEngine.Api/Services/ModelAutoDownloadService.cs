@@ -21,6 +21,7 @@ public sealed class ModelAutoDownloadService : BackgroundService
     [
         AiModelRole.TextFast,
         AiModelRole.TextQuality,
+        AiModelRole.TextScholar,
         AiModelRole.Audio,
     ];
 

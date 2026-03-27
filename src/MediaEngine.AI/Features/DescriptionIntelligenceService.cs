@@ -1,4 +1,5 @@
 using MediaEngine.AI.Configuration;
+using MediaEngine.AI.Infrastructure;
 using MediaEngine.AI.Llama;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
@@ -96,16 +97,28 @@ public sealed class DescriptionIntelligenceService : IDescriptionIntelligenceSer
             // Get mood vocabulary for this media category.
             var moodVocab = _settings.VibeVocabulary.GetForCategory(mediaCategory);
 
+            // Resolve the correct model role based on the hardware tier.
+            // High-tier systems use the 8B Scholar model for richer analysis;
+            // all other tiers fall back to the 3B Quality model.
+            var tier = _settings.HardwareProfile.Tier;
+            var features = HardwareTierPolicy.GetFeatures(tier);
+            var modelRole = features.EnrichmentModel switch
+            {
+                "text_scholar" => AiModelRole.TextScholar,
+                "text_quality" => AiModelRole.TextQuality,
+                _ => AiModelRole.TextQuality,
+            };
+
             _logger.LogInformation(
-                "[DESCRIPTION-INTEL] Analyzing {Title} ({Category}) — {DescLen} chars of descriptions",
-                title, mediaCategory, combinedDescriptions.Length);
+                "[DESCRIPTION-INTEL] Analyzing {Title} ({Category}) — {DescLen} chars of descriptions, model={Model}",
+                title, mediaCategory, combinedDescriptions.Length, modelRole);
 
             // ── Pass 1: Vocabulary extraction (themes, mood, setting, etc.) ──
             var vocabPrompt = PromptTemplates.DescriptionIntelligencePrompt(
                 title, mediaCategory, moodVocab, combinedDescriptions);
 
             var vocabResult = await _llama.InferJsonAsync<VocabularyResponse>(
-                AiModelRole.TextQuality,
+                modelRole,
                 vocabPrompt,
                 PromptTemplates.DescriptionIntelligenceGrammar,
                 ct);
@@ -124,7 +137,7 @@ public sealed class DescriptionIntelligenceService : IDescriptionIntelligenceSer
                     title, combinedDescriptions);
 
                 var peopleResult = await _llama.InferJsonAsync<PeopleResponse>(
-                    AiModelRole.TextQuality,
+                    modelRole,
                     peoplePrompt,
                     PromptTemplates.DescriptionIntelligencePeopleGrammar,
                     ct);
