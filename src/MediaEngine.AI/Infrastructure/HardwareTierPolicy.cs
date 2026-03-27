@@ -54,6 +54,7 @@ public static class HardwareTierPolicy
             EnrichmentModel                = "text_scholar",
             MaxGpuLayers                   = -1, // All layers
             ScholarAvailable               = true,
+            CjkAvailable                   = true,
         },
         TierMedium => new FeatureTierResult
         {
@@ -67,9 +68,10 @@ public static class HardwareTierPolicy
             PreferredTextModel             = "text_quality",
             IngestionModel                 = "text_quality",
             InstantModel                   = "text_fast",
-            EnrichmentModel                = "text_quality",
+            EnrichmentModel                = "text_scholar", // 8B on CPU — 3B fails 50% on complex DI grammar
             MaxGpuLayers                   = 16,
-            ScholarAvailable               = true, // CPU overnight only
+            ScholarAvailable               = true,
+            CjkAvailable                   = true,
         },
         TierLow => new FeatureTierResult
         {
@@ -83,9 +85,10 @@ public static class HardwareTierPolicy
             PreferredTextModel             = "text_quality",
             IngestionModel                 = "text_fast",
             InstantModel                   = "text_fast",
-            EnrichmentModel                = "text_quality",
+            EnrichmentModel                = "text_scholar", // 8B on CPU overnight — 3B fails 50% on complex DI grammar
             MaxGpuLayers                   = 0,
-            ScholarAvailable               = false, // Not enough RAM for 8B
+            ScholarAvailable               = true,  // 8B runs on CPU (slower but reliable)
+            CjkAvailable                   = false,
         },
         _ => new FeatureTierResult // Unknown / auto fallback — treat as Low
         {
@@ -102,6 +105,7 @@ public static class HardwareTierPolicy
             EnrichmentModel                = "text_fast",
             MaxGpuLayers                   = 0,
             ScholarAvailable               = false,
+            CjkAvailable                   = false,
         },
     };
 }
@@ -129,4 +133,6 @@ public sealed class FeatureTierResult
     public string         EnrichmentModel                { get; set; } = "text_quality";
     public int            MaxGpuLayers                   { get; set; }
     public bool           ScholarAvailable               { get; set; }
+    /// <summary>True when the hardware can run the CJK model (Qwen 2.5 3B — same tier threshold as text_quality).</summary>
+    public bool           CjkAvailable                   { get; set; }
 }
