@@ -1,10 +1,12 @@
 @using MediaEngine.Web.Models.ViewDTOs
 
+@inject IStringLocalizer<SharedStrings> L
+
 @if (Items.Count == 0 && !Loading)
 {
     <div class="vmt-empty">
         <MudIcon Icon="@Icons.Material.Outlined.Inbox" Style="font-size: 3rem; opacity: 0.15; margin-bottom: 12px;" />
-        <p style="color: rgba(255,255,255,0.25); font-size: 0.85rem;">No items match your filters.</p>
+        <p style="color: rgba(255,255,255,0.25); font-size: 0.85rem;">@L["VaultMedia_NoItemsMatch"]</p>
     </div>
 }
 else
@@ -20,7 +22,7 @@ else
                                  Style="font-size: 14px; opacity: 0.4;" />
                         <span class="vmt-group-label">@group.Label</span>
                         <div class="vmt-group-line"></div>
-                        <span class="vmt-group-count">@group.Items.Count items</span>
+                        <span class="vmt-group-count">@group.Items.Count @L["VaultMedia_ItemsCount"]</span>
                     </div>
                     @if (IsGroupExpanded(group.Key))
                     {
@@ -62,9 +64,9 @@ else
             <thead>
                 <tr class="vmt-thead-row">
                     <th class="vmt-th" style="width: 45%; padding-left: 24px;"></th>
-                    <th class="vmt-th vmt-th--center" style="width: 12%;">Pipeline Status</th>
-                    <th class="vmt-th vmt-th--center" style="width: 18%;">Linked Universe</th>
-                    <th class="vmt-th vmt-th--right" style="width: 20%; padding-right: 24px;">Verification</th>
+                    <th class="vmt-th vmt-th--center" style="width: 12%;">@L["VaultMedia_ColPipelineStatus"]</th>
+                    <th class="vmt-th vmt-th--center" style="width: 18%;">@L["VaultMedia_ColLinkedUniverse"]</th>
+                    <th class="vmt-th vmt-th--right" style="width: 20%; padding-right: 24px;">@L["VaultMedia_ColVerification"]</th>
                 </tr>
             </thead>
             <tbody>
@@ -100,7 +102,7 @@ else
                                         <p class="vmt-original-title">@item.OriginalTitle</p>
                                     }
                                     <p class="vmt-subtitle">@VaultHelpers.FormatMediaType(item.MediaType) @(item.Year is not null ? $"• {item.Year}" : "")</p>
-                                    <p class="vmt-creator">@(item.Author?.ToUpperInvariant() ?? "UNKNOWN")</p>
+                                    <p class="vmt-creator">@(item.Author?.ToUpperInvariant() ?? L["VaultMedia_UnknownCreator"].Value)</p>
                                 </div>
                             </div>
                         </td>
@@ -122,7 +124,7 @@ else
                             }
                             else
                             {
-                                <span class="vmt-universe-standalone">STANDALONE</span>
+                                <span class="vmt-universe-standalone">@L["VaultMedia_Standalone"]</span>
                             }
                         </td>
 
@@ -175,11 +177,11 @@ else
             var review = Items.Where(i => i.VaultDisplayStatus == VaultStatus.NeedsReview).ToList();
             var failed = Items.Where(i => i.VaultDisplayStatus == VaultStatus.Failed).ToList();
             var quarantined = Items.Where(i => i.VaultDisplayStatus == VaultStatus.Quarantined).ToList();
-            if (verified.Count > 0) groups.Add(new TableGroup("verified", "Verified", verified));
-            if (provisional.Count > 0) groups.Add(new TableGroup("provisional", "Provisional", provisional));
-            if (review.Count > 0) groups.Add(new TableGroup("review", "Needs Review", review));
-            if (failed.Count > 0) groups.Add(new TableGroup("failed", "Failed", failed));
-            if (quarantined.Count > 0) groups.Add(new TableGroup("quarantined", "Quarantined", quarantined));
+            if (verified.Count > 0) groups.Add(new TableGroup("verified", L["VaultMedia_GroupVerified"].Value, verified));
+            if (provisional.Count > 0) groups.Add(new TableGroup("provisional", L["VaultMedia_GroupProvisional"].Value, provisional));
+            if (review.Count > 0) groups.Add(new TableGroup("review", L["VaultMedia_GroupNeedsReview"].Value, review));
+            if (failed.Count > 0) groups.Add(new TableGroup("failed", L["VaultMedia_GroupFailed"].Value, failed));
+            if (quarantined.Count > 0) groups.Add(new TableGroup("quarantined", L["VaultMedia_GroupQuarantined"].Value, quarantined));
             return groups;
         }
 
@@ -193,7 +195,7 @@ else
             return byLetter;
         }
 
-        return [new TableGroup("all", "All Items", Items)];
+        return [new TableGroup("all", L["VaultMedia_GroupAll"].Value, Items)];
     }
 }
 

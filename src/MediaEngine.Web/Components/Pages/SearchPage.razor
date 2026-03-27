@@ -2,6 +2,7 @@
 @namespace MediaEngine.Web.Components.Pages
 @inject UniverseStateContainer State
 @inject NavigationManager Nav
+@inject IStringLocalizer<SharedStrings> L
 
 <PageTitle>Search — Tuvima Library</PageTitle>
 
@@ -9,14 +10,14 @@
     <div class="search-page-header">
         <MudIcon Icon="@Icons.Material.Outlined.Search"
                  Style="font-size: 2.5rem; color: rgba(248,248,248,0.25); margin-bottom: 12px;" />
-        <h2 class="search-page-title">Search your library</h2>
-        <p class="search-page-subtitle">Use the search bar above to find books, audiobooks, and comics.</p>
+        <h2 class="search-page-title">@L["Search_Title"]</h2>
+        <p class="search-page-subtitle">@L["Search_Subtitle"]</p>
     </div>
 
     @if (State.IsLoaded && State.FilteredHubs.Count > 0)
     {
         <div class="search-recent">
-            <h3 class="search-recent-title">All titles</h3>
+            <h3 class="search-recent-title">@L["Search_AllTitles"]</h3>
             <div class="search-recent-grid">
                 @foreach (var hub in State.FilteredHubs.Take(24))
                 {

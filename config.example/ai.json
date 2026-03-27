@@ -40,6 +40,18 @@
       "gpu_layers": 0,
       "threads": 4
     },
+    "text_cjk": {
+      "description": "Multilingual model with strong CJK support for Chinese, Japanese, and Korean content analysis",
+      "file": "qwen2.5-3b-instruct-q4_k_m.gguf",
+      "download_url": "https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q4_k_m.gguf",
+      "sha256": "",
+      "size_mb": 2048,
+      "context_length": 8192,
+      "max_tokens": 512,
+      "temperature": 0.1,
+      "gpu_layers": 0,
+      "threads": 4
+    },
     "audio": {
       "description": "Whisper transcription and language detection",
       "file": "ggml-medium.bin",

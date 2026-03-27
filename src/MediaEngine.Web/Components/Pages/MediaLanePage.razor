@@ -8,6 +8,7 @@
 @inject DeviceContextService    DeviceContext
 @inject NavigationManager       Nav
 @inject IPhraseTemplateService  Phrases
+@inject IStringLocalizer<SharedStrings> L
 @implements IDisposable
 
 @using MediaEngine.Web.Models.ViewDTOs
@@ -21,7 +22,7 @@
 }
 else if (_lane is null)
 {
-    <MudAlert Severity="Severity.Warning" Class="mb-4">Unknown content lane.</MudAlert>
+    <MudAlert Severity="Severity.Warning" Class="mb-4">@L["MediaLane_UnknownLane"]</MudAlert>
 }
 else if (!IsImplementedLane)
 {
@@ -29,7 +30,7 @@ else if (!IsImplementedLane)
     <div class="lane-empty-state">
         <MudIcon Icon="@_lane.Icon" Size="Size.Large"
                  Style="@($"opacity: 0.3; font-size: 4rem; margin-bottom: 16px; color: {ContentLanes.AccentColor(_lane)};")" />
-        <h2 class="lane-empty-title" style="@($"color: {ContentLanes.AccentColor(_lane)};")">Coming Soon</h2>
+        <h2 class="lane-empty-title" style="@($"color: {ContentLanes.AccentColor(_lane)};")">@L["MediaLane_ComingSoon"]</h2>
         <p class="lane-empty-subtitle">
             @_lane.Label will be available in a future update. Stay tuned!
         </p>
@@ -90,8 +91,8 @@ else
         <MudToggleGroup T="string" Value="@_viewMode" ValueChanged="OnViewModeChanged"
                         Color="Color.Warning" CheckMark="false"
                         Style="font-family: Montserrat, sans-serif;">
-            <MudToggleItem T="string" Value="@("smart")" Text="Smart Sections" />
-            <MudToggleItem T="string" Value="@("az")" Text="Browse A-Z" />
+            <MudToggleItem T="string" Value="@("smart")" Text="@L["MediaLane_SmartSections"]" />
+            <MudToggleItem T="string" Value="@("az")" Text="@L["MediaLane_BrowseAZ"]" />
         </MudToggleGroup>
     </div>
 
@@ -127,7 +128,7 @@ else
         @* Recently Added *@
         @if (_recentWorks.Count > 0 && !_filterState.HasActiveFilters)
         {
-            <PosterSwimlane Title="Recently Added"
+            <PosterSwimlane Title="@L["MediaLane_RecentlyAdded"]"
                             TotalCount="@_recentWorks.Count"
                             Items="@WorksToItems(_recentWorks.Take(12))"
                             OnItemSelected="HandleItemSelected"
@@ -247,12 +248,12 @@ else
 
     private string ContinueLabel => _lane?.Key switch
     {
-        "books"    => "Continue Reading",
-        "video"    => "Continue Watching",
-        "music"    => "Continue Listening",
-        "podcasts" => "Continue Listening",
-        "comics"   => "Continue Reading",
-        _          => "Continue",
+        "books"    => L["MediaLane_ContinueReading"],
+        "video"    => L["MediaLane_ContinueWatching"],
+        "music"    => L["MediaLane_ContinueListening"],
+        "podcasts" => L["MediaLane_ContinueListening"],
+        "comics"   => L["MediaLane_ContinueReading"],
+        _          => L["MediaLane_Continue"],
     };
 
     private sealed record PersonGroup(string PersonName, string? HeadshotUrl, IReadOnlyList<HubViewModel> Hubs, IReadOnlyList<WorkViewModel> Works);
@@ -582,25 +583,25 @@ else
         });
     }
 
-    private static string FormatMediaType(string mediaType)
+    private string FormatMediaType(string mediaType)
     {
         var t = mediaType.ToLowerInvariant();
-        if (t.Contains("epub") || t.Contains("book"))  return "eBooks";
-        if (t.Contains("video") || t.Contains("movie")) return "Movies";
-        if (t.Contains("audio") || t.Contains("m4b"))   return "Audiobooks";
-        if (t.Contains("comic") || t.Contains("cbz"))   return "Comics";
-        if (t.Contains("tv"))                            return "TV Shows";
+        if (t.Contains("epub") || t.Contains("book"))   return L["MediaLane_FormatEBooks"];
+        if (t.Contains("video") || t.Contains("movie")) return L["MediaLane_FormatMovies"];
+        if (t.Contains("audio") || t.Contains("m4b"))   return L["MediaLane_FormatAudiobooks"];
+        if (t.Contains("comic") || t.Contains("cbz"))   return L["MediaLane_FormatComics"];
+        if (t.Contains("tv"))                            return L["MediaLane_FormatTVShows"];
         return mediaType;
     }
 
-    private static string EmptyStateMessage(string laneKey) => laneKey switch
+    private string EmptyStateMessage(string laneKey) => laneKey switch
     {
-        "books"    => "Your book and audiobook collection will appear here. Drop EPUB or M4B files into your Watch Folder to get started.",
-        "video"    => "Your movies and TV shows will appear here. Drop MP4, MKV, or AVI files into your Watch Folder.",
-        "music"    => "Your music collection will appear here once music support is available.",
-        "podcasts" => "Your podcast subscriptions will appear here once podcast support is available.",
-        "comics"   => "Your comics and manga will appear here. Drop CBZ or CBR files into your Watch Folder.",
-        _          => "Content will appear here once it's been added to your library.",
+        "books"    => L["MediaLane_EmptyBooks"],
+        "video"    => L["MediaLane_EmptyVideo"],
+        "music"    => L["MediaLane_EmptyMusic"],
+        "podcasts" => L["MediaLane_EmptyPodcasts"],
+        "comics"   => L["MediaLane_EmptyComics"],
+        _          => L["MediaLane_EmptyDefault"],
     };
 
     private string? ResolveHeroPhrase(HeroData data)

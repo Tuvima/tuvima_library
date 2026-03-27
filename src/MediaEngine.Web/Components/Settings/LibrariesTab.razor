@@ -3,6 +3,7 @@
 @inject DeviceContextService DeviceContext
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
+@inject IStringLocalizer<SharedStrings> L
 @implements IDisposable
 
 @* Folder configuration — Library Folder (primary), Watch Folder, Staging Folder, and file naming template.
@@ -20,10 +21,9 @@
             <MudIcon Icon="@Icons.Material.Outlined.DesktopAccessDisabled"
                      Color="Color.Secondary"
                      Style="font-size: 3rem;" />
-            <MudText Typo="Typo.h6" Color="Color.Secondary">Not Available</MudText>
+            <MudText Typo="Typo.h6" Color="Color.Secondary">@L["Libraries_NotAvailable"]</MudText>
             <MudText Typo="Typo.body2" Color="Color.Secondary" Style="text-align: center;">
-                Library folder settings are not available on this device.
-                Please use the web or mobile interface to configure your library.
+                @L["Libraries_NotAvailableDescription"]
             </MudText>
         </MudStack>
     </div>
@@ -33,13 +33,13 @@ else
 <div class="st-page">
 
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-6">
-        <MudText Typo="Typo.h6">Library Paths</MudText>
+        <MudText Typo="Typo.h6">@L["Libraries_LibraryPaths"]</MudText>
         @if (readOnly)
         {
             <MudChip T="string" Size="Size.Small" Color="Color.Default"
                      Icon="@Icons.Material.Outlined.Visibility"
                      Style="margin-left: auto;">
-                View Only
+                @L["Libraries_ViewOnly"]
             </MudChip>
         }
     </MudStack>
@@ -48,7 +48,7 @@ else
     <div class="folder-path-row mb-5">
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-1">
             <div class="health-dot @HealthClass(_libraryHealthy, _libValidating, _libraryRoot)" />
-            <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">Library Folder</MudText>
+            <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">@L["Libraries_LibraryFolder"]</MudText>
         </MudStack>
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
             <MudTextField @bind-Value="_libraryRoot"
@@ -64,7 +64,7 @@ else
                            Color="Color.Default"
                            Disabled="@readOnly"
                            OnClick="@(() => BrowseAsync(nameof(_libraryRoot)))"
-                           title="Browse folders" />
+                           title="@L["Libraries_BrowseFolders"]" />
         </MudStack>
         <MudText Typo="Typo.caption" Style="@StatusStyle(_libraryHealthy, _libValidating, _libraryRoot)" Class="mt-1">
             @StatusLabel(_libTestResult, _libValidating, _libraryRoot)
@@ -75,7 +75,7 @@ else
     <div class="folder-path-row mb-5">
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-1">
             <div class="health-dot @HealthClass(_watchHealthy, _watchValidating, _watchDir)" />
-            <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">Watch Folder</MudText>
+            <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">@L["Libraries_WatchFolder"]</MudText>
         </MudStack>
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
             <MudTextField @bind-Value="_watchDir"
@@ -91,7 +91,7 @@ else
                            Color="Color.Default"
                            Disabled="@readOnly"
                            OnClick="@(() => BrowseAsync(nameof(_watchDir)))"
-                           title="Browse folders" />
+                           title="@L["Libraries_BrowseFolders"]" />
         </MudStack>
         <MudText Typo="Typo.caption" Style="@StatusStyle(_watchHealthy, _watchValidating, _watchDir)" Class="mt-1">
             @StatusLabel(_watchTestResult, _watchValidating, _watchDir)
@@ -104,10 +104,10 @@ else
 
     @* ── File Organization — token-chip path builder ──────────────────────── *@
     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-1">
-        <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">File Organization</MudText>
+        <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">@L["Libraries_FileOrganization"]</MudText>
     </MudStack>
     <MudText Typo="Typo.caption" Style="color: var(--app-text-soft); margin-bottom: 12px; display: block;">
-        Click a field to append it to the path. Use <code style="color: rgba(201,146,46,0.9);">/</code> to separate folders. Text outside braces is literal.
+        @L["Libraries_FileOrganizationHint"]
     </MudText>
 
     @* Token chip strip *@
@@ -138,7 +138,7 @@ else
                            Size="Size.Small"
                            Color="Color.Default"
                            OnClick="@ResetTemplateToDefault"
-                           title="Reset path to default" />
+                           title="@L["Libraries_ResetPathToDefault"]" />
         }
     </MudStack>
 
@@ -150,7 +150,7 @@ else
     {
         <MudPaper Elevation="0" Style="@PreviewStyle" Class="mb-5 mt-2 pa-3">
             <MudText Typo="Typo.caption" Style="color: var(--app-text-soft); margin-bottom: 6px; display: block;">
-                Preview — example output
+                @L["Libraries_PreviewExampleOutput"]
             </MudText>
             <div class="org-preview-tree">
                 @for (int i = 0; i < previewParts.Count - 1; i++)
@@ -185,13 +185,13 @@ else
                        OnClick="@ResetAllChanges"
                        StartIcon="@Icons.Material.Outlined.Undo"
                        Disabled="@(!HasUnsavedChanges)">
-                Reset
+                @L["Libraries_Reset"]
             </MudButton>
             <MudButton Variant="Variant.Filled"
                        Color="Color.Primary"
                        OnClick="@SaveFoldersAsync"
                        Disabled="@_savingFolders">
-                @(_savingFolders ? "Saving..." : "Save Changes")
+                @(_savingFolders ? L["Libraries_Saving"] : L["Libraries_SaveChanges"])
             </MudButton>
         </MudStack>
     }
@@ -526,7 +526,7 @@ else
             CloseButton = true,
         };
 
-        var dialog = await DialogService.ShowAsync<FolderBrowserDialog>("Browse Folders", parameters, options);
+        var dialog = await DialogService.ShowAsync<FolderBrowserDialog>(L["Libraries_BrowseFolders"], parameters, options);
         var result = await dialog.Result;
 
         if (result is { Canceled: false, Data: string selectedPath })
@@ -562,7 +562,7 @@ else
         var engineStatus = await Orchestrator.GetSystemStatusAsync();
         if (engineStatus is null)
         {
-            Snackbar.Add("Cannot reach the Engine — please make sure it is running.", Severity.Error);
+            Snackbar.Add(L["Libraries_CannotReachEngine"], Severity.Error);
             _savingFolders = false;
             return;
         }
@@ -574,14 +574,13 @@ else
             _watchTestResult = r;
             if (r is null)
             {
-                Snackbar.Add("Cannot reach the Engine — please make sure it is running.", Severity.Error);
+                Snackbar.Add(L["Libraries_CannotReachEngine"], Severity.Error);
                 _savingFolders = false;
                 return;
             }
             if (r is not { HasRead: true, HasWrite: true })
             {
-                Snackbar.Add("Watch Folder is not accessible — please check the path and permissions.",
-                    Severity.Error);
+                Snackbar.Add(L["Libraries_WatchFolderNotAccessible"], Severity.Error);
                 _watchHealthy  = false;
                 _savingFolders = false;
                 return;
@@ -596,14 +595,13 @@ else
             _libTestResult = r;
             if (r is null)
             {
-                Snackbar.Add("Cannot reach the Engine — please make sure it is running.", Severity.Error);
+                Snackbar.Add(L["Libraries_CannotReachEngine"], Severity.Error);
                 _savingFolders = false;
                 return;
             }
             if (r is not { HasRead: true, HasWrite: true })
             {
-                Snackbar.Add("Library Folder is not accessible — please check the path and permissions.",
-                    Severity.Error);
+                Snackbar.Add(L["Libraries_LibraryFolderNotAccessible"], Severity.Error);
                 _libraryHealthy = false;
                 _savingFolders  = false;
                 return;
@@ -622,14 +620,14 @@ else
             if (tmplResult is null)
             {
                 Snackbar.Add(
-                    Orchestrator.LastApiError ?? "Invalid template — please check your tokens.",
+                    Orchestrator.LastApiError ?? L["Libraries_InvalidTemplate"],
                     Severity.Warning);
             }
         }
 
         if (success)
         {
-            Snackbar.Add($"Settings saved — now watching {_watchDir}", Severity.Success);
+            Snackbar.Add($"{L["Libraries_SettingsSaved"]} {_watchDir}", Severity.Success);
             // Snap saved values so Reset All reflects the newly saved state.
             SnapSavedValues();
         }
@@ -638,8 +636,8 @@ else
             var detail = Orchestrator.LastApiError;
             Snackbar.Add(
                 string.IsNullOrEmpty(detail)
-                    ? "Could not save folder settings — please make sure the Engine is running."
-                    : $"Could not save: {detail}",
+                    ? L["Libraries_CouldNotSaveFolderSettings"]
+                    : $"{L["Libraries_CouldNotSave"]} {detail}",
                 Severity.Error);
         }
 
@@ -663,14 +661,14 @@ else
         return $"color: {color}; font-size: 0.75rem;";
     }
 
-    private static string StatusLabel(PathTestResultDto? result, bool validating, string path)
+    private string StatusLabel(PathTestResultDto? result, bool validating, string path)
     {
         if (string.IsNullOrWhiteSpace(path))   return " ";
-        if (validating)                        return "Checking...";
+        if (validating)                        return L["Libraries_Checking"];
         if (result is null)                    return " ";
-        if (!result.Exists)                    return "Folder not found";
-        if (result.HasRead && result.HasWrite) return "Read & Write access confirmed";
-        if (result.HasRead)                    return "Read only — cannot write";
-        return "Access denied";
+        if (!result.Exists)                    return L["Libraries_FolderNotFound"];
+        if (result.HasRead && result.HasWrite) return L["Libraries_ReadWriteConfirmed"];
+        if (result.HasRead)                    return L["Libraries_ReadOnly"];
+        return L["Libraries_AccessDenied"];
     }
 }

@@ -1,5 +1,6 @@
 @namespace MediaEngine.Web.Components.Settings
 @inject UIOrchestratorService Orchestrator
+@inject IStringLocalizer<SharedStrings> L
 
 @* AiFeaturesTab — AI feature toggles grouped by trigger type.
    Four expansion panels: Ingestion (automatic), Enrichment (background),
@@ -11,11 +12,10 @@
     @* ── Header ────────────────────────────────────────────────────────── *@
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
         <MudIcon Icon="@Icons.Material.Outlined.ToggleOn" Color="Color.Default" Class="mr-2" />
-        <MudText Typo="Typo.h6">AI Features</MudText>
+        <MudText Typo="Typo.h6">@L["AiFeatures_AiFeatures"]</MudText>
     </MudStack>
     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
-        Enable or disable individual AI-powered features. Changes take effect immediately
-        for future operations — they do not reprocess already-ingested files.
+        @L["AiFeatures_AiFeaturesDescription"]
     </MudText>
 
     @* ── Expansion panels ───────────────────────────────────────────────── *@
@@ -29,23 +29,22 @@
                     <MudIcon Icon="@Icons.Material.Outlined.Input"
                              Size="Size.Small" Color="Color.Primary" />
                     <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">
-                        Ingestion
+                        @L["AiFeatures_Ingestion"]
                     </MudText>
                     <MudChip T="string" Size="Size.Small" Color="Color.Default"
                              Style="font-size: 0.7rem;">
-                        Automatic
+                        @L["AiFeatures_Automatic"]
                     </MudChip>
                     <MudChip T="string" Size="Size.Small" Color="Color.Primary"
                              Style="font-size: 0.7rem;">
-                        @EnabledCount(_ingestionFeatures) / @_ingestionFeatures.Count on
+                        @EnabledCount(_ingestionFeatures) / @_ingestionFeatures.Count @L["AiFeatures_On"]
                     </MudChip>
                 </MudStack>
             </TitleContent>
             <ChildContent>
                 <MudText Typo="Typo.body2" Color="Color.Secondary"
                          Style="margin-bottom: 16px; margin-top: 4px;">
-                    Runs automatically during file ingestion. Every new file benefits
-                    from these features without any user action.
+                    @L["AiFeatures_IngestionDescription"]
                 </MudText>
                 @foreach (var f in _ingestionFeatures)
                 {
@@ -72,7 +71,7 @@
                             {
                                 <MudChip T="string" Size="Size.Small" Color="Color.Default"
                                          Style="font-family: monospace; font-size: 0.7rem; flex-shrink: 0; opacity: 0.5;">
-                                    built-in
+                                    @L["AiFeatures_BuiltIn"]
                                 </MudChip>
                             }
                             <MudSwitch @bind-Value="feature.Enabled"
@@ -82,7 +81,7 @@
                         @if (!IsFeatureAvailable(feature.Key))
                         {
                             <MudText Typo="Typo.caption" Style="color: rgba(255,150,50,0.7); padding-bottom: 6px;">
-                                Requires @GetRequiredTier(feature.Key) tier — @GetUpgradeHint(feature.Key)
+                                @L["AiFeatures_Requires"] @GetRequiredTier(feature.Key) @L["AiFeatures_Tier"] — @GetUpgradeHint(feature.Key)
                             </MudText>
                         }
                     </div>
@@ -98,23 +97,22 @@
                     <MudIcon Icon="@Icons.Material.Outlined.AutoAwesome"
                              Size="Size.Small" Color="Color.Info" />
                     <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">
-                        Enrichment
+                        @L["AiFeatures_Enrichment"]
                     </MudText>
                     <MudChip T="string" Size="Size.Small" Color="Color.Default"
                              Style="font-size: 0.7rem;">
-                        Background
+                        @L["AiFeatures_Background"]
                     </MudChip>
                     <MudChip T="string" Size="Size.Small" Color="Color.Info"
                              Style="font-size: 0.7rem;">
-                        @EnabledCount(_enrichmentFeatures) / @_enrichmentFeatures.Count on
+                        @EnabledCount(_enrichmentFeatures) / @_enrichmentFeatures.Count @L["AiFeatures_On"]
                     </MudChip>
                 </MudStack>
             </TitleContent>
             <ChildContent>
                 <MudText Typo="Typo.body2" Color="Color.Secondary"
                          Style="margin-bottom: 16px; margin-top: 4px;">
-                    Runs in the background after ingestion, when the Engine is idle.
-                    Adds depth and personality to your library without blocking other work.
+                    @L["AiFeatures_EnrichmentDescription"]
                 </MudText>
                 @foreach (var f in _enrichmentFeatures)
                 {
@@ -141,7 +139,7 @@
                             {
                                 <MudChip T="string" Size="Size.Small" Color="Color.Default"
                                          Style="font-family: monospace; font-size: 0.7rem; flex-shrink: 0; opacity: 0.5;">
-                                    built-in
+                                    @L["AiFeatures_BuiltIn"]
                                 </MudChip>
                             }
                             <MudSwitch @bind-Value="feature.Enabled"
@@ -151,7 +149,7 @@
                         @if (!IsFeatureAvailable(feature.Key))
                         {
                             <MudText Typo="Typo.caption" Style="color: rgba(255,150,50,0.7); padding-bottom: 6px;">
-                                Requires @GetRequiredTier(feature.Key) tier — @GetUpgradeHint(feature.Key)
+                                @L["AiFeatures_Requires"] @GetRequiredTier(feature.Key) @L["AiFeatures_Tier"] — @GetUpgradeHint(feature.Key)
                             </MudText>
                         }
                     </div>
@@ -167,23 +165,22 @@
                     <MudIcon Icon="@Icons.Material.Outlined.TouchApp"
                              Size="Size.Small" Color="Color.Warning" />
                     <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">
-                        On Demand
+                        @L["AiFeatures_OnDemand"]
                     </MudText>
                     <MudChip T="string" Size="Size.Small" Color="Color.Default"
                              Style="font-size: 0.7rem;">
-                        User-Triggered
+                        @L["AiFeatures_UserTriggered"]
                     </MudChip>
                     <MudChip T="string" Size="Size.Small" Color="Color.Warning"
                              Style="font-size: 0.7rem;">
-                        @EnabledCount(_onDemandFeatures) / @_onDemandFeatures.Count on
+                        @EnabledCount(_onDemandFeatures) / @_onDemandFeatures.Count @L["AiFeatures_On"]
                     </MudChip>
                 </MudStack>
             </TitleContent>
             <ChildContent>
                 <MudText Typo="Typo.body2" Color="Color.Secondary"
                          Style="margin-bottom: 16px; margin-top: 4px;">
-                    Activated by user actions — a search query, a button click, or
-                    browsing a work's detail page. Fast responses expected.
+                    @L["AiFeatures_OnDemandDescription"]
                 </MudText>
                 @foreach (var f in _onDemandFeatures)
                 {
@@ -210,7 +207,7 @@
                             {
                                 <MudChip T="string" Size="Size.Small" Color="Color.Default"
                                          Style="font-family: monospace; font-size: 0.7rem; flex-shrink: 0; opacity: 0.5;">
-                                    built-in
+                                    @L["AiFeatures_BuiltIn"]
                                 </MudChip>
                             }
                             <MudSwitch @bind-Value="feature.Enabled"
@@ -220,7 +217,7 @@
                         @if (!IsFeatureAvailable(feature.Key))
                         {
                             <MudText Typo="Typo.caption" Style="color: rgba(255,150,50,0.7); padding-bottom: 6px;">
-                                Requires @GetRequiredTier(feature.Key) tier — @GetUpgradeHint(feature.Key)
+                                @L["AiFeatures_Requires"] @GetRequiredTier(feature.Key) @L["AiFeatures_Tier"] — @GetUpgradeHint(feature.Key)
                             </MudText>
                         }
                     </div>
@@ -236,23 +233,22 @@
                     <MudIcon Icon="@Icons.Material.Outlined.Schedule"
                              Size="Size.Small" Color="Color.Secondary" />
                     <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">
-                        Scheduled
+                        @L["AiFeatures_Scheduled"]
                     </MudText>
                     <MudChip T="string" Size="Size.Small" Color="Color.Default"
                              Style="font-size: 0.7rem;">
-                        Background
+                        @L["AiFeatures_Background"]
                     </MudChip>
                     <MudChip T="string" Size="Size.Small" Color="Color.Secondary"
                              Style="font-size: 0.7rem;">
-                        @EnabledCount(_scheduledFeatures) / @_scheduledFeatures.Count on
+                        @EnabledCount(_scheduledFeatures) / @_scheduledFeatures.Count @L["AiFeatures_On"]
                     </MudChip>
                 </MudStack>
             </TitleContent>
             <ChildContent>
                 <MudText Typo="Typo.body2" Color="Color.Secondary"
                          Style="margin-bottom: 16px; margin-top: 4px;">
-                    Runs on a nightly or weekly cron schedule. These features are
-                    long-running and are designed to run while you sleep.
+                    @L["AiFeatures_ScheduledDescription"]
                 </MudText>
                 @foreach (var f in _scheduledFeatures)
                 {
@@ -279,7 +275,7 @@
                             {
                                 <MudChip T="string" Size="Size.Small" Color="Color.Default"
                                          Style="font-family: monospace; font-size: 0.7rem; flex-shrink: 0; opacity: 0.5;">
-                                    built-in
+                                    @L["AiFeatures_BuiltIn"]
                                 </MudChip>
                             }
                             <MudSwitch @bind-Value="feature.Enabled"
@@ -289,7 +285,7 @@
                         @if (!IsFeatureAvailable(feature.Key))
                         {
                             <MudText Typo="Typo.caption" Style="color: rgba(255,150,50,0.7); padding-bottom: 6px;">
-                                Requires @GetRequiredTier(feature.Key) tier — @GetUpgradeHint(feature.Key)
+                                @L["AiFeatures_Requires"] @GetRequiredTier(feature.Key) @L["AiFeatures_Tier"] — @GetUpgradeHint(feature.Key)
                             </MudText>
                         }
                     </div>

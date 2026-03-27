@@ -1232,6 +1232,84 @@ public sealed class DatabaseConnection : IDatabaseConnection
             }
         }
 
+        // ── M-062: Switch FTS5 search_index tokenizer from unicode61 to trigram ──
+        // Phase 5 CJK support: the trigram tokenizer indexes every 3-character window
+        // of text, enabling substring matching for CJK scripts (Chinese, Japanese,
+        // Korean) where words have no space boundaries. It also handles Western text —
+        // any substring of 3+ characters matches, so "ame" finds "Amélie".
+        //
+        // Trade-off: trigram indexes are larger than unicode61 and do not support
+        // ranked BM25 ordering (ORDER BY rank is unsupported). Searches fall back to
+        // table-scan order. For a personal library index this is acceptable.
+        //
+        // Detection: check whether the current tokenizer is already 'trigram' by
+        // inspecting the FTS5 shadow config table. If not, rebuild the table.
+        {
+            var trigramAlready = false;
+            try
+            {
+                using var m062Check = conn.CreateCommand();
+                // The FTS5 config shadow table stores tokenizer info as a value string.
+                m062Check.CommandText = """
+                    SELECT value FROM search_index_config WHERE k = 'tokenize';
+                    """;
+                var tokenizerValue = m062Check.ExecuteScalar() as string;
+                trigramAlready = string.Equals(tokenizerValue, "trigram", StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                // shadow table missing or search_index doesn't exist yet — proceed with rebuild
+            }
+
+            if (!trigramAlready)
+            {
+                // Preserve existing data before dropping the FTS5 table.
+                using var m062Backup = conn.CreateCommand();
+                m062Backup.CommandText = """
+                    CREATE TEMP TABLE IF NOT EXISTS _si_backup AS
+                    SELECT entity_id, title, original_title, alternate_titles, author, description
+                    FROM search_index;
+                    """;
+                m062Backup.ExecuteNonQuery();
+
+                // Drop the old FTS5 table (and all its shadow tables).
+                using var m062Drop = conn.CreateCommand();
+                m062Drop.CommandText = "DROP TABLE IF EXISTS search_index;";
+                m062Drop.ExecuteNonQuery();
+
+                // Create the new FTS5 table with trigram tokenizer.
+                using var m062Create = conn.CreateCommand();
+                m062Create.CommandText = """
+                    CREATE VIRTUAL TABLE search_index USING fts5(
+                        entity_id UNINDEXED,
+                        title,
+                        original_title,
+                        alternate_titles,
+                        author,
+                        description,
+                        tokenize = 'trigram'
+                    );
+                    """;
+                m062Create.ExecuteNonQuery();
+
+                // Repopulate from the backup.
+                using var m062Restore = conn.CreateCommand();
+                m062Restore.CommandText = """
+                    INSERT INTO search_index (entity_id, title, original_title, alternate_titles, author, description)
+                    SELECT entity_id, title, original_title, alternate_titles, author, description
+                    FROM _si_backup;
+                    """;
+                m062Restore.ExecuteNonQuery();
+
+                // Clean up the temp backup.
+                using var m062CleanUp = conn.CreateCommand();
+                m062CleanUp.CommandText = "DROP TABLE IF EXISTS _si_backup;";
+                m062CleanUp.ExecuteNonQuery();
+
+                System.Diagnostics.Debug.WriteLine("M-062: Rebuilt FTS5 search_index with trigram tokenizer for CJK support");
+            }
+        }
+
         // Seed S-001: provider_registry entries for all known providers.
         // metadata_claims.provider_id has a FK to provider_registry(id), so these
         // rows MUST exist before any claim is written.  INSERT OR IGNORE makes this

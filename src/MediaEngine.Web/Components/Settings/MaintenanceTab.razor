@@ -1,6 +1,7 @@
 @namespace MediaEngine.Web.Components.Settings
 @inject UIOrchestratorService Orchestrator
 @inject ISnackbar Snackbar
+@inject IStringLocalizer<SharedStrings> L
 
 @* Maintenance — Housekeeping tools: library reconciliation, crawl, and weekly sync.
    Activity timeline and retention policy have moved to the dedicated Activity tab
@@ -11,10 +12,10 @@
     @* ── Section Header ──────────────────────────────────────────────────── *@
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
         <MudIcon Icon="@Icons.Material.Outlined.Build" Color="Color.Default" Class="mr-2" />
-        <MudText Typo="Typo.h6">Maintenance</MudText>
+        <MudText Typo="Typo.h6">@L["Maintenance_PageTitle"]</MudText>
     </MudStack>
     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
-        Housekeeping tools for library integrity and periodic metadata refresh.
+        @L["Maintenance_PageDescription"]
     </MudText>
 
     @* ── Section 1: Library Reconciliation ──────────────────────────────── *@
@@ -24,13 +25,11 @@
             <MudIcon Icon="@Icons.Material.Outlined.FactCheck"
                      Color="Color.Default" Class="mr-2" />
             <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">
-                Library Reconciliation
+                @L["Maintenance_ReconciliationTitle"]
             </MudText>
         </MudStack>
         <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
-            Scan all library assets and verify their files still exist on disk.
-            Missing files are cleaned up automatically — orphaned cover art,
-            sidecar XML, and empty folders are removed.
+            @L["Maintenance_ReconciliationDescription"]
         </MudText>
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2"
                   Class="maintenance-action-row">
@@ -39,7 +38,7 @@
                        StartIcon="@Icons.Material.Filled.PlayArrow"
                        OnClick="@RunReconciliationAsync"
                        Disabled="@_reconciling">
-                @(_reconciling ? "Scanning..." : "Reconcile Now")
+                @(_reconciling ? L["Maintenance_Scanning"] : L["Maintenance_ReconcileNow"])
             </MudButton>
             @if (_lastResult is not null)
             {
@@ -58,12 +57,11 @@
             <MudIcon Icon="@Icons.Material.Filled.AutoFixHigh"
                      Color="Color.Default" Class="mr-2" />
             <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">
-                Universe Enrichment
+                @L["Maintenance_UniverseEnrichmentTitle"]
             </MudText>
         </MudStack>
         <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
-            Run deep enrichment for all pending items — character relationships,
-            franchise connections, and cross-media narrative links.
+            @L["Maintenance_UniverseEnrichmentDescription"]
         </MudText>
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2"
                   Class="maintenance-action-row">
@@ -72,12 +70,12 @@
                        StartIcon="@Icons.Material.Filled.AutoFixHigh"
                        OnClick="@TriggerPass2Async"
                        Disabled="@(_pass2Loading || _pass2Status?.PendingCount == 0)">
-                @(_pass2Loading ? "Running..." : "Run Pass 2 Now")
+                @(_pass2Loading ? L["Maintenance_Running"] : L["Maintenance_RunPass2Now"])
             </MudButton>
             @if (_pass2Status?.PendingCount > 0)
             {
                 <MudChip T="string" Size="Size.Small" Color="Color.Info">
-                    @_pass2Status.PendingCount pending
+                    @_pass2Status.PendingCount @L["Maintenance_Pending"]
                 </MudChip>
             }
         </MudStack>
@@ -90,12 +88,11 @@
             <MudIcon Icon="@Icons.Material.Outlined.FindInPage"
                      Color="Color.Secondary" Class="mr-2" />
             <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">
-                Library Crawl
+                @L["Maintenance_LibraryCrawlTitle"]
             </MudText>
         </MudStack>
         <MudText Typo="Typo.body2" Color="Color.Secondary">
-            Scan the Library Root for library.xml sidecars and rebuild the database
-            from the filesystem. Coming in a future update.
+            @L["Maintenance_LibraryCrawlDescription"]
         </MudText>
     </MudPaper>
 
@@ -106,12 +103,11 @@
             <MudIcon Icon="@Icons.Material.Outlined.Sync"
                      Color="Color.Secondary" Class="mr-2" />
             <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">
-                Weekly Sync
+                @L["Maintenance_WeeklySyncTitle"]
             </MudText>
         </MudStack>
         <MudText Typo="Typo.body2" Color="Color.Secondary">
-            Periodic metadata refresh with artwork hash verification.
-            Coming in a future update.
+            @L["Maintenance_WeeklySyncDescription"]
         </MudText>
     </MudPaper>
 
@@ -156,12 +152,12 @@
             _lastResult = result;
             var msg = result.MissingCount > 0
                 ? $"Reconciliation found {result.MissingCount} missing file(s) — cleaned up"
-                : "Reconciliation complete — all files present";
+                : L["Maintenance_ReconciliationComplete"];
             Snackbar.Add(msg, result.MissingCount > 0 ? Severity.Warning : Severity.Success);
         }
         else
         {
-            Snackbar.Add("Reconciliation failed — is the Engine running?", Severity.Error);
+            Snackbar.Add(L["Maintenance_ReconciliationError"], Severity.Error);
         }
     }
 
@@ -180,7 +176,7 @@
             }
             else
             {
-                Snackbar.Add("Failed to trigger Pass 2 — is the Engine running?", Severity.Error);
+                Snackbar.Add(L["Maintenance_Pass2Error"], Severity.Error);
             }
         }
         finally

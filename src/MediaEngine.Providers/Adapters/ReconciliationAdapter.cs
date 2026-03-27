@@ -2089,6 +2089,62 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             }
         }
 
+        // ── Wikidata aliases as alternate_title claims ────────────────────────
+        // Wikidata entities carry aliases — common alternate names for the work
+        // (e.g. "Sen to Chihiro no Kamikakushi" is an alias for "Spirited Away",
+        // "1984" is an alias for "Nineteen Eighty-Four"). Emitting them as
+        // alternate_title claims populates the FTS5 search index so users can find
+        // works by any of their known names, including romanized CJK titles.
+        //
+        // The entity is fetched in the metadata language so aliases reflect the
+        // configured display language. Each alias is emitted as a separate claim
+        // at confidence 0.85 — lower than the primary title (0.93) so it does not
+        // compete as the canonical title but is still indexed for search.
+        //
+        // Aliases already equal to an emitted title or original_title are skipped
+        // to avoid redundant storage.
+        if (_reconciler is not null)
+        {
+            try
+            {
+                var aliasEntities = await _reconciler
+                    .GetEntitiesAsync([masterWorkQid], language, ct)
+                    .ConfigureAwait(false);
+
+                if (aliasEntities.TryGetValue(masterWorkQid, out var aliasEntity)
+                    && aliasEntity.Aliases is { Count: > 0 })
+                {
+                    // Collect values already emitted as title or original_title to avoid duplicates.
+                    var emittedTitles = claims
+                        .Where(c => string.Equals(c.Key, "title", StringComparison.OrdinalIgnoreCase)
+                                 || string.Equals(c.Key, "original_title", StringComparison.OrdinalIgnoreCase))
+                        .Select(c => c.Value)
+                        .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+                    var aliasesEmitted = 0;
+                    foreach (var alias in aliasEntity.Aliases)
+                    {
+                        if (string.IsNullOrWhiteSpace(alias)) continue;
+                        if (emittedTitles.Contains(alias)) continue;
+
+                        claims.Add(new ProviderClaim("alternate_title", alias, 0.85));
+                        aliasesEmitted++;
+                    }
+
+                    if (aliasesEmitted > 0)
+                        _logger.LogDebug(
+                            "{Provider}: emitted {Count} alias(es) as alternate_title for {QID}",
+                            Name, aliasesEmitted, masterWorkQid);
+                }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogDebug(ex,
+                    "{Provider}: failed to fetch aliases for {QID}",
+                    Name, masterWorkQid);
+            }
+        }
+
         return claims;
     }
 

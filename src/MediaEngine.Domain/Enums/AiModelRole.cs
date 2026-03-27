@@ -18,4 +18,7 @@ public enum AiModelRole
 
     /// <summary>Scholar text model for deep enrichment (description intelligence, complex analysis). Scheduled/overnight.</summary>
     TextScholar = 4,
+
+    /// <summary>Multilingual CJK model (Qwen 2.5) for Chinese, Japanese, and Korean content analysis. Optional — only auto-downloads when CJK languages are configured.</summary>
+    TextCjk = 5,
 }

@@ -5,6 +5,7 @@
 @inject NavigationManager Nav
 @inject DeviceContextService DeviceContext
 @inject UIOrchestratorService Orchestrator
+@inject IStringLocalizer<SharedStrings> L
 @implements IDisposable
 
 @using MediaEngine.Web.Models.ViewDTOs
@@ -16,8 +17,8 @@
 
     @* ── Page header ────────────────────────────────────────────── *@
     <div class="settings-page-header">
-        <h1 class="settings-page-title">Settings</h1>
-        <p class="settings-page-subtitle">Manage your experience.</p>
+        <h1 class="settings-page-title">@L["Settings_Title"]</h1>
+        <p class="settings-page-subtitle">@L["Settings_Subtitle"]</p>
     </div>
 
     @* ── Content area ───────────────────────────────────────────── *@

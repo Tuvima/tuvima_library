@@ -1,4 +1,5 @@
 @namespace MediaEngine.Web.Components.Settings
+@inject IStringLocalizer<SharedStrings> L
 
 @* Status Dashboard — server health overview with stat cards and engine info. *@
 
@@ -7,10 +8,10 @@
     @* ── Header ──────────────────────────────────────────────────────────── *@
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
         <MudIcon Icon="@Icons.Material.Outlined.SpaceDashboard" Color="Color.Default" Class="mr-2" />
-        <MudText Typo="Typo.h6">Status Dashboard</MudText>
+        <MudText Typo="Typo.h6">@L["Status_StatusDashboard"]</MudText>
     </MudStack>
     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
-        A live overview of Engine health, library size, and storage usage.
+        @L["Status_StatusDashboardDescription"]
     </MudText>
 
     @* ── Stat Cards ───────────────────────────────────────────────────────── *@
@@ -25,7 +26,7 @@
                     <MudText Typo="Typo.h5" Style="font-weight: 700; margin-top: 12px;">
                         12d 4h 32m
                     </MudText>
-                    <MudText Typo="Typo.body2" Color="Color.Secondary">Server Uptime</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">@L["Status_ServerUptime"]</MudText>
                 </MudStack>
             </div>
         </MudItem>
@@ -39,7 +40,7 @@
                     <MudText Typo="Typo.h5" Style="font-weight: 700; margin-top: 12px;">
                         2,412
                     </MudText>
-                    <MudText Typo="Typo.body2" Color="Color.Secondary">Total Assets</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">@L["Status_TotalAssets"]</MudText>
                 </MudStack>
             </div>
         </MudItem>
@@ -53,7 +54,7 @@
                     <MudText Typo="Typo.h5" Style="font-weight: 700; margin-top: 12px;">
                         245 MB
                     </MudText>
-                    <MudText Typo="Typo.body2" Color="Color.Secondary">Database</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">@L["Status_Database"]</MudText>
                 </MudStack>
             </div>
         </MudItem>
@@ -68,14 +69,14 @@
                         1.2 TB
                     </MudText>
                     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">
-                        Global Cache
+                        @L["Status_GlobalCache"]
                     </MudText>
                     <MudProgressLinear Value="62"
                                        Color="Color.Info"
                                        Rounded="true"
                                        Size="Size.Small"
                                        Style="opacity: 0.8;" />
-                    <MudText Typo="Typo.caption" Color="Color.Secondary">62% used</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">@L["Status_CacheUsed"]</MudText>
                 </MudStack>
             </div>
         </MudItem>
@@ -87,14 +88,14 @@
 
         <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
             <MudIcon Icon="@Icons.Material.Outlined.Info" Color="Color.Default" Class="mr-2" />
-            <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">Engine Information</MudText>
+            <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">@L["Status_EngineInformation"]</MudText>
         </MudStack>
 
         <MudGrid Spacing="2">
             <MudItem xs="12" sm="6">
                 <MudStack Spacing="0">
                     <MudText Typo="Typo.caption" Color="Color.Secondary" Style="text-transform: uppercase; letter-spacing: 0.08em;">
-                        Server Name
+                        @L["Status_ServerName"]
                     </MudText>
                     <MudText Typo="Typo.body1">Tuvima Library</MudText>
                 </MudStack>
@@ -102,7 +103,7 @@
             <MudItem xs="12" sm="6">
                 <MudStack Spacing="0">
                     <MudText Typo="Typo.caption" Color="Color.Secondary" Style="text-transform: uppercase; letter-spacing: 0.08em;">
-                        Engine URL
+                        @L["Status_EngineUrl"]
                     </MudText>
                     <code style="font-family: monospace; font-size: 0.875rem;
                                   background: rgba(0,0,0,0.25); padding: 2px 8px;
@@ -114,7 +115,7 @@
             <MudItem xs="12" sm="6">
                 <MudStack Spacing="0">
                     <MudText Typo="Typo.caption" Color="Color.Secondary" Style="text-transform: uppercase; letter-spacing: 0.08em;">
-                        Version
+                        @L["Status_Version"]
                     </MudText>
                     <MudText Typo="Typo.body1">0.1.0-dev</MudText>
                 </MudStack>
@@ -122,7 +123,7 @@
             <MudItem xs="12" sm="6">
                 <MudStack Spacing="0">
                     <MudText Typo="Typo.caption" Color="Color.Secondary" Style="text-transform: uppercase; letter-spacing: 0.08em;">
-                        AI Models
+                        @L["Status_AiModels"]
                     </MudText>
                     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Style="flex-wrap: wrap;">
                         <MudChip T="string" Size="Size.Small" Color="Color.Success"

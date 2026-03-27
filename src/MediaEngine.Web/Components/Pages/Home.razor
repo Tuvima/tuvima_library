@@ -5,6 +5,7 @@
 @inject NavigationManager       Nav
 @inject IWebHostEnvironment     Env
 @inject IPhraseTemplateService  Phrases
+@inject IStringLocalizer<SharedStrings> L
 @implements IDisposable
 
 <PageTitle>Tuvima Library</PageTitle>
@@ -23,9 +24,9 @@ else if (_hubs.Count == 0 && _libraryWorks.Count == 0)
     @* ── Empty state — library has no content yet ── *@
     <div class="home-empty-state">
         <img src="/images/tuvima-icon.svg" alt="Tuvima" class="home-empty-icon" />
-        <h2 class="home-empty-title">Your library is empty</h2>
+        <h2 class="home-empty-title">@L["Home_EmptyTitle"]</h2>
         <p class="home-empty-subtitle">
-            Drop files into your Watch Folder, or seed the library with sample books to get started.
+            @L["Home_EmptySubtitle"]
         </p>
 
         @if (Env.IsDevelopment())
@@ -40,11 +41,11 @@ else if (_hubs.Count == 0 && _libraryWorks.Count == 0)
                 @if (_seeding)
                 {
                     <MudProgressCircular Size="MudBlazor.Size.Small" Indeterminate="true" Class="mr-2" />
-                    <text>Seeding...</text>
+                    <text>@L["Home_Seeding"]</text>
                 }
                 else
                 {
-                    <text>Seed Library</text>
+                    <text>@L["Home_SeedLibrary"]</text>
                 }
             </MudButton>
         }
@@ -95,14 +96,14 @@ else
                 <button class="carousel-arrow carousel-arrow-left"
                         @onclick="PrevSlide"
                         @onclick:stopPropagation="true"
-                        aria-label="Previous">
+                        aria-label="@L["Home_CarouselPrevious"]">
                     <MudIcon Icon="@Icons.Material.Filled.ChevronLeft" />
                 </button>
 
                 <button class="carousel-arrow carousel-arrow-right"
                         @onclick="NextSlide"
                         @onclick:stopPropagation="true"
-                        aria-label="Next">
+                        aria-label="@L["Home_CarouselNext"]">
                     <MudIcon Icon="@Icons.Material.Filled.ChevronRight" />
                 </button>
 
@@ -125,7 +126,7 @@ else
         <MudIcon Icon="@Icons.Material.Outlined.Search" Style="font-size: 16px; color: rgba(255,255,255,0.30);" />
         <input class="home-search-input"
                type="text"
-               placeholder="Search your library..."
+               placeholder="@L["Home_SearchPlaceholder"]"
                @oninput="OnSearchInput"
                @onkeydown="HandleSearchKeyDown" />
     </div>
@@ -181,7 +182,7 @@ else
         @* ── Continue Your Journey — in-progress individual items ── *@
         @if (_journeyItems.Count > 0)
         {
-            <PosterSwimlane Title="Continue Your Journey"
+            <PosterSwimlane Title="@L["Home_ContinueYourJourney"]"
                             Items="@_journeyItems.Take(10).Select(PosterItemViewModel.FromJourney).ToList()"
                             OnItemSelected="HandleItemSelected"
                             CardWidth="@_cardWidth" />
@@ -190,7 +191,7 @@ else
         @* ── Recently Added — individual works, newest hub first ── *@
         @if (_recentWorks.Count > 0)
         {
-            <PosterSwimlane Title="Recently Added"
+            <PosterSwimlane Title="@L["Home_RecentlyAdded"]"
                             TotalCount="@_recentWorks.Count"
                             Items="@_recentWorks.Take(12).ToList()"
                             OnItemSelected="HandleItemSelected"
@@ -235,7 +236,7 @@ else
     private int _cardWidth => DeviceContext.Settings.Pages.Home.SwimlaneCardWidth;
 
     private string _suggestionsTitle =>
-        _journeyItems.Count > 0 ? "You Might Like" : "Explore Your Library";
+        _journeyItems.Count > 0 ? L["Home_YouMightLike"] : L["Home_ExploreYourLibrary"];
 
     // ── Search state ────────────────────────────────────────────────────────
     private string _searchTerm = "";
@@ -569,8 +570,8 @@ else
         bool success = await Orchestrator.SeedLibraryAsync();
         _seeding = false;
         _seedMessage = success
-            ? "7 books are being processed — they'll appear here momentarily."
-            : "Could not seed the library. Make sure the Watch Folder is configured.";
+            ? L["Home_SeedSuccess"]
+            : L["Home_SeedFailure"];
         StateHasChanged();
     }
 

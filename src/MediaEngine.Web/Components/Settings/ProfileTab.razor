@@ -2,6 +2,8 @@
 @inject UIOrchestratorService Orchestrator
 @inject DeviceContextService DeviceContext
 @inject ISnackbar Snackbar
+@inject IStringLocalizer<SharedStrings> L
+@inject NavigationManager Nav
 @implements IDisposable
 
 @* ProfileTab — Profile identity, visual preferences, and locale settings.
@@ -25,7 +27,7 @@
     @* ── Section header: Account Identity ───────────────────────────────── *@
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-6" Spacing="2">
         <MudIcon Icon="@Icons.Material.Outlined.Fingerprint" Color="Color.Default" Class="mr-1" />
-        <MudText Typo="Typo.h6">Account Identity</MudText>
+        <MudText Typo="Typo.h6">@L["Profile_AccountIdentity"]</MudText>
     </MudStack>
 
     @if (_loading)
@@ -52,7 +54,7 @@
                                 background: rgba(17,20,25,0.9); border: 1px solid rgba(51,65,85,0.6);
                                 display: flex; align-items: center; justify-content: center;
                                 cursor: pointer;"
-                         title="Upload avatar (coming soon)">
+                         title="@L["Profile_UploadAvatarComingSoon"]">
                         <MudIcon Icon="@Icons.Material.Outlined.CameraAlt"
                                  Style="font-size: 1rem; color: var(--mud-palette-text-secondary);" />
                     </div>
@@ -66,7 +68,7 @@
                             @if (DeviceContext.Settings.Constraints.AllowTextInput)
                             {
                                 <MudTextField @bind-Value="_displayName"
-                                              Label="Display Name"
+                                              Label="@L["Profile_DisplayName"]"
                                               Variant="Variant.Outlined"
                                               FullWidth="true"
                                               Immediate="true"
@@ -74,7 +76,7 @@
                             }
                             else
                             {
-                                <MudText Typo="Typo.subtitle2" Color="Color.Secondary">Display Name</MudText>
+                                <MudText Typo="Typo.subtitle2" Color="Color.Secondary">@L["Profile_DisplayName"]</MudText>
                                 <MudText Typo="Typo.body1">@_displayName</MudText>
                             }
                         </MudItem>
@@ -83,7 +85,7 @@
                         <MudItem xs="12" sm="6">
                             <div style="border: 1px solid rgba(255,255,255,0.23); border-radius: 4px; padding: 16.5px 14px; cursor: not-allowed; opacity: 0.7;">
                                 <div style="font-size: 0.75rem; color: var(--mud-palette-text-secondary); margin-bottom: 4px; line-height: 1;">
-                                    Role
+                                    @L["Profile_Role"]
                                 </div>
                                 <div style="font-size: 1rem; color: var(--mud-palette-text-secondary);">
                                     @_role
@@ -98,9 +100,9 @@
             @* Avatar colour swatches *@
             @if (showColorPicker)
             {
-                <MudText Typo="Typo.subtitle2" Class="mb-1">Avatar Colour</MudText>
+                <MudText Typo="Typo.subtitle2" Class="mb-1">@L["Profile_AvatarColour"]</MudText>
                 <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3">
-                    Choose a colour for your avatar circle.
+                    @L["Profile_AvatarColourHint"]
                 </MudText>
 
                 <MudStack Row="true" Spacing="2" Style="flex-wrap: wrap;" Class="mb-6">
@@ -122,18 +124,18 @@
         {
             <MudText Typo="Typo.overline" Color="Color.Secondary" Class="mb-4"
                      Style="letter-spacing: 0.08em;">
-                Display &amp; Locale
+                @L["Profile_DisplayAndLocale"]
             </MudText>
 
             <MudGrid Spacing="3" Class="mb-6">
                 <MudItem xs="12" sm="6">
                     <MudSelect T="string"
                                @bind-Value="_dateFormat"
-                               Label="Date Format"
+                               Label="@L["Profile_DateFormat"]"
                                Variant="Variant.Outlined"
                                FullWidth="true"
                                AnchorOrigin="Origin.BottomLeft">
-                        <MudSelectItem T="string" Value="@("System")">System Default</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("System")">@L["Profile_SystemDefault"]</MudSelectItem>
                         <MudSelectItem T="string" Value="@("DD/MM/YYYY")">DD/MM/YYYY</MudSelectItem>
                         <MudSelectItem T="string" Value="@("MM/DD/YYYY")">MM/DD/YYYY</MudSelectItem>
                         <MudSelectItem T="string" Value="@("YYYY-MM-DD")">YYYY-MM-DD</MudSelectItem>
@@ -142,13 +144,13 @@
                 <MudItem xs="12" sm="6">
                     <MudSelect T="string"
                                @bind-Value="_timeFormat"
-                               Label="Time Format"
+                               Label="@L["Profile_TimeFormat"]"
                                Variant="Variant.Outlined"
                                FullWidth="true"
                                AnchorOrigin="Origin.BottomLeft">
-                        <MudSelectItem T="string" Value="@("System")">System Default</MudSelectItem>
-                        <MudSelectItem T="string" Value="@("12-hour")">12-hour (AM/PM)</MudSelectItem>
-                        <MudSelectItem T="string" Value="@("24-hour")">24-hour</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("System")">@L["Profile_SystemDefault"]</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("12-hour")">@L["Profile_TimeFormat12Hour"]</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("24-hour")">@L["Profile_TimeFormat24Hour"]</MudSelectItem>
                     </MudSelect>
                 </MudItem>
             </MudGrid>
@@ -164,23 +166,22 @@
                 <MudIcon Icon="@Icons.Material.Filled.Translate" Color="Color.Default" Class="mr-1" />
                 <MudText Typo="Typo.overline" Color="Color.Secondary"
                          Style="letter-spacing: 0.08em;">
-                    Language Preferences
+                    @L["Profile_LanguagePreferences"]
                 </MudText>
             </MudStack>
 
             <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-4">
-                Control which languages the Engine uses for metadata lookups and which content languages
-                are accepted without review.
+                @L["Profile_LanguagePreferencesHint"]
             </MudText>
 
             <MudGrid Spacing="3" Class="mb-4">
                 <MudItem xs="12" sm="6">
                     <MudSelect T="string"
                                @bind-Value="_displayLanguage"
-                               Label="Display Language"
+                               Label="@L["Profile_DisplayLanguage"]"
                                Variant="Variant.Outlined"
                                FullWidth="true"
-                               HelperText="Language for UI labels and Wikidata display"
+                               HelperText="@L["Profile_DisplayLanguageHelper"]"
                                AnchorOrigin="Origin.BottomLeft">
                         @foreach (var lang in _languageOptions)
                         {
@@ -191,10 +192,10 @@
                 <MudItem xs="12" sm="6">
                     <MudSelect T="string"
                                @bind-Value="_metadataLanguage"
-                               Label="Metadata Language"
+                               Label="@L["Profile_MetadataLanguage"]"
                                Variant="Variant.Outlined"
                                FullWidth="true"
-                               HelperText="Language for provider queries and Wikidata lookups"
+                               HelperText="@L["Profile_MetadataLanguageHelper"]"
                                AnchorOrigin="Origin.BottomLeft">
                         @foreach (var lang in _languageOptions)
                         {
@@ -208,11 +209,11 @@
                 <MudItem xs="12">
                     <MudSelect T="string"
                                @bind-SelectedValues="_additionalLanguages"
-                               Label="Additional Content Languages"
+                               Label="@L["Profile_AdditionalContentLanguages"]"
                                Variant="Variant.Outlined"
                                FullWidth="true"
                                MultiSelection="true"
-                               HelperText="Languages you consume content in — files in these languages won't be flagged"
+                               HelperText="@L["Profile_AdditionalContentLanguagesHelper"]"
                                AnchorOrigin="Origin.BottomLeft">
                         @foreach (var lang in _languageOptions)
                         {
@@ -224,12 +225,11 @@
 
             <MudSwitch T="bool"
                        @bind-Value="_acceptAnyLanguage"
-                       Label="Accept any language"
+                       Label="@L["Profile_AcceptAnyLanguage"]"
                        Color="Color.Primary"
                        Class="mb-2" />
             <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-6">
-                When enabled, files in any language are ingested without review flags.
-                Disable this to restrict accepted languages to your display, metadata, and additional languages.
+                @L["Profile_AcceptAnyLanguageHint"]
             </MudText>
 
             <MudDivider Class="my-6" />
@@ -244,7 +244,7 @@
                        FullWidth="true"
                        OnClick="@SaveProfileAsync"
                        Disabled="@(_saving || string.IsNullOrWhiteSpace(_displayName))">
-                @(_saving ? "Saving..." : "Save Profile")
+                @(_saving ? L["Profile_Saving"] : L["Profile_SaveProfile"])
             </MudButton>
         }
     }
@@ -275,6 +275,7 @@
     private string _timeFormat  = "System";
 
     // Language preferences
+    private string _savedDisplayLanguage = "en";  // track original to detect changes
     private string _displayLanguage    = "en";
     private string _metadataLanguage   = "en";
     private IReadOnlyCollection<string> _additionalLanguages = Array.Empty<string>();
@@ -339,6 +340,7 @@
         if (settings is not null)
         {
             _displayLanguage    = settings.DisplayLanguage;
+            _savedDisplayLanguage = settings.DisplayLanguage;
             _metadataLanguage   = settings.MetadataLanguage;
             _additionalLanguages = settings.AdditionalLanguages?.AsReadOnly()
                                    ?? (IReadOnlyCollection<string>)Array.Empty<string>();
@@ -353,9 +355,9 @@
 
         var ok = await Orchestrator.UpdateProfileAsync(_profileId, _displayName.Trim(), _avatarColor, _role);
         if (ok)
-            Snackbar.Add("Profile updated", Severity.Success);
+            Snackbar.Add(L["Profile_ProfileUpdated"], Severity.Success);
         else
-            Snackbar.Add("Could not save profile — is the Engine running?", Severity.Error);
+            Snackbar.Add(L["Profile_CouldNotSaveProfile"], Severity.Error);
 
         // Save language preferences to Engine config
         var currentSettings = await Orchestrator.GetServerGeneralAsync();
@@ -370,7 +372,15 @@
             };
             var langOk = await Orchestrator.UpdateServerGeneralAsync(updated);
             if (!langOk)
-                Snackbar.Add("Could not save language preferences", Severity.Warning);
+                Snackbar.Add(L["Profile_CouldNotSaveLanguagePreferences"], Severity.Warning);
+
+            // If display language changed, set culture cookie and reload page
+            if (langOk && !string.Equals(_displayLanguage, _savedDisplayLanguage, StringComparison.OrdinalIgnoreCase))
+            {
+                var redirectBack = Uri.EscapeDataString(Nav.Uri);
+                Nav.NavigateTo($"/culture/set?culture={Uri.EscapeDataString(_displayLanguage)}&redirectUri={redirectBack}", forceLoad: true);
+                return; // page will reload
+            }
         }
 
         _saving = false;

@@ -1,4 +1,5 @@
 @namespace MediaEngine.Web.Components.Settings
+@inject IStringLocalizer<SharedStrings> L
 
 @* Vibe Vocabulary — Editable mood and atmosphere tag lists per media type.
    The AI uses these lists as preferred candidates when generating vibe tags
@@ -9,14 +10,13 @@
     @* ── Section Header ──────────────────────────────────────────────────── *@
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
         <MudIcon Icon="@Icons.Material.Outlined.Style" Color="Color.Default" Class="mr-2" />
-        <MudText Typo="Typo.h6">Vibe Vocabulary</MudText>
+        <MudText Typo="Typo.h6">@L["Vibes_PageTitle"]</MudText>
     </MudStack>
     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">
-        Mood and atmosphere tags the AI draws from when enriching your library.
+        @L["Vibes_PageDescription"]
     </MudText>
     <MudAlert Severity="Severity.Info" Variant="Variant.Text" Dense="true" Class="mb-6">
-        The AI can generate tags outside this list but prefers these. Edit freely — changes
-        take effect on the next enrichment run.
+        @L["Vibes_InfoAlert"]
     </MudAlert>
 
     @* ── Expansion Panels ────────────────────────────────────────────────── *@
@@ -34,7 +34,7 @@
                         <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">@key</MudText>
                         <MudChip T="string" Size="Size.Small" Color="Color.Default"
                                  Style="opacity: 0.75;">
-                            @tagCount @(tagCount == 1 ? "tag" : "tags")
+                            @tagCount @(tagCount == 1 ? L["Vibes_TagSingular"] : L["Vibes_TagPlural"])
                         </MudChip>
                     </MudStack>
                 </TitleContent>
@@ -55,7 +55,7 @@
                         @if (tags.Count == 0)
                         {
                             <MudText Typo="Typo.caption" Color="Color.Secondary">
-                                No tags — add one below.
+                                @L["Vibes_NoTags"]
                             </MudText>
                         }
                     </MudStack>
@@ -63,7 +63,7 @@
                     @* Add new tag row *@
                     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                         <MudTextField @bind-Value="_newTagInputs[key]"
-                                      Placeholder="New tag…"
+                                      Placeholder="@L["Vibes_NewTagPlaceholder"]"
                                       Variant="Variant.Outlined"
                                       Margin="Margin.Dense"
                                       MaxLength="40"
@@ -75,7 +75,7 @@
                                    Size="Size.Small"
                                    OnClick="@(() => AddTag(key))"
                                    Disabled="@string.IsNullOrWhiteSpace(_newTagInputs[key])">
-                            Add
+                            @L["Vibes_Add"]
                         </MudButton>
                     </MudStack>
                 </ChildContent>
@@ -90,7 +90,7 @@
                    Color="Color.Default"
                    Size="Size.Small"
                    OnClick="@ResetToDefaults">
-            Reset to Defaults
+            @L["Vibes_ResetToDefaults"]
         </MudButton>
     </MudStack>
 

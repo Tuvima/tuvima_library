@@ -76,18 +76,49 @@ public sealed class SearchIndexRepository : ISearchIndexRepository
     {
         if (string.IsNullOrWhiteSpace(query)) return [];
 
+        var trimmed = query.Trim();
         using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
 
-        // FTS5 prefix search: quote the term and append * for prefix matching.
-        var escaped = query.Trim().Replace("\"", "\"\"");
+        // The trigram tokenizer requires at least 3 characters per token.
+        // For short queries (< 3 chars) fall back to a LIKE scan on canonical_values
+        // because the FTS5 trigram index cannot match them.
+        if (trimmed.Length < 3)
+        {
+            using var likeCmd = conn.CreateCommand();
+            likeCmd.CommandText = """
+                SELECT DISTINCT w.id
+                FROM works w
+                JOIN editions e ON e.work_id = w.id
+                JOIN media_assets ma ON ma.edition_id = e.id
+                JOIN canonical_values cv ON cv.entity_id = ma.id
+                WHERE cv.key IN ('title', 'original_title', 'author')
+                  AND cv.value LIKE @pattern
+                LIMIT @limit
+                """;
+            likeCmd.Parameters.AddWithValue("@pattern", $"%{trimmed}%");
+            likeCmd.Parameters.AddWithValue("@limit", limit);
+
+            var likeResults = new List<Guid>();
+            using var likeReader = await likeCmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
+            while (await likeReader.ReadAsync(ct).ConfigureAwait(false))
+            {
+                if (Guid.TryParse(likeReader.GetString(0), out var likeId))
+                    likeResults.Add(likeId);
+            }
+            return likeResults;
+        }
+
+        // FTS5 trigram search: quote the phrase for exact substring matching.
+        // The trigram tokenizer does not support prefix (*) or BM25 ranking —
+        // omit the trailing * and ORDER BY rank clause.
+        var escaped = trimmed.Replace("\"", "\"\"");
+        using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             SELECT entity_id FROM search_index
             WHERE search_index MATCH @ftsQuery
-            ORDER BY bm25(search_index)
             LIMIT @limit
             """;
-        cmd.Parameters.AddWithValue("@ftsQuery", $"\"{escaped}\"*");
+        cmd.Parameters.AddWithValue("@ftsQuery", $"\"{escaped}\"");
         cmd.Parameters.AddWithValue("@limit", limit);
 
         var results = new List<Guid>();

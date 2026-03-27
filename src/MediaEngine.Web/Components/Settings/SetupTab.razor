@@ -1,4 +1,5 @@
 @namespace MediaEngine.Web.Components.Settings
+@inject IStringLocalizer<SharedStrings> L
 
 @* Setup Wizard — Re-run the setup wizard or inspect the current server configuration.
    All values are read-only summary fields; editing happens in the dedicated tabs. *@
@@ -8,10 +9,10 @@
     @* ── Section Header ──────────────────────────────────────────────────── *@
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
         <MudIcon Icon="@Icons.Material.Outlined.RocketLaunch" Color="Color.Default" Class="mr-2" />
-        <MudText Typo="Typo.h6">Setup Wizard</MudText>
+        <MudText Typo="Typo.h6">@L["Setup_PageTitle"]</MudText>
     </MudStack>
     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
-        Revisit the initial setup steps or review your current server configuration at a glance.
+        @L["Setup_PageDescription"]
     </MudText>
 
     @* ── Re-run wizard card ──────────────────────────────────────────────── *@
@@ -20,17 +21,16 @@
             <MudIcon Icon="@Icons.Material.Outlined.AutoFixHigh"
                      Color="Color.Primary" Style="font-size: 2rem;" />
             <MudStack Spacing="1" Style="flex: 1;">
-                <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">Re-run Setup Wizard</MudText>
+                <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">@L["Setup_RerunTitle"]</MudText>
                 <MudText Typo="Typo.body2" Color="Color.Secondary">
-                    Walk through library path selection, provider configuration, and AI model
-                    download again. Your existing library data is never touched.
+                    @L["Setup_RerunDescription"]
                 </MudText>
             </MudStack>
             <MudButton Variant="Variant.Filled"
                        Color="Color.Primary"
                        Size="Size.Large"
                        StartIcon="@Icons.Material.Outlined.PlayArrow">
-                Run Wizard
+                @L["Setup_RunWizard"]
             </MudButton>
         </MudStack>
     </MudPaper>
@@ -39,7 +39,7 @@
 
     @* ── Current configuration ───────────────────────────────────────────── *@
     <MudText Typo="Typo.subtitle1" Style="font-weight: 600;" Class="mb-4">
-        Current Configuration
+        @L["Setup_CurrentConfiguration"]
     </MudText>
 
     @* Server name *@
@@ -47,7 +47,7 @@
         <MudIcon Icon="@Icons.Material.Outlined.Dns"
                  Color="Color.Secondary" Style="min-width: 24px;" />
         <MudStack Spacing="0" Style="flex: 1;">
-            <MudText Typo="Typo.caption" Color="Color.Secondary">Server Name</MudText>
+            <MudText Typo="Typo.caption" Color="Color.Secondary">@L["Setup_ServerName"]</MudText>
             <MudTextField Value="@_serverName"
                           Variant="Variant.Outlined"
                           Margin="Margin.Dense"
@@ -57,7 +57,7 @@
         <MudButton Variant="Variant.Text" Size="Size.Small"
                    StartIcon="@Icons.Material.Outlined.Edit"
                    Href="/settings/server">
-            Reconfigure
+            @L["Setup_Reconfigure"]
         </MudButton>
     </MudStack>
 
@@ -66,7 +66,7 @@
         <MudIcon Icon="@Icons.Material.Outlined.Language"
                  Color="Color.Secondary" Style="min-width: 24px;" />
         <MudStack Spacing="0" Style="flex: 1;">
-            <MudText Typo="Typo.caption" Color="Color.Secondary">Language</MudText>
+            <MudText Typo="Typo.caption" Color="Color.Secondary">@L["Setup_Language"]</MudText>
             <MudTextField Value="@_language"
                           Variant="Variant.Outlined"
                           Margin="Margin.Dense"
@@ -76,7 +76,7 @@
         <MudButton Variant="Variant.Text" Size="Size.Small"
                    StartIcon="@Icons.Material.Outlined.Edit"
                    Href="/settings/general">
-            Reconfigure
+            @L["Setup_Reconfigure"]
         </MudButton>
     </MudStack>
 
@@ -85,7 +85,7 @@
         <MudIcon Icon="@Icons.Material.Outlined.Folder"
                  Color="Color.Secondary" Style="min-width: 24px;" />
         <MudStack Spacing="0" Style="flex: 1;">
-            <MudText Typo="Typo.caption" Color="Color.Secondary">Library Root</MudText>
+            <MudText Typo="Typo.caption" Color="Color.Secondary">@L["Setup_LibraryRoot"]</MudText>
             <MudTextField Value="@_libraryRoot"
                           Variant="Variant.Outlined"
                           Margin="Margin.Dense"
@@ -96,7 +96,7 @@
         <MudButton Variant="Variant.Text" Size="Size.Small"
                    StartIcon="@Icons.Material.Outlined.Edit"
                    Href="/settings/libraries">
-            Reconfigure
+            @L["Setup_Reconfigure"]
         </MudButton>
     </MudStack>
 
@@ -106,7 +106,7 @@
                  Color="Color.Secondary" Style="min-width: 24px; margin-top: 20px;" />
         <MudStack Spacing="1" Style="flex: 1;">
             <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-1">
-                Configured Providers
+                @L["Setup_ConfiguredProviders"]
             </MudText>
             <MudStack Row="true" Style="flex-wrap: wrap; gap: 6px;">
                 @foreach (var provider in _configuredProviders)
@@ -125,7 +125,7 @@
                    StartIcon="@Icons.Material.Outlined.Edit"
                    Href="/settings/vault"
                    Style="margin-top: 16px;">
-            Reconfigure
+            @L["Setup_Reconfigure"]
         </MudButton>
     </MudStack>
 
@@ -134,7 +134,7 @@
         <MudIcon Icon="@Icons.Material.Outlined.Psychology"
                  Color="Color.Secondary" Style="min-width: 24px; margin-top: 20px;" />
         <MudStack Spacing="1" Style="flex: 1;">
-            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-1">AI Models</MudText>
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-1">@L["Setup_AiModels"]</MudText>
             @foreach (var model in _aiModels)
             {
                 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
@@ -146,7 +146,7 @@
                     @if (!model.Downloaded)
                     {
                         <MudChip T="string" Size="Size.Small" Color="Color.Warning"
-                                 Style="margin: 0;">Not downloaded</MudChip>
+                                 Style="margin: 0;">@L["Setup_NotDownloaded"]</MudChip>
                     }
                 </MudStack>
             }
@@ -155,7 +155,7 @@
                    StartIcon="@Icons.Material.Outlined.Edit"
                    Href="/settings/ai"
                    Style="margin-top: 16px;">
-            Reconfigure
+            @L["Setup_Reconfigure"]
         </MudButton>
     </MudStack>
 

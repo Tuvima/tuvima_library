@@ -1,6 +1,7 @@
 @namespace MediaEngine.Web.Components.Navigation
 @inject NavigationManager Nav
 @inject DeviceContextService DeviceContext
+@inject IStringLocalizer<SharedStrings> L
 @implements IDisposable
 
 @using MediaEngine.Web.Models.ViewDTOs
@@ -37,8 +38,8 @@
 
         <button class="sidebar-hamburger"
                 @onclick="@(async () => await CollapsedChanged.InvokeAsync(!Collapsed))"
-                aria-label="@(Collapsed ? "Expand navigation" : "Collapse navigation")"
-                title="@(Collapsed ? "Expand" : "Collapse")">
+                aria-label="@(Collapsed ? L["Nav_ExpandNavigation"] : L["Nav_CollapseNavigation"])"
+                title="@(Collapsed ? L["Nav_Expand"] : L["Nav_Collapse"])">
             <MudIcon Icon="@(Collapsed ? Icons.Material.Filled.Menu : Icons.Material.Filled.MenuOpen)"
                      Size="Size.Medium" />
         </button>
@@ -74,7 +75,7 @@
         @* ── Vault ── *@
         <div class="sidebar-item @(IsActive("/vault", "vault") ? "sidebar-item-active" : "")"
              @onclick="@(() => Nav.NavigateTo("/vault"))"
-             title="@(Collapsed ? (ReviewCount > 0 ? $"Vault ({ReviewCount} pending)" : "Vault") : null)">
+             title="@(Collapsed ? (ReviewCount > 0 ? string.Format(L["Nav_VaultPending"], ReviewCount) : L["Nav_Vault"].Value) : null)">
             @if (ReviewCount > 0)
             {
                 <MudBadge Content="@ReviewCount" Color="Color.Warning" Overlap="true" Visible="true">
@@ -87,7 +88,7 @@
             }
             @if (!Collapsed)
             {
-                <span class="sidebar-label" style="flex: 1;">Vault</span>
+                <span class="sidebar-label" style="flex: 1;">@L["Nav_Vault"]</span>
                 @if (ReviewCount > 0)
                 {
                     <MudChip T="string"
@@ -107,11 +108,11 @@
         @* ── Settings tree toggle ── *@
         <div class="sidebar-item sidebar-settings-toggle @(_isOnSettingsPage ? "sidebar-item-active" : "")"
              @onclick="ToggleSettings"
-             title="@(Collapsed ? "Settings" : null)">
+             title="@(Collapsed ? L["Nav_Settings"].Value : null)">
             <MudIcon Icon="@Icons.Material.Outlined.Settings" Size="Size.Medium" Class="sidebar-item-icon" />
             @if (!Collapsed)
             {
-                <span class="sidebar-label" style="flex: 1;">Settings</span>
+                <span class="sidebar-label" style="flex: 1;">@L["Nav_Settings"]</span>
                 <MudIcon Icon="@(_settingsExpanded
                                 ? Icons.Material.Filled.ExpandMore
                                 : Icons.Material.Filled.ChevronRight)"

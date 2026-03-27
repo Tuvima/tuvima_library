@@ -3,6 +3,7 @@
 @using MediaEngine.Web.Models.ViewDTOs
 
 @inject NavigationManager Nav
+@inject IStringLocalizer<SharedStrings> L
 @implements IDisposable
 
 @* MobileNavDrawer -- Slide-out navigation drawer for mobile devices.
@@ -15,7 +16,7 @@
 
     @* -- Hamburger header: mirrors TopBar toggle, stays visible while drawer is open -- *@
     <div class="mobile-nav-header">
-        <button class="mobile-nav-hamburger" @onclick="CloseDrawer" aria-label="Close navigation menu">
+        <button class="mobile-nav-hamburger" @onclick="CloseDrawer" aria-label="@L["Nav_CloseNavigation"]">
             <MudIcon Icon="@Icons.Material.Filled.Menu"
                      Style="font-size: 24px; color: rgba(248,248,248,0.80);" />
         </button>
@@ -38,7 +39,7 @@
 
         <MudNavLink Href="/vault" Icon="@Icons.Material.Outlined.Shield"
                     Match="NavLinkMatch.Prefix" OnClick="@CloseDrawer">
-            Vault
+            @L["Nav_Vault"]
             @if (ReviewCount > 0)
             {
                 <MudChip T="string" Size="Size.Small" Color="Color.Warning" Variant="Variant.Filled"
@@ -50,7 +51,7 @@
 
         <MudNavLink Href="/universes" Icon="@Icons.Material.Outlined.Public"
                     Match="NavLinkMatch.Prefix" OnClick="@CloseDrawer">
-            Universes
+            @L["Nav_Universes"]
         </MudNavLink>
 
         <MudDivider Class="my-2" Style="border-color: rgba(255,255,255,0.06);" />
@@ -60,7 +61,7 @@
             <MudIcon Icon="@Icons.Material.Outlined.Settings"
                      Size="Size.Medium"
                      Style="color: rgba(248,248,248,0.70); flex-shrink: 0;" />
-            <span class="mobile-nav-settings-label" style="flex: 1;">Settings</span>
+            <span class="mobile-nav-settings-label" style="flex: 1;">@L["Nav_Settings"]</span>
             <MudIcon Icon="@(_settingsExpanded
                             ? Icons.Material.Filled.ExpandMore
                             : Icons.Material.Filled.ChevronRight)"

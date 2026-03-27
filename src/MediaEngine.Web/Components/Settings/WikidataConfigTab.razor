@@ -1,4 +1,5 @@
 @namespace MediaEngine.Web.Components.Settings
+@inject IStringLocalizer<SharedStrings> L
 
 @* Wikidata Configuration — Stage 2 (Identity & Core Data) and Stage 3 (Universe Data) settings.
    Wikidata is the sole identity authority: every media item is identified by its Q-identifier.
@@ -10,12 +11,10 @@
     @* ── Header ──────────────────────────────────────────────────────────── *@
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
         <MudIcon Icon="@Icons.Material.Outlined.Public" Color="Color.Default" Class="mr-2" />
-        <MudText Typo="Typo.h6">Wikidata Configuration</MudText>
+        <MudText Typo="Typo.h6">@L["Wikidata_PageTitle"]</MudText>
     </MudStack>
     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
-        Wikidata is the sole identity authority for your library. Every book, film, person,
-        and franchise is identified by a Wikidata Q-identifier. Stage 2 resolves identity
-        during ingestion; Stage 3 enriches your library's universe in the background.
+        @L["Wikidata_PageDescription"]
     </MudText>
 
     @* ════════════════════════════════════════════════════════════════════
@@ -29,24 +28,22 @@
             <MudIcon Icon="@Icons.Material.Outlined.VerifiedUser"
                      Size="Size.Small" Color="Color.Default" />
             <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">
-                Stage 2 — Identity &amp; Core Data
+                @L["Wikidata_Stage2Title"]
             </MudText>
             <MudChip T="string" Size="Size.Small" Color="Color.Default"
                      Variant="Variant.Outlined"
                      Style="font-size: 0.65rem; height: 20px;">
-                Ingestion
+                @L["Wikidata_Stage2Badge"]
             </MudChip>
         </MudStack>
         <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
-            Runs immediately after retail providers (Stage 1) deposit bridge IDs.
-            Resolves the Q-identifier and fetches core properties via the
-            Data Extension API.
+            @L["Wikidata_Stage2Description"]
         </MudText>
 
         @* ── Properties pulled (read-only) ───────────────────────────── *@
         <MudText Typo="Typo.overline" Color="Color.Default" Class="mb-2"
                  Style="letter-spacing: 0.08em; display: block;">
-            PROPERTIES FETCHED
+            @L["Wikidata_PropertiesFetched"]
         </MudText>
         <MudStack Row="true" Spacing="1" Style="flex-wrap: wrap;" Class="mb-5">
             @foreach (var prop in _stage2Properties)
@@ -65,19 +62,18 @@
         @* ── QID matching thresholds ──────────────────────────────────── *@
         <MudText Typo="Typo.overline" Color="Color.Default" Class="mb-3"
                  Style="letter-spacing: 0.08em; display: block;">
-            MATCHING THRESHOLDS
+            @L["Wikidata_MatchingThresholds"]
         </MudText>
 
         <MudGrid Spacing="4" Class="mb-2">
 
             <MudItem xs="12" sm="6">
                 <MudText Typo="Typo.subtitle2" Class="mb-1">
-                    Auto-accept threshold
+                    @L["Wikidata_AutoAcceptThresholdLabel"]
                 </MudText>
                 <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2"
                          Style="display: block;">
-                    Reconciliation score at which a QID match is accepted automatically.
-                    Scores below this go to the review queue.
+                    @L["Wikidata_AutoAcceptThresholdDescription"]
                 </MudText>
                 <MudSlider T="int"
                            @bind-Value="_autoAcceptThreshold"
@@ -96,12 +92,11 @@
 
             <MudItem xs="12" sm="6">
                 <MudText Typo="Typo.subtitle2" Class="mb-1">
-                    Review threshold
+                    @L["Wikidata_ReviewThresholdLabel"]
                 </MudText>
                 <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2"
                          Style="display: block;">
-                    Minimum score for a match to appear in the review queue at all.
-                    Matches below this are discarded.
+                    @L["Wikidata_ReviewThresholdDescription"]
                 </MudText>
                 <MudSlider T="int"
                            @bind-Value="_reviewThreshold"
@@ -125,7 +120,7 @@
         @* ── Pipeline options ─────────────────────────────────────────── *@
         <MudText Typo="Typo.overline" Color="Color.Default" Class="mb-3"
                  Style="letter-spacing: 0.08em; display: block;">
-            PIPELINE OPTIONS
+            @L["Wikidata_PipelineOptions"]
         </MudText>
 
         <MudGrid Spacing="3">
@@ -134,29 +129,29 @@
                 <MudSwitch T="bool"
                            @bind-Value="_continueOnFailure"
                            Color="Color.Primary"
-                           Label="Continue pipeline if Wikidata fails" />
+                           Label="@L["Wikidata_ContinueOnFailureLabel"]" />
             </MudItem>
 
             <MudItem xs="12" sm="6">
                 <MudNumericField T="int"
                                  @bind-Value="_maxQidCandidates"
-                                 Label="Max QID candidates in review"
+                                 Label="@L["Wikidata_MaxQidCandidatesLabel"]"
                                  Min="1" Max="20"
                                  Variant="Variant.Outlined"
                                  Margin="Margin.Dense"
                                  FullWidth="true"
-                                 HelperText="How many Wikidata candidates are shown in the review queue for manual selection." />
+                                 HelperText="@L["Wikidata_MaxQidCandidatesHelper"]" />
             </MudItem>
 
             <MudItem xs="12" sm="6">
                 <MudNumericField T="int"
                                  @bind-Value="_wikipediaMaxChars"
-                                 Label="Wikipedia description max chars"
+                                 Label="@L["Wikidata_WikipediaMaxCharsLabel"]"
                                  Min="100" Max="5000" Step="100"
                                  Variant="Variant.Outlined"
                                  Margin="Margin.Dense"
                                  FullWidth="true"
-                                 HelperText="Long descriptions are truncated to this length before being stored as a metadata claim." />
+                                 HelperText="@L["Wikidata_WikipediaMaxCharsHelper"]" />
             </MudItem>
 
         </MudGrid>
@@ -173,23 +168,22 @@
             <MudIcon Icon="@Icons.Material.Outlined.AccountTree"
                      Size="Size.Small" Color="Color.Default" />
             <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">
-                Stage 3 — Universe Data
+                @L["Wikidata_Stage3Title"]
             </MudText>
             <MudChip T="string" Size="Size.Small" Color="Color.Default"
                      Variant="Variant.Outlined"
                      Style="font-size: 0.65rem; height: 20px;">
-                Background
+                @L["Wikidata_Stage3Badge"]
             </MudChip>
         </MudStack>
         <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
-            Runs in the background after Stage 2 completes, or during the nightly sweep.
-            Populates the Chronicle Explorer with deep universe relationships.
+            @L["Wikidata_Stage3Description"]
         </MudText>
 
         @* ── Data groups ──────────────────────────────────────────────── *@
         <MudText Typo="Typo.overline" Color="Color.Default" Class="mb-3"
                  Style="letter-spacing: 0.08em; display: block;">
-            DATA GROUPS
+            @L["Wikidata_DataGroups"]
         </MudText>
 
         <MudPaper Elevation="0" Class="pa-3 mb-2" Style="@ToggleRowStyle">
@@ -197,9 +191,9 @@
                 <MudIcon Icon="@Icons.Material.Outlined.Person"
                          Size="Size.Small" Color="Color.Default" />
                 <div style="flex: 1;">
-                    <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">People</MudText>
+                    <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">@L["Wikidata_PeopleGroupTitle"]</MudText>
                     <MudText Typo="Typo.caption" Color="Color.Secondary">
-                        Headshots, biographies, social links, pseudonyms
+                        @L["Wikidata_PeopleGroupDescription"]
                     </MudText>
                 </div>
                 <MudSwitch T="bool"
@@ -213,9 +207,9 @@
                 <MudIcon Icon="@Icons.Material.Outlined.Hub"
                          Size="Size.Small" Color="Color.Default" />
                 <div style="flex: 1;">
-                    <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">Universe / Lore</MudText>
+                    <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">@L["Wikidata_UniverseLoreGroupTitle"]</MudText>
                     <MudText Typo="Typo.caption" Color="Color.Secondary">
-                        Characters, locations, organizations, relationships
+                        @L["Wikidata_UniverseLoreGroupDescription"]
                     </MudText>
                 </div>
                 <MudSwitch T="bool"
@@ -229,9 +223,9 @@
                 <MudIcon Icon="@Icons.Material.Outlined.DeviceHub"
                          Size="Size.Small" Color="Color.Default" />
                 <div style="flex: 1;">
-                    <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">Cross-Media Links</MudText>
+                    <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">@L["Wikidata_CrossMediaGroupTitle"]</MudText>
                     <MudText Typo="Typo.caption" Color="Color.Secondary">
-                        Adaptations, sequels, shared universes
+                        @L["Wikidata_CrossMediaGroupDescription"]
                     </MudText>
                 </div>
                 <MudSwitch T="bool"
@@ -245,7 +239,7 @@
         @* ── Scheduling & depth ───────────────────────────────────────── *@
         <MudText Typo="Typo.overline" Color="Color.Default" Class="mb-3"
                  Style="letter-spacing: 0.08em; display: block;">
-            SCHEDULING &amp; DEPTH
+            @L["Wikidata_SchedulingDepth"]
         </MudText>
 
         <MudGrid Spacing="3">
@@ -253,33 +247,32 @@
             <MudItem xs="12" sm="6">
                 <MudNumericField T="int"
                                  @bind-Value="_backgroundIdleDelay"
-                                 Label="Background idle delay (seconds)"
+                                 Label="@L["Wikidata_BackgroundIdleDelayLabel"]"
                                  Min="1" Max="300"
                                  Variant="Variant.Outlined"
                                  Margin="Margin.Dense"
                                  FullWidth="true"
-                                 HelperText="How long the Engine waits after the ingestion queue empties before starting Stage 3 processing." />
+                                 HelperText="@L["Wikidata_BackgroundIdleDelayHelper"]" />
             </MudItem>
 
             <MudItem xs="12" sm="6">
                 <MudTextField @bind-Value="_nightlySweepCron"
-                              Label="Nightly sweep schedule (cron)"
+                              Label="@L["Wikidata_NightlySweepCronLabel"]"
                               Variant="Variant.Outlined"
                               Margin="Margin.Dense"
                               FullWidth="true"
-                              HelperText="Standard 5-field cron expression in your local timezone. Default: 2 AM daily."
+                              HelperText="@L["Wikidata_NightlySweepCronHelper"]"
                               Adornment="Adornment.End"
                               AdornmentIcon="@Icons.Material.Outlined.Schedule" />
             </MudItem>
 
             <MudItem xs="12" sm="6">
                 <MudText Typo="Typo.subtitle2" Class="mb-1">
-                    Relationship depth
+                    @L["Wikidata_RelationshipDepthLabel"]
                 </MudText>
                 <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2"
                          Style="display: block;">
-                    How many hops the Engine follows when building the universe graph.
-                    Depth 1 = direct relationships only. Depth 3 = grandparents, sub-factions.
+                    @L["Wikidata_RelationshipDepthDescription"]
                 </MudText>
                 <MudSlider T="int"
                            @bind-Value="_lineageDepth"
@@ -301,11 +294,10 @@
                     <MudSwitch T="bool"
                                @bind-Value="_loreDeltaOnExplorerOpen"
                                Color="Color.Primary"
-                               Label="Auto-check Lore Delta on Chronicle Explorer open" />
+                               Label="@L["Wikidata_LoreDeltaLabel"]" />
                     <MudText Typo="Typo.caption" Color="Color.Secondary"
                              Style="display: block; margin-left: 52px; margin-top: -4px;">
-                        Detects when Wikidata has updated information about your universe
-                        since the last enrichment pass.
+                        @L["Wikidata_LoreDeltaDescription"]
                     </MudText>
                 </div>
             </MudItem>
@@ -321,7 +313,7 @@
                    Size="Size.Small"
                    StartIcon="@Icons.Material.Outlined.RestartAlt"
                    OnClick="@ResetToDefaults">
-            Reset to Defaults
+            @L["Wikidata_ResetToDefaults"]
         </MudButton>
         <MudButton Variant="Variant.Filled"
                    Color="Color.Primary"
@@ -332,11 +324,11 @@
             @if (_saving)
             {
                 <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
-                @:Saving…
+                @:@L["Wikidata_Saving"]
             }
             else
             {
-                @:Save Configuration
+                @:@L["Wikidata_SaveConfiguration"]
             }
         </MudButton>
     </MudStack>

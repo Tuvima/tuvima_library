@@ -1,5 +1,6 @@
 @namespace MediaEngine.Web.Components.Settings
 @inject UIOrchestratorService Orchestrator
+@inject IStringLocalizer<SharedStrings> L
 
 @* ModelsTab — AI model management dashboard.
    Displays hardware profile card, then three model cards (text_fast, text_quality, audio)
@@ -11,24 +12,23 @@
     @* ── Header ────────────────────────────────────────────────────────── *@
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
         <MudIcon Icon="@Icons.Material.Outlined.Memory" Color="Color.Default" Class="mr-2" />
-        <MudText Typo="Typo.h6">AI Models</MudText>
+        <MudText Typo="Typo.h6">@L["Models_AiModels"]</MudText>
     </MudStack>
     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
-        Download, load, and manage the local AI models that power intelligent features.
-        Models run entirely on your machine — no data leaves.
+        @L["Models_AiModelsDescription"]
     </MudText>
 
     @* ── Hardware Profile ─────────────────────────────────────────────── *@
     <MudPaper Class="pa-4 mb-4" Style="background: rgba(255,255,255,0.02); border: 1px solid rgba(201,146,46,0.2); border-radius: 12px;">
         <div class="d-flex align-center justify-space-between mb-3">
-            <MudText Typo="Typo.h6" Style="color: #C9922E;">Hardware Profile</MudText>
+            <MudText Typo="Typo.h6" Style="color: #C9922E;">@L["Models_HardwareProfile"]</MudText>
             <MudButton Variant="Variant.Outlined" Color="Color.Warning" Size="Size.Small"
                        OnClick="RunBenchmark" Disabled="@_benchmarking">
                 @if (_benchmarking)
                 {
                     <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
                 }
-                Re-run Benchmark
+                @L["Models_ReRunBenchmark"]
             </MudButton>
         </div>
 
@@ -37,7 +37,7 @@
             <div class="d-flex gap-6 flex-wrap">
                 @* Tier Badge *@
                 <div>
-                    <MudText Typo="Typo.caption" Style="opacity: 0.5;">PERFORMANCE TIER</MudText>
+                    <MudText Typo="Typo.caption" Style="opacity: 0.5;">@L["Models_PerformanceTier"]</MudText>
                     <MudChip T="string" Color="@GetTierColor(_profile.Tier)" Size="Size.Large"
                              Style="font-weight: 600; font-size: 1.1rem; text-transform: uppercase;">
                         @_profile.Tier
@@ -46,21 +46,21 @@
 
                 @* Backend *@
                 <div>
-                    <MudText Typo="Typo.caption" Style="opacity: 0.5;">COMPUTE BACKEND</MudText>
+                    <MudText Typo="Typo.caption" Style="opacity: 0.5;">@L["Models_ComputeBackend"]</MudText>
                     <MudText Typo="Typo.body1">
-                        @(_profile.GpuName ?? (_profile.Backend == "cpu" ? "CPU Only" : _profile.Backend.ToUpper()))
+                        @(_profile.GpuName ?? (_profile.Backend == "cpu" ? L["Models_CpuOnly"].Value : _profile.Backend.ToUpper()))
                     </MudText>
                 </div>
 
                 @* Speed *@
                 <div>
-                    <MudText Typo="Typo.caption" Style="opacity: 0.5;">INFERENCE SPEED</MudText>
+                    <MudText Typo="Typo.caption" Style="opacity: 0.5;">@L["Models_InferenceSpeed"]</MudText>
                     <MudText Typo="Typo.body1">@_profile.TokensPerSecond.ToString("F1") tok/s</MudText>
                 </div>
 
                 @* RAM *@
                 <div>
-                    <MudText Typo="Typo.caption" Style="opacity: 0.5;">AVAILABLE MEMORY</MudText>
+                    <MudText Typo="Typo.caption" Style="opacity: 0.5;">@L["Models_AvailableMemory"]</MudText>
                     <MudText Typo="Typo.body1">@FormatRam(_profile.AvailableRamMb)</MudText>
                 </div>
 
@@ -68,7 +68,7 @@
                 @if (_profile.BenchmarkedAt.HasValue)
                 {
                     <div>
-                        <MudText Typo="Typo.caption" Style="opacity: 0.5;">LAST BENCHMARK</MudText>
+                        <MudText Typo="Typo.caption" Style="opacity: 0.5;">@L["Models_LastBenchmark"]</MudText>
                         <MudText Typo="Typo.body1">@_profile.BenchmarkedAt.Value.ToLocalTime().ToString("g")</MudText>
                     </div>
                 }
@@ -77,34 +77,34 @@
         else
         {
             <MudText Typo="Typo.body2" Style="opacity: 0.5;">
-                No benchmark data yet — the Engine will benchmark automatically on first startup.
+                @L["Models_NoBenchmarkData"]
             </MudText>
         }
     </MudPaper>
 
     @* ── Resource Monitor ────────────────────────────────────────────────── *@
     <MudPaper Class="pa-4 mb-4" Style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px;">
-        <MudText Typo="Typo.subtitle2" Style="font-weight: 600; margin-bottom: 12px;">Resource Monitor</MudText>
+        <MudText Typo="Typo.subtitle2" Style="font-weight: 600; margin-bottom: 12px;">@L["Models_ResourceMonitor"]</MudText>
         <div class="d-flex gap-6 flex-wrap">
             <div>
-                <MudText Typo="Typo.caption" Style="opacity: 0.5;">ENGINE RAM</MudText>
+                <MudText Typo="Typo.caption" Style="opacity: 0.5;">@L["Models_EngineRam"]</MudText>
                 <MudText Typo="Typo.body1">@FormatRam(_resources?.EngineRamMb ?? 0)</MudText>
             </div>
             <div>
-                <MudText Typo="Typo.caption" Style="opacity: 0.5;">FREE RAM</MudText>
+                <MudText Typo="Typo.caption" Style="opacity: 0.5;">@L["Models_FreeRam"]</MudText>
                 <MudText Typo="Typo.body1">@FormatRam(_resources?.FreeRamMb ?? 0)</MudText>
             </div>
             <div>
-                <MudText Typo="Typo.caption" Style="opacity: 0.5;">CPU PRESSURE</MudText>
+                <MudText Typo="Typo.caption" Style="opacity: 0.5;">@L["Models_CpuPressure"]</MudText>
                 <MudChip T="string" Size="Size.Small" Color="@CpuPressureColor(_resources?.CpuPressure ?? 1)">
                     @CpuPressureLabel(_resources?.CpuPressure ?? 1)
                 </MudChip>
             </div>
             <div>
-                <MudText Typo="Typo.caption" Style="opacity: 0.5;">TRANSCODING</MudText>
+                <MudText Typo="Typo.caption" Style="opacity: 0.5;">@L["Models_Transcoding"]</MudText>
                 <MudChip T="string" Size="Size.Small"
                          Color="@(_resources?.TranscodingActive == true ? Color.Error : Color.Success)">
-                    @(_resources?.TranscodingActive == true ? "Active" : "Idle")
+                    @(_resources?.TranscodingActive == true ? L["Models_TranscodingActive"].Value : L["Models_TranscodingIdle"].Value)
                 </MudChip>
             </div>
         </div>
@@ -142,7 +142,7 @@
                     @* Status indicator *@
                     <MudStack Row="true" AlignItems="AlignItems.Center"
                               Spacing="2" Style="margin-bottom: 12px;">
-                        <MudText Typo="Typo.caption" Color="Color.Secondary">Status</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">@L["Models_Status"]</MudText>
                         <MudChip T="string"
                                  Size="Size.Small"
                                  Color="@StatusChipColor(m.Status)">
@@ -153,11 +153,11 @@
                     @* Metrics row *@
                     <MudStack Row="true" Spacing="4" Style="margin-bottom: 16px;">
                         <MudStack Spacing="0">
-                            <MudText Typo="Typo.caption" Color="Color.Secondary">RAM</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">@L["Models_Ram"]</MudText>
                             <MudText Typo="Typo.body2" Style="font-weight: 600;">@m.RamUsage</MudText>
                         </MudStack>
                         <MudStack Spacing="0">
-                            <MudText Typo="Typo.caption" Color="Color.Secondary">Size</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">@L["Models_Size"]</MudText>
                             <MudText Typo="Typo.body2" Style="font-weight: 600;">@m.FileSize</MudText>
                         </MudStack>
                     </MudStack>
@@ -172,7 +172,7 @@
                                            Style="margin-bottom: 12px;" />
                         <MudText Typo="Typo.caption" Color="Color.Secondary"
                                  Style="margin-bottom: 12px;">
-                            Downloading… @m.DownloadProgress%
+                            @L["Models_Downloading"] @m.DownloadProgress%
                         </MudText>
                     }
 
@@ -188,7 +188,7 @@
                                        Color="Color.Primary"
                                        StartIcon="@Icons.Material.Outlined.Download"
                                        OnClick="@(() => SimulateDownload(m))">
-                                Download
+                                @L["Models_Download"]
                             </MudButton>
                         }
 
@@ -200,7 +200,7 @@
                                        Color="Color.Info"
                                        StartIcon="@Icons.Material.Outlined.PlayCircleOutline"
                                        OnClick="@(() => ChangeStatus(m, ModelStatus.Loaded))">
-                                Load
+                                @L["Models_Load"]
                             </MudButton>
                         }
 
@@ -212,7 +212,7 @@
                                        Color="Color.Warning"
                                        StartIcon="@Icons.Material.Outlined.PauseCircleOutline"
                                        OnClick="@(() => ChangeStatus(m, ModelStatus.Downloaded))">
-                                Unload
+                                @L["Models_Unload"]
                             </MudButton>
                         }
 
@@ -222,7 +222,7 @@
                         @* Delete — only when downloaded (and not currently active) *@
                         @if (m.Status is ModelStatus.Downloaded or ModelStatus.Loaded)
                         {
-                            <MudTooltip Text="Delete model files from disk">
+                            <MudTooltip Text="@L["Models_DeleteModelFiles"]">
                                 <MudIconButton Icon="@Icons.Material.Outlined.DeleteOutline"
                                                Size="Size.Small"
                                                Color="Color.Error"
@@ -241,11 +241,11 @@
     <div style="@ModelCardStyle">
 
         <MudText Typo="Typo.subtitle2" Style="font-weight: 600; margin-bottom: 16px;">
-            Storage &amp; Runtime Settings
+            @L["Models_StorageAndRuntimeSettings"]
         </MudText>
 
         <MudTextField Value="@_modelsDirectory"
-                      Label="Models Directory"
+                      Label="@L["Models_ModelsDirectory"]"
                       Variant="Variant.Outlined"
                       ReadOnly="true"
                       FullWidth="true"
@@ -254,26 +254,26 @@
                       Class="mb-4" />
 
         <MudNumericField @bind-Value="_idleTimeoutSeconds"
-                         Label="Idle auto-unload timeout (seconds)"
+                         Label="@L["Models_IdleAutoUnloadTimeout"]"
                          Variant="Variant.Outlined"
                          FullWidth="true"
                          Min="60"
                          Max="3600"
                          Step="60"
-                         HelperText="Unload model from RAM after this many seconds of inactivity."
+                         HelperText="@L["Models_IdleAutoUnloadTimeoutHelper"]"
                          Class="mb-4" />
 
         <MudSwitch @bind-Value="_gpuEnabled"
-                   Label="GPU Acceleration (CUDA / Vulkan)"
+                   Label="@L["Models_GpuAcceleration"]"
                    Color="Color.Primary" />
         <MudText Typo="Typo.caption" Color="Color.Secondary" Style="margin-top: 4px;">
             @if (_profile is not null && _profile.Backend != "cpu")
             {
-                <span style="color: rgba(100,200,100,0.8);">Active — using @(_profile.Backend.ToUpper()) on @(_profile.GpuName ?? "GPU")</span>
+                <span style="color: rgba(100,200,100,0.8);">@L["Models_GpuActive"] @(_profile.Backend.ToUpper()) @L["Models_GpuOn"] @(_profile.GpuName ?? L["Models_GpuFallback"].Value)</span>
             }
             else
             {
-                <span>CPU inference active. A dedicated GPU (NVIDIA, AMD, or Intel Arc) enables 6-7× faster inference.</span>
+                <span>@L["Models_CpuInferenceActive"]</span>
             }
         </MudText>
 
@@ -396,6 +396,15 @@
         },
         new()
         {
+            Role      = "text_cjk",
+            ModelName = "Qwen 2.5 3B Instruct Q4_K_M",
+            Purpose   = "CJK content analysis — Chinese, Japanese, Korean",
+            Status    = ModelStatus.NotDownloaded,
+            RamUsage  = "~2.4GB",
+            FileSize  = "~2GB",
+        },
+        new()
+        {
             Role      = "audio",
             ModelName = "Whisper Medium",
             Purpose   = "Transcription and language detection",
@@ -416,6 +425,7 @@
         "text_fast"    => Color.Info,
         "text_quality" => Color.Primary,
         "text_scholar" => Color.Warning,
+        "text_cjk"     => Color.Tertiary,
         "audio"        => Color.Secondary,
         _              => Color.Default,
     };

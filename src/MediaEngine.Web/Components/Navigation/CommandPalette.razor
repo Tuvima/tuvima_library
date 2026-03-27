@@ -1,6 +1,7 @@
 @namespace MediaEngine.Web.Components.Navigation
 @inject NavigationManager Nav
 @inject UIOrchestratorService Orchestrator
+@inject IStringLocalizer<SharedStrings> L
 
 @* Global Command Palette — keyboard-driven navigation and live search (Section 2.2 of the UI ASD).
    Toggled with Ctrl+K.  Uses MudAutocomplete so results appear as the user types,
@@ -17,7 +18,7 @@
 
         <MudAutocomplete T="PaletteItem"
                          @ref="_autocomplete"
-                         Placeholder="Search hubs, navigate…"
+                         Placeholder="@L["CmdPalette_Placeholder"]"
                          SearchFunc="@SearchAsync"
                          ValueChanged="@OnItemSelected"
                          ToStringFunc="@(i => i?.Label ?? string.Empty)"
@@ -49,7 +50,7 @@
 
         <MudDivider />
         <MudText Typo="Typo.caption" Color="Color.Secondary" Class="pa-2 d-block">
-            ↑↓ navigate &nbsp;·&nbsp; Enter select &nbsp;·&nbsp; Esc close
+            @L["CmdPalette_Hint"]
         </MudText>
     </MudPaper>
 }
@@ -60,10 +61,10 @@
 
     // ── Static navigation items ───────────────────────────────────────────────
 
-    private static readonly PaletteItem[] StaticItems =
+    private PaletteItem[] StaticItems =>
     [
-        new("Library",  "/",         Icons.Material.Filled.LibraryBooks, "#7C4DFF", null),
-        new("Settings", "/settings", Icons.Material.Filled.Settings,     "#9E9E9E", "Preferences, library, API keys"),
+        new(L["CmdPalette_Library"],  "/",         Icons.Material.Filled.LibraryBooks, "#7C4DFF", null),
+        new(L["CmdPalette_Settings"], "/settings", Icons.Material.Filled.Settings,     "#9E9E9E", L["CmdPalette_SettingsSubtitle"]),
     ];
 
     // ── Search ────────────────────────────────────────────────────────────────

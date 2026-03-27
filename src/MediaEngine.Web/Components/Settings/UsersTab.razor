@@ -1,6 +1,7 @@
 @namespace MediaEngine.Web.Components.Settings
 @inject UIOrchestratorService Orchestrator
 @inject ISnackbar Snackbar
+@inject IStringLocalizer<SharedStrings> L
 
 @* Users — profile management: list, create, and delete profiles. *@
 
@@ -9,19 +10,18 @@
     @* ── Header ──────────────────────────────────────────────────────────── *@
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
         <MudIcon Icon="@Icons.Material.Outlined.Group" Color="Color.Default" Class="mr-2" />
-        <MudText Typo="Typo.h6">Users &amp; Profiles</MudText>
+        <MudText Typo="Typo.h6">@L["Users_PageTitle"]</MudText>
         <MudSpacer />
         <MudButton Variant="Variant.Filled"
                    Color="Color.Primary"
                    StartIcon="@Icons.Material.Filled.PersonAdd"
                    OnClick="@OpenCreateDialog"
                    Disabled="@_loading">
-            New Profile
+            @L["Users_NewProfile"]
         </MudButton>
     </MudStack>
     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
-        Manage the profiles that have access to this Tuvima Library instance.
-        The seed profile (Owner) cannot be deleted.
+        @L["Users_PageDescription"]
     </MudText>
 
     @if (_loading)
@@ -31,7 +31,7 @@
     else if (_allRows.Count == 0)
     {
         <MudAlert Severity="Severity.Info" Class="mt-2">
-            No profiles found. Create one to get started.
+            @L["Users_NoProfiles"]
         </MudAlert>
     }
     else
@@ -40,12 +40,12 @@
                         Style="background: transparent;">
             <thead>
                 <tr>
-                    <th style="@ThStyle">Avatar</th>
-                    <th style="@ThStyle">Name</th>
-                    <th style="@ThStyle">Role</th>
-                    <th style="@ThStyle">Last Active</th>
-                    <th style="@ThStyle">Status</th>
-                    <th style="@ThStyle text-align:right">Actions</th>
+                    <th style="@ThStyle">@L["Users_ColAvatar"]</th>
+                    <th style="@ThStyle">@L["Users_ColName"]</th>
+                    <th style="@ThStyle">@L["Users_ColRole"]</th>
+                    <th style="@ThStyle">@L["Users_ColLastActive"]</th>
+                    <th style="@ThStyle">@L["Users_ColStatus"]</th>
+                    <th style="@ThStyle text-align:right">@L["Users_ColActions"]</th>
                 </tr>
             </thead>
             <tbody>
@@ -93,7 +93,7 @@
                             <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline"
                                            Color="Color.Error"
                                            Size="Size.Medium"
-                                           title="Delete profile"
+                                           title="@L["Users_DeleteProfileTooltip"]"
                                            Disabled="@row.IsSeed"
                                            OnClick="@(() => DeleteProfileAsync(row))" />
                         </td>
@@ -110,13 +110,13 @@
     <TitleContent>
         <MudText Typo="Typo.h6">
             <MudIcon Icon="@Icons.Material.Filled.PersonAdd" Class="mr-2" />
-            Create Profile
+            @L["Users_CreateProfileTitle"]
         </MudText>
     </TitleContent>
     <DialogContent>
         <MudTextField @bind-Value="_newDisplayName"
-                      Label="Display Name"
-                      Placeholder="e.g. Alice, Bob"
+                      Label="@L["Users_DisplayNameLabel"]"
+                      Placeholder="@L["Users_DisplayNamePlaceholder"]"
                       Variant="Variant.Outlined"
                       FullWidth="true"
                       Immediate="true"
@@ -124,17 +124,17 @@
                       Class="mb-4" />
 
         <MudSelect @bind-Value="_newRole"
-                   Label="Role"
+                   Label="@L["Users_RoleLabel"]"
                    Variant="Variant.Outlined"
                    FullWidth="true"
                    Class="mb-4">
-            <MudSelectItem Value="@("Administrator")">Administrator</MudSelectItem>
-            <MudSelectItem Value="@("Curator")">Curator</MudSelectItem>
-            <MudSelectItem Value="@("Consumer")">Consumer</MudSelectItem>
+            <MudSelectItem Value="@("Administrator")">@L["Users_RoleAdministrator"]</MudSelectItem>
+            <MudSelectItem Value="@("Curator")">@L["Users_RoleCurator"]</MudSelectItem>
+            <MudSelectItem Value="@("Consumer")">@L["Users_RoleConsumer"]</MudSelectItem>
         </MudSelect>
 
         @* Avatar colour *@
-        <MudText Typo="Typo.subtitle2" Class="mb-1">Avatar Colour</MudText>
+        <MudText Typo="Typo.subtitle2" Class="mb-1">@L["Users_AvatarColour"]</MudText>
         <MudStack Row="true" Spacing="2" Style="flex-wrap: wrap;" Class="mb-2">
             @foreach (var hex in _avatarPresets)
             {
@@ -153,12 +153,12 @@
         </MudStack>
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="@CloseCreateDialog">Cancel</MudButton>
+        <MudButton OnClick="@CloseCreateDialog">@L["Users_Cancel"]</MudButton>
         <MudButton Variant="Variant.Filled"
                    Color="Color.Primary"
                    Disabled="@(string.IsNullOrWhiteSpace(_newDisplayName) || _creating)"
                    OnClick="@CreateProfileAsync">
-            @(_creating ? "Creating..." : "Create")
+            @(_creating ? L["Users_Creating"] : L["Users_Create"])
         </MudButton>
     </DialogActions>
 </MudDialog>
@@ -329,7 +329,7 @@
         }
         else
         {
-            Snackbar.Add("Could not create profile — is the Engine running?", Severity.Error);
+            Snackbar.Add(L["Users_CreateError"], Severity.Error);
         }
     }
 
@@ -345,7 +345,7 @@
         }
         else
         {
-            Snackbar.Add("Could not delete profile — is the Engine running?", Severity.Error);
+            Snackbar.Add(L["Users_DeleteError"], Severity.Error);
         }
     }
 

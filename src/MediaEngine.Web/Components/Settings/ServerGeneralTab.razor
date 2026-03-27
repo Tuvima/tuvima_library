@@ -2,6 +2,7 @@
 @inject UIOrchestratorService Orchestrator
 @inject ISnackbar Snackbar
 @inject NavigationManager Nav
+@inject IStringLocalizer<SharedStrings> L
 
 @* Server General — friendly name + regional settings (language, country, date/time format). *@
 
@@ -12,17 +13,16 @@
         <MudStack Spacing="3">
             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                 <MudIcon Icon="@Icons.Material.Outlined.Dns" Color="Color.Primary" />
-                <MudText Typo="Typo.h6">Server Identity</MudText>
+                <MudText Typo="Typo.h6">@L["ServerGeneral_ServerIdentityTitle"]</MudText>
             </MudStack>
             <MudText Typo="Typo.body2" Style="color: var(--app-text-muted);">
-                The server name appears in network discovery (mDNS/Bonjour) so other apps on your
-                home network can find your library by name.
+                @L["ServerGeneral_ServerIdentityDescription"]
             </MudText>
 
             <MudTextField @bind-Value="_serverName"
-                          Label="Server Name"
+                          Label="@L["ServerGeneral_ServerNameLabel"]"
                           Variant="Variant.Outlined"
-                          HelperText="Visible to media apps on your local network"
+                          HelperText="@L["ServerGeneral_ServerNameHelper"]"
                           MaxLength="64"
                           Immediate="true"
                           Disabled="@_saving" />
@@ -34,19 +34,18 @@
         <MudStack Spacing="3">
             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                 <MudIcon Icon="@Icons.Material.Outlined.Language" Color="Color.Primary" />
-                <MudText Typo="Typo.h6">Regional Settings</MudText>
+                <MudText Typo="Typo.h6">@L["ServerGeneral_RegionalSettingsTitle"]</MudText>
             </MudStack>
             <MudText Typo="Typo.body2" Style="color: var(--app-text-muted);">
-                These settings affect metadata downloads (book descriptions, genres, Wikidata labels)
-                and how dates and times are displayed throughout the Dashboard.
+                @L["ServerGeneral_RegionalSettingsDescription"]
             </MudText>
 
             <MudGrid Spacing="3">
                 <MudItem xs="12" sm="6">
                     <MudSelect T="string" @bind-Value="_language"
-                               Label="Language"
+                               Label="@L["ServerGeneral_LanguageLabel"]"
                                Variant="Variant.Outlined"
-                               HelperText="Used for metadata provider queries"
+                               HelperText="@L["ServerGeneral_LanguageHelper"]"
                                Disabled="@_saving">
                         @foreach (var lang in Languages)
                         {
@@ -57,9 +56,9 @@
 
                 <MudItem xs="12" sm="6">
                     <MudSelect T="string" @bind-Value="_country"
-                               Label="Country"
+                               Label="@L["ServerGeneral_CountryLabel"]"
                                Variant="Variant.Outlined"
-                               HelperText="Used for regional store lookups (e.g. Apple API)"
+                               HelperText="@L["ServerGeneral_CountryHelper"]"
                                Disabled="@_saving">
                         @foreach (var c in Countries)
                         {
@@ -70,24 +69,24 @@
 
                 <MudItem xs="12" sm="6">
                     <MudSelect T="string" @bind-Value="_dateFormat"
-                               Label="Date Format"
+                               Label="@L["ServerGeneral_DateFormatLabel"]"
                                Variant="Variant.Outlined"
                                Disabled="@_saving">
-                        <MudSelectItem Value="@("system")">System default (@SystemDateExample)</MudSelectItem>
-                        <MudSelectItem Value="@("short")">Short (e.g. @ShortDateExample)</MudSelectItem>
-                        <MudSelectItem Value="@("long")">Long (e.g. @LongDateExample)</MudSelectItem>
-                        <MudSelectItem Value="@("iso")">ISO 8601 (@IsoDateExample)</MudSelectItem>
+                        <MudSelectItem Value="@("system")">@L["ServerGeneral_DateFormatSystem"] (@SystemDateExample)</MudSelectItem>
+                        <MudSelectItem Value="@("short")">@L["ServerGeneral_DateFormatShort"] (e.g. @ShortDateExample)</MudSelectItem>
+                        <MudSelectItem Value="@("long")">@L["ServerGeneral_DateFormatLong"] (e.g. @LongDateExample)</MudSelectItem>
+                        <MudSelectItem Value="@("iso")">@L["ServerGeneral_DateFormatIso"] (@IsoDateExample)</MudSelectItem>
                     </MudSelect>
                 </MudItem>
 
                 <MudItem xs="12" sm="6">
                     <MudSelect T="string" @bind-Value="_timeFormat"
-                               Label="Time Format"
+                               Label="@L["ServerGeneral_TimeFormatLabel"]"
                                Variant="Variant.Outlined"
                                Disabled="@_saving">
-                        <MudSelectItem Value="@("system")">System default (@SystemTimeExample)</MudSelectItem>
-                        <MudSelectItem Value="@("12h")">12-hour (e.g. @TwelveHourExample)</MudSelectItem>
-                        <MudSelectItem Value="@("24h")">24-hour (e.g. @TwentyFourHourExample)</MudSelectItem>
+                        <MudSelectItem Value="@("system")">@L["ServerGeneral_TimeFormatSystem"] (@SystemTimeExample)</MudSelectItem>
+                        <MudSelectItem Value="@("12h")">@L["ServerGeneral_TimeFormat12h"] (e.g. @TwelveHourExample)</MudSelectItem>
+                        <MudSelectItem Value="@("24h")">@L["ServerGeneral_TimeFormat24h"] (e.g. @TwentyFourHourExample)</MudSelectItem>
                     </MudSelect>
                 </MudItem>
             </MudGrid>
@@ -95,7 +94,7 @@
             @if (_languageChanged)
             {
                 <MudAlert Severity="Severity.Info" Dense="true">
-                    Changing the language will reload the page to apply the new UI locale.
+                    @L["ServerGeneral_LanguageChangeNotice"]
                 </MudAlert>
             }
         </MudStack>
@@ -107,14 +106,14 @@
                    Color="Color.Default"
                    OnClick="@ResetAsync"
                    Disabled="@(_saving || _loading || !_isDirty)">
-            Reset
+            @L["ServerGeneral_Reset"]
         </MudButton>
         <MudButton Variant="Variant.Filled"
                    Color="Color.Primary"
                    StartIcon="@Icons.Material.Outlined.Save"
                    OnClick="@SaveAsync"
                    Disabled="@(_saving || _loading || !_isDirty)">
-            @(_saving ? "Saving…" : "Save Changes")
+            @(_saving ? L["ServerGeneral_Saving"] : L["ServerGeneral_SaveChanges"])
         </MudButton>
     </MudStack>
 
@@ -176,7 +175,7 @@
     {
         if (string.IsNullOrWhiteSpace(_serverName))
         {
-            Snackbar.Add("Server name cannot be empty.", Severity.Warning);
+            Snackbar.Add(L["ServerGeneral_ServerNameEmpty"], Severity.Warning);
             return;
         }
 
@@ -192,7 +191,7 @@
 
         if (ok)
         {
-            Snackbar.Add("Settings saved.", Severity.Success);
+            Snackbar.Add(L["ServerGeneral_SavedSuccess"], Severity.Success);
             _originalServerName  = _serverName;
             _originalLanguage    = _language;
             _originalCountry     = _country;
@@ -209,7 +208,7 @@
         }
         else
         {
-            Snackbar.Add("Failed to save settings. Check the Engine connection.", Severity.Error);
+            Snackbar.Add(L["ServerGeneral_SaveError"], Severity.Error);
         }
 
         _saving = false;

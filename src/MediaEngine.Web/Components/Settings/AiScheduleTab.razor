@@ -1,5 +1,6 @@
 @namespace MediaEngine.Web.Components.Settings
 @inject UIOrchestratorService Orchestrator
+@inject IStringLocalizer<SharedStrings> L
 
 @* AI Schedule — Background job cron schedule editor.
    Lets the user view and adjust when each background AI job runs,
@@ -11,15 +12,15 @@
     @* ── Section Header ──────────────────────────────────────────────────── *@
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
         <MudIcon Icon="@Icons.Material.Outlined.Schedule" Color="Color.Default" Class="mr-2" />
-        <MudText Typo="Typo.h6">AI Schedule</MudText>
+        <MudText Typo="Typo.h6">@L["Schedule_AiSchedule"]</MudText>
     </MudStack>
     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
-        Configure when each background AI job runs. Changes take effect after the Engine restarts.
+        @L["Schedule_AiScheduleDescription"]
     </MudText>
 
     @* ── Enrichment Progress ─────────────────────────────────────────────── *@
     <MudPaper Class="pa-4 mb-4" Style="background: rgba(255,255,255,0.02); border: 1px solid rgba(201,146,46,0.15); border-radius: 12px;">
-        <MudText Typo="Typo.h6" Class="mb-3" Style="color: #C9922E;">Enrichment Progress</MudText>
+        <MudText Typo="Typo.h6" Class="mb-3" Style="color: #C9922E;">@L["Schedule_EnrichmentProgress"]</MudText>
 
         @if (_enrichmentProgress is not null && _enrichmentProgress.Total > 0)
         {
@@ -29,7 +30,7 @@
 
             <div class="d-flex align-center gap-4 mb-2">
                 <MudText Typo="Typo.body1" Style="min-width: 200px;">
-                    <strong>@_enrichmentProgress.CompletedCount</strong> / @_enrichmentProgress.Total items enriched
+                    <strong>@_enrichmentProgress.CompletedCount</strong> / @_enrichmentProgress.Total @L["Schedule_ItemsEnriched"]
                 </MudText>
                 <MudProgressLinear Value="@pct" Color="Color.Warning" Rounded="true" Size="Size.Large"
                                   Style="flex: 1;" />
@@ -39,20 +40,20 @@
             @if (_enrichmentProgress.PendingCount > 0)
             {
                 <MudText Typo="Typo.caption" Style="opacity: 0.5;">
-                    @_enrichmentProgress.PendingCount items pending — processed in background batches
+                    @_enrichmentProgress.PendingCount @L["Schedule_ItemsPending"]
                 </MudText>
             }
             else
             {
                 <MudText Typo="Typo.caption" Style="color: rgba(100,200,100,0.8);">
-                    All items enriched
+                    @L["Schedule_AllItemsEnriched"]
                 </MudText>
             }
         }
         else
         {
             <MudText Typo="Typo.body2" Style="opacity: 0.5;">
-                No items in the enrichment queue yet. Add media to your library to begin.
+                @L["Schedule_NoItemsInQueue"]
             </MudText>
         }
     </MudPaper>
@@ -62,22 +63,22 @@
         <thead>
             <tr>
                 <th style="padding: 10px 16px; text-align: left;">
-                    <MudText Typo="Typo.caption" Color="Color.Secondary">Job</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">@L["Schedule_Job"]</MudText>
                 </th>
                 <th style="padding: 10px 16px; text-align: left; min-width: 170px;">
-                    <MudText Typo="Typo.caption" Color="Color.Secondary">Cron Expression</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">@L["Schedule_CronExpression"]</MudText>
                 </th>
                 <th style="padding: 10px 16px; text-align: left; min-width: 160px;">
-                    <MudText Typo="Typo.caption" Color="Color.Secondary">Schedule</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">@L["Schedule_Schedule"]</MudText>
                 </th>
                 <th style="padding: 10px 16px; text-align: left;">
-                    <MudText Typo="Typo.caption" Color="Color.Secondary">Last Run</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">@L["Schedule_LastRun"]</MudText>
                 </th>
                 <th style="padding: 10px 16px; text-align: left;">
-                    <MudText Typo="Typo.caption" Color="Color.Secondary">Next Run</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">@L["Schedule_NextRun"]</MudText>
                 </th>
                 <th style="padding: 10px 16px; text-align: center;">
-                    <MudText Typo="Typo.caption" Color="Color.Secondary">Enabled</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">@L["Schedule_Enabled"]</MudText>
                 </th>
             </tr>
         </thead>
@@ -133,13 +134,13 @@
     <MudStack Row="true" Justify="Justify.FlexEnd" AlignItems="AlignItems.Center"
               Spacing="2" Class="mt-6">
         <MudText Typo="Typo.caption" Color="Color.Secondary">
-            Changes require an Engine restart to take effect.
+            @L["Schedule_ChangesRequireRestart"]
         </MudText>
         <MudButton Variant="Variant.Filled"
                    Color="Color.Primary"
                    Size="Size.Small"
                    OnClick="@SaveSchedules">
-            Save Schedules
+            @L["Schedule_SaveSchedules"]
         </MudButton>
     </MudStack>
 

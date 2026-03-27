@@ -1,5 +1,6 @@
 @using MediaEngine.Web.Models.ViewDTOs
 @namespace MediaEngine.Web.Components.Vault
+@inject IStringLocalizer<SharedStrings> L
 
 @* ── Backdrop ── *@
 <div class="hub-drawer-backdrop" @onclick="OnClose"></div>
@@ -28,7 +29,7 @@
         </div>
 
         <div style="font-size:10px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:0.08em;margin-top:4px;">
-            @(Hub.Scope == "user" ? "Per user" : "Library")
+            @(Hub.Scope == "user" ? L["VaultHub_ScopePerUser"] : L["VaultHub_ScopeLibrary"])
         </div>
     </div>
 
@@ -40,7 +41,7 @@
             <button class="hub-section-header" @onclick="ToggleConfigSection">
                 <div style="display:flex;align-items:center;gap:12px;">
                     <MudIcon Icon="@Icons.Material.Outlined.Settings" Style="font-size:16px;color:rgba(255,255,255,0.5);" />
-                    <span class="hub-section-title">CONFIGURATION</span>
+                    <span class="hub-section-title">@L["VaultHub_SectionConfiguration"]</span>
                 </div>
                 <MudIcon Icon="@(_configOpen ? Icons.Material.Outlined.ExpandMore : Icons.Material.Outlined.ChevronRight)"
                          Style="font-size:16px;color:rgba(255,255,255,0.35);" />
@@ -52,7 +53,7 @@
                     @if (Hub.HubType == "Smart")
                     {
                         <div class="hub-config-row">
-                            <span class="hub-config-label">Rules</span>
+                            <span class="hub-config-label">@L["VaultHub_LabelRules"]</span>
                             <div style="display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end;">
                                 @foreach (var rule in GetRuleChips())
                                 {
@@ -61,11 +62,11 @@
                             </div>
                         </div>
                         <div class="hub-config-row">
-                            <span class="hub-config-label">Generation threshold</span>
+                            <span class="hub-config-label">@L["VaultHub_LabelGenerationThreshold"]</span>
                             <span class="hub-config-value">@Hub.MinItems</span>
                         </div>
                         <div class="hub-config-row">
-                            <span class="hub-config-label">Featured</span>
+                            <span class="hub-config-label">@L["VaultHub_LabelFeatured"]</span>
                             <MudSwitch T="bool"
                                        Value="@Hub.IsFeatured"
                                        ValueChanged="@(v => OnFeaturedToggled.InvokeAsync((Hub.Id, v)))"
@@ -73,7 +74,7 @@
                                        UnCheckedColor="Color.Default" />
                         </div>
                         <div class="hub-config-row" style="border-bottom:none;">
-                            <span class="hub-config-label">Show in browsing</span>
+                            <span class="hub-config-label">@L["VaultHub_LabelShowInBrowsing"]</span>
                             <MudSwitch T="bool"
                                        Value="@Hub.IsEnabled"
                                        ValueChanged="@(v => OnEnabledToggled.InvokeAsync((Hub.Id, v)))"
@@ -84,7 +85,7 @@
                     else if (Hub.HubType == "System")
                     {
                         <div class="hub-config-row">
-                            <span class="hub-config-label">Media types</span>
+                            <span class="hub-config-label">@L["VaultHub_LabelMediaTypes"]</span>
                             <div style="display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end;">
                                 @foreach (var chip in GetSystemMediaChips())
                                 {
@@ -93,26 +94,26 @@
                             </div>
                         </div>
                         <div class="hub-config-row">
-                            <span class="hub-config-label">Progress tracking</span>
-                            <span class="hub-config-value" style="color:#5DCAA5;">Enabled</span>
+                            <span class="hub-config-label">@L["VaultHub_LabelProgressTracking"]</span>
+                            <span class="hub-config-value" style="color:#5DCAA5;">@L["VaultHub_ValueEnabled"]</span>
                         </div>
                         <div class="hub-config-row" style="border-bottom:none;">
-                            <span class="hub-config-label">Items</span>
+                            <span class="hub-config-label">@L["VaultHub_LabelItems"]</span>
                             <span class="hub-config-value">@Hub.ItemCount</span>
                         </div>
                     }
                     else if (Hub.HubType == "Mix")
                     {
                         <div class="hub-config-row">
-                            <span class="hub-config-label">Logic</span>
+                            <span class="hub-config-label">@L["VaultHub_LabelLogic"]</span>
                             <span class="hub-config-value" style="font-style:italic;color:rgba(255,255,255,0.5);">@(Hub.Description ?? "—")</span>
                         </div>
                         <div class="hub-config-row">
-                            <span class="hub-config-label">Refresh schedule</span>
-                            <span class="hub-config-value" style="color:rgba(255,255,255,0.5);">@(Hub.RefreshSchedule ?? "Daily")</span>
+                            <span class="hub-config-label">@L["VaultHub_LabelRefreshSchedule"]</span>
+                            <span class="hub-config-value" style="color:rgba(255,255,255,0.5);">@(Hub.RefreshSchedule ?? L["VaultHub_ValueDaily"])</span>
                         </div>
                         <div class="hub-config-row" style="border-bottom:none;">
-                            <span class="hub-config-label">Generate for all users</span>
+                            <span class="hub-config-label">@L["VaultHub_LabelGenerateForAllUsers"]</span>
                             <MudSwitch T="bool"
                                        Value="@Hub.IsEnabled"
                                        ValueChanged="@(v => OnEnabledToggled.InvokeAsync((Hub.Id, v)))"
@@ -123,23 +124,23 @@
                     else if (Hub.HubType == "Playlist")
                     {
                         <div class="hub-config-row">
-                            <span class="hub-config-label">Owner</span>
-                            <span class="hub-config-value">@(Hub.Scope == "user" ? "User" : "Library")</span>
+                            <span class="hub-config-label">@L["VaultHub_LabelOwner"]</span>
+                            <span class="hub-config-value">@(Hub.Scope == "user" ? L["VaultHub_OwnerUser"] : L["VaultHub_OwnerLibrary"])</span>
                         </div>
                         <div class="hub-config-row">
-                            <span class="hub-config-label">Media types</span>
-                            <span class="hub-config-value" style="font-style:italic;color:rgba(255,255,255,0.5);">Derived from contents</span>
+                            <span class="hub-config-label">@L["VaultHub_LabelMediaTypes"]</span>
+                            <span class="hub-config-value" style="font-style:italic;color:rgba(255,255,255,0.5);">@L["VaultHub_ValueDerivedFromContents"]</span>
                         </div>
                         <div class="hub-config-row">
-                            <span class="hub-config-label">Items</span>
+                            <span class="hub-config-label">@L["VaultHub_LabelItems"]</span>
                             <span class="hub-config-value">@Hub.ItemCount</span>
                         </div>
                         <div class="hub-config-row">
-                            <span class="hub-config-label">Created</span>
+                            <span class="hub-config-label">@L["VaultHub_LabelCreated"]</span>
                             <span class="hub-config-value">@Hub.CreatedAt.ToString("yyyy-MM-dd")</span>
                         </div>
                         <div class="hub-config-row" style="border-bottom:none;">
-                            <span class="hub-config-label">Last modified</span>
+                            <span class="hub-config-label">@L["VaultHub_LabelLastModified"]</span>
                             <span class="hub-config-value">@(Hub.ModifiedAt?.ToString("yyyy-MM-dd") ?? "—")</span>
                         </div>
                     }
@@ -152,7 +153,7 @@
             <button class="hub-section-header" @onclick="ToggleItemsSection">
                 <div style="display:flex;align-items:center;gap:12px;">
                     <MudIcon Icon="@Icons.Material.Outlined.List" Style="font-size:16px;color:rgba(255,255,255,0.5);" />
-                    <span class="hub-section-title">ITEMS PREVIEW</span>
+                    <span class="hub-section-title">@L["VaultHub_SectionItemsPreview"]</span>
                 </div>
                 <MudIcon Icon="@(_itemsOpen ? Icons.Material.Outlined.ExpandMore : Icons.Material.Outlined.ChevronRight)"
                          Style="font-size:16px;color:rgba(255,255,255,0.35);" />
@@ -164,7 +165,7 @@
                     @if (Items.Count == 0)
                     {
                         <div style="font-size:11px;color:rgba(255,255,255,0.3);font-style:italic;padding:8px 0;">
-                            No items yet.
+                            @L["VaultHub_NoItemsYet"]
                         </div>
                     }
                     else
@@ -193,7 +194,7 @@
                     {
                         <div style="margin-top:12px;">
                             <span style="font-size:10px;font-weight:900;color:#C9922E;cursor:pointer;letter-spacing:0.04em;">
-                                View all @Hub.ItemCount items →
+                                @L["VaultHub_ViewAllItems", Hub.ItemCount] →
                             </span>
                         </div>
                     }
@@ -206,7 +207,7 @@
             <button class="hub-section-header" @onclick="ToggleAssetsSection">
                 <div style="display:flex;align-items:center;gap:12px;">
                     <MudIcon Icon="@Icons.Material.Outlined.Image" Style="font-size:16px;color:rgba(255,255,255,0.5);" />
-                    <span class="hub-section-title">ASSETS</span>
+                    <span class="hub-section-title">@L["VaultHub_SectionAssets"]</span>
                 </div>
                 <MudIcon Icon="@(_assetsOpen ? Icons.Material.Outlined.ExpandMore : Icons.Material.Outlined.ChevronRight)"
                          Style="font-size:16px;color:rgba(255,255,255,0.35);" />
@@ -222,7 +223,7 @@
                         <div class="hub-config-row" style="@(isLast ? "border-bottom:none;" : "")">
                             <span class="hub-config-label">@assetType</span>
                             <span style="font-size:11px;color:rgba(255,255,255,0.3);font-style:italic;">
-                                @(assetType == "Cover Art" ? "Auto-composed" : "Drop image or click to upload")
+                                @(assetType == "Cover Art" ? L["VaultHub_AssetAutoComposed"] : L["VaultHub_AssetDropOrUpload"])
                             </span>
                         </div>
                     }
@@ -239,11 +240,11 @@
             <div style="display:flex;gap:8px;">
                 <button class="hub-action-btn hub-action-btn--outlined" style="flex:1;"
                         @onclick="ToggleEnabled">
-                    @(Hub.IsEnabled ? "Disable" : "Enable")
+                    @(Hub.IsEnabled ? L["VaultHub_ActionDisable"] : L["VaultHub_ActionEnable"])
                 </button>
                 <button class="hub-action-btn hub-action-btn--filled" style="flex:1;"
                         @onclick="ToggleFeatured">
-                    @(Hub.IsFeatured ? "Unfeature" : "Feature")
+                    @(Hub.IsFeatured ? L["VaultHub_ActionUnfeature"] : L["VaultHub_ActionFeature"])
                 </button>
             </div>
         }
@@ -251,7 +252,7 @@
         {
             <div style="text-align:center;">
                 <span style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:0.1em;color:rgba(255,255,255,0.25);">
-                    System-managed
+                    @L["VaultHub_SystemManaged"]
                 </span>
             </div>
         }
@@ -259,15 +260,15 @@
         {
             <button class="hub-action-btn hub-action-btn--outlined" style="width:100%;"
                     @onclick="ToggleEnabled">
-                @(Hub.IsEnabled ? "Disable" : "Enable")
+                @(Hub.IsEnabled ? L["VaultHub_ActionDisable"] : L["VaultHub_ActionEnable"])
             </button>
         }
         else if (Hub.HubType == "Playlist")
         {
             <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
-                <span style="font-size:10px;color:rgba(255,255,255,0.3);">Managed by owner</span>
+                <span style="font-size:10px;color:rgba(255,255,255,0.3);">@L["VaultHub_ManagedByOwner"]</span>
                 <span style="font-size:11px;font-weight:900;color:#C9922E;cursor:pointer;letter-spacing:0.04em;">
-                    Open in My Library →
+                    @L["VaultHub_OpenInMyLibrary"] →
                 </span>
             </div>
         }

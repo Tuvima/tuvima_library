@@ -133,6 +133,9 @@
             Orchestrator.OnReviewCountChanged += OnReviewCountChanged;
             Orchestrator.OnProfileChanged     += OnProfileChanged;
 
+            // Sync UI culture with server display language preference.
+            await SyncCultureAsync();
+
             StateHasChanged();
         }
     }
@@ -143,6 +146,28 @@
     private void OnDeviceContextChanged()
     {
         InvokeAsync(StateHasChanged);
+    }
+
+    private async Task SyncCultureAsync()
+    {
+        try
+        {
+            var settings = await Orchestrator.GetServerGeneralAsync();
+            if (settings is not null && !string.IsNullOrEmpty(settings.DisplayLanguage))
+            {
+                var currentCulture = System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
+                var desired = settings.DisplayLanguage.Split('-', '_')[0].ToLowerInvariant();
+                if (!string.Equals(currentCulture, desired, StringComparison.OrdinalIgnoreCase))
+                {
+                    var redirectBack = Uri.EscapeDataString(Nav.Uri);
+                    Nav.NavigateTo($"/culture/set?culture={Uri.EscapeDataString(settings.DisplayLanguage)}&redirectUri={redirectBack}", forceLoad: true);
+                }
+            }
+        }
+        catch
+        {
+            // Engine may be offline — keep current culture.
+        }
     }
 
     private async Task LoadActiveProfileAsync()

@@ -1,4 +1,5 @@
 @namespace MediaEngine.Web.Components.Settings
+@inject IStringLocalizer<SharedStrings> L
 
 @* Security — connection security toggles, rate limit display, and API key management. *@
 
@@ -9,17 +10,17 @@
 
         <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
             <MudIcon Icon="@Icons.Material.Filled.VpnKey" Color="Color.Default" Class="mr-2" />
-            <MudText Typo="Typo.h6">Security</MudText>
+            <MudText Typo="Typo.h6">@L["Security_Security"]</MudText>
         </MudStack>
         <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
-            Control how the Engine accepts connections and enforces authentication.
+            @L["Security_SecurityDescription"]
         </MudText>
 
         @* ── Security Settings ────────────────────────────────────────────── *@
         <MudPaper Elevation="0" Style="@InnerCardStyle" Class="mb-4">
 
             <MudText Typo="Typo.subtitle1" Style="font-weight: 600;" Class="mb-4">
-                Connection Settings
+                @L["Security_ConnectionSettings"]
             </MudText>
 
             @* Localhost Bypass toggle *@
@@ -27,10 +28,10 @@
                       Style="gap: 16px;">
                 <MudStack Spacing="0" Style="flex: 1;">
                     <MudText Typo="Typo.body1" Style="font-weight: 500;">
-                        Localhost Bypass
+                        @L["Security_LocalhostBypass"]
                     </MudText>
                     <MudText Typo="Typo.body2" Color="Color.Secondary">
-                        Allow unauthenticated requests from this machine
+                        @L["Security_LocalhostBypassDescription"]
                     </MudText>
                 </MudStack>
                 <MudSwitch @bind-Value="_localhostBypass"
@@ -45,10 +46,10 @@
                       Style="gap: 16px;">
                 <MudStack Spacing="0" Style="flex: 1;">
                     <MudText Typo="Typo.body1" Style="font-weight: 500;">
-                        Require HTTPS for Remote Connections
+                        @L["Security_RequireHttps"]
                     </MudText>
                     <MudText Typo="Typo.body2" Color="Color.Secondary">
-                        Reject non-HTTPS requests from other devices on the network
+                        @L["Security_RequireHttpsDescription"]
                     </MudText>
                 </MudStack>
                 <MudSwitch @bind-Value="_requireHttpsRemote"
@@ -65,12 +66,12 @@
                 <MudIcon Icon="@Icons.Material.Outlined.Speed"
                          Color="Color.Secondary" Size="Size.Small" Class="mr-1" />
                 <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">
-                    Rate Limits
+                    @L["Security_RateLimits"]
                 </MudText>
                 <MudSpacer />
                 <MudChip T="string" Size="Size.Small" Color="Color.Default"
                          Style="opacity: 0.6; font-size: 0.7rem;">
-                    Read-only
+                    @L["Security_ReadOnly"]
                 </MudChip>
             </MudStack>
 
@@ -81,7 +82,7 @@
                     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
                         <MudIcon Icon="@Icons.Material.Outlined.Key"
                                  Size="Size.Small" Color="Color.Secondary" />
-                        <MudText Typo="Typo.body2">Key Generation</MudText>
+                        <MudText Typo="Typo.body2">@L["Security_KeyGeneration"]</MudText>
                     </MudStack>
                     <code style="font-family: monospace; font-size: 0.8rem;
                                   background: rgba(0,0,0,0.25); padding: 2px 8px;
@@ -95,7 +96,7 @@
                     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
                         <MudIcon Icon="@Icons.Material.Outlined.PlayCircle"
                                  Size="Size.Small" Color="Color.Secondary" />
-                        <MudText Typo="Typo.body2">File Streaming</MudText>
+                        <MudText Typo="Typo.body2">@L["Security_FileStreaming"]</MudText>
                     </MudStack>
                     <code style="font-family: monospace; font-size: 0.8rem;
                                   background: rgba(0,0,0,0.25); padding: 2px 8px;
@@ -109,7 +110,7 @@
                     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
                         <MudIcon Icon="@Icons.Material.Outlined.Api"
                                  Size="Size.Small" Color="Color.Secondary" />
-                        <MudText Typo="Typo.body2">General API</MudText>
+                        <MudText Typo="Typo.body2">@L["Security_GeneralApi"]</MudText>
                     </MudStack>
                     <code style="font-family: monospace; font-size: 0.8rem;
                                   background: rgba(0,0,0,0.25); padding: 2px 8px;

@@ -1,10 +1,12 @@
 @using MediaEngine.Web.Models.ViewDTOs
 
+@inject IStringLocalizer<SharedStrings> L
+
 @if (People.Count == 0 && !Loading)
 {
     <div class="vpt-empty">
         <MudIcon Icon="@Icons.Material.Outlined.People" Style="font-size: 3rem; opacity: 0.15; margin-bottom: 12px;" />
-        <p style="color: rgba(255,255,255,0.25); font-size: 0.85rem;">No people found.</p>
+        <p style="color: rgba(255,255,255,0.25); font-size: 0.85rem;">@L["VaultPeople_NoPeopleFound"]</p>
     </div>
 }
 else
@@ -14,8 +16,8 @@ else
             <thead>
                 <tr class="vpt-thead-row">
                     <th class="vpt-th" style="width: 60px;"></th>
-                    <th class="vpt-th" style="width: 55%;">Individual</th>
-                    <th class="vpt-th vpt-th--right" style="width: 30%;">Presence</th>
+                    <th class="vpt-th" style="width: 55%;">@L["VaultPeople_ColIndividual"]</th>
+                    <th class="vpt-th vpt-th--right" style="width: 30%;">@L["VaultPeople_ColPresence"]</th>
                 </tr>
             </thead>
             <tbody>

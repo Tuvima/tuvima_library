@@ -1,4 +1,5 @@
 @namespace MediaEngine.Web.Components.Vault
+@inject IStringLocalizer<SharedStrings> L
 
 @* ── Backdrop ── *@
 <div class="vamd-backdrop" @onclick="OnClose"></div>
@@ -12,9 +13,9 @@
                        OnClick="OnClose" />
         <div style="display:flex;align-items:center;gap:12px;">
             <MudIcon Icon="@Icons.Material.Outlined.CreateNewFolder" Style="font-size: 24px; color: #60A5FA;" />
-            <h2 class="vamd-title">Add Media</h2>
+            <h2 class="vamd-title">@L["VaultAddMedia_Title"]</h2>
         </div>
-        <p class="vamd-hint">Drag files or folders into the zone below, or use the browse button.</p>
+        <p class="vamd-hint">@L["VaultAddMedia_Hint"]</p>
     </div>
 
     <div class="vamd-body">
@@ -30,22 +31,22 @@
             <p class="vamd-drop-text">
                 @if (_isDragging)
                 {
-                    <span style="color: #60A5FA; font-weight: 800;">Drop to import</span>
+                    <span style="color: #60A5FA; font-weight: 800;">@L["VaultAddMedia_DropToImport"]</span>
                 }
                 else
                 {
-                    <span>Drag files or folders here</span>
+                    <span>@L["VaultAddMedia_DragFilesHere"]</span>
                 }
             </p>
-            <span class="vamd-drop-or">or</span>
+            <span class="vamd-drop-or">@L["VaultAddMedia_Or"]</span>
             <button class="vamd-browse-btn">
                 <MudIcon Icon="@Icons.Material.Outlined.FolderOpen" Style="font-size: 16px;" />
-                Browse Files
+                @L["VaultAddMedia_BrowseFiles"]
             </button>
         </div>
 
         <div class="vamd-supported">
-            <span class="vamd-supported-label">SUPPORTED</span>
+            <span class="vamd-supported-label">@L["VaultAddMedia_Supported"]</span>
             <div class="vamd-supported-types">
                 <span>EPUB</span><span>M4B</span><span>MKV</span><span>MP4</span>
                 <span>CBZ</span><span>CBR</span><span>MP3</span><span>FLAC</span>

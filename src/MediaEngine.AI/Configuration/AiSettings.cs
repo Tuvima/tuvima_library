@@ -96,13 +96,26 @@ public sealed class AiModelDefinitions
         SizeMB = 1500,
     };
 
+    [JsonPropertyName("text_cjk")]
+    public AiModelDefinition TextCjk { get; set; } = new()
+    {
+        Description = "Multilingual model with strong CJK support for Chinese, Japanese, and Korean content analysis",
+        File = "qwen2.5-3b-instruct-q4_k_m.gguf",
+        DownloadUrl = "https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q4_k_m.gguf",
+        SizeMB = 2048,
+        ContextLength = 8192,
+        MaxTokens = 512,
+        Temperature = 0.1,
+    };
+
     /// <summary>Get the definition for a given role.</summary>
     public AiModelDefinition GetByRole(Domain.Enums.AiModelRole role) => role switch
     {
-        Domain.Enums.AiModelRole.TextFast => TextFast,
+        Domain.Enums.AiModelRole.TextFast    => TextFast,
         Domain.Enums.AiModelRole.TextQuality => TextQuality,
         Domain.Enums.AiModelRole.TextScholar => TextScholar,
-        Domain.Enums.AiModelRole.Audio => Audio,
+        Domain.Enums.AiModelRole.Audio       => Audio,
+        Domain.Enums.AiModelRole.TextCjk     => TextCjk,
         _ => throw new ArgumentOutOfRangeException(nameof(role)),
     };
 }

@@ -6,6 +6,7 @@
 @inject UniverseStateContainer StateContainer
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
+@inject IStringLocalizer<SharedStrings> L
 
 @implements IDisposable
 
@@ -15,7 +16,7 @@
     <div class="vault-header">
         <div class="vault-header-top">
             <div class="vault-header-left">
-                <h1 class="vault-title">Vault</h1>
+                <h1 class="vault-title">@L["Vault_Title"]</h1>
                 @* Alert badges inline with title *@
                 @if (_needsReviewCount > 0)
                 {
@@ -61,7 +62,7 @@
                       GroupByChanged="OnGroupChanged" />
         <button class="vault-add-btn" @onclick="() => _addMediaOpen = true">
             <MudIcon Icon="@Icons.Material.Filled.Add" Style="font-size: 16px;" />
-            <span>Add Media</span>
+            <span>@L["Vault_AddMedia"]</span>
         </button>
     </div>
 
@@ -77,7 +78,7 @@
             {
                 <div class="vault-load-more">
                     <button class="vault-load-more-btn" @onclick="LoadMore">
-                        Load More
+                        @L["Vault_LoadMore"]
                     </button>
                 </div>
             }
@@ -461,7 +462,7 @@
     private async Task OnPurgeItem(Guid entityId)
     {
         await ApiClient.BatchDeleteRegistryItemsAsync([entityId]);
-        Snackbar.Add("Item purged", Severity.Info);
+        Snackbar.Add(L["Vault_ItemPurged"], Severity.Info);
         CloseDetailDrawer();
         await LoadMediaItems();
         await LoadCounts();
@@ -513,7 +514,7 @@
         if (_deleteItemId.HasValue)
         {
             await ApiClient.BatchDeleteRegistryItemsAsync([_deleteItemId.Value]);
-            Snackbar.Add("Item deleted", Severity.Info);
+            Snackbar.Add(L["Vault_ItemDeleted"], Severity.Info);
             _deleteItemId = null;
             await LoadMediaItems();
             await LoadCounts();

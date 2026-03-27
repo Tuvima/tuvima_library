@@ -1,5 +1,7 @@
 @using MediaEngine.Web.Models.ViewDTOs
 
+@inject IStringLocalizer<SharedStrings> L
+
 <div class="vault-toolbar">
     @* ── Search ── *@
     <div class="vault-search-wrap">
@@ -7,7 +9,7 @@
                  Class="vault-search-icon" />
         <input type="text"
                class="vault-search-input"
-               placeholder="@($"Search {ActiveTab}...")"
+               placeholder="@L["VaultToolbar_SearchPlaceholder"]"
                value="@SearchText"
                @oninput="OnSearchInput" />
     </div>
@@ -17,9 +19,9 @@
         @* Sort *@
         <div class="vault-control-group">
             <select class="vault-select" value="@SortBy" @onchange="OnSortChanged">
-                <option value="newest">Sort: Newest</option>
-                <option value="oldest">Sort: Oldest</option>
-                <option value="confidence">Sort: Confidence</option>
+                <option value="newest">@L["VaultToolbar_SortNewest"]</option>
+                <option value="oldest">@L["VaultToolbar_SortOldest"]</option>
+                <option value="confidence">@L["VaultToolbar_SortConfidence"]</option>
             </select>
         </div>
 
@@ -28,10 +30,10 @@
         @* Group *@
         <div class="vault-control-group">
             <select class="vault-select" value="@GroupBy" @onchange="OnGroupChanged">
-                <option value="none">No Grouping</option>
-                <option value="type">Group: Type</option>
-                <option value="status">Group: Status</option>
-                <option value="letter">Group: A-Z</option>
+                <option value="none">@L["VaultToolbar_GroupNone"]</option>
+                <option value="type">@L["VaultToolbar_GroupType"]</option>
+                <option value="status">@L["VaultToolbar_GroupStatus"]</option>
+                <option value="letter">@L["VaultToolbar_GroupLetter"]</option>
             </select>
         </div>
     </div>

@@ -1,4 +1,5 @@
 @namespace MediaEngine.Web.Components.Settings
+@inject IStringLocalizer<SharedStrings> L
 
 @* Connectivity — placeholder for future network and sync settings. *@
 
@@ -8,9 +9,9 @@
                  Size="Size.Large"
                  Color="Color.Secondary"
                  Style="font-size: 4rem; opacity: 0.4;" />
-        <MudText Typo="Typo.h6" Color="Color.Secondary">Connectivity</MudText>
+        <MudText Typo="Typo.h6" Color="Color.Secondary">@L["Connectivity_Title"]</MudText>
         <MudText Typo="Typo.body2" Color="Color.Secondary" Align="Align.Center">
-            Feature in Development — Network and sync settings will appear here in a future update.
+            @L["Connectivity_ComingSoon"]
         </MudText>
     </MudStack>
 </div>

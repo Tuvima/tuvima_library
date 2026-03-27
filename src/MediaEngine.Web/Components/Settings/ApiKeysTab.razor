@@ -2,6 +2,7 @@
 @inject UIOrchestratorService Orchestrator
 @inject ISnackbar Snackbar
 @inject IJSRuntime JS
+@inject IStringLocalizer<SharedStrings> L
 
 @* Guest API Keys — generate, view, copy, reveal prefix, and revoke access keys. *@
 
@@ -9,20 +10,19 @@
 
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
         <MudIcon Icon="@Icons.Material.Filled.VpnKey" Color="Color.Default" Class="mr-2" />
-        <MudText Typo="Typo.h6">Guest API Keys</MudText>
+        <MudText Typo="Typo.h6">@L["ApiKeys_GuestApiKeys"]</MudText>
         <MudSpacer />
         <MudButton Variant="Variant.Filled"
                    Color="Color.Primary"
                    StartIcon="@Icons.Material.Filled.Add"
                    OnClick="@OpenGenerateDialog"
                    Disabled="@_loading">
-            Generate Key
+            @L["ApiKeys_GenerateKey"]
         </MudButton>
     </MudStack>
 
     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
-        Any application connecting to the Engine — Radarr, Sonarr, a mobile app — must present
-        a valid Guest API Key. Each key is labelled and can be revoked individually.
+        @L["ApiKeys_GuestApiKeysDescription"]
     </MudText>
 
     @if (_loading)
@@ -32,7 +32,7 @@
     else if (_keys.Count == 0)
     {
         <MudAlert Severity="Severity.Info" Class="mt-2">
-            No Guest API Keys have been issued yet. Generate one to allow external connections.
+            @L["ApiKeys_NoKeysIssued"]
         </MudAlert>
     }
     else
@@ -40,10 +40,10 @@
         <MudTable Items="@_keys" Dense="true" Hover="true" Breakpoint="Breakpoint.Sm"
                   Style="background: transparent;">
             <HeaderContent>
-                <MudTh>Label</MudTh>
-                <MudTh>Key</MudTh>
-                <MudTh>Created</MudTh>
-                <MudTh Style="text-align:right">Actions</MudTh>
+                <MudTh>@L["ApiKeys_Label"]</MudTh>
+                <MudTh>@L["ApiKeys_Key"]</MudTh>
+                <MudTh>@L["ApiKeys_Created"]</MudTh>
+                <MudTh Style="text-align:right">@L["ApiKeys_Actions"]</MudTh>
             </HeaderContent>
             <RowTemplate>
                 <MudTd>
@@ -72,12 +72,12 @@
                                              : Icons.Material.Filled.Visibility)"
                                    Color="Color.Default"
                                    Size="Size.Medium"
-                                   title="Toggle key prefix visibility"
+                                   title="@L["ApiKeys_ToggleKeyVisibility"]"
                                    OnClick="@(() => ToggleReveal(context.Id))" />
                     <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline"
                                    Color="Color.Error"
                                    Size="Size.Medium"
-                                   title="Revoke this key"
+                                   title="@L["ApiKeys_RevokeThisKey"]"
                                    OnClick="@(() => RevokeKeyAsync(context))" />
                 </MudTd>
             </RowTemplate>
@@ -91,7 +91,7 @@
                    OnClick="@OpenRevokeAllDialog"
                    Class="mt-4"
                    Disabled="@_revokingAll">
-            Revoke All Keys
+            @L["ApiKeys_RevokeAllKeys"]
         </MudButton>
     }
 </div>
@@ -101,13 +101,13 @@
     <TitleContent>
         <MudText Typo="Typo.h6">
             <MudIcon Icon="@Icons.Material.Filled.VpnKey" Class="mr-2" />
-            Generate Guest API Key
+            @L["ApiKeys_GenerateGuestApiKey"]
         </MudText>
     </TitleContent>
     <DialogContent>
         <MudTextField @bind-Value="_newLabel"
-                      Label="Label"
-                      Placeholder="e.g. Radarr integration, Mobile app"
+                      Label="@L["ApiKeys_Label"]"
+                      Placeholder="@L["ApiKeys_LabelPlaceholder"]"
                       Variant="Variant.Outlined"
                       FullWidth="true"
                       Class="mb-2"
@@ -117,7 +117,7 @@
         {
             <MudAlert Severity="Severity.Warning" Class="mt-4" Icon="@Icons.Material.Filled.Warning">
                 <MudText Typo="Typo.subtitle2" Class="mb-2">
-                    Copy this key now — it will not be shown again.
+                    @L["ApiKeys_CopyKeyNow"]
                 </MudText>
                 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
                     <code style="font-family: monospace; font-size: 0.85rem;
@@ -130,7 +130,7 @@
                                              : Icons.Material.Filled.ContentCopy)"
                                    Color="@(_copyAnimating ? Color.Success : Color.Default)"
                                    Size="Size.Medium"
-                                   title="Copy key to clipboard"
+                                   title="@L["ApiKeys_CopyKeyToClipboard"]"
                                    OnClick="@CopyKeyAsync" />
                 </MudStack>
             </MudAlert>
@@ -139,12 +139,12 @@
     <DialogActions>
         @if (_newKey is null)
         {
-            <MudButton OnClick="@CloseGenerateDialog">Cancel</MudButton>
+            <MudButton OnClick="@CloseGenerateDialog">@L["ApiKeys_Cancel"]</MudButton>
             <MudButton Variant="Variant.Filled"
                        Color="Color.Primary"
                        Disabled="@(string.IsNullOrWhiteSpace(_newLabel) || _generating)"
                        OnClick="@GenerateKeyAsync">
-                @(_generating ? "Generating..." : "Generate")
+                @(_generating ? L["ApiKeys_Generating"] : L["ApiKeys_Generate"])
             </MudButton>
         }
         else
@@ -153,7 +153,7 @@
                        Color="Color.Success"
                        StartIcon="@Icons.Material.Filled.Check"
                        OnClick="@DismissNewKey">
-                I've saved the key
+                @L["ApiKeys_IveSavedTheKey"]
             </MudButton>
         }
     </DialogActions>
@@ -164,25 +164,24 @@
     <TitleContent>
         <MudText Typo="Typo.h6" Color="Color.Error">
             <MudIcon Icon="@Icons.Material.Filled.Warning" Class="mr-2" Color="Color.Error" />
-            Revoke All Guest API Keys
+            @L["ApiKeys_RevokeAllGuestApiKeys"]
         </MudText>
     </TitleContent>
     <DialogContent>
         <MudText Typo="Typo.body1">
-            This will revoke <strong>all @_keys.Count</strong> Guest API Keys immediately.
-            Any application currently connected to the Engine will lose access.
+            @L["ApiKeys_RevokeAllConfirmation1"] <strong>@L["ApiKeys_All"] @_keys.Count</strong> @L["ApiKeys_RevokeAllConfirmation2"]
         </MudText>
         <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-2">
-            This action cannot be undone.
+            @L["ApiKeys_ActionCannotBeUndone"]
         </MudText>
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="@CloseRevokeAllDialog">Cancel</MudButton>
+        <MudButton OnClick="@CloseRevokeAllDialog">@L["ApiKeys_Cancel"]</MudButton>
         <MudButton Variant="Variant.Filled"
                    Color="Color.Error"
                    OnClick="@RevokeAllKeysAsync"
                    Disabled="@_revokingAll">
-            @(_revokingAll ? "Revoking..." : "Revoke All")
+            @(_revokingAll ? L["ApiKeys_Revoking"] : L["ApiKeys_RevokeAll"])
         </MudButton>
     </DialogActions>
 </MudDialog>
@@ -269,7 +268,7 @@
 
         if (_newKey is null)
         {
-            Snackbar.Add("Could not generate key — is the Engine running?", Severity.Error);
+            Snackbar.Add(L["ApiKeys_CouldNotGenerateKey"], Severity.Error);
             _generateOpen = false;
         }
         else
@@ -291,7 +290,7 @@
         _copyAnimating = false;
         StateHasChanged();
 
-        Snackbar.Add("Key copied to clipboard", Severity.Success);
+        Snackbar.Add(L["ApiKeys_KeyCopiedToClipboard"], Severity.Success);
     }
 
     private async Task DismissNewKey()
@@ -308,13 +307,13 @@
         var ok = await Orchestrator.RevokeApiKeyAsync(key.Id);
         if (ok)
         {
-            Snackbar.Add($"Key \"{key.Label}\" revoked", Severity.Info);
+            Snackbar.Add($"{L["ApiKeys_KeyRevoked"]} \"{key.Label}\"", Severity.Info);
             _revealedKeys.Remove(key.Id);
             await RefreshKeysAsync();
         }
         else
         {
-            Snackbar.Add("Revoke failed — is the Engine running?", Severity.Error);
+            Snackbar.Add(L["ApiKeys_RevokeFailed"], Severity.Error);
         }
     }
 
@@ -335,9 +334,9 @@
         _revokingAll   = false;
 
         if (revoked > 0)
-            Snackbar.Add($"All {revoked} keys revoked", Severity.Info);
+            Snackbar.Add($"{L["ApiKeys_AllKeysRevoked"]} {revoked} {L["ApiKeys_Keys"]}", Severity.Info);
         else
-            Snackbar.Add("Could not revoke keys — is the Engine running?", Severity.Warning);
+            Snackbar.Add(L["ApiKeys_CouldNotRevokeKeys"], Severity.Warning);
 
         await RefreshKeysAsync();
     }

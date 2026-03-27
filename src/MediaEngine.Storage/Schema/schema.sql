@@ -322,5 +322,5 @@ CREATE VIRTUAL TABLE IF NOT EXISTS search_index USING fts5(
     alternate_titles,
     author,
     description,
-    tokenize = 'unicode61'
+    tokenize = 'trigram'
 );

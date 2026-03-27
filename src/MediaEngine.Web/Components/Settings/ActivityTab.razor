@@ -1,6 +1,7 @@
 @namespace MediaEngine.Web.Components.Settings
 @inject UIOrchestratorService Orchestrator
 @inject ISnackbar Snackbar
+@inject IStringLocalizer<SharedStrings> L
 
 @* Activity Log — chronological timeline of Engine actions with filter chips and
    configurable retention. *@
@@ -10,11 +11,10 @@
     @* ── Header ──────────────────────────────────────────────────────────── *@
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
         <MudIcon Icon="@Icons.Material.Outlined.Timeline" Color="Color.Default" Class="mr-2" />
-        <MudText Typo="Typo.h6">Activity Log</MudText>
+        <MudText Typo="Typo.h6">@L["Activity_PageTitle"]</MudText>
     </MudStack>
     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
-        A complete record of every significant action taken by the Engine — ingestion,
-        enrichment, review resolutions, and scheduled maintenance.
+        @L["Activity_PageDescription"]
     </MudText>
 
     @* ── Retention policy ────────────────────────────────────────────────── *@
@@ -23,7 +23,7 @@
         <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-3">
             <MudIcon Icon="@Icons.Material.Outlined.Schedule"
                      Color="Color.Secondary" Size="Size.Small" Class="mr-1" />
-            <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">Retention Policy</MudText>
+            <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">@L["Activity_RetentionPolicy"]</MudText>
         </MudStack>
 
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="4"
@@ -32,10 +32,10 @@
                 <MudStack Row="true" AlignItems="AlignItems.Center"
                           Style="justify-content: space-between;">
                     <MudText Typo="Typo.body2" Color="Color.Secondary">
-                        Keep entries for
+                        @L["Activity_KeepEntriesFor"]
                     </MudText>
                     <MudText Typo="Typo.body2" Style="font-weight: 600;">
-                        @_retentionDays days
+                        @_retentionDays @L["Activity_Days"]
                     </MudText>
                 </MudStack>
                 <MudSlider @bind-Value="_retentionDays"
@@ -43,8 +43,8 @@
                            Color="Color.Primary"
                            Size="Size.Small" />
                 <MudStack Row="true" Style="justify-content: space-between;">
-                    <MudText Typo="Typo.caption" Color="Color.Secondary">7 days</MudText>
-                    <MudText Typo="Typo.caption" Color="Color.Secondary">1 year</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">@L["Activity_SevenDays"]</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">@L["Activity_OneYear"]</MudText>
                 </MudStack>
             </MudStack>
             <MudButton Variant="Variant.Outlined"
@@ -52,7 +52,7 @@
                        StartIcon="@Icons.Material.Outlined.DeleteSweep"
                        OnClick="@PruneNowAsync"
                        Disabled="@_pruning">
-                @(_pruning ? "Pruning..." : "Prune Now")
+                @(_pruning ? L["Activity_Pruning"] : L["Activity_PruneNow"])
             </MudButton>
         </MudStack>
 
@@ -62,7 +62,7 @@
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4" Style="flex-wrap: wrap; gap: 8px;">
         <MudText Typo="Typo.caption" Color="Color.Secondary"
                  Style="text-transform: uppercase; letter-spacing: 0.08em; margin-right: 4px;">
-            Filter
+            @L["Activity_Filter"]
         </MudText>
         @foreach (var filter in _filters)
         {
@@ -79,7 +79,7 @@
             <MudChip T="string" Color="Color.Error" Size="Size.Small"
                      OnClick="@ClearFilters"
                      Style="cursor: pointer; font-size: 0.75rem;">
-                Clear
+                @L["Activity_Clear"]
             </MudChip>
         }
     </MudStack>
@@ -157,7 +157,7 @@
         @if (visible.Count == 0)
         {
             <MudAlert Severity="Severity.Info" Class="mt-2">
-                No activity entries match the current filter.
+                @L["Activity_NoEntries"]
             </MudAlert>
         }
     </MudStack>
@@ -171,7 +171,7 @@
                    Class="mt-4"
                    StartIcon="@Icons.Material.Outlined.ExpandMore"
                    OnClick="@LoadMore">
-            Load More (@(FilteredEntries.Count - _visibleCount) remaining)
+            @L["Activity_LoadMore"] (@(FilteredEntries.Count - _visibleCount) @L["Activity_Remaining"])
         </MudButton>
     }
 
@@ -329,7 +329,7 @@
         }
         catch
         {
-            Snackbar.Add("Prune failed — is the Engine running?", Severity.Error);
+            Snackbar.Add(L["Activity_PruneError"], Severity.Error);
         }
         finally
         {

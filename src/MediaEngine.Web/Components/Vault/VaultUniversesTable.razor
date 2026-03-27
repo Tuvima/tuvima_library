@@ -1,10 +1,12 @@
 @using MediaEngine.Web.Models.ViewDTOs
 
+@inject IStringLocalizer<SharedStrings> L
+
 @if (Universes.Count == 0 && !Loading)
 {
     <div class="vut-empty">
         <MudIcon Icon="@Icons.Material.Outlined.Public" Style="font-size: 3rem; opacity: 0.15; margin-bottom: 12px;" />
-        <p style="color: rgba(255,255,255,0.25); font-size: 0.85rem;">No universes found.</p>
+        <p style="color: rgba(255,255,255,0.25); font-size: 0.85rem;">@L["VaultUniverses_NoUniversesFound"]</p>
     </div>
 }
 else
@@ -13,10 +15,10 @@ else
         <table class="vut-table">
             <thead>
                 <tr class="vut-thead-row">
-                    <th class="vut-th" style="width: 40%;">Universe</th>
-                    <th class="vut-th vut-th--center vut-col-series" style="width: 15%;">Series</th>
-                    <th class="vut-th vut-th--center" style="width: 25%;">Media Assets</th>
-                    <th class="vut-th vut-th--center vut-col-people" style="width: 15%;">People</th>
+                    <th class="vut-th" style="width: 40%;">@L["VaultUniverses_ColUniverse"]</th>
+                    <th class="vut-th vut-th--center vut-col-series" style="width: 15%;">@L["VaultUniverses_ColSeries"]</th>
+                    <th class="vut-th vut-th--center" style="width: 25%;">@L["VaultUniverses_ColMediaAssets"]</th>
+                    <th class="vut-th vut-th--center vut-col-people" style="width: 15%;">@L["VaultUniverses_ColPeople"]</th>
                 </tr>
             </thead>
             <tbody>
