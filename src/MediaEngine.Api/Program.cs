@@ -459,6 +459,7 @@ builder.Services.AddSingleton<ICanonicalValueArrayRepository, CanonicalValueArra
 
 builder.Services.AddSingleton<IMetadataHarvestingService, MetadataHarvestingService>();
 builder.Services.AddSingleton<IRecursiveIdentityService,  RecursiveIdentityService>();
+builder.Services.AddSingleton<IPersonReconciliationService, PersonReconciliationService>();
 builder.Services.AddSingleton<ICanonDiscrepancyService,   CanonDiscrepancyService>();
 
 // ── Universe graph (fictional entities, relationships, narrative roots) ──────

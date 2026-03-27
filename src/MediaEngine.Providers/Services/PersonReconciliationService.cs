@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Models;
+using MediaEngine.Storage.Contracts;
 using Tuvima.WikidataReconciliation;
 
 namespace MediaEngine.Providers.Services;
@@ -100,10 +101,10 @@ public sealed class PersonReconciliationService : IPersonReconciliationService
         var candidateQids = candidates.Select(c => c.Id).Distinct().ToList();
         IReadOnlyList<string> propertiesToFetch = ["P31", "P106", "P800"];
 
-        Dictionary<string, IReadOnlyDictionary<string, IReadOnlyList<WikidataClaim>>> properties;
+        IReadOnlyDictionary<string, IReadOnlyDictionary<string, IReadOnlyList<WikidataClaim>>> properties;
         try
         {
-            properties = await _reconciler.GetPropertiesAsync(candidateQids, propertiesToFetch, ct)
+            properties = await _reconciler.GetPropertiesAsync(candidateQids, propertiesToFetch, language, ct)
                 .ConfigureAwait(false);
         }
         catch (OperationCanceledException) { throw; }

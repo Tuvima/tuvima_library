@@ -20,7 +20,8 @@
     "person_property_constraints": {
       "P800": "notable_work_title",
       "P106": "occupation"
-    }
+    },
+    "cast_member_limit": 20
   },
   "instance_of_classes": {
     "Books": ["Q7725634", "Q571", "Q8261", "Q47461344", "Q277759", "Q1238720", "Q3331189", "Q149537", "Q12308", "Q35760", "Q386724", "Q17518461"],
@@ -39,7 +40,7 @@
   },
   "data_extension": {
     "work_properties": {
-      "core": ["P31", "P50", "P577", "P1476", "P136", "P179", "P1545"],
+      "core": ["P31", "P50", "P57", "P58", "P86", "P110", "P161", "P577", "P1476", "P136", "P179", "P1545"],
       "bridges": ["P212", "P957", "P5749", "P4947", "P345", "P6395", "P5905", "P434", "P436", "P5842", "P2969", "P648"],
       "editions": ["P747"]
     },
@@ -89,7 +90,11 @@
       "P1773": "attributed_to",
       "P2047": "duration",
       "P123": "publisher",
-      "P800": "notable_work"
+      "P800": "notable_work",
+      "P58": "screenwriter",
+      "P86": "composer",
+      "P110": "illustrator",
+      "P161": "cast_member"
     }
   }
 }

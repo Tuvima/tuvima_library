@@ -33,6 +33,7 @@ public sealed class ReconciliationSettings
     [JsonPropertyName("review_threshold")] public int ReviewThreshold { get; set; } = 70;
     [JsonPropertyName("max_candidates")] public int MaxCandidates { get; set; } = 5;
     [JsonPropertyName("person_property_constraints")] public Dictionary<string, string> PersonPropertyConstraints { get; set; } = new();
+    [JsonPropertyName("cast_member_limit")] public int CastMemberLimit { get; set; } = 20;
 }
 
 public sealed class DataExtensionSettings

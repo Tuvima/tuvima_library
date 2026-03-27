@@ -3,6 +3,13 @@ using MediaEngine.AI.Infrastructure;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
+using MediaEngine.Domain.Models;
+using MediaEngine.Intelligence.Contracts;
+using MediaEngine.Providers.Adapters;
+using MediaEngine.Providers.Contracts;
+using MediaEngine.Providers.Models;
+using MediaEngine.Providers.Services;
+using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Services;
 
@@ -91,6 +98,15 @@ public sealed class DescriptionIntelligenceBatchService : BackgroundService
             features.ScholarAvailable);
         var canonicalRepo  = scope.ServiceProvider.GetRequiredService<ICanonicalValueRepository>();
         var descIntel      = scope.ServiceProvider.GetRequiredService<IDescriptionIntelligenceService>();
+        var personRecon    = scope.ServiceProvider.GetService<IPersonReconciliationService>();
+        var claimRepo      = scope.ServiceProvider.GetRequiredService<IMetadataClaimRepository>();
+        var scoringEngine  = scope.ServiceProvider.GetRequiredService<IScoringEngine>();
+        var configLoader   = scope.ServiceProvider.GetRequiredService<IConfigurationLoader>();
+        var arrayRepo      = scope.ServiceProvider.GetRequiredService<ICanonicalValueArrayRepository>();
+        var searchIndex    = scope.ServiceProvider.GetRequiredService<ISearchIndexRepository>();
+        var providers      = scope.ServiceProvider.GetServices<IExternalMetadataProvider>();
+        var identityService = scope.ServiceProvider.GetRequiredService<IRecursiveIdentityService>();
+        var harvesting     = scope.ServiceProvider.GetRequiredService<IMetadataHarvestingService>();
 
         var batchSize = _settings.EnrichmentBatchSize > 0 ? _settings.EnrichmentBatchSize : 10;
 
@@ -226,6 +242,176 @@ public sealed class DescriptionIntelligenceBatchService : BackgroundService
                             "[DESCRIPTION-INTEL-BATCH] Enriched entity {EntityId} — {Themes} themes, {Mood} mood",
                             entityId, diResult.Themes.Count, diResult.Mood.Count);
                     }
+
+                    // ── AI person signal fallback ──────────────────────────────
+                    // For each person extracted from the description, check if a
+                    // companion QID claim already exists. If not, run standalone
+                    // person reconciliation at confidence 0.75 (lowest tier).
+                    if (personRecon is not null && diResult.People.Count > 0)
+                    {
+                        try
+                        {
+                            // Get the work title for notable-work matching.
+                            var titleCanonical = canonicals
+                                .FirstOrDefault(c => string.Equals(c.Key, "title", StringComparison.OrdinalIgnoreCase));
+                            var workTitleForSearch = titleCanonical?.Value;
+
+                            // Get existing QID claims to avoid redundant searches.
+                            var existingClaims = await claimRepo.GetByEntityAsync(entityId, ct)
+                                .ConfigureAwait(false);
+                            var existingQidKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                            foreach (var claim in existingClaims)
+                            {
+                                if (claim.ClaimKey.EndsWith("_qid", StringComparison.OrdinalIgnoreCase)
+                                    && !string.IsNullOrWhiteSpace(claim.ClaimValue))
+                                {
+                                    existingQidKeys.Add(claim.ClaimKey);
+                                }
+                            }
+
+                            var reconAdapter = providers
+                                .OfType<ReconciliationAdapter>()
+                                .FirstOrDefault();
+                            var wikidataProviderId = reconAdapter?.ProviderId
+                                ?? MetadataFieldConstants.WikidataProviderId;
+
+                            var aiPersonClaims = new List<ProviderClaim>();
+
+                            foreach (var person in diResult.People)
+                            {
+                                if (string.IsNullOrWhiteSpace(person.Name) || person.Confidence < 0.50)
+                                    continue;
+
+                                // Normalize the AI role to match PersonReference roles.
+                                var normalizedRole = NormalizeAiRole(person.Role);
+                                if (normalizedRole is null)
+                                    continue;
+
+                                // Map role to QID claim key.
+                                var qidKey = normalizedRole switch
+                                {
+                                    "Author"       => "author_qid",
+                                    "Narrator"     => "narrator_qid",
+                                    "Director"     => "director_qid",
+                                    "Screenwriter" => "screenwriter_qid",
+                                    "Composer"     => "composer_qid",
+                                    "Cast Member"  => "cast_member_qid",
+                                    "Illustrator"  => "illustrator_qid",
+                                    _              => null,
+                                };
+
+                                if (qidKey is null) continue;
+
+                                // Skip if a QID already exists for this role (from structured properties
+                                // or Phase 3 standalone search — higher confidence tiers).
+                                if (existingQidKeys.Contains(qidKey))
+                                {
+                                    _logger.LogDebug(
+                                        "[DESCRIPTION-INTEL-BATCH] AI person '{Name}' ({Role}) skipped — {QidKey} already resolved for entity {EntityId}",
+                                        person.Name, person.Role, qidKey, entityId);
+                                    continue;
+                                }
+
+                                try
+                                {
+                                    var searchResult = await personRecon.SearchPersonAsync(
+                                        person.Name, normalizedRole, workTitleForSearch, ct)
+                                        .ConfigureAwait(false);
+
+                                    if (searchResult is not null)
+                                    {
+                                        aiPersonClaims.Add(new ProviderClaim(
+                                            qidKey,
+                                            $"{searchResult.WikidataQid}::{searchResult.Name}",
+                                            0.75));
+
+                                        // Also deposit the name claim if not already present.
+                                        var nameKey = qidKey.Replace("_qid", "");
+                                        var hasNameClaim = existingClaims.Any(c =>
+                                            string.Equals(c.ClaimKey, nameKey, StringComparison.OrdinalIgnoreCase));
+                                        if (!hasNameClaim)
+                                        {
+                                            aiPersonClaims.Add(new ProviderClaim(nameKey, person.Name, 0.75));
+                                        }
+
+                                        _logger.LogInformation(
+                                            "[DESCRIPTION-INTEL-BATCH] AI person fallback resolved: '{Name}' ({Role}) → {QID} '{WikiName}' (score={Score:F2}) for entity {EntityId}",
+                                            person.Name, normalizedRole, searchResult.WikidataQid,
+                                            searchResult.Name, searchResult.Score, entityId);
+                                    }
+                                }
+                                catch (Exception ex) when (ex is not OperationCanceledException)
+                                {
+                                    _logger.LogWarning(ex,
+                                        "[DESCRIPTION-INTEL-BATCH] AI person search failed for '{Name}' ({Role}); continuing",
+                                        person.Name, person.Role);
+                                }
+                            }
+
+                            // Persist AI-resolved person QID claims and create Person records.
+                            if (aiPersonClaims.Count > 0)
+                            {
+                                await ScoringHelper.PersistClaimsAndScoreAsync(
+                                    entityId, aiPersonClaims, wikidataProviderId,
+                                    claimRepo, canonicalRepo, scoringEngine, configLoader,
+                                    providers, ct, arrayRepo, _logger, searchIndex).ConfigureAwait(false);
+
+                                // Create Person records for the newly resolved QIDs.
+                                var personRefs = aiPersonClaims
+                                    .Where(c => c.Key.EndsWith("_qid", StringComparison.OrdinalIgnoreCase))
+                                    .Select(c =>
+                                    {
+                                        var parts = c.Value.Split("::", 2);
+                                        var qid = parts[0];
+                                        var name = parts.Length > 1 ? parts[1] : qid;
+                                        var role = c.Key.Replace("_qid", "") switch
+                                        {
+                                            "author"       => "Author",
+                                            "narrator"     => "Narrator",
+                                            "director"     => "Director",
+                                            "screenwriter" => "Screenwriter",
+                                            "composer"     => "Composer",
+                                            "cast_member"  => "Cast Member",
+                                            "illustrator"  => "Illustrator",
+                                            _              => "Author",
+                                        };
+                                        return new PersonReference(role, name, qid);
+                                    })
+                                    .ToList();
+
+                                if (personRefs.Count > 0)
+                                {
+                                    var personRequests = await identityService.EnrichAsync(
+                                        entityId, personRefs, ct).ConfigureAwait(false);
+
+                                    foreach (var personReq in personRequests)
+                                    {
+                                        try
+                                        {
+                                            await harvesting.ProcessSynchronousAsync(personReq, ct)
+                                                .ConfigureAwait(false);
+                                        }
+                                        catch (Exception ex) when (ex is not OperationCanceledException)
+                                        {
+                                            _logger.LogWarning(ex,
+                                                "[DESCRIPTION-INTEL-BATCH] Person enrichment failed for AI-resolved person {Id}; continuing",
+                                                personReq.EntityId);
+                                        }
+                                    }
+                                }
+
+                                _logger.LogInformation(
+                                    "[DESCRIPTION-INTEL-BATCH] AI person fallback: {ClaimCount} claims, {PersonCount} persons for entity {EntityId}",
+                                    aiPersonClaims.Count, personRefs.Count, entityId);
+                            }
+                        }
+                        catch (Exception ex) when (ex is not OperationCanceledException)
+                        {
+                            _logger.LogWarning(ex,
+                                "[DESCRIPTION-INTEL-BATCH] AI person fallback failed for entity {EntityId}; continuing",
+                                entityId);
+                        }
+                    }
                 }
             }
             catch (OperationCanceledException) { throw; }
@@ -244,5 +430,27 @@ public sealed class DescriptionIntelligenceBatchService : BackgroundService
         _logger.LogInformation(
             "[DESCRIPTION-INTEL-BATCH] Processed {Processed}/{Total} entities",
             processed, entityIds.Count);
+    }
+
+    /// <summary>
+    /// Maps AI-extracted role strings (which may be lowercase, abbreviated, or variant)
+    /// to the canonical PersonReference role names.
+    /// Returns null for unrecognized roles.
+    /// </summary>
+    private static string? NormalizeAiRole(string? role)
+    {
+        if (string.IsNullOrWhiteSpace(role)) return null;
+
+        return role.Trim().ToLowerInvariant() switch
+        {
+            "author" or "writer" or "novelist"                      => "Author",
+            "narrator" or "reader" or "voice"                       => "Narrator",
+            "director" or "filmmaker"                               => "Director",
+            "screenwriter" or "screenplay" or "writer (screenplay)" => "Screenwriter",
+            "composer" or "music" or "score"                        => "Composer",
+            "actor" or "actress" or "cast" or "cast member" or "star" => "Cast Member",
+            "illustrator" or "artist" or "cover artist"             => "Illustrator",
+            _                                                        => null,
+        };
     }
 }

@@ -304,19 +304,74 @@ Inline extraction runs during hydration with zero API calls — pure regex plus 
 
 ## 7. Recursive Person Enrichment
 
-Whenever file metadata contains an author, narrator, or director name, the Engine runs recursive person enrichment:
+### 7.1 Person Role Extraction
 
-1. Check whether a Person record already exists for that name and role. If not, create one.
-2. Link the Person to the media asset (idempotent — safe to run repeatedly).
-3. If the Person has not yet been Wikidata-enriched (`EnrichedAt is null`), enqueue a Wikidata lookup request.
-4. When Wikidata responds, update the Person record with `WikidataQid`, `HeadshotUrl`, and `Biography`.
-5. Broadcast a `PersonEnriched` SignalR event so the Dashboard card updates live.
+The Engine extracts person roles from both structured Wikidata properties and file metadata across all media types:
 
-In Pass 1, person enrichment is shallow: name, headshot, occupation. In Pass 2, deep enrichment adds social links (Instagram, TikTok, Mastodon, website), biographical details (birth/death dates, place of birth, nationality), and pseudonym resolution.
+| Wikidata Property | Role | Media Types |
+|---|---|---|
+| P50 | Author | Books, Audiobooks, Comics |
+| P57 | Director | Movies, TV |
+| P58 | Screenwriter | Movies, TV |
+| P86 | Composer | Movies, TV, Music |
+| P110 | Illustrator | Books, Comics |
+| P161 | Cast Member | Movies, TV (capped at 20 per work) |
+| P175 | Narrator | Audiobooks (via edition resolution) |
 
-**Pseudonym resolution:** After Wikidata enrichment, P1773 (attributed_to) links pen names to real people; P742 (pseudonym) links real people to their pen names. Both directions are stored in the `person_aliases` table.
+These are fetched during Stage 2 (WikidataBridge) via the `work_properties.core` config. Each property emits both a name claim (e.g. `director`) and a companion QID claim (e.g. `director_qid`) at confidence 0.90.
 
-**Actor-character mapping:** For works with cast members, the pipeline fetches P161 (cast member) statements with P453 (character role) qualifiers from the work's QID. For each actor-character pair, a Person record is created for the actor and linked to the FictionalEntity for the character.
+### 7.2 QID-First Person Creation
+
+Person records are only created when a Wikidata QID is confirmed. The pipeline:
+
+1. Extract person references from raw claims — pairing name claims with companion QID claims by index.
+2. Apply the QID-first gate: only references with a confirmed QID proceed.
+3. Look up or create a Person record (QID-first via `FindByQidAsync`).
+4. Link the Person to the media asset (INSERT OR IGNORE — idempotent).
+5. Add the role to the `person_roles` junction table (idempotent — one person can be Director on Film A, Cast Member on Film B).
+6. If the Person has not been enriched (or enrichment is stale >30 days), return a harvest request.
+
+### 7.3 Standalone Person Reconciliation
+
+After Stage 2, some person names from file metadata remain unlinked — e.g. a narrator from an M4B file when Wikidata has no audiobook edition, or a director from video tags when the work QID has no P57 data.
+
+**`PersonReconciliationService`** resolves these via standalone Wikidata search:
+
+1. Search `wbsearchentities` for the person name, limit 10 candidates.
+2. Fetch P31 (instance_of), P106 (occupation), P800 (notable_work) for each candidate.
+3. Filter: must be Q5 (human).
+4. Score: name similarity (0.50 weight) + occupation match (+0.20 if P106 matches expected role) + notable work match (+0.10 if P800 fuzzy-matches the work title).
+5. Auto-accept at score ≥ 0.80. Deposit companion QID claim at confidence 0.80.
+6. Auto-skip below threshold. Retry at next 30-day refresh cycle.
+
+**Three-tier confidence model:**
+- Tier 1 (0.90): Structured Wikidata properties (P50, P57, P161, P175)
+- Tier 2 (0.80): Standalone person search with occupation match
+- Tier 3 (0.75): AI description extraction fallback
+
+### 7.4 AI Person Signal Fallback
+
+The Description Intelligence batch service (LLM-powered) extracts people and roles from text descriptions. When a person is mentioned in a description but no QID exists from higher-tier sources, the batch service feeds the name into `PersonReconciliationService` at confidence 0.75. This only fires when:
+- The AI extraction confidence is ≥ 0.50
+- No QID claim already exists for that role from Tier 1 or Tier 2
+
+### 7.5 Person Data Freshness
+
+To avoid redundant Wikidata API calls when the same person appears across multiple works (e.g. Tom Hanks in 15 movies):
+
+- **Fresh (≤30 days):** Person already enriched → just link to new media asset, skip re-fetch. Zero API calls.
+- **Stale (>30 days):** Check `last_revision_id` against Wikidata entity revision. If unchanged, skip full fetch. If changed, re-fetch all properties.
+- **New:** Full property fetch and enrichment.
+
+`last_revision_id` is stored on the Person record (migration M-065) and passed as a hint in harvest requests.
+
+### 7.6 Pseudonym Resolution
+
+After Wikidata enrichment, P1773 (attributed_to) links pen names to real people; P742 (pseudonym) links real people to their pen names. Both directions are stored in the `person_aliases` table.
+
+### 7.7 Actor-Character Mapping
+
+For works with cast members, the pipeline fetches P161 (cast member) statements with P453 (character role) qualifiers from the work's QID. For each actor-character pair, a Person record is created for the actor and linked to the FictionalEntity for the character.
 
 ---
 

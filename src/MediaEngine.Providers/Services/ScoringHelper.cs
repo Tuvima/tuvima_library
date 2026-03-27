@@ -18,13 +18,13 @@ namespace MediaEngine.Providers.Services;
 ///
 /// This avoids duplicating the same 40-line scoring block across multiple services.
 /// </summary>
-internal static class ScoringHelper
+public static class ScoringHelper
 {
     /// <summary>
     /// Multi-valued field keys — delegates to
     /// <see cref="MetadataFieldConstants.MultiValuedKeys"/>.
     /// </summary>
-    internal static HashSet<string> MultiValuedKeys => MetadataFieldConstants.MultiValuedKeys;
+    public static HashSet<string> MultiValuedKeys => MetadataFieldConstants.MultiValuedKeys;
 
     /// <summary>
     /// Persists new claims for an entity, loads all claims, runs the scoring
@@ -228,7 +228,7 @@ internal static class ScoringHelper
     /// <summary>
     /// Builds provider weight maps from provider configs and registered providers.
     /// </summary>
-    internal static (IReadOnlyDictionary<Guid, double> Weights,
+    public static (IReadOnlyDictionary<Guid, double> Weights,
                      IReadOnlyDictionary<Guid, IReadOnlyDictionary<string, double>>? FieldWeights)
         BuildWeightMaps(
             IReadOnlyList<Storage.Models.ProviderConfiguration> providerConfigs,

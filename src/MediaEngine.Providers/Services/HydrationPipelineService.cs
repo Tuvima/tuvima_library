@@ -79,6 +79,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     private readonly ILocalMatchService _localMatch;
     private readonly IQidDisambiguator? _disambiguator;
     private readonly ICoverArtHashService? _coverArtHash;
+    private readonly IPersonReconciliationService? _personReconciliation;
     private readonly ILogger<HydrationPipelineService> _logger;
 
     // Reverse lookup: claim key → Wikidata P-code (e.g. "isbn_13" → "P212").
@@ -120,7 +121,8 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         ILogger<HydrationPipelineService> logger,
         WikidataReconciler? reconciler = null,
         IQidDisambiguator? disambiguator = null,
-        ICoverArtHashService? coverArtHash = null)
+        ICoverArtHashService? coverArtHash = null,
+        IPersonReconciliationService? personReconciliation = null)
     {
         ArgumentNullException.ThrowIfNull(providers);
         ArgumentNullException.ThrowIfNull(claimRepo);
@@ -182,6 +184,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         _reconciler               = reconciler;
         _disambiguator            = disambiguator;
         _coverArtHash             = coverArtHash;
+        _personReconciliation     = personReconciliation;
         _fictionalEntityRepo      = fictionalEntityRepo;
         _logger                   = logger;
 
@@ -797,6 +800,134 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 {
                     _logger.LogWarning(ex,
                         "Person enrichment failed for entity {Id}; continuing",
+                        request.EntityId);
+                }
+            }
+
+            // ── Standalone person reconciliation for QID-less person names ──────
+            // After structured property extraction, some person names may remain
+            // unlinked (e.g. narrator from file metadata without a Wikidata audiobook
+            // edition, or director from video tags without a P57 match).
+            // Search Wikidata for each unlinked person by name + role + work title.
+            if (_personReconciliation is not null && stage1RawClaims.Count > 0)
+            {
+                try
+                {
+                    var unlinkedRefs = ExtractUnlinkedPersonReferences(stage1RawClaims);
+                    if (unlinkedRefs.Count > 0)
+                    {
+                        // Get the work title for notable-work matching boost.
+                        var workTitleForSearch = titleHint;
+
+                        var reconAdapter = _providers
+                            .OfType<MediaEngine.Providers.Adapters.ReconciliationAdapter>()
+                            .FirstOrDefault();
+                        var wikidataProviderId = reconAdapter?.ProviderId
+                            ?? MediaEngine.Domain.MetadataFieldConstants.WikidataProviderId;
+
+                        var newQidClaims = new List<ProviderClaim>();
+
+                        foreach (var unlinked in unlinkedRefs)
+                        {
+                            try
+                            {
+                                var searchResult = await _personReconciliation.SearchPersonAsync(
+                                    unlinked.Name, unlinked.Role, workTitleForSearch, ct)
+                                    .ConfigureAwait(false);
+
+                                if (searchResult is not null)
+                                {
+                                    // Map role to the correct companion QID claim key.
+                                    var qidKey = unlinked.Role switch
+                                    {
+                                        "Author"       => "author_qid",
+                                        "Narrator"     => "narrator_qid",
+                                        "Director"     => "director_qid",
+                                        "Screenwriter" => "screenwriter_qid",
+                                        "Composer"     => "composer_qid",
+                                        "Cast Member"  => "cast_member_qid",
+                                        "Illustrator"  => "illustrator_qid",
+                                        _              => null,
+                                    };
+
+                                    if (qidKey is not null)
+                                    {
+                                        newQidClaims.Add(new ProviderClaim(
+                                            qidKey,
+                                            $"{searchResult.WikidataQid}::{searchResult.Name}",
+                                            0.80));
+
+                                        _logger.LogInformation(
+                                            "[PERSON-RECON] Standalone search resolved '{Name}' ({Role}) → {QID} '{WikiName}' (score={Score:F2}) for entity {EntityId}",
+                                            unlinked.Name, unlinked.Role, searchResult.WikidataQid,
+                                            searchResult.Name, searchResult.Score, request.EntityId);
+                                    }
+                                }
+                            }
+                            catch (Exception ex) when (ex is not OperationCanceledException)
+                            {
+                                _logger.LogWarning(ex,
+                                    "Standalone person search failed for '{Name}' ({Role}); continuing",
+                                    unlinked.Name, unlinked.Role);
+                            }
+                        }
+
+                        // Persist the newly discovered QID claims and re-extract person refs.
+                        if (newQidClaims.Count > 0)
+                        {
+                            await ScoringHelper.PersistClaimsAndScoreAsync(
+                                request.EntityId, newQidClaims, wikidataProviderId,
+                                _claimRepo, _canonicalRepo, _scoringEngine, _configLoader,
+                                _providers, ct, _arrayRepo, _logger, _searchIndex).ConfigureAwait(false);
+
+                            // Re-extract person references — the newly deposited QID claims
+                            // will now pair with the existing name claims, passing the QID-first gate.
+                            var allRawClaims = await _claimRepo.GetByEntityAsync(request.EntityId, ct)
+                                .ConfigureAwait(false);
+                            var providerClaims = allRawClaims
+                                .Select(mc => new ProviderClaim(mc.ClaimKey, mc.ClaimValue, mc.Confidence))
+                                .ToList();
+
+                            var reconciledRefs = ExtractPersonReferencesFromRawClaims(providerClaims);
+                            // Filter to only newly resolved persons (those whose QIDs are in newQidClaims).
+                            var newQids = newQidClaims
+                                .Select(c => c.Value.Split("::")[0])
+                                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+                            var newPersonRefs = reconciledRefs
+                                .Where(r => r.WikidataQid is not null && newQids.Contains(r.WikidataQid))
+                                .ToList();
+
+                            if (newPersonRefs.Count > 0)
+                            {
+                                var personRequests = await _identity.EnrichAsync(
+                                    request.EntityId, newPersonRefs, ct).ConfigureAwait(false);
+
+                                foreach (var personReq in personRequests)
+                                {
+                                    try
+                                    {
+                                        await _harvesting.ProcessSynchronousAsync(personReq, ct)
+                                            .ConfigureAwait(false);
+                                    }
+                                    catch (Exception ex) when (ex is not OperationCanceledException)
+                                    {
+                                        _logger.LogWarning(ex,
+                                            "Synchronous person enrichment failed for standalone-resolved person {Id}; continuing",
+                                            personReq.EntityId);
+                                    }
+                                }
+                            }
+
+                            _logger.LogInformation(
+                                "[PERSON-RECON] Standalone reconciliation deposited {ClaimCount} QID claims, resolved {PersonCount} new person(s) for entity {EntityId}",
+                                newQidClaims.Count, newPersonRefs.Count, request.EntityId);
+                        }
+                    }
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _logger.LogWarning(ex,
+                        "Standalone person reconciliation failed for entity {Id}; continuing",
                         request.EntityId);
                 }
             }
@@ -3220,6 +3351,44 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         return refs
             .Where(r => !string.IsNullOrEmpty(r.WikidataQid))
             .GroupBy(r => r.WikidataQid!, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.First())
+            .ToList();
+    }
+
+    /// <summary>
+    /// Extracts person references that have a name but NO Wikidata QID.
+    /// These are candidates for standalone person reconciliation — names from file
+    /// metadata or retail providers that weren't matched by structured Wikidata properties.
+    /// </summary>
+    private static IReadOnlyList<PersonReference> ExtractUnlinkedPersonReferences(
+        IReadOnlyList<ProviderClaim> rawClaims)
+    {
+        var byKey = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var c in rawClaims)
+        {
+            if (!byKey.TryGetValue(c.Key, out var list))
+            {
+                list = [];
+                byKey[c.Key] = list;
+            }
+            list.Add(c.Value);
+        }
+
+        var refs = new List<PersonReference>();
+        AddPersonRefsFromLists(refs, "Author",       byKey, "author",       "author_qid");
+        AddPersonRefsFromLists(refs, "Narrator",     byKey, "narrator",     "narrator_qid");
+        AddPersonRefsFromLists(refs, "Narrator",     byKey, "performer",    "performer_qid");
+        AddPersonRefsFromLists(refs, "Director",     byKey, "director",     "director_qid");
+        AddPersonRefsFromLists(refs, "Screenwriter", byKey, "screenwriter", "screenwriter_qid");
+        AddPersonRefsFromLists(refs, "Composer",     byKey, "composer",     "composer_qid");
+        AddPersonRefsFromLists(refs, "Cast Member",  byKey, "cast_member",  "cast_member_qid");
+        AddPersonRefsFromLists(refs, "Illustrator",  byKey, "illustrator",  "illustrator_qid");
+
+        // Return only references WITHOUT a QID — inverse of the main method's filter.
+        // Deduplicate by role+name (case-insensitive).
+        return refs
+            .Where(r => string.IsNullOrEmpty(r.WikidataQid) && !string.IsNullOrWhiteSpace(r.Name))
+            .GroupBy(r => $"{r.Role}::{r.Name}".ToUpperInvariant())
             .Select(g => g.First())
             .ToList();
     }

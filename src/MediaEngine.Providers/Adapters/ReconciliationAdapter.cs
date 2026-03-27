@@ -1434,7 +1434,8 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                     resolvedQid,
                     resolvedProps,
                     _config.DataExtension.PropertyLabels,
-                    isWork: true));
+                    isWork: true,
+                    castMemberLimit: _config.Reconciliation.CastMemberLimit));
             }
         }
         catch (OperationCanceledException)
@@ -1614,7 +1615,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             var masterExtensions = await ExtendAsync([masterWorkQid], masterProps, ct).ConfigureAwait(false);
             masterExtensions.TryGetValue(masterWorkQid, out extProps);
             if (extProps is not null)
-                claims.AddRange(ExtensionToClaims(masterWorkQid, extProps, _config.DataExtension.PropertyLabels, isWork: true));
+                claims.AddRange(ExtensionToClaims(masterWorkQid, extProps, _config.DataExtension.PropertyLabels, isWork: true, castMemberLimit: _config.Reconciliation.CastMemberLimit));
 
             // Edition: edition-specific properties + bridges
             var editionProps = (_config.DataExtension.AudiobookEditionProperties ?? [])
@@ -1627,7 +1628,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             {
                 var editionExtensions = await ExtendAsync([audiobookEditionQid], editionProps, ct).ConfigureAwait(false);
                 if (editionExtensions.TryGetValue(audiobookEditionQid, out var editionEntityProps))
-                    claims.AddRange(ExtensionToClaims(audiobookEditionQid, editionEntityProps, _config.DataExtension.PropertyLabels, isWork: true));
+                    claims.AddRange(ExtensionToClaims(audiobookEditionQid, editionEntityProps, _config.DataExtension.PropertyLabels, isWork: true, castMemberLimit: _config.Reconciliation.CastMemberLimit));
             }
 
             _logger.LogDebug(
@@ -1663,7 +1664,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                     "{Provider}: Data Extension returned {PropCount} properties for {QID}: [{Keys}]",
                     Name, extProps.Count, qid,
                     string.Join(", ", extProps.Keys));
-                claims.AddRange(ExtensionToClaims(qid, extProps, _config.DataExtension.PropertyLabels, isWork: true));
+                claims.AddRange(ExtensionToClaims(qid, extProps, _config.DataExtension.PropertyLabels, isWork: true, castMemberLimit: _config.Reconciliation.CastMemberLimit));
             }
             else
             {
@@ -2200,7 +2201,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         };
 
         if (extPersonProps is not null)
-            claims.AddRange(ExtensionToClaims(qid, extPersonProps, _config.DataExtension.PropertyLabels, isWork: false));
+            claims.AddRange(ExtensionToClaims(qid, extPersonProps, _config.DataExtension.PropertyLabels, isWork: false, castMemberLimit: 0));
 
         // Fix entity reference labels that may be in wrong language.
         claims = await ResolveEntityLabelsInLanguageAsync(claims, language, ct).ConfigureAwait(false);
@@ -2417,10 +2418,18 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         string entityQid,
         IReadOnlyDictionary<string, IReadOnlyList<WikidataClaim>> properties,
         Dictionary<string, string> propertyLabels,
-        bool isWork)
+        bool isWork,
+        int castMemberLimit = 20)
     {
-        foreach (var (pCode, claims) in properties)
+        foreach (var (pCode, rawClaims) in properties)
         {
+            // Cap multi-valued cast member properties to prevent storing dozens of minor roles.
+            var claims = rawClaims;
+            if (string.Equals(pCode, "P161", StringComparison.OrdinalIgnoreCase)
+                && castMemberLimit > 0 && rawClaims.Count > castMemberLimit)
+            {
+                claims = rawClaims.Take(castMemberLimit).ToList();
+            }
             // ── Magic suffix handling (Len, Den, etc.) ──
             // L{lang} returns the entity label in the user's language.
             // D{lang} returns the entity description in the user's language.
