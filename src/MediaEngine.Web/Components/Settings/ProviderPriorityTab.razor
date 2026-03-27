@@ -378,17 +378,44 @@
 
                 @if (drawerInfo?.RequiresKey == true)
                 {
-                    <MudTextField T="string"
-                                  @bind-Value="_drawerAssignment.ApiKey"
-                                  Label="API Key"
-                                  InputType="InputType.Password"
-                                  Variant="Variant.Outlined"
-                                  Margin="Margin.Dense"
-                                  FullWidth="true"
-                                  Adornment="Adornment.End"
-                                  AdornmentIcon="@Icons.Material.Outlined.VpnKey"
-                                  AdornmentColor="Color.Default"
-                                  Style="margin-bottom: 16px;" />
+                    @if (drawerInfo?.AuthType == "basic")
+                    {
+                        <MudTextField T="string"
+                                      @bind-Value="_drawerAssignment.Username"
+                                      Label="Username"
+                                      Variant="Variant.Outlined"
+                                      Margin="Margin.Dense"
+                                      FullWidth="true"
+                                      Adornment="Adornment.End"
+                                      AdornmentIcon="@Icons.Material.Outlined.Person"
+                                      AdornmentColor="Color.Default"
+                                      Style="margin-bottom: 12px;" />
+                        <MudTextField T="string"
+                                      @bind-Value="_drawerAssignment.Password"
+                                      Label="Password"
+                                      InputType="InputType.Password"
+                                      Variant="Variant.Outlined"
+                                      Margin="Margin.Dense"
+                                      FullWidth="true"
+                                      Adornment="Adornment.End"
+                                      AdornmentIcon="@Icons.Material.Outlined.Lock"
+                                      AdornmentColor="Color.Default"
+                                      Style="margin-bottom: 16px;" />
+                    }
+                    else
+                    {
+                        <MudTextField T="string"
+                                      @bind-Value="_drawerAssignment.ApiKey"
+                                      Label="API Key"
+                                      InputType="InputType.Password"
+                                      Variant="Variant.Outlined"
+                                      Margin="Margin.Dense"
+                                      FullWidth="true"
+                                      Adornment="Adornment.End"
+                                      AdornmentIcon="@Icons.Material.Outlined.VpnKey"
+                                      AdornmentColor="Color.Default"
+                                      Style="margin-bottom: 16px;" />
+                    }
                 }
 
                 <MudButton Variant="Variant.Outlined"
@@ -553,12 +580,13 @@
     // ── Provider catalogue ────────────────────────────────────────────────────────
 
     private sealed record ProviderInfo(
-        string Name,
-        string Type,
-        bool   RequiresKey,
+        string   Name,
+        string   Type,
+        bool     RequiresKey,
         string[] Supports,
-        int    LatencyMs,
-        double SuccessRate);
+        int      LatencyMs,
+        double   SuccessRate,
+        string   AuthType = "api_key");
 
     private static readonly ProviderInfo[] AllProviderCatalogue =
     [
@@ -567,10 +595,11 @@
         new("Open Library",   "Open",   false, ["Books"],                                        240, 0.87),
         new("TMDB",           "Retail", true,  ["Movies", "TV"],                                 110, 0.96),
         new("MusicBrainz",    "Open",   false, ["Music"],                                        210, 0.89),
-        new("Comic Vine",     "Retail", true,  ["Comics"],                                       160, 0.92),
+        new("Metron",          "Open",   true,  ["Comics"],                                       200, 0.88, "basic"),
         new("Apple Podcasts", "Retail", false, ["Podcasts"],                                     130, 0.93),
         new("Podcast Index",  "Open",   false, ["Podcasts"],                                     200, 0.88),
         new("Wikidata",       "Open",   false, ["Books","Movies","TV","Music","Comics","Audiobooks","Podcasts"], 300, 0.85),
+        new("Fanart.tv",      "Image",  true,  ["Movies","TV","Music"],                           180, 0.91),
     ];
 
     // ── Per-media-type provider assignment ────────────────────────────────────────
@@ -580,6 +609,8 @@
         public string Name             { get; set; } = "";
         public int    TimeoutMs        { get; set; } = 3000;
         public string ApiKey           { get; set; } = "";
+        public string Username         { get; set; } = "";
+        public string Password         { get; set; } = "";
         public bool   Enabled          { get; set; } = true;
         public int    Retries          { get; set; } = 1;
         public string LanguageStrategy { get; set; } = "source";
@@ -592,7 +623,7 @@
         ["Movies"]     = [new() { Name = "TMDB", LanguageStrategy = "localized" }],
         ["TV"]         = [new() { Name = "TMDB", LanguageStrategy = "localized" }],
         ["Music"]      = [new() { Name = "MusicBrainz", LanguageStrategy = "source" }],
-        ["Comics"]     = [new() { Name = "Comic Vine", LanguageStrategy = "source" }],
+        ["Comics"]     = [new() { Name = "Metron", LanguageStrategy = "source" }],
         ["Podcasts"]   = [new() { Name = "Apple Podcasts", LanguageStrategy = "localized" }, new() { Name = "Podcast Index", LanguageStrategy = "source" }],
     };
 
@@ -603,10 +634,11 @@
         ["Open Library"]   = ["Books"],
         ["TMDB"]           = ["Movies", "TV"],
         ["MusicBrainz"]    = ["Music"],
-        ["Comic Vine"]     = ["Comics"],
+        ["Metron"]         = ["Comics"],
         ["Apple Podcasts"] = ["Podcasts"],
         ["Podcast Index"]  = ["Podcasts"],
         ["Wikidata"]       = ["All"],
+        ["Fanart.tv"]      = ["Movies", "TV", "Music"],
     };
 
     // ── State ────────────────────────────────────────────────────────────────────

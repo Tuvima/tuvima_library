@@ -660,4 +660,78 @@
     <value>Controls whether this provider queries in your metadata language, English, or both.</value>
   </data>
 
+  <!-- ── Stage 3 Universe Enrichment ───────────────────────────────────── -->
+  <data name="Wikidata_Stage3Enabled" xml:space="preserve">
+    <value>Stage 3 Enabled</value>
+  </data>
+  <data name="Wikidata_Stage3Schedule" xml:space="preserve">
+    <value>Schedule</value>
+  </data>
+  <data name="Wikidata_Stage3BatchSize" xml:space="preserve">
+    <value>Batch Size</value>
+  </data>
+  <data name="Wikidata_Stage3BatchSizeHelper" xml:space="preserve">
+    <value>Maximum works processed per sweep.</value>
+  </data>
+  <data name="Wikidata_Stage3RefreshDays" xml:space="preserve">
+    <value>Refresh Cycle (days)</value>
+  </data>
+  <data name="Wikidata_Stage3RefreshDaysHelper" xml:space="preserve">
+    <value>Re-check entities enriched longer than this many days ago.</value>
+  </data>
+  <data name="Wikidata_Stage3MaxDepth" xml:space="preserve">
+    <value>Relationship Depth</value>
+  </data>
+  <data name="Wikidata_Stage3TriggerNow" xml:space="preserve">
+    <value>Trigger Now</value>
+  </data>
+  <data name="Wikidata_Stage3TriggerHint" xml:space="preserve">
+    <value>Manually start a Stage 3 enrichment sweep</value>
+  </data>
+
+  <!-- ── Vault stale universes banner ──────────────────────────────────── -->
+  <data name="Vault_StaleUniverses" xml:space="preserve">
+    <value>{0} universes have stale data</value>
+  </data>
+  <data name="Vault_StaleUniversesHint" xml:space="preserve">
+    <value>Stage 3 will refresh stale entity data on the next scheduled run.</value>
+  </data>
+
+  <!-- ── Providers ─────────────────────────────────────────────────────── -->
+  <data name="Provider_FanartTv" xml:space="preserve">
+    <value>Fanart.tv</value>
+  </data>
+
+  <!-- ── Vault Detail Drawer — Phase 3 Universe/Character ──────────────────── -->
+  <data name="VaultDetail_SectionCharacters" xml:space="preserve"><value>Characters</value></data>
+  <data name="VaultDetail_SectionCharacterRoles" xml:space="preserve"><value>Character Roles</value></data>
+  <data name="VaultDetail_HintNoCharacters" xml:space="preserve"><value>No characters discovered yet</value></data>
+  <data name="VaultDetail_ChangeDefault" xml:space="preserve"><value>Change Default</value></data>
+  <data name="VaultDetail_ActorsCount" xml:space="preserve"><value>{0} actors</value></data>
+  <data name="VaultDetail_HealthScore" xml:space="preserve"><value>Health Score</value></data>
+  <data name="VaultDetail_OpenExplorer" xml:space="preserve"><value>Open Universe Explorer</value></data>
+  <data name="VaultDetail_EntityCounts" xml:space="preserve"><value>Entity Counts</value></data>
+  <data name="VaultDetail_TriggerEnrichment" xml:space="preserve"><value>Trigger Enrichment</value></data>
+
+  <!-- ── Universe Explorer modes ─────────────────────────────────────────── -->
+  <data name="Universe_ModeWeb" xml:space="preserve"><value>Web</value></data>
+  <data name="Universe_ModePaths" xml:space="preserve"><value>Paths</value></data>
+  <data name="Universe_ModeFamily" xml:space="preserve"><value>Family</value></data>
+  <data name="Universe_ModeCast" xml:space="preserve"><value>Cast</value></data>
+  <data name="Universe_ModeAdaptations" xml:space="preserve"><value>Adaptations</value></data>
+  <data name="Universe_PathStart" xml:space="preserve"><value>Start</value></data>
+  <data name="Universe_PathEnd" xml:space="preserve"><value>End</value></data>
+  <data name="Universe_PathClear" xml:space="preserve"><value>Clear</value></data>
+  <data name="Universe_PathSteps" xml:space="preserve"><value>Steps</value></data>
+  <data name="Universe_FamilySelectCharacter" xml:space="preserve"><value>Select character</value></data>
+  <data name="Universe_FamilyGenerations" xml:space="preserve"><value>Generations</value></data>
+  <data name="Universe_CastMultiActorOnly" xml:space="preserve"><value>Multi-actor only</value></data>
+  <data name="Universe_CastPerformers" xml:space="preserve"><value>Performers</value></data>
+  <data name="Universe_AdaptationOriginal" xml:space="preserve"><value>Original</value></data>
+  <data name="Universe_GuideSearch" xml:space="preserve"><value>Search entities&#8230;</value></data>
+  <data name="Universe_GuideFilterAll" xml:space="preserve"><value>All</value></data>
+  <data name="Universe_GuideFilterCharacters" xml:space="preserve"><value>Characters</value></data>
+  <data name="Universe_GuideFilterLocations" xml:space="preserve"><value>Locations</value></data>
+  <data name="Universe_GuideFilterOrgs" xml:space="preserve"><value>Organizations</value></data>
+
 </root>

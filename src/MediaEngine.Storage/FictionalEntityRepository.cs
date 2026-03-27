@@ -256,6 +256,38 @@ public sealed class FictionalEntityRepository : IFictionalEntityRepository
         return Task.CompletedTask;
     }
 
+    /// <inheritdoc/>
+    public Task<IReadOnlyList<FictionalEntity>> GetStaleEntitiesAsync(
+        int staleAfterDays, int limit, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        var cutoff = DateTimeOffset.UtcNow.AddDays(-staleAfterDays);
+
+        using var conn = _db.CreateConnection();
+        var results = conn.Query<FictionalEntity>("""
+            SELECT id                       AS Id,
+                   wikidata_qid             AS WikidataQid,
+                   label                    AS Label,
+                   description              AS Description,
+                   entity_sub_type          AS EntitySubType,
+                   fictional_universe_qid   AS FictionalUniverseQid,
+                   fictional_universe_label AS FictionalUniverseLabel,
+                   image_url                AS ImageUrl,
+                   local_image_path         AS LocalImagePath,
+                   created_at               AS CreatedAt,
+                   enriched_at              AS EnrichedAt
+            FROM   fictional_entities
+            WHERE  enriched_at IS NOT NULL
+              AND  enriched_at < @cutoff
+            ORDER BY enriched_at ASC
+            LIMIT  @limit;
+            """,
+            new { cutoff, limit }).AsList();
+
+        return Task.FromResult<IReadOnlyList<FictionalEntity>>(results);
+    }
+
     // ── Private row types ────────────────────────────────────────────────────
 
     /// <summary>Intermediate row type for <see cref="GetWorkLinksAsync"/>.</summary>

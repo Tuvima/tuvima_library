@@ -316,6 +316,14 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     /// </summary>
     public event Action<string, bool>? OnFolderHealthChanged;
 
+    /// <summary>
+    /// Fires when the Engine reports that fictional entities in a universe have
+    /// Wikidata revisions newer than the library's cached data.
+    /// Parameters: (universeQid, changedCount).
+    /// Components should call <c>InvokeAsync(StateHasChanged)</c> in their handler.
+    /// </summary>
+    public event Action<string, int>? OnLoreDeltaDiscovered;
+
     // ── Watch Folder ─────────────────────────────────────────────────────────
 
     /// <summary>Returns files currently sitting in the Watch Folder.</summary>
@@ -923,6 +931,18 @@ public sealed class UIOrchestratorService : IAsyncDisposable
             // Determine folder type by comparing with current known paths.
             var healthy = ev.IsAccessible && ev.HasRead && ev.HasWrite;
             OnFolderHealthChanged?.Invoke(ev.Path, healthy);
+        });
+
+        // ── "LoreDeltaDiscovered" ─────────────────────────────────────────────
+        // Stage 3 Lore Delta sweep found entities with updated Wikidata revisions.
+        // Vault page subscribes to OnLoreDeltaDiscovered to show an amber banner.
+        _hubConnection.On<LoreDeltaDiscoveredEvent>("LoreDeltaDiscovered", ev =>
+        {
+            _logger.LogDebug(
+                "Intercom ← LoreDeltaDiscovered: Universe={Qid} Changed={Count}",
+                ev.UniverseQid, ev.ChangedCount);
+
+            OnLoreDeltaDiscovered?.Invoke(ev.UniverseQid, ev.ChangedCount);
         });
 
         // ── Connection lifecycle logging ──────────────────────────────────────

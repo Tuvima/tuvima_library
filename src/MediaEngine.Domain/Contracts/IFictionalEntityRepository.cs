@@ -68,4 +68,14 @@ public interface IFictionalEntityRepository
 
     /// <summary>Update the Wikidata revision ID for Lore Delta tracking.</summary>
     Task UpdateRevisionAsync(Guid entityId, long revisionId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Return entities whose enrichment timestamp is older than
+    /// <paramref name="staleAfterDays"/> days, ordered by oldest first.
+    /// Only entities that have been enriched at least once are returned.
+    /// </summary>
+    /// <param name="staleAfterDays">Age threshold in days.</param>
+    /// <param name="limit">Maximum number of results.</param>
+    Task<IReadOnlyList<FictionalEntity>> GetStaleEntitiesAsync(
+        int staleAfterDays, int limit, CancellationToken ct = default);
 }

@@ -56,6 +56,14 @@
                         <span>Quarantined (@_quarantinedCount)</span>
                     </button>
                 }
+                @if (_staleUniverseCount > 0)
+                {
+                    <div class="vault-alert vault-alert--amber"
+                         title="@L["Vault_StaleUniversesHint"]">
+                        <MudIcon Icon="@Icons.Material.Outlined.Update" Style="font-size: 16px;" />
+                        <span>@string.Format(L["Vault_StaleUniverses"], _staleUniverseCount)</span>
+                    </div>
+                }
             </div>
         </div>
 
@@ -110,6 +118,7 @@
         {
             <VaultUniversesTable Universes="@_universes"
                                  Loading="@_loadingUniverses"
+                                 PeopleCount="@_universePeopleCounts"
                                  OnRowClicked="OnUniverseRowClicked" />
         }
         else if (_activeTab == "hubs")
@@ -170,6 +179,7 @@
     private bool _loading;
     private bool _loadingPeople;
     private bool _loadingUniverses;
+    private Dictionary<Guid, int>? _universePeopleCounts;
 
     // ── Filter state (driven by alert badges + stats bar) ──
     private bool _filterReview;
@@ -201,6 +211,13 @@
     private int _needsReviewCount => _counts.InReview;
     private int _provisionalCount => _counts.Provisional;
     private int _quarantinedCount => _counts.Rejected;
+
+    /// <summary>
+    /// Count of universes that have fictional entities older than 30 days —
+    /// populated by a LoreDeltaDiscovered SignalR event.
+    /// Shown as an informational amber banner in the Vault header.
+    /// </summary>
+    private int _staleUniverseCount;
 
     // ── Stats bar state ──
     private HashSet<string> _enabledMediaTypes = new(["Movies", "Books", "Audiobooks", "TV", "Music", "Podcasts"]);
@@ -306,6 +323,7 @@
     protected override async Task OnInitializedAsync()
     {
         Orchestrator.OnActivityChanged += OnActivityChanged;
+        Orchestrator.OnLoreDeltaDiscovered += OnLoreDeltaDiscovered;
         Nav.LocationChanged += OnLocationChanged;
 
         ReadUrlState();
@@ -330,7 +348,18 @@
     public void Dispose()
     {
         Orchestrator.OnActivityChanged -= OnActivityChanged;
+        Orchestrator.OnLoreDeltaDiscovered -= OnLoreDeltaDiscovered;
         Nav.LocationChanged -= OnLocationChanged;
+    }
+
+    private void OnLoreDeltaDiscovered(string universeQid, int changedCount)
+    {
+        // Each LoreDeltaDiscovered event represents one universe — accumulate the total.
+        InvokeAsync(() =>
+        {
+            _staleUniverseCount++;
+            StateHasChanged();
+        });
     }
 
     private async void OnActivityChanged()
@@ -421,6 +450,19 @@
         StateHasChanged();
 
         _universes = await ApiClient.GetHubsAsync() ?? [];
+
+        // Load people counts per universe (non-blocking — show "—" until loaded).
+        if (_universes.Count > 0)
+        {
+            var counts = new Dictionary<Guid, int>();
+            foreach (var u in _universes)
+            {
+                var people = await ApiClient.GetPersonsByHubAsync(u.Id);
+                counts[u.Id] = people?.Count ?? 0;
+            }
+            _universePeopleCounts = counts;
+        }
+
         _loadingUniverses = false;
     }
 

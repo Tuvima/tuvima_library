@@ -1,0 +1,211 @@
+@namespace MediaEngine.Web.Components.Universe
+
+@* Mobile card-based searchable universe guide *@
+
+<div class="universe-guide">
+    @* Search + filter bar *@
+    <MudTextField T="string" @bind-Value="_search" Placeholder="Search entities..."
+                  Variant="Variant.Outlined" Dense="true" Class="mb-3"
+                  Adornment="Adornment.Start"
+                  AdornmentIcon="@Icons.Material.Filled.Search"
+                  Immediate="true" />
+
+    <MudStack Row="true" Spacing="1" Class="mb-4" Style="flex-wrap: wrap;">
+        <MudChip T="string"
+                 Color="@(_filter == "All" ? Color.Warning : Color.Default)"
+                 Variant="@(_filter == "All" ? Variant.Filled : Variant.Outlined)"
+                 OnClick="@(() => _filter = "All")" Size="Size.Small">
+            All
+        </MudChip>
+        <MudChip T="string"
+                 Color="@(_filter == "Character" ? Color.Primary : Color.Default)"
+                 Variant="@(_filter == "Character" ? Variant.Filled : Variant.Outlined)"
+                 OnClick="@(() => _filter = "Character")" Size="Size.Small">
+            Characters
+        </MudChip>
+        <MudChip T="string"
+                 Color="@(_filter == "Location" ? Color.Success : Color.Default)"
+                 Variant="@(_filter == "Location" ? Variant.Filled : Variant.Outlined)"
+                 OnClick="@(() => _filter = "Location")" Size="Size.Small">
+            Locations
+        </MudChip>
+        <MudChip T="string"
+                 Color="@(_filter == "Organization" ? Color.Warning : Color.Default)"
+                 Variant="@(_filter == "Organization" ? Variant.Filled : Variant.Outlined)"
+                 OnClick="@(() => _filter = "Organization")" Size="Size.Small">
+            Organizations
+        </MudChip>
+    </MudStack>
+
+    @* Entity cards *@
+    <div style="overflow-y: auto; max-height: 560px;">
+        @if (!FilteredEntities.Any())
+        {
+            <MudText Typo="Typo.body2" Style="color: #555; text-align: center; padding: 32px 0;">
+                No entities match your search.
+            </MudText>
+        }
+        else
+        {
+            @foreach (var entity in FilteredEntities)
+            {
+                <div class="guide-card @(_expandedQid == entity.Id ? "guide-card-expanded" : "")"
+                     @onclick="@(() => ToggleExpand(entity.Id))">
+                    @* Collapsed header *@
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        @if (!string.IsNullOrWhiteSpace(entity.Image))
+                        {
+                            <MudAvatar Image="@entity.Image" Size="Size.Medium" />
+                        }
+                        else
+                        {
+                            <MudAvatar Color="@GetAvatarColor(entity.Type)" Size="Size.Medium">
+                                @(entity.Label.Length > 0 ? entity.Label[0].ToString() : "?")
+                            </MudAvatar>
+                        }
+                        <div style="flex: 1; overflow: hidden;">
+                            <MudText Typo="Typo.subtitle2" Style="font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                @entity.Label
+                            </MudText>
+                            @if (!string.IsNullOrWhiteSpace(entity.Description))
+                            {
+                                <MudText Typo="Typo.caption" Style="color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                    @entity.Description
+                                </MudText>
+                            }
+                        </div>
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                                 Color="@GetChipColor(entity.Type)"
+                                 Style="font-size: 10px; height: 20px;">
+                            @entity.Type
+                        </MudChip>
+                        <MudIcon Icon="@(_expandedQid == entity.Id ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
+                                 Style="color: #555;" Size="Size.Small" />
+                    </MudStack>
+
+                    @* Expanded detail *@
+                    @if (_expandedQid == entity.Id)
+                    {
+                        <div class="guide-detail">
+                            @if (!string.IsNullOrWhiteSpace(entity.Description))
+                            {
+                                <MudText Typo="Typo.body2" Class="mb-3" Style="color: #ccc;">
+                                    @entity.Description
+                                </MudText>
+                            }
+
+                            @if (entity.Works?.Count > 0)
+                            {
+                                <MudText Typo="Typo.caption" Style="color: #C9922E; font-weight: 600; margin-bottom: 6px; display: block;">
+                                    APPEARS IN
+                                </MudText>
+                                <MudStack Row="true" Style="flex-wrap: wrap; gap: 4px;" Class="mb-2">
+                                    @foreach (var work in entity.Works)
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">
+                                            @work.Label
+                                        </MudChip>
+                                    }
+                                </MudStack>
+                            }
+
+                            @{
+                                var rels = GetRelationshipsFor(entity.Id);
+                            }
+                            @if (rels.Count > 0)
+                            {
+                                <MudText Typo="Typo.caption" Style="color: #C9922E; font-weight: 600; margin-bottom: 6px; display: block;">
+                                    RELATIONSHIPS
+                                </MudText>
+                                <MudStack Row="true" Style="flex-wrap: wrap; gap: 4px;">
+                                    @foreach (var rel in rels.Take(8))
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                                                 Style="font-size: 11px;">
+                                            @rel.Label @GetNodeLabelForQid(rel.Source == entity.Id ? rel.Target : rel.Source)
+                                        </MudChip>
+                                    }
+                                </MudStack>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        }
+    </div>
+</div>
+
+<style>
+    .universe-guide {
+        padding: 0;
+    }
+    .guide-card {
+        background: #111;
+        border: 1px solid #2a2a2a;
+        border-radius: 8px;
+        padding: 10px 12px;
+        margin-bottom: 6px;
+        cursor: pointer;
+        transition: border-color 0.15s;
+    }
+    .guide-card:hover {
+        border-color: #444;
+    }
+    .guide-card-expanded {
+        border-color: #C9922E44;
+    }
+    .guide-detail {
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px solid #2a2a2a;
+    }
+</style>
+
+@code {
+    [Parameter] public string UniverseQid { get; set; } = string.Empty;
+    [Parameter] public UniverseGraphResponse? Graph { get; set; }
+
+    private string _search = string.Empty;
+    private string _filter = "All";
+    private string? _expandedQid;
+
+    private IEnumerable<GraphNodeDto> FilteredEntities
+    {
+        get
+        {
+            IEnumerable<GraphNodeDto> source = Graph?.Nodes ?? [];
+            if (_filter != "All")
+                source = source.Where(n => string.Equals(n.Type, _filter, StringComparison.OrdinalIgnoreCase));
+            if (!string.IsNullOrWhiteSpace(_search))
+                source = source.Where(n => n.Label.Contains(_search, StringComparison.OrdinalIgnoreCase));
+            return source.OrderBy(n => n.Label);
+        }
+    }
+
+    private void ToggleExpand(string qid)
+    {
+        _expandedQid = _expandedQid == qid ? null : qid;
+    }
+
+    private List<GraphEdgeDto> GetRelationshipsFor(string qid) =>
+        Graph?.Edges.Where(e => e.Source == qid || e.Target == qid).ToList() ?? [];
+
+    private string GetNodeLabelForQid(string qid) =>
+        Graph?.Nodes.FirstOrDefault(n => n.Id == qid)?.Label ?? qid;
+
+    private static Color GetAvatarColor(string type) => type switch
+    {
+        "Character"    => Color.Primary,
+        "Location"     => Color.Success,
+        "Organization" => Color.Warning,
+        _              => Color.Default,
+    };
+
+    private static Color GetChipColor(string type) => type switch
+    {
+        "Character"    => Color.Primary,
+        "Location"     => Color.Success,
+        "Organization" => Color.Warning,
+        _              => Color.Default,
+    };
+}

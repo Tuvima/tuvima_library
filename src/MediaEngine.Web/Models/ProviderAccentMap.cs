@@ -26,8 +26,9 @@ public static class ProviderAccentMap
             "google_books"          => ("#4285F4", Icons.Material.Filled.Book),
             "wikidata"              => ("#339966", Icons.Material.Filled.Hub),
             "tmdb"                  => ("#01B4E4", Icons.Material.Filled.Movie),
-            "comic_vine"            => ("#E91E63", Icons.Material.Filled.AutoStories),
+            "metron"                => ("#E91E63", Icons.Material.Filled.AutoStories),
             "musicbrainz"           => ("#BA478F", Icons.Material.Filled.MusicNote),
+            "fanart_tv"             => ("#19C1CC", Icons.Material.Filled.Image),
             _                       => ("#90A4AE", Icons.Material.Filled.Cloud),
         };
 
@@ -122,8 +123,9 @@ public static class ProviderAccentMap
         "google_books"          => "Google Books",
         "wikidata"              => "Wikidata",
         "tmdb"                  => "TMDB",
-        "comic_vine"            => "Comic Vine",
+        "metron"                => "Metron",
         "musicbrainz"           => "MusicBrainz",
+        "fanart_tv"             => "Fanart.tv",
         _                       => FormatProviderName(providerKey),
     };
 

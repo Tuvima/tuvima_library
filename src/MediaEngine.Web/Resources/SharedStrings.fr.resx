@@ -660,4 +660,78 @@
     <value>Contrôle si ce fournisseur interroge dans votre langue de métadonnées, en anglais, ou les deux.</value>
   </data>
 
+  <!-- ── Stage 3 Universe Enrichment ───────────────────────────────────── -->
+  <data name="Wikidata_Stage3Enabled" xml:space="preserve">
+    <value>Étape 3 activée</value>
+  </data>
+  <data name="Wikidata_Stage3Schedule" xml:space="preserve">
+    <value>Planification</value>
+  </data>
+  <data name="Wikidata_Stage3BatchSize" xml:space="preserve">
+    <value>Taille du lot</value>
+  </data>
+  <data name="Wikidata_Stage3BatchSizeHelper" xml:space="preserve">
+    <value>Nombre maximum d'œuvres traitées par balayage.</value>
+  </data>
+  <data name="Wikidata_Stage3RefreshDays" xml:space="preserve">
+    <value>Cycle de rafraîchissement (jours)</value>
+  </data>
+  <data name="Wikidata_Stage3RefreshDaysHelper" xml:space="preserve">
+    <value>Revérifier les entités enrichies depuis plus de ce nombre de jours.</value>
+  </data>
+  <data name="Wikidata_Stage3MaxDepth" xml:space="preserve">
+    <value>Profondeur des relations</value>
+  </data>
+  <data name="Wikidata_Stage3TriggerNow" xml:space="preserve">
+    <value>Déclencher maintenant</value>
+  </data>
+  <data name="Wikidata_Stage3TriggerHint" xml:space="preserve">
+    <value>Démarrer manuellement un balayage d'enrichissement</value>
+  </data>
+
+  <!-- ── Vault stale universes banner ──────────────────────────────────── -->
+  <data name="Vault_StaleUniverses" xml:space="preserve">
+    <value>{0} univers ont des données obsolètes</value>
+  </data>
+  <data name="Vault_StaleUniversesHint" xml:space="preserve">
+    <value>L'étape 3 actualisera les données d'entités obsolètes lors de la prochaine exécution planifiée.</value>
+  </data>
+
+  <!-- ── Providers ─────────────────────────────────────────────────────── -->
+  <data name="Provider_FanartTv" xml:space="preserve">
+    <value>Fanart.tv</value>
+  </data>
+
+  <!-- ── Vault Detail Drawer — Phase 3 Universe/Character ──────────────────── -->
+  <data name="VaultDetail_SectionCharacters" xml:space="preserve"><value>Personnages</value></data>
+  <data name="VaultDetail_SectionCharacterRoles" xml:space="preserve"><value>Rôles de personnages</value></data>
+  <data name="VaultDetail_HintNoCharacters" xml:space="preserve"><value>Aucun personnage découvert</value></data>
+  <data name="VaultDetail_ChangeDefault" xml:space="preserve"><value>Changer par défaut</value></data>
+  <data name="VaultDetail_ActorsCount" xml:space="preserve"><value>{0} acteurs</value></data>
+  <data name="VaultDetail_HealthScore" xml:space="preserve"><value>Score de santé</value></data>
+  <data name="VaultDetail_OpenExplorer" xml:space="preserve"><value>Ouvrir l'Explorateur</value></data>
+  <data name="VaultDetail_EntityCounts" xml:space="preserve"><value>Nombre d'entités</value></data>
+  <data name="VaultDetail_TriggerEnrichment" xml:space="preserve"><value>Lancer l'enrichissement</value></data>
+
+  <!-- ── Universe Explorer modes ─────────────────────────────────────────── -->
+  <data name="Universe_ModeWeb" xml:space="preserve"><value>Réseau</value></data>
+  <data name="Universe_ModePaths" xml:space="preserve"><value>Chemins</value></data>
+  <data name="Universe_ModeFamily" xml:space="preserve"><value>Famille</value></data>
+  <data name="Universe_ModeCast" xml:space="preserve"><value>Distribution</value></data>
+  <data name="Universe_ModeAdaptations" xml:space="preserve"><value>Adaptations</value></data>
+  <data name="Universe_PathStart" xml:space="preserve"><value>Départ</value></data>
+  <data name="Universe_PathEnd" xml:space="preserve"><value>Arrivée</value></data>
+  <data name="Universe_PathClear" xml:space="preserve"><value>Effacer</value></data>
+  <data name="Universe_PathSteps" xml:space="preserve"><value>Étapes</value></data>
+  <data name="Universe_FamilySelectCharacter" xml:space="preserve"><value>Sélectionner un personnage</value></data>
+  <data name="Universe_FamilyGenerations" xml:space="preserve"><value>Générations</value></data>
+  <data name="Universe_CastMultiActorOnly" xml:space="preserve"><value>Multi-acteurs uniquement</value></data>
+  <data name="Universe_CastPerformers" xml:space="preserve"><value>Interprètes</value></data>
+  <data name="Universe_AdaptationOriginal" xml:space="preserve"><value>Original</value></data>
+  <data name="Universe_GuideSearch" xml:space="preserve"><value>Rechercher des entités&#8230;</value></data>
+  <data name="Universe_GuideFilterAll" xml:space="preserve"><value>Tout</value></data>
+  <data name="Universe_GuideFilterCharacters" xml:space="preserve"><value>Personnages</value></data>
+  <data name="Universe_GuideFilterLocations" xml:space="preserve"><value>Lieux</value></data>
+  <data name="Universe_GuideFilterOrgs" xml:space="preserve"><value>Organisations</value></data>
+
 </root>

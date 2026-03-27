@@ -660,4 +660,57 @@
     <value>Steuert, ob dieser Anbieter in Ihrer Metadatensprache, auf Englisch oder in beiden abfragt.</value>
   </data>
 
+  <!-- ── Stage 3 Universe Enrichment ───────────────────────────────────── -->
+  <data name="Wikidata_Stage3Enabled" xml:space="preserve">
+    <value>Stufe 3 aktiviert</value>
+  </data>
+  <data name="Wikidata_Stage3Schedule" xml:space="preserve">
+    <value>Zeitplan</value>
+  </data>
+  <data name="Wikidata_Stage3BatchSize" xml:space="preserve">
+    <value>Stapelgröße</value>
+  </data>
+  <data name="Wikidata_Stage3BatchSizeHelper" xml:space="preserve">
+    <value>Maximale Anzahl von Werken, die pro Durchlauf verarbeitet werden.</value>
+  </data>
+  <data name="Wikidata_Stage3RefreshDays" xml:space="preserve">
+    <value>Aktualisierungszyklus (Tage)</value>
+  </data>
+  <data name="Wikidata_Stage3RefreshDaysHelper" xml:space="preserve">
+    <value>Entitäten erneut prüfen, die seit mehr als dieser Anzahl von Tagen angereichert wurden.</value>
+  </data>
+  <data name="Wikidata_Stage3MaxDepth" xml:space="preserve">
+    <value>Beziehungstiefe</value>
+  </data>
+  <data name="Wikidata_Stage3TriggerNow" xml:space="preserve">
+    <value>Jetzt auslösen</value>
+  </data>
+  <data name="Wikidata_Stage3TriggerHint" xml:space="preserve">
+    <value>Manuell einen Anreicherungslauf starten</value>
+  </data>
+
+  <!-- ── Vault stale universes banner ──────────────────────────────────── -->
+  <data name="Vault_StaleUniverses" xml:space="preserve">
+    <value>{0} Universen haben veraltete Daten</value>
+  </data>
+  <data name="Vault_StaleUniversesHint" xml:space="preserve">
+    <value>Stufe 3 wird veraltete Entitätsdaten beim nächsten geplanten Lauf aktualisieren.</value>
+  </data>
+
+  <!-- ── Providers ─────────────────────────────────────────────────────── -->
+  <data name="Provider_FanartTv" xml:space="preserve">
+    <value>Fanart.tv</value>
+  </data>
+
+  <!-- ── Vault Detail Drawer — Phase 3 Universe/Character ──────────────────── -->
+  <data name="VaultDetail_SectionCharacters" xml:space="preserve"><value>Charaktere</value></data>
+  <data name="VaultDetail_SectionCharacterRoles" xml:space="preserve"><value>Charakterrollen</value></data>
+  <data name="VaultDetail_HintNoCharacters" xml:space="preserve"><value>Noch keine Charaktere entdeckt</value></data>
+  <data name="VaultDetail_ChangeDefault" xml:space="preserve"><value>Standard ändern</value></data>
+  <data name="VaultDetail_ActorsCount" xml:space="preserve"><value>{0} Darsteller</value></data>
+  <data name="VaultDetail_HealthScore" xml:space="preserve"><value>Gesundheitswert</value></data>
+  <data name="VaultDetail_OpenExplorer" xml:space="preserve"><value>Universum-Explorer öffnen</value></data>
+  <data name="VaultDetail_EntityCounts" xml:space="preserve"><value>Entitätenanzahl</value></data>
+  <data name="VaultDetail_TriggerEnrichment" xml:space="preserve"><value>Anreicherung auslösen</value></data>
+
 </root>

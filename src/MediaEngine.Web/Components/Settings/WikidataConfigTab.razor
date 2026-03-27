@@ -175,6 +175,11 @@
                      Style="font-size: 0.65rem; height: 20px;">
                 @L["Wikidata_Stage3Badge"]
             </MudChip>
+            <div style="flex: 1;" />
+            <MudSwitch T="bool"
+                       @bind-Value="_stage3Enabled"
+                       Color="Color.Primary"
+                       Label="@L["Wikidata_Stage3Enabled"]" />
         </MudStack>
         <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
             @L["Wikidata_Stage3Description"]
@@ -302,7 +307,85 @@
                 </div>
             </MudItem>
 
+            <MudItem xs="12" sm="6">
+                <MudText Typo="Typo.subtitle2" Class="mb-1">
+                    @L["Wikidata_Stage3BatchSize"]
+                </MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2"
+                         Style="display: block;">
+                    @L["Wikidata_Stage3BatchSizeHelper"]
+                </MudText>
+                <MudSlider T="int"
+                           @bind-Value="_stage3BatchSize"
+                           Min="5" Max="100" Step="5"
+                           Color="Color.Primary"
+                           Immediate="true">
+                    <MudStack Row="true" Justify="Justify.SpaceBetween">
+                        <MudText Typo="Typo.caption">5</MudText>
+                        <MudText Typo="Typo.body2" Style="font-weight: 600;">
+                            @_stage3BatchSize
+                        </MudText>
+                        <MudText Typo="Typo.caption">100</MudText>
+                    </MudStack>
+                </MudSlider>
+            </MudItem>
+
+            <MudItem xs="12" sm="6">
+                <MudText Typo="Typo.subtitle2" Class="mb-1">
+                    @L["Wikidata_Stage3RefreshDays"]
+                </MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2"
+                         Style="display: block;">
+                    @L["Wikidata_Stage3RefreshDaysHelper"]
+                </MudText>
+                <MudSlider T="int"
+                           @bind-Value="_stage3RefreshDays"
+                           Min="7" Max="90" Step="1"
+                           Color="Color.Primary"
+                           Immediate="true">
+                    <MudStack Row="true" Justify="Justify.SpaceBetween">
+                        <MudText Typo="Typo.caption">7</MudText>
+                        <MudText Typo="Typo.body2" Style="font-weight: 600;">
+                            @_stage3RefreshDays
+                        </MudText>
+                        <MudText Typo="Typo.caption">90</MudText>
+                    </MudStack>
+                </MudSlider>
+            </MudItem>
+
         </MudGrid>
+
+        <MudDivider Class="my-4" />
+
+        @* ── Manual trigger ────────────────────────────────────────────── *@
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+            <div style="flex: 1;">
+                <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">
+                    @L["Wikidata_Stage3TriggerNow"]
+                </MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary"
+                         Style="display: block; margin-top: 2px;">
+                    @L["Wikidata_Stage3TriggerHint"]
+                </MudText>
+            </div>
+            <MudButton Variant="Variant.Outlined"
+                       Color="Color.Primary"
+                       Size="Size.Small"
+                       StartIcon="@Icons.Material.Outlined.PlayArrow"
+                       OnClick="@TriggerManualSweepAsync"
+                       Disabled="@(_triggering || !_stage3Enabled)"
+                       Style="border-radius: 8px; min-width: 130px;">
+                @if (_triggering)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
+                    @:@L["Wikidata_Saving"]
+                }
+                else
+                {
+                    @:@L["Wikidata_Stage3TriggerNow"]
+                }
+            </MudButton>
+        </MudStack>
 
     </MudPaper>
 
@@ -361,17 +444,21 @@
 
     // ── State — Stage 3 ──────────────────────────────────────────────────────────
 
-    private bool   _enrichPeople          = true;
-    private bool   _enrichLore            = true;
-    private bool   _enrichCrossMedia      = true;
-    private int    _backgroundIdleDelay   = 10;
-    private string _nightlySweepCron      = "0 2 * * *";
-    private int    _lineageDepth          = 2;
+    private bool   _stage3Enabled           = true;
+    private bool   _enrichPeople            = true;
+    private bool   _enrichLore              = true;
+    private bool   _enrichCrossMedia        = true;
+    private int    _backgroundIdleDelay     = 10;
+    private string _nightlySweepCron        = "0 2 * * *";
+    private int    _lineageDepth            = 2;
     private bool   _loreDeltaOnExplorerOpen = true;
+    private int    _stage3BatchSize         = 50;
+    private int    _stage3RefreshDays       = 30;
 
     // ── Shared ───────────────────────────────────────────────────────────────────
 
     private bool _saving;
+    private bool _triggering;
 
     // ── Actions ──────────────────────────────────────────────────────────────────
 
@@ -383,13 +470,24 @@
         _maxQidCandidates       = 5;
         _wikipediaMaxChars      = 1000;
 
-        _enrichPeople           = true;
-        _enrichLore             = true;
-        _enrichCrossMedia       = true;
-        _backgroundIdleDelay    = 10;
-        _nightlySweepCron       = "0 2 * * *";
-        _lineageDepth           = 2;
+        _stage3Enabled           = true;
+        _enrichPeople            = true;
+        _enrichLore              = true;
+        _enrichCrossMedia        = true;
+        _backgroundIdleDelay     = 10;
+        _nightlySweepCron        = "0 2 * * *";
+        _lineageDepth            = 2;
         _loreDeltaOnExplorerOpen = true;
+        _stage3BatchSize         = 50;
+        _stage3RefreshDays       = 30;
+    }
+
+    private async Task TriggerManualSweepAsync()
+    {
+        _triggering = true;
+        // No Engine API wired yet — simulate a brief acknowledgement delay.
+        await Task.Delay(600);
+        _triggering = false;
     }
 
     private async Task SaveAsync()

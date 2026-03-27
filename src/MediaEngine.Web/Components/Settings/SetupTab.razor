@@ -2,7 +2,16 @@
 @inject IStringLocalizer<SharedStrings> L
 
 @* Setup Wizard — Re-run the setup wizard or inspect the current server configuration.
-   All values are read-only summary fields; editing happens in the dedicated tabs. *@
+   All values are read-only summary fields; editing happens in the dedicated tabs.
+
+   TODO: First-Run Wizard (not yet built) — Step 3 should collect provider credentials.
+   Providers requiring authentication at first run:
+     - TMDB:         API key (bearer token) — https://www.themoviedb.org/settings/api
+     - Google Books:  API key (query param)  — https://console.cloud.google.com/apis
+     - Metron:        Username + Password    — https://metron.cloud (sign up for free account)
+     - Podcast Index: API key + secret       — https://api.podcastindex.org (free)
+   Providers that work without credentials:
+     - Apple API, Open Library, MusicBrainz, Wikidata, Apple Podcasts *@
 
 <div class="st-page">
 
@@ -194,6 +203,8 @@
         new("Google Books", "Source"),
         new("TMDB", "Localized"),
         new("MusicBrainz", "Source"),
+        new("Metron", "Source"),
+        new("Fanart.tv", "Source"),
     ];
 
     private readonly AiModelSummary[] _aiModels =

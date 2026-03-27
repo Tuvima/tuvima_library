@@ -238,6 +238,31 @@ public sealed record LoreDeltaDiscoveredEvent(
     string UniverseQid,
     int    ChangedCount);
 
+// ── Universe Enrichment Events ───────────────────────────────────────────────
+
+/// <summary>
+/// Payload broadcast during an active Stage 3 universe enrichment sweep to
+/// report per-work progress.
+///
+/// SignalR method name: <c>"UniverseEnrichmentProgress"</c>
+///
+/// The Dashboard uses this event to show live Stage 3 progress in the Vault
+/// pipeline header and in the WikidataConfigTab trigger feedback.
+/// </summary>
+/// <param name="WorkQid">Wikidata QID of the work currently being enriched.</param>
+/// <param name="WorkTitle">Display title of the work, for human-readable progress.</param>
+/// <param name="ProcessedCount">Number of works processed so far in this sweep.</param>
+/// <param name="TotalCount">Total works queued for this sweep.</param>
+/// <param name="CurrentStep">
+/// Human-readable step label, e.g. "EntityDiscovery", "ImageEnrichment", "NarrativeRoot".
+/// </param>
+public sealed record UniverseEnrichmentProgressEvent(
+    string WorkQid,
+    string WorkTitle,
+    int    ProcessedCount,
+    int    TotalCount,
+    string CurrentStep);
+
 // ── AI Events ────────────────────────────────────────────────────────────────
 
 /// <summary>AI model download progress.</summary>
