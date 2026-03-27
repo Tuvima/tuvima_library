@@ -189,11 +189,15 @@ public sealed class EndToEndIngestionTests : IDisposable
         // Act
         await RunPipelineAsync();
 
-        // Assert: file moved to library
+        // Assert: file moved out of watch dir (staging-first flow — all files go to .staging/ first)
         Assert.False(File.Exists(filePath), "File should no longer be in watch dir");
 
-        var libraryFile = Path.Combine(_libraryDir, "Books", "Dune.epub");
-        Assert.True(File.Exists(libraryFile), "File should be organized into library");
+        // Staging-first: high-confidence files land in .staging/pending/, not directly in Books/
+        var stagingPath = Path.Combine(_libraryDir, ".staging");
+        var libraryFile = Directory.EnumerateFiles(stagingPath, "Dune.epub", SearchOption.AllDirectories).FirstOrDefault()
+            ?? Directory.EnumerateFiles(_libraryDir, "Dune.epub", SearchOption.AllDirectories).FirstOrDefault();
+        Assert.NotNull(libraryFile);
+        Assert.True(File.Exists(libraryFile), "File should be organized into library (staging or promoted)");
 
         // Assert: asset recorded in DB
         var hash = await _hasher.ComputeAsync(libraryFile);
@@ -253,12 +257,15 @@ public sealed class EndToEndIngestionTests : IDisposable
         // Act
         await RunPipelineAsync();
 
-        // Assert: asset recorded in DB
-        var libraryFile = Path.Combine(_libraryDir, "Books", "unknown_file.epub");
-        Assert.True(File.Exists(libraryFile),
+        // Staging-first: files go to .staging/ regardless of confidence.
+        // Single-claim normalized confidence = 1.0 so file lands in .staging/pending/
+        var stagingPath2 = Path.Combine(_libraryDir, ".staging");
+        var libraryFile = Directory.EnumerateFiles(stagingPath2, "unknown_file.epub", SearchOption.AllDirectories).FirstOrDefault()
+            ?? Directory.EnumerateFiles(_libraryDir, "unknown_file.epub", SearchOption.AllDirectories).FirstOrDefault();
+        Assert.True(libraryFile != null && File.Exists(libraryFile),
             "File should be organized into the library (single-claim normalized confidence = 1.0)");
 
-        var hash = await _hasher.ComputeAsync(libraryFile);
+        var hash = await _hasher.ComputeAsync(libraryFile!);
         var asset = await _assetRepo.FindByHashAsync(hash.Hex);
         Assert.NotNull(asset);
     }
@@ -283,9 +290,9 @@ public sealed class EndToEndIngestionTests : IDisposable
 
         await RunPipelineAsync();
 
-        // Verify first ingestion succeeded.
-        var libraryFile = Path.Combine(_libraryDir, "Books", "Original.epub");
-        Assert.True(File.Exists(libraryFile));
+        // Verify first ingestion succeeded — staging-first flow puts files in .staging/
+        var libraryFile = Directory.EnumerateFiles(_libraryDir, "Original.epub", SearchOption.AllDirectories).FirstOrDefault();
+        Assert.True(libraryFile != null && File.Exists(libraryFile));
 
         // Arrange: create a duplicate file (same content, different name).
         var dupPath = CreateWatchFile("Original_copy.epub", content);
@@ -295,7 +302,7 @@ public sealed class EndToEndIngestionTests : IDisposable
         await RunPipelineAsync();
 
         // Assert: only one asset in DB (duplicate was skipped).
-        var hash = await _hasher.ComputeAsync(libraryFile);
+        var hash = await _hasher.ComputeAsync(libraryFile!);
         var asset = await _assetRepo.FindByHashAsync(hash.Hex);
         Assert.NotNull(asset);
 
@@ -404,9 +411,14 @@ public sealed class EndToEndIngestionTests : IDisposable
         // Act
         await RunPipelineAsync();
 
-        // Assert: recursive identity service was called with person references.
-        Assert.NotEmpty(_recursiveIdentity.Calls);
-        var call = _recursiveIdentity.Calls[0];
-        Assert.True(call.Persons.Count >= 1, "Should have at least one person reference (author)");
+        // Person enrichment was moved to the hydration pipeline (Phase 9) so that
+        // pen-name detection runs before person linking. IRecursiveIdentityService is
+        // called by HydrationPipelineService, not by IngestionEngine directly.
+        // Verify that hydration was enqueued with author/narrator hints instead.
+        Assert.Single(_hydrationPipeline.EnqueuedRequests);
+        var request = _hydrationPipeline.EnqueuedRequests[0];
+        Assert.True(request.Hints.ContainsKey("author"),
+            "Hydration request should carry author hint so the pipeline can trigger person enrichment");
+        Assert.Equal("Stephen King", request.Hints["author"]);
     }
 }

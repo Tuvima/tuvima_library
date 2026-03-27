@@ -7,20 +7,19 @@
                  Class="vault-search-icon" />
         <input type="text"
                class="vault-search-input"
-               placeholder="@($"Filter {ActiveTab}...")"
+               placeholder="@($"Search {ActiveTab}...")"
                value="@SearchText"
                @oninput="OnSearchInput" />
     </div>
 
-    @* ── Sort / Group / View controls ── *@
+    @* ── Sort / Group controls ── *@
     <div class="vault-controls">
         @* Sort *@
         <div class="vault-control-group">
-            <span class="vault-control-label">SORT</span>
             <select class="vault-select" value="@SortBy" @onchange="OnSortChanged">
-                <option value="newest">Newest</option>
-                <option value="oldest">Oldest</option>
-                <option value="confidence">Confidence</option>
+                <option value="newest">Sort: Newest</option>
+                <option value="oldest">Sort: Oldest</option>
+                <option value="confidence">Sort: Confidence</option>
             </select>
         </div>
 
@@ -28,109 +27,13 @@
 
         @* Group *@
         <div class="vault-control-group">
-            <span class="vault-control-label">GROUP</span>
             <select class="vault-select" value="@GroupBy" @onchange="OnGroupChanged">
-                <option value="none">Off</option>
-                <option value="type">Type</option>
-                <option value="status">Status</option>
+                <option value="none">No Grouping</option>
+                <option value="type">Group: Type</option>
+                <option value="status">Group: Status</option>
+                <option value="letter">Group: A-Z</option>
             </select>
         </div>
-
-        <div class="vault-control-divider"></div>
-
-        @* View mode toggle *@
-        <div class="vault-view-toggle">
-            <button class="vault-view-btn @(ViewMode == "grid" ? "vault-view-btn--active" : "")"
-                    @onclick='() => OnViewModeChanged("grid")'>
-                <MudIcon Icon="@Icons.Material.Outlined.GridView" Style="font-size: 16px;" />
-            </button>
-            <button class="vault-view-btn @(ViewMode == "list" ? "vault-view-btn--active" : "")"
-                    @onclick='() => OnViewModeChanged("list")'>
-                <MudIcon Icon="@Icons.Material.Outlined.ViewList" Style="font-size: 16px;" />
-            </button>
-        </div>
-    </div>
-
-    @* ── Filters button ── *@
-    <div class="vault-filter-wrap">
-        <button class="vault-filter-btn @(IsFilterOpen ? "vault-filter-btn--active" : "") @(ActiveFilterCount > 0 ? "vault-filter-btn--has-filters" : "")"
-                @onclick="OnFilterToggle">
-            <MudIcon Icon="@Icons.Material.Outlined.FilterList" Style="font-size: 16px;" />
-            <span>Filters</span>
-            @if (ActiveFilterCount > 0)
-            {
-                <span class="vault-filter-badge">@ActiveFilterCount</span>
-            }
-            <MudIcon Icon="@Icons.Material.Filled.ExpandMore"
-                     Style="@($"font-size: 12px; transition: transform 0.2s; {(IsFilterOpen ? "transform: rotate(180deg);" : "")}")" />
-        </button>
-
-        @* ── Filter dropdown panel ── *@
-        @if (IsFilterOpen)
-        {
-            <div class="vault-filter-panel">
-                @* Media Type *@
-                <div class="vfp-section">
-                    <span class="vfp-label">MEDIA TYPE</span>
-                    <div class="vfp-chips">
-                        <button class="vfp-chip @(FilterMediaType is null ? "vfp-chip--active" : "")"
-                                @onclick="() => FilterMediaTypeChanged.InvokeAsync(null)">All</button>
-                        @foreach (var mt in _mediaTypes)
-                        {
-                            <button class="vfp-chip @(FilterMediaType == mt ? "vfp-chip--active" : "")"
-                                    @onclick="() => FilterMediaTypeChanged.InvokeAsync(mt)">@mt</button>
-                        }
-                    </div>
-                </div>
-
-                @* Status toggles *@
-                <div class="vfp-section">
-                    <span class="vfp-label">STATUS</span>
-                    <div class="vfp-toggles">
-                        <label class="vfp-toggle">
-                            <input type="checkbox" checked="@FilterReview"
-                                   @onchange="e => FilterReviewChanged.InvokeAsync((bool)(e.Value ?? false))" />
-                            <span class="vfp-toggle-dot" style="background: #EF9F27;"></span>
-                            Needs Review
-                        </label>
-                        <label class="vfp-toggle">
-                            <input type="checkbox" checked="@FilterQuarantine"
-                                   @onchange="e => FilterQuarantineChanged.InvokeAsync((bool)(e.Value ?? false))" />
-                            <span class="vfp-toggle-dot" style="background: #E24B4A;"></span>
-                            Quarantined
-                        </label>
-                    </div>
-                </div>
-
-                @* Confidence threshold *@
-                <div class="vfp-section">
-                    <span class="vfp-label">MIN CONFIDENCE</span>
-                    <div class="vfp-chips">
-                        <button class="vfp-chip @(FilterMinConfidence is null ? "vfp-chip--active" : "")"
-                                @onclick="() => FilterMinConfidenceChanged.InvokeAsync(null)">Any</button>
-                        <button class="vfp-chip @(FilterMinConfidence == 0.85 ? "vfp-chip--active" : "")"
-                                @onclick="() => FilterMinConfidenceChanged.InvokeAsync(0.85)">High (≥85%)</button>
-                        <button class="vfp-chip @(FilterMinConfidence == 0.60 ? "vfp-chip--active" : "")"
-                                @onclick="() => FilterMinConfidenceChanged.InvokeAsync(0.60)">Medium (≥60%)</button>
-                        <button class="vfp-chip @(FilterMinConfidence == 0.40 ? "vfp-chip--active" : "")"
-                                @onclick="() => FilterMinConfidenceChanged.InvokeAsync(0.40)">Low (≥40%)</button>
-                    </div>
-                </div>
-
-                @* Missing art *@
-                <div class="vfp-section">
-                    <span class="vfp-label">OTHER</span>
-                    <div class="vfp-toggles">
-                        <label class="vfp-toggle">
-                            <input type="checkbox" checked="@FilterMissingArt"
-                                   @onchange="e => FilterMissingArtChanged.InvokeAsync((bool)(e.Value ?? false))" />
-                            <span class="vfp-toggle-dot" style="background: #B4B2A9;"></span>
-                            Missing cover art
-                        </label>
-                    </div>
-                </div>
-            </div>
-        }
     </div>
 </div>
 
@@ -139,30 +42,11 @@
     [Parameter] public string SearchText { get; set; } = "";
     [Parameter] public string SortBy { get; set; } = "newest";
     [Parameter] public string GroupBy { get; set; } = "none";
-    [Parameter] public string ViewMode { get; set; } = "list";
-    [Parameter] public bool IsFilterOpen { get; set; }
-
-    // Filter state (read from parent)
-    [Parameter] public string? FilterMediaType { get; set; }
-    [Parameter] public bool FilterReview { get; set; }
-    [Parameter] public bool FilterQuarantine { get; set; }
-    [Parameter] public double? FilterMinConfidence { get; set; }
-    [Parameter] public bool FilterMissingArt { get; set; }
-    [Parameter] public int ActiveFilterCount { get; set; }
 
     // Callbacks
     [Parameter] public EventCallback<string> SearchTextChanged { get; set; }
     [Parameter] public EventCallback<string> SortByChanged { get; set; }
     [Parameter] public EventCallback<string> GroupByChanged { get; set; }
-    [Parameter] public EventCallback<string> ViewModeChanged { get; set; }
-    [Parameter] public EventCallback FilterToggled { get; set; }
-    [Parameter] public EventCallback<string?> FilterMediaTypeChanged { get; set; }
-    [Parameter] public EventCallback<bool> FilterReviewChanged { get; set; }
-    [Parameter] public EventCallback<bool> FilterQuarantineChanged { get; set; }
-    [Parameter] public EventCallback<double?> FilterMinConfidenceChanged { get; set; }
-    [Parameter] public EventCallback<bool> FilterMissingArtChanged { get; set; }
-
-    private static readonly string[] _mediaTypes = ["Books", "Audiobooks", "Movies", "TV", "Comics", "Music", "Podcasts"];
 
     private System.Timers.Timer? _debounceTimer;
 
@@ -187,12 +71,6 @@
     private async Task OnGroupChanged(ChangeEventArgs e) =>
         await GroupByChanged.InvokeAsync(e.Value?.ToString() ?? "none");
 
-    private async Task OnViewModeChanged(string mode) =>
-        await ViewModeChanged.InvokeAsync(mode);
-
-    private async Task OnFilterToggle() =>
-        await FilterToggled.InvokeAsync();
-
     public void Dispose()
     {
         _debounceTimer?.Stop();
@@ -205,14 +83,14 @@
         display: flex;
         gap: 12px;
         align-items: center;
-        padding: 16px 24px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        flex: 1;
     }
 
     /* ── Search ── */
     .vault-search-wrap {
         position: relative;
         flex: 1;
+        max-width: 320px;
     }
 
     .vault-search-icon {
@@ -253,7 +131,7 @@
     .vault-controls {
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 4px;
         background: rgba(255, 255, 255, 0.02);
         border: 1px solid rgba(255, 255, 255, 0.06);
         border-radius: 12px;
@@ -264,27 +142,20 @@
         display: flex;
         align-items: center;
         gap: 8px;
-        padding: 0 8px;
-    }
-
-    .vault-control-label {
-        font-size: 10px;
-        font-weight: 800;
-        color: rgba(255, 255, 255, 0.2);
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
+        padding: 0 4px;
     }
 
     .vault-select {
         background: transparent;
         border: none;
-        color: rgba(255, 255, 255, 0.7);
-        font-size: 11px;
+        color: rgba(255, 255, 255, 0.5);
+        font-size: 10px;
         font-weight: 800;
         text-transform: uppercase;
+        letter-spacing: 0.03em;
         outline: none;
         cursor: pointer;
-        padding: 4px 0;
+        padding: 6px 4px;
     }
 
     .vault-select option {
@@ -298,203 +169,15 @@
         background: rgba(255, 255, 255, 0.06);
     }
 
-    /* ── View toggle ── */
-    .vault-view-toggle {
-        display: flex;
-        gap: 4px;
-        padding: 0 4px;
-    }
-
-    .vault-view-btn {
-        padding: 6px;
-        border-radius: 8px;
-        background: transparent;
-        border: none;
-        color: rgba(255, 255, 255, 0.2);
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: all 0.15s;
-    }
-
-    .vault-view-btn:hover {
-        color: rgba(255, 255, 255, 0.5);
-    }
-
-    .vault-view-btn--active {
-        background: rgba(255, 255, 255, 0.06);
-        color: rgba(255, 255, 255, 0.85);
-    }
-
-    /* ── Filter button + dropdown ── */
-    .vault-filter-wrap {
-        position: relative;
-    }
-
-    .vault-filter-btn {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 8px 16px;
-        background: rgba(255, 255, 255, 0.02);
-        border: 1px solid rgba(255, 255, 255, 0.06);
-        border-radius: 12px;
-        color: rgba(255, 255, 255, 0.4);
-        font-size: 13px;
-        font-weight: 700;
-        cursor: pointer;
-        transition: all 0.15s;
-        white-space: nowrap;
-    }
-
-    .vault-filter-btn:hover {
-        background: rgba(255, 255, 255, 0.04);
-        color: rgba(255, 255, 255, 0.6);
-    }
-
-    .vault-filter-btn--active {
-        background: rgba(255, 255, 255, 0.06);
-        border-color: rgba(255, 255, 255, 0.1);
-        color: rgba(255, 255, 255, 0.85);
-    }
-
-    .vault-filter-btn--has-filters {
-        border-color: rgba(201, 146, 46, 0.4);
-        color: #C9922E;
-    }
-
-    .vault-filter-badge {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 18px;
-        height: 18px;
-        border-radius: 50%;
-        background: #C9922E;
-        color: #000;
-        font-size: 10px;
-        font-weight: 900;
-    }
-
-    /* ── Filter panel ── */
-    .vault-filter-panel {
-        position: absolute;
-        top: calc(100% + 8px);
-        right: 0;
-        width: 340px;
-        background: #14181d;
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 16px;
-        padding: 20px;
-        z-index: 100;
-        box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
-        animation: vfp-fade-in 0.15s ease;
-    }
-
-    @@keyframes vfp-fade-in {
-        from { opacity: 0; transform: translateY(-4px); }
-        to { opacity: 1; transform: translateY(0); }
-    }
-
-    .vfp-section {
-        margin-bottom: 16px;
-    }
-
-    .vfp-section:last-child {
-        margin-bottom: 0;
-    }
-
-    .vfp-label {
-        display: block;
-        font-size: 10px;
-        font-weight: 800;
-        color: rgba(255, 255, 255, 0.25);
-        text-transform: uppercase;
-        letter-spacing: 0.1em;
-        margin-bottom: 8px;
-    }
-
-    /* ── Chip selectors ── */
-    .vfp-chips {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 6px;
-    }
-
-    .vfp-chip {
-        padding: 5px 10px;
-        border-radius: 8px;
-        border: 1px solid rgba(255, 255, 255, 0.06);
-        background: transparent;
-        color: rgba(255, 255, 255, 0.4);
-        font-size: 11px;
-        font-weight: 700;
-        cursor: pointer;
-        transition: all 0.12s;
-    }
-
-    .vfp-chip:hover {
-        border-color: rgba(255, 255, 255, 0.15);
-        color: rgba(255, 255, 255, 0.6);
-    }
-
-    .vfp-chip--active {
-        background: rgba(201, 146, 46, 0.15);
-        border-color: rgba(201, 146, 46, 0.4);
-        color: #C9922E;
-    }
-
-    /* ── Toggle rows ── */
-    .vfp-toggles {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-    }
-
-    .vfp-toggle {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        font-size: 12px;
-        font-weight: 600;
-        color: rgba(255, 255, 255, 0.5);
-        cursor: pointer;
-        user-select: none;
-    }
-
-    .vfp-toggle input[type="checkbox"] {
-        display: none;
-    }
-
-    .vfp-toggle-dot {
-        width: 14px;
-        height: 14px;
-        border-radius: 4px;
-        opacity: 0.3;
-        transition: opacity 0.15s;
-        flex-shrink: 0;
-    }
-
-    .vfp-toggle input:checked ~ .vfp-toggle-dot {
-        opacity: 1;
-        box-shadow: 0 0 6px currentColor;
-    }
-
-    .vfp-toggle input:checked ~ span:last-of-type,
-    .vfp-toggle:has(input:checked) {
-        color: rgba(255, 255, 255, 0.85);
-    }
-
     /* ── Mobile ── */
     @@media (max-width: 768px) {
         .vault-toolbar {
-            padding: 12px 16px;
             flex-wrap: wrap;
         }
 
         .vault-search-wrap {
             flex: 1 1 100%;
+            max-width: none;
             order: -1;
         }
 
@@ -506,26 +189,6 @@
 
         .vault-controls::-webkit-scrollbar {
             display: none;
-        }
-
-        .vault-filter-btn span {
-            display: none;
-        }
-
-        .vault-filter-btn {
-            padding: 8px 12px;
-        }
-
-        .vault-filter-panel {
-            position: fixed;
-            top: auto;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            width: 100%;
-            border-radius: 16px 16px 0 0;
-            max-height: 60vh;
-            overflow-y: auto;
         }
     }
 </style>

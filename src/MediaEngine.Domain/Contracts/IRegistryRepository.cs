@@ -32,6 +32,11 @@ public interface IRegistryRepository
     /// plus a per-trigger breakdown within InReview. Optionally scoped to a single batch.
     /// </summary>
     Task<RegistryFourStateCounts> GetFourStateCountsAsync(Guid? batchId = null, CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns a dictionary of media type → count across all works in the library.
+    /// </summary>
+    Task<Dictionary<string, int>> GetMediaTypeCountsAsync(CancellationToken ct = default);
 }
 
 /// <summary>

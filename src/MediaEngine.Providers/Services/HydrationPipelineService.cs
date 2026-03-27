@@ -421,13 +421,12 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         // confidence above the review threshold).
         var deferredReviewNotifications = new List<Guid>();
 
-        // ── Language mismatch detection (Stage 1 concern) ─────────────────
-        // If the file declares a language that differs from the configured app
-        // language, create a review item so the user can confirm or reject.
-        // Stage 1 (retail) still runs so the item gets cover art for the review
-        // UI. Only Stage 2 (Wikidata) is blocked until the curator approves.
-        // Curator-approved items (SuppressReviewCreation) bypass this gate entirely.
-        bool languageMismatchDetected = false;
+        // ── Language mismatch detection (informational only) ──────────────
+        // If the file declares a language that is not in the accepted languages
+        // list, create an informational review item so the user can see it in
+        // the Vault. Enrichment (Stage 1 and Stage 2) continues regardless —
+        // language mismatch is no longer a blocking condition.
+        string? detectedFileLanguage = null;
         if (request.EntityType == EntityType.MediaAsset && !request.SuppressReviewCreation)
         {
             try
@@ -439,25 +438,19 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
 
                 if (langCanonical is not null && !string.IsNullOrWhiteSpace(langCanonical.Value))
                 {
-                    var coreConfig     = _configLoader.LoadCore();
-                    var appLanguage    = coreConfig.Language ?? "en";
-                    var fileLang       = langCanonical.Value.Split('-', '_')[0].ToLowerInvariant().Trim();
-                    var configuredLang = appLanguage.Split('-', '_')[0].ToLowerInvariant().Trim();
+                    detectedFileLanguage = langCanonical.Value.Split('-', '_')[0].ToLowerInvariant().Trim();
+                    var coreConfig = _configLoader.LoadCore();
 
-                    if (!string.IsNullOrEmpty(fileLang)
-                        && !string.IsNullOrEmpty(configuredLang)
-                        && !string.Equals(fileLang, configuredLang, StringComparison.OrdinalIgnoreCase))
+                    if (!coreConfig.Language.IsLanguageAccepted(detectedFileLanguage))
                     {
                         _logger.LogInformation(
-                            "[HYDRATION] Language mismatch for entity {Id} — '{Lang}' vs configured '{ConfigLang}'. " +
-                            "Stage 1 (retail) will still run; Stage 2 (Wikidata) blocked until curator approval.",
-                            request.EntityId, fileLang, configuredLang);
-
-                        languageMismatchDetected = true;
+                            "[HYDRATION] Language mismatch for entity {Id} — file language '{Lang}' is not in accepted languages. " +
+                            "Creating informational review item; enrichment continues.",
+                            request.EntityId, detectedFileLanguage);
 
                         await CreateReviewItemAsync(
                             request, ReviewTrigger.LanguageMismatch, 0.0,
-                            $"File language '{langCanonical.Value}' does not match the configured library language '{appLanguage}'. " +
+                            $"File language '{langCanonical.Value}' is not in the accepted language list. " +
                             "This may be a foreign edition or incorrectly tagged file.",
                             result, ct, deferredReviewNotifications).ConfigureAwait(false);
                     }
@@ -475,7 +468,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         var provConfigs  = _configLoader.LoadAllProviders();
         var slots        = _configLoader.LoadSlots();
         var core         = _configLoader.LoadCore();
-        var lang         = string.IsNullOrWhiteSpace(core.Language) ? "en" : core.Language.ToLowerInvariant();
+        var lang         = string.IsNullOrWhiteSpace(core.Language.Metadata) ? "en" : core.Language.Metadata.ToLowerInvariant();
         var country      = string.IsNullOrWhiteSpace(core.Country)  ? "us" : core.Country.ToLowerInvariant();
 
         // §3.24: Determine effective pass. When two-pass is disabled,
@@ -996,19 +989,6 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         s1Ms = stageSw.ElapsedMilliseconds;
         stageSw.Restart();
 
-        // ── Language mismatch: skip Stage 2 ──────────────────────────────
-        // Language check is a Stage 1 concern. If a mismatch was detected,
-        // Stage 1 (retail) has already run for cover art, but Stage 2 (Wikidata)
-        // is blocked until the curator approves the item.
-        if (languageMismatchDetected)
-        {
-            _logger.LogInformation(
-                "Pipeline skipping Stage 2 for entity {Id} — language mismatch detected in Stage 1. " +
-                "Item needs curator approval before Wikidata resolution.",
-                request.EntityId);
-            goto PostPipeline;
-        }
-
         // ── Stage 2: Wikidata Bridge Resolution ────────────────────────────
         //
         // Uses bridge IDs deposited by Stage 1 (Retail Identification) to
@@ -1184,6 +1164,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                                 Title = request.Hints?.GetValueOrDefault("title"),
                                 PreResolvedQid = bridgeResult.WorkQid,
                                 Hints = request.Hints,
+                                FileLanguage = detectedFileLanguage,
                             }, ct).ConfigureAwait(false);
 
                         // Add any new claims not already in the QID claims list.
@@ -1665,8 +1646,9 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         {
             try
             {
-                var hintsDict = new Dictionary<string, string>(
-                    request.Hints, StringComparer.OrdinalIgnoreCase);
+                var hintsDict = request.Hints is not null
+                    ? new Dictionary<string, string>(request.Hints, StringComparer.OrdinalIgnoreCase)
+                    : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
                 await _deferredRepo.InsertAsync(new DeferredEnrichmentRequest
                 {
@@ -2612,10 +2594,11 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         string language,
         string country,
         CancellationToken ct,
-        HydrationPass effectivePass = HydrationPass.Quick)
+        HydrationPass effectivePass = HydrationPass.Quick,
+        string? fileLanguage = null)
     {
         var baseUrl = ResolveBaseUrl(provider, endpointMap);
-        var lookupRequest = BuildLookupRequest(request, provider, baseUrl, language, country, effectivePass);
+        var lookupRequest = BuildLookupRequest(request, provider, baseUrl, language, country, effectivePass, fileLanguage);
 
         try
         {
@@ -3424,7 +3407,8 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         string baseUrl,
         string language = "en",
         string country = "us",
-        HydrationPass effectivePass = HydrationPass.Quick)
+        HydrationPass effectivePass = HydrationPass.Quick,
+        string? fileLanguage = null)
     {
         var h = request.Hints;
         return new ProviderLookupRequest
@@ -3449,6 +3433,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             Language       = language,
             Country        = country,
             HydrationPass  = effectivePass,
+            FileLanguage   = fileLanguage,
         };
     }
 

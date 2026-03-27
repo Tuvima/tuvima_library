@@ -1110,7 +1110,7 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
     {
         var h       = request.Hints;
         var core    = _configLoader.LoadCore();
-        var lang    = string.IsNullOrWhiteSpace(core.Language) ? "en" : core.Language;
+        var lang    = string.IsNullOrWhiteSpace(core.Language.Metadata) ? "en" : core.Language.Metadata;
         var country = string.IsNullOrWhiteSpace(core.Country)  ? "us" : core.Country.ToUpperInvariant();
         return new ProviderLookupRequest
         {

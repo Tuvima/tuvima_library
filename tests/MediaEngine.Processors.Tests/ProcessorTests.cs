@@ -36,8 +36,11 @@ public class GenericFileProcessorTests
     [Fact]
     public async Task ProcessAsync_ExtractsTitleFromFilenameStem()
     {
-        // Create a temp file so the processor can open it
-        var tempFile = Path.Combine(Path.GetTempPath(), $"My Book Title_{Guid.NewGuid():N}.epub");
+        // Create a temp file so the processor can open it.
+        // Must use a non-known extension (.xyz) so GenericFileProcessor does not
+        // classify the file as corrupt (it marks .epub, .mp4, etc. as corrupt when
+        // no format-specific processor could parse them).
+        var tempFile = Path.Combine(Path.GetTempPath(), $"My Book Title_{Guid.NewGuid():N}.xyz");
         await File.WriteAllBytesAsync(tempFile, [0x00]);
 
         try

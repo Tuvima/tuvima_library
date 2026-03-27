@@ -98,9 +98,18 @@ Personalised mixes use: genres (from Wikidata/retail), vibe tags (AI-generated),
 
 User-created, user-owned collections. Unlimited in number. Any media type — not restricted to audio. A movie marathon playlist, a comic reading order, a mixed-media "road trip" playlist are all valid.
 
-### Capabilities
+Two playlist types:
 
-- **Create** — from the My Library page ("+ New Playlist" card)
+| Type | How items populate | User can reorder | Example |
+|------|-------------------|------------------|---------|
+| **Manual Playlist** | User hand-picks items | Yes | "Movie Marathon", "Book Club 2026" |
+| **Smart Playlist** | Auto-populates from user-defined rules | No (sort rules determine order) | "Unread Sci-Fi", "Short Listens", "4K Movie Night" |
+
+Both types live on the My Library page, share the same visual pattern, and support the same artwork system. Smart playlists have a rule indicator and auto-refresh as the library changes.
+
+### Manual Playlist Capabilities
+
+- **Create** — from the My Library page ("+ New Playlist" card → "Manual")
 - **Rename / Delete** — from within the playlist detail page
 - **Add items** — from library browsing via the "Add to Playlist..." picker
 - **Remove items** — from within the playlist detail page
@@ -108,9 +117,127 @@ User-created, user-owned collections. Unlimited in number. Any media type — no
 - **Progress tracking** — optional toggle per playlist
 - **Artwork** — auto-composed from items' cover art. User can upload a custom override.
 
+### Smart Playlist Capabilities
+
+- **Create** — from the My Library page ("+ New Playlist" card → "Smart")
+- **Edit rules** — from within the playlist detail page (opens rule builder)
+- **Rename / Delete** — from within the playlist detail page
+- **Progress tracking** — optional toggle per playlist
+- **Artwork** — auto-composed from matched items' cover art. User can upload a custom override.
+- **Live update** — items auto-add/remove as they match or stop matching rules (toggleable, default on)
+
+Smart playlists do not support: manual add/remove of items, manual reordering (sort rules control order).
+
 ### Media type filtering
 
-Each playlist derives its accepted media types from its contents — there's no upfront type restriction. A playlist that contains only music shows as a music playlist. Add a podcast and it becomes a music + podcast playlist.
+Each playlist derives its accepted media types from its contents — there's no upfront type restriction. A playlist that contains only music shows as a music playlist. Add a podcast and it becomes a music + podcast playlist. Smart playlists may include a Media Type rule that explicitly filters types.
+
+---
+
+## Smart Playlist Rule Builder
+
+The user builds a set of rules. Items matching the rules auto-populate the playlist. Each rule is a row: **Field** + **Operator** + **Value**.
+
+### Available Fields
+
+#### Metadata fields
+
+| Field | Operators | Value type | Example |
+|-------|-----------|------------|---------|
+| Title | contains, does not contain, is, is not | Text | Title contains "Dune" |
+| Creator | is, is not, contains | Text / person picker | Creator is "Frank Herbert" |
+| Genre | is, is not, includes any of | Genre picker (multi-select) | Genre is "Science Fiction" |
+| Vibe | is, is not, includes any of | Vibe picker (multi-select) | Vibe includes any of "atmospheric, cerebral" |
+| Media Type | is, is not | Media type picker | Media Type is "Audiobook" |
+| Format | is, is not | Format picker (EPUB, M4B, MKV, etc.) | Format is "EPUB" |
+| Series | is, is not, contains | Text / series picker | Series is "Dune Novels" |
+| Universe | is, is not | Universe picker | Universe is "Dune" |
+| Publisher | is, is not, contains | Text | Publisher contains "Penguin" |
+| Language | is, is not | Language picker | Language is "English" |
+| Narrator | is, is not | Text / person picker | Narrator is "Steven Pacey" |
+
+#### Rating and engagement fields
+
+| Field | Operators | Value type | Example |
+|-------|-----------|------------|---------|
+| User Rating | is, is greater than, is less than, is between, is unrated | Number (1–5 stars) | User Rating is greater than 3 |
+| Provider Rating | is greater than, is less than, is between | Number (0–5) | Provider Rating is greater than 4 |
+| Play/Read Count | is, is greater than, is less than, is between | Number | Play Count is greater than 5 |
+| Completion Status | is | Not Started / In Progress / Completed | Completion Status is "Not Started" |
+| In List | is, is not | List picker (Reading List, Watchlist, etc.) | In List is "Favorites" |
+
+#### Date fields
+
+| Field | Operators | Value type | Example |
+|-------|-----------|------------|---------|
+| Date Added | is in the last, is not in the last, is before, is after, is between | Duration (days/weeks/months/years) or date | Date Added is in the last 30 days |
+| Date Published | is before, is after, is between, is in decade | Date or decade picker | Date Published is in decade "1980s" |
+| Last Played/Read | is in the last, is not in the last, is before, is after | Duration or date | Last Played is not in the last 6 months |
+| Date Completed | is in the last, is before, is after | Duration or date | Date Completed is in the last 90 days |
+
+#### File fields
+
+| Field | Operators | Value type | Example |
+|-------|-----------|------------|---------|
+| File Size | is greater than, is less than, is between | MB/GB | File Size is less than 500 MB |
+| Duration | is greater than, is less than, is between | Minutes/hours | Duration is between 2 hours and 6 hours |
+| Quality/Bitrate | is, is greater than, is less than | Quality label or kbps | Quality is "4K HDR" |
+
+#### AI-derived fields
+
+| Field | Operators | Value type | Example |
+|-------|-----------|------------|---------|
+| TL;DR | contains, does not contain | Text | TL;DR contains "space exploration" |
+| Vibe Similarity | is similar to | Item picker (pick a reference item) | Vibe Similarity is similar to "Project Hail Mary" |
+| Taste Match | is greater than, is less than | Percentage | Taste Match is greater than 80% |
+
+### Rule Logic
+
+**Match mode** at the top of the builder:
+
+- **Match ALL rules** (AND) — item must satisfy every rule. This is the default.
+- **Match ANY rule** (OR) — item must satisfy at least one rule.
+
+**Nested groups** — for complex queries, a rule can be a group of sub-rules with its own ALL/ANY logic:
+
+> Match ALL of: Genre is "Horror" AND (Match ANY of: Vibe is "atmospheric" OR Vibe is "tense")
+
+This covers "atmospheric OR tense horror" without requiring separate playlists.
+
+### Playlist Limits and Sorting
+
+After rules, optional constraints:
+
+| Setting | Options | Default |
+|---------|---------|---------|
+| **Limit to** | No limit, 10, 25, 50, 100, 200 items | No limit |
+| **Sort by** | Date Added, Date Published, Title, Creator, User Rating, Provider Rating, Play Count, Duration, Random | Date Added (newest first) |
+| **Sort direction** | Ascending / Descending | Descending |
+| **Live update** | On / Off — when on, items auto-add/remove as they match or stop matching rules | On |
+
+### Rule Builder UI
+
+The builder lives inside the "New Playlist" flow on the My Library page. When the user picks "Smart" instead of "Manual":
+
+1. **Playlist name** — text field at top
+2. **Match mode** — toggle: ALL / ANY
+3. **Rule rows** — each row is: Field dropdown → Operator dropdown → Value input. Plus/minus buttons to add/remove rules. A "Make group" button to create nested ALL/ANY logic.
+4. **Live preview** — section below rules showing how many items currently match and a scrollable list of the first 20 matches. Updates as rules are added/changed.
+5. **Limit and sort** — controls for constraining and ordering results
+6. **Save** — creates the smart playlist
+
+### Example Smart Playlists
+
+| Playlist name | Rules | Limit / Sort |
+|---------------|-------|--------------|
+| "Unread Sci-Fi" | Genre is "Science Fiction" + Completion Status is "Not Started" | Sort by Provider Rating, descending |
+| "Short Listens" | Media Type is "Audiobook" + Duration < 8 hours + User Rating > 3 | Sort by Duration, ascending |
+| "Recent Favorites" | In List is "Favorites" + Date Added is in the last 90 days | Sort by Date Added, newest |
+| "Atmospheric Horror" | Genre is "Horror" + Vibe includes any of "atmospheric, haunting, unsettling" | Limit 50, sort by Taste Match |
+| "Denis Villeneuve Marathon" | Creator is "Denis Villeneuve" | Sort by Date Published, ascending |
+| "4K Movie Night" | Media Type is "Movie" + Quality is "4K HDR" + Duration between 90–180 min | Sort by Random, limit 10 |
+| "Rediscovery Queue" | Completion Status is "Completed" + Last Played not in last 6 months + User Rating > 4 | Limit 25, sort by Random |
+| "New This Month" | Date Added is in the last 30 days + Taste Match > 70% | Sort by Taste Match, descending |
 
 ---
 

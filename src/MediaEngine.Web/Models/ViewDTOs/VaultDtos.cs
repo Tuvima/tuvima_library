@@ -4,7 +4,7 @@ namespace MediaEngine.Web.Models.ViewDTOs;
 public enum VaultStageState { Completed, Warning, Failed, Pending }
 
 /// <summary>Vault item display statuses.</summary>
-public enum VaultStatus { Verified, NeedsReview, Failed, Quarantined }
+public enum VaultStatus { Verified, Provisional, NeedsReview, Failed, Quarantined }
 
 /// <summary>A single pipeline stage indicator.</summary>
 public sealed class VaultPipelineStage
@@ -18,6 +18,7 @@ public sealed class VaultItemViewModel
 {
     public Guid EntityId { get; init; }
     public string Title { get; init; } = "";
+    public string? OriginalTitle { get; init; }
     public string? Author { get; init; }
     public string? Year { get; init; }
     public string MediaType { get; init; } = "";
@@ -91,11 +92,14 @@ public sealed class VaultItemViewModel
             or "PlaceholderTitle" or "WikidataBridgeFailed" or "RetailMatchFailed")
             return VaultStatus.Failed;
 
-        // Any other review trigger or InReview/Provisional status → Needs Review
-        if (!string.IsNullOrEmpty(ReviewTrigger)
-            || string.Equals(Status, "InReview", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(Status, "Provisional", StringComparison.OrdinalIgnoreCase)
+        // Provisional or AwaitingStage2 without failed triggers → Provisional
+        if (string.Equals(Status, "Provisional", StringComparison.OrdinalIgnoreCase)
             || string.Equals(Status, "AwaitingStage2", StringComparison.OrdinalIgnoreCase))
+            return VaultStatus.Provisional;
+
+        // Any other review trigger or InReview status → Needs Review
+        if (!string.IsNullOrEmpty(ReviewTrigger)
+            || string.Equals(Status, "InReview", StringComparison.OrdinalIgnoreCase))
             return VaultStatus.NeedsReview;
 
         // Identified/Confirmed with QID → Verified

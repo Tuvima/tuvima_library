@@ -133,15 +133,27 @@ internal static class ScoringHelper
 
         await canonicalRepo.UpsertBatchAsync(canonicals, ct).ConfigureAwait(false);
 
-        // Update FTS5 search index when title or author changes.
+        // Update FTS5 search index when any searchable field changes.
+        // Phase 2C: index title, original_title, alternate_titles, author, description
+        // for cross-language search (e.g. "Amélie" matches via unicode61 tokenizer).
         if (searchIndex is not null)
         {
-            var titleVal = canonicals.FirstOrDefault(c => c.Key == "title")?.Value;
-            var authorVal = canonicals.FirstOrDefault(c => c.Key == "author")?.Value;
-            if (titleVal is not null || authorVal is not null)
+            var titleVal         = canonicals.FirstOrDefault(c => c.Key == "title")?.Value;
+            var originalTitleVal = canonicals.FirstOrDefault(c => c.Key == "original_title")?.Value;
+            var authorVal        = canonicals.FirstOrDefault(c => c.Key == "author")?.Value;
+            var descriptionVal   = canonicals.FirstOrDefault(c => c.Key == "description")?.Value;
+            // alternate_titles are stored in canonical_value_arrays; UpsertByEntityIdAsync
+            // resolves them from the database via the work_id join.
+            if (titleVal is not null || originalTitleVal is not null || authorVal is not null)
             {
-                await searchIndex.UpsertByEntityIdAsync(entityId, titleVal, authorVal, ct)
-                    .ConfigureAwait(false);
+                await searchIndex.UpsertByEntityIdAsync(
+                    entityId,
+                    titleVal,
+                    originalTitleVal,
+                    alternateTitles: null,  // populated by RebuildAsync from canonical_value_arrays
+                    authorVal,
+                    descriptionVal,
+                    ct).ConfigureAwait(false);
             }
         }
 

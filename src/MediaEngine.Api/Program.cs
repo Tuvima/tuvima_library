@@ -250,7 +250,7 @@ builder.Services.PostConfigure<IngestionOptions>(opts =>
         if (!string.IsNullOrWhiteSpace(core.LibraryRoot))          { opts.LibraryRoot          = core.LibraryRoot; opts.AutoOrganize = true; }
         if (!string.IsNullOrWhiteSpace(core.OrganizationTemplate)) { opts.OrganizationTemplate = core.OrganizationTemplate; }
         if (core.OrganizationTemplates.Count > 0) { opts.OrganizationTemplates = new Dictionary<string, string>(core.OrganizationTemplates, StringComparer.OrdinalIgnoreCase); }
-        if (!string.IsNullOrWhiteSpace(core.Language))             { opts.ConfiguredLanguage   = core.Language; }
+        opts.ConfiguredLanguage = core.Language.Metadata;
     }
     catch (Exception ex)
     {
@@ -409,7 +409,7 @@ builder.Services.AddSingleton<ICanonicalValueArrayRepository, CanonicalValueArra
     var reconcilerOptions = new Tuvima.WikidataReconciliation.WikidataReconcilerOptions
     {
         UserAgent = "Tuvima Library/1.0 (https://github.com/Tuvima/tuvima_library)",
-        Language  = coreConfig.Language ?? "en",
+        Language  = coreConfig.Language.Metadata,
         // MaxLag defaults to 5 (Wikimedia bot etiquette) — no override needed.
     };
 

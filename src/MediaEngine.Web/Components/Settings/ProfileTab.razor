@@ -20,7 +20,7 @@
     var initials = _displayName.Length > 0 ? _displayName[0].ToString().ToUpper() : "?";
 }
 
-<div style="width: 100%; padding: 24px; box-sizing: border-box;">
+<div class="st-page">
 
     @* ── Section header: Account Identity ───────────────────────────────── *@
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-6" Spacing="2">
@@ -156,6 +156,85 @@
             <MudDivider Class="my-6" />
         }
 
+        @* ── Language Preferences section ──────────────────────────────── *@
+
+        @if (showLocale && DeviceContext.Settings.Constraints.AllowTextInput)
+        {
+            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4" Spacing="2">
+                <MudIcon Icon="@Icons.Material.Filled.Translate" Color="Color.Default" Class="mr-1" />
+                <MudText Typo="Typo.overline" Color="Color.Secondary"
+                         Style="letter-spacing: 0.08em;">
+                    Language Preferences
+                </MudText>
+            </MudStack>
+
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-4">
+                Control which languages the Engine uses for metadata lookups and which content languages
+                are accepted without review.
+            </MudText>
+
+            <MudGrid Spacing="3" Class="mb-4">
+                <MudItem xs="12" sm="6">
+                    <MudSelect T="string"
+                               @bind-Value="_displayLanguage"
+                               Label="Display Language"
+                               Variant="Variant.Outlined"
+                               FullWidth="true"
+                               HelperText="Language for UI labels and Wikidata display"
+                               AnchorOrigin="Origin.BottomLeft">
+                        @foreach (var lang in _languageOptions)
+                        {
+                            <MudSelectItem T="string" Value="@lang.Code">@lang.Name</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudSelect T="string"
+                               @bind-Value="_metadataLanguage"
+                               Label="Metadata Language"
+                               Variant="Variant.Outlined"
+                               FullWidth="true"
+                               HelperText="Language for provider queries and Wikidata lookups"
+                               AnchorOrigin="Origin.BottomLeft">
+                        @foreach (var lang in _languageOptions)
+                        {
+                            <MudSelectItem T="string" Value="@lang.Code">@lang.Name</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+            </MudGrid>
+
+            <MudGrid Spacing="3" Class="mb-4">
+                <MudItem xs="12">
+                    <MudSelect T="string"
+                               @bind-SelectedValues="_additionalLanguages"
+                               Label="Additional Content Languages"
+                               Variant="Variant.Outlined"
+                               FullWidth="true"
+                               MultiSelection="true"
+                               HelperText="Languages you consume content in — files in these languages won't be flagged"
+                               AnchorOrigin="Origin.BottomLeft">
+                        @foreach (var lang in _languageOptions)
+                        {
+                            <MudSelectItem T="string" Value="@lang.Code">@lang.Name</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+            </MudGrid>
+
+            <MudSwitch T="bool"
+                       @bind-Value="_acceptAnyLanguage"
+                       Label="Accept any language"
+                       Color="Color.Primary"
+                       Class="mb-2" />
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-6">
+                When enabled, files in any language are ingested without review flags.
+                Disable this to restrict accepted languages to your display, metadata, and additional languages.
+            </MudText>
+
+            <MudDivider Class="my-6" />
+        }
+
         @* ── Save button (only when profile section is visible) ──────── *@
 
         @if (showProfile)
@@ -195,12 +274,39 @@
     private string _dateFormat  = "System";
     private string _timeFormat  = "System";
 
+    // Language preferences
+    private string _displayLanguage    = "en";
+    private string _metadataLanguage   = "en";
+    private IReadOnlyCollection<string> _additionalLanguages = Array.Empty<string>();
+    private bool   _acceptAnyLanguage  = true;
+
+    private static readonly (string Code, string Name)[] _languageOptions =
+    [
+        ("en", "English"),
+        ("fr", "French"),
+        ("de", "German"),
+        ("es", "Spanish"),
+        ("pt", "Portuguese"),
+        ("it", "Italian"),
+        ("ja", "Japanese"),
+        ("ko", "Korean"),
+        ("zh", "Chinese"),
+        ("ru", "Russian"),
+        ("hi", "Hindi"),
+        ("ar", "Arabic"),
+        ("nl", "Dutch"),
+        ("sv", "Swedish"),
+        ("pl", "Polish"),
+        ("tr", "Turkish"),
+    ];
+
     // ── Lifecycle ────────────────────────────────────────────────────────────────
 
     protected override async Task OnInitializedAsync()
     {
         DeviceContext.OnChanged += OnDeviceChanged;
         await LoadProfileAsync();
+        await LoadLanguagePrefsAsync();
     }
 
     public void Dispose()
@@ -227,6 +333,19 @@
         _loading = false;
     }
 
+    private async Task LoadLanguagePrefsAsync()
+    {
+        var settings = await Orchestrator.GetServerGeneralAsync();
+        if (settings is not null)
+        {
+            _displayLanguage    = settings.DisplayLanguage;
+            _metadataLanguage   = settings.MetadataLanguage;
+            _additionalLanguages = settings.AdditionalLanguages?.AsReadOnly()
+                                   ?? (IReadOnlyCollection<string>)Array.Empty<string>();
+            _acceptAnyLanguage  = settings.AcceptAnyLanguage;
+        }
+    }
+
     private async Task SaveProfileAsync()
     {
         if (string.IsNullOrWhiteSpace(_displayName)) return;
@@ -237,6 +356,22 @@
             Snackbar.Add("Profile updated", Severity.Success);
         else
             Snackbar.Add("Could not save profile — is the Engine running?", Severity.Error);
+
+        // Save language preferences to Engine config
+        var currentSettings = await Orchestrator.GetServerGeneralAsync();
+        if (currentSettings is not null)
+        {
+            var updated = currentSettings with
+            {
+                DisplayLanguage     = _displayLanguage,
+                MetadataLanguage    = _metadataLanguage,
+                AdditionalLanguages = _additionalLanguages.ToList(),
+                AcceptAnyLanguage   = _acceptAnyLanguage,
+            };
+            var langOk = await Orchestrator.UpdateServerGeneralAsync(updated);
+            if (!langOk)
+                Snackbar.Add("Could not save language preferences", Severity.Warning);
+        }
 
         _saving = false;
     }

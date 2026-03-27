@@ -11,6 +11,7 @@ public static class VaultHelpers
     public static string GetVaultStatusColor(VaultStatus status) => status switch
     {
         VaultStatus.Verified => "#5DCAA5",
+        VaultStatus.Provisional => "#3B82F6",
         VaultStatus.NeedsReview => "#EF9F27",
         VaultStatus.Failed => "#A05050",
         VaultStatus.Quarantined => "#E24B4A",
@@ -21,6 +22,7 @@ public static class VaultHelpers
     public static string GetVaultStatusLabel(VaultStatus status) => status switch
     {
         VaultStatus.Verified => "Verified",
+        VaultStatus.Provisional => "Provisional",
         VaultStatus.NeedsReview => "Needs Review",
         VaultStatus.Failed => "Failed",
         VaultStatus.Quarantined => "Quarantined",
@@ -31,6 +33,7 @@ public static class VaultHelpers
     public static string GetVaultStatusIcon(VaultStatus status) => status switch
     {
         VaultStatus.Verified => Icons.Material.Filled.CheckCircle,
+        VaultStatus.Provisional => Icons.Material.Filled.Info,
         VaultStatus.NeedsReview => Icons.Material.Filled.Warning,
         VaultStatus.Failed => Icons.Material.Filled.Cancel,
         VaultStatus.Quarantined => Icons.Material.Filled.Block,
@@ -43,8 +46,8 @@ public static class VaultHelpers
         VaultStageState.Completed => "#5DCAA5",
         VaultStageState.Warning => "#EF9F27",
         VaultStageState.Failed => "#A05050",
-        VaultStageState.Pending => "rgba(255,255,255,0.15)",
-        _ => "rgba(255,255,255,0.15)",
+        VaultStageState.Pending => "#3B3B3B",
+        _ => "#3B3B3B",
     };
 
     /// <summary>Returns the CSS shadow glow for a pipeline stage state.</summary>
@@ -72,15 +75,25 @@ public static class VaultHelpers
     public static string FormatMediaType(string? mediaType) =>
         RegistryHelpers.FormatMediaType(mediaType);
 
-    /// <summary>Converts hex color to rgba string.</summary>
+    /// <summary>Converts hex color to rgba string. Returns fallback for non-hex input.</summary>
     public static string HexToRgba(string hex, double alpha)
     {
+        if (string.IsNullOrEmpty(hex)) return $"rgba(255,255,255,{alpha})";
+        // Already an rgba value — just return it
+        if (hex.StartsWith("rgba", StringComparison.OrdinalIgnoreCase)) return hex;
         hex = hex.TrimStart('#');
         if (hex.Length < 6) return $"rgba(255,255,255,{alpha})";
-        var r = Convert.ToInt32(hex[..2], 16);
-        var g = Convert.ToInt32(hex[2..4], 16);
-        var b = Convert.ToInt32(hex[4..6], 16);
-        return $"rgba({r},{g},{b},{alpha})";
+        try
+        {
+            var r = Convert.ToInt32(hex[..2], 16);
+            var g = Convert.ToInt32(hex[2..4], 16);
+            var b = Convert.ToInt32(hex[4..6], 16);
+            return $"rgba({r},{g},{b},{alpha})";
+        }
+        catch
+        {
+            return $"rgba(255,255,255,{alpha})";
+        }
     }
 
     /// <summary>Formats file size in human-readable form.</summary>

@@ -110,9 +110,18 @@ public sealed class ProviderLookupRequest
     /// <summary>
     /// BCP-47 two-letter language code from server regional settings (e.g. "en", "fr").
     /// Used by <c>ConfigDrivenAdapter</c> as the <c>{lang}</c> URL template variable
-    /// and by <c>WikidataAdapter</c> for search and label language preference.
+    /// and by <c>ReconciliationAdapter</c> for search and label language preference.
     /// </summary>
     public string Language { get; init; } = "en";
+
+    /// <summary>
+    /// BCP-47 two-letter language code detected from the file's embedded metadata
+    /// (e.g. EPUB dc:language, ID3 lang tag, Whisper detection). Used by
+    /// <c>ReconciliationAdapter</c> for multi-language Wikidata search when the
+    /// file's language differs from the configured metadata language.
+    /// Null when no file language was detected.
+    /// </summary>
+    public string? FileLanguage { get; init; }
 
     /// <summary>
     /// ISO 3166-1 alpha-2 country code, lowercased, from server regional settings (e.g. "us", "gb").

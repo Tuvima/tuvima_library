@@ -46,7 +46,7 @@ public class IngestionPipelineTests
     public void ConfigDrivenAdapter_SearchStrategy_BuildsValidUrls()
     {
         var root = FindRepoRoot();
-        var path = Path.Combine(root, "config.example", "providers", "apple_books.json");
+        var path = Path.Combine(root, "config.example", "providers", "apple_api.json");
         var json = File.ReadAllText(path);
         var config = JsonSerializer.Deserialize<ProviderConfiguration>(json, s_jsonOptions)!;
 

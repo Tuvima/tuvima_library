@@ -6,7 +6,7 @@
    with status indicators, RAM/size info, and download/load/unload/delete actions.
    Also shows models directory config and idle-unload settings. *@
 
-<div style="width: 100%; padding: 24px; box-sizing: border-box;">
+<div class="st-page">
 
     @* ── Header ────────────────────────────────────────────────────────── *@
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
@@ -19,7 +19,7 @@
     </MudText>
 
     @* ── Hardware Profile ─────────────────────────────────────────────── *@
-    <MudPaper Class="pa-4 mb-4" Style="background: rgba(255,255,255,0.03); border: 1px solid rgba(201,146,46,0.2); border-radius: 12px;">
+    <MudPaper Class="pa-4 mb-4" Style="background: rgba(255,255,255,0.02); border: 1px solid rgba(201,146,46,0.2); border-radius: 12px;">
         <div class="d-flex align-center justify-space-between mb-3">
             <MudText Typo="Typo.h6" Style="color: #C9922E;">Hardware Profile</MudText>
             <MudButton Variant="Variant.Outlined" Color="Color.Warning" Size="Size.Small"
@@ -83,7 +83,7 @@
     </MudPaper>
 
     @* ── Resource Monitor ────────────────────────────────────────────────── *@
-    <MudPaper Class="pa-4 mb-4" Style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px;">
+    <MudPaper Class="pa-4 mb-4" Style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px;">
         <MudText Typo="Typo.subtitle2" Style="font-weight: 600; margin-bottom: 12px;">Resource Monitor</MudText>
         <div class="d-flex gap-6 flex-wrap">
             <div>
@@ -333,8 +333,8 @@
     // ── Styles ────────────────────────────────────────────────────────────────────
 
     private const string ModelCardStyle =
-        "background: rgba(255,255,255,0.04); " +
-        "border: 1px solid rgba(255,255,255,0.08); " +
+        "background: rgba(255,255,255,0.02); " +
+        "border: 1px solid rgba(255,255,255,0.06); " +
         "border-radius: 10px; " +
         "padding: 20px; " +
         "height: 100%;";

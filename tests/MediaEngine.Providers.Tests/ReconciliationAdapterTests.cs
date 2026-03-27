@@ -40,7 +40,7 @@ public sealed class ReconciliationAdapterTests : IDisposable
 
     // ── Reconciliation: single query ─────────────────────────────────────────
 
-    [Fact]
+    [Fact(Skip = "Requires live Wikidata network access. Run locally with: dotnet test --filter Category=Integration")]
     [Trait("Category", "Integration")]
     public async Task Reconcile_Dune_ReturnsQ190159_WithHighScore()
     {
@@ -60,7 +60,7 @@ public sealed class ReconciliationAdapterTests : IDisposable
             $"Expected score >= 90 for Q190159 but got {dune.Score}");
     }
 
-    [Fact]
+    [Fact(Skip = "Requires live Wikidata network access. Run locally with: dotnet test --filter Category=Integration")]
     [Trait("Category", "Integration")]
     public async Task Reconcile_Neuromancer_ReturnsQ662029()
     {
@@ -75,7 +75,7 @@ public sealed class ReconciliationAdapterTests : IDisposable
 
     // ── Reconciliation: batch ─────────────────────────────────────────────────
 
-    [Fact]
+    [Fact(Skip = "Requires live Wikidata network access. Run locally with: dotnet test --filter Category=Integration")]
     [Trait("Category", "Integration")]
     public async Task ReconcileBatch_MultipleQueries_ReturnsAllResults()
     {
@@ -106,7 +106,7 @@ public sealed class ReconciliationAdapterTests : IDisposable
 
     // ── Data Extension: work properties ──────────────────────────────────────
 
-    [Fact]
+    [Fact(Skip = "Requires live Wikidata network access. Run locally with: dotnet test --filter Category=Integration")]
     [Trait("Category", "Integration")]
     public async Task Extend_Q190159_P50_ReturnsFrankHerbert()
     {
@@ -132,7 +132,7 @@ public sealed class ReconciliationAdapterTests : IDisposable
         Assert.NotNull(frankHerbert);
     }
 
-    [Fact]
+    [Fact(Skip = "Requires live Wikidata network access. Run locally with: dotnet test --filter Category=Integration")]
     [Trait("Category", "Integration")]
     public async Task Extend_Q44413_P18_ReturnsCommonsFilename()
     {
@@ -160,7 +160,7 @@ public sealed class ReconciliationAdapterTests : IDisposable
         _output.WriteLine($"  Commons filename: {filename}");
     }
 
-    [Fact]
+    [Fact(Skip = "Requires live Wikidata network access. Run locally with: dotnet test --filter Category=Integration")]
     [Trait("Category", "Integration")]
     public async Task Extend_Q6142591_P527_ReturnsMultipleAuthors()
     {
@@ -188,7 +188,7 @@ public sealed class ReconciliationAdapterTests : IDisposable
 
     // ── Data Extension: instance_of (media type filtering) ───────────────────
 
-    [Fact]
+    [Fact(Skip = "Requires live Wikidata network access. Run locally with: dotnet test --filter Category=Integration")]
     [Trait("Category", "Integration")]
     public async Task Extend_Q190159_P31_ReturnsLiteraryWorkClass()
     {
@@ -226,7 +226,7 @@ public sealed class ReconciliationAdapterTests : IDisposable
 
     // ── SearchAsync (FetchAsync convenience) ─────────────────────────────────
 
-    [Fact]
+    [Fact(Skip = "Requires live Wikidata network access. Run locally with: dotnet test --filter Category=Integration")]
     [Trait("Category", "Integration")]
     public async Task FetchAsync_Dune_ReturnsWikidataQidClaim()
     {
@@ -253,7 +253,7 @@ public sealed class ReconciliationAdapterTests : IDisposable
         Assert.Equal(1.0, qidClaim.Confidence);
     }
 
-    [Fact]
+    [Fact(Skip = "Requires live Wikidata network access. Run locally with: dotnet test --filter Category=Integration")]
     [Trait("Category", "Integration")]
     public async Task SearchAsync_Dune_ReturnsQ190159AsProviderItemId()
     {

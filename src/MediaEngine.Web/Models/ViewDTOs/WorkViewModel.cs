@@ -14,6 +14,7 @@ public sealed class WorkViewModel
     // ── Display helpers ───────────────────────────────────────────────────────
 
     public string  Title          => Canonical("title") ?? $"Untitled ({MediaType})";
+    public string? OriginalTitle  => Canonical("original_title");
 
     /// <summary>
     /// All credited authors/creators. The <c>author</c> canonical value uses

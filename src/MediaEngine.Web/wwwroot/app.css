@@ -17,7 +17,7 @@
 :root {
     --app-glass-bg:           rgba(12, 16, 36, 0.80);
     --app-glass-border:       rgba(255, 255, 255, 0.08);
-    --app-glass-inner-bg:     rgba(255, 255, 255, 0.04);
+    --app-glass-inner-bg:     rgba(255, 255, 255, 0.02);
     --app-glass-inner-border: rgba(255, 255, 255, 0.06);
     --app-text-muted:         rgba(248, 248, 248, 0.50);
     --app-text-soft:          rgba(248, 248, 248, 0.60);
@@ -49,7 +49,7 @@ html {
 
 body {
     margin: 0;
-    background: #060A16;
+    background: #080B14;
     font-family: 'Montserrat', sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -189,6 +189,136 @@ body {
     );
     opacity: 0.14;
     transition: opacity 0.6s ease;
+}
+
+/* ── Vault-standard shared UI components ─────────────────────────────
+   Settings and other management pages use these classes to stay consistent
+   with the Vault's visual language. ------------------------------------ */
+
+/* Section card — replaces MudPaper inline styles */
+.st-card {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 16px;
+}
+
+/* Section card with amber accent border (for primary/featured sections) */
+.st-card--accent {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(201, 146, 46, 0.2);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 16px;
+}
+
+/* Section header label — small caps above a section */
+.st-label {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(248, 248, 248, 0.35);
+    margin-bottom: 4px;
+}
+
+/* Section title — larger heading above content block */
+.st-section-title {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: rgba(248, 248, 248, 0.85);
+    margin-bottom: 4px;
+}
+
+/* Accent section title — golden for featured panels */
+.st-section-title--accent {
+    color: #C9922E;
+}
+
+/* Section body text */
+.st-body {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.82rem;
+    color: rgba(248, 248, 248, 0.5);
+    line-height: 1.5;
+    margin-bottom: 16px;
+}
+
+/* Thin horizontal rule between sections */
+.st-rule {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.04);
+    margin: 16px 0;
+    flex-shrink: 0;
+}
+
+/* Toggle row — label + description on left, control on right */
+.st-toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.st-toggle-row:last-child {
+    border-bottom: none;
+}
+
+.st-toggle-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.st-toggle-name {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: rgba(248, 248, 248, 0.85);
+    margin-bottom: 2px;
+}
+
+.st-toggle-desc {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.78rem;
+    color: rgba(248, 248, 248, 0.45);
+    line-height: 1.4;
+}
+
+/* Settings page outer wrapper */
+.st-page {
+    width: 100%;
+    padding: 24px;
+    box-sizing: border-box;
+}
+
+/* Page heading area */
+.st-page-header {
+    margin-bottom: 24px;
+}
+
+.st-page-title {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: rgba(248, 248, 248, 0.92);
+    margin: 0 0 4px 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.st-page-subtitle {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.82rem;
+    color: rgba(248, 248, 248, 0.4);
+    margin: 0;
+    line-height: 1.5;
 }
 
 /* ── Blazor error boundary ───────────────────────────────────────────── */

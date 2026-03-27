@@ -1,0 +1,1136 @@
+@using MediaEngine.Web.Models.ViewDTOs
+@namespace MediaEngine.Web.Components.Vault
+
+@* ── Backdrop ── *@
+<div class="vdd-backdrop" @onclick="OnClose"></div>
+
+@* ── Drawer Panel ── *@
+<div class="vdd-drawer" @onclick:stopPropagation="true">
+
+    @* ── 1. Pinned Header ── *@
+    <div class="vdd-header">
+        <MudIconButton Icon="@Icons.Material.Outlined.Close"
+                       Size="Size.Small"
+                       Style="position:absolute;top:24px;right:24px;color:rgba(255,255,255,0.5);"
+                       OnClick="OnClose" />
+
+        @if (MediaItem is not null)
+        {
+            @* ── Media Header ── *@
+            <div class="vdd-header-content">
+                <div class="vdd-thumb-wrap">
+                    @if (!string.IsNullOrEmpty(MediaItem.CoverUrl))
+                    {
+                        <img src="@MediaItem.CoverUrl" alt="" class="vdd-thumb-img" loading="lazy" />
+                    }
+                    else
+                    {
+                        <MudIcon Icon="@Icons.Material.Outlined.Image" Style="font-size: 48px; color: rgba(255,255,255,0.1);" />
+                    }
+                </div>
+                <div class="vdd-header-info">
+                    <div class="vdd-badges">
+                        <StatusPill Status="@MediaItem.VaultDisplayStatus" QuarantineDays="@MediaItem.QuarantineDays" />
+                        @if (!string.IsNullOrEmpty(MediaItem.WikidataQid))
+                        {
+                            <a href="https://www.wikidata.org/wiki/@MediaItem.WikidataQid" target="_blank" rel="noopener" class="vdd-qid-badge">
+                                <MudIcon Icon="@Icons.Material.Outlined.Public" Style="font-size: 11px;" />
+                                @MediaItem.WikidataQid
+                            </a>
+                        }
+                    </div>
+                    <h2 class="vdd-title">@MediaItem.Title</h2>
+                    <p class="vdd-subtitle">@(MediaItem.Author?.ToUpperInvariant() ?? "UNKNOWN")</p>
+                    <div class="vdd-meta">
+                        <span class="vdd-meta-item">
+                            <MudIcon Icon="@VaultHelpers.GetMediaTypeIcon(MediaItem.MediaType)" Style="font-size: 14px; opacity: 0.5;" />
+                            @VaultHelpers.FormatMediaType(MediaItem.MediaType)
+                        </span>
+                        @if (!string.IsNullOrEmpty(MediaItem.Year))
+                        {
+                            <span class="vdd-meta-item">@MediaItem.Year</span>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+        else if (Person is not null)
+        {
+            @* ── Person Header ── *@
+            <div class="vdd-header-content">
+                <div class="vdd-avatar-round">
+                    @if (!string.IsNullOrEmpty(Person.HeadshotUrl))
+                    {
+                        <img src="@Person.HeadshotUrl" alt="" class="vdd-avatar-img" />
+                    }
+                    else
+                    {
+                        <MudIcon Icon="@Icons.Material.Outlined.Person" Style="font-size: 48px; color: rgba(255,255,255,0.1);" />
+                    }
+                </div>
+                <div class="vdd-header-info">
+                    <div class="vdd-badges">
+                        @foreach (var role in (Person.Role ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                        {
+                            <span class="vdd-role-chip">@role.ToUpperInvariant()</span>
+                        }
+                        @if (!string.IsNullOrEmpty(Person.WikidataQid))
+                        {
+                            <a href="https://www.wikidata.org/wiki/@Person.WikidataQid" target="_blank" rel="noopener" class="vdd-qid-badge">
+                                <MudIcon Icon="@Icons.Material.Outlined.OpenInNew" Style="font-size: 11px;" />
+                                @Person.WikidataQid
+                            </a>
+                        }
+                    </div>
+                    <h2 class="vdd-title">@Person.Name</h2>
+                    <p class="vdd-subtitle-italic">@Person.Biography</p>
+                </div>
+            </div>
+        }
+        else if (Universe is not null)
+        {
+            @* ── Universe Header ── *@
+            <div class="vdd-header-content">
+                <div class="vdd-universe-icon">
+                    <MudIcon Icon="@Icons.Material.Outlined.Public" Style="font-size: 48px; color: #A78BFA;" />
+                </div>
+                <div class="vdd-header-info">
+                    <div class="vdd-badges">
+                        <StatusPill Status="VaultStatus.Verified" />
+                    </div>
+                    <h2 class="vdd-title">@Universe.DisplayName</h2>
+                    <p class="vdd-subtitle-italic">@Universe.Description</p>
+                </div>
+            </div>
+        }
+    </div>
+
+    @* ── 2. Scrollable Body ── *@
+    <div class="vdd-body">
+        @if (MediaItem is not null)
+        {
+            @* ── Media Sections ── *@
+            <DrawerSection Title="Source Details" Icon="@Icons.Material.Outlined.Storage">
+                <div class="vdd-source">
+                    <span class="vdd-location-badge @(IsInLibrary ? "vdd-location--library" : "vdd-location--staging")">
+                        @(IsInLibrary ? "Library" : "Staging") Folder
+                    </span>
+                    <div class="vdd-file-block">
+                        <span class="vdd-field-label">File Identity</span>
+                        <p class="vdd-file-name">@(MediaItem.FileName ?? "Unknown")</p>
+                    </div>
+                    @if (MediaItem.FileSizeBytes.HasValue)
+                    {
+                        <div class="vdd-field-row">
+                            <span class="vdd-field-label">Size</span>
+                            <span class="vdd-field-value">@VaultHelpers.FormatFileSize(MediaItem.FileSizeBytes)</span>
+                        </div>
+                    }
+                </div>
+            </DrawerSection>
+
+            <DrawerSection Title="Pipeline" Icon="@Icons.Material.Outlined.AccountTree"
+                           HasProblem="@(MediaItem.VaultDisplayStatus is VaultStatus.NeedsReview or VaultStatus.Failed)"
+                           DefaultOpen="@(MediaItem.VaultDisplayStatus != VaultStatus.Verified)">
+                <div class="vdd-pipeline">
+                    @* Retail Stage *@
+                    <div class="vdd-stage-block">
+                        <div class="vdd-stage-header">
+                            <span class="vdd-stage-label">Retail Stage</span>
+                            <div class="vdd-stage-actions">
+                                @if (MediaItem.RetailMatch is not "none" and not "" && MediaItem.RetailMatch is not null)
+                                {
+                                    <button class="vdd-unmatch-btn" @onclick="HandleUnmatchRetail">Unmatch</button>
+                                }
+                                <span class="vdd-stage-status" style="color: @VaultHelpers.GetStageColor(MediaItem.Stage1.State); border-color: @(VaultHelpers.HexToRgba(VaultHelpers.GetStageColor(MediaItem.Stage1.State), 0.2));">
+                                    @MediaItem.Stage1.Label
+                                </span>
+                            </div>
+                        </div>
+                        @if (MediaItem.RetailMatch is not "none" and not "" && MediaItem.RetailMatch is not null)
+                        {
+                            <div class="vdd-match-card">
+                                <div class="vdd-match-info">
+                                    <span class="vdd-field-label">Retail Match</span>
+                                    <span class="vdd-match-value">@MediaItem.RetailMatch</span>
+                                </div>
+                                <span class="vdd-match-tag vdd-match-tag--provider">Provider</span>
+                            </div>
+                            @if (MediaItem.Confidence > 0)
+                            {
+                                <div class="vdd-match-card">
+                                    <div class="vdd-match-info">
+                                        <span class="vdd-field-label">Confidence Score</span>
+                                        <span class="vdd-match-value">@((MediaItem.Confidence * 100).ToString("F0"))%</span>
+                                    </div>
+                                    <span class="vdd-match-tag" style="color: @VaultHelpers.GetConfidenceColor(MediaItem.Confidence);">AI</span>
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <p class="vdd-stage-hint">Awaiting retail provider match. Use the providers below to search manually.</p>
+                            <div class="vdd-provider-chips">
+                                @foreach (var provider in VaultHelpers.GetProviderButtons(MediaItem.MediaType))
+                                {
+                                    <button class="vdd-provider-chip">@provider</button>
+                                }
+                            </div>
+                        }
+                    </div>
+
+                    @* Wikidata Stage *@
+                    <div class="vdd-stage-block">
+                        <div class="vdd-stage-header">
+                            <span class="vdd-stage-label">Wikidata Stage</span>
+                            <div class="vdd-stage-actions">
+                                @if (!string.IsNullOrEmpty(MediaItem.WikidataQid))
+                                {
+                                    <button class="vdd-unmatch-btn" @onclick="HandleUnmatchWikidata">Unmatch</button>
+                                }
+                                <span class="vdd-stage-status" style="color: @VaultHelpers.GetStageColor(MediaItem.Stage2.State); border-color: @(VaultHelpers.HexToRgba(VaultHelpers.GetStageColor(MediaItem.Stage2.State), 0.2));">
+                                    @MediaItem.Stage2.Label
+                                </span>
+                            </div>
+                        </div>
+                        @if (!string.IsNullOrEmpty(MediaItem.WikidataQid))
+                        {
+                            <div class="vdd-qid-result">
+                                <MudIcon Icon="@Icons.Material.Outlined.Public" Style="font-size: 14px; color: #A78BFA;" />
+                                <span>Linked: @MediaItem.WikidataQid</span>
+                            </div>
+                            @if (MediaItem.WikidataMatch is not "none" and not "" && MediaItem.WikidataMatch is not null)
+                            {
+                                <div class="vdd-match-card">
+                                    <div class="vdd-match-info">
+                                        <span class="vdd-field-label">Wikidata Match</span>
+                                        <span class="vdd-match-value">@MediaItem.WikidataMatch</span>
+                                    </div>
+                                    <span class="vdd-match-tag vdd-match-tag--authority">Authority</span>
+                                </div>
+                            }
+                        }
+                        else if (MediaItem.RetailMatch is not "none" and not "" && MediaItem.RetailMatch is not null)
+                        {
+                            <p class="vdd-stage-hint">Retail matched — search Wikidata to complete authority linking.</p>
+                        }
+                        else
+                        {
+                            <p class="vdd-stage-hint">Complete Stage 1 first to enable Wikidata linking.</p>
+                        }
+                    </div>
+
+                    @* Universe Stage *@
+                    <div class="vdd-stage-block">
+                        <div class="vdd-stage-header">
+                            <span class="vdd-stage-label">Universe Stage</span>
+                            <span class="vdd-stage-status" style="color: @VaultHelpers.GetStageColor(MediaItem.Stage3.State); border-color: @(VaultHelpers.HexToRgba(VaultHelpers.GetStageColor(MediaItem.Stage3.State), 0.2));">
+                                @MediaItem.Stage3.Label
+                            </span>
+                        </div>
+                        @if (!string.IsNullOrEmpty(MediaItem.UniverseName))
+                        {
+                            <span class="vdd-universe-link">@MediaItem.UniverseName</span>
+                        }
+                    </div>
+
+                    <p class="vdd-cascade-note">Unmatching Stage 1 (Retail) will also clear Stage 2 (Wikidata).</p>
+                </div>
+            </DrawerSection>
+
+            <DrawerSection Title="Assets &amp; Imagery" Icon="@Icons.Material.Outlined.Image" DefaultOpen="false">
+                <div class="vdd-assets">
+                    @* Cover Art *@
+                    <div class="vdd-asset-row">
+                        <span class="vdd-asset-label">Cover Art</span>
+                        <div class="vdd-asset-items">
+                            @if (!string.IsNullOrEmpty(MediaItem.CoverUrl))
+                            {
+                                <div class="vdd-asset-filled">
+                                    <img src="@MediaItem.CoverUrl" alt="Cover" class="vdd-asset-img" />
+                                    <span class="vdd-asset-source">Provider</span>
+                                </div>
+                            }
+                            <div class="vdd-asset-slot">
+                                <MudIcon Icon="@Icons.Material.Outlined.Add" Style="font-size: 16px; color: rgba(255,255,255,0.15);" />
+                                <span class="vdd-asset-upload">Custom</span>
+                            </div>
+                        </div>
+                    </div>
+                    @* Hero Banner *@
+                    <div class="vdd-asset-row">
+                        <span class="vdd-asset-label">Hero Banner</span>
+                        <div class="vdd-asset-items">
+                            @if (!string.IsNullOrEmpty(MediaItem.HeroUrl))
+                            {
+                                <div class="vdd-asset-filled vdd-asset-filled--wide">
+                                    <img src="@MediaItem.HeroUrl" alt="Hero" class="vdd-asset-img" />
+                                    <span class="vdd-asset-source">Generated</span>
+                                </div>
+                            }
+                            <div class="vdd-asset-slot">
+                                <MudIcon Icon="@Icons.Material.Outlined.Add" Style="font-size: 16px; color: rgba(255,255,255,0.15);" />
+                                <span class="vdd-asset-upload">Custom</span>
+                            </div>
+                        </div>
+                    </div>
+                    @* Remaining types as upload-only *@
+                    @foreach (var assetType in new[] { "Logo", "Backdrop" })
+                    {
+                        <div class="vdd-asset-row">
+                            <span class="vdd-asset-label">@assetType</span>
+                            <div class="vdd-asset-items">
+                                <div class="vdd-asset-slot">
+                                    <MudIcon Icon="@Icons.Material.Outlined.Add" Style="font-size: 16px; color: rgba(255,255,255,0.15);" />
+                                    <span class="vdd-asset-upload">Upload</span>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </DrawerSection>
+
+            <DrawerSection Title="Lifecycle" Icon="@Icons.Material.Outlined.Sync">
+                <div class="vdd-lifecycle">
+                    <div class="vdd-lifecycle-card">
+                        <span class="vdd-field-label">State</span>
+                        <div class="vdd-lifecycle-value" style="color: #5DCAA5;">
+                            <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Style="font-size: 14px;" />
+                            SYNCED
+                        </div>
+                    </div>
+                    <div class="vdd-lifecycle-card">
+                        <span class="vdd-field-label">Added</span>
+                        <span class="vdd-lifecycle-value vdd-mono">@MediaItem.CreatedAt.ToString("MMM dd, HH:mm")</span>
+                    </div>
+                </div>
+            </DrawerSection>
+        }
+        else if (Person is not null)
+        {
+            @* ── Person Sections ── *@
+            <DrawerSection Title="Library Presence" Icon="@Icons.Material.Outlined.LibraryBooks">
+                <p class="vdd-empty-hint">Works by this person will appear here once linked.</p>
+            </DrawerSection>
+
+            <DrawerSection Title="Linked Identities" Icon="@Icons.Material.Outlined.Fingerprint">
+                <div class="vdd-identities">
+                    <div class="vdd-identity-group">
+                        <span class="vdd-field-label">Known As</span>
+                        <div class="vdd-identity-items">
+                            <div class="vdd-identity-item">
+                                <MudIcon Icon="@Icons.Material.Outlined.Person" Style="font-size: 14px; color: rgba(255,255,255,0.3);" />
+                                <span>@Person.Name</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="vdd-identity-group" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.04);">
+                        <span class="vdd-field-label">Pen Names / Pseudonyms</span>
+                        <p class="vdd-empty-hint">Pen name resolution will appear here when available from Wikidata.</p>
+                    </div>
+                </div>
+            </DrawerSection>
+
+            <DrawerSection Title="Assets &amp; Imagery" Icon="@Icons.Material.Outlined.Image" DefaultOpen="false">
+                <div class="vdd-assets">
+                    @* Headshot *@
+                    <div class="vdd-asset-row">
+                        <span class="vdd-asset-label">Headshot</span>
+                        <div class="vdd-asset-items">
+                            @if (!string.IsNullOrEmpty(Person.HeadshotUrl))
+                            {
+                                <div class="vdd-asset-filled">
+                                    <img src="@Person.HeadshotUrl" alt="Headshot" class="vdd-asset-img" />
+                                    <span class="vdd-asset-source">Provider</span>
+                                </div>
+                            }
+                            <div class="vdd-asset-slot">
+                                <MudIcon Icon="@Icons.Material.Outlined.Add" Style="font-size: 16px; color: rgba(255,255,255,0.15);" />
+                                <span class="vdd-asset-upload">Custom</span>
+                            </div>
+                        </div>
+                    </div>
+                    @* Remaining types as upload-only *@
+                    @foreach (var assetType in new[] { "Banner", "Logo", "Backdrop" })
+                    {
+                        <div class="vdd-asset-row">
+                            <span class="vdd-asset-label">@assetType</span>
+                            <div class="vdd-asset-items">
+                                <div class="vdd-asset-slot">
+                                    <MudIcon Icon="@Icons.Material.Outlined.Add" Style="font-size: 16px; color: rgba(255,255,255,0.15);" />
+                                    <span class="vdd-asset-upload">Upload</span>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </DrawerSection>
+
+            <DrawerSection Title="Lifecycle" Icon="@Icons.Material.Outlined.CalendarToday">
+                <div class="vdd-lifecycle">
+                    <div class="vdd-lifecycle-card" style="flex: 1;">
+                        <span class="vdd-field-label">Last Sync</span>
+                        <span class="vdd-lifecycle-value vdd-mono">Auto-managed</span>
+                    </div>
+                </div>
+            </DrawerSection>
+        }
+        else if (Universe is not null)
+        {
+            @* ── Universe Sections ── *@
+            <DrawerSection Title="Universe Content" Icon="@Icons.Material.Outlined.Layers">
+                <div class="vdd-universe-content">
+                    @if (Universe.WorkCount > 0)
+                    {
+                        <p class="vdd-field-value">@Universe.WorkCount works across @(Universe.MediaTypes ?? "various media types")</p>
+                    }
+                    else
+                    {
+                        <p class="vdd-empty-hint">No series linked to this universe yet.</p>
+                    }
+                </div>
+            </DrawerSection>
+
+            <DrawerSection Title="Notable People" Icon="@Icons.Material.Outlined.People">
+                <p class="vdd-empty-hint">People associated with this universe will appear here.</p>
+            </DrawerSection>
+
+            <DrawerSection Title="Assets &amp; Imagery" Icon="@Icons.Material.Outlined.Image" DefaultOpen="false">
+                <div class="vdd-assets">
+                    @foreach (var assetType in _assetTypes)
+                    {
+                        <div class="vdd-asset-row">
+                            <span class="vdd-asset-label">@assetType</span>
+                            <div class="vdd-asset-slot">
+                                <MudIcon Icon="@Icons.Material.Outlined.Image" Style="font-size: 20px; color: rgba(255,255,255,0.08);" />
+                                <span class="vdd-asset-upload">Upload</span>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </DrawerSection>
+        }
+    </div>
+
+    @* ── 3. Pinned Footer (Media only) ── *@
+    @if (MediaItem is not null)
+    {
+        <div class="vdd-footer">
+            <button class="vdd-purge-btn @(_confirmPurge ? "vdd-purge-btn--confirm" : "")"
+                    @onclick="HandlePurge">
+                @if (_confirmPurge)
+                {
+                    <span>Confirm Purge?</span>
+                }
+                else
+                {
+                    <MudIcon Icon="@Icons.Material.Outlined.DeleteForever" Style="font-size: 16px;" />
+                    <span>Purge Record</span>
+                }
+            </button>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public VaultItemViewModel? MediaItem { get; set; }
+    [Parameter] public PersonListItemDto? Person { get; set; }
+    [Parameter] public HubViewModel? Universe { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback<Guid> OnPurge { get; set; }
+    [Parameter] public EventCallback<Guid> OnUnmatchRetail { get; set; }
+    [Parameter] public EventCallback<Guid> OnUnmatchWikidata { get; set; }
+
+    private bool _confirmPurge;
+    private static readonly string[] _assetTypes = ["Cover Art", "Headshot", "Banner", "Logo", "Backdrop"];
+
+    private bool IsInLibrary => MediaItem?.Status?.Equals("Confirmed", StringComparison.OrdinalIgnoreCase) == true
+                             || MediaItem?.VaultDisplayStatus == VaultStatus.Verified;
+
+    private async Task HandleUnmatchRetail()
+    {
+        if (MediaItem is not null)
+            await OnUnmatchRetail.InvokeAsync(MediaItem.EntityId);
+    }
+
+    private async Task HandleUnmatchWikidata()
+    {
+        if (MediaItem is not null)
+            await OnUnmatchWikidata.InvokeAsync(MediaItem.EntityId);
+    }
+
+    private async Task HandlePurge()
+    {
+        if (_confirmPurge && MediaItem is not null)
+        {
+            await OnPurge.InvokeAsync(MediaItem.EntityId);
+            _confirmPurge = false;
+        }
+        else
+        {
+            _confirmPurge = true;
+        }
+    }
+}
+
+<style>
+    /* ── Backdrop ── */
+    .vdd-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.8);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        z-index: 10000;
+        animation: vdd-fade-in 0.2s ease;
+    }
+
+    @@keyframes vdd-fade-in {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    /* ── Drawer panel ── */
+    .vdd-drawer {
+        position: fixed;
+        top: 0;
+        right: 0;
+        width: 36rem;
+        height: 100%;
+        background: #0d0f12;
+        border-left: 1px solid rgba(255, 255, 255, 0.06);
+        z-index: 10001;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 0 80px rgba(0, 0, 0, 0.9);
+        animation: vdd-slide-in 0.4s ease;
+    }
+
+    @@keyframes vdd-slide-in {
+        from { transform: translateX(100%); }
+        to { transform: translateX(0); }
+    }
+
+    /* ── Header ── */
+    .vdd-header {
+        padding: 32px 24px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        background: rgba(255, 255, 255, 0.01);
+        flex-shrink: 0;
+        position: relative;
+    }
+
+    .vdd-header-content {
+        display: flex;
+        gap: 24px;
+        align-items: flex-start;
+    }
+
+    .vdd-thumb-wrap {
+        width: 128px;
+        min-height: 128px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .vdd-thumb-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .vdd-avatar-round {
+        width: 128px;
+        height: 128px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .vdd-avatar-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .vdd-universe-icon {
+        width: 128px;
+        height: 128px;
+        border-radius: 16px;
+        background: rgba(167, 139, 250, 0.08);
+        border: 1px solid rgba(167, 139, 250, 0.15);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .vdd-header-info {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+
+    .vdd-badges {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+    }
+
+    .vdd-qid-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 9px;
+        font-weight: 800;
+        text-transform: uppercase;
+        color: #A78BFA;
+        background: rgba(167, 139, 250, 0.1);
+        border: 1px solid rgba(167, 139, 250, 0.2);
+        padding: 2px 8px;
+        border-radius: 6px;
+        text-decoration: none;
+        transition: background 0.15s;
+    }
+
+    .vdd-qid-badge:hover {
+        background: rgba(167, 139, 250, 0.2);
+    }
+
+    .vdd-role-chip {
+        font-size: 9px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #60A5FA;
+        background: rgba(96, 165, 250, 0.1);
+        border: 1px solid rgba(96, 165, 250, 0.2);
+        padding: 2px 8px;
+        border-radius: 6px;
+    }
+
+    .vdd-title {
+        font-size: 24px;
+        font-weight: 900;
+        color: white;
+        line-height: 1.2;
+        letter-spacing: -0.02em;
+        margin: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        padding-right: 48px;
+    }
+
+    .vdd-subtitle {
+        font-size: 11px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: rgba(255, 255, 255, 0.35);
+        margin-top: 4px;
+    }
+
+    .vdd-subtitle-italic {
+        font-size: 11px;
+        font-style: italic;
+        color: rgba(255, 255, 255, 0.4);
+        margin-top: 4px;
+        max-width: 300px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .vdd-meta {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-top: 8px;
+    }
+
+    .vdd-meta-item {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: rgba(255, 255, 255, 0.35);
+    }
+
+    /* ── Body ── */
+    .vdd-body {
+        flex: 1;
+        overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(255,255,255,0.1) transparent;
+    }
+
+    /* ── Source details ── */
+    .vdd-source {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .vdd-location-badge {
+        display: inline-block;
+        width: fit-content;
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: 10px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .vdd-location--library {
+        background: rgba(93, 202, 165, 0.1);
+        color: #5DCAA5;
+        border: 1px solid rgba(93, 202, 165, 0.2);
+    }
+
+    .vdd-location--staging {
+        background: rgba(239, 159, 39, 0.1);
+        color: #EF9F27;
+        border: 1px solid rgba(239, 159, 39, 0.2);
+    }
+
+    .vdd-file-block {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .vdd-file-name {
+        font-size: 10px;
+        font-family: 'JetBrains Mono', 'Cascadia Code', monospace;
+        color: rgba(255, 255, 255, 0.5);
+        background: rgba(0, 0, 0, 0.3);
+        border: 1px solid rgba(255, 255, 255, 0.04);
+        border-radius: 8px;
+        padding: 10px 12px;
+        word-break: break-all;
+        margin: 0;
+    }
+
+    .vdd-field-label {
+        font-size: 8px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: rgba(255, 255, 255, 0.25);
+    }
+
+    .vdd-field-value {
+        font-size: 11px;
+        font-weight: 700;
+        color: white;
+    }
+
+    .vdd-field-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    /* ── Match cards ── */
+    .vdd-match-card {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px;
+        background: rgba(0, 0, 0, 0.3);
+        border: 1px solid rgba(255, 255, 255, 0.04);
+        border-radius: 12px;
+    }
+
+    .vdd-match-info {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .vdd-match-value {
+        font-size: 11px;
+        font-weight: 700;
+        color: white;
+    }
+
+    .vdd-match-tag {
+        font-size: 10px;
+        font-weight: 800;
+        text-transform: uppercase;
+    }
+
+    .vdd-match-tag--provider {
+        color: #60A5FA;
+    }
+
+    .vdd-match-tag--authority {
+        color: #A78BFA;
+    }
+
+    .vdd-empty-hint {
+        font-size: 11px;
+        font-style: italic;
+        color: rgba(255, 255, 255, 0.25);
+        margin: 0;
+    }
+
+    /* ── Assets ── */
+    .vdd-assets {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    .vdd-asset-row {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .vdd-asset-label {
+        font-size: 9px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: rgba(255, 255, 255, 0.3);
+    }
+
+    .vdd-asset-slot {
+        width: 128px;
+        aspect-ratio: 16 / 9;
+        border-radius: 12px;
+        border: 2px dashed rgba(255, 255, 255, 0.06);
+        background: rgba(0, 0, 0, 0.2);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        cursor: pointer;
+        transition: border-color 0.15s, background 0.15s;
+    }
+
+    .vdd-asset-slot:hover {
+        border-color: rgba(255, 255, 255, 0.15);
+        background: rgba(255, 255, 255, 0.02);
+    }
+
+    .vdd-asset-upload {
+        font-size: 7px;
+        font-weight: 800;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.2);
+    }
+
+    .vdd-asset-items {
+        display: flex;
+        gap: 8px;
+        align-items: flex-start;
+        overflow-x: auto;
+    }
+
+    .vdd-asset-filled {
+        width: 80px;
+        aspect-ratio: 2 / 3;
+        border-radius: 8px;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        position: relative;
+        flex-shrink: 0;
+    }
+
+    .vdd-asset-filled--wide {
+        width: 160px;
+        aspect-ratio: 16 / 9;
+    }
+
+    .vdd-asset-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .vdd-asset-source {
+        position: absolute;
+        bottom: 4px;
+        left: 4px;
+        font-size: 7px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        padding: 1px 4px;
+        border-radius: 3px;
+        background: rgba(0, 0, 0, 0.7);
+        color: rgba(255, 255, 255, 0.6);
+    }
+
+    /* ── Pipeline ── */
+    .vdd-pipeline {
+        display: flex;
+        flex-direction: column;
+        gap: 32px;
+    }
+
+    .vdd-stage-block {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .vdd-stage-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        padding-bottom: 8px;
+    }
+
+    .vdd-stage-label {
+        font-size: 10px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: white;
+    }
+
+    .vdd-stage-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .vdd-stage-status {
+        font-size: 9px;
+        font-weight: 800;
+        padding: 2px 8px;
+        border-radius: 4px;
+        border: 1px solid;
+    }
+
+    .vdd-stage-hint {
+        font-size: 10px;
+        color: rgba(255, 255, 255, 0.35);
+        font-style: italic;
+        margin: 0;
+    }
+
+    .vdd-provider-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 4px;
+    }
+
+    .vdd-provider-chip {
+        font-size: 9px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        padding: 6px 12px;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.02);
+        color: rgba(255, 255, 255, 0.5);
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+
+    .vdd-provider-chip:hover {
+        background: rgba(96, 165, 250, 0.1);
+        border-color: rgba(96, 165, 250, 0.3);
+        color: #60A5FA;
+    }
+
+    .vdd-unmatch-btn {
+        font-size: 8px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        padding: 3px 10px;
+        border-radius: 4px;
+        border: 1px solid rgba(160, 80, 80, 0.3);
+        background: rgba(160, 80, 80, 0.1);
+        color: #A05050;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+
+    .vdd-unmatch-btn:hover {
+        background: rgba(160, 80, 80, 0.2);
+    }
+
+    .vdd-cascade-note {
+        font-size: 9px;
+        font-style: italic;
+        color: rgba(255, 255, 255, 0.18);
+        margin: 0;
+        text-align: center;
+        padding-top: 4px;
+    }
+
+    .vdd-qid-result {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 11px;
+        font-weight: 700;
+        color: #A78BFA;
+    }
+
+    .vdd-universe-link {
+        font-size: 11px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #A78BFA;
+    }
+
+    /* ── Lifecycle ── */
+    .vdd-lifecycle {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+    }
+
+    .vdd-lifecycle-card {
+        padding: 12px;
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid rgba(255, 255, 255, 0.04);
+        border-radius: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .vdd-lifecycle-value {
+        font-size: 10px;
+        font-weight: 800;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 2px;
+    }
+
+    .vdd-mono {
+        font-family: 'JetBrains Mono', 'Cascadia Code', monospace;
+        color: white;
+    }
+
+    /* ── Identities ── */
+    .vdd-identities {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    .vdd-identity-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .vdd-identity-items {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .vdd-identity-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 11px;
+        font-family: 'JetBrains Mono', 'Cascadia Code', monospace;
+        color: rgba(255, 255, 255, 0.5);
+    }
+
+    /* ── Footer ── */
+    .vdd-footer {
+        padding: 20px 24px;
+        border-top: 1px solid rgba(255, 255, 255, 0.04);
+        background: #0d0f12;
+        flex-shrink: 0;
+    }
+
+    .vdd-purge-btn {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 16px;
+        border-radius: 16px;
+        border: 1px solid rgba(160, 80, 80, 0.2);
+        background: rgba(160, 80, 80, 0.1);
+        color: #A05050;
+        font-size: 10px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+
+    .vdd-purge-btn:hover {
+        background: rgba(160, 80, 80, 0.2);
+    }
+
+    .vdd-purge-btn--confirm {
+        background: #A05050;
+        color: white;
+        border-color: #A05050;
+        animation: vdd-pulse 1s ease infinite;
+    }
+
+    @@keyframes vdd-pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.7; }
+    }
+
+    /* ── Mobile ── */
+    @@media (max-width: 768px) {
+        .vdd-drawer {
+            width: 100%;
+        }
+
+        .vdd-header-content {
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+
+        .vdd-header-info {
+            align-items: center;
+        }
+
+        .vdd-title {
+            padding-right: 0;
+            text-align: center;
+        }
+
+        .vdd-badges {
+            justify-content: center;
+        }
+    }
+</style>

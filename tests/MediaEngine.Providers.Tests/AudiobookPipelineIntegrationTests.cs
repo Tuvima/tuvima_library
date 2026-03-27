@@ -51,7 +51,7 @@ public sealed class AudiobookPipelineIntegrationTests : IDisposable
 
     // ── 1. Wikidata reconciles audiobook title to correct novel QID ───────────
 
-    [Fact]
+    [Fact(Skip = "Requires live Wikidata network access. Run locally with: dotnet test --filter Category=Integration")]
     [Trait("Category", "Integration")]
     public async Task Reconcile_ProjectHailMary_ResolvesCorrectQID()
     {
@@ -74,7 +74,7 @@ public sealed class AudiobookPipelineIntegrationTests : IDisposable
 
     // ── 2. Cleaned title resolves when raw "Unabridged" title is also tested ──
 
-    [Fact]
+    [Fact(Skip = "Requires live Wikidata network access. Run locally with: dotnet test --filter Category=Integration")]
     [Trait("Category", "Integration")]
     public async Task Reconcile_AudiobookWithUnabridgedSuffix_CleanedVersionResolvesWithHigherScore()
     {
@@ -114,7 +114,7 @@ public sealed class AudiobookPipelineIntegrationTests : IDisposable
 
     // ── 3. Data Extension returns author and year from master work QID ────────
 
-    [Fact]
+    [Fact(Skip = "Requires live Wikidata network access. Run locally with: dotnet test --filter Category=Integration")]
     [Trait("Category", "Integration")]
     public async Task DataExtension_MasterWork_ReturnsAuthorAndYear()
     {
@@ -176,7 +176,7 @@ public sealed class AudiobookPipelineIntegrationTests : IDisposable
 
     // ── 5. Apple API audiobook search returns results ─────────────────────────
 
-    [Fact]
+    [Fact(Skip = "Requires live Apple API + apple_api.json config. Run locally with: dotnet test --filter Category=Integration")]
     [Trait("Category", "Integration")]
     public async Task AppleApi_AudiobookSearch_ReturnsResults()
     {
@@ -207,7 +207,7 @@ public sealed class AudiobookPipelineIntegrationTests : IDisposable
 
     // ── 6. Apple API ebook search returns results ─────────────────────────────
 
-    [Fact]
+    [Fact(Skip = "Requires live Apple API + apple_api.json config. Run locally with: dotnet test --filter Category=Integration")]
     [Trait("Category", "Integration")]
     public async Task AppleApi_EbookSearch_ReturnsResultsForSameBook()
     {
@@ -238,7 +238,7 @@ public sealed class AudiobookPipelineIntegrationTests : IDisposable
 
     // ── 7. Multiple authors resolved from Wikidata (Good Omens) ──────────────
 
-    [Fact]
+    [Fact(Skip = "Requires live Wikidata network access. Run locally with: dotnet test --filter Category=Integration")]
     [Trait("Category", "Integration")]
     public async Task DataExtension_GoodOmens_ReturnsTwoAuthors()
     {
@@ -295,7 +295,7 @@ public sealed class AudiobookPipelineIntegrationTests : IDisposable
 
     // ── 8. Pen name detection: The Expanse / James S.A. Corey ────────────────
 
-    [Fact]
+    [Fact(Skip = "Requires live Wikidata network access. Run locally with: dotnet test --filter Category=Integration")]
     [Trait("Category", "Integration")]
     public async Task Reconcile_TheExpanse_ResolvesPenName()
     {
@@ -335,7 +335,7 @@ public sealed class AudiobookPipelineIntegrationTests : IDisposable
 
     // ── 9. FilterByMediaType: Dune novel passes Books and Audiobooks filters ──
 
-    [Fact]
+    [Fact(Skip = "Requires live Wikidata network access. Run locally with: dotnet test --filter Category=Integration")]
     [Trait("Category", "Integration")]
     public async Task FilterByMediaType_DuneNovel_PassesBookAndAudiobookFilter()
     {
@@ -373,7 +373,7 @@ public sealed class AudiobookPipelineIntegrationTests : IDisposable
 
     // ── 10. Non-English title — Data Extension returns English labels ─────────
 
-    [Fact]
+    [Fact(Skip = "Requires live Wikidata network access. Run locally with: dotnet test --filter Category=Integration")]
     [Trait("Category", "Integration")]
     public async Task DataExtension_WithEnglishLanguage_ReturnsEnglishLabels()
     {
@@ -412,7 +412,7 @@ public sealed class AudiobookPipelineIntegrationTests : IDisposable
 
     // ── 11. Same book EPUB vs M4B — both resolve to same master QID ──────────
 
-    [Fact]
+    [Fact(Skip = "Requires live Wikidata network access. Run locally with: dotnet test --filter Category=Integration")]
     [Trait("Category", "Integration")]
     public async Task Reconcile_SameBookDifferentMediaTypes_SameMasterQID()
     {
@@ -443,7 +443,7 @@ public sealed class AudiobookPipelineIntegrationTests : IDisposable
 
     // ── 12. FetchAsync as Audiobooks — returns wikidata_qid claim ─────────────
 
-    [Fact]
+    [Fact(Skip = "Requires live Wikidata network access. Run locally with: dotnet test --filter Category=Integration")]
     [Trait("Category", "Integration")]
     public async Task FetchAsync_Audiobook_ReturnsWikidataQidClaim()
     {
@@ -495,7 +495,7 @@ public sealed class AudiobookPipelineIntegrationTests : IDisposable
 
     // ── 14. Long title with subtitle resolves correctly ───────────────────────
 
-    [Fact]
+    [Fact(Skip = "Requires live Wikidata network access. Run locally with: dotnet test --filter Category=Integration")]
     [Trait("Category", "Integration")]
     public async Task Reconcile_LongTitleWithSubtitle_StillResolves()
     {
@@ -521,7 +521,7 @@ public sealed class AudiobookPipelineIntegrationTests : IDisposable
 
     // ── 15. Apple API — same request with SearchAsync returns title-filled results
 
-    [Fact]
+    [Fact(Skip = "Requires live Apple API + apple_api.json config. Run locally with: dotnet test --filter Category=Integration")]
     [Trait("Category", "Integration")]
     public async Task AppleApi_AudiobookSearchAsync_ReturnsResultsWithCollectionName()
     {

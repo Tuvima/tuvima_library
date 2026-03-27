@@ -2135,6 +2135,18 @@ public sealed class EngineApiClient : IEngineApiClient
     }
 
     /// <inheritdoc/>
+    public async Task<Dictionary<string, int>> GetRegistryTypeCountsAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            var response = await _http.GetAsync("registry/type-counts", ct);
+            if (!response.IsSuccessStatusCode) return new();
+            return await response.Content.ReadFromJsonAsync<Dictionary<string, int>>(cancellationToken: ct) ?? new();
+        }
+        catch { return new(); }
+    }
+
+    /// <inheritdoc/>
     public async Task<IReadOnlyList<IngestionBatchViewModel>> GetIngestionBatchesAsync(
         int limit = 20, CancellationToken ct = default)
     {

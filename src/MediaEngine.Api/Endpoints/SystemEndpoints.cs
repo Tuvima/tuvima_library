@@ -28,7 +28,7 @@ public static class SystemEndpoints
             {
                 Status   = "ok",
                 Version  = AppVersion,
-                Language = core?.Language ?? "en",
+                Language = core?.Language.Metadata ?? "en",
             });
         })
         .WithTags("System")

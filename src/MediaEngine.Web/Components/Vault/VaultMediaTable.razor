@@ -52,9 +52,7 @@ else
     [Parameter] public List<VaultItemViewModel> Items { get; set; } = [];
     [Parameter] public string GroupBy { get; set; } = "none";
     [Parameter] public bool Loading { get; set; }
-    [Parameter] public EventCallback<Guid> OnResolveClicked { get; set; }
-    [Parameter] public EventCallback<Guid> OnDeleteClicked { get; set; }
-    [Parameter] public EventCallback<Guid> OnMoreClicked { get; set; }
+    [Parameter] public EventCallback<Guid> OnRowClicked { get; set; }
 
     private readonly Dictionary<string, bool> _expandedGroups = new();
 
@@ -63,43 +61,52 @@ else
         <table class="vmt-table">
             <thead>
                 <tr class="vmt-thead-row">
-                    <th class="vmt-th" style="width: 30%; padding-left: 24px;">Media Item</th>
-                    <th class="vmt-th vmt-th--center" style="width: 12%;">Pipeline</th>
-                    <th class="vmt-th" style="width: 15%;">Universe</th>
-                    <th class="vmt-th vmt-th--center" style="width: 12%;">Confidence</th>
-                    <th class="vmt-th vmt-th--center" style="width: 15%;">Status</th>
-                    <th class="vmt-th vmt-th--right" style="width: 13%; padding-right: 24px;">Actions</th>
+                    <th class="vmt-th" style="width: 45%; padding-left: 24px;"></th>
+                    <th class="vmt-th vmt-th--center" style="width: 12%;">Pipeline Status</th>
+                    <th class="vmt-th vmt-th--center" style="width: 18%;">Linked Universe</th>
+                    <th class="vmt-th vmt-th--right" style="width: 20%; padding-right: 24px;">Verification</th>
                 </tr>
             </thead>
             <tbody>
                 @foreach (var item in items)
                 {
                     var isQuarantined = item.VaultDisplayStatus == VaultStatus.Quarantined;
-                    var needsAction = item.VaultDisplayStatus is VaultStatus.NeedsReview or VaultStatus.Failed;
-                    <tr class="vmt-row @(isQuarantined ? "vmt-row--quarantined" : "")">
+                    <tr class="vmt-row @(isQuarantined ? "vmt-row--quarantined" : "")"
+                        style="cursor: pointer;"
+                        @onclick="() => OnRowClicked.InvokeAsync(item.EntityId)">
                         @* ── Media Item ── *@
                         <td class="vmt-td" style="padding-left: 24px;">
                             <div class="vmt-media-cell">
-                                <div class="vmt-thumb">
-                                    @if (!string.IsNullOrEmpty(item.CoverUrl))
-                                    {
-                                        <img src="@item.CoverUrl" alt="@item.Title" class="vmt-thumb-img" loading="lazy" />
-                                    }
-                                    else
-                                    {
-                                        <MudIcon Icon="@VaultHelpers.GetMediaTypeIcon(item.MediaType)"
-                                                 Style="font-size: 20px; opacity: 0.25;" />
-                                    }
+                                <div class="vmt-poster-wrap">
+                                    <div class="vmt-thumb" style="width: 48px; min-height: 48px;">
+                                        @if (!string.IsNullOrEmpty(item.CoverUrl))
+                                        {
+                                            <img src="@item.CoverUrl" alt="@item.Title" class="vmt-thumb-img" loading="lazy" />
+                                        }
+                                        else
+                                        {
+                                            <MudIcon Icon="@VaultHelpers.GetMediaTypeIcon(item.MediaType)"
+                                                     Style="font-size: 20px; opacity: 0.25;" />
+                                        }
+                                    </div>
+                                    <div class="vmt-type-badge">
+                                        <MudIcon Icon="@VaultHelpers.GetMediaTypeIcon(item.MediaType)" Style="font-size: 14px;" />
+                                    </div>
                                 </div>
                                 <div class="vmt-media-info">
                                     <p class="vmt-title @(isQuarantined || item.VaultDisplayStatus == VaultStatus.Failed ? "vmt-title--muted" : "")">@item.Title</p>
+                                    @if (!string.IsNullOrEmpty(item.OriginalTitle) && item.OriginalTitle != item.Title)
+                                    {
+                                        <p class="vmt-original-title">@item.OriginalTitle</p>
+                                    }
                                     <p class="vmt-subtitle">@VaultHelpers.FormatMediaType(item.MediaType) @(item.Year is not null ? $"• {item.Year}" : "")</p>
+                                    <p class="vmt-creator">@(item.Author?.ToUpperInvariant() ?? "UNKNOWN")</p>
                                 </div>
                             </div>
                         </td>
 
                         @* ── Pipeline ── *@
-                        <td class="vmt-td">
+                        <td class="vmt-td vmt-td--center">
                             <div class="vmt-pipeline">
                                 <StageGate Stage="@item.Stage1" />
                                 <StageGate Stage="@item.Stage2" />
@@ -108,55 +115,22 @@ else
                         </td>
 
                         @* ── Universe ── *@
-                        <td class="vmt-td">
+                        <td class="vmt-td vmt-td--center">
                             @if (!string.IsNullOrEmpty(item.UniverseName))
                             {
-                                <div class="vmt-universe">
-                                    <MudIcon Icon="@Icons.Material.Outlined.Public" Style="font-size: 12px; color: rgba(96,165,250,0.7);" />
-                                    <span>@item.UniverseName</span>
-                                </div>
+                                <span class="vmt-universe-linked">@item.UniverseName.ToUpperInvariant()</span>
                             }
                             else
                             {
-                                <span class="vmt-standalone">STANDALONE</span>
+                                <span class="vmt-universe-standalone">STANDALONE</span>
                             }
                         </td>
 
-                        @* ── Confidence ── *@
-                        <td class="vmt-td">
-                            <div class="vmt-center">
-                                <ConfidenceBar Confidence="@item.Confidence" />
-                            </div>
-                        </td>
-
-                        @* ── Status ── *@
-                        <td class="vmt-td">
-                            <div class="vmt-center">
+                        @* ── Verification ── *@
+                        <td class="vmt-td vmt-td--right" style="padding-right: 24px;">
+                            <div style="display: flex; justify-content: flex-end;">
                                 <StatusPill Status="@item.VaultDisplayStatus" QuarantineDays="@item.QuarantineDays" />
                             </div>
-                        </td>
-
-                        @* ── Actions ── *@
-                        <td class="vmt-td vmt-td--actions" style="padding-right: 24px;">
-                            @if (needsAction)
-                            {
-                                <button class="vmt-resolve-btn" @onclick="() => OnResolveClicked.InvokeAsync(item.EntityId)">
-                                    Resolve
-                                </button>
-                            }
-                            else
-                            {
-                                <div class="vmt-hover-actions">
-                                    <button class="vmt-icon-btn vmt-icon-btn--delete"
-                                            @onclick="() => OnDeleteClicked.InvokeAsync(item.EntityId)">
-                                        <MudIcon Icon="@Icons.Material.Outlined.Delete" Style="font-size: 16px;" />
-                                    </button>
-                                    <button class="vmt-icon-btn"
-                                            @onclick="() => OnMoreClicked.InvokeAsync(item.EntityId)">
-                                        <MudIcon Icon="@Icons.Material.Outlined.MoreHoriz" Style="font-size: 16px;" />
-                                    </button>
-                                </div>
-                            }
                         </td>
                     </tr>
                 }
@@ -197,14 +171,26 @@ else
         {
             var groups = new List<TableGroup>();
             var verified = Items.Where(i => i.VaultDisplayStatus == VaultStatus.Verified).ToList();
+            var provisional = Items.Where(i => i.VaultDisplayStatus == VaultStatus.Provisional).ToList();
             var review = Items.Where(i => i.VaultDisplayStatus == VaultStatus.NeedsReview).ToList();
             var failed = Items.Where(i => i.VaultDisplayStatus == VaultStatus.Failed).ToList();
             var quarantined = Items.Where(i => i.VaultDisplayStatus == VaultStatus.Quarantined).ToList();
             if (verified.Count > 0) groups.Add(new TableGroup("verified", "Verified", verified));
+            if (provisional.Count > 0) groups.Add(new TableGroup("provisional", "Provisional", provisional));
             if (review.Count > 0) groups.Add(new TableGroup("review", "Needs Review", review));
             if (failed.Count > 0) groups.Add(new TableGroup("failed", "Failed", failed));
             if (quarantined.Count > 0) groups.Add(new TableGroup("quarantined", "Quarantined", quarantined));
             return groups;
+        }
+
+        if (GroupBy == "letter")
+        {
+            var byLetter = Items
+                .GroupBy(i => string.IsNullOrEmpty(i.Title) ? "#" : i.Title[0].ToString().ToUpperInvariant())
+                .OrderBy(g => g.Key)
+                .Select(g => new TableGroup(g.Key, g.Key, g.ToList()))
+                .ToList();
+            return byLetter;
         }
 
         return [new TableGroup("all", "All Items", Items)];
@@ -220,7 +206,7 @@ else
         background: rgba(255, 255, 255, 0.01);
         border: 1px solid rgba(255, 255, 255, 0.05);
         border-radius: 16px;
-        overflow: hidden;
+        overflow: visible;
     }
 
     .vmt-table {
@@ -269,11 +255,11 @@ else
     .vmt-td {
         padding: 16px;
         vertical-align: middle;
+        overflow: visible;
     }
 
-    .vmt-td--actions {
-        text-align: right;
-    }
+    .vmt-td--center { text-align: center; }
+    .vmt-td--right { text-align: right; }
 
     /* ── Media cell ── */
     .vmt-media-cell {
@@ -282,9 +268,13 @@ else
         gap: 16px;
     }
 
+    /* ── Poster wrap (thumb + type badge) ── */
+    .vmt-poster-wrap {
+        position: relative;
+        flex-shrink: 0;
+    }
+
     .vmt-thumb {
-        width: 44px;
-        height: 44px;
         border-radius: 8px;
         overflow: hidden;
         border: 1px solid rgba(255, 255, 255, 0.06);
@@ -293,6 +283,16 @@ else
         display: flex;
         align-items: center;
         justify-content: center;
+        position: relative;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        z-index: 1;
+    }
+
+    .vmt-thumb:hover {
+        transform: scale(2.8);
+        z-index: 50;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.8);
+        border-radius: 8px;
     }
 
     .vmt-thumb-img {
@@ -303,8 +303,26 @@ else
         transition: opacity 0.15s;
     }
 
-    .vmt-row:hover .vmt-thumb-img {
+    .vmt-thumb:hover .vmt-thumb-img {
         opacity: 1;
+    }
+
+    /* ── Media type icon badge ── */
+    .vmt-type-badge {
+        position: absolute;
+        bottom: -4px;
+        right: -6px;
+        width: 22px;
+        height: 22px;
+        border-radius: 6px;
+        background: #14181d;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: rgba(255, 255, 255, 0.6);
+        z-index: 2;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
     }
 
     .vmt-media-info {
@@ -326,6 +344,16 @@ else
         color: rgba(255, 255, 255, 0.4);
     }
 
+    .vmt-original-title {
+        font-size: 0.75rem;
+        color: var(--mud-palette-text-secondary);
+        margin: 2px 0 4px 0;
+        opacity: 0.7;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
     .vmt-subtitle {
         font-size: 10px;
         font-weight: 700;
@@ -335,6 +363,15 @@ else
         margin: 0;
     }
 
+    .vmt-creator {
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: rgba(255,255,255,0.3);
+        margin-top: 2px;
+    }
+
     /* ── Pipeline ── */
     .vmt-pipeline {
         display: flex;
@@ -342,78 +379,20 @@ else
     }
 
     /* ── Universe ── */
-    .vmt-universe {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        font-size: 11px;
-        font-weight: 800;
-        color: rgba(255, 255, 255, 0.5);
-    }
-
-    .vmt-standalone {
-        font-size: 11px;
-        font-weight: 800;
-        color: rgba(255, 255, 255, 0.1);
-        text-transform: uppercase;
-        letter-spacing: 0.1em;
-    }
-
-    /* ── Center helpers ── */
-    .vmt-center {
-        display: flex;
-        justify-content: center;
-    }
-
-    /* ── Actions ── */
-    .vmt-resolve-btn {
-        background: rgba(96, 165, 250, 0.85);
-        color: #fff;
+    .vmt-universe-linked {
         font-size: 10px;
         font-weight: 800;
-        padding: 6px 12px;
-        border-radius: 6px;
-        border: none;
-        cursor: pointer;
-        transition: background 0.15s;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: #A78BFA;
     }
 
-    .vmt-resolve-btn:hover {
-        background: rgba(96, 165, 250, 1);
-    }
-
-    .vmt-hover-actions {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        justify-content: flex-end;
-        opacity: 0;
-        transition: opacity 0.15s;
-    }
-
-    .vmt-row:hover .vmt-hover-actions {
-        opacity: 1;
-    }
-
-    .vmt-icon-btn {
-        padding: 8px;
-        border-radius: 8px;
-        background: transparent;
-        border: none;
-        color: rgba(255, 255, 255, 0.2);
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        transition: all 0.12s;
-    }
-
-    .vmt-icon-btn:hover {
-        color: rgba(255, 255, 255, 0.7);
-    }
-
-    .vmt-icon-btn--delete:hover {
-        color: #A05050;
-        background: rgba(160, 80, 80, 0.1);
+    .vmt-universe-standalone {
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: rgba(255,255,255,0.2);
     }
 
     /* ── Group headers ── */
@@ -496,30 +475,20 @@ else
             min-width: 0;
         }
 
-        /* Hide pipeline, universe columns on mobile */
+        /* Hide pipeline and universe columns on mobile */
         .vmt-td:nth-child(2),
-        .vmt-td:nth-child(3),
-        .vmt-td:nth-child(4) {
+        .vmt-td:nth-child(3) {
             display: none;
         }
 
-        /* Status pill inline */
-        .vmt-td:nth-child(5) {
+        /* Verification pill inline */
+        .vmt-td:nth-child(4) {
             flex-shrink: 0;
-        }
-
-        /* Actions */
-        .vmt-td:nth-child(6) {
-            flex-shrink: 0;
-        }
-
-        .vmt-hover-actions {
-            opacity: 1;
         }
 
         .vmt-thumb {
             width: 40px;
-            height: 40px;
+            min-height: 40px;
         }
     }
 </style>

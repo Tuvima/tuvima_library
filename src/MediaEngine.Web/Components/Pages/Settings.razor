@@ -15,10 +15,10 @@
 <div class="settings-page-outer">
 
     @* ── Page header ────────────────────────────────────────────── *@
-    <MudText Typo="Typo.h4" Class="mb-1">Settings</MudText>
-    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
-        Manage your experience.
-    </MudText>
+    <div class="settings-page-header">
+        <h1 class="settings-page-title">Settings</h1>
+        <p class="settings-page-subtitle">Manage your experience.</p>
+    </div>
 
     @* ── Content area ───────────────────────────────────────────── *@
     <div class="settings-content-area">
@@ -225,13 +225,32 @@
 
 <style>
     /* ── Outer wrapper: dock-clearing left indent (desktop only) ─── */
-    /* Dock: left:12px + width:64px = right edge at 76px from screen.     */
-    /* MudContainer adds 32px. We add 88px here → total 120px from edge,  */
-    /* matching the swimlane content alignment.                            */
     @@media (min-width: 769px) {
         .settings-page-outer {
             padding-left: 16px;
         }
+    }
+
+    /* ── Page header ─────────────────────────────────────────────────── */
+    .settings-page-header {
+        margin-bottom: 28px;
+        padding-top: 4px;
+    }
+
+    .settings-page-title {
+        font-size: 30px;
+        font-weight: 900;
+        color: #fff;
+        letter-spacing: -0.02em;
+        line-height: 1;
+        margin: 0 0 6px 0;
+    }
+
+    .settings-page-subtitle {
+        font-size: 0.82rem;
+        color: rgba(248, 248, 248, 0.38);
+        margin: 0;
+        line-height: 1.5;
     }
 
     /* ── Content area ────────────────────────────────────────────────── */
@@ -242,12 +261,14 @@
 
     /* ── Mobile / narrow viewport overrides ──────────────────────────── */
     @@media (max-width: 768px) {
-        /* Reduce outer glass card padding: 32px → 16px */
+        .settings-page-title {
+            font-size: 24px;
+        }
+
         .settings-content-area > .mud-paper {
             padding: 16px !important;
         }
 
-        /* Reduce inner card padding: 24px → 14px */
         .settings-content-area .mud-paper .mud-paper {
             padding: 14px !important;
         }

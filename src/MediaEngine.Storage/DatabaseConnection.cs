@@ -1166,6 +1166,72 @@ public sealed class DatabaseConnection : IDatabaseConnection
             m060Idx.ExecuteNonQuery();
         }
 
+        // ── M-061: Expand FTS5 search_index to full multi-language schema ────
+        // Phase 2C localization: extends the 3-column search_index (work_id, title,
+        // author) created by M-053 to a 6-column schema (entity_id, title,
+        // original_title, alternate_titles, author, description).
+        // FTS5 virtual tables do not support ALTER TABLE — the table is dropped and
+        // recreated. Data is repopulated from canonical_values. The column rename
+        // from work_id → entity_id is intentional: the FTS index stores work GUIDs
+        // resolved from media_asset entity IDs (the join is in UpsertByEntityIdAsync).
+        {
+            using var m061Check = conn.CreateCommand();
+            m061Check.CommandText = """
+                SELECT COUNT(*) FROM pragma_table_info('search_index')
+                WHERE name = 'original_title';
+                """;
+            var hasOriginalTitle = Convert.ToInt64(m061Check.ExecuteScalar()) > 0;
+
+            if (!hasOriginalTitle)
+            {
+                // Drop old 3-column FTS5 table and all its shadow tables.
+                using var m061Drop = conn.CreateCommand();
+                m061Drop.CommandText = "DROP TABLE IF EXISTS search_index;";
+                m061Drop.ExecuteNonQuery();
+
+                // Create new 6-column FTS5 table with unicode61 tokenizer.
+                using var m061Create = conn.CreateCommand();
+                m061Create.CommandText = """
+                    CREATE VIRTUAL TABLE search_index USING fts5(
+                        entity_id UNINDEXED,
+                        title,
+                        original_title,
+                        alternate_titles,
+                        author,
+                        description,
+                        tokenize = 'unicode61'
+                    );
+                    """;
+                m061Create.ExecuteNonQuery();
+
+                // Repopulate from canonical_values (title, original_title, author, description).
+                // alternate_titles sourced from canonical_value_arrays (key='alternate_title').
+                using var m061Pop = conn.CreateCommand();
+                m061Pop.CommandText = """
+                    INSERT INTO search_index (entity_id, title, original_title, alternate_titles, author, description)
+                    SELECT
+                        w.id,
+                        MAX(CASE WHEN cv.key = 'title'          THEN cv.value END),
+                        MAX(CASE WHEN cv.key = 'original_title' THEN cv.value END),
+                        (SELECT GROUP_CONCAT(cva.value, ' ')
+                         FROM canonical_value_arrays cva
+                         JOIN editions e2 ON e2.work_id = w.id
+                         JOIN media_assets ma2 ON ma2.edition_id = e2.id
+                         WHERE cva.entity_id = ma2.id AND cva.key = 'alternate_title'),
+                        MAX(CASE WHEN cv.key = 'author'         THEN cv.value END),
+                        MAX(CASE WHEN cv.key = 'description'    THEN cv.value END)
+                    FROM works w
+                    LEFT JOIN editions e ON e.work_id = w.id
+                    LEFT JOIN media_assets ma ON ma.edition_id = e.id
+                    LEFT JOIN canonical_values cv ON cv.entity_id = ma.id
+                    WHERE cv.key IN ('title', 'original_title', 'author', 'description')
+                    GROUP BY w.id;
+                    """;
+                m061Pop.ExecuteNonQuery();
+                System.Diagnostics.Debug.WriteLine("M-061: Rebuilt FTS5 search_index with 6-column multi-language schema");
+            }
+        }
+
         // Seed S-001: provider_registry entries for all known providers.
         // metadata_claims.provider_id has a FK to provider_registry(id), so these
         // rows MUST exist before any claim is written.  INSERT OR IGNORE makes this

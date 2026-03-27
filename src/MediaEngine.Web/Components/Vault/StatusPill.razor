@@ -18,6 +18,7 @@
     private string _color => Status switch
     {
         VaultStatus.Verified => "#5DCAA5",
+        VaultStatus.Provisional => "#3B82F6",
         VaultStatus.NeedsReview => "#EF9F27",
         VaultStatus.Failed => "#A05050",
         VaultStatus.Quarantined => "rgba(255,255,255,0.5)",
@@ -27,6 +28,7 @@
     private string _bgColor => Status switch
     {
         VaultStatus.Verified => "rgba(93,202,165,0.05)",
+        VaultStatus.Provisional => "rgba(59,130,246,0.05)",
         VaultStatus.NeedsReview => "rgba(239,159,39,0.05)",
         VaultStatus.Failed => "rgba(160,80,80,0.05)",
         VaultStatus.Quarantined => "rgba(255,255,255,0.03)",
@@ -36,6 +38,7 @@
     private string _borderColor => Status switch
     {
         VaultStatus.Verified => "rgba(93,202,165,0.2)",
+        VaultStatus.Provisional => "rgba(59,130,246,0.2)",
         VaultStatus.NeedsReview => "rgba(239,159,39,0.2)",
         VaultStatus.Failed => "rgba(160,80,80,0.2)",
         VaultStatus.Quarantined => "rgba(255,255,255,0.1)",
@@ -45,6 +48,7 @@
     private string _icon => Status switch
     {
         VaultStatus.Verified => Icons.Material.Filled.Check,
+        VaultStatus.Provisional => Icons.Material.Filled.Info,
         VaultStatus.NeedsReview => Icons.Material.Filled.Warning,
         VaultStatus.Failed => Icons.Material.Filled.Close,
         VaultStatus.Quarantined => Icons.Material.Filled.Close,
@@ -54,6 +58,7 @@
     private string _label => Status switch
     {
         VaultStatus.Verified => "VERIFIED",
+        VaultStatus.Provisional => "PROVISIONAL",
         VaultStatus.NeedsReview => "NEEDS REVIEW",
         VaultStatus.Failed => "FAILED",
         VaultStatus.Quarantined => "QUARANTINED",

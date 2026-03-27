@@ -6,7 +6,7 @@
    enable or disable individual jobs, and see their last/next run times.
    Includes live enrichment progress section. *@
 
-<div style="width: 100%; padding: 24px; box-sizing: border-box;">
+<div class="st-page">
 
     @* ── Section Header ──────────────────────────────────────────────────── *@
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
@@ -18,7 +18,7 @@
     </MudText>
 
     @* ── Enrichment Progress ─────────────────────────────────────────────── *@
-    <MudPaper Class="pa-4 mb-4" Style="background: rgba(255,255,255,0.03); border: 1px solid rgba(201,146,46,0.15); border-radius: 12px;">
+    <MudPaper Class="pa-4 mb-4" Style="background: rgba(255,255,255,0.02); border: 1px solid rgba(201,146,46,0.15); border-radius: 12px;">
         <MudText Typo="Typo.h6" Class="mb-3" Style="color: #C9922E;">Enrichment Progress</MudText>
 
         @if (_enrichmentProgress is not null && _enrichmentProgress.Total > 0)

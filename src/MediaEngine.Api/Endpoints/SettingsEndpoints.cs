@@ -963,11 +963,15 @@ public static class SettingsEndpoints
             var core = configLoader.LoadCore();
             return Results.Ok(new ServerGeneralResponse
             {
-                ServerName  = core.ServerName,
-                Language    = core.Language,
-                Country     = core.Country,
-                DateFormat  = core.DateFormat,
-                TimeFormat  = core.TimeFormat,
+                ServerName          = core.ServerName,
+                Language            = core.Language.Metadata,
+                DisplayLanguage     = core.Language.Display,
+                MetadataLanguage    = core.Language.Metadata,
+                AdditionalLanguages = core.Language.Additional,
+                AcceptAnyLanguage   = core.Language.AcceptAny,
+                Country             = core.Country,
+                DateFormat          = core.DateFormat,
+                TimeFormat          = core.TimeFormat,
             });
         })
         .WithName("GetServerGeneral")
@@ -986,7 +990,13 @@ public static class SettingsEndpoints
 
             var core = configLoader.LoadCore();
             core.ServerName = request.ServerName.Trim();
-            core.Language   = request.Language;
+            core.Language = new LanguagePreferences
+            {
+                Display    = !string.IsNullOrWhiteSpace(request.DisplayLanguage)  ? request.DisplayLanguage  : request.Language,
+                Metadata   = !string.IsNullOrWhiteSpace(request.MetadataLanguage) ? request.MetadataLanguage : request.Language,
+                Additional = request.AdditionalLanguages,
+                AcceptAny  = request.AcceptAnyLanguage,
+            };
             core.Country    = request.Country;
             core.DateFormat = request.DateFormat;
             core.TimeFormat = request.TimeFormat;

@@ -307,3 +307,20 @@ CREATE INDEX IF NOT EXISTS idx_hub_items_hub
 
 CREATE INDEX IF NOT EXISTS idx_hubs_hub_type
     ON hubs (hub_type);
+
+
+-- ── FTS5 Search Index ──────────────────────────────────────────────────────────
+-- Multi-language full-text search over work titles, original titles, alternate
+-- titles (Wikidata aliases), authors, and descriptions. Populated by the
+-- SearchIndexService after scoring completes. Supports cross-language search
+-- for items like "Amélie" and "Le Fabuleux Destin d'Amélie Poulain".
+--
+CREATE VIRTUAL TABLE IF NOT EXISTS search_index USING fts5(
+    entity_id UNINDEXED,
+    title,
+    original_title,
+    alternate_titles,
+    author,
+    description,
+    tokenize = 'unicode61'
+);

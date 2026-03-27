@@ -221,7 +221,7 @@ public sealed class RegistryRepository : IRegistryRepository
         // parameter lists, and the WHERE clause itself changes shape at runtime.
         var conditions = new List<string>();
         if (!string.IsNullOrWhiteSpace(query.Search))
-            conditions.Add(@"(wd.entity_id IN (SELECT si.work_id FROM search_index si
+            conditions.Add(@"(wd.entity_id IN (SELECT si.entity_id FROM search_index si
                 WHERE search_index MATCH @ftsQuery) OR fd.file_name LIKE @search)");
         if (!string.IsNullOrWhiteSpace(query.MediaType))
             conditions.Add("fd.media_type = @mediaType");
@@ -723,6 +723,23 @@ public sealed class RegistryRepository : IRegistryRepository
 
         return Task.FromResult(new RegistryFourStateCounts(
             identified, inReview, provisional, rejected, personCount, hubCount, triggerCounts));
+    }
+
+    public Task<Dictionary<string, int>> GetMediaTypeCountsAsync(CancellationToken ct = default)
+    {
+        using var conn = _db.CreateConnection();
+        var rows = conn.Query<(string MediaType, int Count)>("""
+            SELECT COALESCE(
+                (SELECT mc.value FROM metadata_claims mc
+                 WHERE mc.entity_id = (SELECT ma.id FROM media_assets ma JOIN editions e ON e.id = ma.edition_id WHERE e.work_id = w.id LIMIT 1)
+                 AND mc.field_key = 'media_type' AND mc.is_winning = 1 LIMIT 1),
+                'Unknown'
+            ) AS MediaType,
+            COUNT(*) AS Count
+            FROM works w
+            GROUP BY MediaType
+            """);
+        return Task.FromResult(rows.ToDictionary(r => r.MediaType, r => r.Count));
     }
 
     // ── Private helpers ──────────────────────────────────────────────────────

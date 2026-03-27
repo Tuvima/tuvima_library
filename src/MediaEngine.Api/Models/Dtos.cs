@@ -398,6 +398,18 @@ public sealed class ServerGeneralResponse
     [JsonPropertyName("language")]
     public string Language { get; init; } = "en";
 
+    [JsonPropertyName("display_language")]
+    public string DisplayLanguage { get; init; } = "en";
+
+    [JsonPropertyName("metadata_language")]
+    public string MetadataLanguage { get; init; } = "en";
+
+    [JsonPropertyName("additional_languages")]
+    public List<string> AdditionalLanguages { get; init; } = [];
+
+    [JsonPropertyName("accept_any_language")]
+    public bool AcceptAnyLanguage { get; init; } = true;
+
     [JsonPropertyName("country")]
     public string Country { get; init; } = "US";
 
@@ -415,6 +427,18 @@ public sealed class ServerGeneralRequest
 
     [JsonPropertyName("language")]
     public string Language { get; init; } = "en";
+
+    [JsonPropertyName("display_language")]
+    public string DisplayLanguage { get; init; } = "en";
+
+    [JsonPropertyName("metadata_language")]
+    public string MetadataLanguage { get; init; } = "en";
+
+    [JsonPropertyName("additional_languages")]
+    public List<string> AdditionalLanguages { get; init; } = [];
+
+    [JsonPropertyName("accept_any_language")]
+    public bool AcceptAnyLanguage { get; init; } = true;
 
     [JsonPropertyName("country")]
     public string Country { get; init; } = "US";

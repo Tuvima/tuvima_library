@@ -99,6 +99,19 @@ public static class RegistryEndpoints
         .Produces<RegistryFourStateCounts>(StatusCodes.Status200OK)
         .RequireAdminOrCurator();
 
+        // ── GET /registry/type-counts ──────────────────────────────────────
+        group.MapGet("/type-counts", async (
+            IRegistryRepository repo,
+            CancellationToken ct) =>
+        {
+            var counts = await repo.GetMediaTypeCountsAsync(ct);
+            return Results.Ok(counts);
+        })
+        .WithName("GetRegistryTypeCounts")
+        .WithSummary("Per-media-type item counts.")
+        .Produces<Dictionary<string, int>>(StatusCodes.Status200OK)
+        .RequireAdminOrCurator();
+
         // ── POST /registry/items/{entityId}/apply-match ────────────────────
         group.MapPost("/items/{entityId}/apply-match", async (
             Guid entityId,

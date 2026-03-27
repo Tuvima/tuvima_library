@@ -26,6 +26,10 @@ public sealed class VibeTagger : IVibeTagger
         string mediaCategory,
         CancellationToken ct = default)
     {
+        // NOTE: Wikipedia summary may be in the metadata language rather than English.
+        // The English vibe vocabulary still works — Llama 3.x extracts mood/atmosphere
+        // across Latin-script languages. CJK input has reduced accuracy.
+
         var vocabulary = _settings.VibeVocabulary.GetForCategory(mediaCategory);
         if (vocabulary.Count == 0 || string.IsNullOrWhiteSpace(wikipediaSummary))
             return [];

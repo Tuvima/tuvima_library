@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace MediaEngine.Storage.Models;
@@ -80,15 +81,13 @@ public sealed class CoreConfiguration
     public string ServerName { get; set; } = Environment.MachineName;
 
     /// <summary>
-    /// BCP-47 two-letter language code (e.g. "en", "fr") for metadata downloads
-    /// and UI localisation. Drives provider search language and Wikidata label language.
-    /// Defaults to "en" so that Wikidata API calls always return English labels unless
-    /// the user explicitly sets a different language in config/library.json. Using the
-    /// host OS UI culture as the default caused Wikidata to return labels in whatever
-    /// language the server OS is set to (e.g. Russian on a Russian-locale machine).
+    /// Structured language preferences for UI display, metadata, and content languages.
+    /// Backward compatible: deserialises from both <c>"language": "en"</c> (legacy)
+    /// and the structured object format.
     /// </summary>
     [JsonPropertyName("language")]
-    public string Language { get; set; } = "en";
+    [JsonConverter(typeof(LanguagePreferencesConverter))]
+    public LanguagePreferences Language { get; set; } = new();
 
     /// <summary>
     /// ISO 3166-1 alpha-2 country code (e.g. "US", "GB") for regional metadata
@@ -115,5 +114,116 @@ public sealed class CoreConfiguration
     {
         try { return RegionInfo.CurrentRegion.TwoLetterISORegionName; }
         catch { return "US"; }
+    }
+}
+
+/// <summary>
+/// Structured language preferences supporting multi-language media libraries.
+/// Backward compatible: deserialises from both <c>"language": "en"</c> (legacy)
+/// and <c>"language": { "display": "en", ... }</c> (new format).
+/// </summary>
+public sealed class LanguagePreferences
+{
+    /// <summary>
+    /// UI language — controls .resx resource resolution and Wikidata label display.
+    /// BCP-47 two-letter code (e.g. "en", "fr").
+    /// </summary>
+    [JsonPropertyName("display")]
+    public string Display { get; set; } = "en";
+
+    /// <summary>
+    /// Primary metadata language — provider queries default to this.
+    /// BCP-47 two-letter code.
+    /// </summary>
+    [JsonPropertyName("metadata")]
+    public string Metadata { get; set; } = "en";
+
+    /// <summary>
+    /// Additional languages the user consumes content in.
+    /// Files in these languages are NOT treated as mismatches.
+    /// </summary>
+    [JsonPropertyName("additional")]
+    public List<string> Additional { get; set; } = [];
+
+    /// <summary>
+    /// When true, no file is ever flagged LanguageMismatch regardless of its language.
+    /// Default is true — files in any language ingest without friction.
+    /// </summary>
+    [JsonPropertyName("accept_any")]
+    public bool AcceptAny { get; set; } = true;
+
+    /// <summary>
+    /// Returns true if the given BCP-47 language code is accepted by these preferences.
+    /// A language is accepted if <see cref="AcceptAny"/> is true, or if it matches
+    /// <see cref="Metadata"/> or any entry in <see cref="Additional"/>.
+    /// </summary>
+    public bool IsLanguageAccepted(string? languageCode)
+    {
+        if (AcceptAny || string.IsNullOrWhiteSpace(languageCode))
+            return true;
+
+        var normalized = languageCode.Split('-', '_')[0].ToLowerInvariant().Trim();
+        if (string.IsNullOrEmpty(normalized))
+            return true;
+
+        var metaNorm = Metadata.Split('-', '_')[0].ToLowerInvariant().Trim();
+        if (string.Equals(normalized, metaNorm, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return Additional.Any(a =>
+            string.Equals(a.Split('-', '_')[0].ToLowerInvariant().Trim(), normalized, StringComparison.OrdinalIgnoreCase));
+    }
+}
+
+/// <summary>
+/// Deserialises the <c>"language"</c> config key from either a plain string
+/// (<c>"en"</c>) or a structured object (<c>{ "display": "en", ... }</c>).
+/// Always serialises as the structured object.
+/// </summary>
+public sealed class LanguagePreferencesConverter : JsonConverter<LanguagePreferences>
+{
+    public override LanguagePreferences? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType == JsonTokenType.String)
+        {
+            var lang = reader.GetString() ?? "en";
+            return new LanguagePreferences
+            {
+                Display = lang,
+                Metadata = lang,
+                Additional = [],
+                AcceptAny = true
+            };
+        }
+
+        if (reader.TokenType == JsonTokenType.StartObject)
+        {
+            // Manually deserialize to avoid re-entering this converter
+            var doc = JsonDocument.ParseValue(ref reader);
+            var root = doc.RootElement;
+            return new LanguagePreferences
+            {
+                Display    = root.TryGetProperty("display", out var d)    ? d.GetString() ?? "en" : "en",
+                Metadata   = root.TryGetProperty("metadata", out var m)   ? m.GetString() ?? "en" : "en",
+                Additional = root.TryGetProperty("additional", out var a) ? a.EnumerateArray().Select(e => e.GetString() ?? "").Where(s => s.Length > 0).ToList() : [],
+                AcceptAny  = root.TryGetProperty("accept_any", out var aa) ? aa.GetBoolean() : true,
+            };
+        }
+
+        return new LanguagePreferences();
+    }
+
+    public override void Write(Utf8JsonWriter writer, LanguagePreferences value, JsonSerializerOptions options)
+    {
+        writer.WriteStartObject();
+        writer.WriteString("display", value.Display);
+        writer.WriteString("metadata", value.Metadata);
+        writer.WritePropertyName("additional");
+        writer.WriteStartArray();
+        foreach (var lang in value.Additional)
+            writer.WriteStringValue(lang);
+        writer.WriteEndArray();
+        writer.WriteBoolean("accept_any", value.AcceptAny);
+        writer.WriteEndObject();
     }
 }

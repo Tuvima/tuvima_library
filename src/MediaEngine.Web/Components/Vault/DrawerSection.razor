@@ -1,0 +1,93 @@
+@namespace MediaEngine.Web.Components.Vault
+
+<div class="drawer-section @(_hasProblem ? "drawer-section--problem" : "")">
+    <button class="drawer-section-header" @onclick="Toggle">
+        <div class="drawer-section-header-left">
+            <MudIcon Icon="@Icon" Style="@($"font-size: 16px; color: {(_hasProblem ? "#EF9F27" : "rgba(255,255,255,0.35)")};")"/>
+            <span class="drawer-section-title @(_hasProblem ? "drawer-section-title--problem" : "")">@Title</span>
+        </div>
+        <MudIcon Icon="@(_isOpen ? Icons.Material.Filled.ExpandMore : Icons.Material.Filled.ChevronRight)"
+                 Style="font-size: 16px; color: rgba(255,255,255,0.2);" />
+    </button>
+    @if (_isOpen)
+    {
+        <div class="drawer-section-body">
+            @ChildContent
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+    [Parameter] public string Icon { get; set; } = Icons.Material.Outlined.Info;
+    [Parameter] public bool DefaultOpen { get; set; } = true;
+    [Parameter] public bool HasProblem { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private bool _isOpen;
+    private bool _hasProblem => HasProblem;
+
+    protected override void OnInitialized()
+    {
+        _isOpen = DefaultOpen;
+    }
+
+    private void Toggle() => _isOpen = !_isOpen;
+}
+
+<style>
+    .drawer-section {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .drawer-section--problem {
+        background: rgba(239, 159, 39, 0.02);
+    }
+
+    .drawer-section-header {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 20px 24px;
+        background: none;
+        border: none;
+        border-left: 4px solid transparent;
+        cursor: pointer;
+        transition: background 0.15s ease;
+        text-align: left;
+        color: inherit;
+    }
+
+    .drawer-section-header:hover {
+        background: rgba(255, 255, 255, 0.02);
+    }
+
+    .drawer-section-header-left {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .drawer-section-title {
+        font-size: 10px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: rgba(255, 255, 255, 0.35);
+    }
+
+    .drawer-section-title--problem {
+        color: #EF9F27;
+    }
+
+    .drawer-section-body {
+        padding: 0 24px 24px;
+        animation: drawer-section-in 0.2s ease;
+    }
+
+    @@keyframes drawer-section-in {
+        from { opacity: 0; transform: translateY(-4px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+</style>

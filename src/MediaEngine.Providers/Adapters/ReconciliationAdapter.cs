@@ -300,7 +300,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         if (_reconciler is null || string.IsNullOrWhiteSpace(query))
             return [];
 
-        var language = _configLoader?.LoadCore().Language ?? "en";
+        var language = _configLoader?.LoadCore().Language.Metadata ?? "en";
 
         var request = new ReconciliationRequest
         {
@@ -319,6 +319,85 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "{Provider}: ReconcileAsync failed for query '{Query}'", Name, query);
+            return [];
+        }
+    }
+
+    /// <summary>
+    /// Reconciles an entity name against Wikidata, searching in multiple languages.
+    /// When <paramref name="fileLanguage"/> differs from the configured metadata language,
+    /// searches in both languages and deduplicates by QID, keeping the highest-scoring result.
+    /// </summary>
+    public async Task<IReadOnlyList<ReconciliationResult>> ReconcileMultiLanguageAsync(
+        string query,
+        string? fileLanguage,
+        Dictionary<string, string>? propertyConstraints = null,
+        CancellationToken ct = default)
+    {
+        if (_reconciler is null || string.IsNullOrWhiteSpace(query))
+            return [];
+
+        var metadataLanguage = _configLoader?.LoadCore().Language.Metadata ?? "en";
+        var fileLang = fileLanguage?.Split('-', '_')[0].ToLowerInvariant().Trim();
+        var metaLang = metadataLanguage.Split('-', '_')[0].ToLowerInvariant().Trim();
+
+        // Search in file's language first (highest match probability for embedded titles)
+        var primaryResults = await ReconcileInLanguageAsync(query, fileLang ?? metaLang, propertyConstraints, ct)
+            .ConfigureAwait(false);
+
+        // If file language differs from metadata language, also search in metadata language
+        if (!string.IsNullOrEmpty(fileLang)
+            && !string.Equals(fileLang, metaLang, StringComparison.OrdinalIgnoreCase))
+        {
+            var secondaryResults = await ReconcileInLanguageAsync(query, metaLang, propertyConstraints, ct)
+                .ConfigureAwait(false);
+
+            // Deduplicate by QID, keeping the highest-scoring result
+            var merged = new Dictionary<string, ReconciliationResult>(StringComparer.OrdinalIgnoreCase);
+            foreach (var r in primaryResults)
+            {
+                if (!string.IsNullOrEmpty(r.Id))
+                    merged[r.Id] = r;
+            }
+            foreach (var r in secondaryResults)
+            {
+                if (!string.IsNullOrEmpty(r.Id) && (!merged.ContainsKey(r.Id) || r.Score > merged[r.Id].Score))
+                    merged[r.Id] = r;
+            }
+
+            return merged.Values.OrderByDescending(r => r.Score).ToList();
+        }
+
+        return primaryResults;
+    }
+
+    private async Task<IReadOnlyList<ReconciliationResult>> ReconcileInLanguageAsync(
+        string query,
+        string language,
+        Dictionary<string, string>? propertyConstraints,
+        CancellationToken ct)
+    {
+        if (_reconciler is null)
+            return [];
+
+        var request = new ReconciliationRequest
+        {
+            Query = query,
+            Limit = _config.Reconciliation.MaxCandidates,
+            Language = language,
+            Properties = propertyConstraints?.Select(kvp =>
+                new PropertyConstraint { PropertyId = kvp.Key, Value = kvp.Value }).ToList()
+        };
+
+        try
+        {
+            return await _reconciler.ReconcileAsync(request, ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "{Provider}: ReconcileInLanguageAsync failed for query '{Query}' in language '{Lang}'",
+                Name, query, language);
             return [];
         }
     }
@@ -366,7 +445,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             return new Dictionary<string, IReadOnlyDictionary<string, IReadOnlyList<WikidataClaim>>>(StringComparer.OrdinalIgnoreCase);
         }
 
-        var language = _configLoader?.LoadCore().Language ?? "en";
+        var language = _configLoader?.LoadCore().Language.Metadata ?? "en";
 
         // Build a cache key from qids + properties + language.
         var cacheInput = $"extend-direct:{language}:{string.Join(",", qids)}:{string.Join(",", propertyCodes)}";
@@ -437,7 +516,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         try
         {
             var qids = candidates.Select(c => c.Id).Distinct().ToList();
-            var language = _configLoader?.LoadCore().Language ?? "en";
+            var language = _configLoader?.LoadCore().Language.Metadata ?? "en";
 
             // Step 1: Resolve common names from aliases (e.g. "1984" for "Nineteen Eighty-Four").
             // Aliases are checked first because they represent the most natural/common name
@@ -1169,7 +1248,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         if (bridgeIds.Count == 0)
             return BridgeResolutionResult.NotFound;
 
-        var language = _configLoader?.LoadCore().Language ?? "en";
+        var language = _configLoader?.LoadCore().Language.Metadata ?? "en";
 
         // ── Step 1: Try each bridge ID in insertion order ──────────────────────
         string? resolvedQid = null;
@@ -1458,7 +1537,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             // Resolve the common name from Wikidata aliases. When the query matches an
             // alias that differs from the primary label (e.g. "1984" is an alias for
             // "Nineteen Eighty-Four"), prefer the alias as the display and search title.
-            var lang = _configLoader?.LoadCore().Language ?? "en";
+            var lang = _configLoader?.LoadCore().Language.Metadata ?? "en";
             var commonName = await ResolveCommonNameAsync(qid, searchTitle, lang, ct)
                 .ConfigureAwait(false);
             if (commonName is not null)
@@ -1497,7 +1576,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
 
         // Extend the resolved QID with work properties.
         var workProps = _config.DataExtension.WorkProperties;
-        var language = _configLoader?.LoadCore().Language ?? "en";
+        var language = _configLoader?.LoadCore().Language.Metadata ?? "en";
 
         var claims = new List<ProviderClaim>
         {
@@ -1974,6 +2053,42 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             .ConfigureAwait(false);
         claims.AddRange(wikiWorkClaims);
 
+        // ── Original title (for foreign-language files) ───────────────────────
+        // When the file's detected language differs from the configured metadata
+        // language, fetch the Wikidata entity label in the file's language and
+        // emit it as "original_title". This preserves the native-language title
+        // alongside the metadata-language title resolved above.
+        if (!string.IsNullOrEmpty(request.FileLanguage) && _reconciler is not null)
+        {
+            var fileLang = request.FileLanguage.Split('-', '_')[0].ToLowerInvariant().Trim();
+            var metaLang = language.Split('-', '_')[0].ToLowerInvariant().Trim();
+
+            if (!string.Equals(fileLang, metaLang, StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    var fileLangEntities = await _reconciler
+                        .GetEntitiesAsync([masterWorkQid], fileLang, ct)
+                        .ConfigureAwait(false);
+
+                    if (fileLangEntities.TryGetValue(masterWorkQid, out var fileLangEntity)
+                        && !string.IsNullOrWhiteSpace(fileLangEntity.Label))
+                    {
+                        claims.Add(new ProviderClaim("original_title", fileLangEntity.Label, 0.95));
+                        _logger.LogDebug(
+                            "{Provider}: original_title '{OriginalTitle}' emitted for {QID} in file language '{Lang}'",
+                            Name, fileLangEntity.Label, masterWorkQid, fileLang);
+                    }
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _logger.LogDebug(ex,
+                        "{Provider}: failed to fetch original_title for {QID} in language '{Lang}'",
+                        Name, masterWorkQid, fileLang);
+                }
+            }
+        }
+
         return claims;
     }
 
@@ -2013,7 +2128,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             .ToList();
 
         // Inject language-specific label (Len) and description (Den) magic suffixes.
-        var language = _configLoader?.LoadCore().Language ?? "en";
+        var language = _configLoader?.LoadCore().Language.Metadata ?? "en";
         allProps.Add($"L{language}");
         allProps.Add($"D{language}");
 

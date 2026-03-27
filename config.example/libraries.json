@@ -8,16 +8,7 @@
       "library_root": "",
       "intake_mode": "watch",
       "include_subdirectories": true,
-      "notes": "Watch folder for Books and Audiobooks. Set source_path to your intake directory and library_root to your organised library destination."
-    },
-    {
-      "category": "Movies",
-      "media_types": ["Movies"],
-      "source_path": "",
-      "library_root": "",
-      "intake_mode": "watch",
-      "include_subdirectories": false,
-      "notes": "Watch folder for movie files. Disabled until TMDB provider is configured."
+      "notes": "Watch folder for Books and Audiobooks. Subdirectories are watched to support series folder layouts."
     },
     {
       "category": "TV",
@@ -26,7 +17,52 @@
       "library_root": "",
       "intake_mode": "watch",
       "include_subdirectories": true,
-      "notes": "Watch folder for TV series. include_subdirectories should be true to pick up season subfolders."
+      "notes": "Watch folder for TV series. include_subdirectories true to pick up season subfolders."
+    },
+    {
+      "category": "Movies",
+      "media_types": ["Movies"],
+      "source_path": "",
+      "library_root": "",
+      "intake_mode": "watch",
+      "include_subdirectories": false,
+      "notes": "Watch folder for movie files."
+    },
+    {
+      "category": "Music",
+      "media_types": ["Music"],
+      "source_path": "",
+      "library_root": "",
+      "intake_mode": "watch",
+      "include_subdirectories": true,
+      "notes": "Watch folder for music. include_subdirectories true to support album folder layouts."
+    },
+    {
+      "category": "Comics",
+      "media_types": ["Comics"],
+      "source_path": "",
+      "library_root": "",
+      "intake_mode": "watch",
+      "include_subdirectories": true,
+      "notes": "Watch folder for comics and manga."
+    },
+    {
+      "category": "Podcasts",
+      "media_types": ["Podcasts"],
+      "source_path": "",
+      "library_root": "",
+      "intake_mode": "watch",
+      "include_subdirectories": true,
+      "notes": "Watch folder for podcast series and episodes."
+    },
+    {
+      "category": "General",
+      "media_types": [],
+      "source_path": "",
+      "library_root": "",
+      "intake_mode": "watch",
+      "include_subdirectories": false,
+      "notes": "General drop zone. No media type prior — classification via AI and heuristics only. Files dropped here go to Needs Review if confidence is low. include_subdirectories false to avoid double-processing the typed subfolders above. This entry must remain last in the array."
     }
   ]
 }

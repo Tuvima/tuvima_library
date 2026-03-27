@@ -46,7 +46,7 @@
       "download_url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin",
       "sha256": "",
       "size_mb": 1500,
-      "language": "en",
+      "language": "auto",
       "translate": false
     }
   },

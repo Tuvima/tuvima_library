@@ -481,6 +481,9 @@ public interface IEngineApiClient
     Task<RegistryFourStateCountsDto?> GetRegistryFourStateCountsAsync(
         Guid? batchId = null, CancellationToken ct = default);
 
+    /// <summary>GET /registry/type-counts — per-media-type item counts.</summary>
+    Task<Dictionary<string, int>> GetRegistryTypeCountsAsync(CancellationToken ct = default);
+
     /// <summary>GET /ingestion/batches — recent ingestion batches.</summary>
     Task<IReadOnlyList<IngestionBatchViewModel>> GetIngestionBatchesAsync(
         int limit = 20, CancellationToken ct = default);

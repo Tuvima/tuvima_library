@@ -2,6 +2,7 @@ using MediaEngine.AI.Llama;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
+using MediaEngine.Storage.Contracts;
 using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.AI.Features;
@@ -9,11 +10,16 @@ namespace MediaEngine.AI.Features;
 public sealed class IntentSearchParser : IIntentSearchParser
 {
     private readonly ILlamaInferenceService _llama;
+    private readonly IConfigurationLoader _configLoader;
     private readonly ILogger<IntentSearchParser> _logger;
 
-    public IntentSearchParser(ILlamaInferenceService llama, ILogger<IntentSearchParser> logger)
+    public IntentSearchParser(
+        ILlamaInferenceService llama,
+        IConfigurationLoader configLoader,
+        ILogger<IntentSearchParser> logger)
     {
         _llama = llama;
+        _configLoader = configLoader;
         _logger = logger;
     }
 
@@ -22,8 +28,13 @@ public sealed class IntentSearchParser : IIntentSearchParser
         if (string.IsNullOrWhiteSpace(naturalLanguageQuery))
             return new IntentSearchResult { OriginalQuery = naturalLanguageQuery ?? "", Confidence = 0 };
 
+        var displayLang = _configLoader.LoadCore().Language.Display ?? "en";
+        var langHint = !string.Equals(displayLang, "en", StringComparison.OrdinalIgnoreCase)
+            ? $"The query may be in {displayLang}. Extract English keywords, genres, and moods regardless of input language.\n"
+            : "";
+
         var prompt = $"""
-            Parse this natural language search query into structured filters.
+            {langHint}Parse this natural language search query into structured filters.
             Extract: genres, moods/vibes, year range, media types, and keywords.
             Return ONLY valid JSON matching the grammar.
 

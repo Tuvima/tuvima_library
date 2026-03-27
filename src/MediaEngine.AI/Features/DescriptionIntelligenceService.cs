@@ -45,6 +45,11 @@ public sealed class DescriptionIntelligenceService : IDescriptionIntelligenceSer
 
         try
         {
+            // NOTE: Descriptions are in the configured metadata language. For best AI accuracy,
+            // the hydration pipeline should request English Wikipedia summaries (Len) alongside
+            // the metadata-language version. For now, the LLM handles non-English input with
+            // reduced accuracy — Llama 3.x has multilingual understanding for Latin scripts.
+
             // Gather all available descriptions from canonical values.
             var canonicals = await _canonicalRepo.GetByEntityAsync(entityId, ct).ConfigureAwait(false);
             if (canonicals is null || canonicals.Count == 0)

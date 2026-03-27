@@ -55,16 +55,12 @@ public sealed class FileWatcher : IFileWatcher
     public event EventHandler<FileEvent>? FileDetected;
 
     /// <inheritdoc/>
-    /// <exception cref="DirectoryNotFoundException">
-    /// Thrown when <paramref name="path"/> does not exist at the time of registration.
-    /// </exception>
     public void AddDirectory(string path, bool includeSubdirectories = true)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
 
-        if (!Directory.Exists(path))
-            throw new DirectoryNotFoundException($"Watch directory not found: '{path}'");
+        Directory.CreateDirectory(path);
 
         var watcher = new System.IO.FileSystemWatcher
         {

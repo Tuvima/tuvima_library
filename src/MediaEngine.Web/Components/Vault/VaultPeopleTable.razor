@@ -13,53 +13,49 @@ else
         <table class="vpt-table">
             <thead>
                 <tr class="vpt-thead-row">
-                    <th class="vpt-th" style="width: 30%; padding-left: 24px;">Item Name</th>
-                    <th class="vpt-th vpt-th--center" style="width: 12%;">Confidence</th>
-                    <th class="vpt-th" style="width: 20%;">Type / Role</th>
-                    <th class="vpt-th vpt-th--center" style="width: 15%;">Status</th>
-                    <th class="vpt-th vpt-th--right" style="width: 13%; padding-right: 24px;">Actions</th>
+                    <th class="vpt-th" style="width: 60px;"></th>
+                    <th class="vpt-th" style="width: 55%;">Individual</th>
+                    <th class="vpt-th vpt-th--right" style="width: 30%;">Presence</th>
                 </tr>
             </thead>
             <tbody>
                 @foreach (var person in People)
                 {
-                    var initials = GetInitials(person.Name);
-                    var isLinked = !string.IsNullOrEmpty(person.WikidataQid);
-                    var status = isLinked ? VaultStatus.Verified : VaultStatus.NeedsReview;
-                    var confidence = isLinked ? 1.0 : 0.6;
-                    <tr class="vpt-row">
-                        <td class="vpt-td" style="padding-left: 24px;">
-                            <div class="vpt-name-cell">
-                                <div class="vpt-avatar">
-                                    @if (!string.IsNullOrEmpty(person.HeadshotUrl))
+                    <tr class="vpt-row" @onclick="() => OnRowClicked.InvokeAsync(person.Id)">
+                        <td class="vpt-td" style="width: 60px;">
+                            <div class="vpt-avatar">
+                                @if (!string.IsNullOrEmpty(person.HeadshotUrl))
+                                {
+                                    <img src="@person.HeadshotUrl" alt="@person.Name" loading="lazy" />
+                                }
+                                else
+                                {
+                                    <MudIcon Icon="@Icons.Material.Outlined.Person"
+                                             Style="font-size: 18px; color: rgba(255,255,255,0.25);" />
+                                }
+                            </div>
+                        </td>
+                        <td class="vpt-td" style="width: 55%;">
+                            <span class="vpt-name">@person.Name</span>
+                            @if (!string.IsNullOrWhiteSpace(person.Biography))
+                            {
+                                <span class="vpt-description">@person.Biography</span>
+                            }
+                            @{
+                                var roles = SplitRoles(person.Role).ToList();
+                            }
+                            @if (roles.Count > 0)
+                            {
+                                <div class="vpt-roles">
+                                    @foreach (var role in roles)
                                     {
-                                        <img src="@person.HeadshotUrl" alt="@person.Name" class="vpt-avatar-img" loading="lazy" />
-                                    }
-                                    else
-                                    {
-                                        <span class="vpt-initials">@initials</span>
+                                        <span class="vpt-role-chip">@role</span>
                                     }
                                 </div>
-                                <span class="vpt-name">@person.Name</span>
-                            </div>
+                            }
                         </td>
-                        <td class="vpt-td">
-                            <div class="vpt-center">
-                                <ConfidenceBar Confidence="@confidence" />
-                            </div>
-                        </td>
-                        <td class="vpt-td">
-                            <span class="vpt-role">@person.Role</span>
-                        </td>
-                        <td class="vpt-td">
-                            <div class="vpt-center">
-                                <StatusPill Status="@status" />
-                            </div>
-                        </td>
-                        <td class="vpt-td vpt-td--actions" style="padding-right: 24px;">
-                            <button class="vpt-icon-btn" @onclick="() => OnMoreClicked.InvokeAsync(person.Id)">
-                                <MudIcon Icon="@Icons.Material.Outlined.MoreHoriz" Style="font-size: 16px;" />
-                            </button>
+                        <td class="vpt-td vpt-td--right">
+                            <span class="vpt-presence-text">@(person.Occupation ?? "—")</span>
                         </td>
                     </tr>
                 }
@@ -79,13 +75,12 @@ else
 @code {
     [Parameter] public List<PersonListItemDto> People { get; set; } = [];
     [Parameter] public bool Loading { get; set; }
-    [Parameter] public EventCallback<Guid> OnMoreClicked { get; set; }
+    [Parameter] public EventCallback<Guid> OnRowClicked { get; set; }
 
-    private static string GetInitials(string name)
-    {
-        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        return string.Join("", parts.Select(p => p[0])).ToUpperInvariant();
-    }
+    private static IEnumerable<string> SplitRoles(string role) =>
+        string.IsNullOrWhiteSpace(role)
+            ? []
+            : role.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 }
 
 <style>
@@ -98,130 +93,138 @@ else
 
     .vpt-table {
         width: 100%;
-        text-align: left;
         border-collapse: collapse;
-        table-layout: fixed;
+        text-align: left;
     }
 
     .vpt-thead-row {
+        background: rgba(255, 255, 255, 0.02);
         border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-        background: rgba(255, 255, 255, 0.015);
     }
 
     .vpt-th {
-        padding: 16px;
-        font-size: 10px;
+        padding: 12px 16px;
+        font-size: 9px;
         font-weight: 800;
-        color: rgba(255, 255, 255, 0.25);
         text-transform: uppercase;
-        letter-spacing: 0.1em;
+        letter-spacing: 0.08em;
+        color: rgba(255, 255, 255, 0.25);
     }
 
-    .vpt-th--center { text-align: center; }
     .vpt-th--right { text-align: right; }
 
     .vpt-row {
-        border-bottom: 1px solid rgba(255, 255, 255, 0.025);
-        transition: background 0.15s;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        transition: background 0.15s ease;
+        cursor: pointer;
     }
 
     .vpt-row:last-child { border-bottom: none; }
-    .vpt-row:hover { background: rgba(96, 165, 250, 0.02); }
+
+    .vpt-row:hover { background: rgba(59, 130, 246, 0.04); }
 
     .vpt-td {
-        padding: 16px;
+        padding: 12px 16px;
         vertical-align: middle;
     }
 
-    .vpt-td--actions { text-align: right; }
-    .vpt-center { display: flex; justify-content: center; }
-
-    /* ── Name cell ── */
-    .vpt-name-cell {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-    }
-
     .vpt-avatar {
-        width: 36px;
-        height: 36px;
-        border-radius: 8px;
-        overflow: hidden;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.05);
         border: 1px solid rgba(255, 255, 255, 0.08);
-        background: rgba(255, 255, 255, 0.03);
         display: flex;
         align-items: center;
         justify-content: center;
+        overflow: hidden;
         flex-shrink: 0;
     }
 
-    .vpt-avatar-img {
+    .vpt-avatar img {
         width: 100%;
         height: 100%;
         object-fit: cover;
     }
 
-    .vpt-initials {
-        font-size: 12px;
-        font-weight: 800;
-        color: rgba(255, 255, 255, 0.35);
-    }
-
     .vpt-name {
         font-size: 14px;
         font-weight: 700;
-        color: rgba(255, 255, 255, 0.85);
+        color: white;
+        display: block;
     }
 
-    .vpt-role {
-        font-size: 12px;
-        font-weight: 700;
-        color: rgba(255, 255, 255, 0.35);
+    .vpt-row:hover .vpt-name { color: #60A5FA; }
+
+    .vpt-description {
+        font-size: 11px;
+        font-style: italic;
+        color: rgba(255, 255, 255, 0.4);
+        display: block;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 300px;
+    }
+
+    .vpt-roles {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        margin-top: 5px;
+    }
+
+    .vpt-role-chip {
+        font-size: 8px;
+        font-weight: 800;
         text-transform: uppercase;
-        letter-spacing: 0.1em;
+        letter-spacing: 0.08em;
+        padding: 2px 8px;
+        border-radius: 4px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        color: rgba(255, 255, 255, 0.5);
+        white-space: nowrap;
     }
 
-    .vpt-icon-btn {
-        padding: 8px;
-        border-radius: 8px;
-        background: transparent;
-        border: none;
-        color: rgba(255, 255, 255, 0.2);
-        cursor: pointer;
-        transition: color 0.12s;
+    .vpt-td--right {
+        text-align: right;
+        vertical-align: middle;
     }
 
-    .vpt-icon-btn:hover {
-        color: rgba(255, 255, 255, 0.7);
+    .vpt-presence-text {
+        font-size: 10px;
+        font-weight: 800;
+        color: rgba(255, 255, 255, 0.5);
+        text-align: right;
     }
 
-    .vpt-empty, .vpt-loading {
+    .vpt-empty {
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        padding: 80px 20px;
-        text-align: center;
+        padding: 60px 0;
     }
 
-    .vpt-loading { padding: 24px; }
+    .vpt-loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+    }
 
     @@media (max-width: 768px) {
-        .vpt-thead-row { display: none; }
-
-        .vpt-row {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            padding: 12px 16px;
-            gap: 8px;
+        .vpt-td {
+            padding: 10px 12px;
         }
 
-        .vpt-td { padding: 0; }
-        .vpt-td:nth-child(1) { flex: 1; min-width: 0; }
-        .vpt-td:nth-child(2), .vpt-td:nth-child(3) { display: none; }
-        .vpt-td:nth-child(4) { flex-shrink: 0; }
-        .vpt-td:nth-child(5) { flex-shrink: 0; }
+        .vpt-description {
+            max-width: 180px;
+        }
+
+        .vpt-presence-text {
+            font-size: 9px;
+        }
     }
 </style>

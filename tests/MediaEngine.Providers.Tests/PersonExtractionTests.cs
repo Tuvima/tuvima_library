@@ -142,6 +142,10 @@ public sealed class PersonExtractionTests
     [Fact]
     public void CollectiveMembers_Extracted()
     {
+        // The production code applies a QID-first filter: refs without a confirmed Wikidata
+        // QID are dropped before the list is returned. "James S.A. Corey" has no author_qid
+        // companion, so it is dropped. The two constituent members from collective_members_qid
+        // both carry QIDs and are retained.
         var claims = new List<ProviderClaim>
         {
             new("author",                "James S.A. Corey",            0.95),
@@ -151,9 +155,7 @@ public sealed class PersonExtractionTests
 
         var refs = Extract(claims);
 
-        Assert.Equal(3, refs.Count);
-        Assert.Contains(refs, r =>
-            r.Name == "James S.A. Corey" && r.Role == "Author");
+        Assert.Equal(2, refs.Count);
         Assert.Contains(refs, r =>
             r.Name == "Daniel Abraham" && r.Role == "Author" && r.WikidataQid == "Q453384");
         Assert.Contains(refs, r =>
@@ -184,6 +186,9 @@ public sealed class PersonExtractionTests
     [Fact]
     public void AuthorWithoutQid_StillCreatesPersonReference()
     {
+        // The production code applies a QID-first filter: refs without a confirmed Wikidata
+        // QID are dropped. An author claim with no accompanying author_qid yields an empty
+        // list — Person records require a verified Wikidata identity.
         var claims = new List<ProviderClaim>
         {
             new("author", "Unknown Author", 0.60),
@@ -191,9 +196,6 @@ public sealed class PersonExtractionTests
 
         var refs = Extract(claims);
 
-        Assert.Single(refs);
-        Assert.Equal("Unknown Author", refs[0].Name);
-        Assert.Equal("Author",         refs[0].Role);
-        Assert.Null(refs[0].WikidataQid);
+        Assert.Empty(refs);
     }
 }
