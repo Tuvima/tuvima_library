@@ -673,13 +673,18 @@ public sealed class RegistryIngestionTests : IDisposable
         await RunPipelineAsync();
         MakeAllWorksVisibleInRegistry();
 
-        // Assert: MinConfidence=0.5 returns all items (all have confidence >= 0.95)
-        var page = await _registryRepo.GetPageAsync(new RegistryQuery(MinConfidence: 0.5));
+        // Registry confidence is derived from QID/review state, not raw claim confidence.
+        // Without a Wikidata QID: confidence = 0.0
+        // Without a review item: confidence = 0.0
+        // curator_state = 'registered' (set by MakeAllWorksVisibleInRegistry): confidence = 0.0
+        //
+        // Assert: MinConfidence=0.0 returns all items (all have Registry confidence = 0.0)
+        var page = await _registryRepo.GetPageAsync(new RegistryQuery(MinConfidence: 0.0));
         Assert.Equal(5, page.TotalCount);
         Assert.Equal(5, page.Items.Count);
 
-        // Assert: MinConfidence=2.0 returns no items (impossible confidence)
-        var emptyPage = await _registryRepo.GetPageAsync(new RegistryQuery(MinConfidence: 2.0));
+        // Assert: MinConfidence=0.5 returns no items (items have Registry confidence = 0.0)
+        var emptyPage = await _registryRepo.GetPageAsync(new RegistryQuery(MinConfidence: 0.5));
         Assert.Equal(0, emptyPage.TotalCount);
     }
 }
