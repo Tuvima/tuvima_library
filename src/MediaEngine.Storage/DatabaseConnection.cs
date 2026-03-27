@@ -1319,13 +1319,13 @@ public sealed class DatabaseConnection : IDatabaseConnection
         {
             using var m063 = conn.CreateCommand();
             m063.CommandText = """
-                UPDATE metadata_claims SET value = 'Books'      WHERE field_key = 'media_type' AND value IN ('Epub', 'Book', 'Ebook', 'book', 'epub', 'ebook');
-                UPDATE metadata_claims SET value = 'Audiobooks' WHERE field_key = 'media_type' AND value IN ('Audiobook', 'audiobook');
-                UPDATE metadata_claims SET value = 'Movies'     WHERE field_key = 'media_type' AND value IN ('Movie', 'movie', 'Video', 'video');
-                UPDATE metadata_claims SET value = 'Comics'     WHERE field_key = 'media_type' AND value IN ('Comic', 'comic', 'Cbz', 'cbz', 'Cbr', 'cbr');
-                UPDATE metadata_claims SET value = 'Podcasts'   WHERE field_key = 'media_type' AND value IN ('Podcast', 'podcast');
-                UPDATE metadata_claims SET value = 'Music'      WHERE field_key = 'media_type' AND value IN ('music');
-                UPDATE metadata_claims SET value = 'TV'         WHERE field_key = 'media_type' AND value IN ('tv', 'Television', 'television');
+                UPDATE metadata_claims SET claim_value = 'Books'      WHERE claim_key = 'media_type' AND claim_value IN ('Epub', 'Book', 'Ebook', 'book', 'epub', 'ebook');
+                UPDATE metadata_claims SET claim_value = 'Audiobooks' WHERE claim_key = 'media_type' AND claim_value IN ('Audiobook', 'audiobook');
+                UPDATE metadata_claims SET claim_value = 'Movies'     WHERE claim_key = 'media_type' AND claim_value IN ('Movie', 'movie', 'Video', 'video');
+                UPDATE metadata_claims SET claim_value = 'Comics'     WHERE claim_key = 'media_type' AND claim_value IN ('Comic', 'comic', 'Cbz', 'cbz', 'Cbr', 'cbr');
+                UPDATE metadata_claims SET claim_value = 'Podcasts'   WHERE claim_key = 'media_type' AND claim_value IN ('Podcast', 'podcast');
+                UPDATE metadata_claims SET claim_value = 'Music'      WHERE claim_key = 'media_type' AND claim_value IN ('music');
+                UPDATE metadata_claims SET claim_value = 'TV'         WHERE claim_key = 'media_type' AND claim_value IN ('tv', 'Television', 'television');
                 """;
             m063.ExecuteNonQuery();
         }
