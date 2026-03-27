@@ -80,7 +80,7 @@ public static class HardwareTierPolicy
             DescriptionIntelligenceEnabled = true,
             VibeTagsEnabled                = true,  // Uses 3B (already loaded for SmartLabeler), ~3s per file
             QidDisambiguationEnabled       = true,  // Uses 3B, critical for correct Wikidata matching
-            WhisperEnabled                 = false, // 1.5GB model + minutes per file — too heavy for low tier
+            WhisperEnabled                 = true,  // 1.5GB model loads fine on 8GB (mutual exclusion), runs overnight
             EnrichmentMode                 = EnrichmentMode.Overnight,
             PreferredTextModel             = "text_quality",
             IngestionModel                 = "text_fast",
