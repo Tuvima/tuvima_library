@@ -1015,5 +1015,8 @@ public sealed class UIOrchestratorService : IAsyncDisposable
 
     public Task<EnrichmentProgressDto?> GetEnrichmentProgressAsync(CancellationToken ct = default)
         => _api.GetEnrichmentProgressAsync(ct);
+
+    public Task<ResourceSnapshotDto?> GetResourceSnapshotAsync(CancellationToken ct = default)
+        => _api.GetResourceSnapshotAsync(ct);
 }
 

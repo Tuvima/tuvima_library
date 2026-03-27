@@ -2849,6 +2849,23 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    // ── GET /ai/resources ─────────────────────────────────────────────────────
+
+    public async Task<ResourceSnapshotDto?> GetResourceSnapshotAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<ResourceSnapshotDto>("/ai/resources", ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /ai/resources failed");
+            LastError = ex.Message;
+            return null;
+        }
+    }
+
     // ── Managed Hubs (Vault Hubs tab) ────────────────────────────────────────
 
     public async Task<List<ManagedHubViewModel>> GetManagedHubsAsync(CancellationToken ct = default)

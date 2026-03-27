@@ -209,6 +209,15 @@
             NextRun        = "Tomorrow, 02:00",
             Enabled        = true,
         },
+        new AiJob
+        {
+            Name           = "Description Intelligence",
+            Description    = "Extract themes, mood, people from descriptions (8B Scholar)",
+            CronExpression = "*/15 * * * *",
+            LastRun        = "Never",
+            NextRun        = "—",
+            Enabled        = true,
+        },
     ];
 
     // ── Cron → human-readable preview ───────────────────────────────────────────
@@ -224,8 +233,9 @@
             "0 0 * * *" => "Daily at midnight",
             "0 5 * * 0" => "Sundays at 5:00 AM",
             "0 5 * * 1" => "Mondays at 5:00 AM",
-            "*/5 * * * *" => "Every 5 minutes",
-            "0 * * * *"  => "Every hour",
+            "*/5 * * * *"  => "Every 5 minutes",
+            "*/15 * * * *" => "Every 15 minutes",
+            "0 * * * *"    => "Every hour",
             "0 0 * * 1"  => "Mondays at midnight",
             "0 0 1 * *"  => "1st of each month",
             _ => ParseCronFallback(cron),

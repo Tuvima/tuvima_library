@@ -550,6 +550,9 @@ public interface IEngineApiClient
     /// <summary>GET /ai/enrichment/progress — pending and completed AI enrichment counts.</summary>
     Task<EnrichmentProgressDto?> GetEnrichmentProgressAsync(CancellationToken ct = default);
 
+    /// <summary>GET /ai/resources — live RAM, CPU pressure, and transcoding status.</summary>
+    Task<ResourceSnapshotDto?> GetResourceSnapshotAsync(CancellationToken ct = default);
+
     // ── Managed Hubs (Vault Hubs tab) ────────────────────────────────────────
 
     /// <summary>GET /hubs/managed — all non-Universe hubs for the Vault Hubs tab.</summary>

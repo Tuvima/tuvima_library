@@ -82,12 +82,40 @@
         }
     </MudPaper>
 
+    @* ── Resource Monitor ────────────────────────────────────────────────── *@
+    <MudPaper Class="pa-4 mb-4" Style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px;">
+        <MudText Typo="Typo.subtitle2" Style="font-weight: 600; margin-bottom: 12px;">Resource Monitor</MudText>
+        <div class="d-flex gap-6 flex-wrap">
+            <div>
+                <MudText Typo="Typo.caption" Style="opacity: 0.5;">ENGINE RAM</MudText>
+                <MudText Typo="Typo.body1">@FormatRam(_resources?.EngineRamMb ?? 0)</MudText>
+            </div>
+            <div>
+                <MudText Typo="Typo.caption" Style="opacity: 0.5;">FREE RAM</MudText>
+                <MudText Typo="Typo.body1">@FormatRam(_resources?.FreeRamMb ?? 0)</MudText>
+            </div>
+            <div>
+                <MudText Typo="Typo.caption" Style="opacity: 0.5;">CPU PRESSURE</MudText>
+                <MudChip T="string" Size="Size.Small" Color="@CpuPressureColor(_resources?.CpuPressure ?? 1)">
+                    @CpuPressureLabel(_resources?.CpuPressure ?? 1)
+                </MudChip>
+            </div>
+            <div>
+                <MudText Typo="Typo.caption" Style="opacity: 0.5;">TRANSCODING</MudText>
+                <MudChip T="string" Size="Size.Small"
+                         Color="@(_resources?.TranscodingActive == true ? Color.Error : Color.Success)">
+                    @(_resources?.TranscodingActive == true ? "Active" : "Idle")
+                </MudChip>
+            </div>
+        </div>
+    </MudPaper>
+
     @* ── Model Cards Grid ───────────────────────────────────────────────── *@
     <MudGrid Spacing="3" Class="mb-6">
         @foreach (var model in _models)
         {
             var m = model; @* capture for lambda *@
-            <MudItem xs="12" md="4">
+            <MudItem xs="12" md="3">
                 <div style="@ModelCardStyle">
 
                     @* Role badge *@
@@ -235,14 +263,18 @@
                          HelperText="Unload model from RAM after this many seconds of inactivity."
                          Class="mb-4" />
 
-        <MudTooltip Text="Vulkan GPU acceleration is planned for a future release.">
-            <MudSwitch @bind-Value="_gpuEnabled"
-                       Label="GPU Acceleration (Vulkan)"
-                       Color="Color.Primary"
-                       Disabled="true" />
-        </MudTooltip>
+        <MudSwitch @bind-Value="_gpuEnabled"
+                   Label="GPU Acceleration (CUDA / Vulkan)"
+                   Color="Color.Primary" />
         <MudText Typo="Typo.caption" Color="Color.Secondary" Style="margin-top: 4px;">
-            Coming soon — CPU inference is active.
+            @if (_profile is not null && _profile.Backend != "cpu")
+            {
+                <span style="color: rgba(100,200,100,0.8);">Active — using @(_profile.Backend.ToUpper()) on @(_profile.GpuName ?? "GPU")</span>
+            }
+            else
+            {
+                <span>CPU inference active. A dedicated GPU (NVIDIA, AMD, or Intel Arc) enables 6-7× faster inference.</span>
+            }
         </MudText>
 
     </div>
@@ -253,13 +285,15 @@
 
     // ── Hardware Profile ──────────────────────────────────────────────────────────
 
-    private HardwareProfileDto? _profile;
-    private bool                _benchmarking;
+    private HardwareProfileDto?  _profile;
+    private bool                 _benchmarking;
+    private ResourceSnapshotDto? _resources;
 
     protected override async Task OnInitializedAsync()
     {
         await base.OnInitializedAsync();
-        _profile = await Orchestrator.GetAiProfileAsync();
+        _profile   = await Orchestrator.GetAiProfileAsync();
+        _resources = await Orchestrator.GetResourceSnapshotAsync();
     }
 
     private async Task RunBenchmark()
@@ -281,6 +315,20 @@
 
     private static string FormatRam(long mb) =>
         mb >= 1024 ? $"{mb / 1024.0:F1} GB" : $"{mb} MB";
+
+    private static Color CpuPressureColor(int pressure) => pressure switch
+    {
+        >= 3 => Color.Error,
+        >= 2 => Color.Warning,
+        _    => Color.Success,
+    };
+
+    private static string CpuPressureLabel(int pressure) => pressure switch
+    {
+        >= 3 => "High",
+        >= 2 => "Moderate",
+        _    => "Low",
+    };
 
     // ── Styles ────────────────────────────────────────────────────────────────────
 
@@ -339,6 +387,15 @@
         },
         new()
         {
+            Role      = "text_scholar",
+            ModelName = "Llama 3.1 8B Q4_K_M",
+            Purpose   = "Deep enrichment — themes, mood, people extraction",
+            Status    = ModelStatus.Downloaded,
+            RamUsage  = "~4.9GB",
+            FileSize  = "~4.6GB",
+        },
+        new()
+        {
             Role      = "audio",
             ModelName = "Whisper Medium",
             Purpose   = "Transcription and language detection",
@@ -358,6 +415,7 @@
     {
         "text_fast"    => Color.Info,
         "text_quality" => Color.Primary,
+        "text_scholar" => Color.Warning,
         "audio"        => Color.Secondary,
         _              => Color.Default,
     };

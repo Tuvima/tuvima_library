@@ -27,6 +27,27 @@ public sealed class HardwareProfileDto
 }
 
 /// <summary>
+/// Live resource snapshot returned by GET /ai/resources.
+/// </summary>
+public sealed class ResourceSnapshotDto
+{
+    [JsonPropertyName("total_ram_mb")]
+    public long TotalRamMb { get; set; }
+
+    [JsonPropertyName("free_ram_mb")]
+    public long FreeRamMb { get; set; }
+
+    [JsonPropertyName("engine_ram_mb")]
+    public long EngineRamMb { get; set; }
+
+    [JsonPropertyName("cpu_pressure")]
+    public int CpuPressure { get; set; }
+
+    [JsonPropertyName("transcoding_active")]
+    public bool TranscodingActive { get; set; }
+}
+
+/// <summary>
 /// AI enrichment queue progress returned by GET /ai/enrichment/progress.
 /// </summary>
 public sealed class EnrichmentProgressDto

@@ -455,6 +455,14 @@
             ModelRole   = "text_quality",
             Enabled     = true,
         },
+        new()
+        {
+            Key         = "description_intelligence",
+            Name        = "Description Intelligence",
+            Description = "Extracts themes, mood, setting, pace, and character names from descriptions using the 8B Scholar model",
+            ModelRole   = "text_scholar",
+            Enabled     = true,
+        },
     ];
 
     private readonly List<AiFeature> _onDemandFeatures =
@@ -520,9 +528,10 @@
 
     private static Color ModelRoleColor(string role) => role switch
     {
-        "text_quality" => Color.Primary,
-        "text_fast"    => Color.Info,
-        "audio"        => Color.Secondary,
-        _              => Color.Default,
+        "text_quality"  => Color.Primary,
+        "text_fast"     => Color.Info,
+        "text_scholar"  => Color.Warning,
+        "audio"         => Color.Secondary,
+        _               => Color.Default,
     };
 }
