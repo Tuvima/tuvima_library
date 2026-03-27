@@ -43,6 +43,40 @@ public static class DevSeedEndpoints
         string? Asin = null,
         string? TestCategory = null);
 
+    /// <summary>A seed MP4 movie/TV definition.</summary>
+    private sealed record SeedVideo(
+        string Title,
+        string? Director,
+        int Year,
+        string MediaType,  // "Movie" or "TV"
+        string? Series = null,
+        int? SeasonNumber = null,
+        int? EpisodeNumber = null,
+        string? TestCategory = null);
+
+    /// <summary>A seed FLAC music track definition.</summary>
+    private sealed record SeedMusic(
+        string Title,
+        string Artist,
+        string? Album = null,
+        int Year = 0,
+        string? Genre = null,
+        int? TrackNumber = null,
+        string? TestCategory = null);
+
+    /// <summary>A seed CBZ comic definition.</summary>
+    private sealed record SeedComic(
+        string Title,
+        string? Writer = null,
+        string? Series = null,
+        int? Number = null,
+        int Year = 0,
+        string? Genre = null,
+        string? Summary = null,
+        string? Publisher = null,
+        string? Penciller = null,
+        string? TestCategory = null);
+
     // ── EPUB Seed definitions ────────────────────────────────────────────────
     // Real ISBNs so the hydration pipeline can fetch real cover art and metadata.
 
@@ -279,6 +313,106 @@ public static class DevSeedEndpoints
             TestCategory: "Multiple editions — Dune with alternate narrator"),
     ];
 
+    // ── MP4 Movie / TV Seed definitions ────────────────────────────────────
+    // Titles chosen for strong TMDB + Wikidata presence.
+
+    private static readonly SeedVideo[] SeedVideos =
+    [
+        // ── Movies ──────────────────────────────────────────────────────────
+
+        new("Blade Runner 2049", "Denis Villeneuve", 2017, "Movie",
+            TestCategory: "Movie — same director as Dune films, strong TMDB match"),
+
+        new("The Matrix", "Lana Wachowski", 1999, "Movie",
+            TestCategory: "Movie — classic, strong Wikidata presence"),
+
+        new("Arrival", "Denis Villeneuve", 2016, "Movie",
+            TestCategory: "Movie — same director as Blade Runner, cross-reference test"),
+
+        new("Spirited Away", "Hayao Miyazaki", 2001, "Movie",
+            TestCategory: "Movie — Japanese film, foreign language metadata"),
+
+        new("Interstellar", "Christopher Nolan", 2014, "Movie",
+            TestCategory: "Movie — strong TMDB match, popular film"),
+
+        new("The Shawshank Redemption", "Frank Darabont", 1994, "Movie",
+            TestCategory: "Movie — Stephen King adaptation (cross-ref with books)"),
+
+        // ── TV Episodes ─────────────────────────────────────────────────────
+
+        new("Breaking Bad", null, 2008, "TV",
+            Series: "Breaking Bad", SeasonNumber: 1, EpisodeNumber: 1,
+            TestCategory: "TV — S01E01, strong TMDB match"),
+
+        new("Breaking Bad", null, 2008, "TV",
+            Series: "Breaking Bad", SeasonNumber: 1, EpisodeNumber: 2,
+            TestCategory: "TV — S01E02, same series grouping test"),
+
+        new("The Expanse", null, 2015, "TV",
+            Series: "The Expanse", SeasonNumber: 1, EpisodeNumber: 1,
+            TestCategory: "TV — cross-ref with book series (Leviathan Wakes)"),
+
+        new("Shogun", null, 2024, "TV",
+            Series: "Shogun", SeasonNumber: 1, EpisodeNumber: 1,
+            TestCategory: "TV — recent series, cross-media potential"),
+    ];
+
+    // ── FLAC Music Seed definitions ────────────────────────────────────────
+    // FLAC is unambiguously routed to Music by AudioProcessor (0.95 confidence).
+
+    private static readonly SeedMusic[] SeedMusicTracks =
+    [
+        new("Bohemian Rhapsody", "Queen",
+            Album: "A Night at the Opera", Year: 1975, Genre: "Rock", TrackNumber: 11,
+            TestCategory: "Music — classic track, strong MusicBrainz match"),
+
+        new("Clair de Lune", "Claude Debussy",
+            Album: "Suite bergamasque", Year: 1905, Genre: "Classical", TrackNumber: 3,
+            TestCategory: "Music — classical, foreign artist name"),
+
+        new("Lose Yourself", "Eminem",
+            Album: "8 Mile Soundtrack", Year: 2002, Genre: "Hip-Hop", TrackNumber: 1,
+            TestCategory: "Music — soundtrack cross-reference potential"),
+
+        new("Across the Stars", "John Williams",
+            Album: "Star Wars: Attack of the Clones", Year: 2002, Genre: "Soundtrack", TrackNumber: 3,
+            TestCategory: "Music — film soundtrack, franchise cross-ref"),
+
+        new("Nuvole Bianche", "Ludovico Einaudi",
+            Album: "Una Mattina", Year: 2004, Genre: "Classical", TrackNumber: 6,
+            TestCategory: "Music — contemporary classical, Italian artist"),
+    ];
+
+    // ── CBZ Comic Seed definitions ─────────────────────────────────────────
+    // Comics with ComicInfo.xml metadata — tests the new ComicProcessor parsing.
+
+    private static readonly SeedComic[] SeedComics =
+    [
+        new("Batman: Year One Part 1", Writer: "Frank Miller",
+            Series: "Batman", Number: 404, Year: 1987, Genre: "Superhero",
+            Summary: "Bruce Wayne returns to Gotham City after years abroad.",
+            Publisher: "DC Comics", Penciller: "David Mazzucchelli",
+            TestCategory: "Comic — classic DC, series with issue number"),
+
+        new("Saga Chapter One", Writer: "Brian K. Vaughan",
+            Series: "Saga", Number: 1, Year: 2012, Genre: "Science Fiction, Fantasy",
+            Summary: "A new epic from the creators of Y: The Last Man.",
+            Publisher: "Image Comics", Penciller: "Fiona Staples",
+            TestCategory: "Comic — Image Comics, multi-genre"),
+
+        new("The Sandman: Sleep of the Just", Writer: "Neil Gaiman",
+            Series: "The Sandman", Number: 1, Year: 1989, Genre: "Fantasy, Horror",
+            Summary: "Morpheus, the King of Dreams, is captured and held prisoner for 70 years.",
+            Publisher: "DC Comics/Vertigo", Penciller: "Sam Kieth",
+            TestCategory: "Comic — Neil Gaiman (cross-ref with Good Omens book)"),
+
+        new("Akira Vol 1", Writer: "Katsuhiro Otomo",
+            Series: "Akira", Number: 1, Year: 1982, Genre: "Science Fiction",
+            Summary: "In the year 2019, Neo-Tokyo has risen from the ashes of World War III.",
+            Publisher: "Kodansha", Penciller: "Katsuhiro Otomo",
+            TestCategory: "Comic — manga, Japanese creator"),
+    ];
+
     // ── Endpoint registration ────────────────────────────────────────────────
 
     public static void MapDevSeedEndpoints(this WebApplication app)
@@ -287,7 +421,7 @@ public static class DevSeedEndpoints
             .WithTags("Development");
 
         group.MapPost("/seed-library", SeedLibraryAsync)
-            .WithSummary($"Drop {SeedBooks.Length} EPUBs + {SeedAudiobooks.Length} MP3 audiobooks into the Watch Folder");
+            .WithSummary($"Drop {SeedBooks.Length + SeedAudiobooks.Length + SeedVideos.Length + SeedMusicTracks.Length + SeedComics.Length} test files (EPUBs, MP3s, MP4s, FLACs, CBZs) into the Watch Folder");
 
         group.MapPost("/wipe", WipeAsync)
             .WithSummary("Wipe database, library root, and watch folder — then reinitialize a fresh DB");
@@ -394,7 +528,89 @@ public static class DevSeedEndpoints
                 filePath, mp3.Length, ab.TestCategory ?? "Uncategorised");
         }
 
-        int totalSeed = SeedBooks.Length + SeedAudiobooks.Length;
+        // ── Seed MP4 Videos (Movies + TV) ─────────────────────────────────
+        foreach (SeedVideo video in SeedVideos)
+        {
+            string fileName;
+            if (video.MediaType == "TV" && video.SeasonNumber is not null && video.EpisodeNumber is not null)
+            {
+                fileName = $"{SanitizeFileName(video.Series ?? video.Title)} S{video.SeasonNumber:D2}E{video.EpisodeNumber:D2}.mp4";
+            }
+            else
+            {
+                fileName = $"{SanitizeFileName(video.Title)} ({video.Year}).mp4";
+            }
+            string filePath = Path.Combine(watchDir, fileName);
+
+            if (File.Exists(filePath))
+            {
+                skipped++;
+                logger.LogDebug("Seed file already exists, skipping: {Path}", filePath);
+                continue;
+            }
+
+            byte[] mp4 = Mp4Builder.Create(video.Title, video.Director, video.Year);
+            await File.WriteAllBytesAsync(filePath, mp4);
+
+            created.Add(fileName);
+            logger.LogInformation(
+                "Seed MP4 created: {Path} ({Size} bytes) [{Category}]",
+                filePath, mp4.Length, video.TestCategory ?? "Uncategorised");
+        }
+
+        // ── Seed FLAC Music ───────────────────────────────────────────────
+        foreach (SeedMusic track in SeedMusicTracks)
+        {
+            string fileName = $"{SanitizeFileName(track.Artist)} - {SanitizeFileName(track.Title)}.flac";
+            string filePath = Path.Combine(watchDir, fileName);
+
+            if (File.Exists(filePath))
+            {
+                skipped++;
+                logger.LogDebug("Seed file already exists, skipping: {Path}", filePath);
+                continue;
+            }
+
+            byte[] flac = FlacBuilder.Create(
+                track.Title, track.Artist, track.Album,
+                track.Year, track.Genre, track.TrackNumber);
+
+            await File.WriteAllBytesAsync(filePath, flac);
+
+            created.Add(fileName);
+            logger.LogInformation(
+                "Seed FLAC created: {Path} ({Size} bytes) [{Category}]",
+                filePath, flac.Length, track.TestCategory ?? "Uncategorised");
+        }
+
+        // ── Seed CBZ Comics ──────────────────────────────────────────────
+        foreach (SeedComic comic in SeedComics)
+        {
+            string numSuffix = comic.Number is not null ? $" #{comic.Number}" : "";
+            string fileName = $"{SanitizeFileName(comic.Title)}{numSuffix}.cbz";
+            string filePath = Path.Combine(watchDir, fileName);
+
+            if (File.Exists(filePath))
+            {
+                skipped++;
+                logger.LogDebug("Seed file already exists, skipping: {Path}", filePath);
+                continue;
+            }
+
+            byte[] cbz = CbzBuilder.Create(
+                comic.Title, comic.Writer, comic.Series, comic.Number,
+                comic.Year, comic.Genre, comic.Summary, comic.Publisher,
+                comic.Penciller);
+
+            await File.WriteAllBytesAsync(filePath, cbz);
+
+            created.Add(fileName);
+            logger.LogInformation(
+                "Seed CBZ created: {Path} ({Size} bytes) [{Category}]",
+                filePath, cbz.Length, comic.TestCategory ?? "Uncategorised");
+        }
+
+        int totalSeed = SeedBooks.Length + SeedAudiobooks.Length + SeedVideos.Length + SeedMusicTracks.Length + SeedComics.Length;
         string message = created.Count > 0
             ? $"{created.Count} files dropped into Watch Folder. Ingestion will begin automatically."
             : "All seed files already exist in the Watch Folder.";
@@ -405,6 +621,9 @@ public static class DevSeedEndpoints
             files_skipped = skipped,
             epubs_total = SeedBooks.Length,
             audiobooks_total = SeedAudiobooks.Length,
+            videos_total = SeedVideos.Length,
+            music_total = SeedMusicTracks.Length,
+            comics_total = SeedComics.Length,
             total_seed_files = totalSeed,
             watch_directory = watchDir,
             files = created,
@@ -627,9 +846,12 @@ public static class DevSeedEndpoints
                       "Monitor via GET /ingestion/batches and SignalR intercom.",
             wipe = wipeResult,
             seed = seedResult,
-            total_test_files = SeedBooks.Length + SeedAudiobooks.Length,
+            total_test_files = SeedBooks.Length + SeedAudiobooks.Length + SeedVideos.Length + SeedMusicTracks.Length + SeedComics.Length,
             epubs = SeedBooks.Length,
             audiobooks = SeedAudiobooks.Length,
+            videos = SeedVideos.Length,
+            music = SeedMusicTracks.Length,
+            comics = SeedComics.Length,
             next_steps = new[]
             {
                 "Watch ingestion progress: GET /ingestion/batches",

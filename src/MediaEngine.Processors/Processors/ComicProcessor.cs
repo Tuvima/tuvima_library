@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using System.Xml.Linq;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Processors.Contracts;
 using MediaEngine.Processors.Models;
@@ -32,9 +33,17 @@ namespace MediaEngine.Processors.Processors;
 /// ──────────────────────────────────────────────────────────────────
 /// Extracted claims
 /// ──────────────────────────────────────────────────────────────────
-///  • title          (confidence 0.5 — filename stem)
+///  • title          (confidence 0.5 — filename stem; 0.8 from ComicInfo.xml)
 ///  • container      (confidence 1.0 — "CBZ" or "CBR" from magic bytes)
-///  • page_count     (confidence 1.0 — CBZ only)
+///  • page_count     (confidence 1.0 — CBZ image count; 0.9 from ComicInfo.xml)
+///  • author         (confidence 0.8 — ComicInfo.xml Writer)
+///  • illustrator    (confidence 0.8 — ComicInfo.xml Penciller)
+///  • genre          (confidence 0.7 — ComicInfo.xml Genre)
+///  • description    (confidence 0.7 — ComicInfo.xml Summary)
+///  • year           (confidence 0.8 — ComicInfo.xml Year)
+///  • publisher      (confidence 0.7 — ComicInfo.xml Publisher)
+///  • series         (confidence 0.8 — ComicInfo.xml Series)
+///  • series_position(confidence 0.8 — ComicInfo.xml Number)
 ///
 /// Spec: Phase 5 – Media Processor Architecture § ComicProcessor.
 /// </summary>
@@ -103,6 +112,9 @@ public sealed class ComicProcessor : IMediaProcessor
             int? pageCount = CountPages(filePath);
             if (pageCount.HasValue)
                 claims.Add(Claim("page_count", pageCount.Value.ToString(), 1.0));
+
+            // ComicInfo.xml — standard metadata embedded in CBZ archives.
+            ParseComicInfoXml(filePath, claims);
         }
 
         return Task.FromResult(new ProcessorResult
@@ -193,6 +205,59 @@ public sealed class ComicProcessor : IMediaProcessor
         if (entry.FullName.EndsWith('/')) return false;
         var ext = Path.GetExtension(entry.Name);
         return ImageExtensions.Contains(ext);
+    }
+
+    // -------------------------------------------------------------------------
+    // ComicInfo.xml parsing (CBZ)
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Looks for a <c>ComicInfo.xml</c> entry inside the CBZ archive (case-insensitive)
+    /// and extracts metadata claims from its standard elements.
+    /// A malformed or missing ComicInfo.xml is silently ignored.
+    /// </summary>
+    private static void ParseComicInfoXml(string filePath, List<ExtractedClaim> claims)
+    {
+        try
+        {
+            using var zip = ZipFile.OpenRead(filePath);
+
+            var comicInfoEntry = zip.Entries
+                .FirstOrDefault(e => e.Name.Equals("ComicInfo.xml", StringComparison.OrdinalIgnoreCase));
+
+            if (comicInfoEntry is null) return;
+
+            using var stream = comicInfoEntry.Open();
+            var doc = XDocument.Load(stream);
+            var root = doc.Root;
+            if (root is null) return;
+
+            AddClaimIfPresent(root, "Title",     "title",           0.8, claims);
+            AddClaimIfPresent(root, "Writer",    "author",          0.8, claims);
+            AddClaimIfPresent(root, "Penciller", "illustrator",     0.8, claims);
+            AddClaimIfPresent(root, "Genre",     "genre",           0.7, claims);
+            AddClaimIfPresent(root, "Summary",   "description",     0.7, claims);
+            AddClaimIfPresent(root, "Year",      "year",            0.8, claims);
+            AddClaimIfPresent(root, "Publisher", "publisher",       0.7, claims);
+            AddClaimIfPresent(root, "Series",    "series",          0.8, claims);
+            AddClaimIfPresent(root, "Number",    "series_position", 0.8, claims);
+            AddClaimIfPresent(root, "PageCount", "page_count",      0.9, claims);
+        }
+        catch (InvalidDataException) { /* corrupt ZIP — already handled by earlier steps */ }
+        catch (IOException)          { /* file access issue */ }
+        catch (System.Xml.XmlException) { /* malformed XML — skip silently */ }
+    }
+
+    /// <summary>
+    /// Reads a single XML element value and adds it as a claim if non-empty.
+    /// </summary>
+    private static void AddClaimIfPresent(
+        XElement root, string elementName, string claimKey, double confidence,
+        List<ExtractedClaim> claims)
+    {
+        var value = root.Element(elementName)?.Value;
+        if (!string.IsNullOrWhiteSpace(value))
+            claims.Add(Claim(claimKey, value.Trim(), confidence));
     }
 
     // -------------------------------------------------------------------------

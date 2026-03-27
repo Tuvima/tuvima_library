@@ -58,7 +58,22 @@ public sealed class AudioMetadataTagger : IMetadataTagger
                 file.Tag.Performers = [author];
 
             if (tags.TryGetValue("narrator", out var narrator))
-                file.Tag.Performers = [narrator];
+            {
+                // Write narrator to TXXX:NARRATOR — the same custom frame that
+                // AudioProcessor reads as its primary narrator source.
+                if (file.TagTypes.HasFlag(TagLib.TagTypes.Id3v2) &&
+                    file.GetTag(TagLib.TagTypes.Id3v2) is TagLib.Id3v2.Tag id3v2)
+                {
+                    var frame = TagLib.Id3v2.UserTextInformationFrame.Get(id3v2, "NARRATOR", true);
+                    frame.Text = [narrator];
+                }
+                else
+                {
+                    // Non-ID3 formats (M4A, FLAC, OGG): use Composers as fallback
+                    // since AudioProcessor checks Composers for narrator on these formats.
+                    file.Tag.Composers = [narrator];
+                }
+            }
 
             if (tags.TryGetValue("series", out var series))
                 file.Tag.Album = series;

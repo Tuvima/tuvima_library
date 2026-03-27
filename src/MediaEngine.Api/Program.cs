@@ -15,6 +15,7 @@ using MediaEngine.Intelligence.Services;
 using MediaEngine.Intelligence.Strategies;
 using MediaEngine.Processors;
 using MediaEngine.Processors.Contracts;
+using MediaEngine.Processors.Extractors;
 using MediaEngine.Processors.Processors;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
@@ -185,7 +186,7 @@ builder.Services.AddSingleton<IProfileService, ProfileService>();
 builder.Services.AddSingleton<IFFmpegService, FFmpegService>();
 
 // ── Processors ────────────────────────────────────────────────────────────────
-builder.Services.AddSingleton<IVideoMetadataExtractor, StubVideoMetadataExtractor>();
+builder.Services.AddSingleton<IVideoMetadataExtractor, FFmpegVideoMetadataExtractor>();
 
 builder.Services.AddSingleton<IProcessorRegistry>(sp =>
 {
