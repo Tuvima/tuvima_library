@@ -8,11 +8,11 @@ namespace MediaEngine.AI.Features;
 
 public sealed class VibeTagger : IVibeTagger
 {
-    private readonly LlamaInferenceService _llama;
+    private readonly ILlamaInferenceService _llama;
     private readonly AiSettings _settings;
     private readonly ILogger<VibeTagger> _logger;
 
-    public VibeTagger(LlamaInferenceService llama, AiSettings settings, ILogger<VibeTagger> logger)
+    public VibeTagger(ILlamaInferenceService llama, AiSettings settings, ILogger<VibeTagger> logger)
     {
         _llama = llama;
         _settings = settings;

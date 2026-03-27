@@ -8,10 +8,10 @@ namespace MediaEngine.AI.Features;
 
 public sealed class IntentSearchParser : IIntentSearchParser
 {
-    private readonly LlamaInferenceService _llama;
+    private readonly ILlamaInferenceService _llama;
     private readonly ILogger<IntentSearchParser> _logger;
 
-    public IntentSearchParser(LlamaInferenceService llama, ILogger<IntentSearchParser> logger)
+    public IntentSearchParser(ILlamaInferenceService llama, ILogger<IntentSearchParser> logger)
     {
         _llama = llama;
         _logger = logger;

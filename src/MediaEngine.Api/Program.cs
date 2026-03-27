@@ -554,6 +554,8 @@ builder.Services.AddHostedService<MediaEngine.Api.Services.DescriptionIntelligen
 
 // AI inference and feature services.
 builder.Services.AddSingleton<MediaEngine.AI.Llama.LlamaInferenceService>();
+builder.Services.AddSingleton<MediaEngine.AI.Llama.ILlamaInferenceService>(
+    sp => sp.GetRequiredService<MediaEngine.AI.Llama.LlamaInferenceService>());
 builder.Services.AddSingleton<MediaEngine.AI.Whisper.WhisperInferenceService>();
 builder.Services.AddSingleton<MediaEngine.AI.Whisper.AudioPreprocessor>();
 

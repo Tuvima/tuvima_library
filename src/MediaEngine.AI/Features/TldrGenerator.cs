@@ -7,10 +7,10 @@ namespace MediaEngine.AI.Features;
 
 public sealed class TldrGenerator : ITldrGenerator
 {
-    private readonly LlamaInferenceService _llama;
+    private readonly ILlamaInferenceService _llama;
     private readonly ILogger<TldrGenerator> _logger;
 
-    public TldrGenerator(LlamaInferenceService llama, ILogger<TldrGenerator> logger)
+    public TldrGenerator(ILlamaInferenceService llama, ILogger<TldrGenerator> logger)
     {
         _llama = llama;
         _logger = logger;

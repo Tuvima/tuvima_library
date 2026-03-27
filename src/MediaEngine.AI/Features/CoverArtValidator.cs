@@ -7,10 +7,10 @@ namespace MediaEngine.AI.Features;
 
 public sealed class CoverArtValidator : ICoverArtValidator
 {
-    private readonly LlamaInferenceService _llama;
+    private readonly ILlamaInferenceService _llama;
     private readonly ILogger<CoverArtValidator> _logger;
 
-    public CoverArtValidator(LlamaInferenceService llama, ILogger<CoverArtValidator> logger)
+    public CoverArtValidator(ILlamaInferenceService llama, ILogger<CoverArtValidator> logger)
     {
         _llama = llama;
         _logger = logger;

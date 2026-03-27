@@ -7,12 +7,12 @@ namespace MediaEngine.AI.Features;
 
 public sealed class UrlMetadataExtractor : IUrlMetadataExtractor
 {
-    private readonly LlamaInferenceService _llama;
+    private readonly ILlamaInferenceService _llama;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<UrlMetadataExtractor> _logger;
 
     public UrlMetadataExtractor(
-        LlamaInferenceService llama,
+        ILlamaInferenceService llama,
         IHttpClientFactory httpClientFactory,
         ILogger<UrlMetadataExtractor> logger)
     {

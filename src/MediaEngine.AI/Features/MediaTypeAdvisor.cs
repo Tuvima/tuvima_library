@@ -13,12 +13,12 @@ namespace MediaEngine.AI.Features;
 /// </summary>
 public sealed class MediaTypeAdvisor : IMediaTypeAdvisor
 {
-    private readonly LlamaInferenceService _llama;
+    private readonly ILlamaInferenceService _llama;
     private readonly AiSettings _settings;
     private readonly ILogger<MediaTypeAdvisor> _logger;
 
     public MediaTypeAdvisor(
-        LlamaInferenceService llama,
+        ILlamaInferenceService llama,
         AiSettings settings,
         ILogger<MediaTypeAdvisor> logger)
     {

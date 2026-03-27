@@ -81,8 +81,11 @@ public sealed class ConflictResolverTests
     // ── Tie-breaking on confidence uses most recent ClaimedAt ─────────────────
 
     [Fact]
-    public async Task TieOnConfidence_MostRecentClaimWins()
+    public async Task TieOnConfidence_EarliestClaimWins()
     {
+        // When two non-Wikidata claims have equal confidence, the EARLIEST claim wins.
+        // Rationale: the first author listed in the file's embedded metadata should be
+        // the canonical author, not the last one encountered during processing.
         var engine = CreateEngine();
 
         var older = MakeClaim("title", "Older Claim", ProviderA, 0.8);
@@ -106,7 +109,7 @@ public sealed class ConflictResolverTests
         var result = await engine.ScoreEntityAsync(context);
 
         var titleScore = result.FieldScores.First(f => f.Key == "title");
-        Assert.Equal("Newer Claim", titleScore.WinningValue);
+        Assert.Equal("Older Claim", titleScore.WinningValue);
     }
 
     // ── Fields without Wikidata use best retail confidence ────────────────────

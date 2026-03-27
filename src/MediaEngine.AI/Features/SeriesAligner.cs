@@ -7,10 +7,10 @@ namespace MediaEngine.AI.Features;
 
 public sealed class SeriesAligner : ISeriesAligner
 {
-    private readonly LlamaInferenceService _llama;
+    private readonly ILlamaInferenceService _llama;
     private readonly ILogger<SeriesAligner> _logger;
 
-    public SeriesAligner(LlamaInferenceService llama, ILogger<SeriesAligner> logger)
+    public SeriesAligner(ILlamaInferenceService llama, ILogger<SeriesAligner> logger)
     {
         _llama = llama;
         _logger = logger;

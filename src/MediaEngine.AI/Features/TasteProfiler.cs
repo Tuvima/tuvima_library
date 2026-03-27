@@ -8,12 +8,12 @@ namespace MediaEngine.AI.Features;
 
 public sealed class TasteProfiler : ITasteProfiler
 {
-    private readonly LlamaInferenceService _llama;
+    private readonly ILlamaInferenceService _llama;
     private readonly ICanonicalValueRepository _canonicalRepo;
     private readonly ILogger<TasteProfiler> _logger;
 
     public TasteProfiler(
-        LlamaInferenceService llama,
+        ILlamaInferenceService llama,
         ICanonicalValueRepository canonicalRepo,
         ILogger<TasteProfiler> logger)
     {

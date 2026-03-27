@@ -8,13 +8,13 @@ namespace MediaEngine.AI.Features;
 
 public sealed class WhyExplainer : IWhyExplainer
 {
-    private readonly LlamaInferenceService _llama;
+    private readonly ILlamaInferenceService _llama;
     private readonly ICanonicalValueRepository _canonicalRepo;
     private readonly ITasteProfiler _tasteProfiler;
     private readonly ILogger<WhyExplainer> _logger;
 
     public WhyExplainer(
-        LlamaInferenceService llama,
+        ILlamaInferenceService llama,
         ICanonicalValueRepository canonicalRepo,
         ITasteProfiler tasteProfiler,
         ILogger<WhyExplainer> logger)

@@ -13,12 +13,12 @@ namespace MediaEngine.AI.Features;
 /// </summary>
 public sealed class SmartLabeler : ISmartLabeler
 {
-    private readonly LlamaInferenceService _llama;
+    private readonly ILlamaInferenceService _llama;
     private readonly AiSettings _settings;
     private readonly ILogger<SmartLabeler> _logger;
 
     public SmartLabeler(
-        LlamaInferenceService llama,
+        ILlamaInferenceService llama,
         AiSettings settings,
         ILogger<SmartLabeler> logger)
     {

@@ -103,11 +103,13 @@ public sealed class ScoringEngineTests
         Assert.Equal(WikidataProviderId, titleScore.WinningProviderId);
     }
 
-    // ── User-locked claim wins when no Wikidata value present ────────────────
+    // ── User lock on non-lockable field is ignored — highest confidence wins ────
 
     [Fact]
-    public async Task UserLockedClaim_WinsWhenNoWikidata()
+    public async Task UserLockedClaim_OnNonLockableField_Ignored_HighestConfidenceWins()
     {
+        // "title" is NOT in UserLockableFields — user lock is ignored.
+        // The highest-confidence claim wins instead (ProviderB "Dune" at 1.0).
         var engine = CreateEngine();
         var lockedClaim = MakeClaim("title", "My Custom Title", ProviderA, 0.5);
         lockedClaim.IsUserLocked = true;
@@ -131,23 +133,24 @@ public sealed class ScoringEngineTests
         var result = await engine.ScoreEntityAsync(context);
 
         var titleScore = result.FieldScores.First(f => f.Key == "title");
-        Assert.Equal("My Custom Title", titleScore.WinningValue);
+        Assert.Equal("Dune", titleScore.WinningValue);
         Assert.Equal(1.0, titleScore.Confidence);
         Assert.False(titleScore.IsConflicted);
     }
 
-    // ── Multiple user-locked claims: most recent wins ────────────────────────
+    // ── Multiple user-locked claims on a lockable field: most recent wins ─────
 
     [Fact]
-    public async Task MultipleUserLockedClaims_MostRecentWins()
+    public async Task MultipleUserLockedClaims_OnLockableField_MostRecentWins()
     {
+        // "rating" IS in UserLockableFields — among locked claims the most recent wins.
         var engine = CreateEngine();
 
-        var older = MakeClaim("title", "Old Title", ProviderA, 1.0);
+        var older = MakeClaim("rating", "3", ProviderA, 1.0);
         older.IsUserLocked = true;
         older.ClaimedAt = DateTimeOffset.UtcNow.AddDays(-10);
 
-        var newer = MakeClaim("title", "New Title", ProviderA, 1.0);
+        var newer = MakeClaim("rating", "5", ProviderA, 1.0);
         newer.IsUserLocked = true;
         newer.ClaimedAt = DateTimeOffset.UtcNow;
 
@@ -161,8 +164,8 @@ public sealed class ScoringEngineTests
 
         var result = await engine.ScoreEntityAsync(context);
 
-        var titleScore = result.FieldScores.First(f => f.Key == "title");
-        Assert.Equal("New Title", titleScore.WinningValue);
+        var ratingScore = result.FieldScores.First(f => f.Key == "rating");
+        Assert.Equal("5", ratingScore.WinningValue);
     }
 
     // ── Highest-confidence non-Wikidata claim wins ───────────────────────────

@@ -8,10 +8,10 @@ namespace MediaEngine.AI.Features;
 
 public sealed class QidDisambiguator : IQidDisambiguator
 {
-    private readonly LlamaInferenceService _llama;
+    private readonly ILlamaInferenceService _llama;
     private readonly ILogger<QidDisambiguator> _logger;
 
-    public QidDisambiguator(LlamaInferenceService llama, ILogger<QidDisambiguator> logger)
+    public QidDisambiguator(ILlamaInferenceService llama, ILogger<QidDisambiguator> logger)
     {
         _llama = llama;
         _logger = logger;

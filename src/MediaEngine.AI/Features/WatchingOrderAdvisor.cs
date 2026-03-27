@@ -8,10 +8,10 @@ namespace MediaEngine.AI.Features;
 
 public sealed class WatchingOrderAdvisor : IWatchingOrderAdvisor
 {
-    private readonly LlamaInferenceService _llama;
+    private readonly ILlamaInferenceService _llama;
     private readonly ILogger<WatchingOrderAdvisor> _logger;
 
-    public WatchingOrderAdvisor(LlamaInferenceService llama, ILogger<WatchingOrderAdvisor> logger)
+    public WatchingOrderAdvisor(ILlamaInferenceService llama, ILogger<WatchingOrderAdvisor> logger)
     {
         _llama = llama;
         _logger = logger;

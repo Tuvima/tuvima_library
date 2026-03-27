@@ -15,13 +15,13 @@ namespace MediaEngine.AI.Features;
 /// </summary>
 public sealed class DescriptionIntelligenceService : IDescriptionIntelligenceService
 {
-    private readonly LlamaInferenceService _llama;
+    private readonly ILlamaInferenceService _llama;
     private readonly AiSettings _settings;
     private readonly ICanonicalValueRepository _canonicalRepo;
     private readonly ILogger<DescriptionIntelligenceService> _logger;
 
     public DescriptionIntelligenceService(
-        LlamaInferenceService llama,
+        ILlamaInferenceService llama,
         AiSettings settings,
         ICanonicalValueRepository canonicalRepo,
         ILogger<DescriptionIntelligenceService> logger)

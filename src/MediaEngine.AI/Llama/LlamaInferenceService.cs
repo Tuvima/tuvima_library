@@ -16,7 +16,7 @@ namespace MediaEngine.AI.Llama;
 /// Handles model loading, GBNF grammar constraints, and structured JSON output.
 /// Thread-safe: uses the ModelLifecycleManager's mutual exclusion.
 /// </summary>
-public sealed class LlamaInferenceService
+public sealed class LlamaInferenceService : ILlamaInferenceService
 {
     private readonly AiSettings _settings;
     private readonly IModelLifecycleManager _lifecycle;
