@@ -8,14 +8,13 @@
 
 **Make your media collection discoverable.**
 
-*Tuvima Library is the first media platform that organizes by story, not by file type — unifying your books, audiobooks, movies, TV shows, music, comics, and podcasts into intelligent Hubs, with a cinematic dark dashboard, a Universe Explorer that maps the connections between your stories, and a local-first engine that never touches the cloud.*
+*Tuvima Library is the first media platform that organizes by story, not by file type — unifying your books, audiobooks, movies, TV shows, music, comics, and podcasts into one intelligent library, with a cinematic dashboard and a built-in AI that runs entirely on your machine.*
 
 <br/>
 
 [![License: AGPLv3](https://img.shields.io/badge/License-AGPLv3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![.NET](https://img.shields.io/badge/.NET-10.0-purple.svg)](https://dotnet.microsoft.com/)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey.svg)]()
-[![Arr Compatible](https://img.shields.io/badge/Arr--Compatible-Radarr%20%7C%20Sonarr-orange.svg)]()
 
 </div>
 
@@ -23,27 +22,17 @@
 
 ## Why Tuvima?
 
-*Tuvima* means "discoverable" — and that's exactly what it does.
+Plex organizes your videos. Calibre organizes your books. Audiobookshelf organizes your audiobooks. But none of them talk to each other. Your Dune ebook lives in one app, the audiobook in another, and the Villeneuve film in a third. Three apps, three databases, three interfaces — for the same story.
 
-Plex and Jellyfin organize your videos. Calibre organizes your books. Audiobookshelf organizes your audiobooks. But none of them talk to each other. Your Dune ebook lives in one app. Your Dune audiobook lives in another. The Villeneuve film lives in a third. Three apps, three databases, three interfaces — for the same story.
+**Tuvima Library organizes by story, not by file type.**
 
-**Tuvima Library is the first media platform that organizes by story, not by file type.**
+Drop your files into a folder. Tuvima reads each one, figures out what it is using a built-in AI and Wikidata (the knowledge database behind Wikipedia), downloads cover art and author photos, and files everything into a clean, organized library. Books, audiobooks, movies, TV shows, music, comics, and podcasts — all in one place.
 
-Drop your files into a watch folder. Within seconds, Tuvima reads each file, identifies it using Wikidata (the knowledge database behind Wikipedia), and files it into a clean, organized library on your hard drive. Books, audiobooks, movies, TV shows, music, comics, and podcasts — all in one place, all managed by one intelligence engine.
+### One story, every format
 
-### The Hub: your story, every format, one click
+When Tuvima discovers that your Dune ebook, Dune audiobook, and Dune film belong to the same creative world, it groups them together into a single entry called a **Series**. Click it, and you see every version of the story you own — read, listen, or watch. No switching apps.
 
-This is the idea that no other media manager has. When Tuvima discovers that your Dune ebook, Dune audiobook, and Dune film all share the same creative universe, it groups them into a single "Hub." One entry in your library. Click it, and you see every version of the story you own — read, listen, or watch. No switching apps. No remembering where you put things.
-
-Plex shows you movies. Calibre shows you books. Tuvima shows you *stories*.
-
-### The Universe Explorer
-
-This is where Tuvima lives up to its name. The Universe Explorer makes the hidden relationships in your library *discoverable* — building an interactive map of the fictional worlds you own. Characters, locations, factions, and the connections between them, all visualized as an explorable graph.
-
-Open the Dune universe and see Paul Atreides linked to House Atreides, connected to Arrakis, opposed by the Harkonnens. See which actors played which characters across different film adaptations. Scrub a timeline slider to see relationships change across eras. Discover connections between works you never knew existed.
-
-No other media manager builds a knowledge graph of your collection.
+Related Series are grouped into **Universes** — the Dune novels, the Dune films, and the Dune audiobooks all live under the "Dune" Universe.
 
 ### How Tuvima compares
 
@@ -55,173 +44,204 @@ No other media manager builds a knowledge graph of your collection.
 | Music | Yes | Yes | No | No | **Yes** |
 | Comics | No | No | Partial | No | **Yes** |
 | Podcasts | No | No | No | No | **Yes** |
-| Cross-media linking | No | No | No | No | **Yes (Hubs)** |
-| Universe explorer | No | No | No | No | **Yes** |
+| Cross-media linking | No | No | No | No | **Yes** |
+| Built-in AI | No | No | No | No | **Yes** |
 | Fully local (no cloud) | No | Yes | Yes | Yes | **Yes** |
-| Open source | No | Yes (GPL) | Yes (GPL) | Yes (GPL) | **Yes (AGPLv3)** |
+| Open source | No | Yes | Yes | Yes | **Yes** |
 
 ---
 
-## Key Features
+## What Happens When You Add a File
 
-### Cinematic Dark Dashboard
+Here's the journey every file takes, from the moment you drop it into the watch folder:
 
-Dark-mode only, poster-art swimlanes, cinematic hero banners with blurred backdrops — the kind of interface you'd expect from Netflix or Apple TV+, but running entirely on your machine. The dashboard adapts to any screen: full desktop, compact mobile, oversized TV, or minimal in-car audio mode.
+**1. The AI reads the filename**
+A messy filename like `[HD] Frank Herbert - Dune (1965) [x264].epub` gets cleaned up automatically. The AI extracts the title ("Dune"), the author ("Frank Herbert"), and the year (1965). This works even with special characters, foreign languages, and terrible naming.
 
-- **TopBar** — glassmorphic bar with wordmark, search, notification bell, and profile avatar
-- **LeftDock** — floating icon panel with seven content lanes (Home, Search, Books, Video, Music, Podcasts, Comics)
-- **Cinematic Hero Banners** — pre-rendered via SkiaSharp (gaussian blur, radial vignette, film grain). Served from disk — no runtime processing
-- **Poster Swimlanes** — horizontal-scrolling poster rows (2:3 aspect ratio, touch-friendly scroll-snap)
-- **Command Palette** (`Ctrl+K`) — global search across Hubs, Works, and system pages
-- **Real-time updates** — every change pushed live via SignalR the moment a file is detected
+**2. The Engine identifies the file**
+Using the cleaned-up information, the Engine searches Wikidata and retail providers (Apple, Google Books, Open Library, TMDB) to find the exact match. It downloads cover art, descriptions, ratings, and bridge identifiers (ISBN, TMDB ID). If the file already has cover art embedded, the Engine compares it visually against provider images to improve matching accuracy.
 
-### Hub Detail & Person Detail
+**3. Wikidata confirms the identity**
+Wikidata is the authority for structured data — title, author, year, genre, series. The Engine fetches 50+ properties and builds a complete profile. Wikipedia plot summaries are downloaded for AI enrichment. Author headshots, biographies, and social links are fetched automatically.
 
-**Hub Detail** (`/hub/{id}`) — full cinematic page for each story. Hero backdrop, cover art, genre chips, action bar with contextual progress (`Continue Reading · 12%`), Wikipedia description, and related works.
+**4. The AI enriches your library**
+In the background, the AI reads the descriptions and plot summaries, then extracts structured vocabulary for every file:
+- **Themes** — what the story is about (ecology, friendship, duality)
+- **Mood** — how it feels (atmospheric, cerebral, haunting, cozy)
+- **Setting** — where it takes place (Middle-earth, 1960s Tokyo, post-apocalyptic United States)
+- **Pace** — how it reads (slow-burn, fast-paced, meditative)
+- **TL;DR** — one punchy sentence that captures the essence
+- **Characters** — names and roles extracted from descriptions
 
-**Person Detail** (`/person/{id}`) — the "Human Hub" for every creator. Wikidata-enriched headshot, biography, occupation, social links (Instagram, TikTok, Mastodon, website), and works grouped by role.
+**5. The file is organized**
+Once the Engine is confident in the identification, the file moves from a staging area into your organized library — sorted by media type, named by title, with cover art and hero banners alongside it.
 
-### In-Browser EPUB Reader
-
-A full paginated EPUB reader built directly into the Dashboard. CSS multi-column pagination, chapter sidebar, font controls, reading themes (Light/Sepia/Dark), full-text search, and automatic progress tracking (saved every 30 seconds, syncs to Hub Detail in real time).
-
-### The Priority Cascade Engine
-
-The Engine never asks you to manually enter metadata. Instead it uses a four-tier **Priority Cascade**:
-
-| Tier | Rule | Effect |
-|---|---|---|
-| **A** | User-Locked Claims | Your personal ratings, media type corrections, and custom tags always win. Structured fields (title, author, year, genre) cannot be user-locked — they come from authoritative sources only. |
-| **B** | Per-Field Provider Priority | Configurable in `config/field_priorities.json` — e.g., Apple API for cover art, Wikipedia for descriptions |
-| **C** | Wikidata Authority | When present, Wikidata claims win unconditionally for structured fields |
-| **D** | Confidence Cascade | Highest-confidence claim wins |
-
-Every piece of metadata from every source (embedded file tags, filenames, external providers, AI analysis) is recorded as an append-only **Claim**. History is never lost.
-
-### Two-Stage Hydration Pipeline
-
-After ingestion, the Engine enriches every file through two background stages:
-
-| Stage | Name | What happens |
-|---|---|---|
-| **1** | Retail Identification | Retail providers (Apple API, TMDB, Open Library, Google Books) gather cover art, descriptions, ratings, and bridge IDs (ISBN, ASIN, TMDB ID). Cover art gets perceptual-hashed for visual matching. |
-| **2** | Wikidata Bridge | Uses bridge IDs from Stage 1 for precise Wikidata QID resolution. Data Extension API fetches 50+ properties (author, genre, series, year). Wikipedia plot summaries fetched for AI enrichment. |
-
-Person enrichment runs in parallel: authors, narrators, and directors get Wikidata headshots, biographies, and social links via `RecursiveIdentityService`.
-
-### Review Queue
-
-Every ambiguous decision is surfaced for human attention — never guessed silently:
-
-- **AuthorityMatchFailed** — Wikidata could not resolve a QID
-- **MultipleQidMatches** — multiple Wikidata candidates; user picks one from a card grid
-- **AmbiguousMediaType** — media type could not be confidently determined (MP3: audiobook or music?)
-- **LowConfidence** — overall score below threshold after hydration
-
-### Local AI Intelligence
-
-Every AI feature runs entirely on your machine — no cloud API, no subscription, no data leaving your home. Models download automatically on first startup.
-
-| Model | Size | Role | Used for |
-|-------|------|------|----------|
-| **Llama 3.2 1B** | 750 MB | Instant | Search query parsing, media type classification |
-| **Llama 3.2 3B** | 1.9 GB | Worker | Filename cleaning (SmartLabeler), QID disambiguation, vibe tags |
-| **Llama 3.1 8B** | 4.6 GB | Scholar | Deep enrichment — themes, mood, setting, pace, TL;DR, character extraction |
-| **Whisper Medium** | 1.5 GB | Ears | Audio transcription, language detection, subtitle sync |
-
-**What the AI adds to every file:**
-
-| Feature | What it does | When it runs |
-|---------|-------------|-------------|
-| **Smart Labeling** | Cleans messy filenames into structured search queries | During ingestion (automatic) |
-| **Media Type Classification** | Determines if an MP3 is music, audiobook, or podcast | During ingestion (automatic) |
-| **Description Intelligence** | Extracts themes, mood, setting, pace, audience, and TL;DR from Wikipedia plots and retail descriptions | Background batches (8B Scholar model) |
-| **Vibe Tags** | Mood/atmosphere tags from a controlled vocabulary per media type | Background batches |
-| **Cover Art Matching** | Perceptual hash compares embedded cover art against provider images | During retail matching |
-| **QID Disambiguation** | Picks the correct Wikidata entity when multiple candidates match | During Wikidata resolution |
-
-**Hardware-aware scheduling:** The Engine benchmarks your hardware at startup and adapts automatically. GPU systems run enrichment continuously. CPU systems schedule heavy work overnight. If FFmpeg or HandBrake is transcoding, the Engine backs off and waits.
-
-### Privacy-First
-
-- **Local SQLite database** — your entire library in a single file on your hard drive. No cloud, no telemetry
-- **Database is the authoritative data store** — user edits written back to file embedded metadata (EPUB OPF, ID3 tags) for portability
-- **Secret Store** — API keys encrypted at rest using OS-level protection
-- **Guest Key system** — named, revocable API keys for any external tool that connects
+**6. Everything stays up to date**
+Every 30 days, the Engine re-checks Wikidata and retail providers for updated information. New cover art, corrected metadata, additional translations — your library gets better over time without any effort.
 
 ---
 
-## Screenshots
+## The Dashboard
 
-> *Screenshots from the current development build — subject to change as the UI is polished toward v1.0.*
+A cinematic dark-mode interface designed to look like Netflix or Apple TV+, but running entirely on your machine.
 
-### Hub Detail Page
+- **Poster swimlanes** — horizontal-scrolling rows of cover art, just like a streaming service
+- **Hero banners** — blurred backdrop images with film-grain texture for each story
+- **Real-time updates** — new files appear the moment they're detected, no refresh needed
+- **Works on any screen** — desktop, tablet, mobile, or TV
+- **Global search** (`Ctrl+K`) — find anything in your library instantly
 
-Full cinematic page for a story — breadcrumb navigation, hero backdrop, cover art, star rating, metadata badges, Wikipedia description, action bar, and author section with Wikidata headshot.
+### Library Vault
 
-![Hub Detail — Abaddon's Gate by James S.A. Corey](assets/screenshots/hub-detail.png)
+The command centre for managing everything. Four tabs:
 
-### In-Browser EPUB Reader
+- **Media** — every file in your library with status indicators, pipeline progress, and a detail drawer for each item
+- **People** — every author, narrator, and director with Wikidata headshots and biographies
+- **Universes** — franchise-level groupings that link related Series together
+- **Hubs** — smart collections, personal lists, AI-generated mixes, and user playlists
 
-Paginated reading view with chapter navigation, search, bookmark, and persistent close button. Progress bar and reading stats at the bottom. Dark reading theme shown.
+### Settings
 
-![EPUB Reader — Chapter Thirty-Five: Anna](assets/screenshots/epub-reader.png)
+The AI section in Settings shows you exactly what's happening:
 
-### Books Lane
+- **Models** — which AI models are downloaded, loaded, and how much memory they use. Hardware profile badge showing your detected tier, GPU status, and inference speed.
+- **Features** — toggle individual AI capabilities on or off. Each shows which model it uses and when it runs.
+- **Schedule** — when background enrichment runs, with a progress bar showing how much of your library has been enriched.
 
-Content-type lane page with cinematic hero banner, format toggle (Book / Audiobook), sort and filter controls, and poster swimlanes.
+---
 
-![Books Lane — Smart Sections view](assets/screenshots/books-lane.png)
+## Built-In AI
+
+Every AI feature runs entirely on your machine. No cloud account, no subscription, no data ever leaves your home. Models download automatically on first startup (~9 GB total).
+
+### Four models, four jobs
+
+| Model | Size | Job | What it does |
+|-------|------|-----|-------------|
+| **Llama 3.2 1B** | 750 MB | Quick tasks | Classifies media types (is this MP3 music or an audiobook?), parses search queries |
+| **Llama 3.2 3B** | 1.9 GB | Ingestion | Cleans filenames, picks the right Wikidata match, generates vibe tags |
+| **Llama 3.1 8B** | 4.6 GB | Deep enrichment | Extracts themes, mood, setting, pace, TL;DR, and character names from descriptions |
+| **Whisper Medium** | 1.5 GB | Audio | Transcribes audiobooks, detects spoken language, syncs subtitles |
+
+### Every feature, on every machine
+
+The Engine benchmarks your hardware on first startup and adapts automatically. If you have a gaming PC with a dedicated GPU, enrichment runs continuously and finishes in under an hour. If you have a quieter machine, it schedules the heavy work for overnight when you're not using it.
+
+**Every machine gets every feature.** The only difference is speed:
+
+| | Low (i5, 8 GB, no GPU) | Medium (i7, 16 GB) | High (RTX 3060+) |
+|---|---|---|---|
+| Files appear in your library | ~2 hours | ~1.5 hours | ~1.3 hours |
+| Themes, mood, and TL;DR | ~3 nights | ~8 hours | ~1 hour |
+| Audiobook transcription | ~4-5 nights | ~18 hours | ~5 hours |
+
+> Ingestion speed is partly limited by Wikidata's rate limit (~1 request per second), which is the same regardless of your hardware.
+
+### GPU support
+
+If you have a dedicated GPU, the Engine detects it automatically:
+
+- **NVIDIA** (RTX/GTX) — detected via CUDA, 6-7x faster inference
+- **AMD** (Radeon) — detected via Vulkan
+- **Intel Arc** — detected via Vulkan
+
+Integrated GPUs (Intel UHD, Intel Iris) are left alone for video transcoding — the AI runs on the CPU instead, so they don't compete for resources.
+
+### Plays nice with transcoding
+
+If FFmpeg or HandBrake is running a video encode, the Engine detects it and backs off — your transcode gets full priority. AI enrichment resumes when the system is idle again.
 
 ---
 
 ## System Requirements
 
-### Minimum (Low Tier)
+### Minimum
 
-| Component | Requirement | Notes |
-|-----------|------------|-------|
-| **CPU** | 4-core x86_64 (Intel i5 / Ryzen 5) | Needed for LLM inference + background tasks |
-| **RAM** | 8 GB | Peak ~7 GB when 8B model loads overnight |
-| **Disk** | 10 GB free (models + database) | Models: 1B (750 MB) + 3B (1.9 GB) + 8B (4.6 GB) + Whisper (1.5 GB) |
-| **OS** | Windows 10+, Linux (Docker), macOS | |
-| **GPU** | Not required | CPU-only works — enrichment runs overnight |
+| | Requirement |
+|---|---|
+| **CPU** | 4-core (Intel i5 / Ryzen 5 or equivalent) |
+| **RAM** | 8 GB |
+| **Disk** | 10 GB free for AI models and database |
+| **OS** | Windows 10+, Linux, or macOS |
+| **GPU** | Not required |
 
-### Recommended (Medium Tier)
+### Recommended
 
-| Component | Requirement | Notes |
-|-----------|------------|-------|
-| **CPU** | 6+ core (Intel i7 / Ryzen 7) | Faster ingestion (~1.5 hrs for 500 files) |
-| **RAM** | 16 GB | Comfortable headroom for model + transcoding |
-| **Disk** | SSD with 10 GB free | Faster database queries + model loading |
-| **GPU** | Optional (any dedicated GPU helps) | iGPU reserved for video transcoding |
-
-### Optimal (High Tier)
-
-| Component | Requirement | Notes |
-|-----------|------------|-------|
-| **CPU** | Any modern CPU | GPU handles inference |
-| **RAM** | 16+ GB | |
-| **GPU** | NVIDIA RTX 3060+ (8 GB+ VRAM) | CUDA auto-detected — 6-7x faster inference |
-| **Disk** | SSD with 10 GB free | |
-
-> **How the tiers work:** The Engine benchmarks your hardware on first startup and classifies it automatically. Every tier gets the same enrichment quality — the only difference is speed. A Low tier system enriches 500 files over ~3 nights. A High tier system finishes in under an hour. Your library is usable within 2 hours on any tier.
-
-### Performance Estimates (500-file library)
-
-| Phase | Low (i5, 8 GB) | Medium (i7, 16 GB) | High (RTX 3060+) |
-|-------|----------------|--------------------|--------------------|
-| **Ingestion** (files in library) | ~2 hrs | ~1.5 hrs | ~1.3 hrs |
-| **AI Enrichment** (themes, mood, TL;DR) | ~3 nights | ~8 hrs | ~1 hr |
-| **Whisper** (audiobook transcription) | ~3 nights | ~18 hrs | ~5 hrs |
-
-> **Note:** Ingestion speed is network-bound after ~15 tok/s CPU speed. Wikidata API calls are rate-limited to ~1 request/second regardless of hardware. A 500-file library makes ~2,000+ API calls.
+| | Requirement |
+|---|---|
+| **CPU** | 6+ core (Intel i7 / Ryzen 7) |
+| **RAM** | 16 GB |
+| **Disk** | SSD with 10 GB free |
+| **GPU** | Any dedicated NVIDIA, AMD, or Intel Arc GPU |
 
 ---
 
-## Quick Start
+## How Metadata Works
 
-**Prerequisites:** [.NET 10 SDK](https://dotnet.microsoft.com/download)
+### The Priority Cascade
+
+When multiple sources disagree about a piece of information (the book title, the author's name, the release year), the Engine resolves the conflict automatically using a priority system:
+
+1. **Your personal data wins first** — your ratings, media type corrections, and custom tags are always preserved
+2. **Configured priorities** — you can tell the Engine to prefer a specific source for specific fields (e.g., always use Apple for cover art)
+3. **Wikidata is the authority** — for factual data like title, author, year, and genre, Wikidata always wins
+4. **Highest confidence wins** — when no authority exists, the source with the best confidence score wins
+
+Factual fields like title, author, year, and genre cannot be manually overridden — they come from authoritative sources only. This keeps your library accurate even as you grow it.
+
+### Two-stage enrichment
+
+After the AI cleans the filename and the file is identified, the Engine enriches it in two background stages:
+
+1. **Retail providers first** — Apple, Google Books, Open Library, and TMDB provide cover art, descriptions, ratings, and bridge identifiers (ISBN, ASIN, TMDB ID). Cover art is visually compared to the file's embedded artwork using perceptual hashing.
+
+2. **Wikidata second** — using the bridge identifiers from retail providers, Wikidata performs a precise lookup and fetches 50+ properties (author, genre, series, year, franchise). Wikipedia plot summaries are downloaded for AI enrichment.
+
+Authors, narrators, and directors are enriched automatically in parallel — headshots, biographies, occupation, and social media links, all from Wikidata.
+
+### Supported metadata providers
+
+**No API key needed:**
+
+| Provider | Media types | What it provides |
+|---|---|---|
+| Wikidata | Everything | The primary identity source — 50+ properties per item, franchise/series relationships, person data |
+| Wikipedia | Everything | Descriptions and plot summaries for AI enrichment |
+| Apple API | Books, Audiobooks, Podcasts | High-quality cover art, descriptions, ratings |
+| Open Library | Books | Title, author, year, cover art, ISBN, series |
+| Google Books | Books | Title, author, year, cover art, description |
+| MusicBrainz | Music | Artist, album, year, genre |
+
+**Free API key required:**
+
+| Provider | Media types | What it provides |
+|---|---|---|
+| TMDB | Movies, TV | Posters, backdrop images, cast/crew |
+| Comic Vine | Comics | Covers, issue details |
+| Podcast Index | Podcasts | Episode lists, GUIDs |
+
+---
+
+## Privacy
+
+Tuvima Library is private by design:
+
+- **Everything runs locally** — your database, your AI models, your files. Nothing is sent to the cloud.
+- **No accounts** — no sign-up, no login, no telemetry, no tracking.
+- **AI models run on your CPU/GPU** — no OpenAI, no Anthropic, no API calls to AI services.
+- **Your data stays portable** — metadata is written back into your files (EPUB tags, ID3 tags), so you can take your library anywhere.
+- **API keys are encrypted** — stored using your operating system's secure credential storage.
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+- [.NET 10 SDK](https://dotnet.microsoft.com/download)
+- 10 GB of free disk space (for AI models)
+
+### Installation
 
 ```bash
 # 1. Clone the repository
@@ -232,7 +252,7 @@ cd tuvima-library
 cp -r config.example config
 ```
 
-Open `config/core.json` and set your paths:
+Edit `config/core.json` and set your paths:
 
 ```json
 {
@@ -242,33 +262,19 @@ Open `config/core.json` and set your paths:
 ```
 
 ```bash
-# 3. Start the Intelligence Engine
+# 3. Start the Engine
 dotnet run --project src/MediaEngine.Api
-# Engine: http://localhost:61495
-# Swagger: http://localhost:61495/swagger
 
-# 4. Start the Dashboard (optional)
+# 4. Start the Dashboard
 dotnet run --project src/MediaEngine.Web
-# Dashboard: http://localhost:5016
-
-# 5. Run the full test suite
-dotnet test
 ```
 
-### Configuration Reference
+The Engine runs at `http://localhost:61495`. The Dashboard runs at `http://localhost:5016`.
 
-Settings live in `config/` as individual JSON files:
-
-| File | What it controls |
-|---|---|
-| `config/core.json` | Database path, data root, library root, schema version |
-| `config/scoring.json` | Auto-link threshold (0.85), conflict threshold, stale claim decay |
-| `config/maintenance.json` | Retention days (60), vacuum on startup, sync interval |
-| `config/hydration.json` | Stage timeouts, concurrency, confidence thresholds |
-| `config/providers/*.json` | Per-provider endpoints, trust weights, throttle, cache TTL |
-| `config/universe/*.json` | Wikidata property map, bridge lookup order, value transforms |
-| `config/disambiguation.json` | Media type heuristic thresholds and signal weights |
-| `config/ui/` | Global and per-device UI settings cascade |
+On first startup, the Engine will:
+1. Download AI models (~9 GB, one-time)
+2. Benchmark your hardware (10-15 seconds)
+3. Start watching your configured folders
 
 ### Docker
 
@@ -276,156 +282,38 @@ Settings live in `config/` as individual JSON files:
 docker build -t tuvima-library .
 docker run -p 5016:5016 -p 61495:61495 \
   -v /your/library:/data/library \
+  --gpus all \
   tuvima-library
 ```
 
----
+> Add `--gpus all` if you have an NVIDIA GPU with the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) installed.
 
-## Architecture
+### Configuration
 
-Tuvima Library is built on a **headless Engine + visual Dashboard** split. The two parts are completely independent.
+Settings live in `config/` as individual JSON files:
 
-```
-┌─────────────────────────────────────────┐
-│             MediaEngine.Web             │  ← Cinematic Dashboard (Blazor Server)
-│  TopBar + LeftDock + Poster Swimlanes   │    Connects via HTTP + SignalR
-└────────────────┬────────────────────────┘
-                 │  HTTP / SignalR
-┌────────────────▼────────────────────────┐
-│             MediaEngine.Api             │  ← Intelligence Engine (Headless API)
-│    all logic, data, file operations     │    Runs independently; no UI required
-└────────┬────────────────────────────────┘
-         │
-   ┌─────▼──────┐   ┌────────────────┐   ┌──────────────────┐
-   │  Storage   │   │  Intelligence  │   │    Ingestion     │
-   │  (SQLite   │   │  (Priority     │   │  (Watch Folder)  │
-   │  + Dapper) │   │   Cascade)     │   │                  │
-   └────────────┘   └────────────────┘   └──────────────────┘
-         │                                       │
-   ┌─────▼──────┐                       ┌────────▼─────────┐
-   │  Providers │                       │   Processors     │
-   │ (9 built-in│                       │ EPUB/Audio/Video │
-   │ + config-  │                       │  /Comic/Generic  │
-   │  driven)   │                       └──────────────────┘
-   └────────────┘
-```
-
-**Why the split matters:**
-- The Engine runs silently as a background service — no browser, no interface, no overhead
-- Any app that speaks HTTP can connect to the Engine
-- The Dashboard can be redesigned or replaced without touching the Engine or database
-
-**Internal Engine layers:**
-
-```
-MediaEngine.Domain          ← Business rules and data shapes (zero dependencies)
-  └─ MediaEngine.Storage    ← SQLite via Dapper — 39 tables, 23 repositories
-      └─ MediaEngine.Intelligence  ← Priority Cascade Engine, Fuzzy Matcher, Hub Arbiter
-          └─ MediaEngine.Processors  ← EPUB, Audio, Video, Comic, Generic file readers
-              └─ MediaEngine.Providers  ← 9 metadata providers + config-driven adapter
-                  └─ MediaEngine.Ingestion  ← Watch folder, debounce queue, 2-stage pipeline
-                      └─ MediaEngine.Api    ← 21 endpoint groups, SignalR hub, 7 background services
-```
-
----
-
-## Database-First Architecture
-
-**The database is the authoritative data store.** User metadata edits are written back to file embedded metadata (EPUB OPF, ID3 tags, MP4 atoms) for portability. Wikidata properties are re-fetchable via batch Reconciliation API as a recovery fallback.
-
-### Library Folder Structure
-
-When a file scores ≥ 0.85 confidence (or has a user-locked value), the Engine auto-organises it:
-
-```
-{Library Root}/
-  Books/
-    Dune - Q190159/
-      Epub/
-        Dune.epub
-      Audiobook/
-        Dune.m4b
-      cover.jpg                    ← Cover art (always on disk, never in the database)
-      hero.jpg                     ← Pre-rendered cinematic hero banner (SkiaSharp)
-  Movies/
-    Dune Part Two - Q104686073/
-      Dune Part Two.mkv
-      cover.jpg
-      hero.jpg
-```
-
-Files below the confidence threshold land in `.staging/` (pending, low-confidence, or unidentifiable) until hydration improves their score or a user resolves them manually.
-
-### Activity Ledger
-
-Every significant Engine action is permanently recorded: file ingested, metadata hydrated, review resolved, orphan cleaned, reconciliation run. Configurable retention (default 60 days). Visible in the **Activity** tab.
-
----
-
-## Supported Metadata Providers
-
-Nine built-in providers plus a config-driven adapter for adding any REST+JSON source with zero code changes.
-
-### Zero-Key Providers
-
-| Provider | Media types | What it contributes |
-|---|---|---|
-| **Wikidata Reconciliation** | All media + people | QID resolution via Reconciliation API, 50+ properties via Data Extension API, franchise/series/character relationships, person headshots and biographies |
-| **Wikipedia** | All media + people | Rich 2-3 paragraph descriptions via REST API with QID-to-sitelink resolution |
-| **Apple API** | Ebooks, Audiobooks, Podcasts | Cover art (up to 3000×3000), description, rating, title |
-| **Open Library** | Ebooks | Title, author, year, cover art, ISBN, series |
-| **Google Books** | Ebooks | Title, author, year, cover art, ISBN, description, page count |
-| **MusicBrainz** | Music | Artist, album, year, genre, MBID, Cover Art Archive |
-
-### Free API Key Required
-
-| Provider | Media type | What it contributes |
-|---|---|---|
-| **TMDB** | Movies, TV | High-res posters, backdrop images, cast/crew, TMDB/IMDb bridge |
-| **Comic Vine** | Comics | Comic covers, issue details, Comic Vine ID bridge |
-| **Podcast Index** | Podcasts | Secondary podcast metadata, GUIDs, episode lists |
-
-### Provider Response Cache
-
-A `provider_response_cache` table (per-provider TTL) eliminates redundant API calls when bulk-importing related content. At 1 req/sec MusicBrainz rate, caching reduces a 10,000-track library scan from ~3 hours to ~15 minutes.
-
----
-
-## Arr Compatibility (Radarr / Sonarr)
-
-The Engine uses the same `X-Api-Key` authentication pattern as the \*Arr ecosystem.
-
-1. Open the Swagger UI at `http://localhost:61495/swagger`
-2. Use `POST /admin/api-keys` to create a named key (e.g. `"Radarr integration"`)
-3. Add the key as an `X-Api-Key` header in your external app's connection settings
-4. Revoke any key individually with `DELETE /admin/api-keys/{id}`
-
----
-
-## Tech Stack
-
-| What it does | Technology |
+| File | What it controls |
 |---|---|
-| Language & runtime | C# / .NET 10 |
-| Database | SQLite via Dapper (micro-ORM) |
-| Engine API | ASP.NET Core minimal APIs (21 endpoint groups) |
-| Real-time events | SignalR (`/hubs/intercom`, 14 event types) |
-| HTTP resilience | Polly (retry, circuit-breaker, timeout) |
-| Dashboard | Blazor Server + MudBlazor 9 |
-| EPUB parsing | VersOne.Epub |
-| Image generation | SkiaSharp (hero banners — blur, vignette, grain) |
-| Audio/video tags | TagLibSharp (ID3v2, MP4 atoms, Vorbis, MKV) |
-| Video probing | Xabe.FFmpeg |
-| String matching | Native Levenshtein distance (zero dependencies) |
-| Graph queries | dotNetRDF (in-memory SPARQL) |
-| Local AI (text) | LLamaSharp + GGUF models (Llama 3.2 1B/3B, Llama 3.1 8B) |
-| Local AI (audio) | Whisper.net (speech-to-text, language detection) |
-| GPU acceleration | CUDA (NVIDIA) + Vulkan (AMD/Intel) — auto-detected |
-| Cover art matching | SkiaSharp perceptual hashing (pHash) |
-| Scheduling | Cronos (cron expressions) |
-| Logging | Serilog (rolling files, 14-day retention) |
-| API docs | Swashbuckle (`/swagger`) |
-| Tests | xUnit + coverlet (415 tests) |
+| `core.json` | Database path, library root, language preferences |
+| `ai.json` | AI model paths, feature toggles, enrichment schedule, hardware profile |
+| `scoring.json` | Confidence thresholds for auto-linking and review |
+| `hydration.json` | Enrichment stage timeouts and concurrency |
+| `providers/*.json` | Per-provider settings (endpoints, throttle, cache) |
+| `libraries.json` | Watch folder paths and media type mappings |
+
+---
+
+## Supported Media Types
+
+| Type | File formats | What Tuvima does with it |
+|---|---|---|
+| **Books** | EPUB, PDF | Extracts title, author, series from embedded metadata. In-browser EPUB reader. |
+| **Audiobooks** | M4B, MP3 | AI classifies MP3s as audiobook vs music. Whisper transcribes for subtitle sync. |
+| **Movies** | MKV, MP4, AVI | TMDB matching for posters, cast/crew, and franchise grouping. |
+| **TV Shows** | MKV, MP4 | Season/episode extraction. Series alignment via Wikidata. |
+| **Music** | FLAC, MP3, AAC | MusicBrainz matching for artist, album, genre. Audio fingerprinting for similarity. |
+| **Comics** | CBZ, CBR, PDF | Comic Vine matching for issue details and cover art. |
+| **Podcasts** | MP3, M4A | Podcast Index matching for episode lists and GUIDs. |
 
 ---
 
@@ -433,9 +321,7 @@ The Engine uses the same `X-Api-Key` authentication pattern as the \*Arr ecosyst
 
 Tuvima Library is free and open-source software, licensed under the **GNU Affero General Public License v3.0 (AGPLv3)**.
 
-> This means you are free to use, modify, and distribute Tuvima Library — but if you deploy a modified version as a network service, you must also make your modifications available under the same license.
-
-See the [`LICENSE`](LICENSE) file for the full license text. All dependencies are MIT, Apache 2.0, or LGPL licensed and compatible with AGPLv3.
+You are free to use, modify, and distribute Tuvima Library. If you deploy a modified version as a network service, you must make your modifications available under the same license.
 
 No premium tiers. No feature gates. No "Pro" version.
 
@@ -445,10 +331,8 @@ No premium tiers. No feature gates. No "Pro" version.
 
 **You already own the stories. Tuvima makes them discoverable.**
 
-Your collection isn't a pile of files. It's stories that moved you — novels you stayed up too late reading, films that changed how you see the world, audiobooks that made long drives disappear. They deserve more than scattered folders and five different apps.
+No subscriptions. No cloud. No compromises. Just your stories, finally together.
 
-No subscriptions. No cloud. No compromises. Just your stories, finally discoverable.
-
-[Report a Bug](https://github.com/shyfaruqi/tuvima-library/issues) · [Request a Feature](https://github.com/shyfaruqi/tuvima-library/issues) · [View the Engine API](http://localhost:61495/swagger)
+[Report a Bug](https://github.com/shyfaruqi/tuvima-library/issues) · [Request a Feature](https://github.com/shyfaruqi/tuvima-library/issues)
 
 </div>
