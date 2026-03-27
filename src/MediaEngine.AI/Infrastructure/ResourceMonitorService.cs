@@ -11,10 +11,12 @@ namespace MediaEngine.AI.Infrastructure;
 public sealed class ResourceMonitorService
 {
     private readonly ILogger<ResourceMonitorService> _logger;
+    private readonly Configuration.AiSettings _settings;
 
-    public ResourceMonitorService(ILogger<ResourceMonitorService> logger)
+    public ResourceMonitorService(ILogger<ResourceMonitorService> logger, Configuration.AiSettings settings)
     {
         _logger = logger;
+        _settings = settings;
     }
 
     /// <summary>
@@ -61,7 +63,10 @@ public sealed class ResourceMonitorService
                 $"Insufficient free RAM: {snapshot.FreeRamMb}MB free, need {requiredMb}MB");
 
         // Don't load if CPU pressure is very high and model is large.
-        if (snapshot.CpuPressure > 0.85 && modelSizeMb > 2000)
+        // Skip this check on High tier — inference runs on GPU, CPU pressure is irrelevant.
+        var tier = _settings.HardwareProfile?.Tier ?? "auto";
+        bool gpuAvailable = string.Equals(tier, HardwareTierPolicy.TierHigh, StringComparison.OrdinalIgnoreCase);
+        if (!gpuAvailable && snapshot.CpuPressure > 0.85 && modelSizeMb > 2000)
             return new LoadRecommendation(false, "CPU pressure too high — deferring large model load");
 
         return new LoadRecommendation(true, "Resources available");
@@ -100,16 +105,43 @@ public sealed class ResourceMonitorService
     /// Rough CPU pressure estimate (0.0 = idle, 1.0 = fully saturated).
     /// Uses thread count relative to logical processor count as a proxy.
     /// </summary>
+    private static TimeSpan _lastCpuTime = TimeSpan.Zero;
+    private static DateTime _lastCheckTime = DateTime.MinValue;
+
+    /// <summary>
+    /// Estimate CPU pressure using actual CPU time delta over the last sample interval.
+    /// Returns 0.0 (idle) to 1.0 (all cores saturated).
+    /// Thread count is NOT a valid proxy — a .NET process has 50+ threads at idle.
+    /// </summary>
     private static double EstimateCpuPressure()
     {
         try
         {
-            var process      = Process.GetCurrentProcess();
-            int threadCount  = process.Threads.Count;
+            var process = Process.GetCurrentProcess();
+            var currentCpuTime = process.TotalProcessorTime;
+            var currentTime = DateTime.UtcNow;
+
+            if (_lastCheckTime == DateTime.MinValue)
+            {
+                // First call — no delta yet, assume idle.
+                _lastCpuTime = currentCpuTime;
+                _lastCheckTime = currentTime;
+                return 0.0;
+            }
+
+            var elapsed = (currentTime - _lastCheckTime).TotalSeconds;
+            if (elapsed < 0.5) return 0.0; // Too short an interval
+
+            var cpuDelta = (currentCpuTime - _lastCpuTime).TotalSeconds;
             int processorCount = Environment.ProcessorCount;
-            return Math.Clamp((double)threadCount / (processorCount * 4), 0.0, 1.0);
+
+            _lastCpuTime = currentCpuTime;
+            _lastCheckTime = currentTime;
+
+            // CPU usage = cpu time consumed / (wall time × core count)
+            return Math.Clamp(cpuDelta / (elapsed * processorCount), 0.0, 1.0);
         }
-        catch { return 0.5; } // Unknown — assume moderate
+        catch { return 0.0; } // Unknown — assume idle (safe default for High tier)
     }
 }
 
