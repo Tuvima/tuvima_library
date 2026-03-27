@@ -147,10 +147,6 @@
                         <div class="vdd-stage-header">
                             <span class="vdd-stage-label">@L["VaultDetail_StageRetail"]</span>
                             <div class="vdd-stage-actions">
-                                @if (MediaItem.RetailMatch is not "none" and not "" && MediaItem.RetailMatch is not null)
-                                {
-                                    <button class="vdd-unmatch-btn" @onclick="HandleUnmatchRetail">@L["VaultDetail_ActionUnmatch"]</button>
-                                }
                                 <span class="vdd-stage-status" style="color: @VaultHelpers.GetStageColor(MediaItem.Stage1.State); border-color: @(VaultHelpers.HexToRgba(VaultHelpers.GetStageColor(MediaItem.Stage1.State), 0.2));">
                                     @MediaItem.Stage1.Label
                                 </span>
@@ -192,17 +188,46 @@
                                         Search
                                     </button>
                                 </div>
-                                @if (_searchResults.Count > 0)
+                                @if (_searching)
+                                {
+                                    <div style="padding: 8px 0; text-align: center;">
+                                        <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: rgba(255,255,255,0.2);" />
+                                    </div>
+                                }
+                                else if (_searchResults.Count > 0)
                                 {
                                     <div class="vdd-search-results">
                                         @foreach (var result in _searchResults)
                                         {
-                                            <button class="vdd-search-result-item" @onclick="() => OnApplyMatch.InvokeAsync(result.EntityId)">
-                                                <span class="vdd-search-result-title">@result.Title</span>
-                                                <span class="vdd-search-result-meta">@result.Author • @result.Year</span>
-                                            </button>
+                                            <div class="vdd-search-result-item" @onclick="() => SelectSearchResult(result)">
+                                                <div class="vdd-search-result-thumb">
+                                                    @if (!string.IsNullOrEmpty(result.CoverUrl))
+                                                    {
+                                                        <img src="@result.CoverUrl" alt="" loading="lazy" />
+                                                    }
+                                                    else
+                                                    {
+                                                        <MudIcon Icon="@Icons.Material.Outlined.Image" Style="font-size: 16px; color: rgba(255,255,255,0.15);" />
+                                                    }
+                                                </div>
+                                                <div class="vdd-search-result-info">
+                                                    <span class="vdd-search-result-title">@result.Title</span>
+                                                    <span class="vdd-search-result-meta">@result.Author • @result.Year</span>
+                                                </div>
+                                                @if (_pendingMatch?.EntityId == result.EntityId)
+                                                {
+                                                    <button class="vdd-confirm-match-btn" @onclick:stopPropagation="true"
+                                                            @onclick="() => ConfirmMatch(result.EntityId)">
+                                                        Confirm
+                                                    </button>
+                                                }
+                                            </div>
                                         }
                                     </div>
+                                }
+                                else if (_manualSearchQuery is { Length: > 0 })
+                                {
+                                    <p class="vdd-stage-hint">No results found for "@_manualSearchQuery"</p>
                                 }
                             }
                         }
@@ -218,17 +243,46 @@
                                     Search
                                 </button>
                             </div>
-                            @if (_searchResults.Count > 0)
+                            @if (_searching)
+                            {
+                                <div style="padding: 8px 0; text-align: center;">
+                                    <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: rgba(255,255,255,0.2);" />
+                                </div>
+                            }
+                            else if (_searchResults.Count > 0)
                             {
                                 <div class="vdd-search-results">
                                     @foreach (var result in _searchResults)
                                     {
-                                        <button class="vdd-search-result-item" @onclick="() => OnApplyMatch.InvokeAsync(result.EntityId)">
-                                            <span class="vdd-search-result-title">@result.Title</span>
-                                            <span class="vdd-search-result-meta">@result.Author • @result.Year</span>
-                                        </button>
+                                        <div class="vdd-search-result-item" @onclick="() => SelectSearchResult(result)">
+                                            <div class="vdd-search-result-thumb">
+                                                @if (!string.IsNullOrEmpty(result.CoverUrl))
+                                                {
+                                                    <img src="@result.CoverUrl" alt="" loading="lazy" />
+                                                }
+                                                else
+                                                {
+                                                    <MudIcon Icon="@Icons.Material.Outlined.Image" Style="font-size: 16px; color: rgba(255,255,255,0.15);" />
+                                                }
+                                            </div>
+                                            <div class="vdd-search-result-info">
+                                                <span class="vdd-search-result-title">@result.Title</span>
+                                                <span class="vdd-search-result-meta">@result.Author • @result.Year</span>
+                                            </div>
+                                            @if (_pendingMatch?.EntityId == result.EntityId)
+                                            {
+                                                <button class="vdd-confirm-match-btn" @onclick:stopPropagation="true"
+                                                        @onclick="() => ConfirmMatch(result.EntityId)">
+                                                    Confirm
+                                                </button>
+                                            }
+                                        </div>
                                     }
                                 </div>
+                            }
+                            else if (_manualSearchQuery is { Length: > 0 })
+                            {
+                                <p class="vdd-stage-hint">No results found for "@_manualSearchQuery"</p>
                             }
                             <div class="vdd-provider-chips">
                                 @foreach (var provider in VaultHelpers.GetProviderButtons(MediaItem.MediaType))
@@ -244,10 +298,6 @@
                         <div class="vdd-stage-header">
                             <span class="vdd-stage-label">@L["VaultDetail_StageWikidata"]</span>
                             <div class="vdd-stage-actions">
-                                @if (!string.IsNullOrEmpty(MediaItem.WikidataQid))
-                                {
-                                    <button class="vdd-unmatch-btn" @onclick="HandleUnmatchWikidata">@L["VaultDetail_ActionUnmatch"]</button>
-                                }
                                 <span class="vdd-stage-status" style="color: @VaultHelpers.GetStageColor(MediaItem.Stage2.State); border-color: @(VaultHelpers.HexToRgba(VaultHelpers.GetStageColor(MediaItem.Stage2.State), 0.2));">
                                     @MediaItem.Stage2.Label
                                 </span>
@@ -277,20 +327,6 @@
                         else
                         {
                             <p class="vdd-stage-hint">@L["VaultDetail_HintCompleteStage1First"]</p>
-                        }
-                    </div>
-
-                    @* Universe Stage *@
-                    <div class="vdd-stage-block">
-                        <div class="vdd-stage-header">
-                            <span class="vdd-stage-label">@L["VaultDetail_StageUniverse"]</span>
-                            <span class="vdd-stage-status" style="color: @VaultHelpers.GetStageColor(MediaItem.Stage3.State); border-color: @(VaultHelpers.HexToRgba(VaultHelpers.GetStageColor(MediaItem.Stage3.State), 0.2));">
-                                @MediaItem.Stage3.Label
-                            </span>
-                        </div>
-                        @if (!string.IsNullOrEmpty(MediaItem.UniverseName))
-                        {
-                            <span class="vdd-universe-link">@MediaItem.UniverseName</span>
                         }
                     </div>
 
@@ -534,8 +570,10 @@
     private static readonly string[] _assetTypes = ["Cover Art", "Headshot", "Banner", "Logo", "Backdrop"];
     private string _manualSearchQuery = "";
     private bool _showRematch;
+    private bool _searching;
     private List<RegistryItemViewModel> _searchResults = [];
     private PersonAliasesResponseDto? _aliases;
+    private RegistryItemViewModel? _pendingMatch;
 
     private bool IsInLibrary => MediaItem?.Status?.Equals("Confirmed", StringComparison.OrdinalIgnoreCase) == true
                              || MediaItem?.VaultDisplayStatus == VaultStatus.Verified;
@@ -559,6 +597,8 @@
         _showRematch = false;
         _searchResults = [];
         _aliases = null;
+        _pendingMatch = null;
+        _searching = false;
 
         if (Person is not null)
         {
@@ -569,11 +609,29 @@
     private async Task RunManualSearch()
     {
         if (string.IsNullOrWhiteSpace(_manualSearchQuery)) return;
+        _searching = true;
+        StateHasChanged();
+
         var response = await ApiClient.GetRegistryItemsAsync(
             offset: 0, limit: 10,
-            search: _manualSearchQuery,
-            type: MediaItem?.MediaType);
+            search: _manualSearchQuery);
         _searchResults = response?.Items?.ToList() ?? [];
+        _searching = false;
+    }
+
+    private void SelectSearchResult(RegistryItemViewModel result)
+    {
+        // Toggle: clicking same item deselects, clicking different item selects
+        _pendingMatch = _pendingMatch?.EntityId == result.EntityId ? null : result;
+    }
+
+    private async Task ConfirmMatch(Guid entityId)
+    {
+        _pendingMatch = null;
+        _searchResults = [];
+        _manualSearchQuery = "";
+        _showRematch = false;
+        await OnApplyMatch.InvokeAsync(entityId);
     }
 
     private async Task HandlePurge()
@@ -1272,31 +1330,95 @@
 
     .vdd-search-result-item {
         display: flex;
-        flex-direction: column;
-        gap: 2px;
-        padding: 8px 12px;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 10px;
         border-radius: 8px;
-        background: rgba(255, 255, 255, 0.02);
-        border: 1px solid rgba(255, 255, 255, 0.06);
         cursor: pointer;
-        transition: all 0.15s;
-        text-align: left;
+        transition: background 0.15s;
+        border: 1px solid transparent;
     }
 
     .vdd-search-result-item:hover {
-        background: rgba(96, 165, 250, 0.08);
-        border-color: rgba(96, 165, 250, 0.2);
+        background: rgba(255, 255, 255, 0.04);
+    }
+
+    .vdd-search-result-thumb {
+        width: 36px;
+        height: 52px;
+        border-radius: 4px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        flex-shrink: 0;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        position: relative;
+        z-index: 1;
+    }
+
+    .vdd-search-result-thumb:hover {
+        transform: scale(3);
+        z-index: 50;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.8);
+    }
+
+    .vdd-search-result-thumb img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .vdd-search-result-info {
+        flex: 1;
+        min-width: 0;
     }
 
     .vdd-search-result-title {
+        display: block;
         font-size: 12px;
         font-weight: 700;
         color: rgba(255, 255, 255, 0.85);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
     .vdd-search-result-meta {
+        display: block;
         font-size: 10px;
-        color: rgba(255, 255, 255, 0.4);
+        color: rgba(255, 255, 255, 0.35);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .vdd-confirm-match-btn {
+        padding: 4px 12px;
+        border-radius: 6px;
+        background: rgba(93, 202, 165, 0.15);
+        border: 1px solid rgba(93, 202, 165, 0.3);
+        color: #5DCAA5;
+        font-size: 10px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        cursor: pointer;
+        transition: all 0.15s;
+        flex-shrink: 0;
+        animation: vdd-pulse 0.3s ease-out;
+    }
+
+    .vdd-confirm-match-btn:hover {
+        background: rgba(93, 202, 165, 0.25);
+        border-color: rgba(93, 202, 165, 0.5);
+    }
+
+    @@keyframes vdd-pulse {
+        from { transform: scale(0.9); opacity: 0; }
+        to { transform: scale(1); opacity: 1; }
     }
 
     .vdd-rematch-block {

@@ -133,18 +133,20 @@ public static class VaultHelpers
     /// <summary>Returns a human-readable label for a review trigger code.</summary>
     public static string GetReviewTriggerLabel(string? trigger) => trigger switch
     {
-        "AuthorityMatchFailed" => "Wikidata could not find a match",
-        "ContentMatchFailed" => "No matching content found",
-        "StagedUnidentifiable" => "File could not be identified",
-        "PlaceholderTitle" => "Title appears to be a placeholder",
-        "WikidataBridgeFailed" => "Wikidata bridge lookup failed",
-        "RetailMatchFailed" => "No retail provider match found",
-        "MetadataConflict" => "Metadata sources disagree",
-        "LowConfidence" => "Match confidence is too low",
-        "LanguageMismatch" => "File language differs from library language",
-        "DuplicateDetected" => "Possible duplicate detected",
-        "MediaTypeAmbiguous" => "Media type could not be determined",
-        _ => trigger ?? "Review needed",
+        "AuthorityMatchFailed" => "No provider could identify this item",
+        "ContentMatchFailed" => "No matching content found in any provider",
+        "StagedUnidentifiable" => "This file could not be identified automatically",
+        "PlaceholderTitle" => "The title looks like a placeholder or temporary name",
+        "WikidataBridgeFailed" => "Wikidata lookup failed after retail match",
+        "RetailMatchFailed" => "No retail provider could find a match",
+        "MetadataConflict" => "Multiple sources disagree on this item's metadata",
+        "LowConfidence" => "The best match has low confidence",
+        "LanguageMismatch" => "File language differs from your library language",
+        "DuplicateDetected" => "This may be a duplicate of another item",
+        "MediaTypeAmbiguous" => "Could not determine the media type",
+        "MissingQid" => "No Wikidata identity found for this item",
+        "MultipleQidMatches" => "Multiple possible Wikidata matches found",
+        _ => trigger ?? "This item needs review",
     };
 
     /// <summary>Returns the brand colour for a media type string, matching stats bar colours.</summary>
