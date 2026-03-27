@@ -683,6 +683,12 @@ if (app.Environment.IsDevelopment())
     app.MapDevSeedEndpoints();
 }
 
+// Seed default managed hubs (System Lists, Mixes, Smart Hubs) on first run
+{
+    var hubRepo = app.Services.GetRequiredService<IHubRepository>();
+    MediaEngine.Api.Services.HubSeeder.SeedManagedHubsAsync(hubRepo).GetAwaiter().GetResult();
+}
+
 app.Run();
 
 // ── Local helpers ────────────────────────────────────────────────────────────

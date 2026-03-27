@@ -1,0 +1,519 @@
+@using MediaEngine.Web.Models.ViewDTOs
+@namespace MediaEngine.Web.Components.Vault
+
+@* ── Backdrop ── *@
+<div class="hub-drawer-backdrop" @onclick="OnClose"></div>
+
+@* ── Drawer Panel ── *@
+<div class="hub-drawer" @onclick:stopPropagation="true">
+
+    @* ── 1. Pinned Header ── *@
+    <div class="hub-drawer-header">
+        <MudIconButton Icon="@Icons.Material.Outlined.Close"
+                       Size="Size.Small"
+                       Style="position:absolute;top:32px;right:32px;color:rgba(255,255,255,0.5);"
+                       OnClick="OnClose" />
+
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <span class="hub-type-chip" style="border-color:@Hub.TypeColor;color:@Hub.TypeColor;background:@(Hub.TypeColor)1A;">
+                @Hub.TypeLabel
+            </span>
+            <span class="hub-status-pill" style="border-color:@Hub.StatusColor;color:@Hub.StatusColor;background:@(Hub.StatusColor)1A;">
+                @Hub.StatusLabel
+            </span>
+        </div>
+
+        <div style="font-size:24px;font-weight:900;color:white;letter-spacing:-0.02em;margin-top:8px;padding-right:48px;line-height:1.2;">
+            @Hub.Name
+        </div>
+
+        <div style="font-size:10px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:0.08em;margin-top:4px;">
+            @(Hub.Scope == "user" ? "Per user" : "Library")
+        </div>
+    </div>
+
+    @* ── 2. Scrollable Body ── *@
+    <div class="hub-drawer-body">
+
+        @* ── Section 1: CONFIGURATION ── *@
+        <div class="hub-section">
+            <button class="hub-section-header" @onclick="ToggleConfigSection">
+                <div style="display:flex;align-items:center;gap:12px;">
+                    <MudIcon Icon="@Icons.Material.Outlined.Settings" Style="font-size:16px;color:rgba(255,255,255,0.5);" />
+                    <span class="hub-section-title">CONFIGURATION</span>
+                </div>
+                <MudIcon Icon="@(_configOpen ? Icons.Material.Outlined.ExpandMore : Icons.Material.Outlined.ChevronRight)"
+                         Style="font-size:16px;color:rgba(255,255,255,0.35);" />
+            </button>
+
+            @if (_configOpen)
+            {
+                <div class="hub-section-body">
+                    @if (Hub.HubType == "Smart")
+                    {
+                        <div class="hub-config-row">
+                            <span class="hub-config-label">Rules</span>
+                            <div style="display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end;">
+                                @foreach (var rule in GetRuleChips())
+                                {
+                                    <span class="hub-rule-chip">@rule</span>
+                                }
+                            </div>
+                        </div>
+                        <div class="hub-config-row">
+                            <span class="hub-config-label">Generation threshold</span>
+                            <span class="hub-config-value">@Hub.MinItems</span>
+                        </div>
+                        <div class="hub-config-row">
+                            <span class="hub-config-label">Featured</span>
+                            <MudSwitch T="bool"
+                                       Value="@Hub.IsFeatured"
+                                       ValueChanged="@(v => OnFeaturedToggled.InvokeAsync((Hub.Id, v)))"
+                                       Color="Color.Warning"
+                                       UnCheckedColor="Color.Default" />
+                        </div>
+                        <div class="hub-config-row" style="border-bottom:none;">
+                            <span class="hub-config-label">Show in browsing</span>
+                            <MudSwitch T="bool"
+                                       Value="@Hub.IsEnabled"
+                                       ValueChanged="@(v => OnEnabledToggled.InvokeAsync((Hub.Id, v)))"
+                                       Color="Color.Success"
+                                       UnCheckedColor="Color.Default" />
+                        </div>
+                    }
+                    else if (Hub.HubType == "System")
+                    {
+                        <div class="hub-config-row">
+                            <span class="hub-config-label">Media types</span>
+                            <div style="display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end;">
+                                @foreach (var chip in GetSystemMediaChips())
+                                {
+                                    <span class="hub-rule-chip">@chip</span>
+                                }
+                            </div>
+                        </div>
+                        <div class="hub-config-row">
+                            <span class="hub-config-label">Progress tracking</span>
+                            <span class="hub-config-value" style="color:#5DCAA5;">Enabled</span>
+                        </div>
+                        <div class="hub-config-row" style="border-bottom:none;">
+                            <span class="hub-config-label">Items</span>
+                            <span class="hub-config-value">@Hub.ItemCount</span>
+                        </div>
+                    }
+                    else if (Hub.HubType == "Mix")
+                    {
+                        <div class="hub-config-row">
+                            <span class="hub-config-label">Logic</span>
+                            <span class="hub-config-value" style="font-style:italic;color:rgba(255,255,255,0.5);">@(Hub.Description ?? "—")</span>
+                        </div>
+                        <div class="hub-config-row">
+                            <span class="hub-config-label">Refresh schedule</span>
+                            <span class="hub-config-value" style="color:rgba(255,255,255,0.5);">@(Hub.RefreshSchedule ?? "Daily")</span>
+                        </div>
+                        <div class="hub-config-row" style="border-bottom:none;">
+                            <span class="hub-config-label">Generate for all users</span>
+                            <MudSwitch T="bool"
+                                       Value="@Hub.IsEnabled"
+                                       ValueChanged="@(v => OnEnabledToggled.InvokeAsync((Hub.Id, v)))"
+                                       Color="Color.Success"
+                                       UnCheckedColor="Color.Default" />
+                        </div>
+                    }
+                    else if (Hub.HubType == "Playlist")
+                    {
+                        <div class="hub-config-row">
+                            <span class="hub-config-label">Owner</span>
+                            <span class="hub-config-value">@(Hub.Scope == "user" ? "User" : "Library")</span>
+                        </div>
+                        <div class="hub-config-row">
+                            <span class="hub-config-label">Media types</span>
+                            <span class="hub-config-value" style="font-style:italic;color:rgba(255,255,255,0.5);">Derived from contents</span>
+                        </div>
+                        <div class="hub-config-row">
+                            <span class="hub-config-label">Items</span>
+                            <span class="hub-config-value">@Hub.ItemCount</span>
+                        </div>
+                        <div class="hub-config-row">
+                            <span class="hub-config-label">Created</span>
+                            <span class="hub-config-value">@Hub.CreatedAt.ToString("yyyy-MM-dd")</span>
+                        </div>
+                        <div class="hub-config-row" style="border-bottom:none;">
+                            <span class="hub-config-label">Last modified</span>
+                            <span class="hub-config-value">@(Hub.ModifiedAt?.ToString("yyyy-MM-dd") ?? "—")</span>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+
+        @* ── Section 2: ITEMS PREVIEW ── *@
+        <div class="hub-section">
+            <button class="hub-section-header" @onclick="ToggleItemsSection">
+                <div style="display:flex;align-items:center;gap:12px;">
+                    <MudIcon Icon="@Icons.Material.Outlined.List" Style="font-size:16px;color:rgba(255,255,255,0.5);" />
+                    <span class="hub-section-title">ITEMS PREVIEW</span>
+                </div>
+                <MudIcon Icon="@(_itemsOpen ? Icons.Material.Outlined.ExpandMore : Icons.Material.Outlined.ChevronRight)"
+                         Style="font-size:16px;color:rgba(255,255,255,0.35);" />
+            </button>
+
+            @if (_itemsOpen)
+            {
+                <div class="hub-section-body">
+                    @if (Items.Count == 0)
+                    {
+                        <div style="font-size:11px;color:rgba(255,255,255,0.3);font-style:italic;padding:8px 0;">
+                            No items yet.
+                        </div>
+                    }
+                    else
+                    {
+                        @foreach (var item in Items)
+                        {
+                            <div class="hub-item-row">
+                                <MudIcon Icon="@GetMediaTypeIcon(item.MediaType)"
+                                         Style="font-size:14px;color:rgba(255,255,255,0.4);flex-shrink:0;" />
+                                <div style="flex:1;min-width:0;">
+                                    <div style="font-size:11px;font-weight:700;color:white;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                        @item.Title
+                                    </div>
+                                    @if (!string.IsNullOrEmpty(item.Creator))
+                                    {
+                                        <div style="font-size:9px;color:rgba(255,255,255,0.4);font-style:italic;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                            @item.Creator
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    }
+
+                    @if (Hub.ItemCount > 0)
+                    {
+                        <div style="margin-top:12px;">
+                            <span style="font-size:10px;font-weight:900;color:#C9922E;cursor:pointer;letter-spacing:0.04em;">
+                                View all @Hub.ItemCount items →
+                            </span>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+
+        @* ── Section 3: ASSETS ── *@
+        <div class="hub-section">
+            <button class="hub-section-header" @onclick="ToggleAssetsSection">
+                <div style="display:flex;align-items:center;gap:12px;">
+                    <MudIcon Icon="@Icons.Material.Outlined.Image" Style="font-size:16px;color:rgba(255,255,255,0.5);" />
+                    <span class="hub-section-title">ASSETS</span>
+                </div>
+                <MudIcon Icon="@(_assetsOpen ? Icons.Material.Outlined.ExpandMore : Icons.Material.Outlined.ChevronRight)"
+                         Style="font-size:16px;color:rgba(255,255,255,0.35);" />
+            </button>
+
+            @if (_assetsOpen)
+            {
+                <div class="hub-section-body">
+                    @for (var i = 0; i < _assetTypes.Length; i++)
+                    {
+                        var assetType = _assetTypes[i];
+                        var isLast    = i == _assetTypes.Length - 1;
+                        <div class="hub-config-row" style="@(isLast ? "border-bottom:none;" : "")">
+                            <span class="hub-config-label">@assetType</span>
+                            <span style="font-size:11px;color:rgba(255,255,255,0.3);font-style:italic;">
+                                @(assetType == "Cover Art" ? "Auto-composed" : "Drop image or click to upload")
+                            </span>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+
+    </div>
+
+    @* ── 3. Pinned Action Bar ── *@
+    <div class="hub-drawer-actions">
+        @if (Hub.HubType == "Smart")
+        {
+            <div style="display:flex;gap:8px;">
+                <button class="hub-action-btn hub-action-btn--outlined" style="flex:1;"
+                        @onclick="ToggleEnabled">
+                    @(Hub.IsEnabled ? "Disable" : "Enable")
+                </button>
+                <button class="hub-action-btn hub-action-btn--filled" style="flex:1;"
+                        @onclick="ToggleFeatured">
+                    @(Hub.IsFeatured ? "Unfeature" : "Feature")
+                </button>
+            </div>
+        }
+        else if (Hub.HubType == "System")
+        {
+            <div style="text-align:center;">
+                <span style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:0.1em;color:rgba(255,255,255,0.25);">
+                    System-managed
+                </span>
+            </div>
+        }
+        else if (Hub.HubType == "Mix")
+        {
+            <button class="hub-action-btn hub-action-btn--outlined" style="width:100%;"
+                    @onclick="ToggleEnabled">
+                @(Hub.IsEnabled ? "Disable" : "Enable")
+            </button>
+        }
+        else if (Hub.HubType == "Playlist")
+        {
+            <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+                <span style="font-size:10px;color:rgba(255,255,255,0.3);">Managed by owner</span>
+                <span style="font-size:11px;font-weight:900;color:#C9922E;cursor:pointer;letter-spacing:0.04em;">
+                    Open in My Library →
+                </span>
+            </div>
+        }
+    </div>
+
+</div>
+
+@code {
+    [Parameter] public ManagedHubViewModel Hub { get; set; } = null!;
+    [Parameter] public List<HubItemViewModel> Items { get; set; } = [];
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback<(Guid Id, bool Enabled)> OnEnabledToggled { get; set; }
+    [Parameter] public EventCallback<(Guid Id, bool Featured)> OnFeaturedToggled { get; set; }
+
+    // Section open/closed state — individual booleans avoids Razor string-escape issues
+    private bool _configOpen = true;
+    private bool _itemsOpen  = true;
+    private bool _assetsOpen = false;
+
+    private static readonly string[] _assetTypes = ["Cover Art", "Headshot", "Banner", "Logo", "Backdrop"];
+
+    private void ToggleConfigSection() => _configOpen = !_configOpen;
+    private void ToggleItemsSection()  => _itemsOpen  = !_itemsOpen;
+    private void ToggleAssetsSection() => _assetsOpen = !_assetsOpen;
+
+    private Task ToggleEnabled()  => OnEnabledToggled.InvokeAsync((Hub.Id, !Hub.IsEnabled));
+    private Task ToggleFeatured() => OnFeaturedToggled.InvokeAsync((Hub.Id, !Hub.IsFeatured));
+
+    private List<string> GetRuleChips()
+    {
+        if (!string.IsNullOrWhiteSpace(Hub.RuleJson))
+        {
+            try
+            {
+                var rules = System.Text.Json.JsonSerializer.Deserialize<List<string>>(Hub.RuleJson);
+                if (rules is { Count: > 0 }) return rules;
+            }
+            catch { /* malformed JSON — fall through */ }
+        }
+
+        return [Hub.Description ?? Hub.HubType];
+    }
+
+    private List<string> GetSystemMediaChips()
+    {
+        if (!string.IsNullOrWhiteSpace(Hub.Description))
+        {
+            var parts = Hub.Description.Split(
+                ',',
+                System.StringSplitOptions.RemoveEmptyEntries | System.StringSplitOptions.TrimEntries);
+            if (parts.Length > 0)
+                return [.. parts];
+        }
+
+        return ["Books", "Comics"];
+    }
+
+    private static string GetMediaTypeIcon(string mediaType) => mediaType.ToUpperInvariant() switch
+    {
+        "MOVIE"     => Icons.Material.Outlined.Movie,
+        "EPUB"      => Icons.Material.Outlined.MenuBook,
+        "BOOK"      => Icons.Material.Outlined.MenuBook,
+        "AUDIOBOOK" => Icons.Material.Outlined.Headphones,
+        "TV"        => Icons.Material.Outlined.LiveTv,
+        "MUSIC"     => Icons.Material.Outlined.MusicNote,
+        "PODCAST"   => Icons.Material.Outlined.Mic,
+        "COMIC"     => Icons.Material.Outlined.AutoStories,
+        _           => Icons.Material.Outlined.InsertDriveFile,
+    };
+}
+
+<style>
+    .hub-drawer-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.8);
+        backdrop-filter: blur(8px);
+        z-index: 100;
+    }
+
+    .hub-drawer {
+        position: fixed;
+        top: 0;
+        right: 0;
+        width: 36rem;
+        height: 100vh;
+        background: #0d0f12;
+        border-left: 1px solid rgba(255, 255, 255, 0.04);
+        z-index: 110;
+        display: flex;
+        flex-direction: column;
+        animation: slideInFromRight 0.4s ease;
+    }
+
+    @@keyframes slideInFromRight {
+        from { transform: translateX(100%); }
+        to   { transform: translateX(0); }
+    }
+
+    .hub-drawer-header {
+        position: relative;
+        padding: 40px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+        background: rgba(15, 23, 42, 0.1);
+        flex-shrink: 0;
+    }
+
+    .hub-drawer-body {
+        flex: 1;
+        overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(255, 255, 255, 0.08) transparent;
+    }
+
+    .hub-drawer-actions {
+        padding: 32px;
+        border-top: 1px solid rgba(255, 255, 255, 0.03);
+        background: #0d0f12;
+        flex-shrink: 0;
+    }
+
+    .hub-type-chip {
+        font-size: 9px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        padding: 3px 8px;
+        border-radius: 4px;
+        border: 1px solid;
+    }
+
+    .hub-status-pill {
+        font-size: 9px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        padding: 3px 8px;
+        border-radius: 20px;
+        border: 1px solid;
+    }
+
+    .hub-section {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    }
+
+    .hub-section-header {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 20px;
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        color: white;
+        transition: background 0.15s ease;
+    }
+
+    .hub-section-header:hover {
+        background: rgba(255, 255, 255, 0.02);
+    }
+
+    .hub-section-title {
+        font-size: 9px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: rgba(255, 255, 255, 0.5);
+    }
+
+    .hub-section-body {
+        padding: 0 24px 24px 24px;
+    }
+
+    .hub-config-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+        gap: 16px;
+    }
+
+    .hub-config-label {
+        font-size: 9px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: rgba(255, 255, 255, 0.4);
+        flex-shrink: 0;
+    }
+
+    .hub-config-value {
+        font-size: 11px;
+        font-weight: 700;
+        color: white;
+        text-align: right;
+    }
+
+    .hub-rule-chip {
+        font-size: 9px;
+        font-weight: 700;
+        padding: 2px 7px;
+        border-radius: 4px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        color: rgba(255, 255, 255, 0.7);
+        white-space: nowrap;
+    }
+
+    .hub-item-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    }
+
+    .hub-item-row:last-of-type {
+        border-bottom: none;
+    }
+
+    .hub-action-btn {
+        font-size: 11px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        padding: 10px 20px;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: opacity 0.15s ease;
+    }
+
+    .hub-action-btn:hover {
+        opacity: 0.85;
+    }
+
+    .hub-action-btn--outlined {
+        background: transparent;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: rgba(255, 255, 255, 0.7);
+    }
+
+    .hub-action-btn--filled {
+        background: #C9922E;
+        border: 1px solid #C9922E;
+        color: #0d0f12;
+    }
+</style>

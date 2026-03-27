@@ -333,8 +333,147 @@ public static class HubEndpoints
         .WithSummary("Related hubs via cascade: series → author → genre → explore.")
         .Produces<RelatedHubsResponse>(StatusCodes.Status200OK)
         .RequireAnyRole();
+
+        // ── Managed Hub endpoints (Vault Hubs tab) ──────────────────────────────
+
+        // GET /hubs/managed — all non-Universe hubs for the Vault Hubs tab.
+        group.MapGet("/managed", async (
+            IHubRepository hubRepo,
+            CancellationToken ct) =>
+        {
+            var hubs = await hubRepo.GetManagedHubsAsync(ct);
+            var dtos = new List<ManagedHubDto>();
+            foreach (var hub in hubs)
+            {
+                // For Smart hubs, item count is from works.hub_id; for others, from hub_items
+                int count = hub.HubType == "Smart"
+                    ? hub.Works.Count
+                    : await hubRepo.GetHubItemCountAsync(hub.Id, ct);
+                dtos.Add(ManagedHubDto.FromDomain(hub, count));
+            }
+            return Results.Ok(dtos);
+        })
+        .WithName("GetManagedHubs")
+        .WithSummary("List all non-Universe hubs (Smart, System, Mix, Playlist) for the Vault Hubs tab.")
+        .Produces<List<ManagedHubDto>>(StatusCodes.Status200OK)
+        .RequireAnyRole();
+
+        // GET /hubs/managed/counts — type → count for stats bar.
+        group.MapGet("/managed/counts", async (
+            IHubRepository hubRepo,
+            CancellationToken ct) =>
+        {
+            var counts = await hubRepo.GetCountsByTypeAsync(ct);
+            return Results.Ok(counts);
+        })
+        .WithName("GetManagedHubCounts")
+        .WithSummary("Returns hub count grouped by type for the Vault stats bar.")
+        .Produces<Dictionary<string, int>>(StatusCodes.Status200OK)
+        .RequireAnyRole();
+
+        // GET /hubs/{id}/items?limit=20 — curated item preview.
+        group.MapGet("/{id:guid}/items", async (
+            Guid id,
+            int? limit,
+            IHubRepository hubRepo,
+            IDatabaseConnection db,
+            CancellationToken ct) =>
+        {
+            int take = limit is > 0 ? limit.Value : 20;
+            var items = await hubRepo.GetHubItemsAsync(id, take, ct);
+
+            // Resolve work metadata from canonical_values
+            var dtos = new List<HubItemDto>();
+            if (items.Count > 0)
+            {
+                using var conn = db.CreateConnection();
+                foreach (var item in items)
+                {
+                    string? title = null, creator = null, mediaType = null, cover = null;
+                    using var cmd = conn.CreateCommand();
+                    cmd.CommandText = """
+                        SELECT cv.key, cv.value
+                        FROM canonical_values cv
+                        WHERE cv.entity_id = @WorkId
+                          AND cv.key IN ('title', 'author', 'cover')
+                        UNION ALL
+                        SELECT 'media_type', w.media_type
+                        FROM works w WHERE w.id = @WorkId
+                        """;
+                    var p = cmd.CreateParameter();
+                    p.ParameterName = "@WorkId";
+                    p.Value = item.WorkId.ToString();
+                    cmd.Parameters.Add(p);
+
+                    using var reader = cmd.ExecuteReader();
+                    while (reader.Read())
+                    {
+                        var key = reader.GetString(0);
+                        var val = reader.GetString(1);
+                        switch (key)
+                        {
+                            case "title": title = val; break;
+                            case "author": creator = val; break;
+                            case "cover": cover = val; break;
+                            case "media_type": mediaType = val; break;
+                        }
+                    }
+
+                    dtos.Add(new HubItemDto
+                    {
+                        Id        = item.Id,
+                        WorkId    = item.WorkId,
+                        Title     = title ?? $"Work {item.WorkId.ToString("N")[..8]}",
+                        Creator   = creator,
+                        MediaType = mediaType ?? "Unknown",
+                        CoverUrl  = cover,
+                        SortOrder = item.SortOrder,
+                    });
+                }
+            }
+
+            return Results.Ok(dtos);
+        })
+        .WithName("GetHubItems")
+        .WithSummary("Returns curated items for a hub with resolved work metadata.")
+        .Produces<List<HubItemDto>>(StatusCodes.Status200OK)
+        .RequireAnyRole();
+
+        // PUT /hubs/{id}/enabled — toggle hub visibility.
+        group.MapPut("/{id:guid}/enabled", async (
+            Guid id,
+            EnabledRequest body,
+            IHubRepository hubRepo,
+            CancellationToken ct) =>
+        {
+            await hubRepo.UpdateHubEnabledAsync(id, body.Enabled, ct);
+            return Results.Ok();
+        })
+        .WithName("UpdateHubEnabled")
+        .WithSummary("Toggle a hub's enabled state.")
+        .RequireAnyRole();
+
+        // PUT /hubs/{id}/featured — toggle hub featured state.
+        group.MapPut("/{id:guid}/featured", async (
+            Guid id,
+            FeaturedRequest body,
+            IHubRepository hubRepo,
+            CancellationToken ct) =>
+        {
+            await hubRepo.UpdateHubFeaturedAsync(id, body.Featured, ct);
+            return Results.Ok();
+        })
+        .WithName("UpdateHubFeatured")
+        .WithSummary("Toggle a hub's featured state.")
+        .RequireAnyRole();
+
         return app;
     }
+
+    // ── Request bodies ────────────────────────────────────────────────────────
+
+    public sealed record EnabledRequest(bool Enabled);
+    public sealed record FeaturedRequest(bool Featured);
 
     // ── Private helpers ───────────────────────────────────────────────────────
 

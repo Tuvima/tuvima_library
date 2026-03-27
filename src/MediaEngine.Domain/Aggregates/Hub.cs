@@ -66,10 +66,43 @@ public sealed class Hub
     public Guid? ParentHubId { get; set; }
 
     /// <summary>
-    /// The type of hub container: Universe, Genre, Author, Collection, or Custom.
+    /// The type of hub container: Universe, Smart, System, Mix, Playlist, Genre, Author, Collection, or Custom.
     /// Defaults to "Universe" for backward compatibility.
     /// </summary>
     public string HubType { get; set; } = "Universe";
+
+    /// <summary>Plain-text description or rule summary for display.</summary>
+    public string? Description { get; set; }
+
+    /// <summary>Icon name hint for UI rendering (e.g. "Label", "Waves", "Person").</summary>
+    public string? IconName { get; set; }
+
+    /// <summary>"library" for library-scoped hubs, "user" for per-profile hubs.</summary>
+    public string Scope { get; set; } = "library";
+
+    /// <summary>Owner profile. Null = library-scoped (shared).</summary>
+    public Guid? ProfileId { get; set; }
+
+    /// <summary>Whether this hub is visible in browsing. Default true.</summary>
+    public bool IsEnabled { get; set; } = true;
+
+    /// <summary>Whether this hub is pinned to media lane pages.</summary>
+    public bool IsFeatured { get; set; }
+
+    /// <summary>Minimum item count for smart hub generation threshold.</summary>
+    public int MinItems { get; set; }
+
+    /// <summary>JSON rule definition for smart hubs (e.g. genre filter, vibe filter).</summary>
+    public string? RuleJson { get; set; }
+
+    /// <summary>Cron expression or descriptive schedule for mix refresh.</summary>
+    public string? RefreshSchedule { get; set; }
+
+    /// <summary>When the hub's contents were last refreshed/regenerated.</summary>
+    public DateTimeOffset? LastRefreshedAt { get; set; }
+
+    /// <summary>Last modification timestamp.</summary>
+    public DateTimeOffset? ModifiedAt { get; set; }
 
     // -------------------------------------------------------------------------
     // Children

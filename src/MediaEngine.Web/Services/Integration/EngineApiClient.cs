@@ -2848,6 +2848,84 @@ public sealed class EngineApiClient : IEngineApiClient
             return null;
         }
     }
+
+    // ── Managed Hubs (Vault Hubs tab) ────────────────────────────────────────
+
+    public async Task<List<ManagedHubViewModel>> GetManagedHubsAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<List<ManagedHubViewModel>>("/hubs/managed", ct) ?? [];
+        }
+        catch (OperationCanceledException) { return []; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /hubs/managed failed");
+            LastError = ex.Message;
+            return [];
+        }
+    }
+
+    public async Task<Dictionary<string, int>> GetManagedHubCountsAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<Dictionary<string, int>>("/hubs/managed/counts", ct) ?? new();
+        }
+        catch (OperationCanceledException) { return new(); }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /hubs/managed/counts failed");
+            LastError = ex.Message;
+            return new();
+        }
+    }
+
+    public async Task<List<HubItemViewModel>> GetHubItemsAsync(Guid hubId, int limit = 20, CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<List<HubItemViewModel>>(
+                $"/hubs/{hubId}/items?limit={limit}", ct) ?? [];
+        }
+        catch (OperationCanceledException) { return []; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /hubs/{HubId}/items failed", hubId);
+            LastError = ex.Message;
+            return [];
+        }
+    }
+
+    public async Task<bool> UpdateHubEnabledAsync(Guid hubId, bool enabled, CancellationToken ct = default)
+    {
+        try
+        {
+            var resp = await _http.PutAsJsonAsync($"/hubs/{hubId}/enabled", new { enabled }, ct);
+            return resp.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "PUT /hubs/{HubId}/enabled failed", hubId);
+            LastError = ex.Message;
+            return false;
+        }
+    }
+
+    public async Task<bool> UpdateHubFeaturedAsync(Guid hubId, bool featured, CancellationToken ct = default)
+    {
+        try
+        {
+            var resp = await _http.PutAsJsonAsync($"/hubs/{hubId}/featured", new { featured }, ct);
+            return resp.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "PUT /hubs/{HubId}/featured failed", hubId);
+            LastError = ex.Message;
+            return false;
+        }
+    }
 }
 
 

@@ -36,6 +36,7 @@
 | `skills/SETTINGS-MANAGEMENT.md` | §3.11 (Configuration Architecture) | Config directory layout, provider config format |
 | `skills/API-SECURITY.md` | §3.3 (Security) | Security implementation patterns |
 | `FIX-PLAN.md` | Not in CLAUDE.md (standalone) | Tiered issue tracking, execution priority |
+| (new — create matching file) | §3.12 (Hubs & Playlists) | Smart hubs, system lists, personalised mixes, playlists, hub management in Vault |
 
 ---
 

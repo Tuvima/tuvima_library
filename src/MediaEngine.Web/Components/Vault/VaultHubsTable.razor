@@ -1,0 +1,358 @@
+@using MediaEngine.Web.Models.ViewDTOs
+@namespace MediaEngine.Web.Components.Vault
+
+@{
+    var orderedGroups = new[] { "Smart", "System", "Mix", "Playlist" };
+    var filteredHubs = Hubs
+        .Where(h => EnabledTypes.Contains(h.HubType))
+        .ToList();
+}
+
+@if (Loading)
+{
+    <div class="vht-loading">
+        <MudProgressCircular Indeterminate="true" Size="Size.Small"
+                             Style="color: rgba(255,255,255,0.15);" />
+    </div>
+}
+else if (filteredHubs.Count == 0)
+{
+    <div class="vht-empty">
+        <MudIcon Icon="@Icons.Material.Outlined.Hub" Style="font-size: 3rem; opacity: 0.15; margin-bottom: 12px;" />
+        <p style="color: rgba(255,255,255,0.25); font-size: 0.85rem;">No hubs match the current filters</p>
+    </div>
+}
+else
+{
+    <div class="vht-table-wrap">
+        <table class="vht-table">
+            <thead>
+                <tr class="vht-thead-row">
+                    <th class="vht-th" style="width: 40px;"></th>
+                    <th class="vht-th" style="padding-left: 12px;">Name</th>
+                    <th class="vht-th vht-col-type" style="width: 120px;">Type</th>
+                    <th class="vht-th vht-col-scope" style="width: 100px;">Scope</th>
+                    <th class="vht-th vht-th--center" style="width: 60px;">Items</th>
+                    <th class="vht-th vht-th--center" style="width: 120px; padding-right: 24px;">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var groupKey in orderedGroups)
+                {
+                    if (!EnabledTypes.Contains(groupKey)) continue;
+
+                    var groupHubs = filteredHubs.Where(h => h.HubType == groupKey).ToList();
+                    if (groupHubs.Count == 0) continue;
+
+                    var groupLabel = GetGroupLabel(groupKey);
+
+                    <tr class="vht-group-header-row">
+                        <td colspan="6">
+                            <span class="vht-group-label">@groupLabel</span>
+                            <span class="vht-group-count">@groupHubs.Count</span>
+                        </td>
+                    </tr>
+
+                    @foreach (var hub in groupHubs)
+                    {
+                        var icon = GetHubIcon(hub);
+                        <tr class="vht-row" @onclick="() => OnHubClicked.InvokeAsync(hub.Id)">
+                            <td class="vht-td vht-td--icon">
+                                <div class="vht-icon-wrap">
+                                    <MudIcon Icon="@icon" Style="@($"font-size: 18px; color: {hub.TypeColor}; opacity: 0.75;")" />
+                                </div>
+                            </td>
+                            <td class="vht-td" style="padding-left: 12px;">
+                                <div class="vht-name-cell">
+                                    <span class="vht-name">@hub.Name</span>
+                                    @if (!string.IsNullOrWhiteSpace(hub.Description))
+                                    {
+                                        <span class="vht-description">@hub.Description</span>
+                                    }
+                                </div>
+                            </td>
+                            <td class="vht-td vht-col-type">
+                                <span class="vht-type-chip"
+                                      style="@($"color: {hub.TypeColor}; border-color: {hub.TypeColor}33; background: {hub.TypeColor}0D;")">
+                                    @hub.TypeLabel
+                                </span>
+                            </td>
+                            <td class="vht-td vht-col-scope">
+                                <span class="vht-scope">
+                                    @(hub.Scope == "library" ? "Library" : hub.Scope)
+                                </span>
+                            </td>
+                            <td class="vht-td vht-td--center">
+                                <span class="vht-items">@hub.ItemCount</span>
+                            </td>
+                            <td class="vht-td vht-td--center" style="padding-right: 24px;">
+                                <span class="vht-status-pill"
+                                      style="@($"color: {hub.StatusColor}; border-color: {hub.StatusColor}33; background: {hub.StatusColor}0D;")">
+                                    @hub.StatusLabel
+                                </span>
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    [Parameter] public List<ManagedHubViewModel> Hubs { get; set; } = [];
+    [Parameter] public bool Loading { get; set; }
+    [Parameter] public HashSet<string> EnabledTypes { get; set; } = new(["Smart", "System", "Mix", "Playlist"]);
+    [Parameter] public EventCallback<Guid> OnHubClicked { get; set; }
+
+    private static string GetGroupLabel(string hubType) => hubType switch
+    {
+        "Smart"    => "SMART HUBS",
+        "System"   => "SYSTEM LISTS",
+        "Mix"      => "PERSONALIZED MIXES",
+        "Playlist" => "PLAYLISTS",
+        _          => hubType.ToUpperInvariant(),
+    };
+
+    private static string GetHubIcon(ManagedHubViewModel hub)
+    {
+        return hub.IconName switch
+        {
+            "Label" or "Tag"                       => Icons.Material.Outlined.Label,
+            "Waves" or "Mood"                      => Icons.Material.Outlined.Waves,
+            "Person"                               => Icons.Material.Outlined.Person,
+            "Calendar"                             => Icons.Material.Outlined.CalendarMonth,
+            "Clock" or "Schedule"                  => Icons.Material.Outlined.Schedule,
+            "Star"                                 => Icons.Material.Outlined.Star,
+            "CircleDashed" or "RadioButton"        => Icons.Material.Outlined.RadioButtonUnchecked,
+            "BookOpen" or "MenuBook"               => Icons.Material.Outlined.MenuBook,
+            "Eye" or "Visibility"                  => Icons.Material.Outlined.Visibility,
+            "Tv" or "LiveTv"                       => Icons.Material.Outlined.LiveTv,
+            "Headphones"                           => Icons.Material.Outlined.Headphones,
+            "Heart" or "Favorite"                  => Icons.Material.Outlined.Favorite,
+            "PlayCircle"                           => Icons.Material.Outlined.PlayCircle,
+            "Flame" or "Fire"                      => Icons.Material.Outlined.LocalFireDepartment,
+            "Compass" or "Explore"                 => Icons.Material.Outlined.Explore,
+            "Sparkle" or "AutoAwesome"             => Icons.Material.Outlined.AutoAwesome,
+            "Link"                                 => Icons.Material.Outlined.Link,
+            "Palette"                              => Icons.Material.Outlined.Palette,
+            "Repeat"                               => Icons.Material.Outlined.Repeat,
+            "History"                              => Icons.Material.Outlined.History,
+            "MusicList" or "QueueMusic"            => Icons.Material.Outlined.QueueMusic,
+            _                                      => Icons.Material.Outlined.Hub,
+        };
+    }
+}
+
+<style>
+    /* ── Container ── */
+    .vht-table-wrap {
+        background: rgba(17, 20, 25, 0.4);
+        border: 1px solid rgba(255, 255, 255, 0.03);
+        border-radius: 2rem;
+        overflow: hidden;
+        backdrop-filter: blur(8px);
+    }
+
+    .vht-table {
+        width: 100%;
+        text-align: left;
+        border-collapse: collapse;
+        table-layout: fixed;
+    }
+
+    /* ── Header ── */
+    .vht-thead-row {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        background: rgba(15, 23, 42, 0.3);
+    }
+
+    .vht-th {
+        padding: 14px 12px;
+        font-size: 9px;
+        font-weight: 900;
+        color: rgba(255, 255, 255, 0.25);
+        text-transform: uppercase;
+        letter-spacing: 0.15em;
+    }
+
+    .vht-th--center { text-align: center; }
+
+    /* ── Group header ── */
+    .vht-group-header-row td {
+        padding: 8px 32px;
+        background: rgba(96, 165, 250, 0.03);
+        border-top: 1px solid rgba(255, 255, 255, 0.04);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    }
+
+    .vht-group-header-row:first-child td {
+        border-top: none;
+    }
+
+    .vht-group-label {
+        font-size: 9px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.15em;
+        color: rgba(96, 165, 250, 0.4);
+    }
+
+    .vht-group-count {
+        margin-left: 10px;
+        font-size: 9px;
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.15);
+    }
+
+    /* ── Body rows ── */
+    .vht-row {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+        cursor: pointer;
+        transition: background 0.15s;
+    }
+
+    .vht-row:last-child { border-bottom: none; }
+
+    .vht-row:hover { background: rgba(96, 165, 250, 0.02); }
+
+    .vht-td {
+        padding: 14px 12px;
+        vertical-align: middle;
+    }
+
+    .vht-td--center { text-align: center; }
+
+    /* ── Icon column ── */
+    .vht-td--icon {
+        width: 40px;
+        padding-left: 20px;
+        padding-right: 4px;
+    }
+
+    .vht-icon-wrap {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        flex-shrink: 0;
+    }
+
+    /* ── Name + description ── */
+    .vht-name-cell {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        min-width: 0;
+    }
+
+    .vht-name {
+        font-size: 14px;
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.9);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        transition: color 0.15s;
+    }
+
+    .vht-row:hover .vht-name {
+        color: #60A5FA;
+    }
+
+    .vht-description {
+        font-size: 10px;
+        font-style: italic;
+        color: rgba(255, 255, 255, 0.35);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* ── Type chip ── */
+    .vht-type-chip {
+        display: inline-flex;
+        align-items: center;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 9px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        border: 1px solid;
+        white-space: nowrap;
+    }
+
+    /* ── Scope ── */
+    .vht-scope {
+        font-size: 10px;
+        color: rgba(255, 255, 255, 0.35);
+        text-transform: capitalize;
+    }
+
+    /* ── Items count ── */
+    .vht-items {
+        font-size: 12px;
+        font-weight: 900;
+        color: rgba(255, 255, 255, 0.85);
+        text-align: center;
+        display: block;
+    }
+
+    /* ── Status pill ── */
+    .vht-status-pill {
+        display: inline-flex;
+        align-items: center;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 9px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        border: 1px solid;
+        white-space: nowrap;
+    }
+
+    /* ── Loading / empty states ── */
+    .vht-loading, .vht-empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 80px 20px;
+        text-align: center;
+    }
+
+    .vht-loading { padding: 32px; }
+
+    /* ── Mobile ── */
+    @@media (max-width: 768px) {
+        .vht-col-type,
+        .vht-col-scope {
+            display: none;
+        }
+
+        .vht-thead-row { display: none; }
+
+        .vht-group-header-row td {
+            padding: 8px 16px;
+        }
+
+        .vht-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            padding: 12px 16px;
+            gap: 10px;
+        }
+
+        .vht-td { padding: 0; }
+        .vht-td--icon { width: auto; padding: 0; flex-shrink: 0; }
+        .vht-td:nth-child(2) { flex: 1; min-width: 0; }
+        .vht-td--center { flex-shrink: 0; }
+    }
+</style>

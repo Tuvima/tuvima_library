@@ -57,14 +57,17 @@
             </div>
         </div>
 
-        @* ── 2. ALERT TOGGLE BANNERS ── *@
-        <div class="vault-alerts">
+        @* ── 2. STATS BAR (card-based filters) ── *@
+        <VaultStatsBar Cards="@_statsCards" OnCardToggled="OnStatCardToggled" />
+
+        @* ── Alert badges (moved to compact form) ── *@
+        <div class="vault-alert-badges">
             @if (_needsReviewCount > 0)
             {
                 <button class="vault-alert vault-alert--amber @(_filterReview ? "vault-alert--on" : "")"
                         @onclick="ToggleReviewFilter">
                     <MudIcon Icon="@Icons.Material.Outlined.ErrorOutline" Style="font-size: 14px;" />
-                    <span>@_needsReviewCount items need review</span>
+                    <span>@_needsReviewCount need review</span>
                 </button>
             }
             @if (_quarantinedCount > 0)
@@ -72,14 +75,7 @@
                 <button class="vault-alert vault-alert--red @(_filterQuarantine ? "vault-alert--on" : "")"
                         @onclick="ToggleQuarantineFilter">
                     <MudIcon Icon="@Icons.Material.Outlined.Delete" Style="font-size: 12px;" />
-                    <span>@_quarantinedCount in quarantine</span>
-                </button>
-            }
-            @if (_activeFilterCount > 0)
-            {
-                <button class="vault-alert-clear" @onclick="ClearAllFilters">
-                    <MudIcon Icon="@Icons.Material.Outlined.Close" Style="font-size: 12px;" />
-                    <span>Clear @_activeFilterCount filter@(_activeFilterCount > 1 ? "s" : "")</span>
+                    <span>@_quarantinedCount quarantined</span>
                 </button>
             }
         </div>
@@ -142,7 +138,24 @@
                                  Loading="@_loadingUniverses"
                                  OnMoreClicked="OnUniverseMoreClicked" />
         }
+        else if (_activeTab == "hubs")
+        {
+            <VaultHubsTable Hubs="@_managedHubs"
+                            Loading="@_loadingHubs"
+                            EnabledTypes="@_enabledHubTypes"
+                            OnHubClicked="OnHubClicked" />
+        }
     </div>
+
+    @* ── HUB DETAIL DRAWER ── *@
+    @if (_selectedHub is not null)
+    {
+        <VaultHubDrawer Hub="@_selectedHub"
+                        Items="@_selectedHubItems"
+                        OnClose="CloseHubDrawer"
+                        OnEnabledToggled="OnHubEnabledToggled"
+                        OnFeaturedToggled="OnHubFeaturedToggled" />
+    }
 
     @* ── 5. RESOLUTION OVERLAY ── *@
     @if (_resolveItem is not null)
@@ -192,7 +205,13 @@
     private List<VaultItemViewModel> _mediaItems = [];
     private List<PersonListItemDto> _people = [];
     private List<HubViewModel> _universes = [];
+    private List<ManagedHubViewModel> _managedHubs = [];
     private RegistryFourStateCountsDto _counts = new();
+    private bool _loadingHubs;
+
+    // ── Hub drawer state ──
+    private ManagedHubViewModel? _selectedHub;
+    private List<HubItemViewModel> _selectedHubItems = [];
 
     // ── Computed counts ──
     private int _needsReviewCount => _counts.InReview + _counts.Provisional;
@@ -205,6 +224,10 @@
     private int _batchTotal => StateContainer.BatchProgress?.FilesTotal ?? 0;
     private double BatchPercent => _batchTotal > 0 ? (double)_batchProcessed / _batchTotal * 100 : 0;
 
+    // ── Stats bar state ──
+    private HashSet<string> _enabledMediaTypes = new(["Movies", "Books", "Audiobooks", "TV", "Music", "Podcasts"]);
+    private HashSet<string> _enabledHubTypes = new(["Smart", "System", "Mix", "Playlist"]);
+
     // ── Overlay state ──
     private VaultItemViewModel? _resolveItem;
     private Guid? _deleteItemId;
@@ -216,7 +239,65 @@
         ("media", "Media", Icons.Material.Outlined.VideoLibrary),
         ("people", "People", Icons.Material.Outlined.People),
         ("universes", "Universes", Icons.Material.Outlined.Public),
+        ("hubs", "Hubs", Icons.Material.Outlined.AutoAwesome),
     ];
+
+    // ── Stats bar computation ──
+    private List<StatCardModel> _statsCards => _activeTab switch
+    {
+        "media" => new List<StatCardModel>
+        {
+            new() { Id = "Movies", Icon = Icons.Material.Outlined.VideoLibrary, Count = 2105, Label = "MOVIES", Color = "#60A5FA", IsActive = _enabledMediaTypes.Contains("Movies") },
+            new() { Id = "Books", Icon = Icons.Material.Outlined.MenuBook, Count = 1240, Label = "BOOKS", Color = "#5DCAA5", IsActive = _enabledMediaTypes.Contains("Books") },
+            new() { Id = "Audiobooks", Icon = Icons.Material.Outlined.Headphones, Count = 852, Label = "AUDIOBOOKS", Color = "#A78BFA", IsActive = _enabledMediaTypes.Contains("Audiobooks") },
+            new() { Id = "TV", Icon = Icons.Material.Outlined.LiveTv, Count = 432, Label = "TV", Color = "#FBBF24", IsActive = _enabledMediaTypes.Contains("TV") },
+            new() { Id = "Music", Icon = Icons.Material.Outlined.MusicNote, Count = 15420, Label = "MUSIC", Color = "#22D3EE", IsActive = _enabledMediaTypes.Contains("Music") },
+            new() { Id = "Podcasts", Icon = Icons.Material.Outlined.Mic, Count = 98, Label = "PODCASTS", Color = "#FB923C", IsActive = _enabledMediaTypes.Contains("Podcasts") },
+        },
+        "people" => new List<StatCardModel>
+        {
+            new() { Id = "Actors", Icon = Icons.Material.Outlined.RecentActors, Count = 12400, Label = "ACTORS", Color = "#60A5FA" },
+            new() { Id = "Directors", Icon = Icons.Material.Outlined.TheaterComedy, Count = 842, Label = "DIRECTORS", Color = "#FBBF24" },
+            new() { Id = "Authors", Icon = Icons.Material.Outlined.MenuBook, Count = 3105, Label = "AUTHORS", Color = "#5DCAA5" },
+        },
+        "universes" => new List<StatCardModel>
+        {
+            new() { Id = "Universes", Icon = Icons.Material.Outlined.Public, Count = _universes.Count, Label = "UNIVERSES", Color = "#A78BFA" },
+            new() { Id = "Series", Icon = Icons.Material.Outlined.Layers, Count = 24, Label = "SERIES", Color = "#60A5FA" },
+            new() { Id = "Orphaned", Icon = Icons.Material.Outlined.Inventory2, Count = 3, Label = "ORPHANED", Color = "#FB923C" },
+        },
+        "hubs" => new List<StatCardModel>
+        {
+            new() { Id = "Smart", Icon = Icons.Material.Outlined.AutoAwesome, Count = _hubCounts.GetValueOrDefault("Smart", 0), Label = "SMART HUBS", Color = "#60A5FA", IsActive = _enabledHubTypes.Contains("Smart") },
+            new() { Id = "System", Icon = Icons.Material.Outlined.Bookmarks, Count = _hubCounts.GetValueOrDefault("System", 0), Label = "SYSTEM LISTS", Color = "#5DCAA5", IsActive = _enabledHubTypes.Contains("System") },
+            new() { Id = "Mix", Icon = Icons.Material.Outlined.AutoAwesome, Count = _hubCounts.GetValueOrDefault("Mix", 0), Label = "PERSONALIZED MIXES", Color = "#A78BFA", IsActive = _enabledHubTypes.Contains("Mix") },
+            new() { Id = "Playlist", Icon = Icons.Material.Outlined.QueueMusic, Count = _hubCounts.GetValueOrDefault("Playlist", 0), Label = "PLAYLISTS", Color = "#C9922E", IsActive = _enabledHubTypes.Contains("Playlist") },
+        },
+        _ => []
+    };
+
+    private Dictionary<string, int> _hubCounts = new();
+
+    private async Task OnStatCardToggled(string cardId)
+    {
+        if (_activeTab == "media")
+        {
+            if (_enabledMediaTypes.Contains(cardId))
+                _enabledMediaTypes.Remove(cardId);
+            else
+                _enabledMediaTypes.Add(cardId);
+            // Map card ID to filter — for now just refresh
+            await LoadMediaItems();
+        }
+        else if (_activeTab == "hubs")
+        {
+            if (_enabledHubTypes.Contains(cardId))
+                _enabledHubTypes.Remove(cardId);
+            else
+                _enabledHubTypes.Add(cardId);
+            StateHasChanged();
+        }
+    }
 
     // ── Lifecycle ──
 
@@ -313,6 +394,17 @@
         _loadingUniverses = false;
     }
 
+    private async Task LoadManagedHubs()
+    {
+        if (_managedHubs.Count > 0) return; // already loaded
+        _loadingHubs = true;
+        StateHasChanged();
+
+        _managedHubs = await ApiClient.GetManagedHubsAsync();
+        _hubCounts = await ApiClient.GetManagedHubCountsAsync();
+        _loadingHubs = false;
+    }
+
     // ── Tab switching ──
 
     private async Task SwitchTab(string tabId)
@@ -320,6 +412,7 @@
         _activeTab = tabId;
         if (tabId == "people") await LoadPeople();
         else if (tabId == "universes") await LoadUniverses();
+        else if (tabId == "hubs") await LoadManagedHubs();
     }
 
     // ── Toolbar callbacks ──
@@ -445,6 +538,45 @@
         return Task.CompletedTask;
     }
 
+    // ── Hub drawer ──
+
+    private async Task OnHubClicked(Guid hubId)
+    {
+        _selectedHub = _managedHubs.FirstOrDefault(h => h.Id == hubId);
+        if (_selectedHub is not null)
+        {
+            _selectedHubItems = await ApiClient.GetHubItemsAsync(hubId, 20);
+        }
+    }
+
+    private void CloseHubDrawer()
+    {
+        _selectedHub = null;
+        _selectedHubItems = [];
+    }
+
+    private async Task OnHubEnabledToggled((Guid Id, bool Enabled) args)
+    {
+        await ApiClient.UpdateHubEnabledAsync(args.Id, args.Enabled);
+        var hub = _managedHubs.FirstOrDefault(h => h.Id == args.Id);
+        if (hub is not null)
+        {
+            hub.IsEnabled = args.Enabled;
+            hub.Status = !args.Enabled ? "Disabled" : hub.ItemCount == 0 ? "Empty" : "Active";
+        }
+        if (_selectedHub?.Id == args.Id)
+            _selectedHub.IsEnabled = args.Enabled;
+    }
+
+    private async Task OnHubFeaturedToggled((Guid Id, bool Featured) args)
+    {
+        await ApiClient.UpdateHubFeaturedAsync(args.Id, args.Featured);
+        var hub = _managedHubs.FirstOrDefault(h => h.Id == args.Id);
+        if (hub is not null) hub.IsFeatured = args.Featured;
+        if (_selectedHub?.Id == args.Id)
+            _selectedHub.IsFeatured = args.Featured;
+    }
+
     // ── Resolution overlay ──
 
     private void CloseResolution() => _resolveItem = null;
@@ -494,7 +626,7 @@
 
     /* ── Pipeline Header ── */
     .vault-header {
-        padding: 24px 24px 16px;
+        padding: 24px 0 16px;
         border-bottom: 1px solid rgba(255, 255, 255, 0.04);
         flex-shrink: 0;
     }
@@ -503,6 +635,8 @@
         display: flex;
         justify-content: space-between;
         align-items: flex-start;
+        padding: 0 24px;
+        margin-bottom: 16px;
     }
 
     .vault-progress-row {
@@ -624,11 +758,11 @@
         background: rgba(96, 165, 250, 1);
     }
 
-    /* ── Alert banners ── */
-    .vault-alerts {
+    /* ── Alert badges ── */
+    .vault-alert-badges {
         display: flex;
-        gap: 16px;
-        margin-top: 16px;
+        gap: 8px;
+        padding: 8px 24px 0;
     }
 
     .vault-alert {
@@ -737,9 +871,10 @@
             font-size: 24px;
         }
 
-        .vault-alerts {
+        .vault-alert-badges {
             flex-direction: column;
             gap: 8px;
+            padding: 8px 16px 0;
         }
 
         .vault-content {

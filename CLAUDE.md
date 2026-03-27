@@ -211,9 +211,14 @@ Settings are organised by what the user is thinking about. Three design rules: b
 ### 3.11 — Library Vault (`/vault`)
 **Detail:** [`docs/architecture/settings-and-vault.md`](docs/architecture/settings-and-vault.md)
 
-The command centre for managing everything in the library. Three tabs: Media, People, Universes. Pipeline header with live batch progress. Alert banners for items needing review (amber) or quarantined (red). Toolbar with search/sort/group/filters; media type count bar doubles as filters. **Media list view:** each row shows thumbnail, title+creator, Universe link, pipeline dots (mouseover for detail), status pill (Verified/Provisional/Needs Review/Quarantined/Pending). Problem rows get an extra line explaining why. **Detail drawer** slides in from right with pinned header (cover, title, status, Universe link), scrollable collapsible sections (Sync, Enrichment, Pipeline, File, Claims), and pinned action bar (Identify, Sync Now, Purge). Pipeline section includes inline resolution panels for both Retail and Wikidata stages — pick candidates, search manually, or Add Provisional (pre-populated from file metadata, user corrects fields). **Provisional status** for items the engine couldn't match — file metadata is the authority, user corrections improve future Identify runs. **30-day refresh cycle** re-runs enrichment to catch updated provider/Wikidata data. **Sync writeback** (on by default) writes resolved metadata back to file tags. **People tab:** always Wikidata-sourced, no status column needed. List shows photo, name+description, role chips, library presence counts. Detail drawer: Library Presence (works grouped by role/media type), Linked Identities (pseudonym merges), and Assets. No manual actions — enrichment via 30-day refresh cycle. Auto-cleaned when associated media removed. **Universes tab:** franchise-level groupings, always Wikidata-sourced. Stats bar shows Universe count, total Series, Orphaned Series count. List shows name+description, Series count, media breakdown, people count. Detail drawer: Series list (clickable → filters Media tab), People, Orphaned Works, and Assets. No manual actions — 30-day refresh, auto-cleaned when child Series empty. **Shared Assets section** across all three tabs: five uniform asset types (Cover Art, Headshot, Banner, Logo, Backdrop) available on every entity for uniformity — same slots everywhere, providers fill what they can, user uploads the rest. TMDB auto-categorises images by type; book/audio providers return Cover Art only; Wikidata provides Headshots for People. Grouped by type, with preferred selection, user upload, and source labelling. Embedded original artwork always preserved. AI artwork matching uses embedded cover art as a visual signal during retail identification. Live SignalR updates throughout.
+The command centre for managing everything in the library. Three tabs: Media, People, Universes. Pipeline header with live batch progress. Alert banners for items needing review (amber) or quarantined (red). Toolbar with search/sort/group/filters; media type count bar doubles as filters. **Media list view:** each row shows thumbnail, title+creator, Universe link, pipeline dots (mouseover for detail), status pill (Verified/Provisional/Needs Review/Quarantined/Pending). Problem rows get an extra line explaining why. **Detail drawer** slides in from right with pinned header (cover, title, status, Universe link), scrollable collapsible sections (Sync, Enrichment, Pipeline, File, Claims), and pinned action bar (Identify, Sync Now, Purge). Pipeline section includes inline resolution panels for both Retail and Wikidata stages — pick candidates, search manually, or Add Provisional (pre-populated from file metadata, user corrects fields). **Provisional status** for items the engine couldn't match — file metadata is the authority, user corrections improve future Identify runs. **30-day refresh cycle** re-runs enrichment to catch updated provider/Wikidata data. **Sync writeback** (on by default) writes resolved metadata back to file tags. **People tab:** always Wikidata-sourced, no status column needed. List shows photo, name+description, role chips, library presence counts. Detail drawer: Library Presence (works grouped by role/media type), Linked Identities (pseudonym merges), and Assets. No manual actions — enrichment via 30-day refresh cycle. Auto-cleaned when associated media removed. **Universes tab:** franchise-level groupings, always Wikidata-sourced. Stats bar shows Universe count and total Series. List shows name+description, Series count, media breakdown, people count. Detail drawer: Series list (clickable → filters Media tab), People, and Assets. No manual actions — 30-day refresh, auto-cleaned when child Series empty. **Shared Assets section** across all three tabs: five uniform asset types (Cover Art, Headshot, Banner, Logo, Backdrop) available on every entity for uniformity — same slots everywhere, providers fill what they can, user uploads the rest. TMDB auto-categorises images by type; book/audio providers return Cover Art only; Wikidata provides Headshots for People. Grouped by type, with preferred selection, user upload, and source labelling. Embedded original artwork always preserved. AI artwork matching uses embedded cover art as a visual signal during retail identification. Live SignalR updates throughout.
 
-### 3.12 — Target State Features
+### 3.12 — Hubs & Playlists
+**Detail:** [`docs/architecture/hubs-and-playlists.md`](docs/architecture/hubs-and-playlists.md)
+
+Four hub types: **Smart Hubs** (auto-generated from library data — by genre, vibe, author, director, narrator, decade, plus Recently Added, Highest Rated, Unrated), **System Lists** (per-user, pre-created — Reading List, Watchlist, Currently Watching, Listening Queue, Favorites), **Personalised Mixes** (AI-generated per-user — Continue, Heavy Rotation, Discovery Queue, New For You, Because You Liked, Taste Mix, On Repeat, Rediscover), **Playlists** (user-created, any media type, full CRUD). Smart hubs are library-scoped and read-only. System lists, mixes, and playlists are per-user. All share the same visual pattern but differ in creation, ownership, and editability. "Add to..." interaction: primary action adds to default list for media type (Reading List for books, Watchlist for movies, etc.), heart icon toggles Favorites, secondary action opens picker for other lists/playlists. Hub artwork auto-composed from items; SkiaSharp auto-generates banners; user can upload overrides. Managed via Vault Hubs tab (fourth tab — oversight and configuration). My Library page (/my-library) for personal lists and playlist CRUD. Home page surfaces personalised mixes. Media lane pages surface smart hubs filtered by media type.
+
+### 3.13 — Target State Features
 **Detail:** [`docs/architecture/target-state.md`](docs/architecture/target-state.md)
 
 **Not yet implemented:** Playback (EPUB Reader, Comic Viewer, Audiobook Player, Video Player with HLS), Authentication & Multi-User (profiles, PIN/password, parental controls), Transcoding Pipeline (FFmpeg, Shadow Transcoder), Music Domain Model (MusicBrainz, MusicProcessor), Interoperability (OPDS 1.2, Audiobookshelf API, webhooks, import wizard, PWA), Browse & Discovery Pages (UniverseDetail, WorkDetail, PersonDetail, Statistics).
@@ -448,6 +453,7 @@ git push
 | `universe-graph.md` | `features/METADATA-MANAGEMENT.md` |
 | `settings-and-vault.md` | `features/SETTINGS-OVERVIEW.md` |
 | `ai-integration.md` | (new — create matching `.agent/` file) |
+| `hubs-and-playlists.md` | (new — create matching `.agent/` file) |
 
 After updating any architecture doc, update the corresponding `.agent/` file(s). The `.agent/SYNC-MAP.md` file contains the reverse mapping.
 
@@ -503,6 +509,7 @@ src/MediaEngine.Web/
 │   │   ├── VaultMediaCard.razor         Individual media card
 │   │   ├── VaultPeopleTable.razor       People tab
 │   │   ├── VaultUniversesTable.razor    Universes tab
+│   │   ├── VaultHubsTable.razor        Hubs tab (smart hubs, lists, mixes, playlists)
 │   │   ├── VaultResolutionOverlay.razor Resolution panel for review items
 │   │   ├── VaultDeleteConfirm.razor     Delete confirmation
 │   │   ├── VaultMobileDetail.razor      Mobile detail view
@@ -533,10 +540,16 @@ src/MediaEngine.Web/
 │   ├── Playback/             ← (TARGET STATE) In-browser media players
 │   │   ├── EpubReader.razor, ComicViewer.razor, AudioPlayer.razor, VideoPlayer.razor
 │   │
+│   ├── Hubs/                 ← Hub browsing and display components
+│   │   ├── HubCard.razor               Hub tile for swimlanes and grids
+│   │   ├── HubDetail.razor             Hub detail page (shared by all hub types)
+│   │   └── AddToPicker.razor           "Add to..." list/playlist picker overlay
+│   │
 │   └── Pages/                ← Full-page views (routed)
-│       ├── Home.razor                  Library overview: Hero + Poster Swimlanes
+│       ├── Home.razor                  Personalised dashboard: mixes + system list shortcuts
 │       ├── MediaLanePage.razor         Content-type lanes: /books, /video, /music, etc.
-│       ├── Vault.razor                 Library Vault: unified management
+│       ├── MyLibrary.razor             Personal space: system lists + playlists + creation
+│       ├── Vault.razor                 Library Vault: unified management (4 tabs)
 │       ├── Settings.razor              Unified settings: 16 screens in 5 groups
 │       ├── ChronicleExplorer.razor     Universe graph explorer
 │       ├── UniverseDetail.razor         (TARGET STATE) Universe detail
@@ -563,6 +576,7 @@ src/MediaEngine.Web/
 | Reusable visual component | `Components/<FeatureName>/` |
 | Full page | `Components/Pages/` |
 | Vault sub-component | `Components/Vault/` |
+| Hub browsing component | `Components/Hubs/` |
 | Settings tab | `Components/Settings/{GroupName}Tab.razor` |
 | Media player | `Components/Playback/` |
 | Playback service | `Services/Playback/` |

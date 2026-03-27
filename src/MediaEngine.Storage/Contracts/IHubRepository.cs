@@ -133,4 +133,33 @@ public interface IHubRepository
 
     /// <summary>Updates the <c>match_level</c> on a Work record.</summary>
     Task UpdateMatchLevelAsync(Guid workId, string matchLevel, CancellationToken ct = default);
+
+    // ── Managed Hub methods (Smart, System, Mix, Playlist) ──────────────
+
+    /// <summary>Returns all hubs of a given type (e.g. "Smart", "System", "Mix", "Playlist").</summary>
+    Task<IReadOnlyList<Hub>> GetByTypeAsync(string hubType, CancellationToken ct = default);
+
+    /// <summary>Returns all non-Universe hubs for the Vault Hubs tab.</summary>
+    Task<IReadOnlyList<Hub>> GetManagedHubsAsync(CancellationToken ct = default);
+
+    /// <summary>Returns count of hubs grouped by HubType for stats bar.</summary>
+    Task<Dictionary<string, int>> GetCountsByTypeAsync(CancellationToken ct = default);
+
+    /// <summary>Returns curated items for a hub (System Lists, Playlists, Mixes).</summary>
+    Task<IReadOnlyList<HubItem>> GetHubItemsAsync(Guid hubId, int limit = 20, CancellationToken ct = default);
+
+    /// <summary>Returns total curated item count for a hub.</summary>
+    Task<int> GetHubItemCountAsync(Guid hubId, CancellationToken ct = default);
+
+    /// <summary>Toggles the is_enabled flag on a hub.</summary>
+    Task UpdateHubEnabledAsync(Guid hubId, bool enabled, CancellationToken ct = default);
+
+    /// <summary>Toggles the is_featured flag on a hub.</summary>
+    Task UpdateHubFeaturedAsync(Guid hubId, bool featured, CancellationToken ct = default);
+
+    /// <summary>Adds a work to a hub's curated items.</summary>
+    Task AddHubItemAsync(HubItem item, CancellationToken ct = default);
+
+    /// <summary>Removes a curated item from a hub.</summary>
+    Task RemoveHubItemAsync(Guid itemId, CancellationToken ct = default);
 }

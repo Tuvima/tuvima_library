@@ -21,14 +21,25 @@ public sealed class HubRepository : IHubRepository
 
     // Reusable SELECT list for single-hub queries (no table prefix needed).
     private const string HubSelectColumns = """
-        id             AS Id,
-        universe_id    AS UniverseId,
-        display_name   AS DisplayName,
-        created_at     AS CreatedAt,
-        universe_status AS UniverseStatus,
-        parent_hub_id  AS ParentHubId,
-        wikidata_qid   AS WikidataQid,
-        hub_type       AS HubType
+        id                AS Id,
+        universe_id       AS UniverseId,
+        display_name      AS DisplayName,
+        created_at        AS CreatedAt,
+        universe_status   AS UniverseStatus,
+        parent_hub_id     AS ParentHubId,
+        wikidata_qid      AS WikidataQid,
+        hub_type          AS HubType,
+        description       AS Description,
+        icon_name         AS IconName,
+        scope             AS Scope,
+        profile_id        AS ProfileId,
+        is_enabled        AS IsEnabled,
+        is_featured       AS IsFeatured,
+        min_items         AS MinItems,
+        rule_json         AS RuleJson,
+        refresh_schedule  AS RefreshSchedule,
+        last_refreshed_at AS LastRefreshedAt,
+        modified_at       AS ModifiedAt
         """;
 
     // Reusable SELECT list for hub_relationships rows.
@@ -61,6 +72,7 @@ public sealed class HubRepository : IHubRepository
     {
         h.UniverseStatus ??= "Unknown";
         h.HubType ??= "Universe";
+        h.Scope ??= "library";
         return h;
     }
 
@@ -83,7 +95,9 @@ public sealed class HubRepository : IHubRepository
             cmd.CommandText = """
                 SELECT h.id, h.universe_id, h.display_name, h.created_at,
                        h.universe_status, h.parent_hub_id, h.wikidata_qid,
-                       h.hub_type,
+                       h.hub_type, h.description, h.icon_name, h.scope,
+                       h.profile_id, h.is_enabled, h.is_featured, h.min_items,
+                       h.rule_json, h.refresh_schedule, h.last_refreshed_at, h.modified_at,
                        w.id, w.media_type, w.sequence_index,
                        w.universe_mismatch, w.universe_mismatch_at,
                        w.wikidata_status, w.wikidata_checked_at, w.wikidata_qid
@@ -100,35 +114,46 @@ public sealed class HubRepository : IHubRepository
                 {
                     hub = new Hub
                     {
-                        Id             = hubId,
-                        UniverseId     = reader.IsDBNull(1) ? null : Guid.Parse(reader.GetString(1)),
-                        DisplayName    = reader.IsDBNull(2) ? null : reader.GetString(2),
-                        CreatedAt      = DateTimeOffset.Parse(reader.GetString(3)),
-                        UniverseStatus = reader.IsDBNull(4) ? "Unknown" : reader.GetString(4),
-                        ParentHubId    = reader.IsDBNull(5) ? null : Guid.Parse(reader.GetString(5)),
-                        WikidataQid    = reader.IsDBNull(6) ? null : reader.GetString(6),
-                        HubType        = reader.IsDBNull(7) ? "Universe" : reader.GetString(7),
+                        Id              = hubId,
+                        UniverseId      = reader.IsDBNull(1)  ? null : Guid.Parse(reader.GetString(1)),
+                        DisplayName     = reader.IsDBNull(2)  ? null : reader.GetString(2),
+                        CreatedAt       = DateTimeOffset.Parse(reader.GetString(3)),
+                        UniverseStatus  = reader.IsDBNull(4)  ? "Unknown" : reader.GetString(4),
+                        ParentHubId     = reader.IsDBNull(5)  ? null : Guid.Parse(reader.GetString(5)),
+                        WikidataQid     = reader.IsDBNull(6)  ? null : reader.GetString(6),
+                        HubType         = reader.IsDBNull(7)  ? "Universe" : reader.GetString(7),
+                        Description     = reader.IsDBNull(8)  ? null : reader.GetString(8),
+                        IconName        = reader.IsDBNull(9)  ? null : reader.GetString(9),
+                        Scope           = reader.IsDBNull(10) ? "library" : reader.GetString(10),
+                        ProfileId       = reader.IsDBNull(11) ? null : Guid.Parse(reader.GetString(11)),
+                        IsEnabled       = !reader.IsDBNull(12) && reader.GetInt32(12) == 1,
+                        IsFeatured      = !reader.IsDBNull(13) && reader.GetInt32(13) == 1,
+                        MinItems        = reader.IsDBNull(14) ? 0 : reader.GetInt32(14),
+                        RuleJson        = reader.IsDBNull(15) ? null : reader.GetString(15),
+                        RefreshSchedule = reader.IsDBNull(16) ? null : reader.GetString(16),
+                        LastRefreshedAt = reader.IsDBNull(17) ? null : DateTimeOffset.Parse(reader.GetString(17)),
+                        ModifiedAt      = reader.IsDBNull(18) ? null : DateTimeOffset.Parse(reader.GetString(18)),
                     };
                     hubs[hubId] = hub;
                 }
 
                 // LEFT JOIN: work columns are NULL when the hub has no works.
-                if (!reader.IsDBNull(8))
+                if (!reader.IsDBNull(19))
                 {
-                    var workId = Guid.Parse(reader.GetString(8));
+                    var workId = Guid.Parse(reader.GetString(19));
                     if (!works.ContainsKey(workId))
                     {
                         var work = new Work
                         {
                             Id                 = workId,
                             HubId              = hubId,
-                            MediaType          = Enum.Parse<MediaType>(reader.GetString(9), ignoreCase: true),
-                            SequenceIndex      = reader.IsDBNull(10) ? null : reader.GetInt32(10),
-                            UniverseMismatch   = !reader.IsDBNull(11) && reader.GetInt32(11) == 1,
-                            UniverseMismatchAt = reader.IsDBNull(12) ? null : DateTimeOffset.Parse(reader.GetString(12)),
-                            WikidataStatus     = reader.IsDBNull(13) ? "pending" : reader.GetString(13),
-                            WikidataCheckedAt  = reader.IsDBNull(14) ? null : DateTimeOffset.Parse(reader.GetString(14)),
-                            WikidataQid        = reader.IsDBNull(15) ? null : reader.GetString(15),
+                            MediaType          = Enum.Parse<MediaType>(reader.GetString(20), ignoreCase: true),
+                            SequenceIndex      = reader.IsDBNull(21) ? null : reader.GetInt32(21),
+                            UniverseMismatch   = !reader.IsDBNull(22) && reader.GetInt32(22) == 1,
+                            UniverseMismatchAt = reader.IsDBNull(23) ? null : DateTimeOffset.Parse(reader.GetString(23)),
+                            WikidataStatus     = reader.IsDBNull(24) ? "pending" : reader.GetString(24),
+                            WikidataCheckedAt  = reader.IsDBNull(25) ? null : DateTimeOffset.Parse(reader.GetString(25)),
+                            WikidataQid        = reader.IsDBNull(26) ? null : reader.GetString(26),
                         };
                         works[workId] = work;
                         hub.Works.Add(work);
@@ -565,15 +590,26 @@ public sealed class HubRepository : IHubRepository
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
-        var hub = conn.QueryFirstOrDefault<Hub>($"""
-            SELECT h.id             AS Id,
-                   h.universe_id    AS UniverseId,
-                   h.display_name   AS DisplayName,
-                   h.created_at     AS CreatedAt,
-                   h.universe_status AS UniverseStatus,
-                   h.parent_hub_id  AS ParentHubId,
-                   h.wikidata_qid   AS WikidataQid,
-                   h.hub_type       AS HubType
+        var hub = conn.QueryFirstOrDefault<Hub>("""
+            SELECT h.id                AS Id,
+                   h.universe_id       AS UniverseId,
+                   h.display_name      AS DisplayName,
+                   h.created_at        AS CreatedAt,
+                   h.universe_status   AS UniverseStatus,
+                   h.parent_hub_id     AS ParentHubId,
+                   h.wikidata_qid      AS WikidataQid,
+                   h.hub_type          AS HubType,
+                   h.description       AS Description,
+                   h.icon_name         AS IconName,
+                   h.scope             AS Scope,
+                   h.profile_id        AS ProfileId,
+                   h.is_enabled        AS IsEnabled,
+                   h.is_featured       AS IsFeatured,
+                   h.min_items         AS MinItems,
+                   h.rule_json         AS RuleJson,
+                   h.refresh_schedule  AS RefreshSchedule,
+                   h.last_refreshed_at AS LastRefreshedAt,
+                   h.modified_at       AS ModifiedAt
             FROM   hubs h
             INNER JOIN hub_relationships hr ON hr.hub_id = h.id
             WHERE  hr.rel_qid = @qid
@@ -734,5 +770,119 @@ public sealed class HubRepository : IHubRepository
         {
             _db.ReleaseWriteLock();
         }
+    }
+
+    // ── Managed Hub methods ─────────────────────────────────────────────
+
+    /// <inheritdoc/>
+    public async Task<IReadOnlyList<Hub>> GetByTypeAsync(string hubType, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        using var conn = _db.CreateConnection();
+        var hubs = (await conn.QueryAsync<Hub>(
+            $"SELECT {HubSelectColumns} FROM hubs WHERE hub_type = @HubType ORDER BY display_name",
+            new { HubType = hubType })).ToList();
+        hubs.ForEach(h => NormalizeHub(h));
+        return hubs;
+    }
+
+    /// <inheritdoc/>
+    public async Task<IReadOnlyList<Hub>> GetManagedHubsAsync(CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        using var conn = _db.CreateConnection();
+        var hubs = (await conn.QueryAsync<Hub>(
+            $"SELECT {HubSelectColumns} FROM hubs WHERE hub_type != 'Universe' ORDER BY hub_type, display_name")).ToList();
+        hubs.ForEach(h => NormalizeHub(h));
+        return hubs;
+    }
+
+    /// <inheritdoc/>
+    public async Task<Dictionary<string, int>> GetCountsByTypeAsync(CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        using var conn = _db.CreateConnection();
+        var rows = await conn.QueryAsync<(string HubType, int Count)>(
+            "SELECT hub_type AS HubType, COUNT(*) AS Count FROM hubs WHERE hub_type != 'Universe' GROUP BY hub_type");
+        return rows.ToDictionary(r => r.HubType, r => r.Count);
+    }
+
+    /// <inheritdoc/>
+    public async Task<IReadOnlyList<HubItem>> GetHubItemsAsync(Guid hubId, int limit = 20, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        using var conn = _db.CreateConnection();
+        var items = await conn.QueryAsync<HubItem>(
+            """
+            SELECT id AS Id, hub_id AS HubId, work_id AS WorkId,
+                   sort_order AS SortOrder, progress_state AS ProgressState,
+                   progress_position AS ProgressPosition, added_at AS AddedAt
+            FROM hub_items WHERE hub_id = @HubId
+            ORDER BY sort_order LIMIT @Limit
+            """,
+            new { HubId = hubId.ToString(), Limit = limit });
+        return items.ToList();
+    }
+
+    /// <inheritdoc/>
+    public async Task<int> GetHubItemCountAsync(Guid hubId, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        using var conn = _db.CreateConnection();
+        return await conn.ExecuteScalarAsync<int>(
+            "SELECT COUNT(*) FROM hub_items WHERE hub_id = @HubId",
+            new { HubId = hubId.ToString() });
+    }
+
+    /// <inheritdoc/>
+    public async Task UpdateHubEnabledAsync(Guid hubId, bool enabled, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        using var conn = _db.CreateConnection();
+        await conn.ExecuteAsync(
+            "UPDATE hubs SET is_enabled = @Enabled, modified_at = datetime('now') WHERE id = @Id",
+            new { Id = hubId.ToString(), Enabled = enabled ? 1 : 0 });
+    }
+
+    /// <inheritdoc/>
+    public async Task UpdateHubFeaturedAsync(Guid hubId, bool featured, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        using var conn = _db.CreateConnection();
+        await conn.ExecuteAsync(
+            "UPDATE hubs SET is_featured = @Featured, modified_at = datetime('now') WHERE id = @Id",
+            new { Id = hubId.ToString(), Featured = featured ? 1 : 0 });
+    }
+
+    /// <inheritdoc/>
+    public async Task AddHubItemAsync(HubItem item, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        using var conn = _db.CreateConnection();
+        await conn.ExecuteAsync(
+            """
+            INSERT INTO hub_items (id, hub_id, work_id, sort_order, progress_state, progress_position, added_at)
+            VALUES (@Id, @HubId, @WorkId, @SortOrder, @ProgressState, @ProgressPosition, @AddedAt)
+            """,
+            new
+            {
+                Id = (item.Id == Guid.Empty ? Guid.NewGuid() : item.Id).ToString(),
+                HubId = item.HubId.ToString(),
+                WorkId = item.WorkId.ToString(),
+                item.SortOrder,
+                item.ProgressState,
+                item.ProgressPosition,
+                AddedAt = item.AddedAt == default ? DateTimeOffset.UtcNow.ToString("o") : item.AddedAt.ToString("o")
+            });
+    }
+
+    /// <inheritdoc/>
+    public async Task RemoveHubItemAsync(Guid itemId, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        using var conn = _db.CreateConnection();
+        await conn.ExecuteAsync(
+            "DELETE FROM hub_items WHERE id = @Id",
+            new { Id = itemId.ToString() });
     }
 }

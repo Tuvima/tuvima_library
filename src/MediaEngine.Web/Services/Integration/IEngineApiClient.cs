@@ -549,6 +549,23 @@ public interface IEngineApiClient
 
     /// <summary>GET /ai/enrichment/progress — pending and completed AI enrichment counts.</summary>
     Task<EnrichmentProgressDto?> GetEnrichmentProgressAsync(CancellationToken ct = default);
+
+    // ── Managed Hubs (Vault Hubs tab) ────────────────────────────────────────
+
+    /// <summary>GET /hubs/managed — all non-Universe hubs for the Vault Hubs tab.</summary>
+    Task<List<ManagedHubViewModel>> GetManagedHubsAsync(CancellationToken ct = default);
+
+    /// <summary>GET /hubs/managed/counts — hub count grouped by type for stats bar.</summary>
+    Task<Dictionary<string, int>> GetManagedHubCountsAsync(CancellationToken ct = default);
+
+    /// <summary>GET /hubs/{id}/items?limit= — curated items for a hub.</summary>
+    Task<List<HubItemViewModel>> GetHubItemsAsync(Guid hubId, int limit = 20, CancellationToken ct = default);
+
+    /// <summary>PUT /hubs/{id}/enabled — toggle hub enabled state.</summary>
+    Task<bool> UpdateHubEnabledAsync(Guid hubId, bool enabled, CancellationToken ct = default);
+
+    /// <summary>PUT /hubs/{id}/featured — toggle hub featured state.</summary>
+    Task<bool> UpdateHubFeaturedAsync(Guid hubId, bool featured, CancellationToken ct = default);
 }
 
 

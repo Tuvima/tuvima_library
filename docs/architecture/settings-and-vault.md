@@ -135,13 +135,15 @@ The following settings are intentionally not exposed in the GUI. They are edited
 
 The Vault is the command centre for managing every file the Engine has ever seen — staged, verified, provisional, quarantined, or under review. It is separate from Settings and operates as a full-page management interface.
 
-### Three Tabs
+### Four Tabs
 
 **Media** — All media assets in the pipeline and library.
 
 **People** — All Person records: authors, narrators, directors, cast members. People are always Wikidata-sourced and exist as a byproduct of media — they are created when the engine identifies a person in your library's metadata. People are automatically cleaned up when all their associated media falls out of the library.
 
 **Universes** — All fictional universes (user-facing name for franchise-level groupings), their entity counts, and universe graph population status.
+
+**Hubs** — All smart hubs, system lists, personalised mixes, and playlists. Oversight and configuration of the presentation layer. See `docs/architecture/hubs-and-playlists.md` for full specification.
 
 ### Pipeline Header
 
@@ -450,7 +452,7 @@ None. The People detail drawer is purely informational — no manual actions. Pe
 
 Universes are franchise-level groupings resolved by the engine from Wikidata. Like People, they are always Wikidata-sourced — no "unlinked" or "needs review" state. No status column is needed.
 
-The stats bar at the top shows: **Universes count**, **total Series across all Universes**, and **Orphaned Series** (Series not yet linked to any Universe). The Orphaned Series count is the actionable number — it tells you there's cleanup to do. Stats bar items double as filters.
+The stats bar at the top shows: **Universes count** and **total Series across all Universes**. Both informational — Universes are engine-resolved with nothing to triage. Not every Series needs a Universe; standalone Series are perfectly valid.
 
 #### List Columns
 
@@ -497,11 +499,7 @@ People connected to this Universe — authors, directors, actors. Compact list w
 
 Management question: "Are the right creators associated with this Universe?"
 
-#### Section 3: Orphaned Works (default open if any exist, hidden if empty)
-
-Works in your library that the engine believes may belong to this Universe but hasn't confidently assigned to a Series yet. These are candidates for manual review or re-running Identify on the affected media items.
-
-#### Section 4: Assets (default closed)
+#### Section 3: Assets (default closed)
 
 Visual assets associated with this Universe. See [Shared Assets Section](#shared-assets-section) for full specification.
 
@@ -543,20 +541,21 @@ Providers differ significantly in what types of assets they return:
 | **Apple API** | Cover image | Default to **Cover Art** | Single image, no type categorisation. |
 | **Comic Vine** | Cover image | Default to **Cover Art** | Single image, no type categorisation. |
 | **File embedded** | Cover image | Tagged as **Embedded Original** | Whatever artwork was embedded in the file's metadata (EPUB cover, ID3 art, MKV poster). Always preserved. |
-| **User upload** | Any type | **User selects** type on upload | User picks which type group (Cover Art, Banner, Logo, Backdrop) when uploading. |
+| **Auto-generated** | Hero banner | Tagged as **Banner (Generated)** | SkiaSharp-rendered hero banner (blurred cover art + vignette). Auto-generated whenever cover art exists. Default banner for media types where no provider supplies real backdrops (books, audiobooks, comics, podcasts). For Universes and People, generated from the most representative child item's cover art. |
+| **User upload** | Any type | **User selects** type on upload | User picks which type group (Cover Art, Headshot, Banner, Logo, Backdrop) when uploading. |
 
-**Result:** Films and TV naturally have richer asset pools (covers + banners + logos + backdrops from TMDB). Books, audiobooks, comics, and podcasts start with Cover Art only unless the user uploads additional artwork. Universes and People build their pools from child items plus user uploads.
+**Result:** Films and TV have the richest asset pools (covers + banners + logos + backdrops from TMDB). Books, audiobooks, comics, and podcasts get Cover Art from providers plus an auto-generated hero Banner from SkiaSharp — so every item with cover art has at least a Cover Art and a Banner. User uploads fill remaining slots (Headshot, Logo, Backdrop). Universes and People build their pools from child items, auto-generated banners, and user uploads.
 
 #### Asset Availability by Entity Level
 
 All five asset types (Cover Art, Headshot, Banner, Logo, Backdrop) are available on every entity — Media items, People, and Universes. The same types exist everywhere for uniformity; a book can have a headshot (author photo), a person can have cover art, a Universe can have all five. Types that providers don't automatically fill remain as empty slots that the user can populate via upload. This is especially useful when building library presentation pages (Series hubs, Universe pages) where custom artwork makes the display unique.
 
-| Entity | Auto-populated by providers | Typically user-uploaded |
-|--------|----------------------------|------------------------|
-| **Media item (film/TV)** | Cover Art, Banner, Logo, Backdrop (all from TMDB) | Headshot |
-| **Media item (book/audio/comic/podcast)** | Cover Art (retail providers + file embedded) | Headshot, Banner, Logo, Backdrop |
-| **Person** | Headshot (Wikidata P18) | Cover Art, Banner, Logo, Backdrop |
-| **Universe** | Inherited best artwork from child items | All five types as needed |
+| Entity | Auto-populated | Typically user-uploaded |
+|--------|----------------|------------------------|
+| **Media item (film/TV)** | Cover Art, Banner, Logo, Backdrop (TMDB) + Banner Generated (SkiaSharp) | Headshot |
+| **Media item (book/audio/comic/podcast)** | Cover Art (retail + embedded) + Banner Generated (SkiaSharp from cover art) | Headshot, Logo, Backdrop |
+| **Person** | Headshot (Wikidata P18) + Banner Generated (SkiaSharp from headshot) | Cover Art, Logo, Backdrop |
+| **Universe** | Inherited from child items + Banner Generated (SkiaSharp from best child cover) | All five types as needed |
 
 #### Display
 
@@ -575,6 +574,35 @@ All five asset types (Cover Art, Headshot, Banner, Logo, Backdrop) are available
 #### AI Artwork Matching
 
 During retail identification (Stage 1), the LLM compares the file's embedded cover art against candidate covers from retail providers. Visual similarity becomes an additional signal alongside title, author, and ISBN for picking the correct match. This helps disambiguate editions — the same book with different covers indicates which edition the user actually has.
+
+---
+
+---
+
+### Hubs Tab
+
+The fourth Vault tab. Provides oversight and configuration of all hub types — smart hubs, system lists, personalised mixes, and playlists. Full specification lives in `docs/architecture/hubs-and-playlists.md`.
+
+#### Stats Bar
+
+Four count cards: Smart Hubs (blue), System Lists (green), Personalised Mixes (purple), Playlists (amber). Cards double as filters.
+
+#### List Columns
+
+| Column | Content | Width |
+|--------|---------|-------|
+| Type icon | Icon representing the hub category | Narrow, fixed |
+| Name + description | Name (bold) + rule summary or description (muted) | Flex |
+| Type | Chip: Smart (blue), System (green), Mix (purple), Playlist (amber) | Narrow |
+| Scope | "Library" or username | Narrow |
+| Items | Count | Narrow |
+| Status | Pill: Active (green), Disabled (grey), Empty (amber) | Narrow |
+
+Default grouping by type: Smart Hubs → System Lists → Personalised Mixes → Playlists.
+
+#### Detail Drawer
+
+Same slide-from-right pattern. Configuration section varies by hub type (rules/thresholds for smart hubs, logic summary for mixes, owner info for playlists). Items Preview shows first 20 items. Assets section with auto-composed artwork and optional user uploads. Action bar: Enable/Disable + Feature for smart hubs, Enable/Disable for mixes, no actions for system lists and playlists.
 
 ---
 
