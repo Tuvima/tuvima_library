@@ -91,12 +91,12 @@ The Engine never asks you to manually enter metadata. Instead it uses a four-tie
 
 | Tier | Rule | Effect |
 |---|---|---|
-| **A** | User-Locked Claims | Your manual edits always win (confidence 1.0). Never overridden. |
+| **A** | User-Locked Claims | Your personal ratings, media type corrections, and custom tags always win. Structured fields (title, author, year, genre) cannot be user-locked — they come from authoritative sources only. |
 | **B** | Per-Field Provider Priority | Configurable in `config/field_priorities.json` — e.g., Apple API for cover art, Wikipedia for descriptions |
-| **C** | Wikidata Authority | When present, Wikidata claims win unconditionally |
+| **C** | Wikidata Authority | When present, Wikidata claims win unconditionally for structured fields |
 | **D** | Confidence Cascade | Highest-confidence claim wins |
 
-Every piece of metadata from every source (embedded file tags, filenames, external providers) is recorded as an append-only **Claim**. History is never lost.
+Every piece of metadata from every source (embedded file tags, filenames, external providers, AI analysis) is recorded as an append-only **Claim**. History is never lost.
 
 ### Two-Stage Hydration Pipeline
 
@@ -104,8 +104,8 @@ After ingestion, the Engine enriches every file through two background stages:
 
 | Stage | Name | What happens |
 |---|---|---|
-| **1** | Reconciliation | Wikidata QID resolution via the Reconciliation API. Bridge ID cross-reference (ISBN, ASIN, TMDB ID), title search with media type filtering, Data Extension API for 50+ properties |
-| **2** | Enrichment | Retail providers (Apple API, TMDB, Open Library, Google Books) fill cover art and rating gaps using bridge IDs from Stage 1 |
+| **1** | Retail Identification | Retail providers (Apple API, TMDB, Open Library, Google Books) gather cover art, descriptions, ratings, and bridge IDs (ISBN, ASIN, TMDB ID). Cover art gets perceptual-hashed for visual matching. |
+| **2** | Wikidata Bridge | Uses bridge IDs from Stage 1 for precise Wikidata QID resolution. Data Extension API fetches 50+ properties (author, genre, series, year). Wikipedia plot summaries fetched for AI enrichment. |
 
 Person enrichment runs in parallel: authors, narrators, and directors get Wikidata headshots, biographies, and social links via `RecursiveIdentityService`.
 
@@ -117,6 +117,30 @@ Every ambiguous decision is surfaced for human attention — never guessed silen
 - **MultipleQidMatches** — multiple Wikidata candidates; user picks one from a card grid
 - **AmbiguousMediaType** — media type could not be confidently determined (MP3: audiobook or music?)
 - **LowConfidence** — overall score below threshold after hydration
+
+### Local AI Intelligence
+
+Every AI feature runs entirely on your machine — no cloud API, no subscription, no data leaving your home. Models download automatically on first startup.
+
+| Model | Size | Role | Used for |
+|-------|------|------|----------|
+| **Llama 3.2 1B** | 750 MB | Instant | Search query parsing, media type classification |
+| **Llama 3.2 3B** | 1.9 GB | Worker | Filename cleaning (SmartLabeler), QID disambiguation, vibe tags |
+| **Llama 3.1 8B** | 4.6 GB | Scholar | Deep enrichment — themes, mood, setting, pace, TL;DR, character extraction |
+| **Whisper Medium** | 1.5 GB | Ears | Audio transcription, language detection, subtitle sync |
+
+**What the AI adds to every file:**
+
+| Feature | What it does | When it runs |
+|---------|-------------|-------------|
+| **Smart Labeling** | Cleans messy filenames into structured search queries | During ingestion (automatic) |
+| **Media Type Classification** | Determines if an MP3 is music, audiobook, or podcast | During ingestion (automatic) |
+| **Description Intelligence** | Extracts themes, mood, setting, pace, audience, and TL;DR from Wikipedia plots and retail descriptions | Background batches (8B Scholar model) |
+| **Vibe Tags** | Mood/atmosphere tags from a controlled vocabulary per media type | Background batches |
+| **Cover Art Matching** | Perceptual hash compares embedded cover art against provider images | During retail matching |
+| **QID Disambiguation** | Picks the correct Wikidata entity when multiple candidates match | During Wikidata resolution |
+
+**Hardware-aware scheduling:** The Engine benchmarks your hardware at startup and adapts automatically. GPU systems run enrichment continuously. CPU systems schedule heavy work overnight. If FFmpeg or HandBrake is transcoding, the Engine backs off and waits.
 
 ### Privacy-First
 
@@ -148,6 +172,50 @@ Paginated reading view with chapter navigation, search, bookmark, and persistent
 Content-type lane page with cinematic hero banner, format toggle (Book / Audiobook), sort and filter controls, and poster swimlanes.
 
 ![Books Lane — Smart Sections view](assets/screenshots/books-lane.png)
+
+---
+
+## System Requirements
+
+### Minimum (Low Tier)
+
+| Component | Requirement | Notes |
+|-----------|------------|-------|
+| **CPU** | 4-core x86_64 (Intel i5 / Ryzen 5) | Needed for LLM inference + background tasks |
+| **RAM** | 8 GB | Peak ~7 GB when 8B model loads overnight |
+| **Disk** | 10 GB free (models + database) | Models: 1B (750 MB) + 3B (1.9 GB) + 8B (4.6 GB) + Whisper (1.5 GB) |
+| **OS** | Windows 10+, Linux (Docker), macOS | |
+| **GPU** | Not required | CPU-only works — enrichment runs overnight |
+
+### Recommended (Medium Tier)
+
+| Component | Requirement | Notes |
+|-----------|------------|-------|
+| **CPU** | 6+ core (Intel i7 / Ryzen 7) | Faster ingestion (~1.5 hrs for 500 files) |
+| **RAM** | 16 GB | Comfortable headroom for model + transcoding |
+| **Disk** | SSD with 10 GB free | Faster database queries + model loading |
+| **GPU** | Optional (any dedicated GPU helps) | iGPU reserved for video transcoding |
+
+### Optimal (High Tier)
+
+| Component | Requirement | Notes |
+|-----------|------------|-------|
+| **CPU** | Any modern CPU | GPU handles inference |
+| **RAM** | 16+ GB | |
+| **GPU** | NVIDIA RTX 3060+ (8 GB+ VRAM) | CUDA auto-detected — 6-7x faster inference |
+| **Disk** | SSD with 10 GB free | |
+
+> **How the tiers work:** The Engine benchmarks your hardware on first startup and classifies it automatically. Every tier gets the same enrichment quality — the only difference is speed. A Low tier system enriches 500 files over ~3 nights. A High tier system finishes in under an hour. Your library is usable within 2 hours on any tier.
+
+### Performance Estimates (500-file library)
+
+| Phase | Low (i5, 8 GB) | Medium (i7, 16 GB) | High (RTX 3060+) |
+|-------|----------------|--------------------|--------------------|
+| **Ingestion** (files in library) | ~2 hrs | ~1.5 hrs | ~1.3 hrs |
+| **AI Enrichment** (themes, mood, TL;DR) | ~3 nights | ~8 hrs | ~1 hr |
+| **Whisper** (audiobook transcription) | ~3 nights | ~18 hrs | ~5 hrs |
+
+> **Note:** Ingestion speed is network-bound after ~15 tok/s CPU speed. Wikidata API calls are rate-limited to ~1 request/second regardless of hardware. A 500-file library makes ~2,000+ API calls.
 
 ---
 
@@ -348,12 +416,16 @@ The Engine uses the same `X-Api-Key` authentication pattern as the \*Arr ecosyst
 | Image generation | SkiaSharp (hero banners — blur, vignette, grain) |
 | Audio/video tags | TagLibSharp (ID3v2, MP4 atoms, Vorbis, MKV) |
 | Video probing | Xabe.FFmpeg |
-| String matching | FuzzySharp |
+| String matching | Native Levenshtein distance (zero dependencies) |
 | Graph queries | dotNetRDF (in-memory SPARQL) |
+| Local AI (text) | LLamaSharp + GGUF models (Llama 3.2 1B/3B, Llama 3.1 8B) |
+| Local AI (audio) | Whisper.net (speech-to-text, language detection) |
+| GPU acceleration | CUDA (NVIDIA) + Vulkan (AMD/Intel) — auto-detected |
+| Cover art matching | SkiaSharp perceptual hashing (pHash) |
 | Scheduling | Cronos (cron expressions) |
 | Logging | Serilog (rolling files, 14-day retention) |
 | API docs | Swashbuckle (`/swagger`) |
-| Tests | xUnit + coverlet |
+| Tests | xUnit + coverlet (415 tests) |
 
 ---
 
