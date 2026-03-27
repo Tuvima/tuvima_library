@@ -343,6 +343,26 @@ public interface IEngineApiClient
 
     /// <summary>GET /persons/{id}/aliases — aliases and pseudonyms for a person.</summary>
     Task<PersonAliasesResponseDto?> GetPersonAliasesAsync(Guid personId, CancellationToken ct = default);
+
+    // ── Universe health + character data (/universe, /vault/characters, /vault/persons) ──
+
+    /// <summary>GET /universe/{qid}/health — health score for a fictional universe.</summary>
+    Task<UniverseHealthDto?> GetUniverseHealthAsync(string qid, CancellationToken ct = default);
+
+    /// <summary>GET /vault/universes/{universeQid}/characters — characters in a universe with default actor/portrait.</summary>
+    Task<IReadOnlyList<UniverseCharacterDto>> GetUniverseCharactersAsync(string universeQid, CancellationToken ct = default);
+
+    /// <summary>GET /vault/persons/{personId}/character-roles — character roles with portraits for a person.</summary>
+    Task<IReadOnlyList<CharacterRoleDto>> GetPersonCharacterRolesAsync(Guid personId, CancellationToken ct = default);
+
+    /// <summary>PUT /vault/characters/{fictionalEntityId}/portraits/{portraitId}/default — set the default portrait for a character.</summary>
+    Task SetDefaultPortraitAsync(Guid fictionalEntityId, Guid portraitId, CancellationToken ct = default);
+
+    /// <summary>GET /vault/assets/{entityId} — entity assets grouped by type.</summary>
+    Task<IReadOnlyList<EntityAssetDto>> GetEntityAssetsAsync(string entityId, CancellationToken ct = default);
+
+    /// <summary>POST /vault/enrichment/universe/trigger — manually trigger Stage 3 universe enrichment.</summary>
+    Task TriggerUniverseEnrichmentAsync(CancellationToken ct = default);
     // â”€â”€ EPUB Reader (/read, /reader) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     /// <summary>GET /read/{assetId}/metadata â€” book metadata.</summary>
@@ -444,6 +464,20 @@ public interface IEngineApiClient
     /// on an entity that hasn't been deep-enriched yet.
     /// </summary>
     Task<DeepEnrichResponse?> TriggerDeepEnrichAsync(string entityQid, int depth = 2, CancellationToken ct = default);
+
+    /// <summary>GET /universe/{qid}/cast — characters with their real-world performers.</summary>
+    Task<UniverseCastResponse?> GetUniverseCastAsync(string qid, CancellationToken ct = default);
+
+    /// <summary>GET /universe/{qid}/adaptations — adaptation chain (based_on/derivative_work/inspired_by).</summary>
+    Task<UniverseAdaptationsResponse?> GetUniverseAdaptationsAsync(string qid, CancellationToken ct = default);
+
+    /// <summary>GET /universe/{qid}/paths?from=X&amp;to=Y — find shortest paths between two entities.</summary>
+    Task<UniversePathsResponse?> FindPathsAsync(
+        string qid, string fromQid, string toQid, int maxHops = 4, CancellationToken ct = default);
+
+    /// <summary>GET /universe/{qid}/family-tree?character=X — family tree rooted at a character.</summary>
+    Task<FamilyTreeResponse?> GetFamilyTreeAsync(
+        string qid, string characterQid, int generations = 3, CancellationToken ct = default);
 
     // ── Registry (/registry) ────────────────────────────────────────────────
 

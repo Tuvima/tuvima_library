@@ -2016,6 +2016,79 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    // ── Universe Explorer (Phase 2 modes) ────────────────────────────────────
+
+    public async Task<UniverseCastResponse?> GetUniverseCastAsync(string qid, CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<UniverseCastResponse>(
+                $"universe/{Uri.EscapeDataString(qid)}/cast", ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /universe/{Qid}/cast failed", qid);
+            LastError = ex.Message;
+            return null;
+        }
+    }
+
+    public async Task<UniverseAdaptationsResponse?> GetUniverseAdaptationsAsync(string qid, CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<UniverseAdaptationsResponse>(
+                $"universe/{Uri.EscapeDataString(qid)}/adaptations", ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /universe/{Qid}/adaptations failed", qid);
+            LastError = ex.Message;
+            return null;
+        }
+    }
+
+    public async Task<UniversePathsResponse?> FindPathsAsync(
+        string qid, string fromQid, string toQid, int maxHops = 4, CancellationToken ct = default)
+    {
+        try
+        {
+            var url = $"universe/{Uri.EscapeDataString(qid)}/paths" +
+                      $"?from={Uri.EscapeDataString(fromQid)}" +
+                      $"&to={Uri.EscapeDataString(toQid)}" +
+                      $"&maxHops={maxHops}";
+            return await _http.GetFromJsonAsync<UniversePathsResponse>(url, ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /universe/{Qid}/paths failed", qid);
+            LastError = ex.Message;
+            return null;
+        }
+    }
+
+    public async Task<FamilyTreeResponse?> GetFamilyTreeAsync(
+        string qid, string characterQid, int generations = 3, CancellationToken ct = default)
+    {
+        try
+        {
+            var url = $"universe/{Uri.EscapeDataString(qid)}/family-tree" +
+                      $"?character={Uri.EscapeDataString(characterQid)}" +
+                      $"&generations={generations}";
+            return await _http.GetFromJsonAsync<FamilyTreeResponse>(url, ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /universe/{Qid}/family-tree failed", qid);
+            LastError = ex.Message;
+            return null;
+        }
+    }
+
     // ── Registry (/registry) ─────────────────────────────────────────────────
 
     public async Task<RegistryPageResponse?> GetRegistryItemsAsync(
@@ -3006,6 +3079,180 @@ public sealed class EngineApiClient : IEngineApiClient
             LastError = ex.Message;
             return false;
         }
+    }
+
+    // ── Universe health + character data ─────────────────────────────────────
+
+    public async Task<UniverseHealthDto?> GetUniverseHealthAsync(string qid, CancellationToken ct = default)
+    {
+        try
+        {
+            var raw = await _http.GetFromJsonAsync<UniverseHealthRaw>($"/universe/{Uri.EscapeDataString(qid)}/health", ct);
+            if (raw is null) return null;
+            return new UniverseHealthDto
+            {
+                Qid                = raw.Qid ?? qid,
+                Label              = raw.Label ?? string.Empty,
+                EntitiesTotal      = raw.EntitiesTotal,
+                EntitiesEnriched   = raw.EntitiesEnriched,
+                EntitiesWithImages = raw.EntitiesWithImages,
+                RelationshipsTotal = raw.RelationshipsTotal,
+                HealthPercent      = raw.HealthPercent,
+            };
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /universe/{Qid}/health failed", qid);
+            return null;
+        }
+    }
+
+    public async Task<IReadOnlyList<UniverseCharacterDto>> GetUniverseCharactersAsync(string universeQid, CancellationToken ct = default)
+    {
+        try
+        {
+            var raw = await _http.GetFromJsonAsync<List<UniverseCharacterRaw>>(
+                $"/vault/universes/{Uri.EscapeDataString(universeQid)}/characters", ct);
+            if (raw is null) return [];
+            return raw.Select(r => new UniverseCharacterDto
+            {
+                FictionalEntityId = r.FictionalEntityId,
+                CharacterName     = r.CharacterName ?? string.Empty,
+                DefaultActorName  = r.DefaultActorName,
+                DefaultActorId    = r.DefaultActorId,
+                PortraitUrl       = r.PortraitUrl,
+                ActorCount        = r.ActorCount,
+            }).ToList();
+        }
+        catch (OperationCanceledException) { return []; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /vault/universes/{Qid}/characters failed", universeQid);
+            return [];
+        }
+    }
+
+    public async Task<IReadOnlyList<CharacterRoleDto>> GetPersonCharacterRolesAsync(Guid personId, CancellationToken ct = default)
+    {
+        try
+        {
+            var raw = await _http.GetFromJsonAsync<List<CharacterRoleRaw>>(
+                $"/vault/persons/{personId}/character-roles", ct);
+            if (raw is null) return [];
+            return raw.Select(r => new CharacterRoleDto
+            {
+                FictionalEntityId = r.FictionalEntityId,
+                CharacterName     = r.CharacterName,
+                PortraitUrl       = r.PortraitUrl,
+                WorkTitle         = r.WorkTitle,
+                IsDefault         = r.IsDefault,
+                UniverseQid       = r.UniverseQid,
+                UniverseLabel     = r.UniverseLabel,
+            }).ToList();
+        }
+        catch (OperationCanceledException) { return []; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /vault/persons/{PersonId}/character-roles failed", personId);
+            return [];
+        }
+    }
+
+    public async Task SetDefaultPortraitAsync(Guid fictionalEntityId, Guid portraitId, CancellationToken ct = default)
+    {
+        try
+        {
+            await _http.PutAsJsonAsync(
+                $"/vault/characters/{fictionalEntityId}/portraits/{portraitId}/default",
+                new { }, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "PUT /vault/characters/{EntityId}/portraits/{PortraitId}/default failed",
+                fictionalEntityId, portraitId);
+        }
+    }
+
+    public async Task<IReadOnlyList<EntityAssetDto>> GetEntityAssetsAsync(string entityId, CancellationToken ct = default)
+    {
+        try
+        {
+            var raw = await _http.GetFromJsonAsync<List<EntityAssetRaw>>(
+                $"/vault/assets/{Uri.EscapeDataString(entityId)}", ct);
+            if (raw is null) return [];
+            return raw.Select(r => new EntityAssetDto
+            {
+                Id             = r.Id,
+                EntityId       = r.EntityId ?? entityId,
+                AssetType      = r.AssetType ?? string.Empty,
+                ImageUrl       = r.ImageUrl,
+                IsPreferred    = r.IsPreferred,
+                SourceProvider = r.SourceProvider,
+            }).ToList();
+        }
+        catch (OperationCanceledException) { return []; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /vault/assets/{EntityId} failed", entityId);
+            return [];
+        }
+    }
+
+    public async Task TriggerUniverseEnrichmentAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            await _http.PostAsJsonAsync("/vault/enrichment/universe/trigger", new { }, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /vault/enrichment/universe/trigger failed");
+        }
+    }
+
+    // ── Raw deserialization models (character/universe health) ────────────────
+
+    private sealed class UniverseHealthRaw
+    {
+        [JsonPropertyName("qid")]                  public string?  Qid                { get; set; }
+        [JsonPropertyName("label")]                public string?  Label              { get; set; }
+        [JsonPropertyName("entities_total")]       public int      EntitiesTotal      { get; set; }
+        [JsonPropertyName("entities_enriched")]    public int      EntitiesEnriched   { get; set; }
+        [JsonPropertyName("entities_with_images")] public int      EntitiesWithImages { get; set; }
+        [JsonPropertyName("relationships_total")]  public int      RelationshipsTotal { get; set; }
+        [JsonPropertyName("health_percent")]       public double   HealthPercent      { get; set; }
+    }
+
+    private sealed class UniverseCharacterRaw
+    {
+        [JsonPropertyName("fictional_entity_id")] public Guid    FictionalEntityId { get; set; }
+        [JsonPropertyName("character_name")]      public string? CharacterName     { get; set; }
+        [JsonPropertyName("default_actor_name")]  public string? DefaultActorName  { get; set; }
+        [JsonPropertyName("default_actor_id")]    public Guid?   DefaultActorId    { get; set; }
+        [JsonPropertyName("portrait_url")]        public string? PortraitUrl       { get; set; }
+        [JsonPropertyName("actor_count")]         public int     ActorCount        { get; set; }
+    }
+
+    private sealed class CharacterRoleRaw
+    {
+        [JsonPropertyName("fictional_entity_id")] public Guid    FictionalEntityId { get; set; }
+        [JsonPropertyName("character_name")]      public string? CharacterName     { get; set; }
+        [JsonPropertyName("portrait_url")]        public string? PortraitUrl       { get; set; }
+        [JsonPropertyName("work_title")]          public string? WorkTitle         { get; set; }
+        [JsonPropertyName("is_default")]          public bool    IsDefault         { get; set; }
+        [JsonPropertyName("universe_qid")]        public string? UniverseQid       { get; set; }
+        [JsonPropertyName("universe_label")]      public string? UniverseLabel     { get; set; }
+    }
+
+    private sealed class EntityAssetRaw
+    {
+        [JsonPropertyName("id")]              public Guid    Id             { get; set; }
+        [JsonPropertyName("entity_id")]       public string? EntityId       { get; set; }
+        [JsonPropertyName("asset_type")]      public string? AssetType      { get; set; }
+        [JsonPropertyName("image_url")]       public string? ImageUrl       { get; set; }
+        [JsonPropertyName("is_preferred")]    public bool    IsPreferred    { get; set; }
+        [JsonPropertyName("source_provider")] public string? SourceProvider { get; set; }
     }
 }
 

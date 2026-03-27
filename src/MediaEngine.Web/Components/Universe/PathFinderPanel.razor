@@ -1,0 +1,271 @@
+@namespace MediaEngine.Web.Components.Universe
+@inject IEngineApiClient ApiClient
+@inject IJSRuntime JS
+
+@* Mode 2 — Six Degrees path finder *@
+
+<div class="pathfinder-panel">
+    <MudText Typo="Typo.subtitle1" Class="mb-3" Style="color: #C9922E; font-weight: 600;">
+        Six Degrees
+    </MudText>
+    <MudText Typo="Typo.body2" Class="mb-4" Style="color: #888;">
+        Click nodes in the graph to set start and end, then find the shortest path between them.
+    </MudText>
+
+    @* Slot pair *@
+    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3" Class="mb-4">
+        <div class="slot @(_startQid is null ? "slot-empty" : "slot-filled")"
+             @onclick="ClearStart">
+            @if (_startQid is null)
+            {
+                <MudIcon Icon="@Icons.Material.Filled.RadioButtonUnchecked" Style="color: #555;" />
+                <MudText Typo="Typo.caption" Style="color: #555;">Start</MudText>
+            }
+            else
+            {
+                <MudIcon Icon="@Icons.Material.Filled.Circle" Style="color: #C9922E;" />
+                <MudText Typo="Typo.caption" Style="color: #e0e0e0; max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                    @_startLabel
+                </MudText>
+                <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
+                               Style="color: #888;" OnClick="ClearStart" />
+            }
+        </div>
+
+        <MudIcon Icon="@Icons.Material.Filled.ArrowForward" Style="color: #555;" />
+
+        <div class="slot @(_endQid is null ? "slot-empty" : "slot-filled")"
+             @onclick="ClearEnd">
+            @if (_endQid is null)
+            {
+                <MudIcon Icon="@Icons.Material.Filled.RadioButtonUnchecked" Style="color: #555;" />
+                <MudText Typo="Typo.caption" Style="color: #555;">End</MudText>
+            }
+            else
+            {
+                <MudIcon Icon="@Icons.Material.Filled.Circle" Style="color: #3b82f6;" />
+                <MudText Typo="Typo.caption" Style="color: #e0e0e0; max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                    @_endLabel
+                </MudText>
+                <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
+                               Style="color: #888;" OnClick="ClearEnd" />
+            }
+        </div>
+    </MudStack>
+
+    @* Controls *@
+    <MudStack Row="true" Spacing="2" Class="mb-4">
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Warning"
+                   Disabled="@(_startQid is null || _endQid is null || _loading)"
+                   OnClick="FindPath"
+                   StartIcon="@Icons.Material.Filled.Route">
+            @if (_loading) { <MudProgressCircular Size="Size.Small" Indeterminate="true" /> }
+            else { <span>Find Path</span> }
+        </MudButton>
+        <MudButton Variant="Variant.Outlined"
+                   Color="Color.Default"
+                   OnClick="Clear"
+                   Disabled="@(_startQid is null && _endQid is null)">
+            Clear
+        </MudButton>
+        <MudNumericField T="int" @bind-Value="_maxHops" Label="Max hops"
+                         Min="2" Max="8" Style="max-width: 80px;" Dense="true" Variant="Variant.Outlined" />
+    </MudStack>
+
+    @* Results *@
+    @if (_noPathFound)
+    {
+        <MudAlert Severity="Severity.Info">No path found within @_maxHops hops.</MudAlert>
+    }
+    else if (_paths?.Count > 0)
+    {
+        <MudText Typo="Typo.caption" Style="color: #888;" Class="mb-2">
+            @_paths.Count path(s) found — shortest: @(_paths[0].Count - 1) hop(s)
+        </MudText>
+
+        @for (var pi = 0; pi < Math.Min(_paths.Count, 3); pi++)
+        {
+            var path = _paths[pi];
+            var pathIndex = pi;
+            <div class="path-trail @(pathIndex == _selectedPath ? "path-trail-selected" : "")"
+                 @onclick="@(() => SelectPath(pathIndex))">
+                <MudText Typo="Typo.caption" Style="color: #888;" Class="mb-1">
+                    Path @(pathIndex + 1) — @(path.Count - 1) hop(s)
+                </MudText>
+                <div class="hop-chain">
+                    @for (var hi = 0; hi < path.Count; hi++)
+                    {
+                        var hop = path[hi];
+                        <span class="hop-node">@hop.Label</span>
+                        @if (hi < path.Count - 1)
+                        {
+                            var rel = path[hi + 1].Relationship;
+                            <span class="hop-arrow">
+                                @if (!string.IsNullOrWhiteSpace(rel))
+                                { <span style="color: #888;">→ (@rel) →</span> }
+                                else
+                                { <span style="color: #555;">→</span> }
+                            </span>
+                        }
+                    }
+                </div>
+            </div>
+        }
+    }
+</div>
+
+<style>
+    .pathfinder-panel {
+        padding: 0;
+    }
+    .slot {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 12px;
+        border-radius: 8px;
+        min-width: 120px;
+        cursor: pointer;
+        transition: border-color 0.2s;
+    }
+    .slot-empty {
+        border: 1px dashed #444;
+        background: #1a1a1a;
+    }
+    .slot-filled {
+        border: 1px solid #C9922E44;
+        background: #1a1a1a;
+    }
+    .path-trail {
+        padding: 10px;
+        border-radius: 6px;
+        border: 1px solid #333;
+        margin-bottom: 8px;
+        cursor: pointer;
+        background: #111;
+        transition: border-color 0.15s;
+    }
+    .path-trail:hover, .path-trail-selected {
+        border-color: #C9922E;
+    }
+    .hop-chain {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px;
+        font-size: 12px;
+    }
+    .hop-node {
+        color: #e0e0e0;
+        font-weight: 500;
+    }
+    .hop-arrow {
+        color: #555;
+        font-size: 11px;
+    }
+</style>
+
+@code {
+    [Parameter] public string UniverseQid { get; set; } = string.Empty;
+    [Parameter] public UniverseGraphResponse? Graph { get; set; }
+    [Parameter] public EventCallback<(string From, string To)> OnPathRequested { get; set; }
+
+    private string? _startQid;
+    private string? _startLabel;
+    private string? _endQid;
+    private string? _endLabel;
+    private int _maxHops = 4;
+    private bool _loading;
+    private bool _noPathFound;
+    private List<List<PathHopDto>>? _paths;
+    private int _selectedPath = 0;
+
+    /// <summary>Called by parent when user clicks a node in the graph.</summary>
+    public void SetNode(string qid, string label)
+    {
+        if (_startQid is null)
+        {
+            _startQid   = qid;
+            _startLabel = label;
+        }
+        else if (_endQid is null && qid != _startQid)
+        {
+            _endQid   = qid;
+            _endLabel = label;
+        }
+        StateHasChanged();
+    }
+
+    private void ClearStart()
+    {
+        _startQid   = null;
+        _startLabel = null;
+        _paths      = null;
+        _noPathFound = false;
+    }
+
+    private void ClearEnd()
+    {
+        _endQid   = null;
+        _endLabel = null;
+        _paths    = null;
+        _noPathFound = false;
+    }
+
+    private void Clear()
+    {
+        _startQid    = null;
+        _startLabel  = null;
+        _endQid      = null;
+        _endLabel    = null;
+        _paths       = null;
+        _noPathFound = false;
+    }
+
+    private async Task FindPath()
+    {
+        if (_startQid is null || _endQid is null) return;
+        _loading     = true;
+        _noPathFound = false;
+        _paths       = null;
+        StateHasChanged();
+
+        try
+        {
+            var result = await ApiClient.FindPathsAsync(
+                UniverseQid, _startQid, _endQid, _maxHops);
+
+            if (result?.Paths.Count > 0)
+            {
+                _paths = result.Paths;
+                _selectedPath = 0;
+                await AnimatePath(0);
+            }
+            else
+            {
+                _noPathFound = true;
+                await JS.InvokeVoidAsync("CytoscapeInterop.resetHighlights");
+            }
+        }
+        finally
+        {
+            _loading = false;
+        }
+
+        await OnPathRequested.InvokeAsync((_startQid!, _endQid!));
+    }
+
+    private async Task SelectPath(int index)
+    {
+        _selectedPath = index;
+        await AnimatePath(index);
+    }
+
+    private async Task AnimatePath(int index)
+    {
+        if (_paths is null || index >= _paths.Count) return;
+        var qids = _paths[index].Select(h => h.EntityQid).ToArray();
+        await JS.InvokeVoidAsync("CytoscapeInterop.animatePath", (object)qids);
+    }
+}

@@ -1,4 +1,5 @@
 @page "/universe/{Qid}/explore"
+@using MediaEngine.Web.Components.Universe
 @inject IEngineApiClient ApiClient
 @inject IJSRuntime JS
 @implements IAsyncDisposable
@@ -10,7 +11,7 @@
     <MudText Typo="Typo.h4" Class="mb-2" Style="font-family: Montserrat, sans-serif;">
         @(_graph?.Universe.Label ?? "Loading...")
     </MudText>
-    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-3">
         <MudChip T="string" Color="Color.Primary" Size="Size.Small">
             @(_graph?.Nodes.Count ?? 0) entities
         </MudChip>
@@ -40,86 +41,144 @@
     @* ── Lore Delta banner ── *@
     @if (_loreDeltaChanges > 0)
     {
-        <MudAlert Severity="Severity.Warning" Class="mb-4"
+        <MudAlert Severity="Severity.Warning" Class="mb-3"
                   CloseIconClicked="@(() => _loreDeltaChanges = 0)">
             New Lore Discovered: @_loreDeltaChanges entities have been updated on Wikidata since last enrichment.
         </MudAlert>
     }
 
-    @* ── Controls row ── *@
-    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3" Class="mb-4"
-              Style="flex-wrap: wrap;">
-        @if (_hasTemporalData)
+    @* ── Mode tabs ── *@
+    <MudTabs @bind-ActivePanelIndex="_activeMode" Class="mb-3"
+             ApplyEffectsToContainer="false"
+             PanelClass="pa-0"
+             TabPanelClass="pa-0"
+             SliderColor="Color.Warning"
+             Rounded="false">
+        <MudTabPanel Text="Web" Icon="@Icons.Material.Filled.Hub"
+                     ToolTip="Full relationship graph" />
+        <MudTabPanel Text="Paths" Icon="@Icons.Material.Filled.Route"
+                     ToolTip="Six Degrees pathfinder" />
+        <MudTabPanel Text="Family" Icon="@Icons.Material.Filled.AccountTree"
+                     ToolTip="Family tree view" />
+        <MudTabPanel Text="Cast" Icon="@Icons.Material.Filled.People"
+                     ToolTip="Character to performer mapping" />
+        <MudTabPanel Text="Adaptations" Icon="@Icons.Material.Filled.Merge"
+                     ToolTip="Adaptation chain" />
+    </MudTabs>
+
+    @* ── Mode 1 (Web) & Mode 2 (Paths) & Mode 3 (Family): show graph + side panel ── *@
+    @if (_activeMode == 0 || _activeMode == 1 || _activeMode == 2)
+    {
+        @* Controls row — only shown in Web mode *@
+        @if (_activeMode == 0)
         {
-            <div style="max-width: 300px; min-width: 200px; flex: 1;">
-                <MudSlider T="int" Value="@_timelineYear" ValueChanged="OnTimelineYearChanged"
-                           Min="@_minYear" Max="@_maxYear">
-                    Timeline: @_timelineYear
-                </MudSlider>
-            </div>
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3" Class="mb-3"
+                      Style="flex-wrap: wrap;">
+                @if (_hasTemporalData)
+                {
+                    <div style="max-width: 300px; min-width: 200px; flex: 1;">
+                        <MudSlider T="int" Value="@_timelineYear" ValueChanged="OnTimelineYearChanged"
+                                   Min="@_minYear" Max="@_maxYear">
+                            Timeline: @_timelineYear
+                        </MudSlider>
+                    </div>
+                }
+
+                <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                    <MudChip T="string" Color="@(_showCharacters ? Color.Primary : Color.Default)"
+                             Variant="@(_showCharacters ? Variant.Filled : Variant.Outlined)"
+                             OnClick="@(() => ToggleTypeFilter("Character"))">
+                        Characters
+                    </MudChip>
+                    <MudChip T="string" Color="@(_showLocations ? Color.Success : Color.Default)"
+                             Variant="@(_showLocations ? Variant.Filled : Variant.Outlined)"
+                             OnClick="@(() => ToggleTypeFilter("Location"))">
+                        Locations
+                    </MudChip>
+                    <MudChip T="string" Color="@(_showOrganizations ? Color.Warning : Color.Default)"
+                             Variant="@(_showOrganizations ? Variant.Filled : Variant.Outlined)"
+                             OnClick="@(() => ToggleTypeFilter("Organization"))">
+                        Organizations
+                    </MudChip>
+                </MudStack>
+
+                <MudSelect T="string" Value="@_layout" ValueChanged="OnLayoutChanged"
+                           Label="Layout" Variant="Variant.Outlined" Dense="true"
+                           Style="max-width: 160px;">
+                    <MudSelectItem T="string" Value="@("cose")">Force-directed</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("concentric")">Concentric</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("grid")">Grid</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("dagre")">Hierarchical</MudSelectItem>
+                </MudSelect>
+            </MudStack>
         }
 
-        <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
-            <MudChip T="string" Color="@(_showCharacters ? Color.Primary : Color.Default)"
-                     Variant="@(_showCharacters ? Variant.Filled : Variant.Outlined)"
-                     OnClick="@(() => ToggleTypeFilter("Character"))">
-                Characters
-            </MudChip>
-            <MudChip T="string" Color="@(_showLocations ? Color.Success : Color.Default)"
-                     Variant="@(_showLocations ? Variant.Filled : Variant.Outlined)"
-                     OnClick="@(() => ToggleTypeFilter("Location"))">
-                Locations
-            </MudChip>
-            <MudChip T="string" Color="@(_showOrganizations ? Color.Warning : Color.Default)"
-                     Variant="@(_showOrganizations ? Variant.Filled : Variant.Outlined)"
-                     OnClick="@(() => ToggleTypeFilter("Organization"))">
-                Organizations
-            </MudChip>
-        </MudStack>
-
-        <MudSelect T="string" Value="@_layout" ValueChanged="OnLayoutChanged"
-                   Label="Layout" Variant="Variant.Outlined" Dense="true"
-                   Style="max-width: 160px;">
-            <MudSelectItem T="string" Value="@("cose")">Force-directed</MudSelectItem>
-            <MudSelectItem T="string" Value="@("concentric")">Concentric</MudSelectItem>
-            <MudSelectItem T="string" Value="@("grid")">Grid</MudSelectItem>
-        </MudSelect>
-    </MudStack>
-
-    @* ── Main content: graph + entity list ── *@
-    <MudGrid>
-        <MudItem xs="12" md="7">
-            <div id="cytoscape-container"
-                 style="width: 100%; height: 600px; background: #111; border-radius: 8px; border: 1px solid #333;">
-            </div>
-        </MudItem>
-        <MudItem xs="12" md="5">
-            <MudPaper Class="pa-3" Style="height: 600px; overflow-y: auto; background: #111;">
-                <MudTextField T="string" @bind-Value="_entitySearch" Placeholder="Search entities..."
-                              Variant="Variant.Outlined"
-                              Adornment="Adornment.Start"
-                              AdornmentIcon="@Icons.Material.Filled.Search"
-                              Immediate="true" Class="mb-3" />
-                <MudList T="GraphNodeDto" Dense="true">
-                    @foreach (var entity in FilteredEntities)
+        @* Main content: graph + side panel ── *@
+        <MudGrid>
+            <MudItem xs="12" md="@(_activeMode == 0 ? 7 : 8)">
+                <div id="cytoscape-container"
+                     style="width: 100%; height: 600px; background: #111; border-radius: 8px; border: 1px solid #333;">
+                </div>
+            </MudItem>
+            <MudItem xs="12" md="@(_activeMode == 0 ? 5 : 4)">
+                <MudPaper Class="pa-3" Style="height: 600px; overflow-y: auto; background: #111;">
+                    @if (_activeMode == 0)
                     {
-                        <MudListItem T="GraphNodeDto" OnClick="@(() => OnEntityClick(entity))">
-                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                                <MudIcon Icon="@GetEntityIcon(entity.Type)"
-                                         Color="@GetEntityColor(entity.Type)"
-                                         Size="Size.Small" />
-                                <MudText>@entity.Label</MudText>
-                                <MudSpacer />
-                                <MudText Typo="Typo.caption" Style="color: #888;">
-                                    @entity.Type
-                                </MudText>
-                            </MudStack>
-                        </MudListItem>
+                        @* Mode 1: entity list *@
+                        <MudTextField T="string" @bind-Value="_entitySearch" Placeholder="Search entities..."
+                                      Variant="Variant.Outlined"
+                                      Adornment="Adornment.Start"
+                                      AdornmentIcon="@Icons.Material.Filled.Search"
+                                      Immediate="true" Class="mb-3" />
+                        <MudList T="GraphNodeDto" Dense="true">
+                            @foreach (var entity in FilteredEntities)
+                            {
+                                <MudListItem T="GraphNodeDto" OnClick="@(() => OnEntityClick(entity))">
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                        <MudIcon Icon="@GetEntityIcon(entity.Type)"
+                                                 Color="@GetEntityColor(entity.Type)"
+                                                 Size="Size.Small" />
+                                        <MudText>@entity.Label</MudText>
+                                        <MudSpacer />
+                                        <MudText Typo="Typo.caption" Style="color: #888;">
+                                            @entity.Type
+                                        </MudText>
+                                    </MudStack>
+                                </MudListItem>
+                            }
+                        </MudList>
                     }
-                </MudList>
-            </MudPaper>
-        </MudItem>
-    </MudGrid>
+                    else if (_activeMode == 1)
+                    {
+                        @* Mode 2: PathFinder *@
+                        <PathFinderPanel @ref="_pathFinderRef"
+                                         UniverseQid="@Qid"
+                                         Graph="@_graph"
+                                         OnPathRequested="OnPathPairSet" />
+                    }
+                    else if (_activeMode == 2)
+                    {
+                        @* Mode 3: Family Tree *@
+                        <FamilyTreeView UniverseQid="@Qid" Graph="@_graph" />
+                    }
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    }
+    else if (_activeMode == 3)
+    {
+        @* Mode 4: Cast Comparison — full width *@
+        <MudPaper Class="pa-4" Style="background: #111; min-height: 500px;">
+            <CastComparison UniverseQid="@Qid" />
+        </MudPaper>
+    }
+    else if (_activeMode == 4)
+    {
+        @* Mode 5: Adaptation Tree — full width *@
+        <MudPaper Class="pa-4" Style="background: #111; min-height: 500px;">
+            <AdaptationTree UniverseQid="@Qid" />
+        </MudPaper>
+    }
 </MudContainer>
 
 @* ── Detail drawer ── *@
@@ -186,6 +245,9 @@
     private int _characterCount;
     private int _locationCount;
     private int _orgCount;
+    private int _activeMode = 0;  // 0=Web, 1=Paths, 2=Family, 3=Cast, 4=Adaptations
+    private int _previousMode = 0;
+    private PathFinderPanel? _pathFinderRef;
 
     // Type filter toggles — all on by default
     private bool _showCharacters = true;
@@ -199,6 +261,7 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        // Initialize graph on first render when data is available.
         if (firstRender && _graph is not null)
         {
             _dotNetRef = DotNetObjectReference.Create(this);
@@ -208,6 +271,25 @@
                 System.Text.Json.JsonSerializer.Serialize(_graph.Edges),
                 _layout,
                 _dotNetRef);
+        }
+
+        // Re-initialize graph when switching back to a mode that uses it.
+        var needsGraph = _activeMode is 0 or 1 or 2;
+        var prevNeedsGraph = _previousMode is 0 or 1 or 2;
+        if (!firstRender && needsGraph && !prevNeedsGraph && _graph is not null)
+        {
+            _previousMode = _activeMode;
+            _dotNetRef ??= DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("CytoscapeInterop.initGraph",
+                "cytoscape-container",
+                System.Text.Json.JsonSerializer.Serialize(_graph.Nodes),
+                System.Text.Json.JsonSerializer.Serialize(_graph.Edges),
+                _layout,
+                _dotNetRef);
+        }
+        else if (!firstRender)
+        {
+            _previousMode = _activeMode;
         }
     }
 
@@ -311,19 +393,29 @@
         await JS.InvokeVoidAsync("CytoscapeInterop.focusNode", entity.Id);
     }
 
+    /// <summary>Called from JS when user taps a node in the graph.</summary>
     [JSInvokable]
     public void OnNodeClick(string nodeQid)
     {
         var entity = _graph?.Nodes.FirstOrDefault(n => n.Id == nodeQid);
-        if (entity is not null)
+        if (entity is null) return;
+
+        _selectedEntity = entity;
+        _selectedEntityEdges = _graph?.Edges
+            .Where(e => e.Source == entity.Id || e.Target == entity.Id)
+            .ToList() ?? [];
+
+        // In Paths mode, feed the click into the PathFinder.
+        if (_activeMode == 1 && _pathFinderRef is not null)
         {
-            _selectedEntity = entity;
-            _selectedEntityEdges = _graph?.Edges
-                .Where(e => e.Source == entity.Id || e.Target == entity.Id)
-                .ToList() ?? [];
-            _drawerOpen = true;
-            InvokeAsync(StateHasChanged);
+            _pathFinderRef.SetNode(nodeQid, entity.Label);
         }
+        else
+        {
+            _drawerOpen = true;
+        }
+
+        InvokeAsync(StateHasChanged);
     }
 
     [JSInvokable]
@@ -331,6 +423,12 @@
     {
         // Focus the source node
         OnNodeClick(sourceQid);
+    }
+
+    private async Task OnPathPairSet((string From, string To) pair)
+    {
+        // Path animation is handled in PathFinderPanel; no further action needed here.
+        await Task.CompletedTask;
     }
 
     private string GetNodeLabel(string qid) =>

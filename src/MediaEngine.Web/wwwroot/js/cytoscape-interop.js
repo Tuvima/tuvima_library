@@ -256,6 +256,125 @@ window.CytoscapeInterop = {
     },
 
     /**
+     * Animate a path through the graph, glowing each edge in sequence.
+     * @param {string[]} pathQids - ordered array of node QIDs forming the path
+     */
+    animatePath: function (pathQids) {
+        if (!_cy || !pathQids || pathQids.length < 2) return;
+
+        // Dim all elements first.
+        _cy.elements().style({ 'opacity': 0.2 });
+
+        // Build the sequence of nodes and edges along the path.
+        var delay = 0;
+        for (var i = 0; i < pathQids.length; i++) {
+            (function (idx, d) {
+                setTimeout(function () {
+                    // Highlight node.
+                    var node = _cy.getElementById(pathQids[idx]);
+                    node.style({
+                        'opacity': 1,
+                        'border-width': 4,
+                        'border-color': '#c9922e'
+                    });
+
+                    // Highlight edge between previous and current node.
+                    if (idx > 0) {
+                        var edges = _cy.edges(
+                            '[source="' + pathQids[idx - 1] + '"][target="' + pathQids[idx] + '"],' +
+                            '[source="' + pathQids[idx] + '"][target="' + pathQids[idx - 1] + '"]'
+                        );
+                        edges.style({
+                            'opacity': 1,
+                            'line-color': '#c9922e',
+                            'target-arrow-color': '#c9922e',
+                            'width': 3
+                        });
+                    }
+                }, d);
+            })(i, delay);
+            delay += 350;
+        }
+    },
+
+    /**
+     * Set ego-network center: only show nodes within 'depth' hops of nodeId.
+     * Dims nodes outside the ego network.
+     * @param {string} nodeId - center node QID
+     * @param {number} depth  - number of hops
+     */
+    setEgoCenter: function (nodeId, depth) {
+        if (!_cy) return;
+        var center = _cy.getElementById(nodeId);
+        if (center.length === 0) return;
+
+        // BFS to collect ego network.
+        var egoNodes = _cy.collection();
+        var frontier = center;
+        egoNodes = egoNodes.union(frontier);
+
+        for (var d = 0; d < (depth || 1); d++) {
+            var neighbors = frontier.neighborhood('node');
+            var newNodes  = neighbors.not(egoNodes);
+            egoNodes      = egoNodes.union(newNodes);
+            frontier      = newNodes;
+            if (frontier.length === 0) break;
+        }
+
+        // Find all edges within the ego network.
+        var egoEdges = egoNodes.edgesWith(egoNodes);
+
+        // Dim everything outside, highlight inside.
+        _cy.elements().not(egoNodes).not(egoEdges).style({ 'opacity': 0.15 });
+        egoNodes.style({ 'opacity': 1 });
+        egoEdges.style({ 'opacity': 0.8 });
+
+        // Center on ego network.
+        _cy.animate({ fit: { eles: egoNodes, padding: 40 } }, { duration: 400 });
+
+        // Highlight center node.
+        center.style({
+            'border-width': 4,
+            'border-color': '#c9922e'
+        });
+    },
+
+    /**
+     * Highlight a set of nodes by QID. Dims everything else.
+     * @param {string[]} nodeIds - array of QIDs to highlight
+     */
+    highlightNodes: function (nodeIds) {
+        if (!_cy || !nodeIds || nodeIds.length === 0) {
+            // If empty, restore full opacity.
+            if (_cy) _cy.elements().style({ 'opacity': 1, 'border-width': 2, 'border-color': '#555' });
+            return;
+        }
+
+        var idSet = new Set(nodeIds);
+        _cy.nodes().forEach(function (node) {
+            if (idSet.has(node.data('id'))) {
+                node.style({
+                    'opacity': 1,
+                    'border-width': 3,
+                    'border-color': '#c9922e'
+                });
+            } else {
+                node.style({ 'opacity': 0.2 });
+            }
+        });
+        _cy.edges().style({ 'opacity': 0.15 });
+    },
+
+    /**
+     * Reset all dim/highlight effects back to normal.
+     */
+    resetHighlights: function () {
+        if (!_cy) return;
+        _cy.nodes().style({ 'opacity': 1, 'border-width': 2, 'border-color': '#555' });
+        _cy.edges().style({ 'opacity': 0.7, 'line-color': '#555', 'target-arrow-color': '#555', 'width': 1.5 });
+    },
+
+    /**
      * Cleanup the graph instance.
      */
     destroy: function () {

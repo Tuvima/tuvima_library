@@ -1,0 +1,211 @@
+@namespace MediaEngine.Web.Components.Universe
+@inject IEngineApiClient ApiClient
+@inject IJSRuntime JS
+
+@* Mode 4 — Cast Comparison *@
+
+<div class="cast-panel">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
+        <MudText Typo="Typo.subtitle1" Style="color: #C9922E; font-weight: 600; flex: 1;">
+            Cast Comparison
+        </MudText>
+        <MudSwitch T="bool" @bind-Value="_multiActorOnly" Label="Multi-actor only"
+                   Color="Color.Warning" />
+        <MudTextField T="string" @bind-Value="_search" Placeholder="Search characters..."
+                      Variant="Variant.Outlined" Dense="true" Style="max-width: 200px;"
+                      Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Filled.Search"
+                      Immediate="true" />
+    </MudStack>
+
+    @if (_loading)
+    {
+        <div class="d-flex justify-center pa-8">
+            <MudProgressCircular Indeterminate="true" Color="Color.Warning" />
+        </div>
+    }
+    else if (_castData?.Characters.Count > 0)
+    {
+        <div class="cast-grid">
+            @foreach (var character in FilteredCharacters)
+            {
+                <div class="cast-card">
+                    @* Character portrait *@
+                    <div class="character-portrait">
+                        @if (!string.IsNullOrWhiteSpace(character.Image))
+                        {
+                            <img src="@character.Image" alt="@character.Label" class="char-img" />
+                        }
+                        else
+                        {
+                            <div class="char-img-placeholder">
+                                <MudIcon Icon="@Icons.Material.Filled.Person" Style="font-size: 32px; color: #555;" />
+                            </div>
+                        }
+                    </div>
+
+                    @* Character name *@
+                    <MudText Typo="Typo.subtitle2" Class="mt-2 mb-1"
+                             Style="font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 160px;">
+                        @character.Label
+                    </MudText>
+                    @if (!string.IsNullOrWhiteSpace(character.Description))
+                    {
+                        <MudText Typo="Typo.caption" Style="color: #888; font-size: 11px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; max-width: 160px;">
+                            @character.Description
+                        </MudText>
+                    }
+
+                    @* Performer chips *@
+                    @if (character.Performers.Count > 0)
+                    {
+                        <MudText Typo="Typo.caption" Style="color: #C9922E; margin-top: 8px; margin-bottom: 4px; font-size: 11px; font-weight: 600;">
+                            PERFORMERS (@character.Performers.Count)
+                        </MudText>
+                        <div class="performer-row">
+                            @foreach (var performer in character.Performers)
+                            {
+                                <div class="performer-chip">
+                                    @if (!string.IsNullOrWhiteSpace(performer.HeadshotUrl))
+                                    {
+                                        <MudAvatar Image="@performer.HeadshotUrl" Size="Size.Small" />
+                                    }
+                                    else
+                                    {
+                                        <MudAvatar Size="Size.Small" Color="Color.Secondary">
+                                            @(performer.Name.Length > 0 ? performer.Name[0].ToString() : "?")
+                                        </MudAvatar>
+                                    }
+                                    <MudText Typo="Typo.caption" Style="font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 80px;">
+                                        @performer.Name
+                                    </MudText>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.caption" Style="color: #444; margin-top: 8px; font-size: 11px;">
+                            No performers linked
+                        </MudText>
+                    }
+                </div>
+            }
+        </div>
+
+        @if (!FilteredCharacters.Any())
+        {
+            <MudText Typo="Typo.body2" Style="color: #555; text-align: center; padding: 32px 0;">
+                No characters match the current filters.
+            </MudText>
+        }
+    }
+    else if (!_loading)
+    {
+        <MudAlert Severity="Severity.Info">No cast data found for this universe.</MudAlert>
+    }
+</div>
+
+<style>
+    .cast-panel {
+        padding: 0;
+    }
+    .cast-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+        gap: 12px;
+        overflow-y: auto;
+        max-height: 520px;
+    }
+    .cast-card {
+        background: #111;
+        border: 1px solid #2a2a2a;
+        border-radius: 10px;
+        padding: 12px;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .character-portrait {
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        overflow: hidden;
+        align-self: center;
+        margin-bottom: 4px;
+        border: 2px solid #333;
+    }
+    .char-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    .char-img-placeholder {
+        width: 100%;
+        height: 100%;
+        background: #1e1e1e;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .performer-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        max-height: 90px;
+        overflow-y: auto;
+    }
+    .performer-chip {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        background: #1a1a1a;
+        border: 1px solid #333;
+        border-radius: 20px;
+        padding: 2px 8px 2px 2px;
+        cursor: default;
+    }
+</style>
+
+@code {
+    [Parameter] public string UniverseQid { get; set; } = string.Empty;
+
+    private bool _multiActorOnly;
+    private string _search = string.Empty;
+    private bool _loading;
+    private UniverseCastResponse? _castData;
+
+    private IEnumerable<CastCharacterDto> FilteredCharacters
+    {
+        get
+        {
+            var source = _castData?.Characters ?? [];
+            if (_multiActorOnly)
+                source = source.Where(c => c.Performers.Count > 1).ToList();
+            if (!string.IsNullOrWhiteSpace(_search))
+                source = source.Where(c => c.Label.Contains(_search, StringComparison.OrdinalIgnoreCase)).ToList();
+            return source;
+        }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!string.IsNullOrWhiteSpace(UniverseQid) && _castData is null)
+            await LoadCast();
+    }
+
+    private async Task LoadCast()
+    {
+        _loading = true;
+        StateHasChanged();
+
+        try
+        {
+            _castData = await ApiClient.GetUniverseCastAsync(UniverseQid);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}

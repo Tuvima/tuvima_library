@@ -1,3 +1,4 @@
+using Dapper;
 using MediaEngine.Domain.Contracts;
 
 namespace MediaEngine.Api.Endpoints;
@@ -58,6 +59,50 @@ public static class UniverseGraphEndpoints
                 location_count = entities.Count(e => e.EntitySubType == "Location"),
                 organization_count = entities.Count(e => e.EntitySubType == "Organization"),
                 relationship_count = relationships.Count,
+            });
+        });
+
+        // GET /universe/{qid}/health — universe health score based on entity enrichment.
+        group.MapGet("/universe/{qid}/health", async (
+            string qid,
+            INarrativeRootRepository rootRepo,
+            IFictionalEntityRepository entityRepo,
+            IEntityRelationshipRepository relRepo,
+            IEntityAssetRepository assetRepo,
+            CancellationToken ct) =>
+        {
+            var root = await rootRepo.FindByQidAsync(qid, ct);
+            if (root is null)
+                return Results.NotFound($"Narrative root '{qid}' not found.");
+
+            var entities      = await entityRepo.GetByUniverseAsync(qid, ct);
+            var entityQids    = entities.Select(e => e.WikidataQid).ToHashSet();
+            var relationships = await relRepo.GetByUniverseAsync(entityQids, ct);
+
+            var total      = entities.Count;
+            var enriched   = entities.Count(e => e.EnrichedAt is not null);
+            var withImages = entities.Count(e => !string.IsNullOrWhiteSpace(e.ImageUrl));
+            var relCount   = relationships.Count;
+
+            // Formula: base 20 + enrichment 40% + images 20% + relationship density 20%
+            double health = 20.0;
+            if (total > 0)
+            {
+                health += (enriched   / (double)total) * 40.0;
+                health += (withImages / (double)total) * 20.0;
+                var relDensity = Math.Min(relCount / (double)Math.Max(total, 1), 2.0) / 2.0;
+                health += relDensity * 20.0;
+            }
+
+            return Results.Ok(new
+            {
+                qid                  = root.Qid,
+                label                = root.Label,
+                entities_total       = total,
+                entities_enriched    = enriched,
+                entities_with_images = withImages,
+                relationships_total  = relCount,
+                health_percent       = Math.Round(health, 1),
             });
         });
 
@@ -358,7 +403,178 @@ public static class UniverseGraphEndpoints
             return Results.Ok(new { universe_qid = qid, cross_media_entities = entities });
         });
 
+        // GET /universe/{qid}/cast — characters with their real-world performers.
+        group.MapGet("/universe/{qid}/cast", async (
+            string qid,
+            IFictionalEntityRepository entityRepo,
+            MediaEngine.Storage.Contracts.IDatabaseConnection db,
+            CancellationToken ct) =>
+        {
+            // Load all Character-type entities in this universe.
+            var allEntities = await entityRepo.GetByUniverseAsync(qid, ct);
+            var characters  = allEntities.Where(e =>
+                string.Equals(e.EntitySubType, "Character", StringComparison.OrdinalIgnoreCase)).ToList();
+
+            if (characters.Count == 0)
+                return Results.Ok(new { universe_qid = qid, characters = Array.Empty<object>() });
+
+            // Bulk-query all performer links for these character entities in one round-trip.
+            // character_performer_links uses fictional_entity_id (UUID) as the FK to fictional_entities.
+            var entityIds = characters.Select(c => c.Id.ToString()).ToList();
+
+            const string castSql = @"
+                SELECT cpl.person_id            AS PersonId,
+                       cpl.fictional_entity_id  AS FictionalEntityId,
+                       cpl.work_qid             AS WorkQid,
+                       p.name                   AS PerformerName,
+                       p.headshot_url           AS PerformerHeadshot
+                FROM   character_performer_links cpl
+                LEFT   JOIN persons p ON p.id = cpl.person_id
+                WHERE  cpl.fictional_entity_id IN @ids";
+
+            IEnumerable<PerformerRow> allPerformerRows;
+            using (var conn = db.CreateConnection())
+            {
+                allPerformerRows = await Dapper.SqlMapper.QueryAsync<PerformerRow>(
+                    conn, castSql, new { ids = entityIds });
+            }
+
+            // Group performers by entity UUID for O(1) lookup.
+            var performersByEntity = allPerformerRows
+                .GroupBy(p => p.FictionalEntityId, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
+
+            var castList = characters.Select(character =>
+            {
+                performersByEntity.TryGetValue(character.Id.ToString(), out var performers);
+                return (object)new
+                {
+                    qid         = character.WikidataQid,
+                    label       = character.Label,
+                    image       = character.ImageUrl,
+                    description = character.Description,
+                    performers  = (performers ?? []).Select(p => new
+                    {
+                        person_id    = p.PersonId,
+                        name         = p.PerformerName ?? string.Empty,
+                        headshot_url = p.PerformerHeadshot,
+                        work_qid     = p.WorkQid,
+                        year         = (int?)null,
+                    }),
+                };
+            }).ToList();
+
+            return Results.Ok(new { universe_qid = qid, characters = castList });
+        });
+
+        // GET /universe/{qid}/adaptations — adaptation chain (based_on/derivative_work).
+        group.MapGet("/universe/{qid}/adaptations", async (
+            string qid,
+            IFictionalEntityRepository entityRepo,
+            IEntityRelationshipRepository relRepo,
+            INarrativeRootRepository rootRepo,
+            CancellationToken ct) =>
+        {
+            var root = await rootRepo.FindByQidAsync(qid, ct);
+            if (root is null)
+                return Results.NotFound($"Narrative root '{qid}' not found.");
+
+            // Load all entities and adaptation-type relationships.
+            var allEntities    = await entityRepo.GetByUniverseAsync(qid, ct);
+            var entityQids     = allEntities.Select(e => e.WikidataQid).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var allRels        = await relRepo.GetByUniverseAsync(entityQids, ct);
+            var adaptationTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                { "based_on", "derivative_work", "inspired_by" };
+
+            var adaptationRels = allRels
+                .Where(r => adaptationTypes.Contains(r.RelationshipTypeValue))
+                .ToList();
+
+            // Build a lookup by entity QID → work metadata from entities table.
+            // Works (not fictional entities) are tracked separately; fall back to entity data.
+            var entityByQid = allEntities.ToDictionary(
+                e => e.WikidataQid, e => e, StringComparer.OrdinalIgnoreCase);
+
+            // Identify root works (sources that appear only as subjects, never as objects of based_on).
+            var childQids = adaptationRels
+                .Select(r => r.SubjectQid)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            var rootWorkQids = adaptationRels
+                .Select(r => r.ObjectQid)
+                .Where(q => !childQids.Contains(q))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            // If no adaptation relationships exist, return all works as flat roots.
+            if (!adaptationRels.Any())
+            {
+                var flatWorks = allEntities.Select(e => new
+                {
+                    qid                    = e.WikidataQid,
+                    label                  = e.Label,
+                    year                   = (int?)null,
+                    media_type             = e.EntitySubType,
+                    cover_image            = e.ImageUrl,
+                    relationship_to_parent = (string?)null,
+                    children               = Array.Empty<object>(),
+                }).ToList();
+                return Results.Ok(new { universe_qid = qid, works = flatWorks });
+            }
+
+            // Build tree recursively.
+            static IEnumerable<object> BuildChildren(
+                string parentQid,
+                IReadOnlyList<MediaEngine.Domain.Entities.EntityRelationship> rels,
+                IReadOnlyDictionary<string, MediaEngine.Domain.Entities.FictionalEntity> byQid,
+                int depth)
+            {
+                if (depth > 6) yield break; // Guard against cycles.
+                foreach (var rel in rels.Where(r =>
+                    string.Equals(r.ObjectQid, parentQid, StringComparison.OrdinalIgnoreCase)))
+                {
+                    byQid.TryGetValue(rel.SubjectQid, out var child);
+                    yield return new
+                    {
+                        qid                    = rel.SubjectQid,
+                        label                  = child?.Label ?? rel.SubjectQid,
+                        year                   = (int?)null,
+                        media_type             = child?.EntitySubType ?? "Unknown",
+                        cover_image            = child?.ImageUrl,
+                        relationship_to_parent = FormatEdgeLabel(rel.RelationshipTypeValue),
+                        children               = BuildChildren(rel.SubjectQid, rels, byQid, depth + 1).ToList(),
+                    };
+                }
+            }
+
+            var tree = rootWorkQids.Select(rootQid =>
+            {
+                entityByQid.TryGetValue(rootQid, out var entity);
+                return (object)new
+                {
+                    qid                    = rootQid,
+                    label                  = entity?.Label ?? rootQid,
+                    year                   = (int?)null,
+                    media_type             = entity?.EntitySubType ?? "Unknown",
+                    cover_image            = entity?.ImageUrl,
+                    relationship_to_parent = (string?)null,
+                    children               = BuildChildren(rootQid, adaptationRels, entityByQid, 1).ToList(),
+                };
+            }).ToList();
+
+            return Results.Ok(new { universe_qid = qid, works = tree });
+        });
+
         return app;
+    }
+
+    /// <summary>Raw Dapper row from character_performer_links JOIN persons.</summary>
+    private sealed class PerformerRow
+    {
+        public string  PersonId          { get; init; } = string.Empty;
+        public string  FictionalEntityId { get; init; } = string.Empty;
+        public string? WorkQid           { get; init; }
+        public string? PerformerName     { get; init; }
+        public string? PerformerHeadshot { get; init; }
     }
 
     /// <summary>
@@ -386,6 +602,9 @@ public static class UniverseGraphEndpoints
         "same_as"             => "same as",
         "significant_person"  => "significant to",
         "affiliation"         => "affiliated with",
+        "based_on"            => "based on",
+        "derivative_work"     => "derivative of",
+        "inspired_by"         => "inspired by",
         _                     => relType.Replace('_', ' '),
     };
 }

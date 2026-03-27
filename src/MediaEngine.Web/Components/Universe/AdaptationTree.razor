@@ -1,0 +1,70 @@
+@namespace MediaEngine.Web.Components.Universe
+@inject IEngineApiClient ApiClient
+
+@* Mode 5 — Adaptation Tree *@
+
+<div class="adaptation-panel">
+    <MudText Typo="Typo.subtitle1" Class="mb-1" Style="color: #C9922E; font-weight: 600;">
+        Adaptation Tree
+    </MudText>
+    <MudText Typo="Typo.body2" Class="mb-4" Style="color: #888;">
+        Works connected by based-on, derivative, and inspired-by relationships.
+    </MudText>
+
+    @if (_loading)
+    {
+        <div class="d-flex justify-center pa-8">
+            <MudProgressCircular Indeterminate="true" Color="Color.Warning" />
+        </div>
+    }
+    else if (_adaptations?.Works.Count > 0)
+    {
+        <div class="adaptation-tree" style="overflow-y: auto; max-height: 500px;">
+            @foreach (var root in _adaptations.Works)
+            {
+                <AdaptationTreeNode Node="@root" Depth="0" />
+            }
+        </div>
+    }
+    else if (!_loading)
+    {
+        <MudAlert Severity="Severity.Info">
+            No adaptation relationships found. Works appear here when they are linked by
+            "based on", "derivative work", or "inspired by" connections.
+        </MudAlert>
+    }
+</div>
+
+<style>
+    .adaptation-panel {
+        padding: 0;
+    }
+</style>
+
+@code {
+    [Parameter] public string UniverseQid { get; set; } = string.Empty;
+
+    private bool _loading;
+    private UniverseAdaptationsResponse? _adaptations;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!string.IsNullOrWhiteSpace(UniverseQid) && _adaptations is null)
+            await LoadAdaptations();
+    }
+
+    private async Task LoadAdaptations()
+    {
+        _loading = true;
+        StateHasChanged();
+
+        try
+        {
+            _adaptations = await ApiClient.GetUniverseAdaptationsAsync(UniverseQid);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}
