@@ -85,6 +85,8 @@
   <data name="Vault_LoadMore" xml:space="preserve"><value>Load More</value></data>
   <data name="Vault_ItemPurged" xml:space="preserve"><value>Item purged</value></data>
   <data name="Vault_ItemDeleted" xml:space="preserve"><value>Item deleted</value></data>
+  <data name="Vault_NeedsReview" xml:space="preserve"><value>Needs Review</value></data>
+  <data name="Vault_Quarantined" xml:space="preserve"><value>Quarantined</value></data>
 
   <!-- ── Vault Toolbar ──────────────────────────────────────────────────── -->
   <data name="VaultToolbar_SearchPlaceholder" xml:space="preserve"><value>Search…</value></data>
@@ -198,6 +200,7 @@
   <data name="VaultDetail_SectionLinkedIdentities" xml:space="preserve"><value>Linked Identities</value></data>
   <data name="VaultDetail_FieldKnownAs" xml:space="preserve"><value>Known As</value></data>
   <data name="VaultDetail_FieldPenNames" xml:space="preserve"><value>Pen Names / Pseudonyms</value></data>
+  <data name="VaultDetail_FieldRealPeople" xml:space="preserve"><value>Real People</value></data>
   <data name="VaultDetail_HintPenNames" xml:space="preserve"><value>Pen name resolution will appear here when available from Wikidata.</value></data>
   <data name="VaultDetail_AssetHeadshot" xml:space="preserve"><value>Headshot</value></data>
   <data name="VaultDetail_FieldLastSync" xml:space="preserve"><value>Last Sync</value></data>

@@ -36,6 +36,16 @@
                 <option value="letter">@L["VaultToolbar_GroupLetter"]</option>
             </select>
         </div>
+
+        <div class="vault-control-divider"></div>
+
+        @* Poster Size *@
+        <div class="vault-control-group vault-poster-slider">
+            <MudIcon Icon="@Icons.Material.Outlined.PhotoSizeSelectLarge"
+                     Style="font-size: 14px; color: rgba(255,255,255,0.3);" />
+            <input type="range" class="vault-range" min="40" max="72" step="4"
+                   value="@PosterSize" @oninput="OnPosterSizeInput" />
+        </div>
     </div>
 </div>
 
@@ -44,6 +54,9 @@
     [Parameter] public string SearchText { get; set; } = "";
     [Parameter] public string SortBy { get; set; } = "newest";
     [Parameter] public string GroupBy { get; set; } = "none";
+
+    [Parameter] public int PosterSize { get; set; } = 48;
+    [Parameter] public EventCallback<int> PosterSizeChanged { get; set; }
 
     // Callbacks
     [Parameter] public EventCallback<string> SearchTextChanged { get; set; }
@@ -72,6 +85,12 @@
 
     private async Task OnGroupChanged(ChangeEventArgs e) =>
         await GroupByChanged.InvokeAsync(e.Value?.ToString() ?? "none");
+
+    private async Task OnPosterSizeInput(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var val))
+            await PosterSizeChanged.InvokeAsync(val);
+    }
 
     public void Dispose()
     {
@@ -169,6 +188,45 @@
         width: 1px;
         height: 24px;
         background: rgba(255, 255, 255, 0.06);
+    }
+
+    /* ── Poster Size Slider ── */
+    .vault-poster-slider {
+        min-width: 80px;
+    }
+
+    .vault-range {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 60px;
+        height: 4px;
+        border-radius: 2px;
+        background: rgba(255, 255, 255, 0.1);
+        outline: none;
+        cursor: pointer;
+    }
+
+    .vault-range::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.5);
+        cursor: pointer;
+        transition: background 0.15s;
+    }
+
+    .vault-range::-webkit-slider-thumb:hover {
+        background: rgba(96, 165, 250, 0.8);
+    }
+
+    .vault-range::-moz-range-thumb {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.5);
+        border: none;
+        cursor: pointer;
     }
 
     /* ── Mobile ── */

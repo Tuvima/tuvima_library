@@ -36,10 +36,91 @@ public static class PersonEndpoints
                 website         = person.Website,
                 has_local_headshot = !string.IsNullOrEmpty(person.LocalHeadshotPath)
                                     && File.Exists(person.LocalHeadshotPath),
+                is_pseudonym    = person.IsPseudonym,
                 created_at      = person.CreatedAt,
                 enriched_at     = person.EnrichedAt,
             });
         });
+
+        // GET /persons/{id}/aliases — linked pseudonym and real-person entries.
+        group.MapGet("/{id:guid}/aliases", async (
+            Guid id,
+            IPersonRepository personRepo,
+            IDatabaseConnection db,
+            CancellationToken ct) =>
+        {
+            var person = await personRepo.FindByIdAsync(id, ct);
+            if (person is null)
+                return Results.NotFound($"Person '{id}' not found.");
+
+            var conn = db.Open();
+            var aliases = new List<object>();
+
+            if (person.IsPseudonym)
+            {
+                // This is a pen name — find the real people behind it
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = """
+                    SELECT real_person_id FROM person_aliases
+                    WHERE pseudonym_person_id = @id
+                    """;
+                cmd.Parameters.AddWithValue("@id", id.ToString());
+                using var reader = cmd.ExecuteReader();
+                while (reader.Read())
+                {
+                    var realId = Guid.Parse(reader.GetString(0));
+                    var realPerson = await personRepo.FindByIdAsync(realId, ct);
+                    if (realPerson is not null)
+                        aliases.Add(new
+                        {
+                            id = realPerson.Id,
+                            name = realPerson.Name,
+                            role = realPerson.Role,
+                            headshot_url = realPerson.HeadshotUrl,
+                            is_pseudonym = realPerson.IsPseudonym,
+                            wikidata_qid = realPerson.WikidataQid,
+                            relationship = "real_person",
+                        });
+                }
+            }
+            else
+            {
+                // This is a real person — find pen names that point to them
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = """
+                    SELECT pseudonym_person_id FROM person_aliases
+                    WHERE real_person_id = @id
+                    """;
+                cmd.Parameters.AddWithValue("@id", id.ToString());
+                using var reader = cmd.ExecuteReader();
+                while (reader.Read())
+                {
+                    var pseudonymId = Guid.Parse(reader.GetString(0));
+                    var pseudonymPerson = await personRepo.FindByIdAsync(pseudonymId, ct);
+                    if (pseudonymPerson is not null)
+                        aliases.Add(new
+                        {
+                            id = pseudonymPerson.Id,
+                            name = pseudonymPerson.Name,
+                            role = pseudonymPerson.Role,
+                            headshot_url = pseudonymPerson.HeadshotUrl,
+                            is_pseudonym = pseudonymPerson.IsPseudonym,
+                            wikidata_qid = pseudonymPerson.WikidataQid,
+                            relationship = "pen_name",
+                        });
+                }
+            }
+
+            return Results.Ok(new
+            {
+                person_id = id,
+                person_name = person.Name,
+                is_pseudonym = person.IsPseudonym,
+                aliases,
+            });
+        })
+        .WithName("GetPersonAliases")
+        .WithSummary("Linked pseudonym and real-person entries for a given person.");
 
         // GET /persons/{id}/headshot — serves headshot.jpg from .people/ folder.
         // If no local file exists but a Wikimedia URL is known, downloads and caches it.
@@ -290,6 +371,7 @@ public static class PersonEndpoints
                     headshot_url       = p.HeadshotUrl,
                     has_local_headshot = !string.IsNullOrEmpty(p.LocalHeadshotPath)
                                          && File.Exists(p.LocalHeadshotPath),
+                    is_pseudonym       = p.IsPseudonym,
                     biography          = p.Biography,
                     occupation         = p.Occupation,
                 })

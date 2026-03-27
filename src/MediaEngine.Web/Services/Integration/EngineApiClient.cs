@@ -1676,6 +1676,23 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    // -- GET /persons/{id}/aliases --------------------------------------------
+
+    /// <inheritdoc/>
+    public async Task<PersonAliasesResponseDto?> GetPersonAliasesAsync(Guid personId, CancellationToken ct = default)
+    {
+        try
+        {
+            var response = await _http.GetAsync($"persons/{personId}/aliases", ct);
+            if (!response.IsSuccessStatusCode) return null;
+            return await response.Content.ReadFromJsonAsync<PersonAliasesResponseDto>(cancellationToken: ct);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     // ── GET /hubs/parents ─────────────────────────────────────────────────────
 
     public async Task<List<HubViewModel>> GetParentHubsAsync(CancellationToken ct = default)

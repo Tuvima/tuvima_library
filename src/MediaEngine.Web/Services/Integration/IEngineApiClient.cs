@@ -334,6 +334,9 @@ public interface IEngineApiClient
 
     /// <summary>GET /persons/{id}/works \u2014 all hubs containing works by this person.</summary>
     Task<List<HubViewModel>> GetWorksByPersonAsync(Guid personId, CancellationToken ct = default);
+
+    /// <summary>GET /persons/{id}/aliases — aliases and pseudonyms for a person.</summary>
+    Task<PersonAliasesResponseDto?> GetPersonAliasesAsync(Guid personId, CancellationToken ct = default);
     // â”€â”€ EPUB Reader (/read, /reader) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     /// <summary>GET /read/{assetId}/metadata â€” book metadata.</summary>

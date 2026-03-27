@@ -29,7 +29,7 @@ else
             <thead>
                 <tr class="vht-thead-row">
                     <th class="vht-th" style="width: 40px;"></th>
-                    <th class="vht-th" style="padding-left: 12px;">Name</th>
+                    <th class="vht-th" style="padding-left: 0;">Name</th>
                     <th class="vht-th vht-col-type" style="width: 120px;">Type</th>
                     <th class="vht-th vht-col-scope" style="width: 100px;">Scope</th>
                     <th class="vht-th vht-th--center" style="width: 60px;">Items</th>
@@ -62,7 +62,7 @@ else
                                     <MudIcon Icon="@icon" Style="@($"font-size: 18px; color: {hub.TypeColor}; opacity: 0.75;")" />
                                 </div>
                             </td>
-                            <td class="vht-td" style="padding-left: 12px;">
+                            <td class="vht-td" style="padding-left: 0;">
                                 <div class="vht-name-cell">
                                     <span class="vht-name">@hub.Name</span>
                                     @if (!string.IsNullOrWhiteSpace(hub.Description))
@@ -227,7 +227,7 @@ else
     .vht-td--icon {
         width: 40px;
         padding-left: 20px;
-        padding-right: 4px;
+        padding-right: 12px;
     }
 
     .vht-icon-wrap {

@@ -90,7 +90,7 @@ else
         background: rgba(255, 255, 255, 0.01);
         border: 1px solid rgba(255, 255, 255, 0.05);
         border-radius: 16px;
-        overflow: hidden;
+        overflow: visible;
     }
 
     .vpt-table {
@@ -128,6 +128,7 @@ else
     .vpt-td {
         padding: 12px 16px;
         vertical-align: middle;
+        overflow: visible;
     }
 
     .vpt-avatar {
@@ -141,12 +142,27 @@ else
         justify-content: center;
         overflow: hidden;
         flex-shrink: 0;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        z-index: 1;
+        position: relative;
+    }
+
+    .vpt-avatar:hover {
+        transform: scale(2.8);
+        z-index: 50;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.8);
     }
 
     .vpt-avatar img {
         width: 100%;
         height: 100%;
         object-fit: cover;
+        opacity: 0.6;
+        transition: opacity 0.15s;
+    }
+
+    .vpt-avatar:hover img {
+        opacity: 1;
     }
 
     .vpt-name {

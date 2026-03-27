@@ -118,34 +118,32 @@ public sealed class VaultItemViewModel
     private VaultPipelineStage ComputeRetailStage()
     {
         if (string.Equals(RetailMatch, "failed", StringComparison.OrdinalIgnoreCase))
-            return new VaultPipelineStage { State = VaultStageState.Failed, Label = "Retail Match Failed" };
-        if (RetailMatch is not "none" and not "")
-            return new VaultPipelineStage { State = VaultStageState.Completed, Label = "Retail Matched" };
-        return new VaultPipelineStage { State = VaultStageState.Pending, Label = "Retail Pending" };
+            return new VaultPipelineStage { State = VaultStageState.Failed, Label = "Retail: No Match" };
+        if (RetailMatch is not "none" and not "" and not null)
+            return new VaultPipelineStage { State = VaultStageState.Completed, Label = $"Retail: {RetailMatch}" };
+        return new VaultPipelineStage { State = VaultStageState.Pending, Label = "Retail: Pending" };
     }
 
     private VaultPipelineStage ComputeWikidataStage()
     {
         if (string.Equals(WikidataMatch, "failed", StringComparison.OrdinalIgnoreCase))
-            return new VaultPipelineStage { State = VaultStageState.Failed, Label = "Wikidata Match Failed" };
-        if (WikidataMatch is not "none" and not "")
-            return new VaultPipelineStage { State = VaultStageState.Completed, Label = "Wikidata Linked" };
-        // If retail succeeded but wikidata hasn't run yet → warning
-        if (RetailMatch is not "none" and not "" and not "failed")
-            return new VaultPipelineStage { State = VaultStageState.Warning, Label = "Wikidata Pending" };
-        return new VaultPipelineStage { State = VaultStageState.Pending, Label = "Wikidata Pending" };
+            return new VaultPipelineStage { State = VaultStageState.Failed, Label = "Wikidata: No Match" };
+        if (!string.IsNullOrEmpty(WikidataQid) && !WikidataQid.StartsWith("NF", StringComparison.OrdinalIgnoreCase))
+            return new VaultPipelineStage { State = VaultStageState.Completed, Label = $"Wikidata: {WikidataQid}" };
+        if (RetailMatch is not "none" and not "" and not null and not "failed")
+            return new VaultPipelineStage { State = VaultStageState.Warning, Label = "Wikidata: Awaiting" };
+        return new VaultPipelineStage { State = VaultStageState.Pending, Label = "Wikidata: Pending" };
     }
 
     private VaultPipelineStage ComputeUniverseStage()
     {
-        // Stub: Universe placement is not yet tracked per-item.
-        // Show completed only if item has a QID and is not missing universe.
+        if (!string.IsNullOrEmpty(UniverseName))
+            return new VaultPipelineStage { State = VaultStageState.Completed, Label = $"Universe: {UniverseName}" };
         if (!string.IsNullOrEmpty(WikidataQid)
             && !WikidataQid.StartsWith("NF", StringComparison.OrdinalIgnoreCase)
             && !MissingUniverse)
-            return new VaultPipelineStage { State = VaultStageState.Completed, Label = "Universe Mapped" };
-
-        return new VaultPipelineStage { State = VaultStageState.Pending, Label = "Universe Pending" };
+            return new VaultPipelineStage { State = VaultStageState.Completed, Label = "Universe: Mapped" };
+        return new VaultPipelineStage { State = VaultStageState.Pending, Label = "Universe: Pending" };
     }
 }
 

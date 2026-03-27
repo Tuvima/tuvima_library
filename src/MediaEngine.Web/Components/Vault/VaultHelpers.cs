@@ -129,4 +129,35 @@ public static class VaultHelpers
         "confidence" => "confidence",
         _ => "newest",
     };
+
+    /// <summary>Returns a human-readable label for a review trigger code.</summary>
+    public static string GetReviewTriggerLabel(string? trigger) => trigger switch
+    {
+        "AuthorityMatchFailed" => "Wikidata could not find a match",
+        "ContentMatchFailed" => "No matching content found",
+        "StagedUnidentifiable" => "File could not be identified",
+        "PlaceholderTitle" => "Title appears to be a placeholder",
+        "WikidataBridgeFailed" => "Wikidata bridge lookup failed",
+        "RetailMatchFailed" => "No retail provider match found",
+        "MetadataConflict" => "Metadata sources disagree",
+        "LowConfidence" => "Match confidence is too low",
+        "LanguageMismatch" => "File language differs from library language",
+        "DuplicateDetected" => "Possible duplicate detected",
+        "MediaTypeAmbiguous" => "Media type could not be determined",
+        _ => trigger ?? "Review needed",
+    };
+
+    /// <summary>Returns the brand colour for a media type string, matching stats bar colours.</summary>
+    public static string GetMediaTypeColor(string? mediaType)
+    {
+        var t = (mediaType ?? "").ToLowerInvariant();
+        if (t.Contains("movie") || t.Contains("video")) return "#60A5FA";
+        if (t.Contains("book") && !t.Contains("audio")) return "#5DCAA5";
+        if (t.Contains("audiobook")) return "#A78BFA";
+        if (t == "tv") return "#FBBF24";
+        if (t.Contains("music")) return "#22D3EE";
+        if (t.Contains("podcast")) return "#FB923C";
+        if (t.Contains("comic")) return "#7C4DFF";
+        return "rgba(255,255,255,0.4)";
+    }
 }

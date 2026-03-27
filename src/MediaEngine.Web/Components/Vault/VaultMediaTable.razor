@@ -54,7 +54,9 @@ else
     [Parameter] public List<VaultItemViewModel> Items { get; set; } = [];
     [Parameter] public string GroupBy { get; set; } = "none";
     [Parameter] public bool Loading { get; set; }
+    [Parameter] public int PosterSize { get; set; } = 48;
     [Parameter] public EventCallback<Guid> OnRowClicked { get; set; }
+    [Parameter] public EventCallback<string> OnAuthorClicked { get; set; }
 
     private readonly Dictionary<string, bool> _expandedGroups = new();
 
@@ -80,7 +82,7 @@ else
                         <td class="vmt-td" style="padding-left: 24px;">
                             <div class="vmt-media-cell">
                                 <div class="vmt-poster-wrap">
-                                    <div class="vmt-thumb" style="width: 48px; min-height: 48px;">
+                                    <div class="vmt-thumb" style="width: @(PosterSize)px; min-height: @(PosterSize)px;">
                                         @if (!string.IsNullOrEmpty(item.CoverUrl))
                                         {
                                             <img src="@item.CoverUrl" alt="@item.Title" class="vmt-thumb-img" loading="lazy" />
@@ -91,7 +93,7 @@ else
                                                      Style="font-size: 20px; opacity: 0.25;" />
                                         }
                                     </div>
-                                    <div class="vmt-type-badge">
+                                    <div class="vmt-type-badge" style="color: @VaultHelpers.GetMediaTypeColor(item.MediaType);">
                                         <MudIcon Icon="@VaultHelpers.GetMediaTypeIcon(item.MediaType)" Style="font-size: 14px;" />
                                     </div>
                                 </div>
@@ -102,7 +104,21 @@ else
                                         <p class="vmt-original-title">@item.OriginalTitle</p>
                                     }
                                     <p class="vmt-subtitle">@VaultHelpers.FormatMediaType(item.MediaType) @(item.Year is not null ? $"• {item.Year}" : "")</p>
-                                    <p class="vmt-creator">@(item.Author?.ToUpperInvariant() ?? L["VaultMedia_UnknownCreator"].Value)</p>
+                                    @if (!string.IsNullOrEmpty(item.Author))
+                                    {
+                                        <button class="vmt-creator-link" @onclick:stopPropagation="true"
+                                                @onclick="() => OnAuthorClicked.InvokeAsync(item.Author)">
+                                            @item.Author.ToUpperInvariant()
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <p class="vmt-creator">@L["VaultMedia_UnknownCreator"].Value</p>
+                                    }
+                                    @if (item.VaultDisplayStatus is VaultStatus.NeedsReview or VaultStatus.Failed && !string.IsNullOrEmpty(item.ReviewTrigger))
+                                    {
+                                        <p class="vmt-review-reason">@VaultHelpers.GetReviewTriggerLabel(item.ReviewTrigger)</p>
+                                    }
                                 </div>
                             </div>
                         </td>
@@ -372,6 +388,35 @@ else
         text-transform: uppercase;
         color: rgba(255,255,255,0.3);
         margin-top: 2px;
+    }
+
+    .vmt-creator-link {
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: rgba(255,255,255,0.3);
+        margin-top: 2px;
+        background: none;
+        border: none;
+        padding: 0;
+        cursor: pointer;
+        text-align: left;
+        transition: color 0.15s;
+    }
+
+    .vmt-creator-link:hover {
+        color: #60A5FA;
+        text-decoration: underline;
+        text-underline-offset: 2px;
+    }
+
+    .vmt-review-reason {
+        font-size: 10px;
+        font-weight: 600;
+        color: #EF9F27;
+        margin-top: 4px;
+        font-style: italic;
     }
 
     /* ── Pipeline ── */

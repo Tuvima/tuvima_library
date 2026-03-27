@@ -729,15 +729,13 @@ public sealed class RegistryRepository : IRegistryRepository
     {
         using var conn = _db.CreateConnection();
         var rows = conn.Query<(string MediaType, int Count)>("""
-            SELECT COALESCE(
-                (SELECT mc.value FROM metadata_claims mc
-                 WHERE mc.entity_id = (SELECT ma.id FROM media_assets ma JOIN editions e ON e.id = ma.edition_id WHERE e.work_id = w.id LIMIT 1)
-                 AND mc.field_key = 'media_type' AND mc.is_winning = 1 LIMIT 1),
-                'Unknown'
-            ) AS MediaType,
-            COUNT(*) AS Count
-            FROM works w
-            GROUP BY MediaType
+            SELECT cv.value AS MediaType, COUNT(DISTINCT w.id) AS Count
+            FROM canonical_values cv
+            JOIN media_assets ma ON ma.id = cv.entity_id
+            JOIN editions e ON e.id = ma.edition_id
+            JOIN works w ON w.id = e.work_id
+            WHERE cv.key = 'media_type'
+            GROUP BY cv.value
             """);
         return Task.FromResult(rows.ToDictionary(r => r.MediaType, r => r.Count));
     }

@@ -85,6 +85,8 @@
   <data name="Vault_LoadMore" xml:space="preserve"><value>Mehr laden</value></data>
   <data name="Vault_ItemPurged" xml:space="preserve"><value>Eintrag bereinigt</value></data>
   <data name="Vault_ItemDeleted" xml:space="preserve"><value>Eintrag gelöscht</value></data>
+  <data name="Vault_NeedsReview" xml:space="preserve"><value>Überprüfung nötig</value></data>
+  <data name="Vault_Quarantined" xml:space="preserve"><value>Quarantäne</value></data>
 
   <!-- ── Vault Toolbar ──────────────────────────────────────────────────── -->
   <data name="VaultToolbar_SearchPlaceholder" xml:space="preserve"><value>Suchen…</value></data>
@@ -198,6 +200,7 @@
   <data name="VaultDetail_SectionLinkedIdentities" xml:space="preserve"><value>Verknüpfte Identitäten</value></data>
   <data name="VaultDetail_FieldKnownAs" xml:space="preserve"><value>Bekannt als</value></data>
   <data name="VaultDetail_FieldPenNames" xml:space="preserve"><value>Pseudonyme / Künstlernamen</value></data>
+  <data name="VaultDetail_FieldRealPeople" xml:space="preserve"><value>Echte Personen</value></data>
   <data name="VaultDetail_HintPenNames" xml:space="preserve"><value>Die Pseudonymauflösung erscheint hier, sobald sie von Wikidata verfügbar ist.</value></data>
   <data name="VaultDetail_AssetHeadshot" xml:space="preserve"><value>Porträtfoto</value></data>
   <data name="VaultDetail_FieldLastSync" xml:space="preserve"><value>Letzte Synchronisierung</value></data>

@@ -85,6 +85,8 @@
   <data name="Vault_LoadMore" xml:space="preserve"><value>Charger plus</value></data>
   <data name="Vault_ItemPurged" xml:space="preserve"><value>Élément purgé</value></data>
   <data name="Vault_ItemDeleted" xml:space="preserve"><value>Élément supprimé</value></data>
+  <data name="Vault_NeedsReview" xml:space="preserve"><value>À vérifier</value></data>
+  <data name="Vault_Quarantined" xml:space="preserve"><value>En quarantaine</value></data>
 
   <!-- ── Vault Toolbar ──────────────────────────────────────────────────── -->
   <data name="VaultToolbar_SearchPlaceholder" xml:space="preserve"><value>Rechercher…</value></data>
@@ -198,6 +200,7 @@
   <data name="VaultDetail_SectionLinkedIdentities" xml:space="preserve"><value>Identités liées</value></data>
   <data name="VaultDetail_FieldKnownAs" xml:space="preserve"><value>Connu sous le nom</value></data>
   <data name="VaultDetail_FieldPenNames" xml:space="preserve"><value>Noms de plume / Pseudonymes</value></data>
+  <data name="VaultDetail_FieldRealPeople" xml:space="preserve"><value>Personnes réelles</value></data>
   <data name="VaultDetail_HintPenNames" xml:space="preserve"><value>La résolution des noms de plume apparaîtra ici lorsqu'elle sera disponible depuis Wikidata.</value></data>
   <data name="VaultDetail_AssetHeadshot" xml:space="preserve"><value>Portrait</value></data>
   <data name="VaultDetail_FieldLastSync" xml:space="preserve"><value>Dernière synchronisation</value></data>

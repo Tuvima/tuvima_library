@@ -1310,6 +1310,26 @@ public sealed class DatabaseConnection : IDatabaseConnection
             }
         }
 
+        // Migration M-063: Normalise legacy media_type claim values to canonical enum names.
+        // Over time, processors and providers emitted non-canonical values (e.g. "epub",
+        // "Book", "movie") that do not match the enum names used by the rest of the pipeline.
+        // This migration rewrites those stale values in metadata_claims to the canonical
+        // plural forms (e.g. "Books", "Movies") so that Vault counts, filters, and
+        // disambiguation all agree on a single vocabulary.
+        {
+            using var m063 = conn.CreateCommand();
+            m063.CommandText = """
+                UPDATE metadata_claims SET value = 'Books'      WHERE field_key = 'media_type' AND value IN ('Epub', 'Book', 'Ebook', 'book', 'epub', 'ebook');
+                UPDATE metadata_claims SET value = 'Audiobooks' WHERE field_key = 'media_type' AND value IN ('Audiobook', 'audiobook');
+                UPDATE metadata_claims SET value = 'Movies'     WHERE field_key = 'media_type' AND value IN ('Movie', 'movie', 'Video', 'video');
+                UPDATE metadata_claims SET value = 'Comics'     WHERE field_key = 'media_type' AND value IN ('Comic', 'comic', 'Cbz', 'cbz', 'Cbr', 'cbr');
+                UPDATE metadata_claims SET value = 'Podcasts'   WHERE field_key = 'media_type' AND value IN ('Podcast', 'podcast');
+                UPDATE metadata_claims SET value = 'Music'      WHERE field_key = 'media_type' AND value IN ('music');
+                UPDATE metadata_claims SET value = 'TV'         WHERE field_key = 'media_type' AND value IN ('tv', 'Television', 'television');
+                """;
+            m063.ExecuteNonQuery();
+        }
+
         // Seed S-001: provider_registry entries for all known providers.
         // metadata_claims.provider_id has a FK to provider_registry(id), so these
         // rows MUST exist before any claim is written.  INSERT OR IGNORE makes this

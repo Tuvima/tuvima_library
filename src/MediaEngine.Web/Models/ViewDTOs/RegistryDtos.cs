@@ -469,4 +469,48 @@ public sealed class PersonListItemDto
 
     [JsonPropertyName("occupation")]
     public string? Occupation { get; set; }
+
+    [JsonPropertyName("is_pseudonym")]
+    public bool IsPseudonym { get; set; }
+}
+
+/// <summary>A single alias entry from GET /persons/{id}/aliases.</summary>
+public sealed class PersonAliasDto
+{
+    [JsonPropertyName("id")]
+    public Guid Id { get; set; }
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = "";
+
+    [JsonPropertyName("role")]
+    public string? Role { get; set; }
+
+    [JsonPropertyName("headshot_url")]
+    public string? HeadshotUrl { get; set; }
+
+    [JsonPropertyName("is_pseudonym")]
+    public bool IsPseudonym { get; set; }
+
+    [JsonPropertyName("wikidata_qid")]
+    public string? WikidataQid { get; set; }
+
+    [JsonPropertyName("relationship")]
+    public string Relationship { get; set; } = "";
+}
+
+/// <summary>Response from GET /persons/{id}/aliases.</summary>
+public sealed class PersonAliasesResponseDto
+{
+    [JsonPropertyName("person_id")]
+    public Guid PersonId { get; set; }
+
+    [JsonPropertyName("person_name")]
+    public string PersonName { get; set; } = "";
+
+    [JsonPropertyName("is_pseudonym")]
+    public bool IsPseudonym { get; set; }
+
+    [JsonPropertyName("aliases")]
+    public List<PersonAliasDto> Aliases { get; set; } = [];
 }
