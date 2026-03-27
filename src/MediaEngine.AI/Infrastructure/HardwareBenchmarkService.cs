@@ -2,32 +2,36 @@ using System.Diagnostics;
 using MediaEngine.AI.Configuration;
 using MediaEngine.AI.Llama;
 using MediaEngine.Domain.Enums;
+using MediaEngine.Storage.Contracts;
 using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.AI.Infrastructure;
 
 /// <summary>
 /// Runs a hardware benchmark at startup to classify the system into a performance tier.
-/// Results are cached in AiSettings.HardwareProfile so the benchmark only runs once
-/// unless the user explicitly re-runs it.
+/// Results are cached in AiSettings.HardwareProfile AND persisted to config/ai.json so
+/// the benchmark is skipped on subsequent restarts unless the user explicitly re-runs it.
 /// </summary>
 public sealed class HardwareBenchmarkService
 {
     private readonly LlamaInferenceService              _llama;
     private readonly AiSettings                         _settings;
     private readonly GpuBackendDetector                 _gpuDetector;
+    private readonly IConfigurationLoader               _configLoader;
     private readonly ILogger<HardwareBenchmarkService>  _logger;
 
     public HardwareBenchmarkService(
         LlamaInferenceService              llama,
         AiSettings                         settings,
         GpuBackendDetector                 gpuDetector,
+        IConfigurationLoader               configLoader,
         ILogger<HardwareBenchmarkService>  logger)
     {
-        _llama       = llama;
-        _settings    = settings;
-        _gpuDetector = gpuDetector;
-        _logger      = logger;
+        _llama        = llama;
+        _settings     = settings;
+        _gpuDetector  = gpuDetector;
+        _configLoader = configLoader;
+        _logger       = logger;
     }
 
     /// <summary>
@@ -116,7 +120,29 @@ public sealed class HardwareBenchmarkService
             features.EnrichmentMode,
             features.WhisperEnabled ? "enabled" : "disabled");
 
+        // Persist benchmark results to config/ai.json so restarts skip the benchmark.
+        await PersistConfigAsync(ct);
+
         return profile;
+    }
+
+    /// <summary>
+    /// Writes the updated AiSettings (including the populated HardwareProfile) back to
+    /// config/ai.json via IConfigurationLoader so the benchmark result survives restarts.
+    /// </summary>
+    private Task PersistConfigAsync(CancellationToken ct)
+    {
+        try
+        {
+            _configLoader.SaveAi(_settings);
+            _logger.LogInformation("Benchmark results persisted to config/ai.json");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to persist benchmark results to config/ai.json");
+        }
+
+        return Task.CompletedTask;
     }
 
 }

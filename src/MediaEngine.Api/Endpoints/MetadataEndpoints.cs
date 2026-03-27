@@ -17,6 +17,20 @@ public static class MetadataEndpoints
     private static readonly Guid UserManualProviderId =
         new("d0000000-0000-4000-8000-000000000001");
 
+    /// <summary>
+    /// Fields that may be set via user-locked claims. Structured metadata
+    /// (title, author, year, genre, series, description, etc.) must come from
+    /// the provider hierarchy only. Users may only contribute personal ratings,
+    /// media-type corrections, and custom collection tags.
+    /// </summary>
+    private static readonly HashSet<string> UserLockableFields =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            "rating",       // User's personal rating for this title
+            "media_type",   // User correction of detected media type (see /reclassify)
+            "custom_tags",  // User-defined collection / labelling tags
+        };
+
     public static IEndpointRouteBuilder MapMetadataEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/metadata")
@@ -66,6 +80,11 @@ public static class MetadataEndpoints
                 return Results.BadRequest("claim_key must not be empty.");
             if (string.IsNullOrWhiteSpace(request.ChosenValue))
                 return Results.BadRequest("chosen_value must not be empty.");
+            if (!UserLockableFields.Contains(request.ClaimKey))
+                return Results.BadRequest(
+                    $"Field '{request.ClaimKey}' cannot be user-locked. " +
+                    $"Only these fields accept user locks: {string.Join(", ", UserLockableFields)}. " +
+                    "Structured metadata (title, author, year, etc.) is resolved by the provider hierarchy.");
 
             var lockedAt = DateTimeOffset.UtcNow;
 
@@ -332,6 +351,16 @@ public static class MetadataEndpoints
 
             var claims = new List<MetadataClaim>();
             var canonicals = new List<CanonicalValue>();
+
+            // Validate all keys before persisting anything.
+            var rejectedKeys = request.Fields.Keys
+                .Where(k => !string.IsNullOrWhiteSpace(k) && !UserLockableFields.Contains(k))
+                .ToList();
+            if (rejectedKeys.Count > 0)
+                return Results.BadRequest(
+                    $"Fields cannot be user-locked: {string.Join(", ", rejectedKeys)}. " +
+                    $"Only these fields accept user locks: {string.Join(", ", UserLockableFields)}. " +
+                    "Structured metadata (title, author, year, etc.) is resolved by the provider hierarchy.");
 
             foreach (var (key, value) in request.Fields)
             {

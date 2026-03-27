@@ -282,33 +282,3 @@ internal sealed class StubMediaTypeAdvisor : IMediaTypeAdvisor
         });
 }
 
-/// <summary>
-/// No-op BatchManifestBuilder for tests — returns a trivial fallback manifest
-/// (one group per file) so existing test expectations are unaffected.
-/// </summary>
-internal sealed class StubBatchManifestBuilder : IBatchManifestBuilder
-{
-    public Task<IngestionManifest> AnalyzeAsync(
-        IReadOnlyList<BatchFileInput> files,
-        CancellationToken ct = default)
-    {
-        var groups = files.Select(f => new ManifestGroup
-        {
-            GroupType  = "single_work",
-            MediaType  = MediaType.Unknown,
-            Confidence = 0.1,
-            Files      = [new ManifestFile
-            {
-                FilePath   = f.FilePath,
-                Title      = System.IO.Path.GetFileNameWithoutExtension(f.FilePath),
-                Confidence = 0.1,
-            }],
-        }).ToList();
-
-        return Task.FromResult(new IngestionManifest
-        {
-            Groups           = groups,
-            ProcessingTimeMs = 0,
-        });
-    }
-}

@@ -156,9 +156,6 @@ public sealed class AiFeatureFlags
     [JsonPropertyName("type_logic")]
     public bool TypeLogic { get; set; } = true;
 
-    [JsonPropertyName("batch_manifest")]
-    public bool BatchManifest { get; set; } = true;
-
     [JsonPropertyName("audio_language_detection")]
     public bool AudioLanguageDetection { get; set; } = true;
 

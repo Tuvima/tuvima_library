@@ -32,6 +32,22 @@ public sealed class PriorityCascadeEngine : IScoringEngine
         Guid.Parse("b3000003-d000-4000-8000-000000000004");
 
     /// <summary>
+    /// Fields for which a user lock (Tier A) is honoured.
+    /// All other fields are resolved entirely by the provider hierarchy (Tiers B/C/D).
+    /// Rationale: structured metadata (title, author, year, genre, etc.) must come
+    /// from authoritative providers, not manual overrides, to preserve data integrity
+    /// and Wikidata authority. Users may only contribute personal ratings, media-type
+    /// corrections, and custom collection tags.
+    /// </summary>
+    private static readonly HashSet<string> UserLockableFields =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            "rating",       // User's personal rating for this title
+            "media_type",   // User correction of detected media type
+            "custom_tags",  // User-defined collection / labelling tags
+        };
+
+    /// <summary>
     /// Configuration loader — used to reload field priorities on every scoring call.
     /// </summary>
     private readonly IConfigurationLoader _configLoader;
@@ -106,26 +122,32 @@ public sealed class PriorityCascadeEngine : IScoringEngine
             var claimsForField = group.ToList();
             if (claimsForField.Count == 0) continue;
 
-            var lockedClaims = claimsForField
-                .Where(c => c.IsUserLocked)
-                .ToList();
-
-            // ── User-Locked claims always win (highest priority) ─────────
-            if (lockedClaims.Count > 0)
+            // ── Tier A: User locks — only honoured for user-contributed fields ──
+            // Structured metadata (title, author, year, genre, etc.) is resolved
+            // solely by the provider hierarchy. User locks are accepted only for
+            // personal ratings, media-type corrections, and custom collection tags.
+            if (UserLockableFields.Contains(group.Key))
             {
-                var winner = lockedClaims
-                    .OrderByDescending(c => c.ClaimedAt)
-                    .First();
+                var lockedClaims = claimsForField
+                    .Where(c => c.IsUserLocked)
+                    .ToList();
 
-                fieldScores.Add(new FieldScore
+                if (lockedClaims.Count > 0)
                 {
-                    Key               = group.Key,
-                    WinningValue      = winner.ClaimValue,
-                    Confidence        = 1.0,
-                    WinningProviderId = winner.ProviderId,
-                    IsConflicted      = false,
-                });
-                continue;
+                    var winner = lockedClaims
+                        .OrderByDescending(c => c.ClaimedAt)
+                        .First();
+
+                    fieldScores.Add(new FieldScore
+                    {
+                        Key               = group.Key,
+                        WinningValue      = winner.ClaimValue,
+                        Confidence        = 1.0,
+                        WinningProviderId = winner.ProviderId,
+                        IsConflicted      = false,
+                    });
+                    continue;
+                }
             }
 
             // ── Check for per-field provider priority override ───────────

@@ -560,7 +560,6 @@ builder.Services.AddSingleton<MediaEngine.AI.Whisper.AudioPreprocessor>();
 // Sprint 2: Ingestion features.
 builder.Services.AddSingleton<ISmartLabeler, MediaEngine.AI.Features.SmartLabeler>();
 builder.Services.AddSingleton<IMediaTypeAdvisor, MediaEngine.AI.Features.MediaTypeAdvisor>();
-builder.Services.AddSingleton<IBatchManifestBuilder, MediaEngine.AI.Features.BatchManifestBuilder>();
 
 // Sprint 3: Alignment features.
 builder.Services.AddSingleton<IQidDisambiguator, MediaEngine.AI.Features.QidDisambiguator>();

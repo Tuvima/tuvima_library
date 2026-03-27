@@ -54,7 +54,6 @@
   "features": {
     "smart_labeling": true,
     "type_logic": true,
-    "batch_manifest": true,
     "audio_language_detection": true,
     "qid_disambiguation": true,
     "series_alignment": true,

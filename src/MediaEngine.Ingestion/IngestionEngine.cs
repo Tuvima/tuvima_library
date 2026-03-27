@@ -105,12 +105,6 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     private readonly ISmartLabeler _smartLabeler;
     private readonly IMediaTypeAdvisor _typeAdvisor;
 
-    // Batch manifest analysis — groups files by series/album/work before individual processing.
-    private readonly IBatchManifestBuilder _manifestBuilder;
-
-    // Current batch manifest — set per FSW flush, read during individual file processing.
-    private IngestionManifest? _currentManifest;
-
     // Centralized concurrency guard (Principle 5: formalized lock hierarchy).
     // Replaces inline ConcurrentDictionary<string, SemaphoreSlim> instances.
     // Lock order: folder → hash (see ConcurrencyGuard doc for full hierarchy).
@@ -149,8 +143,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         IOrganizationGate          gate,
         IIngestionLogRepository    ingestionLog,
         ISmartLabeler             smartLabeler,
-        IMediaTypeAdvisor         typeAdvisor,
-        IBatchManifestBuilder     manifestBuilder)
+        IMediaTypeAdvisor         typeAdvisor)
     {
         _watcher        = watcher;
         _debounce       = debounce;
@@ -177,7 +170,6 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         _ingestionLog   = ingestionLog;
         _smartLabeler    = smartLabeler;
         _typeAdvisor     = typeAdvisor;
-        _manifestBuilder = manifestBuilder;
     }
 
     // =========================================================================
@@ -2485,41 +2477,6 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         }
 
         var batchId = Guid.NewGuid();
-        var count = snapshot.Count;
-
-        // Batch manifest analysis — groups files by series/album/work before individual processing.
-        // Best-effort: a failure must never block ingestion.
-        var batchInputs = snapshot
-            .Where(e => File.Exists(e.Path))
-            .Select(e =>
-            {
-                long size = 0;
-                try { size = new FileInfo(e.Path).Length; } catch { /* ignore — file may be locked */ }
-                return new BatchFileInput
-                {
-                    FilePath      = e.Path,
-                    Extension     = Path.GetExtension(e.Path),
-                    FileSizeBytes = size,
-                };
-            })
-            .ToList();
-
-        if (batchInputs.Count > 0)
-        {
-            try
-            {
-                var manifest = await _manifestBuilder.AnalyzeAsync(batchInputs).ConfigureAwait(false);
-                _logger.LogInformation(
-                    "Batch manifest: {Files} file(s) → {Groups} group(s) in {Ms}ms",
-                    batchInputs.Count, manifest.Groups.Count, manifest.ProcessingTimeMs);
-                _currentManifest = manifest;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Batch manifest analysis failed — processing files individually");
-                _currentManifest = null;
-            }
-        }
 
         // Stamp and enqueue all events.
         foreach (var evt in snapshot)
