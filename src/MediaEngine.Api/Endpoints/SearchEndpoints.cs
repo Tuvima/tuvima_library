@@ -92,18 +92,8 @@ public static class SearchEndpoints
                     Description      = r.Description,
                     CoverUrl         = r.CoverUrl,
                     RetailScore      = r.Confidence,
-                    DescriptionScore = r.DescriptionMatchScore,
+                    DescriptionScore = 0.0,
                     CompositeScore   = r.CompositeScore,
-                    FieldMatches     = r.DescriptionFieldMatches?
-                        .Select(f => new FieldMatchDetail
-                        {
-                            FieldKey  = f.FieldKey,
-                            FileValue = f.FileValue,
-                            Matched   = f.Matched,
-                            RawScore  = f.RawScore,
-                            Weight    = f.Weight,
-                        })
-                        .ToList(),
                 })
                 .ToList();
 

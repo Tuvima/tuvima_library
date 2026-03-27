@@ -23,9 +23,9 @@ namespace MediaEngine.Providers.Services;
 ///     Checked in priority order: isbn, isbn_13, asin, apple_books_id,
 ///     tmdb_id, imdb_id, musicbrainz_id, comic_vine_id.</item>
 ///   <item><b>Step 2:</b> (Placeholder) Fuzzy title+author match against
-///     canonical_values. Only exact ID matching is active now — covers the
-///     highest-impact cases (episodic series, ISBN-tagged books, ASIN
-///     audiobooks).</item>
+///     canonical_values using native Levenshtein distance. Only exact ID matching
+///     is active now — covers the highest-impact cases (episodic series,
+///     ISBN-tagged books, ASIN audiobooks).</item>
 /// </list>
 ///
 /// Spec: §3.21 — Cross-Media Metadata Strategy (Retail-First pipeline).
@@ -110,7 +110,7 @@ public sealed class LocalMatchService : ILocalMatchService
 
         // ── Step 2: Fuzzy title+author match (placeholder) ────────────────────
         // Full implementation: query canonical_values by "title" key with
-        // case-insensitive comparison, then apply FuzzySharp ratio against
+        // case-insensitive comparison, then apply native Levenshtein ratio against
         // the hint title with a threshold of LocalMatchFuzzyThreshold (0.95).
         // Deferred — exact ID matching covers the highest-impact cases for now.
 

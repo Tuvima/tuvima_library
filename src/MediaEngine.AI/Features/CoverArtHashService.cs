@@ -34,7 +34,7 @@ public sealed class CoverArtHashService : ICoverArtHashService
             }
 
             // Resize to 8×8
-            using var resized = bitmap.Resize(new SKImageInfo(HashSize, HashSize, SKColorType.Gray8), SKFilterQuality.Medium);
+            using var resized = bitmap.Resize(new SKImageInfo(HashSize, HashSize, SKColorType.Gray8), new SKSamplingOptions(SKFilterMode.Linear));
             if (resized is null)
             {
                 _logger.LogDebug("Failed to resize image for hashing");

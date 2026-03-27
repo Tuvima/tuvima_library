@@ -79,9 +79,9 @@ public sealed record SearchUniverseResult(
 
 /// <summary>
 /// Request to search retail providers for a media item.
-/// When <c>FileHints</c> is provided (narrator, series, publisher, etc.), the Engine runs
-/// <c>DescriptionMatchService</c> against candidate descriptions and blends the result
-/// into <c>RetailCandidate.CompositeScore</c> for improved ranking.
+/// When <c>FileHints</c> is provided (narrator, series, publisher, etc.), the Engine scores
+/// candidates against file-embedded hints and blends the result into
+/// <c>RetailCandidate.CompositeScore</c> for improved ranking.
 /// </summary>
 public sealed record SearchRetailRequest(
     [property: JsonPropertyName("query")]          string Query,
@@ -130,49 +130,11 @@ public sealed class RetailCandidate
     public FieldMatchResult? MatchScores { get; set; }
 
     /// <summary>
-    /// Description-based bonus score (0.0–1.0) from DescriptionMatchService.
-    /// Populated when the request includes FileHints. Zero when no hints provided.
-    /// </summary>
-    [JsonPropertyName("description_match_score")]
-    public double DescriptionMatchScore { get; set; }
-
-    /// <summary>
-    /// Per-field description match details for UI display.
-    /// Shows which file-embedded fields (narrator, series, publisher, …) matched in the candidate's text.
-    /// </summary>
-    [JsonPropertyName("description_field_matches")]
-    public IReadOnlyList<DescriptionFieldMatchEntry>? DescriptionFieldMatches { get; set; }
-
-    /// <summary>
     /// Composite ranking score combining retail fuzzy match (60%) and description match (40%).
     /// Used for sorting when FileHints were provided; equals Confidence otherwise.
     /// </summary>
     [JsonPropertyName("composite_score")]
     public double CompositeScore { get; set; }
-}
-
-/// <summary>A single field's description match result — surfaced in the Dashboard for match signal badges.</summary>
-public sealed class DescriptionFieldMatchEntry
-{
-    /// <summary>The file hint key (e.g. "narrator", "publisher", "series").</summary>
-    [JsonPropertyName("field_key")]
-    public string FieldKey { get; init; } = "";
-
-    /// <summary>The value from the file's embedded metadata.</summary>
-    [JsonPropertyName("file_value")]
-    public string FileValue { get; init; } = "";
-
-    /// <summary>Whether this field matched in the candidate's text.</summary>
-    [JsonPropertyName("matched")]
-    public bool Matched { get; init; }
-
-    /// <summary>Raw fuzzy score (0-100).</summary>
-    [JsonPropertyName("raw_score")]
-    public int RawScore { get; init; }
-
-    /// <summary>The configured weight for this field.</summary>
-    [JsonPropertyName("weight")]
-    public double Weight { get; init; }
 }
 
 /// <summary>Result of a retail search — list of candidates from relevant providers.</summary>

@@ -4,7 +4,7 @@ namespace MediaEngine.Domain.Services;
 
 /// <summary>
 /// Abstracts fuzzy string comparison for candidate matching.
-/// Implementation uses FuzzySharp (MIT) in MediaEngine.Intelligence.
+/// Implementation uses native Levenshtein distance (no external dependencies) in MediaEngine.Intelligence.
 /// </summary>
 public interface IFuzzyMatchingService
 {

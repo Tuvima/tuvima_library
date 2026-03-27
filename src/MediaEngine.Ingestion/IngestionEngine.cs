@@ -1155,6 +1155,13 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             catch (Exception ex) { _logger.LogDebug(ex, "Ingestion log update failed — continuing"); }
         }
 
+        // Update stored path when the file was moved to staging.
+        // This MUST happen before enqueuing hydration so that AutoOrganizeService
+        // reads the staging path (not the watch folder path) when it promotes the
+        // file to the organised library after hydration completes.
+        if (!string.Equals(currentPath, candidate.Path, StringComparison.Ordinal))
+            await _assetRepo.UpdateFilePathAsync(assetId, currentPath, ct).ConfigureAwait(false);
+
         // Phase 9→Pipeline: enqueue non-blocking three-stage hydration pipeline.
         // IMPORTANT: placed AFTER the organization gate so that any LowConfidence review
         // item created above already exists in the database before the hydration pipeline's
@@ -1190,10 +1197,6 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         // a co-author's bio before the pipeline can detect it as a collective pseudonym.
         // HydrationPipelineService.ExtractPersonReferencesFromRawClaims handles person
         // creation, linking, and enrichment after pen name detection has run.
-
-        // Update stored path when the file was moved (organized or staged).
-        if (!string.Equals(currentPath, candidate.Path, StringComparison.Ordinal))
-            await _assetRepo.UpdateFilePathAsync(assetId, currentPath, ct).ConfigureAwait(false);
 
         // Step 11b: persist cover art in staging.
         // The processor's CoverImage byte array is only available during initial

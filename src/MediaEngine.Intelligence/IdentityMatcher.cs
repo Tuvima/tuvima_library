@@ -19,8 +19,8 @@ namespace MediaEngine.Intelligence;
 ///    if entityValue == candidateValue (after normalisation) → immediate 1.0
 ///  Spec: "Matching of 'Hard Identifiers' MAY bypass fuzzy-logic comparisons."
 ///
-///  Pass 2 – Field-level fuzzy matching (FuzzySharp TokenSetRatio)
-///  ───────────────────────────────────────────────────────────────
+///  Pass 2 – Field-level fuzzy matching (native Levenshtein TokenSetRatio)
+///  ────────────────────────────────────────────────────────────────────────
 ///  For each key present in both entities:
 ///    score = IFuzzyMatchingService.ComputeTokenSetRatio(valueA, valueB)
 ///  Weighted average is computed with "title" receiving 50 % of the total
@@ -165,7 +165,7 @@ public sealed class IdentityMatcher : IIdentityMatcher
             return exact.Compute(a, b);
         }
 
-        // All other fields use FuzzySharp token-set-ratio via IFuzzyMatchingService.
+        // All other fields use native Levenshtein token-set-ratio via IFuzzyMatchingService.
         return _fuzzy.ComputeTokenSetRatio(a, b);
     }
 
