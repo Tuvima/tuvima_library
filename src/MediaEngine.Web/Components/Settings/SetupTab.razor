@@ -116,7 +116,10 @@
                              Size="Size.Small"
                              Color="Color.Default"
                              Style="margin: 0;">
-                        @provider
+                        @provider.Name
+                        <MudText Typo="Typo.caption" Color="Color.Secondary" Style="margin-left: 4px;">
+                            (@provider.LangLabel)
+                        </MudText>
                     </MudChip>
                 }
             </MudStack>
@@ -181,14 +184,16 @@
     private readonly string _language    = "English";
     private readonly string _libraryRoot = "/media/library";
 
-    private readonly string[] _configuredProviders =
+    private sealed record ProviderSummary(string Name, string LangLabel);
+
+    private readonly ProviderSummary[] _configuredProviders =
     [
-        "Wikidata Reconciliation",
-        "Apple API",
-        "Open Library",
-        "Google Books",
-        "TMDB",
-        "MusicBrainz",
+        new("Wikidata Reconciliation", "Both"),
+        new("Apple API", "Localized"),
+        new("Open Library", "Source"),
+        new("Google Books", "Source"),
+        new("TMDB", "Localized"),
+        new("MusicBrainz", "Source"),
     ];
 
     private readonly AiModelSummary[] _aiModels =

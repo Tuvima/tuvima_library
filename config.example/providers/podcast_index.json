@@ -2,6 +2,7 @@
   "name": "podcast_index",
   "version": "1.0",
   "enabled": false,
+  "language_strategy": "source",
   "weight": 0.65,
   "domain": "Podcasts",
   "icon": "images/providers/podcast_index.svg",

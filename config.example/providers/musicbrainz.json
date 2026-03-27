@@ -2,6 +2,7 @@
   "name": "musicbrainz",
   "version": "1.0",
   "enabled": true,
+  "language_strategy": "source",
   "weight": 0.7,
   "domain": "Universal",
   "icon": "images/providers/musicbrainz.svg",

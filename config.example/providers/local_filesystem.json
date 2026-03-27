@@ -2,6 +2,7 @@
   "name": "local_filesystem",
   "version": "1.0",
   "enabled": true,
+  "language_strategy": "source",
   "weight": 1.0,
   "domain": "Universal",
   "capability_tags": [],

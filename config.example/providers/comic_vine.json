@@ -2,6 +2,7 @@
   "name": "comic_vine",
   "version": "1.1",
   "enabled": false,
+  "language_strategy": "source",
   "weight": 0.75,
   "domain": "Comic",
   "icon": "images/providers/comic_vine.svg",

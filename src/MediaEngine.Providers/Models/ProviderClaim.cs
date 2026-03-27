@@ -23,4 +23,9 @@ namespace MediaEngine.Providers.Models;
 /// The adapter's confidence in this claim.  Range: 0.0–1.0.
 /// Used by the scoring engine's conflict resolver.
 /// </param>
-public sealed record ProviderClaim(string Key, string Value, double Confidence);
+/// <param name="SourceLanguage">
+/// The BCP-47 language code of the API response that produced this claim.
+/// <c>null</c> when the language is unknown or matches the user's metadata language.
+/// Set to <c>"en"</c> when a provider fell back to English after a localized query returned no results.
+/// </param>
+public sealed record ProviderClaim(string Key, string Value, double Confidence, string? SourceLanguage = null);

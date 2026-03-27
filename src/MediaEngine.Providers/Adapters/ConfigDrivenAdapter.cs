@@ -116,10 +116,16 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             return [];
         }
 
+        // Resolve the effective language based on the provider's language strategy.
+        var effectiveLang = ResolveEffectiveLanguage(request);
+        var effectiveRequest = string.Equals(effectiveLang, request.Language, StringComparison.OrdinalIgnoreCase)
+            ? request
+            : CloneRequestWithLanguage(request, effectiveLang);
+
         foreach (var strategy in strategies)
         {
             // Check required fields are present.
-            if (!AllRequiredFieldsPresent(strategy, request))
+            if (!AllRequiredFieldsPresent(strategy, effectiveRequest))
             {
                 _logger.LogDebug(
                     "{Provider}/{Strategy}: skipped — missing required fields",
@@ -129,7 +135,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
 
             try
             {
-                var claims = await ExecuteStrategyAsync(strategy, request, ct)
+                var claims = await ExecuteStrategyAsync(strategy, effectiveRequest, ct)
                     .ConfigureAwait(false);
 
                 if (claims.Count > 0)
@@ -153,6 +159,39 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                 _logger.LogWarning(ex,
                     "{Provider}/{Strategy}: failed, trying next strategy",
                     Name, strategy.Name);
+            }
+        }
+
+        // "Both" strategy: if the metadata-language pass found nothing, retry in English.
+        if (_config.LanguageStrategy == LanguageStrategy.Both
+            && !string.Equals(effectiveLang, "en", StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogDebug("{Provider}: 'both' strategy — retrying in English", Name);
+            var englishRequest = CloneRequestWithLanguage(request, "en");
+
+            foreach (var strategy in strategies)
+            {
+                if (!AllRequiredFieldsPresent(strategy, englishRequest))
+                    continue;
+
+                try
+                {
+                    var claims = await ExecuteStrategyAsync(strategy, englishRequest, ct)
+                        .ConfigureAwait(false);
+
+                    if (claims.Count > 0)
+                    {
+                        // Tag claims with source language since they came from English fallback.
+                        return claims.Select(c => c with { SourceLanguage = "en" }).ToList();
+                    }
+                }
+                catch (OperationCanceledException) { throw; }
+                catch (Exception ex) when (ex is HttpRequestException or System.Text.Json.JsonException or InvalidOperationException)
+                {
+                    _logger.LogWarning(ex,
+                        "{Provider}/{Strategy}: English fallback failed",
+                        Name, strategy.Name);
+                }
             }
         }
 
@@ -193,12 +232,18 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         if (strategies is null or { Count: 0 })
             return [];
 
+        // Resolve the effective language based on the provider's language strategy.
+        var effectiveLang = ResolveEffectiveLanguage(request);
+        var effectiveRequest = string.Equals(effectiveLang, request.Language, StringComparison.OrdinalIgnoreCase)
+            ? request
+            : CloneRequestWithLanguage(request, effectiveLang);
+
         // Use the lesser of caller limit, strategy max_results, and a hard cap of 50.
         var effectiveLimit = limit;
 
         foreach (var strategy in strategies)
         {
-            if (!AllRequiredFieldsPresent(strategy, request))
+            if (!AllRequiredFieldsPresent(strategy, effectiveRequest))
                 continue;
 
             // Strategies without a results_path return a single object — not useful
@@ -212,7 +257,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
 
             try
             {
-                var results = await ExecuteSearchStrategyAsync(strategy, request, effectiveLimit, ct)
+                var results = await ExecuteSearchStrategyAsync(strategy, effectiveRequest, effectiveLimit, ct)
                     .ConfigureAwait(false);
 
                 if (results.Count > 0)
@@ -227,6 +272,43 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                 _logger.LogWarning(ex,
                     "{Provider}/{Strategy}: search failed, trying next strategy",
                     Name, strategy.Name);
+            }
+        }
+
+        // "Both" strategy: if the metadata-language pass found nothing, retry in English.
+        if (_config.LanguageStrategy == LanguageStrategy.Both
+            && !string.Equals(effectiveLang, "en", StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogDebug("{Provider}: 'both' strategy — retrying search in English", Name);
+            var englishRequest = CloneRequestWithLanguage(request, "en");
+
+            foreach (var strategy in strategies)
+            {
+                if (!AllRequiredFieldsPresent(strategy, englishRequest))
+                    continue;
+
+                if (string.IsNullOrEmpty(strategy.ResultsPath))
+                    continue;
+
+                var strategyLimit = limit;
+                if (strategy.MaxResults > 0)
+                    strategyLimit = Math.Min(strategyLimit, strategy.MaxResults);
+
+                try
+                {
+                    var results = await ExecuteSearchStrategyAsync(strategy, englishRequest, strategyLimit, ct)
+                        .ConfigureAwait(false);
+
+                    if (results.Count > 0)
+                        return results;
+                }
+                catch (OperationCanceledException) { throw; }
+                catch (Exception ex) when (ex is HttpRequestException or System.Text.Json.JsonException or InvalidOperationException)
+                {
+                    _logger.LogWarning(ex,
+                        "{Provider}/{Strategy}: English fallback search failed",
+                        Name, strategy.Name);
+                }
             }
         }
 
@@ -1086,4 +1168,55 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
 
         return set;
     }
+
+    // ── Language strategy ───────────────────────────────────────────────────
+
+    /// <summary>
+    /// Resolves the effective language for API queries based on the provider's language strategy.
+    /// <list type="bullet">
+    ///   <item><see cref="LanguageStrategy.Source"/>: always English (provider has poor localization).</item>
+    ///   <item><see cref="LanguageStrategy.Localized"/>: use the request's metadata language.</item>
+    ///   <item><see cref="LanguageStrategy.Both"/>: primary pass uses metadata language, fallback to English
+    ///         is handled by the caller after the primary pass returns empty.</item>
+    /// </list>
+    /// </summary>
+    private string ResolveEffectiveLanguage(ProviderLookupRequest request) =>
+        _config.LanguageStrategy switch
+        {
+            LanguageStrategy.Localized => request.Language,
+            LanguageStrategy.Both      => request.Language, // Primary pass uses metadata lang
+            _                          => "en",             // Source: always English
+        };
+
+    /// <summary>
+    /// Creates a shallow copy of a <see cref="ProviderLookupRequest"/> with a different language.
+    /// Required because <see cref="ProviderLookupRequest"/> is a sealed class (not a record),
+    /// so the <c>with</c> expression is unavailable.
+    /// </summary>
+    private static ProviderLookupRequest CloneRequestWithLanguage(ProviderLookupRequest source, string language) =>
+        new()
+        {
+            EntityId       = source.EntityId,
+            EntityType     = source.EntityType,
+            MediaType      = source.MediaType,
+            Title          = source.Title,
+            Author         = source.Author,
+            Narrator       = source.Narrator,
+            Asin           = source.Asin,
+            Isbn           = source.Isbn,
+            AppleBooksId   = source.AppleBooksId,
+            AudibleId      = source.AudibleId,
+            TmdbId         = source.TmdbId,
+            ImdbId         = source.ImdbId,
+            PersonName     = source.PersonName,
+            PersonRole     = source.PersonRole,
+            PreResolvedQid = source.PreResolvedQid,
+            Hints          = source.Hints,
+            BaseUrl        = source.BaseUrl,
+            SparqlBaseUrl  = source.SparqlBaseUrl,
+            Language       = language,
+            FileLanguage   = source.FileLanguage,
+            Country        = source.Country,
+            HydrationPass  = source.HydrationPass,
+        };
 }

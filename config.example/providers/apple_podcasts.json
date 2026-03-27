@@ -2,6 +2,7 @@
   "name": "apple_podcasts",
   "version": "1.0",
   "enabled": true,
+  "language_strategy": "localized",
   "weight": 0.7,
   "domain": "Podcasts",
   "icon": "images/providers/apple_podcasts.svg",

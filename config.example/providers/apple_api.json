@@ -2,6 +2,7 @@
   "name": "apple_api",
   "version": "2.0",
   "enabled": true,
+  "language_strategy": "localized",
   "weight": 0.7,
   "domain": "Universal",
   "icon": "images/providers/apple_books.svg",

@@ -633,4 +633,21 @@
   <data name="Search_Subtitle" xml:space="preserve"><value>Use the search bar above to find books, audiobooks, and comics.</value></data>
   <data name="Search_AllTitles" xml:space="preserve"><value>All titles</value></data>
 
+  <!-- ── Provider Language Strategy ────────────────────────────────────── -->
+  <data name="Provider_LanguageStrategy" xml:space="preserve">
+    <value>Language Strategy</value>
+  </data>
+  <data name="Provider_LanguageStrategy_Source" xml:space="preserve">
+    <value>Source (always English)</value>
+  </data>
+  <data name="Provider_LanguageStrategy_Localized" xml:space="preserve">
+    <value>Localized (your language)</value>
+  </data>
+  <data name="Provider_LanguageStrategy_Both" xml:space="preserve">
+    <value>Both (try both, merge)</value>
+  </data>
+  <data name="Provider_LanguageStrategy_Help" xml:space="preserve">
+    <value>Controls whether this provider queries in your metadata language, English, or both.</value>
+  </data>
+
 </root>

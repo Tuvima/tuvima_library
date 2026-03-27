@@ -428,10 +428,22 @@
                                      Min="0"
                                      Max="5" />
                 </div>
+                <MudSelect T="string"
+                           @bind-Value="_drawerAssignment.LanguageStrategy"
+                           Label="Language Strategy"
+                           Variant="Variant.Outlined"
+                           Margin="Margin.Dense"
+                           FullWidth="true"
+                           Class="mt-3">
+                    <MudSelectItem T="string" Value="@("source")">Source (always English)</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("localized")">Localized (your language)</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("both")">Both (try both, merge)</MudSelectItem>
+                </MudSelect>
                 <MudText Typo="Typo.caption"
                          Style="color: var(--mud-palette-text-secondary); display: block; margin-top: 8px;">
                     Failed requests will retry up to @(_drawerAssignment.Retries) time@(_drawerAssignment.Retries == 1 ? "" : "s")
-                    before moving to the next provider.
+                    before moving to the next provider. Language strategy controls whether queries use
+                    your metadata language, English, or both.
                 </MudText>
             </div>
 
@@ -565,22 +577,23 @@
 
     private sealed class ProviderAssignment
     {
-        public string Name      { get; set; } = "";
-        public int    TimeoutMs { get; set; } = 3000;
-        public string ApiKey    { get; set; } = "";
-        public bool   Enabled   { get; set; } = true;
-        public int    Retries   { get; set; } = 1;
+        public string Name             { get; set; } = "";
+        public int    TimeoutMs        { get; set; } = 3000;
+        public string ApiKey           { get; set; } = "";
+        public bool   Enabled          { get; set; } = true;
+        public int    Retries          { get; set; } = 1;
+        public string LanguageStrategy { get; set; } = "source";
     }
 
     private static readonly Dictionary<string, List<ProviderAssignment>> DefaultAssignments = new()
     {
-        ["Books"]      = [new() { Name = "Apple API" }, new() { Name = "Google Books" }],
-        ["Audiobooks"] = [new() { Name = "Apple API" }],
-        ["Movies"]     = [new() { Name = "TMDB" }],
-        ["TV"]         = [new() { Name = "TMDB" }],
-        ["Music"]      = [new() { Name = "MusicBrainz" }],
-        ["Comics"]     = [new() { Name = "Comic Vine" }],
-        ["Podcasts"]   = [new() { Name = "Apple Podcasts" }, new() { Name = "Podcast Index" }],
+        ["Books"]      = [new() { Name = "Apple API", LanguageStrategy = "localized" }, new() { Name = "Google Books", LanguageStrategy = "source" }],
+        ["Audiobooks"] = [new() { Name = "Apple API", LanguageStrategy = "localized" }],
+        ["Movies"]     = [new() { Name = "TMDB", LanguageStrategy = "localized" }],
+        ["TV"]         = [new() { Name = "TMDB", LanguageStrategy = "localized" }],
+        ["Music"]      = [new() { Name = "MusicBrainz", LanguageStrategy = "source" }],
+        ["Comics"]     = [new() { Name = "Comic Vine", LanguageStrategy = "source" }],
+        ["Podcasts"]   = [new() { Name = "Apple Podcasts", LanguageStrategy = "localized" }, new() { Name = "Podcast Index", LanguageStrategy = "source" }],
     };
 
     private static readonly Dictionary<string, string[]> ProviderMediaTypes = new()
@@ -712,11 +725,12 @@
             kv => kv.Key,
             kv => kv.Value.Select(a => new ProviderAssignment
             {
-                Name      = a.Name,
-                TimeoutMs = a.TimeoutMs,
-                ApiKey    = a.ApiKey,
-                Enabled   = a.Enabled,
-                Retries   = a.Retries,
+                Name             = a.Name,
+                TimeoutMs        = a.TimeoutMs,
+                ApiKey           = a.ApiKey,
+                Enabled          = a.Enabled,
+                Retries          = a.Retries,
+                LanguageStrategy = a.LanguageStrategy,
             }).ToList());
     }
 

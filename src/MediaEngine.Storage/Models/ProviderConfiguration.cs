@@ -180,6 +180,23 @@ public sealed class ProviderConfiguration
     /// </summary>
     [JsonPropertyName("custom_icon_name")]
     public string? CustomIconName { get; set; }
+
+    /// <summary>
+    /// Controls how the adapter handles language when querying this provider's API.
+    /// <c>"source"</c> — always query in English (default).
+    /// <c>"localized"</c> — query in the user's metadata language.
+    /// <c>"both"</c> — query in both languages and merge results.
+    /// See <see cref="MediaEngine.Domain.Enums.LanguageStrategy"/>.
+    /// </summary>
+    [JsonPropertyName("language_strategy")]
+    public string LanguageStrategyRaw { get; set; } = "source";
+
+    /// <summary>Parsed <see cref="LanguageStrategy"/> from <see cref="LanguageStrategyRaw"/>.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public MediaEngine.Domain.Enums.LanguageStrategy LanguageStrategy =>
+        Enum.TryParse<MediaEngine.Domain.Enums.LanguageStrategy>(LanguageStrategyRaw, ignoreCase: true, out var v)
+            ? v
+            : MediaEngine.Domain.Enums.LanguageStrategy.Source;
 }
 
 /// <summary>HTTP client configuration for config-driven provider adapters.</summary>

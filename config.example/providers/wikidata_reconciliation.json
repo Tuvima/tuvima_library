@@ -3,6 +3,7 @@
   "provider_id": "b3000003-d000-4000-8000-000000000004",
   "adapter_type": "reconciliation",
   "enabled": true,
+  "language_strategy": "both",
   "hydration_stages": [2],
   "endpoints": {
     "wikibase_api": "https://www.wikidata.org/w/api.php",
