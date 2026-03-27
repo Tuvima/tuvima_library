@@ -19,33 +19,48 @@
         @* Sort *@
         <div class="vault-control-group">
             <select class="vault-select" value="@SortBy" @onchange="OnSortChanged">
-                <option value="newest">@L["VaultToolbar_SortNewest"]</option>
-                <option value="oldest">@L["VaultToolbar_SortOldest"]</option>
-                <option value="confidence">@L["VaultToolbar_SortConfidence"]</option>
+                @if (ActiveTab == "people")
+                {
+                    <option value="presence">Presence</option>
+                    <option value="name">Name</option>
+                    <option value="newest">Newest</option>
+                }
+                else
+                {
+                    <option value="newest">@L["VaultToolbar_SortNewest"]</option>
+                    <option value="oldest">@L["VaultToolbar_SortOldest"]</option>
+                    <option value="title">Title</option>
+                    <option value="universe">Universe</option>
+                    <option value="confidence">@L["VaultToolbar_SortConfidence"]</option>
+                }
             </select>
         </div>
 
-        <div class="vault-control-divider"></div>
+        @if (ActiveTab == "media")
+        {
+            <div class="vault-control-divider"></div>
 
-        @* Group *@
-        <div class="vault-control-group">
-            <select class="vault-select" value="@GroupBy" @onchange="OnGroupChanged">
-                <option value="none">@L["VaultToolbar_GroupNone"]</option>
-                <option value="type">@L["VaultToolbar_GroupType"]</option>
-                <option value="status">@L["VaultToolbar_GroupStatus"]</option>
-                <option value="letter">@L["VaultToolbar_GroupLetter"]</option>
-            </select>
-        </div>
+            @* Group *@
+            <div class="vault-control-group">
+                <select class="vault-select" value="@GroupBy" @onchange="OnGroupChanged">
+                    <option value="none">@L["VaultToolbar_GroupNone"]</option>
+                    <option value="type">@L["VaultToolbar_GroupType"]</option>
+                    <option value="status">@L["VaultToolbar_GroupStatus"]</option>
+                    <option value="letter">@L["VaultToolbar_GroupLetter"]</option>
+                    <option value="universe">Universe</option>
+                </select>
+            </div>
 
-        <div class="vault-control-divider"></div>
+            <div class="vault-control-divider"></div>
 
-        @* Poster Size *@
-        <div class="vault-control-group vault-poster-slider">
-            <MudIcon Icon="@Icons.Material.Outlined.PhotoSizeSelectLarge"
-                     Style="font-size: 14px; color: rgba(255,255,255,0.3);" />
-            <input type="range" class="vault-range" min="40" max="72" step="4"
-                   value="@PosterSize" @oninput="OnPosterSizeInput" />
-        </div>
+            @* Poster Size *@
+            <div class="vault-control-group vault-poster-slider">
+                <MudIcon Icon="@Icons.Material.Outlined.PhotoSizeSelectLarge"
+                         Style="font-size: 14px; color: rgba(255,255,255,0.3);" />
+                <input type="range" class="vault-range" min="40" max="72" step="4"
+                       value="@PosterSize" @oninput="OnPosterSizeInput" />
+            </div>
+        }
     </div>
 </div>
 

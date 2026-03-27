@@ -9,21 +9,22 @@ namespace MediaEngine.Storage;
 /// SQLite implementation of <see cref="IPersonRepository"/>.
 /// Uses Dapper for type-safe column-to-property mapping.
 ///
-/// Persons are looked up by (name, role) at ingestion time and enriched
-/// asynchronously by the Wikidata adapter.  Person-to-asset links live in
+/// Persons are looked up by QID or name at ingestion time and enriched
+/// asynchronously by the Wikidata adapter.  Roles are stored in the
+/// <c>person_roles</c> junction table.  Person-to-asset links live in
 /// the <c>person_media_links</c> junction table.
 ///
-/// Spec: Phase 9 – Recursive Person Enrichment.
+/// Spec: Phase 9 - Recursive Person Enrichment.
 /// </summary>
 public sealed class PersonRepository : IPersonRepository
 {
     private readonly IDatabaseConnection _db;
 
     // Reusable SELECT list with aliases matching Person property names.
+    // Note: 'role' column has been removed; roles come from person_roles.
     private const string SelectColumns = """
         id                 AS Id,
         name               AS Name,
-        role               AS Role,
         wikidata_qid       AS WikidataQid,
         headshot_url       AS HeadshotUrl,
         biography          AS Biography,
@@ -47,6 +48,40 @@ public sealed class PersonRepository : IPersonRepository
     /// <summary>Helper record for reading character-performer link rows.</summary>
     private sealed record CharacterLinkRow(string FictionalEntityId, string? WorkQid);
 
+    /// <summary>Helper record for the ListAllAsync GROUP_CONCAT query.</summary>
+    private sealed record PersonWithRolesCsv
+    {
+        public string Id { get; init; } = "";
+        public string Name { get; init; } = "";
+        public string? WikidataQid { get; init; }
+        public string? HeadshotUrl { get; init; }
+        public string? Biography { get; init; }
+        public string? CreatedAt { get; init; }
+        public string? EnrichedAt { get; init; }
+        public string? Occupation { get; init; }
+        public string? Instagram { get; init; }
+        public string? Twitter { get; init; }
+        public string? TikTok { get; init; }
+        public string? Mastodon { get; init; }
+        public string? Website { get; init; }
+        public string? LocalHeadshotPath { get; init; }
+        public string? DateOfBirth { get; init; }
+        public string? DateOfDeath { get; init; }
+        public string? PlaceOfBirth { get; init; }
+        public string? PlaceOfDeath { get; init; }
+        public string? Nationality { get; init; }
+        public int IsPseudonym { get; init; }
+        public string? RolesCsv { get; init; }
+    }
+
+    /// <summary>Helper record for the presence batch query.</summary>
+    private sealed record PresenceRow
+    {
+        public string PersonId { get; init; } = "";
+        public string MediaType { get; init; } = "";
+        public int Count { get; init; }
+    }
+
     public PersonRepository(IDatabaseConnection db)
     {
         ArgumentNullException.ThrowIfNull(db);
@@ -60,25 +95,24 @@ public sealed class PersonRepository : IPersonRepository
     /// <inheritdoc/>
     public Task<Person?> FindByNameAsync(
         string name,
-        string role,
         CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
-        ArgumentException.ThrowIfNullOrWhiteSpace(role);
 
         using var conn = _db.CreateConnection();
         // COLLATE NOCASE: SQLite case-insensitive comparison for ASCII names.
         var p = new DynamicParameters();
         p.Add("name", name);
-        p.Add("role", role);
         var result = conn.QueryFirstOrDefault<Person>($"""
             SELECT {SelectColumns}
             FROM   persons
             WHERE  name = @name COLLATE NOCASE
-              AND  role = @role COLLATE NOCASE
             LIMIT  1;
             """, p);
+
+        if (result is not null)
+            PopulateRoles(conn, result);
 
         return Task.FromResult(result);
     }
@@ -93,7 +127,6 @@ public sealed class PersonRepository : IPersonRepository
         var p = new DynamicParameters();
         p.Add("id",          person.Id.ToString());
         p.Add("name",        person.Name);
-        p.Add("role",        person.Role);
         p.Add("wikidataQid", person.WikidataQid);
         p.Add("headshotUrl", person.HeadshotUrl);
         p.Add("biography",   person.Biography);
@@ -107,14 +140,27 @@ public sealed class PersonRepository : IPersonRepository
         p.Add("isPseudonym",  person.IsPseudonym ? 1 : 0);
         conn.Execute("""
             INSERT INTO persons
-                (id, name, role, wikidata_qid, headshot_url, biography,
+                (id, name, wikidata_qid, headshot_url, biography,
                  created_at, enriched_at, date_of_birth, date_of_death,
                  place_of_birth, place_of_death, nationality, is_pseudonym)
             VALUES
-                (@id, @name, @role, @wikidataQid, @headshotUrl, @biography,
+                (@id, @name, @wikidataQid, @headshotUrl, @biography,
                  @createdAt, @enrichedAt, @dateOfBirth, @dateOfDeath,
                  @placeOfBirth, @placeOfDeath, @nationality, @isPseudonym);
             """, p);
+
+        // Insert each role into person_roles junction table.
+        foreach (var role in person.Roles)
+        {
+            if (string.IsNullOrWhiteSpace(role)) continue;
+            var rp = new DynamicParameters();
+            rp.Add("personId", person.Id.ToString());
+            rp.Add("role", role);
+            conn.Execute("""
+                INSERT OR IGNORE INTO person_roles (person_id, role)
+                VALUES (@personId, @role);
+                """, rp);
+        }
 
         return Task.FromResult(person);
     }
@@ -257,10 +303,9 @@ public sealed class PersonRepository : IPersonRepository
         using var conn = _db.CreateConnection();
         var p = new DynamicParameters();
         p.Add("mediaAssetId", mediaAssetId.ToString());
-        var results = conn.Query<Person>($"""
+        var rows = conn.Query<PersonWithRolesCsv>($"""
             SELECT p.id                  AS Id,
                    p.name                AS Name,
-                   p.role                AS Role,
                    p.wikidata_qid        AS WikidataQid,
                    p.headshot_url        AS HeadshotUrl,
                    p.biography           AS Biography,
@@ -278,13 +323,17 @@ public sealed class PersonRepository : IPersonRepository
                    p.place_of_birth      AS PlaceOfBirth,
                    p.place_of_death      AS PlaceOfDeath,
                    p.nationality         AS Nationality,
-                   p.is_pseudonym        AS IsPseudonym
+                   p.is_pseudonym        AS IsPseudonym,
+                   GROUP_CONCAT(pr.role, ',') AS RolesCsv
             FROM   persons p
             JOIN   person_media_links l ON l.person_id = p.id
+            LEFT JOIN person_roles pr ON pr.person_id = p.id
             WHERE  l.media_asset_id = @mediaAssetId
+            GROUP  BY p.id
             ORDER  BY p.name ASC;
             """, p).AsList();
 
+        var results = rows.Select(MapFromCsvRow).ToList();
         return Task.FromResult<IReadOnlyList<Person>>(results);
     }
 
@@ -325,6 +374,9 @@ public sealed class PersonRepository : IPersonRepository
             LIMIT  1;
             """, p);
 
+        if (result is not null)
+            PopulateRoles(conn, result);
+
         return Task.FromResult(result);
     }
 
@@ -334,12 +386,35 @@ public sealed class PersonRepository : IPersonRepository
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
-        var results = conn.Query<Person>($"""
-            SELECT {SelectColumns}
-            FROM   persons
-            ORDER  BY name ASC;
+        var rows = conn.Query<PersonWithRolesCsv>("""
+            SELECT p.id                  AS Id,
+                   p.name                AS Name,
+                   p.wikidata_qid        AS WikidataQid,
+                   p.headshot_url        AS HeadshotUrl,
+                   p.biography           AS Biography,
+                   p.created_at          AS CreatedAt,
+                   p.enriched_at         AS EnrichedAt,
+                   p.occupation          AS Occupation,
+                   p.instagram           AS Instagram,
+                   p.twitter             AS Twitter,
+                   p.tiktok              AS TikTok,
+                   p.mastodon            AS Mastodon,
+                   p.website             AS Website,
+                   p.local_headshot_path AS LocalHeadshotPath,
+                   p.date_of_birth       AS DateOfBirth,
+                   p.date_of_death       AS DateOfDeath,
+                   p.place_of_birth      AS PlaceOfBirth,
+                   p.place_of_death      AS PlaceOfDeath,
+                   p.nationality         AS Nationality,
+                   p.is_pseudonym        AS IsPseudonym,
+                   GROUP_CONCAT(pr.role, ',') AS RolesCsv
+            FROM   persons p
+            LEFT JOIN person_roles pr ON pr.person_id = p.id
+            GROUP  BY p.id
+            ORDER  BY p.name ASC;
             """).AsList();
 
+        var results = rows.Select(MapFromCsvRow).ToList();
         return Task.FromResult<IReadOnlyList<Person>>(results);
     }
 
@@ -374,6 +449,9 @@ public sealed class PersonRepository : IPersonRepository
             LIMIT  1;
             """, p);
 
+        if (result is not null)
+            PopulateRoles(conn, result);
+
         return Task.FromResult(result);
     }
 
@@ -389,6 +467,9 @@ public sealed class PersonRepository : IPersonRepository
         var p = new DynamicParameters();
         p.Add("id", id);
         conn.Execute(
+            "DELETE FROM person_roles WHERE person_id = @id;",
+            p);
+        conn.Execute(
             "DELETE FROM person_media_links WHERE person_id = @id;",
             p);
 
@@ -397,6 +478,103 @@ public sealed class PersonRepository : IPersonRepository
             p);
 
         return Task.CompletedTask;
+    }
+
+    // -------------------------------------------------------------------------
+    // Role management (person_roles junction table)
+    // -------------------------------------------------------------------------
+
+    /// <inheritdoc/>
+    public Task AddRoleAsync(Guid personId, string role, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        ArgumentException.ThrowIfNullOrWhiteSpace(role);
+
+        using var conn = _db.CreateConnection();
+        var p = new DynamicParameters();
+        p.Add("personId", personId.ToString());
+        p.Add("role", role);
+        conn.Execute("""
+            INSERT OR IGNORE INTO person_roles (person_id, role)
+            VALUES (@personId, @role);
+            """, p);
+
+        return Task.CompletedTask;
+    }
+
+    /// <inheritdoc/>
+    public Task<IReadOnlyList<string>> GetRolesAsync(Guid personId, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        using var conn = _db.CreateConnection();
+        var p = new DynamicParameters();
+        p.Add("id", personId.ToString());
+        var roles = conn.Query<string>("""
+            SELECT role FROM person_roles WHERE person_id = @id ORDER BY role;
+            """, p).AsList();
+
+        return Task.FromResult<IReadOnlyList<string>>(roles);
+    }
+
+    /// <inheritdoc/>
+    public Task<Dictionary<string, int>> GetRoleCountsAsync(CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        using var conn = _db.CreateConnection();
+        var rows = conn.Query<(string Role, int Count)>("""
+            SELECT role AS Role, COUNT(DISTINCT person_id) AS Count
+            FROM   person_roles
+            GROUP  BY role;
+            """).AsList();
+
+        var result = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (role, count) in rows)
+            result[role] = count;
+
+        return Task.FromResult(result);
+    }
+
+    /// <inheritdoc/>
+    public Task<Dictionary<Guid, Dictionary<string, int>>> GetPresenceBatchAsync(
+        IEnumerable<Guid> personIds,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        var idList = personIds.Select(id => id.ToString()).ToList();
+        if (idList.Count == 0)
+            return Task.FromResult(new Dictionary<Guid, Dictionary<string, int>>());
+
+        using var conn = _db.CreateConnection();
+        var p = new DynamicParameters();
+        p.Add("PersonIds", idList);
+        var rows = conn.Query<PresenceRow>("""
+            SELECT p.id AS PersonId, cv.value AS MediaType, COUNT(DISTINCT w.id) AS Count
+            FROM persons p
+            JOIN person_media_links pml ON pml.person_id = p.id
+            JOIN media_assets ma ON ma.id = pml.media_asset_id
+            JOIN editions e ON e.id = ma.edition_id
+            JOIN works w ON w.id = e.work_id
+            JOIN canonical_values cv ON cv.entity_id = ma.id AND cv.key = 'media_type'
+            WHERE p.id IN @PersonIds
+            GROUP BY p.id, cv.value;
+            """, p).AsList();
+
+        var result = new Dictionary<Guid, Dictionary<string, int>>();
+        foreach (var row in rows)
+        {
+            var personId = Guid.Parse(row.PersonId);
+            if (!result.TryGetValue(personId, out var mediaMap))
+            {
+                mediaMap = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                result[personId] = mediaMap;
+            }
+            mediaMap[row.MediaType] = row.Count;
+        }
+
+        return Task.FromResult(result);
     }
 
     // -------------------------------------------------------------------------
@@ -437,10 +615,9 @@ public sealed class PersonRepository : IPersonRepository
         // and pseudonyms used by a real person.
         var p = new DynamicParameters();
         p.Add("id", personId.ToString());
-        var results = conn.Query<Person>($"""
+        var rows = conn.Query<PersonWithRolesCsv>($"""
             SELECT p.id                  AS Id,
                    p.name                AS Name,
-                   p.role                AS Role,
                    p.wikidata_qid        AS WikidataQid,
                    p.headshot_url        AS HeadshotUrl,
                    p.biography           AS Biography,
@@ -458,16 +635,20 @@ public sealed class PersonRepository : IPersonRepository
                    p.place_of_birth      AS PlaceOfBirth,
                    p.place_of_death      AS PlaceOfDeath,
                    p.nationality         AS Nationality,
-                   p.is_pseudonym        AS IsPseudonym
+                   p.is_pseudonym        AS IsPseudonym,
+                   GROUP_CONCAT(pr.role, ',') AS RolesCsv
             FROM   persons p
+            LEFT JOIN person_roles pr ON pr.person_id = p.id
             WHERE  p.id IN (
                 SELECT real_person_id FROM person_aliases WHERE pseudonym_person_id = @id
                 UNION
                 SELECT pseudonym_person_id FROM person_aliases WHERE real_person_id = @id
             )
+            GROUP  BY p.id
             ORDER  BY p.name ASC;
             """, p).AsList();
 
+        var results = rows.Select(MapFromCsvRow).ToList();
         return Task.FromResult<IReadOnlyList<Person>>(results);
     }
 
@@ -556,7 +737,15 @@ public sealed class PersonRepository : IPersonRepository
             "DELETE FROM person_media_links WHERE person_id = @from;",
             pFrom, transaction: tx);
 
-        // 2. Reassign character-performer links
+        // 2. Reassign person_roles (merge roles from source into target)
+        conn.Execute(
+            "INSERT OR IGNORE INTO person_roles (person_id, role) SELECT @to, role FROM person_roles WHERE person_id = @from;",
+            pToFrom, transaction: tx);
+        conn.Execute(
+            "DELETE FROM person_roles WHERE person_id = @from;",
+            pFrom, transaction: tx);
+
+        // 3. Reassign character-performer links
         conn.Execute(
             "UPDATE OR IGNORE character_performer_links SET person_id = @to WHERE person_id = @from;",
             pToFrom, transaction: tx);
@@ -564,7 +753,7 @@ public sealed class PersonRepository : IPersonRepository
             "DELETE FROM character_performer_links WHERE person_id = @from;",
             pFrom, transaction: tx);
 
-        // 3. Reassign alias links (both directions)
+        // 4. Reassign alias links (both directions)
         conn.Execute(
             "UPDATE OR IGNORE person_aliases SET pseudonym_person_id = @to WHERE pseudonym_person_id = @from;",
             pToFrom, transaction: tx);
@@ -587,7 +776,7 @@ public sealed class PersonRepository : IPersonRepository
         var id = personId.ToString();
         using var conn = _db.CreateConnection();
 
-        // Check persons.is_pseudonym flag first — cheapest query.
+        // Check persons.is_pseudonym flag first - cheapest query.
         var pId = new DynamicParameters();
         pId.Add("id", id);
 
@@ -598,12 +787,67 @@ public sealed class PersonRepository : IPersonRepository
         if (isPseudo)
             return Task.FromResult(true);
 
-        // Check person_aliases in either direction — pen name or real author.
+        // Check person_aliases in either direction - pen name or real author.
         var isAlias = conn.ExecuteScalar<int>("""
             SELECT COUNT(1) FROM person_aliases
             WHERE pseudonym_person_id = @id OR real_person_id = @id;
             """, pId) > 0;
 
         return Task.FromResult(isAlias);
+    }
+
+    // -------------------------------------------------------------------------
+    // Private helpers
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Populates the <see cref="Person.Roles"/> list from the <c>person_roles</c> table
+    /// for a single person that was loaded without a GROUP_CONCAT join.
+    /// </summary>
+    private static void PopulateRoles(Microsoft.Data.Sqlite.SqliteConnection conn, Person person)
+    {
+        var p = new DynamicParameters();
+        p.Add("id", person.Id.ToString());
+        person.Roles = conn.Query<string>("""
+            SELECT role FROM person_roles WHERE person_id = @id ORDER BY role;
+            """, p).AsList();
+    }
+
+    /// <summary>
+    /// Maps a <see cref="PersonWithRolesCsv"/> row (from GROUP_CONCAT query) to a
+    /// <see cref="Person"/> entity with the <see cref="Person.Roles"/> list populated.
+    /// </summary>
+    private static Person MapFromCsvRow(PersonWithRolesCsv row)
+    {
+        var roles = string.IsNullOrEmpty(row.RolesCsv)
+            ? new List<string>()
+            : row.RolesCsv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                           .Distinct(StringComparer.OrdinalIgnoreCase)
+                           .ToList();
+
+        return new Person
+        {
+            Id               = Guid.Parse(row.Id),
+            Name             = row.Name,
+            Roles            = roles,
+            WikidataQid      = row.WikidataQid,
+            HeadshotUrl      = row.HeadshotUrl,
+            Biography        = row.Biography,
+            CreatedAt        = row.CreatedAt is not null ? DateTimeOffset.Parse(row.CreatedAt) : DateTimeOffset.UtcNow,
+            EnrichedAt       = row.EnrichedAt is not null ? DateTimeOffset.Parse(row.EnrichedAt) : null,
+            Occupation       = row.Occupation,
+            Instagram        = row.Instagram,
+            Twitter          = row.Twitter,
+            TikTok           = row.TikTok,
+            Mastodon         = row.Mastodon,
+            Website          = row.Website,
+            LocalHeadshotPath = row.LocalHeadshotPath,
+            DateOfBirth      = row.DateOfBirth,
+            DateOfDeath      = row.DateOfDeath,
+            PlaceOfBirth     = row.PlaceOfBirth,
+            PlaceOfDeath     = row.PlaceOfDeath,
+            Nationality      = row.Nationality,
+            IsPseudonym      = row.IsPseudonym != 0,
+        };
     }
 }

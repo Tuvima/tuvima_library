@@ -135,18 +135,23 @@ public sealed class RecursiveIdentityService : IRecursiveIdentityService
             person = await _personRepo.FindByQidAsync(reference.WikidataQid!, ct)
                          .ConfigureAwait(false);
 
-            if (person is null)
+            if (person is not null)
+            {
+                // Add role to existing person if not already present.
+                await _personRepo.AddRoleAsync(person.Id, reference.Role, ct).ConfigureAwait(false);
+            }
+            else
             {
                 person = await _personRepo.CreateAsync(new Person
                 {
                     Name         = normalizedName,
-                    Role         = reference.Role,
+                    Roles        = [reference.Role],
                     WikidataQid  = reference.WikidataQid,
                 }, ct).ConfigureAwait(false);
 
                 _logger.LogDebug(
                     "Created person record for '{Name}' ({Role}, {Qid}), id={Id}",
-                    person.Name, person.Role, reference.WikidataQid, person.Id);
+                    person.Name, reference.Role, reference.WikidataQid, person.Id);
             }
         }
         finally

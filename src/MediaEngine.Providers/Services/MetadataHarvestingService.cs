@@ -768,7 +768,7 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         {
             Id = stubId,
             Name = $"Unknown Person ({missingQid})",
-            Role = "Author", // Default role
+            Roles = ["Author"], // Default role
             WikidataQid = missingQid,
             CreatedAt = DateTimeOffset.UtcNow,
             IsPseudonym = isMissingPersonPseudonym

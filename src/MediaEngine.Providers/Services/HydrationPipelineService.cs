@@ -2893,7 +2893,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                     {
                         // Fallback: find by name if QID hasn't been set yet
                         // (enrichment is async, QID may not be written yet).
-                        person = await _personRepo.FindByNameAsync(actorLabel, "Cast Member", ct)
+                        person = await _personRepo.FindByNameAsync(actorLabel, ct)
                             .ConfigureAwait(false);
                     }
 
@@ -3053,12 +3053,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 authorName = authorName.Split("|||")[0].Trim();
 
             // Look up the person by name (as Author) to check the pseudonym flag.
-            var pseudonymPerson = await _personRepo.FindByNameAsync(authorName, "Author", ct).ConfigureAwait(false);
-            if (pseudonymPerson is null || !pseudonymPerson.IsPseudonym)
-            {
-                // Also check Narrator role (audiobooks credited to pseudonym narrators).
-                pseudonymPerson = await _personRepo.FindByNameAsync(authorName, "Narrator", ct).ConfigureAwait(false);
-            }
+            var pseudonymPerson = await _personRepo.FindByNameAsync(authorName, ct).ConfigureAwait(false);
 
             if (pseudonymPerson is null || !pseudonymPerson.IsPseudonym)
                 return;
@@ -3171,6 +3166,10 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         AddPersonRefsFromLists(refs, "Narrator", byKey, "narrator",  "narrator_qid");
         AddPersonRefsFromLists(refs, "Narrator", byKey, "performer", "performer_qid");
         AddPersonRefsFromLists(refs, "Director", byKey, "director",  "director_qid");
+        AddPersonRefsFromLists(refs, "Screenwriter", byKey, "screenwriter", "screenwriter_qid");
+        AddPersonRefsFromLists(refs, "Composer",     byKey, "composer",     "composer_qid");
+        AddPersonRefsFromLists(refs, "Cast Member",  byKey, "cast_member",  "cast_member_qid");
+        AddPersonRefsFromLists(refs, "Illustrator",  byKey, "illustrator",  "illustrator_qid");
 
         // Mark author refs as collective pseudonyms when the adapter flagged it.
         // This prevents person enrichment from looking up the pen name on Wikidata
@@ -3217,13 +3216,10 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         }
 
         // QID-first: only emit references with a confirmed Wikidata QID.
-        // Name-only references (from processor metadata before Wikidata match)
-        // are dropped — Person records require a verified identity.
-        // Deduplicate by (Role, QID).
+        // Deduplicate by QID only (persons can have multiple roles).
         return refs
             .Where(r => !string.IsNullOrEmpty(r.WikidataQid))
-            .GroupBy(r => (r.Role, Key: r.WikidataQid!),
-                     new RoleKeyComparer())
+            .GroupBy(r => r.WikidataQid!, StringComparer.OrdinalIgnoreCase)
             .Select(g => g.First())
             .ToList();
     }
@@ -3266,19 +3262,6 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         }
     }
 
-    /// <summary>Comparer for deduplicating person references by (Role, Key) tuple.</summary>
-    private sealed class RoleKeyComparer : IEqualityComparer<(string Role, string Key)>
-    {
-        public bool Equals((string Role, string Key) x, (string Role, string Key) y) =>
-            StringComparer.OrdinalIgnoreCase.Equals(x.Role, y.Role) &&
-            StringComparer.OrdinalIgnoreCase.Equals(x.Key, y.Key);
-
-        public int GetHashCode((string Role, string Key) obj) =>
-            HashCode.Combine(
-                StringComparer.OrdinalIgnoreCase.GetHashCode(obj.Role),
-                StringComparer.OrdinalIgnoreCase.GetHashCode(obj.Key));
-    }
-
     /// Extracts person references (author, narrator) from canonical values
     /// for person enrichment (runs as part of Stage 1).
     ///
@@ -3296,6 +3279,10 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         AddPersonRefs(refs, "Narrator", canonicals, "narrator", "narrator_qid");
         AddPersonRefs(refs, "Narrator", canonicals, "performer", "performer_qid");
         AddPersonRefs(refs, "Director", canonicals, "director", "director_qid");
+        AddPersonRefs(refs, "Screenwriter", canonicals, "screenwriter", "screenwriter_qid");
+        AddPersonRefs(refs, "Composer",     canonicals, "composer",     "composer_qid");
+        AddPersonRefs(refs, "Cast Member",  canonicals, "cast_member",  "cast_member_qid");
+        AddPersonRefs(refs, "Illustrator",  canonicals, "illustrator",  "illustrator_qid");
 
         // Collective pseudonym constituent members: the author audit query
         // deposits QID::Label pairs for the real people behind a collective
@@ -3326,11 +3313,10 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         }
 
         // QID-first: only emit references with a confirmed Wikidata QID.
-        // Deduplicate by (Role, QID).
+        // Deduplicate by QID only (persons can have multiple roles).
         return refs
             .Where(r => !string.IsNullOrEmpty(r.WikidataQid))
-            .GroupBy(r => (r.Role, Key: r.WikidataQid!),
-                     new RoleKeyComparer())
+            .GroupBy(r => r.WikidataQid!, StringComparer.OrdinalIgnoreCase)
             .Select(g => g.First())
             .ToList();
     }

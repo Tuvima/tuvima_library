@@ -452,8 +452,8 @@ public sealed class PersonListItemDto
     [JsonPropertyName("name")]
     public string Name { get; set; } = "";
 
-    [JsonPropertyName("role")]
-    public string Role { get; set; } = "";
+    [JsonPropertyName("roles")]
+    public List<string> Roles { get; set; } = [];
 
     [JsonPropertyName("wikidata_qid")]
     public string? WikidataQid { get; set; }
@@ -513,4 +513,17 @@ public sealed class PersonAliasesResponseDto
 
     [JsonPropertyName("aliases")]
     public List<PersonAliasDto> Aliases { get; set; } = [];
+}
+
+/// <summary>Media type presence counts for a single person.</summary>
+public sealed class PersonPresenceDto
+{
+    [JsonPropertyName("person_id")]
+    public string PersonId { get; set; } = "";
+
+    [JsonPropertyName("counts")]
+    public Dictionary<string, int> Counts { get; set; } = new();
+
+    /// <summary>Total media items this person appears in.</summary>
+    public int Total => Counts.Values.Sum();
 }

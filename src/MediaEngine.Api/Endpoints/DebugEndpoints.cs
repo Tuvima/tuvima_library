@@ -110,7 +110,7 @@ public static class DebugEndpoints
                 {
                     persons.Add(new DebugPersonResult(
                         person.Name,
-                        person.Role,
+                        string.Join(", ", person.Roles),
                         person.WikidataQid,
                         person.HeadshotUrl,
                         person.Biography,
@@ -327,7 +327,7 @@ public static class DebugEndpoints
                 {
                     persons.Add(new DebugPersonResult(
                         person.Name,
-                        person.Role,
+                        string.Join(", ", person.Roles),
                         person.WikidataQid,
                         person.HeadshotUrl,
                         person.Biography,
@@ -497,7 +497,7 @@ public static class DebugEndpoints
                     {
                         Id          = Guid.NewGuid(),
                         Name        = label,
-                        Role        = role,
+                        Roles       = [role],
                         WikidataQid = qid,
                         CreatedAt   = DateTimeOffset.UtcNow,
                     };
@@ -519,7 +519,7 @@ public static class DebugEndpoints
 
                 persons.Add(new DebugPersonResult(
                     person.Name,
-                    person.Role,
+                    string.Join(", ", person.Roles),
                     person.WikidataQid,
                     person.HeadshotUrl,
                     person.Biography,

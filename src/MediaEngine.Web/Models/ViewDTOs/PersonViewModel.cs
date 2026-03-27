@@ -8,7 +8,7 @@ public sealed class PersonViewModel
 {
     public Guid    Id              { get; init; }
     public string  Name            { get; init; } = string.Empty;
-    public string  Role            { get; init; } = string.Empty;
+    public List<string> Roles       { get; init; } = [];
     public string? WikidataQid     { get; init; }
     public string? HeadshotUrl      { get; init; }
     public bool    HasLocalHeadshot { get; init; }
@@ -39,8 +39,8 @@ public sealed class PersonViewModel
         }
     }
 
-    /// <summary>Formatted role label (e.g. "Author" → "Author").</summary>
-    public string RoleLabel => Role switch
+    /// <summary>Formatted role labels.</summary>
+    public List<string> RoleLabels => Roles.Select(r => r switch
     {
         "Author"       => "Author",
         "Narrator"     => "Narrator",
@@ -50,6 +50,9 @@ public sealed class PersonViewModel
         "Voice Actor"  => "Voice Actor",
         "Screenwriter" => "Screenwriter",
         "Composer"     => "Composer",
-        _              => Role,
-    };
+        _              => r,
+    }).ToList();
+
+    /// <summary>Primary role label for backward-compatible display.</summary>
+    public string RoleLabel => RoleLabels.FirstOrDefault() ?? string.Empty;
 }

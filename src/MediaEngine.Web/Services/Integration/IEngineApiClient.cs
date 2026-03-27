@@ -310,6 +310,12 @@ public interface IEngineApiClient
     /// <summary>GET /persons/by-work/{workId} — all persons linked to a specific work.</summary>
     Task<List<PersonViewModel>> GetPersonsByWorkAsync(Guid workId, CancellationToken ct = default);
 
+    /// <summary>GET /persons/role-counts — count of persons per role.</summary>
+    Task<Dictionary<string, int>> GetPersonRoleCountsAsync(CancellationToken ct = default);
+
+    /// <summary>GET /persons/presence?ids=... — media type counts per person.</summary>
+    Task<Dictionary<string, Dictionary<string, int>>> GetPersonPresenceAsync(IEnumerable<Guid> personIds, CancellationToken ct = default);
+
 
     // ── Related hubs (/hubs/{id}/related) ────────────────────────────────────
 

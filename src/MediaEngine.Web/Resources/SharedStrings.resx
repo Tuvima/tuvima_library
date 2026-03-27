@@ -87,6 +87,8 @@
   <data name="Vault_ItemDeleted" xml:space="preserve"><value>Item deleted</value></data>
   <data name="Vault_NeedsReview" xml:space="preserve"><value>Needs Review</value></data>
   <data name="Vault_Quarantined" xml:space="preserve"><value>Quarantined</value></data>
+  <data name="Vault_NeedReview" xml:space="preserve"><value>Need Review</value></data>
+  <data name="Vault_Provisional" xml:space="preserve"><value>Provisional</value></data>
 
   <!-- ── Vault Toolbar ──────────────────────────────────────────────────── -->
   <data name="VaultToolbar_SearchPlaceholder" xml:space="preserve"><value>Search…</value></data>
@@ -97,6 +99,11 @@
   <data name="VaultToolbar_GroupType" xml:space="preserve"><value>Group: Type</value></data>
   <data name="VaultToolbar_GroupStatus" xml:space="preserve"><value>Group: Status</value></data>
   <data name="VaultToolbar_GroupLetter" xml:space="preserve"><value>Group: A-Z</value></data>
+  <data name="VaultToolbar_GroupUniverse" xml:space="preserve"><value>Universe</value></data>
+  <data name="VaultToolbar_SortName" xml:space="preserve"><value>Name</value></data>
+  <data name="VaultToolbar_SortPresence" xml:space="preserve"><value>Presence</value></data>
+  <data name="VaultToolbar_SortTitle" xml:space="preserve"><value>Title</value></data>
+  <data name="VaultToolbar_SortUniverse" xml:space="preserve"><value>Universe</value></data>
 
   <!-- ── Vault Media Table ──────────────────────────────────────────────── -->
   <data name="VaultMedia_NoItemsMatch" xml:space="preserve"><value>No items match your filters.</value></data>

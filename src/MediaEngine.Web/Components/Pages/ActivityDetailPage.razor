@@ -545,7 +545,7 @@
                 MatchSource = "wikidata",
                 WikidataQid = p.WikidataQid,
                 CoverUrl    = p.HeadshotUrl,  // Already absolute from EngineApiClient
-                Author      = p.Role,
+                Author      = string.Join(", ", p.Roles),
                 CreatedAt   = DateTimeOffset.UtcNow,
             }).ToList();
         }

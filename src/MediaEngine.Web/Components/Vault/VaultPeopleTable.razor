@@ -43,13 +43,10 @@ else
                             {
                                 <span class="vpt-description">@person.Biography</span>
                             }
-                            @{
-                                var roles = SplitRoles(person.Role).ToList();
-                            }
-                            @if (roles.Count > 0)
+                            @if (person.Roles.Count > 0)
                             {
                                 <div class="vpt-roles">
-                                    @foreach (var role in roles)
+                                    @foreach (var role in person.Roles)
                                     {
                                         <span class="vpt-role-chip">@role</span>
                                     }
@@ -57,7 +54,31 @@ else
                             }
                         </td>
                         <td class="vpt-td vpt-td--right">
-                            <span class="vpt-presence-text">@(person.Occupation ?? "—")</span>
+                            @{
+                                var pid = person.Id.ToString();
+                                var hasCounts = Presence.TryGetValue(pid, out var counts) && counts.Count > 0;
+                                var total = hasCounts ? counts!.Values.Sum() : 0;
+                            }
+                            @if (hasCounts)
+                            {
+                                <div class="vpt-presence">
+                                    <span class="vpt-presence-total">@total</span>
+                                    <div class="vpt-presence-pills">
+                                        @foreach (var kvp in counts!.OrderByDescending(c => c.Value))
+                                        {
+                                            <span class="vpt-presence-pill" style="color: @VaultHelpers.GetMediaTypeColor(kvp.Key);"
+                                                  title="@kvp.Key">
+                                                <MudIcon Icon="@GetMediaTypeIcon(kvp.Key)" Style="font-size: 12px;" />
+                                                <span>@kvp.Value</span>
+                                            </span>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                            else
+                            {
+                                <span class="vpt-presence-text">—</span>
+                            }
                         </td>
                     </tr>
                 }
@@ -76,13 +97,21 @@ else
 
 @code {
     [Parameter] public List<PersonListItemDto> People { get; set; } = [];
+    [Parameter] public Dictionary<string, Dictionary<string, int>> Presence { get; set; } = new();
     [Parameter] public bool Loading { get; set; }
     [Parameter] public EventCallback<Guid> OnRowClicked { get; set; }
 
-    private static IEnumerable<string> SplitRoles(string role) =>
-        string.IsNullOrWhiteSpace(role)
-            ? []
-            : role.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+    private static string GetMediaTypeIcon(string mediaType) => mediaType switch
+    {
+        "Movies" => Icons.Material.Outlined.VideoLibrary,
+        "Books" => Icons.Material.Outlined.MenuBook,
+        "Audiobooks" => Icons.Material.Outlined.Headphones,
+        "TV" => Icons.Material.Outlined.LiveTv,
+        "Music" => Icons.Material.Outlined.MusicNote,
+        "Podcasts" => Icons.Material.Outlined.Mic,
+        "Comics" => Icons.Material.Outlined.AutoStories,
+        _ => Icons.Material.Outlined.Inventory2,
+    };
 }
 
 <style>
@@ -215,6 +244,41 @@ else
         font-weight: 800;
         color: rgba(255, 255, 255, 0.5);
         text-align: right;
+    }
+
+    .vpt-presence {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 10px;
+    }
+
+    .vpt-presence-total {
+        font-size: 16px;
+        font-weight: 900;
+        color: rgba(255, 255, 255, 0.7);
+        min-width: 24px;
+        text-align: right;
+    }
+
+    .vpt-presence-pills {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+    }
+
+    .vpt-presence-pill {
+        display: flex;
+        align-items: center;
+        gap: 3px;
+        font-size: 10px;
+        font-weight: 700;
+        opacity: 0.7;
+    }
+
+    .vpt-presence-pill:hover {
+        opacity: 1;
     }
 
     .vpt-empty {

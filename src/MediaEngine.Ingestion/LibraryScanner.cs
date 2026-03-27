@@ -272,7 +272,7 @@ public sealed class LibraryScanner : ILibraryScanner
                 Person? existing = null;
                 if (!string.IsNullOrWhiteSpace(qid))
                     existing = await _personRepo.FindByQidAsync(qid, ct).ConfigureAwait(false);
-                existing ??= await _personRepo.FindByNameAsync(name, role, ct).ConfigureAwait(false);
+                existing ??= await _personRepo.FindByNameAsync(name, ct).ConfigureAwait(false);
                 existing ??= await _personRepo.FindByIdAsync(personId, ct).ConfigureAwait(false);
 
                 if (existing is null)
@@ -282,7 +282,7 @@ public sealed class LibraryScanner : ILibraryScanner
                     {
                         Id           = personId,
                         Name         = name,
-                        Role         = role,
+                        Roles        = [role],
                         WikidataQid  = NullIfEmpty(qid),
                         Occupation   = NullIfEmpty(occupation),
                         IsPseudonym  = isPseudonym,

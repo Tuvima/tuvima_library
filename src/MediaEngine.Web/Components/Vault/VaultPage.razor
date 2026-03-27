@@ -7,6 +7,7 @@
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
 @inject IStringLocalizer<SharedStrings> L
+@inject NavigationManager Nav
 
 @implements IDisposable
 
@@ -35,16 +36,24 @@
                 {
                     <button class="vault-alert vault-alert--amber @(_filterReview ? "vault-alert--on" : "")"
                             @onclick="ToggleReviewFilter">
-                        <MudIcon Icon="@Icons.Material.Outlined.ErrorOutline" Style="font-size: 14px;" />
-                        <span>@_needsReviewCount @L["Vault_NeedsReview"]</span>
+                        <MudIcon Icon="@Icons.Material.Outlined.ErrorOutline" Style="font-size: 16px;" />
+                        <span>Need Review (@_needsReviewCount)</span>
+                    </button>
+                }
+                @if (_provisionalCount > 0)
+                {
+                    <button class="vault-alert vault-alert--amber @(_filterProvisional ? "vault-alert--on" : "")"
+                            @onclick="ToggleProvisionalFilter">
+                        <MudIcon Icon="@Icons.Material.Outlined.FactCheck" Style="font-size: 16px;" />
+                        <span>Provisional (@_provisionalCount)</span>
                     </button>
                 }
                 @if (_quarantinedCount > 0)
                 {
                     <button class="vault-alert vault-alert--red @(_filterQuarantine ? "vault-alert--on" : "")"
                             @onclick="ToggleQuarantineFilter">
-                        <MudIcon Icon="@Icons.Material.Outlined.Delete" Style="font-size: 14px;" />
-                        <span>@_quarantinedCount @L["Vault_Quarantined"]</span>
+                        <MudIcon Icon="@Icons.Material.Outlined.Block" Style="font-size: 16px;" />
+                        <span>Quarantined (@_quarantinedCount)</span>
                     </button>
                 }
             </div>
@@ -92,7 +101,8 @@
         }
         else if (_activeTab == "people")
         {
-            <VaultPeopleTable People="@_people"
+            <VaultPeopleTable People="@FilteredPeople"
+                              Presence="@_personPresence"
                               Loading="@_loadingPeople"
                               OnRowClicked="OnPersonRowClicked" />
         }
@@ -149,6 +159,9 @@
 </div>
 
 @code {
+    // ── Parameters ──
+    [Parameter] public string? Tab { get; set; }
+
     // ── State ──
     private string _activeTab = "media";
     private string _groupBy = "none";
@@ -161,6 +174,7 @@
     // ── Filter state (driven by alert badges + stats bar) ──
     private bool _filterReview;
     private bool _filterQuarantine;
+    private bool _filterProvisional;
 
     /// <summary>Derived from _enabledMediaTypes: when all 6 are active, null (no filter).
     /// When fewer are active, pass as comma-separated types for client-side filtering.</summary>
@@ -184,12 +198,21 @@
     private List<HubItemViewModel> _selectedHubItems = [];
 
     // ── Computed counts ──
-    private int _needsReviewCount => _counts.InReview + _counts.Provisional;
+    private int _needsReviewCount => _counts.InReview;
+    private int _provisionalCount => _counts.Provisional;
     private int _quarantinedCount => _counts.Rejected;
 
     // ── Stats bar state ──
     private HashSet<string> _enabledMediaTypes = new(["Movies", "Books", "Audiobooks", "TV", "Music", "Podcasts"]);
     private HashSet<string> _enabledHubTypes = new(["Smart", "System", "Mix", "Playlist"]);
+
+    // ── People state ──
+    private Dictionary<string, int> _allRoleCounts = new();
+    private HashSet<string> _enabledRoles = new();
+    private Dictionary<string, Dictionary<string, int>> _personPresence = new();
+
+    // ── URL state ──
+    private Guid? _pendingItemId;
 
     // ── Poster size ──
     private int _posterSize = 48;
@@ -228,10 +251,7 @@
             new() { Id = "Music", Icon = Icons.Material.Outlined.MusicNote, Count = _mediaTypeCounts.GetValueOrDefault("Music", 0), Label = "MUSIC", Color = "#22D3EE", IsActive = _enabledMediaTypes.Contains("Music") },
             new() { Id = "Podcasts", Icon = Icons.Material.Outlined.Mic, Count = _mediaTypeCounts.GetValueOrDefault("Podcasts", 0), Label = "PODCASTS", Color = "#FB923C", IsActive = _enabledMediaTypes.Contains("Podcasts") },
         },
-        "people" => new List<StatCardModel>
-        {
-            new() { Id = "People", Icon = Icons.Material.Outlined.People, Count = _counts.PersonCount, Label = "PEOPLE", Color = "#60A5FA" },
-        },
+        "people" => BuildPeopleStatsCards(),
         "universes" => new List<StatCardModel>
         {
             new() { Id = "Universes", Icon = Icons.Material.Outlined.Public, Count = _universes.Count, Label = "UNIVERSES", Color = "#A78BFA" },
@@ -251,7 +271,7 @@
 
     private async Task OnStatCardToggled(string cardId)
     {
-        if (cardId == "Total") return; // Total card is not a filter
+        if (cardId == "Total" || cardId == "AllPeople") return; // Summary cards are not filters
 
         if (_activeTab == "media")
         {
@@ -260,6 +280,16 @@
             else
                 _enabledMediaTypes.Add(cardId);
             await LoadMediaItems();
+            UpdateUrl();
+        }
+        else if (_activeTab == "people")
+        {
+            if (_enabledRoles.Contains(cardId))
+                _enabledRoles.Remove(cardId);
+            else
+                _enabledRoles.Add(cardId);
+            StateHasChanged();
+            UpdateUrl();
         }
         else if (_activeTab == "hubs")
         {
@@ -276,14 +306,31 @@
     protected override async Task OnInitializedAsync()
     {
         Orchestrator.OnActivityChanged += OnActivityChanged;
+        Nav.LocationChanged += OnLocationChanged;
+
+        ReadUrlState();
+
         await LoadCounts();
         _mediaTypeCounts = await ApiClient.GetRegistryTypeCountsAsync();
-        await LoadMediaItems();
+
+        // Load tab data based on URL state
+        if (_activeTab == "people") await LoadPeople();
+        else if (_activeTab == "universes") await LoadUniverses();
+        else if (_activeTab == "hubs") await LoadManagedHubs();
+        else await LoadMediaItems();
+
+        // Open drawer if URL had ?item=
+        if (_pendingItemId.HasValue)
+        {
+            await OpenItemFromUrl(_pendingItemId.Value);
+            _pendingItemId = null;
+        }
     }
 
     public void Dispose()
     {
         Orchestrator.OnActivityChanged -= OnActivityChanged;
+        Nav.LocationChanged -= OnLocationChanged;
     }
 
     private async void OnActivityChanged()
@@ -311,12 +358,11 @@
         StateHasChanged();
 
         // Build the status filter from toggle state
-        // Both on = show both InReview + Rejected; one on = that status; neither = null (all)
         string? statusFilter = null;
-        if (_filterReview && _filterQuarantine)
-            statusFilter = null; // API doesn't support OR, so we'll client-filter
-        else if (_filterReview)
+        if (_filterReview)
             statusFilter = "InReview";
+        else if (_filterProvisional)
+            statusFilter = "Provisional";
         else if (_filterQuarantine)
             statusFilter = "Rejected";
 
@@ -326,18 +372,10 @@
             offset: offset, limit: 50,
             search: string.IsNullOrWhiteSpace(_searchText) ? null : _searchText,
             type: _filterMediaType,
-            status: (_filterReview && _filterQuarantine) ? null : statusFilter,
+            status: statusFilter,
             sort: VaultHelpers.GetSortParam(_sortBy));
 
         var items = response?.Items?.Select(VaultItemViewModel.From).ToList() ?? [];
-
-        // Client-side filtering for cases the API can't handle in one call
-        if (_filterReview && _filterQuarantine)
-        {
-            items = items.Where(i =>
-                i.VaultDisplayStatus is VaultStatus.NeedsReview or VaultStatus.Provisional or VaultStatus.Failed or VaultStatus.Quarantined)
-                .ToList();
-        }
 
         if (append)
             _mediaItems.AddRange(items);
@@ -356,12 +394,23 @@
 
     private async Task LoadPeople()
     {
-        if (_people.Count > 0) return; // already loaded
         _loadingPeople = true;
         StateHasChanged();
 
-        var result = await ApiClient.GetPersonsAsync(limit: 200);
+        var result = await ApiClient.GetPersonsAsync(limit: 500);
         _people = result?.ToList() ?? [];
+        _allRoleCounts = await ApiClient.GetPersonRoleCountsAsync();
+
+        // Initialize enabled roles to all if empty
+        if (_enabledRoles.Count == 0)
+            _enabledRoles = new HashSet<string>(_allRoleCounts.Keys);
+
+        // Load presence data for all people
+        if (_people.Count > 0)
+        {
+            _personPresence = await ApiClient.GetPersonPresenceAsync(_people.Select(p => p.Id));
+        }
+
         _loadingPeople = false;
     }
 
@@ -394,6 +443,7 @@
         if (tabId == "people") await LoadPeople();
         else if (tabId == "universes") await LoadUniverses();
         else if (tabId == "hubs") await LoadManagedHubs();
+        UpdateUrl();
     }
 
     // ── Toolbar callbacks ──
@@ -402,17 +452,20 @@
     {
         _searchText = text;
         await LoadMediaItems();
+        UpdateUrl();
     }
 
     private async Task OnSortChanged(string sort)
     {
         _sortBy = sort;
         await LoadMediaItems();
+        UpdateUrl();
     }
 
     private Task OnGroupChanged(string group)
     {
         _groupBy = group;
+        UpdateUrl();
         return Task.CompletedTask;
     }
 
@@ -437,6 +490,7 @@
             _selectedPerson = person;
             _selectedMedia = null;
             _selectedUniverse = null;
+            UpdateUrl();
             await InvokeAsync(StateHasChanged);
         }
     }
@@ -446,13 +500,28 @@
     private async Task ToggleReviewFilter()
     {
         _filterReview = !_filterReview;
+        _filterProvisional = false;
+        _filterQuarantine = false;
         await LoadMediaItems();
+        UpdateUrl();
+    }
+
+    private async Task ToggleProvisionalFilter()
+    {
+        _filterProvisional = !_filterProvisional;
+        _filterReview = false;
+        _filterQuarantine = false;
+        await LoadMediaItems();
+        UpdateUrl();
     }
 
     private async Task ToggleQuarantineFilter()
     {
         _filterQuarantine = !_filterQuarantine;
+        _filterReview = false;
+        _filterProvisional = false;
         await LoadMediaItems();
+        UpdateUrl();
     }
 
     // ── Row click handlers (open detail drawer) ──
@@ -462,6 +531,7 @@
         _selectedMedia = _mediaItems.FirstOrDefault(i => i.EntityId == entityId);
         _selectedPerson = null;
         _selectedUniverse = null;
+        UpdateUrl();
         await InvokeAsync(StateHasChanged);
     }
 
@@ -470,6 +540,7 @@
         _selectedPerson = _people.FirstOrDefault(p => p.Id == personId);
         _selectedMedia = null;
         _selectedUniverse = null;
+        UpdateUrl();
         await InvokeAsync(StateHasChanged);
     }
 
@@ -478,6 +549,7 @@
         _selectedUniverse = _universes.FirstOrDefault(u => u.Id == universeId);
         _selectedMedia = null;
         _selectedPerson = null;
+        UpdateUrl();
         await InvokeAsync(StateHasChanged);
     }
 
@@ -486,6 +558,7 @@
         _selectedMedia = null;
         _selectedPerson = null;
         _selectedUniverse = null;
+        UpdateUrl();
     }
 
     private async Task OnPurgeItem(Guid entityId)
@@ -518,6 +591,7 @@
             _selectedPerson = person;
             _selectedMedia = null;
             _selectedUniverse = null;
+            UpdateUrl();
             await InvokeAsync(StateHasChanged);
         }
     }
@@ -531,12 +605,14 @@
         {
             _selectedHubItems = await ApiClient.GetHubItemsAsync(hubId, 20);
         }
+        UpdateUrl();
     }
 
     private void CloseHubDrawer()
     {
         _selectedHub = null;
         _selectedHubItems = [];
+        UpdateUrl();
     }
 
     private async Task OnHubEnabledToggled((Guid Id, bool Enabled) args)
@@ -574,6 +650,193 @@
             await LoadCounts();
         }
     }
+
+    // ── URL state management ──
+
+    private void UpdateUrl(bool replace = false)
+    {
+        var tab = _activeTab;
+        var path = $"/vault/{tab}";
+        var queryParts = new List<string>();
+
+        // Item (drawer open)
+        var selectedId = _activeTab switch
+        {
+            "media" => _selectedMedia?.EntityId,
+            "people" => _selectedPerson?.Id,
+            "universes" => _selectedUniverse?.Id,
+            "hubs" => _selectedHub?.Id,
+            _ => null
+        };
+        if (selectedId.HasValue)
+            queryParts.Add($"item={selectedId.Value}");
+
+        // Filters
+        if (_filterReview) queryParts.Add("filter=review");
+        else if (_filterQuarantine) queryParts.Add("filter=quarantine");
+        else if (_filterProvisional) queryParts.Add("filter=provisional");
+
+        // Search
+        if (!string.IsNullOrWhiteSpace(_searchText))
+            queryParts.Add($"search={Uri.EscapeDataString(_searchText)}");
+
+        // Sort
+        if (_sortBy != "newest")
+            queryParts.Add($"sort={_sortBy}");
+
+        // Group
+        if (_groupBy != "none")
+            queryParts.Add($"group={_groupBy}");
+
+        // Media type filter
+        if (_activeTab == "media" && _enabledMediaTypes.Count < 6)
+            queryParts.Add($"type={string.Join(",", _enabledMediaTypes)}");
+
+        // People role filter
+        if (_activeTab == "people" && _enabledRoles.Count < _allRoleCounts.Count && _enabledRoles.Count > 0)
+            queryParts.Add($"role={string.Join(",", _enabledRoles)}");
+
+        var query = queryParts.Count > 0 ? "?" + string.Join("&", queryParts) : "";
+        Nav.NavigateTo(path + query, replace: replace);
+    }
+
+    private void ReadUrlState()
+    {
+        var uri = Nav.ToAbsoluteUri(Nav.Uri);
+
+        // Tab from route parameter
+        if (!string.IsNullOrEmpty(Tab) && _tabs.Any(t => t.Id == Tab.ToLowerInvariant()))
+            _activeTab = Tab.ToLowerInvariant();
+
+        // Query parameters
+        var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+
+        var filter = query["filter"];
+        _filterReview = filter == "review";
+        _filterQuarantine = filter == "quarantine";
+        _filterProvisional = filter == "provisional";
+
+        if (query["search"] is string search && !string.IsNullOrEmpty(search))
+            _searchText = search;
+
+        if (query["sort"] is string sort && !string.IsNullOrEmpty(sort))
+            _sortBy = sort;
+
+        if (query["group"] is string group && !string.IsNullOrEmpty(group))
+            _groupBy = group;
+
+        if (query["type"] is string types && !string.IsNullOrEmpty(types))
+        {
+            _enabledMediaTypes = new HashSet<string>(types.Split(','));
+        }
+
+        if (query["role"] is string roles && !string.IsNullOrEmpty(roles))
+        {
+            _enabledRoles = new HashSet<string>(roles.Split(','));
+        }
+
+        // Item ID for opening drawer — deferred to after data loads
+        _pendingItemId = query["item"] is string itemStr && Guid.TryParse(itemStr, out var itemId) ? itemId : null;
+    }
+
+    private async Task OpenItemFromUrl(Guid itemId)
+    {
+        switch (_activeTab)
+        {
+            case "media":
+                _selectedMedia = _mediaItems.FirstOrDefault(i => i.EntityId == itemId);
+                break;
+            case "people":
+                _selectedPerson = _people.FirstOrDefault(p => p.Id == itemId);
+                break;
+            case "universes":
+                _selectedUniverse = _universes.FirstOrDefault(u => u.Id == itemId);
+                break;
+            case "hubs":
+                _selectedHub = _managedHubs.FirstOrDefault(h => h.Id == itemId);
+                if (_selectedHub is not null)
+                    _selectedHubItems = await ApiClient.GetHubItemsAsync(itemId, 20);
+                break;
+        }
+    }
+
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        // Only react to popstate (back/forward), not programmatic navigation
+        if (!e.IsNavigationIntercepted) return;
+        ReadUrlState();
+        _ = InvokeAsync(async () =>
+        {
+            if (_activeTab == "people") await LoadPeople();
+            else if (_activeTab == "universes") await LoadUniverses();
+            else if (_activeTab == "hubs") await LoadManagedHubs();
+            else await LoadMediaItems();
+            StateHasChanged();
+        });
+    }
+
+    // ── People stats bar ──
+
+    private List<StatCardModel> BuildPeopleStatsCards()
+    {
+        var cards = new List<StatCardModel>
+        {
+            new() { Id = "AllPeople", Icon = Icons.Material.Outlined.People, Count = _people.Count, Label = "PEOPLE", Color = "#C9922E" }
+        };
+
+        // Role icons mapping
+        var roleIcons = new Dictionary<string, string>
+        {
+            ["Author"] = Icons.Material.Outlined.Edit,
+            ["Narrator"] = Icons.Material.Outlined.RecordVoiceOver,
+            ["Director"] = Icons.Material.Outlined.Movie,
+            ["Illustrator"] = Icons.Material.Outlined.Brush,
+            ["Cast Member"] = Icons.Material.Outlined.TheaterComedy,
+            ["Voice Actor"] = Icons.Material.Outlined.Mic,
+            ["Screenwriter"] = Icons.Material.Outlined.Description,
+            ["Composer"] = Icons.Material.Outlined.MusicNote,
+            ["Translator"] = Icons.Material.Outlined.Translate,
+            ["Editor"] = Icons.Material.Outlined.ContentCut,
+            ["Host"] = Icons.Material.Outlined.Podcasts,
+            ["Producer"] = Icons.Material.Outlined.AccountTree,
+        };
+
+        var roleColors = new Dictionary<string, string>
+        {
+            ["Author"] = "#5DCAA5",
+            ["Narrator"] = "#A78BFA",
+            ["Director"] = "#60A5FA",
+            ["Illustrator"] = "#7C4DFF",
+            ["Cast Member"] = "#FBBF24",
+            ["Voice Actor"] = "#22D3EE",
+            ["Screenwriter"] = "#FB923C",
+            ["Composer"] = "#EC4899",
+            ["Translator"] = "#34D399",
+            ["Editor"] = "#F87171",
+            ["Host"] = "#FB923C",
+            ["Producer"] = "#818CF8",
+        };
+
+        foreach (var kvp in _allRoleCounts.OrderByDescending(k => k.Value))
+        {
+            cards.Add(new StatCardModel
+            {
+                Id = kvp.Key,
+                Icon = roleIcons.GetValueOrDefault(kvp.Key, Icons.Material.Outlined.Person),
+                Count = kvp.Value,
+                Label = kvp.Key.ToUpperInvariant(),
+                Color = roleColors.GetValueOrDefault(kvp.Key, "#60A5FA"),
+                IsActive = _enabledRoles.Contains(kvp.Key),
+            });
+        }
+
+        return cards;
+    }
+
+    private List<PersonListItemDto> FilteredPeople =>
+        _enabledRoles.Count == 0 || _enabledRoles.Count == _allRoleCounts.Count
+            ? _people
+            : _people.Where(p => p.Roles.Any(r => _enabledRoles.Contains(r))).ToList();
 }
 
 <style>
@@ -662,14 +925,15 @@
     .vault-alert {
         display: flex;
         align-items: center;
-        gap: 6px;
-        padding: 4px 10px;
+        gap: 8px;
+        padding: 8px 16px;
         border-radius: 8px;
-        font-size: 11px;
+        font-size: 12px;
         font-weight: 700;
         cursor: pointer;
         user-select: none;
         transition: all 0.15s;
+        white-space: nowrap;
     }
 
     .vault-alert--amber {

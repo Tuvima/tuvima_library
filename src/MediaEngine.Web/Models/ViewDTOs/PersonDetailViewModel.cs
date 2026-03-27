@@ -8,7 +8,7 @@ public sealed class PersonDetailViewModel
 {
     public Guid     Id               { get; init; }
     public string   Name             { get; init; } = string.Empty;
-    public string   Role             { get; init; } = string.Empty;
+    public List<string> Roles        { get; init; } = [];
     public string?  HeadshotUrl      { get; init; }
     public bool     HasLocalHeadshot { get; init; }
     public string?  LocalHeadshotUrl { get; init; }
@@ -49,13 +49,17 @@ public sealed class PersonDetailViewModel
         }
     }
 
-    public string RoleLabel => Role.ToLowerInvariant() switch
+    /// <summary>Formatted role labels.</summary>
+    public List<string> RoleLabels => Roles.Select(r => r.ToLowerInvariant() switch
     {
         "author"      => "Author",
         "narrator"    => "Narrator",
         "director"    => "Director",
         "illustrator" => "Illustrator",
         "composer"    => "Composer",
-        _             => Role,
-    };
+        _             => r,
+    }).ToList();
+
+    /// <summary>Primary role label for backward-compatible display.</summary>
+    public string RoleLabel => RoleLabels.FirstOrDefault() ?? string.Empty;
 }

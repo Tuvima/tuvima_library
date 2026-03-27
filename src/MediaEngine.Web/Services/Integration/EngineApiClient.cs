@@ -1518,7 +1518,7 @@ public sealed class EngineApiClient : IEngineApiClient
             {
                 Id               = p.Id,
                 Name             = p.Name ?? string.Empty,
-                Role             = p.Role ?? string.Empty,
+                Roles            = p.Roles ?? [],
                 WikidataQid      = p.WikidataQid,
                 HeadshotUrl      = p.HeadshotUrl,
                 HasLocalHeadshot = p.HasLocalHeadshot,
@@ -1548,7 +1548,7 @@ public sealed class EngineApiClient : IEngineApiClient
             {
                 Id               = p.Id,
                 Name             = p.Name ?? string.Empty,
-                Role             = p.Role ?? string.Empty,
+                Roles            = p.Roles ?? [],
                 WikidataQid      = p.WikidataQid,
                 HeadshotUrl      = p.HeadshotUrl,
                 HasLocalHeadshot = p.HasLocalHeadshot,
@@ -1578,7 +1578,7 @@ public sealed class EngineApiClient : IEngineApiClient
             {
                 Id               = p.Id,
                 Name             = p.Name ?? string.Empty,
-                Role             = p.Role ?? string.Empty,
+                Roles            = p.Roles ?? [],
                 WikidataQid      = p.WikidataQid,
                 HeadshotUrl      = p.HeadshotUrl,
                 HasLocalHeadshot = p.HasLocalHeadshot,
@@ -1594,6 +1594,41 @@ public sealed class EngineApiClient : IEngineApiClient
             _logger.LogWarning(ex, "GET /persons/by-work/{WorkId} failed", workId);
             LastError = ex.Message;
             return [];
+        }
+    }
+
+    // ── GET /persons/role-counts ──────────────────────────────────────────
+
+    public async Task<Dictionary<string, int>> GetPersonRoleCountsAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            var result = await _http.GetFromJsonAsync<Dictionary<string, int>>("/persons/role-counts", ct);
+            return result ?? new();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /persons/role-counts failed");
+            return new();
+        }
+    }
+
+    // ── GET /persons/presence?ids=... ─────────────────────────────────────
+
+    public async Task<Dictionary<string, Dictionary<string, int>>> GetPersonPresenceAsync(
+        IEnumerable<Guid> personIds, CancellationToken ct = default)
+    {
+        try
+        {
+            var ids = string.Join(",", personIds);
+            var result = await _http.GetFromJsonAsync<Dictionary<string, Dictionary<string, int>>>(
+                $"/persons/presence?ids={ids}", ct);
+            return result ?? new();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /persons/presence failed");
+            return new();
         }
     }
 
@@ -1636,7 +1671,7 @@ public sealed class EngineApiClient : IEngineApiClient
             {
                 Id               = raw.Id,
                 Name             = raw.Name ?? string.Empty,
-                Role             = raw.Role ?? string.Empty,
+                Roles            = raw.Roles ?? [],
                 HeadshotUrl      = raw.HeadshotUrl,
                 HasLocalHeadshot = raw.HasLocalHeadshot,
                 LocalHeadshotUrl = (raw.HasLocalHeadshot || !string.IsNullOrEmpty(raw.HeadshotUrl)) ? AbsoluteUrl($"/persons/{raw.Id}/headshot") : null,
@@ -2792,14 +2827,14 @@ public sealed class EngineApiClient : IEngineApiClient
         [property: JsonPropertyName("heroUrl")]            string?                       HeroUrl);
 
     private sealed record PersonRaw(
-        [property: JsonPropertyName("id")]                 Guid    Id,
-        [property: JsonPropertyName("name")]               string? Name,
-        [property: JsonPropertyName("role")]               string? Role,
-        [property: JsonPropertyName("wikidata_qid")]       string? WikidataQid,
-        [property: JsonPropertyName("headshot_url")]       string? HeadshotUrl,
-        [property: JsonPropertyName("has_local_headshot")] bool    HasLocalHeadshot,
-        [property: JsonPropertyName("biography")]          string? Biography,
-        [property: JsonPropertyName("occupation")]         string? Occupation);
+        [property: JsonPropertyName("id")]                 Guid          Id,
+        [property: JsonPropertyName("name")]               string?       Name,
+        [property: JsonPropertyName("roles")]              List<string>? Roles,
+        [property: JsonPropertyName("wikidata_qid")]       string?       WikidataQid,
+        [property: JsonPropertyName("headshot_url")]       string?       HeadshotUrl,
+        [property: JsonPropertyName("has_local_headshot")] bool          HasLocalHeadshot,
+        [property: JsonPropertyName("biography")]          string?       Biography,
+        [property: JsonPropertyName("occupation")]         string?       Occupation);
 
     private sealed record RelatedHubsRaw(
         [property: JsonPropertyName("section_title")] string       SectionTitle,
@@ -2812,7 +2847,7 @@ public sealed class EngineApiClient : IEngineApiClient
     private sealed record PersonDetailRaw(
         [property: JsonPropertyName("id")]                 Guid            Id,
         [property: JsonPropertyName("name")]               string?         Name,
-        [property: JsonPropertyName("role")]               string?         Role,
+        [property: JsonPropertyName("roles")]              List<string>?   Roles,
         [property: JsonPropertyName("headshot_url")]       string?         HeadshotUrl,
         [property: JsonPropertyName("has_local_headshot")] bool            HasLocalHeadshot,
         [property: JsonPropertyName("biography")]          string?         Biography,

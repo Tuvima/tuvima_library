@@ -228,26 +228,40 @@ CREATE TABLE IF NOT EXISTS profiles (
 -- Authors, narrators, and directors linked to media assets.
 -- Persons are created when file metadata contains author/narrator fields and
 -- enriched asynchronously via the Wikidata adapter.
--- role CHECK mirrors the valid values accepted by IPersonRepository.
+-- Roles are stored in the person_roles junction table (multi-role support).
 CREATE TABLE IF NOT EXISTS persons (
-    id           TEXT NOT NULL PRIMARY KEY,  -- UUID
-    name         TEXT NOT NULL,
-    role         TEXT NOT NULL CHECK (role IN (
-                     'Author', 'Narrator', 'Director',
-                     'Illustrator', 'Cast Member', 'Voice Actor',
-                     'Screenwriter', 'Composer',
-                     'Translator', 'Editor', 'Host', 'Producer')),
-    wikidata_qid TEXT,                       -- e.g. Q42
-    headshot_url TEXT,                       -- Wikimedia Commons image URL
-    biography    TEXT,                       -- Wikidata entity description
-    occupation   TEXT,                       -- Wikidata P106 (e.g. "Writer", "Actor")
-    instagram    TEXT,                       -- Wikidata P2003 (Instagram handle)
-    twitter      TEXT,                       -- Wikidata P2002 (Twitter/X handle)
-    tiktok       TEXT,                       -- Wikidata P7085 (TikTok handle)
-    mastodon     TEXT,                       -- Wikidata P4033 (Mastodon address)
-    website      TEXT,                       -- Wikidata P856 (Official website URL)
-    created_at   TEXT NOT NULL,              -- ISO-8601
-    enriched_at  TEXT                        -- NULL = not yet enriched
+    id                TEXT    NOT NULL PRIMARY KEY,  -- UUID
+    name              TEXT    NOT NULL,
+    wikidata_qid      TEXT,                          -- e.g. Q42
+    headshot_url      TEXT,                          -- Wikimedia Commons image URL
+    biography         TEXT,                          -- Wikidata entity description
+    occupation        TEXT,                          -- Wikidata P106 (e.g. "Writer", "Actor")
+    instagram         TEXT,                          -- Wikidata P2003 (Instagram handle)
+    twitter           TEXT,                          -- Wikidata P2002 (Twitter/X handle)
+    tiktok            TEXT,                          -- Wikidata P7085 (TikTok handle)
+    mastodon          TEXT,                          -- Wikidata P4033 (Mastodon address)
+    website           TEXT,                          -- Wikidata P856 (Official website URL)
+    local_headshot_path TEXT,                        -- Path to locally cached headshot
+    date_of_birth     TEXT,                          -- Wikidata P569
+    date_of_death     TEXT,                          -- Wikidata P570
+    place_of_birth    TEXT,                          -- Wikidata P19
+    place_of_death    TEXT,                          -- Wikidata P20
+    nationality       TEXT,                          -- Wikidata P27
+    is_pseudonym      INTEGER NOT NULL DEFAULT 0,    -- 1 = pen name / stage name
+    created_at        TEXT    NOT NULL,              -- ISO-8601
+    enriched_at       TEXT                           -- NULL = not yet enriched
+);
+
+-- Junction table for person roles (multi-role support).
+-- A single person can have multiple roles (e.g. Clint Eastwood = Director + Cast Member).
+CREATE TABLE IF NOT EXISTS person_roles (
+    person_id TEXT NOT NULL REFERENCES persons(id) ON DELETE CASCADE,
+    role      TEXT NOT NULL CHECK (role IN (
+                  'Author','Narrator','Director',
+                  'Illustrator','Cast Member','Voice Actor',
+                  'Screenwriter','Composer',
+                  'Translator','Editor','Host','Producer')),
+    PRIMARY KEY (person_id, role)
 );
 
 -- Junction table linking persons to the media assets they contributed to.
@@ -295,6 +309,9 @@ CREATE INDEX IF NOT EXISTS idx_api_keys_hashed_key
 
 CREATE INDEX IF NOT EXISTS idx_persons_name
     ON persons (name);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_persons_wikidata_qid
+    ON persons (wikidata_qid) WHERE wikidata_qid IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_person_media_links_asset
     ON person_media_links (media_asset_id);

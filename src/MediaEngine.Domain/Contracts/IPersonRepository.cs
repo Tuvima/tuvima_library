@@ -11,16 +11,38 @@ namespace MediaEngine.Domain.Contracts;
 public interface IPersonRepository
 {
     /// <summary>
-    /// Finds a person by name and role.
+    /// Finds a person by name.
     /// Returns <c>null</c> if no matching person exists.
     /// Comparison is case-insensitive.
     /// </summary>
     /// <param name="name">The person's display name.</param>
-    /// <param name="role">The role to match (e.g. <c>"Author"</c>).</param>
     /// <param name="ct">Cancellation token.</param>
     Task<Person?> FindByNameAsync(
         string name,
-        string role,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// Adds a role to the given person in the <c>person_roles</c> junction table.
+    /// Idempotent — duplicate (person_id, role) pairs are silently ignored.
+    /// </summary>
+    Task AddRoleAsync(Guid personId, string role, CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns all roles for the given person from the <c>person_roles</c> junction table.
+    /// </summary>
+    Task<IReadOnlyList<string>> GetRolesAsync(Guid personId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns the count of distinct persons per role across all person_roles entries.
+    /// </summary>
+    Task<Dictionary<string, int>> GetRoleCountsAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns per-person media type counts (e.g. how many Books, Movies, etc. each person
+    /// is linked to). Used by the Vault People tab for library presence display.
+    /// </summary>
+    Task<Dictionary<Guid, Dictionary<string, int>>> GetPresenceBatchAsync(
+        IEnumerable<Guid> personIds,
         CancellationToken ct = default);
 
     /// <summary>

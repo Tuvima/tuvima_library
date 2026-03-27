@@ -1330,6 +1330,12 @@ public sealed class DatabaseConnection : IDatabaseConnection
             m063.ExecuteNonQuery();
         }
 
+        // Migration M-064: Multi-role persons with QID-first identity.
+        // Migrates from single-role persons.role column to a person_roles junction table
+        // so one person can have multiple roles (e.g. Clint Eastwood = Director + Cast Member).
+        // Also adds a UNIQUE index on wikidata_qid for QID-first lookups.
+        MigratePersonMultiRole(conn);
+
         // Seed S-001: provider_registry entries for all known providers.
         // metadata_claims.provider_id has a FK to provider_registry(id), so these
         // rows MUST exist before any claim is written.  INSERT OR IGNORE makes this
@@ -1633,6 +1639,139 @@ public sealed class DatabaseConnection : IDatabaseConnection
             PRAGMA foreign_keys=ON;
             """;
         cmd.ExecuteNonQuery();
+    }
+
+    /// <summary>
+    /// Migration M-064: Multi-role persons with QID-first identity.
+    ///
+    /// Creates the <c>person_roles</c> junction table and migrates existing role data
+    /// from <c>persons.role</c> and <c>person_media_links.role</c> into it.
+    /// Then recreates the <c>persons</c> table WITHOUT the <c>role</c> column.
+    /// Adds a UNIQUE index on <c>wikidata_qid</c> for QID-first lookups.
+    ///
+    /// Idempotent: checks whether person_roles already exists AND whether
+    /// the persons table still has a 'role' column before running.
+    /// </summary>
+    private static void MigratePersonMultiRole(SqliteConnection conn)
+    {
+        // Step 1: Create person_roles table if it doesn't exist.
+        bool personRolesExists = false;
+        using (var infoCmd = conn.CreateCommand())
+        {
+            infoCmd.CommandText = "PRAGMA table_info(person_roles);";
+            using var reader = infoCmd.ExecuteReader();
+            if (reader.Read())
+                personRolesExists = true;
+        }
+
+        if (!personRolesExists)
+        {
+            using var createCmd = conn.CreateCommand();
+            createCmd.CommandText = """
+                CREATE TABLE IF NOT EXISTS person_roles (
+                    person_id TEXT NOT NULL REFERENCES persons(id) ON DELETE CASCADE,
+                    role      TEXT NOT NULL CHECK (role IN (
+                                  'Author','Narrator','Director',
+                                  'Illustrator','Cast Member','Voice Actor',
+                                  'Screenwriter','Composer',
+                                  'Translator','Editor','Host','Producer')),
+                    PRIMARY KEY (person_id, role)
+                );
+
+                -- Migrate existing role data from persons.role column.
+                INSERT OR IGNORE INTO person_roles (person_id, role)
+                SELECT id, role FROM persons WHERE role IS NOT NULL AND role != '';
+
+                -- Also populate from person_media_links (captures roles the person
+                -- has via media links but not in persons.role).
+                INSERT OR IGNORE INTO person_roles (person_id, role)
+                SELECT DISTINCT person_id, role FROM person_media_links
+                WHERE person_id IN (SELECT id FROM persons);
+                """;
+            createCmd.ExecuteNonQuery();
+        }
+
+        // Step 2: Recreate persons table WITHOUT the role column.
+        // Check if 'role' column still exists on persons.
+        bool roleColumnExists = false;
+        using (var infoCmd = conn.CreateCommand())
+        {
+            infoCmd.CommandText = "PRAGMA table_info(persons);";
+            using var reader = infoCmd.ExecuteReader();
+            while (reader.Read())
+            {
+                if (string.Equals(reader.GetString(1), "role", StringComparison.OrdinalIgnoreCase))
+                {
+                    roleColumnExists = true;
+                    break;
+                }
+            }
+        }
+
+        if (roleColumnExists)
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = """
+                PRAGMA foreign_keys=OFF;
+
+                CREATE TABLE persons_new (
+                    id                TEXT    NOT NULL PRIMARY KEY,
+                    name              TEXT    NOT NULL,
+                    wikidata_qid      TEXT,
+                    headshot_url      TEXT,
+                    biography         TEXT,
+                    occupation        TEXT,
+                    instagram         TEXT,
+                    twitter           TEXT,
+                    tiktok            TEXT,
+                    mastodon          TEXT,
+                    website           TEXT,
+                    local_headshot_path TEXT,
+                    date_of_birth     TEXT,
+                    date_of_death     TEXT,
+                    place_of_birth    TEXT,
+                    place_of_death    TEXT,
+                    nationality       TEXT,
+                    is_pseudonym      INTEGER NOT NULL DEFAULT 0,
+                    created_at        TEXT    NOT NULL,
+                    enriched_at       TEXT
+                );
+
+                INSERT INTO persons_new
+                    (id, name, wikidata_qid, headshot_url, biography,
+                     occupation, instagram, twitter, tiktok, mastodon, website,
+                     local_headshot_path,
+                     date_of_birth, date_of_death, place_of_birth, place_of_death,
+                     nationality, is_pseudonym, created_at, enriched_at)
+                SELECT
+                    id, name, wikidata_qid, headshot_url, biography,
+                    occupation, instagram, twitter, tiktok, mastodon, website,
+                    local_headshot_path,
+                    date_of_birth, date_of_death, place_of_birth, place_of_death,
+                    nationality, is_pseudonym, created_at, enriched_at
+                FROM persons;
+
+                DROP TABLE persons;
+
+                ALTER TABLE persons_new RENAME TO persons;
+
+                CREATE INDEX IF NOT EXISTS idx_persons_name ON persons (name);
+
+                PRAGMA foreign_keys=ON;
+                """;
+            cmd.ExecuteNonQuery();
+        }
+
+        // Step 3: Add UNIQUE index on wikidata_qid for QID-first lookups.
+        // CREATE UNIQUE INDEX IF NOT EXISTS is safe to run unconditionally.
+        using (var idxCmd = conn.CreateCommand())
+        {
+            idxCmd.CommandText = """
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_persons_wikidata_qid
+                    ON persons (wikidata_qid) WHERE wikidata_qid IS NOT NULL;
+                """;
+            idxCmd.ExecuteNonQuery();
+        }
     }
 
     /// <summary>

@@ -1,4 +1,4 @@
-﻿using MediaEngine.Domain.Contracts;
+using MediaEngine.Domain.Contracts;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Endpoints;
@@ -24,7 +24,7 @@ public static class PersonEndpoints
             {
                 id              = person.Id,
                 name            = person.Name,
-                role            = person.Role,
+                roles           = person.Roles,
                 wikidata_qid    = person.WikidataQid,
                 headshot_url    = person.HeadshotUrl,
                 biography       = person.Biography,
@@ -75,7 +75,7 @@ public static class PersonEndpoints
                         {
                             id = realPerson.Id,
                             name = realPerson.Name,
-                            role = realPerson.Role,
+                            roles = realPerson.Roles,
                             headshot_url = realPerson.HeadshotUrl,
                             is_pseudonym = realPerson.IsPseudonym,
                             wikidata_qid = realPerson.WikidataQid,
@@ -102,7 +102,7 @@ public static class PersonEndpoints
                         {
                             id = pseudonymPerson.Id,
                             name = pseudonymPerson.Name,
-                            role = pseudonymPerson.Role,
+                            roles = pseudonymPerson.Roles,
                             headshot_url = pseudonymPerson.HeadshotUrl,
                             is_pseudonym = pseudonymPerson.IsPseudonym,
                             wikidata_qid = pseudonymPerson.WikidataQid,
@@ -236,7 +236,7 @@ public static class PersonEndpoints
                         {
                             id                 = p.Id,
                             name               = p.Name,
-                            role               = p.Role,
+                            roles              = p.Roles,
                             wikidata_qid       = p.WikidataQid,
                             headshot_url       = p.HeadshotUrl,
                             has_local_headshot = !string.IsNullOrEmpty(p.LocalHeadshotPath)
@@ -286,7 +286,7 @@ public static class PersonEndpoints
                         {
                             id                 = p.Id,
                             name               = p.Name,
-                            role               = p.Role,
+                            roles              = p.Roles,
                             wikidata_qid       = p.WikidataQid,
                             headshot_url       = p.HeadshotUrl,
                             has_local_headshot = !string.IsNullOrEmpty(p.LocalHeadshotPath)
@@ -347,6 +347,28 @@ public static class PersonEndpoints
         .WithName("GetWorksByPerson")
         .WithSummary("All hubs containing works linked to this person (author/narrator/director).")
         .Produces<List<MediaEngine.Api.Models.HubDto>>(StatusCodes.Status200OK);
+
+        // GET /persons/role-counts — count of persons per role.
+        group.MapGet("/role-counts", async (IPersonRepository personRepo, CancellationToken ct) =>
+        {
+            var counts = await personRepo.GetRoleCountsAsync(ct);
+            return Results.Ok(counts);
+        })
+        .WithName("GetPersonRoleCounts")
+        .WithSummary("Count of persons per role.");
+
+        // GET /persons/presence?ids=guid1,guid2,... — media type counts per person.
+        group.MapGet("/presence", async (string ids, IPersonRepository personRepo, CancellationToken ct) =>
+        {
+            var personIds = ids.Split(',').Select(Guid.Parse).ToList();
+            var presence = await personRepo.GetPresenceBatchAsync(personIds, ct);
+            return Results.Ok(presence.ToDictionary(
+                kv => kv.Key.ToString(),
+                kv => kv.Value));
+        })
+        .WithName("GetPersonPresence")
+        .WithSummary("Media type counts per person.");
+
         // GET /persons?role=Author&limit=50 -- list persons filtered by role.
         group.MapGet("/", async (
             string? role,
@@ -358,7 +380,7 @@ public static class PersonEndpoints
             IEnumerable<MediaEngine.Domain.Entities.Person> filtered = all;
 
             if (!string.IsNullOrEmpty(role))
-                filtered = filtered.Where(p => p.Role.Equals(role, StringComparison.OrdinalIgnoreCase));
+                filtered = filtered.Where(p => p.Roles.Any(r => r.Equals(role, StringComparison.OrdinalIgnoreCase)));
 
             var results = filtered
                 .Take(limit ?? 50)
@@ -366,7 +388,7 @@ public static class PersonEndpoints
                 {
                     id                 = p.Id,
                     name               = p.Name,
-                    role               = p.Role,
+                    roles              = p.Roles,
                     wikidata_qid       = p.WikidataQid,
                     headshot_url       = p.HeadshotUrl,
                     has_local_headshot = !string.IsNullOrEmpty(p.LocalHeadshotPath)

@@ -969,7 +969,7 @@ else
 
                     // Found the QID for the canonical author — resolve by QID.
                     var match = persons.FirstOrDefault(p =>
-                        string.Equals(p.Role, "Author", StringComparison.OrdinalIgnoreCase) &&
+                        p.Roles.Any(r => string.Equals(r, "Author", StringComparison.OrdinalIgnoreCase)) &&
                         string.Equals(p.WikidataQid, qid, StringComparison.OrdinalIgnoreCase));
                     if (match is not null) return match;
                 }
@@ -980,7 +980,7 @@ else
             foreach (var (qid, _) in entries)
             {
                 var match = persons.FirstOrDefault(p =>
-                    string.Equals(p.Role, "Author", StringComparison.OrdinalIgnoreCase) &&
+                    p.Roles.Any(r => string.Equals(r, "Author", StringComparison.OrdinalIgnoreCase)) &&
                     string.Equals(p.WikidataQid, qid, StringComparison.OrdinalIgnoreCase));
                 if (match is not null) return match;
             }
@@ -988,7 +988,7 @@ else
 
         // Step 3: No QID data — first Author person.
         return persons.FirstOrDefault(p =>
-            string.Equals(p.Role, "Author", StringComparison.OrdinalIgnoreCase));
+            p.Roles.Any(r => string.Equals(r, "Author", StringComparison.OrdinalIgnoreCase)));
     }
 
     /// <summary>

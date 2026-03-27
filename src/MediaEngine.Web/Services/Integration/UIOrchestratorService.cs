@@ -564,6 +564,15 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         string role, int limit = 50, CancellationToken ct = default)
         => _api.GetPersonsByRoleAsync(role, limit, ct);
 
+    /// <summary>Returns count of persons per role.</summary>
+    public Task<Dictionary<string, int>> GetPersonRoleCountsAsync(CancellationToken ct = default)
+        => _api.GetPersonRoleCountsAsync(ct);
+
+    /// <summary>Returns media type presence counts per person.</summary>
+    public Task<Dictionary<string, Dictionary<string, int>>> GetPersonPresenceAsync(
+        IEnumerable<Guid> personIds, CancellationToken ct = default)
+        => _api.GetPersonPresenceAsync(personIds, ct);
+
     /// <summary>Returns related hubs (series/author/genre/explore cascade).</summary>
     public Task<RelatedHubsViewModel?> GetRelatedHubsAsync(
         Guid hubId, int limit = 20, CancellationToken ct = default)

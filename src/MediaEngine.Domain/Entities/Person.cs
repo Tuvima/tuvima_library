@@ -21,13 +21,11 @@ public sealed class Person
     public string Name { get; set; } = string.Empty;
 
     /// <summary>
-    /// The role this person plays in associated media assets.
-    /// Valid values: <c>"Author"</c>, <c>"Narrator"</c>, <c>"Director"</c>,
-    /// <c>"Illustrator"</c>, <c>"Cast Member"</c>, <c>"Voice Actor"</c>,
-    /// <c>"Screenwriter"</c>, <c>"Composer"</c>.
-    /// Enforced by a CHECK constraint in the <c>persons</c> table.
+    /// The roles this person plays across associated media assets.
+    /// Populated from the <c>person_roles</c> junction table.
+    /// Examples: "Author", "Director", "Cast Member".
     /// </summary>
-    public string Role { get; set; } = string.Empty;
+    public List<string> Roles { get; set; } = [];
 
     /// <summary>
     /// The Wikidata Q-identifier for this person, if enriched.
@@ -137,4 +135,13 @@ public sealed class Person
     /// Maps to <c>persons.enriched_at</c> (ISO-8601 TEXT in SQLite).
     /// </summary>
     public DateTimeOffset? EnrichedAt { get; set; }
+
+    /// <summary>
+    /// The Wikidata entity revision ID from the last enrichment.
+    /// Used for lightweight freshness checks: if the revision hasn't changed,
+    /// skip the full property re-fetch during the 30-day refresh cycle.
+    /// <c>null</c> means no revision has been recorded (pre-M-065 records).
+    /// Maps to <c>persons.last_revision_id</c> (INTEGER in SQLite).
+    /// </summary>
+    public long? LastRevisionId { get; set; }
 }

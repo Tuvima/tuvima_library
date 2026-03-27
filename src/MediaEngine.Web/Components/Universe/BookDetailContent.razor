@@ -701,7 +701,7 @@ else
                 var persons = await Orchestrator.GetPersonsByWorkAsync(_work.Id);
                 _authorPerson   = ResolveAuthorPerson(persons, _work.AuthorQid, _work.Author);
                 _narratorPerson = persons.FirstOrDefault(p =>
-                    string.Equals(p.Role, "Narrator", StringComparison.OrdinalIgnoreCase));
+                    p.Roles.Any(r => string.Equals(r, "Narrator", StringComparison.OrdinalIgnoreCase)));
             }
             catch
             {
@@ -1032,7 +1032,7 @@ else
                     if (!string.Equals(CollapseFormatting(label), normAuthor, StringComparison.OrdinalIgnoreCase))
                         continue;
                     var match = persons.FirstOrDefault(p =>
-                        string.Equals(p.Role, "Author", StringComparison.OrdinalIgnoreCase) &&
+                        p.Roles.Any(r => string.Equals(r, "Author", StringComparison.OrdinalIgnoreCase)) &&
                         string.Equals(p.WikidataQid, qid, StringComparison.OrdinalIgnoreCase));
                     if (match is not null) return match;
                 }
@@ -1041,14 +1041,14 @@ else
             foreach (var (qid, _) in entries)
             {
                 var match = persons.FirstOrDefault(p =>
-                    string.Equals(p.Role, "Author", StringComparison.OrdinalIgnoreCase) &&
+                    p.Roles.Any(r => string.Equals(r, "Author", StringComparison.OrdinalIgnoreCase)) &&
                     string.Equals(p.WikidataQid, qid, StringComparison.OrdinalIgnoreCase));
                 if (match is not null) return match;
             }
         }
 
         return persons.FirstOrDefault(p =>
-            string.Equals(p.Role, "Author", StringComparison.OrdinalIgnoreCase));
+            p.Roles.Any(r => string.Equals(r, "Author", StringComparison.OrdinalIgnoreCase)));
     }
 
     private static string CollapseFormatting(string value)

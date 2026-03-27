@@ -423,8 +423,7 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
                         var xmlName = ReadPersonNameFromXml(personXml);
                         if (!string.IsNullOrWhiteSpace(xmlName))
                         {
-                            person = await _personRepo.FindByNameAsync(xmlName, "Author", ct)
-                                  ?? await _personRepo.FindByNameAsync(xmlName, "Narrator", ct);
+                            person = await _personRepo.FindByNameAsync(xmlName, ct);
                         }
                     }
                 }
