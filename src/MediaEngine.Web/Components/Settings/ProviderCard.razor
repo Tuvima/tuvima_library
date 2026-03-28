@@ -35,10 +35,10 @@
             </MudTooltip>
         }
 
-        @* Health dot *@
-        <MudTooltip Text="@(Provider.IsReachable ? "Online" : "Unreachable")"
+        @* Health dot — three-state indicator based on health monitor data *@
+        <MudTooltip Text="@GetHealthTooltip()"
                     Arrow="true" Placement="Placement.Top">
-            <div class="provider-health-dot @(Provider.IsReachable ? "health-online" : "health-offline")"></div>
+            <div class="provider-health-dot @GetHealthDotClass()"></div>
         </MudTooltip>
 
         @* Config button (gear) — always interactive, even on unavailable providers *@
@@ -269,6 +269,50 @@
         }
     }
 
+    private string GetHealthDotClass() => Provider.HealthStatus switch
+    {
+        "Degraded" => "health-degraded",
+        "Down"     => "health-offline",
+        _          => Provider.IsReachable ? "health-online" : "health-offline",
+    };
+
+    private string GetHealthTooltip()
+    {
+        switch (Provider.HealthStatus)
+        {
+            case "Degraded":
+                return $"Intermittent issues — {Provider.ConsecutiveFailures} consecutive failures";
+            case "Down":
+                var downSinceText = FormatRelativeTime(Provider.DownSince);
+                var reason = string.IsNullOrWhiteSpace(Provider.LastFailureReason)
+                    ? "unknown error"
+                    : Provider.LastFailureReason;
+                return downSinceText is not null
+                    ? $"Down since {downSinceText} — {reason}"
+                    : $"Unreachable — {reason}";
+            case "Healthy":
+                return "Online";
+            default:
+                // Fallback when no health data exists yet.
+                return Provider.IsReachable ? "Online" : "Unreachable";
+        }
+    }
+
+    private static string? FormatRelativeTime(string? isoTimestamp)
+    {
+        if (string.IsNullOrWhiteSpace(isoTimestamp))
+            return null;
+
+        if (!DateTimeOffset.TryParse(isoTimestamp, out var timestamp))
+            return null;
+
+        var elapsed = DateTimeOffset.UtcNow - timestamp;
+        if (elapsed.TotalMinutes < 1)     return "just now";
+        if (elapsed.TotalMinutes < 60)    return $"{(int)elapsed.TotalMinutes}m ago";
+        if (elapsed.TotalHours < 24)      return $"{(int)elapsed.TotalHours}h ago";
+        return $"{(int)elapsed.TotalDays}d ago";
+    }
+
     private string GetApiKeyHelpText() => Provider.ApiKeyDelivery switch
     {
         "bearer" => "Sent as a Bearer token in the Authorization header.",
@@ -348,6 +392,11 @@
     .health-online {
         background: #4CAF50;
         box-shadow: 0 0 4px rgba(76, 175, 80, 0.5);
+    }
+
+    .health-degraded {
+        background: #FFC107;
+        box-shadow: 0 0 4px rgba(255, 193, 7, 0.5);
     }
 
     .health-offline {

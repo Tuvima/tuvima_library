@@ -640,10 +640,17 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         // which can be stale when the entity has been hydrated multiple times.
         var stage1RawClaims = new List<ProviderClaim>();
 
+        // Track whether any provider failure was a connectivity/server issue.
+        // Used to classify the deferred enrichment request appropriately.
+        string? downProviderName = null;
+
         foreach (var provider in stage1Providers)
         {
-            var claims = await FetchFromProviderAsync(
+            var (claims, downProvider) = await FetchFromProviderAsync(
                 provider, request, endpointMap, lang, country, ct, effectivePass).ConfigureAwait(false);
+
+            if (downProvider is not null)
+                downProviderName = downProvider;
 
             if (claims.Count == 0) continue;
 
@@ -1783,13 +1790,17 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
 
                 await _deferredRepo.InsertAsync(new DeferredEnrichmentRequest
                 {
-                    Id          = Guid.NewGuid(),
-                    EntityId    = request.EntityId,
-                    WikidataQid = result.WikidataQid,
-                    MediaType   = request.MediaType,
-                    HintsJson   = JsonSerializer.Serialize(hintsDict),
-                    CreatedAt   = DateTimeOffset.UtcNow,
-                    Status      = "Pending",
+                    Id                 = Guid.NewGuid(),
+                    EntityId           = request.EntityId,
+                    WikidataQid        = result.WikidataQid,
+                    MediaType          = request.MediaType,
+                    HintsJson          = JsonSerializer.Serialize(hintsDict),
+                    CreatedAt          = DateTimeOffset.UtcNow,
+                    Status             = "Pending",
+                    FailureType        = downProviderName != null
+                        ? ProviderFailureType.ProviderDown
+                        : (ProviderFailureType?)null,
+                    FailedProviderName = downProviderName,
                 }, ct).ConfigureAwait(false);
 
                 _logger.LogDebug(
@@ -2718,8 +2729,10 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
 
     /// <summary>
     /// Fetches claims from a single provider, handling errors gracefully.
+    /// Returns a tuple: the claims list, and optionally the provider name
+    /// when the failure was a connectivity/server issue (provider down).
     /// </summary>
-    private async Task<IReadOnlyList<ProviderClaim>> FetchFromProviderAsync(
+    private async Task<(IReadOnlyList<ProviderClaim> Claims, string? DownProvider)> FetchFromProviderAsync(
         IExternalMetadataProvider provider,
         HarvestRequest request,
         Dictionary<string, string> endpointMap,
@@ -2734,18 +2747,26 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
 
         try
         {
-            return await provider.FetchAsync(lookupRequest, ct).ConfigureAwait(false);
+            var claims = await provider.FetchAsync(lookupRequest, ct).ConfigureAwait(false);
+            return (claims, null);
         }
         catch (OperationCanceledException)
         {
             throw;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            _logger.LogWarning(ex,
+                "Provider {Provider} is unreachable for entity {Id}; marking as provider-down",
+                provider.Name, request.EntityId);
+            return ([], provider.Name);
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex,
                 "Provider {Provider} threw unexpectedly for entity {Id}; skipping",
                 provider.Name, request.EntityId);
-            return [];
+            return ([], null);
         }
     }
 

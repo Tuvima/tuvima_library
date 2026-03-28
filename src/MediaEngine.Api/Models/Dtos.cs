@@ -571,6 +571,30 @@ public sealed class ProviderStatusResponse
     /// <summary>Optional Material icon name override (e.g. "MenuBook"). Null = use default accent icon.</summary>
     [JsonPropertyName("custom_icon_name")]
     public string? CustomIconName { get; init; }
+
+    /// <summary>Health status: "Healthy", "Degraded", or "Down". Null if no health data available.</summary>
+    [JsonPropertyName("health_status")]
+    public string? HealthStatus { get; init; }
+
+    /// <summary>Number of consecutive failed requests.</summary>
+    [JsonPropertyName("consecutive_failures")]
+    public int ConsecutiveFailures { get; init; }
+
+    /// <summary>ISO 8601 timestamp of the last successful request.</summary>
+    [JsonPropertyName("last_success_at")]
+    public string? LastSuccessAt { get; init; }
+
+    /// <summary>ISO 8601 timestamp of the last failed request.</summary>
+    [JsonPropertyName("last_failure_at")]
+    public string? LastFailureAt { get; init; }
+
+    /// <summary>Human-readable reason for the last failure.</summary>
+    [JsonPropertyName("last_failure_reason")]
+    public string? LastFailureReason { get; init; }
+
+    /// <summary>ISO 8601 timestamp when the provider first entered the Down state.</summary>
+    [JsonPropertyName("down_since")]
+    public string? DownSince { get; init; }
 }
 
 /// <summary>Field mapping entry for provider status response.</summary>

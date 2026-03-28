@@ -49,4 +49,17 @@ public sealed class DeferredEnrichmentRequest
 
     /// <summary>When this request was processed (nullable).</summary>
     public DateTimeOffset? ProcessedAt { get; set; }
+
+    /// <summary>
+    /// Why this item was deferred. <c>ProviderDown</c> means automatic retry;
+    /// <c>NoMatch</c> or <c>Ambiguous</c> means user review needed.
+    /// Null for legacy rows or standard Pass 2 deferrals.
+    /// </summary>
+    public ProviderFailureType? FailureType { get; set; }
+
+    /// <summary>
+    /// Which provider failed (e.g. "metron", "tmdb").
+    /// Null when the deferral is a normal Pass 2 queue entry.
+    /// </summary>
+    public string? FailedProviderName { get; set; }
 }

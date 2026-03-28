@@ -28,21 +28,23 @@ public sealed class DeferredEnrichmentRepository : IDeferredEnrichmentRepository
         conn.Execute("""
             INSERT OR IGNORE INTO deferred_enrichment_queue
                 (id, entity_id, wikidata_qid, media_type, hints_json,
-                 created_at, status, processed_at)
+                 created_at, status, processed_at, failure_type, failed_provider_name)
             VALUES
                 (@Id, @EntityId, @WikidataQid, @MediaType, @HintsJson,
-                 @CreatedAt, @Status, @ProcessedAt);
+                 @CreatedAt, @Status, @ProcessedAt, @FailureType, @FailedProviderName);
             """,
             new
             {
-                Id          = request.Id,
-                EntityId    = request.EntityId,
+                Id                 = request.Id,
+                EntityId           = request.EntityId,
                 request.WikidataQid,
-                MediaType   = request.MediaType.ToString(),
+                MediaType          = request.MediaType.ToString(),
                 request.HintsJson,
-                CreatedAt   = request.CreatedAt,
+                CreatedAt          = request.CreatedAt,
                 request.Status,
-                ProcessedAt = request.ProcessedAt,
+                ProcessedAt        = request.ProcessedAt,
+                FailureType        = request.FailureType?.ToString(),
+                FailedProviderName = request.FailedProviderName,
             });
         return Task.CompletedTask;
     }
@@ -53,14 +55,16 @@ public sealed class DeferredEnrichmentRepository : IDeferredEnrichmentRepository
     {
         using var conn = _db.CreateConnection();
         var rows = conn.Query<DeferredEnrichmentRow>("""
-            SELECT id           AS Id,
-                   entity_id    AS EntityId,
-                   wikidata_qid AS WikidataQid,
-                   media_type   AS MediaType,
-                   hints_json   AS HintsJson,
-                   created_at   AS CreatedAt,
-                   status       AS Status,
-                   processed_at AS ProcessedAt
+            SELECT id                    AS Id,
+                   entity_id             AS EntityId,
+                   wikidata_qid          AS WikidataQid,
+                   media_type            AS MediaType,
+                   hints_json            AS HintsJson,
+                   created_at            AS CreatedAt,
+                   status                AS Status,
+                   processed_at          AS ProcessedAt,
+                   failure_type          AS FailureType,
+                   failed_provider_name  AS FailedProviderName
             FROM   deferred_enrichment_queue
             WHERE  status = 'Pending'
             ORDER BY created_at ASC
@@ -78,14 +82,16 @@ public sealed class DeferredEnrichmentRepository : IDeferredEnrichmentRepository
 
         using var conn = _db.CreateConnection();
         var rows = conn.Query<DeferredEnrichmentRow>("""
-            SELECT id           AS Id,
-                   entity_id    AS EntityId,
-                   wikidata_qid AS WikidataQid,
-                   media_type   AS MediaType,
-                   hints_json   AS HintsJson,
-                   created_at   AS CreatedAt,
-                   status       AS Status,
-                   processed_at AS ProcessedAt
+            SELECT id                    AS Id,
+                   entity_id             AS EntityId,
+                   wikidata_qid          AS WikidataQid,
+                   media_type            AS MediaType,
+                   hints_json            AS HintsJson,
+                   created_at            AS CreatedAt,
+                   status                AS Status,
+                   processed_at          AS ProcessedAt,
+                   failure_type          AS FailureType,
+                   failed_provider_name  AS FailedProviderName
             FROM   deferred_enrichment_queue
             WHERE  status = 'Pending'
               AND  created_at < @cutoff
@@ -142,6 +148,33 @@ public sealed class DeferredEnrichmentRepository : IDeferredEnrichmentRepository
         return Task.FromResult(count);
     }
 
+    /// <inheritdoc/>
+    public Task<IReadOnlyList<DeferredEnrichmentRequest>> GetByFailedProviderAsync(
+        string providerName, int limit = 50, CancellationToken ct = default)
+    {
+        using var conn = _db.CreateConnection();
+        var rows = conn.Query<DeferredEnrichmentRow>("""
+            SELECT id                    AS Id,
+                   entity_id             AS EntityId,
+                   wikidata_qid          AS WikidataQid,
+                   media_type            AS MediaType,
+                   hints_json            AS HintsJson,
+                   created_at            AS CreatedAt,
+                   status                AS Status,
+                   processed_at          AS ProcessedAt,
+                   failure_type          AS FailureType,
+                   failed_provider_name  AS FailedProviderName
+            FROM   deferred_enrichment_queue
+            WHERE  status = 'Pending'
+              AND  failure_type = 'ProviderDown'
+              AND  failed_provider_name = @providerName
+            ORDER BY created_at ASC
+            LIMIT  @limit;
+            """, new { providerName, limit }).AsList();
+
+        return Task.FromResult<IReadOnlyList<DeferredEnrichmentRequest>>(rows.ConvertAll(MapRow));
+    }
+
     // ── Private intermediate row type and mapper ──────────────────────────────
 
     /// <summary>
@@ -152,25 +185,29 @@ public sealed class DeferredEnrichmentRepository : IDeferredEnrichmentRepository
     /// </summary>
     private sealed class DeferredEnrichmentRow
     {
-        public Guid           Id          { get; set; }
-        public Guid           EntityId    { get; set; }
-        public string?        WikidataQid { get; set; }
-        public string         MediaType   { get; set; } = string.Empty;
-        public string?        HintsJson   { get; set; }
-        public DateTimeOffset CreatedAt   { get; set; }
-        public string         Status      { get; set; } = string.Empty;
-        public DateTimeOffset? ProcessedAt { get; set; }
+        public Guid            Id                 { get; set; }
+        public Guid            EntityId           { get; set; }
+        public string?         WikidataQid        { get; set; }
+        public string          MediaType          { get; set; } = string.Empty;
+        public string?         HintsJson          { get; set; }
+        public DateTimeOffset  CreatedAt          { get; set; }
+        public string          Status             { get; set; } = string.Empty;
+        public DateTimeOffset? ProcessedAt        { get; set; }
+        public string?         FailureType        { get; set; }
+        public string?         FailedProviderName { get; set; }
     }
 
     private static DeferredEnrichmentRequest MapRow(DeferredEnrichmentRow r) => new()
     {
-        Id          = r.Id,
-        EntityId    = r.EntityId,
-        WikidataQid = r.WikidataQid,
-        MediaType   = Enum.TryParse<MediaType>(r.MediaType, true, out var mt) ? mt : MediaType.Unknown,
-        HintsJson   = r.HintsJson,
-        CreatedAt   = r.CreatedAt,
-        Status      = r.Status,
-        ProcessedAt = r.ProcessedAt,
+        Id                 = r.Id,
+        EntityId           = r.EntityId,
+        WikidataQid        = r.WikidataQid,
+        MediaType          = Enum.TryParse<MediaType>(r.MediaType, true, out var mt) ? mt : MediaType.Unknown,
+        HintsJson          = r.HintsJson,
+        CreatedAt          = r.CreatedAt,
+        Status             = r.Status,
+        ProcessedAt        = r.ProcessedAt,
+        FailureType        = Enum.TryParse<ProviderFailureType>(r.FailureType, true, out var ft) ? ft : null,
+        FailedProviderName = r.FailedProviderName,
     };
 }

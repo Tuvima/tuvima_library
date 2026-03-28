@@ -28,4 +28,10 @@ public sealed record ProviderStatusDto(
     [property: JsonPropertyName("api_key_delivery")]  string? ApiKeyDelivery                               = null,
     [property: JsonPropertyName("api_key_param_name")]string? ApiKeyParamName                              = null,
     [property: JsonPropertyName("timeout_seconds")]   int TimeoutSeconds                                   = 10,
-    [property: JsonPropertyName("custom_icon_name")]  string? CustomIconName                               = null);
+    [property: JsonPropertyName("custom_icon_name")]  string? CustomIconName                               = null,
+    [property: JsonPropertyName("health_status")]     string? HealthStatus                                 = null,
+    [property: JsonPropertyName("consecutive_failures")] int ConsecutiveFailures                            = 0,
+    [property: JsonPropertyName("last_success_at")]   string? LastSuccessAt                                = null,
+    [property: JsonPropertyName("last_failure_at")]   string? LastFailureAt                                = null,
+    [property: JsonPropertyName("last_failure_reason")] string? LastFailureReason                           = null,
+    [property: JsonPropertyName("down_since")]        string? DownSince                                    = null);

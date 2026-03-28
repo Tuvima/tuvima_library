@@ -44,4 +44,10 @@ public interface IDeferredEnrichmentRepository
 
     /// <summary>Returns the number of pending requests.</summary>
     Task<int> CountPendingAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// Get all pending items that failed because a specific provider was down.
+    /// </summary>
+    Task<IReadOnlyList<DeferredEnrichmentRequest>> GetByFailedProviderAsync(
+        string providerName, int limit = 50, CancellationToken ct = default);
 }

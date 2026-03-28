@@ -82,6 +82,7 @@
   <!-- ── Vault ──────────────────────────────────────────────────────────── -->
   <data name="Vault_Title" xml:space="preserve"><value>Vault</value></data>
   <data name="Vault_AddMedia" xml:space="preserve"><value>Agregar contenido</value></data>
+  <data name="Vault_WaitingForProvider" xml:space="preserve"><value>Esperando al proveedor</value></data>
   <data name="Vault_LoadMore" xml:space="preserve"><value>Cargar más</value></data>
   <data name="Vault_ItemPurged" xml:space="preserve"><value>Elemento eliminado definitivamente</value></data>
   <data name="Vault_ItemDeleted" xml:space="preserve"><value>Elemento eliminado</value></data>
@@ -113,11 +114,14 @@
   <data name="VaultMedia_ColVerification" xml:space="preserve"><value>Verificación</value></data>
   <data name="VaultMedia_UnknownCreator" xml:space="preserve"><value>DESCONOCIDO</value></data>
   <data name="VaultMedia_Standalone" xml:space="preserve"><value>INDEPENDIENTE</value></data>
+  <data name="VaultMedia_WaitingForProvider" xml:space="preserve"><value>Proveedor actualmente inaccesible — se reintentará automáticamente</value></data>
+  <data name="VaultMedia_WaitingForProviderNamed" xml:space="preserve"><value>{0} está actualmente inaccesible — se reintentará automáticamente</value></data>
   <data name="VaultMedia_GroupVerified" xml:space="preserve"><value>Verificado</value></data>
   <data name="VaultMedia_GroupProvisional" xml:space="preserve"><value>Provisional</value></data>
   <data name="VaultMedia_GroupNeedsReview" xml:space="preserve"><value>Requiere revisión</value></data>
   <data name="VaultMedia_GroupFailed" xml:space="preserve"><value>Fallido</value></data>
   <data name="VaultMedia_GroupQuarantined" xml:space="preserve"><value>En cuarentena</value></data>
+  <data name="VaultMedia_GroupWaitingForProvider" xml:space="preserve"><value>Esperando al proveedor</value></data>
   <data name="VaultMedia_GroupAll" xml:space="preserve"><value>Todos los elementos</value></data>
 
   <!-- ── Vault People Table ─────────────────────────────────────────────── -->
@@ -191,6 +195,8 @@
   <data name="VaultDetail_HintCompleteStage1First" xml:space="preserve"><value>Complete la Etapa 1 primero para habilitar la vinculación con Wikidata.</value></data>
   <data name="VaultDetail_StageUniverse" xml:space="preserve"><value>Etapa de Universo</value></data>
   <data name="VaultDetail_CascadeNote" xml:space="preserve"><value>Desasociar la Etapa 1 (Comercial) también limpiará la Etapa 2 (Wikidata).</value></data>
+  <data name="VaultDetail_WaitingForProvider" xml:space="preserve"><value>Este elemento está esperando a que un proveedor vuelva a estar disponible. Se enriquecerá automáticamente cuando el proveedor se recupere.</value></data>
+  <data name="VaultDetail_WaitingForProviderNamed" xml:space="preserve"><value>Este elemento está esperando a que {0} vuelva a estar disponible. Se enriquecerá automáticamente cuando el proveedor se recupere.</value></data>
   <data name="VaultDetail_SectionAssets" xml:space="preserve"><value>Recursos e imágenes</value></data>
   <data name="VaultDetail_AssetCoverArt" xml:space="preserve"><value>Portada</value></data>
   <data name="VaultDetail_AssetSourceProvider" xml:space="preserve"><value>Proveedor</value></data>
@@ -237,6 +243,7 @@
   <data name="StatusPill_Failed" xml:space="preserve"><value>FALLIDO</value></data>
   <data name="StatusPill_Quarantined" xml:space="preserve"><value>EN CUARENTENA</value></data>
   <data name="StatusPill_Unknown" xml:space="preserve"><value>DESCONOCIDO</value></data>
+  <data name="StatusPill_WaitingForProvider" xml:space="preserve"><value>ESPERANDO AL PROVEEDOR</value></data>
   <data name="StatusPill_DeletesIn" xml:space="preserve"><value>Se elimina en {0}d</value></data>
 
   <!-- ── Profile Tab ────────────────────────────────────────────────────── -->

@@ -2,8 +2,10 @@ using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
+using ProviderHealthRecord = MediaEngine.Domain.Entities.ProviderHealthRecord;
 using MediaEngine.Domain.Events;
 using MediaEngine.Ingestion.Contracts;
+using MediaEngine.Providers;
 using MediaEngine.Providers.Adapters;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Models;
@@ -256,6 +258,33 @@ public static class SettingsEndpoints
         .Produces<BrowseDirectoryResponse>(StatusCodes.Status200OK)
         .RequireAdmin();
 
+        // ── GET /settings/providers/health ────────────────────────────────────────
+        // Must be mapped BEFORE /providers/{name} so the literal "health" segment
+        // is matched before the route parameter catches it.
+
+        grp.MapGet("/providers/health", async (
+            IProviderHealthRepository healthRepo,
+            CancellationToken ct) =>
+        {
+            var records = await healthRepo.GetAllAsync(ct);
+            return Results.Ok(records.Select(r => new
+            {
+                r.ProviderId,
+                Status = r.Status.ToString(),
+                r.ConsecutiveFailures,
+                LastCheckAt = r.LastCheckAt?.ToString("o"),
+                LastSuccessAt = r.LastSuccessAt?.ToString("o"),
+                LastFailureAt = r.LastFailureAt?.ToString("o"),
+                r.LastFailureReason,
+                NextCheckAt = r.NextCheckAt?.ToString("o"),
+                DownSince = r.DownSince?.ToString("o"),
+            }));
+        })
+        .WithName("GetProviderHealth")
+        .WithSummary("Returns health status for all tracked providers.")
+        .Produces(StatusCodes.Status200OK)
+        .RequireAdminOrCurator();
+
         // ── PUT /settings/providers/{name} ───────────────────────────────────────
 
         grp.MapPut("/providers/{name}", (
@@ -285,19 +314,34 @@ public static class SettingsEndpoints
 
         grp.MapGet("/providers", async (
             IConfigurationLoader configLoader,
+            IProviderHealthRepository healthRepo,
             IHttpClientFactory   httpFactory,
             CancellationToken    ct) =>
         {
             var providers = configLoader.LoadAllProviders();
-            var http      = httpFactory.CreateClient("settings_probe");
 
-            // Check each provider's reachability concurrently.
+            // Prefer persisted health data from the health monitor.
+            // Fall back to a live probe only for providers without a health record yet.
+            var healthRecords = await healthRepo.GetAllAsync(ct);
+            var healthMap = healthRecords.ToDictionary(
+                r => r.ProviderId, StringComparer.OrdinalIgnoreCase);
+
+            var http = httpFactory.CreateClient("settings_probe");
+
             var statusTasks = providers.Select(async provider =>
             {
-                var name        = provider.Name;
                 var displayName = ResolveDisplayName(provider);
-                bool isReachable = false;
 
+                if (healthMap.TryGetValue(provider.Name, out var healthRecord))
+                {
+                    // Use persisted health data — no live probe needed.
+                    bool isReachable = healthRecord.Status != ProviderHealthStatus.Down;
+                    return BuildProviderStatusResponse(
+                        provider, displayName, isReachable, healthRecord);
+                }
+
+                // Fallback: live probe for providers without health data (first startup).
+                bool probeReachable = false;
                 var baseUrl = GetBaseUrlForProvider(provider);
                 if (provider.Enabled && !string.IsNullOrWhiteSpace(baseUrl))
                 {
@@ -308,14 +352,12 @@ public static class SettingsEndpoints
                         using var req  = new HttpRequestMessage(HttpMethod.Get, baseUrl);
                         using var resp = await http.SendAsync(
                             req, HttpCompletionOption.ResponseHeadersRead, probeCts.Token);
-                        // Any response (even 4xx) confirms the server is reachable.
-                        // Only connection-level failures mean unreachable.
-                        isReachable = (int)resp.StatusCode < 500;
+                        probeReachable = (int)resp.StatusCode < 500;
                     }
-                    catch { /* timeout / DNS failure / network error — isReachable stays false */ }
+                    catch { /* timeout / DNS failure / network error */ }
                 }
 
-                return BuildProviderStatusResponse(provider, displayName, isReachable);
+                return BuildProviderStatusResponse(provider, displayName, probeReachable);
             });
 
             return Results.Ok(await Task.WhenAll(statusTasks));
@@ -428,7 +470,8 @@ public static class SettingsEndpoints
                     adapter = new ConfigDrivenAdapter(
                         providerConfig,
                         httpFactory,
-                        loggerFactory.CreateLogger<ConfigDrivenAdapter>());
+                        loggerFactory.CreateLogger<ConfigDrivenAdapter>(),
+                        NullProviderHealthMonitor.Instance);
                 }
                 catch { /* Config not suitable for ConfigDrivenAdapter — fall through */ }
             }
@@ -539,7 +582,8 @@ public static class SettingsEndpoints
                     adapter = new ConfigDrivenAdapter(
                         providerConfig,
                         httpFactory,
-                        loggerFactory.CreateLogger<ConfigDrivenAdapter>());
+                        loggerFactory.CreateLogger<ConfigDrivenAdapter>(),
+                        NullProviderHealthMonitor.Instance);
                 }
                 catch { /* Config not suitable for ConfigDrivenAdapter — fall through */ }
             }
@@ -1057,7 +1101,8 @@ public static class SettingsEndpoints
     private static ProviderStatusResponse BuildProviderStatusResponse(
         ProviderConfiguration provider,
         string displayName,
-        bool isReachable = false)
+        bool isReachable = false,
+        ProviderHealthRecord? healthRecord = null)
     {
         // Prefer explicit can_handle.media_types; fall back to domain-derived media types.
         var mediaTypes = provider.CanHandle?.MediaTypes;
@@ -1097,6 +1142,12 @@ public static class SettingsEndpoints
                 Confidence = fm.Confidence,
                 Transform  = fm.Transform,
             }).ToList(),
+            HealthStatus         = healthRecord?.Status.ToString(),
+            ConsecutiveFailures  = healthRecord?.ConsecutiveFailures ?? 0,
+            LastSuccessAt        = healthRecord?.LastSuccessAt?.ToString("o"),
+            LastFailureAt        = healthRecord?.LastFailureAt?.ToString("o"),
+            LastFailureReason    = healthRecord?.LastFailureReason,
+            DownSince            = healthRecord?.DownSince?.ToString("o"),
         };
     }
 

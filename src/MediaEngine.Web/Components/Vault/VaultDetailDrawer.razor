@@ -112,6 +112,23 @@
     <div class="vdd-body">
         @if (MediaItem is not null)
         {
+            @if (MediaItem.VaultDisplayStatus == VaultStatus.WaitingForProvider)
+            {
+                <div class="vdd-waiting-banner">
+                    <MudIcon Icon="@Icons.Material.Outlined.Schedule" Style="font-size: 18px;" />
+                    <span>
+                        @if (!string.IsNullOrEmpty(MediaItem.FailedProviderName))
+                        {
+                            @L["VaultDetail_WaitingForProviderNamed", MediaItem.FailedProviderName]
+                        }
+                        else
+                        {
+                            @L["VaultDetail_WaitingForProvider"]
+                        }
+                    </span>
+                </div>
+            }
+
             @* ── Media Sections ── *@
             <DrawerSection Title="@L["VaultDetail_SectionSourceDetails"]" Icon="@Icons.Material.Outlined.Storage">
                 <div class="vdd-source">
@@ -1454,6 +1471,20 @@
         background: rgba(239, 159, 39, 0.08);
         border: 1px solid rgba(239, 159, 39, 0.15);
         color: #EF9F27;
+        font-size: 12px;
+        font-weight: 700;
+    }
+
+    .vdd-waiting-banner {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 14px;
+        margin: 0 24px 16px 24px;
+        border-radius: 10px;
+        background: rgba(56, 189, 248, 0.08);
+        border: 1px solid rgba(56, 189, 248, 0.15);
+        color: #38BDF8;
         font-size: 12px;
         font-weight: 700;
     }

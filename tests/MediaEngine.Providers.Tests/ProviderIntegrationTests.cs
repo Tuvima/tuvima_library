@@ -287,7 +287,7 @@ public sealed class ProviderIntegrationTests
     {
         var config = LoadExampleConfig(configName);
         var factory = BuildRealHttpFactory(config.Name);
-        return new ConfigDrivenAdapter(config, factory, NullLogger<ConfigDrivenAdapter>.Instance);
+        return new ConfigDrivenAdapter(config, factory, NullLogger<ConfigDrivenAdapter>.Instance, NullProviderHealthMonitor.Instance);
     }
 
     /// <summary>

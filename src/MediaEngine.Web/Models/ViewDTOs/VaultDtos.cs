@@ -4,7 +4,7 @@ namespace MediaEngine.Web.Models.ViewDTOs;
 public enum VaultStageState { Completed, Warning, Failed, Pending }
 
 /// <summary>Vault item display statuses.</summary>
-public enum VaultStatus { Verified, Provisional, NeedsReview, Failed, Quarantined }
+public enum VaultStatus { Verified, Provisional, NeedsReview, Failed, Quarantined, WaitingForProvider }
 
 /// <summary>A single pipeline stage indicator.</summary>
 public sealed class VaultPipelineStage
@@ -37,6 +37,9 @@ public sealed class VaultItemViewModel
     public bool HasUserLocks { get; init; }
     public string? HeroUrl { get; init; }
     public bool MissingUniverse { get; init; }
+
+    /// <summary>Name of the provider that is currently unreachable (if any).</summary>
+    public string? FailedProviderName { get; init; }
 
     // Computed: the 4 vault display statuses
     public VaultStatus VaultDisplayStatus => ComputeVaultStatus();
@@ -78,10 +81,15 @@ public sealed class VaultItemViewModel
         HasUserLocks = r.HasUserLocks,
         HeroUrl = r.HeroUrl,
         MissingUniverse = r.MissingUniverse,
+        FailedProviderName = r.FailedProviderName,
     };
 
     private VaultStatus ComputeVaultStatus()
     {
+        // WaitingForProvider — provider is unreachable, will retry automatically
+        if (string.Equals(Status, "WaitingForProvider", StringComparison.OrdinalIgnoreCase))
+            return VaultStatus.WaitingForProvider;
+
         // Rejected → Quarantined
         if (string.Equals(Status, "Rejected", StringComparison.OrdinalIgnoreCase))
             return VaultStatus.Quarantined;

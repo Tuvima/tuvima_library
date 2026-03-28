@@ -56,6 +56,14 @@
                         <span>Quarantined (@_quarantinedCount)</span>
                     </button>
                 }
+                @if (_waitingForProviderCount > 0)
+                {
+                    <button class="vault-alert vault-alert--blue @(_filterWaitingForProvider ? "vault-alert--on" : "")"
+                            @onclick="ToggleWaitingForProviderFilter">
+                        <MudIcon Icon="@Icons.Material.Outlined.Schedule" Style="font-size: 16px;" />
+                        <span>@L["Vault_WaitingForProvider"] (@_waitingForProviderCount)</span>
+                    </button>
+                }
                 @if (_staleUniverseCount > 0)
                 {
                     <div class="vault-alert vault-alert--amber"
@@ -185,6 +193,7 @@
     private bool _filterReview;
     private bool _filterQuarantine;
     private bool _filterProvisional;
+    private bool _filterWaitingForProvider;
 
     /// <summary>Derived from _enabledMediaTypes: when all 6 are active, null (no filter).
     /// When fewer are active, pass as comma-separated types for client-side filtering.</summary>
@@ -211,6 +220,7 @@
     private int _needsReviewCount => _counts.InReview;
     private int _provisionalCount => _counts.Provisional;
     private int _quarantinedCount => _counts.Rejected;
+    private int _waitingForProviderCount => _counts.WaitingForProvider;
 
     /// <summary>
     /// Count of universes that have fictional entities older than 30 days —
@@ -394,6 +404,8 @@
             statusFilter = "Provisional";
         else if (_filterQuarantine)
             statusFilter = "Rejected";
+        else if (_filterWaitingForProvider)
+            statusFilter = "WaitingForProvider";
 
         var offset = append ? _loadedCount : 0;
 
@@ -544,6 +556,7 @@
         _filterReview = !_filterReview;
         _filterProvisional = false;
         _filterQuarantine = false;
+        _filterWaitingForProvider = false;
         await LoadMediaItems();
         UpdateUrl();
     }
@@ -553,6 +566,7 @@
         _filterProvisional = !_filterProvisional;
         _filterReview = false;
         _filterQuarantine = false;
+        _filterWaitingForProvider = false;
         await LoadMediaItems();
         UpdateUrl();
     }
@@ -562,6 +576,17 @@
         _filterQuarantine = !_filterQuarantine;
         _filterReview = false;
         _filterProvisional = false;
+        _filterWaitingForProvider = false;
+        await LoadMediaItems();
+        UpdateUrl();
+    }
+
+    private async Task ToggleWaitingForProviderFilter()
+    {
+        _filterWaitingForProvider = !_filterWaitingForProvider;
+        _filterReview = false;
+        _filterProvisional = false;
+        _filterQuarantine = false;
         await LoadMediaItems();
         UpdateUrl();
     }
@@ -717,6 +742,7 @@
         if (_filterReview) queryParts.Add("filter=review");
         else if (_filterQuarantine) queryParts.Add("filter=quarantine");
         else if (_filterProvisional) queryParts.Add("filter=provisional");
+        else if (_filterWaitingForProvider) queryParts.Add("filter=waiting");
 
         // Search
         if (!string.IsNullOrWhiteSpace(_searchText))
@@ -757,6 +783,7 @@
         _filterReview = filter == "review";
         _filterQuarantine = filter == "quarantine";
         _filterProvisional = filter == "provisional";
+        _filterWaitingForProvider = filter == "waiting";
 
         if (query["search"] is string search && !string.IsNullOrEmpty(search))
             _searchText = search;
@@ -1000,6 +1027,18 @@
         background: rgba(226, 75, 74, 0.2);
         border-color: rgba(226, 75, 74, 0.5);
         box-shadow: 0 0 12px rgba(226, 75, 74, 0.15);
+    }
+
+    .vault-alert--blue {
+        background: rgba(56, 189, 248, 0.1);
+        border: 1px solid rgba(56, 189, 248, 0.2);
+        color: rgba(56, 189, 248, 0.8);
+    }
+
+    .vault-alert--blue.vault-alert--on {
+        background: rgba(56, 189, 248, 0.2);
+        border-color: rgba(56, 189, 248, 0.5);
+        box-shadow: 0 0 12px rgba(56, 189, 248, 0.15);
     }
 
     /* ── Toolbar row ── */

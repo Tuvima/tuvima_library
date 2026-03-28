@@ -13,6 +13,7 @@ using MediaEngine.Intelligence.Strategies;
 using MediaEngine.Processors;
 using MediaEngine.Processors.Contracts;
 using MediaEngine.Processors.Processors;
+using MediaEngine.Providers;
 using MediaEngine.Providers.Adapters;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Models;
@@ -185,6 +186,7 @@ var host = Host.CreateDefaultBuilder(args)
                     cfg,
                     sp.GetRequiredService<IHttpClientFactory>(),
                     sp.GetRequiredService<ILogger<ConfigDrivenAdapter>>(),
+                    sp.GetService<IProviderHealthMonitor>() ?? NullProviderHealthMonitor.Instance,
                     sp.GetService<IProviderResponseCacheRepository>()));
         }
 

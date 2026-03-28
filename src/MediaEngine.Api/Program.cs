@@ -387,6 +387,7 @@ foreach (ProviderConfiguration providerConfig in configLoader.LoadAllProviders()
             cfg,
             sp.GetRequiredService<IHttpClientFactory>(),
             sp.GetRequiredService<ILogger<ConfigDrivenAdapter>>(),
+            sp.GetRequiredService<IProviderHealthMonitor>(),
             sp.GetRequiredService<IProviderResponseCacheRepository>()));
 }
 
@@ -493,6 +494,12 @@ builder.Services.AddSingleton<ISearchService,                SearchService>();
 builder.Services.AddSingleton<IImageCacheRepository,              ImageCacheRepository>();
 builder.Services.AddSingleton<IProviderResponseCacheRepository,  ProviderResponseCacheRepository>();
 builder.Services.AddSingleton<ISearchResultsCacheRepository,     SearchResultsCacheRepository>();
+builder.Services.AddSingleton<IProviderHealthRepository,         ProviderHealthRepository>();
+
+// ── Provider Health Monitor: active probes, recovery flush, SignalR events ────
+builder.Services.AddSingleton<ProviderHealthMonitorService>();
+builder.Services.AddSingleton<IProviderHealthMonitor>(sp => sp.GetRequiredService<ProviderHealthMonitorService>());
+builder.Services.AddHostedService(sp => sp.GetRequiredService<ProviderHealthMonitorService>());
 
 // ── Great Inhale scanner ──────────────────────────────────────────────────────
 builder.Services.AddSingleton<ILibraryScanner, LibraryScanner>();

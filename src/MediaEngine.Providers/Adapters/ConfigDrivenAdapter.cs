@@ -33,6 +33,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
     private readonly IHttpClientFactory _httpFactory;
     private readonly ILogger<ConfigDrivenAdapter> _logger;
     private readonly IProviderResponseCacheRepository? _responseCache;
+    private readonly IProviderHealthMonitor _healthMonitor;
 
     // Throttle: per-instance semaphore + timestamp gap.
     private readonly SemaphoreSlim _throttle;
@@ -47,16 +48,19 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         ProviderConfiguration config,
         IHttpClientFactory httpFactory,
         ILogger<ConfigDrivenAdapter> logger,
+        IProviderHealthMonitor healthMonitor,
         IProviderResponseCacheRepository? responseCache = null)
     {
         ArgumentNullException.ThrowIfNull(config);
         ArgumentNullException.ThrowIfNull(httpFactory);
         ArgumentNullException.ThrowIfNull(logger);
+        ArgumentNullException.ThrowIfNull(healthMonitor);
 
         _config = config;
         _httpFactory = httpFactory;
         _responseCache = responseCache;
         _logger = logger;
+        _healthMonitor = healthMonitor;
 
         _throttle = new SemaphoreSlim(
             Math.Max(1, config.MaxConcurrency),
@@ -93,6 +97,13 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
     {
         if (!CanHandle(request.MediaType) || !CanHandle(request.EntityType))
             return [];
+
+        // Skip providers known to be down — items will be queued as "Waiting for Provider".
+        if (_healthMonitor.IsDown(Name))
+        {
+            _logger.LogDebug("{Provider} is known to be down — skipping", Name);
+            return [];
+        }
 
         // Short-circuit when an API key is required but not configured.
         if (_config.RequiresApiKey
@@ -145,21 +156,31 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                     _logger.LogDebug(
                         "{Provider}/{Strategy}: returned {Count} claims",
                         Name, strategy.Name, claims.Count);
+                    await _healthMonitor.ReportSuccessAsync(Name, ct);
                     return claims;
                 }
 
                 _logger.LogInformation(
                     "{Provider}/{Strategy}: zero results from API, trying next strategy",
                     Name, strategy.Name);
+                // Provider responded but had no match — still healthy.
+                await _healthMonitor.ReportSuccessAsync(Name, ct);
             }
             catch (OperationCanceledException)
             {
                 throw;
             }
-            catch (Exception ex) when (ex is HttpRequestException or System.Text.Json.JsonException or InvalidOperationException)
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
             {
                 _logger.LogWarning(ex,
                     "{Provider}/{Strategy}: failed, trying next strategy",
+                    Name, strategy.Name);
+                await _healthMonitor.ReportFailureAsync(Name, ex.Message, ct);
+            }
+            catch (Exception ex) when (ex is System.Text.Json.JsonException or InvalidOperationException)
+            {
+                _logger.LogWarning(ex,
+                    "{Provider}/{Strategy}: parse error, trying next strategy",
                     Name, strategy.Name);
             }
         }
@@ -184,14 +205,25 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                     if (claims.Count > 0)
                     {
                         // Tag claims with source language since they came from English fallback.
+                        await _healthMonitor.ReportSuccessAsync(Name, ct);
                         return claims.Select(c => c with { SourceLanguage = "en" }).ToList();
                     }
+
+                    // Provider responded — still healthy even with no match.
+                    await _healthMonitor.ReportSuccessAsync(Name, ct);
                 }
                 catch (OperationCanceledException) { throw; }
-                catch (Exception ex) when (ex is HttpRequestException or System.Text.Json.JsonException or InvalidOperationException)
+                catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
                 {
                     _logger.LogWarning(ex,
                         "{Provider}/{Strategy}: English fallback failed",
+                        Name, strategy.Name);
+                    await _healthMonitor.ReportFailureAsync(Name, ex.Message, ct);
+                }
+                catch (Exception ex) when (ex is System.Text.Json.JsonException or InvalidOperationException)
+                {
+                    _logger.LogWarning(ex,
+                        "{Provider}/{Strategy}: English fallback parse error",
                         Name, strategy.Name);
                 }
             }

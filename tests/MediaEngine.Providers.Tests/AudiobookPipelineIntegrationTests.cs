@@ -595,7 +595,7 @@ public sealed class AudiobookPipelineIntegrationTests : IDisposable
                        ?? throw new InvalidOperationException($"Failed to deserialize {Path.GetFileName(path)}");
 
         var factory = BuildHttpFactory(config.Name);
-        return new ConfigDrivenAdapter(config, factory, NullLogger<ConfigDrivenAdapter>.Instance);
+        return new ConfigDrivenAdapter(config, factory, NullLogger<ConfigDrivenAdapter>.Instance, NullProviderHealthMonitor.Instance);
     }
 
     private static string FindRepoRoot()

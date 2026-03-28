@@ -119,6 +119,19 @@ else
                                     {
                                         <p class="vmt-review-reason">@VaultHelpers.GetReviewTriggerLabel(item.ReviewTrigger)</p>
                                     }
+                                    @if (item.VaultDisplayStatus == VaultStatus.WaitingForProvider)
+                                    {
+                                        <p class="vmt-provider-waiting">
+                                            @if (!string.IsNullOrEmpty(item.FailedProviderName))
+                                            {
+                                                @L["VaultMedia_WaitingForProviderNamed", item.FailedProviderName]
+                                            }
+                                            else
+                                            {
+                                                @L["VaultMedia_WaitingForProvider"]
+                                            }
+                                        </p>
+                                    }
                                 </div>
                             </div>
                         </td>
@@ -193,9 +206,11 @@ else
             var review = Items.Where(i => i.VaultDisplayStatus == VaultStatus.NeedsReview).ToList();
             var failed = Items.Where(i => i.VaultDisplayStatus == VaultStatus.Failed).ToList();
             var quarantined = Items.Where(i => i.VaultDisplayStatus == VaultStatus.Quarantined).ToList();
+            var waiting = Items.Where(i => i.VaultDisplayStatus == VaultStatus.WaitingForProvider).ToList();
             if (verified.Count > 0) groups.Add(new TableGroup("verified", L["VaultMedia_GroupVerified"].Value, verified));
             if (provisional.Count > 0) groups.Add(new TableGroup("provisional", L["VaultMedia_GroupProvisional"].Value, provisional));
             if (review.Count > 0) groups.Add(new TableGroup("review", L["VaultMedia_GroupNeedsReview"].Value, review));
+            if (waiting.Count > 0) groups.Add(new TableGroup("waiting", L["VaultMedia_GroupWaitingForProvider"].Value, waiting));
             if (failed.Count > 0) groups.Add(new TableGroup("failed", L["VaultMedia_GroupFailed"].Value, failed));
             if (quarantined.Count > 0) groups.Add(new TableGroup("quarantined", L["VaultMedia_GroupQuarantined"].Value, quarantined));
             return groups;
@@ -415,6 +430,14 @@ else
         font-size: 10px;
         font-weight: 600;
         color: #EF9F27;
+        margin-top: 4px;
+        font-style: italic;
+    }
+
+    .vmt-provider-waiting {
+        font-size: 10px;
+        font-weight: 600;
+        color: #38BDF8;
         margin-top: 4px;
         font-style: italic;
     }

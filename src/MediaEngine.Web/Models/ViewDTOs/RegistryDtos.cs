@@ -77,6 +77,9 @@ public sealed class RegistryItemViewModel
 
     [JsonPropertyName("hero_url")]
     public string? HeroUrl { get; set; }
+
+    [JsonPropertyName("failed_provider_name")]
+    public string? FailedProviderName { get; set; }
 }
 
 /// <summary>Paginated registry response.</summary>
@@ -343,6 +346,9 @@ public sealed class RegistryFourStateCountsDto
 
     [JsonPropertyName("hub_count")]
     public int HubCount { get; set; }
+
+    [JsonPropertyName("waiting_for_provider")]
+    public int WaitingForProvider { get; set; }
 
     [JsonPropertyName("trigger_counts")]
     public Dictionary<string, int> TriggerCounts { get; set; } = [];

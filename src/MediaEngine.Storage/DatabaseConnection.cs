@@ -1339,6 +1339,9 @@ public sealed class DatabaseConnection : IDatabaseConnection
         // Migration M-065: Stage 3 tables (entity_assets, character_portraits, series_members).
         MigrateStage3Tables(conn);
 
+        // Migration M-066: Provider health tracking + deferred enrichment failure classification.
+        MigrateProviderHealth(conn);
+
         // Seed S-001: provider_registry entries for all known providers.
         // metadata_claims.provider_id has a FK to provider_registry(id), so these
         // rows MUST exist before any claim is written.  INSERT OR IGNORE makes this
@@ -1859,6 +1862,48 @@ public sealed class DatabaseConnection : IDatabaseConnection
                 ON series_members(series_qid);
             """;
         cmd.ExecuteNonQuery();
+    }
+
+    private static void MigrateProviderHealth(SqliteConnection conn)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            CREATE TABLE IF NOT EXISTS provider_health (
+                provider_id          TEXT NOT NULL PRIMARY KEY,
+                status               TEXT NOT NULL DEFAULT 'Healthy',
+                consecutive_failures INTEGER NOT NULL DEFAULT 0,
+                last_check_at        TEXT,
+                last_success_at      TEXT,
+                last_failure_at      TEXT,
+                last_failure_reason  TEXT,
+                next_check_at        TEXT,
+                down_since           TEXT
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_deferred_queue_failure_type
+                ON deferred_enrichment_queue(failure_type)
+                WHERE failure_type IS NOT NULL;
+            """;
+        cmd.ExecuteNonQuery();
+
+        // Add failure classification columns to the deferred enrichment queue.
+        // These are nullable — legacy rows and normal Pass 2 entries have NULL.
+        // ALTER TABLE does not support IF NOT EXISTS, so catch duplicates.
+        try
+        {
+            using var alt1 = conn.CreateCommand();
+            alt1.CommandText = "ALTER TABLE deferred_enrichment_queue ADD COLUMN failure_type TEXT;";
+            alt1.ExecuteNonQuery();
+        }
+        catch { /* Column already exists — safe to ignore. */ }
+
+        try
+        {
+            using var alt2 = conn.CreateCommand();
+            alt2.CommandText = "ALTER TABLE deferred_enrichment_queue ADD COLUMN failed_provider_name TEXT;";
+            alt2.ExecuteNonQuery();
+        }
+        catch { /* Column already exists — safe to ignore. */ }
     }
 
     /// <summary>

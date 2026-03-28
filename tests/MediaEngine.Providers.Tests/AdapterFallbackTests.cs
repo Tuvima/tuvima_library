@@ -35,7 +35,7 @@ public sealed class AdapterFallbackTests
         var config = LoadExampleConfig("apple_api");
         var factory = BuildFactory(config.Name, HttpStatusCode.ServiceUnavailable);
         var adapter = new ConfigDrivenAdapter(
-            config, factory, NullLogger<ConfigDrivenAdapter>.Instance);
+            config, factory, NullLogger<ConfigDrivenAdapter>.Instance, NullProviderHealthMonitor.Instance);
 
         var request = new ProviderLookupRequest
         {

@@ -82,6 +82,7 @@
   <!-- ── Vault ──────────────────────────────────────────────────────────── -->
   <data name="Vault_Title" xml:space="preserve"><value>Vault</value></data>
   <data name="Vault_AddMedia" xml:space="preserve"><value>Add Media</value></data>
+  <data name="Vault_WaitingForProvider" xml:space="preserve"><value>Waiting for Provider</value></data>
   <data name="Vault_LoadMore" xml:space="preserve"><value>Load More</value></data>
   <data name="Vault_ItemPurged" xml:space="preserve"><value>Item purged</value></data>
   <data name="Vault_ItemDeleted" xml:space="preserve"><value>Item deleted</value></data>
@@ -113,11 +114,14 @@
   <data name="VaultMedia_ColVerification" xml:space="preserve"><value>Verification</value></data>
   <data name="VaultMedia_UnknownCreator" xml:space="preserve"><value>UNKNOWN</value></data>
   <data name="VaultMedia_Standalone" xml:space="preserve"><value>STANDALONE</value></data>
+  <data name="VaultMedia_WaitingForProvider" xml:space="preserve"><value>Provider is currently unreachable — will retry automatically</value></data>
+  <data name="VaultMedia_WaitingForProviderNamed" xml:space="preserve"><value>{0} is currently unreachable — will retry automatically</value></data>
   <data name="VaultMedia_GroupVerified" xml:space="preserve"><value>Verified</value></data>
   <data name="VaultMedia_GroupProvisional" xml:space="preserve"><value>Provisional</value></data>
   <data name="VaultMedia_GroupNeedsReview" xml:space="preserve"><value>Needs Review</value></data>
   <data name="VaultMedia_GroupFailed" xml:space="preserve"><value>Failed</value></data>
   <data name="VaultMedia_GroupQuarantined" xml:space="preserve"><value>Quarantined</value></data>
+  <data name="VaultMedia_GroupWaitingForProvider" xml:space="preserve"><value>Waiting for Provider</value></data>
   <data name="VaultMedia_GroupAll" xml:space="preserve"><value>All Items</value></data>
 
   <!-- ── Vault People Table ─────────────────────────────────────────────── -->
@@ -191,6 +195,8 @@
   <data name="VaultDetail_HintCompleteStage1First" xml:space="preserve"><value>Complete Stage 1 first to enable Wikidata linking.</value></data>
   <data name="VaultDetail_StageUniverse" xml:space="preserve"><value>Universe Stage</value></data>
   <data name="VaultDetail_CascadeNote" xml:space="preserve"><value>Unmatching Stage 1 (Retail) will also clear Stage 2 (Wikidata).</value></data>
+  <data name="VaultDetail_WaitingForProvider" xml:space="preserve"><value>This item is waiting for a provider to come back online. It will be automatically enriched when the provider recovers.</value></data>
+  <data name="VaultDetail_WaitingForProviderNamed" xml:space="preserve"><value>This item is waiting for {0} to come back online. It will be automatically enriched when the provider recovers.</value></data>
   <data name="VaultDetail_SectionAssets" xml:space="preserve"><value>Assets &amp; Imagery</value></data>
   <data name="VaultDetail_AssetCoverArt" xml:space="preserve"><value>Cover Art</value></data>
   <data name="VaultDetail_AssetSourceProvider" xml:space="preserve"><value>Provider</value></data>
@@ -237,6 +243,7 @@
   <data name="StatusPill_Failed" xml:space="preserve"><value>FAILED</value></data>
   <data name="StatusPill_Quarantined" xml:space="preserve"><value>QUARANTINED</value></data>
   <data name="StatusPill_Unknown" xml:space="preserve"><value>UNKNOWN</value></data>
+  <data name="StatusPill_WaitingForProvider" xml:space="preserve"><value>WAITING FOR PROVIDER</value></data>
   <data name="StatusPill_DeletesIn" xml:space="preserve"><value>Deletes in {0}d</value></data>
 
   <!-- ── Profile Tab ────────────────────────────────────────────────────── -->

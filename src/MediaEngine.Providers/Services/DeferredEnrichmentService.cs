@@ -229,7 +229,13 @@ public sealed class DeferredEnrichmentService : IDeferredEnrichmentService, IAsy
     private async Task ProcessStaleAsync(HydrationSettings settings, CancellationToken ct)
     {
         var threshold = TimeSpan.FromHours(Math.Max(settings.Pass2StaleThresholdHours, 1));
-        var stale = await _repo.GetStaleAsync(threshold, settings.Pass2BatchSize, ct).ConfigureAwait(false);
+        var allStale = await _repo.GetStaleAsync(threshold, settings.Pass2BatchSize, ct).ConfigureAwait(false);
+
+        // Filter out items waiting for down providers — recovery flush handles those.
+        var stale = allStale
+            .Where(i => i.FailureType != ProviderFailureType.ProviderDown)
+            .ToList();
+
         if (stale.Count == 0)
         {
             _logger.LogDebug("Nightly sweep: no stale items");
@@ -260,6 +266,16 @@ public sealed class DeferredEnrichmentService : IDeferredEnrichmentService, IAsy
 
     private async Task ProcessOneAsync(DeferredEnrichmentRequest item, CancellationToken ct)
     {
+        // Skip items waiting for a provider that's still down.
+        // The ProviderHealthMonitorService handles recovery flush for these.
+        if (item.FailureType == ProviderFailureType.ProviderDown
+            && !string.IsNullOrEmpty(item.FailedProviderName))
+        {
+            _logger.LogDebug("Skipping entity {EntityId} — waiting for provider {Provider}",
+                item.EntityId, item.FailedProviderName);
+            return;
+        }
+
         try
         {
             var hints = DeserializeHints(item.HintsJson);
